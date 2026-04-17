@@ -21,7 +21,7 @@
 
 - **[04_progression_and_skills.md](docs/04_progression_and_skills.md)** — **Cyberware Skill Tree** (9 nodes, 3 branches × 3 tiers, mutual exclusion within tier) + **Data Shard economy** (earning rates, spending budget, difficulty curve). Respec rules.
 - **[05_weapons.md](docs/05_weapons.md)** — **16-weapon roster** (3 tiers per gun category: normal/bad/strong + pistol + melee + grenades) + **PaP L1-L5** (50k Points to max) + **Tier 1-5** (15 Shards to max) + **Weapon Abilities** (per-category hotkey skill) + **Overclock System** (per-family pools, random roll on tier-up) + **Wonder Weapons** (Signal Staff + Vibro Cleaver, both craft-gated, each counters one specific boss).
-- **[13_perks.md](docs/13_perks.md)** — 9-perk roster (6 stock + Aura Blast + Deadshot + Widow's Wine); **each perk's base effects and Mega upgrade are documented in the same subsection** under **Perk reference (base + Mega)**. **No 4-perk cap**. **All perks at the Lab** (4 machines); rotation re-rolls every round to a random 4-of-9 (no duplicates). Equal weights. Baseline HP rule: 3 hits without Jug / 6 hits with Jug. **Mega Bottle system**: every boss kill gives 1 Empty Mega Bottle per player; applying at a perk machine upgrades an owned perk to its named Mega variant (Savior, Gun Slinger, Sleight of Hand Expert, Ultimate Tank, Spiderman, The Flash, The Armory, Mega Man, American Sniper). Mega flag sticks across death within a run.
+- **[13_perks.md](docs/13_perks.md)** — 9-perk roster (6 stock + Aura Blast + Deadshot + Widow's Wine); **each perk's base effects and Mega upgrade are documented in the same subsection** under **Perk reference (base + Mega)**. **No 4-perk cap**. **All perks at the Lab** (4 machines); rotation re-rolls every round to a random 4-of-9 (no duplicates). Equal weights. Baseline HP rule: 3 hits without Jug / 6 hits with Jug on this map (**stock BO3 Jug = 5** hits before down). **Mega Bottle system**: every boss kill gives 1 Empty Mega Bottle per player; applying at a perk machine upgrades an owned perk to its named Mega variant (Savior, Gun Slinger, Sleight of Hand Expert, Ultimate Tank, Spiderman, The Flash, The Armory, Mega Man, American Sniper). Mega flag sticks across death within a run.
 
 ### 3. Combat & Encounter Systems
 
@@ -124,7 +124,7 @@ Boss counters: Vibro Cleaver → Juggernaut Host (+300%). Signal Staff → Subro
 - No duplicates in rotation; no per-perk guarantees; equal weights.
 - 126 distinct 4-perk rotations per round; 50 independent rolls in a 50-round run.
 - **No perk cap** — players can hold all 9 simultaneously if they can afford them.
-- Baseline HP: 3 zombie hits to die without Jug, 6 with.
+- Baseline HP: 3 zombie hits to die without Jug, **6** with Jug on this map (stock BO3 Jug = **5** hits before down).
 - **Route tension**: the Lab is now the map's highest-traffic zone; players route back every round to check the rotation.
 - **Mega Bottle upgrades**: every boss kill drops **1 Empty Mega Bottle per player** (both mini and full). Applying a bottle at a perk machine currently dispensing a perk the player owns **upgrades that perk to its Mega variant** (named like Savior, Gun Slinger, American Sniper, etc.). Mega flag persists through death for the run (re-buying the perk re-applies Mega). ~5 bottles max per 50-round run (from 5 boss kills); you cannot Mega all 9 perks in one run. See [13_perks.md](docs/13_perks.md#mega-bottles-system) and per-perk Mega under **Perk reference** in that file.
 
