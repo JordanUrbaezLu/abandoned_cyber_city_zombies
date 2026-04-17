@@ -59,7 +59,7 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
 - **Data Shard drop**: 2 (round 10) / 3 (round 20).
 - **Round pickup**: usually drops a max-ammo or insta-kill powerup alongside the shards.
 - **Item drop**: **50% chance** to drop a random boss item (see [12_boss_items.md](12_boss_items.md)). If the player already has that item, it auto-converts to 3 Data Shards.
-- **Mega Bottle drop**: **1 Empty Mega Bottle guaranteed** to every player on kill. Use at Lab perk machines to upgrade owned perks to their Mega variant. See [13_perks.md](13_perks.md#mega-bottles-upgraded-perk-variants).
+- **Mega Bottle drop**: **1 Empty Mega Bottle guaranteed** to every player on kill. Use at Lab perk machines to upgrade owned perks to their Mega variant. See [13_perks.md](13_perks.md#mega-bottles-system).
 - **Read**: oversized cyber-zombie silhouette, pre-charge wind-up animation, distinctive ground-rumble audio.
 - **Hard counter - Vibro Cleaver (wonder melee)**:
   - +300% damage vs Juggernaut Host on any hit.
@@ -79,7 +79,7 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
 - **Data Shard drop**: 4 (each player independently).
 - **Bonus reward**: guaranteed Overclock re-roll voucher (consumed for a free re-roll, banks until used).
 - **Item drop**: **100% guaranteed** random boss item on every kill (see [12_boss_items.md](12_boss_items.md)). Duplicates auto-convert to 3 Data Shards.
-- **Mega Bottle drop**: **1 Empty Mega Bottle guaranteed** to every player on kill (same as mini-boss). See [13_perks.md](13_perks.md#mega-bottles-upgraded-perk-variants).
+- **Mega Bottle drop**: **1 Empty Mega Bottle guaranteed** to every player on kill (same as mini-boss). See [13_perks.md](13_perks.md#mega-bottles-system).
 - **HP scaling**: 50,000 base at round 30, +15,000 per round past 30.
 - **GSC**: `_acc_boss::run_full_boss()`.
 - **Hard counter - Signal Staff (ranged wonder weapon)**:

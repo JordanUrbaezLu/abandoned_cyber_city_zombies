@@ -31,7 +31,7 @@ All standard BO3 controls are preserved. Custom bindings are additive.
 | Action | Default binding | Notes |
 |---|---|---|
 | **Weapon Ability** | **H** (KBM) / **D-pad Down** (Gamepad) | TODO(acc-input): final binding TBD during Phase 4 LUI work. Community-standard bind is `bind h notify acc_ability` via console. Current scaffold listens for `"acc_ability"` notify event; any binding that emits that works. |
-| **Perk Ability** (Aura Blast) | **G** (KBM) / **D-pad Up** (Gamepad) | Separate from weapon ability so players can chain weapon-ability → aura blast → weapon-ability without conflict. Listens for `"acc_perk_ability"` notify. Bind via console: `bind g notify acc_perk_ability`. See [13_perks.md](13_perks.md) Aura Blast section. |
+| **Perk Ability** (Aura Blast) | **G** (KBM) / **D-pad Up** (Gamepad) | Separate from weapon ability so players can chain weapon-ability → aura blast → weapon-ability without conflict. Listens for `"acc_perk_ability"` notify. Bind via console: `bind g notify acc_perk_ability`. See [13_perks.md — Perk reference, §9 Aura Blast](13_perks.md#perk-reference-base--mega). |
 | Cyberware Kiosk interaction | Hold F on the kiosk (Spawn Plaza) | Stock interact, Cyberware handled contextually |
 | Overclock Terminal interaction | Hold F on the terminal (Lab) | Stock interact |
 | Pack-a-Punch interaction | Hold F on the PaP machine (Lab) | Stock interact, our code multiplies to L1-L5 |

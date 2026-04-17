@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_mega_bottles.gsc - Empty Mega Bottle acquisition + perk-Mega upgrades
 //
-// Design reference: docs/13_perks.md (Mega Bottles - upgraded perk variants).
+// Design reference: docs/13_perks.md (Mega Bottles system + Perk reference base/Mega).
 //
 // Acquisition: 1 bottle guaranteed per player on EVERY boss kill (mini + full).
 // Usage: at a Lab perk machine currently dispensing a perk the player owns,

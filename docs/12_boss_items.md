@@ -12,7 +12,7 @@ Machin[a]-style randomized passive-buff items dropped on boss kills. Shape your 
 
 ## Separate From Mega Bottles
 
-**This doc covers the 6-item equippable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take one of the 2 item slots and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-upgraded-perk-variants) for the full Mega Bottle + upgrade spec.
+**This doc covers the 6-item equippable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take one of the 2 item slots and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-system) for the Mega Bottle acquisition + persistence rules; per-perk Mega effects are under **Perk reference (base + Mega)** in the same doc.
 
 ## Drop Mechanics
 
