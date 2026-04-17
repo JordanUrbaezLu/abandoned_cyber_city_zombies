@@ -15,19 +15,19 @@ Six stock BO3 perks (tuned) + three custom. **No 4-perk cap in this map** — pl
 
 | # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
 |---:|---|---:|---|---|---|
-| 1 | **Jugger-Nog** | 4,000 | **Unchanged:** stock Jug — double max HP (**6** melee hits to die vs **3**). | **Ultimate Tank** | **+1** extra melee hit (**7** total); **immune to boss abilities** (Subroutine Core / scripted boss disables — see Mechanics). |
-| 2 | **Quick Revive** | 2,500 | **Unchanged:** stock faster revives + **+30% faster** HP regen after you take damage; solo self-revive where applicable. | **Savior** | Revives **40% faster** than **base** QR alone; while **any teammate is down/bleeding out**, you move **+15% faster**. |
-| 3 | **Speed Cola** | 3,500 | **Unchanged:** **+50%** reload; **~40%** shorter perk drink; **~30%** faster weapon swap. | **Sleight of Hand Expert** | **+65%** reload (not +50%); **+15%** faster **gun switch**; **+15%** faster **perk drink** (stack on top of base). |
-| 4 | **Double Tap 2.0** | 2,000 | **Unchanged:** **+33%** fire rate, **+3%** damage (stock DT2). | **Gun Slinger** | **+50%** fire rate; **+6% damage total** (+3% over stock DT2). |
-| 5 | **Stamin-Up** | 2,000 | **Unchanged:** **+10%** move speed; extended sprint (**not** unlimited). | **The Flash** | **Longer sprint duration**; **+12%** run speed; **+25%** walk speed; **+50%** crawl speed. |
-| 6 | **Mule Kick** | **2,500** | **Unchanged** except **cost 2,500:** third primary (was 4k stock; we keep 3-gun fantasy cheap). | **The Armory** | **+30%** ammo per gun; **+2** extra lethal **+2** extra tactical (flat adds on top of stock counts). |
-| 7 | **Deadshot** | 3,500 | **Unchanged:** **ADS auto-aim to head** + **1.5×** headshot damage (bosses: no snap). | **American Sniper** | **1.75×** headshot multiplier (replaces 1.5× from base); **no recoil** on guns. |
-| 8 | **Widow's Wine** | 4,000 | **Unchanged:** webs, melee defense, +50%/+25% frag, +50%/+25% EMP (see Mechanics). | **Spiderman** | **Zombies only:** knife/melee always **one-hit**; spider (web) grenades **one-hit** regular zombies; hold **6** web grenades. |
-| 9 | **Aura Blast** | 2,500 | **Unchanged:** **400u**, **3s** stun, **120s** CD; **bosses immune** (base). | **Mega Man** | **Bosses can be affected** (see Mechanics) **plus** **800u**, **60s** CD, **2 charges**. |
+| 1 | **Jugger-Nog** | 4,000 | Stock Jug: **doubles max HP** (**6** melee hits to die vs **3** without Jug). | **Ultimate Tank** | **+1** extra melee hit (**7** total); **immune to boss abilities** (Subroutine Core / scripted boss disables — see Mechanics). |
+| 2 | **Quick Revive** | 2,500 | Stock QR: **faster teammate revives**; this map adds **+30% faster** HP regen after you take damage; **solo self-revive** where applicable. | **Savior** | Revives **40% faster** than **base** QR alone; while **any teammate is down/bleeding out**, you move **+15% faster**. |
+| 3 | **Speed Cola** | 3,500 | Stock Speed Cola on BO3: **+50%** reload; this map also uses **~40%** shorter perk drink and **~30%** faster weapon swap. | **Sleight of Hand Expert** | **+65%** reload (not +50%); **+15%** faster **gun switch**; **+15%** faster **perk drink** (stack on top of base). |
+| 4 | **Double Tap 2.0** | 2,000 | Stock DT2: **+33%** fire rate, **+3%** damage. | **Gun Slinger** | **+50%** fire rate; **+6% damage total** (+3% over stock DT2). |
+| 5 | **Stamin-Up** | 2,000 | Stock BO3 Stamin-Up: **longer sprint** before exhaustion and **faster sprint speed**; sprint is still **finite** (not unlimited). | **The Flash** | **Longer sprint** than base Stamin-Up; **+12%** run speed; **×2** walk speed; **×4** crawl speed. |
+| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. **2,500** Points (stock BO3 **4,000**). | **The Armory** | **+30%** ammo per gun; **+2** extra lethal **+2** extra tactical (flat adds on top of stock counts). |
+| 7 | **Deadshot** | 3,500 | **ADS** snap-to-head within cone + **×1.5** headshot vs body; **bosses** get no auto-aim (stock-style Deadshot rules on this map). | **American Sniper** | **1.75×** headshot multiplier (replaces 1.5× from base); **no recoil** on guns. |
+| 8 | **Widow's Wine** | 4,000 | Stock Widow’s webs, melee-kill webs, melee-hit defense; this map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP. | **Spiderman** | **Zombies only:** knife/melee always **one-hit**; spider (web) grenades **one-hit** regular zombies; hold **6** web grenades. |
+| 9 | **Aura Blast** | 2,500 | Custom: **400u** shockwave, **3s** stun (per enemy type), **120s** CD; **full bosses immune**. | **Mega Man** | **Bosses can be affected** (see Mechanics) **plus** **800u**, **60s** CD, **2 charges**. |
 
 **Sources (stock vs custom):** Perks **1–6** are stock BO3 machines (several retuned — costs/effects in table). **7** Deadshot is custom / BO1-style. **8** Widow’s Wine is stock behavior **plus** our grenade damage/radius boosts. **9** Aura Blast is fully custom.
 
-**Bases with no mechanical change this revision (reference):** Jug (effects), Speed Cola (effects), Double Tap (effects), Stamin-Up (effects), Widow’s Wine (effects), Aura Blast (base — same radii/CD/rules). **Tuned this revision:** Quick Revive Mega; Speed Cola Mega; Double Tap Mega; Stamin-Up Mega; Mule Kick cost + Mega; Deadshot Mega; Widow’s Mega; Aura Mega.
+**Base vs map layer:** Stock BO3 perks are described in the **Base** column in plain language (plus our **QR regen**, **Speed drink/swap**, **Widow frag/EMP**, **Deadshot** tuning, **costs** where listed). **Mega** tiers and **Aura Blast** are map-specific; see Mechanics under each perk.
 
 Buying all 9 = **26,500 Points** (Mule Kick **2,500**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + Double Tap kills + high-round headshot farm).
 
@@ -52,7 +52,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 1. Jugger-Nog — 4,000 Points
 
-**Base (full description).** **No changes** from standard Jug tuning: Jugger-Nog **doubles max HP** so you survive **6** zombie melee hits instead of **3** (see [Player HP Baseline](#player-hp-baseline)). It is a straight multiplier on max health. Buy Jug for **survivability**, training, and room for mistakes.
+**Base (full description).** Jugger-Nog **doubles max HP** so you survive **6** zombie melee hits instead of **3** (see [Player HP Baseline](#player-hp-baseline)). Straight multiplier on max health. Buy Jug for **survivability**, training, and room for mistakes.
 
 **Mega: Ultimate Tank (full description).** **Two bonuses:** (1) **One extra hit** vs ordinary Jug — **7** melee hits to down from full (on top of the doubled HP pool). (2) **Immune to boss abilities** — Subroutine Core **scripted disables** (e.g. power off, perks off, stun fields tied to boss phases) **do not apply** to you the way they apply to the rest of the team. Tuning scope: any **non-wonder-weapon** boss/mega-scripted “turn off player power” effect; see `11_enemies.md` boss sections.
 
@@ -64,7 +64,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 2. Quick Revive — 2,500 Points
 
-**Base (full description).** **No changes:** Quick Revive uses **stock faster teammate revives** (“regular” QR behavior for this project). We also keep **+30% faster HP regen after you get hit** — both the delay before regen and the regen ramp are improved by **30%**. Solo: **self-revive** rules unchanged from stock where applicable.
+**Base (full description).** **Stock BO3** Quick Revive: **faster teammate revives** than default. On this map, **+30% faster HP regen after you take damage** (shorter delay before regen starts and faster regen ramp). **Solo:** **self-revive** per stock BO3 where applicable.
 
 **Mega: Savior (full description).** (1) **Revive speed:** with Savior, each revive completes **40% faster** than with **base** Quick Revive alone — multiply your **base QR revive animation duration** by **0.6** (not 40% of stock time unless base QR is explicitly half stock; implementation keys off **base QR** duration). (2) **When a teammate is down** (bleedout / need-revive state): you move **+15% faster** so you can reach them quickly. (Does *not* require both old “reviver + revived” speed burst unless we add it back in playtest.)
 
@@ -75,7 +75,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 3. Speed Cola — 3,500 Points
 
-**Base (full description).** **No changes:** **+50%** reload speed; **~40%** shorter perk-drink animation; **~30%** faster weapon + equipment swap — same as our prior spec.
+**Base (full description).** **Stock BO3** Speed Cola: **+50%** reload speed. This map also uses **~40%** shorter perk-drink animation and **~30%** faster weapon + equipment swap (animation-time reductions).
 
 **Mega: Sleight of Hand Expert (full description).** (1) Reload is **+65%** (not +50%) — that is the **Mega replacement** for the reload line, on top of still being “Speed Cola.” (2) **+15% faster gun switch** and **+15% faster perk drink** — **additional** on top of whatever base Speed Cola already gave for those animations (stack in implementation: multiply remaining time by ~0.85 or add 15% speed — TODO(acc-tune)).
 
@@ -86,7 +86,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 4. Double Tap 2.0 — 2,000 Points
 
-**Base (full description).** **No changes:** stock Double Tap 2.0 — **+33%** fire rate, **+3%** damage.
+**Base (full description).** **Stock BO3** Double Tap 2.0 — **+33%** fire rate, **+3%** damage.
 
 **Mega: Gun Slinger (full description).** **+50%** fire rate (as before). Damage is **+6% total** — i.e. **+3%** extra on top of stock DT2’s **+3%**, for **6% combined** weapon damage bonus from Gun Slinger Mega (verify stacking with GDT damage pass — document as additive +3% delta vs base DT2).
 
@@ -97,15 +97,15 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 5. Stamin-Up — 2,000 Points
 
-**Base (full description).** **No changes:** Stamin-Up increases **movement speed by 10%** (tuned higher than stock +5% on this map) and **extends sprint duration** — roughly **double** stock sprint time before you must slow down — but sprint remains **limited** (not infinite). Neural Boots and Reflex Cyberware stay relevant.
+**Base (full description).** **Stock BO3** Stamin-Up (`specialty_longersprint`): you get **more sprint time** before your sprint meter is spent and you return to a jog, and **higher sprint speed** — sprint is still **finite** (not endless rush). We are **not** stacking an extra arbitrary “+10% global move” on top of stock for the base perk; behavior matches Treyarch’s baseline unless GSC tuning proves otherwise.
 
-**Mega: The Flash (full description).** **Increased sprint duration** vs base Stamin-Up (longer than the ~2× stock extension — exact multiplier is a tuning knob in GSC). Movement: **+12% run speed**, **+25% walk speed**, **+50% crawl speed** — these apply on top of base Stamin-Up where applicable (implementation: separate locomotion channels; TODO(acc-tune)). You are built to reposition and recover from downs faster, not for “infinite sprint” by default.
+**Mega: The Flash (full description).** **Longer sprint** than base Stamin-Up (Mega layer on top of stock Stamin — exact extension is GSC-tuned). **+12% run speed** on top of base. **Walk speed ×2** and **crawl speed ×4** (multiplicative vs base walk/crawl locomotion — implementation ties to player move-mode; TODO(acc-tune)).
 
 **Mechanics**
 
-- **Base**: **+10%** move speed; extended sprint (**~2×** stock duration), **not** unlimited.
-- **Mega — The Flash**: **longer sprint** than base Stamin-Up; **+12%** run; **+25%** walk; **+50%** crawl.
-- **Stacking**: Neural Boots (+20% with primary held); Reflex T1 (+10% sprint, +15% stamina regen). Approximate sprint totals are playtest numbers — base Stamin-Up + Reflex + Boots still stacks; Mega adds walk/crawl/run deltas on top per channel.
+- **Base**: stock BO3 Stamin-Up — longer sprint reserve; faster sprint movement; **not** unlimited sprint.
+- **Mega — The Flash**: longer sprint than base alone; **+12%** run; **×2** walk; **×4** crawl.
+- **Stacking**: Neural Boots (+20% with primary held); Reflex T1 (+10% sprint, +15% stamina regen). Mega **walk ×2 / crawl ×4** are map-specific multipliers on those locomotion states.
 
 ### 6. Mule Kick — 2,500 Points
 
@@ -120,9 +120,9 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 7. Deadshot — 3,500 Points
 
-**Base (full description).** **No changes:** **ADS auto-aim toward heads** (cone-limited; no boss snap) and **×1.5** headshot damage vs body. Map global headshot multipliers (**2×** trash, **3×** boss) **multiply** with Deadshot. ADS only; hip fire has no snap.
+**Base (full description).** **ADS** auto-aim toward heads (cone-limited; **no boss snap**) and **×1.5** headshot damage vs body. Map global headshot multipliers (**2×** trash, **3×** boss) **multiply** with Deadshot. ADS only; hip fire has no snap.
 
-**Mega: American Sniper (full description).** Headshot multiplier is **×1.75** (**replaces** base ×1.5 — you do not double-dip 1.5 and 1.75). **No weapon recoil.** ADS head snap unchanged for regular targets. See [Mega damage stack example](#mega-damage-stack-example).
+**Mega: American Sniper (full description).** Headshot multiplier is **×1.75** (**replaces** base ×1.5 — you do not double-dip 1.5 and 1.75). **No weapon recoil.** ADS head snap **still applies** to regular targets and elites (not bosses). See [Mega damage stack example](#mega-damage-stack-example).
 
 **Mechanics**
 
@@ -132,7 +132,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 8. Widow's Wine — 4,000 Points
 
-**Base (full description).** **No changes:** spider **lethals**, melee-kill webs, self-defense on hit; our **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP stun/radius on top of stock.
+**Base (full description).** **Stock BO3** Widow’s Wine: spider **lethals**, melee-kill webs, self-defense on hit. This map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP stun/radius.
 
 **Mega: Spiderman (full description).** **Zombies only:** **knife/melee always one-hit kills** on ordinary zombies (not bosses/elites unless tuned). **Web (spider) grenades** **one-hit** regular zombies. You can carry **6** web grenades. Elites/bosses keep normal damage/CC rules unless explicitly listed.
 
@@ -143,7 +143,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 9. Aura Blast — 2,500 Points
 
-**Base (full description).** **No changes** from current spec: **400u** radius, **3s** stun (type-dependent), **120s** CD; **full bosses immune** to the stun (mini-boss may use partial rules — see below).
+**Base (full description).** **400u** radius shockwave, **3s** stun (type-dependent), **120s** CD; **full bosses immune** to the stun (mini-boss may use partial rules — see below). Fully custom perk for this map.
 
 **Mega: Mega Man (full description).** Keeps **800u**, **60s** CD, **2 charges** — and **bosses can be affected** now (see Mechanics): typically **reduced** stun vs trash (e.g. same **3s** window → **50% duration** or **~1.5s**, or interrupt-only — TODO(acc-tune)) so the fight isn’t trivialized.
 
@@ -345,7 +345,7 @@ A player with **all 9 perks** + good Cyberware + boss items + PaP L5 + Tier 5 FA
 - **HP**: 6-hit survival from zombies (Jug).
 - **HP regen**: +30% (Quick Revive).
 - **Reload / swap speed**: +50% reload + +15% reload (Gauntlets if equipped) + ~30% swap (Speed Cola) + 15% swap (Gauntlets).
-- **Move speed / sprint**: +10% move (Stamin-Up) + +10% sprint (Reflex T1) + +20% (Neural Boots if equipped) + extended sprint duration.
+- **Move speed / sprint**: Stamin-Up (stock longer sprint + faster sprint) + +10% sprint (Reflex T1) + +20% (Neural Boots if equipped); with **Mega** Stamin add **×2 walk / ×4 crawl / +12% run** vs base Stamin-Up layer.
 - **Fire rate**: +33% (Double Tap).
 - **Headshot damage**: base Deadshot ×1.5 × map mult ×2.0 / ×3.0 × Overload / Tier / PaP; American Sniper Mega uses **×1.75** instead of ×1.5 (see §7).
 - **Grenade damage**: +50% frag dmg, +25% radius (Widow's Wine).
