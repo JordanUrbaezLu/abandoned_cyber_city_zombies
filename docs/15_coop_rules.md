@@ -161,7 +161,7 @@ See [06_mechanics.md](06_mechanics.md#co-op-kill-point-split-70--30) for full de
 
 ## Mule Kick Interaction
 
-- **Mule Kick** = 3rd primary weapon slot (4,000 Points).
+- **Mule Kick** = 3rd primary weapon slot (**2,500 Points** on this map).
 - **Per-player**. Each player buys their own.
 - If a player loses Mule Kick (dying through respawn), the 3rd weapon reverts to the floor and can be picked up again by repurchasing Mule Kick at a machine.
 
