@@ -1,33 +1,44 @@
 # 13 - Perks
 
-Full roster, costs, effects, per-slot randomization, stacking behavior, and the baseline player-HP / zombie-damage model.
+Full roster, costs, **base + Mega** descriptions (table + prose), per-slot randomization, stacking behavior, and the baseline player-HP / zombie-damage model.
 
 ## Player HP Baseline
 
-- **Without Jugger-Nog**: player dies in **3 zombie melee hits**.
-- **With Jugger-Nog**: player dies in **6 zombie melee hits**.
+### Stock *Black Ops III* (reference)
 
-These are the authoritative tuning targets. Player max HP and zombie melee damage values in the GDT are chosen to hit these numbers; if stock BO3 values drift, we tune to preserve the 3 / 6 rule.
+- **Without Jugger-Nog:** **3** regular zombie melee hits from full health → down [common BO3 zombies baseline].
+- **With Jugger-Nog:** you down on the **5th** melee hit (i.e. **5** hits from full to bleedout — survive **4**, **5th** downs). Sources: [COD Wiki — Juggernog](https://callofduty.fandom.com/wiki/Juggernog) player-facing tables and community testing; *not* a literal “double” hit count vs no-Jug.
+
+### This map (`zm_abandoned_cyber_city`) — authoritative targets
+
+- **Without Jug:** **3** hits → down (same as stock).
+- **With Jug:** **6** hits from full to down — **+1 survivable hit vs stock BO3 Jug** (stock is **5**). GDT / zombie melee damage are tuned to this **3 / 6** rule.
+
+If anything drifts in Mod Tools, retune HP/damage to keep **3** and **6**, not necessarily Treyarch’s stock Jug scalar.
 
 ## Roster (9 perks)
 
 Six stock BO3 perks (tuned) + three custom. **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them. This is a deliberate deviation from stock BO3 to match our "systems stack" design language.
 
-| # | Perk | Source | Cost | Effect |
-|---|---|---|---|---|
-| 1 | **Jugger-Nog** | Stock | 4,000 | +100% max HP (effectively doubles hits-to-die from 3 → 6) |
-| 2 | **Quick Revive** | Stock (retuned) | 2,500 | Faster revives + **+30% faster health regen** after taking damage |
-| 3 | **Speed Cola** | Stock (retuned) | 3,500 | +50% reload speed + faster perk-drinking + faster equipment change |
-| 4 | **Double Tap 2.0** | Stock | 2,000 | +33% fire rate, +3% damage (stock formula preserved) |
-| 5 | **Stamin-Up** | Stock (retuned) | 2,000 | **+10% movement speed** + **extended** sprint duration (NOT unlimited, ~2x stock baseline) |
-| 6 | **Mule Kick** | Stock | 3,000 | 3rd primary weapon slot |
-| 7 | **Deadshot** | Custom / BO1-style | 3,500 | **1.5x headshot damage multiplier** + **auto-aim to head** when ADS |
-| 8 | **Widow's Wine** | Stock (extended) | 4,000 | Default web-grenade mechanic + **increased damage on lethals and non-lethals** |
-| 9 | **Aura Blast** | Custom | 2,500 | **Active**: hold [perk ability key] to stun all enemies within 400u for 3s. 120s recharge. |
+| # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
+|---:|---|---:|---|---|---|
+| 1 | **Jugger-Nog** | 4,000 | **Stock BO3:** Jug raises max HP — down on **5th** melee from full (vs **3** hits without Jug). **This map:** **6** hits with Jug (**+1** vs stock). | **Ultimate Tank** | **+1** extra hit → **7** before down on this map; **immune to boss abilities** (Subroutine Core / scripted boss disables — see Mechanics). |
+| 2 | **Quick Revive** | 2,500 | **Stock BO3:** faster teammate revives; **solo** self-revive rules where applicable. **This map adds** **+30% faster** HP regen after damage. | **Savior** | Revives **40% faster** than **base** QR alone; while **any teammate is down/bleeding out**, you move **+15% faster**. |
+| 3 | **Speed Cola** | 3,500 | **Stock BO3:** **+50%** reload; faster **barrier board / repair** animation. **This map adds** **~40%** shorter perk drink + **~30%** faster weapon swap. | **Sleight of Hand Expert** | **+65%** reload (not +50%); **+15%** faster **gun switch**; **+15%** faster **perk drink** (stack on top of base). |
+| 4 | **Double Tap 2.0** | 2,000 | **Stock BO3:** Double Tap II **+33%** fire rate; **double-bullet** damage behavior on most bullet weapons (ammo semantics per weapon). **This map’s stacked** numbers: **+33%** RoF, **+3%** damage (see [Double Tap](#4-double-tap-20--2000-points)). | **Gun Slinger** | **+50%** fire rate; **+6% damage total** (+3% over this map’s base DT2 line). |
+| 5 | **Stamin-Up** | 2,000 | Stock BO3 Stamin-Up: **longer sprint** before exhaustion and **faster sprint speed**; sprint is still **finite** (not unlimited). | **The Flash** | **Longer sprint** than base Stamin-Up; **+12%** run speed; **×2** walk speed; **×4** crawl speed. |
+| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. **2,500** Points (stock BO3 **4,000**). | **The Armory** | **+30%** ammo per gun; **+2** extra lethal **+2** extra tactical (flat adds on top of stock counts). |
+| 7 | **Deadshot** | 3,500 | **ADS** snap-to-head within cone + **×1.5** headshot vs body; **bosses** get no auto-aim (stock-style Deadshot rules on this map). | **American Sniper** | **1.75×** headshot multiplier (replaces 1.5× from base); **no recoil** on guns. |
+| 8 | **Widow's Wine** | 4,000 | Stock Widow’s webs, melee-kill webs, melee-hit defense; this map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP. | **Spiderman** | **Zombies only:** knife/melee always **one-hit**; spider (web) grenades **one-hit** regular zombies; hold **6** web grenades. |
+| 9 | **Aura Blast** | 2,500 | Custom: **400u** shockwave, **3s** stun (per enemy type), **120s** CD; **full bosses immune**. | **Mega Man** | **Bosses can be affected** (see Mechanics) **plus** **800u**, **60s** CD, **2 charges**. |
 
-Buying all 9 = **27,500 Points**. Hitting that by round ~25 is possible but requires dedicated economy play (Payroll Ledger boss item + Double Tap kills + high-round headshot farm).
+**Sources (stock vs custom):** Perks **1–6** are stock BO3 machines (several retuned — costs/effects in table). **7** Deadshot is custom / BO1-style. **8** Widow’s Wine is stock behavior **plus** our grenade damage/radius boosts. **9** Aura Blast is fully custom.
 
-**On top of the base 9**, each perk has a **Mega variant** unlocked via the Mega Bottle system — see [Mega Bottles](#mega-bottles-upgraded-perk-variants) below.
+**Base vs map layer:** Where a row says **Stock BO3**, that is the retail game behavior (see [Player HP Baseline](#player-hp-baseline) for Jug). Phrases like **This map** or **This map adds** are intentional deviations (Jug **6** hits, QR regen, Speed drink/swap, Widow frag/EMP, **simplified DT2** numbers, **costs**). **Mega** tiers and **Aura Blast** are map-specific; see Mechanics under each perk.
+
+Buying all 9 = **26,500 Points** (Mule Kick **2,500**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + Double Tap kills + high-round headshot farm).
+
+The table above is a **complete at-a-glance** summary (base + Mega). Below, **[Perk reference (base + Mega)](#perk-reference-base--mega)** gives **full paragraphs** you can read start-to-finish, then **Mechanics** for exact numbers. **How** to acquire Mega (bottles, Lab machine, persistence) is in **[Mega Bottles (system)](#mega-bottles-system)**.
 
 ## No-Perk-Limit Rule
 
@@ -42,109 +53,122 @@ Buying all 9 = **27,500 Points**. Hitting that by round ~25 is possible but requ
 - Our other systems (Cyberware, Tier, Overclocks, Boss Items) already provide the decision tension. Another forced-choice layer from a perk cap would be redundant.
 - It supports the "systems stack" design — the map wants layered progression to be visible to players.
 
-## Custom Perk Details
+## Perk reference (base + Mega)
 
-### Aura Blast (replaces Lattice Bond from prior spec)
+Read **top to bottom** for full prose on every perk. Each entry has a **Base** description (what you buy with Points), a **Mega** description (what you unlock with an **Empty Mega Bottle** at a Lab machine when that perk is on rotation — no extra Points), then **Mechanics** with numbers and stacking. Bottle acquisition, persistence, and UI: [Mega Bottles (system)](#mega-bottles-system).
 
-- **Type**: **active perk**. Unusual for zombies (traditionally passive), but it's a Cyber City design beat — you're an augmented runner with a neural burst.
-- **Cost**: 2,500 Points.
-- **Activation**: **perk-ability hotkey** (separate from the weapon-ability hotkey — see [14_controls_and_hud.md](14_controls_and_hud.md)). Default bind: **G** (PC) / **D-pad Up** (Gamepad). **TODO(acc-input): final bind decided at LUI binding-screen implementation (Phase 4).**
-- **Effect**: an energy shockwave pulse from the player's position. All enemies within **400 units** are **stunned for 3 seconds**:
-  - Regular zombies: frozen in place, cannot attack.
-  - Shielded elites: shield temporarily disabled for the stun duration (same as EMP Grenade effect).
-  - Teleporter elites: teleport cooldown reset to minimum, cannot teleport during stun.
-  - EMP elites: **resisted** — only 1s stun (they're EMP-themed; it's poetic).
-  - Mini-boss (Juggernaut Host): **50% stun duration** (1.5s). Interrupts a mid-charge.
-  - Full boss (Subroutine Core): **immune** — Core has its own phase debuff system; Aura Blast doesn't affect it.
-- **Cooldown**: **120 seconds**. Starts from activation (not from cooldown-end).
-- **HUD**: cooldown ring icon on HUD (Phase 4 LUI).
-- **Build fit**:
-  - Reflex archetype: chain with Phase Step Cyberware for repositioning windows during stun.
-  - Vault Overload: use to stabilize waves during the event.
-  - Emergency clutch: if surrounded and no Lattice Bond equivalent, this is the panic button (without a heal, but the 3s window is usually enough to rotate).
-- **Why cheap (2.5k)**: 120s cooldown means it's not spammable. Low cost gets it online early when a player is still learning the map; long cooldown keeps it from being oppressive.
+### 1. Jugger-Nog — 4,000 Points
 
-### Deadshot (replaces Void Cache from prior spec)
+**Base (full description).** **Stock *Black Ops III*:** Juggernog raises max health so you normally **go down on the 5th** regular zombie melee from full (**3** hits without Jug). **On this map** Jug is tuned **stronger:** **6** melee hits from full to down — **one more** than stock BO3 Jug — per [Player HP Baseline](#player-hp-baseline). Buy Jug for **survivability**, training, and room for mistakes.
 
-- **Type**: passive.
-- **Cost**: 3,500 Points.
-- **Effect**:
-  - **+1.5x headshot damage multiplier** applied to the player's weapon output.
-  - **Auto-aim to head** when ADS — aim snaps to the closest zombie's head within the player's current crosshair cone. Same as classic Deadshot Daiquiri from BO1.
-- **Stacking with our 2x/3x headshot multiplier system**: multiplicative.
-  - Regular zombie headshot, player has Deadshot: base × 1.5 (Deadshot) × 2.0 (our mult) = **3.0x** damage vs body.
-  - Boss headshot, player has Deadshot: base × 1.5 (Deadshot) × 3.0 (our mult) = **4.5x**.
-  - With Overload Cyberware (crit +30% on headshots) + Deadshot + our mult + PaP L5 + Tier 5 Overclocks, precision archetype headshots become extreme. **This is intended and should be playtested.**
-- **Build fit**: the precision archetype's keystone perk. FAL, Intervention, M14 EBR, Drakon all benefit dramatically. ICR-1 / AK-47 spray builds benefit less (auto-aim helps, but they don't headshot-prioritize).
-- **Auto-aim is off against bosses** — bosses are big enough that manual aim matters. Limiting auto-aim to regular/elite zombies keeps boss fights an aim test. (TODO(acc-impl): this exception needs to be explicit in the perk GSC.)
-- **Anti-exploit**: auto-aim is **only active while ADS** (not hip fire). Prevents "never aim, always snap-kill" gameplay. Also caps at zombies in the crosshair cone — can't 360-snap.
+**Mega: Ultimate Tank (full description).** **Two bonuses:** (1) **One extra hit** on top of **this map’s** Jug — **7** melee hits from full to down. (2) **Immune to boss abilities** — Subroutine Core **scripted disables** (e.g. power off, perks off, stun fields tied to boss phases) **do not apply** to you the way they apply to the rest of the team. Tuning scope: any **non-wonder-weapon** boss/mega-scripted “turn off player power” effect; see `11_enemies.md` boss sections.
 
-### Widow's Wine
+**Mechanics**
 
-- **Type**: passive (but grenades become active).
-- **Cost**: 4,000 Points.
-- **Effect** (stock BO3 base behavior):
-  - Lethal grenades become "spider grenades" — **web zombies** caught in blast, slowing them to ~20% speed for 5 seconds.
-  - **Melee kills** on a low-HP zombie web nearby zombies too.
-  - Zombies that melee you apply a **brief stun to themselves** and gain a web effect (self-defense).
-- **Our addition** (custom): **+damage boost** to lethal and tactical grenades.
-  - **Frag Grenade**: +50% explosion damage, +25% radius.
-  - **EMP Grenade**: +50% stun duration, +25% radius.
-- **Build fit**:
-  - Any build benefits from the self-defense web.
-  - **Frag-heavy play**: pair with Meltdown Cyberware capstone for chain-AoE deletes.
-  - **EMP-heavy play**: pair with Server Vault tactical wallbuy for cheap re-ammo.
-- **Stacking**:
-  - With Aura Blast: both provide stuns but through different mechanisms. Aura Blast on-demand; Widow's Wine passive on melee. Complementary.
-  - With Cyberware Fission (elemental PaP): spider webs + elemental damage = sustained chip damage. Strong synergy.
-- **Anti-exploit**: the self-defense web is per-hit, not per-frame. Can't get swarmed and mass-web 20 zombies in a second.
+- **Stock BO3 (reference):** **3** hits no Jug / **5** hits with Jug (5th hit downs).
+- **This map — base Jug:** **3** / **6** — GDT multiplier chosen to hit **6** melee hits with Jug (see baseline).
+- **Mega — Ultimate Tank:** **7** hits from full to down on this map; **boss ability immunity** as above. TODO(acc-impl): whitelist boss attack types vs map-wide debuffs.
+- **Stacking**: Cyberware Subroutine Caching; Ghost Shroud.
 
-## Stock Perk Detail Updates
+### 2. Quick Revive — 2,500 Points
 
-### Jugger-Nog (4,000)
+**Base (full description).** **Stock BO3** Quick Revive: **faster teammate revives** than default. On this map, **+30% faster HP regen after you take damage** (shorter delay before regen starts and faster regen ramp). **Solo:** **self-revive** per stock BO3 where applicable.
 
-- Effectively doubles hits-to-die from **3 to 6** against zombie melee.
-- **Stacking**: with Cyberware Subroutine Caching (extended bleed-out), you become a tank. With Ghost Shroud boss item (lethal-damage save), you're essentially unkillable for short windows.
-- **Note**: HP buff is a raw multiplier on player maxhealth. See `_acc_perks.gsc` (Phase 3 planned).
+**Mega: Savior (full description).** (1) **Revive speed:** with Savior, each revive completes **40% faster** than with **base** Quick Revive alone — multiply your **base QR revive animation duration** by **0.6** (not 40% of stock time unless base QR is explicitly half stock; implementation keys off **base QR** duration). (2) **When a teammate is down** (bleedout / need-revive state): you move **+15% faster** so you can reach them quickly. (Does *not* require both old “reviver + revived” speed burst unless we add it back in playtest.)
 
-### Quick Revive (2,500)
+**Mechanics**
 
-- **Faster revive** (stock behavior): 5s revive → ~2s.
-- **+30% faster health regen** after taking damage (our custom addition). In stock BO3, after taking damage, there's a delay before HP regen kicks back in, then slow ramp. QR shortens the delay by 30% and speeds the ramp by 30%.
-- **Solo self-revive**: retained as stock behavior (one free self-revive per run in solo).
-- **Build fit**: universal. Always a strong early pickup.
+- **Base**: stock faster revives; **+30%** regen after taking damage; solo self-revive per stock.
+- **Mega — Savior**: revive **×0.6 duration** vs **base** QR; **+15% move speed** while **any teammate is in down/bleedout** (Savior owner). TODO(acc-verify): down-state detection hook.
 
-### Speed Cola (3,500)
+### 3. Speed Cola — 3,500 Points
 
-- **+50% reload speed** (stock).
-- **Faster perk drinking**: the 3-4 second "drink animation" after buying a perk is shortened by ~40%. Lets you perk up during pauses between rounds.
-- **Faster equipment change**: swap-speed for weapons + grenades is ~30% faster.
-- **Stacking with Overclocked Gauntlets** (boss item, +15% reload / +15% swap): multiplicative. Maxed-out reload build approaches near-instant reloads on Haymaker 12 / Tac-19 / AK-47.
-- **Build fit**: essential on any high-reload-rate weapon; also clutch for fast perk-up chains.
+**Base (full description).** **Stock *Black Ops III*:** Speed Cola is **+50% reload speed** and **faster barrier board / repair animations** (see [Speed Cola](https://callofduty.fandom.com/wiki/Speed_Cola)). It does **not** shorten perk-drinking or weapon-switching in stock BO3. **This map adds** **~40%** shorter perk-drink animation and **~30%** faster weapon + equipment swap for QoL at the Lab.
 
-### Stamin-Up (2,000)
+**Mega: Sleight of Hand Expert (full description).** (1) Reload is **+65%** (not +50%) — that is the **Mega replacement** for the reload line, on top of still being “Speed Cola.” (2) **+15% faster gun switch** and **+15% faster perk drink** — **additional** on top of whatever base Speed Cola already gave for those animations (stack in implementation: multiply remaining time by ~0.85 or add 15% speed — TODO(acc-tune)).
 
-- **+10% movement speed** (up from stock +5%).
-- **Extended sprint duration** — **NOT unlimited**. Target: ~2x stock sprint duration before you have to walk.
-- **Stacking**:
-  - Neural Boots (boss item, +20% with primary held): multiplicative. Combined = +32% sprint speed (1.1 × 1.2).
-  - Cyberware Reflex Tier 1 (+10% sprint + 15% stamina regen): multiplicative with Stamin-Up's 10%. Combined = +21% speed.
-  - Full stack (Stamin-Up + Reflex T1 + Neural Boots): 1.1 × 1.1 × 1.2 ≈ **+45% sprint speed**. Zoom.
-- **Why downgrade from unlimited sprint**: unlimited sprint makes every other speed-up item redundant. Extended duration rewards Neural Boots + Reflex stacking instead of making them cosmetic.
+**Mechanics**
 
-### Mule Kick (3,000)
+- **Stock BO3:** **+50%** reload; faster barrier repair animation.
+- **This map — base:** stock reload **plus** **~40%** shorter drink; **~30%** faster swap.
+- **Mega**: **+65%** reload; **+15%** gun switch; **+15%** perk drink (on top of **this map’s** drink/swap bonuses).
 
-- 3rd primary slot (stock behavior).
-- **Cost reduced** from 4,000 to 3,000 to make it more accessible. This encourages carrying all three archetypes (e.g. FAL + Tac-19 + Drakon) rather than always two.
+### 4. Double Tap 2.0 — 2,000 Points
 
-### Double Tap 2.0 (2,000)
+**Base (full description).** **Stock *Black Ops III*:** Double Tap II raises **rate of fire by ~33%** and uses **two projectiles per shot** on most bullet weapons for **double damage per trigger pull** (ammo cost / weapon exceptions per Treyarch — see [Double Tap Root Beer](https://callofduty.fandom.com/wiki/Double_Tap_Root_Beer)). **This map’s design** abstracts stacking with PaP/Tier/Cyberware as **+33%** fire rate and **+3%** flat weapon damage so `_acc_damage` can stay one pipeline; **verify** against the real perk hook when Phase 3 lands.
 
-- Unchanged from stock.
-- **Stacking**: with PaP L5 + Tier 5 + Cyberware Overclock Tier 1 (+15% damage) + our headshot mult + Deadshot = cumulatively massive on the FAL-class weapons.
+**Mega: Gun Slinger (full description).** **+50%** fire rate. Damage is **+6% total** — i.e. **+3%** extra on top of **this map’s** base DT2 line (**+3%**), for **6% combined** from Gun Slinger Mega (verify additive vs GDT).
 
-## Mega Bottles (upgraded perk variants)
+**Mechanics**
 
-Every perk has a **Mega variant** — a named, distinct upgraded version that stacks on top of the base perk's effects. Mega variants are unlocked by applying an **Empty Mega Bottle** to a perk machine dispensing a perk you already own.
+- **Stock BO3:** **+33%** RoF; double-bullet damage model on eligible guns.
+- **This map — base:** **+33%** RoF; **+3%** damage (design abstraction).
+- **Mega — Gun Slinger**: **+50%** fire rate; **+6% damage total** (+3% base map DT2 + **+3%** Mega).
+
+### 5. Stamin-Up — 2,000 Points
+
+**Base (full description).** **Stock BO3** Stamin-Up (`specialty_longersprint`): you get **more sprint time** before your sprint meter is spent and you return to a jog, and **higher sprint speed** — sprint is still **finite** (not endless rush). We are **not** stacking an extra arbitrary “+10% global move” on top of stock for the base perk; behavior matches Treyarch’s baseline unless GSC tuning proves otherwise.
+
+**Mega: The Flash (full description).** **Longer sprint** than base Stamin-Up (Mega layer on top of stock Stamin — exact extension is GSC-tuned). **+12% run speed** on top of base. **Walk speed ×2** and **crawl speed ×4** (multiplicative vs base walk/crawl locomotion — implementation ties to player move-mode; TODO(acc-tune)).
+
+**Mechanics**
+
+- **Base**: stock BO3 Stamin-Up — longer sprint reserve; faster sprint movement; **not** unlimited sprint.
+- **Mega — The Flash**: longer sprint than base alone; **+12%** run; **×2** walk; **×4** crawl.
+- **Stacking**: Neural Boots (+20% with primary held); Reflex T1 (+10% sprint, +15% stamina regen). Mega **walk ×2 / crawl ×4** are map-specific multipliers on those locomotion states.
+
+### 6. Mule Kick — 2,500 Points
+
+**Base (full description).** Mule Kick gives a **third primary weapon slot** so you can run close / mid / long without returning to the box. **Cost 2,500 Points** (this map’s tuning — below stock 4k for triple-gun fantasy in mid economy).
+
+**Mega: The Armory (full description).** **+30% ammo** capacity per weapon (reserves). **+2** extra **lethal** and **+2** extra **tactical** slots **flat** on top of stock counts (e.g. if stock is 2 frags / 2 EMPs, Armory aims for **4 / 4** before other perks — Widow Spiderman may still cap **web** grenades at **6**).
+
+**Mechanics**
+
+- **Base**: third primary; **2,500** pts.
+- **Mega — The Armory**: **+30%** ammo per gun; **+2** lethal, **+2** tactical (additive, not “double all slots” unless stock was 2).
+
+### 7. Deadshot — 3,500 Points
+
+**Base (full description).** **ADS** auto-aim toward heads (cone-limited; **no boss snap**) and **×1.5** headshot damage vs body. Map global headshot multipliers (**2×** trash, **3×** boss) **multiply** with Deadshot. ADS only; hip fire has no snap.
+
+**Mega: American Sniper (full description).** Headshot multiplier is **×1.75** (**replaces** base ×1.5 — you do not double-dip 1.5 and 1.75). **No weapon recoil.** ADS head snap **still applies** to regular targets and elites (not bosses). See [Mega damage stack example](#mega-damage-stack-example).
+
+**Mechanics**
+
+- **Base**: **×1.5** headshot mult; ADS auto-aim (regulars/elites); **bosses**: no snap.
+- **Stacking (examples)**: regular headshot ≈ **1.5** × **2.0** (map) = **×3.0** vs body; boss headshot ≈ **1.5** × **3.0** = **×4.5** vs body.
+- **Mega — American Sniper**: **×1.75** headshot mult; **zero recoil**; e.g. regular ≈ **1.75 × 2.0 = ×3.5** vs body; boss ≈ **1.75 × 3.0 = ×5.25** vs body.
+
+### 8. Widow's Wine — 4,000 Points
+
+**Base (full description).** **Stock BO3** Widow’s Wine: spider **lethals**, melee-kill webs, self-defense on hit. This map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP stun/radius.
+
+**Mega: Spiderman (full description).** **Zombies only:** **knife/melee always one-hit kills** on ordinary zombies (not bosses/elites unless tuned). **Web (spider) grenades** **one-hit** regular zombies. You can carry **6** web grenades. Elites/bosses keep normal damage/CC rules unless explicitly listed.
+
+**Mechanics**
+
+- **Base**: spider webs; melee defense; +50%/+25% frag; +50%/+25% EMP.
+- **Mega — Spiderman**: melee **OHK** zombies; web nade hit **OHK** regular zombies; **6** web nades max.
+
+### 9. Aura Blast — 2,500 Points
+
+**Base (full description).** **400u** radius shockwave, **3s** stun (type-dependent), **120s** CD; **full bosses immune** to the stun (mini-boss may use partial rules — see below). Fully custom perk for this map.
+
+**Mega: Mega Man (full description).** Keeps **800u**, **60s** CD, **2 charges** — and **bosses can be affected** now (see Mechanics): typically **reduced** stun vs trash (e.g. same **3s** window → **50% duration** or **~1.5s**, or interrupt-only — TODO(acc-tune)) so the fight isn’t trivialized.
+
+**Mechanics**
+
+- **Activation**: perk-ability hotkey; `bind g notify acc_perk_ability` (PC) until LUI.
+- **Base — radius 400u, stun 3s**, CD **120s** from activation.
+- **Enemy rules (base)**: zombies — full stun; shielded elites — shield down for stun; teleporters — no teleport; EMP elites — **1s** stun; mini-boss — **50%** duration (~1.5s); **full boss — immune**.
+- **Mega — Mega Man**: **800u**; **60s** CD; **2 charges**; **bosses take stun/interrupt** per tuning (not immune). TODO(acc-impl): boss-specific duration cap.
+- **HUD**: cooldown ring (Phase 4 LUI).
+- **Build fit**: Reflex + Phase Step; Overload defense; panic peel.
+
+## Mega Bottles (system)
+
+**Mega** perk tiers (Savior, Gun Slinger, Ultimate Tank, etc.) are **not** bought with Points. They unlock by spending **Empty Mega Bottles** at Lab machines when the base perk is in the current rotation — full **Mega** descriptions are in [Perk reference (base + Mega)](#perk-reference-base--mega) under each perk’s **Mega: … (full description)**.
 
 ### Acquisition Loop
 
@@ -182,76 +206,11 @@ This means: **the Mega Bottle is a one-time investment per perk per run**. Death
 
 This mirrors the existing perk-rotation decision texture. Mega-ing a perk is a **two-step commitment**: 1) own the perk, 2) wait for rotation, 3) apply bottle. Players will strategize which perk to Mega first based on current round and rotation odds.
 
-### The 9 Mega Variants
-
-Each perk's Mega version gets a themed name and a stacked upgrade. Mega effects apply **on top of** the base perk's effects.
-
-#### 1. Quick Revive → **Savior**
-
-- Revive animation time down to **35% of stock** (stock 5s → ~1.75s).
-- After a successful revive, **both the reviver and the revived gain +15% movement speed** for 5 seconds.
-- Base QR effects preserved: +30% health regen speed, faster revive baseline, solo self-revive retained.
-
-#### 2. Double Tap 2.0 → **Gun Slinger**
-
-- **+50% fire rate** (vs stock +33%). That's ~15% more than base Double Tap on top of raw fire rate.
-- Base +3% damage preserved.
-- Stacks multiplicatively with PaP L5 + Tier 5 weapon upgrades + AR ability Stabilizer (5s zero recoil + 20% fire rate). Active Stabilizer on a Gun Slinger AR = chainsaw fire rate.
-
-#### 3. Speed Cola → **Sleight of Hand Expert**
-
-- Reload speed **+65%** (vs stock +50%). Speed reload king.
-- Faster perk drinking (already on base Speed Cola).
-- Faster weapon swap (already on base).
-- **New**: faster **lethal use** (grenade throw / cook animation).
-- Stacks multiplicatively with Overclocked Gauntlets (+15% reload). Combined: ~89% reload speed reduction. Near-instant reloads on Haymaker 12 / AK-47 / BRM-class weapons.
-
-#### 4. Jugger-Nog → **Ultimate Tank**
-
-- **+1 extra hit** beyond Jug's +100% HP. So: 3 (no Jug) → 6 (Jug) → **7 (Ultimate Tank)**.
-- **Immune to boss stuns** — Subroutine Core phase debuffs that normally affect all players (power-disable, perk-disable during phase transitions) either don't apply or apply at reduced severity to an Ultimate Tank player.
-  - TODO(acc-tune): spec exactly. Does "immune" mean phase debuffs fully skip, or 50% reduced? First-pass: fully skip. Playtest to adjust.
-
-#### 5. Widow's Wine → **Spiderman**
-
-- **Spider grenades now 1-shot kill regular zombies on explosion** (no HP scaling — instant kill regardless of round). Still damages elites / bosses scaled normally.
-- **Max grenade count 6** (vs stock 4).
-- Base Widow's Wine web-on-melee defense preserved.
-- Base +50% damage / +25% radius on Frag + EMP preserved.
-
-#### 6. Stamin-Up → **The Flash**
-
-- **Unlimited sprint duration** (returns to stock Stamin-Up's pre-nerf behavior).
-- **+10% walk speed** (base).
-- **+12% sprint speed** (vs base +10%).
-- Stacks multiplicatively with Neural Boots (+20% with primary held) and Cyberware Reflex T1. Combined base + Mega + Boots + Reflex = **~48% sprint speed** over baseline.
-
-#### 7. Mule Kick → **The Armory**
-
-- Base 3rd-primary slot preserved.
-- **+35% ammo capacity per gun** (reserve mags).
-- **Double lethal + double tactical grenade** capacity (Frag 2→4, EMP 2→4 — doubling applies to base counts; Spiderman Mega on top would be max 6 capped).
-- Effectively the "never run out of ammo" perk at high rounds.
-
-#### 8. Aura Blast → **Mega Man**
-
-- **Blast radius doubled**: 400u → 800u. Nearly half the Lab at once.
-- **Recharge cut in half**: 120s → **60s**.
-- **Hold 2 charges** — stun enemies twice in sequence before waiting for recharge.
-- Base stun duration (3s) and per-enemy-class behavior preserved.
-
-#### 9. Deadshot → **American Sniper**
-
-- **+2x headshot damage multiplier** (vs base +1.5x). Stacks multiplicatively with our 2x/3x headshot system.
-- **Zero recoil on all guns** — every weapon is flat-shot accurate.
-- Base auto-aim-to-head when ADS preserved.
-- **This is the most damage-significant Mega upgrade.** See damage stacking example below.
-
-### Mega Damage Stack Example
+### Mega damage stack example
 
 PaP L5 + Tier 5 FAL + American Sniper + Gun Slinger + Overload Cyberware + Precision Mode ability + clean headshot on an elite:
 
-- Base damage × 1.5 (stock weapon GDT headshot mult) × 2.0 (our headshot mult) × **2.0 (American Sniper Mega)** × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = **~108x damage** per headshot.
+- Base damage × 1.5 (stock weapon GDT headshot mult) × 2.0 (our headshot mult) × **1.75 (American Sniper Mega)** × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = **~95x damage** per headshot (illustrative — recalc when exact PaP/Tier values are locked).
 
 On a round-50 boss with Signal Staff's +300% counter damage skipped, that's still the 4.5x boss-headshot multiplier stacked = **~163x damage per hit**.
 
@@ -284,7 +243,7 @@ See [14_controls_and_hud.md](14_controls_and_hud.md) for HUD element spec.
 
 - **Drop rate too generous**: only full bosses drop Mega Bottles (mini-bosses give 50% chance).
 - **Drop rate too stingy**: mini-bosses give 2 bottles each.
-- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper 2x → 1.75x, Gun Slinger +50% → +40%).
+- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper 1.75x → 1.65x, Gun Slinger +50% → +40%).
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
 ## Perk Availability: Per-Round Rotating Lab Machines
@@ -393,12 +352,12 @@ Missing a perk this round is OK. It'll cycle back. **Patience and route manageme
 
 A player with **all 9 perks** + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
 
-- **HP**: 6-hit survival from zombies (Jug).
+- **HP**: **6**-hit survival vs regular zombie melee with Jug on **this map** (stock BO3 Jug = **5** hits — see baseline).
 - **HP regen**: +30% (Quick Revive).
 - **Reload / swap speed**: +50% reload + +15% reload (Gauntlets if equipped) + ~30% swap (Speed Cola) + 15% swap (Gauntlets).
-- **Move speed / sprint**: +10% move (Stamin-Up) + +10% sprint (Reflex T1) + +20% (Neural Boots if equipped) + extended sprint duration.
+- **Move speed / sprint**: Stamin-Up (stock longer sprint + faster sprint) + +10% sprint (Reflex T1) + +20% (Neural Boots if equipped); with **Mega** Stamin add **×2 walk / ×4 crawl / +12% run** vs base Stamin-Up layer.
 - **Fire rate**: +33% (Double Tap).
-- **Headshot damage**: 1.0 (base) × 1.5 (Deadshot) × 2.0 (our mult) × 1.3 (Overload Cyberware if picked) × other Tier/PaP modifiers = massive.
+- **Headshot damage**: base Deadshot ×1.5 × map mult ×2.0 / ×3.0 × Overload / Tier / PaP; American Sniper Mega uses **×1.75** instead of ×1.5 (see [Deadshot](#7-deadshot--3500-points)).
 - **Grenade damage**: +50% frag dmg, +25% radius (Widow's Wine).
 - **Stun on demand**: Aura Blast (3s, 400u radius, 120s CD).
 - **Weapon slots**: 3 primaries (Mule Kick).
@@ -423,7 +382,7 @@ Custom perks (Aura Blast, Widow's Wine as modified, Deadshot as a variant) follo
 
 If perks feel broken after playtest:
 
-- **Jug**: nothing tuning-wise, baked into the 3/6 HP model.
+- **Jug**: baked into the **3 / 6** hit model on this map (**6** with Jug vs **5** stock BO3 Jug).
 - **Aura Blast**: cooldown 120s → 150s if too spammable.
 - **Deadshot**: 1.5x → 1.3x if headshot damage ceiling is too high.
 - **Widow's Wine grenade boost**: +50% → +25% if frag/EMP spam dominates late game.
