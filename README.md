@@ -2,7 +2,7 @@
 
 A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, skill expression, and replayability**. Inspired by Ameliorama I/II and Machin[a], with a deliberate bias toward systems depth over art and narrative.
 
-> **Status**: Design complete, Phase 3 code scaffolded. No playable build yet - needs a Windows machine with BO3 Mod Tools to compile.
+> **Status**: Design complete, Phase 3 code scaffolded, starting-room build kit ready (Radiant .map + BO3-correct scripts + zone manifest). No playable build verified yet - needs a Windows machine with BO3 Mod Tools to compile. Follow [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md).
 
 ## Start Here
 
@@ -36,17 +36,19 @@ A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, ski
 ├── README.md                   this file
 ├── ROADMAP.md                  phase graph + summaries
 ├── SETUP_WINDOWS.md            one-time Windows laptop setup
-├── docs/                       design, mechanics, references (11 files)
-├── maps/zm/                    map entry scripts (.gsc / .csc)
-├── scripts/zm/zm_abandoned_cyber_city/
-│                               custom _acc_ GSC modules (12 files)
-├── zone_source/                asset manifest CSV for Launcher
+├── docs/                       design, mechanics, references
+├── map_source/zm/              Radiant .map source (starting room greybox)
+├── scripts/zm/                 map entry scripts (.gsc / .csc) +
+│   └── zm_abandoned_cyber_city/   custom _acc_ GSC modules (18 files)
+├── zone_source/                .zone asset manifest for the Launcher linker
+├── sound/zoneconfig/           sound zone config (.szc)
+├── zone/                       workshop publish assets (images, json example)
 ├── ui/                         LUI (deferred to Phase 4)
 ├── tools/                      Windows sync script + helpers
 └── .gitignore
 ```
 
-When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), the `maps/`, `scripts/`, `zone_source/`, and `ui/` trees mirror into `usermaps\zm_abandoned_cyber_city\`.
+When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), `scripts/`, `zone_source/`, `sound/`, `zone/`, and `ui/` land in `usermaps\zm_abandoned_cyber_city\`, and `map_source\zm\zm_abandoned_cyber_city.map` lands in the game root's `map_source\zm\` (where Radiant expects it).
 
 ## Documentation
 
@@ -62,6 +64,7 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), the `m
 - [docs/14_controls_and_hud.md](docs/14_controls_and_hud.md) - input bindings, HUD elements, LUI plan.
 - [docs/15_coop_rules.md](docs/15_coop_rules.md) - multiplayer scaling and per-player vs shared rules.
 - [docs/16_gsc_reference.md](docs/16_gsc_reference.md) - verified BO3 GSC/CSC API reference (callbacks, scoring, clientfields, common patterns).
+- [docs/19_stock_api_verification.md](docs/19_stock_api_verification.md) - the stock-API verification ledger (211 verified / 52 fixed vs real Treyarch sources; the trap list). Read before touching stock interfaces.
 - [docs/17_reference_maps_study.md](docs/17_reference_maps_study.md) - design lessons from Ameliorama, Machin[a], and stock Treyarch maps.
 - [docs/06_mechanics.md](docs/06_mechanics.md) - round pacing, economy, events, feedback loops.
 - [docs/07_replayability.md](docs/07_replayability.md) - randomization, modifiers, build archetypes.
@@ -71,7 +74,8 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), the `m
 - [docs/01_toolchain.md](docs/01_toolchain.md) - BO3 Mod Tools reference.
 - [docs/02_learning_path.md](docs/02_learning_path.md) - curriculum for going from zero to shipping.
 - [docs/09_language_and_publishing.md](docs/09_language_and_publishing.md) - GSC/LUI basics and Steam Workshop publishing.
-- [docs/10_today_quickstart.md](docs/10_today_quickstart.md) - fastest path to a box-room build on Workshop.
+- [docs/10_today_quickstart.md](docs/10_today_quickstart.md) - fastest path to a box-room build on Workshop (throwaway test map).
+- [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md) - **the** sync → compile → run → publish walkthrough for the real map's starting-room kit.
 - [SETUP_WINDOWS.md](SETUP_WINDOWS.md) - the actual install + first-compile walkthrough.
 
 ### Project Management
@@ -88,19 +92,21 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), the `m
 
 - **[REQUIREMENTS.md](REQUIREMENTS.md) is the spec.** Code follows docs, never the other way around.
 - Every substantive change gets a [CHANGELOG.md](CHANGELOG.md) entry AND an update to the relevant detailed doc in the same commit.
-- All custom GSC modules use the `_acc_` prefix ("abandoned cyber city") to separate them from stock `_zm_*` scripts.
+- All custom GSC module **files** use the `_acc_` prefix ("abandoned cyber city") to separate them from stock `_zm_*` scripts. Their **GSC namespaces drop the leading underscore** (`_acc_main.gsc` declares `#namespace acc_main;`, called as `acc_main::`), mirroring the stock convention (`_zm_utility.gsc` → `zm_utility::`).
 - Per-player state is stored on `self.acc_*` fields; level state on `level.acc_*`.
 - Custom events use the `acc_*` namespace (e.g. `acc_round_start`, `acc_shards_changed`).
 - Every file that has unverified API calls marks them `TODO(acc-verify)`. Grep for this on first compile.
+- BO3 GSC syntax, not WaW/BO1: `function` keyword on every definition, `&func` function pointers, entry scripts in `scripts/zm/` (not `maps/zm/`), `zm_usermap::main()` bootstrap (there is no `_zm::main()` in BO3).
 
 ## Status (first compile readiness)
 
-When you sync and compile on Windows for the first time:
+When you sync and compile on Windows for the first time (full walkthrough: [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md)):
 
-- **Will parse**: all files should be syntactically valid GSC.
+- **Geometry exists**: `map_source/zm/zm_abandoned_cyber_city.map` is a byte-for-byte copy of the stock Launcher zm template starting room (spawns, barrier, zombie spawner, `start_zone`, perk slots, PaP, Mystery Box, power switch). It compiles as-is; Spawn Plaza greybox shaping happens in Radiant later.
+- **Will parse**: all GSC was converted to BO3 syntax (`function` keyword, `#namespace`, stock namespace names). Entry scripts are structured exactly like the stock template.
 - **Will fail gracefully**: any `TODO(acc-geom)` lookup for a Radiant entity that doesn't exist yet will log and continue - no crash.
-- **Expect**: ~5-15 `TODO(acc-verify)` compile warnings about stock API function names that may need tweaking. These are documented in each file near the call site.
-- **Don't expect**: a fully playable custom map on Day 1. The Radiant `.map` (geometry) still has to be authored in the editor. Once geometry is in place with the targetnames referenced in `TODO(acc-geom)` markers, the custom systems light up.
+- **Expect**: a handful of `TODO(acc-verify)` sites where a stock API name may have drifted - documented in each file near the call site.
+- **Don't expect**: the full 7-zone map. This build is the starting room with all custom systems initialized - the e2e proof that compile → run → publish works.
 
 ## Not a Goal
 

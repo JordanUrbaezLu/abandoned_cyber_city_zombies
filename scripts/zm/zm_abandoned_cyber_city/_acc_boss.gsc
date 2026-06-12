@@ -8,7 +8,12 @@
 // Round 30, 40, 50+: full boss "Subroutine Core" in the Lab.
 // =============================================================================
 
+#using scripts\codescripts\struct;
+
+#using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
+
+#using scripts\zm\_zm_perks;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
@@ -19,14 +24,16 @@
 #define ACC_BOSS_FULL_FIRST_ROUND 30
 #define ACC_BOSS_INTERVAL 10
 
-init()
+#namespace acc_boss;
+
+function init()
 {
-    _acc_utility::log( "boss init" );
+    acc_utility::log( "boss init" );
 
     level thread round_hook_loop();
 }
 
-round_hook_loop()
+function round_hook_loop()
 {
     level endon( "end_game" );
 
@@ -52,13 +59,13 @@ round_hook_loop()
 // Mini-boss
 // ---------------------------------------------------------------------------
 
-run_mini_boss( round_number )
+function run_mini_boss( round_number )
 {
     level endon( "end_game" );
     level endon( "acc_round_end" );
 
     count = ( round_number >= 20 ) ? 2 : 1;
-    _acc_utility::log( "mini boss round " + round_number + " spawning " + count );
+    acc_utility::log( "mini boss round " + round_number + " spawning " + count );
 
     for ( i = 0; i < count; i++ )
     {
@@ -66,7 +73,7 @@ run_mini_boss( round_number )
     }
 }
 
-spawn_juggernaut_host()
+function spawn_juggernaut_host()
 {
     // TODO(acc-verify): spawn a zombie actor, buff HP ~10x elite, make
     // stagger-immune to normal weapon damage, vulnerable to wonder weapon
@@ -79,27 +86,27 @@ spawn_juggernaut_host()
     // On death, call:
     //   host thread watch_mini_boss_death();
     // which triggers the boss-item drop (50% chance for mini-boss tier).
-    _acc_utility::log( "spawned Juggernaut Host" );
+    acc_utility::log( "spawned Juggernaut Host" );
 }
 
-watch_mini_boss_death()
+function watch_mini_boss_death()
 {
     self waittill( "death", attacker );
     // Regular boss-item drop (50% chance at mini tier).
-    _acc_boss_items::on_boss_death( "mini", attacker, self.origin );
+    acc_boss_items::on_boss_death( "mini", attacker, self.origin );
     // Guaranteed Mega Bottle drop to all players.
-    _acc_mega_bottles::on_boss_death( "mini", attacker, self.origin );
+    acc_mega_bottles::on_boss_death( "mini", attacker, self.origin );
 }
 
 // ---------------------------------------------------------------------------
 // Full boss "Subroutine Core"
 // ---------------------------------------------------------------------------
 
-run_full_boss( round_number )
+function run_full_boss( round_number )
 {
     level endon( "end_game" );
 
-    _acc_utility::log( "FULL BOSS: Subroutine Core, round " + round_number );
+    acc_utility::log( "FULL BOSS: Subroutine Core, round " + round_number );
 
     // Lock players in the Lab until boss is down. TODO(acc-geom): geometry
     // triggers to close Lab exits.
@@ -107,7 +114,10 @@ run_full_boss( round_number )
     boss = spawn_subroutine_core( round_number );
     if ( !isdefined( boss ) ) return;
 
-    run_boss_phases( boss, round_number );
+    // VERIFIED(acc): must be threaded - a synchronous call would fire
+    // "acc_boss_dead" before the waittill below is armed (GSC notifies are
+    // not latched), hanging this thread and skipping rewards forever.
+    level thread run_boss_phases( boss, round_number );
 
     level waittill( "acc_boss_dead" );
 
@@ -118,21 +128,21 @@ run_full_boss( round_number )
     // boss (wired via _acc_damage in Phase 4).
     killer = undefined;
     if ( isdefined( boss.acc_killer ) ) killer = boss.acc_killer;
-    _acc_boss_items::on_boss_death( "full", killer, boss.origin );
+    acc_boss_items::on_boss_death( "full", killer, boss.origin );
     // Guaranteed Mega Bottle drop to all players.
-    _acc_mega_bottles::on_boss_death( "full", killer, boss.origin );
+    acc_mega_bottles::on_boss_death( "full", killer, boss.origin );
 
     release_lab_exits();
 }
 
-spawn_subroutine_core( round_number )
+function spawn_subroutine_core( round_number )
 {
     // TODO(acc-model): actual boss model + AI. For Phase 4 we use a big
     // hitpoint sphere with scripted attacks.
     spawn_struct = struct::get( "acc_boss_spawn", "targetname" );
     if ( !isdefined( spawn_struct ) )
     {
-        _acc_utility::log( "boss: no spawn struct placed" );
+        acc_utility::log( "boss: no spawn struct placed" );
         return undefined;
     }
 
@@ -146,7 +156,7 @@ spawn_subroutine_core( round_number )
     return b;
 }
 
-scale_boss_hp( round_number )
+function scale_boss_hp( round_number )
 {
     base = 50000;
     rounds_past_30 = round_number - 30;
@@ -158,7 +168,7 @@ scale_boss_hp( round_number )
 // Phase progression
 // ---------------------------------------------------------------------------
 
-run_boss_phases( boss, round_number )
+function run_boss_phases( boss, round_number )
 {
     // Phases at 66% and 33% HP trigger "system outage" debuffs.
     max_phases = ( round_number >= 40 ) ? 4 : 3;
@@ -177,7 +187,7 @@ run_boss_phases( boss, round_number )
     level notify( "acc_boss_dead" );
 }
 
-compute_phase( boss, max_phases )
+function compute_phase( boss, max_phases )
 {
     frac = boss.health / boss.maxhealth;
     if ( frac > 0.66 ) return 1;
@@ -186,9 +196,9 @@ compute_phase( boss, max_phases )
     return 4;
 }
 
-on_phase_transition( boss, phase )
+function on_phase_transition( boss, phase )
 {
-    _acc_utility::log( "boss entering phase " + phase );
+    acc_utility::log( "boss entering phase " + phase );
 
     switch ( phase )
     {
@@ -204,46 +214,61 @@ on_phase_transition( boss, phase )
     }
 }
 
-disable_power_for( duration )
+// VERIFIED(acc): there is no zm_power::turn_power_off_all in stock. Power is
+// the "power_on" flag; stock watch_global_power reacts to clear/set
+// (_zm_power.gsc:163-169; clear site :773, set pattern zm_giant.gsc:550).
+function disable_power_for( duration )
 {
-    // TODO(acc-verify): use _zm_power::turn_power_off_all() or equivalent.
-    _acc_utility::log( "power disabled for " + duration + "s (boss debuff)" );
+    if ( !( level flag::get( "power_on" ) ) )
+    {
+        // Power was never activated; nothing to disable, and we must not
+        // grant free power when the debuff ends.
+        return;
+    }
+
+    acc_utility::log( "power disabled for " + duration + "s (boss debuff)" );
+    level flag::clear( "power_on" );
     wait( duration );
-    _acc_utility::log( "power restored" );
+    level flag::set( "power_on" );
+    acc_utility::log( "power restored" );
 }
 
-disable_perks_for( duration )
+// VERIFIED(acc): zm_perks::perk_lose_on_damage does not exist. The stock
+// pause/unpause pair is perk_pause_all_perks / perk_unpause_all_perks
+// (_zm_perks.gsc:1295/:1314; stock caller _zm_power.gsc:143).
+function disable_perks_for( duration )
 {
-    // TODO(acc-verify): _zm_perks::perk_lose_on_damage or manual lockout.
-    _acc_utility::log( "perks disabled for " + duration + "s (boss debuff)" );
+    acc_utility::log( "perks disabled for " + duration + "s (boss debuff)" );
+    level thread zm_perks::perk_pause_all_perks();
     wait( duration );
-    _acc_utility::log( "perks restored" );
+    level thread zm_perks::perk_unpause_all_perks();
+    acc_utility::log( "perks restored" );
 }
 
-spawn_emp_elite_add()
+function spawn_emp_elite_add()
 {
-    _acc_utility::log( "boss phase 4 add: EMP elite" );
-    // TODO: call _acc_elites::spawn_elite( "emp" ) once arg visibility is fixed.
+    acc_utility::log( "boss phase 4 add: EMP elite" );
+    // TODO: call acc_elites::spawn_elite( "emp" ) once arg visibility is fixed.
 }
 
 // ---------------------------------------------------------------------------
 // Rewards
 // ---------------------------------------------------------------------------
 
-reward_players( round_number )
+function reward_players( round_number )
 {
     reward = compute_shard_reward( round_number );
 
     for ( i = 0; i < level.players.size; i++ )
     {
-        _acc_data_shards::grant_player( level.players[ i ], reward, "boss" );
+        acc_data_shards::grant_player( level.players[ i ], reward, "boss" );
         // TODO(acc-oc): grant overclock re-roll voucher once voucher system exists.
     }
 
-    _acc_utility::log( "boss rewarded " + reward + " shards to each player" );
+    acc_utility::log( "boss rewarded " + reward + " shards to each player" );
 }
 
-compute_shard_reward( round_number )
+function compute_shard_reward( round_number )
 {
     if ( round_number == ACC_BOSS_MINI_FIRST_ROUND )           return 2; // r10 mini
     if ( round_number == ACC_BOSS_MINI_FIRST_ROUND + ACC_BOSS_INTERVAL ) return 3; // r20 mini
@@ -251,7 +276,7 @@ compute_shard_reward( round_number )
     return 4; // capped
 }
 
-release_lab_exits()
+function release_lab_exits()
 {
     // TODO(acc-geom): reopen Lab exit doors locked during the fight.
 }

@@ -7,13 +7,19 @@
 // they can override subsystem behavior cleanly.
 // =============================================================================
 
+#using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
+
+#using scripts\zm\_zm_score;
+#using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
-pre_init()
+#namespace acc_modifiers;
+
+function pre_init()
 {
-    _acc_utility::log( "modifiers pre_init" );
+    acc_utility::log( "modifiers pre_init" );
 
     level.acc_modifiers = [];
 
@@ -26,7 +32,7 @@ pre_init()
     log_active_modifiers();
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     // Per-player modifier effects (e.g. Fragility HP cut) applied on connect.
     if ( is_active( "fragility" ) )
@@ -34,13 +40,18 @@ on_player_connect( player )
         player.maxhealth = int( player.maxhealth * 0.5 );
         player.health = player.maxhealth;
     }
+
+    if ( is_active( "roguelike_lite" ) )
+    {
+        player thread roguelike_player_down_watch();
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Config loading
 // ---------------------------------------------------------------------------
 
-load_modifiers_from_config()
+function load_modifiers_from_config()
 {
     // TODO(acc-config): parse a config file or UI struct. For now we flip
     // them via a dvar ("acc_mod_<name> 1" enables a modifier) so you can test
@@ -71,7 +82,7 @@ load_modifiers_from_config()
     }
 }
 
-is_active( name )
+function is_active( name )
 {
     if ( !isdefined( level.acc_modifiers ) ) return false;
     return isdefined( level.acc_modifiers[ name ] ) && level.acc_modifiers[ name ];
@@ -81,7 +92,7 @@ is_active( name )
 // Global application
 // ---------------------------------------------------------------------------
 
-apply_global_modifiers()
+function apply_global_modifiers()
 {
     if ( is_active( "code_red" ) )
     {
@@ -118,8 +129,10 @@ apply_global_modifiers()
 
     if ( is_active( "roguelike_lite" ) )
     {
+        // Per-player down watcher attaches in on_player_connect - the
+        // "player_downed" notify only ever fires ON the player entity
+        // (_zm_laststand.gsc:270), never on level.
         level.acc_mod_roguelike = true;
-        level thread roguelike_down_hook();
     }
 
     if ( is_active( "express" ) )
@@ -138,17 +151,17 @@ apply_global_modifiers()
     }
 }
 
-log_active_modifiers()
+function log_active_modifiers()
 {
     keys = getarraykeys( level.acc_modifiers );
     if ( keys.size == 0 )
     {
-        _acc_utility::log( "modifiers: none active" );
+        acc_utility::log( "modifiers: none active" );
         return;
     }
     for ( i = 0; i < keys.size; i++ )
     {
-        _acc_utility::log( "modifier ACTIVE: " + keys[ i ] );
+        acc_utility::log( "modifier ACTIVE: " + keys[ i ] );
     }
 }
 
@@ -156,54 +169,74 @@ log_active_modifiers()
 // Modifier loops (stubs)
 // ---------------------------------------------------------------------------
 
-draft_mode_loop()
+function draft_mode_loop()
 {
     // Every 2 minutes, offer each player a 3-perk random pick.
     level endon( "end_game" );
     for ( ;; )
     {
         wait( 120 );
-        _acc_utility::log( "draft: offering picks" );
+        acc_utility::log( "draft: offering picks" );
         // TODO(acc-ui): LUI picker.
     }
 }
 
-shardless_handout_loop()
+function shardless_handout_loop()
 {
     level endon( "end_game" );
     // Round 10, 20, 30: free cyberware pick.
+    // VERIFIED(acc): util::waittill_round does not exist in stock; the stock
+    // round-wait pattern is level.round_number + "between_round_over"
+    // (_zm.gsc:4555 notify site).
     target_rounds = array( 10, 20, 30 );
     for ( i = 0; i < target_rounds.size; i++ )
     {
-        level util::waittill_round( target_rounds[ i ] ); // TODO(acc-verify): stock helper?
-        _acc_utility::log( "shardless: free cyberware pick at round " + target_rounds[ i ] );
+        while ( level.round_number < target_rounds[ i ] )
+        {
+            level waittill( "between_round_over" );
+        }
+        acc_utility::log( "shardless: free cyberware pick at round " + target_rounds[ i ] );
         // TODO(acc-ui): picker UI, one choice per branch offered.
     }
 }
 
-roguelike_down_hook()
+// self = player. Attached from on_player_connect when roguelike_lite is on.
+function roguelike_player_down_watch()
 {
     level endon( "end_game" );
+    self endon( "disconnect" );
+
     for ( ;; )
     {
-        level waittill( "player_downed", player );
+        self waittill( "player_downed" );
+
         // Remove lowest-cost cyberware node from the player.
         // TODO(acc-cw): implement remove_lowest_cost_node on _acc_cyberware.
-        _acc_utility::log( "roguelike: downed, would remove lowest node" );
+        acc_utility::log( "roguelike: downed, would remove lowest node" );
+
+        // Stock _zm_laststand refire_player_downed() re-notifies
+        // "player_downed" ~1s after a down if the player still has perks;
+        // wait for the down to resolve so one down = one node removed.
+        self util::waittill_any( "player_revived", "spawned_player" );
     }
 }
 
-express_start()
+function express_start()
 {
-    level waittill( "initial_blackscreen_passed" );
+    // VERIFIED(acc): flag, not notify - see _acc_main.gsc note.
+    level flag::wait_till( "initial_blackscreen_passed" );
 
     // Skip to round 10 and give each player 5000 points + 5 shards.
-    // TODO(acc-verify): stock round-fast-forward helper exists? Otherwise loop
-    // call round_spawn_failsafe with synthetic round increments.
+    // VERIFIED(acc): zm_utility::zombie_goto_round (_zm_utility.gsc:5972) is
+    // the stock fast-forward (resets totals, recalcs AI health, kills actives).
+    level thread zm_utility::zombie_goto_round( 10 );
+
     for ( i = 0; i < level.players.size; i++ )
     {
-        level.players[ i ].score += 5000;
+        // VERIFIED(acc): add via zm_score so pers["score"] stays in sync
+        // (_zm_score.gsc:521; direct += desyncs reconnect/host-migration).
+        level.players[ i ] zm_score::add_to_player_score( 5000 );
         level.players[ i ].acc_data_shards = 5;
     }
-    _acc_utility::log( "express: starting at round 10 with bonus" );
+    acc_utility::log( "express: starting at round 10 with bonus" );
 }

@@ -18,20 +18,22 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
 
+#namespace acc_weapon_abilities;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "weapon_abilities init" );
+    acc_utility::log( "weapon_abilities init" );
 
     level.acc_abilities = build_ability_table();
 
     level thread watch_ability_keypress();
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     // Per-player cooldown map: ability_id -> gametime ready (ms).
     player.acc_ability_ready_at = [];
@@ -42,7 +44,7 @@ on_player_connect( player )
 // Keep in sync with docs/05_weapons.md "Weapon Abilities" table.
 // ---------------------------------------------------------------------------
 
-build_ability_table()
+function build_ability_table()
 {
     t = [];
 
@@ -58,7 +60,7 @@ build_ability_table()
     return t;
 }
 
-ability( id, cooldown_sec, on_activate )
+function ability( id, cooldown_sec, on_activate )
 {
     a = spawnstruct();
     a.id = id;
@@ -73,7 +75,7 @@ ability( id, cooldown_sec, on_activate )
 // share the AR Overclock pool).
 // ---------------------------------------------------------------------------
 
-weapon_name_to_ability_category( weapon_name )
+function weapon_name_to_ability_category( weapon_name )
 {
     // TODO(acc-data): consolidate category tables into a GDT-driven dict.
     ar_full_list  = array( "icr1_zm", "xr2_zm", "ak47_zm" );
@@ -108,7 +110,7 @@ weapon_name_to_ability_category( weapon_name )
 // comes from a console `bind X notify acc_ability` binding.
 // ---------------------------------------------------------------------------
 
-watch_ability_keypress()
+function watch_ability_keypress()
 {
     level endon( "end_game" );
 
@@ -119,21 +121,33 @@ watch_ability_keypress()
     }
 }
 
-player_ability_listener()
+function player_ability_listener()
 {
     self endon( "disconnect" );
 
     for ( ;; )
     {
-        self waittill( "acc_ability" );
+        // VERIFIED(acc): BO3 has no console command that fires a script
+        // notify on the player, so a waittill("acc_ability") can never fire.
+        // Poll an ADS+melee chord instead (stock button builtins:
+        // AdsButtonPressed _zm.gsc:4976, MeleeButtonPressed scene_shared).
+        // TODO(acc-input): replace with a real LUI keybind in Phase 4.
+        while ( !( self AdsButtonPressed() && self MeleeButtonPressed() ) )
+        {
+            wait 0.05;
+        }
         try_activate_ability( self );
+        wait 0.5; // debounce so one chord press activates once
     }
 }
 
-try_activate_ability( player )
+function try_activate_ability( player )
 {
     weapon = player getcurrentweapon();
-    category = weapon_name_to_ability_category( weapon );
+    // VERIFIED(acc): GetCurrentWeapon returns a weapon OBJECT; the string
+    // lives in .name (_zm.gsc:5288). Passing the object to a string compare
+    // can never match.
+    category = weapon_name_to_ability_category( weapon.name );
     if ( category == "none" )
     {
         player iprintln( "No ability on this weapon" );
@@ -175,62 +189,62 @@ try_activate_ability( player )
 // out. For now they log and mark a flag other systems can read.
 // ---------------------------------------------------------------------------
 
-effect_triple_tap()
+function effect_triple_tap()
 {
     // Next shot from B23R fires all 3 burst rounds as a tight cluster.
     // TODO(acc-weapon): patch B23R firing to check self.acc_ability_triple_tap_primed.
     self.acc_ability_triple_tap_primed = true;
-    _acc_utility::log( "ability: triple_tap primed" );
+    acc_utility::log( "ability: triple_tap primed" );
 }
 
-effect_stabilizer()
+function effect_stabilizer()
 {
     // 5s zero recoil + 20% fire rate.
     // TODO(acc-weapon): set recoil multiplier via weapon-override GDT flag.
     self.acc_ability_stabilizer_until = gettime() + 5000;
-    _acc_utility::log( "ability: stabilizer 5s" );
+    acc_utility::log( "ability: stabilizer 5s" );
 }
 
-effect_precision_mode()
+function effect_precision_mode()
 {
     // Next 3 shots auto-crit (4x).
     self.acc_ability_precision_shots_remaining = 3;
-    _acc_utility::log( "ability: precision_mode, 3 shots" );
+    acc_utility::log( "ability: precision_mode, 3 shots" );
 }
 
-effect_slug_round()
+function effect_slug_round()
 {
     // Next shotgun shot is a slug (tight cone, 3x single-target, 2x range).
     self.acc_ability_slug_primed = true;
-    _acc_utility::log( "ability: slug_round primed" );
+    acc_utility::log( "ability: slug_round primed" );
 }
 
-effect_thermal_vision()
+function effect_thermal_vision()
 {
     // 3s see-through-walls on enemies in view cone.
     // TODO(acc-ui): needs LUI overlay + client-side rendering.
     self.acc_ability_thermal_until = gettime() + 3000;
-    _acc_utility::log( "ability: thermal_vision 3s" );
+    acc_utility::log( "ability: thermal_vision 3s" );
 }
 
-effect_whirlwind()
+function effect_whirlwind()
 {
     // 360 spin hits all enemies within 96 units; insta-kill chaff early.
     // TODO(acc-combat): perform the AoE immediately; apply damage to all
     // zombies in radius; play spin animation.
-    _acc_utility::log( "ability: whirlwind (unimplemented)" );
+    acc_utility::log( "ability: whirlwind (unimplemented)" );
 }
 
-effect_extended_fuse()
+function effect_extended_fuse()
 {
     // Next frag throw auto-airbursts at optimal height.
     self.acc_ability_extended_fuse_primed = true;
-    _acc_utility::log( "ability: extended_fuse primed" );
+    acc_utility::log( "ability: extended_fuse primed" );
 }
 
-effect_overcharge()
+function effect_overcharge()
 {
     // Next EMP grenade stun is 2x duration.
     self.acc_ability_overcharge_primed = true;
-    _acc_utility::log( "ability: overcharge primed" );
+    acc_utility::log( "ability: overcharge primed" );
 }

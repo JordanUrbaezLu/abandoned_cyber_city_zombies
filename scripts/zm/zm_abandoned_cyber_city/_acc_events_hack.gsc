@@ -13,15 +13,20 @@
 
 #using scripts\shared\util_shared;
 
+#using scripts\zm\_zm_score;
+#using scripts\zm\_zm_spawner;
+
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
 #define ACC_HACK_ACTIVATION_COST_POINTS 500
 #define ACC_HACK_REWARD_SHARDS 2
 
-init()
+#namespace acc_events_hack;
+
+function init()
 {
-    _acc_utility::log( "events_hack init" );
+    acc_utility::log( "events_hack init" );
 
     level.acc_hack_state = "available";
     level.acc_hack_attempts_used = 0;
@@ -29,14 +34,14 @@ init()
     level thread watch_terminal();
 }
 
-watch_terminal()
+function watch_terminal()
 {
     level endon( "end_game" );
 
     triggers = getentarray( "acc_hack_terminal", "targetname" );
     if ( triggers.size == 0 )
     {
-        _acc_utility::log( "hack: no terminal placed yet" );
+        acc_utility::log( "hack: no terminal placed yet" );
         return;
     }
 
@@ -46,7 +51,7 @@ watch_terminal()
     }
 }
 
-terminal_loop()
+function terminal_loop()
 {
     self endon( "death" );
 
@@ -68,14 +73,18 @@ terminal_loop()
             continue;
         }
 
-        player.score -= ACC_HACK_ACTIVATION_COST_POINTS;
+        // VERIFIED(acc): never write player.score directly - stock spends via
+        // zm_score::minus_to_player_score (_zm_score.gsc:551), which also syncs
+        // pers["score"], stats, the "spent_points" notify, and free-purchase
+        // GobbleGum handling.
+        player zm_score::minus_to_player_score( ACC_HACK_ACTIVATION_COST_POINTS );
         level.acc_hack_state = "active";
         level.acc_hack_attempts_used += 1;
 
         result = run_hack_sequence( player );
         if ( result == "success" )
         {
-            _acc_data_shards::grant_player( player, ACC_HACK_REWARD_SHARDS, "hack_terminal" );
+            acc_data_shards::grant_player( player, ACC_HACK_REWARD_SHARDS, "hack_terminal" );
             // TODO(acc-oc): grant a free Overclock roll voucher as documented
             // once overclock voucher system exists.
             level.acc_hack_state = "consumed";
@@ -101,7 +110,7 @@ terminal_loop()
     }
 }
 
-can_attempt( player )
+function can_attempt( player )
 {
     if ( level.acc_hack_state == "locked" ) return false;
     if ( level.acc_hack_state == "consumed" ) return false;
@@ -109,7 +118,7 @@ can_attempt( player )
     return true;
 }
 
-player_has_parallel_processing( player )
+function player_has_parallel_processing( player )
 {
     if ( !isdefined( player.acc_cw_events_retry ) ) return false;
     return player.acc_cw_events_retry == true;
@@ -119,7 +128,7 @@ player_has_parallel_processing( player )
 // Three-stage hack sequence
 // ---------------------------------------------------------------------------
 
-run_hack_sequence( player )
+function run_hack_sequence( player )
 {
     stages = build_stages( level.round_number );
 
@@ -139,7 +148,7 @@ run_hack_sequence( player )
     return "success";
 }
 
-build_stages( round_number )
+function build_stages( round_number )
 {
     stages = [];
 
@@ -176,7 +185,7 @@ build_stages( round_number )
     return stages;
 }
 
-stage( prompt, timer, requirement_func, count, flavor )
+function stage( prompt, timer, requirement_func, count, flavor )
 {
     s = spawnstruct();
     s.prompt = prompt;
@@ -187,7 +196,7 @@ stage( prompt, timer, requirement_func, count, flavor )
     return s;
 }
 
-run_stage( player, stage )
+function run_stage( player, stage )
 {
     // Start a kill counter tracked per-player, reset per stage.
     player.acc_hack_stage_counter = 0;
@@ -210,30 +219,44 @@ run_stage( player, stage )
     return false;
 }
 
-count_hook( player, stage )
+// VERIFIED(acc): there is no level-wide "zombie_killed" notify in stock (the
+// only notify site is on the PLAYER, no args, insta-kill path only -
+// _zm_powerups.gsc:1463). The stock per-kill hook is
+// zm_spawner::register_zombie_death_event_callback (_zm_spawner.gsc:2463),
+// invoked ON the dying zombie with the attacker as arg; mod/hit-location live
+// on the zombie (self.damagemod / self.damagelocation, _zm_spawner.gsc:1790).
+function count_hook( player, stage )
 {
-    player endon( "acc_hack_stage_done" );
-    player endon( "acc_hack_stage_timeout" );
-    player endon( "disconnect" );
+    level.acc_hack_count_player = player;
+    level.acc_hack_count_stage = stage;
+    zm_spawner::register_zombie_death_event_callback( &acc_hack_zombie_death_watch );
 
-    for ( ;; )
-    {
-        level waittill( "zombie_killed", zombie, attacker, mod, hit_location );
+    player util::waittill_any_return( "acc_hack_stage_done", "acc_hack_stage_timeout", "disconnect" );
 
-        if ( !isdefined( attacker ) || attacker != player ) continue;
-        if ( !player [[ stage.requirement ]]( zombie, mod, hit_location, stage.flavor ) ) continue;
+    zm_spawner::deregister_zombie_death_event_callback( &acc_hack_zombie_death_watch );
+    level.acc_hack_count_player = undefined;
+    level.acc_hack_count_stage = undefined;
+}
 
-        player.acc_hack_stage_counter += 1;
-    }
+// self == the zombie that died (_zm_spawner::check_zombie_death_event_callbacks).
+function acc_hack_zombie_death_watch( attacker )
+{
+    player = level.acc_hack_count_player;
+    stage = level.acc_hack_count_stage;
+    if ( !isdefined( player ) || !isdefined( stage ) ) return;
+    if ( !isdefined( attacker ) || attacker != player ) return;
+    if ( !player [[ stage.requirement ]]( self, self.damagemod, self.damagelocation, stage.flavor ) ) return;
+
+    player.acc_hack_stage_counter += 1;
 }
 
 // Stage requirement functions. Return true if kill counts toward stage progress.
-stage_requirement_kills( zombie, mod, hit_location, flavor )
+function stage_requirement_kills( zombie, mod, hit_location, flavor )
 {
     return true;
 }
 
-stage_requirement_elite_kills( zombie, mod, hit_location, flavor )
+function stage_requirement_elite_kills( zombie, mod, hit_location, flavor )
 {
     if ( !isdefined( zombie.acc_is_elite ) ) return false;
     if ( !zombie.acc_is_elite ) return false;
@@ -241,7 +264,7 @@ stage_requirement_elite_kills( zombie, mod, hit_location, flavor )
     return true;
 }
 
-stage_requirement_headshots( zombie, mod, hit_location, flavor )
+function stage_requirement_headshots( zombie, mod, hit_location, flavor )
 {
     // Hit location strings confirmed via damage-hook research. See
     // docs/16_gsc_reference.md section 2. "head" and "helmet" are the
@@ -254,10 +277,10 @@ stage_requirement_headshots( zombie, mod, hit_location, flavor )
 // Penalty wave on failure
 // ---------------------------------------------------------------------------
 
-spawn_penalty_wave()
+function spawn_penalty_wave()
 {
     // ~8 zombies dumped near the terminal. Fast, aggressive.
-    _acc_utility::log( "hack: penalty wave" );
+    acc_utility::log( "hack: penalty wave" );
     // TODO(acc-verify): use zombie_utility::spawn_zombie on the nearest spawner
     // with forced high movement speed.
 }

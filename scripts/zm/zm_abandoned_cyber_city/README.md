@@ -2,11 +2,13 @@
 
 All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_acc_` prefix ("abandoned cyber city") separates our modules from the stock `_zm_*` scripts that ship with BO3.
 
+**Namespace convention** (mirrors stock): the file keeps the underscore, the GSC namespace drops it. `_acc_main.gsc` declares `#namespace acc_main;` and is called as `acc_main::init()` - exactly like stock `_zm_utility.gsc` → `zm_utility::`. Every function definition uses the BO3 `function` keyword.
+
 ## Module Map
 
 | File | Purpose | Referenced by |
 |---|---|---|
-| `_acc_main.gsc` | Orchestrator. Registers stock callbacks, fans out to every other module. | `maps/zm/zm_abandoned_cyber_city.gsc` |
+| `_acc_main.gsc` | Orchestrator. Registers stock callbacks, fans out to every other module. | `scripts/zm/zm_abandoned_cyber_city.gsc` |
 | `_acc_early_round_pacing.gsc` | Rounds 1–4: chain `level.max_zombie_func` for extra spawns; `on_ai_spawned` move-speed boost. | `zm_abandoned_cyber_city.gsc` (`post_zm_main`), `_acc_main.gsc` (`init`) |
 | `_acc_utility.gsc` | Shared helpers: logging, RNG, weighted pick, clamp, player lookup. | all |
 | `_acc_data_shards.gsc` | Custom currency. Drop entity, pickup, HUD bridge, public spend/grant API. | cyberware, overclocks, elites, events, boss, emergency_drop |
@@ -28,29 +30,30 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 ## Call Order
 
 ```
-maps/zm/zm_abandoned_cyber_city.gsc :: main()
-  -> _load::main()
-  -> _acc_main::pre_init()             // registers callbacks, runs modifier + randomizer pre_init
-    -> _acc_modifiers::pre_init()
-    -> _acc_map_randomizer::pre_init()
-  -> _zm::main()                        // stock zombies bootstrap
-  -> _acc_early_round_pacing::post_zm_main()  // chain level.max_zombie_func BEFORE round 1
-  -> _acc_main::init()                  // all subsystems init after stock is up
-    -> _acc_early_round_pacing::init()  // on_ai_spawned speed hook
-    -> _acc_data_shards::init()
-    -> _acc_cyberware::init()
-    -> _acc_overclocks::init()
-    -> _acc_elites::init()
-    -> _acc_events_hack::init()
-    -> _acc_events_overload::init()
-    -> _acc_emergency_drop::init()
-    -> _acc_boss::init()
-    -> _acc_boss_items::init()          // item pool registration; wired to boss deaths
-    -> _acc_mega_bottles::init()        // mega bottle clientfield + Mega-perk flag tracking
-    -> _acc_weapon_abilities::init()    // ability table + hotkey listener
-    -> _acc_points::init()              // must init BEFORE _acc_damage (record_damage callees)
-    -> _acc_damage::init()              // global AI damage hook (last so it sits on top)
-    -> watch_round_transitions()        // fires acc_round_start / acc_round_end
+scripts/zm/zm_abandoned_cyber_city.gsc :: main()
+  -> zm_usermap::main()                // stock usermap bootstrap (calls load::main() internally;
+                                       // BO3 has no _zm::main())
+  -> acc_main::pre_init()              // registers callbacks, runs modifier + randomizer pre_init
+    -> acc_modifiers::pre_init()
+    -> acc_map_randomizer::pre_init()
+  -> (template wiring: zones, start weapon, starting points)
+  -> acc_early_round_pacing::post_zm_main()  // chain level.max_zombie_func BEFORE round 1
+  -> acc_main::init()                  // threaded; all subsystems init after stock is up
+    -> acc_early_round_pacing::init()  // on_ai_spawned speed hook
+    -> acc_data_shards::init()
+    -> acc_cyberware::init()
+    -> acc_overclocks::init()
+    -> acc_elites::init()
+    -> acc_events_hack::init()
+    -> acc_events_overload::init()
+    -> acc_emergency_drop::init()
+    -> acc_boss::init()
+    -> acc_boss_items::init()          // item pool registration; wired to boss deaths
+    -> acc_mega_bottles::init()        // mega bottle clientfield + Mega-perk flag tracking
+    -> acc_weapon_abilities::init()    // ability table + hotkey listener
+    -> acc_points::init()              // must init BEFORE acc_damage (record_damage callees)
+    -> acc_damage::init()              // global AI damage hook (last so it sits on top)
+    -> watch_round_transitions()       // fires acc_round_start / acc_round_end
 ```
 
 ## Event Conventions

@@ -48,7 +48,9 @@ If everything goes right and downloads are cached: **3-5 hours**. First-time, fr
 3. Name it: `zm_acc_test` (acc = abandoned cyber city, test = throwaway). Using a distinct name keeps our real future map `zm_abandoned_cyber_city` clean.
 4. The Launcher generates a folder tree in `<steam>\steamapps\common\Call of Duty Black Ops III\usermaps\zm_acc_test\`.
 
-**Verify**: `usermaps\zm_acc_test\` exists and contains `maps/`, `scripts/`, `zone_source/` subfolders.
+**Verify**: `usermaps\zm_acc_test\` exists and contains `scripts/`, `zone_source/`, `sound/`, `zone/` subfolders (the Radiant `.map` source lands separately in the game root's `map_source\zm\`).
+
+> **Note**: for the real map you can skip this whole doc — the repo now ships a complete starting-room kit. Follow [18_first_build_checklist.md](18_first_build_checklist.md) instead. This quickstart remains useful as a zero-custom-code sanity test of your Mod Tools install.
 
 ### Step 4 - Open the Map in Radiant (~5 min)
 

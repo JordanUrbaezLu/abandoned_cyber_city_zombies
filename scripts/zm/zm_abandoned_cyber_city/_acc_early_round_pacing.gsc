@@ -8,7 +8,7 @@
 // on spawn. From round 5 onward, stock pacing unchanged (aside from modifiers).
 //
 // post_zm_main() MUST run from zm_abandoned_cyber_city.gsc immediately after
-// _zm::main() so level.max_zombie_func is chained before the first round
+// zm::main() so level.max_zombie_func is chained before the first round
 // computes spawn totals.
 // =============================================================================
 
@@ -27,13 +27,15 @@
 #define ACC_EARLY_SPAWN_MULT_R1 1.40
 #define ACC_EARLY_SPEED_SCALE 1.15
 
+#namespace acc_early_round_pacing;
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-post_zm_main()
+function post_zm_main()
 {
-    _acc_utility::log( "early round pacing: post_zm_main (chain max_zombie_func)" );
+    acc_utility::log( "early round pacing: post_zm_main (chain max_zombie_func)" );
 
     if ( isdefined( level.max_zombie_func ) )
         level.acc_prev_max_zombie_func = level.max_zombie_func;
@@ -43,9 +45,9 @@ post_zm_main()
     level.max_zombie_func = &acc_max_zombie_override;
 }
 
-init()
+function init()
 {
-    _acc_utility::log( "early round pacing: init (on_ai_spawned speed)" );
+    acc_utility::log( "early round pacing: init (on_ai_spawned speed)" );
 
     callback::on_ai_spawned( &on_zombie_spawned_speed );
 }
@@ -55,7 +57,7 @@ init()
 // (UGX / community reference; verify in share/raw/scripts/zm/_zm.gsc if needed.)
 // ---------------------------------------------------------------------------
 
-acc_max_zombie_override( n_max, n_round )
+function acc_max_zombie_override( n_max, n_round )
 {
     base = [[ level.acc_prev_max_zombie_func ]]( n_max, n_round );
 
@@ -71,7 +73,7 @@ acc_max_zombie_override( n_max, n_round )
     return i;
 }
 
-spawn_mult_for_round( round_number )
+function spawn_mult_for_round( round_number )
 {
     if ( !isdefined( round_number ) || round_number < 1 )
         return 1;
@@ -89,9 +91,17 @@ spawn_mult_for_round( round_number )
 // Movement speed — applied on AI spawn (stacks with stock anim tier)
 // ---------------------------------------------------------------------------
 
-on_zombie_spawned_speed( actor )
+// VERIFIED(acc): callback::on_ai_spawned dispatches with NO args ON the
+// spawned actor (callbacks_shared.gsc:43-49 'self thread [[callback]]()';
+// dispatch site spawner_shared.gsc:583) - so zero params, use self.
+// is_zombie() is a zero-param self method (zombie_utility.gsc:1320).
+// ASMSetAnimationRate is the stock way to scale zombie move speed (zombie
+// movement is anim-driven; Widow's Wine uses it, _zm_perk_widows_wine.gsc:443).
+// Known caveat: Widow's Wine resets the rate to 1.0 when its slow expires -
+// acceptable for rounds 1-4 where Widow's is rarely active.
+function on_zombie_spawned_speed()
 {
-    if ( !is_zombie( actor ) )
+    if ( !( self zombie_utility::is_zombie() ) )
         return;
 
     // Sprint modifier: stock max-speed zombies from r1; skip our early boost.
@@ -105,5 +115,5 @@ on_zombie_spawned_speed( actor )
     if ( r > ACC_EARLY_ROUND_MAX )
         return;
 
-    actor setmovespeedscale( ACC_EARLY_SPEED_SCALE );
+    self ASMSetAnimationRate( ACC_EARLY_SPEED_SCALE );
 }

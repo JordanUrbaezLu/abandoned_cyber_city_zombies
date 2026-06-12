@@ -36,80 +36,78 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 
-// Run before _zm::main() so we can register callbacks the stock framework fires.
-pre_init()
+#namespace acc_main;
+
+// Run before zm::main() so we can register callbacks the stock framework fires.
+function pre_init()
 {
-    _acc_utility::log( "pre_init start" );
+    acc_utility::log( "pre_init start" );
 
     // Modifiers are read BEFORE everything else because they can mute/replace
     // subsystems (e.g. "Shardless" disables _acc_data_shards pickup logic).
-    _acc_modifiers::pre_init();
+    acc_modifiers::pre_init();
 
     // Map randomizer runs next - every other system may read rolled state.
-    _acc_map_randomizer::pre_init();
+    acc_map_randomizer::pre_init();
 
     callback::on_connect( &on_player_connect );
     callback::on_spawned( &on_player_spawned );
     callback::on_disconnect( &on_player_disconnect );
 
-    _acc_utility::log( "pre_init done" );
+    acc_utility::log( "pre_init done" );
 }
 
-// Run after _zm::main() has finished bootstrapping stock systems.
-init()
+// Run after zm::main() has finished bootstrapping stock systems.
+function init()
 {
-    _acc_utility::log( "init start" );
+    acc_utility::log( "init start" );
 
-    _acc_early_round_pacing::init();
+    acc_early_round_pacing::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.
-    _acc_data_shards::init();
-    _acc_cyberware::init();
-    _acc_overclocks::init();
-    _acc_elites::init();
-    _acc_events_hack::init();
-    _acc_events_overload::init();
-    _acc_emergency_drop::init();
-    _acc_boss::init();
-    _acc_boss_items::init();
-    _acc_mega_bottles::init();
-    _acc_weapon_abilities::init();
+    acc_data_shards::init();
+    acc_cyberware::init();
+    acc_overclocks::init();
+    acc_elites::init();
+    acc_events_hack::init();
+    acc_events_overload::init();
+    acc_emergency_drop::init();
+    acc_boss::init();
+    acc_boss_items::init();
+    acc_mega_bottles::init();
+    acc_weapon_abilities::init();
     // Points must init before damage so record_damage is available on the first hit.
-    _acc_points::init();
+    acc_points::init();
     // Damage hooks go last so they sit on top of any hook other modules register.
-    _acc_damage::init();
+    acc_damage::init();
 
     level thread watch_round_transitions();
 
-    _acc_utility::log( "init complete" );
+    acc_utility::log( "init complete" );
 }
 
-// Client-side counterpart. Called from .csc.
-client_init()
-{
-    _acc_utility::log( "client_init" );
-    _acc_data_shards::client_init();
-    _acc_cyberware::client_init();
-}
+// NOTE: there is intentionally no client_init() here. In BO3 the client VM
+// (.csc) cannot call into server scripts (.gsc) - client-side _acc_ modules
+// will be separate .csc files when the LUI/HUD work lands in Phase 4.
 
 // Per-player setup, fires when a player joins (lobby or mid-game).
-on_player_connect()
+function on_player_connect()
 {
     self endon( "disconnect" );
-    _acc_utility::log_player( self, "connected" );
+    acc_utility::log_player( self, "connected" );
 
-    _acc_data_shards::on_player_connect( self );
-    _acc_cyberware::on_player_connect( self );
-    _acc_overclocks::on_player_connect( self );
-    _acc_modifiers::on_player_connect( self );
-    _acc_boss_items::on_player_connect( self );
-    _acc_mega_bottles::on_player_connect( self );
-    _acc_weapon_abilities::on_player_connect( self );
+    acc_data_shards::on_player_connect( self );
+    acc_cyberware::on_player_connect( self );
+    acc_overclocks::on_player_connect( self );
+    acc_modifiers::on_player_connect( self );
+    acc_boss_items::on_player_connect( self );
+    acc_mega_bottles::on_player_connect( self );
+    acc_weapon_abilities::on_player_connect( self );
 }
 
 // Fires on every respawn (round start, revive, map load).
-on_player_spawned()
+function on_player_spawned()
 {
     self endon( "disconnect" );
 
@@ -117,27 +115,30 @@ on_player_spawned()
     if ( !isdefined( self.acc_first_spawn_done ) )
     {
         self.acc_first_spawn_done = true;
-        _acc_utility::log_player( self, "first spawn" );
+        acc_utility::log_player( self, "first spawn" );
     }
 
-    _acc_data_shards::on_player_spawned( self );
-    _acc_cyberware::on_player_spawned( self );
+    acc_data_shards::on_player_spawned( self );
+    acc_cyberware::on_player_spawned( self );
 }
 
-on_player_disconnect()
+function on_player_disconnect()
 {
-    _acc_utility::log_player( self, "disconnected" );
-    _acc_data_shards::on_player_disconnect( self );
+    acc_utility::log_player( self, "disconnected" );
+    acc_data_shards::on_player_disconnect( self );
 }
 
 // Dispatches `acc_round_start` / `acc_round_end` events that subsystems listen
 // for. Using a single fan-out instead of every system hooking stock events
 // independently keeps ordering controllable.
-watch_round_transitions()
+function watch_round_transitions()
 {
     level endon( "end_game" );
 
-    level waittill( "initial_blackscreen_passed" );
+    // VERIFIED(acc): "initial_blackscreen_passed" is a FLAG (_zm.gsc:1612 init,
+    // _zm.gsc:530 set) - flag::wait_till returns immediately if already set,
+    // a bare waittill would hang. Stock: zm_giant.gsc:726, _zm_magicbox.gsc:2182.
+    level flag::wait_till( "initial_blackscreen_passed" );
     level notify( "acc_game_start" );
 
     previous_round = -1;

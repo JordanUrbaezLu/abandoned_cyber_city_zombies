@@ -19,14 +19,16 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
+#namespace acc_cyberware;
+
 // ---------------------------------------------------------------------------
 // Tree definition. Keep in sync with docs/04_progression_and_skills.md.
 // Node ids are strings so we can log/debug cleanly; do NOT refactor to ints.
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "cyberware init" );
+    acc_utility::log( "cyberware init" );
 
     level.acc_cyberware_tree = build_tree();
 
@@ -39,18 +41,18 @@ init()
     level thread subroutine_passive_regen_loop();
 }
 
-client_init()
+function client_init()
 {
     // LUI skill-tree screen lives here (Phase 4). Stub for now.
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     player.acc_cyberware_nodes = [];
     player.acc_cyberware_respecs_used = 0;
 }
 
-on_player_spawned( player )
+function on_player_spawned( player )
 {
     // Re-apply all purchased nodes' effects on every respawn. Some effects
     // (e.g. +sprint speed) are reset by the respawn logic.
@@ -67,7 +69,7 @@ on_player_spawned( player )
 // Tree structure
 // ---------------------------------------------------------------------------
 
-build_tree()
+function build_tree()
 {
     tree = spawnstruct();
     tree.nodes = [];
@@ -135,7 +137,7 @@ build_tree()
     return tree;
 }
 
-node( id, branch, tier, cost, requires, display_name, on_apply )
+function node( id, branch, tier, cost, requires, display_name, on_apply )
 {
     n = spawnstruct();
     n.id = id;
@@ -148,7 +150,7 @@ node( id, branch, tier, cost, requires, display_name, on_apply )
     return n;
 }
 
-find_node( node_id )
+function find_node( node_id )
 {
     for ( i = 0; i < level.acc_cyberware_tree.nodes.size; i++ )
     {
@@ -165,7 +167,7 @@ find_node( node_id )
 // ---------------------------------------------------------------------------
 
 // Returns true iff the player is allowed to purchase this node right now.
-can_purchase( player, node_id )
+function can_purchase( player, node_id )
 {
     node = find_node( node_id );
     if ( !isdefined( node ) ) return false;
@@ -174,7 +176,7 @@ can_purchase( player, node_id )
     if ( player has_node( node_id ) ) return false;
 
     // Affordability.
-    if ( _acc_data_shards::get_count( player ) < node.cost ) return false;
+    if ( acc_data_shards::get_count( player ) < node.cost ) return false;
 
     // Prerequisite satisfied?
     if ( node.requires.size > 0 )
@@ -197,12 +199,12 @@ can_purchase( player, node_id )
     return true;
 }
 
-try_purchase( player, node_id )
+function try_purchase( player, node_id )
 {
     if ( !can_purchase( player, node_id ) ) return false;
 
     node = find_node( node_id );
-    if ( !_acc_data_shards::try_spend( player, node.cost ) ) return false;
+    if ( !acc_data_shards::try_spend( player, node.cost ) ) return false;
 
     player.acc_cyberware_nodes[ player.acc_cyberware_nodes.size ] = node_id;
     player apply_node_effects( node_id );
@@ -212,12 +214,12 @@ try_purchase( player, node_id )
 }
 
 // Refund the highest-tier node the player owns. Costs 3 Shards tax.
-try_respec_last_node( player )
+function try_respec_last_node( player )
 {
     if ( !isdefined( player.acc_cyberware_nodes ) ) return false;
     if ( player.acc_cyberware_nodes.size == 0 ) return false;
     if ( player.acc_cyberware_respecs_used > 0 ) return false;
-    if ( _acc_data_shards::get_count( player ) < 3 ) return false;
+    if ( acc_data_shards::get_count( player ) < 3 ) return false;
 
     // Find highest-tier node.
     highest_idx = 0;
@@ -236,8 +238,8 @@ try_respec_last_node( player )
     if ( highest_tier == 0 ) return false;
 
     refund_node = find_node( player.acc_cyberware_nodes[ highest_idx ] );
-    _acc_data_shards::grant_player( player, refund_node.cost, "respec_refund" );
-    _acc_data_shards::try_spend( player, 3 ); // tax
+    acc_data_shards::grant_player( player, refund_node.cost, "respec_refund" );
+    acc_data_shards::try_spend( player, 3 ); // tax
 
     // Remove node from array (and re-apply remaining).
     player.acc_cyberware_nodes = array::remove_index( player.acc_cyberware_nodes, highest_idx );
@@ -252,7 +254,7 @@ try_respec_last_node( player )
     return true;
 }
 
-has_node( node_id )
+function has_node( node_id )
 {
     if ( !isdefined( self.acc_cyberware_nodes ) ) return false;
     for ( i = 0; i < self.acc_cyberware_nodes.size; i++ )
@@ -262,7 +264,7 @@ has_node( node_id )
     return false;
 }
 
-has_branch_tier( branch, tier )
+function has_branch_tier( branch, tier )
 {
     if ( !isdefined( self.acc_cyberware_nodes ) ) return false;
     for ( i = 0; i < self.acc_cyberware_nodes.size; i++ )
@@ -281,7 +283,7 @@ has_branch_tier( branch, tier )
 // placed in Radiant. Real UI (Phase 4) is a LUI skill-tree screen.
 // ---------------------------------------------------------------------------
 
-watch_kiosk_trigger()
+function watch_kiosk_trigger()
 {
     level endon( "end_game" );
 
@@ -290,7 +292,7 @@ watch_kiosk_trigger()
     triggers = getentarray( "acc_cyberware_kiosk", "targetname" );
     if ( triggers.size == 0 )
     {
-        _acc_utility::log( "cyberware: no kiosk placed yet" );
+        acc_utility::log( "cyberware: no kiosk placed yet" );
         return;
     }
 
@@ -300,7 +302,7 @@ watch_kiosk_trigger()
     }
 }
 
-kiosk_loop()
+function kiosk_loop()
 {
     self endon( "death" );
 
@@ -332,7 +334,7 @@ kiosk_loop()
 // Effect application
 // ---------------------------------------------------------------------------
 
-apply_node_effects( node_id )
+function apply_node_effects( node_id )
 {
     node = find_node( node_id );
     if ( !isdefined( node ) ) return;
@@ -341,25 +343,25 @@ apply_node_effects( node_id )
 
 // Strips all effects. Used before re-apply in respec.
 // We track effect values in self.acc_cw_* fields so we can reset them cleanly.
-strip_all_node_effects()
+function strip_all_node_effects()
 {
     // TODO(acc-effects): add reset logic as apply_* functions are fleshed out.
 }
 
 // --- Tier 1 ---
-apply_oc1()
+function apply_oc1()
 {
     // +15% weapon damage. Applied via damage callback registered below.
     self.acc_cw_damage_mult = 1.15;
 }
 
-apply_sr1()
+function apply_sr1()
 {
     // Passive shard regen handled by level thread; just set the flag.
     self.acc_cw_shard_regen_active = true;
 }
 
-apply_rx1()
+function apply_rx1()
 {
     // +10% sprint speed.
     // TODO(acc-verify): exact API call to modify move speed in zombies.
@@ -367,23 +369,23 @@ apply_rx1()
 }
 
 // --- Tier 2 ---
-apply_oc2a() { self.acc_cw_crit_damage_mult = 1.30; self.acc_cw_crit_chance_bonus = 0.50; }
-apply_oc2b() { self.acc_cw_pap_elemental_slot = true; }
-apply_sr2a() { self.acc_cw_events_retry = true; }
-apply_sr2b() { self.acc_cw_bleed_multiplier = 2.0; self.acc_cw_selfrevive_shard_discount = 0.5; }
-apply_rx2a() { self.acc_cw_phase_step = true; }
-apply_rx2b() { self.acc_cw_ghost_protocol = true; }
+function apply_oc2a() { self.acc_cw_crit_damage_mult = 1.30; self.acc_cw_crit_chance_bonus = 0.50; }
+function apply_oc2b() { self.acc_cw_pap_elemental_slot = true; }
+function apply_sr2a() { self.acc_cw_events_retry = true; }
+function apply_sr2b() { self.acc_cw_bleed_multiplier = 2.0; self.acc_cw_selfrevive_shard_discount = 0.5; }
+function apply_rx2a() { self.acc_cw_phase_step = true; }
+function apply_rx2b() { self.acc_cw_ghost_protocol = true; }
 
 // --- Tier 3 ---
-apply_oc3() { self.acc_cw_meltdown_aoe = true; }
-apply_sr3() { self.acc_cw_recursion_active = true; self.acc_cw_recursion_counter = 0; }
-apply_rx3() { self.acc_cw_overdrive_active = true; }
+function apply_oc3() { self.acc_cw_meltdown_aoe = true; }
+function apply_sr3() { self.acc_cw_recursion_active = true; self.acc_cw_recursion_counter = 0; }
+function apply_rx3() { self.acc_cw_overdrive_active = true; }
 
 // ---------------------------------------------------------------------------
 // Passive subroutine regen loop
 // ---------------------------------------------------------------------------
 
-subroutine_passive_regen_loop()
+function subroutine_passive_regen_loop()
 {
     level endon( "end_game" );
 
@@ -398,7 +400,7 @@ subroutine_passive_regen_loop()
             if ( !isdefined( player.acc_cw_shard_regen_active ) ) continue;
             if ( !player.acc_cw_shard_regen_active ) continue;
 
-            _acc_data_shards::grant_player( player, 1, "subroutine_regen" );
+            acc_data_shards::grant_player( player, 1, "subroutine_regen" );
         }
     }
 }

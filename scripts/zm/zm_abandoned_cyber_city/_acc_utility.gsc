@@ -10,22 +10,24 @@
 
 #using scripts\zm\_zm_utility;
 
+#namespace acc_utility;
+
 // ---------------------------------------------------------------------------
 // Logging. All _acc_ logs are prefixed so you can grep console.log cleanly.
 // ---------------------------------------------------------------------------
 
-log( msg )
+function log( msg )
 {
     iprintlnbold_if_dev( "[acc] " + msg );
     /# println( "[acc] " + msg ); #/  // /# #/ = devmode-only block
 }
 
-log_player( player, msg )
+function log_player( player, msg )
 {
     log( "player=" + player.name + " " + msg );
 }
 
-iprintlnbold_if_dev( msg )
+function iprintlnbold_if_dev( msg )
 {
     /# iprintln( msg ); #/
 }
@@ -37,19 +39,19 @@ iprintlnbold_if_dev( msg )
 // seeded PRNG later without hunting every callsite.
 // ---------------------------------------------------------------------------
 
-acc_rand_int( max_exclusive )
+function acc_rand_int( max_exclusive )
 {
     // TODO(acc-seeded): swap in seeded PRNG when we build that feature.
     return randomint( max_exclusive );
 }
 
-acc_rand_float()
+function acc_rand_float()
 {
     return randomfloat( 1.0 );
 }
 
 // Weighted pick. `choices` is an array of objects each with `.weight` and `.value`.
-acc_weighted_pick( choices )
+function acc_weighted_pick( choices )
 {
     total = 0;
     for ( i = 0; i < choices.size; i++ )
@@ -81,23 +83,23 @@ acc_weighted_pick( choices )
 // Player helpers
 // ---------------------------------------------------------------------------
 
-get_all_players()
+function get_all_players()
 {
     // level.players is maintained by stock on connect/disconnect.
     // Use this instead of iterating entity pools.
     return level.players;
 }
 
-get_closest_player_to( origin )
+function get_closest_player_to( origin )
 {
-    return _zm_utility::get_closest_player( origin );
+    return zm_utility::get_closest_player( origin );
 }
 
 // ---------------------------------------------------------------------------
 // Delayed actions. Safe wrappers so we don't forget endon-on-disconnect.
 // ---------------------------------------------------------------------------
 
-run_after_delay( delay_sec, func )
+function run_after_delay( delay_sec, func )
 {
     self endon( "disconnect" );
     wait( delay_sec );
@@ -108,14 +110,14 @@ run_after_delay( delay_sec, func )
 // Math
 // ---------------------------------------------------------------------------
 
-clamp_int( x, low, high )
+function clamp_int( x, low, high )
 {
     if ( x < low ) return low;
     if ( x > high ) return high;
     return x;
 }
 
-clamp_float( x, low, high )
+function clamp_float( x, low, high )
 {
     if ( x < low ) return low;
     if ( x > high ) return high;

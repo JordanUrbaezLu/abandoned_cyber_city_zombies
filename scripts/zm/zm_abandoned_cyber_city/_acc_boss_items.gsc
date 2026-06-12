@@ -10,6 +10,8 @@
 // implementations are stubbed with TODOs for Phase 4 authoring.
 // =============================================================================
 
+#namespace acc_boss_items;
+
 #using scripts\shared\array_shared;
 #using scripts\shared\util_shared;
 
@@ -28,31 +30,49 @@
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "boss_items init (pool=6, slots=" +
+    acc_utility::log( "boss_items init (pool=6, slots=" +
                        ACC_ITEM_SLOTS_PER_PLAYER + ")" );
 
     level.acc_item_pool = build_item_pool();
 }
 
-// Payroll Ledger bonus applied as a multiplier on the player's share of kill
-// points. Exposed as a constant here so _acc_points.gsc can reference it.
-#define ACC_ITEM_LEDGER_POINTS_MULT 1.10
+// Payroll Ledger points bonus: the multiplier is owned by _acc_points.gsc as
+// ACC_POINTS_LEDGER_MULT (GSC #defines are file-local; #using does not share
+// macros - only a .gsh pulled in via #insert does). _acc_points.gsc applies
+// the bonus by calling acc_boss_items::player_has_ledger(). If the value ever
+// needs to be shared, move it into a common .gsh and #insert it from both files.
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     // Array of equipped item-ids (max ACC_ITEM_SLOTS_PER_PLAYER).
     player.acc_equipped_items = [];
     // Per-item cooldowns / counters (for items like Ghost Shroud, Kinetic Battery).
     player.acc_item_state = [];
+    player thread reapply_move_speed_on_spawn();
+}
+
+// VERIFIED(acc): zm_usermap giveCustomCharacters() runs SetMoveSpeedScale(1)
+// on EVERY player spawn (zm_usermap.gsc:336), silently wiping the Neural
+// Boots bonus on respawn - reapply after each "spawned_player" notify
+// (notify site _zm.gsc:3337).
+function reapply_move_speed_on_spawn()
+{
+    self endon( "disconnect" );
+    for ( ;; )
+    {
+        self waittill( "spawned_player" );
+        wait( 0.05 ); // run after zm_usermap giveCustomCharacters() resets to 1
+        setmovespeedscale_hook( self );
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Item pool
 // ---------------------------------------------------------------------------
 
-build_item_pool()
+function build_item_pool()
 {
     pool = [];
 
@@ -107,7 +127,7 @@ build_item_pool()
     return pool;
 }
 
-item( id, display_name, slot, on_equip, on_unequip )
+function item( id, display_name, slot, on_equip, on_unequip )
 {
     i = spawnstruct();
     i.id = id;
@@ -118,7 +138,7 @@ item( id, display_name, slot, on_equip, on_unequip )
     return i;
 }
 
-find_item( item_id )
+function find_item( item_id )
 {
     for ( i = 0; i < level.acc_item_pool.size; i++ )
     {
@@ -138,27 +158,27 @@ find_item( item_id )
 // origin = boss corpse origin
 // ---------------------------------------------------------------------------
 
-on_boss_death( tier, killer, origin )
+function on_boss_death( tier, killer, origin )
 {
     chance = ACC_BOSS_ITEM_DROP_CHANCE_MINI;
     if ( tier == "full" ) chance = ACC_BOSS_ITEM_DROP_CHANCE_FULL;
 
-    if ( _acc_utility::acc_rand_float() > chance )
+    if ( acc_utility::acc_rand_float() > chance )
     {
-        _acc_utility::log( "boss_items: drop rolled but missed (" + tier + ")" );
+        acc_utility::log( "boss_items: drop rolled but missed (" + tier + ")" );
         return;
     }
 
     // Pick a random item from the pool.
-    picked = level.acc_item_pool[ _acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
+    picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
 
     // If killer already has this item, auto-convert to Shards right here.
     if ( isdefined( killer ) && isplayer( killer ) &&
          player_has_item( killer, picked.id ) )
     {
-        _acc_data_shards::grant_player( killer, ACC_ITEM_DUPLICATE_SHARD_CONVERT,
+        acc_data_shards::grant_player( killer, ACC_ITEM_DUPLICATE_SHARD_CONVERT,
                                         "boss_item_duplicate" );
-        _acc_utility::log( "boss_items: " + picked.id +
+        acc_utility::log( "boss_items: " + picked.id +
                            " was duplicate for " + killer.name +
                            " -> +" + ACC_ITEM_DUPLICATE_SHARD_CONVERT + " shards" );
         return;
@@ -172,7 +192,7 @@ on_boss_death( tier, killer, origin )
 // Pickup entity
 // ---------------------------------------------------------------------------
 
-spawn_pickup( item_struct, origin )
+function spawn_pickup( item_struct, origin )
 {
     // TODO(acc-model): swap `script_model` + tag_origin for a themed glowing
     // model per item slot (boots / gauntlets / visor / battery / shroud).
@@ -185,7 +205,7 @@ spawn_pickup( item_struct, origin )
     pickup thread watch_lifetime();
 }
 
-watch_pickup()
+function watch_pickup()
 {
     self endon( "acc_item_claimed" );
     self endon( "death" );
@@ -193,7 +213,7 @@ watch_pickup()
     for ( ;; )
     {
         wait( 0.1 );
-        closest = _acc_utility::get_closest_player_to( self.origin );
+        closest = acc_utility::get_closest_player_to( self.origin );
         if ( !isdefined( closest ) ) continue;
         if ( distancesquared( closest.origin, self.origin ) >
              ( ACC_ITEM_PICKUP_RADIUS * ACC_ITEM_PICKUP_RADIUS ) ) continue;
@@ -205,7 +225,7 @@ watch_pickup()
         if ( player_has_item( closest, item_struct.id ) )
         {
             // Already owned - convert to shards for this player.
-            _acc_data_shards::grant_player( closest, ACC_ITEM_DUPLICATE_SHARD_CONVERT,
+            acc_data_shards::grant_player( closest, ACC_ITEM_DUPLICATE_SHARD_CONVERT,
                                             "boss_item_duplicate" );
             self notify( "acc_item_claimed" );
             self delete();
@@ -230,7 +250,7 @@ watch_pickup()
     }
 }
 
-watch_lifetime()
+function watch_lifetime()
 {
     self endon( "acc_item_claimed" );
     self endon( "death" );
@@ -247,7 +267,7 @@ watch_lifetime()
 // Equip / unequip
 // ---------------------------------------------------------------------------
 
-player_has_item( player, item_id )
+function player_has_item( player, item_id )
 {
     if ( !isdefined( player.acc_equipped_items ) ) return false;
     for ( i = 0; i < player.acc_equipped_items.size; i++ )
@@ -257,7 +277,7 @@ player_has_item( player, item_id )
     return false;
 }
 
-equip_item( player, item_id )
+function equip_item( player, item_id )
 {
     if ( player_has_item( player, item_id ) ) return;
 
@@ -268,7 +288,7 @@ equip_item( player, item_id )
     player [[ item_struct.on_equip ]]();
 }
 
-unequip_item( player, item_id )
+function unequip_item( player, item_id )
 {
     item_struct = find_item( item_id );
     if ( !isdefined( item_struct ) ) return;
@@ -293,42 +313,42 @@ unequip_item( player, item_id )
 // to apply the actual gameplay effect.
 // ---------------------------------------------------------------------------
 
-apply_neural_boots()        { self.acc_item_neural_boots = true; setmovespeedscale_hook( self ); _acc_utility::log( "equip: neural_boots" ); }
-remove_neural_boots()       { self.acc_item_neural_boots = false; setmovespeedscale_hook( self ); _acc_utility::log( "unequip: neural_boots" ); }
+function apply_neural_boots()        { self.acc_item_neural_boots = true; setmovespeedscale_hook( self ); acc_utility::log( "equip: neural_boots" ); }
+function remove_neural_boots()       { self.acc_item_neural_boots = false; setmovespeedscale_hook( self ); acc_utility::log( "unequip: neural_boots" ); }
 
-apply_overclocked_gauntlets()   { self.acc_item_gauntlets = true; _acc_utility::log( "equip: overclocked_gauntlets" ); }
-remove_overclocked_gauntlets()  { self.acc_item_gauntlets = false; _acc_utility::log( "unequip: overclocked_gauntlets" ); }
+function apply_overclocked_gauntlets()   { self.acc_item_gauntlets = true; acc_utility::log( "equip: overclocked_gauntlets" ); }
+function remove_overclocked_gauntlets()  { self.acc_item_gauntlets = false; acc_utility::log( "unequip: overclocked_gauntlets" ); }
 
-apply_targeting_visor()     { self.acc_item_visor = true; _acc_utility::log( "equip: targeting_visor" ); }
-remove_targeting_visor()    { self.acc_item_visor = false; _acc_utility::log( "unequip: targeting_visor" ); }
+function apply_targeting_visor()     { self.acc_item_visor = true; acc_utility::log( "equip: targeting_visor" ); }
+function remove_targeting_visor()    { self.acc_item_visor = false; acc_utility::log( "unequip: targeting_visor" ); }
 
-apply_kinetic_battery()
+function apply_kinetic_battery()
 {
     self.acc_item_battery = true;
     self.acc_item_battery_kill_count = 0;
     self.acc_item_battery_charged = false;
-    _acc_utility::log( "equip: kinetic_battery" );
+    acc_utility::log( "equip: kinetic_battery" );
 }
-remove_kinetic_battery()
+function remove_kinetic_battery()
 {
     self.acc_item_battery = false;
-    _acc_utility::log( "unequip: kinetic_battery" );
+    acc_utility::log( "unequip: kinetic_battery" );
 }
 
-apply_ghost_shroud()
+function apply_ghost_shroud()
 {
     self.acc_item_shroud = true;
     self.acc_item_shroud_ready_at = 0;
-    _acc_utility::log( "equip: ghost_shroud" );
+    acc_utility::log( "equip: ghost_shroud" );
 }
-remove_ghost_shroud()       { self.acc_item_shroud = false; _acc_utility::log( "unequip: ghost_shroud" ); }
+function remove_ghost_shroud()       { self.acc_item_shroud = false; acc_utility::log( "unequip: ghost_shroud" ); }
 
-apply_payroll_ledger()      { self.acc_item_ledger = true; _acc_utility::log( "equip: payroll_ledger (+10% Points on kills)" ); }
-remove_payroll_ledger()     { self.acc_item_ledger = false; _acc_utility::log( "unequip: payroll_ledger" ); }
+function apply_payroll_ledger()      { self.acc_item_ledger = true; acc_utility::log( "equip: payroll_ledger (+10% Points on kills)" ); }
+function remove_payroll_ledger()     { self.acc_item_ledger = false; acc_utility::log( "unequip: payroll_ledger" ); }
 
 // Exposed helper so _acc_points.gsc can apply the ledger bonus without
 // knowing the implementation detail of the flag name.
-player_has_ledger( player )
+function player_has_ledger( player )
 {
     if ( !isdefined( player ) ) return false;
     if ( !isdefined( player.acc_item_ledger ) ) return false;
@@ -336,8 +356,11 @@ player_has_ledger( player )
 }
 
 // Movement speed hook - applies +20% when Neural Boots equipped AND holding a primary.
-// TODO(acc-verify): actual move speed API and interaction with stock.
-setmovespeedscale_hook( player )
+// VERIFIED(acc): SetMoveSpeedScale(player, float) is the stock API
+// (_zm.gsc:4795, zm_usermap.gsc:336). Stamin-Up uses the 'marathon' specialty,
+// not this scale - no perk conflict. Respawn reset handled by
+// reapply_move_speed_on_spawn above.
+function setmovespeedscale_hook( player )
 {
     base = 1.0;
     // Stacks multiplicatively with Cyberware Reflex Tier 1 (handled by that module).

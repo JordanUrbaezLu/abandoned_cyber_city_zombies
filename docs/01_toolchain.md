@@ -74,19 +74,20 @@ flowchart LR
 <steamapps>\common\Call of Duty Black Ops III\
   bin\                   # tools binaries (Launcher, Radiant, APE)
   share\raw\             # all stock raw assets (read-only reference)
-  usermaps\              # <-- YOUR MAP LIVES HERE
+  map_source\zm\         # Radiant .map sources (yours included - NOT under usermaps)
+  usermaps\              # <-- YOUR MAP'S RUNTIME KIT LIVES HERE
     zm_abandoned_cyber_city\
-      maps\zm\           # .map, .gsc, .csc for the map
-      scripts\zm\        # map-specific GSC/CSC
-      zone_source\       # asset lists that go into the fast file
-      sound\             # map-specific sound aliases
+      scripts\zm\        # entry .gsc/.csc + map-specific GSC modules
+      zone_source\       # .zone asset manifest that drives the fast file
+      sound\             # sound zone config (.szc) + aliases
+      zone\              # workshop publish assets (workshop.json, images)
       ui\                # map-specific LUI
   zone_out\              # compiled .ff outputs
   mods\                  # standalone mods (not maps)
   players\               # your local config + playtest saves
 ```
 
-This repo will mirror the authoring-side subset (`maps/`, `scripts/`, `ui/`, `zone_source/`) so it can be version-controlled. A sync step (documented in `08_milestones.md`) copies or symlinks it into `usermaps/zm_abandoned_cyber_city/` on the Windows box.
+This repo mirrors the authoring-side subset (`map_source/`, `scripts/`, `zone_source/`, `sound/`, `zone/`, `ui/`) so it can be version-controlled. `tools\sync_to_modtools.ps1` copies it into place on the Windows box (usermap trees into `usermaps\zm_abandoned_cyber_city\`, the `.map` into the root `map_source\zm\`).
 
 ## Build & Test Loop (what you'll do 100x a day)
 
@@ -104,7 +105,7 @@ flowchart LR
 
 ## Version Control Strategy
 
-- **In git**: everything text - `.gsc`, `.csc`, `.lua`, `.gdt` (when stored as plaintext), `.csv` zone files, design docs.
+- **In git**: everything text - `.gsc`, `.csc`, `.lua`, `.gdt` (when stored as plaintext), `.zone` manifests, `.map` Radiant sources, design docs.
 - **In git with LFS (later, when we add them)**: reference images, sound assets we author, small prefab `.map` files.
 - **NOT in git**: `.ff` outputs, `zone_out/`, compiled binaries, anything in `share/raw/` (stock game assets), Maya project files (too large and proprietary).
 - `.gitignore` will reflect this once we start adding non-markdown content in Phase 2.
@@ -122,7 +123,7 @@ A curated, ordered reading/watching list lives in `02_learning_path.md`.
 ## Common Pitfalls (known traps, documented up front)
 
 - **Editing stock scripts in `share/raw/`.** Never do this. Always copy to your usermaps scripts tree first.
-- **Forgetting to include an asset in your zone_source CSV.** It will be missing at runtime with no clear error. When in doubt, check your map's `zone_source/zm_abandoned_cyber_city.csv`.
+- **Forgetting to include an asset in your zone manifest.** It will be missing at runtime with no clear error. When in doubt, check `zone_source/zm_abandoned_cyber_city.zone` (custom scripts use `scriptparsetree`, not `rawfile`).
 - **Radiant CSG issues from non-grid brushes.** Keep brushes grid-aligned; use the `]` and `[` keys to change grid size.
 - **PaP / perk prefabs not linking.** The zombies template relies on named script_structs and triggers; renaming prefab internals breaks the script. Don't rename children of stock prefabs.
 - **Fast file size limit.** BO3 has a hard cap; bloated texture atlases or redundant weapon variants will push you over it. Audit asset budgets early.

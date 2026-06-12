@@ -39,7 +39,7 @@ Stock BO3 front-loads a slow walk phase; we **compress that window** so the firs
 | **Spawn count** | Multiply stock `[[ level.max_zombie_func ]]( n_max, n_round )` output: **×1.40** on round **1**, **×1.35** on rounds **2–4** (integer **ceil**). From round **5**, multiplier **×1.0**. Other systems (e.g. **Shortened Rounds** modifier) multiply on top of this. |
 | **Move speed** | On zombie AI spawn, apply **`setmovespeedscale( 1.15 )`** for rounds **1–4** (stacks with stock anim tier). **Sprint** modifier skips this boost (see `07_replayability.md`). |
 
-**Code**: [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc) — `post_zm_main()` chains `level.max_zombie_func` from `maps/zm/zm_abandoned_cyber_city.gsc` immediately after `_zm::main()`; `init()` registers `callback::on_ai_spawned` for speed. Constants: `ACC_EARLY_SPAWN_MULT_R1`, `ACC_EARLY_SPAWN_MULT`, `ACC_EARLY_SPEED_SCALE`, `ACC_EARLY_ROUND_MAX`.
+**Code**: [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc) — `post_zm_main()` chains `level.max_zombie_func` from `scripts/zm/zm_abandoned_cyber_city.gsc` after `zm_usermap::main()`, still inside `main()` so the chain exists before round 1; `init()` registers `callback::on_ai_spawned` for speed. Constants: `ACC_EARLY_SPAWN_MULT_R1`, `ACC_EARLY_SPAWN_MULT`, `ACC_EARLY_SPEED_SCALE`, `ACC_EARLY_ROUND_MAX`.
 
 ### 4. Decontamination before Lab perk rotation
 
@@ -79,25 +79,35 @@ When a zombie is killed, the point award is distributed:
 - **Other qualifying damage contributors**: split the remaining **30%** equally among themselves.
 - **Solo (no other qualifying contributors)**: the killer gets **100%**. No penalty for playing solo.
 
-Rounding uses the remainder-to-pool pattern so point totals across players equal the full base award (no rounding loss; no rounding exploit).
+**Payouts are quantized to 10-point units** - a verified BO3 engine constraint:
+the stock score API rounds every award UP to a multiple of 10
+(`_zm_score.gsc:528`; see [19_stock_api_verification.md](19_stock_api_verification.md)),
+so shares are computed in 10-pt chunks with leftover chunks going to the
+earliest contributors. Totals across players always equal the full base award
+exactly (no inflation; no rounding exploit). The killer's 70% rounds to the
+nearest 10.
 
-Example payouts (regular kill = 40 pts base):
+Example payouts (regular kill = 40 pts base; killer share 28 → 30):
 
-| Players who contributed | Killer gets | Each other gets | Total granted |
+| Players who contributed | Killer gets | Others get | Total granted |
 |---|---|---|---|
 | Killer only (solo) | 40 | - | 40 |
-| Killer + 1 other | 28 | 12 | 40 |
-| Killer + 2 others | 28 | 6 | 40 |
-| Killer + 3 others | 28 | 4 | 40 |
+| Killer + 1 other | 30 | 10 | 40 |
+| Killer + 2 others | 30 | 10 / 0 | 40 |
+| Killer + 3 others | 30 | 10 / 0 / 0 | 40 |
 
-Same 70/30 split for a 100-pt headshot or knife kill:
+Same split for a 100-pt headshot or knife kill (killer share = 70):
 
-| Players who contributed | Killer gets | Each other gets | Total granted |
+| Players who contributed | Killer gets | Others get | Total granted |
 |---|---|---|---|
 | Killer only | 100 | - | 100 |
 | Killer + 1 other | 70 | 30 | 100 |
-| Killer + 2 others | 70 | 15 | 100 |
-| Killer + 3 others | 70 | 10 | 100 |
+| Killer + 2 others | 70 | 20 / 10 | 100 |
+| Killer + 3 others | 70 | 10 / 10 / 10 | 100 |
+
+On a low-value kill some contributors can receive 0 (the pool only has one
+10-pt chunk) - acceptable: headshot/knife kills are where assist money lives,
+and the 5% qualification bar below still gates who is in the pool at all.
 
 ### Anti-Exploit Rules (hard-enforced in code)
 

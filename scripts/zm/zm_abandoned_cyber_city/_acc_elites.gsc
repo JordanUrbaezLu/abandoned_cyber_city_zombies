@@ -13,6 +13,8 @@
 #using scripts\shared\util_shared;
 
 #using scripts\zm\_zm;
+#using scripts\zm\_zm_powerups;
+#using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
@@ -28,23 +30,30 @@
 
 #define ACC_ELITE_SHARD_REWARD 1
 
-init()
+#namespace acc_elites;
+
+function init()
 {
-    _acc_utility::log( "elites init" );
+    acc_utility::log( "elites init" );
 
     level.acc_elite_active_count = 0;
 
     level thread round_pressure_loop();
 
-    // Listen for any zombie death; filter to elites and handle drops.
-    level thread on_zombie_killed_loop();
+    // VERIFIED(acc): "zombie_killed" is only ever notified on the PLAYER (and
+    // only in the insta-kill path, _zm_powerups.gsc:1463) - a level waittill
+    // would hang forever. The stock per-zombie death hook is
+    // zm_spawner::register_zombie_death_event_callback (_zm_spawner.gsc:2463);
+    // the callback runs ON the dying zombie with the attacker as arg
+    // (usage example: _zm_perk_widows_wine.gsc:134).
+    zm_spawner::register_zombie_death_event_callback( &on_elite_zombie_death );
 }
 
 // ---------------------------------------------------------------------------
 // Round-level orchestration
 // ---------------------------------------------------------------------------
 
-round_pressure_loop()
+function round_pressure_loop()
 {
     level endon( "end_game" );
 
@@ -59,7 +68,7 @@ round_pressure_loop()
     }
 }
 
-elite_quota_for_round( round_number )
+function elite_quota_for_round( round_number )
 {
     // See docs/04_progression_and_skills.md "Difficulty Curve".
     if ( round_number < ACC_ELITE_SHIELDED_MIN_ROUND ) return 0;
@@ -69,7 +78,7 @@ elite_quota_for_round( round_number )
     return 4;
 }
 
-spawn_elites_over_round( quota, round_number )
+function spawn_elites_over_round( quota, round_number )
 {
     level endon( "end_game" );
     level endon( "acc_round_end" );
@@ -87,34 +96,41 @@ spawn_elites_over_round( quota, round_number )
     }
 }
 
-pick_elite_class_for_round( round_number )
+function pick_elite_class_for_round( round_number )
 {
     candidates = [];
     candidates[ candidates.size ] = "shielded";
     if ( round_number >= ACC_ELITE_TELEPORTER_MIN_ROUND ) candidates[ candidates.size ] = "teleporter";
     if ( round_number >= ACC_ELITE_EMP_MIN_ROUND ) candidates[ candidates.size ] = "emp";
 
-    return candidates[ _acc_utility::acc_rand_int( candidates.size ) ];
+    return candidates[ acc_utility::acc_rand_int( candidates.size ) ];
 }
 
 // ---------------------------------------------------------------------------
 // Elite spawning
 // ---------------------------------------------------------------------------
 
-spawn_elite( class_name )
+function spawn_elite( class_name )
 {
-    // TODO(acc-verify): stock zombie spawn flow is tangled.
-    // Use zombie_utility::spawn_zombie on a zone spawner, then promote the
-    // resulting actor to an elite by setting HP + class tags.
     spawner = pick_elite_spawner();
     if ( !isdefined( spawner ) )
     {
-        _acc_utility::log( "elites: no spawner found, skipping" );
+        acc_utility::log( "elites: no spawner found, skipping" );
         return;
     }
 
     zombie = zombie_utility::spawn_zombie( spawner );
     if ( !isdefined( zombie ) ) return;
+
+    // VERIFIED(acc): zombie_spawn_init (_zm_spawner.gsc:295) runs as a
+    // frame-end spawn func ('waittillframeend', spawner_shared.gsc:581) and
+    // resets health/maxhealth - promoting before it completes gets clobbered.
+    // Wait pattern from _zm_ai_faller.gsc:168-171.
+    while ( isdefined( zombie ) && !isdefined( zombie.zombie_init_done ) )
+    {
+        util::wait_network_frame();
+    }
+    if ( !isdefined( zombie ) || !isalive( zombie ) ) return;
 
     zombie.acc_is_elite = true;
     zombie.acc_elite_class = class_name;
@@ -127,23 +143,27 @@ spawn_elite( class_name )
     }
 
     level.acc_elite_active_count += 1;
-    _acc_utility::log( "spawned elite: " + class_name );
+    acc_utility::log( "spawned elite: " + class_name );
 }
 
-pick_elite_spawner()
+function pick_elite_spawner()
 {
-    // Prefer a spawner that's in the currently-active zone. Falls back to any
-    // active spawner.
-    active_spawners = zombie_utility::get_active_zombie_spawners();
-    if ( active_spawners.size == 0 ) return undefined;
-    return active_spawners[ _acc_utility::acc_rand_int( active_spawners.size ) ];
+    // VERIFIED(acc): get_active_zombie_spawners does not exist in stock.
+    // level.zombie_spawners is the stock spawner list - stock round_spawning
+    // itself picks array::random( level.zombie_spawners ) (_zm.gsc:3804);
+    // zone-aware placement is handled downstream by the zombie_location system.
+    if ( !isdefined( level.zombie_spawners ) || level.zombie_spawners.size == 0 )
+    {
+        return undefined;
+    }
+    return level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
 }
 
 // ---------------------------------------------------------------------------
 // Class-specific promotions
 // ---------------------------------------------------------------------------
 
-promote_to_shielded( z )
+function promote_to_shielded( z )
 {
     // HP ~2x regular zombie. Front damage resistance.
     base_hp = z.maxhealth;
@@ -154,7 +174,7 @@ promote_to_shielded( z )
     // TODO(acc-model): attach a shield prop model and tweak color/FX.
 }
 
-promote_to_teleporter( z )
+function promote_to_teleporter( z )
 {
     // Frailer than shielded. Gets a teleport ability on cooldown.
     z.maxhealth = int( z.maxhealth * 0.8 );
@@ -162,7 +182,7 @@ promote_to_teleporter( z )
     z thread teleporter_ability_loop();
 }
 
-teleporter_ability_loop()
+function teleporter_ability_loop()
 {
     self endon( "death" );
 
@@ -170,18 +190,23 @@ teleporter_ability_loop()
     {
         wait( 8 + randomfloat( 4 ) ); // 8-12s cooldown
 
-        target = _acc_utility::get_closest_player_to( self.origin );
+        target = acc_utility::get_closest_player_to( self.origin );
         if ( !isdefined( target ) ) continue;
 
-        // Teleport to a point 200-400 units from the target, ideally flanking.
-        // TODO(acc-verify): use pathnode system to pick a valid nav position.
-        flank_pos = target.origin + ( 300, 0, 0 );
+        // VERIFIED(acc): clamp the computed point to the navmesh first -
+        // stock pattern shared/ai/zombie.gsc:1192-1212 (GetClosestPointOnNavMesh
+        // then ForceTeleport); raw offsets can land inside geometry/off-mesh.
+        flank_pos = GetClosestPointOnNavMesh( target.origin + ( 300, 0, 0 ), 100, 30 );
+        if ( !isdefined( flank_pos ) )
+        {
+            continue;
+        }
         self forceteleport( flank_pos );
         // TODO(acc-fx): play teleport FX on both source and destination.
     }
 }
 
-promote_to_emp( z )
+function promote_to_emp( z )
 {
     z.maxhealth = int( z.maxhealth * 1.5 );
     z.health = z.maxhealth;
@@ -193,38 +218,45 @@ promote_to_emp( z )
 // Death / drop handling
 // ---------------------------------------------------------------------------
 
-on_zombie_killed_loop()
+// Registered via zm_spawner::register_zombie_death_event_callback in init().
+// Runs ON the dying zombie (self) with the attacker as the only arg
+// (dispatch: _zm_spawner.gsc:2344 'self [[ callback ]]( attacker )').
+function on_elite_zombie_death( attacker )
 {
-    level endon( "end_game" );
-
-    for ( ;; )
+    if ( !isdefined( self.acc_is_elite ) || !self.acc_is_elite )
     {
-        level waittill( "zombie_killed", zombie, attacker );
+        return;
+    }
 
-        if ( !isdefined( zombie ) ) continue;
-        if ( !isdefined( zombie.acc_is_elite ) ) continue;
-        if ( !zombie.acc_is_elite ) continue;
+    level.acc_elite_active_count = acc_utility::clamp_int( level.acc_elite_active_count - 1, 0, 99 );
 
-        level.acc_elite_active_count = _acc_utility::clamp_int( level.acc_elite_active_count - 1, 0, 99 );
+    // Spawn shard pickup at corpse origin.
+    acc_data_shards::spawn_pickup_at( self.origin, ACC_ELITE_SHARD_REWARD );
 
-        // Spawn shard pickup at corpse origin.
-        _acc_data_shards::spawn_pickup_at( zombie.origin, ACC_ELITE_SHARD_REWARD );
-
-        // Subroutine T3 capstone - every 5th elite drops a random pickup.
-        if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( attacker.acc_cw_recursion_active ) )
+    // Subroutine T3 capstone - every 5th elite drops a random pickup.
+    if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( attacker.acc_cw_recursion_active ) )
+    {
+        attacker.acc_cw_recursion_counter += 1;
+        if ( attacker.acc_cw_recursion_counter % 5 == 0 )
         {
-            attacker.acc_cw_recursion_counter += 1;
-            if ( attacker.acc_cw_recursion_counter % 5 == 0 )
-            {
-                drop_recursion_powerup_at( zombie.origin );
-            }
+            drop_recursion_powerup_at( self.origin );
         }
     }
 }
 
-drop_recursion_powerup_at( origin )
+function drop_recursion_powerup_at( origin )
 {
-    // TODO(acc-verify): use stock powerup drop function from _zm_powerups.
-    // Options: "full_ammo", "insta_kill", "double_points", "nuke".
-    _acc_utility::log( "recursion drop at " + origin );
+    // VERIFIED(acc): zm_powerups::specific_powerup_drop( name, drop_spot )
+    // (_zm_powerups.gsc:688; stock call pattern _zm_ai_dogs.gsc:292). All four
+    // names are registered powerups (the powerup modules are #using'd by our
+    // entry script, matching stock maps).
+    options = [];
+    options[ options.size ] = "full_ammo";
+    options[ options.size ] = "insta_kill";
+    options[ options.size ] = "double_points";
+    options[ options.size ] = "nuke";
+
+    name = options[ acc_utility::acc_rand_int( options.size ) ];
+    level thread zm_powerups::specific_powerup_drop( name, origin );
+    acc_utility::log( "recursion drop at " + origin );
 }

@@ -7,7 +7,11 @@
 // Drop weights bias toward economy at low rounds, survival at high rounds.
 // =============================================================================
 
+#using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
+
+#using scripts\zm\_zm_perks;
+#using scripts\zm\_zm_powerups;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
@@ -15,14 +19,16 @@
 #define ACC_EMERGENCY_COST_SHARDS 3
 #define ACC_EMERGENCY_LATE_ROUND_THRESHOLD 25
 
-init()
+#namespace acc_emergency_drop;
+
+function init()
 {
-    _acc_utility::log( "emergency_drop init" );
+    acc_utility::log( "emergency_drop init" );
 
     level thread watch_power_triggers();
 }
 
-watch_power_triggers()
+function watch_power_triggers()
 {
     level endon( "end_game" );
 
@@ -37,7 +43,7 @@ watch_power_triggers()
 
     if ( triggers.size == 0 )
     {
-        _acc_utility::log( "emergency_drop: no power triggers found" );
+        acc_utility::log( "emergency_drop: no power triggers found" );
         return;
     }
 
@@ -47,7 +53,7 @@ watch_power_triggers()
     }
 }
 
-emergency_loop()
+function emergency_loop()
 {
     self endon( "death" );
 
@@ -61,12 +67,14 @@ emergency_loop()
 
         // TODO(acc-ux): show a 2-choice prompt ("activate power" / "emergency
         // drop") - for Phase 3 we just always offer emergency if power is on.
-        if ( !level._zm_is_power_on() )
+        // VERIFIED(acc): level._zm_is_power_on does not exist in BO3 (BO1/BO2
+        // field); stock checks the "power_on" flag (_zm_powerups.gsc:399).
+        if ( !level flag::get( "power_on" ) )
         {
             continue;
         }
 
-        if ( !_acc_data_shards::try_spend( player, ACC_EMERGENCY_COST_SHARDS ) )
+        if ( !acc_data_shards::try_spend( player, ACC_EMERGENCY_COST_SHARDS ) )
         {
             player iprintln( "Emergency Drop: needs " + ACC_EMERGENCY_COST_SHARDS + " Shards" );
             wait( 0.5 );
@@ -79,12 +87,12 @@ emergency_loop()
     }
 }
 
-pick_drop_type( round_number )
+function pick_drop_type( round_number )
 {
     if ( round_number >= ACC_EMERGENCY_LATE_ROUND_THRESHOLD )
     {
         // Late rounds: survival bias.
-        return _acc_utility::acc_weighted_pick( array(
+        return acc_utility::acc_weighted_pick( array(
             weighted( 20, "max_ammo" ),
             weighted( 30, "insta_kill" ),
             weighted( 15, "double_points" ),
@@ -95,7 +103,7 @@ pick_drop_type( round_number )
     else
     {
         // Early / mid rounds: economy bias.
-        return _acc_utility::acc_weighted_pick( array(
+        return acc_utility::acc_weighted_pick( array(
             weighted( 30, "max_ammo" ),
             weighted( 15, "insta_kill" ),
             weighted( 25, "double_points" ),
@@ -105,24 +113,27 @@ pick_drop_type( round_number )
     }
 }
 
-deliver_drop( player, drop_type )
+function deliver_drop( player, drop_type )
 {
-    _acc_utility::log( "emergency drop: " + drop_type );
+    acc_utility::log( "emergency drop: " + drop_type );
     player iprintln( "Emergency Drop: " + drop_type );
 
+    // VERIFIED(acc): zm_powerups::specific_powerup_drop( name, drop_spot )
+    // (_zm_powerups.gsc:688, trailing 5 args optional); stock callers invoke
+    // it ON level (_zm_ai_dogs.gsc:292). Powerup names confirmed registered:
+    // "full_ammo" / "insta_kill" / "double_points".
     switch ( drop_type )
     {
     case "max_ammo":
-        // TODO(acc-verify): stock powerup spawn helper.
-        // _zm_powerups::specific_powerup_drop( "full_ammo", player.origin );
+        level thread zm_powerups::specific_powerup_drop( "full_ammo", player.origin );
         break;
 
     case "insta_kill":
-        // _zm_powerups::specific_powerup_drop( "insta_kill", player.origin );
+        level thread zm_powerups::specific_powerup_drop( "insta_kill", player.origin );
         break;
 
     case "double_points":
-        // _zm_powerups::specific_powerup_drop( "double_points", player.origin );
+        level thread zm_powerups::specific_powerup_drop( "double_points", player.origin );
         break;
 
     case "overclock_scroll":
@@ -131,12 +142,14 @@ deliver_drop( player, drop_type )
         break;
 
     case "random_perk":
-        // TODO(acc-verify): _zm_perks::give_random_perk( player ) or equivalent.
+        // VERIFIED(acc): give_random_perk() takes zero params, called ON the
+        // player (_zm_perks.gsc:1093; caller _zm_powerup_free_perk.gsc:69).
+        player zm_perks::give_random_perk();
         break;
     }
 }
 
-weighted( w, v )
+function weighted( w, v )
 {
     s = spawnstruct();
     s.weight = w;
