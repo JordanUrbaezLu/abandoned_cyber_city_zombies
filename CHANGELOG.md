@@ -6,6 +6,78 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — 7-zone greybox + Mega upgrades + real mini-boss + requirements tracker (2026-06-12, ultracode pass)
+
+Backed by a 39-agent audit (471 requirements extracted and statused vs the
+real code+map) + 9 stock/shipped ground-truth dossiers + a 27-agent weapon
+import research pass (23/23 sources URL-verified). New tracker:
+**[docs/20_requirements_checklist.md](docs/20_requirements_checklist.md)** —
+work top-down from it.
+
+- **7-zone greybox map** — the whole docs/03 zone graph is in the .map:
+  market/alley/corp/vault/roof/lab rooms + 8 corridors (exactly the 8 graph
+  edges; no Spawn↔Corp or Corp↔Lab shortcut), per-zone `info_volume`
+  (player_volume, target `<zone>_spawners`) + 4 risers + 1 dog struct each,
+  training geometry (spawn debris loop, market stall row, corp fountain +
+  S-curve, roof central obstacle), spawn-perimeter corridor cuts. Generated
+  deterministically by `tools/gen_zone_greybox.js` + applied by
+  `tools/apply_zone_greybox.js` (one-shot scripts, refuse to double-apply).
+  Gameplay set relocated to doc zones (`tools/apply_entity_moves.js`): all 9
+  perk machines + PaP + Bowie → Lab; ICR-1 + Sheiva wallbuys + power switch →
+  Corp; Haymaker → Alley; Drakon → Roof; Frag → Vault; Mystery Box → Market.
+  Chalk decals moved with their wallbuys.
+- **Zone manager wired** — entry script `usermap_test_zone_init` now makes 8
+  `zm_zonemgr::add_adjacent_zone` calls on the always-set `"always_on"` flag
+  (VERIFIED: an info_volume alone does nothing — zones only exist once
+  zone_init runs via adjacency/init list, `_zm_zonemgr.gsc:288/:595`; the
+  shipped `zm_alien_isolation` works exactly this way). Buyable doors arrive
+  next pass (swap flags to door `script_flag` "enter_*" KVPs).
+- **Mega Bottle upgrades are live end-to-end** — `_acc_mega_bottles.gsc`:
+  - Machine interaction: parallel `trigger_radius_use` spawned at every
+    `zombie_vending` trigger with INVERTED per-player visibility (VERIFIED:
+    perk owners can never fire the stock trigger — `check_player_has_perk`
+    SetInvisibleToPlayer's them every 0.1s, `_zm_perks.gsc:865`), shown only
+    to players who own the base perk + hold a bottle + aren't Mega'd.
+  - Real Mega effects: **Ultimate Tank** (+100 max HP via
+    `n_player_health_boost` — the only field stock's health_reboot recompute
+    preserves across revives, `_zm_perks.gsc:828`), **The Flash** (+12% move,
+    multiplicative compose, re-applied on respawn — stock resets the scale,
+    `zm_usermap.gsc:336`), **American Sniper** (×1.75 headshot replacing
+    Deadshot's new base ×1.5, in `_acc_damage`), **Spiderman** (melee OHK on
+    ordinary zombies, in `_acc_damage`), **Mega Man** (800u / 60s / 2
+    charges / reduced boss stun, live-read in `_acc_perk_aura_blast`).
+    Gun Slinger / Savior / Sleight Expert / Armory: flag set, effects
+    TODO(acc-mega) (need engine-side hooks).
+  - Sticky persistence via stock lifecycle pointers `level.perk_bought_func`
+    / `level.perk_lost_func` (re-buy re-applies; Jug boost cleared on loss).
+  - Display-name keys fixed to the REAL specialties (`specialty_deadshot`,
+    `specialty_widowswine`, `specialty_electriccherry` — the old
+    `specialty_acc_*` keys could never match).
+- **Deadshot base effect implemented** — ×1.5 headshot for the shooter when
+  `HasPerk(specialty_deadshot)` (docs/13), stacking with the 2×/3× map
+  multiplier in `_acc_damage::on_ai_damage`.
+- **Real Juggernaut Host mini-boss** — `spawn_juggernaut_host` is no longer a
+  stub: spawns via `zombie_utility::spawn_zombie` + the verified
+  init-flag-poll pattern, 50k HP (docs/11), mechz-mirrored durability set
+  (`no_gib`/`ignore_nuke`/`ignore_round_spawn_failsafe`/...),
+  `acc_is_mini_boss` for the 3× headshot rule, death watcher drops boss item
+  (50%) + **1 Mega Bottle per player**. r10=1 / r20=2 scheduling already
+  existed. **Test loop: `acc_test_boss 1` dvar** spawns a killable 1500 HP
+  host every round from round 2 — the Mega loop is testable immediately.
+- **Fixed two latent map-load crashes** — `_acc_data_shards` and
+  `_acc_mega_bottles` registered `"toplayer"` clientfields GSC-only;
+  VERIFIED vs the whole stock mirror: every toplayer field is registered in
+  BOTH VMs (zero counterexamples), mismatch = load failure. Replaced with
+  classic server-side hudelems (`hud::createFontString` + numeric `SetValue`,
+  no localization, no .csc) — shards counter + bottle counter now actually
+  render. LUI clientfield bridge returns in Phase 4 via the safe
+  `clientuimodel` pool.
+- **[docs/21_weapon_import_sources.md](docs/21_weapon_import_sources.md)** —
+  all 7 roster imports resolved to TheSkyeLord's verified packs (B23R=`t6_b23r`,
+  Tac-19=`s1_tac19`, AK-47, M14 EBR=`iw4_m14ebr`, G3, FAL, Intervention=
+  `iw4_intervention`) + install recipe. Two doc corrections flagged: B23R is
+  BO2 (not "MW series"), G3 is CoD4/MWR (WaW has the Gewehr 43).
+
 ### Added — start-room gameplay set: all 9 perks + 6 wallbuys in one big room (2026-06-11)
 
 Everything currently placeable now lives in the (enlarged) start room in

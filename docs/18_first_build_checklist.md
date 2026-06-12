@@ -71,7 +71,26 @@ only `.gsc` changed.
 zombies path through the window, confirm points award on kills (40/hit-kill
 profile is ours, not stock - see docs/06_mechanics.md).
 
-**Start-room gameplay set** (after flipping the power switch on the east wall):
+**7-zone greybox walkthrough** (2026-06-12 layout — all corridors open, no
+buyable doors yet; zones: Spawn ↔ Market/Alley ↔ Corp ↔ Vault/Roof ↔ Lab):
+
+- Walk Spawn → west corridor → Market (Mystery Box, stall row), north →
+  Corp (ICR-1 + Sheiva wallbuys, power switch east wall, fountain + S-curve),
+  east → Vault (Frag wallbuy) / west → Roof (Drakon wallbuy, central
+  obstacle), north from either → Lab (all 9 perk machines, PaP, Bowie).
+- Confirm zombies spawn in whichever zone you stand in (zone volumes +
+  risers per zone; spawn lists rebuild ~1s after you cross a corridor).
+- **Mega Bottle loop test**: launch with `+set acc_test_boss 1` (or set the
+  dvar in console) → a 1500 HP Juggernaut Host spawns ~10s into every round
+  from round 2 (boss headshot rule = 3x). Kill it → every player gets +1
+  Mega Bottle (gold counter, bottom left). Buy a perk in the Lab, then look
+  at the same machine again — a second hint ("Mega upgrade [1 Bottle]")
+  appears only while you own that perk + hold a bottle. Apply and verify:
+  Jug → +100 max HP (survive ~2 extra hits); Stamin-Up → visibly faster;
+  Deadshot → bigger headshot numbers (1.75x vs 1.5x); Widow's Wine → melee
+  one-hits regular zombies; Aura Blast → 800u radius, 2 charges, 60s CD.
+
+**Original single-room notes** (superseded, kept for the first compile):
 
 - **Perk machines (9 of 9)**: north wall row west→east: Quick Revive, Jug,
   Speed Cola, Double Tap, Stamin-Up, Mule Kick, **Deadshot**; south perimeter

@@ -13,7 +13,7 @@
 
 #using scripts\codescripts\struct;
 #using scripts\shared\callbacks_shared;
-#using scripts\shared\clientfield_shared;
+#using scripts\shared\hud_util_shared;
 #using scripts\shared\util_shared;
 
 #using scripts\zm\_zm_score;
@@ -31,9 +31,10 @@
 #define ACC_SHARD_LOW_ROUND_THRESHOLD 10
 #define ACC_SHARD_LOW_ROUND_DIMINISH_AFTER 2
 
-// Clientfield bit width: 7 bits = 0..127, covers our cap with headroom.
-#define ACC_SHARDS_CF_NAME "acc_data_shards"
-#define ACC_SHARDS_CF_BITS 7
+// (Phase 4: the LUI widget gets a "clientuimodel" clientfield named
+// "hudItems.accDataShards" - the only pool that is provably safe to register
+// GSC-only, see CHANGELOG stock-API notes. The old "toplayer" registration
+// was a load-crash: stock registers every toplayer field in BOTH VMs.)
 
 #namespace acc_data_shards;
 
@@ -45,16 +46,12 @@ function init()
 {
     acc_utility::log( "data_shards init" );
 
-    // Register clientfield so the client HUD can read shard count efficiently
-    // without us polling from GSC. Signature verified via modme forums +
-    // bo3explorer; see docs/16_gsc_reference.md section 2.
-    clientfield::register(
-        "toplayer",                // scope: per-player (HUD binding)
-        ACC_SHARDS_CF_NAME,        // unique id string
-        1,                         // version
-        ACC_SHARDS_CF_BITS,        // bit width: 7 bits = 0..127
-        "int"                      // format
-    );
+    // VERIFIED(acc): the old GSC-only clientfield::register("toplayer", ...)
+    // here was a map-load crash - stock registers every "toplayer" field in
+    // BOTH VMs (e.g. _zm_perk_deadshot.gsc:71 vs .csc:47); zero GSC-only
+    // counterexamples exist in the whole mirror. Greybox HUD is a classic
+    // server-side hudelem instead (stock-alive: _zm.gsc:4880, hud_util_shared
+    // createFontString + SetValue, numeric = no localization needed).
 
     level.acc_shards_pickup_model = "tag_origin"; // TODO(acc-model): swap in a glowing shard model once we have one.
     level.acc_shards_pool = []; // tracks live drops for cleanup.
@@ -172,7 +169,18 @@ function spawn_pickup_at( origin, count )
 
 function sync_shards_to_client()
 {
-    self clientfield::set_to_player( ACC_SHARDS_CF_NAME, self.acc_data_shards );
+    if ( !isdefined( self.acc_data_shards ) ) self.acc_data_shards = 0;
+    if ( !isdefined( self.acc_shards_hud ) )
+    {
+        self.acc_shards_hud = self hud::createFontString( "default", 1.5 );
+        self.acc_shards_hud hud::setPoint( "BOTTOMLEFT", "BOTTOMLEFT", 10, -130 );
+        self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
+        self.acc_shards_hud.hidewheninmenu = true;
+    }
+    // SetValue = numeric display, no localized string required (stock numeric
+    // precedent _globallogic.gsc:758). Counter hidden until first shard.
+    self.acc_shards_hud SetValue( self.acc_data_shards );
+    self.acc_shards_hud.alpha = ( self.acc_data_shards > 0 ) ? 0.9 : 0;
     level notify( "acc_shards_changed", self );
 }
 

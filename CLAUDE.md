@@ -14,7 +14,7 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## Code map (one line each)
 
-- `map_source/zm/*.map` — Radiant source; starting room = stock zm template copy + hand-authored machines for all 9 perks (deadshot, widows-wine, aura-blast-via-cherry inline structs), 6 wallbuys (ICR-1, Haymaker, Bowie, Drakon, Sheiva, Frag), north-wall extension + full perimeter (brushes 19–28, entities 33–47).
+- `map_source/zm/*.map` — Radiant source; 7-zone greybox (start/market/alley/corp/vault/roof/lab info_volumes + riser/dog structs + corridors, generated via `tools/gen_zone_greybox.js` — one-shot, do NOT re-run), machines for all 9 perks (Lab), 6 wallbuys, PaP/box/power in their doc zones. Tracker: docs/20_requirements_checklist.md.
 - `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 4 `[acc]` hooks).
 - `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 19 custom modules; orchestrated by `acc_main` (exception: `_acc_perk_aura_blast` is called directly from the entry script — it hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline, see docs/13_perks.md Implementation Status).
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).

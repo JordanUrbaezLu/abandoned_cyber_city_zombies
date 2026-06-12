@@ -40,6 +40,7 @@
 #insert scripts\zm\_zm_perks.gsh;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 
 #define ACC_AURA_COST          2500
 #define ACC_AURA_RADIUS_SQ     160000      // 400u * 400u (docs/13_perks.md)
@@ -93,12 +94,38 @@ function take_aura_blast( b_pause, str_perk, str_result )
 // Ability
 // ---------------------------------------------------------------------------
 
+// Mega Man tier (docs/13_perks.md): 800u radius, 60s cooldown, 2 charges,
+// bosses get a REDUCED stun instead of immunity. Read live from the Mega
+// flag so applying a bottle mid-run upgrades the ability immediately.
+function is_mega()
+{
+    return acc_mega_bottles::has_mega_perk( self, PERK_ELECTRIC_CHERRY );
+}
+
+function max_charges()
+{
+    if ( self is_mega() ) return 2;
+    return 1;
+}
+
+function cooldown_ms()
+{
+    if ( self is_mega() ) return 60000;
+    return ACC_AURA_COOLDOWN_MS;
+}
+
+function radius_sq()
+{
+    if ( self is_mega() ) return 640000; // 800u * 800u
+    return ACC_AURA_RADIUS_SQ;
+}
+
 function aura_blast_listener()
 {
     self endon( "disconnect" );
     self endon( "acc_aura_blast_stop" );
 
-    self.acc_aura_ready_at = 0;
+    self.acc_aura_charges = self max_charges();
 
     for ( ;; )
     {
@@ -107,22 +134,38 @@ function aura_blast_listener()
             wait 0.05;
         }
 
-        if ( GetTime() < self.acc_aura_ready_at )
+        if ( self.acc_aura_charges <= 0 )
         {
-            self iprintlnbold( "Aura Blast recharging: " + int( ( self.acc_aura_ready_at - GetTime() ) / 1000 ) + "s" );
+            self iprintlnbold( "Aura Blast recharging" );
             wait 0.5; // debounce
             continue;
         }
 
-        self.acc_aura_ready_at = GetTime() + ACC_AURA_COOLDOWN_MS;
+        self.acc_aura_charges--;
+        self thread recharge_one_charge();
         self iprintlnbold( "AURA BLAST" );
-        level thread do_aura_blast( self.origin );
+        level thread do_aura_blast( self.origin, self radius_sq(), self is_mega() );
 
         wait 0.5; // debounce so one chord press activates once
     }
 }
 
-function do_aura_blast( v_origin )
+function recharge_one_charge()
+{
+    self endon( "disconnect" );
+    self endon( "acc_aura_blast_stop" );
+
+    n_cooldown_sec = ( self cooldown_ms() ) / 1000;
+    wait( n_cooldown_sec );
+
+    if ( self.acc_aura_charges < self max_charges() )
+    {
+        self.acc_aura_charges++;
+        self iprintlnbold( "Aura Blast ready" );
+    }
+}
+
+function do_aura_blast( v_origin, n_radius_sq, b_mega )
 {
     a_enemies = GetAITeamArray( level.zombie_team );
 
@@ -132,14 +175,19 @@ function do_aura_blast( v_origin )
         {
             continue;
         }
-        if ( IS_TRUE( e_zombie.acc_is_boss ) )
+        if ( DistanceSquared( e_zombie.origin, v_origin ) > n_radius_sq )
         {
-            // Full bosses immune at base tier (docs/13_perks.md); Mega Man
-            // boss interaction is Phase 3 work.
             continue;
         }
-        if ( DistanceSquared( e_zombie.origin, v_origin ) > ACC_AURA_RADIUS_SQ )
+
+        if ( IS_TRUE( e_zombie.acc_is_boss ) || IS_TRUE( e_zombie.acc_is_mini_boss ) )
         {
+            // Base tier: bosses immune. Mega Man: reduced (~half) stun so the
+            // fight isn't trivialized (docs/13_perks.md Mega Man mechanics).
+            if ( IS_TRUE( b_mega ) )
+            {
+                e_zombie thread aura_stun( ACC_AURA_STUN_SEC * 0.5 );
+            }
             continue;
         }
 

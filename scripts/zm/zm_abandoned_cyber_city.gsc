@@ -198,6 +198,22 @@ function usermap_test_zone_init()
 {
 	level flag::init( "always_on" );
 	level flag::set( "always_on" );
+
+	// [acc] 7-zone graph (docs/03_layout.md). VERIFIED(acc): an info_volume
+	// alone does nothing - a zone only exists once zone_init runs, reached
+	// via add_adjacent_zone / the manage_zones init list (_zm_zonemgr.gsc:288,
+	// :595). "always_on" is set above, so every connection links at start
+	// (greybox: all corridors open). The buyable-door pass replaces these
+	// flags with per-door "enter_*" flags set by door trigger script_flag
+	// KVPs (stock _zm_blockers.gsc:952 sets/clears them on open/close).
+	zm_zonemgr::add_adjacent_zone( "start_zone",  "market_zone", "always_on" );
+	zm_zonemgr::add_adjacent_zone( "start_zone",  "alley_zone",  "always_on" );
+	zm_zonemgr::add_adjacent_zone( "market_zone", "corp_zone",   "always_on" );
+	zm_zonemgr::add_adjacent_zone( "alley_zone",  "corp_zone",   "always_on" );
+	zm_zonemgr::add_adjacent_zone( "corp_zone",   "vault_zone",  "always_on" );
+	zm_zonemgr::add_adjacent_zone( "corp_zone",   "roof_zone",   "always_on" );
+	zm_zonemgr::add_adjacent_zone( "vault_zone",  "lab_zone",    "always_on" );
+	zm_zonemgr::add_adjacent_zone( "roof_zone",   "lab_zone",    "always_on" );
 }
 
 function custom_add_weapons()

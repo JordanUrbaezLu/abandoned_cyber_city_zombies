@@ -13,6 +13,8 @@
 #using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
 
+#using scripts\shared\ai\zombie_utility;
+
 #using scripts\zm\_zm_perks;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
@@ -31,6 +33,30 @@ function init()
     acc_utility::log( "boss init" );
 
     level thread round_hook_loop();
+
+    // Dev/test loop: `acc_test_boss 1` in the console (or +set on launch)
+    // spawns a low-HP Juggernaut Host every round from round 2, so the
+    // Mega Bottle drop -> perk upgrade loop is testable without surviving
+    // to round 10. Same code path as the real mini-boss.
+    if ( getdvarint( "acc_test_boss", 0 ) == 1 )
+    {
+        level thread test_boss_loop();
+    }
+}
+
+function test_boss_loop()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "acc_round_start", round_number );
+        if ( round_number < 2 ) continue;
+
+        wait 10; // let the round get going
+        acc_utility::log( "TEST BOSS spawning (acc_test_boss dvar)" );
+        spawn_juggernaut_host( 1500 ); // killable with the starting pistol era
+    }
 }
 
 function round_hook_loop()
@@ -73,20 +99,61 @@ function run_mini_boss( round_number )
     }
 }
 
-function spawn_juggernaut_host()
+function spawn_juggernaut_host( n_health_override )
 {
-    // TODO(acc-verify): spawn a zombie actor, buff HP ~10x elite, make
-    // stagger-immune to normal weapon damage, vulnerable to wonder weapon
-    // / elemental overclocks.
-    //
-    // When spawned, flag the actor for our damage module:
-    //   host.acc_is_mini_boss = true;
-    // so _acc_damage.gsc applies the boss headshot multiplier.
-    //
-    // On death, call:
-    //   host thread watch_mini_boss_death();
-    // which triggers the boss-item drop (50% chance for mini-boss tier).
-    acc_utility::log( "spawned Juggernaut Host" );
+    // Buffed-regular-zombie mini-boss: the stock mechz archetype needs DLC1
+    // zone assets a usermap lacks (behavior tree / models / FX), so the
+    // practical Juggernaut Host is the same proven pattern as _acc_elites:
+    // spawn a normal zombie, wait for init, then promote it.
+    if ( !isdefined( level.zombie_spawners ) || level.zombie_spawners.size == 0 )
+    {
+        acc_utility::log( "boss: no zombie_spawners, cannot spawn Juggernaut Host" );
+        return;
+    }
+
+    spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
+    host = zombie_utility::spawn_zombie( spawner );
+    if ( !isdefined( host ) )
+    {
+        acc_utility::log( "boss: spawn_zombie returned undefined (spawner missing script_forcespawn?)" );
+        return;
+    }
+
+    // VERIFIED(acc): zombie_spawn_init runs at frame end and clobbers
+    // health/maxhealth - poll the init flag before promoting (the
+    // _zm_ai_faller.gsc:168 pattern, same as _acc_elites.gsc:129).
+    while ( isdefined( host ) && !isdefined( host.zombie_init_done ) )
+    {
+        util::wait_network_frame();
+    }
+    if ( !isdefined( host ) || !isalive( host ) ) return;
+
+    host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
+
+    // HP: docs/11_enemies.md mini-boss ~50k solo baseline; the test loop
+    // passes a small override so the drop loop is testable at round 2.
+    if ( isdefined( n_health_override ) )
+    {
+        host.maxhealth = n_health_override;
+    }
+    else
+    {
+        host.maxhealth = 50000;
+    }
+    host.health = host.maxhealth;
+
+    // Boss durability set, mirrored from stock mechz spawn setup
+    // (mechz.gsc:946-957) + the spawn-failsafe opt-out (zombie_utility:1825).
+    host DisableAimAssist();
+    host.disableAmmoDrop = true;
+    host.no_gib = true;
+    host.ignore_nuke = true;
+    host.ignore_round_spawn_failsafe = true;
+    host.zombie_move_speed = "run";
+
+    host thread watch_mini_boss_death();
+
+    acc_utility::log( "spawned Juggernaut Host (" + host.maxhealth + " hp)" );
 }
 
 function watch_mini_boss_death()

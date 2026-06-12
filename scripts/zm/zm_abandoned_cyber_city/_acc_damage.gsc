@@ -18,6 +18,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 
 // ---------------------------------------------------------------------------
 // Tuning - see docs/06_mechanics.md.
@@ -69,12 +70,36 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 
     if ( !is_applicable_target( self ) ) return -1;
 
+    // Spiderman (Widow's Wine Mega): melee always one-hits ORDINARY zombies
+    // (docs/13_perks.md - not bosses/elites). Short-circuits everything else.
+    if ( is_melee_mod( meansofdeath )
+         && isdefined( attacker ) && isplayer( attacker )
+         && acc_mega_bottles::has_mega_perk( attacker, "specialty_widowswine" )
+         && !is_boss_or_elite( self ) )
+    {
+        self acc_points::record_damage( attacker, self.health + 666 );
+        return self.health + 666;
+    }
+
     // Compute our adjusted damage (headshot multiplier with Tac-19 exclusion).
     final_damage = damage;
     b_modified = false;
     if ( is_headshot( sHitLoc ) && !is_weapon_headshot_excluded( weapon ) )
     {
         multiplier = resolve_headshot_multiplier( self );
+
+        // Deadshot layer (docs/13_perks.md): base perk x1.5, American Sniper
+        // Mega replaces it with x1.75 (no double dip). Stacks multiplicatively
+        // with the map multiplier above.
+        if ( isdefined( attacker ) && isplayer( attacker )
+             && attacker HasPerk( "specialty_deadshot" ) )
+        {
+            if ( acc_mega_bottles::has_mega_perk( attacker, "specialty_deadshot" ) )
+                multiplier *= 1.75;
+            else
+                multiplier *= 1.5;
+        }
+
         final_damage = int( damage * multiplier );
         b_modified = true;
 
@@ -124,6 +149,23 @@ function resolve_headshot_multiplier( target )
     if ( isdefined( target.acc_is_boss )      && target.acc_is_boss )      return ACC_BOSS_HEADSHOT_MULT;
     if ( isdefined( target.acc_is_mini_boss ) && target.acc_is_mini_boss ) return ACC_BOSS_HEADSHOT_MULT;
     return ACC_HEADSHOT_MULT;
+}
+
+function is_boss_or_elite( actor )
+{
+    if ( isdefined( actor.acc_is_boss )      && actor.acc_is_boss )      return true;
+    if ( isdefined( actor.acc_is_mini_boss ) && actor.acc_is_mini_boss ) return true;
+    if ( isdefined( actor.acc_is_elite )     && actor.acc_is_elite )     return true;
+    return false;
+}
+
+// VERIFIED(acc): melee meansofdeath strings are "MOD_MELEE" /
+// "MOD_MELEE_WEAPON_BUTT" / "MOD_MELEE_ASSASSINATE" (stock-API pass; see
+// CHANGELOG). Substring match covers all three.
+function is_melee_mod( meansofdeath )
+{
+    if ( !isdefined( meansofdeath ) ) return false;
+    return IsSubStr( meansofdeath, "MELEE" );
 }
 
 // Weapons whose damage is intentionally NOT scaled by headshot multiplier.
