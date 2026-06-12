@@ -14,7 +14,7 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## Code map (one line each)
 
-- `map_source/zm/*.map` — Radiant source; starting room = pristine stock zm template copy.
+- `map_source/zm/*.map` — Radiant source; starting room = stock zm template copy + hand-authored deadshot/widows-wine machines, 4 wallbuys (ICR-1, Haymaker, Bowie, Drakon), north-wall extension + full perimeter (brushes 19–24, entities 33–42).
 - `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 3 `[acc]` hooks).
 - `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 18 custom modules; orchestrated by `acc_main`.
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).
@@ -74,6 +74,18 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
   targetname `<zone>`, target `<zone>_spawners`; zombie spawn locations =
   structs targetname `<zone>_spawners` (noteworthy `riser_location` /
   `dog_location`); the AI spawner itself = one `actor_spawner_zm_factory_zombie`.
+- **Wallbuy + perk-machine map anatomy** (verified vs stock scripts + shipped
+  `zm_alien_isolation` source, 2026-06): wallbuy = script_struct targetname
+  `weapon_upgrade` (`zombie_weapon_upgrade` = class weapon name, `target` →
+  second struct carrying the gun's world `model`; chalk decal mesh optional —
+  a shipped map omits it and even uses the wrong model, both fine). Perk
+  machine = script_struct targetname `zm_perk_machine`, `script_noteworthy` =
+  specialty, `model` = vending model (e.g. `p7_zm_vending_ads` for
+  `specialty_deadshot`), optional `script_string` location filter matching
+  `<gametype>_perks_<location>` (ours: `zclassic_perks_start_room`) — the
+  stock `vending_*_struct.map` prefabs contain exactly this struct, so inline
+  structs are equivalent (zm_alien_isolation ships jug that way). Single-chest
+  maps ignore `level.start_chest_name` (`_zm_magicbox.gsc` size==1 branch).
 
 ## Verification bar
 

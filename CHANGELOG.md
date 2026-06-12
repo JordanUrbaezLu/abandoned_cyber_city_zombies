@@ -6,6 +6,68 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — start-room gameplay set: every placeable perk + wallbuy in one big room (2026-06-11)
+
+Everything currently placeable now lives in the (enlarged) start room in
+**[map_source/zm/zm_abandoned_cyber_city.map](map_source/zm/zm_abandoned_cyber_city.map)**,
+so all systems can be developed/tested against real machines before Phase 2
+splits the map into zones (greybox placement — final layout per
+docs/03_layout.md and docs/13_perks.md):
+
+- **Deadshot Daiquiri machine** — inline `script_struct` (`targetname
+  "zm_perk_machine"`, `script_noteworthy "specialty_deadshot"`, model
+  `p7_zm_vending_ads`, `script_string "zclassic_perks_start_room"`), placed in
+  the perk row east of Mule Kick. Format proven by shipped `zm_alien_isolation`
+  (ships jug as the same inline struct, no prefab needed) + stock
+  `_zm_perk_deadshot.gsh` defines (machine model/name). The entry script
+  already `#using`s `_zm_perk_deadshot` and precaches `ZOMBIE_PERK_DEADSHOT`,
+  so no script change was needed. Location match verified:
+  `zm_usermap.gsc:122` sets `default_start_location = "start_room"` →
+  `perk_machine_spawn_init` match string `"zclassic_perks_start_room"`.
+- **Widow's Wine machine** — same inline-struct pattern on the new south
+  wall (`script_noteworthy "specialty_widowswine"`, model
+  `p7_zm_vending_widows_wine`, per stock `_zm_perk_widows_wine.gsh`). With it,
+  all 8 stock perks the entry script registers are physically in the map:
+  Quick Revive, Jug, Speed Cola, Double Tap, Stamin-Up, Mule Kick (template
+  prefabs) + Deadshot, Widow's Wine (new inline structs). The 9th perk, Aura
+  Blast, is fully custom — no stock machine exists; it arrives with the
+  Phase 3 `_acc_perks.gsc` work.
+- **Four wallbuys** — each a `weapon_upgrade` script_struct targeting a model
+  struct, copied field-for-field from `zm_alien_isolation`'s shipped wallbuy
+  prefabs (`spawnable_weapon_ar_icr1.map` / `spawnable_weapon_shotgun_banshee.map`):
+  - **ICR-1** (`"ar_accurate"`) and **Haymaker 12** (`"shotgun_fullauto"`) on
+    the extended north wall. ICR-1 gets the stock chalk decal patch mesh
+    (`t7_zm_chalk_buy_icr1`, geometry copied verbatim from the shipped prefab).
+  - **Bowie Knife** (`"bowie_knife"`, targetname `bowie_upgrade` — the stock
+    melee-wallbuy variant, same struct anatomy) and **Drakon**
+    (`"sniper_fastsemi"`) on the new south wall. Drakon is the documented
+    stand-in for the sniper slot until the Intervention import lands
+    (docs/05_weapons.md names it as the explicit fallback). The other roster
+    wallbuys (M14 EBR, Intervention, EMP Grenade) are unported imports/customs
+    and cannot be placed yet.
+  - Costs come from the stock `zm_levelcommon_weapons.csv` table for now; our
+    pricing is a Phase 3 script pass.
+- **TODO(acc-geom)**: all four wallbuy model structs reuse
+  `wpn_t7_ar_talon_world` (ICR-1's real world model; the shipped banshee
+  prefab proves a mismatched model still functions — it only drives trigger
+  bounds + post-buy display). Swap Haymaker/Bowie/Drakon to their real world
+  models and add their chalk materials once verified in APE on the Windows
+  box (`t7_zm_chalk_buy_icr1` is the only chalk material name we could verify
+  from shipped sources).
+- **Room enlarged to a full arena** — five new worldspawn brushes
+  (`script_wall`, plane format cloned from the adjacent template brush):
+  north wall extension (x 518.5→732.5, y 419.5–439.5) backing the new
+  machine/wallbuy row and closing the NE floor gap, plus a perimeter around
+  the whole template floor slab (south/north/west/east walls at the slab
+  edges: x −1056→1094.5, y −1073.5→928, 20 thick, 256 tall). Playable space
+  is now the entire ~2150×2000 slab. Zombie entry path is unchanged (window
+  barricade; both riser structs and the dog spawner are in-room and inside
+  the perimeter).
+- **Already present from the template copy (no change needed)**: Mystery Box
+  (`box_start` prefab — verified: single-chest maps ignore
+  `level.start_chest_name`, stock `_zm_magicbox.gsc` size==1 branch), the six
+  template perk prefabs, PaP, power switch.
+
 ### Fixed — stock-API verification pass (multi-agent, vs real Treyarch sources)
 
 Every stock-API touchpoint in all 20 GSC files was verified claim-by-claim

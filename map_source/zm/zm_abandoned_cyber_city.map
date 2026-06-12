@@ -214,6 +214,76 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 439.5 88 ) ( 90.5 439.5 88 ) ( 90.5 439.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
  ( 78.5 459.5 88 ) ( 78.5 419.5 88 ) ( 78.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
 }
+// brush 19
+{
+ guid "{7A2B9C01-ACC0-4DE1-8A3F-1F00ACCB0019}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 86.5 419.5 88 ) ( 134.5 419.5 88 ) ( 134.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -64 0 0
+ ( 732.5 415.5 88 ) ( 732.5 455.5 88 ) ( 732.5 455.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 504 -64 0 0
+ ( 138.5 439.5 88 ) ( 90.5 439.5 88 ) ( 90.5 439.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
+ ( 518.5 459.5 88 ) ( 518.5 419.5 88 ) ( 518.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
+}
+// brush 20
+ {
+  guid "{7A2B9C02-ACC0-4DE1-8A3F-1F00ACCB0020}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   t7_zm_chalk_buy_icr1
+   lightmap_gray
+   2 2 0 8
+   (
+	v 606.25 417.5 32.5 t 0 -0 -1.0001428 -6.7082205
+	v 606.25 417.5 74.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v 648.25 417.5 32.5 t 1024 -0 0.87485725 -6.7084455
+	v 648.25 417.5 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// brush 21
+{
+ guid "{7A2B9C08-ACC0-4DE1-8A3F-1F00ACCB0021}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 86.5 -1073.5 88 ) ( 134.5 -1073.5 88 ) ( 134.5 -1073.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -64 0 0
+ ( 1094.5 415.5 88 ) ( 1094.5 455.5 88 ) ( 1094.5 455.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 504 -64 0 0
+ ( 138.5 -1053.5 88 ) ( 90.5 -1053.5 88 ) ( 90.5 -1053.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
+ ( -1056 459.5 88 ) ( -1056 419.5 88 ) ( -1056 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
+}
+// brush 22
+{
+ guid "{7A2B9C09-ACC0-4DE1-8A3F-1F00ACCB0022}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 86.5 908 88 ) ( 134.5 908 88 ) ( 134.5 908 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -64 0 0
+ ( 1094.5 415.5 88 ) ( 1094.5 455.5 88 ) ( 1094.5 455.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 504 -64 0 0
+ ( 138.5 928 88 ) ( 90.5 928 88 ) ( 90.5 928 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
+ ( -1056 459.5 88 ) ( -1056 419.5 88 ) ( -1056 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
+}
+// brush 23
+{
+ guid "{7A2B9C0A-ACC0-4DE1-8A3F-1F00ACCB0023}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 86.5 -1073.5 88 ) ( 134.5 -1073.5 88 ) ( 134.5 -1073.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -64 0 0
+ ( -1036 415.5 88 ) ( -1036 455.5 88 ) ( -1036 455.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 504 -64 0 0
+ ( 138.5 928 88 ) ( 90.5 928 88 ) ( 90.5 928 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
+ ( -1056 459.5 88 ) ( -1056 419.5 88 ) ( -1056 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
+}
+// brush 24
+{
+ guid "{7A2B9C0B-ACC0-4DE1-8A3F-1F00ACCB0024}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -512 0 0
+ ( 86.5 -1073.5 88 ) ( 134.5 -1073.5 88 ) ( 134.5 -1073.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 128 -64 0 0
+ ( 1094.5 415.5 88 ) ( 1094.5 455.5 88 ) ( 1094.5 455.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 504 -64 0 0
+ ( 138.5 928 88 ) ( 90.5 928 88 ) ( 90.5 928 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
+ ( 1074.5 459.5 88 ) ( 1074.5 419.5 88 ) ( 1074.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
+}
 }
 // entity 1
 {
@@ -602,4 +672,112 @@ guid "{E53B05AB-5AF2-4C98-98EE-6EE44554B4BB}"
 "model" "_prefabs/zm/zm_core/vending_revive_struct.map"
 "origin" "110.5 407.5 0"
 "script_string" "zclassic_perks_start_room"
+}
+// entity 33
+{
+guid "{7A2B9C03-ACC0-4DE1-8A3F-1F00ACCE0033}"
+"classname" "script_struct"
+"angles" "0 359.999 0"
+"model" "p7_zm_vending_ads"
+"origin" "560 405 0"
+"script_noteworthy" "specialty_deadshot"
+"script_string" "zclassic_perks_start_room"
+"targetname" "zm_perk_machine"
+"_color" "1 0 0"
+}
+// entity 34
+{
+guid "{7A2B9C04-ACC0-4DE1-8A3F-1F00ACCE0034}"
+"classname" "script_struct"
+"angles" "0 180 0"
+"model" "wpn_t7_ar_talon_world"
+"origin" "633 417.5 53"
+"targetname" "wallbuy_icr1"
+"_color" "1 0 0"
+}
+// entity 35
+{
+guid "{7A2B9C05-ACC0-4DE1-8A3F-1F00ACCE0035}"
+"classname" "script_struct"
+"angles" "0 180 0"
+"origin" "630 417.5 56"
+"target" "wallbuy_icr1"
+"targetname" "weapon_upgrade"
+"zombie_weapon_upgrade" "ar_accurate"
+"_color" "1 0 0"
+}
+// entity 36
+{
+guid "{7A2B9C06-ACC0-4DE1-8A3F-1F00ACCE0036}"
+"classname" "script_struct"
+"angles" "0 180 0"
+"model" "wpn_t7_ar_talon_world"
+"origin" "698 417.5 53"
+"targetname" "wallbuy_haymaker"
+"_color" "1 0 0"
+}
+// entity 37
+{
+guid "{7A2B9C07-ACC0-4DE1-8A3F-1F00ACCE0037}"
+"classname" "script_struct"
+"angles" "0 180 0"
+"origin" "695 417.5 56"
+"target" "wallbuy_haymaker"
+"targetname" "weapon_upgrade"
+"zombie_weapon_upgrade" "shotgun_fullauto"
+"_color" "1 0 0"
+}
+// entity 38
+{
+guid "{7A2B9C0C-ACC0-4DE1-8A3F-1F00ACCE0038}"
+"classname" "script_struct"
+"angles" "0 90 0"
+"model" "p7_zm_vending_widows_wine"
+"origin" "-500 -1040 0"
+"script_noteworthy" "specialty_widowswine"
+"script_string" "zclassic_perks_start_room"
+"targetname" "zm_perk_machine"
+"_color" "1 0 0"
+}
+// entity 39
+{
+guid "{7A2B9C0D-ACC0-4DE1-8A3F-1F00ACCE0039}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t7_ar_talon_world"
+"origin" "-203 -1051.5 53"
+"targetname" "wallbuy_bowie"
+"_color" "1 0 0"
+}
+// entity 40
+{
+guid "{7A2B9C0E-ACC0-4DE1-8A3F-1F00ACCE0040}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "-200 -1051.5 56"
+"target" "wallbuy_bowie"
+"targetname" "bowie_upgrade"
+"zombie_weapon_upgrade" "bowie_knife"
+"_color" "1 0 0"
+}
+// entity 41
+{
+guid "{7A2B9C0F-ACC0-4DE1-8A3F-1F00ACCE0041}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t7_ar_talon_world"
+"origin" "97 -1051.5 53"
+"targetname" "wallbuy_drakon"
+"_color" "1 0 0"
+}
+// entity 42
+{
+guid "{7A2B9C10-ACC0-4DE1-8A3F-1F00ACCE0042}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "100 -1051.5 56"
+"target" "wallbuy_drakon"
+"targetname" "weapon_upgrade"
+"zombie_weapon_upgrade" "sniper_fastsemi"
+"_color" "1 0 0"
 }

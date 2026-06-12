@@ -54,7 +54,7 @@ with ours - that is correct and intended).
 | `Could not find script scripts/zm/zm_abandoned_cyber_city/_acc_...` | The linker dislikes the module subfolder (rare; most community maps use subfolders fine). Fallback: move all `_acc_*.gsc` from `scripts\zm\zm_abandoned_cyber_city\` up into `scripts\zm\`, update the 18 `scriptparsetree` paths in the `.zone`, and the `#using scripts\zm\zm_abandoned_cyber_city\_acc_X;` lines to `#using scripts\zm\_acc_X;` in all files. Mechanical, ~10 min. |
 | Missing asset on a `.zone` line | Comment the line out with `//` and note it. |
 | Sound zone error mentioning `user_aliases.csv` / `ambient_mod.csv` | Comment out the `sound,zm_abandoned_cyber_city` line in the `.zone` for the first build (re-add when sound work starts in Phase 5). |
-| Radiant/BSP error on the `.map` | Shouldn't happen (the map is the stock template). If it does, the sync copy corrupted line endings - re-clone with `git config core.autocrlf false` and re-sync. |
+| Radiant/BSP error on the `.map` | The map is the stock template plus a small hand-authored addition (one wall brush, one chalk patch mesh, five script_structs - see CHANGELOG "start-room gameplay set"). If the error points at brush 19/20 or entities 33-37, suspect that addition; otherwise the sync copy corrupted line endings - re-clone with `git config core.autocrlf false` and re-sync. |
 
 After fixing, use **Compile Scripts** (30-90s) instead of the full build when
 only `.gsc` changed.
@@ -70,6 +70,24 @@ only `.gsc` changed.
 **Playtest the loop**: survive round 1-2, buy the barricade debris, confirm
 zombies path through the window, confirm points award on kills (40/hit-kill
 profile is ours, not stock - see docs/06_mechanics.md).
+
+**Start-room gameplay set** (after flipping the power switch on the east wall):
+
+- **Perk row** (north wall, west→east): Quick Revive, Jug, Speed Cola, Double
+  Tap, Stamin-Up, Mule Kick, **Deadshot** (the new machine past Mule Kick).
+  **Widow's Wine** is on the south perimeter wall behind spawn. Buy at least
+  Deadshot and Widow's Wine - those two are hand-authored inline structs, not
+  template prefabs. (Aura Blast has no machine yet - custom perk, Phase 3.)
+- **Wallbuys** (4): **ICR-1** (extended north wall, chalk visible) and
+  **Haymaker 12** (same wall, no chalk yet - walk the wall for the hint
+  prompt); **Bowie Knife** and **Drakon** (south perimeter wall, no chalk).
+  Buy all four; expect stock CSV prices, and expect the ICR-1 world model to
+  display for all of them after purchase (known TODO(acc-geom) - only ICR-1's
+  world model name is verified until the APE check).
+- **Mystery Box**: NW corner against the wall (template `box_start`). Hit it a
+  few times - weapons spawn, box never flies away (single-chest map).
+- **Perimeter**: the whole template floor slab is now walled in (~2150x2000
+  arena). Confirm you can't walk off the slab edge anywhere.
 
 **Known first-run behaviors** (fine, not bugs):
 - Early rounds are faster/denser than stock - that's `_acc_early_round_pacing`.
