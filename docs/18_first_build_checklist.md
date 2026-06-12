@@ -73,19 +73,28 @@ profile is ours, not stock - see docs/06_mechanics.md).
 
 **Start-room gameplay set** (after flipping the power switch on the east wall):
 
-- **Perk row** (north wall, west→east): Quick Revive, Jug, Speed Cola, Double
-  Tap, Stamin-Up, Mule Kick, **Deadshot** (the new machine past Mule Kick).
-  **Widow's Wine** is on the south perimeter wall behind spawn. Buy at least
-  Deadshot and Widow's Wine - those two are hand-authored inline structs, not
-  template prefabs. (Aura Blast has no machine yet - custom perk, Phase 3.)
-- **Wallbuys** (4): **ICR-1** (extended north wall, chalk visible) and
-  **Haymaker 12** (same wall, no chalk yet - walk the wall for the hint
-  prompt); **Bowie Knife** and **Drakon** (south perimeter wall, no chalk).
-  Buy all four; expect stock CSV prices, and expect the ICR-1 world model to
-  display for all of them after purchase (known TODO(acc-geom) - only ICR-1's
-  world model name is verified until the APE check).
+- **Perk machines (9 of 9)**: north wall row west→east: Quick Revive, Jug,
+  Speed Cola, Double Tap, Stamin-Up, Mule Kick, **Deadshot**; south perimeter
+  wall: **Widow's Wine**; west perimeter wall: **Aura Blast** (shows as the
+  stock "nuke" vending model and a raw `ZOMBIE_PERK_AURABLAST` hint token -
+  both known greybox placeholders). Deadshot, Widow's Wine, Aura Blast are
+  hand-authored (inline structs), the other six are template prefabs.
+- **Aura Blast ability test**: buy it (2,500), then **crouch + melee**. Expect
+  "AURA BLAST" on screen and every regular zombie within 400u frozen ~3s;
+  pressing again inside 120s prints the recharge countdown instead.
+- **Wallbuys (6)**: extended north wall: **ICR-1** (chalk) and **Haymaker 12**
+  (no chalk - walk the wall for the hint prompt); south perimeter wall
+  west→east: **Bowie Knife**, **Drakon** (sniper-slot stand-in for the
+  Intervention import), **Sheiva** (semi-auto-AR-slot stand-in for the M14 EBR
+  import), **Frag Grenade** (tactical-slot stand-in for the custom EMP
+  grenade) - all four with chalk. Buy everything; expect stock CSV prices.
+  Known TODO(acc-geom): Haymaker and Drakon display the ICR-1 world model
+  after purchase (their real model names are unverified until the APE check;
+  Bowie/Sheiva/Frag use verified models from shipped sources).
 - **Mystery Box**: NW corner against the wall (template `box_start`). Hit it a
-  few times - weapons spawn, box never flies away (single-chest map).
+  few times - weapons spawn, box never flies away (single-chest map). The
+  box-only roster guns that exist in stock (Brecci, XR-2, Locus, Drakon) come
+  through the stock box pool; curation to our roster is a Phase 3 script pass.
 - **Perimeter**: the whole template floor slab is now walled in (~2150x2000
   arena). Confirm you can't walk off the slab edge anywhere.
 

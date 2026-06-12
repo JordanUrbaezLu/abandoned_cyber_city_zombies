@@ -284,6 +284,86 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 928 88 ) ( 90.5 928 88 ) ( 90.5 928 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 132 -64 0 0
  ( 1074.5 459.5 88 ) ( 1074.5 419.5 88 ) ( 1074.5 419.5 0 ) script_wall 128 128 -1024 -64 180 0 lightmap_gray 16384 16384 512 -64 0 0
 }
+// brush 25
+ {
+  guid "{7A2B9C11-ACC0-4DE1-8A3F-1F00ACCB0025}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   t7_zm_chalk_buy_bowie
+   lightmap_gray
+   2 2 0 8
+   (
+	v -176.25 -1051.5 32.5 t 0 -0 -1.0001428 -6.7082205
+	v -176.25 -1051.5 74.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v -218.25 -1051.5 32.5 t 1024 -0 0.87485725 -6.7084455
+	v -218.25 -1051.5 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// brush 26
+ {
+  guid "{7A2B9C12-ACC0-4DE1-8A3F-1F00ACCB0026}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   t7_zm_chalk_buy_drakon
+   lightmap_gray
+   2 2 0 8
+   (
+	v 123.75 -1051.5 32.5 t 0 -0 -1.0001428 -6.7082205
+	v 123.75 -1051.5 74.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v 81.75 -1051.5 32.5 t 1024 -0 0.87485725 -6.7084455
+	v 81.75 -1051.5 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// brush 27
+ {
+  guid "{7A2B9C13-ACC0-4DE1-8A3F-1F00ACCB0027}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   t7_zm_chalk_buy_shiva
+   lightmap_gray
+   2 2 0 8
+   (
+	v 373.75 -1051.5 32.5 t 0 -0 -1.0001428 -6.7082205
+	v 373.75 -1051.5 74.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v 331.75 -1051.5 32.5 t 1024 -0 0.87485725 -6.7084455
+	v 331.75 -1051.5 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// brush 28
+ {
+  guid "{7A2B9C14-ACC0-4DE1-8A3F-1F00ACCB0028}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   t7_zm_chalk_buy_frag
+   lightmap_gray
+   2 2 0 8
+   (
+	v 623.75 -1051.5 32.5 t 0 -0 -1.0001428 -6.7082205
+	v 623.75 -1051.5 74.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v 581.75 -1051.5 32.5 t 1024 -0 0.87485725 -6.7084455
+	v 581.75 -1051.5 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
 }
 // entity 1
 {
@@ -744,8 +824,8 @@ guid "{7A2B9C0C-ACC0-4DE1-8A3F-1F00ACCE0038}"
 guid "{7A2B9C0D-ACC0-4DE1-8A3F-1F00ACCE0039}"
 "classname" "script_struct"
 "angles" "0 0 0"
-"model" "wpn_t7_ar_talon_world"
-"origin" "-203 -1051.5 53"
+"model" "wpn_t7_zmb_knife_bowie_world"
+"origin" "-209.5 -1051.5 60"
 "targetname" "wallbuy_bowie"
 "_color" "1 0 0"
 }
@@ -754,7 +834,7 @@ guid "{7A2B9C0D-ACC0-4DE1-8A3F-1F00ACCE0039}"
 guid "{7A2B9C0E-ACC0-4DE1-8A3F-1F00ACCE0040}"
 "classname" "script_struct"
 "angles" "0 0 0"
-"origin" "-200 -1051.5 56"
+"origin" "-200 -1051.5 60"
 "target" "wallbuy_bowie"
 "targetname" "bowie_upgrade"
 "zombie_weapon_upgrade" "bowie_knife"
@@ -779,5 +859,59 @@ guid "{7A2B9C10-ACC0-4DE1-8A3F-1F00ACCE0042}"
 "target" "wallbuy_drakon"
 "targetname" "weapon_upgrade"
 "zombie_weapon_upgrade" "sniper_fastsemi"
+"_color" "1 0 0"
+}
+// entity 43
+{
+guid "{7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "p7_zm_vending_nuke"
+"origin" "-1020 -200 0"
+"script_noteworthy" "specialty_electriccherry"
+"script_string" "zclassic_perks_start_room"
+"targetname" "zm_perk_machine"
+"_color" "1 0 0"
+}
+// entity 44
+{
+guid "{7A2B9C16-ACC0-4DE1-8A3F-1F00ACCE0044}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t7_ar_shva_world"
+"origin" "347 -1051.5 53"
+"targetname" "wallbuy_sheiva"
+"_color" "1 0 0"
+}
+// entity 45
+{
+guid "{7A2B9C17-ACC0-4DE1-8A3F-1F00ACCE0045}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "350 -1051.5 56"
+"target" "wallbuy_sheiva"
+"targetname" "weapon_upgrade"
+"zombie_weapon_upgrade" "ar_marksman"
+"_color" "1 0 0"
+}
+// entity 46
+{
+guid "{7A2B9C18-ACC0-4DE1-8A3F-1F00ACCE0046}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t7_grenade_frag_world"
+"origin" "603.5 -1054 60"
+"targetname" "wallbuy_frag"
+"_color" "1 0 0"
+}
+// entity 47
+{
+guid "{7A2B9C19-ACC0-4DE1-8A3F-1F00ACCE0047}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "600 -1051.5 60"
+"target" "wallbuy_frag"
+"targetname" "weapon_upgrade"
+"zombie_weapon_upgrade" "frag_grenade"
 "_color" "1 0 0"
 }

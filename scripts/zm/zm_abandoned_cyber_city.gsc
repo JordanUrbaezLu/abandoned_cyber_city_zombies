@@ -53,6 +53,10 @@
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
 #using scripts\zm\_zm_perk_doubletap2;
 #using scripts\zm\_zm_perk_deadshot;
+// [acc] Stock-but-unfinished cherry module = the registered perk pipeline we
+// hijack for Aura Blast (see _acc_perk_aura_blast.gsc). Matching #using is in
+// the entry .csc - required, or its clientfield registration mismatches.
+#using scripts\zm\_zm_perk_electric_cherry;
 #using scripts\zm\_zm_perk_juggernaut;
 #using scripts\zm\_zm_perk_quick_revive;
 #using scripts\zm\_zm_perk_sleight_of_hand;
@@ -76,6 +80,7 @@
 // [acc] Custom systems. Modules live in scripts/zm/zm_abandoned_cyber_city/.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_main;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
 
 // Fix Power Lag
 #precache("triggerstring", "ZOMBIE_NEED_POWER");
@@ -121,6 +126,11 @@ function main()
 	// stock bootstrap but still inside main(), i.e. before the first game
 	// tick, first player spawn, and first round calculation.
 	acc_main::pre_init();
+
+	// [acc] Aura Blast: overwrite the stock electric-cherry registration
+	// (cost/hint/give/take) - must run AFTER zm_usermap::main() populated
+	// level._custom_perks, BEFORE the first game tick.
+	acc_perk_aura_blast::init();
 
 	//Setup the levels Zombie Zone Volumes
 	level.zones = [];

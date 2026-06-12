@@ -26,6 +26,7 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_boss.gsc` | Mini-boss (r10/r20) and full boss Subroutine Core (r30+). | main, data_shards |
 | `_acc_points.gsc` | Kill-point awards (40 / 100 / 100) with co-op 70/30 damage split and anti-exploit rules. | main, damage |
 | `_acc_damage.gsc` | Global AI damage hook. Applies 2x/3x headshot multiplier, forwards each hit to `_acc_points::record_damage`. | main |
+| `_acc_perk_aura_blast.gsc` | Aura Blast perk: hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline (overwrites cost/hint/give/take after `zm_usermap::main()`). 400u / 3s stun / 120s CD, crouch+melee activation. | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
 
 ## Call Order
 
@@ -36,6 +37,8 @@ scripts/zm/zm_abandoned_cyber_city.gsc :: main()
   -> acc_main::pre_init()              // registers callbacks, runs modifier + randomizer pre_init
     -> acc_modifiers::pre_init()
     -> acc_map_randomizer::pre_init()
+  -> acc_perk_aura_blast::init()       // overwrite stock cherry registration (cost/hint/give/take);
+                                       // AFTER zm_usermap::main(), BEFORE first game tick
   -> (template wiring: zones, start weapon, starting points)
   -> acc_early_round_pacing::post_zm_main()  // chain level.max_zombie_func BEFORE round 1
   -> acc_main::init()                  // threaded; all subsystems init after stock is up

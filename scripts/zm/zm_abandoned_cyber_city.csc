@@ -27,6 +27,9 @@
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
 #using scripts\zm\_zm_perk_doubletap2;
 #using scripts\zm\_zm_perk_deadshot;
+// [acc] Client half of the cherry pipeline Aura Blast hijacks - must match
+// the entry .gsc #using or clientfield registration mismatches at load.
+#using scripts\zm\_zm_perk_electric_cherry;
 #using scripts\zm\_zm_perk_juggernaut;
 #using scripts\zm\_zm_perk_quick_revive;
 #using scripts\zm\_zm_perk_sleight_of_hand;

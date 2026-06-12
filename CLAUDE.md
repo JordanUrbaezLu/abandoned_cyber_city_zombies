@@ -14,9 +14,9 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## Code map (one line each)
 
-- `map_source/zm/*.map` — Radiant source; starting room = stock zm template copy + hand-authored deadshot/widows-wine machines, 4 wallbuys (ICR-1, Haymaker, Bowie, Drakon), north-wall extension + full perimeter (brushes 19–24, entities 33–42).
-- `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 3 `[acc]` hooks).
-- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 18 custom modules; orchestrated by `acc_main`.
+- `map_source/zm/*.map` — Radiant source; starting room = stock zm template copy + hand-authored machines for all 9 perks (deadshot, widows-wine, aura-blast-via-cherry inline structs), 6 wallbuys (ICR-1, Haymaker, Bowie, Drakon, Sheiva, Frag), north-wall extension + full perimeter (brushes 19–28, entities 33–47).
+- `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 4 `[acc]` hooks).
+- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 19 custom modules; orchestrated by `acc_main` (exception: `_acc_perk_aura_blast` is called directly from the entry script — it hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline, see docs/13_perks.md Implementation Status).
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).
 - `sound/zoneconfig/*.szc`, `zone/` — sound config + workshop publish assets.
 - `tools/sync_to_modtools.ps1` — repo ↔ Mod Tools sync (run on Windows).

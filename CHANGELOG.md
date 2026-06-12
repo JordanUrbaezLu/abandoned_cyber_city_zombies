@@ -6,7 +6,7 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
-### Added — start-room gameplay set: every placeable perk + wallbuy in one big room (2026-06-11)
+### Added — start-room gameplay set: all 9 perks + 6 wallbuys in one big room (2026-06-11)
 
 Everything currently placeable now lives in the (enlarged) start room in
 **[map_source/zm/zm_abandoned_cyber_city.map](map_source/zm/zm_abandoned_cyber_city.map)**,
@@ -26,34 +26,60 @@ docs/03_layout.md and docs/13_perks.md):
   `perk_machine_spawn_init` match string `"zclassic_perks_start_room"`.
 - **Widow's Wine machine** — same inline-struct pattern on the new south
   wall (`script_noteworthy "specialty_widowswine"`, model
-  `p7_zm_vending_widows_wine`, per stock `_zm_perk_widows_wine.gsh`). With it,
-  all 8 stock perks the entry script registers are physically in the map:
+  `p7_zm_vending_widows_wine`, per stock `_zm_perk_widows_wine.gsh`).
+- **Aura Blast machine + module — all 9 perks now physically in the map**:
   Quick Revive, Jug, Speed Cola, Double Tap, Stamin-Up, Mule Kick (template
-  prefabs) + Deadshot, Widow's Wine (new inline structs). The 9th perk, Aura
-  Blast, is fully custom — no stock machine exists; it arrives with the
-  Phase 3 `_acc_perks.gsc` work.
-- **Four wallbuys** — each a `weapon_upgrade` script_struct targeting a model
+  prefabs) + Deadshot, Widow's Wine, Aura Blast (inline structs). Aura Blast
+  is implemented by hijacking the **stock-but-unfinished
+  `_zm_perk_electric_cherry` module** (mod tools ship it with Treyarch's own
+  "TODO update these to proper settings" placeholders — cost 10, machine model
+  `p7_zm_vending_nuke`, Widow's Wine hint string — i.e. a complete registered
+  perk pipeline waiting for real values). New module
+  [`_acc_perk_aura_blast.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc)
+  overwrites the `level._custom_perks[specialty_electriccherry]` entry after
+  `zm_usermap::main()` (cost 2,500, our hint string, our give/take threads —
+  cherry's reload-attack never attaches) and implements the docs/13 base
+  tier: 400u shockwave, 3s stun via `ASMSetAnimationRate` (the verified stock
+  slow mechanism), 120s cooldown, full bosses immune, **crouch+melee chord**
+  activation (BO3 has no console-command script notify — VERIFIED in
+  `_acc_weapon_abilities.gsc`, whose weapon abilities own the ADS+melee
+  chord). Entry `.gsc` AND `.csc` both `#using` the stock cherry module (the
+  client half must match or its clientfield registration mismatches at load);
+  zone gets the new `scriptparsetree` line; machine struct sits on the west
+  perimeter wall. TODO(acc-localize): hint shows the raw token; custom machine
+  model is Phase 5 art; Mega Man tier is Phase 3.
+- **Six wallbuys** — each a `weapon_upgrade` script_struct targeting a model
   struct, copied field-for-field from `zm_alien_isolation`'s shipped wallbuy
-  prefabs (`spawnable_weapon_ar_icr1.map` / `spawnable_weapon_shotgun_banshee.map`):
-  - **ICR-1** (`"ar_accurate"`) and **Haymaker 12** (`"shotgun_fullauto"`) on
-    the extended north wall. ICR-1 gets the stock chalk decal patch mesh
-    (`t7_zm_chalk_buy_icr1`, geometry copied verbatim from the shipped prefab).
-  - **Bowie Knife** (`"bowie_knife"`, targetname `bowie_upgrade` — the stock
-    melee-wallbuy variant, same struct anatomy) and **Drakon**
-    (`"sniper_fastsemi"`) on the new south wall. Drakon is the documented
-    stand-in for the sniper slot until the Intervention import lands
-    (docs/05_weapons.md names it as the explicit fallback). The other roster
-    wallbuys (M14 EBR, Intervention, EMP Grenade) are unported imports/customs
-    and cannot be placed yet.
+  prefabs (every weapon name + world model + chalk material below was read
+  out of that map's prefab sources):
+  - **ICR-1** (`"ar_accurate"`, chalk `t7_zm_chalk_buy_icr1`) and
+    **Haymaker 12** (`"shotgun_fullauto"`, no chalk) on the extended north
+    wall.
+  - South perimeter wall, all with chalk decals: **Bowie Knife**
+    (`"bowie_knife"`, targetname `bowie_upgrade` — the stock melee-wallbuy
+    variant; model `wpn_t7_zmb_knife_bowie_world`, chalk
+    `t7_zm_chalk_buy_bowie`), **Drakon** (`"sniper_fastsemi"`, chalk
+    `t7_zm_chalk_buy_drakon`) standing in for the sniper slot until the
+    Intervention import lands (docs/05_weapons.md names it the explicit
+    fallback), **Sheiva** (`"ar_marksman"`, model `wpn_t7_ar_shva_world`,
+    chalk `t7_zm_chalk_buy_shiva`) standing in for the M14 EBR semi-auto-AR
+    slot, and **Frag Grenade** (`"frag_grenade"`, model
+    `wpn_t7_grenade_frag_world`, chalk `t7_zm_chalk_buy_frag`) standing in
+    for the custom EMP Grenade tactical slot.
+  - That covers every roster wallbuy slot with the best stock equivalent.
+    The remaining roster guns are box-only stock weapons (Brecci, XR-2,
+    Locus, Drakon — already in the stock box pool) or unported imports
+    (B23R, Tac-19, AK-47, M14 EBR, G3, FN FAL, Intervention) and the custom
+    EMP grenade — those need GDT/asset porting on the Windows box (Phase 4,
+    docs/05_weapons.md import notes; NOT plug-and-play: each needs APE
+    conversion + a `weaponfull` zone line).
   - Costs come from the stock `zm_levelcommon_weapons.csv` table for now; our
     pricing is a Phase 3 script pass.
-- **TODO(acc-geom)**: all four wallbuy model structs reuse
-  `wpn_t7_ar_talon_world` (ICR-1's real world model; the shipped banshee
-  prefab proves a mismatched model still functions — it only drives trigger
-  bounds + post-buy display). Swap Haymaker/Bowie/Drakon to their real world
-  models and add their chalk materials once verified in APE on the Windows
-  box (`t7_zm_chalk_buy_icr1` is the only chalk material name we could verify
-  from shipped sources).
+- **TODO(acc-geom)**: Haymaker and Drakon model structs reuse
+  `wpn_t7_ar_talon_world` (ICR-1's real world model; shipped prefabs prove a
+  mismatched model still functions — the shipped drakon prefab itself uses
+  the talon model — it only drives trigger bounds + post-buy display). Swap
+  to their real world models once verified in APE on the Windows box.
 - **Room enlarged to a full arena** — five new worldspawn brushes
   (`script_wall`, plane format cloned from the adjacent template brush):
   north wall extension (x 518.5→732.5, y 419.5–439.5) backing the new
