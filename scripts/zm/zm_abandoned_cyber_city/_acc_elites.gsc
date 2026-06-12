@@ -1,24 +1,35 @@
 // =============================================================================
 // _acc_elites.gsc - elite cyber-zombie spawn logic
 //
-// Design reference: docs/11_enemies.md (The Cast),
-// docs/06_mechanics.md (Elite Timing).
+// Design reference: docs/11_enemies.md (The Cast, Elite Quota Per Round,
+// Co-op Scaling), docs/06_mechanics.md (Elite Timing).
 //
 // Three elite classes: Shielded (r5+), Teleporter (r11+), EMP (r21+).
 // Spawning is driven by "pressure pulses" inside a round, not random spawn
 // overrides, so elites feel deliberate.
+//
+// Also owns:
+//  - The per-round reset of the elite-shard diminishing-returns counter
+//    (player.acc_shards_elite_count_round, incremented by
+//    acc_data_shards::grant_player for "elite_kill"-sourced grants).
+//  - The EMP elite's on-hit debuff (point drain + Cyberware ability lockout)
+//    via the stock player-damage callback chain.
 // =============================================================================
 
 #using scripts\shared\ai\zombie_utility;
 #using scripts\shared\util_shared;
 
+#insert scripts\shared\shared.gsh;
+
 #using scripts\zm\_zm;
 #using scripts\zm\_zm_powerups;
+#using scripts\zm\_zm_score;
 #using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 
 // ---------------------------------------------------------------------------
 // Tuning (tuned against docs/04_progression_and_skills.md difficulty table)
@@ -30,6 +41,10 @@
 
 #define ACC_ELITE_SHARD_REWARD 1
 
+// EMP elite on-hit debuff (docs/11_enemies.md "Elite: EMP (Surge)").
+#define ACC_ELITE_EMP_HIT_POINT_DRAIN 200
+#define ACC_ELITE_EMP_HIT_DISABLE_SEC 5
+
 #namespace acc_elites;
 
 function init()
@@ -39,6 +54,7 @@ function init()
     level.acc_elite_active_count = 0;
 
     level thread round_pressure_loop();
+    level thread watch_round_shard_counter_reset();
 
     // VERIFIED(acc): "zombie_killed" is only ever notified on the PLAYER (and
     // only in the insta-kill path, _zm_powerups.gsc:1463) - a level waittill
@@ -47,6 +63,18 @@ function init()
     // the callback runs ON the dying zombie with the attacker as arg
     // (usage example: _zm_perk_widows_wine.gsc:134).
     zm_spawner::register_zombie_death_event_callback( &on_elite_zombie_death );
+
+    // VERIFIED(acc): zm::register_player_damage_callback (_zm.gsc:5522-5530)
+    // is the dispatched player-damage hook - player_damage_override (wired at
+    // level.overridePlayerDamage, _zm.gsc:1341) runs
+    // check_player_damage_callbacks as its FIRST step (_zm.gsc:5108-5110);
+    // each callback runs ON the damaged player with 10 positional args, and
+    // returning -1 means "damage unchanged, later callbacks still evaluate"
+    // (_zm.gsc:5502-5519). An EARLIER callback returning non -1 short-circuits
+    // us (e.g. the riotshield absorb path) - acceptable, those hits were
+    // blocked anyway. Stock users: _zm_weap_riotshield.gsc:75,
+    // _zm_weap_gravityspikes.gsc:108.
+    zm::register_player_damage_callback( &on_player_damaged );
 }
 
 // ---------------------------------------------------------------------------
@@ -68,14 +96,39 @@ function round_pressure_loop()
     }
 }
 
+// The elite-shard diminishing-returns counter
+// (player.acc_shards_elite_count_round, incremented by
+// acc_data_shards::grant_player for "elite_kill"-sourced grants) is PER ROUND
+// by design (docs/06_mechanics.md Data Shard Economy) - without this reset
+// the low-round diminish became permanent once tripped. The reset lives here
+// because elites own the elite-kill cadence.
+function watch_round_shard_counter_reset()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "acc_round_start", round_number );
+
+        players = acc_utility::get_all_players();
+        for ( i = 0; i < players.size; i++ )
+        {
+            players[ i ].acc_shards_elite_count_round = 0;
+        }
+    }
+}
+
 function elite_quota_for_round( round_number )
 {
-    // See docs/04_progression_and_skills.md "Difficulty Curve".
-    if ( round_number < ACC_ELITE_SHIELDED_MIN_ROUND ) return 0;
-    if ( round_number < 10 ) return 1; // ~1 shielded per round 5-9
-    if ( round_number < 20 ) return 2;
-    if ( round_number < 30 ) return 3;
-    return 4;
+    // docs/11_enemies.md "Elite Quota Per Round": rounds 1-4 = 0, 5-10 = 1,
+    // 11-19 = 2, 21-29 = 3, 30+ = 4+. The table skips round 20 (mini-boss
+    // round - _acc_boss partly replaces that wave), so we hold the 11-19
+    // value there rather than inventing a bigger number.
+    if ( round_number < ACC_ELITE_SHIELDED_MIN_ROUND ) return 0; // 1-4
+    if ( round_number <= 10 ) return 1;                          // 5-10
+    if ( round_number <= 20 ) return 2;                          // 11-19 (+20)
+    if ( round_number < 30 ) return 3;                           // 21-29
+    return 4;                                                    // 30+
 }
 
 function spawn_elites_over_round( quota, round_number )
@@ -161,13 +214,19 @@ function pick_elite_spawner()
 
 // ---------------------------------------------------------------------------
 // Class-specific promotions
+//
+// Every promotion multiplies HP by acc_coop_scaling::special_hp_mult() - the
+// flat elite co-op curve (1.0 solo / 1.5 / 2.0 / 2.5 at 2/3/4 players;
+// docs/11_enemies.md "Co-op Scaling": elites gain +50% HP per extra player,
+// flatter than regular zombies so duos don't blender them). Sampled at
+// promote time so mid-game joins are reflected on the next elite.
 // ---------------------------------------------------------------------------
 
 function promote_to_shielded( z )
 {
     // HP ~2x regular zombie. Front damage resistance.
     base_hp = z.maxhealth;
-    z.maxhealth = base_hp * 2;
+    z.maxhealth = int( base_hp * 2 * acc_coop_scaling::special_hp_mult() );
     z.health = z.maxhealth;
     z.acc_elite_front_damage_resist = 0.25; // take 25% from front
 
@@ -177,7 +236,7 @@ function promote_to_shielded( z )
 function promote_to_teleporter( z )
 {
     // Frailer than shielded. Gets a teleport ability on cooldown.
-    z.maxhealth = int( z.maxhealth * 0.8 );
+    z.maxhealth = int( z.maxhealth * 0.8 * acc_coop_scaling::special_hp_mult() );
     z.health = z.maxhealth;
     z thread teleporter_ability_loop();
 }
@@ -208,10 +267,60 @@ function teleporter_ability_loop()
 
 function promote_to_emp( z )
 {
-    z.maxhealth = int( z.maxhealth * 1.5 );
+    z.maxhealth = int( z.maxhealth * 1.5 * acc_coop_scaling::special_hp_mult() );
     z.health = z.maxhealth;
-    z.acc_emp_on_hit = true;
-    // Damage callback in on_player_damaged_by_emp applies disable.
+    z.acc_emp_on_hit = true; // consumed by on_player_damaged below
+}
+
+// ---------------------------------------------------------------------------
+// EMP elite on-hit debuff (docs/11_enemies.md: melee hit drains 200 points
+// and locks the player's active Cyberware ability for 5s)
+// ---------------------------------------------------------------------------
+
+// Registered via zm::register_player_damage_callback in init(). Runs ON the
+// damaged player (dispatch _zm.gsc:5511) for EVERY player damage event - keep
+// the reject paths cheap. Return -1 = leave the damage unchanged.
+function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, weapon, vPoint, vDir, sHitLoc, psOffsetTime )
+{
+    if ( !isdefined( iDamage ) || iDamage <= 0 ) return -1;
+    if ( !isdefined( eAttacker ) || !IS_TRUE( eAttacker.acc_emp_on_hit ) ) return -1;
+
+    // VERIFIED(acc): zombie melee on players arrives as meansofdeath
+    // "MOD_MELEE" - the factory-zombie attack is entity.enemy DoDamage( ...,
+    // "MOD_MELEE" ) with the zombie itself as attacker (shared/ai/zombie.gsc:402).
+    if ( !isdefined( sMeansOfDeath ) || sMeansOfDeath != "MOD_MELEE" ) return -1;
+
+    // This hook fires BEFORE player_damage_override's laststand/god-mode
+    // checks (_zm.gsc:5110 vs :5137) - don't debuff downed/invalid players.
+    if ( !zm_utility::is_player_valid( self ) ) return -1;
+
+    self apply_emp_melee_debuff();
+
+    return -1; // the hit's damage itself is unchanged
+}
+
+// Runs on the player. No waits - keeps the damage pipeline synchronous.
+function apply_emp_melee_debuff()
+{
+    // Drain points, clamped so the score can't go negative
+    // (minus_to_player_score subtracts blindly, _zm_score.gsc:565).
+    n_drain = ACC_ELITE_EMP_HIT_POINT_DRAIN;
+    if ( isdefined( self.score ) && n_drain > self.score ) n_drain = self.score; // reading score is fine; WRITES go through zm_score
+    if ( n_drain > 0 )
+    {
+        // VERIFIED(acc): zm_score::minus_to_player_score (_zm_score.gsc:551)
+        // is the sanctioned deduction path (same pattern as
+        // _acc_events_hack.gsc:80); it syncs self.pers and stats internally.
+        self zm_score::minus_to_player_score( n_drain );
+    }
+
+    // Active-Cyberware-ability lockout window (docs/11: "Phase Step locked
+    // out"). Contract: ability runtimes (_acc_cyberware's Phase Step watcher,
+    // _acc_weapon_abilities::try_activate_ability) must refuse activation
+    // while gettime() < player.acc_cw_locked_until.
+    self.acc_cw_locked_until = gettime() + ( ACC_ELITE_EMP_HIT_DISABLE_SEC * 1000 );
+    self notify( "acc_emp_disabled", ACC_ELITE_EMP_HIT_DISABLE_SEC );
+    self iprintln( "EMP surge! Cyberware locked for " + ACC_ELITE_EMP_HIT_DISABLE_SEC + "s" );
 }
 
 // ---------------------------------------------------------------------------

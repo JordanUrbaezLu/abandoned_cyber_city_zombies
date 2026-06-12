@@ -92,6 +92,24 @@ function suppress_stock_kill_score( event, mod, hit_location, zombie_team, damag
 function on_zombie_death( attacker ) // self = the killed zombie
 {
     distribute_points( self, attacker, self.damagemod, self.damagelocation );
+
+    // Kinetic Battery accrual (docs/12): every 10 kills charges the battery;
+    // _acc_damage consumes the charge (3x next shot) and resets the counter.
+    if ( isdefined( attacker ) && isplayer( attacker )
+         && isdefined( attacker.acc_item_battery ) && attacker.acc_item_battery
+         && !( isdefined( attacker.acc_item_battery_charged ) && attacker.acc_item_battery_charged ) )
+    {
+        if ( !isdefined( attacker.acc_item_battery_kill_count ) )
+        {
+            attacker.acc_item_battery_kill_count = 0;
+        }
+        attacker.acc_item_battery_kill_count++;
+        if ( attacker.acc_item_battery_kill_count >= 10 )
+        {
+            attacker.acc_item_battery_charged = true;
+            attacker iprintln( "Kinetic Battery CHARGED" );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

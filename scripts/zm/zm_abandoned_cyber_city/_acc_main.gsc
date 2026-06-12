@@ -35,6 +35,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 
 #namespace acc_main;
 
@@ -63,6 +65,12 @@ function init()
     acc_utility::log( "init start" );
 
     acc_early_round_pacing::init();
+    acc_coop_scaling::init();
+
+    // Decontamination must arm its acc_round_start listener before
+    // watch_round_transitions below can fire the first one; it also rolls
+    // the per-run seal permutation.
+    acc_decontamination::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.

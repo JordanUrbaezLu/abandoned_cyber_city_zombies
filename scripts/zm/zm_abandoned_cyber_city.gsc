@@ -80,6 +80,7 @@
 // [acc] Custom systems. Modules live in scripts/zm/zm_abandoned_cyber_city/.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_main;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
 
 // Fix Power Lag
@@ -159,7 +160,10 @@ function main()
 	level thread better_max_ammo();
 
 	// [acc] Chain level.max_zombie_func BEFORE round 1 computes spawn totals.
+	// ORDER IS LOAD-BEARING: coop_scaling chains AFTER early pacing so stock
+	// invokes coop first (normalizes n_max to solo) before delegating down.
 	acc_early_round_pacing::post_zm_main();
+	acc_coop_scaling::post_zm_main();
 
 	// [acc] All remaining custom systems spin up on their own thread. Each
 	// module no-ops gracefully when its Radiant geometry doesn't exist yet,
@@ -202,18 +206,17 @@ function usermap_test_zone_init()
 	// [acc] 7-zone graph (docs/03_layout.md). VERIFIED(acc): an info_volume
 	// alone does nothing - a zone only exists once zone_init runs, reached
 	// via add_adjacent_zone / the manage_zones init list (_zm_zonemgr.gsc:288,
-	// :595). "always_on" is set above, so every connection links at start
-	// (greybox: all corridors open). The buyable-door pass replaces these
-	// flags with per-door "enter_*" flags set by door trigger script_flag
-	// KVPs (stock _zm_blockers.gsc:952 sets/clears them on open/close).
-	zm_zonemgr::add_adjacent_zone( "start_zone",  "market_zone", "always_on" );
-	zm_zonemgr::add_adjacent_zone( "start_zone",  "alley_zone",  "always_on" );
-	zm_zonemgr::add_adjacent_zone( "market_zone", "corp_zone",   "always_on" );
-	zm_zonemgr::add_adjacent_zone( "alley_zone",  "corp_zone",   "always_on" );
-	zm_zonemgr::add_adjacent_zone( "corp_zone",   "vault_zone",  "always_on" );
-	zm_zonemgr::add_adjacent_zone( "corp_zone",   "roof_zone",   "always_on" );
-	zm_zonemgr::add_adjacent_zone( "vault_zone",  "lab_zone",    "always_on" );
-	zm_zonemgr::add_adjacent_zone( "roof_zone",   "lab_zone",    "always_on" );
+	// :595). Each flag below is set by the matching buyable door's
+	// script_flag KVP on purchase (stock _zm_blockers.gsc:952-959); the
+	// zone behind a door activates on the next ~1s zonemgr scan after buy.
+	zm_zonemgr::add_adjacent_zone( "start_zone",  "market_zone", "enter_market" );
+	zm_zonemgr::add_adjacent_zone( "start_zone",  "alley_zone",  "enter_alley" );
+	zm_zonemgr::add_adjacent_zone( "market_zone", "corp_zone",   "enter_corp_w" );
+	zm_zonemgr::add_adjacent_zone( "alley_zone",  "corp_zone",   "enter_corp_e" );
+	zm_zonemgr::add_adjacent_zone( "corp_zone",   "vault_zone",  "enter_vault" );
+	zm_zonemgr::add_adjacent_zone( "corp_zone",   "roof_zone",   "enter_roof" );
+	zm_zonemgr::add_adjacent_zone( "vault_zone",  "lab_zone",    "enter_lab_e" );
+	zm_zonemgr::add_adjacent_zone( "roof_zone",   "lab_zone",    "enter_lab_w" );
 }
 
 function custom_add_weapons()

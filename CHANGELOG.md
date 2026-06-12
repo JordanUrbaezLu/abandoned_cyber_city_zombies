@@ -6,6 +6,75 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — full requirements push: doors+boxes+terminals, decontamination, co-op scaling, effect consumers, visual map design (2026-06-12, second ultracode pass)
+
+9-agent file-owned implementation fleet + map pass 3 + integration. Tracker
+now at **201/471 implemented** ([docs/20_requirements_checklist.md](docs/20_requirements_checklist.md));
+everything still open is categorized with reasons + unblock steps in
+**[MISSING_REQUIREMENTS.md](MISSING_REQUIREMENTS.md)**.
+
+- **Visual map design**: [docs/map_design.svg](docs/map_design.svg) (+ .png) —
+  rendered from the LIVE .map by `tools/gen_map_design.js` (parses the entity
+  lump): all 7 zones, 8 corridors, every perk/wallbuy/box/door/terminal/
+  power/spawn marked with legend. Linked from docs/03.
+- **Map pass 3** (`tools/gen_interactives.js`, one-shot): 8 buyable doors
+  (trigger_use + sliding script_brushmodel slab per corridor, costs
+  750/1000/1250/1500, script_flag `enter_*`; zone adjacency flags switched
+  from always_on to the door flags — zones now open by purchase); 3 inline
+  Mystery Boxes replacing the single template box (zbarrier_zmcore_MagicBox +
+  treasure_chest_use struct pairs with `acc_box_market/corp/roof` noteworthy
+  pairing, KVPs verbatim from the shipped box_start.map — the randomizer's
+  initial-box roll is now live); 2nd power switch (Vault) with
+  `script_string` side tags; acc_cyberware_kiosk + acc_overclock_terminal
+  (Lab), acc_hack_terminal (Corp), acc_overload_terminal + point (Vault),
+  acc_power_corp/vault emergency-drop triggers, acc_pap_block_server/roof
+  brushes (both Lab corridors), acc_boss_spawn struct (Lab).
+- **NEW `_acc_decontamination.gsc`**: docs/03 hazard complete — per-run
+  permutation of the 4 eligible zones, rounds 1-4 contaminate one each
+  (20s evac warning + countdown, stragglers die via the stock kill path),
+  permanent seal (spawning disabled + kill-on-reentry monitor), emits
+  acc_decontamination_start/complete; **Lab perk rotation now keys on
+  acc_decontamination_complete** (the docs-mandated timing), every round.
+- **NEW `_acc_coop_scaling.gsc`**: regular zombie HP +100%/player (delta vs
+  stock's own scaling, via the level.zombie_init_done hook), elites/bosses
+  +50%/player (`special_hp_mult()` consumed by elites + both boss spawns),
+  spawn rate +30%/player (max_zombie_func chained after early pacing).
+- **`_acc_damage.gsc`** is now the single consumer of every damage-side
+  contract flag: Cyberware Amplifier ×1.15 + Overload crit chain, Kinetic
+  Battery 3× discharge (accrual added in `_acc_points` — 10 kills),
+  Precision Mode (3 auto-crit ×4) + Slug Round (×3) ability flags, the
+  damage-shaped Overclocks (Overpressure ADS ×1.5, Piercing/Penetration/
+  Breach shield-bypass, Reactive Powder headshot AoE, Adaptive Aim refund),
+  Shielded-elite frontal ×0.25 resist with pierce/explosive counter-play.
+- **`_acc_cyberware.gsc`**: all 9 node effects real — Phase Step (slide →
+  160u blink through zombies, walls block, 6s CD), Ghost Protocol (2s
+  still → stock ignoreme cloak), Meltdown (no-chain corpse AoE with kill
+  attribution), Caching (2× bleed-out via the stock laststand multiplier
+  field), plus crouch+use respec at the kiosk (3-Shard tax, once/run,
+  never T3).
+- **`_acc_boss.gsc`**: mini-boss rounds now REPLACE the wave
+  (level.zombie_total=0 at boss round start); full boss Subroutine Core is a
+  real damageable actor spawned at acc_boss_spawn (stationary, failsafe+
+  enemy-count exempt — boss rounds 30+ run normal waves alongside);
+  acc_boss_dead carries killer payload; co-op HP scaling applied.
+- **`_acc_events_hack.gsc` / `_acc_events_overload.gsc`**: both events
+  completable end-to-end against the placed terminals (3-stage hack,
+  90s overload defense at the point struct), kill counting via the verified
+  death-event callback, sr2a retry honored, shortcut reward no-ops with a
+  log until its geometry exists (design call — see MISSING_REQUIREMENTS).
+- **`_acc_elites.gsc`**: per-round shard-diminish counter reset, co-op HP,
+  quota table verified vs docs/11; **`_acc_map_randomizer.gsc`**: all three
+  TODO applies real (dead power switch DELETED pre-tick by side tag; PaP
+  blocker hidden/connected on the open side; wallbuy pool rewrites the
+  post-init purchase layer — struct rewrite is provably unsafe client-side);
+  **`_acc_weapon_abilities.gsc`**: Precision/Slug/Whirlwind real, weapon
+  table fixed to verified class names, GDT-bound abilities honestly stubbed.
+- 22 items confirmed unresolvable from this machine — all documented with
+  what's needed in MISSING_REQUIREMENTS.md (headline: everything is
+  compile-unverified until Mod Tools exist on a Windows box; imports need
+  the Skye packs downloaded; recoil/fire-rate/LUI effects need Phase 4
+  GDT/csc work).
+
 ### Fixed — adversarial verification pass over the zones+mega+boss commit (2026-06-12)
 
 15-agent verify pass (one adversarial reviewer per changed file/aspect +

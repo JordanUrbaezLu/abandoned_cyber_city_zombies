@@ -2,6 +2,11 @@
 
 Gameplay-first layout. Theme and art are flavor only; this doc is about **flow, chokepoints, training potential, risk/reward zones, how randomization slots into geometry**, and the **decontamination** round hazard.
 
+> **Visual design**: **[map_design.svg](map_design.svg)** — the as-built map
+> rendered from the real `.map` source (rooms, corridors, every perk machine,
+> wallbuy, box, door, terminal, power switch, spawn marked + legend). Regenerate
+> after map edits: `node tools/gen_map_design.js`.
+
 ## Design Philosophy
 
 - **Small and dense beats big and empty.** Target total playable footprint comparable to Der Eisendrache, not Tranzit.

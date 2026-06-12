@@ -26,6 +26,8 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_boss.gsc` | Mini-boss (r10/r20) and full boss Subroutine Core (r30+). | main, data_shards |
 | `_acc_points.gsc` | Kill-point awards (40 / 100 / 100) with co-op 70/30 damage split and anti-exploit rules. | main, damage |
 | `_acc_damage.gsc` | Global AI damage hook. Applies 2x/3x headshot multiplier, forwards each hit to `_acc_points::record_damage`. | main |
+| `_acc_decontamination.gsc` | Round 1-4 zone-seal hazard: per-run permutation, 20s evac window, kill-on-reentry, emits acc_decontamination_start/complete (perk rotation keys on complete). | main |
+| `_acc_coop_scaling.gsc` | Co-op scaling: regular HP +100%/player, elites/bosses +50% (special_hp_mult), spawn rate +30%/player (max_zombie_func chain). | entry script (post_zm_main), main, elites, boss |
 | `_acc_perk_aura_blast.gsc` | Aura Blast perk: hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline (overwrites cost/hint/give/take after `zm_usermap::main()`). 400u / 3s stun / 120s CD, crouch+melee activation. | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
 
 ## Call Order

@@ -42,21 +42,21 @@ author in this repo today.
   - *Next:* Update docs/00_overview.md:41 to the implemented dimensions (power side x PaP approach x box node x perk rotation) and verify >=16 combos once the map entities exist.
 - [ ] **overclock-effects** `stubbed` — Applied Overclocks actually change weapon behavior (23 effects across ar/smg/shotgun/sniper/lmg pools).
   - *Next:* Implement at least the 6 AR-pool effects by reading self.acc_oc_active in the damage callback (_acc_damage.gsc) and a weapon-fire watcher.
-- [ ] **reroll-wallbuy-pool** `stubbed` — Wallbuy pool re-rolls each game (each slot drawn from a weighted candidate pool and applied to the in-world wallbuy).
+- [x] **reroll-wallbuy-pool** `implemented` *(closed 2026-06-12 second ultracode pass)* — Wallbuy pool re-rolls each game (each slot drawn from a weighted candidate pool and applied to the in-world wallbuy).
   - *Next:* Implement apply_wallbuy_pool against the _zm_weapons wallbuy structs (re-point zombie_weapon_upgrade per slot) and add a second candidate weapon to at least the AR and shotgun slots.
-- [ ] **boss-every-10-rounds** `stubbed` — Boss round every 10: mini-boss replaces the wave at rounds 10/20 (2 at r20), full boss 'Subroutine Core' at 30/40/50+.
+- [x] **boss-every-10-rounds** `implemented` *(closed 2026-06-12 second ultracode pass)* — Boss round every 10: mini-boss replaces the wave at rounds 10/20 (2 at r20), full boss 'Subroutine Core' at 30/40/50+.
   - *Next:* Implement spawn_juggernaut_host via zombie_utility::spawn_zombie + ~10x elite HP + acc_is_mini_boss flag, wire boss damage intake to _acc_damage, and place the acc_boss_spawn script_struct in Radiant.
 - [ ] **three-build-archetypes** `stubbed` — At least 3 distinct build archetypes (e.g. Crit / AoE / Mobility) are mechanically distinct and reach late game.
   - *Next:* Implement the crit path (oc2a) in _acc_damage, Meltdown AoE-on-kill (oc3) via the zombie death callback, and the rx2a/rx3 movement abilities, then balance-test the three branches.
-- [ ] **shards-spend-cyberware-kiosk** `map-missing` — Shards are spendable on the Cyberware tree via an in-world kiosk interaction.
+- [x] **shards-spend-cyberware-kiosk** `implemented` *(closed 2026-06-12 second ultracode pass)* — Shards are spendable on the Cyberware tree via an in-world kiosk interaction.
   - *Next:* Place a trigger_use with targetname acc_cyberware_kiosk in the start room in Radiant.
-- [ ] **overclock-random-draw** `map-missing` — Weapon Overclocks are pulled from randomized family pools: tier-up (cost 1/2/3/4/5 shards, max T5) draws a random non-duplicate Overclock; re-roll costs 1 shard.
+- [x] **overclock-random-draw** `implemented` *(closed 2026-06-12 second ultracode pass)* — Weapon Overclocks are pulled from randomized family pools: tier-up (cost 1/2/3/4/5 shards, max T5) draws a random non-duplicate Overclock; re-roll costs 1 shard.
   - *Next:* Place a trigger_use with targetname acc_overclock_terminal in the start room in Radiant.
-- [ ] **reroll-power-routing** `map-missing` — Power routing re-rolls each game: 50/50 Corp vs Vault side, losing side's switch disabled.
+- [x] **reroll-power-routing** `implemented` *(closed 2026-06-12 second ultracode pass)* — Power routing re-rolls each game: 50/50 Corp vs Vault side, losing side's switch disabled.
   - *Next:* Build the Corp and Vault zones and place two power-switch triggers named acc_power_corp / acc_power_vault in Radiant.
-- [ ] **reroll-pap-path** `map-missing` — Pack-a-Punch path re-rolls each game: one of two approaches (server/roof) is blocked per run by a shown+solid blocker brushmodel.
+- [x] **reroll-pap-path** `implemented` *(closed 2026-06-12 second ultracode pass)* — Pack-a-Punch path re-rolls each game: one of two approaches (server/roof) is blocked per run by a shown+solid blocker brushmodel.
   - *Next:* Build the PaP area with two approach routes and place hidden script_brushmodels acc_pap_block_server / acc_pap_block_roof in Radiant.
-- [ ] **reroll-box-location** `map-missing` — Initial Mystery Box location re-rolls each game among 3 nodes (market/corp/roof) via level.start_chest_name.
+- [x] **reroll-box-location** `implemented` *(closed 2026-06-12 second ultracode pass)* — Initial Mystery Box location re-rolls each game among 3 nodes (market/corp/roof) via level.start_chest_name.
   - *Next:* Place three mystery-box prefabs with script_noteworthy acc_box_market / acc_box_corp / acc_box_roof once the Market/Corp/Roof zones exist in Radiant.
 - [ ] **hack-objective-gates-rewards** `map-missing` — Optional Hack Terminal objective gates rewards: 500-point activation, 3 timed kill stages, success pays 2 shards, failure locks terminal and spawns a penalty wave.
   - *Next:* Place the acc_hack_terminal trigger_use in Radiant (Corporate Plaza zone) and implement spawn_penalty_wave via zombie_utility::spawn_zombie.
@@ -81,7 +81,7 @@ author in this repo today.
 ## docs/03_layout.md
 
 - [x] **perk-rotation-4of9-no-dupes** `implemented` — Each round the Lab perk lineup is a random 4 of the 9-perk roster with no duplicates, re-rolled per round (not per run).
-- [ ] **perk-roll-after-decon-not-round-start** `scaffolded` — The Lab 4-of-9 perk re-roll runs only after acc_decontamination_complete (after the 20s window + seal, or after the nominal 0s tick on round 5+), never at the first frame of the round.
+- [x] **perk-roll-after-decon-not-round-start** `implemented` *(closed 2026-06-12 second ultracode pass)* — The Lab 4-of-9 perk re-roll runs only after acc_decontamination_complete (after the 20s window + seal, or after the nominal 0s tick on round 5+), never at the first frame of the round.
   - *Next:* Once _acc_decontamination.gsc exists, replace the acc_round_start waittill at _acc_map_randomizer.gsc:232 with waittill("acc_decontamination_complete", round_number).
 - [ ] **lab-4-perk-machine-slots** `scaffolded` — The Lab contains 4 perk machines (Lab-A through Lab-D, targetnames acc_lab_perk_a/b/c/d) whose dispense logic grants rotation[index]'s specialty.
   - *Next:* Build the Lab zone with 4 acc_lab_perk_a..d machine entities and write the trigger/purchase logic that reads .acc_current_specialty and grants that perk via the stock perk pipeline.
@@ -103,9 +103,9 @@ author in this repo today.
   - *Next:* Build the 8 inter-zone connections (door triggers + debris/brush geometry) in Radiant and register zone adjacency in the entry script per the docs/03_layout.md mermaid graph.
 - [ ] **spawn-two-buyable-exits** `map-missing` — Spawn Plaza has two exits (to Market and to Alley), both buyable early so players pick their opener.
   - *Next:* Place two zombie_door buyable-debris triggers on the Spawn perimeter, one targeting the Market connection and one targeting the Alley connection, with early-game prices.
-- [ ] **power-switch-a-or-b-per-run** `map-missing` — Exactly one of Power Switch A (Corporate Plaza) or B (Server Vault) is active per run (50/50 roll); the other is dead for the entire run.
+- [x] **power-switch-a-or-b-per-run** `implemented` *(closed 2026-06-12 second ultracode pass)* — Exactly one of Power Switch A (Corporate Plaza) or B (Server Vault) is active per run (50/50 roll); the other is dead for the entire run.
   - *Next:* Place two power-switch prefabs in Corp and Vault with trigger targetnames acc_power_corp and acc_power_vault when those zones are built.
-- [ ] **lab-approach-blocked-per-run** `map-missing` — One of the two Lab approaches (Server-side or Roof-side) is randomly blocked per run by a solid blocker.
+- [x] **lab-approach-blocked-per-run** `implemented` *(closed 2026-06-12 second ultracode pass)* — One of the two Lab approaches (Server-side or Roof-side) is randomly blocked per run by a solid blocker.
   - *Next:* Add two hidden-by-default script_brushmodels named acc_pap_block_server and acc_pap_block_roof on the Vault-to-Lab and Roof-to-Lab connections in Radiant.
 - [ ] **mystery-box-3-locations-weighted-initial** `map-missing` — The Mystery Box can spawn at Market, Corp, or Roof, with the initial location randomized per run.
   - *Next:* Place three mystery-box chest prefabs (Market, Corp, Roof) with script_noteworthy acc_box_market/acc_box_corp/acc_box_roof when those zones are built; remove or relocate the start-room test box.
@@ -121,17 +121,17 @@ author in this repo today.
   - *Next:* Build the elevator/service-stairs route geometry with appropriately priced door triggers when the Roof and Vault zones are authored.
 - [x] **zones-min-two-exits** `implemented` *(closed 2026-06-12: every zone has 2+ corridor connections per the 8-edge graph)* — Every zone has at least two exits (no dead-end panic traps except the designed Server Vault Overload risk).
   - *Next:* Enforce the two-exit rule during the Radiant blockout of each zone; audit the final zone graph against the docs/03_layout.md mermaid edges before first compile.
-- [ ] **decon-module-notifies** `missing` — A decontamination system emits acc_decontamination_start (round, zone_id) at round start and acc_decontamination_complete after the 20s window + seal logic.
+- [x] **decon-module-notifies** `implemented` *(closed 2026-06-12 second ultracode pass)* — A decontamination system emits acc_decontamination_start (round, zone_id) at round start and acc_decontamination_complete after the 20s window + seal logic.
   - *Next:* Create scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc that listens for acc_round_start, picks the round's contaminated zone, and emits acc_decontamination_start/acc_decontamination_complete; add it to _acc_main.gsc init order and the .zone manifest.
-- [ ] **decon-eligible-only-4** `missing` — Only Undercity Market, Service Alley, Server Vault, and Rooftop Helipad are decontamination-eligible; Spawn Plaza, Corporate Plaza, and Subterranean Lab are never sealed.
+- [x] **decon-eligible-only-4** `implemented` *(closed 2026-06-12 second ultracode pass)* — Only Undercity Market, Service Alley, Server Vault, and Rooftop Helipad are decontamination-eligible; Spawn Plaza, Corporate Plaza, and Subterranean Lab are never sealed.
   - *Next:* In the new _acc_decontamination.gsc, hardcode the eligible array to exactly [market, alley, vault, roof] and assert spawn/corp/lab are never selectable.
-- [ ] **decon-permutation-rounds-1-4** `missing` — A permutation of the 4 eligible zones is rolled once at map load; round 1 seals slot 1 through round 4 sealing slot 4; round 5+ adds no new permanent seal.
+- [x] **decon-permutation-rounds-1-4** `implemented` *(closed 2026-06-12 second ultracode pass)* — A permutation of the 4 eligible zones is rolled once at map load; round 1 seals slot 1 through round 4 sealing slot 4; round 5+ adds no new permanent seal.
   - *Next:* Add state.decon_order = array::randomize([market,alley,vault,roof]) to _acc_map_randomizer::pre_init() and have _acc_decontamination.gsc consume slot (round_number-1) for rounds 1-4 and no-op (nominal 0s tick) for round 5+.
-- [ ] **decon-hud-audio-warning** `missing` — At round start a global HUD + audio warning reads "DECONTAMINATION — EVACUATE [ZONE NAME]".
+- [x] **decon-hud-audio-warning** `implemented` *(closed 2026-06-12 second ultracode pass)* — At round start a global HUD + audio warning reads "DECONTAMINATION — EVACUATE [ZONE NAME]".
   - *Next:* Emit an interim iprintlnbold + sound alias from _acc_decontamination.gsc at acc_decontamination_start; defer the real LUI HUD widget to the Phase 4 .csc work.
-- [ ] **decon-20s-escape-window** `missing` — Players inside the contaminated zone's volume have exactly 20 seconds from round start to leave its flagged bounds.
+- [x] **decon-20s-escape-window** `implemented` *(closed 2026-06-12 second ultracode pass)* — Players inside the contaminated zone's volume have exactly 20 seconds from round start to leave its flagged bounds.
   - *Next:* Implement a 20s countdown in _acc_decontamination.gsc that polls each player against the contaminated zone's info_volume (IsTouching on the zone volume ent) per tick.
-- [ ] **decon-failure-instant-death** `missing` — A player still inside when the 20s timer expires dies instantly via the stock down/kill path (Quick Revive / co-op rules apply), each player evaluated independently.
+- [x] **decon-failure-instant-death** `implemented` *(closed 2026-06-12 second ultracode pass)* — A player still inside when the 20s timer expires dies instantly via the stock down/kill path (Quick Revive / co-op rules apply), each player evaluated independently.
   - *Next:* On timer expiry in _acc_decontamination.gsc, run the stock laststand/kill path (e.g. player DoDamage(player.health + 666, player.origin) through the stock damage pipeline) per offending player, verifying the exact stock-correct call against tmp/bo3_stock_ref before first compile.
 - [ ] **decon-permanent-seal** `missing` — After the timer, the zone seals for the rest of the run: doors close, debris blocks entry, a kill volume covers re-entry, and spawners inside are disabled or redirected.
   - *Next:* Add per-zone seal logic (close acc_seal_<zone> script_brushmodels, enable acc_killvol_<zone> trigger_hurt, strip <zone>_spawners from level.zombie_spawners) to _acc_decontamination.gsc and place the matching Radiant entities when the zones are built.
@@ -177,11 +177,11 @@ author in this repo today.
   - *Next:* Reset acc_shards_elite_count_round on the 'acc_round_start' notify (_acc_main.gsc:157) and apply the cap at all rounds (or amend the doc to the low-round-only behavior).
 - [ ] **duplicate-boss-items-3-shards** `scaffolded` — Duplicate boss-drop items auto-convert to 3 Data Shards each.
   - *Next:* Implement real boss/mini-boss actors so deaths fire on_boss_death and the conversion path becomes reachable.
-- [ ] **respec-rules** `scaffolded` — One tier respec per run, costs 3 Shards tax, returns the refunded node cost, cannot respec Tier 3.
+- [x] **respec-rules** `implemented` *(closed 2026-06-12 second ultracode pass)* — One tier respec per run, costs 3 Shards tax, returns the refunded node cost, cannot respec Tier 3.
   - *Next:* Wire a respec interaction (e.g., second use-prompt on the cyberware kiosk) that calls acc_cyberware::try_respec_last_node.
 - [ ] **rx1-sprint-stamina** `scaffolded` — Reflex Tier 1: +10% sprint speed AND +15% stamina regen.
   - *Next:* Centralize one move-speed resolver that multiplies Reflex (1.10) x Neural Boots (1.20); implement +15% stamina regen or cut it from the doc.
-- [ ] **boss-round-replaces-wave** `scaffolded` — Every 10th round from r10 is a boss round that REPLACES the normal zombie wave (1 mini r10, 2 minis r20, full boss r30/40/50+).
+- [x] **boss-round-replaces-wave** `implemented` *(closed 2026-06-12 second ultracode pass)* — Every 10th round from r10 is a boss round that REPLACES the normal zombie wave (1 mini r10, 2 minis r20, full boss r30/40/50+).
   - *Next:* Implement real mini-boss/boss actors, suppress stock round spawning during boss rounds, and place the 'acc_boss_spawn' script_struct in Radiant.
 - [ ] **coop-shard-to-killer** `scaffolded` — In co-op, an elite's Shard drop goes to the killing player (boss/side-objective shards are shared/independent).
   - *Next:* Either grant directly to the attacker in on_elite_zombie_death or tag the pickup with an owner and restrict the claim.
@@ -189,21 +189,21 @@ author in this repo today.
   - *Next:* Same blocker as boss rounds: implement damageable boss actors and wire the mini path to reward_players.
 - [ ] **sink-oc-reroll-1** `scaffolded` — Sink pricing: Weapon Overclock re-roll costs 1 Shard each (opportunistic, usable mid-run).
   - *Next:* Offer re-roll of any owned tier slot at the terminal pre-max (needs the Phase-4 two-option UX noted at :194-198) and place the terminal.
-- [ ] **sink-respec-3** `scaffolded` — Sink pricing: Cyberware tier respec costs 3 Shards, max once per run.
+- [x] **sink-respec-3** `implemented` *(closed 2026-06-12 second ultracode pass)* — Sink pricing: Cyberware tier respec costs 3 Shards, max once per run.
   - *Next:* Same as respec-rules: add the kiosk interaction that calls try_respec_last_node.
-- [ ] **oc1-damage-15pct** `stubbed` — Overclock Tier 1: +15% weapon damage on all guns.
+- [x] **oc1-damage-15pct** `implemented` *(closed 2026-06-12 second ultracode pass)* — Overclock Tier 1: +15% weapon damage on all guns.
   - *Next:* In _acc_damage::on_ai_damage, multiply final_damage by attacker.acc_cw_damage_mult when defined (and add reset in strip_all_node_effects).
-- [ ] **oc2a-overload-crit** `stubbed` — Overload (OC T2a): +30% critical hit damage, +50% crit chance on headshots.
+- [x] **oc2a-overload-crit** `implemented` *(closed 2026-06-12 second ultracode pass)* — Overload (OC T2a): +30% critical hit damage, +50% crit chance on headshots.
   - *Next:* Apply acc_cw_crit_damage_mult (and define crit-chance semantics) inside _acc_damage::on_ai_damage's headshot path.
 - [ ] **oc2b-fission-elemental** `stubbed` — Fission (OC T2b): PaP'd weapon gets a free elemental Overclock slot.
   - *Next:* In _acc_overclocks, hook PaP completion and grant a free elemental Overclock slot when player.acc_cw_pap_elemental_slot is set.
 - [ ] **sr2b-caching** `stubbed` — Caching (SR T2b): down-but-not-out lasts 2x longer before bleed-out, and self-revive Shard cost is halved.
   - *Next:* Hook the laststand bleed-out timer to honor acc_cw_bleed_multiplier, and build the Shard self-revive purchase that the 0.5 discount applies to.
-- [ ] **rx2a-phase-step** `stubbed` — Phase Step (RX T2a): slide becomes a short teleport through zombies (no damage, no collision, 6s cooldown).
+- [x] **rx2a-phase-step** `implemented` *(closed 2026-06-12 second ultracode pass)* — Phase Step (RX T2a): slide becomes a short teleport through zombies (no damage, no collision, 6s cooldown).
   - *Next:* Implement a per-player slide watcher that ForceTeleports through the nearest navmesh point ahead (GetClosestPointOnNavMesh pattern, _acc_elites.gsc:199) with a 6s cooldown, gated on acc_cw_phase_step.
-- [ ] **rx2b-ghost-protocol** `stubbed` — Ghost Protocol (RX T2b): standing still for 2s makes melee zombies untarget you (specials unaffected) until you move.
+- [x] **rx2b-ghost-protocol** `implemented` *(closed 2026-06-12 second ultracode pass)* — Ghost Protocol (RX T2b): standing still for 2s makes melee zombies untarget you (specials unaffected) until you move.
   - *Next:* Implement a stillness watcher (origin delta over 2s) toggling the stock zombie-ignore mechanism for regular zombies only, cleared on movement.
-- [ ] **oc3-meltdown** `stubbed` — Meltdown (OC T3): kills explode for AoE damage scaling with weapon damage; explosions do not chain.
+- [x] **oc3-meltdown** `implemented` *(closed 2026-06-12 second ultracode pass)* — Meltdown (OC T3): kills explode for AoE damage scaling with weapon damage; explosions do not chain.
   - *Next:* In a zm_spawner zombie-death callback, RadiusDamage at the corpse when attacker.acc_cw_meltdown_aoe is set, tagging AoE-caused deaths so they cannot re-trigger (no chaining).
 - [ ] **rx3-overdrive** `stubbed` — Overdrive (RX T3): sprinting grants a ramping damage buff (+1% per second, max 30%), reset on taking damage.
   - *Next:* Add a sprint-tracking loop accumulating a bonus (cap 0.30, cleared by a player-damage callback) and consume it in _acc_damage::on_ai_damage.
@@ -225,9 +225,9 @@ author in this repo today.
   - *Next:* Override the stock zombie health start/increment (zombie_utility zombie_vars) in a post_zm_main hook to 150 base +100/round.
 - [ ] **rounds-31-39-tighten** `missing` — Rounds 31-39 use custom spawn logic that tightens gaps (fewer safe windows).
   - *Next:* Design + implement a r31+ spawn-pacing override (e.g., reduce stock spawn delay / raise concurrent AI limit).
-- [ ] **coop-elite-hp-flat** `missing` — Elites scale +50% HP per extra player (flatter than regular zombies).
+- [x] **coop-elite-hp-flat** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites scale +50% HP per extra player (flatter than regular zombies).
   - *Next:* Multiply elite promotion HP by (1 + 0.5 * (level.players.size - 1)) in promote_to_*.
-- [ ] **coop-spawn-rate-30pct** `missing` — Zombie spawn rate scales +30% per extra player (not the stock +100%).
+- [x] **coop-spawn-rate-30pct** `implemented` *(closed 2026-06-12 second ultracode pass)* — Zombie spawn rate scales +30% per extra player (not the stock +100%).
   - *Next:* Rescale the stock per-player count inside acc_max_zombie_override to a 1 + 0.3*(players-1) factor (back out stock's player scaling first).
 - [ ] **shards-hud** `phase4-blocked` — Shard count is visible to the player on the HUD.
   - *Next:* Author client-side .csc module + LUI widget bound to the 'acc_data_shards' toplayer clientfield (Phase 4).
@@ -270,7 +270,7 @@ author in this repo today.
   - *Next:* Align Deadshot and Speed Cola costs (precache strings + actual perk-register costs) with docs/13_perks.md, or fix the doc values.
 - [ ] **perks-9-roster-4-lockout** `scaffolded` — 9 perks available with 4 locked out per run (per docs/05 line 237; 13_perks/code use a per-ROUND 4-of-9 rotation locking out 5).
   - *Next:* Fix docs/05_weapons.md line 237 to say "4 available per round, 5 locked out, re-rolled per round" to match 13_perks and code.
-- [ ] **boss-item-weapon-interactions** `scaffolded` — Boss-drop item hooks into weapon progression: Kinetic Battery 3x next-shot multiplies with PaP/Overclocks, Neural Boots movement buff, Payroll Ledger +10% Points per kill (6-item pool, 2 slots).
+- [x] **boss-item-weapon-interactions** `implemented` *(closed 2026-06-12 second ultracode pass)* — Boss-drop item hooks into weapon progression: Kinetic Battery 3x next-shot multiplies with PaP/Overclocks, Neural Boots movement buff, Payroll Ledger +10% Points per kill (6-item pool, 2 slots).
   - *Next:* Consume acc_item_battery_charged in _acc_damage.gsc::on_ai_damage to apply the 3x next-shot multiplier and reset the charge.
 - [ ] **zone-manifest-weapon-lines** `scaffolded` — Stock guns enter via the gamedata/weapons/zm/zm_levelcommon_weapons.csv stringtable in the zone; only custom/imported weapons get their own weaponfull lines.
   - *Next:* Add one weaponfull,<gdt_name> line per custom/import weapon as each GDT lands in Phase 4.
@@ -278,9 +278,9 @@ author in this repo today.
   - *Next:* Consume self.acc_oc_active flags in the zm::register_actor_damage_callback path (_acc_damage.gsc::on_ai_damage) starting with the damage-shaped ones (Overpressure, Piercing, Penetration Round).
 - [ ] **ability-effects-runtime** `stubbed` — Ability effects work as specced: 3-round cluster (3x single-target), 5s zero recoil + 20% fire rate, 3 auto-crit shots at 4x, slug (2x range / 3x damage / tight cone), 3s see-through-walls, 360-spin insta-kill within 96 units, airburst frag, 2x EMP stun.
   - *Next:* Phase 4: consume the primed flags in weapon-fire/damage callbacks (precision/slug via on_ai_damage are doable in GSC now; thermal needs LUI/clientfield, stabilizer needs weapon-override GDT).
-- [ ] **wallbuy-dynamic-assignment** `stubbed` — apply_wallbuy_pool assigns each Radiant wallbuy slot's weapon from the per-run rolled pool (roll_wallbuy_pool with weighted single-candidate slots for v1.0).
+- [x] **wallbuy-dynamic-assignment** `implemented` *(closed 2026-06-12 second ultracode pass)* — apply_wallbuy_pool assigns each Radiant wallbuy slot's weapon from the per-run rolled pool (roll_wallbuy_pool with weighted single-candidate slots for v1.0).
   - *Next:* Wire apply_wallbuy_pool to the _zm_weapons wallbuy API against acc_wb_* targetnames, or document that v1.0 wallbuys are static and retire the slot keys.
-- [ ] **bowie-no-cyberware-buff** `stubbed` — Bowie Knife does NOT inherit the Cyberware weapon-damage buff in v1.0 (different damage hook).
+- [x] **bowie-no-cyberware-buff** `implemented` *(closed 2026-06-12 second ultracode pass)* — Bowie Knife does NOT inherit the Cyberware weapon-damage buff in v1.0 (different damage hook).
   - *Next:* When wiring acc_cw_damage_mult into on_ai_damage, skip MOD_MELEE/bowie root names to enforce the exclusion explicitly.
 - [ ] **box-chest-entities** `map-missing` — Mystery Box chests with script_noteworthy acc_box_market / acc_box_corp / acc_box_roof exist in Radiant; one is picked per run via level.start_chest_name.
   - *Next:* Place a stock magic-box prefab in the start room with script_noteworthy acc_box_market (single-chest maps ignore start_chest_name per _zm_magicbox size==1 branch); add the other two nodes when their zones are built.
@@ -347,7 +347,7 @@ author in this repo today.
 - [x] **widows-split-interaction** `implemented` — Widow's Wine grenade-boosted splash kills feed the 70/30 split normally (owner-attributed, no bypass).
 - [ ] **elite-inflection-timing** `scaffolded` — Elites spawn at class-specific inflection points: Shielded at end of wave, Teleporter during wave, EMP just before bleed phase.
   - *Next:* Replace spawn_elites_over_round's fixed 45s spacing with per-class scheduling driven by remaining-zombie fraction (shielded at <15% remaining, teleporter mid-wave, emp at last 1-3 zombies)
-- [ ] **perk-roll-after-decon** `scaffolded` — roll_perk_rotation() must run only after the acc_decontamination_complete notify, not at acc_round_start, with one code path for all rounds.
+- [x] **perk-roll-after-decon** `implemented` *(closed 2026-06-12 second ultracode pass)* — roll_perk_rotation() must run only after the acc_decontamination_complete notify, not at acc_round_start, with one code path for all rounds.
   - *Next:* Once _acc_decontamination.gsc exists, change watch_round_for_perk_rotation to waittill('acc_decontamination_complete', round_number)
 - [ ] **shard-diminishing-returns** `scaffolded` — On rounds 1-10, elite shard yield drops to 50% after the second elite kill that round (counter resets each round).
   - *Next:* Reset player.acc_shards_elite_count_round to 0 on each acc_round_start (add a level listener in _acc_data_shards.gsc)
@@ -355,9 +355,9 @@ author in this repo today.
   - *Next:* Implement spawn_juggernaut_host/spawn_subroutine_core as real AI actors and place the acc_boss_spawn struct in Radiant
 - [ ] **hack-success-reward** `scaffolded` — Hack success grants 2 Data Shards plus 1 free Overclock roll, then consumes the terminal.
   - *Next:* Grant player.acc_oc_free_scrolls += 1 on hack success and make _acc_overclocks consume it (see emergency-oc-scroll task)
-- [ ] **hack-parallel-processing** `scaffolded` — Parallel Processing (Subroutine T2) allows exactly one second Hack attempt whose stages rotate (different elite types / zombie counts) so it is not a replay.
+- [x] **hack-parallel-processing** `implemented` *(closed 2026-06-12 second ultracode pass)* — Parallel Processing (Subroutine T2) allows exactly one second Hack attempt whose stages rotate (different elite types / zombie counts) so it is not a replay.
   - *Next:* Pass level.acc_hack_attempts_used into build_stages and vary stage counts/elite flavors on attempt 2
-- [ ] **overload-hold-mechanic** `scaffolded` — Vault Overload is a 90-second hold within a 96u radius point where leaving the point for more than 8s fails the event, and leaving the point pauses progress.
+- [x] **overload-hold-mechanic** `implemented` *(closed 2026-06-12 second ultracode pass)* — Vault Overload is a 90-second hold within a 96u radius point where leaving the point for more than 8s fails the event, and leaving the point pauses progress.
   - *Next:* Only increment elapsed while is_player_on_point() is true so leaving pauses progress, per docs/06_mechanics.md
 - [ ] **emergency-drop-types** `scaffolded` — The drop is one of: max ammo (all players), insta-kill, double points, Overclock scroll, or a random full perk granted to the caller, delivered at the closest safe zone.
   - *Next:* Either update docs to 'drops at the caller's position' or add a safe-zone struct lookup for the drop spot
@@ -369,13 +369,13 @@ author in this repo today.
   - *Next:* Implement the zombie + forced-elite spawning inside overload_wave_schedule using zombie_utility::spawn_zombie and acc_elites::spawn_elite
 - [ ] **overload-fail-takedown** `stubbed` — Overload failure locks the event and spawns a takedown wave of 3 elites of EACH class simultaneously.
   - *Next:* Implement spawn_takedown_wave: 3x acc_elites::spawn_elite for each of shielded/teleporter/emp
-- [ ] **bleed-caching-60s** `stubbed` — Subroutine Caching doubles down bleed-out time from stock 30s to 60s.
+- [x] **bleed-caching-60s** `implemented` *(closed 2026-06-12 second ultracode pass)* — Subroutine Caching doubles down bleed-out time from stock 30s to 60s.
   - *Next:* Hook the laststand bleed timer (player.bleedout_time / _zm_laststand interface) and scale it by acc_cw_bleed_multiplier when a player goes down
 - [ ] **ghost-shroud-save** `stubbed` — Ghost Shroud boss item performs a clutch 1-HP save that stacks independently with Jugger-Nog's HP pool.
   - *Next:* Register a player damage callback that, when acc_item_shroud is equipped and damage would be lethal, clamps health to 1 and starts the item cooldown
 - [ ] **emergency-oc-scroll** `stubbed` — The Overclock scroll drop lets the player apply an Overclock to any weapon for free.
   - *Next:* In _acc_overclocks.gsc purchase/reroll paths, check player.acc_oc_free_scrolls > 0 first, decrement it, and skip the shard try_spend
-- [ ] **meltdown-kill-attribution** `stubbed` — Meltdown (Cyberware T3) AoE kills count as the caster's kill for point purposes.
+- [x] **meltdown-kill-attribution** `implemented` *(closed 2026-06-12 second ultracode pass)* — Meltdown (Cyberware T3) AoE kills count as the caster's kill for point purposes.
   - *Next:* When implementing the Meltdown AoE, deal the AoE damage with the caster as attacker so _acc_points::record_damage and the death callback attribute it
 - [ ] **lab-perk-machines** `map-missing` — Four Lab perk machines with targetnames acc_lab_perk_a/b/c/d receive the rotation and dispense rotation[index]'s specialty.
   - *Next:* Place 4 acc_lab_perk_a..d machine entities in Radiant (Lab room) and write the dispense trigger logic that grants machine.acc_current_specialty
@@ -389,7 +389,7 @@ author in this repo today.
   - *Next:* Place two power-switch trigger_use entities named acc_power_corp / acc_power_vault in Radiant
 - [ ] **pressure-pulses** `missing` — Every 3rd round past round 10, an extra wave of 8-12 zombies spawns at the ~50% mark of the round.
   - *Next:* Add a pulse scheduler (e.g. in _acc_early_round_pacing.gsc) that on acc_round_start checks round>10 && round%3==0, waits to ~50% of the round (track zombies-remaining vs zombie_total), then spawns 8-12 zombies via zombie_utility::spawn_zombie
-- [ ] **decontamination-sequence** `missing` — Each round after acc_round_start, one eligible zone (Market/Alley/Vault/Roof) is declared contaminated with a 20s evacuate-or-die window, seals permanently on rounds 1-4 only, and emits acc_decontamination_complete (rounds 5+ still emit it with a 0s/skipped window).
+- [x] **decontamination-sequence** `implemented` *(closed 2026-06-12 second ultracode pass)* — Each round after acc_round_start, one eligible zone (Market/Alley/Vault/Roof) is declared contaminated with a 20s evacuate-or-die window, seals permanently on rounds 1-4 only, and emits acc_decontamination_complete (rounds 5+ still emit it with a 0s/skipped window).
   - *Next:* Create _acc_decontamination.gsc (zone pick per seal schedule, 20s kill volume, permanent seal r1-4, level notify acc_decontamination_complete every round), add it to _acc_main.gsc init() and the .zone manifest
 - [x] **deadshot-1.5x-per-shooter** `implemented` *(closed 2026-06-12: attacker HasPerk(specialty_deadshot) -> x1.5 (x1.75 American Sniper Mega) in _acc_damage::on_ai_damage)* — Deadshot perk adds a 1.5x headshot damage multiplier applied per-player (only the shooter's damage), stacking with the 2.0x/3.0x map multiplier.
   - *Next:* In _acc_damage.gsc::on_ai_damage, multiply headshot damage by 1.5 when attacker HasPerk specialty for Deadshot (per docs/13_perks.md)
@@ -436,7 +436,7 @@ author in this repo today.
   - *Next:* Force max zombie speed from round 1 when acc_mod_force_sprint — e.g. override the round-based speed selection (level.zombie_move_speed or the gib/sprint anim tier var, verify in tmp/bo3_stock_ref scripts/shared/ai/zombie_utility.gsc) in an on_ai_spawned hook.
 - [ ] **wallbuy-apply-to-map-slots** `stubbed` — The rolled wallbuy pool is applied to the map's wallbuy entities per slot at run start.
   - *Next:* Implement apply_wallbuy_pool against the _zm_weapons wallbuy API keyed by acc_wb_<slot> targetnames (or document that v1.0 wallbuys are static since slots are single-candidate), and move/duplicate wallbuy structs into their doc zones when those zones are built.
-- [ ] **perk-rotation-post-decon-timing** `stubbed` — Perk machines re-roll AFTER each round's decontamination phase completes, not at the first frame of the round.
+- [x] **perk-rotation-post-decon-timing** `implemented` *(closed 2026-06-12 second ultracode pass)* — Perk machines re-roll AFTER each round's decontamination phase completes, not at the first frame of the round.
   - *Next:* Author _acc_decontamination.gsc (20s evac + seal per docs/03) that notifies 'acc_decontamination_complete' with round_number, then swap the waittill in watch_round_for_perk_rotation.
 - [ ] **oc-effects-functional** `stubbed` — Overclock effects actually modify gameplay (doc calls this the largest single source of per-weapon run variance).
   - *Next:* Implement the per-flag gameplay effects in the damage/fire callbacks (_acc_damage.gsc) for at least the AR/shotgun/sniper pools.
@@ -521,11 +521,11 @@ author in this repo today.
   - *Next:* No change here; unblocked by the damageable boss entity.
 - [ ] **elite-timing-by-class** `scaffolded` — Class-specific spawn timing: Shielded at end of wave, Teleporter during the wave, EMP just before bleed (last few zombies).
   - *Next:* Replace flat spacing with wave-state scheduling: read remaining-zombie state (verify level.zombie_total / zombie_utility::get_current_zombie_count in tmp/bo3_stock_ref) and dispatch shielded near wave end, teleporter mid-wave, EMP when only the last few zombies remain.
-- [ ] **elite-quota-table** `scaffolded` — Elite quota per round matches the table: rounds 1-4 = 0, 5-10 = 1, 11-19 = 2, 21-29 = 3, 30+ = 4+ (function elite_quota_for_round).
+- [x] **elite-quota-table** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elite quota per round matches the table: rounds 1-4 = 0, 5-10 = 1, 11-19 = 2, 21-29 = 3, 30+ = 4+ (function elite_quota_for_round).
   - *Next:* Align boundaries (round<=10 return 1; return 0 on boss rounds 10/20/30+%10 since those waves are replaced), or update the doc table to match code.
 - [ ] **elite-shards-to-killer** `scaffolded` — Elite shard drops are credited to the killing player (co-op rule), while still dropping on the body per design rule 5.
   - *Next:* Decide the policy: either tag the pickup with the killer (claimable only by killer for the first N seconds, then anyone) or amend docs/11_enemies.md to say drops are free-for-all body pickups.
-- [ ] **shielded-front-resist-25** `stubbed` — Damage hitting the Shielded elite's front quarter is reduced to 25% through.
+- [x] **shielded-front-resist-25** `implemented` *(closed 2026-06-12 second ultracode pass)* — Damage hitting the Shielded elite's front quarter is reduced to 25% through.
   - *Next:* In _acc_damage::on_ai_damage, when self.acc_elite_front_damage_resist is defined, compute attack direction (vdir or attacker.origin-self.origin) vs self forward (anglestoforward(self.angles)); if dot product puts the hit in the front 90-degree arc, return int(damage*0.25).
 - [ ] **emp-melee-drain-disable** `stubbed` — EMP elite melee hit drains 200 points and disables the player's active Cyberware ability for 5 seconds.
   - *Next:* Register a player-damage hook (verify stock API, e.g. callback::on_player_damage in tmp/bo3_stock_ref); when attacker.acc_emp_on_hit and MOD_MELEE: zm_score::minus_to_player_score(200) and set player.acc_cw_locked_until=gettime()+5000, then gate ability activation in _acc_cyberware on that timestamp.
@@ -565,9 +565,9 @@ author in this repo today.
   - *Next:* Add a voucher counter + redeem path to _acc_overclocks (player.acc_oc_reroll_vouchers, consumed at re-roll terminals for a free roll), then grant 1 in reward_players.
 - [ ] **staff-300pct-phase-skip** `missing` — Signal Staff deals +300% damage vs Subroutine Core, and a charged pulse fired exactly at a phase transition skips that phase's debuff window.
   - *Next:* Add a weapon-vs-acc_is_boss x4 damage branch in _acc_damage, and in on_phase_transition check a 'charged pulse landed within the transition window' flag to skip the debuff call; staff weapon asset is a separate Phase 4 dependency.
-- [ ] **coop-elite-hp-flat-50** `missing` — Elites scale at only +50% HP per extra player (flatter than the regular +100%).
+- [x] **coop-elite-hp-flat-50** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites scale at only +50% HP per extra player (flatter than the regular +100%).
   - *Next:* In each promote_* function, derive a solo baseline (divide out the stock per-player factor or compute from round formula) and apply (1 + 0.5*(level.players.size-1)) instead.
-- [ ] **coop-spawn-rate-30** `missing` — Spawn rate increases +30% per extra player (instead of stock +100%).
+- [x] **coop-spawn-rate-30** `implemented` *(closed 2026-06-12 second ultracode pass)* — Spawn rate increases +30% per extra player (instead of stock +100%).
   - *Next:* Extend acc_max_zombie_override (and/or the verified stock zombie_spawn_delay var) to replace stock per-player count scaling with a +30%/extra-player factor - requires verifying how stock max_zombie_func consumes player count in tmp/bo3_stock_ref/scripts/shared/ai/zombie_utility.gsc.
 - [ ] **shielded-visual-read** `phase4-blocked` — Shielded elite has a neon visor / riot-shield silhouette plus offscreen metallic clank audio.
   - *Next:* Phase 4/5: author or import shield prop model + visor material + clank alias, then attach in promote_to_shielded.
@@ -602,13 +602,13 @@ author in this repo today.
 - [x] **module-wiring** `implemented` — Boss-items module is initialized by the orchestrator, hooked per-player on connect, and compiled via the zone manifest.
 - [x] **mini-boss-drop-50** `implemented` *(closed 2026-06-12: watch_mini_boss_death threads acc_boss_items::on_boss_death on the real actor)* — Juggernaut Host (mini-boss, rounds 10/20) has a 50% chance to drop one item on death.
   - *Next:* Implement spawn_juggernaut_host (spawn actor, set host.acc_is_mini_boss, thread watch_mini_boss_death on it) in _acc_boss.gsc
-- [ ] **full-boss-drop-100** `scaffolded` — Subroutine Core (full boss, round 30+) guarantees one item drop per boss kill.
+- [x] **full-boss-drop-100** `implemented` *(closed 2026-06-12 second ultracode pass)* — Subroutine Core (full boss, round 30+) guarantees one item drop per boss kill.
   - *Next:* Wire boss damage intake (route _acc_damage hits or a scripted damage trigger into boss.health) so acc_boss_dead fires and the guaranteed drop executes
 - [ ] **kiosk-unequip-30s-drop** `scaffolded` — Players can unequip an item at the Cyberware Kiosk, dropping it on the ground for 30 seconds for anyone to pick up.
   - *Next:* Add an unequip branch to kiosk_loop calling acc_boss_items::unequip_item + spawn_pickup with a 30s lifetime parameter; place trigger_use targetname acc_cyberware_kiosk in Radiant
 - [ ] **gauntlets-reload-swap-15** `stubbed` — Overclocked Gauntlets grant +15% reload speed and +15% weapon swap speed.
   - *Next:* Implement effect (e.g. setperk specialty_fastreload analog or per-weapon reload-scale dvar/clientfield path) reading acc_item_gauntlets
-- [ ] **battery-charge-per-10-kills** `stubbed` — Kinetic Battery builds a charge every 10 kills.
+- [x] **battery-charge-per-10-kills** `implemented` *(closed 2026-06-12 second ultracode pass)* — Kinetic Battery builds a charge every 10 kills.
   - *Next:* Increment owner kill count in _acc_points.gsc::on_zombie_death (or a dedicated zm_spawner death callback) and set acc_item_battery_charged at 10; add ACC_ITEM_BATTERY_KILLS_PER_CHARGE #define
 - [ ] **shroud-lethal-save** `stubbed` — Ghost Shroud: on taking lethal damage, drop to 1 HP plus 2 seconds invulnerability plus +50% movement speed during the invuln.
   - *Next:* Register a player damage override (stock callback::on_player_damage / level.player_damage_override pattern) that intercepts lethal hits, clamps to 1 HP, applies EnableInvulnerability + speed boost for 2s
@@ -620,7 +620,7 @@ author in this repo today.
   - *Next:* Add a weapon_change watcher that re-runs setmovespeedscale_hook and gates the 1.20 on current-weapon class != pistol/melee
 - [ ] **boots-stack-reflex-t1** `missing` — Boots stack multiplicatively with Cyberware Reflex Tier 1 (+10% sprint) for ~32% combined.
   - *Next:* Centralize move-speed in one resolver (e.g. acc_utility) that multiplies boots flag * cyberware flag and is the only setmovespeedscale caller
-- [ ] **battery-3x-autoaim-shot** `missing` — The next shot fired while charged deals 3x damage and auto-aims to the nearest enemy in view cone.
+- [x] **battery-3x-autoaim-shot** `implemented` *(closed 2026-06-12 second ultracode pass)* — The next shot fired while charged deals 3x damage and auto-aims to the nearest enemy in view cone.
   - *Next:* In _acc_damage::on_ai_damage, if attacker.acc_item_battery_charged then multiply final_damage by 3 and clear the charge; implement nearest-target snap (or drop auto-aim to Phase 4)
 - [ ] **battery-charge-persists-rounds** `missing` — Battery charge persists through round transitions until consumed.
   - *Next:* When implementing charging, keep acc_item_battery_charged on the player entity and do not reset it in acc_round_start/acc_round_end handlers
@@ -664,7 +664,7 @@ author in this repo today.
   - *Next:* Wire a machine-use prompt path (part of the rotation-aware dispense rework) that checks HasPerk(specialty) + level.acc_perk_rotation membership + bottle count, shows the prompt, and calls acc_mega_bottles::try_apply_mega.
 - [ ] **mega-persistence** `scaffolded` — Mega flags on self.acc_mega_perks[perk_id] are sticky for the run: survive death, auto-apply the Mega variant on perk re-buy without a second bottle, and clear at run end.
   - *Next:* Hook perk acquisition (per-perk give threads or a _zm_perks postfix in _acc_perks.gsc) to check acc_mega_bottles::has_mega_perk and apply Mega deltas on (re-)buy.
-- [ ] **rotation-timing-decon** `stubbed` — The new perk lineup is rolled only AFTER the round's decontamination phase completes (20s evac window rounds 1-4 / 0s round 5+), never at acc_round_start.
+- [x] **rotation-timing-decon** `implemented` *(closed 2026-06-12 second ultracode pass)* — The new perk lineup is rolled only AFTER the round's decontamination phase completes (20s evac window rounds 1-4 / 0s round 5+), never at acc_round_start.
   - *Next:* Change watch_round_for_perk_rotation to wait on 'acc_decontamination_complete' with a wait-20 fallback after acc_round_start until _acc_decontamination.gsc exists.
 - [ ] **aura-mega-megaman** `stubbed` — Mega Man (Aura Blast Mega): 800u radius, 60s cooldown, 2 charges, and bosses become stunnable (reduced ~1.5s or interrupt-only).
   - *Next:* Implement Mega branch in aura_blast_listener/do_aura_blast: read has_mega_perk to switch to 800u/60s/2-charge constants and a boss stun-duration cap (resolves TODO(acc-impl) docs/13_perks.md line 165).
@@ -824,9 +824,9 @@ author in this repo today.
   - *Next:* Blocked on the boss damage wiring task (hp-fullboss-flat / hp-miniboss-50000); reward code itself needs no change.
 - [ ] **boss-item-drop-chances** `scaffolded` — Mini-boss drops 1 item at 50% chance; full boss drops 1 item at 100% chance, at the boss corpse.
   - *Next:* Thread watch_mini_boss_death from the real Juggernaut spawn and fix full-boss death wiring (same boss task).
-- [ ] **hack-helpers-kills-count** `scaffolded` — During Hack stages, other players' kills count toward the stage counter (activator-gated reward, but team-wide progress).
+- [x] **hack-helpers-kills-count** `implemented` *(closed 2026-06-12 second ultracode pass)* — During Hack stages, other players' kills count toward the stage counter (activator-gated reward, but team-wide progress).
   - *Next:* In acc_hack_zombie_death_watch, accept any player attacker (keep stage.requirement checks), not just level.acc_hack_count_player.
-- [ ] **overload-tether-8s-cumulative** `scaffolded` — Vault Overload: only the activator is tethered; leaving the point >8s CUMULATIVE fails the event (other players roam freely).
+- [x] **overload-tether-8s-cumulative** `implemented` *(closed 2026-06-12 second ultracode pass)* — Vault Overload: only the activator is tethered; leaving the point >8s CUMULATIVE fails the event (other players roam freely).
   - *Next:* Remove the reset at _acc_events_overload.gsc:158 to make the 8s truly cumulative, or amend docs/15_coop_rules.md:152 to the lenient rule.
 - [ ] **hp-miniboss-50000** `stubbed` — Mini-boss Juggernaut Host has 50,000 base HP with 1.5x/2.0x/2.5x co-op multipliers.
   - *Next:* Implement spawn_juggernaut_host: spawn via zombie_utility::spawn_zombie, set maxhealth 50000 x (1/1.5/2/2.5 by player count), set host.acc_is_mini_boss, thread watch_mini_boss_death.
@@ -848,7 +848,7 @@ author in this repo today.
   - *Next:* Place acc_power_corp / acc_power_vault use-triggers beside the power switch(es) in Radiant (or retarget the module at the stock prefab's trigger).
 - [ ] **hp-scale-regular-2x3x4x** `missing` — Regular zombies (150 HP round 1) get 2.00x/3.00x/4.00x HP in 2p/3p/4p.
   - *Next:* Add a player-count HP scaler (e.g. multiply z.health/z.maxhealth after zombie_init_done via callback::on_ai_spawned, or chain level.zombie_vars health calc) implementing 1/2/3/4x.
-- [ ] **hp-scale-elite-flat** `missing` — Elites (Shielded/Teleporter/EMP) get flatter HP scaling: 1.50x/2.00x/2.50x in 2p/3p/4p.
+- [x] **hp-scale-elite-flat** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites (Shielded/Teleporter/EMP) get flatter HP scaling: 1.50x/2.00x/2.50x in 2p/3p/4p.
   - *Next:* In each promote_* function multiply maxhealth by 1.0/1.5/2.0/2.5 based on level.players.size.
 - [ ] **spawn-rate-130-160-190** `missing` — Regular zombie spawn rate scales 100%/130%/160%/190% for 1/2/3/4 players.
   - *Next:* Extend acc_max_zombie_override to apply 1.0/1.3/1.6/1.9 by level.players.size (normalizing against stock's own per-player count scaling inside default_max_zombie_func).
