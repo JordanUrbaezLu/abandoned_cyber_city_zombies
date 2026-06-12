@@ -1,0 +1,130 @@
+TOPIC: BO3 stock powerup system: drop API, custom powerup registration (Mega Bottle pickup), maxammo grant flow, free_perk/perk-bottle models
+
+FINDINGS:
+## 1. Dropping a powerup at a position from GSC
+
+PRIMARY API (namespace `zm_powerups`, file tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc):
+
+`function specific_powerup_drop( powerup_name, drop_spot, powerup_team, powerup_location, pickup_delay, powerup_player, b_stay_forever )` (_zm_powerups.gsc:688). Behavior:
+- Spawns `zm_net::network_safe_spawn( "powerup", 1, "script_model", drop_spot + (0,0,40) )` (_zm_powerups.gsc:690) — NOTE the +40z offset; pass the FLOOR origin. network_safe_spawn = choked spawn wrapper (_zm_net.gsc:93-97).
+- `level notify("powerup_dropped", powerup)` (_zm_powerups.gsc:692).
+- Runs `powerup_setup(powerup_name, powerup_team, powerup_location, powerup_player)` (sets model/flags/sounds), then threads `powerup_timeout()` (skipped iff `IS_TRUE(b_stay_forever)`, :698-701), `powerup_wobble()` (rotation + idle FX), `powerup_grab(powerup_team)` (pickup poll; deferred via `util::delay(pickup_delay, "powerup_timedout", &powerup_grab, powerup_team)` if pickup_delay>0, :703-710), `powerup_move()`, `powerup_emp()`. Returns the powerup entity (:713).
+- Does NOT check player_volume playable area (unlike the random path) — drops anywhere.
+
+Random-economy path for reference: `powerup_drop(drop_point)` (_zm_powerups.gsc:586) — gated by `level.zombie_vars["zombie_drop_item"]`, max 4/round (`zombie_powerup_drop_max_per_round`, :74,598), and istouching of `getentarray("player_volume","script_noteworthy")` volumes (:630-647). Teleporter variant `special_powerup_drop(drop_point)` (:720) adds lightning FX/quake (:856-863).
+
+REGISTRATION (two calls, in this order — pattern used by every stock powerup module):
+1. `function register_powerup( str_powerup, func_grab_powerup, func_setup )` (_zm_powerups.gsc:1955). Stores `level._custom_powerups[name].grab_powerup` / `.setup_powerup`; `_register_undefined_powerup` auto-calls `include_zombie_powerup(name)` (:1979-1991) which whitelists the name in `level.zombie_include_powerups` (:562-570).
+2. `function add_zombie_powerup( powerup_name, model_name, hint, func_should_drop_with_regular_powerups, only_affects_grabber, any_team, zombie_grabbable, fx, client_field_name, time_name, on_name, clientfield_version = VERSION_SHIP, player_specific = false )` (_zm_powerups.gsc:477). Builds the struct in `level.zombie_powerups[name]` (model_name :497, hint :499, can_pick_up_in_last_stand defaults true :509) and appends to the regular rotation `level.zombie_powerup_array` (:517). Pass `&zm_powerups::func_should_never_drop` (:1639) to keep it OUT of random rotation (free_perk does exactly this). `client_field_name` is OPTIONAL: only if defined does it `clientfield::register("toplayer", client_field_name, clientfield_version, 2, "int")` (:520-526) — that field is only for the duration-timer HUD of timed powerups.
+3. Optional knobs: `powerup_set_statless_powerup(name)` (:544-549), `powerup_set_can_pick_up_in_last_stand(name,b)` (:529-532), `powerup_set_player_specific(name,b)` (:539-542), `powerup_set_prevent_pick_up_if_drinking(name,b)` (:534-537, writes level._custom_powerups — requires register_powerup first).
+
+`zm_powerups::init()` is invoked by the framework itself (_zm.gsc:363) so the system is always live in usermaps. Optional hook `level.level_specific_init_powerups` is consumed inside `init_powerups` (:124-127) during `zm_usermap::main()`; registering in map main() after `zm_usermap::main()` also works because `level.zombie_powerup_array`/`level._custom_powerups` are read dynamically at drop/grab time (:336-348, :1059).
+
+MODELS used by stock powerups (xmodel names, 2nd arg of add_zombie_powerup):
+- full_ammo: "p7_zm_power_up_max_ammo" (_zm_powerup_full_ammo.gsc:40)
+- nuke: "p7_zm_power_up_nuke" + extra fx arg NUKE_EFFECT (_zm_powerup_nuke.gsc:47)
+- insta_kill: "p7_zm_power_up_insta_kill" (_zm_powerup_insta_kill.gsc:37)
+- double_points: "p7_zm_power_up_double_points" (_zm_powerup_double_points.gsc:38)
+- fire_sale: "p7_zm_power_up_firesale" (_zm_powerup_fire_sale.gsc:41)
+- carpenter: "p7_zm_power_up_carpenter" (_zm_powerup_carpenter.gsc:39)
+- ww_grenade: "p7_zm_power_up_widows_wine" (_zm_powerup_ww_grenade.gsc:45)
+- free_perk: "zombie_pickup_perk_bottle" (_zm_powerup_free_perk.gsc:42)
+- shield_charge: "p7_zm_zod_nitrous_tank" with explicit `#precache( "model", MODEL_SHIELD_RECHARGE )` (_zm_powerup_shield_charge.gsc:32-33)
+- insta_kill_ug: "zombie_skull" (_zm_powerups.gsc:122)
+
+FX: the idle spin glow is fully automatic. `powerup_wobble_fx` sets entity clientfield "powerup_fx" (CLIENTFIELD_POWERUP_FX_NAME, "scriptmover", 3-bit, registered by stock on BOTH VMs: gsc _zm_powerups.gsc:142, csc _zm_powerups.csc:37) to value 1/2/3/4 per flags (_zm_powerups.gsc:1249-1282); CSC callback plays `PlayFXOnTag(localClientNum, fx, self, "tag_origin")` with level._effect "powerup_on" = "zombie/fx_powerup_on_green_zmb", "powerup_on_solo", "powerup_on_red" (only if level.using_zombie_powerups), "powerup_on_caution" (_zm_powerups.csc:96-127, fx precache csc:13-16, gsc precache :44-52, assignment :80-91). Grab FX server-side: playfx level._effect["powerup_grabbed_solo"/"powerup_grabbed_caution"/"powerup_grabbed"] (:1109-1120). Sounds: spawn "zmb_spawn_powerup" + loop "zmb_spawn_powerup_loop" (:794,:833), grab "zmb_powerup_grabbed" (:1139).
+
+## 2. Simplest known-good Mega Bottle pickup = register a real powerup
+
+The full custom-powerup template is _zm_powerup_shield_charge.gsc (never-random-drops, statless, instant-grant, grabber-only):
+
+```
+zm_powerups::register_powerup( "acc_mega_bottle", &grab_mega_bottle );                       // _zm_powerup_shield_charge.gsc:44 pattern
+zm_powerups::add_zombie_powerup( "acc_mega_bottle", "zombie_pickup_perk_bottle",
+    &"<precached hint string>", &zm_powerups::func_should_never_drop,
+    POWERUP_ONLY_AFFECTS_GRABBER /*true*/, !POWERUP_ANY_TEAM /*false*/, !POWERUP_ZOMBIE_GRABBABLE /*false*/ );  // free_perk.gsc:42 pattern
+zm_powerups::powerup_set_statless_powerup( "acc_mega_bottle" );                              // shield_charge.gsc:48
+...
+bottle = level zm_powerups::specific_powerup_drop( "acc_mega_bottle", v_floor_origin );      // _zm_ai_dogs.gsc:292 call pattern
+```
+Grab handler signature: `function grab_mega_bottle( player )` where `self` = powerup script_model; dispatched as `b_continue = self [[level._custom_powerups[name].grab_powerup]]( player ); if(IS_TRUE(b_continue)) continue;` (_zm_powerups.gsc:1059-1066) — return TRUE to REFUSE the pickup (poll continues), return nothing/false to consume. Inside it call `player acc_mega_bottles::grant_bottle(1, "drop")` (repo module scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:79).
+
+What registration REQUIRES:
+- clientfields: NONE if you omit `client_field_name` (it is only the timed-powerup HUD field). The spin-FX clientfield "powerup_fx" is already registered by stock on both server (gsc:142) and client (csc:37) — zero CSC work.
+- fx precache: NONE — green powerup FX precached by stock (_zm_powerups.gsc:44-52, .csc:13-16).
+- model: must be a loaded xmodel. "zombie_pickup_perk_bottle" is already pulled in by the stock free_perk module the entry script #using's (scripts/zm/zm_abandoned_cyber_city.gsc:70); p7_zm_power_up_* likewise. For any OTHER model add `#precache("model","<name>")` in a linked GSC (shield_charge pattern) and an `xmodel,<name>` zone line (repo zone currently has only `xmodel,skybox_default_day`, zone_source/zm_abandoned_cyber_city.zone:18).
+- hint string: only needed if your handler displays it (`#precache("string", "...")`, full_ammo.gsc:24 + LUINotifyEvent free pattern).
+- pickup radius: hardcoded distance poll, 64 units, every 0.1s, no trigger entity (`range_squared = 64*64`, _zm_powerups.gsc:978, check :1042, wait :1178).
+
+DIY alternative (spawn script_model + trigger_radius + playfx): viable — stock itself spawns `spawn("trigger_radius", origin-(0,0,40), SPAWNFLAG_TRIGGER_AI_AXIS+SPAWNFLAG_TRIGGER_NOT_PLAYER, 32, 72)` for the zombie-grab variant (_zm_powerups.gsc:890-893) — but you would re-implement wobble (rotateto loop :1291-1311), client-synced glow FX (server PlayFX on a script_model is NOT what stock does; the glow is a client-VM clientfield FX), timeout blink (:1376-1400), sounds, and EMP handling. Player pickup in stock is a distance poll, not a trigger, anyway. Registration is strictly fewer moving parts; use it.
+
+## 3. Stock grant-on-pickup reference (maxammo flow)
+
+_zm_powerup_full_ammo.gsc: `REGISTER_SYSTEM("zm_powerup_full_ammo", &__init__, undefined)` (:29); `__init__` does register_powerup("full_ammo", &grab_full_ammo) (:37) + add_zombie_powerup("full_ammo","p7_zm_power_up_max_ammo",&"ZOMBIE_POWERUP_MAX_AMMO",&zm_powerups::func_should_always_drop,false,false,false) (:40).
+- `grab_full_ammo(player)` → `level thread full_ammo_powerup(self, player)` + `player thread zm_powerups::powerup_vo("full_ammo")` (:44-48).
+- `full_ammo_powerup(drop_item, player)`: players = GetPlayers(player.team) (:52); `level notify("zmb_max_ammo_level")` (:59, the repo's better_max_ammo hooks this — zm_abandoned_cyber_city.gsc:184); skips laststand (:64); per weapon in GetWeaponsList(true) (:77): skips lethal grenades when headshots_only (:85), equipment without .refill_max_ammo (:91-96), `level.zombie_weapons_no_max_ammo[weapon.name]` (:99), hero weapons (:104); grants `players[i] GiveMaxAmmo(primary_weapons[x])` (:110-111). HUD: `LUINotifyEvent(&"zombie_notification", 1, drop_item.hint)` + playsoundToTeam "zmb_full_ammo" (:118-128).
+- Generic post-grab in _zm_powerups.gsc powerup_grab: stats increments "drops" and "<name>_pickedup" unless statless (:1099-1107, should_award_stat :1705-1718), grab playfx (:1109-1120), `self.claimed=true` + `.power_up_grab_player` (:1133-1134), wait 0.1, sound, hide, announcer `zm_audio::sndAnnouncerPlayVox(self.powerup_name [, player if only_affects_grabber])` (:1169-1172), `powerup_delete_delayed()` + notify "powerup_grabbed" (:1174-1175). sndAnnouncerPlayVox is safe for unknown names — returns immediately when `level.zmAnnouncerVox[type]` undefined (_zm_audio.gsc:1321-1322).
+
+## 4. free_perk powerup + perk bottle models
+
+- free_perk = a registered powerup that NEVER random-drops: add_zombie_powerup("free_perk", "zombie_pickup_perk_bottle", &"ZOMBIE_POWERUP_FREE_PERK", &zm_powerups::func_should_never_drop, false, false, false) (_zm_powerup_free_perk.gsc:42); levels fire it via specific_powerup_drop. Grab gives EVERY non-laststand player `zm_perks::give_random_perk()` (:46-82); give_random_perk picks a random unowned key of level._custom_perks then give_perk (_zm_perks.gsc:1093-1120). So "zombie_pickup_perk_bottle" is the proven generic perk-bottle pickup xmodel.
+- _zm_perk_random machine bottle: a persistent `level.bottle_spawn_location = spawn("script_model", origin)` setmodel'd between "tag_origin" (hidden) and weapon WORLD models (_zm_perk_random.gsc:400-404, 462, 473, 490). Cycling models come from `GetWeaponModel(level.perk_bottle_weapon_array[key].weapon | .perk_bottle_weapon)` (:708-717); the resolved per-perk model is `get_perk_weapon_model(perk)` = `GetWeaponModel(level.machine_assets[perk].weapon)` overridden by `level._custom_perks[perk].perk_bottle_weapon` (:725-735). The literal model "wpn_t7_zmb_perk_bottle_bear_world" is the machine's special "leaving" bear bottle (:455). Per-perk bottle weapons are registered through `register_perk_basic_info(str_perk, str_alias, n_perk_cost, str_hint_string, w_perk_bottle_weapon)` (_zm_perks.gsc:1819, stored :1833) — so a per-perk bottle world model is obtainable in script as `GetWeaponModel(level._custom_perks[<specialty>].perk_bottle_weapon)` with no zone work, since those weapons are already linked.
+
+## Repo wiring notes
+- Entry script already #using's _zm_powerups (zm_abandoned_cyber_city.gsc:40) and stock powerup modules incl. free_perk (:66-73), so all the models/FX above are already linked.
+- _acc_mega_bottles.gsc exists with grant_bottle/try_consume_bottle API + "toplayer" clientfield "acc_mega_bottles" 4-bit (scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:19-41, 79-101); a physical bottle drop module only needs the register/add/drop calls plus a grab handler that calls grant_bottle.
+- Constants POWERUP_ONLY_AFFECTS_GRABBER/POWERUP_ANY_TEAM/POWERUP_ZOMBIE_GRABBABLE = true, N_POWERUP_DEFAULT_TIME = 30 (_zm_powerups.gsh:31-36); the gsh is pulled via `#insert scripts\zm\_zm_powerups.gsh;`.
+
+GOTCHAS:
+- add_zombie_powerup SILENTLY returns if level.zombie_include_powerups is defined and the name is absent (_zm_powerups.gsc:479-482); in usermaps it IS defined (stock modules populate it via REGISTER_SYSTEM __init__ before map main). Always call zm_powerups::register_powerup first (auto-includes, gsc:1989) or include_zombie_powerup explicitly — otherwise specific_powerup_drop later crashes on level.zombie_powerups[name] being undefined (gsc:778).
+- Passing client_field_name to add_zombie_powerup registers a GSC 'toplayer' clientfield (gsc:520-526) that MUST be mirrored by the CSC zm_powerups::add_zombie_powerup (csc:60) — a one-sided registration is a clientfield-mismatch crash/disconnect. For an instant pickup, pass undefined (free_perk/full_ammo/shield_charge all do) and NO client work is needed.
+- Grab-handler return value is inverted vs intuition: return TRUE means 'pickup refused, keep polling' (gsc:1061-1065). Return nothing/false to consume the pickup.
+- Without powerup_set_statless_powerup, every grab increments persistent stats '<name>_pickedup' (gsc:1104-1105) for a stat that doesn't exist in the stats tables; stock's own custom powerup (shield_charge) registers statless (shield_charge.gsc:48) — do the same.
+- specific_powerup_drop spawns at drop_spot+(0,0,40) (gsc:690): pass a floor origin, not chest height (or it floats at +40). It performs NO player_volume check (only random powerup_drop does, gsc:630-647) — it will happily drop outside playable space where players can't reach the 64-unit grab radius.
+- Default lifetime is short: 15s solid + ~10s blink then delete (gsc:1357-1404). Pass b_stay_forever=true (7th arg) for a persistent pickup; that only disables the timeout thread, grab/wobble still run.
+- Pickup is a 64-unit DISTANCE POLL (range_squared=64*64, gsc:978), not a trigger — don't add a trigger_radius for player pickup; triggers are only used for the zombie_grabbable variant (gsc:890).
+- Custom models referenced only from script are not auto-linked: use #precache("model","<name>") in a linked GSC (shield_charge.gsc:32-33 pattern) plus an xmodel,<name> line in the .zone. 'zombie_pickup_perk_bottle' and p7_zm_power_up_* are already linked via the stock powerup modules the entry script #using's, so they're free.
+- zombie_grabbable=true powerups use level._effect['powerup_on_red'/'powerup_grabbed_red'] which are only assigned when level.using_zombie_powerups is true (gsc:83-87) — leaving zombie_grabbable=false avoids an undefined-effect playfx (gsc:925).
+- powerup_set_prevent_pick_up_if_drinking writes level._custom_powerups[name] with no guard (gsc:536) — crashes if register_powerup wasn't called first.
+- network_safe_spawn is choked (_zm_net.gsc:93-97): the entity can materialize a frame+ later and specific_powerup_drop guards with IsDefined(powerup) (gsc:694) — your caller may get undefined back under heavy load; null-check the return.
+- If you register a clientfield (either the optional powerup timer field or your own HUD field), do it synchronously during main() — registering from a deferred/threaded init after waits risks post-finalization registration. The repo's acc_mega_bottles clientfield is registered inside `level thread acc_main::init()` (entry gsc:167) — verify it runs before first snapshot on the Windows build.
+- Announcer vox with a custom powerup name is safe (zm_audio.gsc:1321-1322 early-returns on missing alias), so no sound aliases are required for a custom powerup.
+
+CITATIONS:
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:688 (specific_powerup_drop signature)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:690 (spawn at drop_spot+(0,0,40) via network_safe_spawn)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:698-713 (b_stay_forever, pickup_delay, returns entity)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:477-527 (add_zombie_powerup full signature, include gating, optional toplayer clientfield)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:1955-1991 (register_powerup, _register_undefined_powerup auto-include)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:529-549 (powerup_set_can_pick_up_in_last_stand / prevent_if_drinking / player_specific / statless)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:1639-1647 (func_should_never_drop / func_should_always_drop)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:586-683 (powerup_drop economy + player_volume gating)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:759-836 (powerup_setup: SetModel, setup_powerup hook, sounds, active_powerups)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:967-1180 (powerup_grab: 64-unit poll, grab_powerup dispatch + return-true=refuse at 1059-1066, stats 1099-1107, grab fx 1109-1120, vox 1169-1172)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:1344-1404 (powerup_timeout: 15s + blink)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:890-893 (zombie-grab trigger_radius spawn pattern)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:44-52,80-91,142 (fx precache, level._effect names, powerup_fx clientfield register GSC)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsc:1249-1282 (powerup_wobble_fx clientfield values)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.csc:13-16,37,96-127 (client fx precache, powerup_fx register CSC, PlayFXOnTag tag_origin callback)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.csc:40-63 (CSC add_zombie_powerup mirrors toplayer clientfield)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerups.gsh:2-36 (clientfield state values, POWERUP_* constants, N_POWERUP_DEFAULT_TIME=30)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_full_ammo.gsc:29-48,50-128 (REGISTER_SYSTEM, register+add pattern, maxammo grant + LUINotifyEvent)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_free_perk.gsc:37-49,51-82 (free_perk uses model zombie_pickup_perk_bottle + func_should_never_drop; gives give_random_perk to all)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_shield_charge.gsc:30-50 (custom-powerup template: #precache model, register, add, statless)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_nuke.gsc:47 (p7_zm_power_up_nuke + fx arg)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_insta_kill.gsc:37 (p7_zm_power_up_insta_kill + clientfield args)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_fire_sale.gsc:41 (p7_zm_power_up_firesale)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_double_points.gsc:38 (p7_zm_power_up_double_points)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_carpenter.gsc:39 (p7_zm_power_up_carpenter)
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_ww_grenade.gsc:45 (p7_zm_power_up_widows_wine)
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_random.gsc:400-404,455,473,725-735 (bottle_spawn_location script_model, wpn_t7_zmb_perk_bottle_bear_world, get_perk_weapon_model)
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1093-1120 (give_random_perk)
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1819,1833 (register_perk_basic_info w_perk_bottle_weapon)
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:363 (zm_powerups::init called by framework)
+tmp/bo3_stock_ref/scripts/zm/_zm_audio.gsc:1319-1322 (sndAnnouncerPlayVox safe for unknown names)
+tmp/bo3_stock_ref/scripts/zm/_zm_net.gsc:93-97 (network_safe_spawn)
+tmp/bo3_stock_ref/scripts/zm/_zm_ai_dogs.gsc:292 (canonical specific_powerup_drop call site)
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_widows_wine.gsc:330 (specific_powerup_drop with powerup_player arg)
+scripts/zm/zm_abandoned_cyber_city.gsc:40,66-73,184 (repo already links _zm_powerups + stock powerup modules; better_max_ammo hooks zmb_max_ammo_level)
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:19-41,79-101 (existing bottle-count API + clientfield)
+zone_source/zm_abandoned_cyber_city.zone:18 (only skybox xmodel currently in zone)

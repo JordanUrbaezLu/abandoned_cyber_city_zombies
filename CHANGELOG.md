@@ -6,6 +6,34 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — community techniques ledger + research knowledge base (2026-06-12)
+
+- **[docs/22_community_techniques.md](docs/22_community_techniques.md)** —
+  **142 techniques across 18 systems** mined from shipped community sources by
+  a 7-agent fleet reading actual code line-by-line (elevator/transport
+  choreography, endgame flow, LUI menu + HUD pipelines, custom perk kits, soul
+  boxes, traps + zombie POI lure, item-drop frameworks, quest chains, sound
+  states, performance budgets, publishing anatomy...). Every entry = exact
+  mechanism + repo/file/line citation + how our map uses it. **Standing
+  convention** (also saved to session memory): every external-codebase finding
+  gets documented here; raw dossiers go to **[docs/research/](docs/research/)**
+  (the 9 stock/shipped ground-truth dossiers + weapon research are now
+  committed there — they're the receipts behind the `VERIFIED(acc)` code
+  comments).
+- **14 newly discovered verified source repos** catalogued (headliners:
+  `kelson8/bo3-Zombies-Test-Map` — a working GSC→LUI purchase-menu bridge,
+  the blueprint for our Cyberware tree UI; `Scobalula/Bo3CWStyleItemDrops` —
+  weighted item-drop framework for physical Data Shard pickups;
+  `Owen-C137` Aetherium HUD (clientfield→LUI pipeline, bit-packed state) +
+  sawblade trap kit; `Resxt/T7-Scripts` soul boxes/challenges/buyable ending;
+  `shidouri/T7-GDT-Backup` — greppable stock GDTs, the asset-layer ground
+  truth we lacked). CLAUDE.md ground-truth section updated.
+- **First technique applied immediately**: `level.perk_purchase_limit = 9` in
+  the entry script — the writable stock field for the perk cap
+  (`_zm_perks.gsc:43`, shipped precedent in two maps) closes the
+  **no-perk-cap requirement** that was waiting on a planned `_acc_perks.gsc`
+  override. Checklist: 202/471.
+
 ### Added — full requirements push: doors+boxes+terminals, decontamination, co-op scaling, effect consumers, visual map design (2026-06-12, second ultracode pass)
 
 9-agent file-owned implementation fleet + map pass 3 + integration. Tracker

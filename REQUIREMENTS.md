@@ -52,6 +52,7 @@
 ### 7. Reference Material (working knowledge)
 
 - **[16_gsc_reference.md](docs/16_gsc_reference.md)** — BO3 GSC/CSC language + API reference. Verified signatures for `callback::on_ai_damage`, `_zm_score::add_to_player_score`, `clientfield::register`, common utility modules, custom perk setup workflow, common gotchas. **Update when we discover new patterns.**
+- **[22_community_techniques.md](docs/22_community_techniques.md)** — 142-technique ledger mined from shipped community sources (exact mechanisms + citations); raw dossiers in [docs/research/](docs/research/). **Append on every external-codebase exploration.**
 - **[17_reference_maps_study.md](docs/17_reference_maps_study.md)** — Design patterns from Ameliorama, Machin[a], Shadows of Evil, Origins, Der Eisendrache. What we took, what we rejected, what we haven't studied yet. **Append when we study a new map.**
 
 ## Per-System Requirements Summary (canonical quick-reference)

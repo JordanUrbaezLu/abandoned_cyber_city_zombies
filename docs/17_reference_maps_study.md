@@ -1,5 +1,9 @@
 # 17 - Reference Maps Study
 
+
+> **Implementation-level techniques** (exact KVPs/APIs with citations from
+> shipped community sources) live in **[22_community_techniques.md](22_community_techniques.md)**;
+> this doc stays design-level. Raw research dossiers: [research/](research/).
 Design patterns and implementation lessons from the custom zombies maps we're inspired by + stock maps we can learn from. Updated as we study more maps.
 
 ## Why This Doc Exists

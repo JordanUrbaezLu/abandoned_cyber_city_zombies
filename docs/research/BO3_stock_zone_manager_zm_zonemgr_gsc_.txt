@@ -1,0 +1,99 @@
+TOPIC: BO3 stock zone manager (_zm_zonemgr.gsc): zone declaration KVPs, adjacency API, activation semantics, manage_zones flow, spawner architecture, flag conventions
+
+FINDINGS:
+ALL PATHS ABSOLUTE. Stock mirror root: C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/ (abbreviated STOCK below). Map: C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/map_source/zm/zm_abandoned_cyber_city.map (abbreviated MAP). Entry GSC: C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/scripts/zm/zm_abandoned_cyber_city.gsc (abbreviated ENTRY).
+
+(1) ZONE DECLARATION IN RADIANT — required KVPs per zone:
+- One or more brushes as classname "info_volume" with: "targetname" = <zone_name> (this string IS the zone name passed to GSC), "script_noteworthy" = "player_volume", "target" = <spawner-struct targetname, convention "<zone>_spawners">. Evidence: zone_init collects volumes via GetEntArray(zone_name,"targetname") filtered to classname=="info_volume" (STOCK/zm/_zm_zonemgr.gsc:319-330; assert no-volumes at :332). "player_volume" noteworthy is NOT read by zone_init — it is read by three OTHER systems: get_active_zones_entities (STOCK/zm/_zm_zonemgr.gsc:1232 getentarray("player_volume","script_noteworthy")), zombie_entered_playable level.playable_areas (STOCK/zm/_zm_spawner.gsc:599), and hostmigration (STOCK/zm/gametypes/_hostmigration.gsc:523). Omitting it breaks playable-area/cleanup logic, not zone init.
+- Multiple info_volumes may share one targetname (all become zone.volumes, _zm_zonemgr.gsc:318-330), BUT spawner structs are gathered ONLY from zone.volumes[0].target (_zm_zonemgr.gsc:345-347) — all volumes of a zone should carry the same "target".
+- Spawn-location structs: classname "script_struct", "targetname" = <value of the info_volume's target> (e.g. "start_zone_spawners"), "script_noteworthy" = space-separated token list. Tokens "spawn_location"/"riser_location"/"faller_location"/"custom_spawner_entry" go into bucket zone.a_loc_types["zombie_location"]; ANY other token (e.g. "dog_location") becomes its own bucket key (_zm_zonemgr.gsc:364-384, mirrored at create_spawner_list :1178-1197). Optional "script_string" on a riser struct: "find_flesh" (passed via notify("risen", spot.script_string) → self.find_flesh_struct_string, STOCK/zm/_zm_utility.gsc:299 + STOCK/zm/_zm_spawner.gsc:581-583) or a barricade id matching an exterior_goal.script_string to retarget the spot at a window node (_zm_zonemgr.gsc:387-403). Concrete shipped-style examples in the user's own map: MAP:1150-1158 (riser struct start_zone_spawners), MAP:1250-1255 (info_volume start_zone → start_zone_spawners), MAP:1698-1704 (market_zone), plus alley_zone:1795, corp_zone:1886, vault_zone:1997, roof_zone:2088, lab_zone:2179.
+
+(2) ADJACENCY API — exact signature:
+function add_adjacent_zone( zone_name_a, zone_name_b, flag_name, one_way, zone_tag_a, zone_tag_b ) — namespace zm_zonemgr (STOCK/zm/_zm_zonemgr.gsc:595). Behavior: defaults one_way=false (:597-600); flag::init(flag_name) if not yet inited (:603-606); calls zone_init(a)+zone_init(b) (idempotent, returns early if level.zones[name] defined, :288-292, :610-611); make_zone_adjacent(a,b,flag) and, unless one_way, make_zone_adjacent(b,a,flag) (:614-620).
+- flag_name semantics (make_zone_adjacent, :531-562): pass a STRING → single flag; pass an ARRAY of flag strings → ALL must be set (AND, flags_do_or_check=false); call add_adjacent_zone AGAIN for the same zone pair with another single flag → OR semantics (flags_do_or_check=true, :553-561; assert at :556 forbids mixing arrays with repeat calls). When the flag(s) become set, zone_flag_wait connects the pair (azone.is_connected=true) and calls enable_zone() on BOTH zones (:723-736). If level flag "door_can_close" is set, the connection auto-severs when the flag clears (door_close_disconnect :731-734, :760-768).
+- Runtime alternative: function connect_zones( zone_name_a, zone_name_b, one_way ) (:772-803) — zone_init+enable_zone both immediately and marks is_connected=true with no flag.
+- Helper: function add_zone_flags( wait_flag, add_flags ) (:570-589) — when wait_flag is set, also set add_flags (processed inside zone_flag_wait :742-755).
+- Wiring pattern from shipped map: level.zones=[]; level.zone_manager_init_func=&factory_zone_init; init_zones[0]="receiver_zone"; level thread zm_zonemgr::manage_zones(init_zones); (STOCK/zm/zm_giant.gsc:181-184) and factory_zone_init = list of zm_zonemgr::add_adjacent_zone("receiver_zone","outside_east_zone","enter_outside_east") etc. (STOCK/zm/zm_giant.gsc:256-278).
+
+(3) ZONE "ACTIVE" SEMANTICS + WHO READS <zone>_spawners:
+Three distinct per-zone booleans (zone_init :299-307): is_enabled (zone exists for gameplay; set by enable_zone), is_occupied (a player is IsTouching one of zone.volumes this scan; any_player_in_zone :189-209, spectators excluded), is_active (this scan: occupied OR connected-and-enabled-adjacent-to-an-occupied zone). is_spawning_allowed is set true alongside enable (:498).
+- <zone>_spawners structs are read EXACTLY TWICE on the script side: (a) once at zone_init via struct::get_array(zone.volumes[0].target,"targetname") which stamps spot.zone_name, spot.is_enabled and sorts spots into zone.a_loc_types buckets (:345-404); (b) every ~1s by create_spawner_list (default level.create_spawner_list_func, __init__ :57) which CLEARS level.zm_loc_types and refills it ONLY from zones where (is_enabled && is_active && is_spawning_allowed) (:1153-1203, gate at :1166). So a zone "becoming active" means: on the next 1-second scan its riser/dog/etc structs enter level.zm_loc_types["zombie_location"]/["dog_location"]; consumers are _zm.gsc round_spawning (asserts non-empty, STOCK/zm/_zm.gsc:3697-3701, busy-waits at :3756) and zm_spawner::do_zombie_spawn (random pick :2906/:2956), dogs (STOCK/zm/_zm_ai_dogs.gsc:364), etc.
+- enable_zone(zone_name) (:488-522) also: level notify(zone_name) (zone_wait_till_enabled waits on this, :75-81); unlocks player_respawn_point structs whose script_noteworthy == zone_name (:504-511); TriggerEnable(true)s barricade goals with script_noteworthy "<zone_name>_barriers" (:516-521) which were globally disabled at startup by deactivate_initial_barrier_goals (targetname "exterior_goal" with any script_noteworthy, :267-278).
+
+(4) manage_zones(initial_zone) FLOW (STOCK/zm/_zm_zonemgr.gsc:810-985) — initial_zone may be a string or array (:838-852):
+t0: assert initial_zone (:812); deactivate_initial_barrier_goals (:814); lock ALL gametype player spawns — asserts every player_respawn_point struct has script_noteworthy (:822-828; get_player_spawns_for_gametype filters structs targetname "player_respawn_point" whose script_string contains "<gametype>_<location>", STOCK/zm/gametypes/_zm_gametype.gsc:589-614); call [[level.zone_manager_init_func]]() (:831-834); zone_init+enable_zone each initial zone (:838-852); setup_zone_flag_waits — one zone_flag_wait thread per unique flag (:627-649, :854); build level.zone_keys + level.newzones shadow structs (:856-862); flag::set("zones_initialized") (:865); flag::wait_till("begin_spawning") (:867 — set by _zm.gsc:4111 after blackscreen/game_start_delay).
+Then loop (condition `while(GetDvarInt("noclip")==0 || GetDvarInt("notarget")!=0)`, :871), one iteration ≈ every wait(1) (:983): wait_zone_flags_updating (:873); zero newzones is_active/is_occupied (:876-880); for each ENABLED zone compute is_occupied via level.zone_occupied_func override or any_player_in_zone (:896-903); if occupied → is_active=true + level notify("newzoneActive", zone_key) on change (:905-918) + mark every is_connected && is_enabled adjacent zone is_active=true (:920-933); WAIT_SERVER_FRAME every 3 zones (:935-941); commit newzones→level.zones (:945-949); FAILSAFE: if no active zone OR no active zone with spawning allowed, force initial_zone (or initial_zone[0]) active+occupied+spawning_allowed and level.player_zone_found=false (:951-967); rebuild spawn lists via [[level.create_spawner_list_func]](zkeys) (:974); level.active_zone_names = get_active_zone_names() (:980).
+
+(5) SPAWNER ARCHITECTURE — ONE global actor spawner serves ALL zones:
+level.zombie_spawners = GetEntArray("zombie_spawner","script_noteworthy") at zm_spawner::init (STOCK/zm/_zm_spawner.gsc:47) — keyed on script_noteworthy "zombie_spawner", NOT per-zone, NOT classname. round_spawning picks spawner = array::random(level.zombie_spawners) with no zone filtering (STOCK/zm/_zm.gsc:3780-3808) and calls zombie_utility::spawn_zombie(spawner, spawner.targetname) — full sig: function spawn_zombie( spawner, target_name, spawn_point, round_number ) (STOCK/shared/ai/zombie_utility.gsc:1454); requires spawner.script_forcespawn truthy or returns undefined with a /# println #/ only (:1469, :1538-1542); spawns via SpawnFromSpawner(0,true) (:1479) and forceteleports to spawner.origin (:1506). The zone linkage happens AFTER spawn: zm_spawner::zombie_spawn_init is attached to every level.zombie_spawners entity (STOCK/zm/gametypes/_zm_gametype.gsc:906-910 custom_spawn_init_func) and threads do_zombie_spawn (STOCK/zm/_zm_spawner.gsc:579) → picks spot = array::random(level.zm_loc_types["zombie_location"]) (or [[level.zm_custom_spawn_location_selection]](spots), :2950-2957) → threads [[level.move_spawn_func]](spot) (:2961), default &zm_utility::move_zombie_spawn_location (STOCK/zm/_zm.gsc:4118-4121, defined STOCK/zm/_zm_utility.gsc:188). move_zombie_spawn_location tokenizes spot.script_noteworthy: "riser_location" → zm_spawner::do_zombie_rise(spot) (STOCK/zm/_zm_utility.gsc:247-250); "faller_location" → zm_ai_faller::do_zombie_fall (:251-254); "spawn_location" → ghost+anchor-teleport to spot.origin then notify("risen", spot.script_string) (:255-300). So: riser_location structs are pure POSITIONS; the single actor_spawner_zm_factory_zombie (script_noteworthy "zombie_spawner", script_forcespawn 1, count 9999 — user's MAP:1218-1241) supplies the AI archetype for every zone. The template also ships a second spawner actor (actor_zm_nuked_basic_01, also script_noteworthy "zombie_spawner", MAP:1275-1288) — both are in level.zombie_spawners. Dog spawner is separate: actor_spawner_zm_factory_zombie_dog script_noteworthy/targetname "zombie_dog_spawner" (MAP:1438-1459); dogs pick positions from level.zm_loc_types["dog_location"] (STOCK/zm/_zm_ai_dogs.gsc:364). Optional per-zone spawner segregation exists only via level.use_multiple_spawns + script_int KVPs on spawner entities and location structs/zones (STOCK/zm/_zm_spawner.gsc:56-71; do_zombie_spawn filter :2882-2903; round_spawning :3791-3801) — off by default.
+
+(6) FLAG NAMING: flags are arbitrary strings; the shipped convention is "enter_<destination_area>" (zm_giant: "enter_outside_east", "enter_outside_west", "enter_wnuen_building", "enter_warehouse_second_floor" — STOCK/zm/zm_giant.gsc:262-278). Flags get SET by purchasable doors/debris: put "script_flag" KVP on the door trigger, comma-separated list supported; set on open, CLEARED on close (STOCK/zm/_zm_blockers.gsc:952-967; init :111-121). add_adjacent_zone auto-inits any flag it sees (:603-606), so no manual flag::init needed for door flags. For always-connected multi-zone-at-start setups the template idiom is a synthetic flag: level flag::init("always_on"); level flag::set("always_on"); inside zone_manager_init_func (STOCK/zm/zm_usermap.gsc:159-163 template_test_zone_init; user's copy ENTRY:197-201) then add_adjacent_zone(a,b,"always_on") per pair.
+
+CURRENT REPO STATE: ENTRY:135-139 does level.zones=[]; level.zone_manager_init_func=&usermap_test_zone_init; init_zones[0]="start_zone"; level thread zm_zonemgr::manage_zones(init_zones); — but usermap_test_zone_init (ENTRY:197-201) contains NO add_adjacent_zone calls, so ONLY start_zone is ever zone_init'd/enabled. The map already contains 6 additional fully-wired zones (market_zone, alley_zone, corp_zone, vault_zone, roof_zone, lab_zone with matching <zone>_spawners riser+dog structs, MAP:1704/1795/1886/1997/2088/2179) that are currently INVISIBLE to the zone manager until add_adjacent_zone lines (plus door script_flag KVPs or "always_on") are added to usermap_test_zone_init.
+
+GOTCHAS:
+- Declaring an info_volume in the map does NOTHING by itself: a zone only exists after zone_init, which is only reached via add_adjacent_zone / connect_zones / being in the manage_zones init_zones array. The repo's 6 new zones (market/alley/corp/vault/roof/lab) are currently unreachable because usermap_test_zone_init has zero add_adjacent_zone calls (scripts/zm/zm_abandoned_cyber_city.gsc:197-201).
+- zone_init reads spawner structs ONLY from zone.volumes[0].target (_zm_zonemgr.gsc:345). If a zone uses multiple info_volumes, every volume must carry the same target KVP or the extra volumes' spawners are silently ignored.
+- round_spawning hard-ASSERTs (and in ship builds silently returns, spawning nothing forever) if level.zm_loc_types["zombie_location"] is empty at round start (_zm.gsc:3697-3701) — i.e., if the active zone's spawner structs are mis-targeted or all noteworthy tokens are non-standard, the game soft-hangs with no zombies.
+- spawn_zombie requires the actor spawner to have script_forcespawn set truthy; otherwise it returns undefined with only a dev-mode println (zombie_utility.gsc:1469,1538-1542) — a spawner missing SCRIPT_FORCESPAWN silently never spawns.
+- manage_zones asserts every player_respawn_point struct has a script_noteworthy (_zm_zonemgr.gsc:826); in ship builds a missing one means the lock loop still runs but enable_zone's unlock comparison (:507) can crash dev / never match. Note enable_zone unlocks respawn points by script_noteworthy == zone_name — the template's respawn point uses noteworthy "start_room" (map line 1297), which never equals "start_zone"; stock ships this way, so do not 'fix' it by renaming the zone.
+- flag arg of add_adjacent_zone: an ARRAY = AND of all flags; calling add_adjacent_zone twice for the same zone pair with two single flags = OR; mixing the two styles trips an assert (_zm_zonemgr.gsc:556).
+- Flags on doors are CLEARED when the door is closed again (_zm_blockers.gsc:960-967), and if the level flag "door_can_close" is set, the zone connection is severed when the flag clears (_zm_zonemgr.gsc:731-734,760-768) — adjacency is not necessarily permanent.
+- Zone scan cadence is ~1 second (wait(1) at _zm_zonemgr.gsc:983): after a door flag sets, spawner lists update on the NEXT scan, not instantly; scripts needing instant reaction should use level waittill(zone_name) / zone_wait_till_enabled (:75-81) or the "newzoneActive" notify (:916).
+- "zones_initialized" and "begin_spawning" are FLAGS (flag::set at _zm_zonemgr.gsc:865 and _zm.gsc:4111) — consistent with the project's existing rule that bare waittill on flag names hangs if already set.
+- Omitting script_noteworthy "player_volume" on a zone info_volume does not break zone_init, but it removes the volume from level.playable_areas (_zm_spawner.gsc:599) and active-zone entity queries (_zm_zonemgr.gsc:1232), silently breaking zombie playable-area/cleanup and hostmigration logic.
+- A struct with script_noteworthy "dog_location" (or any non-standard token) is NOT a zombie_location — it lands in its own level.zm_loc_types[token] bucket; dog rounds need at least one dog_location in an active zone or zm_ai_dogs picks from an empty array (_zm_ai_dogs.gsc:364).
+- manage_zones' failsafe silently re-activates the FIRST initial zone whenever no occupied+spawning-allowed zone is found (_zm_zonemgr.gsc:951-967) — masking zone-wiring bugs: zombies will appear to spawn 'correctly' near start while every other zone is broken.
+
+CITATIONS:
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:20-39
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:45-58
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:286-427
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:318-332
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:345-347
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:364-404
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:488-522
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:531-562
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:570-589
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:595-621
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:627-649
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:675-757
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:760-768
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:772-803
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:810-985
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:1153-1203
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:1205-1246
+tmp/bo3_stock_ref/scripts/zm/zm_giant.gsc:181-184
+tmp/bo3_stock_ref/scripts/zm/zm_giant.gsc:256-278
+tmp/bo3_stock_ref/scripts/zm/zm_usermap.gsc:159-163
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:3697-3701
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:3756
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:3780-3808
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:4111
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:4118-4121
+tmp/bo3_stock_ref/scripts/zm/_zm_spawner.gsc:47
+tmp/bo3_stock_ref/scripts/zm/_zm_spawner.gsc:56-71
+tmp/bo3_stock_ref/scripts/zm/_zm_spawner.gsc:572-583
+tmp/bo3_stock_ref/scripts/zm/_zm_spawner.gsc:599
+tmp/bo3_stock_ref/scripts/zm/_zm_spawner.gsc:2867-2962
+tmp/bo3_stock_ref/scripts/zm/_zm_utility.gsc:188
+tmp/bo3_stock_ref/scripts/zm/_zm_utility.gsc:247-300
+tmp/bo3_stock_ref/scripts/shared/ai/zombie_utility.gsc:1454-1545
+tmp/bo3_stock_ref/scripts/zm/gametypes/_zm_gametype.gsc:589-614
+tmp/bo3_stock_ref/scripts/zm/gametypes/_zm_gametype.gsc:906-910
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:111-121
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:952-967
+tmp/bo3_stock_ref/scripts/zm/_zm_ai_dogs.gsc:364
+scripts/zm/zm_abandoned_cyber_city.gsc:135-139
+scripts/zm/zm_abandoned_cyber_city.gsc:197-201
+map_source/zm/zm_abandoned_cyber_city.map:1150-1158
+map_source/zm/zm_abandoned_cyber_city.map:1218-1241
+map_source/zm/zm_abandoned_cyber_city.map:1250-1255
+map_source/zm/zm_abandoned_cyber_city.map:1275-1288
+map_source/zm/zm_abandoned_cyber_city.map:1438-1459
+map_source/zm/zm_abandoned_cyber_city.map:1698-1704
+map_source/zm/zm_abandoned_cyber_city.map:1795
+map_source/zm/zm_abandoned_cyber_city.map:1886
+map_source/zm/zm_abandoned_cyber_city.map:1997
+map_source/zm/zm_abandoned_cyber_city.map:2088
+map_source/zm/zm_abandoned_cyber_city.map:2179

@@ -296,7 +296,7 @@ author in this repo today.
   - *Next:* Add level/per-player completion flags to both event modules plus a craft-terminal scaffold (trigger + 5-Shard try_spend + weapon give) that can land before the weapons themselves.
 - [ ] **wonder-300pct-boss-counter** `missing` — Each wonder weapon deals +300% damage to its specific boss only (Staff vs Subroutine Core, Cleaver vs Juggernaut Host) with no counter overlap.
   - *Next:* Add a +300% branch in on_ai_damage keyed on (weapon_root_name == signal_staff_zm && target.acc_is_boss) / (vibro_cleaver_zm && target.acc_is_mini_boss).
-- [ ] **perks-no-cap** `missing` — No perk cap on this map — all 9 perks are purchasable by one player.
+- [x] **perks-no-cap** `implemented` *(closed 2026-06-12: level.perk_purchase_limit = 9 in entry main - shipped-map mechanism, see docs/22)* — No perk cap on this map — all 9 perks are purchasable by one player.
   - *Next:* Set level.perk_purchase_limit = 9 (or define level.get_player_perk_purchase_limit) in the entry script main() before zm_usermap::main().
 - [ ] **starter-b23r** `phase4-blocked` — B23R 3-round-burst pistol (import) replaces the stock M1911 as the spawn-loadout starting weapon.
   - *Next:* Author weapons/zm/sp/b23r_zm.gdt from a stock pistol GDT, add weaponfull,b23r_zm to the zone, then set startingWeapon="b23r_zm" in zm_abandoned_cyber_city.gsc:144.
@@ -686,7 +686,7 @@ author in this repo today.
   - *Next:* Implement melee/web OHK branches (zombie-only checks) in the damage pipeline and set widows-wine grenade max to 6 for has_mega_perk owners.
 - [ ] **lab-4-rotation-machines** `map-missing` — 4 Lab perk machines (slot entities the rotation code can address as acc_lab_perk_a/b/c/d) exist in Radiant, and perks are purchasable nowhere else on the final map.
   - *Next:* When the Lab zone is built in Radiant, place 4 machine entities targetnamed acc_lab_perk_a/b/c/d (plus use triggers) and plan migration of the 9 start-room machines.
-- [ ] **perks-no-cap** `missing` — The stock BO3 4-perk cap is removed so a single player can hold all 9 perks simultaneously (override the _zm_perks slot-limit / 'has space for perk' check at init).
+- [x] **perks-no-cap** `implemented` *(closed 2026-06-12: level.perk_purchase_limit = 9 in entry main - shipped-map mechanism, see docs/22)* — The stock BO3 4-perk cap is removed so a single player can hold all 9 perks simultaneously (override the _zm_perks slot-limit / 'has space for perk' check at init).
   - *Next:* Create scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc with init() setting level.perk_purchase_limit = 9 (after zm_usermap::main()), wire it into scripts/zm/zm_abandoned_cyber_city.gsc:128-133 and add a scriptparsetree line to the zone manifest.
 - [ ] **acc-perks-module** `missing` — A Phase 3 _acc_perks.gsc module exists owning cap removal, custom perk registration, Deadshot/Widow effect hooks, stock-perk retunes, the cost override table, and the tuning-lever constants (Aura CD 120->150s, Deadshot 1.5->1.3, Widow +50->+25%, Stamin 2x->1.5x).
   - *Next:* Author _acc_perks.gsc per docs/13_perks.md Implementation Status list (cap removal, Aura active registration, Deadshot mult feed, Widow grenade hooks, Jug/QR/Speed/Stamin retunes, cost table), #using it from _acc_main.gsc and add the zone line.

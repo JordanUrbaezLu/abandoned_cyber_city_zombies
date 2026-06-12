@@ -67,13 +67,19 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
   - Pristine Launcher zm template (map/gsc/csc/zone/szc/images):
     `FanaticSoftware/Skye-Weapon-Templates` → `rex/templates/01. ZM - Base/`
   - Shipped community map with full source: `MattFiler/zm_alien_isolation`
-  - Stock `share/raw` scripts mirror: `zeroy99/bo3_modtools`
+  - Stock `share/raw` scripts mirror: `zeroy99/bo3_modtools`; stock GDTs: `shidouri/T7-GDT-Backup`
+  - Drop-in system kits (verified 2026-06, details in docs/22): `kelson8/bo3-Zombies-Test-Map` (GSC→LUI menu bridge = Cyberware UI blueprint), `Scobalula/Bo3CWStyleItemDrops` (item-drop framework = Shards pickups), `Owen-C137/Aetherium-Hud-Bo7-Remake-` (clientfield→LUI HUD pipeline) + `.../Bo7-Sawblade-Trap-Bo3-Script-` (traps, zombie POI lure), `Resxt/T7-Scripts` (soul boxes, challenges, buyable ending), `ColDog5044/zm_countryside` (custom perk suite + Wonderfizz), `PotatoClips/potatoclips-bo3-scripts` (quest chains, correct door recipe)
 - **zm wiring entities** (from template): player spawns = `script_struct`
   targetname `initial_spawn_points` (script_int 1/2, noteworthy
   `initial_spawn`); zones = `info_volume` noteworthy `player_volume`,
   targetname `<zone>`, target `<zone>_spawners`; zombie spawn locations =
   structs targetname `<zone>_spawners` (noteworthy `riser_location` /
   `dog_location`); the AI spawner itself = one `actor_spawner_zm_factory_zombie`.
+- **Community techniques ledger: docs/22_community_techniques.md** (142 cited
+  techniques from shipped sources, raw dossiers in docs/research/). CONVENTION:
+  every external-codebase finding gets documented there — never left in
+  conversation. Headline lift already applied: `level.perk_purchase_limit` is
+  the no-perk-cap field (shipped precedent).
 - **Wallbuy + perk-machine map anatomy** (verified vs stock scripts + shipped
   `zm_alien_isolation` source, 2026-06): wallbuy = script_struct targetname
   `weapon_upgrade` (`zombie_weapon_upgrade` = class weapon name, `target` →

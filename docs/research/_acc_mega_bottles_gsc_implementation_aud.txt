@@ -1,0 +1,126 @@
+TOPIC: _acc_mega_bottles.gsc implementation audit, GSC/CSC clientfield registration pairing requirements, and LUI-free greybox HUD options
+
+FINDINGS:
+## 1. _acc_mega_bottles.gsc — implemented vs stubs
+
+IMPLEMENTED (real logic):
+- `init()` (lines 28-41): registers clientfield via 5-arg GSC form `clientfield::register("toplayer", "acc_mega_bottles", 1, 4, "int")`. Name/bits come from `#define ACC_BOTTLES_CF_NAME "acc_mega_bottles"` (line 19) and `#define ACC_BOTTLES_CF_BITS 4` (line 20, 0..15 max). Wired into the boot chain at _acc_main.gsc:78 (`acc_mega_bottles::init()`), which runs via `level thread acc_main::init()` from the entry script (zm_abandoned_cyber_city.gsc:167).
+- `on_player_connect(player)` (43-50): zeroes `player.acc_mega_bottles`, creates `player.acc_mega_perks = []` (key = specialty string, value = true), syncs clientfield. Wired at _acc_main.gsc:105.
+- `on_boss_death(tier, killer, origin)` (60-73): grants +1 bottle to EVERY player in `level.players` (killer/origin params are accepted but unused in the body). Wired from _acc_boss.gsc:98 (tier "mini") and _acc_boss.gsc:133 (tier "full").
+- `grant_bottle(amount, source_tag)` (79-89): validates, increments, syncs, `iprintln` feedback (87-88, uses GSC ternary `amount > 1 ? "s" : ""` — valid BO3 GSC; stock uses ternary at math_shared.gsc:172, util_shared.gsc:3996). `source_tag` is unused in the body.
+- `try_consume_bottle(player, amount)` (91-101): full guard chain + decrement + sync.
+- `get_bottle_count(player)` (103-107).
+- `has_mega_perk(player, specialty_string)` (111-117): live consumers exist — _acc_damage.gsc:77 (key "specialty_widowswine"), _acc_damage.gsc:97 (key "specialty_deadshot"), _acc_perk_aura_blast.gsc:102 (key PERK_ELECTRIC_CHERRY = "specialty_electriccherry").
+- `set_mega_perk(player, specialty_string)` (121-131): sets flag, iprintln, fires `level notify("acc_mega_perk_applied", player, specialty_string)` (130).
+- `try_apply_mega(player, specialty_string)` (145-169): complete guard logic (already-Mega'd check 147-151, bottle consume 153-157, flag set 159) — BUT it has ZERO callers repo-wide. The perk-machine "use" handler described in the comment block (134-143) does not exist yet, so the entire consumption/Mega-upgrade path is currently unreachable code. Only acquisition (boss drops) is wired.
+- `mega_display_name(specialty_string)` (183-200): 9-entry switch, fallback "Mega Perk" (199).
+- `sync_bottle_count_to_client()` (206-210): `self clientfield::set_to_player(ACC_BOTTLES_CF_NAME, self.acc_mega_bottles)` (209).
+
+STUBS:
+- `reapply_perk_if_owned(player, specialty_string)` (173-177): log-only stub; `TODO(acc-perks): dispatch to acc_perks::reapply_perk(player, specialty)` (175). Companion TODO at 164-165 inside try_apply_mega.
+- Missing entirely: the perk-machine interaction caller for try_apply_mega; any cap/clamp on bottle count (contrast _acc_data_shards.gsc:121 which clamps via acc_utility::clamp_int to ACC_SHARDS_MAX).
+
+## 2. Does GSC-only clientfield::register("toplayer", ...) crash without a matching .csc registration?
+
+Signatures (stock): GSC `function register(str_pool_name, str_name, n_version, n_bits, str_type)` → `RegisterClientField(...)` (clientfield_shared.gsc:17-20). CSC `function register(str_pool_name, str_name, n_version, n_bits, str_type, func_callback, b_host, b_callback_for_zero_when_new)` → `RegisterClientField(...)` (clientfield_shared.csc:20-23). `VERSION_SHIP = 1` (version.gsh:36) — our literal `1` matches. `CF_HOST_ONLY = true`, `CF_CALLBACK_ZERO_ON_NEW_ENT = true` (version.gsh:102-103); stock idiomatically passes `!CF_HOST_ONLY` to mean false.
+
+Stock pairing evidence (deadshot, exactly as asked):
+- _zm_perk_deadshot.gsc:71-72 (`deadshot_register_clientfield`): `clientfield::register("toplayer", "deadshot_perk", VERSION_SHIP, 1, "int")` AND `clientfield::register("clientuimodel", PERK_CLIENTFIELD_DEAD_SHOT, VERSION_SHIP, 2, "int")` (PERK_CLIENTFIELD_DEAD_SHOT = "hudItems.perks.dead_shot", _zm_perks.gsh:9).
+- _zm_perk_deadshot.csc:47-48 (`deadshot_client_field_func`): registers the SAME pool/name/version/bits/type, adding client-only args `&player_deadshot_perk_handler, !CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT` (and `undefined` callback for the clientuimodel one).
+- _zm_perks.gsc:1628 vs _zm_perks.csc:38: "scriptmover"/"clientfield_perk_intro_fx" 1-bit field registered on BOTH sides, gated by the SAME `level.zombiemode_using_perk_intro_fx` condition on both sides — i.e. even CONDITIONAL registration must match.
+
+Corpus-wide diff (I extracted every `clientfield::register(pool, name` from stock zm/+shared/ .gsc vs .csc, normalized whitespace): after resolving false positives (("toplayer","perk_vulture") appears only inside a doc comment at _zm_perks.gsc:1946; ("toplayer","sndPlayerConsumed") IS registered client-side via a multi-line call at archetype_thrasher.csc:69-76; macro-vs-literal pairs like COUNTER_UAV_NAME="counteruav"), there are ZERO genuine GSC-only registrations in the "toplayer"/"allplayers"/"actor"/"scriptmover"/"world" pools. Stock discipline is 100% both-VM registration for those pools.
+
+THE ONE EXCEPTION — pool "clientuimodel" does NOT require a .csc registration: zm_usermap.gsc:100-103 (`function autoexec init_fx()`) registers `clientfield::register("clientuimodel", "player_lives", VERSION_SHIP, 2, "int")` and zm_usermap.csc contains NO registration at all (only `#using scripts\shared\clientfield_shared` at line 4). Every working usermap executes this code, so GSC-only clientuimodel registration provably does not crash. The reason is documented in stock itself: _weaponobjects.gsc:70 — `clientfield::register("clientuimodel", "hudItems.proximityAlarm", ...); // registered client-side in raw/ui/uieditor/clientfieldmodels.lua` — i.e. the client half of clientuimodel fields lives in LUI lua, not .csc.
+
+CONCLUSION for our code: `_acc_mega_bottles.gsc:34-40` ("toplayer","acc_mega_bottles",4 bits) and the sister module `_acc_data_shards.gsc:51` ("toplayer","acc_data_shards") are GSC-only "toplayer" registrations with no .csc counterpart. The repo's own recorded knowledge says mismatched registration fails at load (zm_abandoned_cyber_city.csc:30-31: "must match the entry .gsc #using or clientfield registration mismatches at load"). Engine internals can't be proven from scripts alone, but: (a) toplayer fields are bit-packed playerstate data the client must decode by registration order/width, (b) stock has zero counterexamples, (c) community-documented failure is a fatal clientfield-mismatch error at map load. Treat GSC-only "toplayer" registration as a crash. Three remediations, safest first:
+1. Switch pool to "clientuimodel" (e.g. name "hudItems.accMegaBottles") — proven safe GSC-only per zm_usermap.gsc:102 — BUT you MUST also switch the setter: clientuimodel fields are set with `clientfield::set_player_uimodel` (→ CodeSetUIModelClientField, clientfield_shared.gsc:71-77), not `set_to_player` (→ CodeSetPlayerStateClientField, clientfield_shared.gsc:55-58). Stock pattern: register _zm_score.gsc:36, set _zm_powerup_double_points.gsc:86.
+2. Keep "toplayer" and add a matching register to the entry .csc (zm_abandoned_cyber_city.csc main(), or a future _acc .csc module): same pool/name/version/bits/type, callback can be `undefined` (stock precedent: _zm_perk_deadshot.csc:48 passes undefined), flags `!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT`.
+3. Delete the registration + sync calls entirely until Phase 4 (iprintln already provides feedback).
+
+Registration timing note: our register runs inside `level thread acc_main::init()` (entry gsc:167 → _acc_main.gsc:78). A GSC thread executes synchronously until its first wait, and none of the init() bodies that run before acc_mega_bottles::init contain a live wait/waittill (verified by scan; only comments mention waittill), so the call lands inside main()'s load frame. Stock, however, registers earlier — via `autoexec` (zm_usermap.gsc:100) or REGISTER_SYSTEM `__init__`. Usermap main()-time registration is the standard community pattern, but mark it TODO(acc-verify) for the first Windows compile.
+
+## 3. _zm_stats.gsc relevance
+
+_zm_stats.gsc contains ZERO clientfield usage (grep across the whole file: no matches). It is the persistence module: `player_stats_init` seeds `globallogic_score::initPersStat` counters ("kills","downs","perks_drank","bgbs_chewed",... lines 31-80); wrappers `get/set/add/increment_global_stat` (307-342), `add_client_stat/increment_player_stat/set_client_stat` (353-411), map stats (424-467); exposes `level.add_client_stat` / `level.increment_client_stat` function pointers (_zm_stats.gsc:26-28). It is NOT a HUD path — only relevant to mega bottles if you ever want cross-match persistent stats (e.g. `[[level.add_client_stat]]("acc_bottles_earned", n)` style), not for in-run display.
+
+## 4. Safest greybox HUD path without LUI
+
+- iprintln (already implemented at _acc_mega_bottles.gsc:87-88, 129, 149, 155): zero client-side requirements, but transient feed text only — fine for events, not a persistent counter.
+- BEST GREYBOX OPTION — classic GSC hudelems, which are fully alive in BO3 ZM stock code, server-side .gsc only, no .csc, no lua, no clientfield: `NewClientHudElem(player)` is used by stock ZM at _zm.gsc:4880-4899 (downed-state text: sets .alignX/.alignY="center"/"middle", .horzAlign/.vertAlign="user_center"/"user_bottom", .foreground=true, .font="default", .fontScale=1.8, .alpha, .color, SetText, FadeOverTime), _zm_laststand.gsc:634/748/1199, _zm_craftables.gsc:2642, _zm_equipment.gsc:547. The helper layer is `scripts\shared\hud_util_shared`: `hud::createFontString(font, fontScale)` (hud_util_shared.gsc:334-350; call ON the player: `elem = player hud::createFontString("default", 1.5)` — it does `newClientHudElem(self)` and `setParent(level.uiParent)`), positioned with `hud::setPoint(point, relativePoint, xOffset, yOffset)` (hud_util_shared.gsc:53). For the number itself use `elem SetValue(count)` — numeric, needs NO localized string (stock ZM usage: _globallogic.gsc:758, _hud_message.gsc:225/269). Stock always passes localized `&"REFS"` to SetText (_zm.gsc:4890); raw-string SetText is common in usermaps but unverified here, so for pure greybox prefer SetValue-only (or SetValue plus an iprintln legend).
+- Concretely: drop (or comment out) the clientfield register/set in _acc_mega_bottles.gsc and have `sync_bottle_count_to_client` create-once + `SetValue` a per-player font string. This removes the .csc-mismatch risk AND gives a persistent on-screen counter with zero new files. The clientfield bridge returns in Phase 4 when real LUI widgets exist (docs/16_gsc_reference.md:444-450 describes that pipeline; docs/14_controls_and_hud.md:98 expects the `acc_mega_bottles` clientfield name).
+
+GOTCHAS:
+- GSC-only 'toplayer' clientfield registration (_acc_mega_bottles.gsc:34-40 AND _acc_data_shards.gsc:51) has no .csc counterpart: stock registers every toplayer/allplayers/actor/scriptmover/world field in BOTH VMs with identical pool/name/version/bits/type (deadshot gsc:71-72 vs csc:47-48), and the repo's own .csc comment (zm_abandoned_cyber_city.csc:30-31) records 'clientfield registration mismatches at load' as the failure mode — treat as a map-load crash until proven otherwise on the Windows box.
+- The ONLY pool safe to register GSC-only is 'clientuimodel' (proof: zm_usermap.gsc:102 registers 'player_lives' with no csc counterpart and every usermap runs it; client half lives in raw/ui/uieditor/clientfieldmodels.lua per _weaponobjects.gsc:70 comment) — but if you switch pools you MUST also switch the setter from clientfield::set_to_player to clientfield::set_player_uimodel; set_to_player on a clientuimodel field calls the wrong engine path (CodeSetPlayerStateClientField vs CodeSetUIModelClientField, clientfield_shared.gsc:55-58 vs 71-77).
+- 4-bit clientfield (0-15) but grant_bottle has NO cap (_acc_mega_bottles.gsc:20 vs 84): server-side count can exceed 15 (4 players x many boss kills), and set_to_player with a value over the registered bit width silently corrupts/wraps the transmitted value — clamp to 15 or widen the field.
+- try_apply_mega (_acc_mega_bottles.gsc:145) has ZERO callers repo-wide — the perk-machine 'use' handler described in the comment block (134-143) doesn't exist, so the whole bottle-consumption/Mega path is dead code; only boss-drop acquisition is wired (_acc_boss.gsc:98,133).
+- Specialty-key mismatch lying in wait: mega_display_name uses invented keys 'specialty_acc_deadshot'/'specialty_acc_widows_wine'/'specialty_acc_aura_blast' (_acc_mega_bottles.gsc:195-197) while live has_mega_perk consumers query STOCK keys 'specialty_deadshot' (_acc_damage.gsc:97), 'specialty_widowswine' (_acc_damage.gsc:77), 'specialty_electriccherry' (_acc_perk_aura_blast.gsc:102; defines at _zm_perks.gsh:29/31/35). Whichever key set the future set_mega_perk caller uses, one side silently fails: flags never match (queries return false forever) or display falls through to 'Mega Perk'. Unify on the stock specialty strings.
+- CSC clientfield::register takes 8 args (callback, b_host, b_callback_for_zero_when_new — clientfield_shared.csc:20); when adding the client half, callback may be 'undefined' (stock precedent _zm_perk_deadshot.csc:48) but pool/name/version/bits/type must match the GSC call EXACTLY, including conditional gating (stock gates both sides on the same level flag, _zm_perks.gsc:1626-1629 vs _zm_perks.csc:35-39).
+- Registration timing: clientfield::register currently executes inside 'level thread acc_main::init()' (entry gsc:167) — safe today only because no _acc_ init() that runs before acc_mega_bottles::init (_acc_main.gsc:69-78) contains a wait; if any earlier init ever gains a wait()/waittill, the register slips past the load-frame snapshot window (stock registers via autoexec/__init__ pre-main, zm_usermap.gsc:100).
+- For greybox HUD, avoid SetText with raw strings (stock only ever passes localized &"REFS", _zm.gsc:4890); use elem SetValue(n) for the counter (stock numeric precedent _globallogic.gsc:758, _hud_message.gsc:225) — no localization, no precache, no .csc.
+- _zm_stats.gsc is a red herring for HUD work: it contains zero clientfield calls; it is the persistent cross-match stat system (initPersStat/add_client_stat) only.
+
+CITATIONS:
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:19
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:20
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:34-40
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:43-50
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:60-73
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:79-89
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:91-101
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:111-117
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:121-131
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:145-169
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:173-177
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:183-200
+scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:206-210
+scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc:98
+scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc:133
+scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc:78
+scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc:105
+scripts/zm/zm_abandoned_cyber_city.gsc:167
+scripts/zm/zm_abandoned_cyber_city.csc:30-31
+scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc:51
+scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc:175
+scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc:77
+scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc:97
+scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc:102
+tmp/bo3_stock_ref/scripts/shared/clientfield_shared.gsc:17-20
+tmp/bo3_stock_ref/scripts/shared/clientfield_shared.gsc:55-58
+tmp/bo3_stock_ref/scripts/shared/clientfield_shared.gsc:71-77
+tmp/bo3_stock_ref/scripts/shared/clientfield_shared.csc:20-23
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_deadshot.gsc:71-72
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_deadshot.csc:47-48
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1628
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1946
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.csc:38
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsh:9
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsh:29
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsh:31
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsh:35
+tmp/bo3_stock_ref/scripts/zm/zm_usermap.gsc:100-103
+tmp/bo3_stock_ref/scripts/zm/zm_usermap.csc:4
+tmp/bo3_stock_ref/scripts/shared/weapons/_weaponobjects.gsc:70
+tmp/bo3_stock_ref/scripts/zm/_zm_score.gsc:36
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_double_points.gsc:86
+tmp/bo3_stock_ref/scripts/shared/ai/archetype_thrasher.gsc:69
+tmp/bo3_stock_ref/scripts/shared/ai/archetype_thrasher.csc:69-76
+tmp/bo3_stock_ref/scripts/shared/version.gsh:36
+tmp/bo3_stock_ref/scripts/shared/version.gsh:102-103
+tmp/bo3_stock_ref/scripts/zm/_zm_stats.gsc:26-28
+tmp/bo3_stock_ref/scripts/zm/_zm_stats.gsc:31-80
+tmp/bo3_stock_ref/scripts/zm/_zm_stats.gsc:307-342
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:4880-4899
+tmp/bo3_stock_ref/scripts/zm/_zm_laststand.gsc:634
+tmp/bo3_stock_ref/scripts/zm/craftables/_zm_craftables.gsc:2642
+tmp/bo3_stock_ref/scripts/shared/hud_util_shared.gsc:334-350
+tmp/bo3_stock_ref/scripts/shared/hud_util_shared.gsc:53
+tmp/bo3_stock_ref/scripts/zm/gametypes/_globallogic.gsc:758
+tmp/bo3_stock_ref/scripts/zm/gametypes/_hud_message.gsc:225
+tmp/bo3_stock_ref/scripts/shared/math_shared.gsc:172
+tmp/bo3_stock_ref/scripts/shared/util_shared.gsc:3996
+zone_source/zm_abandoned_cyber_city.zone:30
+zone_source/zm_abandoned_cyber_city.zone:47
+docs/16_gsc_reference.md:228-250
+docs/14_controls_and_hud.md:98

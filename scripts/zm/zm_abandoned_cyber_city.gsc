@@ -154,6 +154,14 @@ function main()
 	//Start Points
 	level.player_starting_points = 500;
 
+	// [acc] No perk cap (docs/13): all 9 perks can be held at once.
+	// VERIFIED(acc): level.perk_purchase_limit is the writable stock field
+	// (default 4, _zm_perks.gsc:43; consumed via can_player_purchase_perk ->
+	// get_player_perk_purchase_limit, _zm_utility.gsc:5874-5889). Shipped
+	// precedent: zm_alien_isolation sets 100 (zm_alien_isolation.gsc:209),
+	// zm_countryside sets 15 - see docs/22_community_techniques.md.
+	level.perk_purchase_limit = 9;
+
 	level zm_perks::spare_change();
 
 	level thread CheckForPower();
