@@ -362,12 +362,9 @@ function player_has_ledger( player )
 // reapply_move_speed_on_spawn above.
 function setmovespeedscale_hook( player )
 {
-    base = 1.0;
-    // Stacks multiplicatively with Cyberware Reflex Tier 1 (handled by that module).
-    if ( isdefined( player.acc_item_neural_boots ) && player.acc_item_neural_boots )
-    {
-        // TODO(acc-verify): only apply when holding a primary (not pistol/knife alone).
-        base = base * 1.20;
-    }
-    player setmovespeedscale( base );
+    // VERIFIED(acc): the scale is ABSOLUTE (last-writer-wins), so all speed
+    // sources recompute through the single owner in acc_utility - Neural
+    // Boots, Cyberware Reflex T1, and The Flash Mega stack there.
+    // TODO(acc-verify): boots should only apply when holding a primary.
+    acc_utility::recompute_move_speed( player );
 }

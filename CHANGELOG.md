@@ -6,6 +6,57 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — adversarial verification pass over the zones+mega+boss commit (2026-06-12)
+
+15-agent verify pass (one adversarial reviewer per changed file/aspect +
+independent refutation judges; zero findings refuted). All confirmed defects
+fixed in the same day:
+
+- **Sky hull sealed off the Lab** (the big one): the template skybox's north
+  wall sat at y≈2900 — the Lab, both Lab corridors, and the north 500u of
+  Vault/Roof were OUTSIDE the sealed hull, making all 9 perk machines, PaP,
+  and Bowie permanently unreachable (and zombies spawning at the northern
+  risers unable to path). Extended the hull (north wall + floor/ceiling/east/
+  west sky brushes to y=4300) and the sun + umbra volumes to match.
+- **Cherry hijack hole #1**: the stock cherry module also wires
+  `level.custom_laststand_func` — downing with Aura Blast fired Electric
+  Cherry's laststand AOE (DoDamage + STOCK points bypassing our economy).
+  Replaced with a visionset-only stub (`_zm.gsc` skips the standard laststand
+  visionset for cherry-perk holders, so the stub re-applies it).
+- **Cherry hijack hole #2**: cherry's machine-setup KVPs are a Treyarch
+  placeholder naming the machine `vending_marathon` — Stamin-Up's think loop
+  captured our Aura Blast machine (reskinning it as Stamin-Up) while cherry's
+  own think scanned `vending_electriccherry` and found nothing. Fixed by
+  renaming the spawned machine/trigger at init and bouncing both
+  `perk_machine_think` loops (PERK_END_POWER_THREAD endon).
+- **Boss soft-lock combo**: the host was counted toward round end AND opted
+  out of the stuck-zombie failsafe — a pathing-stuck boss = round never ends.
+  Removed the failsafe opt-out (boss death is the reward trigger; a stuck
+  boss now self-cleans); header comment corrected (boss is ADDITIVE to the
+  wave — replacement still open in the checklist). Also switched to the stock
+  `set_zombie_run_cycle("run")` setter and made `acc_test_boss` re-sampled
+  every round so the console toggle works mid-match.
+- **Move-speed last-writer-wins bug**: Flash's read-modify-write ×1.12 was
+  silently erased by Neural Boots / Reflex T1 absolute writes (and its
+  removal could push speed below baseline). Centralized: ONE recompute
+  (`acc_utility::recompute_move_speed`) owns `SetMoveSpeedScale`; boots /
+  rx1 / Flash all set flags and call it.
+- **HUD counters anchored mid-screen**: `setPoint("BOTTOMLEFT")` is not a
+  recognized token (stock only matches "BOTTOM_LEFT"/"BOTTOM LEFT") — both
+  counters silently rendered near screen center. Fixed both.
+- **Minigun powerup short-circuited our damage callback** (registered first,
+  returns non-−1 for every minigun hit): headshot multipliers + 70/30
+  contribution were skipped for minigun fire. Our callback now runs first
+  and passes minigun hits through (recording the contribution) so stock
+  minigun balancing still applies; the wrong ordering comment fixed.
+- **Map data fixes**: 3 dog_location structs were inside obstacle brushes
+  (market stall / corp fountain / roof obstacle — dogs would teleport into
+  solid and stall dog rounds); frag wallbuy model struct 0.5u inside the
+  vault wall; 3u zone-volume coverage gap in the spawn↔market doorway.
+  Aura Blast also got: chord-drain (holding crouch+melee can't auto-dump the
+  Mega second charge) and Widow's-Wine-web coordination on the shared
+  ASMSetAnimationRate.
+
 ### Added — 7-zone greybox + Mega upgrades + real mini-boss + requirements tracker (2026-06-12, ultracode pass)
 
 Backed by a 39-agent audit (471 requirements extracted and statused vs the

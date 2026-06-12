@@ -4,7 +4,9 @@
 // Design reference: docs/11_enemies.md (Mini-Boss / Full Boss),
 // docs/06_mechanics.md (boss rooms are the only forced-camp encounters).
 //
-// Round 10, 20: mini-boss replaces normal wave.
+// Round 10, 20: mini-boss spawns ADDITIVELY on top of the normal wave and
+// gates round end until killed (wave replacement is a tracked TODO -
+// docs/20 checklist item miniboss-replaces-wave).
 // Round 30, 40, 50+: full boss "Subroutine Core" in the Lab.
 // =============================================================================
 
@@ -34,14 +36,11 @@ function init()
 
     level thread round_hook_loop();
 
-    // Dev/test loop: `acc_test_boss 1` in the console (or +set on launch)
-    // spawns a low-HP Juggernaut Host every round from round 2, so the
-    // Mega Bottle drop -> perk upgrade loop is testable without surviving
-    // to round 10. Same code path as the real mini-boss.
-    if ( getdvarint( "acc_test_boss", 0 ) == 1 )
-    {
-        level thread test_boss_loop();
-    }
+    // Dev/test loop: `acc_test_boss 1` in the console (works mid-match -
+    // sampled every round) spawns a low-HP Juggernaut Host every round from
+    // round 2, so the Mega Bottle drop -> perk upgrade loop is testable
+    // without surviving to round 10. Same code path as the real mini-boss.
+    level thread test_boss_loop();
 }
 
 function test_boss_loop()
@@ -51,6 +50,7 @@ function test_boss_loop()
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
+        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going
@@ -143,13 +143,18 @@ function spawn_juggernaut_host( n_health_override )
     host.health = host.maxhealth;
 
     // Boss durability set, mirrored from stock mechz spawn setup
-    // (mechz.gsc:946-957) + the spawn-failsafe opt-out (zombie_utility:1825).
+    // (mechz.gsc:946-957). VERIFIED(acc): the boss is COUNTED toward round
+    // end (no ignore_enemy_count - dying is the reward trigger), so it must
+    // stay eligible for the stock stuck-zombie failsafe (kills anything that
+    // moves <24in in 30s, zombie_utility.gsc:1870) - opting out of both
+    // would let a pathing-stuck boss soft-lock the round forever.
     host DisableAimAssist();
     host.disableAmmoDrop = true;
     host.no_gib = true;
     host.ignore_nuke = true;
-    host.ignore_round_spawn_failsafe = true;
-    host.zombie_move_speed = "run";
+    // VERIFIED(acc): raw .zombie_move_speed writes skip the anim bookkeeping;
+    // set_zombie_run_cycle is the stock setter.
+    host zombie_utility::set_zombie_run_cycle( "run" );
 
     host thread watch_mini_boss_death();
 

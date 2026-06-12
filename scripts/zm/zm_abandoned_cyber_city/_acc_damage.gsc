@@ -48,9 +48,25 @@ function init()
     // mirror, and its dispatcher discards return values anyway). The real
     // damage-MODIFYING hook is zm::register_actor_damage_callback
     // (_zm.gsc:5835), invoked ON the damaged AI with the return value fed to
-    // finishActorDamage (_zm.gsc:5824-5861). Stock user:
-    // _zm_powerup_weapon_minigun.gsc:53.
+    // finishActorDamage (_zm.gsc:5824-5861).
     zm::register_actor_damage_callback( &on_ai_damage );
+
+    // VERIFIED(acc): dispatch runs callbacks in registration order and the
+    // FIRST non -1 return short-circuits the rest (_zm.gsc:5825-5829). The
+    // stock minigun powerup registered during system pre-init (before us)
+    // and returns non -1 for every minigun hit - so move ourselves to the
+    // FRONT of the array; we return -1 for minigun fire (after recording
+    // the damage contribution) so the minigun balancing still runs.
+    if ( isdefined( level.actor_damage_callbacks ) && level.actor_damage_callbacks.size > 1 )
+    {
+        reordered = [];
+        reordered[ 0 ] = level.actor_damage_callbacks[ level.actor_damage_callbacks.size - 1 ];
+        for ( i = 0; i < level.actor_damage_callbacks.size - 1; i++ )
+        {
+            reordered[ reordered.size ] = level.actor_damage_callbacks[ i ];
+        }
+        level.actor_damage_callbacks = reordered;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -58,9 +74,10 @@ function init()
 //
 // `self` = the damaged AI (zombie / elite / boss). Args are positional per
 // the dispatch at _zm.gsc:5824. Return convention (_zm.gsc:5825-5829):
-//   -1            = damage unchanged; later callbacks (e.g. minigun powerup)
-//                   still evaluate
+//   -1            = damage unchanged; LATER callbacks still evaluate
 //   anything else = becomes the final damage and short-circuits the rest
+// We run FIRST (reordered in init), so returning a value would skip the
+// stock minigun adjustment - hence the explicit minigun passthrough below.
 // ---------------------------------------------------------------------------
 
 function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
@@ -69,6 +86,18 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     if ( !isdefined( damage ) || damage <= 0 ) return -1;
 
     if ( !is_applicable_target( self ) ) return -1;
+
+    // Minigun powerup: record the 70/30 contribution, then pass through so
+    // the stock minigun balancing callback (behind us in the chain) still
+    // adjusts the damage. No headshot multiplier on minigun fire.
+    if ( isdefined( weapon ) && isdefined( weapon.name ) && weapon.name == "minigun" )
+    {
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+        {
+            self acc_points::record_damage( attacker, damage );
+        }
+        return -1;
+    }
 
     // Spiderman (Widow's Wine Mega): melee always one-hits ORDINARY zombies
     // (docs/13_perks.md - not bosses/elites). Short-circuits everything else.

@@ -363,9 +363,10 @@ function apply_sr1()
 
 function apply_rx1()
 {
-    // +10% sprint speed.
-    // TODO(acc-verify): exact API call to modify move speed in zombies.
-    self setmovespeedscale( 1.10 );
+    // +10% sprint speed. VERIFIED(acc): SetMoveSpeedScale is ABSOLUTE -
+    // route through the single recompute owner so Boots/Flash also stack.
+    self.acc_cw_rx1_speed = true;
+    acc_utility::recompute_move_speed( self );
 }
 
 // --- Tier 2 ---

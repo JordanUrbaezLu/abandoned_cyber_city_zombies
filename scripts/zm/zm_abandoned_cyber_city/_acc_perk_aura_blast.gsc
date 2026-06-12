@@ -73,7 +73,73 @@ function init()
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].player_thread_give = &give_aura_blast;
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].player_thread_take = &take_aura_blast;
 
+    // VERIFIED(acc): the cherry module ALSO wires level.custom_laststand_func
+    // (= an AOE that DoDamages zombies + pays STOCK points, bypassing our
+    // economy) which _zm.gsc:2563-2570 threads for any cherry-perk holder -
+    // i.e. every Aura Blast owner who goes down. Replace it with a
+    // visionset-only stub (_zm.gsc skips the standard laststand visionset
+    // whenever the cherry perk is held, so the stub must re-apply it).
+    level.custom_laststand_func = &aura_blast_laststand;
+
+    level thread fix_machine_identity();
+
     acc_utility::log( "aura blast registered over specialty_electriccherry (cost " + ACC_AURA_COST + ")" );
+}
+
+function aura_blast_laststand() // self = player, threaded from _zm.gsc:2569
+{
+    VisionSetLastStand( "zombie_last_stand", 1 );
+}
+
+// VERIFIED(acc): cherry's registered perk_machine_set_kvps is a Treyarch
+// placeholder that names the machine/trigger "vending_marathon" - Stamin-Up's
+// names (_zm_perk_electric_cherry.gsc:117-122 vs _zm_perk_staminup.gsh:9).
+// Left alone, Stamin-Up's perk_machine_think captures our machine (stomping
+// its model/FX with Stamin-Up's) while the cherry think scans
+// "vending_electriccherry" and finds nothing. The KVPs are applied inside
+// zm_usermap::main() BEFORE our init(), so fix the entities after the fact
+// and bounce both think loops (they cache their entity scans; endon hook =
+// str_perk + PERK_END_POWER_THREAD, _zm_perks.gsc:115-116).
+function fix_machine_identity()
+{
+    level endon( "end_game" );
+
+    t_use = undefined;
+    for ( i = 0; i < 60; i++ )
+    {
+        a_triggers = GetEntArray( "zombie_vending", "targetname" );
+        for ( j = 0; j < a_triggers.size; j++ )
+        {
+            if ( isdefined( a_triggers[ j ].script_noteworthy )
+                 && a_triggers[ j ].script_noteworthy == PERK_ELECTRIC_CHERRY )
+            {
+                t_use = a_triggers[ j ];
+                break;
+            }
+        }
+        if ( isdefined( t_use ) ) break;
+        wait 0.5;
+    }
+
+    if ( !isdefined( t_use ) )
+    {
+        acc_utility::log( "aura blast: no cherry vending trigger found, machine identity unfixed" );
+        return;
+    }
+
+    t_use.target = "vending_electriccherry";
+    if ( isdefined( t_use.machine ) )
+    {
+        t_use.machine.targetname = "vending_electriccherry";
+    }
+
+    level notify( "specialty_staminup" + PERK_END_POWER_THREAD );
+    level notify( PERK_ELECTRIC_CHERRY + PERK_END_POWER_THREAD );
+    util::wait_network_frame();
+    level thread zm_perks::perk_machine_think( "specialty_staminup", level._custom_perks[ "specialty_staminup" ] );
+    level thread zm_perks::perk_machine_think( PERK_ELECTRIC_CHERRY, level._custom_perks[ PERK_ELECTRIC_CHERRY ] );
+
+    acc_utility::log( "aura blast: machine identity fixed (vending_electriccherry)" );
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +212,13 @@ function aura_blast_listener()
         self iprintlnbold( "AURA BLAST" );
         level thread do_aura_blast( self.origin, self radius_sq(), self is_mega() );
 
-        wait 0.5; // debounce so one chord press activates once
+        // Drain the chord before re-arming so holding it can't dump the
+        // Mega tier's second charge automatically.
+        while ( self MeleeButtonPressed() )
+        {
+            wait 0.05;
+        }
+        wait 0.25;
     }
 }
 
@@ -206,11 +278,15 @@ function aura_stun( n_seconds )
     self.acc_aura_stunned = true;
 
     // VERIFIED(acc): ASMSetAnimationRate is the stock zombie slow mechanism
-    // (Widow's Wine slow path) - see the stock-API pass in CHANGELOG.
+    // (Widow's Wine slow path, _zm_perk_widows_wine.gsc:443/:501) - and
+    // Widow's webs own the same rate. If the zombie is webbed when the stun
+    // ends, leave the rate alone (the widows restore path owns it).
     self ASMSetAnimationRate( 0.05 );
     wait n_seconds;
 
-    if ( IsAlive( self ) )
+    if ( IsAlive( self )
+         && !IS_TRUE( self.b_widows_wine_slow )
+         && !IS_TRUE( self.b_widows_wine_cocoon ) )
     {
         self ASMSetAnimationRate( 1.0 );
     }

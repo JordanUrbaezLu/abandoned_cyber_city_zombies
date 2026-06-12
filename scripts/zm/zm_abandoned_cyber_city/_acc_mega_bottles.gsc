@@ -64,7 +64,7 @@ function flash_respawn_watcher()
     for ( ;; )
     {
         self waittill( "spawned_player" );
-        self.acc_flash_speed_applied = false;
+        self.acc_flash_speed = false;
         wait 0.25; // after the spawn-path speed reset
         if ( self HasPerk( "specialty_staminup" )
              && has_mega_perk( self, "specialty_staminup" ) )
@@ -313,11 +313,11 @@ function apply_mega_effects( player, specialty_string )
 
 function apply_flash_speed()
 {
-    if ( IS_TRUE( self.acc_flash_speed_applied ) ) return;
-    self.acc_flash_speed_applied = true;
-    // VERIFIED(acc): compose multiplicatively via read-modify-write (stock
-    // pattern mp/_loadout.gsc:1140) so Neural Boots / other modifiers stack.
-    self SetMoveSpeedScale( self GetMoveSpeedScale() * 1.12 );
+    // VERIFIED(acc): SetMoveSpeedScale is ABSOLUTE - read-modify-write here
+    // gets erased by other writers (Neural Boots hook, Reflex T1). Set the
+    // flag and recompute through the single owner in acc_utility.
+    self.acc_flash_speed = true;
+    acc_utility::recompute_move_speed( self );
 }
 
 // Stock lifecycle hooks (self = player).
@@ -338,10 +338,10 @@ function on_perk_lost( perk )
         self.n_player_health_boost = 0;
     }
 
-    if ( perk == "specialty_staminup" && IS_TRUE( self.acc_flash_speed_applied ) )
+    if ( perk == "specialty_staminup" && IS_TRUE( self.acc_flash_speed ) )
     {
-        self.acc_flash_speed_applied = false;
-        self SetMoveSpeedScale( self GetMoveSpeedScale() / 1.12 );
+        self.acc_flash_speed = false;
+        acc_utility::recompute_move_speed( self );
     }
 }
 
@@ -382,7 +382,9 @@ function sync_bottle_count_to_client()
     if ( !isdefined( self.acc_bottle_hud ) )
     {
         self.acc_bottle_hud = self hud::createFontString( "default", 1.5 );
-        self.acc_bottle_hud hud::setPoint( "BOTTOMLEFT", "BOTTOMLEFT", 10, -110 );
+        // VERIFIED(acc): setPoint only matches "BOTTOM_LEFT"/"BOTTOM LEFT"
+        // (hud_util_shared.gsc:120-124); "BOTTOMLEFT" silently anchors center.
+        self.acc_bottle_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 10, -110 );
         self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );
         self.acc_bottle_hud.hidewheninmenu = true;
     }

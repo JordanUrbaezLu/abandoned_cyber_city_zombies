@@ -173,7 +173,9 @@ function sync_shards_to_client()
     if ( !isdefined( self.acc_shards_hud ) )
     {
         self.acc_shards_hud = self hud::createFontString( "default", 1.5 );
-        self.acc_shards_hud hud::setPoint( "BOTTOMLEFT", "BOTTOMLEFT", 10, -130 );
+        // VERIFIED(acc): setPoint only matches "BOTTOM_LEFT"/"BOTTOM LEFT"
+        // (hud_util_shared.gsc:120-124); "BOTTOMLEFT" silently anchors center.
+        self.acc_shards_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 10, -130 );
         self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
         self.acc_shards_hud.hidewheninmenu = true;
     }
