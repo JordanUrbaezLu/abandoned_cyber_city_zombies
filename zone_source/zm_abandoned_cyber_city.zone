@@ -1,0 +1,61 @@
+>class,zm_mod_level
+>group,modtools
+
+// =============================================================================
+// zm_abandoned_cyber_city.zone - asset manifest for the Launcher linker.
+//
+// Format proven against the stock Launcher zm template and shipped community
+// maps (e.g. zm_alien_isolation). Notes:
+//   - custom scripts use `scriptparsetree`, NOT `rawfile`
+//   - stock zombies framework scripts referenced via #using do NOT need
+//     entries here - they live in the base game zones
+//   - stock weapons come in via the zm_levelcommon_weapons.csv stringtable;
+//     individual stock guns need no lines here. The curated v1.0 arsenal
+//     (wallbuy/box pools) is select-listed in script - see docs/05_weapons.md.
+//   - comments use //, not #
+// =============================================================================
+
+xmodel,skybox_default_day
+material,luts_t7_default
+
+// BSP (compiled from map_source/zm/zm_abandoned_cyber_city.map)
+col_map,maps/zm/zm_abandoned_cyber_city.d3dbsp
+gfx_map,maps/zm/zm_abandoned_cyber_city.d3dbsp
+
+// Audio (sound/zoneconfig/zm_abandoned_cyber_city.szc)
+sound,zm_abandoned_cyber_city
+
+// Entry scripts (server + client)
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city.csc
+
+// Custom _acc_ modules (server-side; .csc client modules arrive in Phase 4)
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_utility.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_cyberware.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_overclocks.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
+
+// Makes the linker read the stock weapons table (wallbuys/box need this)
+stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv
+
+// -----------------------------------------------------------------------------
+// Phase 4+ (uncomment as they come online):
+//   custom weapons:  weaponfull,<gdt_name>
+//   custom FX:       fx,zm_abandoned_cyber_city/<fx_name>
+//   localized text:  localize,zm_abandoned_cyber_city
+//   LUI widgets:     rawfile,ui/uieditor/widgets/<widget>.lua
+// -----------------------------------------------------------------------------

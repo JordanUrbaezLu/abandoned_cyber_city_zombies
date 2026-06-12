@@ -333,7 +333,7 @@ Bosses drop random passive-buff items on death, Machin[a]-style. 6 items in the 
 - Mystery Box pool (bad + strong weapons): `_acc_map_randomizer.gsc::register_mystery_box_pool()`.
 - Weapon abilities: `_acc_weapon_abilities.gsc` (Phase 4 implementation; stubbed now).
 - Boss-drop items: `_acc_boss_items.gsc` (Phase 4 implementation; stubbed now).
-- Zone manifest: `zone_source/zm_abandoned_cyber_city.csv`.
+- Zone manifest: `zone_source/zm_abandoned_cyber_city.zone` (stock guns ride in via the `zm_levelcommon_weapons.csv` stringtable; only custom/imported weapons get their own `weaponfull` lines).
 
 All must stay in sync. Changing the roster means updating everything above.
 

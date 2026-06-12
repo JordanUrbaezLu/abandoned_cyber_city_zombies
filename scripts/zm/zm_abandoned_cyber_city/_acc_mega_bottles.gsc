@@ -19,13 +19,15 @@
 #define ACC_BOTTLES_CF_NAME "acc_mega_bottles"
 #define ACC_BOTTLES_CF_BITS 4  // 0..15 max
 
+#namespace acc_mega_bottles;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "mega_bottles init" );
+    acc_utility::log( "mega_bottles init" );
 
     // Register clientfield for HUD counter. Signature verified in
     // docs/16_gsc_reference.md.
@@ -38,7 +40,7 @@ init()
     );
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     player.acc_mega_bottles = 0;
     // Per-perk Mega flags. Key = specialty string (e.g. "specialty_armorvest");
@@ -55,7 +57,7 @@ on_player_connect( player )
 // case fall back to awarding all living players.
 // ---------------------------------------------------------------------------
 
-on_boss_death( tier, killer, origin )
+function on_boss_death( tier, killer, origin )
 {
     // Rule per design: every PLAYER gets a Mega Bottle, not just the killer.
     // 4p co-op gets 4 bottles per boss kill.
@@ -67,14 +69,14 @@ on_boss_death( tier, killer, origin )
         player grant_bottle( 1, "boss_" + tier );
     }
 
-    _acc_utility::log( "mega_bottles: granted +1 to all players (" + tier + " boss)" );
+    acc_utility::log( "mega_bottles: granted +1 to all players (" + tier + " boss)" );
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-grant_bottle( amount, source_tag )
+function grant_bottle( amount, source_tag )
 {
     if ( !isdefined( amount ) || amount <= 0 ) return;
     if ( !isdefined( self.acc_mega_bottles ) ) self.acc_mega_bottles = 0;
@@ -86,7 +88,7 @@ grant_bottle( amount, source_tag )
                    ( amount > 1 ? "s" : "" ) );
 }
 
-try_consume_bottle( player, amount )
+function try_consume_bottle( player, amount )
 {
     if ( !isdefined( player ) ) return false;
     if ( !isdefined( amount ) || amount <= 0 ) return false;
@@ -98,7 +100,7 @@ try_consume_bottle( player, amount )
     return true;
 }
 
-get_bottle_count( player )
+function get_bottle_count( player )
 {
     if ( !isdefined( player.acc_mega_bottles ) ) return 0;
     return player.acc_mega_bottles;
@@ -106,7 +108,7 @@ get_bottle_count( player )
 
 // Check if a specific perk is Mega'd for this player. Other modules call
 // this when applying perk effects to decide whether to layer on Mega deltas.
-has_mega_perk( player, specialty_string )
+function has_mega_perk( player, specialty_string )
 {
     if ( !isdefined( player ) ) return false;
     if ( !isdefined( player.acc_mega_perks ) ) return false;
@@ -116,7 +118,7 @@ has_mega_perk( player, specialty_string )
 
 // Set the Mega flag. Called from perk-machine interaction logic once a
 // Mega Bottle is consumed successfully.
-set_mega_perk( player, specialty_string )
+function set_mega_perk( player, specialty_string )
 {
     if ( !isdefined( player ) ) return;
     if ( !isdefined( specialty_string ) ) return;
@@ -140,7 +142,7 @@ set_mega_perk( player, specialty_string )
 // confirms does it call this function.
 // ---------------------------------------------------------------------------
 
-try_apply_mega( player, specialty_string )
+function try_apply_mega( player, specialty_string )
 {
     if ( has_mega_perk( player, specialty_string ) )
     {
@@ -168,25 +170,27 @@ try_apply_mega( player, specialty_string )
 
 // Stub: re-run the perk's acquire function to layer Mega effects on top.
 // Phase 3 implementation work lives in _acc_perks.gsc.
-reapply_perk_if_owned( player, specialty_string )
+function reapply_perk_if_owned( player, specialty_string )
 {
-    // TODO(acc-perks): dispatch to `_acc_perks::reapply_perk( player, specialty )`.
-    _acc_utility::log( "mega: reapply requested for " + specialty_string );
+    // TODO(acc-perks): dispatch to `acc_perks::reapply_perk( player, specialty )`.
+    acc_utility::log( "mega: reapply requested for " + specialty_string );
 }
 
 // ---------------------------------------------------------------------------
 // Display names for Mega variants (docs/13_perks.md source of truth).
 // ---------------------------------------------------------------------------
 
-mega_display_name( specialty_string )
+function mega_display_name( specialty_string )
 {
     switch ( specialty_string )
     {
     case "specialty_armorvest":              return "Ultimate Tank";         // Jug
     case "specialty_quickrevive":            return "Savior";                 // QR
     case "specialty_fastreload":             return "Sleight of Hand Expert"; // Speed Cola
-    case "specialty_rof":                    return "Gun Slinger";            // Double Tap
-    case "specialty_longersprint":           return "The Flash";              // Stamin-Up
+    // VERIFIED(acc): stock ZM specialty strings from _zm_perks.gsh:26-27
+    // (the old specialty_rof/specialty_longersprint never match in ZM).
+    case "specialty_doubletap2":             return "Gun Slinger";            // Double Tap
+    case "specialty_staminup":               return "The Flash";              // Stamin-Up
     case "specialty_additionalprimaryweapon":return "The Armory";             // Mule Kick
     case "specialty_acc_deadshot":           return "American Sniper";        // Deadshot
     case "specialty_acc_widows_wine":        return "Spiderman";              // Widow's Wine
@@ -199,7 +203,7 @@ mega_display_name( specialty_string )
 // HUD sync
 // ---------------------------------------------------------------------------
 
-sync_bottle_count_to_client()
+function sync_bottle_count_to_client()
 {
     if ( !isdefined( self.acc_mega_bottles ) ) self.acc_mega_bottles = 0;
     self clientfield::set_to_player( ACC_BOTTLES_CF_NAME, self.acc_mega_bottles );

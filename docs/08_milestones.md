@@ -44,7 +44,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 - All perk machine slots placed (placeholder perks - Jug everywhere is fine for now).
 - Pack-a-Punch prefab placed in the Lab.
 - Spawn points, player_start, mantle points, zombie spawners, zones registered in `_zm_zonemgr`.
-- Repo mirrors `/scripts` (initially empty beyond a stub `_acc_main.gsc`) and `/zone_source/zm_abandoned_cyber_city.csv`.
+- Repo mirrors `/scripts`, `/zone_source/zm_abandoned_cyber_city.zone`, and `/map_source/zm/zm_abandoned_cyber_city.map` (the starting-room kit landed ahead of schedule; Phase 2 grows the `.map` to all 7 zones via Radiant + reverse sync).
 
 **Exit criteria.**
 - You can reach round 10 on the greybox map, using Mystery Box and PaP, with all zones accessible.

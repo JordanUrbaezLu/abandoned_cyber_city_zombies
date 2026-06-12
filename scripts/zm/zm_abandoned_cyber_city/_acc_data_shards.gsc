@@ -35,13 +35,15 @@
 #define ACC_SHARDS_CF_NAME "acc_data_shards"
 #define ACC_SHARDS_CF_BITS 7
 
+#namespace acc_data_shards;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "data_shards init" );
+    acc_utility::log( "data_shards init" );
 
     // Register clientfield so the client HUD can read shard count efficiently
     // without us polling from GSC. Signature verified via modme forums +
@@ -61,24 +63,24 @@ init()
     // just calls grant() on a timer. Nothing to do here.
 }
 
-client_init()
+function client_init()
 {
     // Client-side HUD wiring lives in the CSC/LUI implementation (Phase 4).
     // For Phase 3 we rely on iprintln text feedback.
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     player.acc_data_shards = 0;
     player sync_shards_to_client();
 }
 
-on_player_spawned( player )
+function on_player_spawned( player )
 {
     player sync_shards_to_client();
 }
 
-on_player_disconnect( player )
+function on_player_disconnect( player )
 {
     // Nothing persistent yet; post-1.0 we may write best-round metadata.
 }
@@ -89,7 +91,7 @@ on_player_disconnect( player )
 
 // Grant shards to a player. Returns actual grant amount (may be clamped or
 // diminished based on round).
-grant_player( player, amount, source_tag )
+function grant_player( player, amount, source_tag )
 {
     if ( !isdefined( player ) || !isdefined( amount ) || amount <= 0 )
     {
@@ -116,7 +118,7 @@ grant_player( player, amount, source_tag )
         }
     }
 
-    new_total = _acc_utility::clamp_int( player.acc_data_shards + effective, 0, ACC_SHARDS_MAX );
+    new_total = acc_utility::clamp_int( player.acc_data_shards + effective, 0, ACC_SHARDS_MAX );
     granted = new_total - player.acc_data_shards;
     player.acc_data_shards = new_total;
     player sync_shards_to_client();
@@ -129,7 +131,7 @@ grant_player( player, amount, source_tag )
 }
 
 // Attempt to spend shards. Returns true iff the spend succeeded.
-try_spend( player, amount )
+function try_spend( player, amount )
 {
     if ( !isdefined( player ) || amount <= 0 ) return false;
     if ( player.acc_data_shards < amount ) return false;
@@ -139,7 +141,7 @@ try_spend( player, amount )
     return true;
 }
 
-get_count( player )
+function get_count( player )
 {
     if ( !isdefined( player.acc_data_shards ) ) return 0;
     return player.acc_data_shards;
@@ -147,7 +149,7 @@ get_count( player )
 
 // Spawn a shard pickup entity at origin that any player can grab.
 // Used by elite-kill hook in _acc_elites and by Hack/Overload events.
-spawn_pickup_at( origin, count )
+function spawn_pickup_at( origin, count )
 {
     if ( !isdefined( count ) || count <= 0 ) count = 1;
 
@@ -168,13 +170,13 @@ spawn_pickup_at( origin, count )
 // Internals
 // ---------------------------------------------------------------------------
 
-sync_shards_to_client()
+function sync_shards_to_client()
 {
     self clientfield::set_to_player( ACC_SHARDS_CF_NAME, self.acc_data_shards );
     level notify( "acc_shards_changed", self );
 }
 
-watch_pickup()
+function watch_pickup()
 {
     self endon( "acc_shard_claimed" );
     self endon( "death" );
@@ -182,7 +184,7 @@ watch_pickup()
     for ( ;; )
     {
         wait( 0.1 );
-        closest = _acc_utility::get_closest_player_to( self.origin );
+        closest = acc_utility::get_closest_player_to( self.origin );
         if ( !isdefined( closest ) ) continue;
         if ( !is_player_alive( closest ) ) continue;
         if ( distancesquared( closest.origin, self.origin ) > ( ACC_SHARD_PICKUP_RADIUS * ACC_SHARD_PICKUP_RADIUS ) )
@@ -198,7 +200,7 @@ watch_pickup()
     }
 }
 
-watch_lifetime()
+function watch_lifetime()
 {
     self endon( "acc_shard_claimed" );
     self endon( "death" );
@@ -211,14 +213,13 @@ watch_lifetime()
     }
 }
 
-is_player_alive( player )
+function is_player_alive( player )
 {
     if ( !isdefined( player ) ) return false;
-    // Stock provides _zm_utility::is_player_valid() which checks connected,
-    // alive, not downed, and some edge cases. Prefer that over rolling our own.
-    // TODO(acc-verify): confirm _zm_utility::is_player_valid exists in BO3;
-    // if not, the below manual check is the community-standard fallback.
-    if ( !isalive( player ) ) return false;
-    if ( isdefined( player.isdowned ) && player.isdowned ) return false;
-    return true;
+    // VERIFIED(acc): zm_utility::is_player_valid (_zm_utility.gsc:1600) checks
+    // defined/alive/spawned/not-laststand/not-spectator. The old manual check
+    // read player.isdowned, a field that does not exist anywhere in BO3 stock
+    // (the real downed flag is self.laststand, _zm_laststand.gsc:200) - downed
+    // players could claim shards.
+    return zm_utility::is_player_valid( player );
 }

@@ -17,15 +17,15 @@ BO3 custom maps are **not written in one language**. You touch three:
 Minimal example:
 
 ```gsc
-#include scripts\shared\util_shared;
-#include scripts\zm\_zm_utility;
+#using scripts\shared\util_shared;
+#using scripts\zm\_zm_utility;
 
-main()
+function main()
 {
     level thread on_player_spawned();
 }
 
-on_player_spawned()
+function on_player_spawned()
 {
     level endon( "end_game" );
     while ( 1 )
@@ -35,7 +35,7 @@ on_player_spawned()
     }
 }
 
-give_welcome_bonus()
+function give_welcome_bonus()
 {
     self endon( "disconnect" );
     self.score += 500;
@@ -49,7 +49,7 @@ Key concepts:
 - `thread` runs a function concurrently (like a coroutine, not a real thread).
 - `endon("event")` kills the thread when the event fires.
 - `waittill("event")` suspends until the event fires.
-- `#include` pulls in another GSC file's functions.
+- `#using` imports another GSC module; call its functions as `namespace::func()`. (`#include` and bare `funcname()` definitions are WaW/BO1-era syntax — BO3 requires the `function` keyword.)
 
 As a SWE: if you're comfortable with JavaScript or C, you'll be productive in GSC inside a weekend. The learning curve is the **engine vocabulary** (what events exist, what callbacks hook where, which stock functions do what), not the language.
 

@@ -117,88 +117,113 @@ Code inside `/# #/` only runs in dev builds (launcher with `-dev` flag). Use for
 
 Global event-bus for engine events. Register via `callback::on_<event>(&fn)`.
 
-**Key callbacks:**
+**Key callbacks** (verified against the stock script mirror, 2026-06 — every
+"fires when" claim below has a confirmed dispatch site):
 
-| Callback | Fires when | Registration |
+| Callback | Fires when | Dispatch (stock evidence) |
 |---|---|---|
-| `callback::on_connect( &fn )` | Player joins | `fn` runs with `self` = player |
-| `callback::on_spawned( &fn )` | Player respawns (round start, revive) | `self` = player |
-| `callback::on_disconnect( &fn )` | Player leaves | `self` = player |
-| `callback::on_ai_spawned( &fn )` | Any AI actor spawns | `self` = actor |
-| `callback::on_ai_damage( &fn )` | Any AI takes damage (pre-apply) | `self` = AI; fn can modify damage |
-| `callback::on_ai_killed( &fn )` | AI dies | `self` = AI |
+| `callback::on_connect( &fn )` | Player fully joins | `_zm.gsc:465`; `self` = player, no args |
+| `callback::on_spawned( &fn )` | Player respawns (round start, revive) | `_zm.gsc:3338`, `_globallogic_spawn.gsc:465`; `self` = player, no args |
+| `callback::on_disconnect( &fn )` | Player leaves | `callbacks_shared.gsc:650`; `self` = player |
+| `callback::on_ai_spawned( &fn )` | Any AI actor spawns | `spawner_shared.gsc:583`; `self` = the actor, **no args** (`self thread [[fn]]()`) |
+| `callback::on_ai_damage( &fn )` | **NEVER — registration exists, no dispatch site in stock.** | trap — do not use |
+| `callback::on_ai_killed( &fn )` | **NEVER — registration exists, no dispatch site in stock.** | trap — do not use |
 
-### `callback::on_ai_damage` signature (CRITICAL — canonical)
+> **The `on_ai_damage`/`on_ai_killed` trap.** `callbacks_shared.gsc` defines
+> registration functions for these, and community forums describe a 13-arg
+> "AI damage callback" signature — but a grep of all 550 stock `.gsc` files
+> finds **zero** `callback::callback( #"on_ai_damage" )` dispatch sites, and
+> the generic dispatcher discards return values anyway. The 13-arg signature
+> circulating on forums belongs to a *different* system
+> (`zm_spawner::register_zombie_damage_callback`, whose return means
+> "handled, skip stock", not a damage value). An earlier revision of this doc
+> repeated the forum claim; it cost us a dead damage pipeline.
 
-From modme forums (confirmed via bo3explorer `callbacks_shared.gsc` source):
+### Modifying damage an AI takes (the real hook)
+
+`zm::register_actor_damage_callback( &fn )` (`_zm.gsc:5835`). Invoked ON the
+damaged AI with 12 positional args; the return value becomes the damage:
 
 ```gsc
-callback::on_ai_damage( &my_damage_fn );
+#using scripts\zm\_zm;
 
-my_damage_fn(
-    str_mod,           // string, means of death: "MOD_RIFLE_BULLET", "MOD_MELEE", "MOD_HEAD_SHOT", "MOD_EXPLOSIVE", etc.
-    str_hit_location,  // string, hit location: "head", "helmet", "torso_upper", etc.
-    v_hit_origin,      // vector, world position of hit
-    e_player,          // entity, the attacker (typically a player)
-    n_amount,          // int, damage amount (you can modify and return)
-    w_weapon,          // weapon struct
-    direction_vec,     // vector, direction of damage
-    tagName,           // string, bone/tag hit
-    modelName,         // string
-    partName,          // string
-    dFlags,            // int, damage flags bitset
-    inflictor,         // entity, actual damage source (can differ from e_player)
-    chargeLevel        // int, for charged weapons
-)
+zm::register_actor_damage_callback( &my_damage_fn );
+
+function my_damage_fn( inflictor, attacker, damage, flags, meansofdeath, weapon,
+                       vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
-    // self == the AI entity being damaged
-    // Modify n_amount and return it to change the damage applied.
-    return n_amount;
+    // self == the AI being damaged. attacker == damage source (player).
+    // Return -1 to leave damage unchanged AND let later callbacks evaluate
+    // (_zm.gsc:5825). Any other return becomes the final damage and
+    // short-circuits remaining callbacks.
+    return -1;
 }
 ```
 
-**Implications for our code:** our `_acc_damage.gsc` had args in the wrong order / names. Fixed as of v0.8.0.
+Stock user to crib from: `_zm_powerup_weapon_minigun.gsc:53/162`.
 
-### Damage flow
+### Per-zombie death hook (there is NO level-scope "zombie_killed")
 
-1. Weapon fires.
-2. Engine calculates raw damage from weapon GDT stats (including stock headshot mult baked into GDT).
-3. `callback::on_ai_damage` fires for all registered handlers. Each can modify `n_amount`.
-4. Engine applies final damage to AI HP.
-5. If AI HP <= 0, engine triggers death. `callback::on_ai_killed` fires.
-6. `zombie_killed` notify fires at level-scope (see below).
-
-### `zombie_killed` notify (level-scope)
-
-Fires on zombie death. Pattern:
+`"zombie_killed"` is notified **only on the player entity, with no args, and
+only in the insta-kill powerup path** (`_zm_powerups.gsc:1463`). A
+`level waittill( "zombie_killed", ... )` never fires. The real hook:
 
 ```gsc
-level endon( "end_game" );
-for ( ;; )
+#using scripts\zm\_zm_spawner;
+
+zm_spawner::register_zombie_death_event_callback( &on_zombie_death );
+
+function on_zombie_death( attacker ) // self = the zombie that died
 {
-    level waittill( "zombie_killed", zombie, attacker, mod, hit_location );
-    // zombie = the AI entity (may already be freed, check isdefined)
-    // attacker = the player who got the killing blow
-    // mod = string means-of-death
-    // hit_location = string (may be undefined)
+    // mod / hit location live on the zombie:
+    //   self.damagemod, self.damagelocation  (_zm_spawner.gsc:1790)
 }
 ```
 
-From `scripts/shared/ai/zombie_utility.gsc`.
+Stock users: `_zm_weap_annihilator.gsc:31`, `_zm_perk_widows_wine.gsc:134`.
+Deregister: `deregister_zombie_death_event_callback` (`_zm_spawner.gsc:2473`).
+
+### Flags vs notifies (the waittill trap)
+
+Several "events" are **flags**, not plain notifies: `"power_on"`
+(`_zm.gsc:1615`), `"initial_blackscreen_passed"` (`_zm.gsc:1612`). `flag::set`
+fires a one-shot notify — a bare `level waittill( "power_on" )` that starts
+*after* the flag was set hangs forever. Always use
+`level flag::wait_till( "name" )` (checks current state first,
+`flag_shared.gsc:240`). Round waits: `level.round_number` +
+`level waittill( "between_round_over" )` (`_zm.gsc:4555`).
 
 ### Scoring
 
-**`_zm_score::add_to_player_score( points )`** is the stock way to award points.
+Award: **`player zm_score::add_to_player_score( points )`**
+(`_zm_score.gsc:521`) — handles the "+100" floater, VO, stats, and
+`pers["score"]` sync. **It rounds UP to a multiple of 10**
+(`zm_utility::round_up_score`, `_zm_score.gsc:528`) — pre-quantize shares or
+totals will inflate.
 
-```gsc
-#using scripts\zm\_zm_score;
+Spend: **`player zm_score::minus_to_player_score( points )`**
+(`_zm_score.gsc:551`) — also syncs `pers["score"]`, increments the
+"scoreSpent" stat, fires `"spent_points"`, and honors the free-purchase
+GobbleGum. **Never write `player.score` directly** — it desyncs
+`pers["score"]` (restored on reconnect/host-migration).
 
-self _zm_score::add_to_player_score( 100 );
-// self = the player receiving points
-// This handles HUD feedback, VO cues, and stock score tracking.
-```
+Suppress stock kill awards:
+`zm_score::register_score_event( "death", &fn )` (+
+`"ballistic_knife_death"`) — `fn( event, mod, hit_location, zombie_team,
+damage_weapon )` runs on the player and its return replaces the award
+(`_zm_score.gsc:147`). `level.player_score_override` exists too but is not
+kill-specific.
 
-Direct `self.score += pts` works but bypasses the "+100" floater text players expect. **Always use the helper.**
+### Weapons are objects, not strings
+
+`GetCurrentWeapon()` returns a **weapon object**; string-compare via
+`weapon.name` (`_zm.gsc:5288`). PaP mapping is **table-driven**, not a name
+suffix: `zm_weapons::get_base_weapon( weapon )` (`_zm_weapons.gsc:1624`)
+resolves an upgraded weapon to its base (note `weapon.rootWeapon.name` KEEPS
+the `_upgraded` suffix — don't use it for base lookup). Stock BO3 weapon
+names are class-based and unsuffixed (`"pistol_standard"`,
+`"shotgun_fullauto"`, `"bowie_knife"`) — the `<name>_zm` convention is
+BO1/BO2 and matches nothing in BO3.
 
 ### Clientfields
 
@@ -228,7 +253,7 @@ Register in `init()` on the server; read in `.csc` via UIModel bindings.
 
 | Module | What it has |
 |---|---|
-| `scripts\zm\_zm` | Main zombies framework orchestrator (`_zm::main()`). |
+| `scripts\zm\_zm` | Main zombies framework internals. **There is no `_zm::main()` map-entry call in BO3** - usermaps bootstrap via `zm_usermap::main()` (which calls `load::main()` internally). Stock namespaces drop the file's leading underscore: `zm::`, `zm_utility::`, `load::`. |
 | `scripts\zm\_zm_utility` | Helper functions: `get_closest_player`, `flag_set/wait`, `is_player_valid`, zone helpers. |
 | `scripts\zm\_zm_score` | Point awards (`add_to_player_score`). |
 | `scripts\zm\_zm_weapons` | Weapon registry, wallbuy setup, PaP config. |
@@ -248,7 +273,7 @@ After the stock framework computes a base `n_max` from round + player count, it 
 n_zombie_count = [[ level.max_zombie_func ]]( n_max, n_round );
 ```
 
-If unset, stock assigns `&zombie_utility::default_max_zombie_func`. To modify counts, **save** the previous function pointer, assign your wrapper, and **delegate** to the saved pointer so you preserve stock behavior, then apply a multiplier or cap. Our early-round spawn boost uses this pattern in [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc); `post_zm_main()` runs from `maps/zm/zm_abandoned_cyber_city.gsc` immediately after `_zm::main()` so the chain exists before round 1.
+If unset, stock assigns `&zombie_utility::default_max_zombie_func`. To modify counts, **save** the previous function pointer, assign your wrapper, and **delegate** to the saved pointer so you preserve stock behavior, then apply a multiplier or cap. Our early-round spawn boost uses this pattern in [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc); `post_zm_main()` runs from `scripts/zm/zm_abandoned_cyber_city.gsc` after `zm_usermap::main()`, still inside `main()`, so the chain exists before round 1.
 
 ---
 
@@ -317,7 +342,7 @@ Players can set dvars via console: `/set acc_mod_code_red 1`.
 1. Acquire or author the weapon's GDT files and model/anim assets.
 2. Add the weapon filename to `share/raw/gamedata/weapons/zm/zm_levelcommon_weapons.csv`.
 3. Copy an existing weapon's GDT entry as a template (same class: AR, shotgun, etc.), rename fields, tune stats.
-4. In your map's zone source: include the weapon manifest line `weapon,sp/<weapon_name_zm>` in `usermaps/<map>/zone_source/<map>.csv`.
+4. In your map's zone source: include the weapon manifest line `weaponfull,<weapon_name_zm>` in `usermaps/<map>/zone_source/<map>.zone` (stock weapons need no line - they come in via the `zm_levelcommon_weapons.csv` stringtable entry).
 5. Add the weapon to the Mystery Box draftable pool or a wallbuy via `_zm_weapons::add_zombie_weapon()`.
 6. Test: spawn via console `/give <weapon_name_zm>` or buy from wallbuy.
 

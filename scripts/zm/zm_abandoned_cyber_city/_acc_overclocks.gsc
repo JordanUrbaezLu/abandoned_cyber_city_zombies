@@ -34,13 +34,15 @@
 #define ACC_TIER_COST_T5 5
 #define ACC_OC_REROLL_COST_SHARDS 1
 
+#namespace acc_overclocks;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "overclocks init (Tier 1-5 model)" );
+    acc_utility::log( "overclocks init (Tier 1-5 model)" );
 
     level.acc_oc_pools = build_family_pools();
     // Active-3-per-family roll REMOVED in new design - pools are visible in
@@ -49,7 +51,7 @@ init()
     level thread watch_terminal_trigger();
 }
 
-on_player_connect( player )
+function on_player_connect( player )
 {
     // Per-player, per-weapon tier + Overclock state.
     // Shape: player.acc_weapon_progress[ weapon_name ] = struct {
@@ -60,7 +62,7 @@ on_player_connect( player )
 }
 
 // Helper: get or init progress struct for a weapon.
-get_or_init_progress( player, weapon_name )
+function get_or_init_progress( player, weapon_name )
 {
     if ( !isdefined( player.acc_weapon_progress[ weapon_name ] ) )
     {
@@ -72,7 +74,7 @@ get_or_init_progress( player, weapon_name )
     return player.acc_weapon_progress[ weapon_name ];
 }
 
-tier_cost( target_tier )
+function tier_cost( target_tier )
 {
     switch ( target_tier )
     {
@@ -90,7 +92,7 @@ tier_cost( target_tier )
 // Each overclock is a struct with id, display_name, on_apply (callback).
 // ---------------------------------------------------------------------------
 
-build_family_pools()
+function build_family_pools()
 {
     pools = [];
 
@@ -134,7 +136,7 @@ build_family_pools()
     return pools;
 }
 
-oc( id, name, on_apply )
+function oc( id, name, on_apply )
 {
     o = spawnstruct();
     o.id = id;
@@ -147,14 +149,14 @@ oc( id, name, on_apply )
 // Terminal interaction
 // ---------------------------------------------------------------------------
 
-watch_terminal_trigger()
+function watch_terminal_trigger()
 {
     level endon( "end_game" );
 
     triggers = getentarray( "acc_overclock_terminal", "targetname" );
     if ( triggers.size == 0 )
     {
-        _acc_utility::log( "overclocks: no terminal placed yet" );
+        acc_utility::log( "overclocks: no terminal placed yet" );
         return;
     }
 
@@ -164,7 +166,7 @@ watch_terminal_trigger()
     }
 }
 
-terminal_loop()
+function terminal_loop()
 {
     self endon( "death" );
 
@@ -200,7 +202,7 @@ terminal_loop()
             next_tier = progress.tier + 1;
             cost = tier_cost( next_tier );
 
-            if ( !_acc_data_shards::try_spend( player, cost ) )
+            if ( !acc_data_shards::try_spend( player, cost ) )
             {
                 player iprintln( "Overclock Terminal: Tier " + next_tier +
                                  " costs " + cost + " Shard(s)" );
@@ -225,7 +227,7 @@ terminal_loop()
         }
 
         // Already at max tier - re-roll the most recent Overclock.
-        if ( !_acc_data_shards::try_spend( player, ACC_OC_REROLL_COST_SHARDS ) )
+        if ( !acc_data_shards::try_spend( player, ACC_OC_REROLL_COST_SHARDS ) )
         {
             player iprintln( "Overclock Terminal: re-roll costs " +
                              ACC_OC_REROLL_COST_SHARDS + " Shard" );
@@ -251,7 +253,7 @@ terminal_loop()
 
 // Pick a random Overclock from the family pool that isn't already active
 // on this weapon. Returns undefined if pool is exhausted.
-roll_new_overclock_for_weapon( player, weapon_name, family, progress )
+function roll_new_overclock_for_weapon( player, weapon_name, family, progress )
 {
     pool = level.acc_oc_pools[ family ];
     if ( !isdefined( pool ) || pool.size == 0 ) return undefined;
@@ -275,14 +277,16 @@ roll_new_overclock_for_weapon( player, weapon_name, family, progress )
     }
 
     if ( candidates.size == 0 ) return undefined;
-    return candidates[ _acc_utility::acc_rand_int( candidates.size ) ];
+    return candidates[ acc_utility::acc_rand_int( candidates.size ) ];
 }
 
 // ---------------------------------------------------------------------------
 // Weapon classification
 // ---------------------------------------------------------------------------
 
-weapon_name_to_family( weapon_name )
+// Takes the weapon OBJECT from GetCurrentWeapon() (BO3 weapons are objects,
+// not strings - stock compares weapon.name, e.g. _zm_weapons.gsc:2650).
+function weapon_name_to_family( weapon_name )
 {
     // TODO(acc-data): replace this giant switch with a GDT-driven table.
     // Source of truth: docs/05_weapons.md (the 16-weapon roster).
@@ -327,12 +331,15 @@ weapon_name_to_family( weapon_name )
     return "unknown";
 }
 
-// PaP weapons often have "_upgraded" / "_plus" suffix. Strip for family lookup.
-strip_pap_suffix( name )
+// Resolve a (possibly PaP'd) weapon OBJECT to its base weapon NAME string.
+// VERIFIED(acc): BO3 PaP mapping is table-driven, not suffix-based -
+// zm_weapons::get_base_weapon (_zm_weapons.gsc:1624) resolves via
+// level.zombie_weapons_upgraded and handles non-upgraded weapons too.
+// Returning .name gives the string the family lists compare against.
+function strip_pap_suffix( weapon )
 {
-    // TODO(acc-verify): confirm stock PaP suffix in BO3 zm.
-    // common convention: "weapon_zm_upgraded" or "weapon_zm_variant_*".
-    return name;
+    base = zm_weapons::get_base_weapon( weapon );
+    return base.name;
 }
 
 // ---------------------------------------------------------------------------
@@ -342,38 +349,41 @@ strip_pap_suffix( name )
 // Storage convention: self.acc_oc_active[ weapon_name ] = struct of flags.
 // ---------------------------------------------------------------------------
 
-apply_oc_ar_burst_coil( weapon )        { set_oc_flag( weapon, "burst_coil", true ); }
-apply_oc_ar_overpressure( weapon )      { set_oc_flag( weapon, "overpressure", true ); }
-apply_oc_ar_piercing( weapon )          { set_oc_flag( weapon, "piercing", true ); }
-apply_oc_ar_adaptive( weapon )          { set_oc_flag( weapon, "adaptive", true ); }
-apply_oc_ar_overheat( weapon )          { set_oc_flag( weapon, "overheat", true ); }
-apply_oc_ar_subcritical( weapon )       { set_oc_flag( weapon, "subcritical", true ); }
+function apply_oc_ar_burst_coil( weapon )        { set_oc_flag( weapon, "burst_coil", true ); }
+function apply_oc_ar_overpressure( weapon )      { set_oc_flag( weapon, "overpressure", true ); }
+function apply_oc_ar_piercing( weapon )          { set_oc_flag( weapon, "piercing", true ); }
+function apply_oc_ar_adaptive( weapon )          { set_oc_flag( weapon, "adaptive", true ); }
+function apply_oc_ar_overheat( weapon )          { set_oc_flag( weapon, "overheat", true ); }
+function apply_oc_ar_subcritical( weapon )       { set_oc_flag( weapon, "subcritical", true ); }
 
-apply_oc_smg_swarm( weapon )            { set_oc_flag( weapon, "swarm", true ); }
-apply_oc_smg_reflex( weapon )           { set_oc_flag( weapon, "reflex_fire", true ); }
-apply_oc_smg_coolant( weapon )          { set_oc_flag( weapon, "coolant", true ); }
-apply_oc_smg_shrapnel( weapon )         { set_oc_flag( weapon, "shrapnel", true ); }
-apply_oc_smg_microboost( weapon )       { set_oc_flag( weapon, "microboost", true ); }
+function apply_oc_smg_swarm( weapon )            { set_oc_flag( weapon, "swarm", true ); }
+function apply_oc_smg_reflex( weapon )           { set_oc_flag( weapon, "reflex_fire", true ); }
+function apply_oc_smg_coolant( weapon )          { set_oc_flag( weapon, "coolant", true ); }
+function apply_oc_smg_shrapnel( weapon )         { set_oc_flag( weapon, "shrapnel", true ); }
+function apply_oc_smg_microboost( weapon )       { set_oc_flag( weapon, "microboost", true ); }
 
-apply_oc_sg_spread( weapon )            { set_oc_flag( weapon, "spread", true ); }
-apply_oc_sg_breach( weapon )            { set_oc_flag( weapon, "breach", true ); }
-apply_oc_sg_concussive( weapon )        { set_oc_flag( weapon, "concussive", true ); }
-apply_oc_sg_reflow( weapon )            { set_oc_flag( weapon, "reflow", true ); }
+function apply_oc_sg_spread( weapon )            { set_oc_flag( weapon, "spread", true ); }
+function apply_oc_sg_breach( weapon )            { set_oc_flag( weapon, "breach", true ); }
+function apply_oc_sg_concussive( weapon )        { set_oc_flag( weapon, "concussive", true ); }
+function apply_oc_sg_reflow( weapon )            { set_oc_flag( weapon, "reflow", true ); }
 
-apply_oc_sr_thermal( weapon )           { set_oc_flag( weapon, "thermal", true ); }
-apply_oc_sr_penetration( weapon )       { set_oc_flag( weapon, "penetration", true ); }
-apply_oc_sr_reactive( weapon )          { set_oc_flag( weapon, "reactive", true ); }
-apply_oc_sr_quickchamber( weapon )      { set_oc_flag( weapon, "quickchamber", true ); }
+function apply_oc_sr_thermal( weapon )           { set_oc_flag( weapon, "thermal", true ); }
+function apply_oc_sr_penetration( weapon )       { set_oc_flag( weapon, "penetration", true ); }
+function apply_oc_sr_reactive( weapon )          { set_oc_flag( weapon, "reactive", true ); }
+function apply_oc_sr_quickchamber( weapon )      { set_oc_flag( weapon, "quickchamber", true ); }
 
-apply_oc_lmg_sustained( weapon )        { set_oc_flag( weapon, "sustained", true ); }
-apply_oc_lmg_suppression( weapon )      { set_oc_flag( weapon, "suppression", true ); }
-apply_oc_lmg_reloaddrum( weapon )       { set_oc_flag( weapon, "reloaddrum", true ); }
+function apply_oc_lmg_sustained( weapon )        { set_oc_flag( weapon, "sustained", true ); }
+function apply_oc_lmg_suppression( weapon )      { set_oc_flag( weapon, "suppression", true ); }
+function apply_oc_lmg_reloaddrum( weapon )       { set_oc_flag( weapon, "reloaddrum", true ); }
 
-set_oc_flag( weapon, flag_name, value )
+function set_oc_flag( weapon, flag_name, value )
 {
+    // VERIFIED(acc): BO3 GSC has no dynamic member syntax (obj.(name) appears
+    // nowhere in stock); string-keyed arrays are the stock pattern
+    // (_zm.gsc:3054 self.stored_weapon_info[ weapon ] = SpawnStruct()).
     if ( !isdefined( self.acc_oc_active ) ) self.acc_oc_active = [];
-    if ( !isdefined( self.acc_oc_active[ weapon ] ) ) self.acc_oc_active[ weapon ] = spawnstruct();
-    self.acc_oc_active[ weapon ].( flag_name ) = value;
+    if ( !isdefined( self.acc_oc_active[ weapon ] ) ) self.acc_oc_active[ weapon ] = [];
+    self.acc_oc_active[ weapon ][ flag_name ] = value;
     // Damage callback / weapon-fire callback reads these flags at runtime.
     // See damage hook in _acc_elites.gsc / _acc_main.gsc callbacks.
 }

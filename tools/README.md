@@ -22,33 +22,33 @@ Mirrors the authoring trees in this repo into the BO3 Mod Tools `usermaps\zm_aba
 | `-ModToolsRoot <path>` | Override auto-detected Mod Tools install. |
 | `-DryRun` | Print what would change; don't write anything. |
 | `-Verbose` | Noisier logging. |
-| `-Reverse` | Pull changes from Mod Tools back into the repo (useful if you edit inside `usermaps\` by accident). |
+| `-Reverse` | Pull changes from Mod Tools back into the repo. **Run after every Radiant session** so the edited `.map` lands back in the repo. Reverse never deletes repo files. |
 
 ### What gets synced
 
-| Source (repo) | Target (Mod Tools) |
-|---|---|
-| `maps\zm\` | `usermaps\zm_abandoned_cyber_city\maps\zm\` |
-| `scripts\zm\zm_abandoned_cyber_city\` | `usermaps\zm_abandoned_cyber_city\scripts\zm\zm_abandoned_cyber_city\` |
-| `zone_source\` | `usermaps\zm_abandoned_cyber_city\zone_source\` |
-| `ui\` (when it exists) | `usermaps\zm_abandoned_cyber_city\ui\` |
+| Source (repo) | Target (Mod Tools) | Mode |
+|---|---|---|
+| `scripts\` | `usermaps\zm_abandoned_cyber_city\scripts\` | mirror |
+| `zone_source\` | `usermaps\zm_abandoned_cyber_city\zone_source\` | mirror |
+| `sound\` | `usermaps\zm_abandoned_cyber_city\sound\` | mirror |
+| `ui\` | `usermaps\zm_abandoned_cyber_city\ui\` | mirror |
+| `zone\` | `usermaps\zm_abandoned_cyber_city\zone\` | copy only - Launcher writes `workshop.json` and publish artifacts here; we must never delete them |
+| `map_source\zm\zm_abandoned_cyber_city.map` | `<BO3 root>\map_source\zm\` | single-file copy - Radiant reads map sources from the game root; that folder also holds `_prefabs\` and other maps, so it is never mirrored |
 
 ### What is NOT synced
 
-- `.map` Radiant files - those are authored in Radiant and live in the Mod Tools tree only. To bring one into the repo for safekeeping, copy it manually into `maps\zm\` and commit (use Git LFS if >5 MB).
-- Compiled fast files (`.ff`) - build artifacts, gitignored.
+- Compiled fast files (`.ff`) and the `zone_out\` build output - build artifacts.
 - Stock `share\raw\` assets - never touch.
 
 ### Prerequisites
 
 - Windows PowerShell 5.1+ (ships with Windows 10/11).
 - `robocopy` (also ships with Windows).
-- Mod Tools installed; the `usermaps\zm_abandoned_cyber_city\` folder must already exist (created once via Launcher "New Map").
+- Mod Tools installed. The script creates `usermaps\zm_abandoned_cyber_city\` if missing - no Launcher "New Map" step is required because the repo ships the full usermap kit.
 
 ### Troubleshooting
 
 - **"Could not auto-detect Mod Tools install"**: pass `-ModToolsRoot` explicitly.
-- **"Target does not exist"**: you haven't created the map in Launcher yet. Do that first (see `SETUP_WINDOWS.md` step 3).
 - **Script won't execute** ("execution policy" error): run PowerShell as admin once and execute `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. This is standard Windows PowerShell gating; our script is unsigned.
 
 ## Future tools (planned)

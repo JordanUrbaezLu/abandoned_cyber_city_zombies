@@ -23,6 +23,7 @@
 #using scripts\shared\util_shared;
 
 #using scripts\zm\_zm_score;
+#using scripts\zm\_zm_spawner;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
@@ -47,48 +48,50 @@
 // stacking behavior with Double Points powerup.
 #define ACC_POINTS_LEDGER_MULT 1.10
 
+#namespace acc_points;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "points init (regular=" + ACC_POINTS_REGULAR_KILL +
+    acc_utility::log( "points init (regular=" + ACC_POINTS_REGULAR_KILL +
                        ", headshot=" + ACC_POINTS_HEADSHOT_KILL +
                        ", knife=" + ACC_POINTS_KNIFE_KILL + ")" );
 
-    // Stock BO3 kill-point awards flow through _zm_score::player_killed_event
-    // (stock awards 60 regular / 100 headshot / 130 melee). We need to
-    // suppress those and apply our own 40/100/100 via zombie_death_listener.
-    //
-    // Recommended approach (verified community pattern, Phase 3 work):
-    //   1. Set `level.zombie_score_callback = &suppress_stock_score;` early
-    //      in init so _zm_score defers to us.
-    //   2. Have `suppress_stock_score( player, mod, hit_loc, ... )` return
-    //      0 (no stock award).
-    //   3. Our `distribute_points()` owns the award.
-    //
-    // Fallback if the override hook doesn't exist: hook on_ai_killed ahead of
-    // stock ordering and zero out the zombie's stored score_award before stock
-    // grants it. See docs/16_gsc_reference.md section 2 for `on_ai_killed`.
-    //
-    // TODO(acc-impl): wire one of these suppression paths during Phase 3.
-    // Until wired, stock + our awards will DOUBLE on first compile (a player
-    // gets ~100pts per regular kill instead of 40). Obvious in playtest.
+    // VERIFIED(acc): suppress stock kill awards via
+    // zm_score::register_score_event (dispatch _zm_score.gsc:147 - callback
+    // return value replaces the award; "death" + "ballistic_knife_death"
+    // cover zombies, dogs, and lightning-chain kills). NOTE this is
+    // kill-specific, unlike level.player_score_override; per-hit damage
+    // points, Carpenter, Nuke, board rebuilds, revives are untouched.
+    // The old comment's level.zombie_score_callback does NOT exist in stock.
+    // Caveats: (1) stock medal/challenge tracking for kills
+    // (_zm_score.gsc:194-219) no longer fires - re-add in the callback if it
+    // ever matters; (2) stock special AI use separate events ("death_mechz",
+    // "death_thrasher", ...) - register those too if such AI are added.
+    zm_score::register_score_event( "death", &suppress_stock_kill_score );
+    zm_score::register_score_event( "ballistic_knife_death", &suppress_stock_kill_score );
 
-    level thread zombie_death_listener();
+    // VERIFIED(acc): there is no level-wide "zombie_killed" notify in stock
+    // (the only notify site is on the PLAYER, no args - _zm_powerups.gsc:1463).
+    // The stock per-death hook is zm_spawner::register_zombie_death_event_callback
+    // (_zm_spawner.gsc:2463), invoked ON the killed zombie with one arg
+    // (attacker); mod/hit_loc live on the zombie (self.damagemod /
+    // self.damagelocation, read the same way by stock at _zm_spawner.gsc:1790).
+    zm_spawner::register_zombie_death_event_callback( &on_zombie_death );
 }
 
-zombie_death_listener()
+// Signature must match the dispatch at _zm_score.gsc:147; self = player.
+function suppress_stock_kill_score( event, mod, hit_location, zombie_team, damage_weapon )
 {
-    level endon( "end_game" );
+    return 0; // _acc_points owns all kill awards (docs/06_mechanics.md Point Economy)
+}
 
-    for ( ;; )
-    {
-        level waittill( "zombie_killed", zombie, attacker, mod, hit_loc );
-        if ( !isdefined( zombie ) ) continue;
-        distribute_points( zombie, attacker, mod, hit_loc );
-    }
+function on_zombie_death( attacker ) // self = the killed zombie
+{
+    distribute_points( self, attacker, self.damagemod, self.damagelocation );
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +102,7 @@ zombie_death_listener()
 // `damage` = the (already-multiplier-applied) damage for this hit.
 // ---------------------------------------------------------------------------
 
-record_damage( attacker, damage )
+function record_damage( attacker, damage )
 {
     if ( !isdefined( attacker ) ) return;
     if ( !isplayer( attacker ) ) return;       // anti-exploit #3: players only
@@ -140,7 +143,7 @@ record_damage( attacker, damage )
 // Point distribution on zombie death.
 // ---------------------------------------------------------------------------
 
-distribute_points( zombie, killer, mod, hit_loc )
+function distribute_points( zombie, killer, mod, hit_loc )
 {
     base = base_points_for_kill( mod, hit_loc );
     if ( base <= 0 ) return;
@@ -153,7 +156,7 @@ distribute_points( zombie, killer, mod, hit_loc )
         // Killer gone / invalid (e.g. AI friendly fire not applicable here,
         // but handle gracefully). Redistribute base equally among qualifiers.
         if ( contributors.size == 0 ) return;
-        per = int( base / contributors.size );
+        per = int( base / contributors.size / 10 ) * 10;
         for ( i = 0; i < contributors.size; i++ )
         {
             award_player( contributors[ i ], per );
@@ -168,17 +171,22 @@ distribute_points( zombie, killer, mod, hit_loc )
         return;
     }
 
-    // Co-op split.
-    killer_pts = int( base * ACC_POINTS_KILLER_SHARE );
-    others_pool = base - killer_pts; // use remainder to avoid rounding loss
-
+    // Co-op split. VERIFIED(acc): payouts are quantized to 10 by stock
+    // add_to_player_score (_zm_score.gsc:528 rounds UP via
+    // zm_utility::round_up_score) - compute shares in 10-pt units so the paid
+    // total equals base exactly; leftover chunks go to the first contributors.
+    killer_pts = int( base * ACC_POINTS_KILLER_SHARE / 10 + 0.5 ) * 10; // nearest 10
+    if ( killer_pts > base ) killer_pts = base;
     award_player( killer, killer_pts );
 
-    per_other = int( others_pool / contributors.size );
-    if ( per_other <= 0 ) per_other = 1; // minimum award dignity.
+    pool_units = int( ( base - killer_pts ) / 10 );
+    per_units  = int( pool_units / contributors.size );
+    extra      = pool_units - per_units * contributors.size;
     for ( i = 0; i < contributors.size; i++ )
     {
-        award_player( contributors[ i ], per_other );
+        share = per_units * 10;
+        if ( i < extra ) share += 10;
+        award_player( contributors[ i ], share );
     }
 }
 
@@ -186,36 +194,39 @@ distribute_points( zombie, killer, mod, hit_loc )
 // Helpers
 // ---------------------------------------------------------------------------
 
-base_points_for_kill( mod, hit_loc )
+function base_points_for_kill( mod, hit_loc )
 {
     if ( is_knife_kill( mod ) ) return ACC_POINTS_KNIFE_KILL;
     if ( is_headshot( hit_loc ) ) return ACC_POINTS_HEADSHOT_KILL;
     return ACC_POINTS_REGULAR_KILL;
 }
 
-is_knife_kill( mod )
+function is_knife_kill( mod )
 {
     if ( !isdefined( mod ) ) return false;
     // Common BO3 MOD strings from stock callbacks_shared damage args.
     // Covers Bowie Knife and stock melee button swings.
+    // VERIFIED(acc): exact stock strings from _weapon_utils.gsc:25.
     if ( mod == "MOD_MELEE" ) return true;
     if ( mod == "MOD_MELEE_WEAPON_BUTT" ) return true;
-    if ( mod == "MOD_MELEE_ASSASSINATION" ) return true;
+    if ( mod == "MOD_MELEE_ASSASSINATE" ) return true;
     return false;
 }
 
-is_headshot( hit_loc )
+function is_headshot( hit_loc )
 {
     if ( !isdefined( hit_loc ) ) return false;
     // Mirror of _acc_damage.gsc::is_headshot; keep in sync.
+    // VERIFIED(acc): valid hitlocs are "head"/"helmet"/"neck"
+    // (_zm_utility.gsc:5261, _loadout.gsc:1418); "j_head" is a model bone
+    // tag, never a hit location - removed.
     if ( hit_loc == "head" )   return true;
     if ( hit_loc == "helmet" ) return true;
-    if ( hit_loc == "j_head" ) return true;
     if ( hit_loc == "neck" )   return true;
     return false;
 }
 
-qualifying_non_killer_contributors( zombie, killer )
+function qualifying_non_killer_contributors( zombie, killer )
 {
     result = [];
     if ( !isdefined( zombie.acc_damage_contrib ) ) return result;
@@ -239,22 +250,26 @@ qualifying_non_killer_contributors( zombie, killer )
     return result;
 }
 
-award_player( player, pts )
+function award_player( player, pts )
 {
     if ( !isdefined( player ) || !isplayer( player ) ) return;
     if ( pts <= 0 ) return;
 
     // Apply the Payroll Ledger boss-item bonus if equipped on this player.
     // Per docs/12_boss_items.md: applied to the player's SHARE (after split),
-    // not to the base award. This prevents tag-share exploits.
-    // Integer floor-rounding: a share of 4 pts yields 4 * 1.10 = 4.4 -> 4
-    // (no bonus on tiny shares), which is the documented anti-exploit.
-    if ( _acc_boss_items::player_has_ledger( player ) )
+    // not to the base award. This prevents tag-share exploits. Shares are
+    // multiples of 10, so the effective behavior is: no bonus on shares < 100.
+    if ( acc_boss_items::player_has_ledger( player ) )
     {
         pts = int( pts * ACC_POINTS_LEDGER_MULT );
     }
 
+    // VERIFIED(acc): stock add_to_player_score rounds UP to a multiple of 10
+    // (_zm_score.gsc:528); floor here so the Ledger bonus never rounds a +10
+    // share into +20.
+    pts = int( pts / 10 ) * 10;
+    if ( pts <= 0 ) return;
+
     // Use stock _zm_score helper so HUD floater ("+40") and VO cues play.
-    // Verified in docs/16_gsc_reference.md section 2.
-    player _zm_score::add_to_player_score( pts );
+    player zm_score::add_to_player_score( pts );
 }

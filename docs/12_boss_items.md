@@ -92,7 +92,7 @@ You **cannot** swap between two equipped items' slots freely - slots are just or
   - With **another player's Ledger**: nope. Each player gets the +10% only on THEIR share.
 - **Anti-exploit**:
   - +10% is applied to each player's **computed share**, not to the base award. Prevents the exploit of "tag for 1 damage, claim 30% * 1.10 of what the killer earned".
-  - Integer floor-rounding on the bonus. A 4-Point share yields 4 × 1.10 = 4.4 → 4 Points (no bonus on tiny shares). Prevents the "let my teammate kill it to share-farm me" abuse.
+  - Floor-to-10 rounding on the bonus. Shares are multiples of 10 (verified BO3 engine constraint - the stock score API rounds awards UP to multiples of 10, so we pre-quantize; see [06_mechanics.md](06_mechanics.md#point-economy) and [19_stock_api_verification.md](19_stock_api_verification.md)). Effective behavior: **no Ledger bonus on shares below 100** (e.g. 30 × 1.10 = 33 → 30), full +10% on round-number shares of 100+ (100 → 110). Prevents the "let my teammate kill it to share-farm me" abuse.
 - **Thematic note**: the ledger is a small neural implant that logs every bounty your brain registers. Corporate black-ops used them for payroll tracking. You scavenged one off a pre-collapse executive.
 
 ## Design Logic

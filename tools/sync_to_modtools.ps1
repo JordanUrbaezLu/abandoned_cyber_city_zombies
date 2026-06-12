@@ -1,6 +1,6 @@
 # =============================================================================
 # sync_to_modtools.ps1 - Mirror the repo's authoring trees into the BO3
-# Mod Tools usermap install.
+# Mod Tools install.
 #
 # Usage (PowerShell, Windows):
 #
@@ -13,17 +13,25 @@
 #   # Dry run (prints what it would do, changes nothing):
 #   .\tools\sync_to_modtools.ps1 -DryRun
 #
-#   # Verbose logging:
-#   .\tools\sync_to_modtools.ps1 -Verbose
-#
-#   # Reverse sync (pull changes from Mod Tools back into the repo):
+#   # Reverse sync (pull changes from Mod Tools back into the repo).
+#   # Run this after editing the map in Radiant so the repo keeps the
+#   # authoritative .map source!
 #   .\tools\sync_to_modtools.ps1 -Reverse
 #
-# What it does:
-#   repo\maps\zm\*              -> usermaps\zm_abandoned_cyber_city\maps\zm\
-#   repo\scripts\zm\zm_acc\*    -> usermaps\zm_abandoned_cyber_city\scripts\zm\zm_abandoned_cyber_city\
-#   repo\zone_source\*          -> usermaps\zm_abandoned_cyber_city\zone_source\
-#   repo\ui\*         (if any)  -> usermaps\zm_abandoned_cyber_city\ui\
+# Layout facts this script encodes (verified against the stock Launcher zm
+# template and shipped community maps):
+#
+#   repo\scripts\zm\*          -> usermaps\zm_abandoned_cyber_city\scripts\zm\*   (MIRROR)
+#       (entry zm_abandoned_cyber_city.gsc/.csc + zm_abandoned_cyber_city\_acc_*.gsc)
+#   repo\zone_source\*         -> usermaps\zm_abandoned_cyber_city\zone_source\*  (MIRROR)
+#   repo\sound\*               -> usermaps\zm_abandoned_cyber_city\sound\*        (MIRROR)
+#   repo\ui\*                  -> usermaps\zm_abandoned_cyber_city\ui\*           (MIRROR)
+#   repo\zone\*                -> usermaps\zm_abandoned_cyber_city\zone\*         (COPY, no delete:
+#       Launcher writes workshop.json + publish artifacts here; never clobber)
+#   repo\map_source\zm\zm_abandoned_cyber_city.map
+#                              -> <BO3 root>\map_source\zm\...                    (single file COPY:
+#       Radiant map sources live in the game root map_source, NOT usermaps.
+#       Never mirror this folder - it contains _prefabs and other maps.)
 # =============================================================================
 
 [CmdletBinding()]
@@ -67,7 +75,40 @@ function Ensure-Dir($path) {
     }
 }
 
-function Copy-Tree($src, $dst, $label) {
+# Mirror = destination becomes an exact copy of source (robocopy /MIR; deletes extras).
+# Copy   = overwrite-copy only; files that exist only in the destination survive.
+function Copy-Tree($src, $dst, $label, $mirror) {
+    if (-not (Test-Path $src)) {
+        Write-Info "skip ($label): $src does not exist"
+        return
+    }
+
+    Ensure-Dir (Split-Path $dst -Parent)
+
+    if ($DryRun) {
+        Write-Info "DRY: $label: $src -> $dst (mirror=$mirror)"
+        Get-ChildItem -Recurse $src | ForEach-Object {
+            Write-Info "  DRY file: $($_.FullName)"
+        }
+        return
+    }
+
+    Write-Info "$label: $src -> $dst (mirror=$mirror)"
+
+    $args = @("`"$src`"", "`"$dst`"")
+    if ($mirror) { $args += "/MIR" } else { $args += "/E" }
+    $args += @("/NFL", "/NDL", "/NJH", "/NJS", "/NP", "/R:2", "/W:1")
+
+    $rc = Start-Process robocopy -NoNewWindow -Wait -PassThru -ArgumentList $args
+
+    # robocopy exit codes: 0 = no change, 1 = copied, 2 = extras, 3 = both.
+    # Anything >= 8 is a failure.
+    if ($rc.ExitCode -ge 8) {
+        throw "robocopy failed ($label) with exit code $($rc.ExitCode)"
+    }
+}
+
+function Copy-One($src, $dst, $label) {
     if (-not (Test-Path $src)) {
         Write-Info "skip ($label): $src does not exist"
         return
@@ -77,26 +118,11 @@ function Copy-Tree($src, $dst, $label) {
 
     if ($DryRun) {
         Write-Info "DRY: $label: $src -> $dst"
-        Get-ChildItem -Recurse $src | ForEach-Object {
-            Write-Info "  DRY file: $($_.FullName)"
-        }
         return
     }
 
     Write-Info "$label: $src -> $dst"
-
-    # Use robocopy for speed + reliability. /MIR makes destination mirror source.
-    # /NFL /NDL /NJH /NJS /NP suppresses the noisy progress spam (keeps summary).
-    $rc = Start-Process robocopy -NoNewWindow -Wait -PassThru -ArgumentList @(
-        "`"$src`"", "`"$dst`"",
-        "/MIR", "/NFL", "/NDL", "/NJH", "/NJS", "/NP", "/R:2", "/W:1"
-    )
-
-    # robocopy exit codes: 0 = no change, 1 = copied, 2 = extras, 3 = both.
-    # Anything >= 8 is a failure.
-    if ($rc.ExitCode -ge 8) {
-        throw "robocopy failed ($label) with exit code $($rc.ExitCode)"
-    }
+    Copy-Item -Path $src -Destination $dst -Force
 }
 
 # ----------------------------------------------------------------------------
@@ -113,16 +139,17 @@ Write-Info "target   = $MapRoot"
 Write-Info "mode     = $(if ($Reverse) {'REVERSE (modtools -> repo)'} else {'FORWARD (repo -> modtools)'})"
 if ($DryRun) { Write-Info "DRY RUN - no files will be written" }
 
-if (-not (Test-Path $MapRoot)) {
-    Write-Warning "Target $MapRoot does not exist. Create the map in Launcher first (File -> New Map, template zm, name $MapName)."
-    return
+if (-not $Reverse) {
+    Ensure-Dir $MapRoot
 }
 
+# Directory trees under the usermap root.
 $mappings = @(
-    @{ Label = "maps";         RepoRel = "maps\zm";                 ModRel = "maps\zm" },
-    @{ Label = "scripts";      RepoRel = "scripts\zm\$MapName";     ModRel = "scripts\zm\$MapName" },
-    @{ Label = "zone_source";  RepoRel = "zone_source";             ModRel = "zone_source" },
-    @{ Label = "ui";           RepoRel = "ui";                      ModRel = "ui" }
+    @{ Label = "scripts";      RepoRel = "scripts";      ModRel = "scripts";      Mirror = $true  },
+    @{ Label = "zone_source";  RepoRel = "zone_source";  ModRel = "zone_source";  Mirror = $true  },
+    @{ Label = "sound";        RepoRel = "sound";        ModRel = "sound";        Mirror = $true  },
+    @{ Label = "ui";           RepoRel = "ui";           ModRel = "ui";           Mirror = $true  },
+    @{ Label = "zone";         RepoRel = "zone";         ModRel = "zone";         Mirror = $false }
 )
 
 foreach ($m in $mappings) {
@@ -130,10 +157,25 @@ foreach ($m in $mappings) {
     $modPath  = Join-Path $MapRoot  $m.ModRel
 
     if ($Reverse) {
-        Copy-Tree $modPath $repoPath $m.Label
+        # Never mirror on reverse - the repo has files (README etc.) that the
+        # mod tools side legitimately lacks.
+        Copy-Tree $modPath $repoPath $m.Label $false
     } else {
-        Copy-Tree $repoPath $modPath $m.Label
+        Copy-Tree $repoPath $modPath $m.Label $m.Mirror
     }
 }
 
+# Radiant map source: single file into the game root's map_source\zm\.
+$repoMap = Join-Path $RepoRoot "map_source\zm\$MapName.map"
+$modMap  = Join-Path $ModTools "map_source\zm\$MapName.map"
+
+if ($Reverse) {
+    Copy-One $modMap $repoMap "map_source"
+} else {
+    Copy-One $repoMap $modMap "map_source"
+}
+
 Write-Info "done"
+if (-not $Reverse) {
+    Write-Info "next: open Launcher, select $MapName, Compile (map + scripts), Run Game."
+}

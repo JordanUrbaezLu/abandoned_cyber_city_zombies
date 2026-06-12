@@ -11,8 +11,10 @@
 //    we only touch the final `damage` value at the end of the pipeline.
 // =============================================================================
 
-#using scripts\shared\callbacks_shared;
 #using scripts\shared\util_shared;
+
+#using scripts\zm\_zm;
+#using scripts\zm\_zm_weapons;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
@@ -29,63 +31,74 @@
 #define ACC_HEADSHOT_MULT      2.0
 #define ACC_BOSS_HEADSHOT_MULT 3.0
 
+#namespace acc_damage;
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-init()
+function init()
 {
-    _acc_utility::log( "damage init (headshot mult " + ACC_HEADSHOT_MULT +
+    acc_utility::log( "damage init (headshot mult " + ACC_HEADSHOT_MULT +
                        "x, boss " + ACC_BOSS_HEADSHOT_MULT + "x)" );
 
-    // Global AI damage callback. Signature verified against modme forums +
-    // bo3explorer (scripts/shared/callbacks_shared.gsc). See
-    // docs/16_gsc_reference.md section 2 for the full argument list.
-    callback::on_ai_damage( &on_ai_damage );
+    // VERIFIED(acc): callback::on_ai_damage is registered-but-never-dispatched
+    // in stock (no GSC fire site for #"on_ai_damage" exists in the entire
+    // mirror, and its dispatcher discards return values anyway). The real
+    // damage-MODIFYING hook is zm::register_actor_damage_callback
+    // (_zm.gsc:5835), invoked ON the damaged AI with the return value fed to
+    // finishActorDamage (_zm.gsc:5824-5861). Stock user:
+    // _zm_powerup_weapon_minigun.gsc:53.
+    zm::register_actor_damage_callback( &on_ai_damage );
 }
 
 // ---------------------------------------------------------------------------
-// Global AI damage callback
+// Actor damage callback (zm::register_actor_damage_callback)
 //
-// `self` = the damaged AI (zombie / elite / boss).
-// Return the (possibly modified) damage value.
-//
-// Signature reference: docs/16_gsc_reference.md section 2, or
-// https://bo3explorer.zeroy.com/callbacks__shared_8gsc.html
+// `self` = the damaged AI (zombie / elite / boss). Args are positional per
+// the dispatch at _zm.gsc:5824. Return convention (_zm.gsc:5825-5829):
+//   -1            = damage unchanged; later callbacks (e.g. minigun powerup)
+//                   still evaluate
+//   anything else = becomes the final damage and short-circuits the rest
 // ---------------------------------------------------------------------------
 
-on_ai_damage( str_mod, str_hit_location, v_hit_origin, e_player, n_amount,
-              w_weapon, direction_vec, tagName, modelName, partName,
-              dFlags, inflictor, chargeLevel )
+function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
+                       vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
-    if ( !isdefined( n_amount ) || n_amount <= 0 ) return n_amount;
+    if ( !isdefined( damage ) || damage <= 0 ) return -1;
 
-    if ( !is_applicable_target( self ) ) return n_amount;
+    if ( !is_applicable_target( self ) ) return -1;
 
     // Compute our adjusted damage (headshot multiplier with Tac-19 exclusion).
-    final_damage = n_amount;
-    if ( is_headshot( str_hit_location ) && !is_weapon_headshot_excluded( w_weapon ) )
+    final_damage = damage;
+    b_modified = false;
+    if ( is_headshot( sHitLoc ) && !is_weapon_headshot_excluded( weapon ) )
     {
         multiplier = resolve_headshot_multiplier( self );
-        final_damage = int( n_amount * multiplier );
+        final_damage = int( damage * multiplier );
+        b_modified = true;
 
-        /# _acc_utility::log( "headshot: " + n_amount + " -> " + final_damage +
+        /# acc_utility::log( "headshot: " + damage + " -> " + final_damage +
                              " (" + multiplier + "x)" ); #/
     }
 
     // Record this hit for the 70/30 point-split system. We pass the FINAL
     // damage so a headshot counts for more toward the damage share too
     // (rewards players who aim even if they don't land the kill).
-    self _acc_points::record_damage( e_player, final_damage );
+    if ( isdefined( attacker ) && isplayer( attacker ) )
+    {
+        self acc_points::record_damage( attacker, final_damage );
+    }
 
-    return final_damage;
+    if ( b_modified ) return final_damage;
+    return -1;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-is_applicable_target( actor )
+function is_applicable_target( actor )
 {
     if ( !isdefined( actor ) ) return false;
     if ( !isdefined( actor.team ) ) return false;
@@ -93,20 +106,20 @@ is_applicable_target( actor )
     return actor.team == "axis";
 }
 
-is_headshot( hit_loc )
+function is_headshot( hit_loc )
 {
     if ( !isdefined( hit_loc ) ) return false;
-    // BO3 stock commonly surfaces "head", sometimes "helmet" (armored), and
-    // some skeleton bone names like "j_head" / "neck" bleed through.
-    // TODO(acc-verify): prune after first playtest shows which strings fire.
+    // VERIFIED(acc): stock headshot = "head"/"helmet" (_globallogic_utils.gsc:334,
+    // _zm_score.gsc:395). "neck" is a real hitloc stock does NOT count as
+    // headshot - including it is our deliberate design choice. "j_head" is a
+    // model bone tag, never a hit location - removed.
     if ( hit_loc == "head" )   return true;
     if ( hit_loc == "helmet" ) return true;
-    if ( hit_loc == "j_head" ) return true;
     if ( hit_loc == "neck" )   return true;
     return false;
 }
 
-resolve_headshot_multiplier( target )
+function resolve_headshot_multiplier( target )
 {
     if ( isdefined( target.acc_is_boss )      && target.acc_is_boss )      return ACC_BOSS_HEADSHOT_MULT;
     if ( isdefined( target.acc_is_mini_boss ) && target.acc_is_mini_boss ) return ACC_BOSS_HEADSHOT_MULT;
@@ -120,15 +133,13 @@ resolve_headshot_multiplier( target )
 // too wide for per-hit-loc multipliers to make design sense; flat damage
 // across hit location is the design goal (it trades headshot bonus for a
 // bumped base damage in its GDT, making it the best crowd-control gun).
-is_weapon_headshot_excluded( w_weapon )
+function is_weapon_headshot_excluded( w_weapon )
 {
     if ( !isdefined( w_weapon ) ) return false;
 
-    // w_weapon is a weapon struct from BO3. Extract the root name via stock
-    // helper. The PaP'd and non-PaP'd variants both report the same root.
-    // TODO(acc-verify): confirm `w_weapon.rootweapon.name` is the correct
-    // access path. Alternative: `w_weapon.name` direct, or
-    // `weapon::get_root_weapon()` stock helper.
+    // VERIFIED(acc): resolution goes through zm_weapons::get_base_weapon in
+    // weapon_root_name below (PaP mapping is table-driven; rootWeapon.name
+    // keeps the _upgraded suffix and must not be used for base lookup).
     name = weapon_root_name( w_weapon );
     if ( !isdefined( name ) ) return false;
 
@@ -137,27 +148,29 @@ is_weapon_headshot_excluded( w_weapon )
     return false;
 }
 
-weapon_root_name( w_weapon )
+function weapon_root_name( w_weapon )
 {
-    // Defensive: some code paths pass a plain string, others a struct.
+    // Defensive: some code paths pass a plain string, others a weapon object.
+    // VERIFIED(acc): rootWeapon.name KEEPS the _upgraded suffix for PaP'd
+    // assets ("saritch_upgraded" is itself a rootWeapon.name,
+    // _zm_weapons.gsc:2510) - the base<->upgrade mapping is table-driven via
+    // zm_weapons::get_base_weapon (_zm_weapons.gsc:1624), so route through it.
     if ( isstring( w_weapon ) ) return strip_pap_suffix( w_weapon );
-    if ( isdefined( w_weapon.rootweapon ) && isdefined( w_weapon.rootweapon.name ) )
-    {
-        return w_weapon.rootweapon.name;
-    }
+    w_base = zm_weapons::get_base_weapon( w_weapon );
+    if ( isdefined( w_base ) && isdefined( w_base.name ) ) return w_base.name;
     if ( isdefined( w_weapon.name ) ) return strip_pap_suffix( w_weapon.name );
     return undefined;
 }
 
-// Mirror of the helper in _acc_overclocks.gsc - keep in sync when PaP naming
-// convention is finalized. Stock convention: PaP'd weapons use the same root
-// asset name but with a `_upgraded` suffix on some derivatives.
-strip_pap_suffix( name )
+// String-input variant: convert to a weapon object first, then resolve via
+// the stock base-weapon table (no stock code string-strips "_upgraded").
+function strip_pap_suffix( name )
 {
     if ( !isdefined( name ) ) return name;
-    // Check known PaP suffixes; if found, strip. Stock examples seen:
-    //   "m8a7_upgraded_zm"  -> "m8a7_zm"
-    //   "weapon_variant"    -> unchanged (too varied to generalize)
-    // TODO(acc-verify): confirm full set once Mod Tools installed; expand.
+    w = GetWeapon( name );
+    if ( isdefined( w ) && w != level.weaponNone )
+    {
+        return ( zm_weapons::get_base_weapon( w ) ).name;
+    }
     return name;
 }
