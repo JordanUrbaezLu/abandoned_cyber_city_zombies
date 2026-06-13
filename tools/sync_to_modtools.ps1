@@ -52,17 +52,26 @@ function Write-Info($msg) {
 function Resolve-ModToolsRoot {
     if ($ModToolsRoot -ne "") { return $ModToolsRoot }
 
-    $candidates = @(
-        "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III",
-        "D:\Steam\steamapps\common\Call of Duty Black Ops III",
-        "E:\Steam\steamapps\common\Call of Duty Black Ops III",
-        "C:\Steam\steamapps\common\Call of Duty Black Ops III"
+    # The Mod Tools may live in the game folder OR in a separate
+    # "...Black Ops III 455130" folder (Steam appends the AppID on name
+    # collision - this machine has that layout). The game folder alone
+    # passes Test-Path but is NOT the tools root, so require the launcher
+    # binary (bin\modlauncher.exe) as proof.
+    $libRoots = @(
+        "C:\Program Files (x86)\Steam\steamapps\common",
+        "D:\Steam\steamapps\common",
+        "E:\Steam\steamapps\common",
+        "C:\Steam\steamapps\common"
     )
-    foreach ($c in $candidates) {
-        if (Test-Path $c) { return $c }
+    foreach ($lib in $libRoots) {
+        if (-not (Test-Path $lib)) { continue }
+        $dirs = Get-ChildItem $lib -Directory -Filter "Call of Duty Black Ops III*" -ErrorAction SilentlyContinue
+        foreach ($d in $dirs) {
+            if (Test-Path (Join-Path $d.FullName "bin\modlauncher.exe")) { return $d.FullName }
+        }
     }
 
-    throw "Could not auto-detect Mod Tools install. Pass -ModToolsRoot explicitly."
+    throw "Could not auto-detect the Mod Tools root (no folder with bin\modlauncher.exe). Pass -ModToolsRoot explicitly."
 }
 
 function Ensure-Dir($path) {
@@ -86,14 +95,14 @@ function Copy-Tree($src, $dst, $label, $mirror) {
     Ensure-Dir (Split-Path $dst -Parent)
 
     if ($DryRun) {
-        Write-Info "DRY: $label: $src -> $dst (mirror=$mirror)"
+        Write-Info "DRY: ${label}: $src -> $dst (mirror=$mirror)"
         Get-ChildItem -Recurse $src | ForEach-Object {
             Write-Info "  DRY file: $($_.FullName)"
         }
         return
     }
 
-    Write-Info "$label: $src -> $dst (mirror=$mirror)"
+    Write-Info "${label}: $src -> $dst (mirror=$mirror)"
 
     $args = @("`"$src`"", "`"$dst`"")
     if ($mirror) { $args += "/MIR" } else { $args += "/E" }
@@ -117,11 +126,11 @@ function Copy-One($src, $dst, $label) {
     Ensure-Dir (Split-Path $dst -Parent)
 
     if ($DryRun) {
-        Write-Info "DRY: $label: $src -> $dst"
+        Write-Info "DRY: ${label}: $src -> $dst"
         return
     }
 
-    Write-Info "$label: $src -> $dst"
+    Write-Info "${label}: $src -> $dst"
     Copy-Item -Path $src -Destination $dst -Force
 }
 
@@ -138,6 +147,32 @@ Write-Info "modtools = $ModTools"
 Write-Info "target   = $MapRoot"
 Write-Info "mode     = $(if ($Reverse) {'REVERSE (modtools -> repo)'} else {'FORWARD (repo -> modtools)'})"
 if ($DryRun) { Write-Info "DRY RUN - no files will be written" }
+
+# Split-install deploy fix: when the Mod Tools live in a separate folder from
+# the game (Steam's "...Black Ops III 455130" layout), the linker writes the
+# built .ff into the TOOLS usermaps, but BlackOps3.exe loads usermaps from the
+# GAME folder. Junction the game's usermaps -> the tools' usermaps so every
+# build is instantly loadable. Idempotent; skipped if game==tools or it exists.
+if (-not $Reverse -and -not $DryRun) {
+    $gameRoot = $ModTools -replace ' 455130$', ''
+    if ($gameRoot -ne $ModTools -and (Test-Path (Join-Path $gameRoot "BlackOps3.exe"))) {
+        $gameUsermaps = Join-Path $gameRoot "usermaps"
+        if (-not (Test-Path $gameUsermaps)) {
+            try {
+                New-Item -ItemType Junction -Path $gameUsermaps -Target (Join-Path $ModTools "usermaps") -ErrorAction Stop | Out-Null
+                Write-Info "created junction: $gameUsermaps -> $ModTools\usermaps (game can now load builds)"
+            } catch { Write-Info "WARN: could not junction game usermaps ($($_.Exception.Message)); the game may not see builds" }
+        }
+        # Steam DRM: a direct BlackOps3.exe launch (what the Launcher's Run
+        # does) exits silently unless steam_appid.txt (game appid 311210) sits
+        # next to the exe so the Steam API can authenticate against running Steam.
+        $appidFile = Join-Path $gameRoot "steam_appid.txt"
+        if (-not (Test-Path $appidFile)) {
+            try { [System.IO.File]::WriteAllText($appidFile, "311210"); Write-Info "created steam_appid.txt (311210) - lets the Launcher Run actually open the game" }
+            catch { Write-Info "WARN: could not write steam_appid.txt ($($_.Exception.Message))" }
+        }
+    }
+}
 
 if (-not $Reverse) {
     Ensure-Dir $MapRoot

@@ -123,3 +123,32 @@ function clamp_float( x, low, high )
     if ( x > high ) return high;
     return x;
 }
+
+// ---------------------------------------------------------------------------
+// Move speed - single owner.
+//
+// VERIFIED(acc): SetMoveSpeedScale is ABSOLUTE (last-writer-wins; stock
+// resets to 1 on every spawn, zm_usermap.gsc:336), so read-modify-write
+// stacking between modules silently erases each other. Every speed-affecting
+// system sets its flag and calls this recompute instead of writing the scale
+// directly. Writers: _acc_boss_items (Neural Boots), _acc_cyberware (Reflex
+// T1), _acc_mega_bottles (The Flash).
+// ---------------------------------------------------------------------------
+
+function recompute_move_speed( player )
+{
+    n_scale = 1.0;
+    if ( isdefined( player.acc_item_neural_boots ) && player.acc_item_neural_boots )
+    {
+        n_scale = n_scale * 1.20; // Neural Boots (docs/12_boss_items.md)
+    }
+    if ( isdefined( player.acc_cw_rx1_speed ) && player.acc_cw_rx1_speed )
+    {
+        n_scale = n_scale * 1.10; // Cyberware Reflex T1 (docs/04)
+    }
+    if ( isdefined( player.acc_flash_speed ) && player.acc_flash_speed )
+    {
+        n_scale = n_scale * 1.12; // The Flash Mega (docs/13)
+    }
+    player SetMoveSpeedScale( n_scale );
+}

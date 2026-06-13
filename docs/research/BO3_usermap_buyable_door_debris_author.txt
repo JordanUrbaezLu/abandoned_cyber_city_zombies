@@ -1,0 +1,130 @@
+TOPIC: BO3 usermap buyable door / debris authoring (Radiant KVPs + _zm_blockers.gsc runtime + zonemgr zone activation)
+
+FINDINGS:
+SOURCE OF TRUTH: tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc (3268 lines). Doors collected by `GetEntArray("zombie_door","targetname")` (:80), debris by `GetEntArray("zombie_debris","targetname")` (:87), window blockers by struct targetname "exterior_goal" (:76), flag blockers by targetname "flag_blocker" (:91). NOTE: _zm_buildables exists only as a .gsh constant header in the mirror (shield/turbine clientfields) — NOT door-related.
+
+=== ENTITY 1: PURCHASE TRIGGER ===
+classname: trigger_use (brush entity). Script never checks the trigger's classname; it requires use-trigger semantics: `self waittill("trigger", who)` + `who UseButtonPressed()` (_zm_blockers.gsc:287,302), `SetCursorHint("HINT_NOICON")` (:152), `zm_utility::set_hint_string(self,"default_buy_door",cost)` (:202), `TriggerEnable(false)` (:938). trigger_use is what stock prefabs/community maps use; trigger classname is the only KVP not enforceable from script evidence alone.
+KVPs:
+- targetname = "zombie_door"  [REQUIRED, :80]
+- target = "<door_piece_targetname>"  [REQUIRED — gathers both ents AND path nodes: GetEntArray + GetNodeArray on self.target, :107-109]
+- zombie_cost = e.g. "1000"  [EFFECTIVELY REQUIRED — door_buy reads `cost = self.zombie_cost;` with NO default (:323); the 1000 default at :146-150/:778-782 only feeds the hint string]
+- script_flag = "enter_<zone>" [optional; comma-separated list supported — Strtok "," at set time (:952-959)]
+- script_noteworthy = omit for normal door (defaults to "default", :127-130). Special values: "electric_door" / "local_electric_door" (free, opens on power, can close, hint ZOMBIE_NEED_POWER / ZOMBIE_NEED_LOCAL_POWER, :163-194, :788-846), "electric_buyable_door" (needs power THEN buyable, :851-862), "kill_counter_door" (:195-199), "delay_door" (+ script_int seconds, :416-419, :864-871)
+- script_hint = custom hint ref override (optional, _zm_utility.gsc:2948-2954)
+- door_hold_trigger = targetname of hold volume for electric-door close logic (optional, :728-731)
+Two-sided doors: author a SECOND trigger_use with the SAME `target` value. Sibling triggers are discovered via `getentarray(self.target,"target")` (:932) and all get TriggerEnable(false), _door_open, hint updates together (:935-981).
+
+=== ENTITY 2..N: DOOR PIECES (each targetname == trigger's target) ===
+classname: script_brushmodel (brush door; auto `DisconnectPaths()` at init, :272-275) or script_model (needs "model" KVP; does NOT DisconnectPaths at init — pathing handled by blocker-clip logic, :985-1015).
+Movement type (door_classify, :209-277): script_angles "p y r" → type "rotate" (:225-228, RotateTo at :554-569); script_vector "x y z" → type "move" (:229-232, MoveTo origin+vector at :572-592; close reverses via scale=-1, :544-548); or explicit script_string = "move"|"slide_apart"|"rotate"|"anim" (needs script_animname + level.scr_anim + level.blocker_anim_func, :244-248)|"physics" (PhysicsLaunch + delete after 60s, :602-605,1069-1084)|"zbarrier" (:606-608)|"clip"|"explosives"|"counter_1s/10s/100s".
+Other piece KVPs: script_transition_time (default 1s, :476-483, passed per-piece at :1022); script_sound (open alias; "_close" appended on close; default "zmb_heavy_door_open", :531-541); script_firefx (level._effect key on open, :611-614).
+Optional CLIP piece: script_brushmodel with script_noteworthy="clip" (or script_string="clip"), same targetname — used for pathing: Solid on close, delayed DisconnectPaths (:218-222, :519-529, :908-920).
+Optional traversal node: trigger may target path nodes; nodes with script_noteworthy "air_buy_gate" (#define STR_NAV_VOLUME_TRAVERSAL, :36) are UnlinkTraversal'd at init and LinkTraversal'd on open (:211-217, :462-474).
+
+=== HOW THE DOOR OPENS (NOT deleted) ===
+door_buy (:285-367): waittill "trigger" → UseButtonPressed → reject if in revive trigger / drinking → `zm_score::can_player_purchase(cost)` → `zm_score::minus_to_player_score(cost)` (:329-331), scoreevent "open_door", stats; deny plays "no_purchase" + outofmoney VO (:339-356). `GetDvarInt("zombie_unlock_all")>0` or force-notify bypasses (:297-300; quantum bomb force-fires via `notify("trigger", self, true)`, :3237).
+door_opened (:923-1062): sets trig._door_open=true + `trig notify("door_opened")` + `level notify("door_opened")` (:941-944,983); TriggerEnable(false) (:938); plays "purchase" at trigger (:1027); each piece threads door_activate (:1018-1023). door_activate (:455-615): NotSolid (:507), ConnectPaths for script_brushmodel/script_model (:511-517), MoveTo/RotateTo, then door_solid_thread re-Solids after movedone once no player touching (:1092-1119). Doors persist in their open position. Default doors are BUY-ONCE: flag "door_can_close" is initialized false (:83) and never set by stock — trigger stays disabled and door_think breaks (:887-890, :1053-1061 only re-enables if the flag is set).
+
+=== WHAT script_flag DOES ON PURCHASE ===
+door_opened: `tokens = Strtok(trig.script_flag, ","); for each: level flag::set(tokens[i])` when opening (:952-959); `level flag::clear(tokens[i])` when closing (:960-967). flag::set notifies level with the flag name (flag_shared.gsc:69-77). door_init pre-initializes the flag (:112-124 — but see gotcha: it inits the WHOLE string, not per-token). Immediately after, door_opened refreshes `level.active_zone_names = zm_zonemgr::get_active_zone_names()` (:1031-1033).
+
+=== ZONE ACTIVATION CHAIN (zonemgr) ===
+_zm_zonemgr.gsc: usermap entry must set `level.zone_manager_init_func` and `level thread zm_zonemgr::manage_zones(init_zones)` (header doc :24-39; our entry does this at scripts/zm/zm_abandoned_cyber_city.gsc:136-139 with init_zones[0]="start_zone"). The init func must call `zm_zonemgr::add_adjacent_zone(zone_a, zone_b, flag_name [, one_way])` (:595-621) where flag_name == the door's script_flag. add_adjacent_zone flag::init's the flag (:603-606) and zone_init's both zones (:610-611). manage_zones → setup_zone_flag_waits threads `zone_flag_wait(flag)` per registered flag (:627-649, called :854). When the door sets the flag: zone_flag_wait wakes (:681), and for each adjacency whose flags are all set (AND) or any set (OR for duplicate registrations, :531-561,:697-721) it calls `enable_zone()` on BOTH zones + marks is_connected (:723-736). enable_zone (:488-522): zone.is_enabled = is_spawning_allowed = true, `level notify(zone_name)`, unlocks player respawn points whose script_noteworthy == zone_name (:504-511), TriggerEnable's barrier goals with script_noteworthy "<zone>_barriers" (:516-521). The 1-Hz manage_zones loop then marks occupied+connected-adjacent zones active and rebuilds level.zm_loc_types spawner lists via create_spawner_list (:859-984, :1153-1203). Extras: `add_zone_flags(wait_flag, add_flags)` chains one door flag to set others (:570-589; example zm_giant.gsc:284); `connect_zones(a,b)` is the direct no-flag script alternative (:772-803); if "door_can_close" is set, door_close_disconnect re-severs adjacency when the flag clears (:731-734, :760-768). Zone geometry: info_volume, targetname "<zone>", script_noteworthy "player_volume", target "<zone>_spawners"; zone_init asserts >=1 volume (:286-332) and sorts spawner structs by script_noteworthy tokens spawn_location/riser_location/faller_location/custom_spawner_entry (:345-385).
+
+=== DEBRIS vs DOORS ===
+Trigger: targetname "zombie_debris" (:87), hint "default_buy_debris" → &"ZOMBIE_BUTTON_BUY_CLEAR_DEBRIS_COST" (:46, :1187), zombie_cost REQUIRED (used directly :1284,:1287), script_flag set identically (Strtok "," → flag::set, :1321-1329) but NEVER cleared (no close). Differences: (1) ONE-SHOT — all sibling triggers are delete()'d after purchase (:1398-1404) and the loop breaks (:1416); (2) pieces are REMOVED not kept: each junk piece ConnectPaths (:1338); clip pieces (script_noteworthy "clip") DisconnectPaths at init (:1241-1248) and Delete on buy (:1342-1347,:1406-1409); ZBarrier pieces animate open + hide (:1350-1354,:1421-1430); piece with script_linkTo → flies to struct with matching script_linkname then Delete (:1355-1366, debris_move :1462-1513 ends `self Delete()` :1512); piece with target → flies to struct of that targetname then Delete (:1368-1380); piece with neither → instant Delete (:1381-1384). Piece KVPs: script_noteworthy "jiggle" wobble (:1476-1490), script_transition_time (default 0.5, :1492-1496), script_firefx (:1470-1473), script_fxid landing fx (:1506-1510). Debris does NOT refresh level.active_zone_names itself — zone enabling still happens via the zonemgr flag wait.
+
+=== FLAG BLOCKER (related entity) ===
+Trigger targetname "flag_blocker"; REQUIRED script_flag_wait KVP (assert :3142-3146); script_noteworthy "connectpaths" (default) or "disconnectpaths"; on flag set it Connect/DisconnectPaths and disables itself (:3140-3181). Use for pathing gates driven by door flags.
+
+=== ELECTRIC DOOR / POWER INTERPLAY ===
+_zm_power.gsc registers electric doors as powered items (:193-207). door_power_on does `self.target.power_on=1; self.target notify("power_on")` (:577-583) — an ENTITY notify on the door trigger, not the level flag. Blockers door_think waits `self waittill("power_on")` (:819-821), opens free, accrues power_cost += 200 (:796-799,:822-828), closes on power loss unless level.local_doors_stay_open (:831-846). electric_buyable_door waits power, then re-shows the buy hint and runs normal door_buy (:851-862).
+
+=== STOCK KVP EXAMPLES ===
+No .map/prefab files in the stock mirror (scripts only). Script-side example: zm_giant.gsc:182-184 (`level.zone_manager_init_func =&factory_zone_init; init_zones[0]="receiver_zone"; level thread zm_zonemgr::manage_zones(init_zones);`) and factory_zone_init :256-294 — flags "enter_outside_east", "enter_wnuen_building", etc. are exactly the script_flag values authored on The Giant's zombie_door triggers; add_zone_flags chaining at :284. The usermap template (zm_usermap.gsc) contains NO zone code beyond the leftover template_test_zone_init (zm_usermap.gsc:159-163, just inits/sets "always_on") — zone wiring lives in the per-map entry script.
+
+=== OUR REPO STATE ===
+Entry script already runs the zone bootstrap: scripts/zm/zm_abandoned_cyber_city.gsc:136-139 (init_zones[0]="start_zone", zone_manager_init_func=&usermap_test_zone_init) but usermap_test_zone_init (:197-201) is still the always_on placeholder — it must gain add_adjacent_zone("start_zone","<next>_zone","enter_<next>") calls when doors are added. Map source already has SEVEN authored zones (info_volume + "<zone>_spawners" structs): start_zone (map:1252-1255), market_zone (:1701-1704), alley_zone (:1795), corp_zone (:1886), vault_zone (:1997), roof_zone (:2088), lab_zone (:2179) — all with script_noteworthy "player_volume" and target "<zone>_spawners". ZERO zombie_door / zombie_debris entities exist in the map yet (grep of map_source confirms no matches). So the full door recipe per doorway is: 1 trigger_use {targetname zombie_door, zombie_cost N, script_flag enter_X, target doorX} + 1+ script_brushmodel/script_model {targetname doorX, script_vector or script_angles, script_transition_time, optional script_sound} + optional clip brush {targetname doorX, script_noteworthy clip} + one add_adjacent_zone line in usermap_test_zone_init.
+
+GOTCHAS:
+- zombie_cost is read with NO default at purchase time (door: _zm_blockers.gsc:323 `cost = self.zombie_cost;`; debris: :1284,:1287) — omitting the KVP gives a correct-looking 1000 hint (:146-150) but crashes/asserts on buy. Always set zombie_cost explicitly.
+- script_flag alone NEVER enables a zone. zonemgr only enables zones through zone_flag_wait threads created from add_adjacent_zone registrations (_zm_zonemgr.gsc:627-649,723-736). A door with script_flag but no matching add_adjacent_zone sets the flag and opens fine, but the area behind it silently gets ZERO spawners (zombies keep spawning only in old zones). Our usermap_test_zone_init is still the always_on placeholder (scripts/zm/zm_abandoned_cyber_city.gsc:197-201) and must be replaced.
+- door_init's flag-init loop is buggy: it Strtok's script_flag but calls flag::init(self.script_flag) with the WHOLE string each iteration (:117-120). Comma-separated script_flag values are only safe if every token is registered via add_adjacent_zone/add_zone_flags (which flag::init them, zonemgr:603-606,677-680); otherwise flag::set on an uninitialized token asserts (flag_shared.gsc:71).
+- Sibling door triggers are found by `getentarray(self.target,"target")` (:932) — any unrelated trigger that happens to share the same target value gets disabled with the door. Keep door-piece targetnames unique per doorway.
+- Default doors are BUY-ONCE: "door_can_close" is flag::init'd false (:83) and stock never sets it; after purchase the trigger is TriggerEnable(false) forever (:938, re-enable only inside the door_can_close branch :1053-1061). Setting that flag enables close/reopen AND zone re-disconnect on close (zonemgr:731-734,760-768).
+- script_model door pieces do NOT DisconnectPaths at init (only script_brushmodel does, :272-275). A model-only door needs a companion clip brush (script_noteworthy "clip", same targetname) or zombies can path through the closed door.
+- Electric doors wait on an ENTITY notify `self waittill("power_on")` on the trigger (fired by _zm_power.gsc:581), NOT the level "power_on" flag — don't 'fix' it to flag::wait_till on the trigger, and don't expect electric doors to work without _zm_power's powered-item registration (script_noteworthy must be exactly electric_door / local_electric_door / electric_buyable_door, _zm_power.gsc:196-206).
+- Debris is one-shot and destructive: all sibling triggers are delete()'d (:1398-1404) and pieces are Delete()'d (instantly if the piece has no target/script_linkTo struct to fly to, :1381-1384). A debris piece whose target struct is missing just vanishes with no motion.
+- Zone volumes must be classname info_volume with script_noteworthy "player_volume" + targetname <zone> + target <zone>_spawners; zone_init asserts if no volume matches (zonemgr:332), and manage_zones asserts if any player respawn point lacks script_noteworthy = zone name (zonemgr:824-828).
+- door_opened blocks on zm_zonemgr::get_active_zone_names() (:1031-1033, 'NOTE: THIS FUNCTION MAY BLOCK') — it spins WAIT_SERVER_FRAME while zone scanning is active; don't call door_opened from a context that can't wait.
+- _zm_buildables is NOT the door system — only a .gsh of buildable-shield clientfield constants exists in the stock mirror; doors/debris/windows all live in _zm_blockers.gsc.
+
+CITATIONS:
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:80
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:87
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:107-109
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:112-124
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:127-130
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:146-152
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:163-199
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:202
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:209-277
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:225-232
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:272-275
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:285-367
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:323
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:329-331
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:455-615
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:507-517
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:552-608
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:769-892
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:851-862
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:923-1062
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:932
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:938-944
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:952-967
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1031-1033
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1069-1084
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1092-1119
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1179-1224
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1230-1419
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1284-1287
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1321-1329
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1355-1384
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1398-1404
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:1462-1513
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:3140-3181
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:36
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:211-217
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:462-474
+tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:3227-3266
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:24-39
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:286-332
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:345-385
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:488-522
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:531-561
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:570-589
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:595-621
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:627-649
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:675-757
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:760-768
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:772-803
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:810-984
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:824-828
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:1153-1203
+tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:1232
+tmp/bo3_stock_ref/scripts/zm/_zm_power.gsc:193-207
+tmp/bo3_stock_ref/scripts/zm/_zm_power.gsc:577-602
+tmp/bo3_stock_ref/scripts/zm/_zm_power.gsc:604-616
+tmp/bo3_stock_ref/scripts/zm/zm_giant.gsc:182-184
+tmp/bo3_stock_ref/scripts/zm/zm_giant.gsc:256-294
+tmp/bo3_stock_ref/scripts/zm/zm_usermap.gsc:159-163
+tmp/bo3_stock_ref/scripts/shared/flag_shared.gsc:69-77
+tmp/bo3_stock_ref/scripts/zm/_zm_utility.gsc:2923-2970
+tmp/bo3_stock_ref/scripts/zm/_zm_buildables.gsh:1-59
+scripts/zm/zm_abandoned_cyber_city.gsc:136-139
+scripts/zm/zm_abandoned_cyber_city.gsc:197-201
+map_source/zm/zm_abandoned_cyber_city.map:1252-1255
+map_source/zm/zm_abandoned_cyber_city.map:1701-1704
+map_source/zm/zm_abandoned_cyber_city.map:2179

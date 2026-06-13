@@ -40,6 +40,8 @@
 
 ### 6. Development & Shipping
 
+- **[20_requirements_checklist.md](docs/20_requirements_checklist.md)** — **the working tracker**: all 471 checkable requirements extracted from the docs with per-item implementation status (audited against code + map, 2026-06-12) and the concrete next task for each gap. Work top-down from this.
+- **[21_weapon_import_sources.md](docs/21_weapon_import_sources.md)** — verified sources + install recipe for the 7 roster import weapons (TheSkyeLord packs + Skye-Weapon-Templates wiring; covers all 7).
 - **[01_toolchain.md](docs/01_toolchain.md)** — BO3 Mod Tools (Radiant, APE, Launcher, GSC/CSC, LUI), directory layout, build/test loop, version control strategy, common pitfalls.
 - **[02_learning_path.md](docs/02_learning_path.md)** — 6-stage curriculum from zero map experience to shipping.
 - **[08_milestones.md](docs/08_milestones.md)** — Phases 0-7 with concrete deliverables and exit criteria.
@@ -50,6 +52,7 @@
 ### 7. Reference Material (working knowledge)
 
 - **[16_gsc_reference.md](docs/16_gsc_reference.md)** — BO3 GSC/CSC language + API reference. Verified signatures for `callback::on_ai_damage`, `_zm_score::add_to_player_score`, `clientfield::register`, common utility modules, custom perk setup workflow, common gotchas. **Update when we discover new patterns.**
+- **[22_community_techniques.md](docs/22_community_techniques.md)** — 142-technique ledger mined from shipped community sources (exact mechanisms + citations); raw dossiers in [docs/research/](docs/research/). **Append on every external-codebase exploration.**
 - **[17_reference_maps_study.md](docs/17_reference_maps_study.md)** — Design patterns from Ameliorama, Machin[a], Shadows of Evil, Origins, Der Eisendrache. What we took, what we rejected, what we haven't studied yet. **Append when we study a new map.**
 
 ## Per-System Requirements Summary (canonical quick-reference)

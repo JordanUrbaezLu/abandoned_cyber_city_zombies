@@ -1,0 +1,136 @@
+TOPIC: Stock BO3 _zm_perks.gsc vending trigger purchase flow, already-owned interception points, give/lose/re-give lifecycle, Jugg max-health and speed mechanisms
+
+FINDINGS:
+ALL paths relative to c:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/ unless noted. File = zm/_zm_perks.gsc unless noted.
+
+=== (0) TRIGGER CREATION (context for any custom hook) ===
+perk_machine_spawn_init() (1421) reads structs targetname "zm_perk_machine" (1437, overridable via level.override_perk_targetname 1434-1435), filters by script_string vs "<gametype>_perks_<location>" (1431, 1441-1455), then per struct spawns:
+- t_use = Spawn("trigger_radius_use", s_spawn_pos.origin+(0,0,60), 0, 40, 80); t_use.targetname="zombie_vending"; t_use.script_noteworthy=perk (specialty string); t_use TriggerIgnoreTeam() (1513-1523). script_int copied for power zones (1518-1521).
+- t_use.clip / t_use.machine / t_use.bump cross-refs (1559-1561). Custom KVP hook: level._custom_perks[perk].perk_machine_set_kvps(t_use, perk_machine, bump_trigger, collision) (1599-1602), registered via register_perk_machine (1847-1858).
+init() collects GetEntArray("zombie_vending","targetname") and array::thread_all(&vending_trigger_think) + (&electric_perks_dialog) (61, 81-82). level.perk_purchase_limit = 4 default (43). Cost default zombie_vars["zombie_perk_cost"]=2000 (79).
+
+=== (1) PURCHASE FLOW: vending_trigger_think() (437-611), self = zombie_vending trigger ===
+Setup phase: perk = self.script_noteworthy (445); quick-revive solo special case (451-476); SetHintString(&"ZOMBIE_NEED_POWER") (480); SetCursorHint("HINT_NOICON") + UseTriggerRequireLookAt (483-484); cost = zombie_vars["zombie_perk_cost"] overridden by level._custom_perks[perk].cost which may be an INT or a FUNCTION POINTER ([[...]]() called) (486-498); cached as self.cost (500); blocks on level waittill(perk + "_power_on") (502-506) — that notify is emitted by perk_machine_think on level notify(alias+"_on") (113-146, notify at 146); network-choke staggering (509-521); threads zm_audio::sndPerksJingles_Timer (524) and check_player_has_perk(perk) (526); real hint = SetHintString(level._custom_perks[perk].hint_string, cost) (528-531).
+Purchase loop for(;;) (533-610), gated checks IN ORDER per self waittill("trigger", player) (535):
+1. vending_trigger_can_player_use(player) (539; def 400-433): false if laststand/intermission (402), in_revive_trigger (407), !zm_magicbox::can_buy_weapon (412), throwing grenade (417), switching weapons (422), IS_DRINKING(player.is_drinking) (427). Fail → wait 0.1; continue.
+2. ALREADY-OWNED: if (player HasPerk(perk) || player has_perk_paused(perk)) → self playsound("evt_perk_deny"); player zm_audio::create_and_play_dialog("general","sigh"); continue (545-557).
+3. level.custom_perk_validation hook: valid = self [[level.custom_perk_validation]](player); !valid → continue (560-568). Runs AFTER the HasPerk check.
+4. current_cost = self.cost, halved if pers double_points active (570-575).
+5. !player zm_score::can_player_purchase(current_cost) → deny sound + "outofmoney" VO, continue (577-583).
+6. !player zm_utility::can_player_purchase_perk() → deny + sigh, continue (585-592). Def zm/_zm_utility.gsc:5887-5889: self.num_perks < get_player_perk_purchase_limit(); limit override pointer level.get_player_perk_purchase_limit (zm/_zm_utility.gsc:5874-5885).
+7. Pay: playsoundatposition("evt_bottle_dispense"), player zm_score::minus_to_player_score(current_cost) (594-596); RecordMapEvent (602); player.perk_purchased = perk; player notify("perk_purchased", perk) (604-605); self thread vending_trigger_post_think(player, perk) (609).
+Bottle-drink phase: vending_trigger_post_think (613-668): endon disconnect/end_game/perk_abort_drinking (615-617); gun = player perk_give_bottle_begin(perk) (620; def 992-1011: increment_is_drinking, disable_player_move_states, GiveWeapon+SwitchToWeapon(level._custom_perks[perk].perk_bottle_weapon)); evt = waittill_any_return("fake_death","death","player_downed","weapon_change_complete","perk_abort_drinking","disconnect") (621); ONLY if evt=="weapon_change_complete" → player thread wait_give_perk(perk, true) (624-627); perk_give_bottle_end restores weapon (630, def 1014-1067); notify "burp" (638); level.perk_bought_func hook: player [[level.perk_bought_func]](perk) (652-655); player.perk_purchased = undefined (657); if machine lost power mid-drink → wait 1; perk_pause(self.script_noteworthy) (661-665).
+wait_give_perk (687-696): waittill_any_timeout(0.5, "burp","player_downed","disconnect","end_game","perk_abort_drinking") then self give_perk(perk, bought) (695).
+
+=== (2) ALREADY-OWNED CASE + BEST MEGA HOOK ===
+Two stacked mechanisms:
+a) In-loop branch 545-557: deny sound "evt_perk_deny" + sigh VO, continue. Trigger thread stays alive.
+b) THE REAL BLOCKER — check_player_has_perk(perk) (865-895), threaded on the trigger (526), endon("death") (867): every 0.1s, for players within 128 units, self SetInvisibleToPlayer(players[i], true) if player HasPerk(perk) OR has_perk_paused OR in_revive_trigger OR equipment-blocking weapon OR hacker active OR !vending_trigger_can_player_use (875-889). An invisible-to-player use trigger shows no hint and cannot be triggered by that player, so an owner never even fires the "trigger" notify — branch (a) is effectively a race-condition guard.
+Available stock override pointers in _zm_perks (there is NO level.perk_purchase_override):
+- level.custom_perk_validation (560-568) — called on the trigger as self [[f]](player), return false to block; runs AFTER HasPerk check so it never sees owners. Good for blocking, useless for Mega intercept.
+- level.perk_bought_func (652-655) — player-called after successful drink, args (perk). Also invoked by free-perk powerup (zm/_zm_powerup_free_perk.gsc:76-78) and give_player_all_perks (zm/_zm_utility.gsc:5921-5924). Best place to SET the sticky Mega flag on (re)buy.
+- level.perk_lost_func (956-958) — player-called in perk_think when perk lost, args (perk).
+- register_perk_damage_override_func → level.perk_damage_override array (2020-2030) — damage-time hooks only.
+- level.override_use_solo_revive (216-219), level.override_perk_targetname (1434), level.dont_unset_perk_when_machine_paused (1236), per-perk cost-as-function-pointer (386-393, 488-498), perk_machine_power_override_thread via register_perk_machine_power_override (1874-1884).
+Listening on the same trigger: YES — GSC notify("trigger", player) wakes ALL waittill listeners; stock itself runs multiple independent threads on one trigger ent (vending_trigger_think 437 + electric_perks_dialog 321 + sndPerksJingles_Timer zm/_zm_audio.gsc:1579; bump triggers use the identical waittill("trigger") loop pattern, 1646-1657). So a custom for(;;) self waittill("trigger", player) thread on each zombie_vending trigger coexists safely. BUT the owner can't press use while check_player_has_perk has made it invisible. Practical Mega options, best first:
+1. KILL-AND-REPLACE: notify the trigger "death"... no — instead, simply do NOT use stock threads for owners: spawn your OWN second trigger_radius_use at t_use.origin (same 40/80 dims), own targetname, own hint ("Mega upgrade [cost]"), and run inverted visibility: SetInvisibleToPlayer(p, false) only when p HasPerk(perk) && !p.mega[perk], true otherwise. Zero fights with stock loops. (Stock precedent for spawning the trigger: 1513-1523.)
+2. Fight the visibility loop: your own 0.1s loop re-calling self SetInvisibleToPlayer(player, false) for mega-eligible owners — racy (both run at wait 0.1, 892) and the stock HasPerk branch (545) will still deny the press; you'd intercept via your own waittill("trigger") listener and act before/independently of the deny. Fragile; not recommended.
+3. Full replacement: trigger notify("death") kills vending_trigger_think (endon "death" 439) AND check_player_has_perk (endon "death" 867) AND electric_perks_dialog (endon "death" 323), then run a patched clone of vending_trigger_think. Most invasive but fully deterministic; note quick-revive solo logic + level.quick_revive_trigger (455-456) must be preserved.
+Wrapping level._custom_perks[perk].player_thread_give (set via register_perk_threads, fields .player_thread_give/.player_thread_take, 1919-1938) works for AUGMENTING effects on every give/unpause (called at 751-754 and 1287-1290) but cannot create a second purchasable interaction.
+
+=== (3) give_perk EFFECTS + RE-GIVE AFTER DOWN/RESPAWN ===
+give_perk(perk, bought) (738-783), self = player: self SetPerk(perk) [engine specialty] (740); self.num_perks++ (741); if bought: give_perk_presentation thread (blur+VO, 715-736), notify "perk_bought", challenge stat (743-749); thread level._custom_perks[perk].player_thread_give (751-754); set_perk_clientfield(perk, PERK_STATE_OWNED) (756) → calls ._custom_perks[perk].clientfield_set (969-975); stats; ARRAY_ADD(self.perks_active, perk) (773-778); notify "perk_acquired" (780); thread perk_think(perk) (782). NOTE: give_perk never checks HasPerk — double-call stacks num_perks and re-runs player_thread_give.
+Perk LOSS — perk_think(perk) (908-967): result = waittill_any_return("fake_death","death","player_downed", perk+"_stop") (912-914); bgb::lost_perk_override loop (917-920); RETAIN: if self._retain_perks==true (931-934) or IS_TRUE(self._retain_perks_array[perk]) (935-938) → return, perk KEPT through the down; else UnsetPerk, num_perks-- (941-942), thread player_thread_take(false, perk_str, result) (945-948), clientfield PERK_STATE_NOT_OWNED (950), perk_purchased=undefined (953), level.perk_lost_func (956-958), ArrayRemoveValue(perks_active) (961-964), notify "perk_lost" (966).
+Down trigger: zm/_zm_laststand.gsc — self.disabled_perks=[] reset on down (244-247); self notify("player_downed") (270); refire_player_downed re-notifies "player_downed" 1.0s later if self.num_perks still nonzero (277-287). On revive, maxhealth recomputed via zm_perks::perk_set_max_health_if_jugg("health_reboot", true, false) (zm/_zm_laststand.gsc:1354 and 1435).
+Respawn after bleed-out (full death): zm/_zm.gsc:3352 player thread zm_perks::return_retained_perks() inside the respawn path (after notify "spawned_player" 3337 and callback #"on_player_spawned" 3338). return_retained_perks (698-710): foreach key where IS_TRUE(self._retain_perks_array[perk]) → self give_perk(perk, false). So perks are NOT re-given by default; only _retain_perks_array survivors come back, with bought=false (no presentation, but player_thread_give DOES re-run → jugg health re-applies).
+Power pause/unpause (machine power loss, not death): perk_pause(perk) (1234-1261): skipped entirely if level.dont_unset_perk_when_machine_paused (1236-1239); sets player.disabled_perks[perk]=true, UnsetPerk, clientfield PERK_STATE_PAUSED, thread player_thread_take(true) (1246-1256). perk_unpause (1263-1293): clientfield OWNED, SetPerk, perk_set_max_health_if_jugg(perk,false,false) (1285), re-thread player_thread_give (1287-1290). has_perk_paused = player.disabled_perks[perk] truthy (1332-1339). perk_pause_all/unpause_all iterate zombie_vending triggers by script_int power zone (1295-1330).
+Sticky Mega pattern: store player.acc_mega[perk] yourself (player entity persists across downs/respawns within a match; lost on disconnect — host migration uses level.disconnected_player_perks, see perk_hostmigration 1690). Re-apply on every give via wrapped player_thread_give or level.perk_bought_func + a listener on "perk_acquired"/"perk_lost"; perk_think's "player_downed" wipe means Mega effects implemented as raw script state must be re-armed when the perk is re-bought.
+
+=== (4) JUG MAX HEALTH + SPEED ===
+Jugg = PERK_JUGGERNOG (specialty_armorvest). Health is 100% SCRIPT-side, not engine specialty: registered player_thread_give = give_juggernaut_perk (zm/_zm_perk_juggernaut.gsc:51, 103-107) → zm_perks::perk_set_max_health_if_jugg(PERK_JUGGERNOG, true, false). perk_set_max_health_if_jugg (791-859): case PERK_JUGGERNOG: self.preMaxHealth = self.maxhealth; n = self.maxhealth + level.zombie_vars["zombie_perk_juggernaut_health"] (798-804); that var = 100 (zm/_zm_perk_juggernaut.gsc:58; an unused "zombie_perk_juggernaut_health_upgrade"=150 exists at :59). Base player health = zombie_vars["player_base_health"] = 100 (zm/_zm.gsc:1229) → 200 with jugg. case "health_reboot" (823-836): n = player_base_health + self.n_player_health_boost (if defined, 828-831) + 100 if HasPerk(PERK_JUGGERNOG) (833-836). Pers-jugg adds level.pers_jugg_upgrade_health_bonus (842-846). APPLY: self.maxhealth = n; self SetMaxHealth(n) (848-849); optional clamp self.health (851-857). take_juggernaut_perk calls perk_set_max_health_if_jugg("health_reboot", true, true) (zm/_zm_perk_juggernaut.gsc:109-113).
+Ultimate Tank (+1 hit = +~100): set self.n_player_health_boost = 100 then force a recompute via perk_set_max_health_if_jugg("health_reboot", true, false) — the health_reboot case is the ONLY one that reads n_player_health_boost, and it is re-run at every revive (zm/_zm_laststand.gsc:1354, 1435) and perk loss (take_juggernaut_perk), so the bonus self-heals across downs. A bare self SetMaxHealth(self.maxhealth+100) WILL be wiped by the next health_reboot/perk_unpause recompute (1285, 848-849).
+Speed: stock per-spawn baseline self SetMoveSpeedScale(1); self SetSprintDuration(4); self SetSprintCooldown(0) in zm_usermap::giveCustomCharacters (zm/zm_usermap.gsc:336-338). Player-zombie mode uses self setMoveSpeedScale(0.3) (zm/_zm.gsc:4795). MP composes multiplicatively: self setMoveSpeedScale(self.movementSpeedModifier * self getMoveSpeedScale()) (mp/gametypes/_loadout.gsc:1140) — GetMoveSpeedScale exists for read-modify-write. Stamin-Up itself has NO server-side speed script (zm/_zm_perk_staminup.gsc:42-50 registers only basic info/precache/clientfields/machine — no register_perk_threads); sprint/speed comes engine-side from the specialty_staminup perk asset. The Flash: self SetMoveSpeedScale(1.2) (or GetMoveSpeedScale()*1.2) on give; MUST re-apply after every (re)spawn because giveCustomCharacters resets it to 1, and on perk re-give.
+
+GOTCHAS:
+- The already-owned hint/deny branch at _zm_perks.gsc:545-557 is almost never reachable: check_player_has_perk (865-895) runs SetInvisibleToPlayer(player, true) every 0.1s for owners within 128 units, so a player who has the perk cannot see or fire the use trigger at all — a Mega intercept that only listens for 'trigger' on the stock trigger will silently never fire for owners. Spawn a parallel trigger (mirror Spawn('trigger_radius_use', origin+(0,0,60),0,40,80) from 1513) with inverted per-player visibility instead.
+- There is NO level.perk_purchase_override. The only stock pointers are level.custom_perk_validation (runs AFTER the HasPerk check, 560-568 — never sees owners), level.perk_bought_func (652-655), level.perk_lost_func (956-958), level.perk_damage_override array (2020-2030), level.override_use_solo_revive, level.override_perk_targetname, and per-perk cost-as-function-pointer.
+- give_perk (738) does NOT check HasPerk — calling it on an owner double-increments self.num_perks, re-threads player_thread_give (jugg stacks +100 maxhealth per call), and spawns a second perk_think; guard before re-giving.
+- perks are lost on DOWN, not just death: perk_think (908-967) unsets on 'player_downed'; _zm_laststand.gsc notifies 'player_downed' TWICE (270 and refire at 277-287 after 1.0s when num_perks>0) — any Mega listener on that notify must be idempotent.
+- Jugg health is pure script: SetPerk(specialty_armorvest) gives no HP; HP is self.maxhealth = X; self SetMaxHealth(X) in perk_set_max_health_if_jugg (848-849). A raw SetMaxHealth(+100) for Ultimate Tank is WIPED by the 'health_reboot' recompute on every revive (_zm_laststand.gsc:1354,1435) and by perk_unpause (1285). Use self.n_player_health_boost — the only field health_reboot adds (828-831) — so the bonus survives recomputes; but note the PERK_JUGGERNOG buy case (798-804) adds 100 to CURRENT maxhealth, so set n_player_health_boost before/independent of buy order is consistent only if a health_reboot ran first or maxhealth already reflects it.
+- SetMoveSpeedScale is reset to 1 on EVERY (re)spawn by zm_usermap::giveCustomCharacters (zm_usermap.gsc:336); a Flash speed boost must re-apply on 'spawned_player'/perk re-give. Compose multiplicatively via GetMoveSpeedScale (pattern at mp/gametypes/_loadout.gsc:1140) to avoid clobbering other modifiers. Stamin-Up registers no server speed code — its effect is engine-side from the specialty asset, so don't look for a script value to copy.
+- Money is taken BEFORE the drink completes (596); the perk is granted only if waittill returns 'weapon_change_complete' (624-627) — getting downed mid-drink loses the points with no perk (stock behavior). A Mega flow that charges on trigger-press should mirror or refund.
+- self.cost is cached ONCE at trigger init (500); changing level._custom_perks[perk].cost later does nothing unless you also update trigger.cost and the hint (reset_vending_hint_string, 376-398).
+- trigger notify('death') kills ALL stock threads on a vending trigger at once (vending_trigger_think endon 439, check_player_has_perk endon 867, electric_perks_dialog endon 323) — usable for full replacement, but you must re-implement the quick-revive solo logic (451-476, level.quick_revive_trigger) and the perk+'_power_on' wait.
+- Setting self._retain_perks_array[perk]=true to make a perk sticky changes semantics: perk_think returns early (929-939) so the player KEEPS the perk through downs, and _zm.gsc:3352 return_retained_perks re-gives it after full respawn with bought=false — player_thread_give re-runs (jugg health re-applies) but no clientfield/presentation 'bought' path; level.perk_bought_func is NOT called on that re-give.
+- perk_pause/perk_unpause (power loss) bypass perk_think entirely: player_thread_take is called with b_pause=true (1255) vs false from perk_think (947) — a Mega take-handler must branch on that first arg or it will tear down Mega state on a mere power flicker; also _zm_laststand.gsc:244-247 silently wipes player.disabled_perks on down.
+
+CITATIONS:
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:61
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:81-82
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:43
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:79
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:437-611
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:400-433
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:445
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:486-500
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:502-506
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:535
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:545-557
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:560-568
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:570-583
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:585-592
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:594-609
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:613-668
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:620-627
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:652-655
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:661-665
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:687-696
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:698-710
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:738-783
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:751-754
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:791-859
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:828-831
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:848-849
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:865-895
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:908-967
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:929-939
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:941-958
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:969-975
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:992-1011
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1014-1067
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1074-1087
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1234-1261
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1263-1293
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1285
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1295-1330
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1332-1339
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1421-1605
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1513-1523
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1599-1602
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1646-1657
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1819-1835
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1847-1858
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1874-1884
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:1919-1938
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:2020-2030
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:113-162
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:146
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:216-219
+tmp/bo3_stock_ref/scripts/zm/_zm_perks.gsc:321-374
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_juggernaut.gsc:47-53
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_juggernaut.gsc:58-59
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_juggernaut.gsc:103-113
+tmp/bo3_stock_ref/scripts/zm/_zm_perk_staminup.gsc:42-50
+tmp/bo3_stock_ref/scripts/zm/_zm_laststand.gsc:244-247
+tmp/bo3_stock_ref/scripts/zm/_zm_laststand.gsc:268-287
+tmp/bo3_stock_ref/scripts/zm/_zm_laststand.gsc:1354
+tmp/bo3_stock_ref/scripts/zm/_zm_laststand.gsc:1435
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:1229
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:3337-3352
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:4795
+tmp/bo3_stock_ref/scripts/zm/_zm_utility.gsc:5874-5889
+tmp/bo3_stock_ref/scripts/zm/_zm_utility.gsc:5905-5927
+tmp/bo3_stock_ref/scripts/zm/_zm_powerup_free_perk.gsc:76-78
+tmp/bo3_stock_ref/scripts/zm/zm_usermap.gsc:336-338
+tmp/bo3_stock_ref/scripts/zm/_zm_audio.gsc:1579-1597
+tmp/bo3_stock_ref/scripts/mp/gametypes/_loadout.gsc:1140

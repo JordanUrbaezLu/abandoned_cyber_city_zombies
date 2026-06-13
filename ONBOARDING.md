@@ -1,0 +1,141 @@
+# Onboarding — get the map running + contributing (with Claude Code)
+
+Welcome! This is a custom **Black Ops 3 zombies** map built with the BO3 Mod Tools.
+This page gets you from a fresh clone to a running game and your first change.
+It's deliberately short — the deep references are linked at the end.
+
+> **One golden rule:** you **edit in this repo**, then **sync** to the Mod Tools,
+> then **build**. Never edit files inside `...\usermaps\` directly — the sync
+> overwrites them. Forgetting to sync = "I changed the code but nothing changed
+> in game" (the #1 time-waster).
+
+---
+
+## 1. What you need (Windows only)
+
+The Mod Tools are Windows-only, so this has to be a Windows box.
+
+- [ ] **Black Ops 3** (Steam) + **BO3 Mod Tools** (Steam, AppID 455130, free) —
+  *install both into the SAME Steam library folder*, and in the Mod Tools
+  **Properties → DLC** enable **"Additional Assets"** (~50 GB). Full walkthrough:
+  [SETUP_WINDOWS.md](SETUP_WINDOWS.md) §1.
+- [ ] **Visual C++ runtimes**: 2013 **and** 2015 x64 (needed by L3akMod, step 3).
+- [ ] **Git**, **Node.js** (for the lint/tooling), and **Claude Code**.
+- [ ] Windows Region decimal symbol = **"."** and **16 GB+ RAM** (the linker/light
+  step OOMs below that). Preflight checks both.
+
+---
+
+## 2. Clone + the two things that AREN'T in the repo
+
+```bash
+git clone <repo-url> abandoned_cyber_city_zombies
+cd abandoned_cyber_city_zombies
+
+# (a) Stock-scripts mirror — gitignored, but the lint + every "is this engine
+#     function real?" check depends on it. Clone it into tmp/:
+git clone --depth 1 https://github.com/zeroy99/bo3_modtools tmp/bo3_stock_ref
+```
+
+**(b) L3akMod** — required to *build* the custom LUI (`.lua`) HUD, or the linker
+errors `Lua not supported`. Download **v1.0.4** from
+<https://dtzxporter.com/tools/l3akmod>, and overwrite this one file in your
+**Mod Tools** install (back up the original first):
+
+```
+<...\Call of Duty Black Ops III 455130>\bin\libtiff64r.dll
+```
+
+Credit the **D3V Team** for L3akMod in any release. (Details + why:
+[docs/28_lui_pipeline.md](docs/28_lui_pipeline.md).)
+
+---
+
+## 3. Check your machine, then sync
+
+```powershell
+.\tools\preflight_windows.ps1    # 25 checks; names the exact problem if any
+.\tools\sync_to_modtools.ps1     # copies repo -> Mod Tools usermap (+ junction)
+```
+
+Preflight all-green = you're ready to build. The sync also auto-detects your Mod
+Tools path (by `bin\modlauncher.exe`) and bridges the split-install junction, so
+the game can find the built map. Re-run it any time you're unsure.
+
+---
+
+## 4. Build + play
+
+**Build** — two options:
+- **Launcher GUI** (simplest): open the BO3 Mod Tools Launcher, pick
+  `zm_abandoned_cyber_city`, click **Build**. *Leave the "Run" checkbox
+  UNCHECKED* (it trips Steam DRM on this setup).
+- **Code/Lua-only changes (fast, ~4s)** — skip the GUI and run the linker:
+  ```powershell
+  & "<tools>\bin\linker_modtools.exe" -language english -modsource zm_abandoned_cyber_city
+  ```
+
+**Play** — double-click **`PLAY_TEST_MAP.bat`** (or `.\tools\run_game.ps1`). It
+launches through Steam with the right dev args.
+
+> **Two launch gotchas** (both solved by the `.bat`, don't fight them):
+> the gametype must be `+set_gametype zclassic`, and your Steam **Launch Options
+> must be EMPTY** (Steam doubles the args otherwise). See
+> [docs/23_launch_runbook.md](docs/23_launch_runbook.md).
+
+You spawn in Spawn Plaza. The dev build is a sandbox: unlimited money + Data
+Shards, power on, whole map open, a boss on round 2.
+
+---
+
+## 5. The day-to-day loop
+
+```
+edit in the repo  →  .\tools\sync_to_modtools.ps1  →  build  →  PLAY_TEST_MAP.bat
+```
+
+- **Always sync before building** (the linker compiles the *deployed* copy).
+- After editing geometry in **Radiant**, run `.\tools\sync_to_modtools.ps1 -Reverse`
+  to pull the `.map` back into the repo (the repo is the source of truth).
+- The runtime oracle is `<game>\console_mp.log` (server `IPrintLnBold` shows as
+  `[ SCRIPTER]` lines). Custom **LUI** errors show on-screen as `UI Error <code>`,
+  not in the log.
+
+---
+
+## 6. Working with Claude Code
+
+- **`CLAUDE.md` loads automatically** — it's the project brief + a "hard-won facts,
+  do not re-learn" list (BO3 GSC dialect, the LUI/L3akMod pipeline, launch fixes).
+  Skim it before your first task; it'll save you the traps we already hit.
+- **Lint before every build** — these catch most mistakes statically:
+  ```powershell
+  node tools\lint_gsc_xref.js        # cross-refs, #using, function pointers resolve
+  .\tools\preflight_windows.ps1      # GSC structure (ternaries, namespace order, braces) + machine state
+  ```
+- **Verify engine functions against `tmp/bo3_stock_ref` before using them.** Dev
+  mode is `abort_on_error TRUE`: one unresolved/misspelled engine call is a *fatal*
+  load error. The lint validates our own cross-refs but **not** engine builtins —
+  grep the stock mirror to confirm a function exists + its signature.
+- **Conventions:** every substantive change gets a **CHANGELOG.md** entry + the
+  relevant doc updated *in the same commit*. Branch off `main`; don't commit/push
+  unless asked.
+
+---
+
+## 7. Where to read more
+
+| You want… | Go to |
+|---|---|
+| The design spec (what every system should do) | [REQUIREMENTS.md](REQUIREMENTS.md) |
+| Project brief + hard-won facts (Claude reads this) | [CLAUDE.md](CLAUDE.md) |
+| Portable BO3 mapmaking reference | [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md) |
+| Full Windows setup + publish | [SETUP_WINDOWS.md](SETUP_WINDOWS.md) |
+| Launch troubleshooting | [docs/23_launch_runbook.md](docs/23_launch_runbook.md) |
+| Custom LUI / HUD pipeline | [docs/28_lui_pipeline.md](docs/28_lui_pipeline.md) |
+| The code map | [scripts/zm/zm_abandoned_cyber_city/README.md](scripts/zm/zm_abandoned_cyber_city/README.md) |
+| What's left to build | [docs/20_requirements_checklist.md](docs/20_requirements_checklist.md) |
+
+Stuck? Run `.\tools\preflight_windows.ps1` first — it usually names the exact
+problem. Then check the Troubleshooting table in
+[SETUP_WINDOWS.md](SETUP_WINDOWS.md). Welcome aboard.

@@ -54,7 +54,7 @@ with ours - that is correct and intended).
 | `Could not find script scripts/zm/zm_abandoned_cyber_city/_acc_...` | The linker dislikes the module subfolder (rare; most community maps use subfolders fine). Fallback: move all `_acc_*.gsc` from `scripts\zm\zm_abandoned_cyber_city\` up into `scripts\zm\`, update the 18 `scriptparsetree` paths in the `.zone`, and the `#using scripts\zm\zm_abandoned_cyber_city\_acc_X;` lines to `#using scripts\zm\_acc_X;` in all files. Mechanical, ~10 min. |
 | Missing asset on a `.zone` line | Comment the line out with `//` and note it. |
 | Sound zone error mentioning `user_aliases.csv` / `ambient_mod.csv` | Comment out the `sound,zm_abandoned_cyber_city` line in the `.zone` for the first build (re-add when sound work starts in Phase 5). |
-| Radiant/BSP error on the `.map` | Shouldn't happen (the map is the stock template). If it does, the sync copy corrupted line endings - re-clone with `git config core.autocrlf false` and re-sync. |
+| Radiant/BSP error on the `.map` | The map is the stock template plus a small hand-authored addition (one wall brush, one chalk patch mesh, five script_structs - see CHANGELOG "start-room gameplay set"). If the error points at brush 19/20 or entities 33-37, suspect that addition; otherwise the sync copy corrupted line endings - re-clone with `git config core.autocrlf false` and re-sync. |
 
 After fixing, use **Compile Scripts** (30-90s) instead of the full build when
 only `.gsc` changed.
@@ -70,6 +70,52 @@ only `.gsc` changed.
 **Playtest the loop**: survive round 1-2, buy the barricade debris, confirm
 zombies path through the window, confirm points award on kills (40/hit-kill
 profile is ours, not stock - see docs/06_mechanics.md).
+
+**7-zone greybox walkthrough** (2026-06-12 layout — all corridors open, no
+buyable doors yet; zones: Spawn ↔ Market/Alley ↔ Corp ↔ Vault/Roof ↔ Lab):
+
+- Walk Spawn → west corridor → Market (Mystery Box, stall row), north →
+  Corp (ICR-1 + Sheiva wallbuys, power switch east wall, fountain + S-curve),
+  east → Vault (Frag wallbuy) / west → Roof (Drakon wallbuy, central
+  obstacle), north from either → Lab (all 9 perk machines, PaP, Bowie).
+- Confirm zombies spawn in whichever zone you stand in (zone volumes +
+  risers per zone; spawn lists rebuild ~1s after you cross a corridor).
+- **Mega Bottle loop test**: launch with `+set acc_test_boss 1` (or set the
+  dvar in console) → a 1500 HP Juggernaut Host spawns ~10s into every round
+  from round 2 (boss headshot rule = 3x). Kill it → every player gets +1
+  Mega Bottle (gold counter, bottom left). Buy a perk in the Lab, then look
+  at the same machine again — a second hint ("Mega upgrade [1 Bottle]")
+  appears only while you own that perk + hold a bottle. Apply and verify:
+  Jug → +100 max HP (survive ~2 extra hits); Stamin-Up → visibly faster;
+  Deadshot → bigger headshot numbers (1.75x vs 1.5x); Widow's Wine → melee
+  one-hits regular zombies; Aura Blast → 800u radius, 2 charges, 60s CD.
+
+**Original single-room notes** (superseded, kept for the first compile):
+
+- **Perk machines (9 of 9)**: north wall row west→east: Quick Revive, Jug,
+  Speed Cola, Double Tap, Stamin-Up, Mule Kick, **Deadshot**; south perimeter
+  wall: **Widow's Wine**; west perimeter wall: **Aura Blast** (shows as the
+  stock "nuke" vending model and a raw `ZOMBIE_PERK_AURABLAST` hint token -
+  both known greybox placeholders). Deadshot, Widow's Wine, Aura Blast are
+  hand-authored (inline structs), the other six are template prefabs.
+- **Aura Blast ability test**: buy it (2,500), then **crouch + melee**. Expect
+  "AURA BLAST" on screen and every regular zombie within 400u frozen ~3s;
+  pressing again inside 120s prints the recharge countdown instead.
+- **Wallbuys (6)**: extended north wall: **ICR-1** (chalk) and **Haymaker 12**
+  (no chalk - walk the wall for the hint prompt); south perimeter wall
+  west→east: **Bowie Knife**, **Drakon** (sniper-slot stand-in for the
+  Intervention import), **Sheiva** (semi-auto-AR-slot stand-in for the M14 EBR
+  import), **Frag Grenade** (tactical-slot stand-in for the custom EMP
+  grenade) - all four with chalk. Buy everything; expect stock CSV prices.
+  Known TODO(acc-geom): Haymaker and Drakon display the ICR-1 world model
+  after purchase (their real model names are unverified until the APE check;
+  Bowie/Sheiva/Frag use verified models from shipped sources).
+- **Mystery Box**: NW corner against the wall (template `box_start`). Hit it a
+  few times - weapons spawn, box never flies away (single-chest map). The
+  box-only roster guns that exist in stock (Brecci, XR-2, Locus, Drakon) come
+  through the stock box pool; curation to our roster is a Phase 3 script pass.
+- **Perimeter**: the whole template floor slab is now walled in (~2150x2000
+  arena). Confirm you can't walk off the slab edge anywhere.
 
 **Known first-run behaviors** (fine, not bugs):
 - Early rounds are faster/denser than stock - that's `_acc_early_round_pacing`.

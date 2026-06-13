@@ -2,13 +2,14 @@
 
 A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, skill expression, and replayability**. Inspired by Ameliorama I/II and Machin[a], with a deliberate bias toward systems depth over art and narrative.
 
-> **Status**: Design complete, Phase 3 code scaffolded, starting-room build kit ready (Radiant .map + BO3-correct scripts + zone manifest). No playable build verified yet - needs a Windows machine with BO3 Mod Tools to compile. Follow [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md).
+> **Status**: Builds + runs on Windows with the BO3 Mod Tools. Full 7-zone greybox + all systems compile and load in-game; in-game validation + UI polish (custom LUI HUD) in progress. Recent state: [CHANGELOG.md](CHANGELOG.md).
 
 ## Start Here
 
+- **New contributor? Want it running?** → **[ONBOARDING.md](ONBOARDING.md)** — clone, build, play, and contribute (with Claude Code) in a few steps.
 - **What are the requirements?** → **[REQUIREMENTS.md](REQUIREMENTS.md)**. This is the authoritative spec for every system. Design changes go in the doc first, code follows.
 - **What changed recently?** → [CHANGELOG.md](CHANGELOG.md).
-- **Waiting on Windows hardware?** The repo is pre-scaffolded; when the laptop arrives, follow [SETUP_WINDOWS.md](SETUP_WINDOWS.md).
+- **Setting up a Windows dev box?** Full install + publish walkthrough: [SETUP_WINDOWS.md](SETUP_WINDOWS.md).
 - **Want to read the design cold?** Start with [docs/00_overview.md](docs/00_overview.md) then follow the numbered docs.
 - **Want to see the code?** Start with [scripts/zm/zm_abandoned_cyber_city/README.md](scripts/zm/zm_abandoned_cyber_city/README.md).
 

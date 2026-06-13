@@ -27,6 +27,9 @@
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
 #using scripts\zm\_zm_perk_doubletap2;
 #using scripts\zm\_zm_perk_deadshot;
+// [acc] Client half of the cherry pipeline Aura Blast hijacks - must match
+// the entry .gsc #using or clientfield registration mismatches at load.
+#using scripts\zm\_zm_perk_electric_cherry;
 #using scripts\zm\_zm_perk_juggernaut;
 #using scripts\zm\_zm_perk_quick_revive;
 #using scripts\zm\_zm_perk_sleight_of_hand;
@@ -47,8 +50,17 @@
 
 #using scripts\zm\zm_usermap;
 
+// [acc] Client half of the LUI pipeline foundation - its REGISTER_SYSTEM
+// autoexec registers the clientuimodel mirror (see _acc_lui.csc).
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+
 function main()
 {
+	// [acc] Register our custom LUI HUD overlay with the client LUI VM before the
+	// framework boots. Dot-path matches ui/uieditor/menus/hud/acc_hud.lua and the
+	// GSC #precache("lui_menu","acc_hud") / OpenLUIMenu("acc_hud").
+	LuiLoad( "ui.uieditor.menus.hud.acc_hud" );
+
 	zm_usermap::main();
 
 	include_weapons();

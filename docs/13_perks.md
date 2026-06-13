@@ -159,7 +159,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 **Mechanics**
 
-- **Activation**: perk-ability hotkey; `bind g notify acc_perk_ability` (PC) until LUI.
+- **Activation**: **crouch + melee chord** until the Phase 4 LUI keybind (BO3 has no console command that fires a script notify — VERIFIED, see `_acc_weapon_abilities.gsc`, whose weapon abilities own the ADS+melee chord; Aura Blast deliberately uses a different chord).
 - **Base — radius 400u, stun 3s**, CD **120s** from activation.
 - **Enemy rules (base)**: zombies — full stun; shielded elites — shield down for stun; teleporters — no teleport; EMP elites — **1s** stun; mini-boss — **50%** duration (~1.5s); **full boss — immune**.
 - **Mega — Mega Man**: **800u**; **60s** CD; **2 charges**; **bosses take stun/interrupt** per tuning (not immune). TODO(acc-impl): boss-specific duration cap.
@@ -366,6 +366,18 @@ A player with **all 9 perks** + good Cyberware + boss items + PaP L5 + Tier 5 FA
 Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons = our peak power fantasy. Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
 
 ## Implementation Status
+
+**Implemented (greybox)**: [`_acc_perk_aura_blast.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc)
+— Aura Blast base tier is live by hijacking the stock-but-unfinished
+`_zm_perk_electric_cherry` module (mod tools ship it with Treyarch's own
+"TODO update these to proper settings" placeholders). The stock module
+provides the full registered machine/bottle/clientfield pipeline for
+`specialty_electriccherry`; our module overwrites cost (2,500), hint string,
+and the give/take threads with the Aura Blast ability (400u / 3s stun / 120s
+CD / bosses immune, crouch+melee activation). Machine in Radiant =
+`zm_perk_machine` struct with `script_noteworthy "specialty_electriccherry"`,
+model `p7_zm_vending_nuke` (stock placeholder; custom machine model is Phase 5
+art). Mega tier (Mega Man) and HUD cooldown ring remain Phase 3/4.
 
 Phase 3 Planned: `_acc_perks.gsc` module to be authored. Responsibilities:
 

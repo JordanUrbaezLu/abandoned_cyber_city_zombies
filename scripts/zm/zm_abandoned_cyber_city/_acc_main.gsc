@@ -35,6 +35,13 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
 
@@ -63,6 +70,12 @@ function init()
     acc_utility::log( "init start" );
 
     acc_early_round_pacing::init();
+    acc_coop_scaling::init();
+
+    // Decontamination must arm its acc_round_start listener before
+    // watch_round_transitions below can fire the first one; it also rolls
+    // the per-run seal permutation.
+    acc_decontamination::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.
@@ -82,8 +95,28 @@ function init()
     // Damage hooks go last so they sit on top of any hook other modules register.
     acc_damage::init();
 
+    // Rampage Inducer: registers its on_ai_spawned sprint hook + activation
+    // watchers (dvar `acc_rampage` / optional in-map trigger). Inert until on.
+    acc_rampage_inducer::init();
+
+    // Perk benefit descriptions (base + Mega) shown at the machine.
+    acc_perk_info::init();
+
+    // Player + boss health bars.
+    acc_health_bars::init();
+
+    // 5-tier Pack-a-Punch (tier damage ladder + HUD + benefit text).
+    acc_pap_levels::init();
+
+    // Dev/test harness LAST so it can override caps (perk limit) set earlier.
+    // Self-gates on the `acc_dev` dvar; no-ops entirely in normal play.
+    acc_dev::init();
+
     level thread watch_round_transitions();
 
+    // Read by the entry-script status banner to confirm the full _acc_ init chain
+    // completed (no module init threw and skipped the rest).
+    level.acc_init_complete = true;
     acc_utility::log( "init complete" );
 }
 

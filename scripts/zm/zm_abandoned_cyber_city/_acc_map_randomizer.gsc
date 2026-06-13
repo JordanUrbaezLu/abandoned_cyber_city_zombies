@@ -5,11 +5,28 @@
 //
 // Runs in pre_init(). Rolls a state struct that every other system can read
 // from `level.acc_map_state`. Logs the roll for debuggability.
+//
+// TIMING CONTRACT (load-bearing - do not move these calls):
+//   - pre_init() is called by acc_main::pre_init() from the entry script
+//     (zm_abandoned_cyber_city.gsc:128), i.e. INSIDE entry main(), AFTER
+//     zm_usermap::main() returned and BEFORE main() itself returns.
+//   - apply_power_switch_side() must run before entry main() returns: stock
+//     zm_power threads its switch logic from a REGISTER_SYSTEM_EX *postload*
+//     func that the engine runs in CodeCallback_FinalizeInitialization, after
+//     main() (see VERIFIED notes on the function).
+//   - apply_wallbuy_pool() must run after zm_usermap::main() (the stock
+//     wallbuy stubs it rewrites are built inside it) and before the first
+//     player can approach a wallbuy (purchase triggers are built lazily per
+//     player). pre_init() satisfies both. See the long note on the function
+//     for why we deliberately do NOT rewrite the Radiant structs before the
+//     stock read point.
 // =============================================================================
 
 #using scripts\shared\array_shared;
 #using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
+
+#insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_weapons;
 
@@ -41,8 +58,18 @@ function pre_init()
 
     log_state( state );
 
-    // Apply state to the world (open the correct door, close the other, etc.)
-    // after _zm has initialized zones. Defer to post-init via thread+flag.
+    // Pre-tick applies. Both MUST happen synchronously here (see the timing
+    // contract in the file header + the VERIFIED notes on each function):
+    //   - power: delete the dead side's stock switch trigger BEFORE the
+    //     zm_power postload thread collects it.
+    //   - wallbuys: rewrite the stock purchase stubs BEFORE any player
+    //     proximity builds a purchase trigger from them.
+    apply_power_switch_side( state.power_switch_side );
+    apply_wallbuy_pool( state.wallbuy_pool );
+
+    // Apply the remaining state to the world (PaP blocker brushes, dead-side
+    // emergency-drop trigger disable, box pool registration) after _zm has
+    // initialized. Defer to post-init via thread+flag.
     level thread apply_state_when_ready();
     // Per-round perk rotation listener.
     level thread watch_round_for_perk_rotation();
@@ -55,62 +82,147 @@ function pre_init()
 function roll_power_switch_side()
 {
     // A (Corp) or B (Server Vault). 50/50.
-    return acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault";
+    return ( acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault" );
 }
 
 function roll_pap_approach()
 {
     // "server" or "roof" - the BLOCKED side this run.
-    return acc_utility::acc_rand_int( 2 ) == 0 ? "server" : "roof";
+    return ( acc_utility::acc_rand_int( 2 ) == 0 ? "server" : "roof" );
 }
 
 function roll_wallbuy_pool()
 {
-    // Source of truth: docs/05_weapons.md (16-weapon roster).
+    // Source of truth: docs/05_weapons.md (weapon roster) +
+    // docs/07_replayability.md (per-run wallbuy randomization).
     //
     // Rule: wallbuys dispense NORMAL-tier weapons only. Bad + Strong tier
-    // weapons live in the Mystery Box (see register_mystery_box_pool).
+    // weapons live in the Mystery Box (see register_mystery_box_pool). If a
+    // box-pool weapon gets rolled onto a wall this run, it is skipped during
+    // box registration so it stays wall-exclusive (see is_rolled_onto_wall).
     //
-    // v1.0 ships with exactly one normal per category so most slots are
-    // single-candidate. The pool function exists so post-1.0 category
-    // expansions plug in without changing callers.
-    pool = [];
-
+    // SLOT KEYS are the Radiant-authored zombie_weapon_upgrade defaults of the
+    // placed wallbuy structs (start-room gameplay set). The key doubles as the
+    // slot's identity when apply_wallbuy_pool matches structs, so each placed
+    // wallbuy MUST keep a unique default weapon:
+    //   ar_accurate (ICR-1), shotgun_fullauto (Haymaker 12),
+    //   sniper_fastsemi (Drakon), ar_marksman (Sheiva),
+    //   frag_grenade (Frag), bowie_knife (Bowie, targetname bowie_upgrade).
+    //
     // VERIFIED(acc): stock BO3 weapon names are class-based and unsuffixed
     // (every GetWeapon("...") in the stock mirror: "pistol_standard",
     // "shotgun_fullauto", "bowie_knife"...). The old "<marketing>_zm" names
-    // exist nowhere in stock - that's the BO1/BO2 convention. The marketing ->
-    // class mapping below comes from the mod tools GDT naming; confirm the
-    // AR/sniper entries against the weapon GDT on first compile.
+    // exist nowhere in stock - that's the BO1/BO2 convention. Candidate-name
+    // evidence (only names with verified evidence are used - others stay
+    // single-candidate with a TODO):
+    //   ar_accurate/ar_standard/ar_longburst/sniper_fastsemi/sniper_fastbolt/
+    //   shotgun_fullauto/bowie_knife: docs/19_stock_api_verification.md:41
+    //   ("ar_standard is the KN-44!").
+    //   ar_standard additionally: GetWeapon("ar_standard") in stock
+    //   scene_shared.gsc:72 + _character_customization.csc:388.
+    //   shotgun_precision: stock zombies AI code matches the class name
+    //   (mechz.gsc:1471 isSubStr(weapon.name, "shotgun_precision")).
+    //   ar_marksman/frag_grenade: docs/20_requirements_checklist.md:263.
+    // Marketing identities for the alternates (KN-44, KRM-262, Locus, XR-2)
+    // come from mod tools GDT naming - confirm on first compile (the class
+    // names themselves are the load-bearing part).
+    //
+    // Stock candidates ride into the fastfile via the zm_levelcommon_weapons
+    // csv stringtable (docs/16_gsc_reference.md:345) - no weaponfull zone
+    // lines needed. roll_wallbuy_slot() still validates each candidate
+    // against the live weapon table and falls back to the slot default if a
+    // candidate has no row, so a missing csv entry degrades to the Radiant
+    // gun instead of tripping the stock asserts (_zm_weapons.gsc:1419/:1426).
+    pool = [];
 
-    // Service Alley: shotgun (Haymaker 12, stock BO3 auto-shotgun).
-    pool[ "alley_shotgun" ] = acc_utility::acc_weighted_pick( array(
-        weighted( 100, "shotgun_fullauto" )
+    // Full-auto AR slot (Radiant default: ICR-1).
+    // TODO(acc-verify): ar_cqb (suspected HVK-30) has NO evidence in the
+    // stock mirror or docs - add it as a third candidate only after the name
+    // is confirmed against the weapon GDT on the Windows box.
+    pool[ "ar_accurate" ] = roll_wallbuy_slot( "ar_accurate", array(
+        weighted( 100, "ar_accurate" ),   // ICR-1 (Radiant default)
+        weighted( 100, "ar_standard" )    // KN-44
     ) );
 
-    // Corporate Plaza (slot A): full-auto AR (ICR-1, stock).
-    // NOTE: "ar_standard" is the KN-44; the ICR-1 is "ar_accurate".
-    pool[ "corp_ar_full_auto" ] = acc_utility::acc_weighted_pick( array(
-        weighted( 100, "ar_accurate" )
+    // Shotgun slot (Radiant default: Haymaker 12).
+    pool[ "shotgun_fullauto" ] = roll_wallbuy_slot( "shotgun_fullauto", array(
+        weighted( 100, "shotgun_fullauto" ),  // Haymaker 12 (Radiant default)
+        weighted( 100, "shotgun_precision" )  // KRM-262 (per GDT naming)
     ) );
 
-    // Corporate Plaza (slot B): semi-auto AR (M14 EBR, MW2 import).
-    pool[ "corp_ar_semi_auto" ] = acc_utility::acc_weighted_pick( array(
-        weighted( 100, "m14ebr_zm" )
+    // Sniper slot (Radiant default: Drakon).
+    pool[ "sniper_fastsemi" ] = roll_wallbuy_slot( "sniper_fastsemi", array(
+        weighted( 100, "sniper_fastsemi" ),   // Drakon (Radiant default)
+        weighted( 100, "sniper_fastbolt" )    // Locus
     ) );
 
-    // Rooftop Helipad: sniper (Drakon, stock BO3 semi-auto).
-    pool[ "roof_sniper" ] = acc_utility::acc_weighted_pick( array(
-        weighted( 100, "sniper_fastsemi" )
+    // Semi-auto AR slot (Radiant default: Sheiva - interim stand-in for the
+    // Phase 4 m14ebr_zm import, see docs/20_requirements_checklist.md:304).
+    pool[ "ar_marksman" ] = roll_wallbuy_slot( "ar_marksman", array(
+        weighted( 100, "ar_marksman" ),   // Sheiva (Radiant default)
+        weighted( 100, "ar_longburst" )   // XR-2
     ) );
 
-    // Near-perk melee upgrade (Bowie Knife, stock BO3).
-    pool[ "melee_upgrade" ] = "bowie_knife";
+    // Lethal slot (Radiant default: Frag). Single-candidate.
+    // TODO(acc-verify): no second stock ZM lethal wallbuy name has evidence
+    // yet - expand once a candidate is verified on the Windows box.
+    pool[ "frag_grenade" ] = "frag_grenade";
 
-    // Server Vault tactical re-ammo (EMP Grenade, custom).
-    pool[ "vault_tactical" ] = "emp_grenade_zm";
+    // Near-perk melee upgrade (Bowie Knife, stock BO3). Fixed by design -
+    // the melee purchase flow has its own stub plumbing, so the bowie slot
+    // does not participate in the roll. (Its struct uses targetname
+    // bowie_upgrade, _zm_weapons.gsc:843.)
+    pool[ "bowie_knife" ] = "bowie_knife";
+
+    // NOTE: legacy v1.0 keys m14ebr_zm (Corp slot B) and emp_grenade_zm
+    // (Vault tactical) are Phase 4 imports with no placed struct yet - they
+    // re-enter the pool when their GDTs + structs exist (docs/20:303-306).
 
     return pool;
+}
+
+// Roll one wallbuy slot from a weighted candidate list, keeping only
+// candidates that actually have a row in the loaded weapon table. Falls back
+// to the slot's Radiant default when validation eliminates everything (or
+// when the table is not up yet, which would mean pre_init ran before
+// zm_usermap::main - an ordering regression we degrade through, not crash).
+function roll_wallbuy_slot( slot_default, candidates )
+{
+    valid = [];
+    for ( i = 0; i < candidates.size; i++ )
+    {
+        if ( weapon_in_zm_table( candidates[ i ].value ) )
+        {
+            valid[ valid.size ] = candidates[ i ];
+        }
+        else
+        {
+            acc_utility::log( "wallbuy slot " + slot_default +
+                              ": candidate missing from weapon table: " +
+                              candidates[ i ].value );
+        }
+    }
+
+    if ( valid.size == 0 )
+    {
+        return slot_default;
+    }
+
+    return acc_utility::acc_weighted_pick( valid );
+}
+
+function weapon_in_zm_table( weapon_name )
+{
+    // VERIFIED(acc): level.zombie_weapons is keyed by weapon OBJECT, and the
+    // stock cost/hint getters assert table membership instead of returning a
+    // default (_zm_weapons.gsc:1417-1429) - validate before ever calling them.
+    if ( !isdefined( level.zombie_weapons ) )
+    {
+        return false;
+    }
+
+    wpn = GetWeapon( weapon_name );
+    return isdefined( wpn ) && isdefined( level.zombie_weapons[ wpn ] );
 }
 
 // Mystery Box pool. Registered once on map load; roll is handled by stock
@@ -142,6 +254,16 @@ function register_mystery_box_pool()
     for ( i = 0; i < box_weapons.size; i++ )
     {
         w = box_weapons[ i ];
+
+        // Keep the box/wall split honest: ar_longburst and sniper_fastbolt
+        // are also wallbuy-slot candidates. Whichever of them got rolled
+        // onto a wall this run stays wall-exclusive (docs/05 tier rule).
+        if ( is_rolled_onto_wall( w ) )
+        {
+            acc_utility::log( "  - box weapon skipped (on a wallbuy this run): " + w );
+            continue;
+        }
+
         // VERIFIED(acc): at this point (post-blackscreen) the box reads the
         // live snapshot level.zombie_weapons[wpn].is_in_box, re-evaluated per
         // spin (_zm_magicbox.gsc:1273/1222 -> _zm_weapons.gsc:1492). Each
@@ -160,6 +282,26 @@ function register_mystery_box_pool()
     }
 
     level.acc_mystery_box_weapons = box_weapons;
+}
+
+function is_rolled_onto_wall( weapon_name )
+{
+    if ( !isdefined( level.acc_map_state ) ||
+         !isdefined( level.acc_map_state.wallbuy_pool ) )
+    {
+        return false;
+    }
+
+    keys = getarraykeys( level.acc_map_state.wallbuy_pool );
+    for ( i = 0; i < keys.size; i++ )
+    {
+        if ( level.acc_map_state.wallbuy_pool[ keys[ i ] ] == weapon_name )
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,9 +327,14 @@ function get_full_perk_roster()
         "specialty_doubletap2",                   // Double Tap 2.0
         "specialty_staminup",                     // Stamin-Up (retuned)
         "specialty_additionalprimaryweapon",      // Mule Kick
-        "specialty_acc_deadshot",                 // Deadshot (custom)
-        "specialty_acc_widows_wine",              // Widow's Wine (custom)
-        "specialty_acc_aura_blast"                // Aura Blast (custom active)
+        // VERIFIED(acc) 2026-06-13: these MUST be the registered specialty
+        // strings used by every machine / HasPerk / Mega flag / cost / damage
+        // hook - NOT custom 'specialty_acc_*' names (which matched nothing, so
+        // the rotation silently broke for these 3 perks). Deadshot + Widow's
+        // Wine are stock modules; Aura Blast hijacks the electric-cherry perk.
+        "specialty_deadshot",                     // Deadshot (custom-tuned)
+        "specialty_widowswine",                   // Widow's Wine (+ boosts)
+        "specialty_electriccherry"                // Aura Blast (over electric cherry)
     );
 }
 
@@ -222,14 +369,13 @@ function watch_round_for_perk_rotation()
 {
     level endon( "end_game" );
 
-    // DESIGN (docs/03_layout.md, docs/13_perks.md): perk machines must re-roll
-    // AFTER the decontamination phase (20s evac + seal), not on acc_round_start.
-    // TODO(acc-implement): waittill( "acc_decontamination_complete", round_number );
-    // Phase 3 stub still rolls on acc_round_start — replace when
-    // _acc_decontamination.gsc exists.
+    // DESIGN (docs/03_layout.md, docs/13_perks.md): perk machines re-roll
+    // AFTER the decontamination phase (20s evac + seal on rounds 1-4, the
+    // nominal 0s tick on 5+), never on acc_round_start. _acc_decontamination
+    // emits acc_decontamination_complete with the round number EVERY round.
     for ( ;; )
     {
-        level waittill( "acc_round_start", round_number );
+        level waittill( "acc_decontamination_complete", round_number );
         roll_perk_rotation( round_number );
         apply_perk_rotation_to_machines( level.acc_perk_rotation );
     }
@@ -279,9 +425,12 @@ function apply_state_when_ready()
     // VERIFIED(acc): flag, not notify - see _acc_main.gsc note.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    apply_power_switch_side( level.acc_map_state.power_switch_side );
+    // NOTE: apply_power_switch_side and apply_wallbuy_pool already ran
+    // synchronously in pre_init() - both have pre-tick timing requirements
+    // (see their VERIFIED notes). Only the pieces that are safe (and in the
+    // PaP case, intended) at blackscreen run here.
+    disable_dead_side_emergency_triggers( level.acc_map_state.power_switch_side );
     apply_pap_approach( level.acc_map_state.pap_approach );
-    apply_wallbuy_pool( level.acc_map_state.wallbuy_pool );
     apply_mystery_box_initial( level.acc_map_state.mystery_box_initial );
     // Perk rotation is NOT applied at map-load; it rolls per-round.
     // See watch_round_for_perk_rotation().
@@ -296,43 +445,274 @@ function apply_state_when_ready()
 
 function apply_power_switch_side( side )
 {
-    // Turn the LOSING side's handle into an inert prop.
-    dead_side = side == "corp" ? "vault" : "corp";
+    // Kill the LOSING side's stock power switch so its handle becomes an
+    // inert prop, leaving the live side 100% stock (hint, flip animation,
+    // sparks, "power_on" flag, perk unpause, doors, RecordMapEvent).
+    //
+    // Radiant contract: TWO stock power-switch prefab instances. Each inner
+    // trigger carries targetname use_elec_switch plus an instance-propagated
+    // script_string "corp" / "vault" (stock reads only target / script_int /
+    // script_noteworthy on these triggers, so script_string is free for us).
+    // Each trigger has exactly one companion elec_switch_fx struct.
+    //
+    // VERIFIED(acc): stock collects the switch triggers via
+    // GetEntArray("use_elec_switch","targetname") in electric_switch_init
+    // (_zm_power.gsc:41), threaded from zm_power's __main__ - a
+    // REGISTER_SYSTEM_EX *postload* func (_zm_power.gsc:24-37) that the
+    // engine runs in CodeCallback_FinalizeInitialization AFTER entry main()
+    // returns (callbacks_shared.gsc:540-543, system_shared.gsc:17-23). This
+    // function is called from pre_init(), i.e. still inside entry main(), so
+    // the Delete() lands before stock ever sees the trigger.
+    // VERIFIED(acc): deleting here (after zm_usermap::main()) cannot skew the
+    // power clientfields - "zombie_power_on"/"zombie_power_off" bit widths
+    // are computed from the use_elec_switch trigger COUNT in
+    // init_client_field_callback_funcs (_zm.gsc:1655-1661), which zm::init
+    // already called (_zm.gsc:352) inside zm_usermap::main(), before we run.
+    // The client sizes the same fields from the elec_switch_fx struct count
+    // (_zm.csc:329-336), which we never touch. Both sides keep counting 2 -
+    // map must ship exactly 2 triggers + 2 fx structs.
+    // VERIFIED(acc): do NOT put script_int on either trigger - zoned switches
+    // set flag "power_on"+N and never the global "power_on" flag every acc
+    // consumer waits on (_zm_power.gsc:728-737).
+    dead_side = ( side == "corp" ? "vault" : "corp" );
 
-    // TODO(acc-geom): Radiant should place two power-switch triggers with
-    // targetnames "acc_power_corp" and "acc_power_vault". Delete (or disable
-    // the trigger) on the dead side.
+    switch_trigs = getentarray( "use_elec_switch", "targetname" );
+    if ( switch_trigs.size == 0 )
+    {
+        acc_utility::log( "power: no stock use_elec_switch triggers in map yet" );
+        return;
+    }
+
+    killed = 0;
+    for ( i = 0; i < switch_trigs.size; i++ )
+    {
+        trig = switch_trigs[ i ];
+        if ( isdefined( trig.script_string ) && trig.script_string == dead_side )
+        {
+            trig delete();
+            killed++;
+        }
+    }
+
+    if ( killed == 0 )
+    {
+        acc_utility::log( "power: WARNING no use_elec_switch trigger tagged '" +
+                          dead_side + "' - both switches remain live" );
+        return;
+    }
+
+    acc_utility::log( "power: live switch = " + side + ", deleted " + killed +
+                      " dead-side trigger(s) (" + dead_side + ")" );
+}
+
+// The acc_power_corp / acc_power_vault triggers are SEPARATE entities owned
+// by _acc_emergency_drop (shard-spend drops at the live switch). The dead
+// side's copy is disabled for the run. This intentionally stays at
+// blackscreen (trigger state, no stock-init race).
+function disable_dead_side_emergency_triggers( side )
+{
+    dead_side = ( side == "corp" ? "vault" : "corp" );
+
     dead_triggers = getentarray( "acc_power_" + dead_side, "targetname" );
     for ( i = 0; i < dead_triggers.size; i++ )
     {
         dead_triggers[ i ] triggerenable( false );
     }
+
+    acc_utility::log( "power: disabled " + dead_triggers.size +
+                      " dead-side emergency trigger(s) (acc_power_" +
+                      dead_side + ")" );
 }
 
 function apply_pap_approach( blocked_side )
 {
-    // Block one of the two approaches with a prefab "welded door".
-    // TODO(acc-geom): Radiant should place two script_brushmodels named
-    // "acc_pap_block_server" and "acc_pap_block_roof", each hidden by default.
-    // Show the one matching the blocked_side.
+    // Radiant contract: two script_brushmodels named acc_pap_block_server /
+    // acc_pap_block_roof, authored VISIBLE + SOLID in the two lab corridors.
+    // Per run: the rolled side stays blocked, the other side opens.
+    open_side = ( blocked_side == "server" ? "roof" : "server" );
+
+    // Blocked side: re-assert visible+solid (already authored that way) and
+    // cut the AI navgrid.
+    // VERIFIED(acc): DisconnectPaths is called directly on solid
+    // script_brushmodel door pieces at stock door init
+    // (_zm_blockers.gsc:272-275 "if (self.classname == \"script_brushmodel\")
+    // self DisconnectPaths();").
     to_block = getentarray( "acc_pap_block_" + blocked_side, "targetname" );
     for ( i = 0; i < to_block.size; i++ )
     {
         to_block[ i ] show();
         to_block[ i ] solid();
+        to_block[ i ] disconnectpaths();
     }
+
+    // Unblocked side: hide, drop collision, reconnect the navgrid - same
+    // order stock uses when a door opens.
+    // VERIFIED(acc): stock door_buy open path runs NotSolid()
+    // (_zm_blockers.gsc:507) and then ConnectPaths() on script_brushmodel /
+    // script_model door pieces (_zm_blockers.gsc:511-517).
+    to_open = getentarray( "acc_pap_block_" + open_side, "targetname" );
+    for ( i = 0; i < to_open.size; i++ )
+    {
+        to_open[ i ] hide();
+        to_open[ i ] notsolid();
+        to_open[ i ] connectpaths();
+    }
+
+    if ( to_block.size == 0 && to_open.size == 0 )
+    {
+        acc_utility::log( "pap: no acc_pap_block_* brushes in map yet" );
+        return;
+    }
+
+    acc_utility::log( "pap: blocked=" + blocked_side + " (" + to_block.size +
+                      " brush(es)), open=" + open_side + " (" + to_open.size +
+                      " brush(es))" );
 }
 
 function apply_wallbuy_pool( pool )
 {
-    // TODO(acc-wallbuy): use _zm_weapons wallbuy API to set each slot's weapon.
-    // Radiant wallbuy prefabs need to accept a targetname we can look up, e.g.
-    // "acc_wb_spawn_pistol" -> sets that wallbuy's weapon to pool["spawn_pistol"].
+    // REAL slot randomization, applied to the stock purchase layer.
+    //
+    // WHERE STOCK READS THE STRUCTS (the read point we are working around):
+    // VERIFIED(acc): init_spawnable_weapon_upgrade reads the wallbuy structs
+    // via struct::get_array("weapon_upgrade"/"bowie_upgrade","targetname")
+    // (_zm_weapons.gsc:836,:842-843). It is NOT a REGISTER_SYSTEM_EX
+    // postload - _zm_weapons has no system registration at all; its init()
+    // runs synchronously INSIDE zm_usermap::main(): zm_usermap.gsc:144
+    // load::main() -> _load.gsc:79 zm::init() -> _zm.gsc:365
+    // zm_weapons::init() -> _zm_weapons.gsc:60 init_weapon_upgrade() ->
+    // :1382 init_spawnable_weapon_upgrade(). So by the time pre_init() runs,
+    // the structs have already been read.
+    //
+    // WHY WE DELIBERATELY DO NOT REWRITE THE STRUCTS BEFORE THAT READ:
+    // a pre-zm_usermap::main() rewrite of .zombie_weapon_upgrade would land
+    // before the read, but it is server-only, and the wallbuy CLIENTFIELD
+    // NAMES are built from .zombie_weapon_upgrade + origin on BOTH VMs:
+    // VERIFIED(acc): GSC registers "world" fields named
+    // zombie_weapon_upgrade+"_"+origin (_zm_weapons.gsc:904,:913) and the
+    // client registers the SAME names from ITS copy of the structs
+    // (_zm_weapons.csc:232,:243), with stock's own warning that the two
+    // constructions "must be matched in _zm_weapons.csc function init() or
+    // your level will not load" (_zm_weapons.gsc:839). A .csc cannot call
+    // .gsc (separate VMs), so the client copy can never see a server-side
+    // roll - a pre-read server rewrite provably diverges the registrations.
+    //
+    // WHY THE POST-READ STUB REWRITE IS FULLY EFFECTIVE INSTEAD:
+    // VERIFIED(acc): purchase triggers do not exist at init - they are built
+    // lazily per player from the unitrigger stub
+    // (check_and_build_trigger_from_unitrigger_stub, _zm_unitrigger.gsc:637;
+    // build_trigger_from_unitrigger_stub :665) which reads stub.cursor_hint /
+    // cursor_hint_weapon (:734-736), stub.hint_string/cost (:749-765) and
+    // copies stub.weapon onto the trigger (:800). The purchase logic itself
+    // reads self.weapon / self.stub.weapon (weapon_spawn_think,
+    // _zm_weapons.gsc:1994,:1996; prompt :1176-1178), and game-restart
+    // reset_wallbuys re-derives hint+cost from stub.weapon
+    // (_zm_weapons.gsc:1367-1369). The stubs live on the structs in
+    // level._spawned_wallbuys (struct at _zm_weapons.gsc:1021, stub attached
+    // at :1017). Rewriting struct+stub HERE - in pre_init, before any player
+    // exists - is therefore provably before any trigger is built, and never
+    // touches either VM's clientfield registration inputs.
+    //
+    // COSMETIC LIMIT (TODO(acc-art), Phase 4 .csc work): the client keeps the
+    // Radiant-default gun for everything visual - chalk decal, wall weapon
+    // model + bought-state model and blue-light fx (the client reads its own
+    // struct copy: _zm_weapons.csc:232,:300) - and the trigger box dims were
+    // sized from the default gun's model bounds (_zm_weapons.gsc:943-960).
+    // Same-category guns keep this unnoticeable; a proper re-skin needs a
+    // client module.
+    if ( !isdefined( level._spawned_wallbuys ) )
+    {
+        acc_utility::log( "wallbuy: level._spawned_wallbuys missing - stock " +
+                          "init has not run; slots keep Radiant defaults" );
+        return;
+    }
+
+    applied = [];
+    for ( i = 0; i < level._spawned_wallbuys.size; i++ )
+    {
+        s = level._spawned_wallbuys[ i ];
+        if ( !isdefined( s.zombie_weapon_upgrade ) )
+        {
+            continue;
+        }
+
+        // Slot identity = the Radiant-authored default weapon name.
+        slot_key = s.zombie_weapon_upgrade;
+        if ( !isdefined( pool[ slot_key ] ) )
+        {
+            acc_utility::log( "wallbuy: unmanaged slot (no pool entry): " + slot_key );
+            continue;
+        }
+
+        applied[ slot_key ] = true;
+
+        rolled = pool[ slot_key ];
+        if ( rolled == slot_key )
+        {
+            acc_utility::log( "wallbuy " + slot_key + " -> (kept default)" );
+            continue;
+        }
+
+        // Belt + braces: roll_wallbuy_slot already validated, but never let
+        // an unvalidated name reach the stock asserts
+        // (_zm_weapons.gsc:1419/:1426).
+        if ( !weapon_in_zm_table( rolled ) )
+        {
+            acc_utility::log( "wallbuy " + slot_key + ": rolled weapon '" +
+                              rolled + "' missing from weapon table - reverting" );
+            level.acc_map_state.wallbuy_pool[ slot_key ] = slot_key;
+            continue;
+        }
+
+        wpn = GetWeapon( rolled );
+
+        // Rewrite the server-side wallbuy record (consumed by reset paths and
+        // anything walking level._spawned_wallbuys)...
+        s.zombie_weapon_upgrade = rolled;
+        s.weapon = wpn;
+
+        // ...and the live purchase stub (consumed at lazy trigger build +
+        // purchase, see VERIFIED block above).
+        stub = s.trigger_stub;
+        if ( isdefined( stub ) )
+        {
+            stub.weapon = wpn;
+            if ( isdefined( stub.targetname ) && stub.targetname == "weapon_upgrade" )
+            {
+                // Mirrors stock's own stub setup for this targetname
+                // (_zm_weapons.gsc:966-977).
+                stub.cost = zm_weapons::get_weapon_cost( wpn );
+                stub.hint_string = zm_weapons::get_weapon_hint( wpn );
+                if ( !IS_TRUE( level.weapon_cost_client_filled ) )
+                {
+                    stub.hint_parm1 = stub.cost;
+                }
+                if ( isdefined( stub.cursor_hint ) && stub.cursor_hint == "HINT_WEAPON" )
+                {
+                    stub.cursor_hint_weapon = wpn;
+                }
+            }
+        }
+        else
+        {
+            acc_utility::log( "wallbuy " + slot_key + ": struct has no " +
+                              "trigger_stub (buildable/deferred?) - struct-only rewrite" );
+        }
+
+        acc_utility::log( "wallbuy " + slot_key + " -> " + rolled );
+    }
+
+    // Surface slots that rolled but have no struct in the map (geometry not
+    // placed yet, or filtered out by a script_noteworthy location mismatch -
+    // ours must be empty or 'zclassic_perks_start_room'-style gametype tags
+    // per _zm_weapons.gsc:880-897).
     keys = getarraykeys( pool );
     for ( i = 0; i < keys.size; i++ )
     {
-        // Intentional no-op until Radiant geometry exists.
-        acc_utility::log( "wallbuy " + keys[ i ] + " -> " + pool[ keys[ i ] ] );
+        if ( !isdefined( applied[ keys[ i ] ] ) )
+        {
+            acc_utility::log( "wallbuy: no placed struct for slot " + keys[ i ] );
+        }
     }
 }
 

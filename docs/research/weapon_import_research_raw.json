@@ -1,0 +1,540 @@
+{
+ "sweeps": [
+  {
+   "angle": "GitHub + GitHub-API + forum-archive sweep for downloadable BO3 Mod Tools weapon-port kits, anchored on the project's trusted ground-truth repo (FanaticSoftware/Skye-Weapon-Templates), resolving each of the 7 target weapons (B23R, Tac-19, AK-47, M14 EBR, G3, FN FAL, Intervention) to a concrete, verified download.",
+   "general_findings": "KEY STRUCTURAL FINDING: GitHub hosts almost NO actual BO3 weapon assets. GitHub API searches ('bo3 weapon port', 'bo3 weapons', '\"black ops 3\" weapons gdt', 'topic:bo3-mod-tools' — the topic returns total_count 0) surface only utilities, not asset kits. The BO3 weapon-port ecosystem distributes APE-ready kits via UGX-Mods/Modme forum threads with Mega/iCloud links; GitHub repos (like the trusted Skye-Weapon-Templates) are the WIRING layer (CSV weapon lists, zone lines, sound aliases, GSC) that pairs with those packs. The dominant — effectively canonical — source is TheSkyeLord's 'Skye's Weapon Ports to BO3 (Master Hub)' on UGX-Mods (791 weapons ported, thread live, last posts 2025; fetched via the SMF printpage endpoint after the normal URL 403'd). TARGET WEAPON RESOLUTION (all 7 covered by Skye): B23R = BO2 weapon, NOT MW3 (t6_b23r; individual port verified with wallbuy); Tac-19 = AW pack (s1_tac19, verified in AW template CSV + individual Mega link); AK-47 = available in 6 packs (iw4_/t5_/t6_/s1_/h1_ + CoD4 individual port with wallbuy); M14 EBR = MW2 pack (iw4_m14ebr + individual Mega link); G3 is NOT a WaW weapon — WaW has the Gewehr 43; the G3 exists as Skye's CoD4 port (verified individual iCloud link, includes wallbuy, PaP ACOG) and in the MWR pack (h1_g3, verified in MWR template CSV); FN FAL = BO1 pack (t5_fal) + BO2 pack (t6_fal semi-auto + t6_fal_osw with wallbuy, both individual Mega links verified); Intervention = MW2 pack (iw4_intervention + individual Mega link verified). NAMING CONVENTION (matters for this repo's CLAUDE.md weapon-name trap): Skye weapon names are engine-prefixed (iw4_=MW2, t5_=BO1, t6_=BO2, s1_=AW, h1_=MWR, t8_=BO4...), GDTs are skye_<prefix>_<gun> in source_data — these are CUSTOM weapons added via gamedata/weapons/zm/zm_levelcommon_weapons.csv stringtable, distinct from stock class-based names (ar_accurate etc.). Hub FAQ notes a ~150 weapons-per-map practical limit and that wallbuy price-0 bugs come from missing the zone stringtable line or CSV ordering. NEGATIVE RESULTS: treminaor/ugx-mod-bo3 contains NO weapon ports (only ugx_weapon_box xmodel_bin + HUD/gamemode assets); HarryBo21's WaW/BO2 gun-port pack (B23R, FN FAL, AK-47, M14 — no G3) has dead links per the Modme archive; EthanArmbrust/bo3-weapon-porter is a single weapon-reader.cpp GDT-conversion utility, no assets; no other GitHub repo with weapon GDT packs found. RECOMMENDED PATH FOR THIS PROJECT: on the Windows box, install the Skye per-game packs (or just the 7 individual weapon installers + their per-game Weapon Commons), copy the matching weapon lines from the Skye-Weapon-Templates per-game zm_levelcommon_weapons.csv + zone lines + share/raw sound aliases (skye_<game>_weapons.csv) into zm_abandoned_cyber_city, and set wallbuy structs' zombie_weapon_upgrade to the skye weapon names (e.g. iw4_intervention) — the templates repo gives known-good reference wiring for every line needed.",
+   "sources": [
+    {
+     "name": "FanaticSoftware/Skye-Weapon-Templates (GitHub — already this project's trusted ground-truth repo)",
+     "url": "https://github.com/FanaticSoftware/Skye-Weapon-Templates",
+     "weapons_covered": [
+      "AK-47 (iw4_ak47 MW2 / t5_ak47 BO1 / t6_ak47 BO2 / s1_ak47 AW / h1_ak47 MWR templates)",
+      "M14 EBR (iw4_m14ebr, MW2 template)",
+      "Intervention (iw4_intervention, MW2 template)",
+      "FN FAL (t5_fal BO1 / t6_fal + t6_fal_osw BO2 templates)",
+      "B23R (t6_b23r, BO2 template)",
+      "Tac-19 (s1_tac19, AW template)",
+      "G3 (h1_g3, MWR template — no WaW or CoD4 template exists in this repo)"
+     ],
+     "what_it_provides": "Wiring layer ONLY — no GDTs, no xmodel_bin, no raw sounds (verified via git/trees recursive API: tree not truncated). 15 per-game Launcher map templates under rex/templates/ ('01. ZM - Base' through '15. ZM - VG': Base, MW2, BO1, MW3, BO2, Ghosts, AW, IW, MWR, WW2, BO4, MW19, MW2R, BOCW, VG). Each template = map_source/zm/template.map + usermaps/template/{gamedata/weapons/zm/zm_levelcommon_weapons.csv (pre-filled per-game weapon list, e.g. MW2 = 43 iw4_* weapons), scripts/zm/template.gsc|.csc (inspect-script wiring, Widows Wine, Spare Change, better Max Ammo), sound/zoneconfig/template.szc, zone_source/template.zone (pre-lists 85+ weapon asset lines + the stringtable line)}. Plus share/raw sound aliases skye_<game>_weapons.csv (14 games) and lilrobot's _inspectable_weapons.gsc. Releases v1.0.0–v1.0.4 (.rar, latest 2025-03-26: https://github.com/FanaticSoftware/Skye-Weapon-Templates/releases/download/WpnTemplates-v1.04/Fanatic-SkyeWeaponTemplates.v1.0.4.rar). Designed to pair with TheSkyeLord's asset packs which must be installed separately.",
+     "install_steps": "Option A (new map): drop the chosen game's template into BO3 Launcher's template dir and create map from it. Option B (existing map like zm_abandoned_cyber_city): install the matching Skye weapon pack(s) first, then copy from the template the weapon lines from gamedata/weapons/zm/zm_levelcommon_weapons.csv into your map's csv, the weapon + stringtable lines from zone_source/template.zone into your .zone, the skye_<game>_weapons.csv alias from share/raw/sound/aliases, and reference template.szc for the sound zone config. Per-game CSV raw URLs verified, e.g. https://raw.githubusercontent.com/FanaticSoftware/Skye-Weapon-Templates/main/rex/templates/02.%20ZM%20-%20MW2/usermaps/template/gamedata/weapons/zm/zm_levelcommon_weapons.csv",
+     "license_permission": "No LICENSE file (GitHub API license: null). README credits required parties: 'TheSkyeLord - For his Weapons of course; LilRobot - Weapon Inspect Script'. Community norm: credit both in map credits.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Skye's Weapon Ports to BO3 (Master Hub) — TheSkyeLord, UGX-Mods (THE asset source; 791 weapons)",
+     "url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/",
+     "weapons_covered": [
+      "B23R (BO2 pack)",
+      "Tac-19 (AW pack)",
+      "AK-47 (MW2, BO1, BO2, AW, MWR, CoD4 packs)",
+      "M14 EBR (MW2 pack)",
+      "G3 (CoD4 pack + MWR pack)",
+      "FN FAL (BO1 pack; BO2 pack as FAL + FAL OSW)",
+      "Intervention (MW2 pack)"
+     ],
+     "what_it_provides": "Full APE-ready kits per game: GDTs (source_data, all named skye_*), xmodel_bin (model_export\\skye_ports), xanims (xanim_export\\skye_ports), sounds (sound_assets\\skye_ports + share\\raw\\sound\\templates), FX (share\\raw\\fx\\skye_efx), wallbuy chalk prefabs (map_source\\_prefabs\\zm\\skye_prefabs), per-weapon README with inspect-script lines. Pack links (verified live in thread, fetched 2026-06-12 via printpage): BO1 https://mega.nz/file/QXJ3lKxA#Yv9y9Jxn3h3Wfi9GRq6UaLpT8Ih516-AYLrZcr4djvY | BO2 https://mega.nz/file/JXRnAKyB#TxIt1n5FsS87n8Ak9NmT-xO3Zpr79DhzANqvwZBEd0U | MW2 https://mega.nz/file/QfZS0YBY#mOyV6oL8Hk-SqK_FHoLghwH_qGPadctOd217KBN5ANM | AW https://mega.nz/file/BbJjmKSB#K9k-S_odfssjY1n6vF0bYg0WK390788PUxQZBIxyUtw | MWR https://www.icloud.com/iclouddrive/065dY5F1Lzdvx89EFhm95DgVQ#Skye's_MWR_Pack | WaW https://www.icloud.com/iclouddrive/0ae4cDnKzb-OWkdDtpv6UBogg#Skye's_WaW_Pack | CoD4 https://www.icloud.com/iclouddrive/03cewx7tOpC7CZziZrs7eFPPg#Skye's_CoD4_Pack | plus MW3/Ghosts/IW/WWII/BO4/MW19/MW2R/BOCW/VG. Optional Inspectable Weapons Common: https://mega.nz/file/AWICGIoD#1mLQIO2tnC4eSBZf3y9M4Fys__ZWfr6lIrFCdIETpF4. Each game also has a 'Weapon Common' asset (textures/sounds shared by that game's guns) — packs include it; individual weapons need it separately.",
+     "install_steps": "(1) Extract pack to BO3 root (Steam\\steamapps\\common\\Call of Duty Black Ops III) — folders merge into model_export, share, sound_assets, source_data, xanim_export, map_source\\_prefabs. (2) Add to map .zone: stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv. (3) Add the weapon's line(s) to usermaps\\<map>\\gamedata\\weapons\\zm\\zm_levelcommon_weapons.csv (wallbuy lines near top of file to avoid the 0-price string-limit bug). (4) Place wallbuy via included skye_prefabs chalk prefab or a weapon_upgrade struct with zombie_weapon_upgrade = the skye weapon name (e.g. iw4_intervention). (5) Optionally add per-weapon inspect lines from its README to map GSC. (6) Link map in Launcher; re-link if 'missing source checksum' sound errors appear.",
+     "license_permission": "No formal license (these are ports of Activision assets). Thread carries a mandatory-credits culture: TheSkyeLord for the ports plus his listed credits (Azsry, Scobalula, TomBMX, DTZxPorter, Thomas Cat, Collie, lilrobot, et al.). Standard practice: credit 'TheSkyeLord — weapon ports' in Workshop description. No redistribution/reupload of the packs — link the hub instead.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Skye individual ports — exact per-target-weapon downloads (BO2/MW2/AW/CoD4 pages)",
+     "url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-bo2-weapon-ports/23141/",
+     "weapons_covered": [
+      "B23R — https://www.icloud.com/iclouddrive/0e7uVOtGt1bDNviBLwVA2x12A#Skye_BO2_B23R (official anims/sounds, custom slide, includes wallbuy)",
+      "FN FAL (BO2, semi-auto) — https://mega.nz/file/9DhTjQDI#HUwY_qw2YjILABDTxawtHrmrDQQYJ-C9KnVtsXb2yD0",
+      "FAL OSW (BO2, full-auto) — https://mega.nz/file/haxlVSIR#4d3IkFFUcsCvpt01o3AIm8eCfywnL-Jl2yGWkYnqqBI (includes wallbuy)",
+      "Intervention (MW2) — https://mega.nz/file/RDhW3IJJ#MN9G8c7IcpB6OwyohtTOQFAu098Ci4ZQdA3Tprfqskc (PaP'd has ACOG)",
+      "M14 EBR (MW2) — https://mega.nz/file/RHJkgIKb#C4Q1qDE7zeJc6DaRChjGAdRNnpRQa8syjoqwhW68yR8 (PaP'd has ACOG)",
+      "Tac-19 (AW) — https://mega.nz/file/1LpEVQKZ#YimlbI3qYT2O9saFTnqig4MuMVBTov515HSJ-4tNKvQ (Sledgehammer variant, foregrip+reflex, includes wallbuy)",
+      "G3 (CoD4) — https://www.icloud.com/iclouddrive/031GEOVL156AejjdT--mGn0hw#Skye_CoD4_G3 (official anims/models/sounds, PaP'd ACOG, includes wallbuy)",
+      "AK-47 (CoD4) — https://www.icloud.com/iclouddrive/0d6LC9DykKiyVbBCzaHHggafg#Skye_CoD4_AK-47 (PaP'd GP-25 launcher, includes wallbuy)"
+     ],
+     "what_it_provides": "One installer per weapon: GDT + xmodel_bin + xanims + official sounds + wallbuy chalk (where noted) + README with inspect lines. Each REQUIRES that game's Weapon Common (CoD4 common: https://www.icloud.com/iclouddrive/0cddAsBB0t-BH7lkWfaS-QM3w#Skye_CoD4_Weapon_Common; WaW common: https://www.icloud.com/iclouddrive/04bF59Ei7A2KzlUMau4i3KBRg#Skye_WaW_Weapon_Common). Other pages: MW2 ports https://www.ugx-mods.com/forum/full-weapons/84/skyes-mw2-weapon-ports/23145/ ; AW ports https://www.ugx-mods.com/forum/full-weapons/84/skyes-aw-weapon-ports/23138/ ; CoD4 ports https://www.ugx-mods.com/forum/full-weapons/84/skyes-cod4-weapon-ports/23809/ ; WaW ports https://www.ugx-mods.com/forum/full-weapons/84/skyes-waw-weapon-ports/24598/ (WaW list has NO G3 — Magnum/M1911/Nambu/TT-33/P38/DBSG/Trench Gun/MP40/PPSh/Thompson/Type 100... — G3 was never in WaW).",
+     "install_steps": "Same as pack install: run/extract installer to BO3 root, install the game's Weapon Common, add stringtable line to .zone, add the weapon's CSV line to zm_levelcommon_weapons.csv (exact lines available in the Skye-Weapon-Templates per-game CSVs), place wallbuy prefab/struct, link. NOTE: UGX pages 403 plain fetches — use the printpage endpoint https://www.ugx-mods.com/forum/index.php?action=printpage;topic=<id>.0 with a browser User-Agent.",
+     "license_permission": "Same as master hub: no formal license; credit TheSkyeLord + hub credits list; do not reupload.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Skye Master Hub — Modme archive mirror (dtzxporter/ModmeForum, GitHub)",
+     "url": "https://github.com/dtzxporter/ModmeForum/blob/main/wiki/threads/2565.md",
+     "weapons_covered": [
+      "Same packs as UGX hub but a 2019-era snapshot (552 weapons; pre-WaW/CoD4/BOCW/VG)"
+     ],
+     "what_it_provides": "Static GitHub-hosted mirror of the Modme thread with the older Mega pack links and the original install writeup (extract model_export/share/sound_assets/source_data/xanim_export to BO3 root). Useful as a stable, fetchable reference if UGX is down; links may be superseded by the live UGX hub. Live HTML mirror: https://forum.modme.co/wiki/threads/2565.html",
+     "install_steps": "Reference only — use the live UGX hub links above for downloads; install steps identical.",
+     "license_permission": "Archive of community post; same credit norms (TheSkyeLord).",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "treminaor/ugx-mod-bo3 (UGX Mod) — NEGATIVE result for weapons",
+     "url": "https://github.com/treminaor/ugx-mod-bo3",
+     "weapons_covered": [],
+     "what_it_provides": "NO weapon ports. Verified via git/trees recursive API: only mod-feature assets — model_export/ugx/ugx_weapon_box (xmodel_bin for the gun-game box), HUD .tif icons (ugxm_pap_gun_upgrade etc.), share/raw/sound/aliases/ugxmbo3.csv, compiled .ff/.xpak. No ak47/m14/fal/g3/b23r/intervention/tac anywhere in the tree. It is a gamemode/feature mod, not a weapon source.",
+     "install_steps": "N/A for weapons.",
+     "license_permission": "UGX Mod's own terms (credit UGX team if used) — irrelevant for weapon sourcing.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "HarryBo21's WaW/BO2 gun ports (Modme thread 2369) — dead alternative",
+     "url": "https://forum.modme.co/wiki/threads/2369.html",
+     "weapons_covered": [
+      "B23R",
+      "FN FAL",
+      "AK-47",
+      "M14 (no M14 EBR)",
+      "NO G3"
+     ],
+     "what_it_provides": "Historically: models, textures, FX, sounds, scripts, full camo tables (incl. DLC4/5 PaP camos) for BO2/WaW guns incl. FN FAL, AK-47, B23R, wonder weapons. BUT the Mega links were removed by the author and reuploads were taken down again — community reports them offline. Not a usable source today.",
+     "install_steps": "N/A — downloads offline. Use Skye's equivalents instead.",
+     "license_permission": "Author-controlled; author actively withdrew distribution — do not source from reuploads.",
+     "confidence": "rumor"
+    },
+    {
+     "name": "EthanArmbrust/bo3-weapon-porter (GitHub) — utility only",
+     "url": "https://github.com/EthanArmbrust/bo3-weapon-porter",
+     "weapons_covered": [],
+     "what_it_provides": "Single weapon-reader.cpp C++ tool that converts weapon GDT data from older CoDs to BO3 format (2017, 0 stars). No GDTs, no models, no sounds, no target weapons. Only repo GitHub search returns for 'bo3 weapon port'; confirms GitHub is not where weapon assets live.",
+     "install_steps": "N/A — not an asset source.",
+     "license_permission": "Has a LICENSE file in repo (unexamined); irrelevant as it ships no assets.",
+     "confidence": "verified-exists"
+    }
+   ]
+  },
+  {
+   "angle": "Downloadable, APE-ready weapon port packs for BO3 Mod Tools usermaps, with download liveness verified TODAY (2026-06-12) via the Mega.nz public API (file-exists query per link), targeting B23R, Tac-19/AW, AK-47, M14 EBR, G3, FN FAL, Intervention.",
+   "sources": [
+    {
+     "name": "Skye's Weapon Ports to BO3 — Master Hub (TheSkyeLord)",
+     "url": "https://forum.modme.co/wiki/threads/2565.html (mirror: https://github.com/dtzxporter/ModmeForum/blob/main/wiki/threads/2565.md; UGX mirror: https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/)",
+     "weapons_covered": [
+      "552 weapons total across 11 games — per-game full packs, ALL Mega links verified ALIVE 2026-06-12 except MW2019 full pack",
+      "BO2 pack (569 MB, mega.nz/#!JXRnAKyB!TxIt1n5FsS87n8Ak9NmT-xO3Zpr79DhzANqvwZBEd0U): B23R, AK47, FAL, FAL OSW, M14, M16A1, Tac-45, SVU-AS, DSR 50, Ballista, ~65 guns",
+      "MW2 pack (348 MB, mega.nz/#!QfZS0YBY!mOyV6oL8Hk-SqK_FHoLghwH_qGPadctOd217KBN5ANM): Intervention, M14 EBR, AK-47, FAL, ACR, M4A1, Barrett .50, WA2000",
+      "BO1 pack (444 MB, mega.nz/#!QXJ3lKxA!Yv9y9Jxn3h3Wfi9GRq6UaLpT8Ih516-AYLrZcr4djvY): AK47, FN FAL, M14, Commando, Galil, G11 — all with wallbuy prefabs",
+      "AW pack (2.14 GB, mega.nz/#!BbJjmKSB!K9k-S_odfssjY1n6vF0bYg0WK390788PUxQZBIxyUtw): Tac-19 (w/ wallbuy, 'Sledgehammer' PaP variant), AW AK-47, Bal-27, ASM1, HBRa3, SN6, AMR9, SAC3, MORS, full AW roster",
+      "MWR pack (1.70 GB, mega.nz/#!tXIgwYTK!CYLBpCS5pobs7s2kNy9tRmRManFualGUytFLSA5vnxw): G3 (w/ wallbuy), AK-47, M14, M16A4, XM-LAR (FAL), M40A3, M21",
+      "Also alive: MW3 (401 MB), Ghosts (1.33 GB), IW (1.95 GB), WWII (2.11 GB), BO4 (1.40 GB)",
+      "MW2019 full-pack link DEAD (-9), but individual MW2019 weapon bundles on threads 3123/3124 verified alive (e.g. mega.nz/file/YfQElbZA…, 555 MB)",
+      "Individual single-gun links mostly alive too (verified: MW2 Intervention 10.4 MB, MW2 M14 EBR 9.1 MB, MW2/BO1/MWR AK-47, BO1 FN FAL 11.5 MB, BO1 M14 13 MB, AW Tac-19 37 MB, MWR G3 24.9 MB, BO2 FAL); exception: BO2 B23R single link dead — use the full BO2 pack, which contains it"
+     ],
+     "what_it_provides": "Full APE-ready kit, 'drag & drop and good to go' (author's words): model_export/ (xmodel_bin), xanim_export/, source_data/ (.gdt files — APE-ready, edit stats under skye_t5 etc. GDT names), sound_assets/ + share/raw sound alias CSVs, map_source/_prefabs/zm/skye_prefabs/ wallbuy prefabs, gamedata/weapons/zm CSV entries. Each gun: official anims, official sounds, custom PaP slide/variant, most include wallbuy prefab. REQUIRED companion download per game: 'Weapon Common Asset' (textures/sounds shared by that game's guns + PaP camo support) — all verified alive: BO2 37.5 MB (mega.nz/file/RSwiBD6b#Gt3c19T-GR68sc0cE6Hgm64IoX11PtVGx2swLtp92gM), MW2 27.4 MB (mega.nz/file/pK4jwQCZ#Vm_VydR6u9qDH2bE5BdR26zawgetYmkNTsFrmWYEKGo), AW 62.8 MB (mega.nz/#!9axFTSSK!e7wJ4xdIXi7-DrvHOPvfCoFBtbVm4LsmNIpYNelqKPI), BO1 84.5 MB (mega.nz/#!hGBmzSTT!qqtQsXxUBDMaYfdj5rMRQ0iYTHeffXhEiD0wOGwlmog), MWR 162 MB (mega.nz/#!UPJ2FKbS!HPCZTc2WHawWhRphqvWllkhBC-YNjyfshOo9NyjT9_g).",
+     "install_steps": "1) Download the per-game Weapon Common Asset + the pack (or individual gun) from Mega. 2) Extract into BO3 root (Steam\\steamapps\\common\\Call of Duty Black Ops III) — folders merge: model_export, xanim_export, share, sound_assets, source_data, map_source, usermaps gamedata. 3) Add to usermaps/<map>/zone_source/<map>.zone: stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv plus one weapon,<weaponname> line per gun. 4) Ensure each gun has a row in zm_levelcommon_weapons.csv (controls box/wallbuy; missing row = wallbuy shows 0 points and is unbuyable). 5) For wallbuys: place misc_prefab from map_source/_prefabs/zm/skye_prefabs/ in Radiant (these are the script_struct targetname=weapon_upgrade structs your CLAUDE.md describes). 6) Launcher: gdtdb auto-updates from source_data .gdt; compile/link/run. Known limit Skye states: ~150 custom weapons per map (~3 of his packs). Gotcha reported in-thread: B23R download folder shipped the AK-47 wallbuy prefab by mistake — fix the prefab reference manually.",
+     "license_permission": "No formal license. Master hub carries a credits list ('this would not be possible without…'); community norm and expectation is crediting TheSkyeLord in your map credits. Author offered support via Discord TheSkyeLord#2511. No anti-reupload clause stated (unlike HarryBo21). One commenter on the B23R noted 'Obviously I will give credits' as the accepted practice.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Skye-Weapon-Templates (FanaticSoftware, GitHub) — the 'Rex' launcher templates",
+     "url": "https://github.com/FanaticSoftware/Skye-Weapon-Templates",
+     "weapons_covered": [
+      "Wiring (not assets) for 15 per-game ZM templates: Base, MW2, BO1, MW3, BO2, Ghosts, AW, IW, MWR, WW2, BO4, MW19, MW2R, BOCW, VG — i.e. covers every target weapon's game once the matching Skye pack is installed"
+     ],
+     "what_it_provides": "NOT the weapon assets (repo is 237 KB, 100% GSC). It is a BO3 Launcher template pack: rex/templates/<NN. ZM - game>/ each containing map_source/zm + usermaps/template (gamedata/weapons/zm CSV pre-filled, scripts/zm GSC+CSC, sound/zoneconfig, zone_source pre-wired with all weapon, lines) plus share/raw sound-alias CSVs (13 weapon CSVs) and lilrobot's weapon-inspect script. New maps created from these templates come pre-integrated with the corresponding Skye pack — no manual zone/CSV editing. Last updated May 23, 2026 (actively maintained; this is the repo already cited in this project's CLAUDE.md as the pristine zm template source).",
+     "install_steps": "1) Install the matching Skye weapon pack + Weapon Common Asset from the Master Hub Mega links into BO3 root (assets are still required). 2) Copy the repo's rex/ and share/ folders into BO3 root (rex/templates merges with the Launcher's template dir). 3) In the Mod Tools Launcher, create a new map choosing e.g. '05. ZM - BO2' template — zone lines, levelcommon CSV, sound aliases, and inspect script come pre-wired. 4) Compile as usual. For an existing map (like zm_abandoned_cyber_city), use the template's zone_source/gamedata files as a reference diff instead of recreating the map.",
+     "license_permission": "No license file. README credits: 'TheSkyeLord - For his Weapons of course' and 'LilRobot - Weapon Inspect Script'. Same implicit credit-the-authors norm.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "HarryBo21's WaW, Black Ops 2 and Black Ops 3 Gun Ports",
+     "url": "https://forum.modme.co/wiki/threads/2369.html",
+     "weapons_covered": [
+      "B23R, M14, FN FAL, AK47, SCAR-H, M16, SMR, AN94, M8A1, M27, STG44",
+      "Pistols: Mauser, Five-Seven, Kap-40, Python, Executioner, M1911",
+      "Shotguns: KSG, M1216, Olympia, S12, Blundergat/Acid Gat, Trenchgun",
+      "SMGs: MP40, Chicom, PDW57, AK74u, UZI, MP5K, Skorpion Evo",
+      "Snipers: Ballista, DSR50, SVU, Barrett M82A1",
+      "Wonder weapons: Ray Gun Mk II, Origins Staffs, Gersh, SOE gun"
+     ],
+     "what_it_provides": "Was a full kit (models, textures, FX, sounds, anims, GSC/CSC, GDTs, wallbuy prefabs) — but ALL download links are dead ('The file you are trying to download is no longer available'). Author intentionally removed his content citing lack of credit; no GitHub mirrors exist (GitHub search for 'harrybo21' returns 0 repos, verified 2026-06-12).",
+     "install_steps": "Not installable today. Only path: contact Harry Bo21 directly for permission/files. Do not hunt reuploads — the author explicitly requested no reuploads, and community hosts have honored takedowns.",
+     "license_permission": "Explicit do-not-reupload request from author; content withdrawn. Treat as unavailable.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "ProRevenge's Gun Ports for BO3",
+     "url": "https://forum.modme.co/wiki/threads/2602.html",
+     "weapons_covered": [
+      "KS-23 (BO1), RPK (BO1), AK74u/AN-94/Galil/M16/MSMC/MP40/StG-44/Olympia/China Lake/M1911/Marshal16/Ray Gun Mk II (BO3 Zombies Chronicles ports)",
+      "Does NOT cover any of the target list (no B23R/AK-47/M14 EBR/G3/FAL/Intervention/Tac-19)"
+     ],
+     "what_it_provides": "Was APE-ready (explicitly shipped GDTs, readme per weapon, common-assets package, wallbuy prefabs under map_source/_prefabs/zm/pro_prefabs/wallbuys). However every Mega link checked returns error -16 (uploader account terminated) — ALL DEAD as of 2026-06-12.",
+     "install_steps": "Not installable today (dead links). Historical procedure: drag common assets + weapon folders to BO3 root, follow per-weapon Readme, place pro_prefabs wallbuy misc_prefab, edit price in zm_levelcommon_weapons.csv.",
+     "license_permission": "Most permissive statement found anywhere: 'You may download them and use as you please, GDT's are provided so you can alter anything you would like' + per-weapon readme credits. Moot while links are dead.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Modme Wiki — Weapon Porting guide (current canonical DIY tutorial)",
+     "url": "https://wiki.modme.co/wiki/black_ops_3/guides/Weapon-Porting.html",
+     "weapons_covered": [
+      "N/A — tutorial for porting any weapon yourself (fallback if a pack lacks a gun, e.g. a specific B23R variant)"
+     ],
+     "what_it_provides": "Workflow doc. Steps: 1) Rip assets with Wraith/Greyhound (Lime for MW2/MW3-era) — export .MA + .xmodel_export for body/mag/attachments. 2) Maya + CoDMayaTools: bind via .mel, parent submodels to j_gun/tag_weapon, align joints. 3) Export .xmodel_export. 4) Convert to .xmodel_bin (Kronos/export2bin) into <BO3>/model_export/; textures to TIFF. 5) APE: GDT with xmodel (animated, LOD0) + material (lit_weapon, PBR diffuse/normal/spec/gloss). 6) Anims: conversion rig, rename bones with _t7 suffix via .mel, export .xanim_export. 7) APE xanim assets (.xanim_bin, type relative, 'Use Bones' off, loop flags). 8) APE bulletweapon asset: viewmodel/worldmodel, anim table, attachments, stats copied from a reference stock weapon. 9) Radiant placement + zone line weapon,WEAPONNAME, link, test. Plus sound aliases CSV for fire/reload.",
+     "install_steps": "N/A (process doc). Tools: Greyhound/Wraith (Scobalula/DTZxPorter, GitHub), Maya or Blender, CoDMayaTools 2.0, export2bin (ships with Mod Tools), APE/Radiant/Launcher. Note: the older Steam guide (steamcommunity.com/sharedfiles/filedetails/?id=779509352) covers the same flow but was last updated Oct 2016 — prefer the Modme wiki version.",
+     "license_permission": "Tutorial content; ripping from CoD titles is tolerated community practice for non-commercial usermaps, but assets remain Activision IP — Workshop publishing of ported CoD content is the accepted norm, not a legal grant.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "DEVRAW (devraw.net) — active asset hub (modern alternative)",
+     "url": "https://www.devraw.net/",
+     "weapons_covered": [
+      "Newer-title packs, e.g. '[MW23 & BO6] Weapon Pack' (OwenC137), BO6 WunderWaffe DG-2, BO1 Thundergun, Ray Gun variants — catalog rotates; target classics (B23R/AK-47/etc.) are better served by Skye's hub"
+     ],
+     "what_it_provides": "Community upload platform ('find, download, upload custom assets') for BO3 Mod Tools: gun ports, wonder weapons, perks, FX, HUD, tools. Per-asset pages state format; most weapon uploads follow the same BO3-root drag-and-drop + GDT convention. Site is alive and active in 2026.",
+     "install_steps": "Create free account if prompted, download asset zip, extract to BO3 root per asset readme, add zone lines/CSV rows as with Skye packs.",
+     "license_permission": "Per-asset credit requirements listed on each asset page; site has a verification/quality system. Check each upload's credits block before shipping.",
+     "confidence": "likely"
+    },
+    {
+     "name": "UGX-Mods forum — Full Weapons board (BO3 mirrors of Skye's threads)",
+     "url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/ (also /skyes-mw2-weapon-ports/23145/)",
+     "weapons_covered": [
+      "Mirrors of the same Skye content (master hub + per-game threads, 6 pages of discussion); UGX's own classic downloads section is WaW-era, not BO3"
+     ],
+     "what_it_provides": "Same Mega links as the Modme master hub (UGX thread is Skye's own cross-post). Useful as the venue where Skye posted later updates after Modme's forum reboot. Site blocks automated fetches (HTTP 403) but pages exist per search index and are reachable in a browser.",
+     "install_steps": "Same as Skye Master Hub entry.",
+     "license_permission": "Same as Skye Master Hub entry (credit TheSkyeLord).",
+     "confidence": "likely"
+    },
+    {
+     "name": "CabConModding — BO3 weapon pack threads",
+     "url": "https://cabconmodding.com/tags/bo3-mod-tools/ (e.g. threads/call-of-duty-black-ops-3-custom-weapon-black-ops-2-weapons-in-black-ops-3-mp-zm-download.2117/, CUSTOMGUNSMEGAPACK .2901, Wonder Weapon Pack .8191)",
+     "weapons_covered": [
+      "'BO2 Weapons in BO3 MP & ZM' (Ray Gun MkII, Blundergat, BO2 ARs/snipers), 'CUSTOMGUNSMEGAPACK' (MP40, STG44, MG08/15, Raygun MK2), Wonder Weapon Pack (Sliquifier, KT4, Spectrum MkII)"
+     ],
+     "what_it_provides": "Mostly COMPILED mods (.rar extracted into Call of Duty Black Ops III\\mods or subscribed via Workshop) — NOT APE-ready source kits with GDT/xmodel_bin. Wrong format for integrating weapons into your own usermap; useful only for playing. Liveness of attachments not individually verifiable without an account.",
+     "install_steps": "Not applicable for usermap integration (compiled mods, no GDTs). Skip for this project's purposes.",
+     "license_permission": "Per-thread credits; site requires account for some downloads.",
+     "confidence": "likely"
+    }
+   ],
+   "general_findings": "BOTTOM LINE: TheSkyeLord's Master Hub is the only source that covers every requested weapon in APE-ready form with links that work TODAY. I verified liveness programmatically via the Mega.nz public API (a 'g' file-info query per file handle; a size response = file exists, -9 = deleted, -16 = uploader account terminated) on 2026-06-12. Results: all 10 of Skye's older per-game full packs are ALIVE (BO2 569 MB, MW2 348 MB, BO1 444 MB, AW 2.14 GB, MWR 1.70 GB, MW3 401 MB, Ghosts 1.33 GB, IW 1.95 GB, WWII 2.11 GB, BO4 1.40 GB), all five relevant per-game 'Weapon Common Asset' downloads are ALIVE (mandatory companions — PaP camo + shared textures/sounds break without them), and the individual links for every target weapon are ALIVE except the BO2 B23R single-gun link (dead, but the B23R ships inside the live BO2 full pack). The MW2019 full pack is the only dead pack link; MW2019 guns remain available via the two individual-weapons page bundles. TARGET WEAPON MAP: B23R -> Skye BO2 pack; Tac-19 -> Skye AW pack (individual link alive, includes wallbuy); AK-47 -> Skye BO1, MW2, MWR, or AW packs (4 distinct versions, BO1/MWR with wallbuys); M14 EBR -> Skye MW2 pack (individual link alive); G3 -> Skye MWR pack (individual link alive, includes wallbuy); FN FAL -> Skye BO1 pack (wallbuy) or MW2 FAL or BO2 FAL/FAL OSW; Intervention -> Skye MW2 pack (individual link alive). Format is exactly what this repo needs: drag-and-drop BO3-root folders containing xmodel_bin, xanim_export, source_data .gdt (APE-ready, weapon stats editable under the skye_* GDTs), sound assets + alias CSVs, and Radiant wallbuy prefabs whose structs match the weapon_upgrade anatomy already documented in CLAUDE.md; integration is two zone-file line types (stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv once, weapon,<name> per gun) plus CSV rows — note Skye's stated practical ceiling of ~150 custom weapons per map. The FanaticSoftware/Skye-Weapon-Templates GitHub repo (already a trusted source in this project's CLAUDE.md, updated May 2026) automates the wiring via Launcher 'rex' templates but does NOT bundle the assets. NEGATIVE RESULTS: HarryBo21's ports (the other historical source for B23R/FAL/M14/AK47) are intentionally withdrawn — every link dead, author requested no reuploads, zero GitHub mirrors; do not plan around them. ProRevenge's ports (explicit 'use as you please' license, GDTs included) are all dead via Mega account termination and didn't cover the target list anyway. CabConModding offerings are compiled .mods archives, wrong format for usermap source integration. DEVRAW is the live modern hub but skews to MW23/BO6-era content. CREDIT NORMS: no formal licenses anywhere in this scene; the enforced norm is a credits list in your map description naming the porter (TheSkyeLord) — HarryBo21's takedown is the cautionary tale for skipping credits. Best-practice DIY tutorial if a one-off port is ever needed: the Modme wiki Weapon-Porting guide (Greyhound/Wraith -> Maya+CoDMayaTools -> xmodel_bin -> APE GDT material/xmodel/xanim -> bulletweapon asset -> zone line); the 2016 Steam guide is outdated. CAVEATS: Mega API confirms file existence, not content integrity; the old-format #! links auto-redirect in modern browsers; one known packaging bug — Skye's BO2 B23R folder historically shipped the AK-47 wallbuy prefab by mistake, so fix that prefab path if using a B23R wallbuy."
+  },
+  {
+   "angle": "GitHub repos of shipped BO3 zombies maps with custom/ported weapons in source form — what files prove the integration, and the exact per-weapon file set to replicate in our usermap.",
+   "sources": [
+    {
+     "name": "ColDog5044/zm_countryside (shipped Workshop map, best integration reference)",
+     "url": "https://github.com/ColDog5044/zm_countryside",
+     "weapons_covered": [
+      "Skye's BOCW pack (t9_*): t9_ak47, t9_gallo_sa12, t9_mp5, t9_m79, t9_xm4, t9_hauer77, t9_krig6, t9_streetsweeper, t9_magnum, t9_marshal (dual-wield variant naming t9_marshal_rdw_up_zm / _ldw_up_zm) — ~70 base weapons + _up upgraded variants, full list in zone_source/zm_countryside.zone"
+     ],
+     "what_it_provides": "NO GDTs / xmodel_bin / sounds (assets come from Skye's externally-installed pack). Provides the complete per-map integration surface: zone_source/zm_countryside.zone with 140+ `weapon,t9_*` lines + `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv`; gamedata/weapons/zm/zm_levelcommon_weapons.csv (~75 rows registering each weapon in the box/wallbuy system); zone_source/all/assetinfo+scriptgdb (linker output proving the map actually compiled with these weapons); also `scriptparsetree,scripts\\lilrobot\\_inspectable_weapons.gsc` for Skye inspect anims. Complete example pairing — zone lines: `weapon,t9_gallo_sa12` + `weapon,t9_gallo_sa12_up` + `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv`; matching CSV row: `t9_gallo_sa12,t9_gallo_sa12_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,` (header: weapon_name,upgrade_name,hint,cost,weaponVO,weaponVOresp,ammo_cost,create_vox,is_zcleansed,in_box,upgrade_in_box,is_limited,limit,upgrade_limit,content_restrict,wallbuy_autospawn,class,is_aat_exempt,is_wonder_weapon,force_attachments). The GDT entry itself is NOT in the repo — it lives in BO3root/source_data from Skye's pack (APE search prefix `skye_*`, asset names `t9_*`).",
+     "install_steps": "1) On the Windows box, install Skye's BOCW weapon pack + 'Weapon Common Assets' into BO3 root (pack zip drops model_export/, share/, sound_assets/, source_data/ [the GDTs], xanim_export/). 2) Copy the `weapon,<name>` + `weapon,<name>_up` lines for chosen guns plus `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv` into zone_source/zm_abandoned_cyber_city.zone. 3) Copy gamedata/weapons/zm/zm_levelcommon_weapons.csv into our usermap and keep one row per weapon. 4) For wallbuys, set `zombie_weapon_upgrade` on the weapon_upgrade struct to the t9_* name. 5) Link in launcher; APE only needed to tweak ammo/camo.",
+     "license_permission": "Repo: MIT License (plus modtools_license.txt for Treyarch tool files). Skye's weapon assets themselves are NOT in the repo and carry Skye's informal terms (credit TheSkyeLord; contact via Discord per Master Hub thread).",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "FanaticSoftware/Skye-Weapon-Templates (canonical integration pattern for 14 games' weapon packs)",
+     "url": "https://github.com/FanaticSoftware/Skye-Weapon-Templates",
+     "weapons_covered": [
+      "Per-game template folders 02-15: MW2, BO1, MW3, BO2, Ghosts, AW, IW, MWR, WW2, BO4, MW19, MW2R, BOCW (t9_*), Vanguard (s4_*) — every weapon in each Skye pack pre-listed"
+     ],
+     "what_it_provides": "NO GDTs (packs distributed off-GitHub via Skye's Master Hub). Provides ready-made Launcher map templates: rex/templates/<NN. ZM - game>/usermaps/template/zone_source/template.zone containing the complete `weapon,<name>` block for that game's pack (BOCW template.zone is byte-identical in weapon lines to zm_countryside's zone) + `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv`; per-game gamedata/weapons/zm/zm_levelcommon_weapons.csv with all rows pre-filled; share/raw/sound/aliases/skye_*.csv (13 rebuilt sound-alias CSVs so Workshop validation doesn't break sounds); share/raw/scripts/lilrobot/_inspectable_weapons.gsc. This is the authoritative 'full file set' checklist for a Skye-pack port.",
+     "install_steps": "Either create a new map from the template (drops everything in place), or hand-copy 3 things into an existing usermap: (a) the weapon block + stringtable line from the game's template.zone into your .zone, (b) that game's zm_levelcommon_weapons.csv into usermaps/<map>/gamedata/weapons/zm/, (c) the skye_*.csv sound aliases into share/raw/sound/aliases/. Still requires the actual weapon pack (GDTs + model_export + xanim_export) installed at BO3 root from the Master Hub download.",
+     "license_permission": "No LICENSE file; README credits TheSkyeLord and contributors. Community norm: free to use with credit to TheSkyeLord; assets not redistributable as your own.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "ohm-nabar/zm_building (shipped map, largest multi-pack weapon roster)",
+     "url": "https://github.com/ohm-nabar/zm_building",
+     "weapons_covered": [
+      "Vanguard pack (s4_*): s4_1911, s4_thompsonm1a1, s4_mg42, s4_kar98k_irons, s4_owen_gun, ~35 base + _up variants",
+      "s2_mas38 (WW2 pack)",
+      "bo3_stg44 / bo3_sten / bo3_mp40 (+_upgraded)",
+      "m2_flamethrower (+_up)",
+      "customs: bloodgun, zm_diedrich(+_upgraded), zm_pitchfork, zm_trident, frag_grenade_potato_masher_zm"
+     ],
+     "what_it_provides": "NO GDTs, no model_export/source_data. Provides zone_source/zm_building.zone (20KB) with ~90 `weapon,` lines verbatim (quoted above), plus zpkg includes (`include,bgb_pack`, `include,flashlight`, `include,rt7_zpkg\\hud_dpad`) and zone_source/*.zpkg files showing the zpkg packaging alternative; gamedata/weapons/zm/zm_levelcommon_weapons.csv + zm_levelcommon_bgb.csv + gamedata/weapons/common/attachmentmappingsTable.csv + weaponoptions.csv — the widest example of which gamedata/ files a weapon-heavy map ships. Example zone lines: `weapon,s4_thompsonm1a1` / `weapon,s4_thompsonm1a1_up`; dual-wield naming `s4_topbreak_rdw_up_zm` / `s4_topbreak_ldw_up_zm`.",
+     "install_steps": "Same three-part pattern: zone weapon lines + stringtable + gamedata CSV rows; weapon asset packs (Skye VG, WW2, etc.) installed separately at BO3 root. Its gamedata/weapons/common/ CSVs show what to copy when a pack needs attachment mapping overrides.",
+     "license_permission": "No LICENSE file and no README — assume all-rights-reserved for its custom content; pattern itself is freely copyable.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "clixmods/zm_nuked (shipped Workshop map, 2024 Nuketown remaster source)",
+     "url": "https://github.com/clixmods/zm_nuked",
+     "weapons_covered": [
+      "t6_tazer_knuckles (BO2 galvaknuckles port), raygun_mark2, bouncingbetty — via gamedata/weapons/zm/zm_nuked_weapons.csv (~40 rows)"
+     ],
+     "what_it_provides": "NO GDTs, no model_export. Smallest useful artifact: a map-specific weapon table at gamedata/weapons/zm/zm_nuked_weapons.csv (header identical to zm_levelcommon_weapons.csv; row example: `t6_tazer_knuckles,t6_tazer_knuckles,,6000,wpck_bowie,,,,,FALSE,FALSE,FALSE,,,FALSE,true,special,TRUE,,`). Its zone_source/zm_nuked.zone is minimal (skybox/BSP/sound + `include,zm_nuked`) — weapon/script asset lines are pushed into the included zone, demonstrating zone-splitting via include. README warns compiled Workshop files are not included.",
+     "install_steps": "Reference only for the CSV schema and the include-split zone layout; the t6 weapon assets are not in the repo (installed pack assumed).",
+     "license_permission": "No license file. README: source published so modders can use it as a base for the 2024 Workshop upload (ID 3558354570); no formal terms — credit clixmods.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "MattFiler/zm_alien_isolation (shipped map, only repo committing whole BO3 root incl. source_data GDTs — but no weapon GDTs)",
+     "url": "https://github.com/MattFiler/zm_alien_isolation",
+     "weapons_covered": [
+      "NONE shipped. Zone contains commented-out attempts only: `//weaponfull,alien_flamer`, `//weaponfull,m2_flamethrower_zombie_bo3`, `//weaponfull,m2_flamethrower_zombie_bo3_up`"
+     ],
+     "what_it_provides": "Answers the explicit question: it does NOT ship custom weapon GDTs. source_data/alien_isolation_scripts.gdt = lights/LUTs/objectives only (no weapon.gdf/xmodel.gdf entries); archetypes/alien_isolation_archetypes.gdt = AI archetype. It DOES commit root-level model_export/, texture_assets/, source_data/ — the only map repo demonstrating full-root layout in git — and its commented zone lines preserve the older `weaponfull,<name>` syntax used when a weapon's attachments must be force-loaded (vs the `weapon,` lines all Skye-pack maps use).",
+     "install_steps": "Use as layout reference for committing source_data/model_export alongside usermaps in one repo (relevant if we ever vendor our own ported weapon's GDT+bins).",
+     "license_permission": "No LICENSE file detected via GitHub license API (404). Treat as all-rights-reserved; pattern copying fine.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "dtzxporter/ModmeForum — Skye's Weapon Ports Master Hub (thread 2565 mirror): the install doc for every pack above",
+     "url": "https://github.com/dtzxporter/ModmeForum/blob/main/wiki/threads/2565.md",
+     "weapons_covered": [
+      "All Skye packs: MW2/BO1/MW3/BO2/Ghosts/AW/IW/MWR/WW2/BO4/MW19/MW2R/BOCW/VG (prefixes skye_t5, skye_iw, ... in APE; asset names t9_*, s4_*, etc.)"
+     ],
+     "what_it_provides": "The authoritative description of what a weapon pack drops into BO3 root: model_export/, share/, sound_assets/, source_data/ (the GDTs), xanim_export/ — i.e. the GDT + xmodel_bin + sounds + anims 'APE-ready kit' is the PACK, never the map repo. Documents the required zone line `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv` and that per-game 'Weapon Common Assets' must also be installed for attachment textures + PaP camo.",
+     "install_steps": "Download pack from Master Hub links -> extract to BO3 root (merges the 5 folders) -> add stringtable + weapon zone lines -> add CSV rows -> link. APE only to tweak (search skye_<game> prefix).",
+     "license_permission": "Ports by TheSkyeLord; contact @TheSkyeLord on Discord; credits Scobalula/DTZxPorter tooling. Credit required by community convention; packs are redistributed only via his links.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "treminaor/ugx-mod-bo3 (shipped mod framework — model_export/xanim_export committed, no gun GDTs)",
+     "url": "https://github.com/treminaor/ugx-mod-bo3",
+     "weapons_covered": [
+      "NONE (only ugx_weapon_box model: model_export/ugx/ugx_weapon_box/ugx_weapon_box.XMODEL_BIN + .tif texture + xanim,ugx_weapon_box_spin lines in ugxmod/zone_source/zm_mod.zone)"
+     ],
+     "what_it_provides": "Proof-of-pattern for committing custom binary assets in-repo: model_export/<author>/<asset>/<asset>.XMODEL_BIN + Texture/*.tif, referenced by xanim/xmodel zone lines in a mod-class zone (`>mode,zm` / `>type,common` / `#include \"zm_mod.class\"`). No .gdt committed and no weapon ports present despite UGX Mod's reputation — repo is the unfinished v1.",
+     "install_steps": "Layout reference only if we vendor a custom model: drop XMODEL_BIN under model_export/, create xmodel GDT entry in APE (GDT goes to source_data/, which they did not commit), add xmodel/xanim zone lines.",
+     "license_permission": "LGPL-3.0 (LICENSE.md): reuse permitted with prominent notice + license copy.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "dtzxporter/ModmeWiki — Weapon Porting guide (GDT-side recipe the map repos omit)",
+     "url": "https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/guides/Weapon-Porting.md",
+     "weapons_covered": [
+      "Generic: any ported weapon (bulletweapon asset)"
+     ],
+     "what_it_provides": "The missing GDT half of the file set: create a new .GDT in APE (lands in BO3root/source_data/), create a bulletweapon asset and copy values from the old game's weaponfile, place converted models as XMODEL_BIN in %BO3Dir%/model_export, create xmodel GDT entries pointing at them (LOD0), then add `weapon,WEAPONNAME` at the bottom of the map's zone file. Companion page Setting-Up-Weapon-Attachments.md documents when to use `weaponfull,` instead of `weapon,` (forces attachment loading).",
+     "install_steps": "Follow guide on the Windows box for any self-ported weapon; the usermap side then needs only the zone line + CSV row exactly as in zm_countryside.",
+     "license_permission": "Community wiki content, freely referenced.",
+     "confidence": "verified-exists"
+    }
+   ],
+   "general_findings": "Headline: after checking all four named repos' full git trees plus UGX Mod, Skye's org, and clixmods, NO shipped-map GitHub repo commits custom-weapon GDT/xmodel_bin source. That is structural, not an accident: BO3 weapon assets (GDTs in source_data/, XMODEL_BIN in model_export/, xanims in xanim_export/, sound_assets) install at the BO3 ROOT, outside usermaps/, and the dominant packs (TheSkyeLord's) are redistributed only via his Master Hub downloads — so map repos commit only the usermap-relative integration surface. zm_alien_isolation, the one repo that commits root-level source_data/model_export, has no weapon entries in its GDTs and its weaponfull lines are commented out. Direct answer to the MattFiler question: it does NOT ship custom weapon GDTs.\n\nThe complete per-weapon file set a port needs (assembled from zm_countryside [shipped, MIT, compiled-proof via zone_source/all/assetinfo] + Skye templates + Master Hub doc):\n(1) BO3 root, from the pack download (NOT in any repo): source_data/*.gdt (bulletweapon + xmodel + xanim + attachment entries, APE prefix skye_<game>), model_export/**/*.XMODEL_BIN, xanim_export/, sound_assets/, share/ (sound aliases also mirrored in Skye-Weapon-Templates at share/raw/sound/aliases/skye_*.csv).\n(2) usermaps/<map>/zone_source/<map>.zone: one `weapon,<name>` line per variant — base, `_up`, dual-wield `_rdw_up_zm`/`_ldw_up_zm` — plus `stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv`. Modern Skye-pack maps use `weapon,`; `weaponfull,` only when attachments must be force-loaded.\n(3) usermaps/<map>/gamedata/weapons/zm/zm_levelcommon_weapons.csv: header `weapon_name,upgrade_name,hint,cost,weaponVO,weaponVOresp,ammo_cost,create_vox,is_zcleansed,in_box,upgrade_in_box,is_limited,limit,upgrade_limit,content_restrict,wallbuy_autospawn,class,is_aat_exempt,is_wonder_weapon,force_attachments`; example row `t9_gallo_sa12,t9_gallo_sa12_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,` pairing with zone lines `weapon,t9_gallo_sa12` + `weapon,t9_gallo_sa12_up`.\n(4) Optional: scripts/lilrobot/_inspectable_weapons.gsc (+ scriptparsetree line) for inspect anims; gamedata/weapons/common/attachmentmappingsTable.csv + weaponoptions.csv when a pack needs attachment overrides (zm_building shows this).\n(5) Map geo: wallbuy struct's `zombie_weapon_upgrade` set to the pack's class weapon name (consistent with our existing weapon_upgrade anatomy in CLAUDE.md).\n\nImplications for our repo: since assets live at BO3 root, tools/sync_to_modtools.ps1 needs no change for weapons; our repo only ever needs the .zone lines + gamedata CSV (and the Windows box needs the pack installed once). Dual-wield/upgrade naming is irregular per weapon (e.g. t9_marshal has no _up, only _rdw_up_zm/_ldw_up_zm), so always copy names from the template.zone for the chosen pack rather than deriving them. Confidence notes: every repo/file claim above was fetched live from api.github.com / raw.githubusercontent.com on 2026-06-12; zm_countryside tree confirmed not truncated and includes linker assetinfo output proving the weapon list actually compiled. GitHub code search (api needs auth) and grep.app (429 rate-limited) could not be used to exhaustively rule out an obscure repo shipping weapon GDTs, so the 'nobody ships GDTs' claim is high-confidence but not exhaustive."
+  },
+  {
+   "angle": "Practical/etiquette research on using community BO3 weapon ports in a published Workshop map: community norms (credit/permission), ATVI tolerance of cross-CoD porting, the 2026 tool pipeline, and per-weapon effort estimates.",
+   "sources": [
+    {
+     "name": "Skye's Weapon Ports to BO3 (Master Hub) — TheSkyeLord",
+     "url": "https://forum.modme.co/wiki/threads/2565.html (UGX mirror: https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/)",
+     "weapons_covered": [
+      "552 weapons total across 11 titles",
+      "MW2019",
+      "Black Ops 4",
+      "WWII",
+      "Infinite Warfare",
+      "MW Remastered",
+      "Advanced Warfare",
+      "Ghosts",
+      "Black Ops 2",
+      "MW3",
+      "Black Ops 1",
+      "MW2"
+     ],
+     "what_it_provides": "Full APE-ready kits: pre-configured GDTs, xmodel_bin/xanim exports, organized sound assets with aliases, source data, install docs. Requires the per-game 'Weapon Common Asset' pack as a shared dependency. Downloads hosted on MEGA, linked per-game from the hub thread. This is the de facto standard pack the community uses; no Maya/Greyhound work needed.",
+     "install_steps": "1) Extract pack to BO3 root (Steam/steamapps/common/Call of Duty Black Ops III) so files land in model_export/xanim_export/sound/share/raw per the pack layout. 2) Install the matching Weapon Common Asset pack. 3) Add 'stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv' to the map .zone. 4) Add the weapon row to zm_levelcommon_weapons.csv. 5) Add the pack's weapon/asset lines to the .zone. 6) Link map in Launcher. For our repo: this maps onto the existing zone_source/*.zone manifest plus a wallbuy script_struct (targetname weapon_upgrade, zombie_weapon_upgrade = the pack's weapon name).",
+     "license_permission": "Free to use in maps/mods; author asks for credit to 'TheSkyeLord' plus the listed contributors/tool authors ('This would not be possible without the people and tools below'). No re-hosting/re-release of the packs themselves.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "FanaticSoftware/Skye-Weapon-Templates (GitHub)",
+     "url": "https://github.com/FanaticSoftware/Skye-Weapon-Templates",
+     "weapons_covered": [
+      "Integration templates for Skye's weapon packs (same coverage as the Master Hub)"
+     ],
+     "what_it_provides": "Map-template integration layer (GSC + zone/CSV wiring) so 'Skye's Weapon Packs [are] instantly added as soon as you make your Black Ops III map'. Not the weapon assets themselves — pair with the Master Hub downloads. Note: this is already the repo's verified ground-truth template source (rex/templates/01. ZM - Base/ per CLAUDE.md), so it is the lowest-friction route for this project.",
+     "install_steps": "Clone repo, copy the chosen template's zone/CSV/GSC weapon wiring into the usermap (or start from the template), then drop the corresponding Skye pack assets into the BO3 root per the Master Hub instructions and link.",
+     "license_permission": "Public GitHub repo; same community expectation as the hub — credit TheSkyeLord. No explicit LICENSE file confirmed; treat as credit-required community asset.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Rico's BO3 weapon ports (drag and drop) — El Ricos",
+     "url": "https://forum.modme.co/wiki/threads/2240.html",
+     "weapons_covered": [
+      "26 weapons",
+      "MW2: Intervention, UMP45",
+      "MW3: AA-12, MP7",
+      "BO2: M1927, Mauser C96",
+      "Ghosts: MTAR-X, Honey Badger, AK-12, Vector CRB",
+      "AW: Bal-27, M1911, M1 Irons, MK14, HBRa3, ASM1",
+      "MWR: M4A1, G36C, AK-47, MP5, XM-LAR, Fang-45, BOS14, Lynx CQ300",
+      "IW: NV4, KBAR-32, R-VN, Type-2, Trencher, TF-141, M1"
+     ],
+     "what_it_provides": "Drag-and-drop kits: weapon GDTs, models, textures, animations, sounds, plus per-pack install instructions. A 'Ricos Gun Hotfixes.rar' patch is required for packs versioned 1.0-1.2. Hosted on Mega.nz and MediaFire.",
+     "install_steps": "Extract to the mod/usermap directories per the included instructions; edit the weapons CSV and sound alias CSVs (author recommends Notepad++); add weapon lines to the map .zone; link in Launcher.",
+     "license_permission": "Explicit mandatory credit clause: 'If you use my ports, you MUST add me into the credit list of your future map/mod by: El Ricos | Big thanks to: DTZxPorter, Azsry, HitmanVere, KommunityKOD, ElTitoPricus'.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Entire Origins Loadout v1.0 — Harry Bo21 (BO2 Origins guns)",
+     "url": "https://forum.modme.co/wiki/threads/2264.html",
+     "weapons_covered": [
+      "All BO2 Origins map weapons (e.g., MP40, STG-44, KSG, PDW-57, FAL, Mauser, etc.)"
+     ],
+     "what_it_provides": "Partial kit only: Wraith SEAnim animation dumps with official notetrack timings, raw model dumps, conversion rig, BO2 sounds and weapon files, Azsry's T7 weapon-stat converter, Maya 2016+ scenes. Does NOT include finished GDTs, textured/bound models — porting work still required. WARNING: the MEGA download is dead; Harry Bo21 removed his public assets.",
+     "install_steps": "Not currently installable — the public download was removed. Stated path requires contacting Harry Bo21 directly for access, then completing the port yourself in Maya (bind to rig, texture, build GDT in APE).",
+     "license_permission": "Credits required (Harry Bo21, Azsry, DTZxPorter, Treyarch); distribution now permission-gated since the author pulled public links — a live example of why etiquette matters (authors do revoke).",
+     "confidence": "likely"
+    },
+    {
+     "name": "Modme Wiki: Weapon Porting guide (Azsry) — the DIY route",
+     "url": "https://wiki.modme.co/wiki/black_ops_3/guides/Weapon-Porting.html (source mirror: https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/guides/Weapon-Porting.md)",
+     "weapons_covered": [
+      "Any weapon you rip yourself from BO3, BO2, BO1, MW, MW2, MW3 (companion guides cover newer titles, e.g., Apex Legends: https://wiki.modme.co/wiki/black_ops_3/guides/Weapon-Porting-Apex-Legends.html)"
+     ],
+     "what_it_provides": "Not assets — the canonical 8-step process doc: rip with Wraith/Greyhound, bind in Maya (CoDMayaTools 2.0 + provided Jessica/SOE-viewarms conversion rig for cross-game bone structures), export xmodel_export -> XMODEL_BIN, convert textures to TIFF, build PBR materials + xmodel + xanim + bulletweapon assets in APE, wire into Radiant/zone/CSV.",
+     "install_steps": "Follow the guide end-to-end per weapon; output is your own GDT + model_export/xanim_export files in the BO3 root, then the same zone/CSV/wallbuy wiring as any pack.",
+     "license_permission": "Tutorial by Azsry, free to follow (optional donation link). Community norm applies: credit the rig/tool authors (Azsry, DTZxPorter, et al.) in your map credits.",
+     "confidence": "verified-exists"
+    },
+    {
+     "name": "Greyhound (asset extractor, successor to Wraith Archon)",
+     "url": "https://github.com/Scobalula/Greyhound/releases",
+     "weapons_covered": [
+      "(tool, not a pack) Extracts models/anims/images/sounds from IW-engine CoD titles — WaW through the BO4/MW2019 era; newest titles (MWII 2022+) via the companion Cordycep tool"
+     ],
+     "what_it_provides": "Extraction tool producing .semodel/.seanim/.cast/.dds for Maya/Blender via plugins. GPL-3.0. Latest GitHub release v1.46.3.2 (Apr 4, 2024) still downloadable in 2026; repo not archived; newer builds distributed via the linked Discord 'tool-release' channel (maintainer handoff: Scobalula -> dest1yo for Greyhound + Cordycep, Dec 2023).",
+     "install_steps": "Download release zip, run against an installed copy of the donor game, export weapon models/anims, then continue via the Modme porting guide (Maya/Blender -> xmodel_bin -> APE). Only needed for the DIY route — unnecessary if using Skye/Rico packs.",
+     "license_permission": "GPL-3.0 for the tool itself. README disclaimer: extracted 'assets are property of their respective owners and what you do with the assets is your own responsibility'; stated intended use explicitly includes 'other Call of Duty SDKs (such as the Black Ops III Mod Tools)'.",
+     "confidence": "verified-exists"
+    }
+   ],
+   "general_findings": "1) COMMUNITY NORMS (credit/permission). The norm, consistent across UGX and Modme: using released port packs in your own map is expected and encouraged, but (a) you must add the porter to your map's credit list (Rico's thread makes it a hard requirement with exact wording; Skye requests credit to 'TheSkyeLord' plus tool authors), (b) you must NOT re-host/re-release the packs themselves or modified versions without asking, and (c) anything not publicly released requires a direct permission ask (Harry Bo21's Origins pack is the cautionary example — he pulled public links and access is now ask-only). UGX site rules say not to use other people's work without permission and to give proper credit; the long-standing UGX 'Modder Ethics' thread (https://www.ugx-mods.com/forum/general-discussion/21/modder-ethics/7643 — UGX forum blocks automated fetch, content confirmed via search excerpts) frames it as respecting free labor: released-asset use with credit = fine, modifying/redistributing someone's work = permission required. Practical etiquette for our Workshop description: a Credits section listing each porter (e.g., 'Weapon ports: TheSkyeLord'), the tutorial/rig author (Azsry), and tool authors (DTZxPorter, Scobalula), and a quick courtesy DM on Modme/Discord for anything ambiguous. Releases that ship others' assets without credit get called out publicly and delisted from community sites.\n\n2) ATVI TOLERANCE. No documented case found of Activision taking down a BO3 Workshop zombies map for containing weapons ported from other CoD titles — across 9+ years of the BO3 Workshop (opened 2016) and thousands of maps. Skye's 552-weapon hub has been openly hosted on Modme and UGX since ~2020 and cross-posted weapon mods remain live on the Workshop. Greyhound's README even names 'Black Ops III Mod Tools' as an intended destination. Treyarch shipped the mod tools knowing porting was the dominant use; community tutorials (including the official-adjacent Modme wiki) have never been targeted. The real enforcement precedents are all standalone clients/recreations, not Workshop usermaps: H2M (MW2-in-MWR client) C&D'd Aug 2024 one day before launch (https://kotaku.com/mw2-h2m-mod-activision-cease-and-desist-killed-steam-pc-1851623649), and SM2 (MW2019-engine remake) before that. Risk profile: porting CoD-to-CoD inside ATVI's own sandbox = tolerated grey zone; porting non-ATVI IP (Apex, Nintendo franchises) raises third-party-rights risk and is where the rare Workshop removals (generic Steam guideline violations) cluster. Conclusion: shipping community CoD weapon ports in our Workshop map is normal practice with effectively zero takedown precedent; keep non-CoD IP out.\n\n3) TOOL PIPELINE STATUS (June 2026). Extraction: Greyhound v1.46.3.2 downloadable from GitHub releases (Apr 2024; newer via Discord; dest1yo maintains Greyhound + Cordycep). Wraith Archon is dead as a download — dtzxporter/WraithX archived Nov 2021 with zero GitHub releases, and aviacreations.com (which hosted Wraith + ExportX) is unreachable (connection refused); treat Greyhound as the only extractor. Maya path: CoDMayaTools v2.9 (github.com/Ray1235/CoDMayaTools — repo archived Dec 2022 but the 2018 release binary is still downloadable; Maya 2012+) plus dtzxporter's SETools for seanim/semodel import. Blender path (more future-proof): maintained blender-cod forks — pv_blender_cod (https://github.com/prov3ntus/pv_blender_cod, Blender 3.x-4.x) and BlenderCODTool (https://github.com/Valerie-Bosco/BlenderCODTool, 4.1+) export XMODEL_EXPORT/XMODEL_BIN directly; original CoDEmanX/blender-cod still exists but is stale. Bin conversion: Kronos download links are dead; use export2bin (ships inside BO3 Mod Tools — always available) or MakeCents' Export2Bin Drag&Drop (https://sites.google.com/site/makecentsgaming/home/makecents-mod-tools-bo3); ExportX is unverifiable (host down). APE + linker + Launcher ship with the Steam mod tools. Net: the DIY pipeline is fully assemblable in 2026, but two of the four classic tools (Wraith, Kronos) are dead and have drop-in replacements.\n\n4) EFFORT ESTIMATE. The Modme Weapon-Porting wiki itself states first-timers take 'up to 4 hours to complete a single weapon port' — that excludes one-time tool setup (Greyhound + Maya/Blender + plugins + rig: budget another 2-4 hours) and assumes nothing goes wrong with the animation conversion rig (cross-game bone renames/namespace removal are the documented pain point; snipers and multi-part models add more). Realistic first weapon end-to-end: a full day (6-8h); weapons 2-5: 1-3h each; sound aliasing and APE material setup are the recurring sinks. By contrast, the pre-made route (Skye/Rico packs) is ~15-30 minutes per weapon — extract to BO3 root, CSV row, zone lines, wallbuy struct — with zero Maya/Greyhound involvement. RECOMMENDATION for this project: since our Windows compile day is already the bottleneck and our template is literally Skye's (FanaticSoftware/Skye-Weapon-Templates), use Skye's APE-ready packs for any non-stock weapons, put porter credits in the Workshop description, and reserve DIY porting (4h/weapon) for any one-off weapon the packs lack."
+  }
+ ],
+ "verdicts": [
+  {
+   "source_name": "FanaticSoftware/Skye-Weapon-Templates (GitHub — already this project's trusted ground-truth repo)",
+   "real": true,
+   "notes": "All material claims verified against live GitHub (web page, contents API, recursive trees API, raw file URLs, releases API). (1) Repo exists and is public; description matches purpose (auto-integrating Skye's Weapon Packs into BO3 maps via Launcher templates). (2) rex/templates/ contains exactly the 15 claimed folders \"01. ZM - Base\" through \"15. ZM - VG\"; no WaW or CoD4 template, as claimed. (3) Per-game CSVs at the claimed raw URL pattern resolve: MW2 csv has exactly 43 iw4_* weapons incl. iw4_ak47/iw4_m14ebr/iw4_intervention; BO1 csv has t5_ak47/t5_fal; BO2 csv has t6_ak47/t6_fal/t6_fal_osw/t6_b23r; AW csv has s1_ak47/s1_tac19; MWR csv has h1_ak47/h1_g3. (4) Wiring-only confirmed: recursive tree truncated=false with zero .gdt, no xmodel/xmodel_bin, no raw audio (.wav/.flac/.mp3) — only .map/.gsc/.csc/.szc/.zone/.csv/.png assets. (5) share/raw/scripts/lilrobot/_inspectable_weapons.gsc exists; share/raw/sound/aliases has 14 per-game skye_<game>_weapons.csv files (nuance: Vanguard's is skye_vanguard_weapons.csv, not skye_vg_). (6) Releases v1.0.0–v1.0.4 confirmed; latest tag WpnTemplates-v1.04 published 2025-03-26 with the exact claimed .rar asset URL. (7) No LICENSE file anywhere in tree; README credits TheSkyeLord (weapons) and LilRobot (inspect script) verbatim as claimed, and confirms Widows Wine / Spare Change / improved Max Ammo wiring. Minor caveat: v1.0.4 release notes mention added \"World at War Weapons\" in the downloadable .rar, but the main-branch git tree still contains no WaW template, so the claim's repo-scoped statement stands. Asset packs (TheSkyeLord's) are indeed not bundled and must be installed separately.",
+   "corrected_url": "https://github.com/FanaticSoftware/Skye-Weapon-Templates"
+  },
+  {
+   "source_name": "Skye's Weapon Ports to BO3 (Master Hub) — TheSkyeLord, UGX-Mods (THE asset source; 791 weapons)",
+   "real": true,
+   "corrected_url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/",
+   "notes": "VERIFIED 2026-06-12. Claimed URL is correct and live (returns 403 to plain fetchers/WebFetch due to anti-bot; HTTP 200 with a browser user-agent — same applies to the SMF printpage variant). Page title: \"Skye's Weapon Ports to BO3 (Master Hub) in Full Weapons - Page 1 of 7\". Every checkable claim confirmed verbatim against the fetched HTML: (1) \"Total weapons ported: 791\" exact text; (2) all 5 mega.nz links present with matching hashes AND under the correct game headings (BO1 QXJ3lKxA, BO2 JXRnAKyB, MW2 QfZS0YBY, AW BbJjmKSB, Inspectable Weapons Common AWICGIoD); (3) all 3 iCloud links match (MWR 065dY5F1..., WaW 0ae4cDnKzb..., CoD4 03cewx7tOpC7...); MW3/Ghosts/IW/WWII/BO4/MW19/MW2CR/BOCW/VG individual-weapons threads all linked from hub; (4) install file tree verbatim in FAQ: map_source\\_prefabs\\zm\\skye_prefabs, model_export\\skye_ports, share\\raw\\fx\\skye_efx, share\\raw\\sound\\templates, sound_assets\\skye_ports, source_data (GDTs start with skye_), xanim_export\\skye_ports; (5) zone line \"stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv\" verbatim in code snippet; 0-price wallbuy string-limit bug + move-lines-to-top fix and \"missing source checksum -> re-link\" fix both in FAQ as claimed; (6) weapons spot-checked on linked per-game threads: Intervention/M14 EBR/AK-47 on MW2 page, B23R/FAL(8 hits, consistent with FAL+FAL OSW)/AK-47 on BO2, Tac-19/AK-47 on AW, G3/AK-47 on CoD4 and MWR, FAL/AK-47 on BO1; (7) credits block lists TheSkyeLord, Azsry, Scobalula, TomBMX, DTZxPorter, Thomas Cat, Collie, lilrobot (inspectable weapons script) — matches license_permission claim. GDT naming convention skye_<engine-tag>_<gun> (iw4=MW2, t5=BO1) confirmed in FAQ, supporting the iw4_intervention example. Minor caveats only: per-weapon READMEs with inspect lines and exact weapon-name strings live inside the downloads, not on the forum page (not contradicted; naming convention confirmed); 'Weapon Common included in packs, needed separately for individual weapons' confirmed verbatim in FAQ. No corrections needed to the claim."
+  },
+  {
+   "source_name": "Skye individual ports — exact per-target-weapon downloads (BO2/MW2/AW/CoD4 pages)",
+   "real": true,
+   "corrected_url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-bo2-weapon-ports/23141/",
+   "notes": "VERIFIED via UGX printpage endpoint (the claim's own 403 workaround note is accurate: plain fetches 403, but https://www.ugx-mods.com/forum/index.php?action=printpage;topic=<id>.0 with a browser User-Agent returns 200). All five topic pages exist with matching titles: 23141 'Skye's BO2 Weapon Ports', 23145 'Skye's MW2 Weapon Ports', 23138 'Skye's AW Weapon Ports', 23809 'Skye's CoD4 Weapon Ports', 24598 'Skye's WaW Weapon Ports'. All 8 claimed weapon download links match EXACTLY (full mega.nz hash fragments and iCloud IDs byte-for-byte): B23R iCloud 0e7uVOtGt1bDNviBLwVA2x12A#Skye_BO2_B23R ('Official anims, sounds, and custom slide - Includes a wallbuy'); FAL mega 9DhTjQDI#HUwY... (page calls it 'BO2 FAL', not 'FN FAL' — same weapon, only naming nuance found); FAL OSW mega haxlVSIR#4d3I... (M320 on packed model, includes wallbuy); Intervention mega RDhW3IJJ#MN9G... (packed model has ACOG); M14 EBR mega RHJkgIKb#C4Q1... (packed model has ACOG); Tac-19 mega 1LpEVQKZ#Yiml... ('foregrip, reflex sight, and is the \"Sledgehammer\" variant - Includes a wallbuy'); CoD4 G3 iCloud 031GEOVL156AejjdT--mGn0hw#Skye_CoD4_G3 ('PaPed model has an ACOG sight - Includes a wallbuy'); CoD4 AK-47 iCloud 0d6LC9DykKiyVbBCzaHHggafg#Skye_CoD4_AK-47 ('PaPed model has a GP-25 launcher and a reflex sight - Includes a wallbuy'). Weapon Common links also exact: CoD4 0cddAsBB0t-BH7lkWfaS-QM3w#Skye_CoD4_Weapon_Common and WaW 04bF59Ei7A2KzlUMau4i3KBRg#Skye_WaW_Weapon_Common, with the pages' '***Ensure that you have the weapon common installed!**' warning confirming the dependency claim. WaW page (24598) has ZERO 'G3' mentions, confirming 'G3 was never in WaW', and contains all claimed WaW weapons (Magnum, M1911, Nambu, TT-33, P38, Double-Barrel, Trench Gun, MP40, PPSh, Thompson, Type 100). Caveats not independently verifiable from the pages alone: actual installer contents behind the mega/iCloud links were not downloaded (so 'GDT + xmodel_bin + xanims + README' composition is unconfirmed, though entry descriptions are consistent with it); the license/permission summary ('credit TheSkyeLord, no reupload') references the master hub thread, not text on these pages; install_steps are the claimant's synthesis, not page content. Core claim — URLs resolve and content matches — fully confirmed."
+  },
+  {
+   "source_name": "Skye Master Hub — Modme archive mirror (dtzxporter/ModmeForum, GitHub)",
+   "real": true,
+   "notes": "Verified. The GitHub URL https://github.com/dtzxporter/ModmeForum/blob/main/wiki/threads/2565.md returns HTTP 200 (raw URL also 200) and contains exactly what was claimed: an archived mirror of Modme thread 2565, \"Skye's Weapon Ports to BO3 (Master Hub)\" by TheSkyeLord. Content checks: (1) states 552 total weapons ported; (2) games covered are MW2019, BO4, WW2, MW:R, AW, IW, BO2, MW3, Ghosts, BO1 — no WaW/CoD4/BOCW/Vanguard, consistent with the claimed pre-WaW/CoD4/BOCW/VG 2019-era snapshot (thread updates reference Sep–Dec 2019); (3) Mega.nz pack links present (e.g. BO4 pack, MW:R pack) plus specific weapon names (Cordite, M1897 Trebuchet, ICR-7, RK 7 Garrison, Austen); (4) install writeup matches the claim — \"The folders that are included go into the BO3 root folder (at Steam\\steamapps\\common\\Call of Duty Black Ops III)\" covering model_export/share/sound_assets/source_data/xanim_export, plus the zone-file line stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv. The secondary live HTML mirror in the claim (https://forum.modme.co/wiki/threads/2565.html) also returns HTTP 200. Caveat per the claim itself: this is a static 2019-era archive, so Mega links may be stale/superseded by the live UGX hub — treat as reference, not primary download source.",
+   "corrected_url": "https://github.com/dtzxporter/ModmeForum/blob/main/wiki/threads/2565.md"
+  },
+  {
+   "source_name": "treminaor/ugx-mod-bo3 (UGX Mod) — NEGATIVE result for weapons",
+   "real": true,
+   "notes": "URL resolves (public repo, default branch master, \"UGX Mod ported to Call of Duty Black Ops 3\"). Negative claim independently re-verified with a COMPLETE recursive tree fetch (api.github.com git/trees/master?recursive=1: truncated=false, 403 entries): zero paths matching ak47/m14/fal/g3/b23r/intervention/tac45/mp40/ppsh/ray_gun/weapon_export/aitype. Only weapon-adjacent files are the gun-game box assets (model_export/ugx/ugx_weapon_box/ugx_weapon_box.XMODEL_BIN + xanim_export spins), waypoint_weapondrop HUD art, and ugxm_wallweapon.gsc script logic — no ported weapon assets. All claimed positives confirmed: texture_assets/ugx/hud/ugxm_pap_gun_upgrade.tif (plus other ugxm_*.tif HUD icons), share/raw/sound/aliases/ugxmbo3.csv, 14 compiled .ff/.xpak files under ugxmod/zone/. README confirms gamemode/feature mod (Timed Gameplay, Gungame, CHAOS Mode, Sharpshooter), not a weapon source. LICENSE.md exists at repo root (license text not deeply audited, but irrelevant per the claim since no weapons are sourced here). Note: an earlier WebFetch of the tree API was content-truncated by the fetch tool; the PowerShell Invoke-RestMethod fetch of the same endpoint returned the full untruncated tree, which is what the verdict is based on.",
+   "corrected_url": "https://github.com/treminaor/ugx-mod-bo3"
+  },
+  {
+   "source_name": "EthanArmbrust/bo3-weapon-porter (GitHub) — utility only",
+   "real": true,
+   "notes": "URL resolves and contents match the claim exactly. File tree is just .gitignore, LICENSE, README.md, example_ignores.txt, weapon-reader.cpp — a single C++ command-line tool ('weapon-reader.exe old_weapon_file bo3_gdt_filename.gdt weapon_name [ignore_list.txt]') that ports weapon GDT data from previous CoD games to BO3. README confirms it ships no GDTs, no models, no sounds, no assets — users must source weapon files separately and build GDTs in APE. 0 stars; last release v1.0 dated Oct 2, 2017. LICENSE file confirmed present and is GPL-3.0 (claim left it unexamined; GPL-3.0 is moot since no assets ship). Secondary claim also checked via GitHub API repo search for 'bo3 weapon port': 2 total results, of which this is the only BO3-relevant one (the other, chaosfighter8/Pavlov-Custom-Weapons, is an unrelated Pavlov VR repo) — so 'only relevant repo' holds with a trivial caveat. Claim's characterization 'utility only, not an asset source' is accurate.",
+   "corrected_url": "https://github.com/EthanArmbrust/bo3-weapon-porter"
+  },
+  {
+   "source_name": "Skye's Weapon Ports to BO3 — Master Hub (TheSkyeLord)",
+   "real": true,
+   "notes": "Verified across three independent layers. (1) Primary URL forum.modme.co/wiki/threads/2565.html resolves: \"Skye's Weapon Ports to BO3 (Master Hub)\" by TheSkyeLord, 552 weapons across the 11 claimed games, Weapon Common Asset requirement, zm_levelcommon_weapons.csv zone-file line, credits list. (2) GitHub mirror (dtzxporter/ModmeForum wiki/threads/2565.md) exists; raw markdown contains all 11 per-game pack Mega links matching the claim's link strings exactly, the ~150-custom-weapons-per-map limit, Discord contact TheSkyeLord#2511, and per-game thread IDs incl. 3123/3124 (MW2019 pages). BO2 sub-thread 2580 confirms the claimed roster (B23R, AK47, FAL, FAL OSW, M14, M16A1, Tac-45, SVU-AS, DSR 50, Ballista), the in-thread B23R-folder-ships-AK47-wallbuy-prefab gotcha, and the \"Obviously I will give credits\" comment. (3) Mega liveness re-verified directly via Mega public API (g.api.mega.co.nz) on 2026-06-12 for 17 handles: MW2019 full pack pWBQVBjb returns [-9] (dead) exactly as claimed; all other pack links alive with byte sizes matching claimed sizes (BO2 568,718,803≈569MB; MW2 347,567,161≈348MB; BO1 443,964,307≈444MB; AW 2,142,142,310≈2.14GB; MWR 1,697,045,059≈1.70GB; MW3 401MB; Ghosts 1.33GB; IW 1.95GB; WWII 2.11GB; BO4 1.40GB); all 5 Weapon Common Asset links alive with matching sizes (BO2 37.5MB, MW2 27.4MB, AW 62.8MB, BO1 84.5MB, MWR 162MB); MW2019 individual bundle YfQElbZA alive at 555,383,171≈555MB. Caveats: UGX-mods mirror returned HTTP 403 to automated fetch (Cloudflare bot block) so that mirror is unconfirmed but non-essential; individual single-gun link liveness (Intervention/M14 EBR/etc.) and the literal \"drag & drop and good to go\" quote were not individually re-verified, though everything checkable matched precisely.",
+   "corrected_url": "https://forum.modme.co/wiki/threads/2565.html"
+  },
+  {
+   "source_name": "HarryBo21's WaW, Black Ops 2 and Black Ops 3 Gun Ports (Modme wiki thread)",
+   "real": true,
+   "corrected_url": "https://forum.modme.co/wiki/threads/2369.html",
+   "notes": "URL resolves; page title matches exactly. Weapon roster matches the claim almost verbatim (pistols incl. Mauser/B23R/Executioner; shotguns incl. Blundergat/Acid Gat; SMGs incl. MP40/Chicom/Skorpion Evo; ARs incl. M14/FN FAL/SCAR-H/M8A1 plus Galil; snipers incl. Ballista/DSR50/SVU/Barrett plus PTRS41; wonder weapons incl. Ray Gun Mk II, Origins Staffs, Gersh). Download status confirmed: original MEGA links defunct, users report 'file no longer available' and 'he deleted them on purpose' — the kit is not installable today, matching the claim. Caveats: (1) the 'lack of credit' rationale and 'explicit do-not-reupload request' are NOT on this page — the thread contains no author explanation or reupload terms; those are community lore, treat as unconfirmed. (2) GitHub repo search for 'harrybo21' does return 0 repos, but the user account HarryBo21 exists with one repo (a ModmeWiki fork, no weapon content) — 'no GitHub mirrors' holds, '0 repos' is imprecise. (3) AN94 and 'SOE gun' were not confirmed in the visible weapon list. Practical takeaway for the map project: source exists but is unusable as a weapon-port source; do not plan around it."
+  },
+  {
+   "source_name": "ProRevenge's Gun Ports for BO3",
+   "real": true,
+   "corrected_url": "https://forum.modme.co/wiki/threads/2602.html",
+   "notes": "URL resolves (archived Modme Forums thread, author ProRevenge) and content matches the claim on every checkable point. Weapons: all claimed weapons present (KS-23, RPK, AK74u, AN-94, Galil, M16, MSMC, MP40, StG-44, Olympia, China Lake, M1911 w/ Mustang & Sally, Marshal 16 Dual Wield, Ray Gun Mk II + Ray Gun Rework); claim's list is slightly incomplete — thread also includes M1 Garand, MP-28, Spas-12, Rack-9. Confirmed it does NOT cover B23R/AK-47/M14 EBR/G3/FAL/Intervention/Tac-19. Verbatim matches on page: wallbuy prefab path 'map_source/_prefabs/zm/pro_prefabs/wallbuys/GUNNAME_wallbuy' (misc_prefab), price edit via zm_levelcommon_weapons.csv, GDTs provided, per-weapon readmes, common-assets package installed first. License statement confirmed verbatim: 'You may download them and use as you please, GDT's are provided so you can alter anything you would like'. Dead-links claim verified directly: all 20 Mega links extracted from the page were queried against Mega's API (g.api.mega.co.nz/cs, action 'g') and every one returns error -16 (EBLOCKED, uploader account terminated) as of 2026-06-12 — so the source exists and is accurately described, but is not installable today."
+  },
+  {
+   "source_name": "Modme Wiki — Weapon Porting guide (current canonical DIY tutorial)",
+   "real": true,
+   "notes": "URL resolves (no 404) and is the Modme Wiki \"Weapon Porting\" guide for BO3. Verified content matches the claimed workflow step-for-step: rip with Wraith; bind/align in Maya (j_gun root, tag_weapon parenting); export .xmodel_export and convert to .xmodel_bin via Kronos; textures converted to TIFF (\"the only image format Black Ops 3 supports\"); APE xmodel + material (diffuse/normal/specular/gloss); animation conversion rig with renameRig.mel adding the _t7 bone suffix (and removeNamespace.mel); APE xanim assets with loop/type settings; bulletweapon asset creation; Radiant placement via entity browser; zone line \"weapon,WEAPONNAME\". Two minor over-claims in the submitted description: (1) the page does NOT cover sound aliases / a fire-reload CSV — the claim's \"Plus sound aliases CSV\" is not on this page; (2) the page mentions only Wraith and Kronos, not Greyhound or Lime (those are newer community-recommended successors but are not in this guide). These do not affect the source's validity as the canonical DIY weapon-porting tutorial; confidence \"verified-exists\" is accurate."
+  },
+  {
+   "source_name": "DEVRAW (devraw.net) — active asset hub (modern alternative)",
+   "real": true,
+   "notes": "URL resolves (no redirect needed). Homepage confirms the claimed description verbatim in spirit: 'Find, Download, and Upload custom assets for the Call of Duty: Black Ops 3 Mod Tools', staff verification/quality process ('Each asset was tested and verified by our DEVRAW Staff'), free account for uploading, and active 2026 content (Valentine's update blog post, 2.0 site launch, Map of the Week). The /assets catalog contains ALL four specifically named weapon uploads: '[MW23 & BO6] Weapon Pack' by OwenC137 (7 downloads; 14 weapons incl. MCW, RAM-7, Striker, Kar98k), 'BO6 WunderWaffe DG-2' by WetEgg (13 downloads), 'Black Ops 1 Thundergun' by TheAllNightFall (5 downloads), and 'Ray Gun & Ray Gun MK2 (BO6/7)' by owais (1 download). Categories match claim (weapons, perks, FX, HUD, tools, audio, models). Spot-checked per-asset page https://www.devraw.net/approved-assets/owenc137/%5Bmw23-&-bo6%5D-weapon-pack: has download link, install readme with GDT/GSC setup steps, and an extensive credits block (Activision/Treyarch original assets + named porters/testers) — confirming the per-asset credit-requirements claim. Minor caveats: (1) some downloads are hosted off-site (the OwenC137 pack links to Google Drive), so 'download asset zip' from the site itself is not always literal; (2) the named weapon uploads have very low download counts, consistent with the claim's 'catalog rotates' hedge; (3) account requirement for downloading (vs uploading) could not be confirmed, but the claim already hedges with 'if prompted'. Overall the claim is accurate; confidence upgrade from 'likely' to confirmed is warranted.",
+   "corrected_url": "https://www.devraw.net/"
+  },
+  {
+   "source_name": "UGX-Mods forum — Full Weapons board (BO3 mirrors of Skye's threads)",
+   "real": true,
+   "notes": "Both URLs verified as exact matches. Direct WebFetch returns HTTP 403 (site blocks automated fetches, as the claim itself stated), but the search index confirms: (1) master hub thread at /full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/ exists with all 6 pages indexed (/15 /30 /45 /60 /75), titled 'Skye's Weapon Ports to BO3 (Master Hub)', snippet shows 791 weapons ported, Discord contact TheSkyeLord#2511, covering MW2019/BO4/WWII/MW2/MW3/BO2/IW/AW/BOCW/Vanguard; (2) secondary thread /skyes-mw2-weapon-ports/23145/ exists ('Skye's MW2 Weapon Ports - Page 1 of 1'), snippet lists concrete weapon names (.44 Magnum, Beretta M9, Desert Eagle, USP .45, G18, M93 Raffica, PP2000, TMP, AA-12, M1014, Model 1887, Ranger, SPAS-12, Striker, Mini-Uzi, MP5K, P90, UMP45) with official animations/sounds and 'credits available at a master hub'. Cross-checked the Modme master hub (forum.modme.co/wiki/threads/2565.html, fetchable): confirmed mega.nz pack links and TheSkyeLord credit; Modme snapshot lists 552 weapons vs 791 on UGX, consistent with the claim that UGX carried Skye's later updates. Caveats: could not read UGX page bodies directly, so could not byte-compare the Mega links between UGX and Modme (corroborated only via snippets); the side claim that UGX's classic downloads section is WaW-era was not independently verified. Other sibling threads also confirmed indexed (MW2019 16878, BOCW 23166, AW 23138, WWII p2 23135, Ghosts 23140, MW2CR 23522).",
+   "corrected_url": "https://www.ugx-mods.com/forum/full-weapons/84/skyes-weapon-ports-to-bo3-master-hub/16874/"
+  },
+  {
+   "source_name": "CabConModding — BO3 weapon pack threads",
+   "real": true,
+   "notes": "Verified despite cabconmodding.com returning HTTP 403 to automated fetchers (Cloudflare-style bot protection) — all URLs confirmed live via search index + cross-referenced Steam Workshop pages. (1) Tag page /tags/bo3-mod-tools/ exists as a BO3 Mod Tools content hub. (2) Thread .2117 exists at the exact claimed slug; weapon list matches claim: Ray Gun MKII, Blundergat, BO2 ARs/snipers (AN-94, Galil, SCAR-H, DSR-50, Ballista) plus MP40/STG-44/MG08. (3) Thread .2901 CUSTOMGUNSMEGAPACK exists; its Workshop counterpart (id 948516731, by Dylan/ElTitoPricus/MakeCents/harrybo21 et al.) confirms the exact claimed weapons MP40, STG-44, MG08/15, Ray Gun Mark II — note that Workshop item was REMOVED from Steam for content-guideline violation, making the forum .rar the surviving distribution channel. (4) Thread .8191 Wonder Weapon Pack exists; confirms Sliquifier, KT4, Spectrum Mark II (plus Acidgat, Magmagat, Winter's Howl, Scavenger). The what_it_provides assessment is corroborated: both packs install via 'unzip .rar into Call of Duty Black Ops III\\mods' or Workshop subscribe — compiled mods, no GDT/xmodel_bin/APE source mentioned anywhere, so correctly flagged as wrong format for integrating weapons into this project's usermap (playable-only). Per-thread credits confirmed (multi-author credit lists). Attachment liveness behind forum login still not individually verifiable, as the claim itself caveats.",
+   "corrected_url": "https://cabconmodding.com/tags/bo3-mod-tools/"
+  },
+  {
+   "source_name": "ColDog5044/zm_countryside (shipped Workshop map, best integration reference)",
+   "real": true,
+   "corrected_url": "https://github.com/ColDog5044/zm_countryside",
+   "notes": "URL resolves (public repo, default branch main, MIT LICENSE + modtools_license.txt, created 2025-01, last push 2025-02, described as 'BO3 (T7) Custom Zombies map scripts'). Verified against the live file tree and raw file contents: (1) zone_source/zm_countryside.zone exists and contains a large block of weapon,t9_* lines including base+_up pairs — all 10 named weapons confirmed present (t9_ak47, t9_gallo_sa12, t9_mp5, t9_m79, t9_xm4, t9_hauer77, t9_krig6, t9_streetsweeper, t9_magnum, t9_marshal), plus the exact dual-wield lines weapon,t9_marshal_rdw_up_zm and weapon,t9_marshal_ldw_up_zm, the exact line stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv, and the exact line scriptparsetree,scripts\\lilrobot\\_inspectable_weapons.gsc. (2) gamedata/weapons/zm/zm_levelcommon_weapons.csv exists with ~75 data rows; the quoted t9_gallo_sa12 row matches character-for-character: 't9_gallo_sa12,t9_gallo_sa12_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,'. (3) Linker-output claim confirmed: zone_source/all/assetinfo/zm_countryside.{csv,deps,badnodes} and zone_source/all/scriptgdb/scripts/lilrobot/_inspectable_weapons.gsc.gdb exist, evidencing an actual compile with these weapons. (4) 'No GDTs / xmodel_bin' confirmed — full recursive tree (not truncated) contains zero .gdt and zero xmodel_bin files; weapon source assets are indeed external (Skye's pack). Minor caveats: the zone's t9_* line count was estimated ~110+ by the fetch summarizer vs the claimed '140+' (same order of magnitude, base+_up pairs; not falsifying); the repo does contain map-level compiled sound zone files (.sabl/.sabs/.sz) though no weapon sound source assets; the CSV header column names reported back differed slightly in two columns (is_zcleansed/content_restrict vs what the summarizer paraphrased), but the load-bearing data rows match exactly. Claims about Skye's pack install procedure and Skye's informal credit terms are external to this repo and were not independently verified here, but nothing in the repo contradicts them."
+  },
+  {
+   "source_name": "ohm-nabar/zm_building (shipped map, largest multi-pack weapon roster)",
+   "real": true,
+   "notes": "Verified via live fetches (2026-06-12). Repo exists and is public (GitHub API confirms full_name ohm-nabar/zm_building, default branch master, ~1.4MB, license: none). Description: \"Scripts for the Black Ops III custom zombies map 'Le Mont Saint Michel.'\" Spot-checks all pass: (1) zone_source/zm_building.zone (raw fetch) contains ~80-90 `weapon,` lines and ALL 17 spot-checked names verbatim — s4_1911, s4_thompsonm1a1, s4_mg42, s4_kar98k_irons, s4_owen_gun, s2_mas38, bo3_stg44, bo3_sten, bo3_mp40, m2_flamethrower, bloodgun, zm_diedrich, zm_pitchfork, zm_trident, frag_grenade_potato_masher_zm, and dual-wield s4_topbreak_rdw_up_zm / s4_topbreak_ldw_up_zm. (2) Claimed include lines all present: include,bgb_pack / include,flashlight / include,rt7_zpkg\\hud_dpad (plus include,hb21_traps not mentioned in claim). (3) zone_source/ contains .zpkg files as claimed (bgb_pack.zpkg, flashlight.zpkg, spx_util_script.zpkg). (4) gamedata/weapons/zm/ has both zm_levelcommon_weapons.csv and zm_levelcommon_bgb.csv; gamedata/weapons/common/ has both attachmentmappingsTable.csv and weaponoptions.csv. (5) \"No GDTs/model_export/source_data\" consistent with top-level tree (only animstatemachines, animtables, animtrees, behavior, gamedata, scripts, ui, vision, zone_source, sound/zoneconfig, localization dirs). Minor corrections: (a) no LICENSE file confirmed, but the repo DESCRIPTION grants conditional use: \"Credit me if you use any of these, and contact me if you have any questions\" — slightly more permissive than pure all-rights-reserved; (b) \"largest multi-pack weapon roster\" superlative and \"20KB\" zone size were not independently verifiable but the ~90-weapon-line scale is accurate; weapon count from fetch was \"80+\" vs claimed ~90 — within rounding of _up variants. Note this repo is already cited in this project's CLAUDE.md as a GSC-subfolder usermap reference, consistent with it being a real shipped map source.",
+   "corrected_url": "https://github.com/ohm-nabar/zm_building"
+  },
+  {
+   "source_name": "clixmods/zm_nuked (shipped Workshop map, 2024 Nuketown remaster source)",
+   "real": true,
+   "notes": "Verified via live fetch (2026-06-12). Repo exists; README confirms it covers the new Workshop upload ID 3558354570, source-only (no compiled map/Workshop files). gamedata/weapons/zm/zm_nuked_weapons.csv exists on main with ~45 data rows (claim said ~40 — minor undercount), header identical to zm_levelcommon_weapons.csv schema, and contains bouncingbetty, t6_tazer_knuckles, raygun_mark2; the quoted t6_tazer_knuckles row matches the raw file character-for-character. zone_source/zm_nuked.zone (203 bytes) is minimal exactly as claimed: skybox/LUT, BSP+col_map+gfx_map, sound,zm_nuked, and include,zm_nuked — no weapon or scriptparsetree lines. No GDTs, no model_export/source_data, no LICENSE file (top-level: .gitignore, README.md, gamedata/, scripts/, sound/, zone_source/ only). One nuance: the included zone file referenced by `include,zm_nuked` is not itself committed (zone_source holds only zm_nuked.zone, zm_nuked.zpkg, loc/), so the weapon/script asset lines presumably live in the zpkg/build-side include — the 'zone-splitting via include' description is accurate in mechanism but the split-out zone is not inspectable in the repo. Reference-only / no-t6-assets / credit-clixmods characterization all consistent with repo contents.",
+   "corrected_url": "https://github.com/clixmods/zm_nuked"
+  },
+  {
+   "source_name": "MattFiler/zm_alien_isolation (shipped map, only repo committing whole BO3 root incl. source_data GDTs — but no weapon GDTs)",
+   "real": true,
+   "notes": "VERIFIED. Repo exists (BO3 'Alien Isolation Zombies', released 2016-12, 72 commits). Root tree confirms full-BO3-root layout: archetypes/, map_source/, model_export/, share/raw/, source_data/, texture_assets/, usermaps/zm_alien_isolation/. Zone file (usermaps/zm_alien_isolation/zone_source/zm_alien_isolation.zone) contains EXACTLY the three claimed commented lines — //weaponfull,alien_flamer, //weaponfull,m2_flamethrower_zombie_bo3, //weaponfull,m2_flamethrower_zombie_bo3_up — and zero uncommented weapon/weaponfull lines, confirming no custom weapons shipped. source_data/alien_isolation_scripts.gdt has 14 entries (4x ssi.gdf, 3x light.gdf, 2x material.gdf, 2x image.gdf, 2x objective.gdf, 1x objectivelist.gdf) with NO weapon.gdf/attachment.gdf/xmodel.gdf — minor nuance: it's lights/LUTs/objectives PLUS skybox ssi settings, not 'only' the first three. GitHub license API returns 404 and no LICENSE in tree — all-rights-reserved treatment is correct; README states repo excludes models/sounds/textures. ONE INACCURACY: archetypes/alien_isolation_archetypes.gdt exists but is an EMPTY GDT ('{ }', 4 bytes) — it does NOT define an AI archetype as claimed. The 'only repo with full-root layout' superlative is unverifiable exhaustively but the layout itself is real. Core thesis (does NOT ship weapon GDTs; useful as full-root layout reference; weaponfull syntax preserved in comments) fully holds.",
+   "corrected_url": "https://github.com/MattFiler/zm_alien_isolation"
+  },
+  {
+   "source_name": "dtzxporter/ModmeWiki — Weapon Porting guide (GDT-side recipe the map repos omit)",
+   "real": true,
+   "notes": "Verified via WebFetch on 2026-06-12. Primary URL (https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/guides/Weapon-Porting.md) resolves and contains every claimed element, with exact quotes confirmed: creating a new .GDT in APE (\"Create a new .GDT for your weapon... Ctrl+Shift+N\"), adding a new asset of type `bulletweapon`, placing converted models into \"%BO3Dir%/model_export\" as XMODEL_BIN, xmodel GDT entries pointing at the exported BIN under LOD0 (\"Set the model type to animated and specify the XMODEL_BIN file you just exported under LOD0\"), and the zone line (\"Add the line `weapon,WEAPONNAME` at the bottom of the zone file, replacing WEAPONNAME with the name of the weapon asset you created in APE\"). The claimed companion page Setting-Up-Weapon-Attachments.md (same repo/path) also resolves and documents the `weaponfull,` override exactly as claimed: \"When putting your weapon into your zone file, you need to specify `weaponfull` instead of `weapon`\" to force loading of attachments/cosmetics. The \"weapons_covered\" framing is accurate — it is a generic any-weapon recipe (bulletweapon asset), not a specific weapon port. No corrected URL needed.",
+   "corrected_url": "https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/guides/Weapon-Porting.md"
+  },
+  {
+   "source_name": "Skye's Weapon Ports to BO3 (Master Hub) — TheSkyeLord",
+   "real": true,
+   "corrected_url": "https://forum.modme.co/wiki/threads/2565.html",
+   "notes": "CONFIRMED: Primary Modme URL resolves and matches the claim. Page is \"Skye's Weapon Ports to BO3 (Master Hub)\" by TheSkyeLord; verbatim \"Total weapons ported: 552\"; exact 11-game list matches (MW2019, BO4, WWII, IW, MW:R, AW, Ghosts, BO2, MW3, BO1, MW2); per-game MEGA weapon-pack downloads; install steps confirmed verbatim (\"stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv\" added to the map .zone, plus adding the weapon row to the CSV); credits phrase confirmed near-verbatim (\"Credits (this would not be possible without the people and tools below)\"). UGX mirror URL (ugx-mods.com .../16874/) returns 403 to non-browser fetchers but is confirmed real via search index (exact slug/thread ID, 6 pages). TWO CAVEATS: (1) Weapon Common Asset packs are NOT a universal dependency — the page says they apply only to MW2019, BO4, WWII, and MW:R guns; (2) the claimed license terms (\"free to use with credit; no re-hosting of packs\") are embellished — no explicit license/no-rehost statement was found on the hub page, only the credits request. The \"extract to BO3 root\" step was not on the hub page (presumably in per-pack docs). Note: one search-result summary mentioned 791 total weapons (the hub is periodically updated and separate Cold War/AW/MWR UGX threads exist), but the Modme page as fetched today states 552, matching the claim."
+  },
+  {
+   "source_name": "Rico's BO3 weapon ports (drag and drop) — El Ricos",
+   "real": true,
+   "notes": "URL resolves (archived Modme forums thread \"[Drag n Drop] Ricos BO3 weapon ports for your map/mod\" by elricos). Verified with two independent WebFetch passes, the second non-leading with verbatim transcription. All 31 listed weapons match the claim exactly across MW2/MW3/BO2/Ghosts/AW/MWR/IW; Mega.nz + MediaFire hosting confirmed; 'Ricos Gun Hotfixes' .rar confirmed (required for packs marked Ver. 1.1/1.2, author text also cites 1.0 — claim's '1.0-1.2' is accurate); per-pack instructions.txt, weapons-CSV/stringtable editing, and Notepad++ recommendation confirmed; mandatory credit clause confirmed verbatim: 'El Ricos | Big thanks to: DTZxPorter, Azsry, HitmanVere, KommunityKOD, ElTitoPricus'. Caveats: the thread's own '26 weapons total' header (last update 2017-08-12) undercounts the 31 packs actually listed — the claim repeats this inconsistency; the '.zone + link in Launcher' step was not directly quoted on the page (it is delegated to each pack's bundled instructions.txt).",
+   "corrected_url": "https://forum.modme.co/wiki/threads/2240.html"
+  },
+  {
+   "source_name": "Entire Origins Loadout v1.0 — Harry Bo21 (BO2 Origins guns)",
+   "real": true,
+   "corrected_url": "https://forum.modme.co/wiki/threads/2264.html",
+   "notes": "URL resolves as-is and content matches the claim. Verified against TWO independent copies: the live forum.modme.co page and the GitHub archive mirror (github.com/dtzxporter/ModmeForum, wiki/threads/2264.md). Confirmed: thread title \"Black Ops 3 Weapon Ports - Entire Origins Loadout v1.0\" by Harry Bo21; contents are exactly the claimed partial kit (Wraith SEANIM animation dumps with official notetrack timings for all Origins weapons, raw Wraith model dumps requiring manual porting/binding, Maya conversion rig, BO2 sounds and weapon files, Azsry's T7 weapon-stat converter, Maya 2016+ scenes — no finished GDTs or bound/textured models); the original MEGA link (mega.nz/#!YFlA1L7J!...) is dead, later comments state \"Harry removed all his Assets\" and direct users to contact him; credits list HarryBo21, Aszry [sic], DTZxPorter, Treyarch. Weapon names MP40, STG-44, KSG, PDW-57, FAL, Mauser C96 are referenced (known issues mention PDW binding bug from Wraith 3 and uncertain dual-wield anims for the \"57\"). Minor nuance: a search-result snippet quotes Harry saying he \"didn't mind if someone else hosted it as long as he didn't have to,\" so \"permission-gated\" is a slightly stronger framing than the author's stated stance, but the practical status (no public download, contact author) is accurate. Confidence upgrade from \"likely\" to confirmed."
+  },
+  {
+   "source_name": "Modme Wiki: Weapon Porting guide (Azsry) — the DIY route",
+   "real": true,
+   "notes": "All three URLs verified live (2026-06-12). (1) https://wiki.modme.co/wiki/black_ops_3/guides/Weapon-Porting.html resolves to a BO3 weapon porting guide authored by Azsry (PayPal donation link listed in contributors), with section headings matching the claimed 8-step process: Obtaining the model (Wraith rip), Preparing the models (Maya + CoDMayaTools binding), Exporting the model (xmodel_export via Kronos -> XMODEL_BIN), texture conversion to TIFF, Compiling model/materials/animations in APE, Converting animations from older games via a conversion rig, Creating the weapon file (bulletweapon), Adding weapon to a map in Radiant, Compiling the map. (2) GitHub source mirror github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/guides/Weapon-Porting.md exists with the same Azsry-credited content. (3) Companion Apex Legends guide URL also resolves — note it is authored by ThomasCat (not Azsry), credits DTZxPorter/Ray1235/Scobalula, and uses Legion rather than Wraith; the claim does not misattribute it, just cites it as a companion guide. Minor unconfirmed details: the specific 'Jessica/SOE viewarms' rig name and 'Greyhound' mention were not explicitly visible in the fetched summary (guide text says Wraith and 'specialized rig'), but these are cosmetic — the substance of the claim (canonical DIY process doc, tools, workflow, free-with-credit norm) is accurate. This is a process tutorial, not an asset pack, exactly as claimed under 'what_it_provides'.",
+   "corrected_url": "https://wiki.modme.co/wiki/black_ops_3/guides/Weapon-Porting.html"
+  },
+  {
+   "source_name": "Greyhound (asset extractor, successor to Wraith Archon)",
+   "real": true,
+   "notes": "Verified via WebFetch of both the releases page and repo root. Releases page resolves: latest release v1.46.3.2 (Apr 4, 2024) with 3 downloadable assets, notes marked OUTDATED directing users to the Discord tool-release channel — matches claim. README confirms: fork of Wraith Archon (orig. DTZxPorter), GPL-3.0, asset-ownership disclaimer, intended use explicitly includes \"other Call of Duty SDKs (such as the Black Ops III Mod Tools)\", export formats .semodel/.seanim/.cast/.dds, currently maintained by dest1yo, Ricochet-protected (newest) titles handled by Cordycep instead, repo not archived (460 stars, 132 releases). Claim correctly labels it a tool rather than a weapon pack. Only soft details not directly confirmed on-page: exact Dec 2023 handoff date and the precise WaW-through-BO4/MW2019 supported-game range (README defers game list to the wiki; release notes show BO3/BOCW/Vanguard/MW-era support). Substance of the claim is accurate."
+  }
+ ]
+}

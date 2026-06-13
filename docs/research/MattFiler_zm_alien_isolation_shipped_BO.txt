@@ -1,0 +1,97 @@
+TOPIC: MattFiler/zm_alien_isolation (shipped BO3 Workshop map, full source) — zone setup, door scripts, mystery box wiring, multi-zone spawner setup. Sources downloaded to tmp/zm_ai_ref/ (byte-sizes match GitHub API listing; branch=master).
+
+FINDINGS:
+REPO LAYOUT (GitHub API): scripts at usermaps/zm_alien_isolation/scripts/zm/{zm_alien_isolation.gsc 15094B, zm_alien_isolation.csc 2342B, bsp_torrens.gsc 25739B, eng_towplatform.gsc 13817B, hab_airport.gsc 26926B}; map at map_source/zm/zm_alien_isolation.map (2203338B); prefabs at map_source/_prefabs/{temp_prefabN.map x65, zm_alien_isolation/}. Local copies: C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/ (scripts under scripts/zm/, map + fetched prefabs at top level).
+
+=== (1) ZONE SETUP (zm_alien_isolation.gsc) ===
+main() lines 193-209 verbatim:
+  level.zones = [];
+  level.zone_manager_init_func =&ZM_ALIEN_ISOLATION_ZONES;
+  init_zones[0] = "bsp_torrens"; //The Torrens
+  init_zones[1] = "sft_lobby"; //Sevastopol lobby
+  init_zones[2] = "sft_spawn_zone"; //Old spawn room zone
+  init_zones[3] = "main_zone"; //Main area zone
+  init_zones[4] = "perkroom_zone"; //Fast Cash zone
+  init_zones[5] = "endgame_zone"; //Buyable ending zone
+  init_zones[6] = "noodlebar_zone"; //Noodle Bar zone
+  init_zones[7] = "noodlebar_zone_main"; //Noodle Bar zone 2
+  init_zones[8] = "collection_zone"; //Temp Baggage Collection and Advert Coridoor zone
+  init_zones[9] = "comms_volume"; //Tow Platform
+  level thread zm_zonemgr::manage_zones(init_zones);
+  level.pathdist_type = PATHDIST_ORIGINAL;
+  level.perk_purchase_limit = 100;
+zone_manager_init_func, lines 212-226 verbatim:
+  function ZM_ALIEN_ISOLATION_ZONES() {
+  zm_zonemgr::add_adjacent_zone("bsp_torrens", "sft_spawn_zone", "transition_from_torrens");
+  zm_zonemgr::add_adjacent_zone("sft_spawn_zone", "main_zone", "enter_main_zone");
+  zm_zonemgr::add_adjacent_zone("main_zone", "perkroom_zone", "enter_perkroom_zone");
+  zm_zonemgr::add_adjacent_zone("main_zone", "noodlebar_zone", "enter_noodlebar_zone");
+  zm_zonemgr::add_adjacent_zone("main_zone", "noodlebar_zone_main", "enter_noodlebar_zone");
+  zm_zonemgr::add_adjacent_zone("main_zone", "endgame_zone", "enter_end_zone");
+  zm_zonemgr::add_adjacent_zone("main_zone", "collection_zone", "enter_adverts_zone");
+  zm_zonemgr::add_adjacent_zone("endgame_zone", "comms_volume", "ayz_elevator_zoneswap");
+  level flag::init("always_on");
+  level flag::set("always_on"); }
+KEY MECHANIC: NONE of the 7 adjacency flag names are ever flag::set in any of the map's scripts (whole-dir grep = only the add_adjacent_zone lines), and no map entity sets them (main .map contains ZERO `script_flag` KVPs and ZERO targetname `zombie_door`). The map works because ALL 10 zones are in the init array: stock manage_zones (_zm_zonemgr.gsc:838-846) does zone_init+enable_zone per array entry; enable_zone sets is_enabled AND is_spawning_allowed=true (:497-498). Thereafter spawning is driven purely by per-frame player occupancy of volumes (:902-934); adjacent_zones .is_connected stays false forever and is irrelevant in this all-enabled pattern.
+Map-side zone wiring (info_volume, script_noteworthy "player_volume", target -> spawner-struct targetname): main_zone->start_zone_spawners (map:15473), endgame_zone->endgame_zone_spawners (21562), noodlebar_zone->noodlebar_zone_spawners (21580), noodlebar_zone_main->noodlebar_zone_spawners_main (21598), perkroom_zone->perkroom_zone_spawners (22169), collection_zone->collection_zone_spawners (23878), comms_volume->comms_zone_spawners (31549), bsp_torrens->NO target KVP (45779), sft_spawn_zone->spawnroom_zone_spawners (45796). That is 9 volumes for 10 init_zones: "sft_lobby" has NO info_volume anywhere in the main .map (string appears once, as a prefab path at map:61470; that prefab sft_lobby_to_old_spawn.map contains no info_volume).
+
+=== (2) DOOR/BLOCKER SCRIPTS — 100% custom GSC, no stock _zm_blockers ===
+Hint helpers (zm_alien_isolation.gsc:295-314): UPDATE_BUYABLE_TRIGGER(price, trigger) -> trigger setCursorHint("HINT_NOICON"); trigger setHintString(&"ZOMBIE_BUTTON_BUY_OPEN_DOOR_COST", price); trigger SetVisibleToAll(); plus UPDATE_TRIGGER/HIDE_TRIGGER/SHOW_TRIGGER.
+Generic buy door, hab_airport.gsc:259-307 `function HAB_AIRPORT_DOOR(DOOR_NAME, DOOR_PRICE)`: GetEnt by naming convention airportdoor_<name>_trigger / _side1_door / _side2_door / _side1_clip / _side2_clip + flasher; destination structs via struct::get("airportdoor_<name>_side1_door_move" etc). Purchase loop verbatim (277-288):
+  while(1) { airport_door_trigger waittill("trigger", player);
+    if(player.score < DOOR_PRICE) { wait 0.1; player playsound("zmb_no_cha_ching"); continue; }
+    player zm_score::minus_to_player_score(DOOR_PRICE); player playsound("zmb_cha_ching"); break; }
+Then HIDE_TRIGGER; door AND its clip brushmodel both `MoveTo(<struct>.origin, 2, 1, 1)` (294-299); flasher SetModel("ayz_new_door_lights_open") (302); PlaySound (306).
+Variants: HAB_AIRPORT_SHUTTER_DOOR(room_name, door_cost) (311-345) — relative `MoveTo((shutter.origin + (0,0,80)), 1.5, 0.75, 0.75)` on shutter + _door_clip + _door_extra; gated by `self waittill("ayz_lockdown_completed")` (320). HAB_AIRPORT_LOBBY_TO_SPAWNROOM_DOOR (349-357) — UPDATE_TRIGGER(&"AYZ_DOORPROMPT_LOW_POWER"), `level waittill("lobby_power_restored")`, then HAB_AIRPORT_DOOR("lobby_to_spawn", 500). HAB_AIRPORT_SPAWNROOM_TO_TERMINAL_DOOR (361-365) — HAB_AIRPORT_DOOR("spawn_to_terminal", 1000). HAB_AIRPORT_ENDGAME_DOOR (439-489) — keycard-gated, not money. HAB_AIRPORT_ADVERTS_DOOR (543-604) — `level flag::wait_till("power_on")` at 573. Noodlebar door (379-405) — power-gated, clip gets `NotSolid()` after MoveTo (404).
+Proximity auto-doors, bsp_torrens.gsc:432-539 `function BSP_TORRENS_AUTOMATIC_DOOR(doorID, doorType)`: polls `a_torrens_player IsTouching(doorTriggerZone)` (462), opens via `doorEntity MoveTo(doorEntity.origin + (0,0,76), door_open_time, 0.5, 0.5)` + same for light + clip (494-499), records in level.currentlyOpenDoors (522, array init at zm_alien_isolation.gsc:179), auto-closes -(0,0,76) when zone empty (532-537); `self endon("players_on_sevastopol")` (433).
+Power switch is the STOCK contract via prefab spaceflight_terminal_power.map: trigger_use targetname "use_elec_switch" + script_model "generator_handle" script_noteworthy "elec_switch" + struct "elec_switch_fx"; consumed in scripts only as `level flag::wait_till("power_on")` (hab_airport.gsc:91,383,412,573,656).
+Vestigial: the spawnroom door prefab's trigger_use carries `"script_flag" "enter_main_zone"` + `"ayz_doordef" "spawnroom_door"` (sr_door prefab:140-143) but nothing consumes it — stock _zm_blockers only sets script_flag flags inside its own door pipeline gated on trig._door_open (_zm_blockers.gsc:952-963), which never runs for these custom doors.
+
+=== (3) MYSTERY BOX: exactly 1 location ===
+Single placement of prefab `_prefabs/zm_alien_isolation/scripting/box_01.map` (main map:13541; uniq-count of prefab models confirms 1 use; zero matches for chest/magic/treasure anywhere in main .map text or in any of the 5 scripts). box_01.map contents (3 entities):
+  entity 1: "classname" "zbarrier_zmcore_MagicBox", "type" "zmcore_MagicBox", "script_noteworthy" "chest_1_zbarrier", "zbarriernumboards" "5", board models p6_anim_zm_magic_box_fake / p6_anim_zm_magic_box / tag_origin, board/tear anims o_zombie_magic_box_* (box_01.map:33-56)
+  entity 2: "classname" "script_struct", "targetname" "treasure_chest_use", "script_noteworthy" "chest_1", "zombie_cost" "950", same origin/angles as the zbarrier (box_01.map:61-67)
+  entity 3: misc_prefab "_prefabs/zm/zm_giant/geo/zm_giant_magicbox_platform.map" (box_01.map:72-75)
+Chest wiring relied on = pure stock _zm_magicbox.gsc: level.chests = struct::get_array("treasure_chest_use","targetname") + treasure_chest_init(level.start_chest_name) (:95-96; start_chest_name default "start_chest" :58); struct->zbarrier pairing GetEnt(self.script_noteworthy + "_zbarrier", "script_noteworthy") (:273,:286); size==1 branch: no "moving_chest_enabled" flag, level.chest_index=0, level.chests[0].no_fly_away=true (:157-170), and init_starting_chest_location size==1 branch sets zbarrier state "initial" and IGNORES start_chest_name (:183-193). Zone bookkeeping: stock zonemgr assigns the box to whichever zone volume contains the chest's zbarrier (_zm_zonemgr.gsc:418-425).
+
+=== (4) MULTI-ZONE SPAWNER SETUP — notables ===
+- ONE AI spawner for the whole map: prefab spawner_gen.map placed once; entity = "classname" "actor_spawner_zm_factory_zombie" with "count" "9999", "coop_count" "9999 0 0 0", "script_forcespawn" "1", "SCRIPT_FORCESPAWN" "1", "script_noteworthy" "zombie_spawner", "spawnflags" "19", "MAKEROOM" "1", "ALERTONSPAWN" "0", "export" "1", "script_disable_bleeder" "1" (spawner_gen.map:39-54).
+- Spawn-location struct counts by targetname (main .map): start_zone_spawners 24, spawnroom_zone_spawners 7, collection_zone_spawners 30, comms_zone_spawners 21, perkroom_zone_spawners 3, noodlebar_zone_spawners_main 3, noodlebar_zone_spawners 2, endgame_zone_spawners 2. Struct shape sample (map:23903-23912): script_struct, "script_noteworthy" "riser_location", "script_string" "find_flesh", "targetname" "start_zone_spawners" (and dog variants: "script_noteworthy" "dog_location"). Map totals: 65 riser_location, 27 dog_location occurrences.
+- bsp_torrens (intro) zone volume has NO target KVP = zero zombie spawn locations there; intro also runs SetDvar("ai_disableSpawn", "1") (bsp_torrens.gsc:68). Legal: zone_init only reads spots `if ( IsDefined( zone.volumes[0].target ) )` (_zm_zonemgr.gsc:345).
+- Runtime spawn-point relocation when players ride the elevator to Tow Platform (hab_airport.gsc:773-787): iterates struct::get_array("initial_spawn_points","targetname") and rewrites `currentSpawner.origin = spawnerStructNew.origin` from structs "tpf_spawners_"+N; then moves the single "player_respawn_point" struct to "tpf_spawners_9" (785-787). Also kills all live AI `zombie dodamage( zombie.health + 666, zombie.origin )` (790-793) and drops a POI failsafe `newPoiSft zm_utility::create_zombie_point_of_interest(5000, 500, 10000)` + `.attract_to_origin = true` on struct "sft_zombie_poi" (746-748).
+- Player spawns in map: 8 structs targetname "initial_spawn_points", each with "script_int" "1" or "2", "script_noteworthy" "initial_spawn", "script_string" "zcleansed_start_room" (map:61640-61903); 1 struct targetname "player_respawn_point" with "radius" "2000", "script_int" "2000", "script_noteworthy" "start_room", "script_string" "zclassic_start_room zcleansed_start_room zgrief_start_room" (map:45873-45880). Stock get_player_spawns_for_gametype matches `<gametype>_<location>` tokens in script_string of player_respawn_point structs (_zm_gametype.gsc:589-619).
+- Other main-GSC notables: zm_usermap::main() first line (157); level.start_weapon = getWeapon("knife") with original saved (160-161); level._zombie_custom_add_weapons =&ZM_ALIEN_ISOLATION_WEAPONS -> zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_alien_isolation.csv", 1) (191, 228-231).
+
+GOTCHAS:
+- Adjacency flags passed to zm_zonemgr::add_adjacent_zone are NEVER flag::set by this map (no script sets them; no script_flag-consuming stock door exists). The map only works because ALL 10 zones are in the init_zones array — stock manage_zones enables every array entry (is_enabled + is_spawning_allowed), and spawning is then occupancy-driven. If you copy the adjacency-flag pattern but pass only the start zone, off-zone spawning silently never activates unless your door code does `level flag::set(<flag>)`.
+- init_zones[1] = "sft_lobby" has NO info_volume anywhere in the map source: dev-mode build hits assert at _zm_zonemgr.gsc:332 ('No volumes found for zone'), and zone_init would deref undefined zone.volumes[0] at :345. It shipped only because retail strips asserts. Never list a zone without a matching info_volume targetname.
+- info_volume without a 'target' KVP (bsp_torrens) is legal — zone simply has zero zombie spawn locations (guard at _zm_zonemgr.gsc:345). But a zone volume whose 'target' matches no structs gives empty spawn lists with no error.
+- Custom door buys read player.score directly for the affordability check (hab_airport.gsc:279) — reading is fine; deduction goes through zm_score::minus_to_player_score. Never write player.score.
+- Single mystery box contract: script_struct targetname 'treasure_chest_use' script_noteworthy 'chest_1' MUST pair with a zbarrier entity script_noteworthy 'chest_1_zbarrier' at the same origin (stock does GetEnt(noteworthy+"_zbarrier","script_noteworthy")). With chests.size==1 stock sets no_fly_away=true and IGNORES level.start_chest_name — matches our CLAUDE.md note. zombie_cost lives on the struct (here 950).
+- Every moving door must MoveTo its separate *_clip brushmodel in lockstep with the visual door (and optionally NotSolid() it), or collision stays behind — every door function in this map moves door + clip pairs.
+- script_flag KVP on a custom-named trigger_use is dead weight: stock _zm_blockers only sets those flags inside its own door_think (trig._door_open gated, _zm_blockers.gsc:952-963), which never runs for custom-scripted doors.
+- Stock spawner sizing: one actor_spawner_zm_factory_zombie with count 9999 + script_forcespawn 1 + spawnflags 19 serves the entire multi-zone map; riser structs carry script_string 'find_flesh'.
+- WebFetch/GitHub note: map_source/_prefabs URLs containing spaces ('left door.map') 404 even when percent-encoded via raw.githubusercontent.com — verify download size before trusting fetched prefab content.
+- Initial player spawns can be relocated at runtime by rewriting struct .origin on the 'initial_spawn_points' and 'player_respawn_point' structs (hab_airport.gsc:773-787) — no respawn-system re-registration needed.
+
+CITATIONS:
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/zm_alien_isolation.gsc:193-209 (zones array + manage_zones)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/zm_alien_isolation.gsc:212-226 (add_adjacent_zone calls + always_on)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/zm_alien_isolation.gsc:155-161,191,228-231,295-314 (main, weapons table, trigger helpers)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/hab_airport.gsc:259-307 (HAB_AIRPORT_DOOR buy+MoveTo)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/hab_airport.gsc:311-365,439-489,543-604 (shutter/gated/keycard/adverts doors)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/hab_airport.gsc:746-748,773-793 (POI failsafe, spawn-struct relocation, zombie cull)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/bsp_torrens.gsc:432-539 (proximity auto-doors)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/scripts/zm/bsp_torrens.gsc:68,70,82 (ai_disableSpawn, flag waits)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/zm_alien_isolation.map:15473,21562,21580,21598,22169,23878,31549,45779,45796 (9 info_volume zone entities)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/zm_alien_isolation.map:13541 (single box_01 prefab placement)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/zm_alien_isolation.map:23903-23912,61640-61903,45873-45880 (spawner structs, initial_spawn_points, player_respawn_point)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/box_01.map:33-75 (zbarrier_zmcore_MagicBox + treasure_chest_use struct)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/spawner_gen.map:39-54 (actor_spawner_zm_factory_zombie KVPs)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/power.map (use_elec_switch/elec_switch/elec_switch_fx)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/zm_ai_ref/sr_door.map:138-146 (vestigial script_flag enter_main_zone on custom trigger)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/zm/_zm_zonemgr.gsc:286-426,488-522,595,810-985 (zone_init/enable_zone/add_adjacent_zone/manage_zones)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:58,95-96,113-193,273,286 (chest init, size==1 branch)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/zm/_zm_blockers.gsc:952-963 (script_flag only consumed by stock door pipeline)
+C:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies/tmp/bo3_stock_ref/scripts/zm/gametypes/_zm_gametype.gsc:589-619 (get_player_spawns_for_gametype)
+GitHub source of truth: https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/usermaps/zm_alien_isolation/scripts/zm/*.gsc and /map_source/... (downloaded sizes match API listing byte-for-byte)

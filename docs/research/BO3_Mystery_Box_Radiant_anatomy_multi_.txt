@@ -1,0 +1,103 @@
+TOPIC: BO3 Mystery Box Radiant anatomy + multi-chest start selection (_zm_magicbox.gsc) vs our acc_box_* randomizer scheme
+
+FINDINGS:
+RADIANT ANATOMY OF ONE BOX LOCATION (BO3, verified against stock _zm_magicbox.gsc + shipped zm_alien_isolation prefab source)
+
+A) What the script collects
+- level.chests = struct::get_array("treasure_chest_use", "targetname") — the chest "location" is a SCRIPT_STRUCT (not an entity, not a trigger). tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:95. Only collected when zm_utility::is_Classic() (:93-97).
+- Per-struct KVPs read by script: script_noteworthy (chest name, mandatory in practice), zombie_cost (optional, default 950 — :135-143), start_exclude (optional, "1" excludes from random start — :200-201), angles/origin (unitrigger placement — :294-295).
+- The legacy comment block (:100-112) describing trigger_use→lid→script_origin→box + rubble is WaW-era. In BO3: chest_lid/chest_origin lookups are COMMENTED OUT (:268-271); self.chest_lid is only used behind isdefined() (:670-673, :854-857). There is NO trigger_use entity — the use trigger is a runtime unitrigger built from the struct: unitrigger_stub.origin = struct.origin + anglestoright(struct.angles)*-22.5, script_unitrigger_type "unitrigger_box_use", script_width 104, script_height 50, script_length 45, per-player triggers forced (:293-302).
+- Rubble is OPTIONAL: GetEntArray(struct.script_noteworthy + "_rubble", "script_noteworthy"), filtered to DistanceSquared < 10000 (100 units) (:276-284).
+
+B) The zbarrier entity (the visible box)
+- Looked up TWICE by the same expression: GetEnt(struct.script_noteworthy + "_zbarrier", "script_noteworthy") → self.chest_box (:273) and self.zbarrier (:286). So the box entity's script_noteworthy MUST be exactly <struct script_noteworthy> + "_zbarrier".
+- Entity classname in the .map source: "zbarrier_zmcore_MagicBox" with KVP "type" "zmcore_MagicBox" (the zbarrier GDT asset; classname = zbarrier_<assetname>). Verified verbatim from shipped map source: https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/map_source/_prefabs/zm_alien_isolation/scripting/box_start.map — entity 1: classname "zbarrier_zmcore_MagicBox", script_noteworthy "start_chest_zbarrier", zbarriernumboards "5", boards: 1=p6_anim_zm_magic_box_fake (fake/away box, idle twitch anims), 2=p6_anim_zm_magic_box (arrive/leave anims o_zombie_magic_box_arrive/_leave), 3=p6_anim_zm_magic_box (open/close), 4/5=tag_origin (weapon rise / dual rise / teddy rise anims). These boards map 1:1 to script piece indices 0-4: state machine shows piece 0 for "away", piece 1 for "arriving"/"initial"/"leaving", piece 2 for "open"/"close" (:2109-2150); pieces 3/4 get BoxRiseLogic for the weapon float (:289-290, :2043-2068).
+- Entity 2 in the same prefab: classname "script_struct", targetname "treasure_chest_use", script_noteworthy "start_chest", zombie_cost "950", SAME origin/angles as the zbarrier entity. Entity 3: cosmetic misc_prefab platform (_prefabs/zm/zm_giant/geo/zm_giant_magicbox_platform.map).
+- Stock usermap template (and our map) places one misc_prefab "_prefabs/zm/zm_mysterybox/box_start.map": map_source/zm/zm_abandoned_cyber_city.map:1430-1437 (entity 24, only KVPs: angles "0 180 0", origin "-1881 1540 -2" — NO script_noteworthy on the instance). The alternate-location prefab in mod tools is _prefabs/zm/zm_mysterybox/box.map (non-start); zm_alien_isolation's box_01.map shows the alternate anatomy: struct script_noteworthy "chest_1" + zbarrier script_noteworthy "chest_1_zbarrier" (https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/map_source/_prefabs/zm_alien_isolation/scripting/box_01.map). box_start vs box differ ONLY in the baked-in noteworthy pair (start_chest vs chest_N); targetname is "treasure_chest_use" in both — that targetname is what makes it a chest at all.
+
+C) Start chest selection with 3+ chests
+- Timing: zm_magicbox __init__ (engine CodeCallback_PreInitialization → system::run_pre_systems, callbacks_shared.gsc:531-535) sets level.start_chest_name = "start_chest" (:58). Level entry main() runs AFTER that, BEFORE CodeCallback_FinalizeInitialization → run_post_systems (callbacks_shared.gsc:540-543) which threads zm_magicbox __main__; __main__ additionally wait(0.05) before treasure_chest_init(level.start_chest_name) (:91-97). So our write in entry main() → acc_main::pre_init() → acc_map_randomizer::pre_init() (scripts/zm/zm_abandoned_cyber_city.gsc:123-128, _acc_map_randomizer.gsc:35 `level.start_chest_name = "acc_box_" + state.mystery_box_initial;`) lands in the window and wins. Confirmed correct.
+- treasure_chest_init: flags moving_chest_enabled/moving_chest_now/chest_has_been_used inited (:115-117); chest_moves=0, chest_level=0 (:119-120); if !level.enable_magic → all chests hidden, system dead (:146-153; enable_magic = GetGametypeSetting("magic"), _zm.gsc:1160); if size>1 → flag::set("moving_chest_enabled") + level.chests = array::randomize(level.chests) (:157-161); size==1 → chest_index=0, chests[0].no_fly_away=true (:167-170 — teddy can never appear, level.start_chest_name COMPLETELY IGNORED via the size==1 branch of init_starting_chest_location :183-193).
+- Multi-chest selection (init_starting_chest_location :178-256): two modes.
+  MODE 1 — level.random_pandora_box_start == true (:198): pick the first chest in the (randomized) array that does NOT have start_exclude==1; hide all others. start_chest_name ignored. (Example setter: zm_giant.gsc:144.)
+  MODE 2 — default: per chest, keep the FIRST (in randomized order) where IsDefined(script_noteworthy) && IsSubStr(chests[i].script_noteworthy, start_chest_name) (:223); winner: chest_index=i, .hidden=false, zbarrier → set_magic_box_zbarrier_state("initial") (:229-234) — the "initial" state is the ONLY state that registers the buy unitrigger at startup (:2122-2127). All non-matching chests: hide_chest() (:224) → zbarrier state "away" (fake box model), unitrigger unregistered (:441-483).
+  - Direction of IsSubStr: chest's script_noteworthy must CONTAIN level.start_chest_name. "acc_box_market" contains "acc_box_market" → exact names work. (Also means a noteworthy like "acc_box_market_move1" would still match start_chest_name "acc_box_market".)
+  - FAILURE MODE: if no chest matches, start_chest_found stays false, ALL chests are hidden, chest_index stays 0, and the light-beacon thread still runs on a hidden chest (:180, :243-255). No error, no assert — the map simply has no usable mystery box.
+- After selection: array::thread_all(level.chests, &treasure_chest_think) (:175) — all chests think; hidden ones just have no unitrigger so they can't fire "trigger".
+
+D) Box movement on bad rolls (teddy bear)
+- Decision: treasure_chest_should_move (:1429-1521). Gate: GetDvarString("magic_chest_movable")=="1" (set by _zm.gsc:1329) && not fire-sale. Probability driven by level.chest_accessed (incremented per non-firesale grab :843-847) and level.chest_moves: pulls < level.chest_min_move_usage (default 4, :1440-1443) → never; pulls 4-7 → 15%; forced 100% at pull 8 if box never moved (:1453-1457); after first move: pulls 8-12 → 30%, 13+ → 50% (:1474-1501). chest.no_fly_away blocks (:1504-1507). Override hook: level._zombiemode_chest_joker_chance_override_func(chance) (:1509-1512).
+- Execution: weapon model becomes level.chest_joker_model (default "p7_zm_teddybear", :78-81), flag::set("moving_chest_now"), level.chest_accessed=0, level.chest_moves++ (:1723-1727); purchase price refunded to the buyer ("magicbox_bear", :706-709); teddy flies up 500 units and level notify "weapon_fly_away_start"/"weapon_fly_away_end" (:1750-1774); treasure_chest_move (:1018-1089): hide_chest(true) (leave anim + poltergeist fx + announcer "boxmove" :464-477), then next location via level._zombiemode_custom_box_move_logic if defined else default_box_move_logic (:1065-1072): prefers a chest whose script_noteworthy contains "move"+(level.chest_moves+1) (e.g. "move1" — :976-988), else chest_index++ with wraparound re-randomize of the array (:996-1012); waits 7s (12s if no firesale :1041,:1060), poltergeist fx + show_chest() on the new chest (:1084-1085), flag::clear("moving_chest_now") (:1087).
+- treasure_chest_timeout: 12s to grab the rolled weapon, then self notify("trigger", level) returns it (:1187-1195).
+
+E) Flags / level vars controlling the system
+- Flags: "moving_chest_enabled" (set only if chests.size>1, :157-159), "moving_chest_now" (:1724/:1087), "chest_has_been_used" (:646). 
+- Vars: level.start_chest_name (default "start_chest" :58, consumed once at :96); level.random_pandora_box_start (:198); level.chest_index, level.chest_moves, level.chest_level, level.chest_accessed (:119-120,:155); level.chest_min_move_usage (default 4 :1440); level.chest_joker_model (default "p7_zm_teddybear" :78-81); level.enable_magic (:146); level.desirable_chest_location (EXACT == match against script_noteworthy, not substring, :1121-1142); level.open_chest_location array (:1163-1184); level.magic_box_grab_by_anyone (:753); per-chest .auto_open/.no_charge (:604-614), .disabled (:582), .no_fly_away (:169/:1504). Override hooks: level._zombiemode_custom_box_move_logic, level.custom_magic_box_* family (:34-46), level.pandora_show_func/level.custom_pandora_show_func (:243-253), level.magic_box_zbarrier_state_func (:83-86).
+
+F) WHERE script_noteworthy MUST BE SET for our acc_box_* scheme
+- It must be set on TWO entities INSIDE each box prefab (or on inline stamped entities in the main .map):
+  1. the script_struct (targetname "treasure_chest_use"): script_noteworthy "acc_box_market" / "acc_box_corp" / "acc_box_roof";
+  2. the zbarrier_zmcore_MagicBox entity: script_noteworthy "acc_box_market_zbarrier" / "acc_box_corp_zbarrier" / "acc_box_roof_zbarrier" (exact concatenation consumed at _zm_magicbox.gsc:273/:286).
+- Setting script_noteworthy as a KVP on the misc_prefab INSTANCE cannot work for this prefab: the two inner entities require two DIFFERENT values (X vs X+"_zbarrier"), so one instance KVP can never satisfy both regardless of Radiant's propagation semantics (if it propagated/overrode, the zbarrier would lose its "_zbarrier" suffix → GetEnt returns undefined → hard runtime crash, see gotchas; if it doesn't override existing keys, it's a silent no-op since both inner entities already define script_noteworthy). This is unlike the vending_*_struct.map prefabs where instance script_string works — those contain a single struct and script_string is absent inside. The verified shipped-map and community workflow is per-location prefab COPIES with the pair baked in: zm_alien_isolation ships 4 distinct files (box_start.map="start_chest"/"start_chest_zbarrier", box_01..03="chest_1..3"/"chest_1..3_zbarrier"); the Modme wiki workflow is likewise "save the edit to a new prefab" (https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/basics/Setting-up-mystery-box.md). Equivalent alternative consistent with our existing style (inline perk structs): stamp the prefab and author the script_struct + zbarrier entities inline in zm_abandoned_cyber_city.map.
+- Targetname question: ALL chest prefabs (start or not) use struct targetname "treasure_chest_use" — there is no targetname distinction between box.map and box_start.map; "start" is decided purely by script_noteworthy matching level.start_chest_name. With our scheme none of the three needs the literal string "start_chest"; any of the three acc_box_* chests becomes the start chest per run. Copies can be derived from either box_start.map or box.map — identical anatomy.
+
+G) Current repo state
+- Map has exactly ONE box (entity 24, _prefabs/zm/zm_mysterybox/box_start.map, no extra KVPs — map line 1430-1437). With size==1, level.start_chest_name (set to "acc_box_..." by _acc_map_randomizer.gsc:35) is ignored harmlessly and the box works as the stock start box. The acc_box_* matching only becomes load-bearing (and currently unsatisfied) once the market/corp/roof boxes are added: at that point all three locations need the edited script_noteworthy pairs or NO box will be active.
+
+Web sources: https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/map_source/_prefabs/zm_alien_isolation/scripting/box_start.map ; .../box_01.map ; https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/basics/Setting-up-mystery-box.md ; https://wiki.modme.co/wiki/black_ops_3/basics/Setting-up-mystery-box.html
+
+GOTCHAS:
+- No-match = silent no-box: if level.start_chest_name matches NO chest script_noteworthy (IsSubStr at _zm_magicbox.gsc:223), every chest is hide_chest()'d, chest_index stays 0, the beacon fx still plays on a hidden chest, and no unitrigger is ever registered — game runs fine with zero mystery boxes and no error.
+- Do NOT set script_noteworthy on the misc_prefab instance for box prefabs: the prefab interior needs TWO different values (struct = 'acc_box_X', zbarrier = 'acc_box_X_zbarrier'); a single instance KVP can't produce both. If propagation overrode the zbarrier's noteworthy, GetEnt(name+'_zbarrier') returns undefined and _zm_magicbox.gsc:303 `self.zbarrier.owner = self;` dereferences undefined OUTSIDE the isdefined guard at :287 — hard runtime crash at init.
+- Every chest struct MUST define script_noteworthy: default_box_move_logic calls IsSubStr(level.chests[i].script_noteworthy, ...) UNGUARDED (_zm_magicbox.gsc:982, also :1002/:1007) — one chest struct without the KVP crashes the first box move (start selection at :223 is guarded, so this fails later, mid-game).
+- Move-priority name collision: noteworthy containing 'move'+N (move1, move2...) hijacks default_box_move_logic (:982); and because start matching is IsSubStr, any chest noteworthy that CONTAINS another chest's start name can steal start selection (array order is randomized per run, :161). Keep acc_box_market/corp/roof mutually non-substring (they are).
+- level.start_chest_name is consumed exactly once, 0.05s after CodeCallback_FinalizeInitialization (_zm_magicbox.gsc:91-96); it MUST be set during entry main()/pre_init (our :35 write is correctly placed). Setting it at blackscreen/flag time is too late; setting level.random_pandora_box_start=true bypasses name matching entirely and randomizes the start (start_exclude '1' KVP opts a chest out).
+- Single-chest branch ignores everything: with only the current one box_start prefab (map entity 24), size==1 → start_chest_name ignored AND no_fly_away=true (no teddy, box never moves) (_zm_magicbox.gsc:167-170, :183-193). The randomizer's acc_box_* roll is a no-op until all 3 boxes exist in Radiant.
+- The zbarrier asset must exist: classname zbarrier_zmcore_MagicBox references GDT zbarrier asset 'zmcore_MagicBox' (stock). If you clone the prefab just edit the two script_noteworthy KVPs; do not rename the classname/type or the entity stops being a zbarrier (GetNumZBarrierPieces etc. fail).
+- Struct angles drive the buy prompt position: unitrigger spawns at struct.origin + anglestoright(angles)*-22.5 (:294). Keep struct and zbarrier origin/angles identical (as in the stock prefab) or the prompt detaches from the box.
+- treasure_chest_init only runs for zm_utility::is_Classic() (:93-97) and is fully disabled when level.enable_magic is false (GetGametypeSetting('magic'), _zm.gsc:1160).
+- Teddy move requires dvar magic_chest_movable=='1' (set by _zm.gsc:1329) and >= level.chest_min_move_usage (4) accesses; level.chest_accessed only increments on non-firesale grabs (:843-847).
+
+CITATIONS:
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:58
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:91-97
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:95
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:100-112
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:115-120
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:135-143
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:146-153
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:157-170
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:178-256
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:198-217
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:223-237
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:266-305
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:273
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:286
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:293-302
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:303
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:441-483
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:646
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:706-709
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:711-716
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:972-1013
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1018-1089
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1121-1142
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1163-1184
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1187-1195
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1429-1521
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1723-1727
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:1750-1776
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:2043-2068
+tmp/bo3_stock_ref/scripts/zm/_zm_magicbox.gsc:2109-2150
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:1160
+tmp/bo3_stock_ref/scripts/zm/_zm.gsc:1329
+tmp/bo3_stock_ref/scripts/zm/zm_giant.gsc:144
+tmp/bo3_stock_ref/scripts/shared/callbacks_shared.gsc:531-543
+tmp/bo3_stock_ref/scripts/shared/system_shared.gsc:83-108
+map_source/zm/zm_abandoned_cyber_city.map:1430-1437
+scripts/zm/zm_abandoned_cyber_city.gsc:123-128
+scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc:35
+scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc:42-58
+https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/map_source/_prefabs/zm_alien_isolation/scripting/box_start.map (entities 1-2: zbarrier_zmcore_MagicBox 'start_chest_zbarrier' + script_struct 'treasure_chest_use'/'start_chest')
+https://raw.githubusercontent.com/MattFiler/zm_alien_isolation/master/map_source/_prefabs/zm_alien_isolation/scripting/box_01.map (chest_1 / chest_1_zbarrier pair)
+https://github.com/dtzxporter/ModmeWiki/blob/master/wiki/black_ops_3/basics/Setting-up-mystery-box.md
