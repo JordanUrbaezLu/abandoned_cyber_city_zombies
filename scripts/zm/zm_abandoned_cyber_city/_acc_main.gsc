@@ -38,6 +38,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
@@ -95,6 +96,9 @@ function init()
     // Rampage Inducer: registers its on_ai_spawned sprint hook + activation
     // watchers (dvar `acc_rampage` / optional in-map trigger). Inert until on.
     acc_rampage_inducer::init();
+
+    // Perk benefit descriptions (base + Mega) shown at the machine.
+    acc_perk_info::init();
 
     // Dev/test harness LAST so it can override caps (perk limit) set earlier.
     // Self-gates on the `acc_dev` dvar; no-ops entirely in normal play.

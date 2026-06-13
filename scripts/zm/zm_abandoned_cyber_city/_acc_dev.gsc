@@ -49,6 +49,52 @@ function init()
     // last-hit + DPS; the HUD loop renders them and the current-zone sign.
     zm::register_actor_damage_callback( &dev_damage_cb );
     level thread dev_player_hud_loop();
+
+    // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
+    level thread dev_round_skip_watcher();
+}
+
+// ---------------------------------------------------------------------------
+// Round skip - console: `acc_skip_round 1` advances to the next round
+// ---------------------------------------------------------------------------
+
+function dev_round_skip_watcher()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        if ( getdvarint( "acc_skip_round", 0 ) == 1 )
+        {
+            SetDvar( "acc_skip_round", "0" );
+            dev_skip_round();
+        }
+        wait 0.25;
+    }
+}
+
+function dev_skip_round()
+{
+    // Kill whatever is alive (clean next round) + zero the spawn budget, then end
+    // the round-wait. "kill_round" only fires in developer mode (we run with
+    // +set developer 1); the kill + zombie_total=0 ends it regardless.
+    team = ( isdefined( level.zombie_team ) ? level.zombie_team : "axis" );
+    zombies = GetAITeamArray( team );
+    for ( i = 0; i < zombies.size; i++ )
+    {
+        z = zombies[ i ];
+        if ( isdefined( z ) && isalive( z ) )
+            z DoDamage( z.health + 1000, z.origin );
+    }
+    level.zombie_total = 0;
+    /# level notify( "kill_round" ); #/
+
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        if ( isdefined( players[ i ] ) )
+            players[ i ] IPrintLnBold( "^3>> SKIPPING TO NEXT ROUND" );
+    }
+    acc_utility::log( "dev: round skipped" );
 }
 
 // ---------------------------------------------------------------------------
