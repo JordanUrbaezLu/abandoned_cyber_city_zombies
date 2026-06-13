@@ -10,8 +10,6 @@
 // implementations are stubbed with TODOs for Phase 4 authoring.
 // =============================================================================
 
-#namespace acc_boss_items;
-
 #using scripts\shared\array_shared;
 #using scripts\shared\util_shared;
 
@@ -25,6 +23,12 @@
 
 #define ACC_BOSS_ITEM_DROP_CHANCE_MINI 0.50    // 50% from Juggernaut Host
 #define ACC_BOSS_ITEM_DROP_CHANCE_FULL 1.00    // 100% from Subroutine Core
+
+// VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
+// it terminates the directive preamble; a #using after it is a compile
+// error ("unexpected TOKEN_USING, expecting $end"). First-compile finding,
+// 2026-06-12.
+#namespace acc_boss_items;
 
 // ---------------------------------------------------------------------------
 // Init

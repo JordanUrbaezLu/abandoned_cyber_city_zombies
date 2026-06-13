@@ -6,6 +6,30 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 2: GSC directive-ordering error (2026-06-12)
+
+With the skybox fixed, the build reached the **GSC compile** (geometry +
+Umbra + lighting all passed) and hit one syntax error:
+`_acc_boss_items.gsc (15,6): syntax error, unexpected TOKEN_USING, expecting
+$end`. Cause: `#namespace acc_boss_items;` was on line 13, **above** the
+`#using` block — `#namespace` terminates the directive preamble, so the
+following `#using` lines are illegal. Fixed by moving `#namespace` below all
+`#using`/`#define`. Scanned all 21 modules: only this one had the bug; the
+other 20 order `#namespace` correctly.
+
+Signal from the compiler: it processes `_acc_main`'s `#using` list in order
+and stopped on the 12th dependency, so the **11 modules before it compiled
+clean** (utility, data_shards, cyberware, overclocks, elites, map_randomizer,
+events_hack, events_overload, emergency_drop, modifiers, boss). The remaining
+modules (mega_bottles, weapon_abilities, points, damage, early_round_pacing,
+decontamination, coop_scaling, perk_aura_blast) get their first compile on the
+next build.
+
+Hardening: `tools/preflight_windows.ps1` now lints GSC directive ordering
+(`#namespace` after every `#using`/`#insert`/`#define`/`#precache`) across all
+modules — the brace/paren lint missed this class. Also verified all `_acc_`
+`#using` paths resolve to real files and no module self-imports.
+
 ### Fixed — first compile, pass 1: MP-skybox link error + chalk-material warnings (2026-06-12)
 
 The first real Launcher build reached the linker and died on ONE hard error

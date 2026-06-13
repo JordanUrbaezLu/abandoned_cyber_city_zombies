@@ -100,6 +100,14 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 
+- **GSC directive order: `#namespace` MUST come after every `#using` /
+  `#insert` / `#define` / `#precache`.** `#namespace` terminates the directive
+  preamble; a `#using` after it errors `unexpected TOKEN_USING, expecting
+  $end`. (`_acc_boss_items.gsc` had `#namespace` on line 13 above its usings.)
+  `tools/preflight_windows.ps1` now lints this on all modules — the
+  brace/paren lint alone does NOT catch it. The linker compiles modules in the
+  order `_acc_main` `#using`s them and STOPS at the first error, so a clean run
+  validates everything before the break point.
 - **Stock zm-template `volume_sun` ships MP sky settings** → hard link error
   `xmodel 'skybox_mp_havoc_override' is missing`. The template's sun volume
   has `ssi1`/`ssi2` = `mp_havoc` + `ssi1_runtime_override` = `mp_havoc_overide`

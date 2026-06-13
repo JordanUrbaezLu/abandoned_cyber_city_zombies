@@ -56,6 +56,22 @@ $moduleFiles = Get-ChildItem (Join-Path $RepoRoot "scripts\zm\zm_abandoned_cyber
 $unlisted = @($moduleFiles | Where-Object { $zoneLines -notcontains $_ })
 Check "all $($moduleFiles.Count) _acc_ modules listed in zone" ($unlisted.Count -eq 0) ("add scriptparsetree lines for: " + ($unlisted -join ', '))
 
+# GSC directive ordering: #namespace must come AFTER every #using/#insert/
+# #define/#precache, or the compiler errors "unexpected TOKEN_USING,
+# expecting $end" (first-compile finding 2026-06-12). Cheap static check
+# that the plain brace/paren lint misses.
+$gscFiles = Get-ChildItem (Join-Path $RepoRoot "scripts\zm\zm_abandoned_cyber_city") -Filter "_acc_*.gsc"
+$ordering = @()
+foreach ($g in $gscFiles) {
+    $lines = Get-Content $g.FullName
+    $nsIdx = ($lines | Select-String -Pattern '^#namespace' | Select-Object -First 1).LineNumber
+    if ($null -eq $nsIdx) { $ordering += "$($g.Name): no #namespace"; continue }
+    $dirIdxs = ($lines | Select-String -Pattern '^(#using|#insert|#define|#precache)' | ForEach-Object { $_.LineNumber })
+    $lastDir = ($dirIdxs | Measure-Object -Maximum).Maximum
+    if ($lastDir -and $nsIdx -lt $lastDir) { $ordering += "$($g.Name): #namespace(L$nsIdx) before directive(L$lastDir)" }
+}
+Check "GSC directive ordering (#namespace last) on $($gscFiles.Count) modules" ($ordering.Count -eq 0) ("fix: " + ($ordering -join '; '))
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"
