@@ -72,6 +72,15 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
 - **P0 done:** perk card + PaP card live in `_acc_perk_info` (all 9 perks with
   base + Mega bullets; PaP shows the 5-tier ladder). Next touchpoints reuse
   `acc_ui::card_show`.
+- **PaP overhaul (2026-06-13):** the card now lists the **scaling re-pack cost
+  per tier** (T2 2500 / T3 5000 / T4 7500 / T5 10000) and no longer mentions
+  alt-ammo. Backing mechanic in `_acc_pap_levels`: stock **AAT disabled**
+  (`level.aat_in_use = false`, no turned/fireworks rerolls), stock re-pack
+  blocked for upgraded guns (`level.pack_a_punch.custom_validation`), and a
+  parallel `acc_pap_tier` `trigger_radius_use` charges the scaling cost via
+  `zm_score::can_player_purchase`/`minus_to_player_score`. Held-weapon tier HUD
+  moved to **bottom-left** next to the gun. **`%`→"pct"** everywhere (the HUD
+  font renders `%` as `.`).
 
 ## Roadmap
 

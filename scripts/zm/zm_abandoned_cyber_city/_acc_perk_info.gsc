@@ -122,7 +122,7 @@ function show_card( id, mode )
         base = d[ "base_bullets" ];
         for ( i = 0; i < base.size; i++ )
             lines[ lines.size ] = "^5- ^7" + base[ i ];
-        self acc_ui::card_show( d[ "title" ], ( 0.7, 0.4, 1.0 ), "^7Re-pack the gun to raise tier", lines );
+        self acc_ui::card_show( d[ "title" ], ( 0.7, 0.4, 1.0 ), "^7Re-pack to raise tier (scaling cost)", lines );
         return;
     }
 
@@ -172,31 +172,31 @@ function card_data( id )
         d[ "mega_bullets" ] = array( "7 hits before going down", "Immune to boss abilities" ); break;
     case "specialty_quickrevive":
         d[ "title" ] = "QUICK REVIVE"; d[ "price" ] = "2500"; d[ "mega_name" ] = "Savior";
-        d[ "base_bullets" ] = array( "Faster teammate revives", "+30% HP regen after damage", "Solo: self-revive" );
-        d[ "mega_bullets" ] = array( "Revive 40% faster", "+15% speed near a downed ally" ); break;
+        d[ "base_bullets" ] = array( "Faster teammate revives", "+30pct HP regen after damage", "Solo: self-revive" );
+        d[ "mega_bullets" ] = array( "Revive 40pct faster", "+15pct speed near a downed ally" ); break;
     case "specialty_fastreload":
         d[ "title" ] = "SPEED COLA"; d[ "price" ] = "3500"; d[ "mega_name" ] = "Sleight of Hand Expert";
-        d[ "base_bullets" ] = array( "+50% reload speed", "~30% faster weapon swap", "~40% faster perk drink" );
-        d[ "mega_bullets" ] = array( "+65% reload", "+15% swap, +15% drink" ); break;
+        d[ "base_bullets" ] = array( "+50pct reload speed", "~30pct faster weapon swap", "~40pct faster perk drink" );
+        d[ "mega_bullets" ] = array( "+65pct reload", "+15pct swap, +15pct drink" ); break;
     case "specialty_doubletap2":
         d[ "title" ] = "DOUBLE TAP 2.0"; d[ "price" ] = "2000"; d[ "mega_name" ] = "Gun Slinger";
-        d[ "base_bullets" ] = array( "+33% fire rate", "+3% weapon damage" );
-        d[ "mega_bullets" ] = array( "+50% fire rate", "+6% damage total" ); break;
+        d[ "base_bullets" ] = array( "+33pct fire rate", "+3pct weapon damage" );
+        d[ "mega_bullets" ] = array( "+50pct fire rate", "+6pct damage total" ); break;
     case "specialty_staminup":
         d[ "title" ] = "STAMIN-UP"; d[ "price" ] = "2000"; d[ "mega_name" ] = "The Flash";
         d[ "base_bullets" ] = array( "Longer sprint reserve", "Faster sprint speed" );
-        d[ "mega_bullets" ] = array( "+12% run, longer sprint", "x2 walk, x4 crawl speed" ); break;
+        d[ "mega_bullets" ] = array( "+12pct run, longer sprint", "x2 walk, x4 crawl speed" ); break;
     case "specialty_additionalprimaryweapon":
         d[ "title" ] = "MULE KICK"; d[ "price" ] = "2500"; d[ "mega_name" ] = "The Armory";
         d[ "base_bullets" ] = array( "Carry a 3rd primary weapon" );
-        d[ "mega_bullets" ] = array( "+30% ammo per gun", "+2 lethal, +2 tactical" ); break;
+        d[ "mega_bullets" ] = array( "+30pct ammo per gun", "+2 lethal, +2 tactical" ); break;
     case "specialty_deadshot":
         d[ "title" ] = "DEADSHOT"; d[ "price" ] = "3500"; d[ "mega_name" ] = "American Sniper";
         d[ "base_bullets" ] = array( "ADS snaps to the head", "1.5x headshot damage", "No snap on bosses" );
         d[ "mega_bullets" ] = array( "1.75x headshot damage", "Zero weapon recoil" ); break;
     case "specialty_widowswine":
         d[ "title" ] = "WIDOW'S WINE"; d[ "price" ] = "4000"; d[ "mega_name" ] = "Spiderman";
-        d[ "base_bullets" ] = array( "Webs trap zombies on melee", "+50% frag dmg, +25% radius", "+50% EMP grenade" );
+        d[ "base_bullets" ] = array( "Webs trap zombies on melee", "+50pct frag dmg, +25pct radius", "+50pct EMP grenade" );
         d[ "mega_bullets" ] = array( "Melee 1-hits zombies", "Web nades 1-hit, hold 6" ); break;
     case "specialty_electriccherry":
         d[ "title" ] = "AURA BLAST"; d[ "price" ] = "2500"; d[ "mega_name" ] = "Mega Man";
@@ -205,12 +205,12 @@ function card_data( id )
     case "pap":
         d[ "title" ] = "PACK-A-PUNCH";
         d[ "base_bullets" ] = array(
-            "Pack the same gun to climb tiers:",
-            "T1: upgrade (camo + alt-ammo)",
-            "T2: +25% weapon damage",
-            "T3: +55% weapon damage",
-            "T4: +90% weapon damage",
-            "T5: +130% damage (MAX)" );
+            "Pack a gun, then re-pack to climb tiers:",
+            "T1: upgrade + new camo",
+            "T2: +25pct damage (2500)",
+            "T3: +55pct damage (5000)",
+            "T4: +90pct damage (7500)",
+            "T5: +130pct damage MAX (10000)" );
         break;
     default:
         d[ "title" ] = "PERK"; d[ "base_bullets" ] = array( "-" ); break;

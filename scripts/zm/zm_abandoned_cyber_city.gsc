@@ -127,6 +127,13 @@ function main()
 
 	zm_usermap::main();
 
+	// [acc] Disable stock Alternate Ammo Types (AAT) on Pack-a-Punch. Our PaP is
+	// a 5-tier damage ladder (_acc_pap_levels) - we don't want the stock 2500
+	// "re-pack for a random alt-ammo (turned/fireworks/etc.)" reroll. With this
+	// off, aat::acquire is a no-op; re-packs route through our acc_pap_tier
+	// trigger instead. (level.aat_in_use is the stock gate - _zm_weapons.gsc.)
+	level.aat_in_use = false;
+
 	// [acc] HARDCODED dev sandbox - lives in the ENTRY script (this main() provably
 	// runs - the map loads) so it is independent of every _acc_ module. No dvar gate.
 	// Unlimited money + Data Shards, auto-power, and OPENS THE WHOLE MAP (every door

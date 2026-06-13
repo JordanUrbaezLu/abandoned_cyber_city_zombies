@@ -6,6 +6,36 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — Pack-a-Punch: scaling-cost 5-tier ladder, no alt-ammo (2026-06-13)
+
+Test feedback: PaP prices read "2500" on every re-pack, multi-pack didn't take,
+and the stock alt-ammo extras (turned/fireworks/etc.) were unwanted. Reworked
+`_acc_pap_levels`:
+- **Stock AAT disabled** — `level.aat_in_use = false` in the entry `main()` right
+  after `zm_usermap::main()` (the stock gate, defaulted true; every
+  `aats/_zm_aat_*` bails when false), so no random alt-ammo reroll.
+- **Stock re-pack blocked for upgraded guns** via
+  `level.pack_a_punch.custom_validation = &acc_pap_block_stock_repack` (the hook
+  at `_zm_pack_a_punch.gsc:399` — `self [[…]]( player )`, returning false makes
+  the machine skip the gun). The stock machine now only does the **first** pack
+  (tier 1, recorded by `pap_taken_watcher` off the `"pap_taken"` notify).
+- **Tiers 2-5 via our own trigger** — a parallel `acc_pap_tier`
+  `trigger_radius_use` at the PaP origin charges a **scaling cost** (T2 2500 / T3
+  5000 / T4 7500 / T5 10000) through `zm_score::can_player_purchase` +
+  `minus_to_player_score`, bumping `player.acc_pap_tier[base]` (no asset re-swap,
+  no alt-ammo). Per-player trigger visibility hands off cleanly: gun upgraded →
+  stock trigger hidden + ours shown; gun not upgraded → vice-versa.
+- Held-weapon **tier HUD at bottom-left** next to the gun ("PaP TIER x/5").
+- Damage ladder unchanged: pap_tier_mult 1.25/1.55/1.90/2.30 (= +25/55/90/130pct).
+- All stock APIs re-verified against `tmp/bo3_stock_ref` before building
+  (the GetMaxHealth lesson). Lint + preflight green; linker exit 0.
+
+### Fixed — HUD `%` renders as `.`; PaP card shows scaling cost (2026-06-13)
+
+The HUD font draws `%` as a period (screenshot: "+30. HP regen"). Replaced every
+`%` with the literal "pct" in `_acc_perk_info` and `_acc_pap_levels`. The PaP
+info card now lists the per-tier re-pack costs and drops the "alt-ammo" line.
+
 ### Added — reusable BO3 mapmaking knowledge base + test-feedback fixes (2026-06-13)
 
 **docs/BO3_MAPMAKING_KB.md** (NEW) — a map-agnostic distillation of everything
