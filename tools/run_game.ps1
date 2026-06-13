@@ -28,7 +28,12 @@ $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
 # Launcher itself uses, and it sticks.
 # Also keep BO3's Steam LAUNCH OPTIONS EMPTY (Steam appends them -> doubled
 # command line -> the same tdm corruption).
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
+#
+# -unsafe-lua : REQUIRED for our custom LUI HUD (ui/uieditor/menus/hud/acc_hud.lua)
+# to actually run. BO3 blocks custom ("unsafe") Lua by default; this dashed engine
+# switch allows it. Needs L3akMod installed in bin (libtiff64r.dll) so the map even
+# builds with the .lua - see docs/28_lui_pipeline.md. Dashed switch goes first.
+$gameArgs = "-unsafe-lua +set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

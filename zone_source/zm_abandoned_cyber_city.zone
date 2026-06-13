@@ -58,6 +58,13 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
 
+// LUI client pipeline foundation (server module + client mirror + Lua overlay).
+// docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the
+// game's Lua VM at runtime - a Lua syntax error shows at load, NOT at link).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc
+rawfile,ui/uieditor/menus/hud/acc_hud.lua
+
 // Makes the linker read the stock weapons table (wallbuys/box need this)
 stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv
 

@@ -149,6 +149,16 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
 - **Link order**: gfx_map/geometry assets convert BEFORE the `scriptparsetree`
   GSC compiles. A geometry-asset error aborts the build before GSC is ever
   tested — clear geometry errors first to reach the script compile.
+- **Custom LUI (`rawfile,*.lua`) needs L3akMod or the linker errors `Lua not
+  supported`.** The public mod tools linker can't compile a `.lua` source
+  rawfile. Fix: overwrite `bin\libtiff64r.dll` with L3akMod v1.0.4
+  (dtzxporter.com/tools/l3akmod; needs VS2013+VS2015 x64 runtimes — both present
+  here). Original DLL backed up at `bin\libtiff64r.dll.acc-orig-backup`. RUNTIME
+  also needs the `-unsafe-lua` launch switch (in both launchers) or BO3 blocks the
+  custom Lua. A `.lua` rawfile is copied verbatim → Lua **syntax** errors surface
+  at load, NOT at link. Full recipe + the standalone-overlay architecture +
+  clientuimodel bridge: **docs/28_lui_pipeline.md**. Whether Workshop *players*
+  also need `-unsafe-lua` is an unsettled ship-blocker (docs/28).
 
 ## Launch/run findings (real game, 2026-06-13 — see docs/23_launch_runbook.md)
 

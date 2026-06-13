@@ -1265,3 +1265,82 @@ Files worth reading first on a future deep-dive:
 ### Discovery method + gaps
 
 METHOD: No gh CLI or GITHUB_TOKEN on this box, so GitHub code search (search/code) was unavailable (auth-required) and grep.app was blocked by a Vercel security checkpoint (both curl and WebFetch got 429/checkpoint pages). Worked within unauthenticated limits: ~30 queries against api.github.com/search/repositories (10/min bucket) across keyword angles (zm_ bo3, zombies map black ops 3, bo3 zombies gsc/script, custom zombies bo3, bo3 mod tools, t7 gsc, topic:black-ops-3, zone_source, zm_usermap, iwmap, bo3 easter egg, wonderfizz, bo3 teleporter/buildable/soul box, etc.), plus /users/<name>/repos listings for community authors (shippuden1592, Harrybo21, Abnormal202, Sphynxmods, coolyer, Owen-C137) and two WebSearch passes. VERIFICATION: every reported repo's full tree was fetched via api.github.com/repos/<r>/git/trees/HEAD?recursive=1 and the load-bearing source files were downloaded from raw.githubusercontent.com and read line-by-line (cached at C:\\Users\\Jordan Urbaez\\AppData\\Local\\Temp\\src\\ — sawblade.gsc, sawblade_trap1.map, item_drops.gsc, soulboxes.gsc+README, challenges.gsc, ending.gsc, t9_wonderfizz.gsc, zm_test_map.zone, aetherium.gsc/.csc, perk_poster.gsc, power_door.gsc, fetchquest.gsc, radio_ee.gsc, zm_slots.gsc, elevator.gsc, trollperks.gsc). All line numbers cited come from these reads, not memory. FALSE POSITIVES EXCLUDED after tree verification: RexTheWho/zm_zombies (PAYDAY 2 BeardLib mod), LouisRichard/ZombieRandomiser (C# desktop app), philkluge/BO3-ZMH_Server (JS), marcogravbrot/bo3-mod-tools (stock raw_scripts mirror, redundant with known zeroy99/bo3_modtools), mahrens1/tombofcorvius + lb249/dead-water + ttvcursedkfm-cmyk/bo3-zm-scripts (0KB/empty), shippuden1592 repos (WaW/BO1, not BO3), DoktorSAS/GSC + Apparition/Synergy/CabCon menus (injector mod menus, not map systems), Sandwichas tools + Owen-C137/Echo + KingslayerKyle/CoDCharacterTools (asset tooling, noted but not map source). NOTABLE NEGATIVE: no additional FULL usermap source repos (map_source+zone_source+scripts) were found beyond known ones except kelson8/bo3-Zombies-Test-Map; full shipped-map sources on GitHub remain rare — most community value is in drop-in system kits (trap/drops/soulbox/menu/HUD), which is exactly what was harvested. GAPS: authenticated GitHub code search for strings like \"scriptparsetree\" or \"zombie_weapon_upgrade\" would likely surface more private-ish usermap sources; rerun these queries from a machine with gh auth if deeper coverage is wanted. Headline harvests for our systems: kelson8's Wonderfizz GSC-to-LUI menu bridge (Cyberware tree UI), Scobalula's item-drops framework (Data Shards pickups, weighted loot, drop placement), Owen-C137's sawblade trap (traps + zombie POI lure API) and Aetherium HUD (clientfield-to-LUI pipeline + bit-packed state), Resxt's soulboxes/challenges/buyable-ending (soul boxes, per-run randomized challenges, ending), Fearlessninja98's randomized shootable EE placement, PotatoClips' quest-chain + correct door-open recipe (DisconnectPaths/flag/NotSolid/ConnectPaths).
+
+---
+
+## Custom LUI client pipeline — verbatim deep-dive (2026-06-13)
+
+Four shipped maps cloned to `tmp/` and mined line-by-line for the custom-LUI HUD
+pipeline (our Phase-4 work). Consolidated recipe + our architecture decision live
+in **docs/28_lui_pipeline.md**; this is the cited source ledger.
+
+### L3akMod is mandatory to build custom `.lua` (linker: "Lua not supported")
+
+The public mod tools linker rejects `rawfile,*.lua` source with
+`ERROR: Lua not supported`. Fix = **L3akMod v1.0.4** (DTZxPorter): overwrite
+`<bo3_root>\bin\libtiff64r.dll` (prereqs VS2013+VS2015 x64 runtimes). Runtime needs
+the dashed `-unsafe-lua` switch or BO3 blocks the script. `.lua` is a rawfile
+(verbatim copy) so syntax errors hit at LOAD, not link.
+- **Source:** dtzxporter.com/tools/l3akmod; wiki.modme.co/wiki/black_ops_3/lua_(lui)/Installation.html; Steam discussion 4415299132514324843.
+
+### Standalone overlay menu (the low-risk template we use)
+
+`MattFiler/zm_alien_isolation` `ui/uieditor/menus/hud/blackscreen.lua` (27 lines) +
+`audiolog.lua`: `function LUI.createMenu.<name>(Instance)` → `CoD.Menu.NewForUIEditor`,
+full-bleed `setLeftRight/setTopBottom(true,true,0,0)`, `Hud.Bg:setAlpha(0)`,
+elements are `CoD.TextWithBg.new(Hud,Instance)` (`.Text:setText/:setScale/:setRGB`,
+`.Bg:setRGB/:setAlpha`), teardown via `LUI.OverrideFunction_CallOriginalSecond(Hud,
+"close", fn)`. 4-file contract: `rawfile,...lua` (zone) + `LuiLoad("ui.uieditor.
+menus.hud.<name>")` (entry .csc main) + `#precache("lui_menu","<name>")` + `m =
+player OpenLUIMenu("<name>")` (gsc). Opened SERVER-side per player (bsp_torrens.gsc:132).
+This is additive — does NOT override the stock HUD, so it cannot break points/perks/ammo.
+- **Source:** MattFiler/zm_alien_isolation usermaps/.../ui/uieditor/menus/hud/{blackscreen,audiolog}.lua; zone L31; zm_alien_isolation.csc:51; .gsc:139,283-287.
+
+### Stock-HUD override (the higher-risk alternative — NOT used)
+
+`ohm-nabar/zm_building` ships `ui/uieditor/menus/hud/t7hud_zm_custom.lua` redefining
+the stock `function LUI.createMenu.T7Hud_zm_factory(InstanceRef)` (engine loads by
+that name). It `require()`s ~25 widgets + `CoD.Zombie.CommonHudRequire()` and adds
+each as `local W=CoD.<Name>.new(HudRef,InstanceRef); W:setLeftRight/TopBottom; HudRef
+:addElement(W)`. Lets you touch the real perk bar but you must re-instantiate every
+stock widget — drop one and the HUD breaks. Widget pattern (room_manager.lua):
+`CoD.X=InheritFrom(LUI.UIElement)`, child `LUI.UIText/UIImage`, `:subscribeToModel(
+Engine.GetModel(Engine.GetModelForController(InstanceRef),"abbeyRoom"), cb)`, cb reads
+`Engine.GetModelValue`; lookup tables are 1-based so index with `value+1`.
+**Key correction:** `clientuimodel` scope DOES need a `.csc` MIRROR register (matching
+scope/name/version/bits/type) — without it the model never exists client-side and
+the Lua subscribe silently never fires — but it needs NO callback handler (engine
+auto-pipes). Set server-side only via `set_player_uimodel`. Register via REGISTER_SYSTEM
+in BOTH VMs so the field bit-layout stays in lockstep.
+- **Source:** ohm-nabar/zm_building ui/uieditor/menus/hud/t7hud_zm_custom.lua; widgets/hud/room_manager.lua; scripts/zm/zm_room_manager.gsc+.csc; zone L82-83,272,280.
+
+### Perk-bar glow/pulse widget (the perk-icon-glow technique)
+
+`ColDog5044/zm_countryside` `ui/uieditor/widgets/HUD/ZM_Perks/hb21perklistitemfactory.lua`:
+per-perk glow = a `LUI.UIImage` centered on the 36px slot (`setLeftRight(true,true,
+-IconSize/2,IconSize/2)`), additive material `setMaterial(LUI.UIImage.GetCachedMaterial
+("ui_add"))` over `RegisterImage("...glow")`, `:subscribeToModel(...,"dead_shot_ui_glow")`;
+the glow itself is `el:beginAnimation("keyframe",100,false,false,CoD.TweenType.Linear);
+el:setAlpha(model_value)`. GSC pulses it: `self clientfield::set_player_uimodel(
+"dead_shot_ui_glow",1); wait .25; ...set...(...,0)`. The whole bar is anchored once in
+the HUD menu (`setLeftRight(true,false,130,281)`/`setTopBottom(false,true,-62,-26)` =
+bottom-left) and a `UIList` lays out slots. NOTE: their bar is a FULL custom perk-bar
+replacement (HarryBo21 hb21_perks, via `include,hb21_perks` — the rawfile/image lines
+are in that external zpkg, not the repo). For our additive OVERLAY we draw the glow at
+the stock bar's screen anchor instead of inside a perk-list item.
+- **Source:** ColDog5044/zm_countryside ui/uieditor/widgets/HUD/ZM_Perks/hb21perklistitemfactory.lua; menus/hud/T7Hud_zm_factory.lua L51-54; scripts/zm/_zm_perk_deadshot.gsc L80-85,178-185; assetlist image,i_specialty_vulture_zombies_glow.
+
+### GSC↔LUI menu round-trip (Cyberware-tree menu blueprint)
+
+`kelson8/bo3-Zombies-Test-Map` `_t9_wonderfizz.gsc` + `WonderfizzMenuBase.lua`:
+open `player CloseMenu(M); player OpenMenu(M)` (player-scoped, close-before-open);
+push data `#precache("lui_menu_data", "path")` + `self SetControllerUIModelValue("path",
+"a|b|c|")` (delimited string; Lua `Engine.CreateModel` in PreLoadCallback mirrors it,
+reads via `Engine.GetModelValue`/`subscribeToModel`); button → `Engine.SendMenuResponse(
+InstanceRef,"M","perk.armorvest.2500")`; receive in GSC per-player `waittill("menuresponse",
+menu,response)` (ONE global channel — MUST filter `if(menu!="M")continue`), `StrTok(".")`.
+Input focus = `Engine.LockInput(InstanceRef,true)` + `Engine.SetUIActive(InstanceRef,
+true)` in the menu Lua (OpenMenu alone doesn't grab input). 5 names must match exactly:
+`#precache("menu",M)` · `OpenMenu(M)`/`SendMenuResponse(...,M,...)` · `LuiLoad("...M")` ·
+`function LUI.createMenu.M`. `function autoexec init()` self-bootstraps (no entry wiring).
+- **Source:** kelson8/bo3-Zombies-Test-Map scripts/zm/_t9_wonderfizz.gsc; ui/uieditor/menus/Craftables/WonderfizzMenuBase.lua; Widgets/Wonderfizz/{PerksUIListWidget,MenuTabPerks,MenuListItemWidget}.lua; zm_test_map.csc; assetlist zm_test_map.csv.
