@@ -27,13 +27,24 @@ it errors `ERROR: Lua not supported`. Custom LUI needs **L3akMod** (DTZxPorter):
    - Installed + verified live 2026-06-13 (linker prints
      `[L3akMod (D3V)] (v1.0.4) ... loaded successfully!`; build exit 0, the
      `Lua not supported` error gone).
-2. **Runtime:** launch with the dashed switch **`-unsafe-lua`** or the game blocks
-   the custom Lua ("tried to call an unsafe Lua script, blocked"). Already added to
-   `tools/run_game.ps1` + `PLAY_TEST_MAP.bat`.
-   - **OPEN QUESTION (verify before ship):** whether Workshop *players* also need
-     `-unsafe-lua`, or whether the compiled LUI is fully baked into the `.ff` and
-     "safe". Settle this before relying on LUI for a public release; if players
-     need a launch arg, gate LUI features behind a fallback to the server-HUD cards.
+2. **Runtime: NO launch flag needed on Steam BO3** (verified live 2026-06-13). Our
+   menu executed in-game and a Lua bug in it threw **UI Error 43408** - which proves
+   the custom Lua RAN (it was not sandbox-blocked). The community **`-unsafe-lua`**
+   arg is a **BOIII-client** flag, not a Steam BO3 one: on Steam it logs
+   `Unknown command "-unsafe-lua"` and does nothing. It is intentionally NOT passed
+   by the launchers. (So the old "players need -unsafe-lua" ship-blocker is moot for
+   Steam - the compiled LUI is baked into the `.ff`.)
+
+## RUNTIME GOTCHA: `Hud.Bg` -> UI Error 43408
+
+`CoD.Menu.NewForUIEditor()` does **not** expose a `.Bg` member. `Hud.Bg:setAlpha(..)`
+indexes nil and throws **UI Error 43408** at runtime (it compiles fine - rawfile Lua
+errors only surface at load, never at link). The commented-out `audiolog.lua` used
+`Hud.Bg`; the only shipped-ACTIVE standalone overlay (`blackscreen.lua`) never does.
+**Lesson: only copy from shipped-ACTIVE files, not commented-out ones**, and treat
+the linker passing as proof of *syntax* only, never of runtime API validity. The
+runtime oracle for LUI errors is the on-screen `UI Error <code>` box (the code is
+generic "a Lua error occurred in the UI"; the traceback is not in console_mp.log).
 
 ## Architecture decision: standalone overlay, NOT a stock-HUD override
 

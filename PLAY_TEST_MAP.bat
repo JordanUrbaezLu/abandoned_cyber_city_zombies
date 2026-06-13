@@ -21,7 +21,8 @@ REM  -> fatal error -> black screen. set_gametype is what the Mod Tools Launcher
 REM  uses, and it sticks.
 REM  Also keep BO3's Steam LAUNCH OPTIONS EMPTY (Steam appends them -> doubled
 REM  command line -> the same tdm corruption).
-REM  -unsafe-lua: REQUIRED for the custom LUI HUD (acc_hud.lua) to run. BO3 blocks
-REM  custom "unsafe" Lua by default; this dashed switch allows it. The map also
-REM  needs L3akMod installed in bin to BUILD with custom .lua (docs/28_lui_pipeline.md).
-start "" "steam://run/311210//-unsafe-lua +set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1 +set acc_dev 1"
+REM  Custom LUI (acc_hud.lua) runs on Steam BO3 with NO special flag (verified
+REM  2026-06-13). "-unsafe-lua" is a BOIII-client arg, not Steam BO3 - on Steam it
+REM  is "Unknown command", so it is intentionally NOT passed. (L3akMod is still
+REM  needed in the MOD TOOLS bin to BUILD the .lua - docs/28_lui_pipeline.md.)
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1 +set acc_dev 1"
