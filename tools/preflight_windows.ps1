@@ -187,6 +187,9 @@ if ($tools) {
     $gameRoot = $tools -replace ' 455130$', ''
     if ($gameRoot -ne $tools -and (Test-Path (Join-Path $gameRoot "BlackOps3.exe"))) {
         Check "game usermaps junction (split install)" (Test-Path (Join-Path $gameRoot "usermaps\zm_abandoned_cyber_city\zone")) "run .\tools\sync_to_modtools.ps1 (creates the junction) - else the game can't load the build" $true
+        # Steam DRM: direct BlackOps3.exe launch needs steam_appid.txt or it
+        # exits silently (Launcher Run opens nothing).
+        Check "steam_appid.txt present (Launcher Run works)" (Test-Path (Join-Path $gameRoot "steam_appid.txt")) "run .\tools\sync_to_modtools.ps1 (writes steam_appid.txt=311210) - else the game exe quits on launch" $true
     }
 }
 

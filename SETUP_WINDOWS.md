@@ -111,6 +111,22 @@ need it by hand:
 New-Item -ItemType Junction -Path "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III\usermaps" -Target "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III 455130\usermaps"
 ```
 
+## 2c. Steam DRM: the game exe needs `steam_appid.txt` (this machine — automatic)
+
+Symptom: the Launcher builds + links fine, runs `BlackOps3.exe +devmap ...`,
+but **nothing opens** (no window, no crash dump, no console.log). Cause: the
+Launcher's Run launches the game exe *directly*, and BO3's Steam DRM makes a
+direct launch exit instantly unless `steam_appid.txt` (containing the game
+appid **`311210`**) sits next to `BlackOps3.exe`, so the Steam API can
+authenticate against the already-running Steam client.
+
+`tools\sync_to_modtools.ps1` now writes that file automatically; preflight
+checks it. By hand if needed:
+```powershell
+"311210" | Out-File -NoNewline "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III\steam_appid.txt"
+```
+(Steam must be running and logged in for the direct launch to authenticate.)
+
 ## 3. First Build (5-15 min)
 
 1. Open the Launcher (Steam must be running and logged in).

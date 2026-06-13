@@ -163,6 +163,14 @@ if (-not $Reverse -and -not $DryRun) {
                 Write-Info "created junction: $gameUsermaps -> $ModTools\usermaps (game can now load builds)"
             } catch { Write-Info "WARN: could not junction game usermaps ($($_.Exception.Message)); the game may not see builds" }
         }
+        # Steam DRM: a direct BlackOps3.exe launch (what the Launcher's Run
+        # does) exits silently unless steam_appid.txt (game appid 311210) sits
+        # next to the exe so the Steam API can authenticate against running Steam.
+        $appidFile = Join-Path $gameRoot "steam_appid.txt"
+        if (-not (Test-Path $appidFile)) {
+            try { [System.IO.File]::WriteAllText($appidFile, "311210"); Write-Info "created steam_appid.txt (311210) - lets the Launcher Run actually open the game" }
+            catch { Write-Info "WARN: could not write steam_appid.txt ($($_.Exception.Message))" }
+        }
     }
 }
 
