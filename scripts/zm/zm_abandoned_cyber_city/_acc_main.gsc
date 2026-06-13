@@ -40,6 +40,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
@@ -103,6 +104,9 @@ function init()
 
     // Player + boss health bars.
     acc_health_bars::init();
+
+    // 5-tier Pack-a-Punch (tier damage ladder + HUD + benefit text).
+    acc_pap_levels::init();
 
     // Dev/test harness LAST so it can override caps (perk limit) set earlier.
     // Self-gates on the `acc_dev` dvar; no-ops entirely in normal play.
