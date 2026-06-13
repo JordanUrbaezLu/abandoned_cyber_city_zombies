@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_health_bars.gsc - player health bar + boss health bar/nameplate
 //
-// (1) Player bar: a per-player hud bar that tracks self.health / GetMaxHealth,
+// (1) Player bar: a per-player hud bar that tracks self.health / self.maxhealth,
 //     recolored green->amber->red so you can see when you're one hit from down.
 // (2) Boss bar: a shared (server) bar + name label at the top of the screen
 //     while a boss is alive, driven by the "acc_boss_spawned" notify that
@@ -79,7 +79,7 @@ function update_player_bar( p )
 {
     if ( !isdefined( p.acc_hp_bar ) ) return;
 
-    maxhp = p GetMaxHealth();
+    maxhp = p.maxhealth; // BO3 player max-HP field (Jug etc. update it)
     if ( !isdefined( maxhp ) || maxhp <= 0 ) maxhp = 100;
     frac = p.health / maxhp;
     if ( frac < 0 ) frac = 0;
