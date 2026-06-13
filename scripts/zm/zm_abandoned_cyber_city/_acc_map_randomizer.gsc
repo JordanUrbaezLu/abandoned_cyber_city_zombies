@@ -327,9 +327,14 @@ function get_full_perk_roster()
         "specialty_doubletap2",                   // Double Tap 2.0
         "specialty_staminup",                     // Stamin-Up (retuned)
         "specialty_additionalprimaryweapon",      // Mule Kick
-        "specialty_acc_deadshot",                 // Deadshot (custom)
-        "specialty_acc_widows_wine",              // Widow's Wine (custom)
-        "specialty_acc_aura_blast"                // Aura Blast (custom active)
+        // VERIFIED(acc) 2026-06-13: these MUST be the registered specialty
+        // strings used by every machine / HasPerk / Mega flag / cost / damage
+        // hook - NOT custom 'specialty_acc_*' names (which matched nothing, so
+        // the rotation silently broke for these 3 perks). Deadshot + Widow's
+        // Wine are stock modules; Aura Blast hijacks the electric-cherry perk.
+        "specialty_deadshot",                     // Deadshot (custom-tuned)
+        "specialty_widowswine",                   // Widow's Wine (+ boosts)
+        "specialty_electriccherry"                // Aura Blast (over electric cherry)
     );
 }
 
