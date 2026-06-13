@@ -158,6 +158,7 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## History
 
-CHANGELOG.md (newest first). Current state: full 7-zone greybox + all systems
-implemented (202/471 checklist items), awaiting Mod Tools install + first
-compile — `tools/preflight_windows.ps1` is one FAIL away from all-green.
+CHANGELOG.md (newest first). Current state: **FIRST CLEAN COMPILE + LINK
+achieved 2026-06-12** (6 first-compile fix passes, all 21 modules + entry
+build clean, fastfile written). Next: in-game runtime validation (Run Game,
+docs/18 test loop). Full 7-zone greybox + all systems (202/471 checklist).

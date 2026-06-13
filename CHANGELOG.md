@@ -6,6 +6,26 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### MILESTONE — first clean compile + link (2026-06-12) 🎉
+
+`zm_abandoned_cyber_city` builds end-to-end on the real BO3 Mod Tools:
+cod2map (BSP + navmesh), Radiant LED lighting, and the linker all complete
+with **no errors** — both the main fastfile and the localized
+`en_zm_abandoned_cyber_city` fastfile write to `zone_out\`. All 21 `_acc_`
+GSC modules + the entry `.gsc`/`.csc` compile clean.
+
+Total first-compile shakeout: **6 fix passes** over real linker output, each
+a distinct, codebase-wide-swept error class (MP skybox asset; GSC `#namespace`
+ordering; ternary paren-wrapping ×9; the `class` reserved keyword; a missing
+cross-module `#using`; field access on a parenthesized expression). Every
+class is now covered by an automated lint in `tools/preflight_windows.ps1` +
+`tools/lint_gsc_xref.js`, so they cannot silently recur. Paper-verification
+(11 sessions vs the stock mirror + shipped sources) held up: the failures were
+all GSC-dialect syntax/wiring nits, not logic rewrites.
+
+Next: Run Game (`+set developer 1 +set logfile 1 +set acc_test_boss 1`) and
+walk the in-game test loop (docs/18) — first runtime validation of the systems.
+
 ### Fixed — first compile, pass 6: field access on a parenthesized expression (2026-06-12)
 
 `_acc_damage.gsc:661` had `return ( zm_weapons::get_base_weapon( w ) ).name;`
