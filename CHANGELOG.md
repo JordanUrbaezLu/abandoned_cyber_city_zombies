@@ -6,6 +6,26 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — perk info card rebuilt in premium LUI (2026-06-13)
+
+The perk/PaP info card (UI touchpoint 1, docs/27) is now a premium **LUI** widget,
+replacing the server-HUD card whose bulleted text mis-rendered outside the box
+("the descriptions aren't even in the card"). Split of concerns:
+- **`_acc_perk_info.gsc` = the BRAIN only:** per player it finds the nearest machine
+  + context (buy/mega/maxed/pap) and pushes a single int "card code"
+  (`perkIndex*4 + mode`, 0 = hide) via a new `clientuimodel` field **`accPerkCard`**
+  (`acc_lui::set_perk_card`). Its old `show_card`/`card_data` + `acc_ui` rendering
+  is retired (text now lives in the Lua display layer).
+- **`acc_hud.lua` = the card:** a classed LUI widget `CoD.AccPerkCard =
+  InheritFrom(LUI.UIElement)` (the shipped `room_manager.lua` / `inventory_control.lua`
+  pattern) renders title / price / bulleted **base + Mega** benefits (or the 5-tier
+  PaP ladder) from a perk lookup table, context-coloured (cyan buy / gold Mega /
+  green maxed / purple PaP), right side, vertically centered.
+- Mechanism is the **proven** clientuimodel-int + Lua-lookup (room_manager), not an
+  unproven string push. Every LUI call verified against shipped-**active** maps + a
+  dedicated adversarial review (no blockers; confirmed `LUI.UIText:setScale/setRGB`,
+  the `math.floor`/`%` decode, nil guards, on-screen anchoring). Build exit 0.
+
 ### Changed — Pack-a-Punch: scaling-cost 5-tier ladder, no alt-ammo (2026-06-13)
 
 Test feedback: PaP prices read "2500" on every re-pack, multi-pack didn't take,

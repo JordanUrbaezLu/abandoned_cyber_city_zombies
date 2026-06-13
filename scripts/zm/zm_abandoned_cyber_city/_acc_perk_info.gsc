@@ -1,10 +1,19 @@
 // =============================================================================
-// _acc_perk_info.gsc - perk + Pack-a-Punch info CARD at the machine
+// _acc_perk_info.gsc - perk + Pack-a-Punch info CARD selector (drives LUI)
 //
 // Player-facing (REQUIREMENTS / docs/13_perks.md, docs/27_ui_plan.md): walk up
-// to a perk machine (or Pack-a-Punch) and a polished card shows the NAME, PRICE,
+// to a perk machine (or Pack-a-Punch) and a premium card shows the NAME, PRICE,
 // and BULLETED benefits (base + Mega for perks; the 5-tier ladder for PaP) so
-// players can craft builds. Rendering is the reusable acc_ui::card component.
+// players can craft builds.
+//
+// This module is now just the BRAIN: per player it finds the nearest machine and
+// the context (buy/mega/maxed/pap) and pushes a single int "card code"
+// (perkIndex*4 + mode, 0 = hide) to the LUI overlay via acc_lui::set_perk_card.
+// The card itself (title/price/bulleted text + styling) is RENDERED in
+// ui/uieditor/menus/hud/acc_hud.lua from its perk-card lookup table - the proven
+// clientuimodel-int + Lua-lookup pattern (room_manager.lua). The old all-GSC
+// server-HUD card (acc_ui::card) is retired for this touchpoint (mis-aligned text
+// outside the box); acc_ui remains available for any non-LUI fallback.
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -14,7 +23,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_ui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
 #define ACC_PERK_INFO_RANGE_SQ 28900   // 170u
 #define ACC_PAP_RANGE_SQ       32400   // 180u
@@ -83,137 +92,49 @@ function update_for_player( machines, pap_org )
         nearest_id = "pap";
     }
 
-    if ( !isdefined( nearest_id ) )
+    code = 0; // 0 = hide the card
+    if ( isdefined( nearest_id ) )
     {
-        self acc_ui::card_hide();
-        self.acc_pinfo_cur = undefined;
-        return;
+        pidx = perk_card_index( nearest_id );
+        // Context: show only what buying NOW gives you - base(0) / Mega upgrade(1)
+        // / maxed(2) / PaP tier ladder(3). The Lua card renders the right bullets.
+        mode = 0;
+        if ( nearest_id == "pap" )
+            mode = 3;
+        else if ( self HasPerk( nearest_id ) )
+        {
+            if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
+                mode = 2;
+            else
+                mode = 1;
+        }
+        if ( pidx > 0 )
+            code = pidx * 4 + mode;
     }
 
-    // Context: show only what buying NOW gives you. Not owned -> base; owned but
-    // not Mega'd -> the Mega upgrade; already Mega'd -> maxed.
-    mode = "buy";
-    if ( nearest_id == "pap" )
-        mode = "pap";
-    else if ( self HasPerk( nearest_id ) )
-    {
-        if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
-            mode = "maxed";
-        else
-            mode = "mega";
-    }
+    if ( isdefined( self.acc_pinfo_code ) && self.acc_pinfo_code == code )
+        return; // already pushed this exact card
 
-    state = nearest_id + "|" + mode;
-    if ( isdefined( self.acc_pinfo_cur ) && self.acc_pinfo_cur == state )
-        return; // already showing this exact card
-
-    self.acc_pinfo_cur = state;
-    self show_card( nearest_id, mode );
+    self.acc_pinfo_code = code;
+    acc_lui::set_perk_card( self, code );
 }
 
-// self = player
-function show_card( id, mode )
+// Stable perk -> card index for the LUI lookup table (acc_hud.lua AccPerkCards).
+// MUST match the Lua table. 0 = unknown/none.
+function perk_card_index( id )
 {
-    d = card_data( id );
-    lines = [];
-
-    if ( mode == "pap" )
-    {
-        base = d[ "base_bullets" ];
-        for ( i = 0; i < base.size; i++ )
-            lines[ lines.size ] = "^5- ^7" + base[ i ];
-        self acc_ui::card_show( d[ "title" ], ( 0.7, 0.4, 1.0 ), "^7Re-pack to raise tier (scaling cost)", lines );
-        return;
-    }
-
-    if ( mode == "maxed" )
-    {
-        lines[ 0 ] = "^2Owned + Mega upgraded";
-        self acc_ui::card_show( d[ "title" ], ( 0.4, 0.85, 0.4 ), "", lines );
-        return;
-    }
-
-    if ( mode == "mega" )
-    {
-        mega = d[ "mega_bullets" ];
-        for ( i = 0; i < mega.size; i++ )
-            lines[ lines.size ] = "^6- ^7" + mega[ i ];
-        self acc_ui::card_show( "^6" + d[ "mega_name" ], ( 0.95, 0.75, 0.2 ), "^7Upgrade: ^31 Mega Bottle", lines );
-        return;
-    }
-
-    // mode "buy" - base benefits + the perk price
-    base = d[ "base_bullets" ];
-    for ( i = 0; i < base.size; i++ )
-        lines[ lines.size ] = "^5- ^7" + base[ i ];
-    price = "";
-    if ( d[ "price" ] != "" )
-        price = "^7Cost: ^2" + d[ "price" ] + " Points";
-    self acc_ui::card_show( d[ "title" ], ( 0.55, 0.85, 1.0 ), price, lines );
-}
-
-// ---------------------------------------------------------------------------
-// Card content (docs/13_perks.md + _acc_pap_levels). Keep bullets terse.
-// ---------------------------------------------------------------------------
-
-function card_data( id )
-{
-    d = [];
-    d[ "price" ] = "";
-    d[ "mega_name" ] = "";
-    d[ "base_bullets" ] = [];
-    d[ "mega_bullets" ] = [];
-
     switch ( id )
     {
-    case "specialty_armorvest":
-        d[ "title" ] = "JUGGER-NOG"; d[ "price" ] = "4000"; d[ "mega_name" ] = "Ultimate Tank";
-        d[ "base_bullets" ] = array( "Survive 6 melee hits (vs 3)", "Built for training + tanking" );
-        d[ "mega_bullets" ] = array( "7 hits before going down", "Immune to boss abilities" ); break;
-    case "specialty_quickrevive":
-        d[ "title" ] = "QUICK REVIVE"; d[ "price" ] = "2500"; d[ "mega_name" ] = "Savior";
-        d[ "base_bullets" ] = array( "Faster teammate revives", "+30pct HP regen after damage", "Solo: self-revive" );
-        d[ "mega_bullets" ] = array( "Revive 40pct faster", "+15pct speed near a downed ally" ); break;
-    case "specialty_fastreload":
-        d[ "title" ] = "SPEED COLA"; d[ "price" ] = "3500"; d[ "mega_name" ] = "Sleight of Hand Expert";
-        d[ "base_bullets" ] = array( "+50pct reload speed", "~30pct faster weapon swap", "~40pct faster perk drink" );
-        d[ "mega_bullets" ] = array( "+65pct reload", "+15pct swap, +15pct drink" ); break;
-    case "specialty_doubletap2":
-        d[ "title" ] = "DOUBLE TAP 2.0"; d[ "price" ] = "2000"; d[ "mega_name" ] = "Gun Slinger";
-        d[ "base_bullets" ] = array( "+33pct fire rate", "+3pct weapon damage" );
-        d[ "mega_bullets" ] = array( "+50pct fire rate", "+6pct damage total" ); break;
-    case "specialty_staminup":
-        d[ "title" ] = "STAMIN-UP"; d[ "price" ] = "2000"; d[ "mega_name" ] = "The Flash";
-        d[ "base_bullets" ] = array( "Longer sprint reserve", "Faster sprint speed" );
-        d[ "mega_bullets" ] = array( "+12pct run, longer sprint", "x2 walk, x4 crawl speed" ); break;
-    case "specialty_additionalprimaryweapon":
-        d[ "title" ] = "MULE KICK"; d[ "price" ] = "2500"; d[ "mega_name" ] = "The Armory";
-        d[ "base_bullets" ] = array( "Carry a 3rd primary weapon" );
-        d[ "mega_bullets" ] = array( "+30pct ammo per gun", "+2 lethal, +2 tactical" ); break;
-    case "specialty_deadshot":
-        d[ "title" ] = "DEADSHOT"; d[ "price" ] = "3500"; d[ "mega_name" ] = "American Sniper";
-        d[ "base_bullets" ] = array( "ADS snaps to the head", "1.5x headshot damage", "No snap on bosses" );
-        d[ "mega_bullets" ] = array( "1.75x headshot damage", "Zero weapon recoil" ); break;
-    case "specialty_widowswine":
-        d[ "title" ] = "WIDOW'S WINE"; d[ "price" ] = "4000"; d[ "mega_name" ] = "Spiderman";
-        d[ "base_bullets" ] = array( "Webs trap zombies on melee", "+50pct frag dmg, +25pct radius", "+50pct EMP grenade" );
-        d[ "mega_bullets" ] = array( "Melee 1-hits zombies", "Web nades 1-hit, hold 6" ); break;
-    case "specialty_electriccherry":
-        d[ "title" ] = "AURA BLAST"; d[ "price" ] = "2500"; d[ "mega_name" ] = "Mega Man";
-        d[ "base_bullets" ] = array( "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" );
-        d[ "mega_bullets" ] = array( "Affects bosses too", "800u, 60s CD, 2 charges" ); break;
-    case "pap":
-        d[ "title" ] = "PACK-A-PUNCH";
-        d[ "base_bullets" ] = array(
-            "Pack a gun, then re-pack to climb tiers:",
-            "T1: upgrade + new camo",
-            "T2: +25pct damage (2500)",
-            "T3: +55pct damage (5000)",
-            "T4: +90pct damage (7500)",
-            "T5: +130pct damage MAX (10000)" );
-        break;
-    default:
-        d[ "title" ] = "PERK"; d[ "base_bullets" ] = array( "-" ); break;
+    case "specialty_armorvest":               return 1;  // Jugger-Nog
+    case "specialty_quickrevive":             return 2;  // Quick Revive
+    case "specialty_fastreload":              return 3;  // Speed Cola
+    case "specialty_doubletap2":              return 4;  // Double Tap 2.0
+    case "specialty_staminup":                return 5;  // Stamin-Up
+    case "specialty_additionalprimaryweapon": return 6;  // Mule Kick
+    case "specialty_deadshot":                return 7;  // Deadshot
+    case "specialty_widowswine":              return 8;  // Widow's Wine
+    case "specialty_electriccherry":          return 9;  // Aura Blast
+    case "pap":                               return 10; // Pack-a-Punch
     }
-    return d;
+    return 0;
 }

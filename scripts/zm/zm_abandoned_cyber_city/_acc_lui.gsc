@@ -33,9 +33,20 @@ REGISTER_SYSTEM( "acc_lui", &__init__, undefined )
 
 function __init__()
 {
-    // Must match the .csc mirror EXACTLY (scope/name/version/bits/type).
+    // Must match the .csc mirror EXACTLY (scope/name/version/bits/type) AND in the
+    // SAME ORDER - the bit layout is assigned in registration order.
     clientfield::register( "clientuimodel", "accLuiTest", VERSION_SHIP, 4, "int" );
+    // Perk/PaP info card selector: code = perkIndex*4 + mode (0 = hide). Max 10*4+3
+    // = 43 -> 6 bits. Decoded + rendered by acc_hud.lua's perk-card lookup table.
+    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 6, "int" );
     callback::on_connect( &on_player_connect );
+}
+
+// Push the contextual perk/PaP card selector to a player's LUI overlay.
+// code 0 hides the card; otherwise perkIndex*4 + mode (see _acc_perk_info).
+function set_perk_card( player, code )
+{
+    player clientfield::set_player_uimodel( "accPerkCard", code );
 }
 
 function on_player_connect()

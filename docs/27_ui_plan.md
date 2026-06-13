@@ -70,8 +70,15 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
   component (translucent box + accent strip + big title + gold price + color-coded
   bullet pool, auto-height via `setShader`).
 - **P0 done:** perk card + PaP card live in `_acc_perk_info` (all 9 perks with
-  base + Mega bullets; PaP shows the 5-tier ladder). Next touchpoints reuse
-  `acc_ui::card_show`.
+  base + Mega bullets; PaP shows the 5-tier ladder).
+- **LUI migration (2026-06-13):** the LUI client pipeline is live (docs/28), so
+  **touchpoint 1 (perk card) is now PREMIUM LUI**, not the server-HUD card. The
+  card is a classed widget `CoD.AccPerkCard` in `acc_hud.lua` (room_manager pattern),
+  driven by the `accPerkCard` clientuimodel int from `_acc_perk_info` (the brain).
+  Context-coloured (buy/Mega/maxed/PaP). Remaining touchpoints (Mega prompt, wallbuy,
+  Cyberware menu, counters, boss bar) reuse this LUI substrate next; the `acc_ui`
+  server-HUD card stays as a non-LUI fallback. LUI was the Phase-4 "ceiling" below -
+  it landed early.
 - **PaP overhaul (2026-06-13):** the card now lists the **scaling re-pack cost
   per tier** (T2 2500 / T3 5000 / T4 7500 / T5 10000) and no longer mentions
   alt-ammo. Backing mechanic in `_acc_pap_levels`: stock **AAT disabled**

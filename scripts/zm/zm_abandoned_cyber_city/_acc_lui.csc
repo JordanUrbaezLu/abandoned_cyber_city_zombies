@@ -27,5 +27,8 @@ REGISTER_SYSTEM( "acc_lui", &__init__, undefined )
 
 function __init__()
 {
+    // SAME fields, SAME order, SAME widths as _acc_lui.gsc - lockstep or the
+    // clientuimodel bit layout desyncs.
     clientfield::register( "clientuimodel", "accLuiTest", VERSION_SHIP, 4, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 6, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 }
