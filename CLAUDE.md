@@ -170,7 +170,25 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 - **console_mp.log is the runtime oracle** (`<game>\console_mp.log`, needs
   `+set logfile 1`): the LAST lines are the fatal error; the wall of "Could not
   find material/fx" (margwa/mech/DLC/`*_zm` weapon-table entries) is NORMAL
-  usermap asset noise, not the failure.
+  usermap asset noise, not the failure. Server-script `IPrintLnBold` on a player
+  DOES appear here as `[ SCRIPTER] [msg]...` (great for proof-of-life); the
+  `/# println #/` dev-block log used by `acc_utility::log` does NOT reliably
+  route here, so absence of `[acc]` lines is not proof acc_main didn't run.
+- **The linker compiles from the DEPLOYED usermap copy, NOT the repo.** Edit →
+  **`.\tools\sync_to_modtools.ps1`** (robocopy /MIR into
+  `...455130\usermaps\zm_abandoned_cyber_city\`) → THEN build. Skipping the sync
+  silently builds stale code = "I changed the code but nothing changed in game"
+  (cost hours, 2026-06-13). Verify a deploy landed before trusting a build.
+- **You can build the `.ff` directly (no Launcher GUI):** for GSC-only changes,
+  `& "<tools>\bin\linker_modtools.exe" -language english -modsource zm_abandoned_cyber_city`
+  recompiles scriptparsetree + repacks the `.ff` (geometry/BSP from the last
+  `cod2map64` run is reused). Full pipeline if geometry changed: `cod2map64`
+  (BSP+navmesh) → `radiant_modtools -ledSilent ... +recompute` (LED) → linker.
+- **Steam launch handler jams after repeated force-kills.** `Stop-Process` on
+  BlackOps3 + rapid `steam://run` relaunches makes Steam silently ignore launch
+  requests (process never starts, no log write). Fix: fully restart Steam
+  (`steam.exe -shutdown`, relaunch) and wait for full connect before launching;
+  interactive user launches are unaffected. Don't hammer relaunches in a loop.
 
 ## Verification bar
 

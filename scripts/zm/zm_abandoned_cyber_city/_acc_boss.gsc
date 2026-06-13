@@ -59,7 +59,8 @@ function test_boss_loop()
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
-        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
+        // HARDCODED ON (no dvar gate) - user requested flags-free testing.
+        // Re-add `if ( getdvarint("acc_test_boss",0) != 1 ) continue;` before ship.
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going

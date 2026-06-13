@@ -6,6 +6,32 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — hardcoded dev test sandbox + whole-map-open (2026-06-13)
+
+For an end-to-end test pass, the dev conveniences are now **hardcoded ON** (no
+dvars) — tagged `HARDCODED` in source, to be re-gated before ship:
+- **Entry-script `acc_hardcoded_dev()`** (in `zm_abandoned_cyber_city.gsc` main,
+  the guaranteed-run path independent of every `_acc_` module): unlimited money
+  + unlimited Data Shards + auto-power (`flag::set("power_on")`) + an on-screen
+  status banner that reads `level.acc_init_complete` so it confirms the full
+  `_acc_` init chain ran (`systems: COMPLETE`).
+- **`acc_hardcoded_open_map()`**: opens every `zombie_door` (sets its zone
+  adjacency flag + `ConnectPaths`/`NotSolid`/`Hide` on the `acc_door_*`
+  script_brushmodel slab + `TriggerEnable(false)`) so the whole map is walkable
+  from spawn — fixes "stuck in the start room."
+- Removed the `acc_dev` / `acc_test_boss` dvar gates (boss spawns round 2 with
+  10 Mega Bottles unconditionally). `_acc_main::init` sets `acc_init_complete`.
+- Test guide: **docs/24_test_session.md**.
+
+**Root cause of "I changed the code but nothing changed in game" (resolved):**
+the linker compiles from the DEPLOYED `usermaps\...` copy, not the repo — edits
+weren't synced before building, so every build used stale code. A 5-agent +
+4-agent adversarial workflow confirmed the code was correct and isolated it to
+deploy staleness. Verified the fix live: built the `.ff` directly via
+`linker_modtools` after syncing, launched, and confirmed the banner firing in
+`console_mp.log` (`[ SCRIPTER] [msg]^2[ACC] HARDCODED DEV BUILD LIVE`). Build
+pipeline + Steam-launch-jam lessons recorded in CLAUDE.md.
+
 ### Fixed — the `tdm.gsc` black screen: gametype must be `+set_gametype` (2026-06-13)
 
 The map black-screened on every direct launch with

@@ -32,10 +32,10 @@
 
 function init()
 {
-    if ( getdvarint( "acc_dev", 0 ) != 1 )
-        return;
-
-    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + door markers + perk cap 18" );
+    // HARDCODED ON (no dvar gate) - user requested flags-free dev sandbox while
+    // we validate the build end-to-end. Re-add a `getdvarint("acc_dev")` gate
+    // before shipping.
+    acc_utility::log( "DEV MODE ON (hardcoded): unlimited money + door markers + perk cap 18" );
 
     // Raise the perk cap so all machines in the one-room test build are buyable.
     level.perk_purchase_limit = 18;

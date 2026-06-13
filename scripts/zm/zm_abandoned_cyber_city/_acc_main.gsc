@@ -102,6 +102,9 @@ function init()
 
     level thread watch_round_transitions();
 
+    // Read by the entry-script status banner to confirm the full _acc_ init chain
+    // completed (no module init threw and skipped the rest).
+    level.acc_init_complete = true;
     acc_utility::log( "init complete" );
 }
 

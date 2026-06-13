@@ -41,6 +41,7 @@
 #using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_weapons;
 #using scripts\zm\_zm_zonemgr;
+#using scripts\zm\_zm_score;
 
 #using scripts\shared\ai\zombie_utility;
 
@@ -82,6 +83,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
 
 // Fix Power Lag
@@ -123,6 +125,13 @@ function main()
 	level._zombie_custom_add_weapons =&custom_add_weapons;
 
 	zm_usermap::main();
+
+	// [acc] HARDCODED dev sandbox - lives in the ENTRY script (this main() provably
+	// runs - the map loads) so it is independent of every _acc_ module. No dvar gate.
+	// Unlimited money + Data Shards, auto-power, and OPENS THE WHOLE MAP (every door
+	// + zone) so the full map is walkable/testable from spawn.
+	level thread acc_hardcoded_dev();
+	level thread acc_hardcoded_open_map();
 
 	// [acc] Register our callbacks + roll per-run map state. Runs after the
 	// stock bootstrap but still inside main(), i.e. before the first game
@@ -181,6 +190,98 @@ function main()
 	// module no-ops gracefully when its Radiant geometry doesn't exist yet,
 	// so this is safe in the starting-room-only build.
 	level thread acc_main::init();
+}
+
+// [acc] HARDCODED dev sandbox - entry-script level so it cannot be gated out by
+// any _acc_ module init issue. Banner + permanent unlimited money + unlimited
+// Data Shards + auto-power (so perks/PaP/traps are testable immediately).
+function acc_hardcoded_dev()
+{
+	level endon( "end_game" );
+
+	// "initial_blackscreen_passed" is a stock flag set early in the load
+	// (flag::wait_till returns immediately if already set).
+	level flag::wait_till( "initial_blackscreen_passed" );
+
+	// Auto-power ON: perks, Pack-a-Punch and traps all gate on this stock flag.
+	if ( !( level flag::get( "power_on" ) ) )
+		level flag::set( "power_on" );
+
+	count = 0;
+	for ( ;; )
+	{
+		players = GetPlayers();
+		for ( i = 0; i < players.size; i++ )
+		{
+			p = players[ i ];
+			if ( !isdefined( p ) || !isplayer( p ) )
+				continue;
+
+			// Unlimited money (reading .score is fine; write via the API).
+			cur = 0;
+			if ( isdefined( p.score ) )
+				cur = p.score;
+			if ( cur < 100000 )
+				p zm_score::add_to_player_score( 1000000 - cur );
+
+			// Unlimited Data Shards (Cyberware / Overclock currency). grant_player
+			// clamps to the cap + syncs the HUD; "dev" source skips diminishing.
+			if ( !isdefined( p.acc_data_shards ) )
+				p.acc_data_shards = 0;
+			if ( p.acc_data_shards < 200 )
+				acc_data_shards::grant_player( p, 999, "dev" );
+
+			// On-screen status banner (first ~15 s) including acc_main init state.
+			if ( count < 15 )
+			{
+				init_state = ( IS_TRUE( level.acc_init_complete ) ? "^2COMPLETE" : "^3pending" );
+				p IPrintLnBold( "^2[ACC] DEV BUILD LIVE ^7- map open, power on, systems: " + init_state );
+			}
+		}
+		count++;
+		wait 1;
+	}
+}
+
+// [acc] HARDCODED open-the-whole-map. Opens every buyable door and activates the
+// zone behind it, so the player can walk the entire map from spawn (no buying,
+// no being stuck in the start room). Doors are zombie_door trigger_use entities
+// whose `target` is a script_brushmodel slab that normally slides up on purchase.
+function acc_hardcoded_open_map()
+{
+	level endon( "end_game" );
+
+	level flag::wait_till( "initial_blackscreen_passed" );
+	wait 3; // let stock blocker init + zone adjacency init finish first
+
+	doors = GetEntArray( "zombie_door", "targetname" );
+	for ( i = 0; i < doors.size; i++ )
+	{
+		door = doors[ i ];
+		if ( !isdefined( door ) )
+			continue;
+
+		// Activate the zone behind this door (the adjacency flag set on purchase).
+		if ( isdefined( door.script_flag ) )
+			level flag::set( door.script_flag );
+
+		// Physically clear the door slab so the opening is passable + pathable.
+		if ( isdefined( door.target ) )
+		{
+			slab = GetEnt( door.target, "targetname" );
+			if ( isdefined( slab ) )
+			{
+				slab ConnectPaths();
+				slab NotSolid();
+				slab Hide();
+			}
+		}
+
+		// No buy prompt - it is already open.
+		door TriggerEnable( false );
+	}
+
+	/# println( "[acc] HARDCODED: opened " + doors.size + " doors / all zones" ); #/
 }
 
 function CheckForPower()
