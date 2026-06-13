@@ -111,21 +111,27 @@ need it by hand:
 New-Item -ItemType Junction -Path "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III\usermaps" -Target "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III 455130\usermaps"
 ```
 
-## 2c. Steam DRM: the game exe needs `steam_appid.txt` (this machine — automatic)
+## 2c. Launching the built map: use Steam, NOT the Launcher's "Run"
 
-Symptom: the Launcher builds + links fine, runs `BlackOps3.exe +devmap ...`,
-but **nothing opens** (no window, no crash dump, no console.log). Cause: the
-Launcher's Run launches the game exe *directly*, and BO3's Steam DRM makes a
-direct launch exit instantly unless `steam_appid.txt` (containing the game
-appid **`311210`**) sits next to `BlackOps3.exe`, so the Steam API can
-authenticate against the already-running Steam client.
+On a split install (tools in `...455130`, game separate), the Mod Tools
+Launcher's **Run** checkbox does NOT reliably start the game — it launches
+`BlackOps3.exe` directly, which BO3's Steam DRM refuses ("Steam must be
+running to play this game" popup, then exits), even with Steam running and
+`steam_appid.txt` present. (The junction in 2b and `steam_appid.txt` are
+still needed so the game can *find* and *load* the build once it does start.)
 
-`tools\sync_to_modtools.ps1` now writes that file automatically; preflight
-checks it. By hand if needed:
+**The reliable launch (VERIFIED working):** go through Steam so the game gets
+proper DRM context. Easiest is the repo helper — **build in the Launcher
+(Compile/Light/Link, leave Run unchecked), then from the repo root:**
 ```powershell
-"311210" | Out-File -NoNewline "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III\steam_appid.txt"
+.\tools\run_game.ps1            # loads the map, test boss on
+.\tools\run_game.ps1 -NoBoss    # without the test boss
 ```
-(Steam must be running and logged in for the direct launch to authenticate.)
+It calls `steam://run/311210//<dev args>` and waits for the game to load
+(~30-60 s; RAM climbs to ~5 GB). Equivalent manual options: set BO3's Steam
+**Launch Options** to the dev args and hit Play, or run
+`start "steam://run/311210//+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1"`.
+Steam must be running and logged in.
 
 ## 3. First Build (5-15 min)
 
