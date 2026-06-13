@@ -139,7 +139,27 @@ function fix_machine_identity()
     level thread zm_perks::perk_machine_think( "specialty_staminup", level._custom_perks[ "specialty_staminup" ] );
     level thread zm_perks::perk_machine_think( PERK_ELECTRIC_CHERRY, level._custom_perks[ PERK_ELECTRIC_CHERRY ] );
 
+    // The hint_string &"ZOMBIE_PERK_AURABLAST" isn't localized yet (no .str), so
+    // the machine shows the raw token. Override the trigger's hint with readable
+    // text and re-apply it (the perk think loop re-sets hints on power changes).
+    t_use thread aura_hint_keeper();
+
     acc_utility::log( "aura blast: machine identity fixed (vending_electriccherry)" );
+}
+
+// self = the Aura Blast vending trigger. Keeps a readable hint on the machine
+// until the Phase-4 localization pass replaces the raw token.
+function aura_hint_keeper()
+{
+    level endon( "end_game" );
+    self endon( "death" );
+
+    for ( ;; )
+    {
+        self SetCursorHint( "HINT_NOICON" );
+        self SetHintString( "Hold ^3&&1^7 for Aura Blast [Cost: " + ACC_AURA_COST + "]" );
+        wait 1.5;
+    }
 }
 
 // ---------------------------------------------------------------------------

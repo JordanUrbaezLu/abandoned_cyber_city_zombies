@@ -17,10 +17,12 @@
 
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\flag_shared;
+#using scripts\shared\hud_util_shared;
 #using scripts\shared\util_shared;
 
 #insert scripts\shared\shared.gsh;
 
+#using scripts\zm\_zm;
 #using scripts\zm\_zm_score;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
@@ -42,6 +44,145 @@ function init()
 
     level thread dev_unlimited_money();
     level thread dev_door_markers();
+
+    // Damage indicators: a read-only actor-damage callback feeds per-player
+    // last-hit + DPS; the HUD loop renders them and the current-zone sign.
+    zm::register_actor_damage_callback( &dev_damage_cb );
+    level thread dev_player_hud_loop();
+}
+
+// ---------------------------------------------------------------------------
+// Damage indicators + zone signage HUD
+// ---------------------------------------------------------------------------
+
+// Read-only actor-damage callback (self = victim/zombie). Registered AFTER
+// _acc_damage, so the damage value here is already perk/overclock-modified -
+// exactly the DPS the player is actually doing. NEVER modifies damage (-1).
+function dev_damage_cb( inflictor, attacker, damage, flags, meansofdeath, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
+{
+    if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( damage ) && damage > 0 )
+    {
+        if ( !isdefined( attacker.acc_dev_dps_accum ) )
+            attacker.acc_dev_dps_accum = 0;
+        attacker.acc_dev_dps_accum += int( damage );
+        attacker.acc_dev_last_hit = int( damage );
+    }
+    return -1; // no damage modification
+}
+
+function dev_player_hud_loop()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    tick = 0;
+    for ( ;; )
+    {
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) )
+                continue;
+
+            ensure_dev_huds( p );
+
+            last_hit = ( isdefined( p.acc_dev_last_hit ) ? p.acc_dev_last_hit : 0 );
+            p.acc_dev_dmg_hud SetText( "DMG " + last_hit );
+
+            // DPS over a 1s window (loop is 0.2s -> every 5th tick).
+            if ( tick % 5 == 0 )
+            {
+                dps = ( isdefined( p.acc_dev_dps_accum ) ? p.acc_dev_dps_accum : 0 );
+                p.acc_dev_dps_hud SetText( "DPS " + dps );
+                p.acc_dev_dps_accum = 0;
+            }
+
+            dev_update_zone( p );
+        }
+        tick++;
+        wait 0.2;
+    }
+}
+
+function ensure_dev_huds( p )
+{
+    if ( !isdefined( p.acc_dev_zone_hud ) )
+    {
+        p.acc_dev_zone_hud = p hud::createFontString( "default", 2.0 );
+        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 36 );
+        p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
+        p.acc_dev_zone_hud.alpha = 0.85;
+        p.acc_dev_zone_hud.hidewheninmenu = true;
+    }
+    if ( !isdefined( p.acc_dev_dmg_hud ) )
+    {
+        p.acc_dev_dmg_hud = p hud::createFontString( "default", 1.3 );
+        p.acc_dev_dmg_hud hud::setPoint( "TOP_RIGHT", "TOP_RIGHT", -12, 70 );
+        p.acc_dev_dmg_hud.color = ( 1.0, 0.85, 0.2 );
+        p.acc_dev_dmg_hud.alpha = 0.9;
+        p.acc_dev_dmg_hud.hidewheninmenu = true;
+    }
+    if ( !isdefined( p.acc_dev_dps_hud ) )
+    {
+        p.acc_dev_dps_hud = p hud::createFontString( "default", 1.3 );
+        p.acc_dev_dps_hud hud::setPoint( "TOP_RIGHT", "TOP_RIGHT", -12, 95 );
+        p.acc_dev_dps_hud.color = ( 1.0, 0.55, 0.2 );
+        p.acc_dev_dps_hud.alpha = 0.9;
+        p.acc_dev_dps_hud.hidewheninmenu = true;
+    }
+}
+
+// Zone signage: greybox locations look identical, so show the current zone's
+// name (top of screen) + a banner on change so you can tell them apart.
+function dev_update_zone( p )
+{
+    zone = dev_get_player_zone( p );
+    if ( !isdefined( zone ) )
+        return;
+
+    if ( !isdefined( p.acc_dev_cur_zone ) || p.acc_dev_cur_zone != zone )
+    {
+        p.acc_dev_cur_zone = zone;
+        name = dev_zone_name( zone );
+        p.acc_dev_zone_hud SetText( name );
+        p IPrintLnBold( "^5>> " + name );
+    }
+}
+
+function dev_get_player_zone( p )
+{
+    if ( !isdefined( level.zones ) )
+        return undefined;
+
+    keys = GetArrayKeys( level.zones );
+    for ( i = 0; i < keys.size; i++ )
+    {
+        z = level.zones[ keys[ i ] ];
+        if ( !isdefined( z ) || !isdefined( z.volumes ) )
+            continue;
+        for ( j = 0; j < z.volumes.size; j++ )
+        {
+            if ( isdefined( z.volumes[ j ] ) && p IsTouching( z.volumes[ j ] ) )
+                return keys[ i ];
+        }
+    }
+    return undefined;
+}
+
+function dev_zone_name( zone )
+{
+    switch ( zone )
+    {
+    case "start_zone":  return "SPAWN PLAZA";
+    case "market_zone": return "UNDERCITY MARKET";
+    case "alley_zone":  return "SERVICE ALLEY";
+    case "corp_zone":   return "CORPORATE PLAZA";
+    case "vault_zone":  return "SERVER VAULT";
+    case "roof_zone":   return "ROOFTOP HELIPAD";
+    case "lab_zone":    return "SUBTERRANEAN LAB";
+    }
+    return zone;
 }
 
 // ---------------------------------------------------------------------------

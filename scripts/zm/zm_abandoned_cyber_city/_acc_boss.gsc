@@ -64,7 +64,15 @@ function test_boss_loop()
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going
-        acc_utility::log( "TEST BOSS spawning (acc_test_boss dvar)" );
+        acc_utility::log( "TEST BOSS spawning" );
+        // Announce on-screen - the test boss is a buffed normal-looking zombie
+        // (no custom model yet), so without this you can't tell it apart.
+        players = GetPlayers();
+        for ( pi = 0; pi < players.size; pi++ )
+        {
+            if ( isdefined( players[ pi ] ) )
+                players[ pi ] IPrintLnBold( "^1JUGGERNAUT HOST INBOUND ^7- kill it for ^310 Mega Bottles" );
+        }
         // NOTE: deliberately additive - the test loop never suppresses the
         // wave, only real mini-boss rounds do (run_mini_boss). 2nd arg = bulk
         // Mega Bottle drop (10) so the perk-upgrade loop is testable fast.

@@ -84,6 +84,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
 
 // Fix Power Lag
@@ -133,6 +134,11 @@ function main()
 	level thread acc_hardcoded_dev();
 	level thread acc_hardcoded_open_map();
 
+	// [acc] HARDCODED: disable the decontamination zone-seal hazard. It kills any
+	// player standing in a zone when it seals (rounds 1-4) - lethal on an open
+	// map you're meant to roam freely. Read by _acc_decontamination::run_decon_phase.
+	level.acc_disable_decon = true;
+
 	// [acc] Register our callbacks + roll per-run map state. Runs after the
 	// stock bootstrap but still inside main(), i.e. before the first game
 	// tick, first player spawn, and first round calculation.
@@ -142,6 +148,11 @@ function main()
 	// (cost/hint/give/take) - must run AFTER zm_usermap::main() populated
 	// level._custom_perks, BEFORE the first game tick.
 	acc_perk_aura_blast::init();
+
+	// [acc] Apply the map's custom per-perk costs (docs/13_perks.md - perk
+	// customization is a headline feature). Runs before the first tick / first
+	// machine read, same as the Aura Blast cost override above.
+	set_perk_costs();
 
 	//Setup the levels Zombie Zone Volumes
 	level.zones = [];
@@ -231,6 +242,14 @@ function acc_hardcoded_dev()
 			if ( p.acc_data_shards < 200 )
 				acc_data_shards::grant_player( p, 999, "dev" );
 
+			// Mega Bottles topped up so perk Mega-upgrades are testable WITHOUT
+			// having to kill the boss (own the perk, hold a bottle, look at its
+			// machine -> "Hold for Mega upgrade").
+			if ( !isdefined( p.acc_mega_bottles ) )
+				p.acc_mega_bottles = 0;
+			if ( p.acc_mega_bottles < 5 )
+				p acc_mega_bottles::grant_bottle( 25, "dev" );
+
 			// On-screen status banner (first ~15 s) including acc_main init state.
 			if ( count < 15 )
 			{
@@ -284,6 +303,34 @@ function acc_hardcoded_open_map()
 	}
 
 	/# println( "[acc] HARDCODED: opened " + doors.size + " doors / all zones" ); #/
+}
+
+// [acc] Custom per-perk costs (docs/13_perks.md). The perk cost is read from
+// level._custom_perks[specialty].cost (same field Aura Blast overrides); set it
+// before the first purchase. Buying all 9 = 26,500 by design.
+function set_perk_costs()
+{
+	if ( !isdefined( level._custom_perks ) )
+		return;
+
+	costs = [];
+	costs[ "specialty_armorvest" ]               = 4000; // Jugger-Nog
+	costs[ "specialty_quickrevive" ]             = 2500; // Quick Revive
+	costs[ "specialty_fastreload" ]              = 3500; // Speed Cola
+	costs[ "specialty_doubletap2" ]              = 2000; // Double Tap 2.0
+	costs[ "specialty_staminup" ]                = 2000; // Stamin-Up
+	costs[ "specialty_additionalprimaryweapon" ] = 2500; // Mule Kick
+	costs[ "specialty_deadshot" ]                = 3500; // Deadshot
+	costs[ "specialty_widowswine" ]              = 4000; // Widow's Wine
+	// Aura Blast (specialty_electriccherry) = 2500, set in _acc_perk_aura_blast.
+
+	keys = GetArrayKeys( costs );
+	for ( i = 0; i < keys.size; i++ )
+	{
+		perk = keys[ i ];
+		if ( isdefined( level._custom_perks[ perk ] ) )
+			level._custom_perks[ perk ].cost = costs[ perk ];
+	}
 }
 
 function CheckForPower()

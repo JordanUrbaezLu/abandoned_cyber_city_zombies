@@ -189,6 +189,15 @@ function run_decon_phase( round_number )
 {
     level endon( "end_game" );
 
+    // HARDCODED dev/test: the seal kills players caught in the zone - disabled
+    // (entry script sets this) so the force-open map is safe to roam. Still emit
+    // the complete notify so the Lab perk re-roll keeps working.
+    if ( IS_TRUE( level.acc_disable_decon ) )
+    {
+        level notify( "acc_decontamination_complete", round_number );
+        return;
+    }
+
     if ( isdefined( round_number ) && round_number >= 1 &&
          round_number <= ACC_DECON_SEAL_ROUNDS )
     {
