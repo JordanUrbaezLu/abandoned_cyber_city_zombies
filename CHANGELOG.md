@@ -6,6 +6,41 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — in-game launch fix + test sandbox + Rampage Inducer (2026-06-13)
+
+**Launch.** First successful in-game load. The Mod Tools Launcher "Run" trips
+BO3's Steam DRM ("Steam must be running to play this game" → exits) because it
+launches `BlackOps3.exe` directly. Launching **through Steam**
+(`steam://run/311210//<args>`) gives the proper DRM context and the map loads
+(verified: RAM climbed to ~4.8 GB, responding). New `tools/run_game.ps1` wraps
+this; `SETUP_WINDOWS.md` §2c rewritten. `steam_appid.txt` + the usermaps
+junction are necessary but not sufficient on their own.
+
+**Rampage Inducer** (`_acc_rampage_inducer.gsc`, new) — typical functionality:
+once activated, every zombie sprints and the wave spawns faster/denser.
+Activate via dvar `acc_rampage 1` (toggles off with `0`) or an optional in-map
+`acc_rampage_inducer` trigger. Mechanism: chains BOTH `level.max_zombie_func`
+(+50% on-screen) and `level.func_get_zombie_spawn_delay` (×0.25 interval) in
+`post_zm_main` — the delay must chain the **function**, not the value, because
+stock recomputes `zombie_vars["zombie_spawn_delay"]` every round (_zm.gsc:4502).
+Sprint uses `set_zombie_run_cycle_override_value("sprint")`, stock's own
+permanent-speed lock. Also makes the previously-stubbed `sprint` modifier real.
+
+**Dev/test harness** (`_acc_dev.gsc`, new; gated on `acc_dev 1`) — unlimited
+money (tops each player to ~1,000,000 via `zm_score::add_to_player_score`),
+perk cap raised to 18, and **buyable-door markers**: a through-walls waypoint
+(`SetShader("white")` + `SetWaypoint` + `SetTargetEnt`, zero asset risk) over
+each closed buyable door, destroyed once the door's `script_flag` is set. Doors
+stay closed — they're just findable now (user couldn't locate them first play).
+
+**Test boss** now drops **10** Mega Bottles (was 1) — `spawn_juggernaut_host`
+takes an optional bottle count; `watch_mini_boss_death` bulk-grants it. Still
+gated on `acc_test_boss 1`, spawns from round 2. `run_game.ps1` enables
+`acc_dev` + `acc_test_boss` by default (`-NoDev` / `-NoBoss` to opt out).
+
+PaP confirmed already placed (`vending_weapon_upgrade_spawnable`, start room).
+Lints + preflight all green (25 scriptparsetree files, 23 `_acc_` modules).
+
 ### MILESTONE — first clean compile + link (2026-06-12) 🎉
 
 `zm_abandoned_cyber_city` builds end-to-end on the real BO3 Mod Tools:

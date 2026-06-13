@@ -13,10 +13,13 @@
 # Steam must be running and logged in.
 # =============================================================================
 
-param([switch]$NoBoss)
+param([switch]$NoBoss, [switch]$NoDev)
 
+# acc_dev 1   = unlimited money, perk cap 18, buyable-door markers (the test sandbox)
+# acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles on death
 $boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1" }
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss"
+$dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

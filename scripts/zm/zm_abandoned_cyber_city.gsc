@@ -81,6 +81,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_main;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
 
 // Fix Power Lag
@@ -172,6 +173,9 @@ function main()
 	// invokes coop first (normalizes n_max to solo) before delegating down.
 	acc_early_round_pacing::post_zm_main();
 	acc_coop_scaling::post_zm_main();
+	// [acc] Rampage Inducer chains both spawn levers (count + delay func) here,
+	// before round 1 - inert until activated via the `acc_rampage` dvar / trigger.
+	acc_rampage_inducer::post_zm_main();
 
 	// [acc] All remaining custom systems spin up on their own thread. Each
 	// module no-ops gracefully when its Radiant geometry doesn't exist yet,

@@ -65,8 +65,9 @@ function test_boss_loop()
         wait 10; // let the round get going
         acc_utility::log( "TEST BOSS spawning (acc_test_boss dvar)" );
         // NOTE: deliberately additive - the test loop never suppresses the
-        // wave, only real mini-boss rounds do (run_mini_boss).
-        spawn_juggernaut_host( 1500 ); // killable with the starting pistol era
+        // wave, only real mini-boss rounds do (run_mini_boss). 2nd arg = bulk
+        // Mega Bottle drop (10) so the perk-upgrade loop is testable fast.
+        spawn_juggernaut_host( 1500, 10 ); // killable with the starting pistol era
     }
 }
 
@@ -149,7 +150,7 @@ function suppress_normal_wave( round_number )
     level.zombie_total = 0;
 }
 
-function spawn_juggernaut_host( n_health_override )
+function spawn_juggernaut_host( n_health_override, n_bottle_count )
 {
     // Buffed-regular-zombie mini-boss: the stock mechz archetype needs DLC1
     // zone assets a usermap lacks (behavior tree / models / FX), so the
@@ -179,6 +180,11 @@ function spawn_juggernaut_host( n_health_override )
     if ( !isdefined( host ) || !isalive( host ) ) return;
 
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
+
+    // Test boss passes a bulk bottle count; real mini-boss leaves it undefined
+    // (-> 1 per player, the normal rule). Read in watch_mini_boss_death.
+    if ( isdefined( n_bottle_count ) )
+        host.acc_bottle_drop = n_bottle_count;
 
     // HP: docs/11_enemies.md mini-boss ~50k solo baseline; the test loop
     // passes a small override so the drop loop is testable at round 2.
@@ -216,10 +222,29 @@ function spawn_juggernaut_host( n_health_override )
 function watch_mini_boss_death()
 {
     self waittill( "death", attacker );
+
+    // Capture origin now - the corpse can be cleaned up moments after death.
+    drop_origin = self.origin;
+    n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
+
     // Regular boss-item drop (50% chance at mini tier).
-    acc_boss_items::on_boss_death( "mini", attacker, self.origin );
-    // Guaranteed Mega Bottle drop to all players.
-    acc_mega_bottles::on_boss_death( "mini", attacker, self.origin );
+    acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
+
+    if ( n_bottles <= 1 )
+    {
+        // Guaranteed Mega Bottle drop to all players (1 each, the normal rule).
+        acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
+    }
+    else
+    {
+        // Test boss: bulk drop so every perk can be Mega'd in one go.
+        for ( i = 0; i < level.players.size; i++ )
+        {
+            p = level.players[ i ];
+            if ( isdefined( p ) && isplayer( p ) )
+                p acc_mega_bottles::grant_bottle( n_bottles, "test_boss" );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

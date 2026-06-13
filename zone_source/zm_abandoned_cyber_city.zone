@@ -51,6 +51,8 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_rampage_inducer.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc
 
 // Makes the linker read the stock weapons table (wallbuys/box need this)
 stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv

@@ -37,6 +37,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
 
@@ -89,6 +91,14 @@ function init()
     acc_points::init();
     // Damage hooks go last so they sit on top of any hook other modules register.
     acc_damage::init();
+
+    // Rampage Inducer: registers its on_ai_spawned sprint hook + activation
+    // watchers (dvar `acc_rampage` / optional in-map trigger). Inert until on.
+    acc_rampage_inducer::init();
+
+    // Dev/test harness LAST so it can override caps (perk limit) set earlier.
+    // Self-gates on the `acc_dev` dvar; no-ops entirely in normal play.
+    acc_dev::init();
 
     level thread watch_round_transitions();
 
