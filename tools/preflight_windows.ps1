@@ -96,6 +96,28 @@ foreach ($g in $allGsc) {
 }
 Check "GSC ternaries fully paren-wrapped" ($ternBad.Count -eq 0) ("unwrapped ternary at: " + ($ternBad -join ', '))
 
+# Reserved GSC keywords used as identifiers (variable/param/foreach). 'class'
+# is confirmed reserved (TOKEN_CLASS); add others here as the compiler reveals
+# them. Narrow list = zero false positives (e.g. 'type' is NOT reserved - stock
+# uses it as a param). Strings + comments stripped first.
+$reserved = @('class')
+$rwBad = @()
+foreach ($g in $allGsc) {
+    $ln = 0
+    foreach ($raw in Get-Content $g.FullName) {
+        $ln++
+        $code = ($raw -replace '//.*$', '') -replace '"[^"]*"', '""'
+        foreach ($kw in $reserved) {
+            if ($code -match "(^|[^\w.])$kw\s*=(?!=)" -or
+                $code -match "^\s*function\s+\w+\s*\([^)]*[\(,\s]$kw[\s,\)]" -or
+                $code -match "foreach\s*\(\s*$kw\s+in") {
+                $rwBad += "$($g.Name):$ln ($kw)"
+            }
+        }
+    }
+}
+Check "no reserved GSC keywords as identifiers" ($rwBad.Count -eq 0) ("rename: " + ($rwBad -join ', '))
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"

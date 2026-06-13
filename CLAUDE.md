@@ -100,6 +100,11 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 
+- **`class` is a reserved GSC keyword** (TOKEN_CLASS) — cannot be a variable/
+  param name (`_acc_elites.gsc` used `class = ...`). `new` is likely reserved
+  too (T7 class system). `type` is NOT reserved (stock uses it as a param —
+  `setup_hero_rival(... type)`). `tools/preflight_windows.ps1` lints a narrow
+  confirmed list (just `class` for now; grow as the compiler reveals more).
 - **GSC ternary `?:` MUST be fully paren-wrapped: `( cond ? a : b )`.** BO3
   GSC has no general ternary operator — it's a parenthesized-primary
   production only. `= ( cond ) ? a : b` (paren closes after the condition) and

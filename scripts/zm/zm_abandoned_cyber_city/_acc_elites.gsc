@@ -144,8 +144,10 @@ function spawn_elites_over_round( quota, round_number )
     for ( i = 0; i < quota; i++ )
     {
         wait( spacing_sec );
-        class = pick_elite_class_for_round( round_number );
-        spawn_elite( class );
+        // VERIFIED(acc): 'class' is a reserved GSC keyword (TOKEN_CLASS) -
+        // cannot be a variable name. First-compile finding 2026-06-12.
+        elite_class = pick_elite_class_for_round( round_number );
+        spawn_elite( elite_class );
     }
 }
 

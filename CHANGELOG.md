@@ -6,6 +6,23 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 4: `class` reserved keyword as a variable (2026-06-12)
+
+GSC compile reached `_acc_elites.gsc:147` (`spawn_elites_over_round`) and
+rejected `class = pick_elite_class_for_round(...)` — `class` is a reserved
+keyword (TOKEN_CLASS) in BO3 GSC and can't be an identifier. Renamed to
+`elite_class`. Swept the codebase for reserved words as identifiers (lvalue /
+param / foreach): only this one was real. `type` flagged as a false positive —
+stock uses it as a parameter (`setup_hero_rival(... type)`), so it's NOT
+reserved and was left alone.
+
+Hardening: `preflight_windows.ps1` now lints a narrow confirmed reserved-word
+list (`class`) used as identifiers — kept narrow to avoid false positives.
+
+Progress: the `.gsc.gdb` outputs show utility, main, data_shards, cyberware,
+overclocks, early_round_pacing all compiled clean this pass before the elites
+break — the phase-2 body compile is steadily clearing modules.
+
 ### Fixed — first compile, pass 3: GSC ternary paren-wrapping (2026-06-12)
 
 Past the directive fix, the GSC compile reached `_acc_data_shards.gsc:185`
