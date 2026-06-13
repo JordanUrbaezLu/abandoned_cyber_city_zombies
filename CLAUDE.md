@@ -98,6 +98,24 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
   structs are equivalent (zm_alien_isolation ships jug that way). Single-chest
   maps ignore `level.start_chest_name` (`_zm_magicbox.gsc` size==1 branch).
 
+## First-compile findings (real linker, 2026-06-12 — update as we build)
+
+- **Stock zm-template `volume_sun` ships MP sky settings** → hard link error
+  `xmodel 'skybox_mp_havoc_override' is missing`. The template's sun volume
+  has `ssi1`/`ssi2` = `mp_havoc` + `ssi1_runtime_override` = `mp_havoc_overide`
+  (MP-only sky → MP-only skybox, absent in ZM builds). Fix: set all three to
+  `default_day`. **Any new map derived from the template needs this.**
+- **No stock chalk decals for ICR-1 or any sniper.** `t7_zm_chalk_buy_*`
+  exists only for arak/bowie/cqw/frag/krm/kuda/m8a4/shiva/spyder/trip_mine/
+  triton/vmp (verified vs the installed asset list). Non-fatal warning if you
+  reference a gun without one.
+- **`AssetFileList.csv` (tools root) is texture `.tif` sources only**, NOT the
+  xmodel/material GDT registry — don't use it to check whether a model exists.
+  The build log is the authoritative oracle for missing assets.
+- **Link order**: gfx_map/geometry assets convert BEFORE the `scriptparsetree`
+  GSC compiles. A geometry-asset error aborts the build before GSC is ever
+  tested — clear geometry errors first to reach the script compile.
+
 ## Verification bar
 
 - GSC: structural lint (column-0 lines must be comment/directive/`function`/

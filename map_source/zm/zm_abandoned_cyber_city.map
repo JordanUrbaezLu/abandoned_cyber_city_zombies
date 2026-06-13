@@ -231,7 +231,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
   {
   contents nonColliding;
   toolFlags;
-   t7_zm_chalk_buy_icr1
+   t7_zm_chalk_buy_shiva
    lightmap_gray
    2 2 0 8
    (
@@ -331,7 +331,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
   {
   contents nonColliding;
   toolFlags;
-   t7_zm_chalk_buy_drakon
+   t7_zm_chalk_buy_shiva
    lightmap_gray
    2 2 0 8
    (
@@ -1495,9 +1495,9 @@ guid "{D675F5DE-6967-45BF-98F7-31A98642A66F}"
 "classname" "volume_sun"
 "shadowSplitDistance" "800"
 "ssi" "default_day"
-"ssi1" "mp_havoc"
-"ssi1_runtime_override" "mp_havoc_overide"
-"ssi2" "mp_havoc"
+"ssi1" "default_day"
+"ssi1_runtime_override" "default_day"
+"ssi2" "default_day"
 "global_fill_color" "0 0 0"
 "global_fill_intensity" "1"
 "grid_density" "32"

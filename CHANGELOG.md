@@ -6,6 +6,34 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 1: MP-skybox link error + chalk-material warnings (2026-06-12)
+
+The first real Launcher build reached the linker and died on ONE hard error
+(`^1ERROR: xmodel 'skybox_mp_havoc_override' is missing`, referenced by the
+gfx_map). Root cause: the stock zm-template `volume_sun` entity ships with
+**MP sky settings** — `ssi1`/`ssi2` = `mp_havoc`, `ssi1_runtime_override` =
+`mp_havoc_overide` — and the `mp_havoc` sun/sky asset pulls in
+`skybox_mp_havoc_override`, an **MP-only skybox** that does not exist in a ZM
+build. Fixed by setting all three to `default_day` (matching the worldspawn
+`ssi`/`wsi` and the sun volume's primary `ssi`, which converted cleanly). The
+power-on lighting-state switch (`util::set_lighting_state`) now stays on
+`default_day` for every state — cosmetically the lighting no longer changes
+mood on power-on, which is correct for greybox (and avoids the MP dependency).
+
+Also cleared the two non-fatal chalk-material warnings
+(`t7_zm_chalk_buy_icr1`, `t7_zm_chalk_buy_drakon`): the stock asset set has
+**no ICR-1 or sniper chalk decals at all** (verified against the installed
+asset list — only arak/bowie/cqw/frag/krm/kuda/m8a4/shiva/spyder/trip_mine/
+triton/vmp exist). Repointed both to `t7_zm_chalk_buy_shiva` (a confirmed-
+converting AR chalk) as a greybox placeholder; real imported guns bring their
+own chalk later.
+
+**Note for the next build**: the link died at a gfx_map (geometry) asset
+*before* the linker reached the `scriptparsetree` GSC compilation, so the 21
+`_acc_` modules have **not yet been compiled** — the next build is the first
+real test of the GSC. Findings logged here as we go (standing convention:
+first-compile discoveries get documented).
+
 ### Added — Windows build-readiness: preflight automation, sync fixes, Mod Tools live (2026-06-12)
 
 - **The machine is build-ready: `tools/preflight_windows.ps1` reports ALL 20
