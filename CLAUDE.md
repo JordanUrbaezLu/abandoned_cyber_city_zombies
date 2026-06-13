@@ -100,6 +100,11 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 
+- **No `.field` on a parenthesized expression**: `( call ).name` errors
+  "Primitive expression field object must be call/variable/self/level/anim".
+  Direct `call().field` IS fine (`GetPlayers().size`). Use a temp var for the
+  paren case. `lint_gsc_xref.js` catches it (paren-aware) + checks `&ns::fn`
+  and bare `&fn` function pointers (register_* callbacks) resolve.
 - **Cross-module calls need both the `#using` AND the function to exist.**
   `acc_X::fn()` without `#using _acc_X`, or a stock `ns::fn()` without the
   stock file's `#using`, or a stock macro without its `#insert`, all fail with

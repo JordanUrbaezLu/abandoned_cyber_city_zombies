@@ -6,6 +6,23 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 6: field access on a parenthesized expression (2026-06-12)
+
+`_acc_damage.gsc:661` had `return ( zm_weapons::get_base_weapon( w ) ).name;`
+→ `Compiler Internal Error: Primitive expression field object must be either
+call, variable expression, self, level, or anim`. GSC forbids `.field` on a
+**parenthesized** expression. (A direct `call().field` IS allowed — stock uses
+`GetPlayers().size` 15 times — so the two such calls in `_acc_coop_scaling` are
+fine; only the paren-wrapped one breaks.) Fixed with a temp:
+`w_base = zm_weapons::get_base_weapon( w ); return w_base.name;`.
+
+`tools/lint_gsc_xref.js` gained two checks: a paren-aware `( expr ).field`
+detector (matches the `(` back, flags grouping parens, ignores function-call
+parens), and **function-pointer resolution** — `&ns::fn` and bare `&fn` (used
+in `register_*` callbacks) are checked the same as calls, since a typo'd
+pointer is also an unresolved external. Swept clean: the only pointer is
+`&zombie_utility::default_max_zombie_func` (confirmed in the mirror).
+
 ### Fixed — first compile, pass 5: proactive cross-reference sweep (2026-06-12)
 
 The compile reached `_acc_boss.gsc:551` with `Unresolved external

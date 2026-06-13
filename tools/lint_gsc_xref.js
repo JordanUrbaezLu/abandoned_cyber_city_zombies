@@ -120,6 +120,28 @@ for (const m of mods) {
         if (!m.usings.has(STOCK_NS[ns])) problems.push(`${m.base}:${i + 1}  missing #using ${STOCK_NS[ns]} for ${ns}::${fn}`);
       }
     }
+    // function pointers: &ns::fn (same rules as a call) and bare &fn (must be
+    // defined in this file). Used heavily in register_* callbacks; a typo here
+    // is an unresolved external just like a call.
+    const pr = /&([A-Za-z0-9_]+)(::([A-Za-z0-9_]+))?/g;
+    while ((c = pr.exec(line))) {
+      if (c[3]) {                                          // &ns::fn
+        const ns = c[1], fn = c[3];
+        if (ns === m.ns) { if (!m.fns.has(fn)) problems.push(`${m.base}:${i + 1}  &${ns}::${fn} undefined in self`); continue; }
+        if (nsToMod[ns]) {
+          if (!m.usings.has(accUsingStem(ns))) problems.push(`${m.base}:${i + 1}  missing #using for &${ns}::${fn}`);
+          else if (!nsToMod[ns].fns.has(fn)) problems.push(`${m.base}:${i + 1}  &${ns}::${fn} UNDEFINED in ${nsToMod[ns].base}`);
+        } else if (STOCK_NS[ns] && !m.usings.has(STOCK_NS[ns])) {
+          problems.push(`${m.base}:${i + 1}  missing #using ${STOCK_NS[ns]} for &${ns}::${fn}`);
+        }
+      } else {                                             // bare &fn
+        const fn = c[1];
+        if (!m.fns.has(fn) && fnToFiles[fn]) {
+          const other = [...fnToFiles[fn]].filter(x => x !== m.base);
+          if (other.length) problems.push(`${m.base}:${i + 1}  &${fn} points to other module ${other.join(',')} (use &ns::${fn})`);
+        }
+      }
+    }
     // bare fn() that belongs to another acc module
     const br = /(^|[^A-Za-z0-9_:.&])([a-z_][A-Za-z0-9_]*)\s*\(/g;
     while ((c = br.exec(line))) {
@@ -127,6 +149,28 @@ for (const m of mods) {
       if (CONTROL.has(fn) || m.fns.has(fn) || !fnToFiles[fn]) continue;
       const other = [...fnToFiles[fn]].filter(x => x !== m.base);
       if (other.length) problems.push(`${m.base}:${i + 1}  bare ${fn}() defined in ${other.join(',')} (missing namespace?)`);
+    }
+    // field access on a parenthesized expression: '( expr ).field' is illegal
+    // ("Primitive expression field object must be...") though 'call().field'
+    // is fine. Find ).<field>, match the '(' back, flag if it's a GROUPING
+    // paren (preceded by =/return/operator/comma/( - not a function name).
+    {
+      const s = line;
+      for (let k = 0; k < s.length - 1; k++) {
+        if (s[k] !== ')') continue;
+        // must be )<ws>.<letter>
+        let t = k + 1; while (t < s.length && (s[t] === ' ' || s[t] === '\t')) t++;
+        if (!(s[t] === '.' && /[A-Za-z_]/.test(s[t + 1] || ''))) continue;
+        // walk back to matching (
+        let depth = 1, j = k - 1;
+        for (; j >= 0; j--) { if (s[j] === ')') depth++; else if (s[j] === '(') { depth--; if (depth === 0) break; } }
+        if (j < 0) continue;
+        // token before the '('
+        let b = j - 1; while (b >= 0 && (s[b] === ' ' || s[b] === '\t')) b--;
+        let word = ''; while (b >= 0 && /[A-Za-z0-9_]/.test(s[b])) { word = s[b] + word; b--; }
+        const isCall = word && !['return', 'if', 'while', 'for', 'foreach', 'switch', 'case'].includes(word);
+        if (!isCall) problems.push(`${m.base}:${i + 1}  field access on parenthesized expr '( ... ).${(s.slice(t + 1).match(/^[A-Za-z0-9_]+/) || [''])[0]}' - use a temp variable`);
+      }
     }
     // stock macro without #insert
     if (haveMacros) {

@@ -658,7 +658,13 @@ function strip_pap_suffix( name )
     w = GetWeapon( name );
     if ( isdefined( w ) && w != level.weaponNone )
     {
-        return ( zm_weapons::get_base_weapon( w ) ).name;
+        // VERIFIED(acc): GSC forbids field access on a parenthesized
+        // expression - '( call ).field' errors "Primitive expression field
+        // object must be... call/variable/self/level/anim". A direct
+        // 'call().field' IS allowed (stock GetPlayers().size), but the wrap
+        // is not - use a temp. First-compile finding 2026-06-12.
+        w_base = zm_weapons::get_base_weapon( w );
+        return w_base.name;
     }
     return name;
 }
