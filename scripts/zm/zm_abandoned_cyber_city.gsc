@@ -262,7 +262,9 @@ function acc_hardcoded_open_map()
 			continue;
 
 		// Activate the zone behind this door (the adjacency flag set on purchase).
-		if ( isdefined( door.script_flag ) )
+		// Stock door_init flag::init's script_flag during load; guard anyway so a
+		// timing edge can never make flag::set fatal under abort_on_error.
+		if ( isdefined( door.script_flag ) && level flag::exists( door.script_flag ) )
 			level flag::set( door.script_flag );
 
 		// Physically clear the door slab so the opening is passable + pathable.
