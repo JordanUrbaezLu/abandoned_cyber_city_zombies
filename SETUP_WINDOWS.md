@@ -93,6 +93,24 @@ What lands where:
 **After any Radiant session, run `.\tools\sync_to_modtools.ps1 -Reverse`** so
 the edited `.map` flows back into the repo — the repo is the source of truth.
 
+## 2b. Split-install deploy (this machine — automatic)
+
+On this box the Mod Tools installed to a **separate** folder from the game
+(`...Call of Duty Black Ops III 455130` vs `...Call of Duty Black Ops III` —
+Steam does this when both are installed). The linker writes the built `.ff`
+into the **tools** `usermaps\`, but `BlackOps3.exe` loads usermaps from the
+**game** folder. Without bridging them, the game launches, can't find the
+fastfile, and silently never loads the map (no error, no console.log — the
+exact symptom we hit on the first run).
+
+`tools\sync_to_modtools.ps1` now creates a **directory junction**
+`<game>\usermaps -> <tools>\usermaps` automatically (idempotent), so every
+build is instantly loadable by the game. Preflight verifies it. If you ever
+need it by hand:
+```powershell
+New-Item -ItemType Junction -Path "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III\usermaps" -Target "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III 455130\usermaps"
+```
+
 ## 3. First Build (5-15 min)
 
 1. Open the Launcher (Steam must be running and logged in).

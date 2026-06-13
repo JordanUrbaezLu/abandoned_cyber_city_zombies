@@ -181,6 +181,13 @@ if ($tools) {
     $um = Join-Path $tools "usermaps\zm_abandoned_cyber_city"
     Check "usermap synced ($um)" (Test-Path (Join-Path $um "zone_source\zm_abandoned_cyber_city.zone")) "run .\tools\sync_to_modtools.ps1" $true
     Check "map source synced to tools root" (Test-Path (Join-Path $tools "map_source\zm\zm_abandoned_cyber_city.map")) "run .\tools\sync_to_modtools.ps1" $true
+    # Split-install: game loads usermaps from the GAME folder, not the tools
+    # folder. The sync script junctions game\usermaps -> tools\usermaps so the
+    # built .ff is loadable. Only relevant when tools != game folder.
+    $gameRoot = $tools -replace ' 455130$', ''
+    if ($gameRoot -ne $tools -and (Test-Path (Join-Path $gameRoot "BlackOps3.exe"))) {
+        Check "game usermaps junction (split install)" (Test-Path (Join-Path $gameRoot "usermaps\zm_abandoned_cyber_city\zone")) "run .\tools\sync_to_modtools.ps1 (creates the junction) - else the game can't load the build" $true
+    }
 }
 
 # --- 4. Optional niceties ---------------------------------------------------------

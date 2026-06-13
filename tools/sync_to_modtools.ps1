@@ -148,6 +148,24 @@ Write-Info "target   = $MapRoot"
 Write-Info "mode     = $(if ($Reverse) {'REVERSE (modtools -> repo)'} else {'FORWARD (repo -> modtools)'})"
 if ($DryRun) { Write-Info "DRY RUN - no files will be written" }
 
+# Split-install deploy fix: when the Mod Tools live in a separate folder from
+# the game (Steam's "...Black Ops III 455130" layout), the linker writes the
+# built .ff into the TOOLS usermaps, but BlackOps3.exe loads usermaps from the
+# GAME folder. Junction the game's usermaps -> the tools' usermaps so every
+# build is instantly loadable. Idempotent; skipped if game==tools or it exists.
+if (-not $Reverse -and -not $DryRun) {
+    $gameRoot = $ModTools -replace ' 455130$', ''
+    if ($gameRoot -ne $ModTools -and (Test-Path (Join-Path $gameRoot "BlackOps3.exe"))) {
+        $gameUsermaps = Join-Path $gameRoot "usermaps"
+        if (-not (Test-Path $gameUsermaps)) {
+            try {
+                New-Item -ItemType Junction -Path $gameUsermaps -Target (Join-Path $ModTools "usermaps") -ErrorAction Stop | Out-Null
+                Write-Info "created junction: $gameUsermaps -> $ModTools\usermaps (game can now load builds)"
+            } catch { Write-Info "WARN: could not junction game usermaps ($($_.Exception.Message)); the game may not see builds" }
+        }
+    }
+}
+
 if (-not $Reverse) {
     Ensure-Dir $MapRoot
 }
