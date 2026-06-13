@@ -150,9 +150,11 @@ function pap_hud_loop()
     self endon( "disconnect" );
     level endon( "end_game" );
 
-    self.acc_pap_hud = self hud::createFontString( "default", 1.2 );
-    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -14, -70 );
-    self.acc_pap_hud.color = ( 0.55, 0.35, 0.95 );
+    self.acc_pap_hud = self hud::createFontString( "default", 1.4 );
+    self.acc_pap_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, -55 );
+    self.acc_pap_hud.alignX = "left";
+    self.acc_pap_hud.alignY = "middle";
+    self.acc_pap_hud.color = ( 0.7, 0.45, 1.0 );
     self.acc_pap_hud.alpha = 0;
     self.acc_pap_hud.hidewheninmenu = true;
 

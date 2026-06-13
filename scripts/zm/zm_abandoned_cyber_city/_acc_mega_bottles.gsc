@@ -206,40 +206,31 @@ function replay_perk_drink( perk )
 // self = player. The bottom perk bar is engine LUI (no GSC handle), so draw our
 // OWN glowing icon per Mega'd perk using the same engine perk material + a
 // continuous pulse. Stacks in a row so multiple Mega'd perks don't overlap.
+// The stock perk bar is engine-LUI (untouchable) and the stock
+// specialty_*_zombies HUD materials are NOT in this usermap (log: "could not
+// find material"). So draw a guaranteed pulsing "white" glow badge + the Mega
+// name per upgraded perk, stacked at the lower-left, as the "this perk is
+// Mega'd and glowing" indicator.
 function add_mega_glow_icon( perk )
 {
     if ( !isdefined( self.acc_mega_glow ) ) self.acc_mega_glow = [];
     if ( isdefined( self.acc_mega_glow[ perk ] ) ) return; // already glowing
 
-    shader = mega_icon_material( perk );
     idx = self.acc_mega_glow.size;
+    y = -205 - idx * 20; // stack upward, clear of the shards/bottles counters
 
-    icon = self hud::createIcon( shader, 24, 24 );
-    icon hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14 + idx * 30, -150 );
-    icon.color = ( 0.4, 0.95, 1.0 ); // cyber-cyan tint
-    icon.sort = 5;
-    icon.hidewheninmenu = true;
-    icon setPulseFX( 100, 900, 900 ); // continuous glow pulse (base%, durMs, fadeMs)
+    label = self hud::createFontString( "default", 1.05 );
+    label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, y );
+    label.alignX = "left";
+    label.alignY = "middle";
+    label.color = ( 0.5, 0.95, 1.0 );
+    label.alpha = 0.95;
+    label.sort = 5;
+    label.hidewheninmenu = true;
+    label SetText( "^5* MEGA ^7" + mega_display_name( perk ) );
+    label setPulseFX( 80, 650, 650 ); // pulses the text so it "glows"
 
-    self.acc_mega_glow[ perk ] = icon;
-}
-
-// Stock perk HUD icon material per specialty (precached by the stock perk
-// modules). electriccherry has no stock icon -> reuse a loaded one.
-function mega_icon_material( perk )
-{
-    switch ( perk )
-    {
-    case "specialty_armorvest":               return "specialty_juggernaut_zombies";
-    case "specialty_quickrevive":             return "specialty_quickrevive_zombies";
-    case "specialty_fastreload":              return "specialty_fastreload_zombies";
-    case "specialty_doubletap2":              return "specialty_doubletap_zombies";
-    case "specialty_staminup":                return "specialty_marathon_zombies";
-    case "specialty_additionalprimaryweapon": return "specialty_extraprimaryweapon_zombies";
-    case "specialty_deadshot":                return "specialty_ads_zombies";
-    case "specialty_widowswine":              return "specialty_widows_wine_zombies";
-    }
-    return "specialty_juggernaut_zombies";
+    self.acc_mega_glow[ perk ] = label;
 }
 
 // ---------------------------------------------------------------------------

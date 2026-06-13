@@ -141,22 +141,31 @@ function show_dmg_number()
     if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
 
     // Anchor to a short-lived world origin so the number stays put even if the
-    // zombie dies/despawns mid-float. Per-attacker font string (co-op correct).
-    anchor = Spawn( "script_origin", org + ( 0, 0, 50 ) );
-    elem = attacker hud::createFontString( "default", 1.5 );
+    // zombie dies/despawns mid-float. Same waypoint pattern as the door markers
+    // (which render in-game): elem.z offset + SetWaypoint(true) + SetTargetEnt.
+    anchor = Spawn( "script_origin", org );
+    elem = attacker hud::createFontString( "default", 1.6 );
+    elem.alignX = "center";
+    elem.alignY = "middle";
     elem.color = ( 1.0, 0.85, 0.2 );
-    elem.sort = 20;
+    elem.alpha = 1.0;          // MUST set before FadeOverTime, else it fades from 0
+    elem.sort = 50;
+    elem.archived = false;
     elem.hidewheninmenu = true;
-    elem SetWaypoint( false ); // uniform size in 3D = world text
+    elem.x = 0;
+    elem.y = 0;
+    elem.z = 56;
+    elem SetWaypoint( false );  // false = 3D world placement at the enemy (NOT
+                                // clamped to screen edge like true would do)
     elem SetTargetEnt( anchor );
     elem SetText( "" + total );
 
-    elem FadeOverTime( 0.8 );
+    elem FadeOverTime( 0.9 );
     elem.alpha = 0;
-    for ( i = 0; i < 8; i++ )
+    for ( i = 0; i < 9; i++ )
     {
-        if ( !isdefined( anchor ) ) break;
-        anchor.origin = anchor.origin + ( 0, 0, 4 );
+        if ( !isdefined( elem ) ) break;
+        elem.z = 56 + ( i + 1 ) * 3; // rise
         wait 0.1;
     }
     if ( isdefined( elem ) ) elem Destroy();

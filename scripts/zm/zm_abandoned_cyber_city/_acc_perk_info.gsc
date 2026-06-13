@@ -13,6 +13,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_ui;
 
 #define ACC_PERK_INFO_RANGE_SQ 28900   // 170u
@@ -89,44 +90,66 @@ function update_for_player( machines, pap_org )
         return;
     }
 
-    if ( isdefined( self.acc_pinfo_cur ) && self.acc_pinfo_cur == nearest_id )
-        return; // already showing this card
+    // Context: show only what buying NOW gives you. Not owned -> base; owned but
+    // not Mega'd -> the Mega upgrade; already Mega'd -> maxed.
+    mode = "buy";
+    if ( nearest_id == "pap" )
+        mode = "pap";
+    else if ( self HasPerk( nearest_id ) )
+    {
+        if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
+            mode = "maxed";
+        else
+            mode = "mega";
+    }
 
-    self.acc_pinfo_cur = nearest_id;
-    self show_card( nearest_id );
+    state = nearest_id + "|" + mode;
+    if ( isdefined( self.acc_pinfo_cur ) && self.acc_pinfo_cur == state )
+        return; // already showing this exact card
+
+    self.acc_pinfo_cur = state;
+    self show_card( nearest_id, mode );
 }
 
 // self = player
-function show_card( id )
+function show_card( id, mode )
 {
     d = card_data( id );
-
     lines = [];
-    base = d[ "base_bullets" ];
-    for ( i = 0; i < base.size; i++ )
-        lines[ lines.size ] = "^5- ^7" + base[ i ];
 
-    if ( d[ "mega_name" ] != "" )
+    if ( mode == "pap" )
     {
-        lines[ lines.size ] = "^6MEGA: " + d[ "mega_name" ];
+        base = d[ "base_bullets" ];
+        for ( i = 0; i < base.size; i++ )
+            lines[ lines.size ] = "^5- ^7" + base[ i ];
+        self acc_ui::card_show( d[ "title" ], ( 0.7, 0.4, 1.0 ), "^7Re-pack the gun to raise tier", lines );
+        return;
+    }
+
+    if ( mode == "maxed" )
+    {
+        lines[ 0 ] = "^2Owned + Mega upgraded";
+        self acc_ui::card_show( d[ "title" ], ( 0.4, 0.85, 0.4 ), "", lines );
+        return;
+    }
+
+    if ( mode == "mega" )
+    {
         mega = d[ "mega_bullets" ];
         for ( i = 0; i < mega.size; i++ )
             lines[ lines.size ] = "^6- ^7" + mega[ i ];
+        self acc_ui::card_show( "^6" + d[ "mega_name" ], ( 0.95, 0.75, 0.2 ), "^7Upgrade: ^31 Mega Bottle", lines );
+        return;
     }
 
-    is_pap = ( id == "pap" );
-
-    title_color = ( 0.55, 0.85, 1.0 ); // cyber-cyan for perks
-    if ( is_pap )
-        title_color = ( 0.7, 0.4, 1.0 ); // purple for PaP
-
+    // mode "buy" - base benefits + the perk price
+    base = d[ "base_bullets" ];
+    for ( i = 0; i < base.size; i++ )
+        lines[ lines.size ] = "^5- ^7" + base[ i ];
     price = "";
     if ( d[ "price" ] != "" )
         price = "^7Cost: ^2" + d[ "price" ] + " Points";
-    else if ( is_pap )
-        price = "^7Re-pack at the machine to raise tier";
-
-    self acc_ui::card_show( d[ "title" ], title_color, price, lines );
+    self acc_ui::card_show( d[ "title" ], ( 0.55, 0.85, 1.0 ), price, lines );
 }
 
 // ---------------------------------------------------------------------------

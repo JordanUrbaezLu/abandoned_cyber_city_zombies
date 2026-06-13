@@ -101,6 +101,8 @@ function card_ensure( p )
     // Background panel (sort LOWEST so text draws over it). "white" = engine
     // built-in material, tinted by .color.
     p.acc_card_bg = p hud::createIcon( "white", ACC_UI_W, 10 );
+    p.acc_card_bg.alignX = "right";
+    p.acc_card_bg.alignY = "middle";
     p.acc_card_bg hud::setPoint( "RIGHT", "RIGHT", -16, 0 );
     p.acc_card_bg.color = ( 0.05, 0.08, 0.12 );
     p.acc_card_bg.alpha = 0;
@@ -120,6 +122,8 @@ function card_ensure( p )
 
     p.acc_card_title = p hud::createFontString( "objective", 1.7 );
     p.acc_card_title hud::setParent( p.acc_card_bg );
+    p.acc_card_title.alignX = "left";
+    p.acc_card_title.alignY = "top";
     p.acc_card_title hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD );
     p.acc_card_title.color = ( 0.55, 0.85, 1.0 );
     p.acc_card_title.alpha = 0;
@@ -129,6 +133,8 @@ function card_ensure( p )
 
     p.acc_card_price = p hud::createFontString( "default", 1.2 );
     p.acc_card_price hud::setParent( p.acc_card_bg );
+    p.acc_card_price.alignX = "left";
+    p.acc_card_price.alignY = "top";
     p.acc_card_price hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD + ACC_UI_TITLE_H );
     p.acc_card_price.color = ( 1.0, 0.85, 0.2 );
     p.acc_card_price.alpha = 0;

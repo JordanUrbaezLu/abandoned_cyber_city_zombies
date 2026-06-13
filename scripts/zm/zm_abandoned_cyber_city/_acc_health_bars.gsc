@@ -61,18 +61,20 @@ function ensure_player_bar( p )
 {
     if ( isdefined( p.acc_hp_bar ) ) return;
 
-    // createBar is called ON the player -> newClientHudElem(self): per-player.
-    p.acc_hp_bar = p hud::createBar( ( 0.2, 0.85, 0.25 ), ACC_PLAYER_BAR_W, ACC_PLAYER_BAR_H );
-    p.acc_hp_bar hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, -88 );
-    p.acc_hp_bar.alpha = 0.85;
-    p.acc_hp_bar.hidewheninmenu = true;
-
+    // Top-left of screen. createBar is called ON the player -> per-player elem.
     p.acc_hp_label = p hud::createFontString( "default", 1.0 );
-    p.acc_hp_label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, -100 );
+    p.acc_hp_label hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 16 );
+    p.acc_hp_label.alignX = "left";
+    p.acc_hp_label.alignY = "top";
     p.acc_hp_label.color = ( 1, 1, 1 );
     p.acc_hp_label.alpha = 0.7;
     p.acc_hp_label.hidewheninmenu = true;
     p.acc_hp_label SetText( "^7HEALTH" );
+
+    p.acc_hp_bar = p hud::createBar( ( 0.2, 0.85, 0.25 ), ACC_PLAYER_BAR_W, ACC_PLAYER_BAR_H );
+    p.acc_hp_bar hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 32 );
+    p.acc_hp_bar.alpha = 0.85;
+    p.acc_hp_bar.hidewheninmenu = true;
 }
 
 function update_player_bar( p )
@@ -113,21 +115,32 @@ function boss_bar_listener()
     }
 }
 
+// Overhead bar + name that FOLLOW the boss in world space (above its head),
+// not a fixed top-of-screen bar. SetWaypoint(false) = 3D world placement;
+// elem.z is the height offset above the entity origin (entityheadicons pattern).
 function boss_bar_track( boss, name )
 {
     level endon( "end_game" );
-
+    if ( !isdefined( boss ) ) return;
     if ( !isdefined( name ) ) name = "BOSS";
 
-    // createServerBar -> newHudElem: every co-op player sees one shared bar.
-    bar = hud::createServerBar( ( 0.9, 0.12, 0.12 ), ACC_BOSS_BAR_W, ACC_BOSS_BAR_H );
-    bar hud::setPoint( "TOP", "TOP", 0, 34 );
+    bar = hud::createServerBar( ( 0.9, 0.12, 0.12 ), 96, 7 );
+    bar.alignX = "center";
+    bar.alignY = "middle";
+    bar.x = 0; bar.y = 0; bar.z = 76; // above the head
+    bar SetWaypoint( false );
+    bar SetTargetEnt( boss );
     bar.alpha = 0.95;
 
-    label = hud::createServerFontString( "default", 1.4 );
-    label hud::setPoint( "BOTTOM", "TOP", 0, 30 );
-    label SetText( "^1" + name );
+    label = hud::createServerFontString( "default", 1.0 );
+    label.alignX = "center";
+    label.alignY = "middle";
+    label.x = 0; label.y = 0; label.z = 88;
+    label SetWaypoint( false );
+    label SetTargetEnt( boss );
+    label.color = ( 1.0, 0.35, 0.35 );
     label.alpha = 0.95;
+    label SetText( "^1" + name );
 
     while ( isdefined( boss ) && isalive( boss ) && isdefined( boss.health ) && boss.health > 0 )
     {
