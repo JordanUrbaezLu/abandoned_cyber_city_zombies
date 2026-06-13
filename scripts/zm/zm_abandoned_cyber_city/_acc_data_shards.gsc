@@ -179,9 +179,8 @@ function sync_shards_to_client()
         self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
         self.acc_shards_hud.hidewheninmenu = true;
     }
-    // SetValue = numeric display, no localized string required (stock numeric
-    // precedent _globallogic.gsc:758). Counter hidden until first shard.
-    self.acc_shards_hud SetValue( self.acc_data_shards );
+    // Labeled inline (SetText accepts raw strings, stock _zm.gsc:4679).
+    self.acc_shards_hud SetText( "^5DATA SHARDS ^7" + self.acc_data_shards );
     self.acc_shards_hud.alpha = ( self.acc_data_shards > 0 ? 0.9 : 0 );
     level notify( "acc_shards_changed", self );
 }

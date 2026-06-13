@@ -102,26 +102,73 @@ function dev_skip_round()
 // ---------------------------------------------------------------------------
 
 // Read-only actor-damage callback (self = victim/zombie). Registered AFTER
-// _acc_damage, so the damage value here is already perk/overclock-modified -
-// exactly the DPS the player is actually doing. NEVER modifies damage (-1).
+// _acc_damage, so the value is already perk/overclock-modified. Spawns a
+// floating damage NUMBER at the hit enemy. NEVER modifies damage (-1).
 function dev_damage_cb( inflictor, attacker, damage, flags, meansofdeath, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
     if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( damage ) && damage > 0 )
-    {
-        if ( !isdefined( attacker.acc_dev_dps_accum ) )
-            attacker.acc_dev_dps_accum = 0;
-        attacker.acc_dev_dps_accum += int( damage );
-        attacker.acc_dev_last_hit = int( damage );
-    }
+        self accumulate_dmg_number( attacker, int( damage ) );
     return -1; // no damage modification
 }
 
+// self = zombie. Batch hits inside a short window into ONE rising number
+// (perf + readability with automatic weapons).
+function accumulate_dmg_number( attacker, amount )
+{
+    if ( !isdefined( self.acc_dmg_pending ) ) self.acc_dmg_pending = 0;
+    self.acc_dmg_pending += amount;
+    self.acc_dmg_attacker = attacker;
+
+    if ( !IS_TRUE( self.acc_dmg_num_active ) )
+    {
+        self.acc_dmg_num_active = true;
+        self thread show_dmg_number();
+    }
+}
+
+// self = zombie.
+function show_dmg_number()
+{
+    wait 0.1; // batch window
+    if ( !isdefined( self ) ) return;
+
+    total = self.acc_dmg_pending;
+    attacker = self.acc_dmg_attacker;
+    org = self.origin;
+    self.acc_dmg_pending = 0;
+    self.acc_dmg_num_active = false;
+
+    if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
+
+    // Anchor to a short-lived world origin so the number stays put even if the
+    // zombie dies/despawns mid-float. Per-attacker font string (co-op correct).
+    anchor = Spawn( "script_origin", org + ( 0, 0, 50 ) );
+    elem = attacker hud::createFontString( "default", 1.5 );
+    elem.color = ( 1.0, 0.85, 0.2 );
+    elem.sort = 20;
+    elem.hidewheninmenu = true;
+    elem SetWaypoint( false ); // uniform size in 3D = world text
+    elem SetTargetEnt( anchor );
+    elem SetText( "" + total );
+
+    elem FadeOverTime( 0.8 );
+    elem.alpha = 0;
+    for ( i = 0; i < 8; i++ )
+    {
+        if ( !isdefined( anchor ) ) break;
+        anchor.origin = anchor.origin + ( 0, 0, 4 );
+        wait 0.1;
+    }
+    if ( isdefined( elem ) ) elem Destroy();
+    if ( isdefined( anchor ) ) anchor Delete();
+}
+
+// Zone signage only (the DMG/DPS side panel was replaced by floating numbers).
 function dev_player_hud_loop()
 {
     level endon( "end_game" );
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    tick = 0;
     for ( ;; )
     {
         players = GetPlayers();
@@ -130,23 +177,9 @@ function dev_player_hud_loop()
             p = players[ i ];
             if ( !isdefined( p ) || !isplayer( p ) )
                 continue;
-
             ensure_dev_huds( p );
-
-            last_hit = ( isdefined( p.acc_dev_last_hit ) ? p.acc_dev_last_hit : 0 );
-            p.acc_dev_dmg_hud SetText( "DMG " + last_hit );
-
-            // DPS over a 1s window (loop is 0.2s -> every 5th tick).
-            if ( tick % 5 == 0 )
-            {
-                dps = ( isdefined( p.acc_dev_dps_accum ) ? p.acc_dev_dps_accum : 0 );
-                p.acc_dev_dps_hud SetText( "DPS " + dps );
-                p.acc_dev_dps_accum = 0;
-            }
-
             dev_update_zone( p );
         }
-        tick++;
         wait 0.2;
     }
 }
@@ -160,22 +193,6 @@ function ensure_dev_huds( p )
         p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
         p.acc_dev_zone_hud.alpha = 0.85;
         p.acc_dev_zone_hud.hidewheninmenu = true;
-    }
-    if ( !isdefined( p.acc_dev_dmg_hud ) )
-    {
-        p.acc_dev_dmg_hud = p hud::createFontString( "default", 1.3 );
-        p.acc_dev_dmg_hud hud::setPoint( "TOP_RIGHT", "TOP_RIGHT", -12, 70 );
-        p.acc_dev_dmg_hud.color = ( 1.0, 0.85, 0.2 );
-        p.acc_dev_dmg_hud.alpha = 0.9;
-        p.acc_dev_dmg_hud.hidewheninmenu = true;
-    }
-    if ( !isdefined( p.acc_dev_dps_hud ) )
-    {
-        p.acc_dev_dps_hud = p hud::createFontString( "default", 1.3 );
-        p.acc_dev_dps_hud hud::setPoint( "TOP_RIGHT", "TOP_RIGHT", -12, 95 );
-        p.acc_dev_dps_hud.color = ( 1.0, 0.55, 0.2 );
-        p.acc_dev_dps_hud.alpha = 0.9;
-        p.acc_dev_dps_hud.hidewheninmenu = true;
     }
 }
 

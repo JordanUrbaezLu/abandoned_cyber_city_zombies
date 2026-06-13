@@ -223,6 +223,8 @@ function spawn_juggernaut_host( n_health_override, n_bottle_count )
     // set_zombie_run_cycle is the stock setter.
     host zombie_utility::set_zombie_run_cycle( "run" );
 
+    // Drives the boss health bar + nameplate (_acc_health_bars listens).
+    level notify( "acc_boss_spawned", host, "JUGGERNAUT HOST" );
     host thread watch_mini_boss_death();
 
     acc_utility::log( "spawned Juggernaut Host (" + host.maxhealth + " hp)" );
@@ -393,6 +395,9 @@ function spawn_subroutine_core( round_number )
     // never be failsafe-culled must never be a round-end gate, or a bugged
     // fight could soft-lock the game.
     core.ignore_round_spawn_failsafe = true;
+
+    // Boss health bar + nameplate (_acc_health_bars listens).
+    level notify( "acc_boss_spawned", core, "SUBROUTINE CORE" );
 
     // Pin it at the struct once stock think finishes (threaded - the "risen"
     // relocation takes a few frames and we must not pin before it completes).

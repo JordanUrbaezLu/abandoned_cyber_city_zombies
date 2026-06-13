@@ -23,6 +23,7 @@
 
 #using scripts\shared\ai\zombie_utility;
 #using scripts\shared\callbacks_shared;
+#using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
 
 #insert scripts\shared\shared.gsh;
@@ -66,8 +67,36 @@ function init()
 
     callback::on_ai_spawned( &on_zombie_spawned_rampage );
 
+    level thread spawn_device();          // physical in-map device to interact with
     level thread watch_dvar_toggle();
     level thread watch_activation_triggers();
+}
+
+// Script-spawn a physical Rampage Inducer device (no Radiant rebuild needed):
+// a kiosk model + a use trigger NAMED "acc_rampage_inducer" so the existing
+// watch_activation_triggers()/rampage_trigger_think() adopt it (they set the
+// hint + activate()). Walk up and hold Use to turn the rampage on.
+function spawn_device()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    // Start-room spot clear of the box (-1881 1540 14) and PaP (-700 3700 7.5).
+    org = ( -1881, 1900, 14 );
+
+    model = Spawn( "script_model", org );
+    model.angles = ( 0, 180, 0 );
+    model SetModel( "p7_zm_vending_nuke" ); // already loaded by our .map; reads as a kiosk
+    model.targetname = "acc_rampage_inducer_model";
+    level.acc_rampage_device_model = model;
+
+    // radius 48 (>=40 engine min), height 72; lifted +30 to centre on the torso.
+    trig = Spawn( "trigger_radius_use", org + ( 0, 0, 30 ), 0, 48, 72 );
+    trig.targetname = "acc_rampage_inducer"; // adopted by watch_activation_triggers
+    trig TriggerIgnoreTeam();
+    level.acc_rampage_device_trig = trig;
+
+    acc_utility::log( "rampage: spawned in-map device" );
 }
 
 // ---------------------------------------------------------------------------

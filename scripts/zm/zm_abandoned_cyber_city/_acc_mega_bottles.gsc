@@ -16,6 +16,8 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_perks;
+#using scripts\zm\_zm_utility;
+#using scripts\zm\_zm_weapons;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
@@ -153,6 +155,91 @@ function set_mega_perk( player, specialty_string )
     mega_name = mega_display_name( specialty_string );
     player iprintln( "Mega unlocked: " + mega_name );
     level notify( "acc_mega_perk_applied", player, specialty_string );
+
+    // Re-play the perk drink animation (the bottle is the Mega upgrade) + light
+    // up a glowing icon for the now-Mega'd perk.
+    player thread replay_perk_drink( specialty_string );
+    player add_mega_glow_icon( specialty_string );
+}
+
+// ---------------------------------------------------------------------------
+// Mega upgrade feedback: re-drink animation + glowing perk icon
+// ---------------------------------------------------------------------------
+
+// self = player. Re-play the stock perk DRINK animation (the perk's bottle
+// weapon's own viewmodel) WITHOUT re-giving the perk - mirrors the stock
+// vending drink flow (_zm_perks.gsc post-think) with robust switch-back.
+function replay_perk_drink( perk )
+{
+    self endon( "disconnect" );
+    self endon( "death" );
+
+    if ( !isdefined( level._custom_perks ) || !isdefined( level._custom_perks[ perk ] )
+         || !isdefined( level._custom_perks[ perk ].perk_bottle_weapon ) )
+        return;
+
+    w_bottle = level._custom_perks[ perk ].perk_bottle_weapon;
+
+    self zm_utility::increment_is_drinking();
+    self zm_utility::disable_player_move_states( true );
+
+    original_weapon = self GetCurrentWeapon();
+    self GiveWeapon( w_bottle );
+    self SwitchToWeapon( w_bottle );
+
+    self util::waittill_any_return( "weapon_change_complete", "player_downed", "death", "disconnect" );
+
+    self zm_utility::enable_player_move_states();
+    self TakeWeapon( w_bottle );
+
+    if ( isdefined( original_weapon ) && original_weapon != level.weaponNone
+         && !zm_utility::is_placeable_mine( original_weapon )
+         && !zm_utility::is_melee_weapon( original_weapon ) )
+        self zm_weapons::switch_back_primary_weapon( original_weapon );
+    else
+        self zm_weapons::switch_back_primary_weapon();
+
+    self util::waittill_any_timeout( 3, "weapon_change_complete" );
+    self zm_utility::decrement_is_drinking();
+}
+
+// self = player. The bottom perk bar is engine LUI (no GSC handle), so draw our
+// OWN glowing icon per Mega'd perk using the same engine perk material + a
+// continuous pulse. Stacks in a row so multiple Mega'd perks don't overlap.
+function add_mega_glow_icon( perk )
+{
+    if ( !isdefined( self.acc_mega_glow ) ) self.acc_mega_glow = [];
+    if ( isdefined( self.acc_mega_glow[ perk ] ) ) return; // already glowing
+
+    shader = mega_icon_material( perk );
+    idx = self.acc_mega_glow.size;
+
+    icon = self hud::createIcon( shader, 24, 24 );
+    icon hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14 + idx * 30, -150 );
+    icon.color = ( 0.4, 0.95, 1.0 ); // cyber-cyan tint
+    icon.sort = 5;
+    icon.hidewheninmenu = true;
+    icon setPulseFX( 100, 900, 900 ); // continuous glow pulse (base%, durMs, fadeMs)
+
+    self.acc_mega_glow[ perk ] = icon;
+}
+
+// Stock perk HUD icon material per specialty (precached by the stock perk
+// modules). electriccherry has no stock icon -> reuse a loaded one.
+function mega_icon_material( perk )
+{
+    switch ( perk )
+    {
+    case "specialty_armorvest":               return "specialty_juggernaut_zombies";
+    case "specialty_quickrevive":             return "specialty_quickrevive_zombies";
+    case "specialty_fastreload":              return "specialty_fastreload_zombies";
+    case "specialty_doubletap2":              return "specialty_doubletap_zombies";
+    case "specialty_staminup":                return "specialty_marathon_zombies";
+    case "specialty_additionalprimaryweapon": return "specialty_extraprimaryweapon_zombies";
+    case "specialty_deadshot":                return "specialty_ads_zombies";
+    case "specialty_widowswine":              return "specialty_widows_wine_zombies";
+    }
+    return "specialty_juggernaut_zombies";
 }
 
 // ---------------------------------------------------------------------------
@@ -388,8 +475,7 @@ function sync_bottle_count_to_client()
         self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );
         self.acc_bottle_hud.hidewheninmenu = true;
     }
-    // Numeric SetValue needs no localized string. Hidden until first bottle
-    // (docs/14: counter hidden when 0).
-    self.acc_bottle_hud SetValue( self.acc_mega_bottles );
+    // Labeled inline (SetText accepts raw strings). Hidden until first bottle.
+    self.acc_bottle_hud SetText( "^3MEGA BOTTLES ^7" + self.acc_mega_bottles );
     self.acc_bottle_hud.alpha = ( self.acc_mega_bottles > 0 ? 0.9 : 0 );
 }
