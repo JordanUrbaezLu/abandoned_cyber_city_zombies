@@ -6,6 +6,24 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — the `tdm.gsc` black screen: gametype must be `+set_gametype` (2026-06-13)
+
+The map black-screened on every direct launch with
+`Com_ERROR: Script file not found: 'scripts/zm/gametypes/tdm.gsc'`. Root cause
+(found via a 5-agent investigation + live verification): the engine builds the
+gametype script path as `scripts/<session>/gametypes/<g_gametype>.gsc`, and the
+**`g_gametype` dvar is reset to the session default by the engine**
+(`callbacks_shared.gsc`) — `zclassic` for ZM, `tdm` for MP — so a command-line
+`+set g_gametype zclassic` is overwritten before the gametype script loads and
+it falls back to the missing `tdm.gsc`. The Mod Tools Launcher applies the
+gametype through a different hook: the engine command/dvar **`set_gametype`**
+(its "Set a gametype to load with map" knob). Fix: pass **`+set_gametype
+zclassic`** (before `+devmap`), not `g_gametype`. Verified live — clean load to
+~4.7 GB, no `Com_ERROR`. `tools/run_game.ps1` + `PLAY_TEST_MAP.bat` updated;
+full four-gotcha launch runbook in **docs/23_launch_runbook.md**; hard-won fact
+added to CLAUDE.md. NOT a rebuild issue (the error fires before any `_acc_`
+module loads; the fastfile was current and healthy throughout).
+
 ### Added — in-game launch fix + test sandbox + Rampage Inducer (2026-06-13)
 
 **Launch.** First successful in-game load. The Mod Tools Launcher "Run" trips

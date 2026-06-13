@@ -131,16 +131,24 @@ It calls `steam://run/311210//<dev args>` and waits for the game to load
 (~30-60 s; RAM climbs to ~5 GB). `PLAY_TEST_MAP.bat` in the repo root is a
 double-click equivalent.
 
-**CRITICAL — Steam Launch Options must be EMPTY when using `steam://run//<args>`
+**CRITICAL #1 — the gametype must be `+set_gametype zclassic` (engine command),
+NOT `+set g_gametype zclassic` (dvar).** The `g_gametype` dvar is immediately
+reset to the session default by the engine (`callbacks_shared.gsc`), so a plain
+`+set g_gametype` never survives — the launch falls back to the MP default
+`tdm`, can't find `scripts/zm/gametypes/tdm.gsc` (absent in a zombies build),
+and hard-errors to a **black screen**. `set_gametype` is the command the Mod
+Tools Launcher itself uses, and it sticks. (Verified 2026-06-13: with
+`+set_gametype zclassic` the map loads clean; with `+set g_gametype zclassic`
+OR no gametype arg, it black-screens on `tdm.gsc`.) The repo launchers now pass
+`+set_gametype zclassic`.
+
+**CRITICAL #2 — Steam Launch Options must be EMPTY when using `steam://run//<args>`
 or the `.bat`.** Steam *appends* any Launch Options to the inline args, producing
-a **doubled command line** that corrupts the gametype: BO3 boots Team Deathmatch,
-fails to find `scripts/zm/gametypes/tdm.gsc` (absent in a zombies build), and
-hard-errors to a **black screen**. With a clean (single) command line, a `zm_*`
-`devmap` auto-selects the `zclassic` zombies gametype — no `g_gametype` needed.
-So pick ONE arg source:
+a **doubled command line** that re-corrupts the gametype back to `tdm`. Pick ONE
+arg source:
 - **Launch Options empty** + double-click `PLAY_TEST_MAP.bat` (or `run_game.ps1`), OR
-- Put the dev args in **Launch Options** and launch from Steam's **Play** button
-  — but then do NOT also use the `.bat`/script (that re-doubles them).
+- Put the full dev args (including `+set_gametype zclassic`) in **Launch Options**
+  and launch from Steam's **Play** button — but then do NOT also use the `.bat`.
 
 Steam must be running and logged in.
 

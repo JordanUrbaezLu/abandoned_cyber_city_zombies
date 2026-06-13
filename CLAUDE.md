@@ -147,6 +147,31 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
   GSC compiles. A geometry-asset error aborts the build before GSC is ever
   tested — clear geometry errors first to reach the script compile.
 
+## Launch/run findings (real game, 2026-06-13 — see docs/23_launch_runbook.md)
+
+- **Launch the built map with `+set_gametype zclassic`, NOT `+set g_gametype
+  zclassic`.** `g_gametype` is a dvar the engine RESETS to the session default
+  (`callbacks_shared.gsc`: `zclassic` for ZM, `tdm` for MP), so a plain `+set`
+  never survives → the launch falls back to `tdm` → `Com_ERROR: Script file not
+  found: 'scripts/zm/gametypes/tdm.gsc'` → **black screen**. `set_gametype` is
+  the engine command/dvar the Mod Tools Launcher itself uses (its "Set a
+  gametype to load with map" knob); it sticks. Verified live: `+set_gametype
+  zclassic` → clean load to ~4.7 GB; `+set g_gametype zclassic` or no gametype
+  arg → `tdm.gsc` black screen. Both repo launchers pass `+set_gametype`.
+- **Split-install launch path (all four gotchas solved, table in docs/23):**
+  (1) junction `<game>\usermaps -> <tools>\usermaps` so the game finds the `.ff`;
+  (2) `steam_appid.txt`=`311210` + launch THROUGH Steam (`steam://run/311210//`),
+  not the raw exe (BO3 DRM); (3) `+set_gametype zclassic` (above); (4) Steam
+  **Launch Options must be EMPTY** or Steam doubles the command line and
+  re-corrupts the gametype to `tdm`. Use ONE arg source.
+- **Do NOT use the Mod Tools Launcher's "Run" checkbox** on this split install
+  (it launches the raw exe → DRM popup / silent exit). Build with Run unchecked,
+  then `PLAY_TEST_MAP.bat` / `.\tools\run_game.ps1` (canonical args in docs/23).
+- **console_mp.log is the runtime oracle** (`<game>\console_mp.log`, needs
+  `+set logfile 1`): the LAST lines are the fatal error; the wall of "Could not
+  find material/fx" (margwa/mech/DLC/`*_zm` weapon-table entries) is NORMAL
+  usermap asset noise, not the failure.
+
 ## Verification bar
 
 - GSC: structural lint (column-0 lines must be comment/directive/`function`/

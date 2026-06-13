@@ -19,11 +19,16 @@ param([switch]$NoBoss, [switch]$NoDev)
 # acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles on death
 $boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1" }
 $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
-# IMPORTANT: BO3's Steam LAUNCH OPTIONS must be EMPTY, or Steam appends them to
-# these args -> a doubled command line that corrupts the gametype (boots TDM ->
-# tries scripts/zm/gametypes/tdm.gsc -> fatal Com_ERROR -> black screen). With a
-# clean command line, a zm_* devmap auto-selects the zclassic zombies gametype.
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
+# THE GAMETYPE FIX (verified 2026-06-13): you MUST pass the engine command
+# `+set_gametype zclassic`, NOT `+set g_gametype zclassic`. The g_gametype dvar
+# is immediately reset to the session default by the engine
+# (callbacks_shared.gsc), so a plain +set never survives -> the launch falls
+# back to the MP default "tdm" -> scripts/zm/gametypes/tdm.gsc is missing ->
+# fatal Com_ERROR -> black screen. `set_gametype` is the command the Mod Tools
+# Launcher itself uses, and it sticks.
+# Also keep BO3's Steam LAUNCH OPTIONS EMPTY (Steam appends them -> doubled
+# command line -> the same tdm corruption).
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"
