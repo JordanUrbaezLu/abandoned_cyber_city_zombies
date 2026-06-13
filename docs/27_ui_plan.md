@@ -61,11 +61,22 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
 | 19 | **Round / wave info** | stock | optional banner | P3 |
 | 20 | **Controls / ability prompts** | iprintln | prompt helper + first-use hints | P3 |
 
+## Status (2026-06-13)
+
+- **Technique decided: server-HUD card** (LUI deferred to Phase 4 — it needs a
+  whole client-VM pipeline + link-cycle-per-tweak for a proximity tooltip; the
+  `_acc_ui` API hides the renderer so a later LUI swap won't touch call sites).
+- **Foundation built: `_acc_ui.gsc`** — the reusable `card_show/card_hide`
+  component (translucent box + accent strip + big title + gold price + color-coded
+  bullet pool, auto-height via `setShader`).
+- **P0 done:** perk card + PaP card live in `_acc_perk_info` (all 9 perks with
+  base + Mega bullets; PaP shows the 5-tier ladder). Next touchpoints reuse
+  `acc_ui::card_show`.
+
 ## Roadmap
 
-1. **Foundation** — finalize technique (research), build `_acc_ui` (box, card,
-   toast, bar) with the design language above.
-2. **P0** — perk card (1), PaP card (2). Migrate `_acc_perk_info` to `acc_ui::card`.
+1. ~~**Foundation** — technique + `_acc_ui` component.~~ ✅
+2. ~~**P0** — perk card (1), PaP card (2).~~ ✅
 3. **P0-big** — Cyberware tree UI (5): the headline differentiator; needs a
    browsable node menu (its own sub-design).
 4. **P1** — Mega card (3), wallbuy card (4), Overclock UI (6), decon warning (8).

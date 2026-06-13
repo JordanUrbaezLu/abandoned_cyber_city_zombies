@@ -54,6 +54,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_rampage_inducer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
 
