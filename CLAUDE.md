@@ -3,6 +3,9 @@
 Custom BO3 zombies map. Mission: systems-depth zombies map (Data Shards,
 Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 **REQUIREMENTS.md is the design spec; code follows docs.** Roadmap: ROADMAP.md.
+**Portable, map-agnostic mapmaking reference (for THIS map + future maps):
+docs/BO3_MAPMAKING_KB.md** — build pipeline, launch, GSC dialect, entity
+recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
 
 ## Hard constraints
 

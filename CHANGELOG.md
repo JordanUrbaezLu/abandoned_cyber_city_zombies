@@ -6,6 +6,27 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — reusable BO3 mapmaking knowledge base + test-feedback fixes (2026-06-13)
+
+**docs/BO3_MAPMAKING_KB.md** (NEW) — a map-agnostic distillation of everything
+learned building this map, so future maps don't re-fight it: build pipeline
+(sync-before-build, direct `linker_modtools`), the full launch saga
+(`+set_gametype zclassic`, DRM/junction/empty-Launch-Options/Steam-jam), GSC
+dialect rules, Radiant entity recipes, verified stock APIs, the dev/test sandbox
+toolkit, verification/lints, and a full gotchas catalog.
+
+In-game test-pass fixes (round-3 session feedback):
+- **Random death** = decontamination zone-seal `DoDamage`ing the player when a
+  zone seals (rounds 1-4). Disabled in the hardcoded dev build.
+- **Boss** announces on spawn (round 2); **Mega Bottles granted directly** so
+  perk Mega-upgrades are testable without the boss.
+- **Damage indicators** HUD (last hit + 1s DPS) via a read-only actor-damage
+  callback (perk/OC-modified values).
+- **Custom perk prices** (`set_perk_costs`): Jug 4000, QR 2500, Speed 3500, DT
+  2000, Stamin 2000, Mule 2500, Deadshot 3500, Widow 4000, Aura 2500 = 26,500.
+- **Zone signage** (current-zone HUD + enter banner).
+- **Aura Blast** machine raw hint token → readable `SetHintString` override.
+
 ### Added — hardcoded dev test sandbox + whole-map-open (2026-06-13)
 
 For an end-to-end test pass, the dev conveniences are now **hardcoded ON** (no
