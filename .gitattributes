@@ -1,0 +1,13 @@
+# Line-ending policy: LF in the repo, LF on checkout, machine-independent.
+# This makes the user's core.autocrlf setting irrelevant for this repo:
+# - fresh clones on any machine check out LF (Radiant/GSC/linker all accept LF)
+# - Radiant re-saves .map files with CRLF on Windows; commit normalizes back
+#   to LF so the repo never churns line endings.
+# Verified state 2026-06-12: every tracked text file is already LF in index
+# and worktree (zero CR bytes), so adding this causes no renormalization.
+* text=auto eol=lf
+
+# Binaries - never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary

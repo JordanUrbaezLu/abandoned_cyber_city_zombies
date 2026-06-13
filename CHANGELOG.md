@@ -6,6 +6,38 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — Windows build-readiness: preflight automation, sync fixes, Mod Tools live (2026-06-12)
+
+- **The machine is build-ready: `tools/preflight_windows.ps1` reports ALL 20
+  CHECKS GREEN** — repo integrity (map brace balance, zone↔module
+  consistency), line endings, execution policy, disk/RAM, the officially
+  documented Windows locale requirement (decimal symbol "."), BO3 + Mod Tools
+  installs, extracted prefabs, and the synced usermap. Run it any time;
+  failures print the exact fix.
+- **Mod Tools detected at the AppID-suffixed folder**
+  `...\Call of Duty Black Ops III 455130` (Steam name-collision layout).
+  Both `sync_to_modtools.ps1` and the preflight now identify the tools root
+  by `bin\modlauncher.exe` — the old folder-name detection would have synced
+  into the GAME folder and the Launcher would never have seen the map.
+- **Fixed a latent parse bug in `sync_to_modtools.ps1`** (`"$label:"` is a
+  drive-qualified variable reference in PowerShell — the script had never
+  been executed on a real Windows box). **First real sync completed**: all
+  trees + the .map are in the usermap / tools `map_source`.
+- **`.gitattributes` added** (`* text=auto eol=lf`): line-ending policy is
+  now repo-pinned and machine-independent; Radiant's CRLF re-saves normalize
+  back to LF on commit. Verified zero-churn (everything already LF).
+- **[SETUP_WINDOWS.md](SETUP_WINDOWS.md) rewritten** for reality: this
+  machine's verified state up top, install facts corrected against the
+  open-sourced Treyarch Launcher + official guides (Mod Tools = ~25 GB base
+  **+ the ~50 GB "Additional Assets" DLC** — a step the old doc omitted
+  entirely; the big one-time extraction is **Radiant's first launch**, not
+  the Launcher's; Launcher lists any usermap with a `zone_source/*.zone` —
+  "New Map" never required, verified in Launcher source; run-options box +
+  Edit→Dvars are both valid for `+set developer 1`), the evidence-backed
+  top-5 first-build failures, the full in-game test loop (doors → perks →
+  decon → `acc_test_boss` Mega loop), and the post-first-build priority list.
+  CLAUDE.md hard constraints updated (compiles now possible via Launcher).
+
 ### Added — community techniques ledger + research knowledge base (2026-06-12)
 
 - **[docs/22_community_techniques.md](docs/22_community_techniques.md)** —

@@ -6,9 +6,14 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## Hard constraints
 
-- This repo lives on **macOS**; BO3 Mod Tools are **Windows-only**. Nothing
-  here can be compiled or play-tested locally — correctness comes from
-  matching known-good references (see hard-won facts).
+- This repo lives on the **Windows dev box** and **Mod Tools ARE installed**
+  (tools root: `...\steamapps\common\Call of Duty Black Ops III 455130` —
+  AppID-suffixed folder; scripts detect it via `bin\modlauncher.exe`, never
+  folder name). `tools/preflight_windows.ps1` = live machine state (all-green
+  2026-06-12, repo synced into the usermap). Compiles happen via the Launcher
+  GUI (user action); keep verifying against known-good references
+  (hard-won facts + docs/research/) before each build. Line endings pinned LF
+  by `.gitattributes`. Setup path: SETUP_WINDOWS.md.
 - Every substantive change: CHANGELOG.md entry + the relevant doc updated in
   the same commit.
 
@@ -104,5 +109,6 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## History
 
-CHANGELOG.md (newest first). Current state: starting-room build kit complete,
-awaiting first Windows compile.
+CHANGELOG.md (newest first). Current state: full 7-zone greybox + all systems
+implemented (202/471 checklist items), awaiting Mod Tools install + first
+compile — `tools/preflight_windows.ps1` is one FAIL away from all-green.

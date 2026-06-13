@@ -52,17 +52,26 @@ function Write-Info($msg) {
 function Resolve-ModToolsRoot {
     if ($ModToolsRoot -ne "") { return $ModToolsRoot }
 
-    $candidates = @(
-        "C:\Program Files (x86)\Steam\steamapps\common\Call of Duty Black Ops III",
-        "D:\Steam\steamapps\common\Call of Duty Black Ops III",
-        "E:\Steam\steamapps\common\Call of Duty Black Ops III",
-        "C:\Steam\steamapps\common\Call of Duty Black Ops III"
+    # The Mod Tools may live in the game folder OR in a separate
+    # "...Black Ops III 455130" folder (Steam appends the AppID on name
+    # collision - this machine has that layout). The game folder alone
+    # passes Test-Path but is NOT the tools root, so require the launcher
+    # binary (bin\modlauncher.exe) as proof.
+    $libRoots = @(
+        "C:\Program Files (x86)\Steam\steamapps\common",
+        "D:\Steam\steamapps\common",
+        "E:\Steam\steamapps\common",
+        "C:\Steam\steamapps\common"
     )
-    foreach ($c in $candidates) {
-        if (Test-Path $c) { return $c }
+    foreach ($lib in $libRoots) {
+        if (-not (Test-Path $lib)) { continue }
+        $dirs = Get-ChildItem $lib -Directory -Filter "Call of Duty Black Ops III*" -ErrorAction SilentlyContinue
+        foreach ($d in $dirs) {
+            if (Test-Path (Join-Path $d.FullName "bin\modlauncher.exe")) { return $d.FullName }
+        }
     }
 
-    throw "Could not auto-detect Mod Tools install. Pass -ModToolsRoot explicitly."
+    throw "Could not auto-detect the Mod Tools root (no folder with bin\modlauncher.exe). Pass -ModToolsRoot explicitly."
 }
 
 function Ensure-Dir($path) {
@@ -86,14 +95,14 @@ function Copy-Tree($src, $dst, $label, $mirror) {
     Ensure-Dir (Split-Path $dst -Parent)
 
     if ($DryRun) {
-        Write-Info "DRY: $label: $src -> $dst (mirror=$mirror)"
+        Write-Info "DRY: ${label}: $src -> $dst (mirror=$mirror)"
         Get-ChildItem -Recurse $src | ForEach-Object {
             Write-Info "  DRY file: $($_.FullName)"
         }
         return
     }
 
-    Write-Info "$label: $src -> $dst (mirror=$mirror)"
+    Write-Info "${label}: $src -> $dst (mirror=$mirror)"
 
     $args = @("`"$src`"", "`"$dst`"")
     if ($mirror) { $args += "/MIR" } else { $args += "/E" }
@@ -117,11 +126,11 @@ function Copy-One($src, $dst, $label) {
     Ensure-Dir (Split-Path $dst -Parent)
 
     if ($DryRun) {
-        Write-Info "DRY: $label: $src -> $dst"
+        Write-Info "DRY: ${label}: $src -> $dst"
         return
     }
 
-    Write-Info "$label: $src -> $dst"
+    Write-Info "${label}: $src -> $dst"
     Copy-Item -Path $src -Destination $dst -Force
 }
 
