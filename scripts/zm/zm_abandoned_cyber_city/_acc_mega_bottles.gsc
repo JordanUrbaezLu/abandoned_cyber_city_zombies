@@ -391,5 +391,5 @@ function sync_bottle_count_to_client()
     // Numeric SetValue needs no localized string. Hidden until first bottle
     // (docs/14: counter hidden when 0).
     self.acc_bottle_hud SetValue( self.acc_mega_bottles );
-    self.acc_bottle_hud.alpha = ( self.acc_mega_bottles > 0 ) ? 0.9 : 0;
+    self.acc_bottle_hud.alpha = ( self.acc_mega_bottles > 0 ? 0.9 : 0 );
 }

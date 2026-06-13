@@ -107,7 +107,7 @@ function run_mini_boss( round_number )
 
     // Mini rounds are exactly 10 and 20 (round_hook_loop routes >= 30 to the
     // full boss), so this spawns 1 host at r10 and 2 simultaneous at r20.
-    count = ( round_number >= 20 ) ? 2 : 1;
+    count = ( round_number >= 20 ? 2 : 1 );
     acc_utility::log( "mini boss round " + round_number + " spawning " + count );
 
     for ( i = 0; i < count; i++ )
@@ -437,7 +437,7 @@ function run_boss_phases( boss, round_number )
     level endon( "acc_boss_dead" );
 
     // Phases at 66% and 33% HP trigger "system outage" debuffs.
-    max_phases = ( round_number >= 40 ) ? 4 : 3;
+    max_phases = ( round_number >= 40 ? 4 : 3 );
 
     // Poll health for phase transitions while the boss is ALIVE only; death
     // is owned by watch_full_boss_death (a real actor fires "death" - this

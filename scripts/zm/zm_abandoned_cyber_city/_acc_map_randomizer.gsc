@@ -82,13 +82,13 @@ function pre_init()
 function roll_power_switch_side()
 {
     // A (Corp) or B (Server Vault). 50/50.
-    return acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault";
+    return ( acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault" );
 }
 
 function roll_pap_approach()
 {
     // "server" or "roof" - the BLOCKED side this run.
-    return acc_utility::acc_rand_int( 2 ) == 0 ? "server" : "roof";
+    return ( acc_utility::acc_rand_int( 2 ) == 0 ? "server" : "roof" );
 }
 
 function roll_wallbuy_pool()
@@ -469,7 +469,7 @@ function apply_power_switch_side( side )
     // VERIFIED(acc): do NOT put script_int on either trigger - zoned switches
     // set flag "power_on"+N and never the global "power_on" flag every acc
     // consumer waits on (_zm_power.gsc:728-737).
-    dead_side = side == "corp" ? "vault" : "corp";
+    dead_side = ( side == "corp" ? "vault" : "corp" );
 
     switch_trigs = getentarray( "use_elec_switch", "targetname" );
     if ( switch_trigs.size == 0 )
@@ -506,7 +506,7 @@ function apply_power_switch_side( side )
 // blackscreen (trigger state, no stock-init race).
 function disable_dead_side_emergency_triggers( side )
 {
-    dead_side = side == "corp" ? "vault" : "corp";
+    dead_side = ( side == "corp" ? "vault" : "corp" );
 
     dead_triggers = getentarray( "acc_power_" + dead_side, "targetname" );
     for ( i = 0; i < dead_triggers.size; i++ )
@@ -524,7 +524,7 @@ function apply_pap_approach( blocked_side )
     // Radiant contract: two script_brushmodels named acc_pap_block_server /
     // acc_pap_block_roof, authored VISIBLE + SOLID in the two lab corridors.
     // Per run: the rolled side stays blocked, the other side opens.
-    open_side = blocked_side == "server" ? "roof" : "server";
+    open_side = ( blocked_side == "server" ? "roof" : "server" );
 
     // Blocked side: re-assert visible+solid (already authored that way) and
     // cut the AI navgrid.

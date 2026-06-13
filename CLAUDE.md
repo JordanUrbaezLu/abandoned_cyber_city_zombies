@@ -100,6 +100,13 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 
+- **GSC ternary `?:` MUST be fully paren-wrapped: `( cond ? a : b )`.** BO3
+  GSC has no general ternary operator — it's a parenthesized-primary
+  production only. `= ( cond ) ? a : b` (paren closes after the condition) and
+  bare `= cond ? a : b` / `return cond ? a : b` all fail with
+  `unexpected TOKEN_CONDITIONAL, expecting TOKEN_SEMICOLON`. Stock always
+  wraps the whole expression (util_shared.gsc:1425 `( IsVec(x) ? x : x.origin )`).
+  `tools/preflight_windows.ps1` now has a paren-aware lint for this.
 - **GSC directive order: `#namespace` MUST come after every `#using` /
   `#insert` / `#define` / `#precache`.** `#namespace` terminates the directive
   preamble; a `#using` after it errors `unexpected TOKEN_USING, expecting

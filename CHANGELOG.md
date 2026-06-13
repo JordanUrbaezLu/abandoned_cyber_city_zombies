@@ -6,6 +6,28 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 3: GSC ternary paren-wrapping (2026-06-12)
+
+Past the directive fix, the GSC compile reached `_acc_data_shards.gsc:185`
+and rejected an unwrapped ternary: `= ( self.acc_data_shards > 0 ) ? 0.9 : 0`
+(`unexpected TOKEN_CONDITIONAL, expecting TOKEN_SEMICOLON`). BO3 GSC has no
+general ternary operator — it only parses a **fully paren-wrapped**
+`( cond ? a : b )` (verified vs stock: `util_shared.gsc:1425`,
+`:3990`, `:3996` all wrap the whole expression). Our broken sites either
+closed the paren after the condition (`( cond ) ? a : b`) or were bare
+(`return cond ? a : b`).
+
+Swept **every `?` in the codebase** (the first pass's grep wrongly excluded
+`::`-containing lines, hiding two `return acc_utility::...( ) == 0 ? a : b`
+sites) and fixed all **9 broken ternaries** to `( cond ? a : b )` across
+`_acc_boss` (2), `_acc_data_shards` (1), `_acc_mega_bottles` (1), and
+`_acc_map_randomizer` (5). The 3 already-wrapped ones were left alone.
+`?`-in-string-literal log messages are not ternaries (left alone).
+
+Hardening: `preflight_windows.ps1` gained a **paren-aware ternary lint** (walk
+each line at paren depth; a `?` at depth 0 is unwrapped) — catches this class
+with zero false positives, unlike a regex. Would have flagged all 9 pre-build.
+
 ### Fixed — first compile, pass 2: GSC directive-ordering error (2026-06-12)
 
 With the skybox fixed, the build reached the **GSC compile** (geometry +

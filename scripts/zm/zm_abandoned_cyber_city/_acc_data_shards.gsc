@@ -182,7 +182,7 @@ function sync_shards_to_client()
     // SetValue = numeric display, no localized string required (stock numeric
     // precedent _globallogic.gsc:758). Counter hidden until first shard.
     self.acc_shards_hud SetValue( self.acc_data_shards );
-    self.acc_shards_hud.alpha = ( self.acc_data_shards > 0 ) ? 0.9 : 0;
+    self.acc_shards_hud.alpha = ( self.acc_data_shards > 0 ? 0.9 : 0 );
     level notify( "acc_shards_changed", self );
 }
 

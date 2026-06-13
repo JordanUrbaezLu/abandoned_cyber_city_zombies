@@ -72,6 +72,30 @@ foreach ($g in $gscFiles) {
 }
 Check "GSC directive ordering (#namespace last) on $($gscFiles.Count) modules" ($ordering.Count -eq 0) ("fix: " + ($ordering -join '; '))
 
+# GSC ternary must be FULLY wrapped: '( cond ? a : b )' (stock-proven form).
+# Unwrapped '= ( cond ) ? a : b' or bare '= cond ? a : b' / 'return cond ? a : b'
+# fail to compile ("unexpected TOKEN_CONDITIONAL"). Paren-aware scan: for each
+# code line containing a ternary '?', strip strings + comments, then walk the
+# chars - a '?' at paren-depth 0 is an unwrapped (broken) ternary.
+$allGsc = Get-ChildItem (Join-Path $RepoRoot "scripts\zm") -Recurse -Include "*.gsc","*.csc"
+$ternBad = @()
+foreach ($g in $allGsc) {
+    $ln = 0
+    foreach ($raw in Get-Content $g.FullName) {
+        $ln++
+        $code = ($raw -replace '//.*$', '') -replace '"[^"]*"', '""'  # drop line-comment + string literals
+        if ($code -notmatch '\?') { continue }
+        $depth = 0
+        for ($i = 0; $i -lt $code.Length; $i++) {
+            $ch = $code[$i]
+            if ($ch -eq '(') { $depth++ }
+            elseif ($ch -eq ')') { $depth-- }
+            elseif ($ch -eq '?' -and $depth -le 0) { $ternBad += "$($g.Name):$ln"; break }
+        }
+    }
+}
+Check "GSC ternaries fully paren-wrapped" ($ternBad.Count -eq 0) ("unwrapped ternary at: " + ($ternBad -join ', '))
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"
