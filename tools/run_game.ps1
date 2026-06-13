@@ -19,6 +19,10 @@ param([switch]$NoBoss, [switch]$NoDev)
 # acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles on death
 $boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1" }
 $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
+# IMPORTANT: BO3's Steam LAUNCH OPTIONS must be EMPTY, or Steam appends them to
+# these args -> a doubled command line that corrupts the gametype (boots TDM ->
+# tries scripts/zm/gametypes/tdm.gsc -> fatal Com_ERROR -> black screen). With a
+# clean command line, a zm_* devmap auto-selects the zclassic zombies gametype.
 $gameArgs = "+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"

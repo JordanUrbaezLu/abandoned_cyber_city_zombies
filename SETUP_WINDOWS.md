@@ -128,9 +128,20 @@ proper DRM context. Easiest is the repo helper — **build in the Launcher
 .\tools\run_game.ps1 -NoBoss    # without the test boss
 ```
 It calls `steam://run/311210//<dev args>` and waits for the game to load
-(~30-60 s; RAM climbs to ~5 GB). Equivalent manual options: set BO3's Steam
-**Launch Options** to the dev args and hit Play, or run
-`start "steam://run/311210//+set fs_game zm_abandoned_cyber_city +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1"`.
+(~30-60 s; RAM climbs to ~5 GB). `PLAY_TEST_MAP.bat` in the repo root is a
+double-click equivalent.
+
+**CRITICAL — Steam Launch Options must be EMPTY when using `steam://run//<args>`
+or the `.bat`.** Steam *appends* any Launch Options to the inline args, producing
+a **doubled command line** that corrupts the gametype: BO3 boots Team Deathmatch,
+fails to find `scripts/zm/gametypes/tdm.gsc` (absent in a zombies build), and
+hard-errors to a **black screen**. With a clean (single) command line, a `zm_*`
+`devmap` auto-selects the `zclassic` zombies gametype — no `g_gametype` needed.
+So pick ONE arg source:
+- **Launch Options empty** + double-click `PLAY_TEST_MAP.bat` (or `run_game.ps1`), OR
+- Put the dev args in **Launch Options** and launch from Steam's **Play** button
+  — but then do NOT also use the `.bat`/script (that re-doubles them).
+
 Steam must be running and logged in.
 
 ## 3. First Build (5-15 min)
