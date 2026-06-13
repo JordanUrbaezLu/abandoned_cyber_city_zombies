@@ -6,6 +6,34 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — first compile, pass 5: proactive cross-reference sweep (2026-06-12)
+
+The compile reached `_acc_boss.gsc:551` with `Unresolved external
+'acc_coop_scaling::special_hp_mult'` — `_acc_boss.gsc` called that function but
+never `#using`'d `_acc_coop_scaling` (an earlier node-patch added the calls but
+its `#using` insertion silently failed to match). Added the missing `#using`.
+
+Rather than rebuild-per-error, swept the **whole codebase** for this class and
+its siblings with a new tool, `tools/lint_gsc_xref.js` — found **only this one**
+real issue. The checks (all reliable, run in preflight now):
+- every `acc_X::fn()` call has a `#using _acc_X` and `fn` is defined there;
+- every stock `ns::fn()` call has the right stock `#using` (hardcoded verified
+  namespace→file map — `util`→`util_shared`, `flag`→`flag_shared`, etc.);
+- every stock macro (`IS_TRUE`, `PERK_*`, `VERSION_SHIP`...) has its `#insert`
+  (transitive `.gsh` resolution from the mirror);
+- no bare `fn()` call resolves to a different acc module (missing namespace).
+- Also confirmed all 21 flagged stock functions exist in the mirror (so the
+  "BAD STOCK API" noise was indexer false positives, not real) — the lint
+  deliberately does NOT check stock-function existence (unreliable; compiler's
+  job).
+
+Progress: 12 modules + the entry script now compile clean (cyberware,
+data_shards, early_round_pacing, elites, emergency_drop, events_hack,
+events_overload, main, map_randomizer, modifiers, overclocks, utility). The
+remaining untested modules (boss, boss_items, mega_bottles, weapon_abilities,
+points, damage, decontamination, coop_scaling, perk_aura_blast) passed all four
+dependency lints, so any further error is a different class.
+
 ### Fixed — first compile, pass 4: `class` reserved keyword as a variable (2026-06-12)
 
 GSC compile reached `_acc_elites.gsc:147` (`spawn_elites_over_round`) and

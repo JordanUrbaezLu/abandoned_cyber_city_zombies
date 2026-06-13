@@ -118,6 +118,18 @@ foreach ($g in $allGsc) {
 }
 Check "no reserved GSC keywords as identifiers" ($rwBad.Count -eq 0) ("rename: " + ($rwBad -join ', '))
 
+# Cross-reference + dependency lint (node): acc ns::fn resolution, stock
+# #using presence, macro #inserts, bare-call namespaces. Catches the
+# "Unresolved external" linker class before the build.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if ($node) {
+    $xref = & node (Join-Path $RepoRoot "tools\lint_gsc_xref.js") 2>&1
+    $xrefOk = ($LASTEXITCODE -eq 0)
+    Check "GSC cross-reference/dependency lint" $xrefOk (($xref | Select-Object -Skip 1) -join ' ')
+} else {
+    Check "GSC cross-reference/dependency lint" $true "node not found - skipped (install Node.js to enable)" $true
+}
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"

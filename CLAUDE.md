@@ -100,6 +100,12 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 
+- **Cross-module calls need both the `#using` AND the function to exist.**
+  `acc_X::fn()` without `#using _acc_X`, or a stock `ns::fn()` without the
+  stock file's `#using`, or a stock macro without its `#insert`, all fail with
+  `Unresolved external` / undeclared-identifier. `tools/lint_gsc_xref.js`
+  (run in preflight) statically verifies all four classes. The linker compiles
+  `_acc_main`'s `#using` list in order and stops at the first unresolved one.
 - **`class` is a reserved GSC keyword** (TOKEN_CLASS) — cannot be a variable/
   param name (`_acc_elites.gsc` used `class = ...`). `new` is likely reserved
   too (T7 class system). `type` is NOT reserved (stock uses it as a param —
