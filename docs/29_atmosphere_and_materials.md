@@ -343,11 +343,42 @@ Author ONE small GDT `acc_neon` (save in `<tools>\source_data`), three emissive
 | `mtl_acc_neon_magenta` | `#FF2E88` | dead nightlife — Market stall signs/ad boards |
 | `mtl_acc_neon_amber` | `#FF8A1E` | dying power — Alley hazard panel, Vault rack LEDs + Overload core, bulkheads |
 
-APE: `materialType = lit` with an **emissive** colorMap (a self-lit `.tif`),
-`materialCategory = Geometry`, **real `surfaceType`** (never `error`), power-of-2
-TIFF. Painted as face tokens → **no `.zone` line**. Flicker: script-pulse a few
-emissive light entities for the "dead signage" stutter (small GSC follow-up; can
-extend `_acc_atmosphere.gsc`).
+Neon RGB (0–1, for `colorTint`): cyan `0.10 0.88 1.00` · magenta `1.00 0.18 0.53`
+· amber `1.00 0.54 0.12`.
+
+**Copy-paste APE recipe** (the reliable path = duplicate a shipped emissive, not
+hand-author the ~300-field GDT). Shipped emissive examples to clone:
+`door_light_emissive` / `main_light_emissive` / `posters_light_lightstrip_emissive`
+(verified in `tmp/zm_alien_isolation/texture_assets/alien_isolation_textures.gdt`).
+
+1. **Source images** (you make these — APE can't): one **256×256 TIFF** per color.
+   Simplest = a solid bright neon fill (the colorTint does the work); nicer = a
+   sign/grime glyph. Power-of-2, TIFF. Drop them in
+   `<tools>\texture_assets\acc_neon\` (e.g. `acc_neon_cyan.tif`). CC0 sign sprites:
+   Kenney / itch.io (see CREDITS.md). Keep an unlit copy too if you want flicker.
+2. **GDT:** APE → File → New GDT → save as `acc_neon.gdt` **in `<tools>\source_data`**
+   (outside source_data it won't load).
+3. **Material (×3):** Asset → New → type `material` → GDT `acc_neon` → name
+   `mtl_acc_neon_cyan` (then `_magenta`, `_amber`). Easiest: open a stock/shipped
+   **emissive** material, **Save As** into `acc_neon` under the new name, so the
+   emissive/HDR fields carry over. Then set:
+   - `colorMap` → your `acc_neon_<color>.tif` (the button auto-creates the image
+     asset; set its semantic = diffuseMap).
+   - `colorTint` → the neon RGB above (this is what makes it read as that color).
+   - `surfaceType` → a real value (`plastic`/`glass`) — **never `error`**.
+   - keep the template's emissive/self-illum + HDR-scale fields (that's the glow);
+     bump the HDR/emissive scale up for a brighter sign.
+4. **Build the GDT:** Save All → run `gdtdb.exe /update` (or it updates on save).
+5. **Apply:** in Radiant's material browser, filter `mtl_acc_neon_`, paint onto the
+   sign/screen faces (or thin decal brushes) at each landmark. **Face token →
+   no `.zone` line** (auto-pulled, like all face materials).
+6. **Source images ship inside the `.ff`** → keep them CC0/original (CREDITS.md).
+   Decide a repo home for `acc_neon.gdt` + the `.tif`s so a fresh machine rebuilds
+   (docs/29 §9).
+
+**Flicker (optional, later):** the "dead signage" stutter is a small GSC follow-up
+— pulse a light entity / swap the lit↔unlit material on a timer; can extend
+`_acc_atmosphere.gsc`. Not needed for a static neon read.
 
 ### 12.3 Bespoke smog-orange HDRI sky (Phase 3, APE) — the locked sky target
 
@@ -421,26 +452,30 @@ The **wiring is coherent** — only the room shells are absent:
   `acc_door_lab_e`/`acc_door_lab_w` (1500 pts, Lab side). ✅
 - **Spawners + features** in vault/roof: ✅ (risers, power switch `vault` at
   x2292 y2800, frag/EMP + sniper wallbuys, Overload/Helipad triggers).
-- **Room shells (floor/ceiling/walls): ❌ MISSING** — this is the entire gap.
+- **Room shells (floor/ceiling/walls):** ✅ now **injected as closed boxes** via
+  `tools/gen_rooms.js` (skinned); ⬜ doorways still need cutting in Radiant (below).
 
-### Build spec — the two missing rooms (Radiant, NOT blind text)
+### Build spec — the two missing rooms (shells injected; cut doorways in Radiant)
 
-Room geometry must **seal** (a BSP leak = failed build) and can't be leak-checked
-without Radiant, so build these in Radiant rather than hand-authored `.map` text.
-Approx. extents (from the door slabs + spawner positions; refine visually):
+✅ **Closed room shells injected** via `tools/gen_rooms.js` (worldspawn brushes,
+one-shot). Each room = 6 brushes (floor, ceiling, 4 walls, 16u thick), a **fully
+closed box** so it's **guaranteed leak-free** and compiles clean. Winding copied
+verbatim from a verified box brush; already textured with the zone's materials
+(vault = `t7_metal_painted_wall_dirty_grey` + `t7_metal_grate_flooring`; roof =
+`t7_concrete_bare_weathered_01` + `t7_asphalt_damaged_dark_wet`). A reflection
+probe already sits at each zone center. Footprints (interior, z0–128):
 
-| Room | Floor footprint (x, y) | Doors (openings to leave) | Ceiling |
-|---|---|---|---|
-| **Server Vault** | x **[960 .. 2400]**, y **[2480 .. 3180]** | west edge x≈969: **y≈2320–2536** → Corp (`acc_door_vault`); **y≈3120–3336** → Lab (`acc_door_lab_e`) | z≈256 (floor z0) |
-| **Rooftop Helipad** | x **[-2400 .. -940]**, y **[2480 .. 3180]** | east edge x≈-950: **y≈2320–2536** → Corp (`acc_door_roof`); **y≈3120–3336** → Lab (`acc_door_lab_w`) | open/high (it's a roof) |
+| Room | Interior (x, y) | Doorways to CUT (in Radiant) |
+|---|---|---|
+| **Server Vault** | x **[1000 .. 2400]**, y **[2490 .. 3170]** | **west wall** (x≈984–1000): Corp door @y≈2490–2536 (`acc_door_vault`); Lab door @y≈3120–3170 (`acc_door_lab_e`) |
+| **Rooftop Helipad** | x **[-2400 .. -1000]**, y **[2490 .. 3170]** | **east wall** (x≈-1000…-984): Corp door @y≈2490–2536 (`acc_door_roof`); Lab door @y≈3120–3170 (`acc_door_lab_w`) |
 
-Per room: a floor brush, perimeter walls (leave the two door-width gaps where the
-sliding slabs sit), and a ceiling (Vault) or low parapet walls + sky-open top
-(Roof). Texture as caulk/`script_wall`; then **re-run `tools/apply_zone_materials.js`**
-and it auto-applies vault = `t7_metal_painted_wall_dirty_grey` + `t7_metal_grate_flooring`,
-roof = `t7_concrete_bare_weathered_01` + `t7_asphalt_damaged_dark_wet`. Place a
-`reflection_probe` is already done (one sits at each zone center). Verify no leak
-in the compile log, then the per-zone atmosphere is complete.
+**Remaining (Radiant, you):** the boxes are CLOSED — not yet reachable. Carve a
+doorway through the wall where each sliding slab sits (positions above), so the
+slab fills the gap and rises on purchase. Then build (full pipeline). Optional
+polish: raise the Vault ceiling, swap the Roof ceiling for a sky brush (open-air
+helipad), add detail. The shells **build clean as-is** — you can compile + noclip
+in to see the skinned rooms before cutting doors, to confirm the look.
 
 ---
 

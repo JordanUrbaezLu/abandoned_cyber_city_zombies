@@ -73,6 +73,20 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   + spawners only, no walls. They'll auto-skin when their rooms are built + the
   tool re-runs. A map-construction gap to reconcile vs the "full 7-zone greybox"
   status.
+- **Vault + Roof room shells injected** (`tools/gen_rooms.js`, one-shot): each room
+  = 6 worldspawn brushes (floor, ceiling, 4 walls), a **fully closed box** so it's
+  guaranteed leak-free + compiles clean. Winding copied verbatim from a verified
+  box brush (`acc_door_vault` slab); inset to avoid the door slabs; pre-skinned
+  (vault = grey metal + grate floor; roof = weathered concrete + wet asphalt).
+  Braces balanced (583/583). **Closed** = not reachable yet — cut the doorways in
+  Radiant (positions in docs/29 §13) to finish. Build-clean as-is (noclip in to
+  preview the skinned rooms). Audit in §13 confirmed the zone graph + doors +
+  spawners were already coherent — only the shells were missing.
+- **Neon emissive kit — copy-paste APE recipe** (docs/29 §12.2): step-by-step to
+  author the 3 cyan/magenta/amber emissive "dead sign" materials by duplicating a
+  shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
+  retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
+  landmark placement plan. Face tokens → no `.zone` line.
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 
