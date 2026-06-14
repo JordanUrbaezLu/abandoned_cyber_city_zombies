@@ -469,8 +469,9 @@ The **wiring is coherent** — only the room shells are absent:
   `acc_door_lab_e`/`acc_door_lab_w` (1500 pts, Lab side). ✅
 - **Spawners + features** in vault/roof: ✅ (risers, power switch `vault` at
   x2292 y2800, frag/EMP + sniper wallbuys, Overload/Helipad triggers).
-- **Room shells (floor/ceiling/walls):** ✅ now **injected as closed boxes** via
-  `tools/gen_rooms.js` (skinned); ⬜ doorways still need cutting in Radiant (below).
+- **Room shells (floor/ceiling/walls):** ✅ **injected** via `tools/gen_rooms.js`
+  (skinned); ✅ **doorway gaps cut in the `.map` source** (2026-06-13) — Vault west
+  wall + Roof east wall opened at both door-slab positions (below).
 
 ### Build spec — the two missing rooms (shells injected; cut doorways in Radiant)
 
@@ -482,17 +483,20 @@ verbatim from a verified box brush; already textured with the zone's materials
 `t7_concrete_bare_weathered_01` + `t7_asphalt_damaged_dark_wet`). A reflection
 probe already sits at each zone center. Footprints (interior, z0–128):
 
-| Room | Interior (x, y) | Doorways to CUT (in Radiant) |
+| Room | Interior (x, y) | Doorways (✅ CUT in source 2026-06-13) |
 |---|---|---|
 | **Server Vault** | x **[1000 .. 2400]**, y **[2490 .. 3170]** | **west wall** (x≈984–1000): Corp door @y≈2490–2536 (`acc_door_vault`); Lab door @y≈3120–3170 (`acc_door_lab_e`) |
 | **Rooftop Helipad** | x **[-2400 .. -1000]**, y **[2490 .. 3170]** | **east wall** (x≈-1000…-984): Corp door @y≈2490–2536 (`acc_door_roof`); Lab door @y≈3120–3170 (`acc_door_lab_w`) |
 
-**Remaining (Radiant, you):** the boxes are CLOSED — not yet reachable. Carve a
-doorway through the wall where each sliding slab sits (positions above), so the
-slab fills the gap and rises on purchase. Then build (full pipeline). Optional
-polish: raise the Vault ceiling, swap the Roof ceiling for a sky brush (open-air
-helipad), add detail. The shells **build clean as-is** — you can compile + noclip
-in to see the skinned rooms before cutting doors, to confirm the look.
+**DONE (2026-06-13):** doorway gaps cut directly in the `.map` worldspawn — the
+Vault **west wall** (`ACCB0012`) and Roof **east wall** (`ACCB0023`) were each
+reduced to their solid middle (y2536–3120), leaving a full-height gap at each end
+aligned to the sliding slabs: Corp door @y2474–2536, Lab door @y3120–3186. Both
+rooms now walk Corp→room→Lab. Built clean via the full pipeline (cod2map64 navmesh
+OK from the `bin` cwd, LED, linker — `.ff` 2026-06-13 23:16). These are **greybox
+openings** (full height, no frame/lintel). Optional Radiant polish later: door
+jambs + lintel, raise the Vault ceiling, swap the Roof ceiling for a sky brush
+(open-air helipad), add detail.
 
 ---
 

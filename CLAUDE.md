@@ -216,6 +216,11 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   recompiles scriptparsetree + repacks the `.ff` (geometry/BSP from the last
   `cod2map64` run is reused). Full pipeline if geometry changed: `cod2map64`
   (BSP+navmesh) → `radiant_modtools -ledSilent ... +recompute` (LED) → linker.
+  **Run `cod2map64` with the working dir = `<tools>\bin`** (what the Launcher
+  does) — its FS search paths are cwd-relative, so from anywhere else navmesh gen
+  aborts `ERROR: Unable to load navigation mesh generation settings` (the
+  `.d3dbsp` still writes, but `_navmesh.hkt` stays stale → zombies won't path new
+  geometry). Verified 2026-06-13 cutting the Vault/Roof doorways.
 - **Steam launch handler jams after repeated force-kills.** `Stop-Process` on
   BlackOps3 + rapid `steam://run` relaunches makes Steam silently ignore launch
   requests (process never starts, no log write). Fix: fully restart Steam

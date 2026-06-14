@@ -6,6 +6,24 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — Vault/Roof doorways cut, back third of map now reachable (2026-06-13, branch `MajorImprovements`)
+
+The Server Vault and Rooftop Helipad were sealed greybox boxes (injected by
+`gen_rooms.js` in `56799dc`) whose door openings had never been cut — so opening
+`enter_vault`/`enter_roof`/`enter_lab_e`/`enter_lab_w` revealed a solid wall, and
+the Subterranean Lab (reachable only *through* those two rooms) was unreachable in
+normal play. Not a regression — that geometry was never finished.
+
+- **Cut 4 doorway gaps in the `.map` source** (`map_source/zm/...` worldspawn): the
+  Vault **west wall** (`ACCB0012`) and Roof **east wall** (`ACCB0023`) were each
+  reduced to their solid middle (y2536–3120), opening a full-height gap at each end
+  aligned to the existing sliding door slabs — Corp door @y2474–2536, Lab door
+  @y3120–3186. Corp Plaza and Lab are open-plan, so no other walls needed cutting.
+- **Full rebuild verified** (cod2map64 BSP+navmesh run from the `bin` cwd so the nav
+  settings load, LED recompute, linker) — clean; `.ff` 24,936,832 B @ 23:16.
+- Greybox openings (full height, no frame); Radiant polish (jambs/lintel, raised
+  Vault ceiling, Roof sky brush) deferred. docs/29 §13 updated.
+
 ### Added — atmosphere & materials plan + Phase-1 fog (2026-06-13, branch `Wallpaper`)
 
 First pass at the map's *look* — turning the greybox (every face the placeholder
