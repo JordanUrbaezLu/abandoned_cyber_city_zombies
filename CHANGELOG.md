@@ -6,6 +6,16 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — ONBOARDING.md refreshed for the recent perk / weapon-variant / PaP work (2026-06-14)
+
+New-dev onboarding caught up to this session's changes: (1) the Build section now distinguishes
+a GSC/`.lua` relink (linker only) from geometry (`.map`) or weapon-GDT changes (which need a full
+Compile: `gdtdb /update` → `cod2map64` → Radiant LED → linker) — the "I changed it but nothing
+changed in game" trap; (2) a heads-up on the weapon-variant **twin** swap system
+(`_acc_weapon_variants.gsc` + `tools/apply_recoil_overhaul.js`; the GSC allow-list + zone
+`weaponfull` lines + `source_data/acc_weapon_variants.gdt` must stay in lockstep); (3) new "read
+more" links — `perk_abilities.md`, docs/30/31, docs/33 (adding a gun), and CHANGELOG.
+
 ### Fixed — dev "open all doors" now opens the PaP blocker too (the one door that never opened) (2026-06-14)
 
 The dev open-the-whole-map overrides left **one barrier closed every run**: the
