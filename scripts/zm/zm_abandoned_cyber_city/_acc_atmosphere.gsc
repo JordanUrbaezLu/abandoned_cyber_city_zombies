@@ -17,12 +17,11 @@
 //   (A wider 18-arg sun-fog overload exists in _art.gsc's dev block; the 8-arg
 //   shipped-path form is what we want.)
 //
-// Live tuning: every parameter is read from an `acc_fog_*` dvar (defaults baked
-// in below, mirroring the codebase's `getdvarint("acc_rampage",0)` pattern).
-// Set `acc_fog_livetune 1` to re-apply continuously so fog can be dialed from the
-// console with no rebuild; default applies once. When the look is locked, bake
-// the final numbers into the #define defaults AND docs/29 (REQUIREMENTS.md
-// "no silent tuning" rule).
+// Fog is OFF by default (owner prefers the clean dark night room). To enable +
+// tune: `set acc_fog_on 1` (console ~, or +set at launch), then dial the per-
+// parameter `acc_fog_*` dvars live - the watch loop re-applies every half second,
+// no rebuild (mirrors the codebase's `getdvarint("acc_rampage",0)` pattern). When
+// a look is locked, bake the numbers into the #define defaults AND docs/29.
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -61,20 +60,17 @@ function apply_fog()
     // flag::wait_till returns immediately if already set; a bare waittill hangs.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    set_fog_from_dvars();   // apply the #define defaults once at level start
-
-    // Always-on watch so `acc_fog_livetune 1` can be toggled from the CONSOLE
-    // (~) MID-GAME - the loop must already be running to notice the flip. While
-    // on, it re-applies every half second so `acc_fog_*` dvar edits take effect
-    // live, no rebuild. Cost = one dvar read per tick (negligible). Set it back
-    // to 0 to freeze the look at the last values. (Gate the loop off for ship.)
+    // Fog is OFF by default - the owner prefers the clean dark night room (no fog).
+    // To turn it on: launch with `+set acc_fog_on 1`, or type `set acc_fog_on 1` in
+    // the console (~); the watch loop below picks it up live and re-applies every
+    // half second so the acc_fog_* tuning dvars take effect with no rebuild.
     for ( ;; )
     {
-        wait( 0.5 );
-        if ( getdvarint( "acc_fog_livetune", 0 ) == 1 )
+        if ( getdvarint( "acc_fog_on", 0 ) == 1 )
         {
             set_fog_from_dvars();
         }
+        wait( 0.5 );
     }
 }
 
