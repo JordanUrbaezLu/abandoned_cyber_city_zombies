@@ -6,6 +6,74 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — perk-requirement GSC fixes: new `_acc_perks.gsc` + Mega/effect wiring (2026-06-14)
+
+Closed every **GSC-reachable** gap from the 2026-06-13 perk audit, driven by a
+per-perk research+verify workflow (each fix's stock APIs verified against
+`tmp/bo3_stock_ref`; hand-applied; `tools/lint_gsc_xref.js` clean; structural
+brace/paren/directive-order checks pass). The non-GSC remainder is specced in the
+new **[docs/30_perk_gdt_radiant_spec.md](docs/30_perk_gdt_radiant_spec.md)**.
+
+- **New module `scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc`** (wired into
+  `_acc_main::init` + `on_player_connect`/`on_player_spawned`, entry `#using`, and
+  the `.zone` manifest): hosts the base-perk GSC retuning —
+  - **Jug 3/6 hit model** — `tune_jugg_health` sets `zombie_perk_juggernaut_health`
+    = 150 (→ 250 HP → down on the 6th melee @ 45 dmg) after blackscreen.
+  - **Quick Revive +30% regen** — `qr_regen_booster` starts HP regen ~30% sooner.
+  - **Savior (QR Mega) revive ×0.6** — `savior_revive_time` via the stock
+    `self.get_revive_time` hook (1.5s → 0.9s).
+  - **Savior +15% move while a teammate is down** — `savior_speed_watcher` + a new
+    `×1.15` term in `_acc_utility::recompute_move_speed`.
+- **`_acc_boss.gsc`** — **Ultimate Tank (Jug Mega) boss-ability immunity**:
+  `protect_immune_players_during_debuff` re-grants immune holders' perks across the
+  power-off / perks-off cascade. (Power is a global flag, so a holder's traps still
+  go dark — only owned perks are preserved.)
+- **`_acc_mega_bottles.gsc`** — wired the stubbed Megas that have a GSC lever:
+  **The Flash** longer sprint (`SetSprintDuration(6.0)` + respawn re-apply),
+  **The Armory** reserve/grenade fill (`armory_apply` + Max-Ammo watcher),
+  **Spiderman** 6-web-grenade top-up; recalibrated **Ultimate Tank** to `+50` HP
+  (→ 300 → 7th-hit down; +100 had overshot to 8).
+- **`_acc_damage.gsc`** — **Spiderman web-grenade OHK** on ordinary zombies (gated
+  on `level.w_widows_wine_grenade`, mirroring the melee-OHK block).
+- **`_acc_perk_aura_blast.gsc` + `_acc_elites.gsc`** — **Aura Blast per-enemy-type
+  matrix**: shielded→shield-down, teleporter→no-teleport (companion guard in the
+  teleporter loop), EMP→1s, mini-boss→50% at base (was wrongly immune), full
+  boss→immune base / affectable Mega.
+- **Docs:** `13_perks.md` Implementation Status rewritten to the post-fix ledger
+  (8 of 9 Mega effects now fire); new `30_perk_gdt_radiant_spec.md` work order for
+  the GDT (Armory caps, Widow radius/6-nade cap, Deadshot no-recoil, Speed Cola
+  timing) + Radiant (4 `acc_lab_perk_*` rotation machines) remainder.
+- **Verify bar:** `lint_gsc_xref.js` = "all resolve"; brace/paren balance + no
+  `#using`/`#define` after `#namespace` + no column-0/reserved-word issues on all 8
+  touched files. Real verification still pends the Windows build + in-game tuning
+  confirm of the Jug 3/6/7 hit counts (melee dmg is a GDT constant).
+
+### Changed — perk implementation audit + verified status ledger (2026-06-13)
+
+Audited all 9 perks (base + Mega) and the 3 shared systems in
+[docs/13_perks.md](docs/13_perks.md) against the actual GSC that grants each
+ability, via a 24-agent workflow (one auditor + one adversarial verifier per
+item; every verdict re-checked by opening the cited code and grepping the whole
+`scripts/zm` tree — verifiers flipped nothing).
+
+- **Rewrote `docs/13_perks.md` "Implementation Status"** from the stale
+  "only Aura Blast implemented" prose into a **verified per-ability ledger**
+  (OK / PARTIAL / STOCK / STUB / MISSING, each with `file:line`).
+- **Headline findings:** Aura Blast is essentially complete; Deadshot ×1.5/×1.75,
+  Double Tap & Widow's frag *damage* halves, Spiderman melee-OHK, Mega-Bottle
+  plumbing, and `level.perk_purchase_limit=9` cap-removal all genuinely fire.
+  Everything else is stock-default, GDT-blocked, or an un-wired stub.
+- **Two root causes captured in the doc:** (1) the repo ships **zero `.gdt`
+  files**, so every baked-stat ability (fire rate, recoil, reload scalar, ammo/
+  grenade caps, blast radius, Jug health) is unbacked and *cannot* be done in
+  GSC; (2) **`_acc_perks.gsc` was never authored** — cap-removal + cost table
+  landed inline, the rest of its scope is unbuilt.
+- **Rotation reality recorded:** the roll/timing/storage "brain" is real but
+  `apply_perk_rotation_to_machines` is a `TODO(acc-geom)` stub with no
+  `acc_lab_perk_*` Radiant entities, so all 9 perks are always buyable and the
+  4-of-9 lockout never happens.
+- **No code changed** — documentation-only pass.
+
 ### Fixed — Vault/Roof doorways cut, back third of map now reachable (2026-06-13, branch `MajorImprovements`)
 
 The Server Vault and Rooftop Helipad were sealed greybox boxes (injected by

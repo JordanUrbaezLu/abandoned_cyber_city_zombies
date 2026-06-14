@@ -21,6 +21,11 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
+// The Flash Mega (Stamin-Up) extended sprint reserve: 4.0 stock * 1.5
+// (docs/13 Tuning Lever "2x->1.5x"). Spiderman Mega (Widow's) web-grenade cap.
+#define ACC_FLASH_SPRINT_DURATION  6.0
+#define ACC_SPIDERMAN_WEB_GRENADES 6
+
 #namespace acc_mega_bottles;
 
 // ---------------------------------------------------------------------------
@@ -43,6 +48,7 @@ function init()
     level.perk_lost_func = &on_perk_lost;
 
     level thread mega_machine_watcher();
+    level thread armory_maxammo_watcher();
 }
 
 function on_player_connect( player )
@@ -72,6 +78,7 @@ function flash_respawn_watcher()
              && has_mega_perk( self, "specialty_staminup" ) )
         {
             self apply_flash_speed();
+            self apply_flash_sprint();
         }
     }
 }
@@ -405,16 +412,42 @@ function apply_mega_effects( player, specialty_string )
         // recompute adds (_zm_perks.gsc:828-831), and that recompute re-runs
         // at every revive - so the bonus survives downs. A bare SetMaxHealth
         // would be wiped by the next recompute.
-        player.n_player_health_boost = 100;
+        // Re-derived for the 3/6 base-Jug tuning (acc_perks sets jugg add 150 ->
+        // base Jug = 250 HP). +50 puts Mega at 300 HP = down on the 7th melee @ 45
+        // (6x45=270 survive, 7x45=315 down). The stock +100 overshot to 8 hits.
+        player.n_player_health_boost = 50;
         player zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
         break;
 
     case "specialty_staminup":
         player apply_flash_speed();
+        player apply_flash_sprint();
+        break;
+
+    case "specialty_widowswine":
+        // Spiderman: the OHK halves read live from the Mega flag in _acc_damage.
+        // The "hold 6 web grenades" half tops the player's CURRENT web-grenade
+        // reserve to 6 (the engine clamps to the GDT maxAmmo for the widow
+        // grenade, so raise that GDT too - see docs/13 GDT specs).
+        if ( isdefined( level.w_widows_wine_grenade )
+             && player HasWeapon( level.w_widows_wine_grenade ) )
+        {
+            cur = player GetWeaponAmmoStock( level.w_widows_wine_grenade );
+            if ( !isdefined( cur ) || cur < ACC_SPIDERMAN_WEB_GRENADES )
+            {
+                player SetWeaponAmmoStock( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
+            }
+        }
+        break;
+
+    case "specialty_additionalprimaryweapon":
+        // The Armory: top off every gun's reserve + lethal/tactical grenades to
+        // their GDT cap. The flat "+2 grenades" / "+30% reserve" magnitudes are
+        // GDT-baked (maxAmmo is the engine ceiling); GSC delivers the fill-to-cap.
+        player armory_apply();
         break;
 
     case "specialty_deadshot":       // American Sniper - live in _acc_damage
-    case "specialty_widowswine":     // Spiderman - live in _acc_damage
     case "specialty_electriccherry": // Mega Man - live in _acc_perk_aura_blast
         break;
 
@@ -431,6 +464,80 @@ function apply_flash_speed()
     // flag and recompute through the single owner in acc_utility.
     self.acc_flash_speed = true;
     acc_utility::recompute_move_speed( self );
+}
+
+// The Flash Mega (Stamin-Up): extend the per-player sprint reserve. The engine
+// resets SetSprintDuration to the stock 4.0 on every (re)spawn (zm_usermap.gsc:337),
+// so this is re-applied by flash_respawn_watcher.
+function apply_flash_sprint()
+{
+    self.acc_flash_sprint = true;
+    self SetSprintDuration( ACC_FLASH_SPRINT_DURATION );
+}
+
+// Restore the stock sprint reserve when The Flash drops (perk lost on death).
+function clear_flash_sprint()
+{
+    self.acc_flash_sprint = false;
+    self SetSprintDuration( 4.0 );
+}
+
+// The Armory Mega (Mule Kick): refill all carried guns' reserve + lethal/tactical
+// grenades to their GDT maxAmmo cap. With the Armory grenade/weapon GDTs raising
+// those caps (+2 grenades, +30% reserve) this materializes the extra capacity; on
+// stock GDTs it is a harmless full top-off. Idempotent - safe on Mega-apply, on
+// perk rebuy (sticky persistence), and on every Max Ammo.
+function armory_apply()
+{
+    self endon( "disconnect" );
+
+    // Guns: GiveMaxAmmo fills reserve to weapon.maxAmmo (the raised cap).
+    guns = self GetWeaponsListPrimaries();
+    for ( i = 0; i < guns.size; i++ )
+    {
+        g = guns[ i ];
+        if ( !isdefined( g ) || g == level.weaponNone ) continue;
+        if ( !( self HasWeapon( g ) ) ) continue;
+        self GiveMaxAmmo( g );
+    }
+
+    // Lethal grenade -> top reserve to its (raised) maxAmmo.
+    w_lethal = self zm_utility::get_player_lethal_grenade();
+    if ( isdefined( w_lethal ) && w_lethal != level.weaponNone
+         && self HasWeapon( w_lethal ) )
+    {
+        self SetWeaponAmmoStock( w_lethal, w_lethal.maxAmmo );
+    }
+
+    // Tactical grenade -> top reserve to its (raised) maxAmmo.
+    w_tac = self zm_utility::get_player_tactical_grenade();
+    if ( isdefined( w_tac ) && w_tac != level.weaponNone
+         && self HasWeapon( w_tac ) )
+    {
+        self SetWeaponAmmoStock( w_tac, w_tac.maxAmmo );
+    }
+}
+
+// Re-apply the Armory top-off whenever a Max Ammo powerup fires, for any player
+// who has Mega'd Mule Kick (so the raised grenade caps get filled on every Max
+// Ammo, not just at upgrade time).
+function armory_maxammo_watcher()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "zmb_max_ammo_level" );
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( !( p HasPerk( "specialty_additionalprimaryweapon" ) ) ) continue;
+            if ( !has_mega_perk( p, "specialty_additionalprimaryweapon" ) ) continue;
+            p armory_apply();
+        }
+    }
 }
 
 // Stock lifecycle hooks (self = player).
@@ -464,6 +571,7 @@ function on_perk_lost( perk )
     {
         self.acc_flash_speed = false;
         acc_utility::recompute_move_speed( self );
+        self clear_flash_sprint();
     }
 }
 

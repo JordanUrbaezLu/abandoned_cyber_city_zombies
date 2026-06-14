@@ -198,6 +198,21 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         return self.health + 666;
     }
 
+    // Spiderman (Widow's Wine Mega): the WEB (spider) grenade one-hits ORDINARY
+    // zombies (docs/13_perks.md - regular zombies only, not bosses/elites). Gated
+    // on the specific web-grenade weapon object (level.w_widows_wine_grenade,
+    // _zm_perk_widows_wine.gsc:137) so frag throws never trigger it - mirrors
+    // stock's own web-grenade detection (weapon == level.w_widows_wine_grenade).
+    if ( isdefined( level.w_widows_wine_grenade )
+         && isdefined( weapon ) && weapon == level.w_widows_wine_grenade
+         && isdefined( attacker ) && isplayer( attacker )
+         && acc_mega_bottles::has_mega_perk( attacker, "specialty_widowswine" )
+         && !is_boss_or_elite( self ) )
+    {
+        self acc_points::record_damage( attacker, self.health + 666 );
+        return self.health + 666;
+    }
+
     b_player_attacker = isdefined( attacker ) && isplayer( attacker );
     b_melee  = is_melee_mod( meansofdeath );
     b_bullet = is_bullet_mod( meansofdeath );

@@ -367,26 +367,100 @@ Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Over
 
 ## Implementation Status
 
-**Implemented (greybox)**: [`_acc_perk_aura_blast.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc)
-— Aura Blast base tier is live by hijacking the stock-but-unfinished
-`_zm_perk_electric_cherry` module (mod tools ship it with Treyarch's own
-"TODO update these to proper settings" placeholders). The stock module
-provides the full registered machine/bottle/clientfield pipeline for
-`specialty_electriccherry`; our module overwrites cost (2,500), hint string,
-and the give/take threads with the Aura Blast ability (400u / 3s stun / 120s
-CD / bosses immune, crouch+melee activation). Machine in Radiant =
-`zm_perk_machine` struct with `script_noteworthy "specialty_electriccherry"`,
-model `p7_zm_vending_nuke` (stock placeholder; custom machine model is Phase 5
-art). Mega tier (Mega Man) and HUD cooldown ring remain Phase 3/4.
+**Audited 2026-06-13, GSC fixes applied 2026-06-14** (24-agent audit → per-perk
+research+verify workflow → hand-applied, `lint_gsc_xref.js` clean). This section is
+the **authoritative implemented-vs-spec ledger** — the prose above is design
+*intent*; the table below is what fires in-game today. The non-GSC remainder (GDT
++ Radiant, with Asset-Editor steps) is its own work order:
+**[30_perk_gdt_radiant_spec.md](30_perk_gdt_radiant_spec.md)**.
 
-Phase 3 Planned: `_acc_perks.gsc` module to be authored. Responsibilities:
+**Status legend:** **OK** = real code grants it (cited). **OK\*** = GSC implemented
+but the exact tuning number needs an in-game confirm (depends on a baked GDT
+constant). **PARTIAL** = GSC half done, full magnitude needs a GDT bump (doc 30).
+**STOCK** = provided by the stock pipeline once the specialty is given. **GDT** =
+no GSC lever; needs an Asset-Editor edit (doc 30). **MISSING** = no backing /
+spec blocker.
 
-- Remove the 4-perk cap by overriding `_zm_perks::give_perk` logic.
-- Register Aura Blast as an active-activated perk (hooks a player notify via perk ability hotkey).
-- Register Deadshot effects: headshot mult (feeds into `_acc_damage.gsc::on_ai_damage`) + auto-aim flag.
-- Register Widow's Wine damage boost (hooks grenade fire events).
-- Retune Jug / QR / Speed Cola / Stamin-Up stats from stock defaults.
-- Cost override table for our per-perk costs.
+### Two cross-cutting facts
+
+1. **The repo ships zero `.gdt` files.** Baked weapon/zombie *stats* (fire rate,
+   recoil, reload/drink/swap timing, ammo *capacity*, blast radius) have **no GSC
+   lever** and need an Asset-Editor edit + full rebuild — see
+   [doc 30](30_perk_gdt_radiant_spec.md).
+2. **`_acc_perks.gsc` now exists** (authored 2026-06-14) and hosts the base-perk
+   GSC retuning (Jug 3/6, QR regen, Savior revive + speed). Cap-removal stays
+   inline in the entry script.
+
+### Per-perk ability ledger
+
+| Perk (specialty) | Ability | Status | Where (or why not) |
+|---|---|---|---|
+| **Jug** (`armorvest`) | base 6-hit model | OK\* | `_acc_perks.gsc::tune_jugg_health` sets `zombie_perk_juggernaut_health=150` → 250 HP → 6 hits @ melee 45; confirm hit-count in-game (melee is a GDT constant) |
+| | cost 4,000 | OK | `zm_abandoned_cyber_city.gsc:325` |
+| | Mega Ultimate Tank +1→7 hits | OK\* | `_acc_mega_bottles.gsc` armorvest case = `+50` HP → 300 → 7th-hit down (recalibrated from +100) |
+| | Mega boss-ability immunity | OK | `_acc_boss.gsc::protect_immune_players_during_debuff` re-grants immune holders' perks during disable_*_for. *Caveat: power-off is a global flag, so the holder's traps still go dark — only owned perks are preserved* |
+| **Quick Revive** (`quickrevive`) | base faster teammate revive | STOCK | `_zm_perk_quick_revive` |
+| | base +30% HP regen after damage | OK\* | `_acc_perks.gsc::qr_regen_booster` (regen starts ~30% sooner). *Effect is "earlier start", not a faster steady rate — stock heals instant-to-full at the delay* |
+| | base solo self-revive; cost 2,500 | STOCK / OK | stock; cost `…gsc:326` |
+| | Mega Savior revive ×0.6 | OK | `_acc_perks.gsc::savior_revive_time` via `self.get_revive_time` hook (1.5s→0.9s) |
+| | Mega Savior +15% move while teammate down | OK | `_acc_perks.gsc::savior_speed_watcher` + `×1.15` term in `_acc_utility.gsc:recompute_move_speed` |
+| **Speed Cola** (`fastreload`) | base +50% reload + barrier | STOCK | stock |
+| | base ~40% shorter drink; ~30% faster swap; cost 3,500 | GDT / OK | no GSC weapon-timing lever — anim assets, [doc 30](30_perk_gdt_radiant_spec.md); cost `…gsc:327` |
+| | Mega +65% reload / +15% switch / +15% drink | GDT | no GSC reload/swap setter; unconditional GDT or cut — [doc 30](30_perk_gdt_radiant_spec.md) |
+| **Double Tap 2.0** (`doubletap2`) | base +33% fire rate | STOCK | engine-granted free with the specialty (doc abstracts DT to damage-only) |
+| | base +3% damage | OK | `_acc_damage.gsc:279-285` (×1.03) |
+| | cost 2,000 | OK | `…gsc:328` |
+| | Mega Gun Slinger +50% fire rate | GDT/cut | no per-perk fireTime lever; out of scope — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | Mega Gun Slinger +6% damage | OK | `_acc_damage.gsc:281-282` (×1.06, replaces base) |
+| **Stamin-Up** (`staminup`) | base longer/faster sprint; cost 2,000 | STOCK / OK | engine-driven; cost `…gsc:329` |
+| | Mega Flash longer sprint | OK | `_acc_mega_bottles.gsc::apply_flash_sprint` `SetSprintDuration(6.0)` (4.0 stock) + respawn re-apply |
+| | Mega Flash +12% run | OK | `_acc_utility.gsc:149-153` `SetMoveSpeedScale ×1.12` |
+| | Mega Flash ×2 walk / ×4 crawl | MISSING | engine has only a *uniform* move scalar — no per-stance lever exists (verified). Documented limitation |
+| **Mule Kick** (`additionalprimaryweapon`) | base third primary; cost 2,500 | STOCK / OK | `additionalprimaryweapon_limit=3`; cost `…gsc:330` |
+| | Mega Armory +2 lethal / +2 tactical | PARTIAL | `_acc_mega_bottles.gsc::armory_apply` fills to cap; the +2 needs grenade-GDT `maxAmmo` bump — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | Mega Armory +30% ammo (reserves) | PARTIAL | same `armory_apply` fills reserves; the +30% *cap* needs per-weapon GDT — [doc 30](30_perk_gdt_radiant_spec.md) |
+| **Deadshot** (`deadshot`) | base ADS head-snap, no boss snap | STOCK + OK | stock snap; boss snap suppressed `_acc_boss.gsc:218,371` |
+| | base ×1.5 headshot; cost 3,500 | OK / OK | `_acc_damage.gsc:414-419`; cost `…gsc:331` |
+| | Mega American Sniper ×1.75 (replaces 1.5) | OK | `_acc_damage.gsc:416-417` (true if/else, no double-dip) |
+| | Mega no recoil | GDT | static recoil tables; needs a no-recoil weapon-variant swap — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | Mega snap still on regulars/elites | STOCK | stock |
+| **Widow's Wine** (`widowswine`) | base webs / melee / defense | STOCK | stock |
+| | base +50% frag damage | OK | `_acc_damage.gsc:290-294` (×1.50) |
+| | base +25% frag radius | GDT | `explosionRadius` ×1.25 — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | base +50% EMP stun / +25% radius; cost 4,000 | MISSING | spec blocker — stock Widow has no EMP asset; re-scope/strike (doc 30). cost `…gsc:332` |
+| | Mega Spiderman melee OHK zombies | OK | `_acc_damage.gsc:192-199` |
+| | Mega Spiderman web-grenade OHK | OK | `_acc_damage.gsc` web-grenade branch (gated on `level.w_widows_wine_grenade`) |
+| | Mega Spiderman 6 web grenades | PARTIAL | `_acc_mega_bottles.gsc` widowswine case fills reserve to 6; engine clamps to the grenade GDT `maxAmmo` — bump it ([doc 30](30_perk_gdt_radiant_spec.md)) |
+| **Aura Blast** (`electriccherry`) | base 400u / 3s / 120s / crouch+melee; cost 2,500 | OK ×5 | `_acc_perk_aura_blast.gsc` |
+| | base per-enemy-type matrix | OK | `do_aura_blast` rewrite + `aura_stun_with_effects` + teleporter guard in `_acc_elites.gsc`: shielded shield-down, teleporter no-teleport, EMP 1s, mini-boss 50% at base, full boss immune |
+| | Mega Man 800u / 60s / 2 charges / bosses affected | OK ×4 | `_acc_perk_aura_blast.gsc` |
+
+### Shared systems
+
+- **No-perk-cap removal — OK.** `level.perk_purchase_limit = 9`
+  (`zm_abandoned_cyber_city.gsc:192`), consumed by the live stock buy-gate.
+- **Per-round rotation — brain OK, body STUB.** `roll_perk_rotation()` rolls/stores
+  fine, but `apply_perk_rotation_to_machines` is a `TODO(acc-geom)` stub and **no
+  `acc_lab_perk_*` entities exist in Radiant**, so the rolled array is discarded —
+  all 9 perks are always buyable; the 4-of-9 lockout does not happen. Needs Radiant
+  geometry — [doc 30](30_perk_gdt_radiant_spec.md).
+- **Mega Bottle system — OK; effect-application now near-complete.** drop / inventory
+  / apply / flag / persistence all real; of the 9 Mega effects, **8 now fire** (added
+  2026-06-14: Savior, The Flash sprint, The Armory fill). Only **Sleight of Hand
+  Expert** is GDT-blocked (reload/swap timing — doc 30).
+
+### Remaining work (post-2026-06-14)
+
+Everything GSC-reachable is done. The remainder is **GDT/Radiant only** — see
+**[30_perk_gdt_radiant_spec.md](30_perk_gdt_radiant_spec.md)** for asset/field/value
++ Asset-Editor steps:
+
+- **GDT:** Mule Armory caps (+2 grenades, +30% reserve) · Widow +25% frag radius · Widow
+  6-web-grenade cap · Deadshot no-recoil (variant-swap) · Speed Cola reload/drink/swap.
+- **Radiant:** the 4 `acc_lab_perk_*` machines for the rotation lockout.
+- **Design decisions:** Widow EMP line (re-scope/strike) · DT/Gun Slinger fire-rate &
+  Speed Cola timing (cut from card vs ship unconditional map-wide) · in-game confirm of
+  the Jug 3/6/7 hit counts (depends on the melee=45 GDT constant).
 
 Custom perks (Aura Blast, Widow's Wine as modified, Deadshot as a variant) follow the custom perk template workflow in [16_gsc_reference.md](16_gsc_reference.md) section 5.
 

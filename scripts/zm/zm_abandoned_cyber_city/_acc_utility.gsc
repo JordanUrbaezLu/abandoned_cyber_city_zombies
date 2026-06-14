@@ -150,5 +150,9 @@ function recompute_move_speed( player )
     {
         n_scale = n_scale * 1.12; // The Flash Mega (docs/13)
     }
+    if ( isdefined( player.acc_savior_speed ) && player.acc_savior_speed )
+    {
+        n_scale = n_scale * 1.15; // Savior Mega: +15% while a teammate is down (docs/13)
+    }
     player SetMoveSpeedScale( n_scale );
 }

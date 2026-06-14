@@ -262,6 +262,13 @@ function teleporter_ability_loop()
         {
             continue;
         }
+        // Aura Blast: suppress the teleport while this elite is stunned (docs/13
+        // "teleporters -> no teleport"). The flag is set/cleared for exactly the
+        // stun window by acc_perk_aura_blast::aura_stun_with_effects.
+        if ( IS_TRUE( self.acc_aura_no_teleport ) )
+        {
+            continue;
+        }
         self forceteleport( flank_pos );
         // TODO(acc-fx): play teleport FX on both source and destination.
     }

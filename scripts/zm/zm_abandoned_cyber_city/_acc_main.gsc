@@ -31,6 +31,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
@@ -94,6 +95,9 @@ function init()
     acc_boss::init();
     acc_boss_items::init();
     acc_mega_bottles::init();
+    // Base-perk retuning (Jug 3/6, QR regen, Savior). After mega_bottles so its
+    // has_mega_perk / move-speed hooks are live.
+    acc_perks::init();
     acc_weapon_abilities::init();
     // Points must init before damage so record_damage is available on the first hit.
     acc_points::init();
@@ -141,6 +145,7 @@ function on_player_connect()
     acc_modifiers::on_player_connect( self );
     acc_boss_items::on_player_connect( self );
     acc_mega_bottles::on_player_connect( self );
+    acc_perks::on_player_connect( self );
     acc_weapon_abilities::on_player_connect( self );
 }
 
@@ -158,6 +163,7 @@ function on_player_spawned()
 
     acc_data_shards::on_player_spawned( self );
     acc_cyberware::on_player_spawned( self );
+    acc_perks::on_player_spawned( self );
 }
 
 function on_player_disconnect()

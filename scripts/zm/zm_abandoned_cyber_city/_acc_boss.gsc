@@ -537,6 +537,13 @@ function disable_power_for( duration )
 
     acc_utility::log( "power disabled for " + duration + "s (boss debuff)" );
     level flag::clear( "power_on" );
+    // Ultimate Tank holders are immune: power-off routes through perk_power_off
+    // -> perk_pause -> UnsetPerk on every owner (_zm_power.gsc:699/:718,
+    // _zm_perks.gsc:1249). Re-grant the immune players' perks across the next
+    // few network frames (powered items unset one network-frame apart,
+    // _zm_power.gsc:485). NOTE: power_on is a single global flag, so an immune
+    // player's electric traps still go dark - only OWNED perks are preserved.
+    level thread protect_immune_players_during_debuff();
     wait( duration );
     level flag::set( "power_on" );
     acc_utility::log( "power restored" );
@@ -549,9 +556,59 @@ function disable_perks_for( duration )
 {
     acc_utility::log( "perks disabled for " + duration + "s (boss debuff)" );
     level thread zm_perks::perk_pause_all_perks();
+    // Ultimate Tank holders are immune (same UnsetPerk path, _zm_perks.gsc:1249).
+    level thread protect_immune_players_during_debuff();
     wait( duration );
     level thread zm_perks::perk_unpause_all_perks();
     acc_utility::log( "perks restored" );
+}
+
+// Ultimate Tank (Jug Mega) boss-ability immunity (docs/13_perks.md). Re-assert
+// immune players' perks for ~2s so the debuff's UnsetPerk cascade (one powered
+// item per network frame) can't stick on them. Clearing disabled_perks[perk]
+// makes the trailing global unpause/repower a no-op for these players.
+function protect_immune_players_during_debuff()
+{
+    level endon( "end_game" );
+
+    for ( n = 0; n < 20; n++ )
+    {
+        for ( i = 0; i < level.players.size; i++ )
+        {
+            p = level.players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( acc_mega_bottles::has_mega_perk( p, "specialty_armorvest" ) )
+                p restore_immune_player_perks();
+        }
+        util::wait_network_frame();
+    }
+}
+
+// self = an Ultimate-Tank player. Re-Set every registered perk this player
+// owned-but-was-paused, mirroring stock perk_unpause's re-grant block
+// (_zm_perks.gsc:1278-1290), and clear disabled_perks so the global unpause skips them.
+function restore_immune_player_perks()
+{
+    if ( !isdefined( self.disabled_perks ) ) return;
+    if ( !isdefined( level._custom_perks ) ) return;
+
+    a_keys = GetArrayKeys( level._custom_perks );
+    for ( i = 0; i < a_keys.size; i++ )
+    {
+        perk = a_keys[ i ];
+        if ( !IS_TRUE( self.disabled_perks[ perk ] ) ) continue;
+
+        self.disabled_perks[ perk ] = false;            // unpause/repower now skips us
+        self SetPerk( perk );                           // builtin: re-grant the perk
+        self zm_perks::set_perk_clientfield( perk, 1 ); // PERK_STATE_OWNED = 1
+
+        // Jug HP must be re-applied (UnsetPerk dropped the jugg add).
+        self zm_perks::perk_set_max_health_if_jugg( perk, false, false );
+
+        // Re-run the perk's custom give-thread if it has one (mirrors stock).
+        if ( isdefined( level._custom_perks[ perk ].player_thread_give ) )
+            self thread [[ level._custom_perks[ perk ].player_thread_give ]]();
+    }
 }
 
 function spawn_emp_elite_add()
