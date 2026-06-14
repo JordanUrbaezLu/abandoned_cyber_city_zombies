@@ -87,6 +87,27 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 2 — damage numbers + boss bar over the head (item 8) (2026-06-13)
+
+Root cause (audit + a verified-pattern agent): `hud::createFontString` /
+`createServerFontString` / `createServerBar` all `setParent(level.uiParent)` → the
+elem binds to the SCREEN layer, so `SetTargetEnt` + world `.z` are ignored and it
+clamps to the top of the screen (the bug hit twice). And `WorldToScreen` does NOT
+exist in BO3, so per-frame screen projection is impossible. Fix = the stock
+`entityheadicons` follow pattern, mirroring our working door markers: raw
+`NewClientHudElem` (NEVER a `hud::create*` factory) + world `.z` offset +
+`SetWaypoint(false)` + `SetTargetEnt(ent)`.
+- **Damage numbers** (`_acc_dev::show_dmg_number`): `NewClientHudElem(attacker)` +
+  `SetText` + `SetTargetEnt(anchor)` over the zombie, rise + fade. (The old
+  screen-parented version proved the text renders — it was only mis-positioned.)
+- **Boss bar** (`_acc_health_bars::boss_bar_track`): per-player `NewClientHudElem`
+  dark bg + a "white" fill icon whose WIDTH scales with the health fraction (stock
+  `updateBarScale` math) + a name text elem, all following the boss in world space.
+
+All builtins verified vs the stock mirror; build exit 0. One in-game unknown (no
+stock precedent for TEXT on a `SetTargetEnt` elem) — but the prior attempt's text
+DID render (just mis-placed), so confidence is high; the icon bar is stock-proven.
+
 ### Overhaul batch 1 — PaP HUD/flicker, rampage in spawn (2026-06-13, MajorImprovements)
 
 First slice of the 9-item overhaul (full code-cited tracker: **docs/29_overhaul_checklist.md**,

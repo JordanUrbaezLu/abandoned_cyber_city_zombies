@@ -140,32 +140,36 @@ function show_dmg_number()
 
     if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
 
-    // Anchor to a short-lived world origin so the number stays put even if the
-    // zombie dies/despawns mid-float. Same waypoint pattern as the door markers
-    // (which render in-game): elem.z offset + SetWaypoint(true) + SetTargetEnt.
+    // RAW NewClientHudElem - NOT hud::createFontString, which setParents the elem to the
+    // SCREEN layer (level.uiParent, hud_util_shared.gsc:347) and is exactly why the prior
+    // attempts clamped to the TOP of the screen. The stock over-head FOLLOW pattern is
+    // entityheadicons_shared.gsc: newClientHudElem + a world .z offset + SetWaypoint(false)
+    // + SetTargetEnt(ent). Text DOES render this way - the old screen-parented version
+    // proved the number shows (it was only mis-positioned). Anchor to a short-lived origin
+    // so the number survives the zombie dying mid-float. NEVER call SetShader here (that
+    // switches the elem to icon rendering and hides the text).
     anchor = Spawn( "script_origin", org );
-    elem = attacker hud::createFontString( "default", 1.6 );
+    elem = NewClientHudElem( attacker );
+    elem.archived = false;
+    elem.font = "default";
+    elem.fontScale = 1.6;
     elem.alignX = "center";
     elem.alignY = "middle";
     elem.color = ( 1.0, 0.85, 0.2 );
-    elem.alpha = 1.0;          // MUST set before FadeOverTime, else it fades from 0
-    elem.sort = 50;
-    elem.archived = false;
-    elem.hidewheninmenu = true;
+    elem.alpha = 1.0;          // set before FadeOverTime, else it fades from 0
     elem.x = 0;
     elem.y = 0;
-    elem.z = 56;
-    elem SetWaypoint( false );  // false = 3D world placement at the enemy (NOT
-                                // clamped to screen edge like true would do)
-    elem SetTargetEnt( anchor );
+    elem.z = 50;               // ~head height above the anchor (zombie origin = feet)
     elem SetText( "" + total );
+    elem SetWaypoint( false );  // 3D world placement; scales with distance, NOT screen-clamped
+    elem SetTargetEnt( anchor );
 
     elem FadeOverTime( 0.9 );
     elem.alpha = 0;
     for ( i = 0; i < 9; i++ )
     {
         if ( !isdefined( elem ) ) break;
-        elem.z = 56 + ( i + 1 ) * 3; // rise
+        elem.z = 50 + ( i + 1 ) * 4; // rise
         wait 0.1;
     }
     if ( isdefined( elem ) ) elem Destroy();

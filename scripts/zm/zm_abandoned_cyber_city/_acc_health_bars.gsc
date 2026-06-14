@@ -24,6 +24,8 @@
 #define ACC_PLAYER_BAR_H 9
 #define ACC_BOSS_BAR_W   340
 #define ACC_BOSS_BAR_H   14
+#define ACC_BOSS_OH_W    80   // overhead (world-space) boss bar width, px
+#define ACC_BOSS_OH_H    7    // overhead (world-space) boss bar height, px
 
 #namespace acc_health_bars;
 
@@ -115,43 +117,86 @@ function boss_bar_listener()
     }
 }
 
-// Overhead bar + name that FOLLOW the boss in world space (above its head),
-// not a fixed top-of-screen bar. SetWaypoint(false) = 3D world placement;
-// elem.z is the height offset above the entity origin (entityheadicons pattern).
+// Overhead bar + name that FOLLOW the boss in world space (above its head). Built
+// from RAW NewClientHudElem PER PLAYER (the stock entityheadicons follow pattern:
+// world .z offset + SetWaypoint(false) + SetTargetEnt) - NOT hud::createServerBar /
+// createServerFontString, which setParent the elems to the SCREEN layer and clamp
+// the bar to the top of the screen (the bug hit twice). The bar is a "white" fill
+// icon whose WIDTH is scaled by the health fraction (stock updateBarScale math); a
+// dark bg sits behind it; the name is a text elem. Per-player NewClientHudElem
+// matches our working door markers (create_door_marker in _acc_dev.gsc).
 function boss_bar_track( boss, name )
 {
     level endon( "end_game" );
     if ( !isdefined( boss ) ) return;
     if ( !isdefined( name ) ) name = "BOSS";
+    if ( !isdefined( boss.maxhealth ) || boss.maxhealth <= 0 ) boss.maxhealth = boss.health;
 
-    bar = hud::createServerBar( ( 0.9, 0.12, 0.12 ), 96, 7 );
-    bar.alignX = "center";
-    bar.alignY = "middle";
-    bar.x = 0; bar.y = 0; bar.z = 76; // above the head
-    bar SetWaypoint( false );
-    bar SetTargetEnt( boss );
-    bar.alpha = 0.95;
-
-    label = hud::createServerFontString( "default", 1.0 );
-    label.alignX = "center";
-    label.alignY = "middle";
-    label.x = 0; label.y = 0; label.z = 88;
-    label SetWaypoint( false );
-    label SetTargetEnt( boss );
-    label.color = ( 1.0, 0.35, 0.35 );
-    label.alpha = 0.95;
-    label SetText( "^1" + name );
+    sets = [];
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+        sets[ sets.size ] = make_boss_bar_set( players[ i ], boss, name );
 
     while ( isdefined( boss ) && isalive( boss ) && isdefined( boss.health ) && boss.health > 0 )
     {
-        maxh = ( isdefined( boss.maxhealth ) && boss.maxhealth > 0 ? boss.maxhealth : boss.health );
-        frac = boss.health / maxh;
+        frac = boss.health / boss.maxhealth;
         if ( frac < 0 ) frac = 0;
         if ( frac > 1 ) frac = 1;
-        bar hud::updateBar( frac );
+        w = int( ACC_BOSS_OH_W * frac );
+        if ( w < 1 ) w = 1;
+        for ( i = 0; i < sets.size; i++ )
+        {
+            if ( isdefined( sets[ i ].fill ) )
+                sets[ i ].fill SetShader( "white", w, ACC_BOSS_OH_H );
+        }
         wait 0.1;
     }
 
-    if ( isdefined( bar ) )   bar hud::destroyElem();
-    if ( isdefined( label ) ) label hud::destroyElem();
+    for ( i = 0; i < sets.size; i++ )
+        destroy_boss_bar_set( sets[ i ] );
+}
+
+// One bg + colored fill + name elem set, all following the boss for `player`.
+function make_boss_bar_set( player, boss, name )
+{
+    s = SpawnStruct();
+
+    bg = NewClientHudElem( player );
+    bg.archived = false;
+    bg.alignX = "center"; bg.alignY = "middle";
+    bg.x = 0; bg.y = 0; bg.z = 76;
+    bg.color = ( 0, 0, 0 ); bg.alpha = 0.55; bg.sort = 0;
+    bg SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
+    bg SetWaypoint( false );
+    bg SetTargetEnt( boss );
+
+    fill = NewClientHudElem( player );
+    fill.archived = false;
+    fill.alignX = "center"; fill.alignY = "middle";
+    fill.x = 0; fill.y = 0; fill.z = 76;
+    fill.color = ( 0.9, 0.12, 0.12 ); fill.alpha = 0.95; fill.sort = 1;
+    fill SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
+    fill SetWaypoint( false );
+    fill SetTargetEnt( boss );
+
+    label = NewClientHudElem( player );
+    label.archived = false;
+    label.font = "default";
+    label.fontScale = 1.0;
+    label.alignX = "center"; label.alignY = "middle";
+    label.x = 0; label.y = 0; label.z = 90;
+    label.color = ( 1.0, 0.4, 0.4 ); label.alpha = 0.95;
+    label SetText( name );
+    label SetWaypoint( false );
+    label SetTargetEnt( boss );
+
+    s.bg = bg; s.fill = fill; s.label = label;
+    return s;
+}
+
+function destroy_boss_bar_set( s )
+{
+    if ( isdefined( s.bg ) )    s.bg Destroy();
+    if ( isdefined( s.fill ) )  s.fill Destroy();
+    if ( isdefined( s.label ) ) s.label Destroy();
 }

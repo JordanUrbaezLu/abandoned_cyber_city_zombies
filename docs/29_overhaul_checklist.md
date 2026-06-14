@@ -55,7 +55,11 @@ Hard part: slot = acquisition order (shifts when a perk is lost) — the widget 
 mirror the stock list, not assume a fixed slot. Files: `_acc_mega_bottles.gsc`,
 `_acc_lui.gsc/.csc`, `acc_hud.lua`.
 
-### [ ] 8. Damage numbers + boss bar over the zombie's head (done right)
+### [x] 8. Damage numbers + boss bar over the zombie's head (done right) — built (batch 2)
+Done via the stock `entityheadicons` follow pattern: raw `NewClientHudElem` (never a
+`hud::create*` factory, which screen-clamps) + world `.z` + `SetWaypoint(false)` +
+`SetTargetEnt`. Damage numbers = text over the anchor; boss bar = per-player bg +
+width-scaled "white" fill + name. `WorldToScreen` confirmed nonexistent in BO3.
 Root cause (audit): both build elems with `hud::createFontString`/`createServerBar`
 (→ setParent the screen layer) and pass `SetWaypoint(FALSE)` → they clamp to the
 top of the screen. **Fix:**
