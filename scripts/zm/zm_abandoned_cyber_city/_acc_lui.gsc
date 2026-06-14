@@ -45,6 +45,10 @@ function __init__()
     // Mega-perk bitmask: bit i set => perk (i+1) is Mega'd (perk_card_index order,
     // 1..9). 9 bits. acc_hud.lua glows the matching perk-bar slot.
     clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 9, "int" );
+    // Damage number: value = min(dmg,99999)*2 + parity. acc_hud.lua shows it near
+    // the crosshair (you aim at the zombie, so it reads on-target). The parity bit
+    // flips every push so an identical number still re-triggers the popup. 18 bits.
+    clientfield::register( "clientuimodel", "accDmgNum", VERSION_SHIP, 18, "int" );
     callback::on_connect( &on_player_connect );
 }
 
@@ -68,6 +72,14 @@ function set_mega_mask( player, mask )
 {
     if ( !isdefined( mask ) || mask < 0 ) mask = 0;
     player clientfield::set_player_uimodel( "accMegaMask", mask );
+}
+
+// Push a crosshair damage number. `value` = min(dmg,99999)*2 + parity (the caller
+// owns the parity flip so identical numbers re-pop). 0 hides the number.
+function set_dmg_num( player, value )
+{
+    if ( !isdefined( value ) || value < 0 ) value = 0;
+    player clientfield::set_player_uimodel( "accDmgNum", value );
 }
 
 function on_player_connect()

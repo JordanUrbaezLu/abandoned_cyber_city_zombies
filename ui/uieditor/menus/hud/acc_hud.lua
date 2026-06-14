@@ -220,6 +220,48 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
     return self
 end
 
+-- Crosshair damage number. Driven by the "accDmgNum" model (value = dmg*2 + parity;
+-- 0 = hide). Centered just above the crosshair so it reads as damage on the zombie
+-- you're aiming at. Reliable screen-space LUI (no objective/waypoint override).
+CoD.AccDmgNum = InheritFrom(LUI.UIElement)
+
+function CoD.AccDmgNum.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccDmgNum)
+    self:setLeftRight(false, false, -130, 130) -- centered, 260 wide
+    self:setTopBottom(false, false, -150, -110) -- just above the crosshair
+    self.id = "AccDmgNum"
+
+    local Num = LUI.UIText.new()
+    Num:setLeftRight(true, true, 0, 0)
+    Num:setTopBottom(true, true, 0, 0)
+    Num:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+    Num:setScale(1.4)
+    Num:setRGB(1.0, 0.84, 0.2)
+    Num:setAlpha(0)
+    self:addElement(Num)
+    self.Num = Num
+
+    local function OnDmg(ModelRef)
+        local v = Engine.GetModelValue(ModelRef) or 0
+        if v == 0 then
+            -- No recent damage: fade out.
+            self.Num:completeAnimation()
+            self.Num:beginAnimation("keyframe", 350, false, false, CoD.TweenType.Linear)
+            self.Num:setAlpha(0)
+            return
+        end
+        local dmg = math.floor(v / 2)
+        if dmg <= 0 then return end
+        self.Num:completeAnimation()
+        self.Num:setText(tostring(dmg))
+        self.Num:setAlpha(1.0)
+    end
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accDmgNum"), OnDmg)
+    return self
+end
+
 function LUI.createMenu.acc_hud(Instance)
     local Hud = CoD.Menu.NewForUIEditor("acc_hud")
 
@@ -231,6 +273,10 @@ function LUI.createMenu.acc_hud(Instance)
     local Card = CoD.AccPerkCard.new(Hud, Instance)
     Hud:addElement(Card)
     Hud.accCard = Card
+
+    local DmgNum = CoD.AccDmgNum.new(Hud, Instance)
+    Hud:addElement(DmgNum)
+    Hud.accDmgNum = DmgNum
 
     local function OnHudClose(Sender)
         Sender.accCard:close()

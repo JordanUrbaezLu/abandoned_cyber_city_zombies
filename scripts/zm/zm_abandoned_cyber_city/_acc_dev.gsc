@@ -26,6 +26,7 @@
 #using scripts\zm\_zm_score;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
@@ -102,51 +103,80 @@ function dev_skip_round()
 // ---------------------------------------------------------------------------
 
 // Read-only actor-damage callback (self = victim/zombie). Registered AFTER
-// _acc_damage, so the value is already perk/overclock-modified. Spawns a
-// floating damage NUMBER at the hit enemy. NEVER modifies damage (-1).
+// _acc_damage, so the value is already perk/overclock-modified. Feeds the
+// crosshair damage NUMBER on the ATTACKER. NEVER modifies damage (-1).
+//
+// WHY crosshair, not over each zombie: over-entity arbitrary TEXT in BO3 requires
+// globally overriding CoD.Waypoints (the engine's objective/waypoint dispatcher) +
+// shipping objectives.json - it errors the whole HUD if that table fails to load
+// (proven: zm_countryside hb21waypoints.lua). That system is built for persistent
+// quest markers, NOT many-per-second combat popups (it would spam the compass +
+// objective list). The reliable, correct path is a crosshair-anchored LUI number:
+// you aim at the zombie, so it reads on-target. See acc_hud.lua CoD.AccDmgNum.
 function dev_damage_cb( inflictor, attacker, damage, flags, meansofdeath, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
     if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( damage ) && damage > 0 )
-        self accumulate_dmg_number( attacker, int( damage ) );
+        attacker acc_center_dmg_add( int( damage ) );
     return -1; // no damage modification
 }
 
-// self = zombie. Batch hits inside a short window into ONE rising number
-// (perf + readability with automatic weapons).
-function accumulate_dmg_number( attacker, amount )
+// self = player. Accumulate damage; a push loop batches it to the crosshair number
+// every ~0.12s so sustained automatic fire reads as one steadily-updating number
+// (instead of a flicker storm) and hides shortly after you stop firing.
+function acc_center_dmg_add( amount )
 {
-    if ( !isdefined( self.acc_dmg_pending ) ) self.acc_dmg_pending = 0;
-    self.acc_dmg_pending += amount;
-    self.acc_dmg_attacker = attacker;
+    if ( !isdefined( self.acc_cdmg ) ) self.acc_cdmg = 0;
+    self.acc_cdmg += amount;
 
-    if ( !IS_TRUE( self.acc_dmg_num_active ) )
+    if ( !IS_TRUE( self.acc_cdmg_loop_on ) )
     {
-        self.acc_dmg_num_active = true;
-        self thread show_dmg_number();
+        self.acc_cdmg_loop_on = true;
+        self thread acc_center_dmg_push_loop();
     }
 }
 
-// self = zombie.
-function show_dmg_number()
+// self = player.
+function acc_center_dmg_push_loop()
 {
-    wait 0.1; // batch window
-    if ( !isdefined( self ) ) return;
+    self endon( "disconnect" );
+    level endon( "end_game" );
 
-    total = self.acc_dmg_pending;
-    attacker = self.acc_dmg_attacker;
-    org = self.origin;
-    self.acc_dmg_pending = 0;
-    self.acc_dmg_num_active = false;
+    parity = 0;
+    idle_ticks = 0;
+    showing = false;
 
-    if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
+    for ( ;; )
+    {
+        wait 0.12;
+        if ( !isdefined( self ) ) return;
 
-    // DISABLED pending the correct implementation. In-game proof established the hard
-    // BO3 rule: world-space TEXT is impossible - SetWaypoint(false)+SetTargetEnt renders
-    // ICONS over the entity but SUPPRESSES text; removing SetWaypoint dumps the text to
-    // the top-left (0,0); and there is no WorldToScreen for per-frame projection. Floating
-    // damage NUMBERS therefore must be world-projected digit ICONS (or a LUI world-anchored
-    // widget) - being implemented next. Until then we do NOT render the broken top-left
-    // number. (accumulate_dmg_number still tracks the per-hit total above for that work.)
+        dmg = self.acc_cdmg;
+        self.acc_cdmg = 0;
+
+        if ( dmg > 0 )
+        {
+            if ( dmg > 99999 ) dmg = 99999;
+            parity = 1 - parity;
+            acc_lui::set_dmg_num( self, dmg * 2 + parity );
+            showing = true;
+            idle_ticks = 0;
+        }
+        else
+        {
+            // Hide ~0.4s after the last hit, then stop the loop until next damage.
+            idle_ticks++;
+            if ( showing && idle_ticks >= 3 )
+            {
+                acc_lui::set_dmg_num( self, 0 );
+                showing = false;
+            }
+            if ( idle_ticks >= 6 )
+            {
+                self.acc_cdmg_loop_on = false;
+                return;
+            }
+        }
+    }
 }
 
 // Zone signage only (the DMG/DPS side panel was replaced by floating numbers).

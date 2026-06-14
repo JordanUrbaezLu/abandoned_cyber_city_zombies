@@ -87,6 +87,25 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 7 — LUI: PaP next-tier card + crosshair damage numbers (2026-06-13)
+
+- **PaP card shows the NEXT tier only (item 3).** New `accPapTier` clientuimodel field
+  (3b, lockstep gsc/csc); `_acc_perk_info` pushes the held weapon's current tier when near
+  the machine; `acc_hud.lua` renders one "Next - Tier N: <benefit> (cost)" line (or MAX at
+  5) instead of the whole T1-T5 ladder, re-rendering on tier change.
+- **Damage numbers — crosshair-anchored LUI (item 8).** New `accDmgNum` field (18b);
+  `_acc_dev` batches each attacker's damage and pushes it every ~0.12s; `acc_hud.lua`'s new
+  `CoD.AccDmgNum` widget shows the number just above the crosshair (you aim at the zombie,
+  so it reads on-target) and fades ~0.4s after you stop firing.
+  - **Why not over each zombie's head:** proven from shipped code (`zm_countryside`
+    `hb21waypoints.lua`) that over-entity *text* requires globally overriding `CoD.Waypoints`
+    (the engine's objective/waypoint dispatcher) + shipping `objectives.json`, which `error()`s
+    the entire HUD if that table fails to load. That system renders persistent quest markers,
+    not many-per-second combat popups (it would spam the compass + objective list). World-space
+    HUD text is impossible and waypoint icons are fixed-size with no digit shaders. The
+    crosshair-anchored number is the reliable, correct path.
+- **Registered `accMegaMask` (9b)** ahead of the perk-icon glow widget (built next, isolated).
+
 ### Overhaul batch 6 — reliable boss bar + arsenal strip + honest perk cards (2026-06-13)
 
 Driven by test feedback ("rampage stops after a minute"; "boss is a box that only
