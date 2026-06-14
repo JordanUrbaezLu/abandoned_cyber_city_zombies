@@ -496,6 +496,52 @@ in to see the skinned rooms before cutting doors, to confirm the look.
 
 ---
 
+## 14. ⚠️ Custom wall/floor materials are BLOCKED on this install (do not re-fight)
+
+After extensive investigation + live build experiments (2026-06-13), **custom
+wall/floor material skinning does not work on this public-Steam Mod Tools install.**
+The night sky, fog, reflection probes, and rooms all work; only painted **materials**
+are blocked. Walls/floors are reverted to the stock greybox `script_wall` /
+`script_floor_ceiling` (which render). **Root cause, proven, not guessed:**
+
+- **Painting a custom/stock material on a brush face does NOT pack it into the
+  usermap `.ff`.** Verified: a project material (`acc_wall_concrete`) and stock
+  `t7_*` names are absent from the build's `.deps` + assetlist + `.ff` binary,
+  while stock dev materials (`wc/script_wall`) ARE present. Only materials in the
+  base ZM fastfiles (dev textures) or pulled as model/prefab dependencies pack
+  from painting.
+- **Forcing a pack via a `.zone` `material,<name>` line makes the linker COMPILE
+  that material's techset shaders from source** — and the public tools ship the
+  compiled shader **cache** but **not the shader source**. The compile dies:
+  `failed to open source file: 'gbuffer_lit.hlsl' / 'techsetdef_buildshadowmap.hlsl'
+  / 'techsetdef_unlit_simple.hlsl'`. Confirmed identical on the **Launcher GUI**
+  and CLI. `lit` vs `lit_plus` makes no difference (both force the same compile).
+- **No accessible source for those files.** They don't exist in the install
+  (only `image.hlsl` is real source; the 174 `*.hlsl` under
+  `share/assetconvert/ToolsGfx/shaders_modtools/v14/f8/` are `.lz4` compiled-cache
+  dirs). The community **`LG-RZ/BlackOps3Shaders`** pack is a **PostFX** pack — it
+  ships `lib`/`gfxcore` includes + custom POM/PSX geometry variants but **not**
+  `gbuffer_lit.hlsl` or `techsetdef_buildshadowmap.hlsl`, and its custom geometry
+  techset *also* needs the absent `build shadowmap depth` source. Installing it did
+  **not** unblock vanilla materials (tested live, then reverted). Recovering the
+  vanilla geometry shader source is an acknowledged **unsolved** community problem
+  (olie304/BO3-Shader-Research).
+
+**Ruled out (don't retry):** bare stock `t7` tokens; `material,` `.zone` lines for
+brush materials; switching `lit_plus`→`lit`; image/variant names; copying stock
+GDTs into `source_data` (dup-asset errors — `texture_assets` is already indexed);
+`gdtdb` registration (was never the blocker); Steam "verify" / Additional Assets
+(shaders absent by design); L3akMod (Lua only); the LG-RZ postfx pack for geometry.
+
+**If revisited:** the only real avenues are (a) obtain a COMPLETE geometry shader
+source set (`gbuffer_lit.hlsl` + `techsetdef_buildshadowmap.hlsl` + deps) and fix
+the compiler include path — unsolved as of this writing; or (b) author materials
+with a custom techset whose source IS shipped (POM/PSX look) — niche; or (c) build
+the map on a different/older complete tools environment that has the shader source.
+Until then: **greybox `script_wall` + the working sky/fog/probes atmosphere.**
+
+---
+
 Research dossier (full agent findings + sources) is in the workflow transcript;
 verified facts are distilled here and in
 [BO3_MAPMAKING_KB.md](BO3_MAPMAKING_KB.md).
