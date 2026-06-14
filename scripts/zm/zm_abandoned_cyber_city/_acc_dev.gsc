@@ -53,6 +53,70 @@ function init()
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
     level thread dev_round_skip_watcher();
+
+    // Teleports so the greybox door chain never blocks testing:
+    //   acc_tp_perks 1  -> the perk row    acc_tp_spawn 1 -> back to spawn
+    //   acc_open_doors 1 -> set every enter_* door flag (open the whole map)
+    level thread dev_teleport_watcher();
+}
+
+// ---------------------------------------------------------------------------
+// Dev teleports / open-all-doors (console-driven; greybox door chain bypass)
+// ---------------------------------------------------------------------------
+
+function dev_teleport_watcher()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        if ( getdvarint( "acc_tp_perks", 0 ) == 1 )
+        {
+            SetDvar( "acc_tp_perks", "0" );
+            dev_tp_players( ( 0, 4090, 32 ), "the perk row" );
+        }
+        if ( getdvarint( "acc_tp_spawn", 0 ) == 1 )
+        {
+            SetDvar( "acc_tp_spawn", "0" );
+            dev_tp_players( ( -291, -316, 32 ), "spawn" );
+        }
+        if ( getdvarint( "acc_open_doors", 0 ) == 1 )
+        {
+            SetDvar( "acc_open_doors", "0" );
+            dev_open_all_doors();
+        }
+        wait 0.25;
+    }
+}
+
+function dev_tp_players( org, label )
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        p SetOrigin( org );
+        p IPrintLnBold( "^3>> Teleported to " + label );
+    }
+    acc_utility::log( "dev: teleported players to " + label );
+}
+
+// Set every buyable-door flag so the script_brushmodel walls retract - lets you
+// walk the whole map without buying through the (greybox-templated) door chain.
+function dev_open_all_doors()
+{
+    flags = array( "enter_market", "enter_alley", "enter_corp_w", "enter_corp_e",
+                   "enter_vault", "enter_roof", "enter_lab_e", "enter_lab_w" );
+    for ( i = 0; i < flags.size; i++ )
+    {
+        if ( !flag::exists( flags[ i ] ) )
+            flag::init( flags[ i ] );
+        flag::set( flags[ i ] );
+    }
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+        if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( "^3>> All doors opened" );
+    acc_utility::log( "dev: opened all buyable doors" );
 }
 
 // ---------------------------------------------------------------------------
