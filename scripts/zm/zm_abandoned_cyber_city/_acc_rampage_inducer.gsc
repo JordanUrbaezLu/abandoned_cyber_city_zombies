@@ -204,8 +204,31 @@ function activate()
 
     sprint_all_live_zombies();
 
+    // KEEP-ALIVE: the sprint override decays over time (stock re-evaluates zombie
+    // locomotion on round transitions / state changes and can clobber a one-shot
+    // override - user saw "sprints then stops after ~a minute"). Re-assert sprint on
+    // every live zombie on a short cadence for as long as the inducer is on, so it
+    // PERSISTS. New spawns are still caught by on_zombie_spawned_rampage immediately.
+    level notify( "acc_rampage_keepalive" );   // kill any prior loop (belt-and-suspenders)
+    level thread rampage_keepalive();
+
     announce( "^1RAMPAGE INDUCER ACTIVATED" );
     acc_utility::log( "rampage: ACTIVATED" );
+}
+
+// Re-assert sprint on all live zombies while active. Self-terminates when the
+// inducer is toggled off (level.acc_rampage_active=false) or a new activate()
+// supersedes it (acc_rampage_keepalive notify) or the game ends.
+function rampage_keepalive()
+{
+    level endon( "end_game" );
+    level endon( "acc_rampage_keepalive" );
+
+    while ( IS_TRUE( level.acc_rampage_active ) )
+    {
+        sprint_all_live_zombies();
+        wait 2;
+    }
 }
 
 function deactivate()

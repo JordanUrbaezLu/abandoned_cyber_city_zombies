@@ -117,14 +117,16 @@ function boss_bar_listener()
     }
 }
 
-// Overhead bar + name that FOLLOW the boss in world space (above its head). Built
-// from RAW NewClientHudElem PER PLAYER (the stock entityheadicons follow pattern:
-// world .z offset + SetWaypoint(false) + SetTargetEnt) - NOT hud::createServerBar /
-// createServerFontString, which setParent the elems to the SCREEN layer and clamp
-// the bar to the top of the screen (the bug hit twice). The bar is a "white" fill
-// icon whose WIDTH is scaled by the health fraction (stock updateBarScale math); a
-// dark bg sits behind it; the name is a text elem. Per-player NewClientHudElem
-// matches our working door markers (create_door_marker in _acc_dev.gsc).
+// Boss health = TWO pieces, per player:
+//   (1) A real DEPLETING bar at top-center of the screen (remaining/max). This
+//       reuses the SAME proven path as the working player health bar -
+//       hud::createBar (bg + .bar fill, sized by hud::updateBar). It's the
+//       genre-standard boss bar and it actually shrinks (a SCREEN elem is NOT a
+//       waypoint, so its width can change - unlike an over-entity waypoint icon).
+//   (2) A small colored MARKER that follows the boss in world space so you can
+//       tell WHICH zombie is the boss. This one is a waypoint icon, so it can
+//       only recolor (waypoint icons are fixed-size + SetShader resets the
+//       anchor); the depleting happens on the screen bar above, not here.
 function boss_bar_track( boss, name )
 {
     level endon( "end_game" );
@@ -142,23 +144,24 @@ function boss_bar_track( boss, name )
         frac = boss.health / boss.maxhealth;
         if ( frac < 0 ) frac = 0;
         if ( frac > 1 ) frac = 1;
-        w = int( ACC_BOSS_OH_W * frac );
-        if ( w < 1 ) w = 1;
         col = boss_hp_color( frac );
+
         for ( i = 0; i < sets.size; i++ )
         {
-            f = sets[ i ].fill;
-            if ( !isdefined( f ) ) continue;
+            s = sets[ i ];
+            if ( !isdefined( s ) ) continue;
 
-            // ROOT CAUSE of "boss bar shows top-left, not over the boss": SetShader
-            // RESETS the elem's waypoint state, so resizing the bar each frame dumped
-            // it back to screen-space (0,0). That's why the STATIC bg used to sit over
-            // the boss but the RESIZING fill did not. Re-apply the waypoint anchor in
-            // the SAME frame right after SetShader (no wait between -> no flicker).
-            f SetShader( "white", w, ACC_BOSS_OH_H );
-            f SetWaypoint( false );
-            f SetTargetEnt( boss );
-            f.color = col;
+            // (1) Screen bar - the real depleting health bar.
+            if ( isdefined( s.screen_bar ) )
+            {
+                s.screen_bar hud::updateBar( frac );
+                if ( isdefined( s.screen_bar.bar ) )
+                    s.screen_bar.bar.color = col;
+            }
+
+            // (2) Over-boss marker - recolor only (it's a waypoint, fixed-size).
+            if ( isdefined( s.marker ) )
+                s.marker.color = col;
         }
         wait 0.1;
     }
@@ -167,30 +170,41 @@ function boss_bar_track( boss, name )
         destroy_boss_bar_set( sets[ i ] );
 }
 
-// One bg + colored fill + name elem set, all following the boss for `player`.
+// Screen bar + name label + over-boss marker, for one `player`.
 function make_boss_bar_set( player, boss, name )
 {
     s = SpawnStruct();
 
-    // ONE "health bar" icon over the boss. SINGLE elem (overlapping world-space
-    // waypoints don't layer, so no separate bg). Its WIDTH = the health fraction so
-    // the bar shrinks as the boss dies, and its COLOR runs green->amber->red so it
-    // doubles as a "which one is the boss" marker even at full health. The per-frame
-    // resize re-anchors the waypoint (see boss_bar_track) because SetShader clears it.
-    fill = NewClientHudElem( player );
-    fill.archived = false;
-    fill.alignX = "center"; fill.alignY = "middle";
-    fill.x = 0; fill.y = 0; fill.z = 76;
-    fill.color = boss_hp_color( 1.0 ); fill.alpha = 1.0;
-    fill SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
-    fill SetWaypoint( false );
-    fill SetTargetEnt( boss );
+    // (1) Name label, top-center.
+    s.label = player hud::createFontString( "objective", 1.5 );
+    s.label hud::setPoint( "TOP", "TOP", 0, 22 );
+    s.label.alignX = "center"; s.label.alignY = "top";
+    s.label.color = ( 1, 0.85, 0.2 ); s.label.alpha = 0.95;
+    s.label.hidewheninmenu = true;
+    s.label SetText( "^1" + name );
 
-    s.fill = fill;
+    // (1) Depleting bar, top-center, just under the name (proven createBar path).
+    s.screen_bar = player hud::createBar( boss_hp_color( 1.0 ), ACC_BOSS_BAR_W, ACC_BOSS_BAR_H );
+    s.screen_bar hud::setPoint( "TOP", "TOP", 0, 46 );
+    s.screen_bar.alpha = 0.9;
+    s.screen_bar.hidewheninmenu = true;
+
+    // (2) Over-boss marker icon. Set the shader ONCE (no per-frame SetShader, so
+    // the waypoint anchor never resets); the loop only recolors it.
+    marker = NewClientHudElem( player );
+    marker.archived = false;
+    marker.alignX = "center"; marker.alignY = "middle";
+    marker.x = 0; marker.y = 0; marker.z = 76;
+    marker.color = boss_hp_color( 1.0 ); marker.alpha = 1.0;
+    marker SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
+    marker SetWaypoint( false );
+    marker SetTargetEnt( boss );
+    s.marker = marker;
+
     return s;
 }
 
-// Boss overhead bar tint: green (healthy) -> amber -> red (nearly dead).
+// Boss bar tint: green (healthy) -> amber -> red (nearly dead).
 function boss_hp_color( frac )
 {
     if ( frac > 0.66 ) return ( 0.25, 0.9, 0.3 );
@@ -200,5 +214,8 @@ function boss_hp_color( frac )
 
 function destroy_boss_bar_set( s )
 {
-    if ( isdefined( s.fill ) ) s.fill Destroy();
+    if ( !isdefined( s ) ) return;
+    if ( isdefined( s.label ) ) s.label hud::destroyElem();
+    if ( isdefined( s.screen_bar ) ) s.screen_bar hud::destroyElem();
+    if ( isdefined( s.marker ) ) s.marker Destroy();
 }

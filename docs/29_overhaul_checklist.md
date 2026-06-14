@@ -85,7 +85,10 @@ to a reachable spawn-plaza spot `(-600,200,14)` (inside `start_zone`), fix the s
 comment, set facing. *(Optional: BO4/CW-style timed enrage via a duration + auto
 deactivate.)* Files: `_acc_rampage_inducer.gsc`. *(done in this batch — see commit)*
 
-### [ ] 7. Arsenal = ICR-1 + Man-O-War only
+### [x] 7. Arsenal = ICR-1 + Man-O-War only — GSC-only (batch 6)
+Box pool → `ar_accurate`+`ar_damage`; wallbuy pool keeps only the ICR wall (other 4 wall
+slots get no trigger → dead); overclock AR family fixed to the real class names. No `.map`
+rebuild (the dead wall structs are inert). *Original plan retained below for reference.*
 - **GSC (fast, low-risk):** `_acc_map_randomizer::register_mystery_box_pool` box
   array → exactly `array("ar_accurate","ar_damage")`; remove the `is_rolled_onto_wall`
   skip so ICR-1 isn't excluded from the box; `roll_wallbuy_pool` → pin the ICR-1

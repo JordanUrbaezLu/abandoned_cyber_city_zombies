@@ -87,6 +87,41 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 6 — reliable boss bar + arsenal strip + honest perk cards (2026-06-13)
+
+Driven by test feedback ("rampage stops after a minute"; "boss is a box that only
+changes colour — why not a real depleting bar?") + the research workflow (7 agents).
+
+- **Boss health bar — REAL depleting bar.** Confirmed the hard limit: a world-anchored
+  waypoint icon is FIXED-SIZE (SetShader resets the anchor; SetWaypoint resets the size —
+  a catch-22), so it can only recolour, never deplete. Fix: the depleting bar now lives at
+  **top-centre of the screen**, reusing the SAME proven path as the working player health
+  bar (`hud::createBar`/`updateBar`, which sizes a real fill). It shows remaining/max and
+  recolours green→amber→red. The over-boss icon is KEPT but reduced to a colour-only marker
+  so you still know which zombie is the boss. (`_acc_health_bars.gsc`)
+- **Rampage Inducer — PERSISTS now.** Added a keep-alive loop that re-asserts the sprint
+  override on every live zombie every 2s while active (stock re-evaluates locomotion on
+  round/state changes and clobbered the one-shot override → "sprinted then stopped after a
+  minute"). (`_acc_rampage_inducer.gsc`)
+- **Arsenal = ICR-1 + Man-O-War only (item 7).** GSC-only, no geometry rebuild: mystery box
+  pool → `ar_accurate` + `ar_damage`; wallbuy pool keeps only the ICR wall (the other four
+  wall slots get no purchase trigger → Haymaker/Drakon/Sheiva/Frag walls go dead); Bowie
+  melee kept. Overclock AR family fixed from the never-valid `*_zm` names to `ar_accurate`/
+  `ar_damage` (they were silently breaking Overclocks on both guns).
+  (`_acc_map_randomizer.gsc`, `_acc_overclocks.gsc`)
+- **Perk cards are now HONEST (item 5, partial).** Removed every GSC-impossible claim
+  (zero recoil, +fire rate, faster swap/drink times, ×2 walk/×4 crawl, EMP grenade) so no
+  card promises something the code can't do. Implemented the GSC-possible damage perks so
+  their claims are TRUE: **Double Tap 2.0** +3% damage (base) / +6% (Gun Slinger Mega), and
+  **Widow's Wine** +50% frag-grenade damage — both wired into the `_acc_damage` multiplier
+  chain. Megas still being built (Quick Revive / Speed Cola / Mule Kick) are marked "in
+  progress" instead of claiming an effect. (`_acc_damage.gsc`, `acc_hud.lua`)
+- **Deferred to an isolated next build** (UI-error / anchor-guesswork risk kept out of this
+  testable batch): over-the-zombie damage NUMBERS + the perk-icon GLOW overlay + the PaP
+  next-tier card (all LUI), and the remaining GSC-possible perk effects (Mule Kick ammo,
+  Quick Revive regen/revive-speed, Jug exact tuning). Full cited recipes captured from the
+  research workflow.
+
 ### Overhaul batch 5 — boss bar + rampage root causes (2026-06-13)
 
 - **Boss bar "top-left, not over the boss" — root cause found + fixed.** `SetShader`
