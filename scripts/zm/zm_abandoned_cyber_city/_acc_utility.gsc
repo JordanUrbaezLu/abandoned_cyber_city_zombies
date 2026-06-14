@@ -148,7 +148,7 @@ function recompute_move_speed( player )
     }
     if ( isdefined( player.acc_flash_speed ) && player.acc_flash_speed )
     {
-        n_scale = n_scale * 1.12; // The Flash Mega (docs/13)
+        n_scale = n_scale * 1.15; // The Flash Mega: +15% move (docs/13)
     }
     if ( isdefined( player.acc_savior_speed ) && player.acc_savior_speed )
     {

@@ -49,6 +49,13 @@ Equivalently: `PLAY_TEST_MAP.bat` (double-click) or `.\tools\run_game.ps1`
 - `acc_dev 1` — unlimited money, perk cap 18, buyable-door markers.
 - `acc_test_boss 1` — Juggernaut Host from round 2, drops 10 Mega Bottles.
 - In-game console (`~`): `set acc_rampage 1` toggles the Rampage Inducer.
+- **Open-all-map**: `acc_hardcoded_open_map()` auto-opens the whole map at
+  blackscreen+3s every dev game — all 8 buyable doors **and both per-run PaP
+  blocker brushes** (`acc_pap_block_server` / `acc_pap_block_roof`). The
+  randomizer leaves one PaP blocker solid each run; it is a bare
+  `script_brushmodel` (no door trigger), so it must be opened explicitly or it is
+  the lone barrier that stays shut. `set acc_open_doors 1` re-runs the same full
+  open manually (physically retracts door slabs + opens both PaP blockers).
 
 ## Do NOT use the Mod Tools Launcher's "Run" checkbox
 

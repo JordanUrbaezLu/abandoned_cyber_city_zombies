@@ -12,6 +12,9 @@ REM  this. Steam must be running and logged in. Loading takes ~40-60 seconds.
 REM
 REM  Flags: acc_dev 1 = unlimited money / perk cap 18 / door markers.
 REM         acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles.
+REM         acc_variants_debug 1 = print each weapon-variant swap on-screen
+REM           ("[variants] X -> Y") so you can SEE Deadshot/Mega change the gun
+REM           (recoil is invisible). acc_weapon_variants is ON by default already.
 REM ===========================================================================
 REM  THE GAMETYPE FIX (verified 2026-06-13): pass the ENGINE COMMAND
 REM  "+set_gametype zclassic", NOT "+set g_gametype zclassic". The g_gametype
@@ -25,4 +28,4 @@ REM  Custom LUI (acc_hud.lua) runs on Steam BO3 with NO special flag (verified
 REM  2026-06-13). "-unsafe-lua" is a BOIII-client arg, not Steam BO3 - on Steam it
 REM  is "Unknown command", so it is intentionally NOT passed. (L3akMod is still
 REM  needed in the MOD TOOLS bin to BUILD the .lua - docs/28_lui_pipeline.md.)
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1 +set acc_dev 1"
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1 +set acc_dev 1 +set acc_variants_debug 1"

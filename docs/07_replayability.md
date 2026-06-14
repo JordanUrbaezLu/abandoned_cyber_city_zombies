@@ -30,18 +30,24 @@ Re-rolled at map load. Documented so players can learn the *space* of randomizat
 
 ### Wallbuy Pool Per Slot
 
-v1.0 locked the 16-weapon roster (see [05_weapons.md](05_weapons.md)), so most wallbuy slots have **only one candidate** this version. The randomization function is still run per map load so a post-1.0 expanded roster plugs in without changing callers.
+**ARSENAL RESTRICTED (user, 2026-06-14): there are NO wall buys on the current map.**
+Per the 2-gun arsenal directive (ICR-1 + Man-O-War only, both Mystery-Box-only), every wall
+buy is removed at load by `_acc_map_randomizer::remove_all_wallbuys()` — it unregisters the
+stub of each placed wall struct (the 5 gun/grenade walls *and* the Bowie melee wall) so no
+purchase trigger is ever built. The per-run wallbuy randomization machinery
+(`roll_wallbuy_pool`, `apply_wallbuy_pool`, etc.) was deleted with it. The historical
+single-candidate slot plan below is kept only for when a future version re-expands the roster.
 
-Slots (single-candidate unless noted):
+Historical slots (no longer wired — kept for reference):
 
-- **Service Alley shotgun**: Haymaker 12.
-- **Corporate Plaza AR (full-auto slot)**: ICR-1.
-- **Corporate Plaza AR (semi-auto slot)**: M14 EBR.
-- **Rooftop Helipad sniper**: Intervention.
-- **Server Vault tactical**: EMP Grenade.
-- **Near-perk melee upgrade**: Bowie Knife.
+- ~~**Service Alley shotgun**: Haymaker 12.~~
+- ~~**Corporate Plaza AR (full-auto slot)**: ICR-1.~~ (now Box-only)
+- ~~**Corporate Plaza AR (semi-auto slot)**: M14 EBR.~~
+- ~~**Rooftop Helipad sniper**: Intervention.~~
+- ~~**Server Vault tactical**: EMP Grenade.~~
+- ~~**Near-perk melee upgrade**: Bowie Knife.~~
 
-**What actually randomizes in v1.0 wallbuys**: *nothing* - the roster is too small. Per-run variance comes from:
+**What actually randomizes in wallbuys now**: *nothing* - there are no wall buys. Per-run variance comes from:
 
 - Which Mystery Box pulls you land (bad/strong 50/50 per family).
 - Which Overclocks roll at each tier-up.

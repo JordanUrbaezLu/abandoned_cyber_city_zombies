@@ -16,15 +16,18 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_perks;
+#using scripts\zm\_zm_score;
 #using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_weapons;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
-// The Flash Mega (Stamin-Up) extended sprint reserve: 4.0 stock * 1.5
-// (docs/13 Tuning Lever "2x->1.5x"). Spiderman Mega (Widow's) web-grenade cap.
-#define ACC_FLASH_SPRINT_DURATION  6.0
-#define ACC_SPIDERMAN_WEB_GRENADES 6
+// Spiderman Mega (Widow's): hold up to 6 web grenades, restock 4 each round
+// (base Widow restocks 2). The Armory Mega (Mule): -10% on every point purchase.
+#define ACC_SPIDERMAN_WEB_GRENADES   6
+#define ACC_SPIDERMAN_ROUND_RESTOCK  4
+#define ACC_WIDOW_BASE_ROUND_RESTOCK 2
 
 #namespace acc_mega_bottles;
 
@@ -49,6 +52,7 @@ function init()
 
     level thread mega_machine_watcher();
     level thread armory_maxammo_watcher();
+    level thread widow_round_restock_watcher();
 }
 
 function on_player_connect( player )
@@ -78,7 +82,42 @@ function flash_respawn_watcher()
              && has_mega_perk( self, "specialty_staminup" ) )
         {
             self apply_flash_speed();
-            self apply_flash_sprint();
+        }
+    }
+}
+
+// The Armory Mega (Mule Kick) "all buys 10% cheaper" is POINT OF SALE (charge AND
+// shown price). Overriding stock cost files from a usermap does NOT work (verified
+// 2026-06-14: base game wins), so the discount is applied from OUR side by setting
+// each machine's own cost field + hint to the discounted value for a nearby Armory
+// holder: PERKS in _acc_perk_info::armory_perk_pricing, PaP tier-up in
+// _acc_pap_levels::acc_do_tier_up. (Box display/charge + PaP first-pack: TODO.)
+
+// Widow's Wine grenade round-restock: base perk tops the web-grenade clip to 2 at
+// the start of each round; the Spiderman Mega tops it to 4 (docs/13). Restock =
+// "ensure at least N", never reduces a higher count (drop pickups still stack to
+// the GDT cap). Runs for every Widow owner each round.
+function widow_round_restock_watcher()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "acc_round_start" );
+        if ( !isdefined( level.w_widows_wine_grenade ) ) continue;
+
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( !( p HasPerk( "specialty_widowswine" ) ) ) continue;
+            if ( !( p HasWeapon( level.w_widows_wine_grenade ) ) ) continue;
+
+            target = ( has_mega_perk( p, "specialty_widowswine" ) ? ACC_SPIDERMAN_ROUND_RESTOCK : ACC_WIDOW_BASE_ROUND_RESTOCK );
+            cur = p GetWeaponAmmoClip( level.w_widows_wine_grenade );
+            if ( !isdefined( cur ) || cur < target )
+                p SetWeaponAmmoClip( level.w_widows_wine_grenade, target );
         }
     }
 }
@@ -150,6 +189,27 @@ function has_mega_perk( player, specialty_string )
     return player.acc_mega_perks[ specialty_string ] == true;
 }
 
+// True while the player has the perk Mega'd AND still OWNS the base perk. Used for LIVE
+// effects (Armory discount, Ultimate-Tank EMP immunity). The Mega flag PERSISTS across a
+// down by design (re-buy re-applies, header "Mega flag stays across death"), so a bare
+// has_mega_perk would keep the effect ON after a real loss. But "owns" must also count a
+// perk that's only EMP-PAUSED by a boss attack (stock UnsetPerks it for 60s yet tracks
+// ownership in disabled_perks) - else a bare HasPerk DROPS the effect mid-boss-fight: that
+// self-defeated Ultimate-Tank immunity on the very phase it counters (and silently removed
+// the Armory discount for the debuff window). owns_or_paused() handles both correctly.
+function has_active_mega_perk( player, specialty_string )
+{
+    return has_mega_perk( player, specialty_string ) && owns_or_paused( player, specialty_string );
+}
+
+// Owns the perk right now, OR it's only EMP-paused-but-owned (stock disabled_perks set by
+// perk_pause). NOT true after a genuine down/loss, so it never reintroduces the leak.
+function owns_or_paused( player, specialty_string )
+{
+    if ( player HasPerk( specialty_string ) ) return true;
+    return isdefined( player.disabled_perks ) && IS_TRUE( player.disabled_perks[ specialty_string ] );
+}
+
 // Set the Mega flag. Called from perk-machine interaction logic once a
 // Mega Bottle is consumed successfully.
 function set_mega_perk( player, specialty_string )
@@ -200,10 +260,25 @@ function replay_perk_drink( perk )
     self zm_utility::enable_player_move_states();
     self TakeWeapon( w_bottle );
 
-    if ( isdefined( original_weapon ) && original_weapon != level.weaponNone
-         && !zm_utility::is_placeable_mine( original_weapon )
-         && !zm_utility::is_melee_weapon( original_weapon ) )
-        self zm_weapons::switch_back_primary_weapon( original_weapon );
+    // Variant-aware switch-back (docs/13 Mega "hidden swap"): do the recoil/fire/reload
+    // twin swap WHILE the gun is holstered - reconcile() is synchronous and silent here
+    // (no primary is equipped right now), so it just gives the twin / takes the base in
+    // inventory. Then we re-raise the TWIN. Result: a Mega upgrade's twin swap is masked
+    // by THIS drink instead of showing as a separate gun-swap-and-reload afterwards.
+    // reconcile is idempotent, so the parallel apply_mega_effects poke just no-ops.
+    self acc_weapon_variants::reconcile();
+    target = original_weapon;
+    if ( isdefined( original_weapon ) && original_weapon != level.weaponNone )
+    {
+        desired = acc_weapon_variants::resolve_held( self, original_weapon );
+        if ( isdefined( desired ) && desired != level.weaponNone && self HasWeapon( desired ) )
+            target = desired;
+    }
+
+    if ( isdefined( target ) && target != level.weaponNone
+         && !zm_utility::is_placeable_mine( target )
+         && !zm_utility::is_melee_weapon( target ) )
+        self zm_weapons::switch_back_primary_weapon( target );
     else
         self zm_weapons::switch_back_primary_weapon();
 
@@ -393,13 +468,15 @@ function try_apply_mega( player, specialty_string )
 // ---------------------------------------------------------------------------
 // Mega effect application. Called on upgrade AND on every (re)buy of a
 // Mega'd perk (sticky persistence, docs/13_perks.md). Per-perk status:
-//   IMPLEMENTED here: Ultimate Tank (+100 max HP), The Flash (+12% speed).
-//   IMPLEMENTED elsewhere, read live from the Mega flag: American Sniper
-//     (x1.75 headshot, _acc_damage), Spiderman (melee OHK, _acc_damage),
-//     Mega Man (800u/60s/2 charges, _acc_perk_aura_blast).
-//   TODO(acc-mega): Gun Slinger (fire rate), Savior (revive speed),
-//     Sleight Expert (reload), Armory (ammo/grenade caps) - need engine-side
-//     hooks (Phase 3/4); the flag is set, effects log-only.
+//   IMPLEMENTED here: Ultimate Tank (+64 max HP -> 314), The Flash (+15% speed),
+//     Spiderman (web-grenade clip fill -> 6), The Armory (reserve fill).
+//   IMPLEMENTED elsewhere, read live from the Mega flag each frame/hit/reconcile:
+//     American Sniper (x2.0 headshot _acc_damage + -70% recoil twin), Gun Slinger
+//     (+50% fire rate + -75% swap twin), Sleight of Hand Expert (+70% reload twin)
+//     - all three twins via _acc_weapon_variants (baked 2026-06-14); Savior (revive
+//     speed/regen/+15% speed _acc_perks), Mega Man (800u/60s/2 charges _acc_perk_aura_blast).
+//   The deadshot/doubletap2/fastreload cases below just POKE the swap engine so the
+//   twin applies instantly; the axes also re-derive on the 3s reconcile safety-net.
 // ---------------------------------------------------------------------------
 
 function apply_mega_effects( player, specialty_string )
@@ -407,47 +484,74 @@ function apply_mega_effects( player, specialty_string )
     switch ( specialty_string )
     {
     case "specialty_armorvest":
-        // Ultimate Tank: +100 max HP on top of Jug. VERIFIED(acc):
-        // n_player_health_boost is the only field the stock "health_reboot"
-        // recompute adds (_zm_perks.gsc:828-831), and that recompute re-runs
-        // at every revive - so the bonus survives downs. A bare SetMaxHealth
-        // would be wiped by the next recompute.
-        // Re-derived for the 3/6 base-Jug tuning (acc_perks sets jugg add 150 ->
-        // base Jug = 250 HP). +50 puts Mega at 300 HP = down on the 7th melee @ 45
-        // (6x45=270 survive, 7x45=315 down). The stock +100 overshot to 8 hits.
-        player.n_player_health_boost = 50;
+        // Ultimate Tank: docs/13 = 314 HP. VERIFIED(acc): n_player_health_boost is
+        // the only field the stock "health_reboot" recompute adds
+        // (_zm_perks.gsc:828-831), and that recompute re-runs at every revive - so
+        // the bonus survives downs. A bare SetMaxHealth would be wiped by the next
+        // recompute. base Jug = 100 + 150 = 250; +64 -> 314 HP (down on the 7th @ ~45).
+        player.n_player_health_boost = 64;
         player zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
         break;
 
     case "specialty_staminup":
+        // The Flash: +15% uniform move speed only (docs/13 overhaul - the old
+        // SetSprintDuration extension was removed).
         player apply_flash_speed();
-        player apply_flash_sprint();
         break;
 
     case "specialty_widowswine":
-        // Spiderman: the OHK halves read live from the Mega flag in _acc_damage.
-        // The "hold 6 web grenades" half tops the player's CURRENT web-grenade
-        // reserve to 6 (the engine clamps to the GDT maxAmmo for the widow
-        // grenade, so raise that GDT too - see docs/13 GDT specs).
+        // Spiderman (docs/13 overhaul): hold up to 6 web grenades. Top the player's
+        // CURRENT web-grenade count to 6. VERIFIED(acc): ZM carries the web grenade
+        // in the LETHAL CLIP, not the reserve - stock decrements via
+        // SetWeaponAmmoClip( current_lethal_grenade, ... ) on throw
+        // (_zm_perk_widows_wine.gsc:214) and reads it with GetWeaponAmmoClip (:294).
+        // The engine clamps the clip to the grenade GDT carry max, so a 6 above that
+        // cap still needs the GDT raise (docs/30). The restock-4/round half is in
+        // widow_round_restock_watcher.
         if ( isdefined( level.w_widows_wine_grenade )
              && player HasWeapon( level.w_widows_wine_grenade ) )
         {
-            cur = player GetWeaponAmmoStock( level.w_widows_wine_grenade );
+            cur = player GetWeaponAmmoClip( level.w_widows_wine_grenade );
             if ( !isdefined( cur ) || cur < ACC_SPIDERMAN_WEB_GRENADES )
             {
-                player SetWeaponAmmoStock( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
+                player SetWeaponAmmoClip( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
             }
         }
         break;
 
     case "specialty_additionalprimaryweapon":
-        // The Armory: top off every gun's reserve + lethal/tactical grenades to
-        // their GDT cap. The flat "+2 grenades" / "+30% reserve" magnitudes are
-        // GDT-baked (maxAmmo is the engine ceiling); GSC delivers the fill-to-cap.
+        // The Armory (docs/13 overhaul): +25% gun ammo capacity (GDT cap; GSC fills
+        // every gun's reserve to it) + all buys 10% cheaper (POINT OF SALE, in the
+        // vendored stock cost files via the repurposed pers double-points hook gated
+        // on this Mega flag). Fill the reserves now.
         player armory_apply();
         break;
 
-    case "specialty_deadshot":       // American Sniper - live in _acc_damage
+    case "specialty_deadshot":
+        // American Sniper: the headshot-mult layer (x2.0) lives in _acc_damage; the
+        // -70% recoil half is the weapon-variant swap (base Deadshot is -35%, off the
+        // 2.5x map base). Poke the swap engine to upgrade base->Mega recoil twin
+        // (baked 2026-06-14, docs/perk_abilities §7 / docs/30 §4).
+        acc_weapon_variants::request_reconcile( player );
+        break;
+
+    case "specialty_doubletap2":
+        // Gun Slinger: +50% fire rate AND -75% weapon-swap via the "fastfire"
+        // weapon-variant twin (baked 2026-06-14, docs/30 §5). Poke the swap engine;
+        // axis_fire reads the Mega flag live. (Double Tap 1.0 is rate-only - the old
+        // +6% damage layer was removed from _acc_damage.)
+        acc_weapon_variants::request_reconcile( player );
+        break;
+
+    case "specialty_fastreload":
+        // Sleight of Hand Expert (Speed Cola Mega): +70% reload via the "fastreload"
+        // weapon-variant twin (reloadTime x0.882 on top of the engine +50%, baked
+        // 2026-06-14). Poke the swap engine; axis_reload reads the Mega flag live.
+        // Base +50% reload + barrier repair stay pure-engine; the map-wide drink-anim
+        // speedup was CUT (no per-perk lever - docs/perk_abilities §3).
+        acc_weapon_variants::request_reconcile( player );
+        break;
+
     case "specialty_electriccherry": // Mega Man - live in _acc_perk_aura_blast
         break;
 
@@ -466,32 +570,15 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
-// The Flash Mega (Stamin-Up): extend the per-player sprint reserve. The engine
-// resets SetSprintDuration to the stock 4.0 on every (re)spawn (zm_usermap.gsc:337),
-// so this is re-applied by flash_respawn_watcher.
-function apply_flash_sprint()
-{
-    self.acc_flash_sprint = true;
-    self SetSprintDuration( ACC_FLASH_SPRINT_DURATION );
-}
-
-// Restore the stock sprint reserve when The Flash drops (perk lost on death).
-function clear_flash_sprint()
-{
-    self.acc_flash_sprint = false;
-    self SetSprintDuration( 4.0 );
-}
-
-// The Armory Mega (Mule Kick): refill all carried guns' reserve + lethal/tactical
-// grenades to their GDT maxAmmo cap. With the Armory grenade/weapon GDTs raising
-// those caps (+2 grenades, +30% reserve) this materializes the extra capacity; on
-// stock GDTs it is a harmless full top-off. Idempotent - safe on Mega-apply, on
-// perk rebuy (sticky persistence), and on every Max Ammo.
+// The Armory Mega (Mule Kick) +25% ammo capacity (docs/13 overhaul): the weapon
+// GDT raises each gun's reserve maxAmmo by 25%; GiveMaxAmmo fills every carried
+// gun's reserve to that (raised) cap. On stock GDTs it is a harmless full top-off.
+// Idempotent - safe on Mega-apply, perk rebuy, and every Max Ammo. (The former
+// +2-grenade fill was removed - Armory no longer touches grenades.)
 function armory_apply()
 {
     self endon( "disconnect" );
 
-    // Guns: GiveMaxAmmo fills reserve to weapon.maxAmmo (the raised cap).
     guns = self GetWeaponsListPrimaries();
     for ( i = 0; i < guns.size; i++ )
     {
@@ -499,22 +586,6 @@ function armory_apply()
         if ( !isdefined( g ) || g == level.weaponNone ) continue;
         if ( !( self HasWeapon( g ) ) ) continue;
         self GiveMaxAmmo( g );
-    }
-
-    // Lethal grenade -> top reserve to its (raised) maxAmmo.
-    w_lethal = self zm_utility::get_player_lethal_grenade();
-    if ( isdefined( w_lethal ) && w_lethal != level.weaponNone
-         && self HasWeapon( w_lethal ) )
-    {
-        self SetWeaponAmmoStock( w_lethal, w_lethal.maxAmmo );
-    }
-
-    // Tactical grenade -> top reserve to its (raised) maxAmmo.
-    w_tac = self zm_utility::get_player_tactical_grenade();
-    if ( isdefined( w_tac ) && w_tac != level.weaponNone
-         && self HasWeapon( w_tac ) )
-    {
-        self SetWeaponAmmoStock( w_tac, w_tac.maxAmmo );
     }
 }
 
@@ -548,6 +619,15 @@ function on_perk_bought( perk )
     {
         apply_mega_effects( self, perk );
     }
+
+    // Deadshot's recoil reduction applies at the BASE tier (-25%) too, so the
+    // variant twin must reconcile on any (re)buy, not just on Mega. Double Tap's
+    // fast-fire is Mega-only but a re-buy poke is harmless. (Reconcile derives
+    // the tier live; inert until twins baked.)
+    if ( perk == "specialty_deadshot" || perk == "specialty_doubletap2" )
+    {
+        acc_weapon_variants::request_reconcile( self );
+    }
 }
 
 function on_perk_lost( perk )
@@ -571,7 +651,14 @@ function on_perk_lost( perk )
     {
         self.acc_flash_speed = false;
         acc_utility::recompute_move_speed( self );
-        self clear_flash_sprint();
+    }
+
+    if ( perk == "specialty_deadshot" || perk == "specialty_doubletap2"
+         || perk == "specialty_fastreload" )
+    {
+        // Strip the recoil / fastfire / fastreload twin back to the base weapon.
+        // reconcile re-derives from the (now-removed) perk, so the twin is undone.
+        acc_weapon_variants::request_reconcile( self );
     }
 }
 
@@ -611,10 +698,12 @@ function sync_bottle_count_to_client()
     if ( !isdefined( self.acc_mega_bottles ) ) self.acc_mega_bottles = 0;
     if ( !isdefined( self.acc_bottle_hud ) )
     {
-        self.acc_bottle_hud = self hud::createFontString( "default", 1.5 );
-        // VERIFIED(acc): setPoint only matches "BOTTOM_LEFT"/"BOTTOM LEFT"
-        // (hud_util_shared.gsc:120-124); "BOTTOMLEFT" silently anchors center.
-        self.acc_bottle_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 10, -110 );
+        self.acc_bottle_hud = self hud::createFontString( "default", 1.3 );
+        // TOP-LEFT, just under the Data Shards line (which is at y=50), so both sit
+        // under the health bar instead of behind the stock points display.
+        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 70 );
+        self.acc_bottle_hud.alignX = "left";
+        self.acc_bottle_hud.alignY = "top";
         self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );
         self.acc_bottle_hud.hidewheninmenu = true;
     }

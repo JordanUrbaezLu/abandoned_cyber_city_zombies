@@ -29,7 +29,9 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_emergency_drop;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_modifiers;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
@@ -71,6 +73,23 @@ function init()
 {
     acc_utility::log( "init start" );
 
+    // Starting pistol = Five-Seven (Skye BO2 import t6_fiveseven), replacing the
+    // stock MR6. Stock sets level.start_weapon = pistol_standard during
+    // zm_usermap::main (_zm.gsc:1156); init() runs after that and before any
+    // player spawns / give_start_weapon reads it (_zm_utility.gsc:4536). The
+    // laststand pistol (level.default_laststandpistol) intentionally stays MR6.
+    w_start = GetWeapon( "t6_fiveseven" );
+    if ( isdefined( w_start ) && isdefined( level.zombie_weapons ) &&
+         isdefined( level.zombie_weapons[ w_start ] ) )
+    {
+        level.start_weapon = w_start;
+        acc_utility::log( "start weapon -> Five-Seven (t6_fiveseven)" );
+    }
+    else
+    {
+        acc_utility::log( "start weapon: t6_fiveseven missing from table - kept stock MR6" );
+    }
+
     acc_early_round_pacing::init();
     acc_coop_scaling::init();
 
@@ -93,7 +112,13 @@ function init()
     acc_events_overload::init();
     acc_emergency_drop::init();
     acc_boss::init();
+    // NSZ Brutus boss pack (stage 1: native spawn, for the asset-import go/no-go).
+    acc_boss_brutus::init();
     acc_boss_items::init();
+    // Weapon-variant swap engine (no-recoil / fast-fire perk twins, Stabilizer).
+    // Before mega_bottles so level.acc_variant_* exist before any reconcile poke.
+    // Inert until twins baked + `acc_weapon_variants 1` (docs/30-31).
+    acc_weapon_variants::init();
     acc_mega_bottles::init();
     // Base-perk retuning (Jug 3/6, QR regen, Savior). After mega_bottles so its
     // has_mega_perk / move-speed hooks are live.
@@ -144,6 +169,7 @@ function on_player_connect()
     acc_overclocks::on_player_connect( self );
     acc_modifiers::on_player_connect( self );
     acc_boss_items::on_player_connect( self );
+    acc_weapon_variants::on_player_connect( self );
     acc_mega_bottles::on_player_connect( self );
     acc_perks::on_player_connect( self );
     acc_weapon_abilities::on_player_connect( self );

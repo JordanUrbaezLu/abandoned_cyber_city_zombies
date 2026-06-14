@@ -1545,7 +1545,7 @@ guid "{315342F4-B77A-4FAC-9B45-ADF540B3B5D7}"
 {
 guid "{122366A5-BD0F-46AD-B3E5-59AF52D4A611}"
 "classname" "misc_prefab"
-"angles" "0 359.999 0"
+"angles" "0 179.999 0"
 "model" "_prefabs/zm/zm_core/vending_weapon_upgrade_spawnable.map"
 "origin" "-700 3700 7.5"
 "script_string" "zclassic_perks_start_room"
@@ -1699,48 +1699,6 @@ guid "{7A2B9C03-ACC0-4DE1-8A3F-1F00ACCE0033}"
 "targetname" "zm_perk_machine"
 "_color" "1 0 0"
 }
-// entity 34
-{
-guid "{7A2B9C04-ACC0-4DE1-8A3F-1F00ACCE0034}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"model" "wpn_t7_ar_talon_world"
-"origin" "-303 1170 53"
-"targetname" "wallbuy_icr1"
-"_color" "1 0 0"
-}
-// entity 35
-{
-guid "{7A2B9C05-ACC0-4DE1-8A3F-1F00ACCE0035}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"origin" "-300 1170 56"
-"target" "wallbuy_icr1"
-"targetname" "weapon_upgrade"
-"zombie_weapon_upgrade" "ar_accurate"
-"_color" "1 0 0"
-}
-// entity 36
-{
-guid "{7A2B9C06-ACC0-4DE1-8A3F-1F00ACCE0036}"
-"classname" "script_struct"
-"angles" "0 180 0"
-"model" "wpn_t7_ar_talon_world"
-"origin" "1903 1578 53"
-"targetname" "wallbuy_haymaker"
-"_color" "1 0 0"
-}
-// entity 37
-{
-guid "{7A2B9C07-ACC0-4DE1-8A3F-1F00ACCE0037}"
-"classname" "script_struct"
-"angles" "0 180 0"
-"origin" "1900 1578 56"
-"target" "wallbuy_haymaker"
-"targetname" "weapon_upgrade"
-"zombie_weapon_upgrade" "shotgun_fullauto"
-"_color" "1 0 0"
-}
 // entity 38
 {
 guid "{7A2B9C0C-ACC0-4DE1-8A3F-1F00ACCE0038}"
@@ -1753,48 +1711,6 @@ guid "{7A2B9C0C-ACC0-4DE1-8A3F-1F00ACCE0038}"
 "targetname" "zm_perk_machine"
 "_color" "1 0 0"
 }
-// entity 39
-{
-guid "{7A2B9C0D-ACC0-4DE1-8A3F-1F00ACCE0039}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"model" "wpn_t7_zmb_knife_bowie_world"
-"origin" "-9.5 3070 60"
-"targetname" "wallbuy_bowie"
-"_color" "1 0 0"
-}
-// entity 40
-{
-guid "{7A2B9C0E-ACC0-4DE1-8A3F-1F00ACCE0040}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"origin" "0 3070 60"
-"target" "wallbuy_bowie"
-"targetname" "bowie_upgrade"
-"zombie_weapon_upgrade" "bowie_knife"
-"_color" "1 0 0"
-}
-// entity 41
-{
-guid "{7A2B9C0F-ACC0-4DE1-8A3F-1F00ACCE0041}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"model" "wpn_t7_ar_talon_world"
-"origin" "-1703 2222 53"
-"targetname" "wallbuy_drakon"
-"_color" "1 0 0"
-}
-// entity 42
-{
-guid "{7A2B9C10-ACC0-4DE1-8A3F-1F00ACCE0042}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"origin" "-1700 2222 56"
-"target" "wallbuy_drakon"
-"targetname" "weapon_upgrade"
-"zombie_weapon_upgrade" "sniper_fastsemi"
-"_color" "1 0 0"
-}
 // entity 43
 {
 guid "{7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043}"
@@ -1805,48 +1721,6 @@ guid "{7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043}"
 "script_noteworthy" "specialty_electriccherry"
 "script_string" "zclassic_perks_start_room"
 "targetname" "zm_perk_machine"
-"_color" "1 0 0"
-}
-// entity 44
-{
-guid "{7A2B9C16-ACC0-4DE1-8A3F-1F00ACCE0044}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"model" "wpn_t7_ar_shva_world"
-"origin" "297 1170 53"
-"targetname" "wallbuy_sheiva"
-"_color" "1 0 0"
-}
-// entity 45
-{
-guid "{7A2B9C17-ACC0-4DE1-8A3F-1F00ACCE0045}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"origin" "300 1170 56"
-"target" "wallbuy_sheiva"
-"targetname" "weapon_upgrade"
-"zombie_weapon_upgrade" "ar_marksman"
-"_color" "1 0 0"
-}
-// entity 46
-{
-guid "{7A2B9C18-ACC0-4DE1-8A3F-1F00ACCE0046}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"model" "wpn_t7_grenade_frag_world"
-"origin" "1703.5 2222 60"
-"targetname" "wallbuy_frag"
-"_color" "1 0 0"
-}
-// entity 47
-{
-guid "{7A2B9C19-ACC0-4DE1-8A3F-1F00ACCE0047}"
-"classname" "script_struct"
-"angles" "0 0 0"
-"origin" "1700 2222 60"
-"target" "wallbuy_frag"
-"targetname" "weapon_upgrade"
-"zombie_weapon_upgrade" "frag_grenade"
 "_color" "1 0 0"
 }
 // entity 48
@@ -3134,4 +3008,40 @@ guid "{ACCEF007-0000-4E0B-8A3F-0000000003C7}"
 "inpaint_occluded_rays" "1"
 "name" "acc_probe_lab"
 "placement_offset" "72"
+}
+// entity 122
+{
+guid "{7D26E009-D487-11E6-B7CC-1C1B0D04B2D7}"
+"classname" "actor_spawner_zm_brutus"
+"ALERTONSPAWN" "0"
+"MAKEROOM" "1"
+"SCRIPT_FORCESPAWN" "1"
+"angles" "0 270 0"
+"count" "9999"
+"export" "1"
+"origin" "-131.5 670 208"
+"script_disable_bleeder" "1"
+"script_forcespawn" "1"
+"script_noteworthy" "zombie_brutus"
+"targetname" "brutus_spawner"
+"SPAWNER" "1"
+"_color" "1 0.25 0"
+"engageMaxDist" "700"
+"engageMinDist" "250"
+"model" "bo2_brutus_fb"
+"script_dropammo" "1"
+"sm_active_count_max" "3"
+"sm_active_count_min" "3"
+"spawnflags" "19"
+}
+// entity 123
+{
+guid "{9F4B6A27-D487-11E6-B7CC-1C1B0D04B2D7}"
+"classname" "script_struct"
+"angles" "0 180 0"
+"model" "bo2_brutus_fb"
+"origin" "-227.5 -300 45"
+"script_string" "start_zone"
+"targetname" "brutus_spawner_spot"
+"_color" "1 0 0"
 }

@@ -65,6 +65,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
 // ---------------------------------------------------------------------------
 // Tuning - see docs/06_mechanics.md.
@@ -82,19 +84,15 @@
 #define ACC_HEADSHOT_MULT      2.0
 #define ACC_BOSS_HEADSHOT_MULT 3.0
 
-// Deadshot layer (docs/13_perks.md): base perk x1.5, American Sniper Mega
-// replaces it with x1.75 (no double dip).
+// Deadshot layer (docs/13_perks.md): base perk x1.5 headshot, American Sniper
+// Mega replaces it with x2.0 (no double dip). The recoil halves (base -25% /
+// Mega -50%) are weapon-GDT, not GSC - see docs/30/31.
 #define ACC_DEADSHOT_MULT      1.5
-#define ACC_DEADSHOT_MEGA_MULT 1.75
+#define ACC_DEADSHOT_MEGA_MULT 2.0
 
-// Double Tap 2.0 weapon-damage layer (docs/13_perks.md): base +3% damage, Gun
-// Slinger Mega +6% total. NOTE: the +fire-rate half is GDT-only (no GSC hook),
-// so it is NOT modeled here and the perk card is re-scoped to match.
-#define ACC_DOUBLETAP_MULT      1.03
-#define ACC_DOUBLETAP_MEGA_MULT 1.06
-
-// Widow's Wine base: +50% grenade (frag) damage for the perk owner.
-#define ACC_WIDOWS_FRAG_MULT    1.50
+// NOTE (docs/13_perks.md, 2026-06-14 overhaul): Double Tap is now "Double Tap 1.0"
+// = fire-rate ONLY (no damage bonus), and Widow's Wine base no longer grants frag
+// damage. Both former GSC damage layers were REMOVED here to match the spec.
 
 // Weapon abilities (docs/05_weapons.md ability table).
 #define ACC_ABILITY_CRIT_MULT  4.0
@@ -183,35 +181,18 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         if ( isdefined( attacker ) && isplayer( attacker ) )
         {
             self acc_points::record_damage( attacker, damage );
+            // No damage number here: the stock minigun-balancing callback runs
+            // AFTER us and adjusts the final applied value, so we cannot report it
+            // accurately from this point. (Minigun is a temporary powerup, not a
+            // weapon under test - showing nothing beats showing a wrong number.)
         }
         return -1;
     }
 
-    // Spiderman (Widow's Wine Mega): melee always one-hits ORDINARY zombies
-    // (docs/13_perks.md - not bosses/elites). Short-circuits everything else.
-    if ( is_melee_mod( meansofdeath )
-         && isdefined( attacker ) && isplayer( attacker )
-         && acc_mega_bottles::has_mega_perk( attacker, "specialty_widowswine" )
-         && !is_boss_or_elite( self ) )
-    {
-        self acc_points::record_damage( attacker, self.health + 666 );
-        return self.health + 666;
-    }
-
-    // Spiderman (Widow's Wine Mega): the WEB (spider) grenade one-hits ORDINARY
-    // zombies (docs/13_perks.md - regular zombies only, not bosses/elites). Gated
-    // on the specific web-grenade weapon object (level.w_widows_wine_grenade,
-    // _zm_perk_widows_wine.gsc:137) so frag throws never trigger it - mirrors
-    // stock's own web-grenade detection (weapon == level.w_widows_wine_grenade).
-    if ( isdefined( level.w_widows_wine_grenade )
-         && isdefined( weapon ) && weapon == level.w_widows_wine_grenade
-         && isdefined( attacker ) && isplayer( attacker )
-         && acc_mega_bottles::has_mega_perk( attacker, "specialty_widowswine" )
-         && !is_boss_or_elite( self ) )
-    {
-        self acc_points::record_damage( attacker, self.health + 666 );
-        return self.health + 666;
-    }
+    // NOTE (docs/13_perks.md, 2026-06-14 overhaul): the Spiderman Mega no longer
+    // grants melee/web-grenade ONE-HIT kills. Spiderman is now "hold 6 web
+    // grenades + restock 4/round" (handled in _acc_mega_bottles). Those two OHK
+    // short-circuit blocks were REMOVED here to match the spec.
 
     b_player_attacker = isdefined( attacker ) && isplayer( attacker );
     b_melee  = is_melee_mod( meansofdeath );
@@ -226,6 +207,23 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 
     n_mult = 1.0;
     b_modified = false;
+
+    // -----------------------------------------------------------------------
+    // 0) Per-weapon BALANCE multiplier (user, 2026-06-14): HARD-map damage cut
+    //    Five-Seven -62.5%, ASM1 -73.75%, Tac-19 -25%. A flat per-gun damage
+    //    scale - scales body AND crit alike (multiplication order is
+    //    mathematically irrelevant, see header). Covers base + PaP + Deadshot
+    //    recoil variants via substring match. See acc_weapon_balance_mult.
+    // -----------------------------------------------------------------------
+    if ( isdefined( weapon ) && isdefined( weapon.name ) )
+    {
+        n_bal = acc_weapon_balance_mult( weapon.name );
+        if ( n_bal != 1.0 )
+        {
+            n_mult = n_mult * n_bal;
+            b_modified = true;
+        }
+    }
 
     // -----------------------------------------------------------------------
     // 1) Crit determination + crit chain. "Crit" == headshot-equivalent:
@@ -270,6 +268,21 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     // -----------------------------------------------------------------------
     if ( b_player_attacker )
     {
+        // Pack-a-Punch custom tier (T2..T5): flat damage multiplier on top of the
+        // stock single-PaP already baked into `damage`. CONSOLIDATED here
+        // (2026-06-14) from a SEPARATE actor-damage callback (_acc_pap_levels
+        // pap_damage_cb): the stock dispatch returns the FIRST non -1 callback and
+        // passes the ORIGINAL damage to each (_zm.gsc:5824), so two modifying
+        // callbacks are mutually exclusive - PaP tier never stacked with
+        // headshots/perks (it silently dropped on any modified hit) and the
+        // crosshair number under-reported it. One chain = one true final_damage.
+        pap_mult = acc_pap_levels::pap_tier_mult( acc_pap_levels::get_tier( attacker, weapon ) );
+        if ( pap_mult != 1.0 )
+        {
+            n_mult = n_mult * pap_mult;
+            b_modified = true;
+        }
+
         // Cyberware Amplifier (oc1): +15% weapon damage on all guns.
         // NOT on melee: Bowie Knife explicitly does not inherit the Cyberware
         // damage buff in v1.0 (docs/05_weapons.md "different damage hook").
@@ -288,25 +301,10 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
             b_modified = true;
         }
 
-        // Double Tap 2.0: +3% weapon damage (base), +6% with Gun Slinger Mega.
-        // Guns only (not melee). The perk's fire-rate half is GDT-only (Phase 4),
-        // so only the damage half lives here and the card is re-scoped to match.
-        if ( !b_melee && attacker HasPerk( "specialty_doubletap2" ) )
-        {
-            if ( acc_mega_bottles::has_mega_perk( attacker, "specialty_doubletap2" ) )
-                n_mult = n_mult * ACC_DOUBLETAP_MEGA_MULT;
-            else
-                n_mult = n_mult * ACC_DOUBLETAP_MULT;
-            b_modified = true;
-        }
-
-        // Widow's Wine: +50% grenade (frag) damage for the perk owner. Gated on
-        // a grenade MOD so it never touches bullet/melee damage.
-        if ( is_grenade_mod( meansofdeath ) && attacker HasPerk( "specialty_widowswine" ) )
-        {
-            n_mult = n_mult * ACC_WIDOWS_FRAG_MULT;
-            b_modified = true;
-        }
+        // Double Tap 1.0 (docs/13_perks.md overhaul): fire-rate ONLY now - no
+        // damage bonus. The former +3%/+6% damage layer was removed here.
+        // Widow's Wine base: the former +50% frag damage was removed here too
+        // (base Widow is now pure-stock web behavior). See docs/13.
     }
 
     // -----------------------------------------------------------------------
@@ -405,10 +403,54 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     if ( b_player_attacker )
     {
         self acc_points::record_damage( attacker, final_damage );
+        // Crosshair damage number. This runs for EVERY player hit (headshots,
+        // Double Tap'd / PaP'd / crit hits included) because it is BEFORE the
+        // short-circuit return below - the whole reason the number must live
+        // here and not in a second actor-damage callback (which never runs once
+        // we return a modified value). final_damage is the true post-mult number.
+        feed_dmg_number( attacker, final_damage );
     }
 
     if ( b_modified ) return final_damage;
     return -1;
+}
+
+// Flat per-weapon damage BALANCE (user, 2026-06-14). Substring match so one
+// entry covers the gun's base, PaP (`_up`) and Deadshot recoil variants
+// (`_acc_recoil*`). Tune here - single source of per-gun damage balance.
+// Map design = HARD + heavily reward progress, so base guns are deliberately
+// weak and PaP / Deadshot / Cyberware damage carry the scaling. All 3 took a
+// further -25% on 2026-06-14 (compounded onto the prior -50% / -65% / 0%).
+//   Five-Seven (t6_fiveseven): x0.375  (-62.5%)
+//   ASM1       (s1_asm1):      x0.2625 (-73.75%)
+//   Tac-19     (s1_tac19):     x0.75   (-25%)
+//   AK-47      (t6_ak47):      x0.23   (full-auto AR, highest raw stats of the
+//              box pool - 200 dmg @ 750 RPM; x0.23 lands its sustained DPS just
+//              above the ASM1, the AR-workhorse box reward. docs/05 / docs/33.)
+//   AE4        (s1_ae4):       x0.22   (AW directed-energy AR; 160 dmg @ 500 RPM,
+//              slower fire but medium PENETRATION (pierces a zombie train) + clip
+//              36 + tight spread - x0.22 keeps single-target ~ASM1 tier so its
+//              effective penetrating output lands in band, not above. docs/33.)
+function acc_weapon_balance_mult( weapon_name )
+{
+    if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.375;
+    if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.2625;
+    if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.75;
+    if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.23;
+    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.22;
+    if ( IsSubStr( weapon_name, "iw6_ripper" ) )   return 0.25;  // Ripper (Ghosts convertible); covers smg/ar x base/_up
+    return 1.0;
+}
+
+// Push the crosshair damage number to `player` via the dev hook (set by
+// _acc_dev when dev mode is on; undefined otherwise, so production shows
+// nothing). Single chokepoint so every record_damage site feeds it the same way.
+function feed_dmg_number( player, amount )
+{
+    if ( !isdefined( level.acc_dmg_num_feed ) ) return;
+    if ( !isdefined( player ) || !isplayer( player ) ) return;
+    if ( !isdefined( amount ) || amount <= 0 ) return;
+    player [[ level.acc_dmg_num_feed ]]( int( amount ) );
 }
 
 // ---------------------------------------------------------------------------
@@ -467,7 +509,7 @@ function get_oc_flags( player, w_weapon )
     // would miss on the upgraded object - fall back to the base-weapon key.
     // VERIFIED(acc): base lookup is table-driven via zm_weapons::
     // get_base_weapon (_zm_weapons.gsc:1624).
-    w_base = zm_weapons::get_base_weapon( w_weapon );
+    w_base = acc_weapon_variants::true_base( w_weapon );   // twin-aware (strips _acc recoil suffix)
     if ( isdefined( w_base ) && isdefined( player.acc_oc_active[ w_base ] ) )
     {
         return player.acc_oc_active[ w_base ];
@@ -676,7 +718,9 @@ function is_weapon_headshot_excluded( w_weapon )
     if ( !isdefined( name ) ) return false;
 
     // TODO(acc-data): replace inline list with data-driven GDT flag or table.
-    if ( name == "tac19_zm" ) return true;
+    // Tac-19 (Skye AW import s1_tac19) is the "no headshot bonus, flat damage"
+    // crowd-control gun (docs/05). Inert until the AW pack is installed.
+    if ( name == "s1_tac19" ) return true;
     return false;
 }
 
@@ -688,7 +732,7 @@ function weapon_root_name( w_weapon )
     // _zm_weapons.gsc:2510) - the base<->upgrade mapping is table-driven via
     // zm_weapons::get_base_weapon (_zm_weapons.gsc:1624), so route through it.
     if ( isstring( w_weapon ) ) return strip_pap_suffix( w_weapon );
-    w_base = zm_weapons::get_base_weapon( w_weapon );
+    w_base = acc_weapon_variants::true_base( w_weapon );   // twin-aware (strips _acc recoil suffix)
     if ( isdefined( w_base ) && isdefined( w_base.name ) ) return w_base.name;
     if ( isdefined( w_weapon.name ) ) return strip_pap_suffix( w_weapon.name );
     return undefined;
@@ -707,7 +751,7 @@ function strip_pap_suffix( name )
         // object must be... call/variable/self/level/anim". A direct
         // 'call().field' IS allowed (stock GetPlayers().size), but the wrap
         // is not - use a temp. First-compile finding 2026-06-12.
-        w_base = zm_weapons::get_base_weapon( w );
+        w_base = acc_weapon_variants::true_base( w );   // twin-aware (strips _acc recoil suffix)
         return w_base.name;
     }
     return name;

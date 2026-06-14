@@ -311,7 +311,34 @@ function acc_hardcoded_open_map()
 		door TriggerEnable( false );
 	}
 
-	/# println( "[acc] HARDCODED: opened " + doors.size + " doors / all zones" ); #/
+	// [acc] Per-run PaP blocker brushes. The map randomizer (apply_pap_approach)
+	// leaves ONE of acc_pap_block_server / acc_pap_block_roof solid every run to
+	// gate the Pack-a-Punch approach. These are bare script_brushmodels (NO
+	// trigger, NO script_flag), so the zombie_door loop above never touches them -
+	// that is the "one door that never opens", and it walls off the Mystery Box on
+	// the runs the box rolls to the blocked side. Open BOTH (inverse of the
+	// randomizer's block: Hide / NotSolid / ConnectPaths) so the whole map - box
+	// included - is always reachable while we dev-test. Runs at blackscreen+3s,
+	// after apply_pap_approach has already applied the per-run block, so this wins.
+	pap_names = array( "acc_pap_block_server", "acc_pap_block_roof" );
+	pap_opened = 0;
+	for ( i = 0; i < pap_names.size; i++ )
+	{
+		blockers = GetEntArray( pap_names[ i ], "targetname" );
+		for ( j = 0; j < blockers.size; j++ )
+		{
+			b = blockers[ j ];
+			if ( !isdefined( b ) )
+				continue;
+			b Hide();
+			b NotSolid();
+			b ConnectPaths();
+			pap_opened++;
+		}
+	}
+
+	/# println( "[acc] HARDCODED: opened " + doors.size + " doors / all zones + " +
+	            pap_opened + " PaP blocker(s)" ); #/
 }
 
 // [acc] Custom per-perk costs (docs/13_perks.md). The perk cost is read from

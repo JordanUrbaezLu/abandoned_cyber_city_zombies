@@ -2,6 +2,16 @@
 
 The arsenal, the Overclock system, custom perks, and the wonder weapon candidates. Most of the within-run replayability weight lives here because Overclocks randomize per run.
 
+> **⚠️ ARSENAL RESTRICTED (user, 2026-06-14).** There are **no wall buys** (all removed at
+> load by `_acc_map_randomizer::remove_all_wallbuys()`); every gun comes from the Mystery Box,
+> which `register_mystery_box_pool()` restricts by clearing `is_in_box` on the whole stock CSV
+> roster and re-enabling only a chosen set. **Box target = Tac-19, Locus, FN FAL, AK-47**
+> (user, 2026-06-14). Only **Locus** (`sniper_fastbolt`) is stock and live now; **Tac-19**
+> (`s1_tac19`), **FN FAL** (`t6_fal`), **AK-47** (`s1_ak47`/`t6_ak47`) are Skye weapon-pack
+> imports being installed — see **[docs/32](32_box_weapon_import_staging.md)** for the staging
+> + download list. **Interim box = ICR-1 + Man-O-War + Locus** until the imports land. The
+> full 16-weapon roster below is the *aspirational design spec*, not the current dispense set.
+
 Enemies are in a separate doc: [11_enemies.md](11_enemies.md).
 
 ## Roster Structure (v1.0)
@@ -88,7 +98,11 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 **6. XR-2 (bad, box)** - stock BO3 energy-based AR. Lower effective DPS than ICR-1 at zombie ranges, weird handling. The AR bad-roll. PaP: "XR-2 Ultramax". Overclock family: ar.
 
-**7. AK-47 (strong, box)** - imported iconic heavy AR. High per-shot damage, harder recoil, satisfying thump. The AR jackpot. PaP placeholder: **"Reznov's Revenge"** (homage to BO1 easter egg name) or author our own. Overclock family: ar. Import notes: most-ported weapon in CoD community history; community BO3 ports are plentiful and mature. Author GDT at `weapons/zm/sp/ak47_zm.gdt`.
+**7b. AE4 (strong, box) — ✅ LIVE** (Skye **AW `s1_ae4`**, added 2026-06-14, docs/33). AW **directed-energy AR** — the cyberpunk energy gun. 160 dmg @ 500 RPM but **penetrates** (pierces a zombie train), clip 36, tight spread. Balance **×0.22**. Shares the AR **Focus Fire** ability + AR Overclock pool with the AK-47. (Energy muzzle-flash VFX waived — references an unbundled IW FX; fires/sounds fine.)
+
+**7c. Ripper (strong, box) — ✅ LIVE** (Skye **Ghosts `iw6_ripper`**, added 2026-06-14, docs/33). **Convertible SMG⇄AR** (Evo Pro III) — the map's most mechanically unique gun; weapon-switch toggles SMG mode (190 dmg/674 RPM) ⇄ AR mode (140 dmg/968 RPM) mid-fight. Implemented as 4 `altWeapon`-linked assets. Balance **×0.25** (both modes ~ASM1/AK band). SMG family: **Whirlwind** ability + SMG Overclock pool. NO perk twins (convertible altWeapon conflicts with the twin-swap engine). PaP name: **"R1PJ4W-A2"**.
+
+**7. AK-47 (strong, box) — ✅ LIVE** (Skye **BO2 `t6_ak47`**, added 2026-06-14, see docs/33). Full-auto AR, the AR jackpot. Balance **×0.23** (raw 200 dmg @ 750 RPM — highest in the box pool; lands sustained DPS just above the ASM1). Ability: **Focus Fire** (next 6 shots auto-crit 4×, 25s cd). Overclock family: **ar** (Burst Coil / Overpressure / Piercing / Adaptive / Overheat / Subcritical). PaP placeholder: **"Reznov's Revenge"** (homage to the BO1 easter egg). _Import notes: most-ported weapon in CoD history; we used TheSkyeLord's BO2 port._
 
 ### Semi-Auto AR Category
 
@@ -168,7 +182,7 @@ Every weapon **category** has one signature ability, hotkey-triggered with coold
 | Category | Ability | Cooldown | Effect |
 |---|---|---|---|
 | Pistol (B23R) | Triple Tap | 15s | Next shot fires the 3-round burst as one tight cluster (effective 3x damage on a single target) |
-| AR full-auto (ICR-1, XR-2, AK-47) | Stabilizer | 25s | 5s of zero recoil + 20% fire rate |
+| AR full-auto — **AK-47** + **AE4** (`t6_ak47` / `s1_ae4`, LIVE) | **Focus Fire** | 25s | Next 6 shots auto-crit (4×, ignore hit-loc) — full-auto burst. Both ARs share this category ability. Replaces the spec's Stabilizer (5s zero-recoil needs a baked-GDT swap, Phase 4). docs/33. |
 | AR semi-auto (M14 EBR, G3, FAL) | Precision Mode | 30s | Next 3 shots auto-crit (4x damage, ignore hit-loc) |
 | Shotgun (Haymaker 12, Brecci, Tac-19) | Slug Round | 20s | Next shot is a slug: 2x range, 3x single-target damage, tight cone |
 | Sniper (Drakon, Locus, Intervention) | Thermal Vision | 30s | 3s see-through-walls on all enemies in view cone |

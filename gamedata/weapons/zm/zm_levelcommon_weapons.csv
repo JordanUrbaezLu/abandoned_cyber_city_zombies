@@ -1,0 +1,10 @@
+weapon_name,upgrade_name,hint,cost,weaponVO,weaponVOresp,ammo_cost,create_vox,obsolete_false,in_box,upgrade_in_box,is_limited,limit,upgrade_limit,obsolete2_false,wallbuy_autospawn,class,is_aat_exempt,is_wonder_weapon,force_attachments
+pistol_standard,pistol_standard_upgraded,,50,pistol,,0,,,FALSE,FALSE,TRUE,0,,FALSE,FALSE,pistol,TRUE,,
+frag_grenade,,,250,grenade,,250,,,FALSE,FALSE,FALSE,,,FALSE,TRUE,grenade,,,
+knife,,,0,,,0,,,FALSE,FALSE,,,,FALSE,FALSE,special,,,
+s1_tac19,s1_tac19_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,
+t6_fiveseven,t6_fiveseven_up,,900,pistol,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,pistol,,,
+s1_asm1,s1_asm1_up,,1300,smg,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,smg,,,
+t6_ak47,t6_ak47_up,,1250,rifle,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,rifle,,,
+s1_ae4,s1_ae4_up,,1500,rifle,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,rifle,,,
+iw6_ripper_smg,iw6_ripper_smg_up,,1300,smg,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,smg,,,

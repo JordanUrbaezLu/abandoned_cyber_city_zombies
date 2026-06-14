@@ -6,6 +6,744 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — dev "open all doors" now opens the PaP blocker too (the one door that never opened) (2026-06-14)
+
+The dev open-the-whole-map overrides left **one barrier closed every run**: the
+per-run Pack-a-Punch blocker. The randomizer (`apply_pap_approach`) leaves one of
+`acc_pap_block_server` / `acc_pap_block_roof` solid each run to gate the PaP
+approach. These are bare `script_brushmodel`s (no trigger, no `script_flag`), so
+**both** open-all paths — which only walk `zombie_door` trigger ents — skipped it.
+That was the "one door that never opens", and on runs where traversal funneled
+through the blocked corridor it could wall off reaching the Mystery Box.
+
+Two fixes (dev-only; the shipped per-run PaP randomization is untouched):
+
+- **`acc_hardcoded_open_map()`** (entry script, auto-runs every dev game at
+  blackscreen+3s) now also opens **both** PaP blockers (`Hide`/`NotSolid`/
+  `ConnectPaths` — the inverse of the randomizer's block). Runs after
+  `apply_pap_approach`, so it always wins.
+- **`dev_open_all_doors()`** (manual console `acc_open_doors 1`) was **flag-only**
+  — `flag::set` on a door's `script_flag` activates the zone but, per stock
+  (`_zm_blockers.gsc:1322`, the flag is set as an *output* of a purchase), does
+  NOT retract the door slab. It now physically clears each slab and opens both
+  PaP blockers, matching the auto path. New `dev_open_pap_blockers()` helper.
+
+`lint xref OK`. No new stock APIs (reuses the randomizer's own verified open
+calls). docs/23 dev-flags note updated.
+
+### Added — Ripper (`iw6_ripper`) box gun: 6th gun, convertible SMG⇄AR (2026-06-14)
+
+Added the **Skye Ghosts Ripper** as the 6th box gun — a **convertible SMG⇄AR** (Evo Pro
+III), the map's most mechanically unique weapon. Downloaded + extracted the Skye Ghosts
+pack (1.27 GB) to the BO3 root. The Ripper is **4 GDT assets** (smg/ar × base/_up) linked
+by `altWeapon`: the weapon-switch input toggles AR⇄SMG mid-fight. Wired per the pack's
+canonical ADD-TO files:
+
+- **CSV / box** — the **`_zm` naming trap**: CSV/box use `iw6_ripper_smg` (NO `_zm`); the
+  engine resolves the `_zm` asset (`add_zombie_weapon` keys the box by
+  `GetWeapon(weapon_name)`, `_zm_weapons.gsc:531/559`). `box_weapons` += `iw6_ripper_smg`.
+- **Zone** — all **4** `_zm` weapon assets so both modes + both PaP forms + the altWeapon
+  links resolve (verified all 4 in the FF assetlist/deps).
+- **Classification** — SMG family (primary mode): SMG Overclock pool + **Whirlwind**
+  ability; both mode-names mapped so they work in AR mode too.
+- **Balance** — `acc_weapon_balance_mult` += `iw6_ripper → ×0.25` (one `IsSubStr` covers
+  all 4 assets). SMG 190 dmg/674 RPM, AR 140 dmg/968 RPM — both ~530-565 effective DPS.
+- **Sound** — 13 canonical aliases (`wpn_iw6_ripper_*`) copied verbatim from the pack.
+- **NO perk twins** — the convertible `altWeapon` conflicts with the weapon-variant SWAP
+  engine (a twin swap would break the toggle), so the Ripper is intentionally absent from
+  `variant_guns()` / the recoil tool. Keeps every other system (headshots, damage perks,
+  PaP both modes, ability, overclocks).
+
+`lint xref OK`. Linker: **no Ripper errors** (all 4 assets + 13 sounds + models/anims
+compiled; only the 2 pre-existing waived cosmetics remain). FF **30.18 MB**. New docs/33
+gotcha (convertible weapons); docs/05 + docs/32 updated. Credit: TheSkyeLord + LilRobot.
+
+### Fixed — Brutus spawn crash: guard `self.brutus_enemy` deref in the pack's melee_track (2026-06-14)
+
+After the stage-2 integration, Brutus spawning **hard-crashed the game** (`console_mp.log`:
+repeated `nsz_brutus.gsc:596` script errors — "undefined is not a field object" / "not a vector"
+/ "undefined and 75"). Root cause: the vendored pack's `melee_track()` dereferences
+`self.brutus_enemy.origin` every 0.05s, but `brutus_enemy` isn't set until `custom_find_flesh()`
+runs a few frames AFTER spawn. That window floods script errors → hits BO3's script-error limit →
+fatal crash. (Stage 1 stayed under the limit by timing luck; our stage-2 promotion shifted it over.)
+Fix: one-line `isdefined( self.brutus_enemy ) &&` short-circuit guard on the melee_track condition —
+the exact pattern the pack already uses in `custom_find_flesh`. `lint` clean, relinked.
+
+(Unrelated: the build also logs a non-fatal missing-material warning `iw7_efx_plasma_muz_flash` — a
+weapon muzzle-flash material, cosmetic, not from this fix or Brutus; tracked separately.)
+
+### Added — AE4 (`s1_ae4`) box gun: 5th gun, directed-energy AR (2026-06-14)
+
+Added the **Skye AW AE4** as the 5th box gun — a **directed-energy AR** fitting the
+cyberpunk theme. Already installed (the AW pack), so no download. Full docs/33 treatment:
+
+- **Box / table / zone** — `box_weapons` += `s1_ae4`; CSV `rifle` row; zone
+  `weapon,s1_ae4`/`_up`.
+- **Classification** — joins the **AR** category: overclock `ar` family (Burst Coil /
+  Piercing Rounds / … — synergy with its native penetration) + shares the AR ability
+  **Focus Fire** with the AK-47 (category-based by design).
+- **Balance** — `acc_weapon_balance_mult` += `s1_ae4 → ×0.22`. 160 dmg @ 500 RPM
+  (slower than the AK) but medium **penetration** (pierces a zombie train) + clip 36 +
+  tight spread; ×0.22 keeps single-target ~ASM1 tier so effective penetrating output
+  lands in band, not above (hard-map discipline).
+- **Twins** — `apply_recoil_overhaul.js` + `variant_guns()` += AE4; 22 AE4 twins +
+  22 zone lines. Matrix 88 → **110** (11 × 5 × base/_up).
+- **Sound** — 12 aliases (`wpn_s1_ae4_*`, incl. energy start/end + first-raise).
+
+`lint xref OK`. Linker exit `2006000` = **2 waived cosmetic** gdtDB items: the
+Five-Seven camo + the AE4's `iw7_efx_plasma_muz_flash` muzzle-flash FX (Skye points the
+AW AE4 at an Infinite Warfare plasma FX not in our packs — non-fatal; gun fires/sounds/
+damages fine, only the muzzle VFX is absent). FF 29.98 MB. Verified: AE4 weapon + 22
+twins compiled, sound bank loads. New docs/33 gotcha (cross-game FX); docs/05 + docs/32 updated.
+
+### Changed — Boss health bar: removed the over-head world marker (top bar only) (2026-06-14)
+
+User request: keep just the single depleting boss bar + name label at top-center, drop the colored
+waypoint marker that floated over the boss. `_acc_health_bars.gsc` — removed the marker create
+(`make_boss_bar_set`), per-frame recolor (`boss_bar_track`), and destroy. The `ACC_BOSS_OH_*` defines
+are now unused (left in place). Scripts-only relink; clean but the pre-existing waived camo warning.
+
+### Added — BO2 AK-47 (`t6_ak47`) box gun: 4th gun, full suite (2026-06-14)
+
+Added the **Skye BO2 AK-47** as the 4th box gun (full-auto AR), filled in completely
+— sounds, recoil/perk twins, classification, balance — via a new reusable runbook,
+**docs/33**. Touch points:
+
+- **Box / table / zone** — `_acc_map_randomizer.gsc` `box_weapons` += `t6_ak47`;
+  `zm_levelcommon_weapons.csv` AK row (`rifle`); zone `weapon,t6_ak47`/`_up`.
+- **Ability** — new `ar` category → **Focus Fire** (`effect_focus_fire`, 25 s cd):
+  arms 6 auto-crit shots (reuses the Precision Mode `acc_ability_crit_shots`
+  contract, longer burst to fit a full-auto AR). `_acc_weapon_abilities.gsc`.
+- **Overclock** — `ar_list = ("t6_ak47")` → the existing AR pool (Burst Coil, etc.).
+- **Balance** — `acc_weapon_balance_mult` += `t6_ak47 → ×0.23`. Raw 200 dmg @ 750 RPM
+  is the highest in the pool; ×0.23 lands sustained DPS just above the ASM1 — the
+  AR-workhorse box reward, still inside the HARD-map band. Gets headshots (not
+  shotgun-excluded).
+- **Twins** — `apply_recoil_overhaul.js` `GUNS[]` += AK + `variant_guns()` += AK;
+  re-ran the tool → 22 AK twins + base recoil ×2.5 + gdtdb. Zone twin matrix
+  66 → **88** (11 combos × 4 guns × base/_up).
+- **Sound** — 10 aliases (`wpn_t6_ak47_*`) cloned into `acc_skye_box_weapons.csv`.
+
+**Pipeline fix:** `sync_to_modtools.ps1` now also deploys `sound/aliases/*.csv` to
+`share\raw\sound\aliases\`. The sound-bank build reads `share\raw`, not the usermap;
+a stale copy there made the WHOLE alias bank fail to load the moment a source changed
+(caught this build — `nsz_brutus.csv` had never been deployed there → all guns silent).
+
+`lint xref OK`. Linker exit `1000000` (waived Five-Seven camo only). FF 29.26 MB.
+New doc **docs/33** (reusable gun-add runbook); docs/05 + docs/32 updated.
+
+### Added — Speed Cola + Double Tap Mega abilities via weapon-variant twins (2026-06-14)
+
+Completes the three baked-weapon-stat Mega abilities the 2026-06-14 perk audit found
+non-functional (GSC flag set, zero in-game effect). They have **no live engine lever**, so —
+like Deadshot recoil — they ship as per-perk **weapon-variant twin swaps**:
+
+- **Speed Cola "Sleight of Hand Expert" — +70% reload.** `fastreload` twin: `reloadTime` /
+  `reloadEmptyTime` / `*AddTime` ×0.882, layered on the engine's free +50% → ~+70% net
+  (`_acc_weapon_variants.gsc::axis_reload`, Mega-only). The base-25% / Mega-50% **perk-drink
+  speedup was CUT** — the drink anim is shared map-wide and plays before you own the perk, so
+  it can't be perk-gated (user call).
+- **Double Tap "Gun Slinger" — +50% fire rate AND −75% weapon-swap.** Bundled into one
+  `fastfire` twin (`fireTime` / `holdFireTime` ×0.667 + raise/drop times ×0.25) since both
+  gate on the DT Mega flag (`axis_fire`).
+
+Built on the other agent's axis-based variant rearchitecture (`level.acc_variant_axes`,
+graceful `desired_weapon()` fallback). Changes:
+
+- `tools/gen_weapon_variant_gdt.js` — now scales reload + swap timing keys via `--reload` /
+  `--swap` (added `RELOAD_KEYS` / `SWAP_KEYS`); one twin can combine recoil+fire+swap+reload.
+- `tools/apply_recoil_overhaul.js` — generates the full **recoil × fastfire × fastreload**
+  cross-product: 11 combos × 3 guns × (base + `_up`) = **66 twins** into
+  `source_data/acc_weapon_variants.gdt`.
+- `_acc_weapon_variants.gsc` — `build_available_twins()` enables all 11 combos; header refreshed.
+- `zone_source/*.zone` — 66 `weaponfull` lines (verified 0 mismatches vs the GDT, both ways).
+- `_acc_mega_bottles.gsc` — `specialty_fastreload` Mega case + perk-loss revert; fixed stale
+  comments (deleted DT "+6% damage"; Deadshot recoil −25%/−50% → −35%/−70%; "inert" claims).
+- Docs — `perk_abilities.md` / `13_perks.md` Speed Cola drink lines removed + Deadshot recoil
+  corrected to −35%/−70%; `13_perks.md` ledger synced + a "stale" banner on the pre-finalization
+  audit table; `docs/30` + `docs/31` Gun Slinger + Speed Cola sections flipped to BUILT.
+
+`lint_gsc_xref.js` clean. **Build caveats:** (1) +54 `weaponfull` assets (12→66) — watch the
+linker for a weapon-budget error; the GSC fallback lets you trim the rare 3-axis combos safely
+if needed. (2) `FIRE 0.667` / `RELOAD 0.882` magnitudes assume specific engine compounding —
+confirm in-game (`acc_variants_debug 1`) and retune the single generator constants.
+
+### Added — NSZ Brutus replaces the Juggernaut Host mini-boss (2026-06-14)
+
+Begin replacing the Juggernaut Host mini-boss with **Brutus** (NateSmithZombies' BO2 port,
+`NSZ_Brutus_V1.0.4`). Audit finding: Brutus is a custom **aitype** (`zm_brutus` — stock-zombie
+behaviour + BO2 model + custom anims via the `zm_brutus` animtable), NOT a hard behaviour-tree
+archetype like `mechz`, so it ships fully and works in usermaps. Full dossier + verified script
+API: `docs/research/NateSmithZombies_Brutus_BO2_boss_pack.txt`; ledger entry in docs/22.
+
+Design decisions (user, 2026-06-14): Brutus replaces the **mini-boss** (r10/r20); he **charges
+alongside the normal wave** (his native `ignore_enemy_count` design, not our wave-suppressing
+gate); the perk/box **lock mechanic is dropped**; our health bar + 10× HP + +25% speed +
+Mega-Bottle/boss-item rewards get layered on (stage 2).
+
+This commit is **stage 1 only** — wiring so the asset import can be proven in-game:
+- **Source assets copied into the Mod Tools root** (`model_export/_NSZ`, `xanim_export/_NSZ`,
+  `sound_assets/_NSZ`, `share/raw/fx/_NSZ`, `share/raw/animtables/zm_brutus.*`,
+  `map_source/_prefabs/_NSZ`) for the APE GDT import. (Not repo-tracked; source = the pack zip.)
+- **`scripts/_NSZ/nsz_brutus.gsc`** — pack script vendored. One config edit:
+  `brutus_lock_machines = false` (REQUIRED — with no lock prefabs, the pack's `watch_for_machines`
+  `while(1)` has no wait and hard-loops).
+- **`_acc_boss_brutus.gsc`** — thin wrapper; stage-1 `init()` just calls `brutus::init()`.
+- Wired into `zone_source` (scriptparsetree + scriptbundle/xmodel/fx lines), `_acc_main` init list,
+  and sound (`sound/aliases/nsz_brutus.csv` (19 aliases) + `.szc` source).
+
+Done by the agent: Brutus GDT registered via `gdtdb /update` (52 assets, clean) — it stays at its
+pack location `model_export\_NSZ\_GDT\` (GOTCHA: `gdtdb` scans BOTH `model_export\**\_GDT` AND
+`source_data`, so do NOT also copy a pack GDT into `source_data` — that double-defines every asset
+and `gdtdb` errors); spawner + spawn-spot entities appended to the `.map` (`actor_spawner_zm_brutus`
+at the navmesh-valid stock-spawner spot; `brutus_spawner_spot` struct `script_string=start_zone` by
+the player spawn); `brutus_debug=true` for a round-1 test spawn; synced to the usermap. The greybox
+has no AI traversals, so the "ignore Brutus" step is N/A. Remaining (Windows/user): **one Launcher
+Compile (map + scripts)** — it converts the Brutus GDT assets (proven path: the Skye weapon GDTs
+already convert into this map's `.ff`) and bakes the new entities — then launch.
+
+**Stage 2 — full integration (GSC-only, done; needs a scripts-only recompile).** Brutus now IS the
+mini-boss, driven by `_acc_boss` instead of the pack's own systems:
+- **Cadence: every 5 rounds from round 5** (r5, 10, 15, 20, 25, 35, 45, …) via `round_hook_loop`
+  (`ACC_BRUTUS_FIRST_ROUND`/`_INTERVAL`); the full boss (Subroutine Core) still takes r30/40/50 and
+  suppresses Brutus those rounds. `run_mini_boss` no longer suppresses the wave — Brutus charges
+  **alongside** it and keeps his native `ignore_enemy_count` (doesn't gate round end, user choice).
+- **`spawn_brutus_miniboss`** (was `spawn_juggernaut_host`) gets a live actor from the new
+  `acc_boss_brutus::spawn_one()` and layers on: **10× HP** (500k × coop), **+25% speed**
+  (`boss_speed_think`), **50% bigger** (`SetScale 1.5`, body + helmet), the **health bar + over-boss
+  marker**, and **Mega-Bottle + boss-item** rewards on death.
+- Vendored `nsz_brutus.gsc` hooks: gate its `brutus_spawn_logic` behind `acc_brutus_external_spawns`,
+  emit the live actor to `level.acc_brutus_last` + `"acc_brutus_spawned"`, skip the 5–20s pre-spawn
+  delay when we drive it, `brutus_debug` reverted to false. Test loop re-gated behind `acc_test_boss`.
+
+`lint_gsc_xref.js` clean; brace/paren balanced. **Built** via headless
+`linker_modtools.exe -modsource zm_abandoned_cyber_city` (scripts-only relink; reuses the stage-1
+BSP + converted assets) → `.ff` repacked, only the pre-existing waived `mtl_origins_camo_alt`
+warning. GOTCHA: szc alias files resolve from the Mod Tools ROOT `share\raw\sound\aliases\`, not the
+usermap — the Launcher's sound step copies them there, but a standalone `linker` run does NOT, so a
+sound-alias change needs the csv copied to root (or a Launcher compile). Polish backlog: more
+spawn-point structs (only one in start_zone today), helmet-scale fine-tune, confirm
+`ASMSetAnimationRate` visibly speeds his charge.
+
+### Changed — Weapon-variant framework generalized to a data-driven AXIS registry (2026-06-14)
+
+Refactored `_acc_weapon_variants.gsc` from hardcoded (recoil-level, fast) logic into an
+effect-agnostic **axis** model, so other agents can add perk/ability twins (Gun Slinger
+fire-rate, Speed Cola reload, …) **without touching the swap engine**:
+
+- **Axes** — each is `axis_<name>(self=player)` returning its active token or undefined;
+  `level.acc_variant_axes` lists them in canonical order. Added `axis_recoil` (Deadshot),
+  `axis_fire` (Gun Slinger), `axis_reload` (Speed Cola Mega). `compute_tokens()` collects the
+  active tokens; `desired_weapon()` resolves `<gun>[_up]_acc_<tok1>_<tok2>…` with graceful
+  fallback (missing combined twin → partial effect → base).
+- **Single source of truth** — `variant_dims()` (token levels per axis, mirrors the
+  generator's `TWIN_DIMS`); `build_variant_suffixes()` derives the stem-strip list as a
+  mixed-radix cross-product (all 11 combos, forward-safe); `build_available_twins()` gates on
+  the `built` combo list (= what's compiled in).
+- **Timed overlay** generalized to a token-set (`apply_timed_variant(tokens[], dur)` +
+  `timed_has()`), so any axis can be granted by an ability (Stabilizer now passes
+  `["recoil70","fastfire"]`).
+- **Full 66-twin matrix BAKED + LINKED** — recoil × Gun-Slinger(fire+swap) × Speed-Cola(reload),
+  11 combos × 3 guns × (base+`_up`). `tools/apply_recoil_overhaul.js` (user-extended to the
+  cross-product) generates them; GDT/zone/allow-list verified in sync (66=66=66); all 66 link
+  (0 twin errors). **Gotcha:** after regenerating the GDT you MUST run
+  `<tools>\gdtdb\gdtdb.exe /update` before linking, or the new twins are `unable to locate asset
+  in gdtdb` (the linker doesn't refresh the DB; the Launcher Compile does).
+- **Extension guide** for agents: docs/30 "Adding a weapon-variant effect" + the EXTENSION
+  POINT banner in-module. The generator already scales recoil/fire/reload/swap GDT key-sets.
+- Recoil behavior preserved (Deadshot still resolves `_acc_recoil70`); fire/reload combos resolve
+  with graceful fallback. Lint clean; linked clean (twin side).
+
+### Changed — gun damage balance pass: Five-Seven −50%, ASM1 −65% (user, 2026-06-14)
+
+Audit (base, close-range, single-target DPS): **Five-Seven** 200 dmg × 12.5/s (semi) = ~2,500
+peak; **ASM1** 170 × 11.2/s (full-auto) = ~1,910 sustained; **Tac-19** 175 × 3.3/s (single blast)
+= ~580. The starting pistol and the SMG were badly out-DPSing the Tac-19. Applied flat per-gun
+damage multipliers in **`_acc_damage.gsc`** (new `acc_weapon_balance_mult`, called at the top of
+`on_ai_damage` into the `n_mult` chain): Five-Seven **×0.5**, ASM1 **×0.35** (−65%), Tac-19 **×1.0**.
+Substring match so it covers base + PaP (`_up`) + the Deadshot recoil variants. Post-pass single-
+target DPS ≈ Five-Seven 1,250 peak / ASM1 668 / Tac-19 580 — much tighter; ASM1's full-auto makes
+it the real sustained benchmark, hence the deeper cut. GSC-only (linker), lint clean. Single source
+of per-gun balance, easy to retune. (Tac-19's niche stays its wide blast + flat/no-headshot damage.)
+
+**Follow-up (same day): a further −25% on ALL three** — the map should be HARD and heavily reward
+progress, so base guns are deliberately weak and PaP / Deadshot / Cyberware damage carry the
+scaling. Compounded multipliers are now Five-Seven **×0.375** (−62.5%), ASM1 **×0.2625** (−73.75%),
+Tac-19 **×0.75** (−25%). Base-DPS lands ~Five-Seven 940 peak / ASM1 500 / Tac-19 440. Not lethal
+cuts (e.g. ASM1 still ~134/headshot with the map's ~3× head mult), but early/mid rounds now demand
+upgrades. Edit `acc_weapon_balance_mult` to retune.
+
+### Fixed — Recoil-variant rearchitecture: instant swaps + engine-native upgrades (2026-06-14)
+
+Playtest surfaced 3 bugs (gun randomly swaps out / flip-flops between versions; PaP indicator
+breaks until repack). A multi-agent design exploration (8 agents) root-caused a single mechanism:
+**`SwitchToWeapon`'s ~0.5s raise animation left `GetCurrentWeapon()` in a transitional state that
+fed the reconcile loop**, and the twins were **invisible to the engine's PaP upgrade table** so a
+held twin read as un-upgraded. Fixes in `_acc_weapon_variants.gsc`:
+
+- **Instant swap** — `SwitchToWeapon` → `SwitchToWeaponImmediate` (verified stock builtin). No
+  raise/lower animation → the swap is invisible AND closes the transitional-weapon window that
+  caused the "random swap out" + flip-flop.
+- **Engine-native upgrades** — `register_twin_upgrades()` registers each **`_up`** twin in
+  `level.zombie_weapons_upgraded` (twin→true-base, the table stock `add_zombie_weapon` writes), so
+  `is_weapon_upgraded(twin)=true` / `get_base_weapon(twin)=base` natively → the PaP HUD/tier-up/
+  re-pack all read a held twin correctly (kills the "PaP breaks until repack" bug). Only `_up`
+  twins are registered (base twins must stay un-upgraded so first-pack still applies tier 1 + camo);
+  twins are never added to `zombie_weapons`/`include_weapons`, so the box can't roll them.
+- **Re-entrancy mute** — `self.acc_swapping` guard so the swap's own `weapon_change` can't re-wake
+  reconcile mid-swap.
+- **Down / lose-Deadshot handled** — reconcile early-returns while `self.laststand` (don't touch
+  guns mid-down); the poll became a **3s safety-net** that re-derives from live `HasPerk()`, so a
+  down that strips Deadshot reverts the gun to base once revived (plus `perk_lost_func`→`on_perk_lost`
+  →`request_reconcile` pokes it immediately). PaP tier persists (player field, `true_base`-keyed).
+
+Kept: `true_base()`, the 12 generated twins, `near_pap()` suppression (still needed so a base twin
+reverts to the real gun for the FIRST pack). Lint clean; linked clean.
+
+### Changed — Tac-19 blast girth: wider spread cone (user, 2026-06-14)
+
+The Tac-19 (`weaponClass = spread`, hitscan — not an explosive) now has a noticeably wider
+blast: `hipSpreadStandMin` 3°→**7°**, `hipSpreadMax` 5°→**10°** (`adsSpread` left at 0, so it
+still tightens when aimed). Applied to base + PaP + all 4 Deadshot recoil variants — I widened
+the spread in the canonical `skye_s1_tac-19.gdt.acc-orig` backup (so it survives the idempotent
+`apply_recoil_overhaul.js` re-runs, which restore from `.acc-orig`) and re-ran the overhaul tool,
+which re-derived `acc_weapon_variants.gdt` so the variants inherit the wide cone. gdtdb + linker
+clean (only the waived Five-Seven camo warning). Trade-off: bigger crowd-control arc up close,
+less density/reach at range. **Reproducibility note:** the base-GDT spread lives install-side
+(the Skye pack is install-only — same gap as the whole import); the variant GDT copy IS in the
+repo (`source_data/acc_weapon_variants.gdt`). Could be made fully repo-tracked by adding the
+spread step to `apply_recoil_overhaul.js` if desired.
+
+### Changed — Juggernaut Host mini-boss: +25% speed + 10× HP (2026-06-14)
+
+The moving boss (mini-boss "Juggernaut Host", the one with the health bar + over-boss marker)
+got two buffs. The full boss (Subroutine Core) is unchanged — it's pinned stationary by
+design, so a speed buff is meaningless there. (`_acc_boss.gsc`; docs/11_enemies.md updated.)
+
+- **+25% faster than the current round speed.** New `boss_speed_think()` keep-alive locks the
+  Host to the **sprint** run cycle (the round's top base tier, and the same cap the Rampage
+  Inducer forces the wave to) and applies `ASMSetAnimationRate( 1.25 )` on top — zombie movement
+  is anim-driven, the same lever early-round pacing / Widow's Wine use. Re-asserted every 2s so
+  round transitions, state changes, or a mid-fight Rampage toggle can't decay it. Net effect:
+  Rampage **off** → +25% over the round's top zombie speed; Rampage **on** → still +25% above the
+  sprint cap, so the Host outruns even a rampage-sprinting wave. Replaces the old fixed
+  `set_zombie_run_cycle("run")` lock (which made the Host *slower* than the round at sprint rounds).
+- **10× HP** (`ACC_BOSS_MINI_HP` 50,000 → **500,000**, still ×`special_hp_mult()` coop scaling).
+  The round-2 dev test-boss override (`acc_test_boss`) is left low on purpose so the Mega-Bottle
+  drop loop stays testable without surviving to round 10.
+
+### Fixed — 3-gun arsenal audit follow-ups: box junk-draw + weapon abilities (2026-06-14)
+
+Post-change adversarial audit (4-agent, read-only) flagged real gameplay issues; fixed the
+three that mattered. (It also raised a "grenades never given" *blocker* that was a FALSE alarm —
+the entry `main()` calls `zm_usermap::main()` at line 130, which registers `frag_grenade` and
+gives it at spawn; verified, no change needed.) `lint_gsc_xref.js` clean; linker built (only the
+waived Five-Seven camo warning).
+
+- **Box could dispense a knife / frag / pistol.** With only 3 box guns + Mule Kick a player can
+  own all three; stock `treasure_chest_ChooseWeightedRandomWeapon` then falls back to `keys[0]`
+  (a random entry from the whole weapon table). Fix: `_acc_map_randomizer.gsc` sets
+  `level.CustomRandomWeaponWeights = &acc_box_only_weapon_keys`, narrowing the draw key list to
+  `is_in_box` weapons — so both the loop and the fallback only ever see box guns (worst case = a
+  duplicate box gun, stock max-ammo behaviour).
+- **Every gun now has a LIVE signature ability** (`_acc_weapon_abilities.gsc build_ability_table`):
+  Five-Seven (pistol) → **Precision Mode** (3 auto-crit shots), ASM1 (smg) → **Whirlwind** (96u
+  AoE), Tac-19 (shotgun) → **Slug Round** (next shot 3×). Previously ASM1 had **no** ability (no
+  `smg` category) and the pistol's Triple Tap was a no-op stub. Removed the unreachable
+  melee/grenade/AR/sniper categories (offhand weapons are never `getcurrentweapon()`), so there
+  are no more dead-end abilities. ASM1 already gets SMG **Overclocks** (the pool existed). The
+  unused effect fns (`effect_triple_tap` etc.) are kept defined for future re-add.
+
+### Added — Recoil overhaul Phase 1: 2.5× base + Deadshot −35%/−70% twins + PaP persistence (2026-06-14)
+
+The map's skill theme: **every gun kicks at 2.5× vanilla recoil**, and Deadshot claws it back
+(**−35% base / −70% Mega**, off the 2.5× baseline → 1.625× / 0.75× vanilla). Built on the 3
+imported box guns (`s1_tac19`, `s1_asm1`, `t6_fiveseven` + their `_up` PaP forms), all-automated
+(GDTs are plain text — no APE).
+
+- **`tools/apply_recoil_overhaul.js`** (idempotent, repo-tracked) — scales each gun's base +
+  `_up` recoil ×2.5 *in place* in the Skye GDTs (keeps a `.acc-orig` backup, restores before
+  re-scaling so re-runs never compound), then generates **12 twins** (`recoil35` ×0.65,
+  `recoil70` ×0.30, base+`_up` × 3 guns) into `source_data/acc_weapon_variants.gdt`. Verified
+  value chain: vanilla 60 → base 150 → recoil35 97.5 (1.625×) → recoil70 45 (0.75×).
+- **`tools/gen_weapon_variant_gdt.js`** — added an `--inplace` mode (scales an asset's recoil
+  fields inside the source GDT, no rename) alongside the twin-clone mode.
+- **`_acc_weapon_variants.gsc`** — tokens `recoil35`/`recoil70` (was 25/50); `deadshot_recoil_level`
+  returns 70 (Mega) / 35 (base) / 0; `build_available_twins()` lists all 12; Stabilizer maps to −70%.
+- **PaP persistence (the hard part):** `acc_weapon_variants::true_base(weapon)` strips the
+  `_acc_*` twin suffix *before* `get_base_weapon`, so the 5-tier PaP tier — **and** overclock
+  state + headshot-exclusion — follow a gun across recoil swaps. Re-keyed every base-keyed
+  lookup in `_acc_pap_levels.gsc` (4 sites) and `_acc_damage.gsc` (3 sites); `true_base` ≡
+  `get_base_weapon` for non-twins, so it's a safe drop-in. Plus: reconcile **suppresses twins
+  within 150u of the PaP machine**, so the stock first-pack + custom tier-up always operate on
+  the real (upgrade-table-recognized) weapon — a twin can't be first-packed.
+- Zone: 12 `weaponfull,` lines. Docs: perk_abilities §7 (2.5× + 35/70), docs/30-31. Lint clean.
+- **BUILT + LINKED (2026-06-14):** all 12 twins load clean (linker: zero "unable to load"), `.ff`
+  written (26 MB). The lone build error — `mtl_origins_camo_alt not found` — is **pre-existing
+  and pack-wide** (referenced by `skye_up_camo.gdt` + every BO2 `t6_` import's PaP camo; the
+  Origins PaP camo material the Skye BO2 pack never bundled). Non-fatal (`.ff` builds; cosmetic
+  missing camo on PaP'd BO2 guns). NOT caused by the recoil work.
+- **Default ON (2026-06-14):** `ACC_VARIANTS_DEFAULT` flipped 0→1 (core feature, not an
+  experiment) — no dvar needed; `acc_weapon_variants 0` disables, `acc_variants_debug 1` prints
+  each swap on-screen. Also: `reconcile()` now includes the **equipped** weapon, not just
+  `GetWeaponsListPrimaries()`, so the starting-pistol slot (Five-Seven) gets swapped too.
+- **Remaining:** in-game test (recoil 2.5×→1.625×→0.75× + PaP persistence). Phase 2 = Gun
+  Slinger fire-rate/swap-time twins.
+
+### Added — Recoil twins authored by TEXT (no APE) + `tools/gen_weapon_variant_gdt.js` (2026-06-14)
+
+The installed Skye weapon GDTs are **plain text on disk** (`source_data/skye_s1_tac-19.gdt`,
+asset `s1_tac19`), so a recoil/fire twin can be authored by **editing the GDT text directly —
+the APE GUI is not required** (APE just edits the same text). This unblocks the variant system
+without touching the Asset Editor.
+
+- New tool **`tools/gen_weapon_variant_gdt.js`** — extracts a `bulletweapon` asset block from a
+  source GDT, renames it `<asset>_<suffix>`, and SCALES the kick-magnitude fields (Pitch/Yaw
+  Min/Max for hip+ads gun & view kick) by a factor (+ optional `fireTime` scale). Brace-matched
+  extraction, value-preserving formatting.
+- Generated **`source_data/acc_weapon_variants.gdt`** = `s1_tac19_acc_recoil50` (recoil ×0.50,
+  −50% Mega Deadshot) + `s1_tac19_acc_recoil25` (×0.75, −25% base Deadshot). Verified: envelope
+  matches the source GDT (1-tab asset / 2-tab fields), braces balanced, 16 recoil fields scaled
+  each, `fireTime` untouched.
+- Deployed to the tools `source_data`; zone `weaponfull,` lines + `build_available_twins()`
+  entries activated; repo synced to the usermap; GSC lint clean.
+- **Remaining (GUI-gated, can't run headless):** a Launcher **Compile** registers the new GDT
+  in `gdtdb\gdt.db` (via GdtDBTray, which needs the interactive session) and links the `.ff`;
+  then `acc_weapon_variants 1` + in-game test. The `linker`-only path can't register a new GDT
+  asset on its own, and the tray won't index headlessly — so the compile is the one user step.
+
+### Verified — Weapon-GDT sourcing reality (no editable stock weapon stats) + doc corrections (2026-06-14)
+
+A research pass + live-box check (APE shows no `weapon`/`bulletweapon` stat type, only
+`wpn_t7_base` art) established the ground truth for the whole GDT perk layer (docs/22
+"Weapon-GDT sourcing reality"; docs/30-31 updated):
+
+- **No editable stock weapon stat GDTs exist in this install** — the tools ship weapon ART
+  only; stock `frag_grenade`/`ar_accurate`/etc. stat defs are baked into base fastfiles. No
+  download fixes it (`T7-GDT-Backup` mirrors only shipped GDTs; its sole weapon-stat GDT is a
+  template `smg_standard.gdt`).
+- **The Launcher has no extractor** — corrects an earlier wrong "Launcher → extract" claim.
+  Decompiling a stock weapon needs **HydraX** (reads the running game), with a known
+  incomplete-dump caveat → validate one throwaway twin before scaling.
+- **Grenade carry caps don't need a GDT** if the target is ≤ the stock cap: the GSC fills
+  (`SetWeaponAmmoClip`/`GiveMaxAmmo`, already shipped) set the count, clamped to the baked
+  cap. A GDT raise is only needed to *exceed* the cap (and then via a HydraX clone).
+- **Recoil-reduction / fast-fire twins are imported-weapon-only** for stock guns (can't clone
+  a GDT you don't have) — the `_acc_weapon_variants` framework is name-driven, so twins built
+  on the now-installed Skye box imports (`s1_tac19`, `t6_fal`, `t6_ak47`) drop straight in.
+- **Field-name fixes:** recoil keys are `hipGunKick*`/`adsGunKick*`/`hipViewKick*`/
+  `adsViewKick*` (not bare `gunKick*`); `fireTimeAkimbo` is not a confirmed BO3 field.
+
+### Fixed — Deadshot is recoil REDUCTION (−25%/−50%), not zero; variant model reworked (2026-06-14)
+
+Spec correction (docs/perk_abilities §7): Deadshot is **−25% recoil on any owner** and **−50%
+on Mega "American Sniper"** — NOT "no recoil." `_acc_weapon_variants.gsc` reworked from a
+`norecoil`/`fastfire` token list to a proper **(recoil-level ∈ {0,25,50}, fast ∈ bool)** state:
+
+- Twins are now `_acc_recoil25` (gunKick* ×0.75), `_acc_recoil50` (×0.50), `_acc_fastfire`
+  (fireTime ×0.667), + optional combined. APE step is **SCALE** the recoil fields, not zero.
+- The recoil twin now swaps in for **base Deadshot too** (−25%), upgrading to −50% on Mega —
+  wired via `_acc_mega_bottles::on_perk_bought` (base) + `apply_mega_effects` (Mega). Graceful
+  fallbacks: missing −50% twin steps down to −25%; missing combined falls back to single.
+- Stabilizer ability maps to the −50% + fast overlay. Zone/`build_available_twins()` examples
+  updated to the imported-gun twin names. xref + structural lint clean.
+
+### Changed — box arsenal → Tac-19/Locus/FN-FAL/AK-47: imports installed + wired (2026-06-14)
+
+User wants the Mystery Box to dispense Tac-19, Locus, FN FAL, AK-47. Only **Locus**
+(`sniper_fastbolt`) is stock BO3 — added to the box now (builds clean, linker-only). The
+other three are **Skye weapon-pack imports** that need assets installed on the Windows box
+(AW pack → `s1_tac19` Tac-19 + `s1_ak47` AK-47; BO2 pack → `t6_fal` FN FAL). Full download
+list + the exact CSV/zone/szc/GSC wiring to flip once installed: **docs/32**.
+
+- **`_acc_map_randomizer.gsc`** — interim box pool = ICR-1 + Man-O-War + Locus; the FINAL
+  4-gun array is staged as a comment right below it (swap when imports land).
+- **Import names pre-wired (inert until assets exist, so build-safe):** `_acc_overclocks.gsc`
+  weapon families (Tac-19→shotgun, FN-FAL/AK-47→ar, Locus→sniper) **and purged the old invalid
+  `<name>_zm` family strings** (replaced with real unsuffixed class names); `_acc_weapon_abilities.gsc`
+  ability categories; `_acc_damage.gsc` Tac-19 (`s1_tac19`) headshot-exclusion (was stale `tac19_zm`).
+- AK-47 lands as `s1_ak47` (AW) or `t6_ak47` (BO2); both are listed in the classification tables
+  so whichever installs is classified. `lint_gsc_xref.js` clean; linker exit 0.
+
+**UPDATE (same day): Skye AW + BO2 packs downloaded by the user and installed by me.** Final
+box = `s1_tac19` (Tac-19/AW), `sniper_fastbolt` (Locus/stock), `t6_fal` (FN FAL/BO2),
+`t6_ak47` (AK-47/BO2). Wiring (all deployed via sync):
+- Packs extracted to the Mod Tools root (AW pack needed WinRAR — Deflate64 zip the .NET reader
+  rejects; BO2 via .NET). Weapon GDTs/models/anims/sounds now in `source_data`/`model_export`/etc.
+- **`gamedata/weapons/zm/zm_levelcommon_weapons.csv`** (NEW) — custom weapon-table override =
+  stock 50-weapon table + the 3 import rows (verbatim from each pack's `ADD TO ZM_LEVELCOMMON…`).
+- **`tools/sync_to_modtools.ps1`** — now mirrors `gamedata/` into the usermap.
+- **`zone_source/…zone`** — 6 `weapon,` asset lines (base + `_up` per import).
+- **`_acc_map_randomizer.gsc`** — box pool flipped from INTERIM to the FINAL 4-gun set.
+- **BUILT** (Launcher Compile = `gdtdb /update` → `cod2map64` → LED → `linker`): all 3 imports
+  converted + packed (assetinfo refs s1_tac19 152 / t6_fal 81 / t6_ak47 689), `.ff` repacked.
+  The box now dispenses the four guns in-game. One non-fatal warning: the FN FAL's **PaP camo**
+  (`t6_camo_fal_table` → `mtl_origins_camo_alt`) is a BO2-Origins material the pack didn't bundle,
+  so the PaP'd FAL's camo shows default — base FAL + others fine (fix tracked in docs/32).
+- **Correction:** a headless GDT-convert CLI DOES exist (`<tools>\gdtdb\gdtdb.exe /update`, not in
+  `bin\`) — weapon-import rebuilds need not go through the Launcher GUI.
+- **Sounds added** (later same day): per-pack `ADD TO USER_ALIASES` rows for the box guns →
+  custom alias CSV `acc_skye_box_weapons.csv` + a new ALIAS source in the `.szc`; the linker
+  rebuilds the sound bank from the `.szc` (confirmed headless). All box guns fire with audio.
+
+**FINAL ARSENAL (user, 2026-06-14): exactly 3 guns.** Box returns ONLY **Five-Seven**
+(`t6_fiveseven`, Skye BO2 — also the **starting pistol** via `level.start_weapon` in
+`_acc_main::init`), **ASM1** (`s1_asm1`, Skye AW), **Tac-19** (`s1_tac19`, Skye AW). **FN FAL +
+AK-47 fully removed** (zone/CSV/aliases/classification → 0 asset refs); Locus/ICR/Man-O-War out
+of the box. New file `gamedata/weapons/zm/zm_levelcommon_weapons.csv` (stock table + imports);
+`sound/aliases/acc_skye_box_weapons.csv`; `tools/sync_to_modtools.ps1` mirrors `gamedata/`.
+Built headless (gdtdb→linker), `.ff` 24.97 MB. Lone non-fatal warning: Five-Seven PaP camo
+(BO2-Origins `mtl_origins_camo_alt`, unbundled — user-waived). Status: **docs/32**.
+
+**Table cleanup (user, 2026-06-14):** to stop the unused stock roster confusing devs/agents,
+`gamedata/weapons/zm/zm_levelcommon_weapons.csv` was cut from the full ~50-weapon stock table to
+**6 rows** — the 3 guns + the 3 framework essentials that the engine hardcodes and the loadout
+needs: `pistol_standard` (last-stand pistol), `knife` (`give_start_weapons` melee), `frag_grenade`
+(lethal). The ~45 unreachable stock guns / wonder weapons / equipment were removed (they were
+never wallbuy/box-dispensed anyway; `GetWeapon()` flavor refs resolve globally, not from the level
+table — proven by stock `hk416`/`knife_held` working without a row). The `_acc_overclocks` +
+`_acc_weapon_abilities` family/ability tables were trimmed to match (AR/sniper/lmg lists now empty;
+melee → `knife`). Build clean (only the waived Five-Seven camo warning); lint clean.
+
+### Added — Weapon-variant swap framework (perk recoil/fire-rate twins) (2026-06-14)
+
+> Magnitudes corrected same day — see "Fixed — Deadshot is recoil REDUCTION" above (Deadshot
+> is −25%/−50% recoil, not zero; twins are `recoil25`/`recoil50`/`fastfire`, the APE edit
+> SCALES recoil rather than zeroing). This entry describes the framework; that one the model.
+
+New module **`_acc_weapon_variants.gsc`** — the GSC half of the perk magnitudes that are
+**baked weapon-GDT properties** with no live setter (recoil tables, `fireTime`), per the
+2026-06-14 audit (docs/30 §4-5, docs/31 §4-5). Since the engine can't change recoil or
+fire rate on a held weapon, the only mechanism is to **swap the gun for a cloned twin**
+whose GDT scales recoil / lowers fireTime while the perk is held, then swap the base back.
+
+- **Engine:** an idempotent per-player reconcile loop keeps every carried primary matching
+  the player's desired (recoil-level, fast) state (derived **live** from perk state, so it
+  survives the death/re-buy cycle). Carries clip + reserve across each swap (mirrors the
+  stock PaP ammo-carry, `_zm_pack_a_punch.gsc:688`). Resolves the exact twin first, else
+  falls back (combined→single, −50%→−25%), else stays on base.
+- **Wired:** Deadshot −25% (base) / −50% (Mega) → `recoil25`/`recoil50` twin; Mega Double Tap
+  "Gun Slinger" → `fastfire` twin (`_acc_mega_bottles.gsc` `on_perk_bought` +
+  `apply_mega_effects` + `on_perk_lost`); the **Stabilizer** weapon ability → timed −50%+fast
+  overlay (`_acc_weapon_abilities.gsc`, no longer a Phase-4 stub).
+- **Ships INERT (safe no-op).** Does nothing until the twins are cloned in APE, added to the
+  zone (`weaponfull,<name>`), listed in `build_available_twins()` (a GetWeapon allow-list so
+  an un-baked name can't throw), and `acc_weapon_variants 1` is set. Until then desired state
+  is "base" and reconcile only ever leaves guns on base.
+- Reads the Mega flag **field directly** to avoid a `#using` cycle with `_acc_mega_bottles`.
+- Verified: xref lint clean; brace/paren/`#namespace`-order/no-ternary/col-0 checks pass.
+  Builtins (`Get/SetWeaponAmmoStock`, `GiveWeapon`, `weapon_change` notifies, `GetSubStr`)
+  confirmed against the stock mirror. Next step is the APE twin bake (docs/31).
+
+### Added — Armory point-of-sale 10% discount + PaP tier-cost hint (vendored stock files) (2026-06-14)
+
+Mule Kick's Mega "The Armory" now makes **all point purchases 10% cheaper at point of
+sale** — the **charge AND the displayed price** reflect the discount (a spend-rebate
+can't change shown prices). Also fixes the PaP machine showing a generic
+"re-Pack-a-Punch" with no cost. This needed editing *hint/cost code that lives in stock
+framework files*, so **5 stock files were vendored** into `scripts/zm/` (a deployed
+`scriptparsetree` at the stock path shadows the base-game copy — verified builds clean):
+
+- **`_zm_pers_upgrades_functions.gsc`** — the persistent-upgrades system is dormant here,
+  so its `is_pers_double_points_active` / `pers_upgrade_double_points_cost` stubs are
+  **repurposed** for the Armory discount (active only for the Mega-Mule-Kick flag, ×0.9
+  rounded to 10). Every stock cost site already calls these → perk + stock-PaP first-pack
+  charge for free. (Reads the flag **field directly** to avoid a `#using` cycle.)
+- **`_zm_weapons.gsc`** — wallbuy/ammo **charge** (inline `/2` → ×0.9 helper) + per-player
+  **display** in `wall_weapon_update_prompt`; needs `weapon_cost_client_filled=false`
+  (entry script) so the price renders server-side. *(Inert now that wall buys are removed —
+  see "arsenal lockdown" — but harmless and ready if they return.)*
+- **`_zm_magicbox.gsc`** — box **charge** (`pay_cost`) + **display** (`hint_parm1`)
+  discounted per-player. Box triggers are already per-player → exact.
+- **`_zm_pack_a_punch.gsc`** — new `acc_pap_set_cost_hint` shows the **actual tier-up cost**
+  ("Pack-a-Punch Tier N/5 [Cost: X]" / "MAX") on an upgraded weapon instead of the stock
+  generic hint (tier from `player.acc_pap_tier`).
+- **`_zm_perks.gsc`** — `acc_perk_hint_monitor` re-sets the machine hint to the touching
+  player's discounted price (solo-exact; co-op reflects the toucher).
+- **Our files:** `_acc_pap_levels.gsc` tier-up ×0.9; entry sets `weapon_cost_client_filled=false`;
+  **removed the old `armory_discount_watcher` rebate** (double-discounted vs point-of-sale).
+
+### Changed — HUD: shards/bottles moved top-left, blue points readout (2026-06-14)
+
+- **Data Shards + Mega Bottles** moved from bottom-left (behind the stock points card) to
+  the **top-left under the health bar** (`_acc_data_shards.gsc`, `_acc_mega_bottles.gsc`).
+- **Blue points readout** added in the top-left stack (`_acc_points::points_hud_loop`) —
+  the stock white points number is packed LUI we can't recolor in place, so this is the
+  legible blue copy. (Stock card still renders; full hide/recolor is a future LUI task.)
+
+### Fixed — arsenal lockdown: box now ICR-1 + Man-O-War only; ALL wall buys removed (2026-06-14)
+
+The map is meant to ship exactly two guns (ICR-1 `ar_accurate`, Man-O-War `ar_damage`), both
+Mystery-Box-only. Two bugs from the batch-6 pass let other guns through; both fixed GSC-only
+(linker rebuild, no geometry change). `lint_gsc_xref.js` clean.
+
+- **Mystery box still drew the whole stock arsenal.** The map references the *stock*
+  `zm_levelcommon_weapons.csv` (zone:78), whose ~47 rows are flagged `in_box=TRUE`, and the
+  box gate reads each weapon's live `level.zombie_weapons[wpn].is_in_box` per spin. Setting
+  the flag on our two guns did nothing about the other ~45. `register_mystery_box_pool()`
+  now **clears `is_in_box` on every weapon first**, then re-enables only `ar_accurate` +
+  `ar_damage`. (`_acc_map_randomizer.gsc`)
+- **4 wall buys were still live.** Haymaker/Drakon/Sheiva/Frag had no pool entry, so the old
+  `apply_wallbuy_pool` *skipped* them — they kept dispensing their Radiant-default gun (the
+  "go dead" comment was wrong). Replaced with **`remove_all_wallbuys()`**: walks
+  `level._spawned_wallbuys` in `pre_init` and `zm_unitrigger::unregister_unitrigger`s every
+  stub (incl. the ICR wall + Bowie melee), so no purchase trigger is ever built. Deleted the
+  now-dead `roll_wallbuy_pool` / `roll_wallbuy_slot` / `weapon_in_zm_table` /
+  `is_rolled_onto_wall` / `apply_wallbuy_pool` and the `state.wallbuy_pool` plumbing.
+- **Walls also removed visually (geometry rebuild, 2026-06-14).** Unregistering kills the
+  *purchase* only; the wall gun model + chalk + fx are client-spawned (`_zm_weapons.csc`).
+  Deleted the 6 wallbuy struct PAIRS (12 `script_struct` entities, 123→111) from
+  `map_source/zm/zm_abandoned_cyber_city.map` and ran the full pipeline (sync → `cod2map64`
+  → Radiant LED → `linker_modtools`, all exit 0, `.ff` repacked clean). `remove_all_wallbuys()`
+  stays as the runtime safety net (now a no-op — `level._spawned_wallbuys` is empty).
+  **⚠️ The `vending_weapon_upgrade_spawnable` prefab is Pack-a-Punch, NOT a wallbuy — preserved**
+  (along with the box, Quick Revive, and the 3 perk machines). Adversarial map/GSC/build
+  verification passed (3 agents, no blockers). Docs: docs/05, docs/07, docs/29.
+
+### Changed — perk overhaul: reconcile GSC to the finalized 2026-06-14 spec (docs/13 + perk_abilities.md)
+
+Implemented the user's "Code change list" (docs/13). Retunes, removals, two new
+mechanics; Aura Blast parked (WIP). `lint_gsc_xref.js` clean; builds.
+
+- **Jug** Ultimate Tank 300→**314 HP** (`_acc_mega_bottles.gsc` `n_player_health_boost` 50→64).
+- **Quick Revive** — base revive now **2.0s** / Savior **1.0s** (override applies to base QR
+  too, not just Mega; `_acc_perks.gsc::qr_revive_time`/`qr_revive_watcher`); regen split to
+  base **15%** / Savior **30%** sooner (`ACC_QR_REGEN_DELAY_BASE/_SAVIOR`).
+- **Double Tap** → "Double Tap 1.0": **removed** the +3%/+6% damage layer (fire-rate only now).
+- **Widow's Wine** — **removed** base +50% frag damage and **both** Spiderman one-hit-kill
+  blocks; added **round restock** (base 2 / Spiderman 4, `widow_round_restock_watcher`).
+- **Stamin-Up** Flash ×1.12→**×1.15**; **removed** the sprint-duration override.
+- **Deadshot** American Sniper headshot ×1.75→**×2.0**.
+- **Mule Kick** Armory: removed the +2-grenade fill; added **"all buys 10% cheaper"** as a
+  spend-rebate (`armory_discount_watcher`) — *open decision:* point-of-sale discount (the
+  spec's `pers_double_points` mirror) would also lower the affordability threshold but needs
+  4 stock files vendored.
+- **LUI cards** (`acc_hud.lua`) rewritten to the new bullets; Double Tap → "1.0", Aura Blast → "(WIP)".
+- GDT-only items (Speed reload/drink, Gun Slinger fire-rate/swap, Deadshot recoil, Armory
+  +25% ammo, Widow 6-clip) tracked in docs/30–31.
+
+### Fixed — perk info card layout (full-width / off-card text) (2026-06-14)
+
+Corrected the LUI anchor math (verified vs `zm_building` reference: `false`=center-relative,
+`true`=edge-relative). Card left value −394 made it ~1012px wide (nearly full screen);
+set to **+246** for a ~372px right-side panel, and the text lines now inset with the proven
+`(true,true,18,-18)` idiom so they sit inside the card instead of hugging the far left.
+
+### Changed — perk/PaP info card: closer range, left-overflow fix, full Mega description (2026-06-14)
+
+- **Proximity now ~buy distance.** `_acc_perk_info.gsc` show range cut from 170u/180u to
+  80u/85u to match the stock perk buy trigger (radius 40 + the trigger's ~60u height
+  offset → ~72u at the buy-cylinder edge). The card no longer pops up from across the room.
+- **Fixed the left overflow / "content too far left".** The card's
+  `setLeftRight(false, true, …)` made its LEFT edge center-relative (center-394), so the
+  372-wide card spilled off the left of the screen and the title/text overflowed left.
+  Changed to `(true, true, …)` so both edges anchor to the screen right → a proper
+  372-wide card, 22px from the right edge (cf. the centered damage-number widget's
+  `(false,false)`). Title scale 1.15→1.0 and the Mega preview drops the long `"MEGA: "`
+  prefix (the gold title + "Mega upgrade: 1 Bottle" subline already convey it).
+- **Mega'd perks now show the FULL description.** When you own a Mega'd perk (mode 2),
+  the card lists the **base** bullets (cyan) **and** the **Mega** bullets (gold) together,
+  instead of just an "Owned + Mega upgraded" line. `ACC_CARD_BULLETS` (6) fits the largest
+  base+Mega set.
+
+### Added — numeric "current / max" health readout next to the player health bar (2026-06-14)
+
+`_acc_health_bars.gsc` now draws a `current / max` number (e.g. `150 / 250`) to the
+right of the top-left player health bar, recolored green→amber→red in lockstep with the
+bar so a low value reads red at a glance. Current is clamped to `[0, max]` so a
+downed/over-heal frame can't show a negative or out-of-range number. Makes the Jug 3/6/7
+HP testing legible.
+
+### Fixed — crosshair damage numbers now show on EVERY hit (incl. headshots / PaP) (2026-06-14)
+
+The damage number was inconsistent and dead on Pack-a-Punched / perk'd guns. **Root
+cause** (verified against `_zm.gsc:5824`): the number was fed by a *second*
+actor-damage callback (`dev_damage_cb`), but stock dispatch **short-circuits on the
+first non-`-1` return**, and `_acc_damage` reorders itself to the front and returns the
+*modified* damage — so on every modified hit (any headshot, and **every** gun hit once
+you own Double Tap, plus crits/Widow/Cyberware/PaP) the second callback never ran.
+Numbers only survived bare, unmodified body shots.
+
+- **Fix:** feed the number from **inside `_acc_damage::on_ai_damage`**, at the
+  `record_damage` chokepoints that run for *every* player hit before the short-circuit
+  return (`feed_dmg_number`, passing the true `final_damage`). Wired via a level hook
+  `level.acc_dmg_num_feed` (`_acc_dev` sets it to the accumulator) — no module
+  dependency cycle, and it auto-clears when dev mode is off so production shows nothing.
+- Removed the broken `dev_damage_cb` actor-damage callback. Covers bullets, grenades,
+  and the Spiderman melee/web one-hit paths (minigun deliberately excluded — a stock
+  callback adjusts its damage after us, so we can't report it accurately).
+
+### Fixed — PaP tier damage now stacks (was silently dropped on headshots/perk hits) (2026-06-14)
+
+Found while making the damage number truthful: the custom Pack-a-Punch **tier**
+multiplier (T2 ×1.25 … T5 ×2.30) lived in its OWN actor-damage callback
+(`_acc_pap_levels::pap_damage_cb`), separate from `_acc_damage`. But stock dispatch
+(`_zm.gsc:5824`) takes the **first** callback that returns non-`-1` and passes the
+**original** damage to each — so two modifying callbacks are mutually exclusive.
+`_acc_damage` runs first, so on **any** modified hit (every headshot, every Double-Tap'd
+hit, every crit) the PaP-tier callback never ran → **PaP'd guns were under-damaging**,
+and the damage number under-reported PaP on the body-shot path.
+
+- **Fix:** folded the PaP tier multiplier into `_acc_damage`'s single multiplier chain
+  (one authoritative `final_damage` that stacks PaP × headshot × Deadshot × Double Tap ×
+  Cyberware × …, exactly as docs/13's stack example intends). Removed `pap_damage_cb`;
+  `get_tier`/`pap_tier_mult` remain as the queryable source the chain reads. Net result:
+  PaP tiers now stack correctly **and** the crosshair number equals the true applied
+  damage on packed guns. `lint_gsc_xref.js` clean; builds.
+
+### Fixed — grenade-fill field bug + full perk-requirement re-verification (2026-06-14)
+
+A **55-agent audit** opened and adversarially re-checked every one of the **42 perk
+sub-requirements** in `docs/13_perks.md` against literal code (our `_acc_*` modules +
+the installed stock `share/raw/scripts`), with each "no GSC lever exists" claim backed
+by a quoted grep. Net: **30/42 met in code** (all stock base behaviors, all working
+Megas, Aura Blast, cap-removal, the whole Mega-Bottle infrastructure), the rest
+physically not GSC-reachable (APE weapon-GDT / Radiant / engine-impossible / design).
+
+- **Real bug fixed — `_acc_mega_bottles.gsc` grenade fills targeted the wrong field.**
+  ZM carries grenades in the **clip**, not the reserve (stock refills lethals via
+  `SetWeaponAmmoClip`, `_zm.gsc:4582`; Widow's Wine decrements/reads the clip,
+  `_zm_perk_widows_wine.gsc:214`/`:294`). The **Spiderman 6-web-grenade** top-up and the
+  **Armory lethal/tactical** top-off used `Get/SetWeaponAmmoStock` → they filled the
+  unused grenade reserve and did **nothing**. Switched both to `…AmmoClip` (value kept:
+  web → 6, Armory → grenade GDT `maxAmmo`), so the GSC halves of WW-7 and MK-2 now
+  actually fire (magnitudes above the baked GDT carry cap still need the APE raise).
+  `lint_gsc_xref.js` clean.
+- **`docs/13_perks.md` Implementation Status re-verified.** Corrected stale citations
+  (`:325`→`:326`, `:326`→`:327`, `_acc_damage.gsc:279-285`→`:294-300`,
+  `:414-419`→`:429-435`, `perk_purchase_limit :192`→`:193`); removed the unverifiable
+  **"melee 45"** assumption (the in-script `60` is the *board-hit* value; open-field
+  melee is a baked GDT stat → Jug 6/7 hit counts are an **in-game** confirm, not a code
+  fact); flagged **Mule Kick base** as pure stock (no `additionalprimaryweapon_limit=3`
+  line ever existed — old citation was wrong). Reclassified Gun Slinger +50% RoF and
+  Flash ×2-walk/×4-crawl from "GDT/MISSING" to **engine-impossible (grep-proven) → cut
+  from card**, and Widow EMP to **strike (no stock asset)**.
+- **Rotation lockout — headless lever documented.** The audit found stock
+  `level.custom_perk_validation` (`_zm_perks.gsc:560-562`) can enforce the 4-of-9
+  per-round lockout on existing machines with no Radiant work; left **off by default**
+  (user decision 2026-06-14: leave off until the 4 Lab machines are built).
+- **Perk cards trued-up (`acc_hud.lua` + `docs/perk_abilities.md`).** Struck the two
+  un-deliverable lines: **The Flash ×2 walk / ×4 crawl** (engine-impossible — only a
+  uniform move scalar exists) and **Widow's Wine +50%/+25% EMP** (no stock EMP asset).
+  The cards now promise only what the build delivers or what the APE pass will add.
+- **Gun Slinger +50% fire rate reclassified** from "engine-impossible" to **APE
+  weapon-variant swap** (verified: no runtime fire-rate setter/dvar exists *anywhere*,
+  but a cloned gun with a lower `fireTime` swapped in while the Mega is held delivers it
+  — same framework as Deadshot no-recoil).
+- **New `docs/31_ape_perk_gdt_walkthrough.md`** — click-by-click APE guide for the
+  remaining baked-stat magnitudes (Armory grenade/reserve caps · Widow frag radius +
+  6-web cap · Deadshot no-recoil + Gun Slinger fire-rate variant-swaps · Speed Cola
+  timings), with the global/perk-gating caveats and a payoff-ordered priority list.
+
+### Added — `docs/perk_abilities.md` flat perk/ability quick-reference (2026-06-14)
+
+- New **[docs/perk_abilities.md](docs/perk_abilities.md)**: a flattened, one-bullet-per-ability
+  list of all 9 perks (base + Mega) plus the map-wide perk rules (no 4-perk cap,
+  Mega-via-bottle, HP baseline). Each bullet that is stock *Black Ops III* behavior is
+  tagged **`(BASE)`** (per the 13_perks.md "stock vs custom" split: perks 1–6 + Widow's
+  Wine; Deadshot/Aura Blast and all Mega tiers are map-custom, untagged). Derived from
+  `docs/13_perks.md`, which stays the source of truth; added a pointer from `13_perks.md`.
+
 ### Added — perk-requirement GSC fixes: new `_acc_perks.gsc` + Mega/effect wiring (2026-06-14)
 
 Closed every **GSC-reachable** gap from the 2026-06-13 perk audit, driven by a

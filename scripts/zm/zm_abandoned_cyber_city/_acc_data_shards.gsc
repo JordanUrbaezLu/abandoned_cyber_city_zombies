@@ -172,10 +172,12 @@ function sync_shards_to_client()
     if ( !isdefined( self.acc_data_shards ) ) self.acc_data_shards = 0;
     if ( !isdefined( self.acc_shards_hud ) )
     {
-        self.acc_shards_hud = self hud::createFontString( "default", 1.5 );
-        // VERIFIED(acc): setPoint only matches "BOTTOM_LEFT"/"BOTTOM LEFT"
-        // (hud_util_shared.gsc:120-124); "BOTTOMLEFT" silently anchors center.
-        self.acc_shards_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 10, -130 );
+        self.acc_shards_hud = self hud::createFontString( "default", 1.3 );
+        // TOP-LEFT under the health bar (was BOTTOM_LEFT, where the stock points
+        // display blocked it). Health label y=16, bar y=32 -> shards at y=50.
+        self.acc_shards_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 50 );
+        self.acc_shards_hud.alignX = "left";
+        self.acc_shards_hud.alignY = "top";
         self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
         self.acc_shards_hud.hidewheninmenu = true;
     }

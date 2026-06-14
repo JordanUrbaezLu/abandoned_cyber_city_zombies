@@ -289,36 +289,29 @@ function roll_new_overclock_for_weapon( player, weapon_name, family, progress )
 function weapon_name_to_family( weapon_name )
 {
     // TODO(acc-data): replace this giant switch with a GDT-driven table.
-    // Source of truth: docs/05_weapons.md (the 16-weapon roster).
-    //
-    // Families that CAN be Overclocked:
-    //   ar      -> ICR-1, XR-2, AK-47 (full-auto) + M14 EBR, G3, FN FAL (semi-auto)
-    //   shotgun -> Haymaker 12, Brecci, Tac-19
-    //   sniper  -> Drakon, Locus, Intervention
-    //   lmg     -> none in v1.0 (pool dormant for post-1.0 LMG re-add)
-    //   smg     -> none in v1.0 (pool dormant for post-1.0 SMG re-add)
-    // ARSENAL RESTRICTED (user, 2026-06-13): only ICR-1 + Man-O-War exist on the
-    // map. Both are the "ar" Overclock family. (The old "<name>_zm" strings were
-    // never valid - stock BO3 weapon base names are class-based + unsuffixed, so
-    // weapon_name_to_family would have returned "unknown" and silently disabled
-    // Overclocks on both guns.)
-    ar_list = array(
-        "ar_accurate",   // ICR-1
-        "ar_damage"      // Man-O-War
-    );
-    smg_list = array();
-    sg_list = array( "haymaker12_zm", "brecci_zm", "tac19_zm" );
-    sr_list = array( "drakon_zm", "locus_zm", "intervention_zm" );
+    // Weapon names are class-based + unsuffixed for stock; Skye imports are
+    // engine-prefixed (s1_=AW, t6_=BO2 - docs/21).
+    // The map ships 5 guns: Five-Seven (pistol), ASM1 (smg), Tac-19 (shotgun),
+    // AK-47 + AE4 (ar). Tac-19, ASM1, AK-47 and AE4 map to an Overclock-able
+    // family; there are no sniper / lmg guns on the map.
+    ar_list = array( "t6_ak47", "s1_ae4" );         // AK-47 (BO2), AE4 (AW energy)
+    smg_list = array( "s1_asm1",                    // ASM1
+                      "iw6_ripper_smg", "iw6_ripper_smg_zm",
+                      "iw6_ripper_ar", "iw6_ripper_ar_zm" );  // Ripper (both convertible modes -> smg family)
+    sg_list = array( "s1_tac19" );                  // Tac-19
+    sr_list = array();
     lmg_list = array();
 
     // Families that CANNOT be Overclocked (return distinct sentinel "none" so
-    // the terminal can print a useful message instead of "unknown"):
-    pistol_list = array( "b23r_zm" );
-    melee_list = array( "bowie_knife_zm", "cyber_cleaver_zm" );
-    grenade_list = array( "frag_grenade_zm", "emp_grenade_zm" );
-    // Wonder weapons have intrinsic Overclocks (all 3 always active), not
-    // terminal-applied. Route them to "none" so the terminal refuses them.
-    wonder_list = array( "signal_staff_zm", "vibro_cleaver_zm" );
+    // the terminal prints a useful message instead of "unknown"). Real weapons
+    // reachable on the map only:
+    pistol_list = array( "pistol_standard",         // laststand pistol
+                         "t6_fiveseven" );          // Five-Seven (start pistol)
+    melee_list = array( "knife" );                  // basic melee
+    grenade_list = array( "frag_grenade" );         // starting lethal
+    // Wonder weapons (none placed yet) have intrinsic Overclocks, not
+    // terminal-applied; route any future ones to "none".
+    wonder_list = array();
 
     base = strip_pap_suffix( weapon_name );
 

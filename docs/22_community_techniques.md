@@ -8,7 +8,7 @@ explore an external codebase, findings land here** (raw dossiers go to
 by a 7-agent fleet reading actual source line-by-line (raw output:
 [research/community_mining_raw.json](research/community_mining_raw.json)).
 
-## Technique index (142 techniques across 18 systems)
+## Technique index (143 techniques across 18 systems)
 
 - **perks** (34): Give; zm_usermap; Per; Trigger disable/enable by; Perk; Exact perk power; ...
 - **misc** (24): 4; Custom color grading; Ambient prop animation kit (no xanims needed) + AnimScripted NPCs when needed; #insert of the core .gsc into sibling area scripts (shared macros across one namespace); World clientfields for fog/skybox/exposure/eye; GSC utilities worth stealing (nuked_utility); ...
@@ -18,7 +18,7 @@ by a 7-agent fleet reading actual source line-by-line (raw output:
 - **zones** (7): Zone adjacency flags can be left unset; Zone manifest split into .zpkg via include; 12; Room manager; Runtime random; Multi; ...
 - **intro** (7): Full playable; CSC; In; Custom intermission camera ride (level.custom_intermission); Delay round 1 until a pre; Fade; ...
 - **sound** (7): zm_audio music states backed by custom tracks via mus_<stem>_intro aliases; Map sound alias CSV anatomy; Layered scripted ambience; Music easter eggs + round music states; Workshop sound config (.szc) shape; Per; ...
-- **boss** (6): End; Endgame horde; Special; Scripted multi; Entity; Game
+- **boss** (7): Drop-in custom-archetype boss (NSZ Brutus); End; Endgame horde; Special; Scripted multi; Entity; Game
 - **easteregg** (5): Keycard pickup; Scripted terminal/console interactions with model; Shootable + melee; Diegetic keypad code entry (no LUI); Shootable
 - **box** (5): Mystery box move control + restricted locations; Mystery box gated on per; Live box; Kill switches for box / wallbuys / gobblegum / PaP; Animated prop via custom animtree (UGX weapon box) + dynamic weapon world models
 - **powerups** (5): Zone; Script; Soul; Complete custom powerup recipe (register + drop; Custom powerup registration (drop
@@ -810,6 +810,20 @@ Queue per player: `level.pending_announcer_vox[entnum][]` appended by play_poole
 
 ## BOSS
 
+### Stock Panzer/mechz in a usermap = ADVANCED, not drop-in (vs self-contained bosses)
+
+The BO3 Panzer is the stock `mechz` (DLC1 / Der Eisendrache). Adding it to a base usermap is the most failure-prone AI add: 10/11 clientfields are `VERSION_DLC1` (must be re-versioned to `VERSION_SHIP` in BOTH gsc+csc), the model/anim/FX assets aren't in a fresh install (come from Spiki's asset dump #3087 pw `Chungus4Prez`, or self-extract via Greyhound from the user's Origins/zm_tomb), a partial FX folder = FATAL linker abort, plus a documented attack-crash with no posted fix. The `set_zombie_var("mech_first_round")`/`can_spawn_mech()` API is a WaW/BO1 PORT name, NOT BO3 stock (native = `archetype "mechz"` + `zombie_utility::spawn_zombie`, which our `_acc_boss` already uses). Contrast: self-contained custom-aitype bosses (Spiki's **Brutus 2** #2875 = "drag and drop"; our NSZ Brutus = ~1 gdtdb run) are the EASY class. Full method + risk list: [research/BO3_Panzer_mechz_usermap_method.txt](research/BO3_Panzer_mechz_usermap_method.txt).
+
+- **Source:** modme #3087 (Spiki dump) / #2875 (Brutus 2) / #3849 (FX fatal) / #3233 (XANIM fix) / #830 (clientfield parity); bo3explorer mechz_8gsc / version_8gsh; local stock `mechz.{gsc,csc,gsh}`.
+- **For our map:** If we want THE Panzer it's a multi-session, crash-debugging job (Spiki's dump is the cleanest route); if we want "a cool boss easily," prefer a self-contained custom-aitype pack like Brutus 2.
+
+### Drop-in custom-archetype boss (NSZ Brutus, BO2 port) for usermaps
+
+NateSmithZombies' "NSZ BO2 Pack: Zombie Boss - Brutus" - a FULL custom archetype (model + anims + behavior tree + FX + GDT + sound + GSC) that, unlike stock `mechz`, ships its own redistributable assets and therefore spawns/fights in a usermap. API: `#using scripts\_NSZ\nsz_brutus;`, `brutus::init()` (own round-spawn loop), `brutus::spawn_brutus()` (manual spawn); config via `level.min_brutus_round` / `max_brutus_round` / `max_brutus` / `brutus_lock_machines` / `nsz_debug`. Known issues: usermaps-only, PaP abilities disabled while alive, traversal nodes must be marked to ignore him, co-op high-round spawn crashes without spawn-delay staggering. Full dossier + Phase-0 audit checklist: [research/NateSmithZombies_Brutus_BO2_boss_pack.txt](research/NateSmithZombies_Brutus_BO2_boss_pack.txt).
+
+- **Source:** modme thread #765 (forum.modme.co/wiki/threads/765.html) + UGX mod #10676; download via the MEGA link there. v1.0.4 stable.
+- **For our map:** Replaces the Juggernaut Host mini-boss via the actor-only seam in `_acc_boss::spawn_juggernaut_host()` - we call its spawn but drive it through OUR health bar / Mega-Bottle / boss-item / +25%-speed / 10x-HP pipeline and leave its own round/lock/reward logic inert. Approved plan; gated on downloading + auditing the pack (Phase 0). Fallback = `SetModel("bo2_brutus_fb")` reskin on the existing buffed-zombie boss.
+
 ### End-game sequence: level notify("end_game") after cutscene + zombie purge
 
 ENG_TOWPLATFORM_ENDING_CUTSCENE: level thread lui::prime_movie(id); foreach player FreezeControls(true); lui::screen_fade_out(1); level thread lui::play_movie_with_timeout(id, "fullscreen", 36, true); stop lingering music via per-player StopLocalSound(alias); purge zombies: zombies=GetAiTeamArray("axis"); foreach: zombie StopSounds(); zombie dodamage(zombie.health+666, zombie.origin); wait(30); level notify("end_game") — the single stock-recognized signal that triggers BO3 zombies game-over/intermission flow. No RecordMapEvent anywhere in the map. All-players-present gate before this: poll player IsTouching(airlockZone) vs count of non-spectator players; airlockZone is a NotSolid()'d script_brushmodel 'tow_airlock_zone'.
@@ -1261,6 +1275,30 @@ Files worth reading first on a future deep-dive:
 - **What:** Backup of all stock GDTs shipped with BO3 Mod Tools (8.7MB; sibling repo prov3ntus/stock-gdt-list holds their hashes).
 - **Completeness:** Tree listing only (GDT dump; individual files not read — contents are the stock Mod Tools source_data GDTs).
 - **Unique value:** Since our repo cannot compile locally, this gives greppable ground truth for GDT syntax and stock asset definitions (perk machine models, FX, materials) referenced by name in our map/zone files — same verification role zeroy99/bo3_modtools plays for scripts, but for the GDT/asset layer which none of our known sources cover (Skye templates ship only template GDTs).
+- **GAP (verified 2026-06-14 research pass):** it does **NOT** contain stock weapon **stat** GDTs — it mirrors only what the tools ship, and the tools ship weapon **art** (camos/materials/models), never the `bulletweapon`/`grenadeweapon` stat defs. Its sole weapon-stat GDT is the template `smg_standard.gdt`. `prov3ntus/stock-gdt-list` is just a hash manifest (no files). So there is **no download** that hands you an editable stock `frag_grenade`/`ar_accurate` GDT.
+
+### Weapon-GDT sourcing reality (verified 2026-06-14 research pass + live box)
+
+The crux for every weapon-GDT perk magnitude (docs/30-31). Live box: `source_data` has 173
+GDTs; the only `bulletweapon`-typed ones are 102 community `skye_*` ports + a template
+`smg_standard.gdt`. **No stock weapon stat GDT exists to open or clone.** Consequences:
+
+- **The Launcher has NO extractor** (File menu = New / Asset Editor / Open in Radiant /
+  Export2Bin GUI). Earlier "Launcher → extract" guidance was WRONG.
+- **GSC cannot mutate** `maxAmmo`/`clipSize`/`fireTime`/`gunKick*` at runtime — zero such
+  assignments/builtins across the stock mirror; baked, read-only. Carry **count** is settable
+  (`SetWeaponAmmoClip`/`SetWeaponAmmoStock`/`GiveMaxAmmo`) but clamps to the baked cap.
+- A weapon GDT is necessarily **complete** (~800 fields; `["parent"]` chains only to a GDT you
+  already own) — no partial single-field override of a stock gun.
+- **To get a cloneable stat GDT:** (A) build on an **imported** gun (Skye port ships a full
+  editable weaponfile GDT — the practical path), or (B) decompile a stock gun from the
+  *running game* with **[Scobalula/HydraX](https://github.com/Scobalula/HydraX)** (`weapon`
+  asset type; writes GDTs to an export `source_data`). HydraX caveat: documented history of
+  incomplete weapon dumps (v3.8.0.0 "Fixes missing weapon data") — clone under a NEW name,
+  validate one throwaway twin end-to-end before scaling, never overwrite stock.
+- Field-name correction (from a real weaponfile GDT): recoil keys are `hipGunKick*` /
+  `adsGunKick*` / `hipViewKick*` / `adsViewKick*` (NOT bare `gunKick*`); `fireTimeAkimbo` is
+  **not** a confirmed BO3 field.
 
 ### Discovery method + gaps
 
@@ -1344,3 +1382,28 @@ true)` in the menu Lua (OpenMenu alone doesn't grab input). 5 names must match e
 `#precache("menu",M)` · `OpenMenu(M)`/`SendMenuResponse(...,M,...)` · `LuiLoad("...M")` ·
 `function LUI.createMenu.M`. `function autoexec init()` self-bootstraps (no entry wiring).
 - **Source:** kelson8/bo3-Zombies-Test-Map scripts/zm/_t9_wonderfizz.gsc; ui/uieditor/menus/Craftables/WonderfizzMenuBase.lua; Widgets/Wonderfizz/{PerksUIListWidget,MenuTabPerks,MenuListItemWidget}.lua; zm_test_map.csc; assetlist zm_test_map.csv.
+
+## Stock-file vendor-override (point-of-sale cost edits)
+
+- **Technique:** to change behavior that lives INSIDE a stock framework function (no GSC
+  partial-override exists), copy the whole stock `.gsc` from
+  `share/raw/scripts/zm/<f>.gsc` into the repo at `scripts/zm/<f>.gsc`, edit it, and add
+  `scriptparsetree,scripts/zm/<f>.gsc` to the `.zone`. A deployed scriptparsetree at the
+  STOCK path **shadows the base-game copy** (verified: builds + links clean with
+  `_zm_perks`/`_zm_weapons`/`_zm_magicbox`/`_zm_pack_a_punch`/`_zm_pers_upgrades_functions`
+  vendored, 2026-06-14). Keep the file's original `#namespace`.
+- **Cycle trap:** a vendored stock file that needs an `_acc_*` value must read the FIELD
+  directly (e.g. `player.acc_mega_perks["specialty_..."]`), NOT `#using` the `_acc_` module
+  — those modules `#using` the stock files back, so importing them creates a `#using` cycle.
+  Field access needs no `#using`.
+- **Applied (Armory 10% discount, docs/13):** the dormant `pers_double_points` cost hook
+  (`is_pers_double_points_active` / `pers_upgrade_double_points_cost`) is repurposed — every
+  ZM cost site already calls it, so overriding those two stubs discounts perks + stock-PaP
+  charge for free; wallbuy/box inline their own cost so those files were edited too.
+- **Cost↔display split (hard-won):** the CHARGE and the DISPLAYED price are computed in
+  DIFFERENT code paths. Discounting only the charge leaves the shown price wrong. Wallbuy
+  prices are client-filled by default (`level.weapon_cost_client_filled=true`) — flip it
+  false to render the (discounted) price server-side. Perk/PaP machine hints are a single
+  SHARED trigger string (not per-player), so a per-player price needs a per-player hint
+  loop (we re-set the hint to the TOUCHING player's price) or per-player triggers; the box
+  trigger is already per-player so its display is exact.

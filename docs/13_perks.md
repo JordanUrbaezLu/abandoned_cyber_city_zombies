@@ -2,6 +2,8 @@
 
 Full roster, costs, **base + Mega** descriptions (table + prose), per-slot randomization, stacking behavior, and the baseline player-HP / zombie-damage model.
 
+> **Final requirements:** [perk_abilities.md](perk_abilities.md) is the **finalized, at-a-glance requirement list** (every perk's abilities, base + Mega) as of 2026-06-14. This doc is the detailed spec, kept in sync with it — **where they differ, perk_abilities.md wins.** Code is being updated to match these numbers.
+
 ## Player HP Baseline
 
 ### Stock *Black Ops III* (reference)
@@ -11,32 +13,33 @@ Full roster, costs, **base + Mega** descriptions (table + prose), per-slot rando
 
 ### This map (`zm_abandoned_cyber_city`) — authoritative targets
 
-- **Without Jug:** **3** hits → down (same as stock).
-- **With Jug:** **6** hits from full to down — **+1 survivable hit vs stock BO3 Jug** (stock is **5**). GDT / zombie melee damage are tuned to this **3 / 6** rule.
+- **No perk:** **100 HP** → **3** hits to down.
+- **Jugger-Nog:** **250 HP** → **6** hits to down (**+1** vs stock BO3 Jug's 5).
+- **Ultimate Tank (Jug Mega):** **314 HP** → **7** hits to down.
 
-If anything drifts in Mod Tools, retune HP/damage to keep **3** and **6**, not necessarily Treyarch’s stock Jug scalar.
+Hit counts assume ~**45** damage per regular zombie melee hit (HP ÷ ~45 → 100=3rd, 250=6th, 314=7th). Open-field melee damage is a baked GDT value, so confirm the **3 / 6 / 7** counts in-game and retune the HP adds if they drift.
 
 ## Roster (9 perks)
 
-Six stock BO3 perks (tuned) + three custom. **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them. This is a deliberate deviation from stock BO3 to match our "systems stack" design language.
+Seven stock BO3 perks (retuned) + two custom (Deadshot, Aura Blast). **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them. This is a deliberate deviation from stock BO3 to match our "systems stack" design language. **Aura Blast (9) is WIP — not on the map yet; 8 perks are live today.**
 
 | # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
 |---:|---|---:|---|---|---|
-| 1 | **Jugger-Nog** | 4,000 | **Stock BO3:** Jug raises max HP — down on **5th** melee from full (vs **3** hits without Jug). **This map:** **6** hits with Jug (**+1** vs stock). | **Ultimate Tank** | **+1** extra hit → **7** before down on this map; **immune to boss abilities** (Subroutine Core / scripted boss disables — see Mechanics). |
-| 2 | **Quick Revive** | 2,500 | **Stock BO3:** faster teammate revives; **solo** self-revive rules where applicable. **This map adds** **+30% faster** HP regen after damage. | **Savior** | Revives **40% faster** than **base** QR alone; while **any teammate is down/bleeding out**, you move **+15% faster**. |
-| 3 | **Speed Cola** | 3,500 | **Stock BO3:** **+50%** reload; faster **barrier board / repair** animation. **This map adds** **~40%** shorter perk drink + **~30%** faster weapon swap. | **Sleight of Hand Expert** | **+65%** reload (not +50%); **+15%** faster **gun switch**; **+15%** faster **perk drink** (stack on top of base). |
-| 4 | **Double Tap 2.0** | 2,000 | **Stock BO3:** Double Tap II **+33%** fire rate; **double-bullet** damage behavior on most bullet weapons (ammo semantics per weapon). **This map’s stacked** numbers: **+33%** RoF, **+3%** damage (see [Double Tap](#4-double-tap-20--2000-points)). | **Gun Slinger** | **+50%** fire rate; **+6% damage total** (+3% over this map’s base DT2 line). |
-| 5 | **Stamin-Up** | 2,000 | Stock BO3 Stamin-Up: **longer sprint** before exhaustion and **faster sprint speed**; sprint is still **finite** (not unlimited). | **The Flash** | **Longer sprint** than base Stamin-Up; **+12%** run speed; **×2** walk speed; **×4** crawl speed. |
-| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. **2,500** Points (stock BO3 **4,000**). | **The Armory** | **+30%** ammo per gun; **+2** extra lethal **+2** extra tactical (flat adds on top of stock counts). |
-| 7 | **Deadshot** | 3,500 | **ADS** snap-to-head within cone + **×1.5** headshot vs body; **bosses** get no auto-aim (stock-style Deadshot rules on this map). | **American Sniper** | **1.75×** headshot multiplier (replaces 1.5× from base); **no recoil** on guns. |
-| 8 | **Widow's Wine** | 4,000 | Stock Widow’s webs, melee-kill webs, melee-hit defense; this map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP. | **Spiderman** | **Zombies only:** knife/melee always **one-hit**; spider (web) grenades **one-hit** regular zombies; hold **6** web grenades. |
-| 9 | **Aura Blast** | 2,500 | Custom: **400u** shockwave, **3s** stun (per enemy type), **120s** CD; **full bosses immune**. | **Mega Man** | **Bosses can be affected** (see Mechanics) **plus** **800u**, **60s** CD, **2 charges**. |
+| 1 | **Jugger-Nog** | 4,000 | **250 HP** → down on the **6th** zombie melee hit (no perk = 100 HP / 3rd). | **Ultimate Tank** | **314 HP** → down on the **7th** hit; **immune to boss abilities** (Subroutine Core / scripted boss disables). |
+| 2 | **Quick Revive** | 2,500 | Revive teammates in **2.0 s**; HP regen starts **15% sooner** after damage; solo self-revive. | **Savior** | Revive in **1.0 s**; regen starts **30% sooner**; **+15% move speed** while any other player is downed. |
+| 3 | **Speed Cola** | 3,500 | **+50%** reload; faster **barrier board / repair**. | **Sleight of Hand Expert** | **+70%** reload (replaces +50%). |
+| 4 | **Double Tap 1.0** | 2,000 | **+33%** rate of fire (fire rate only — the original Double Tap, not the 2.0 double-bullet version). | **Gun Slinger** | **+50%** fire rate; **weapon-swap time −75%** (≈4× faster swaps). |
+| 5 | **Stamin-Up** | 2,000 | Sprint lasts **~12 s** (vs ~4 s no perk); **~4 s** stamina recharge; **+7–8%** move speed (mobility caps ~109%). | **The Flash** | **+15% sprint speed** (×1.15, uniform move scalar). |
+| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. | **The Armory** | **+25%** ammo capacity per weapon; **all buys 10% cheaper**. |
+| 7 | **Deadshot** | 3,500 | **×1.5** headshot damage; **−35%** recoil (off the 2.5× map base); **ADS snap-to-head** (not on bosses). | **American Sniper** | **×2** headshot (replaces ×1.5); **−70%** recoil. |
+| 8 | **Widow's Wine** | 4,000 | Web grenades (web un-killed zombies ~20 s); self-defense webbing on hit; webbing melee; restock **2** web grenades/round. | **Spiderman** | Hold up to **6** web grenades; restock **4**/round (instead of 2). |
+| 9 | **Aura Blast** 🚧 | 2,500 | **WIP — not on the map yet.** Planned: **400u** shockwave, **3s** stun (per enemy type), **120s** CD; full bosses immune. | **Mega Man** | (Planned) **800u**, **60s** CD, **2 charges**, bosses can be affected. |
 
-**Sources (stock vs custom):** Perks **1–6** are stock BO3 machines (several retuned — costs/effects in table). **7** Deadshot is custom / BO1-style. **8** Widow’s Wine is stock behavior **plus** our grenade damage/radius boosts. **9** Aura Blast is fully custom.
+**Sources (stock vs custom):** Perks **1–6 and 8** are stock BO3 machines (retuned — see table). **7** Deadshot and **9** Aura Blast are **custom** (not stock BO3 perks). Widow's Wine (8) base is pure stock; its **Spiderman** Mega is custom.
 
-**Base vs map layer:** Where a row says **Stock BO3**, that is the retail game behavior (see [Player HP Baseline](#player-hp-baseline) for Jug). Phrases like **This map** or **This map adds** are intentional deviations (Jug **6** hits, QR regen, Speed drink/swap, Widow frag/EMP, **simplified DT2** numbers, **costs**). **Mega** tiers and **Aura Blast** are map-specific; see Mechanics under each perk.
+**Mega** tiers are all map-specific. **Aura Blast (9) is WIP and not on the map yet** — 8 perks are live today.
 
-Buying all 9 = **26,500 Points** (Mule Kick **2,500**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + Double Tap kills + high-round headshot farm).
+Buying all 9 = **26,500 Points** (Mule Kick **2,500**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + high-round headshot farm).
 
 The table above is a **complete at-a-glance** summary (base + Mega). Below, **[Perk reference (base + Mega)](#perk-reference-base--mega)** gives **full paragraphs** you can read start-to-finish, then **Mechanics** for exact numbers. **How** to acquire Mega (bottles, Lab machine, persistence) is in **[Mega Bottles (system)](#mega-bottles-system)**.
 
@@ -59,110 +62,110 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 1. Jugger-Nog — 4,000 Points
 
-**Base (full description).** **Stock *Black Ops III*:** Juggernog raises max health so you normally **go down on the 5th** regular zombie melee from full (**3** hits without Jug). **On this map** Jug is tuned **stronger:** **6** melee hits from full to down — **one more** than stock BO3 Jug — per [Player HP Baseline](#player-hp-baseline). Buy Jug for **survivability**, training, and room for mistakes.
+**Base.** Raises max health to **250 HP** (no-perk base is **100 HP**) — you survive **5** regular zombie melee hits and go **down on the 6th** (no perk: down on the 3rd). Buy Jug for survivability, training, and room for mistakes.
 
-**Mega: Ultimate Tank (full description).** **Two bonuses:** (1) **One extra hit** on top of **this map’s** Jug — **7** melee hits from full to down. (2) **Immune to boss abilities** — Subroutine Core **scripted disables** (e.g. power off, perks off, stun fields tied to boss phases) **do not apply** to you the way they apply to the rest of the team. Tuning scope: any **non-wonder-weapon** boss/mega-scripted “turn off player power” effect; see `11_enemies.md` boss sections.
+**Mega: Ultimate Tank.** (1) Max health to **314 HP** → survive **6** hits, **down on the 7th**. (2) **Immune to boss abilities** — scripted Subroutine Core disables (power off, perks off, boss-phase stun fields) do not apply to you the way they do to the rest of the team. Scope: any non-wonder-weapon boss/mega "turn off player power" effect; see `11_enemies.md`.
 
 **Mechanics**
 
-- **Stock BO3 (reference):** **3** hits no Jug / **5** hits with Jug (5th hit downs).
-- **This map — base Jug:** **3** / **6** — GDT multiplier chosen to hit **6** melee hits with Jug (see baseline).
-- **Mega — Ultimate Tank:** **7** hits from full to down on this map; **boss ability immunity** as above. TODO(acc-impl): whitelist boss attack types vs map-wide debuffs.
+- **HP / hit counts** (at ~45 dmg per zombie melee): **100 HP → 3rd · 250 HP → 6th · 314 HP → 7th**. Open-field melee damage is a baked GDT value — confirm hit counts in-game.
 - **Stacking**: Cyberware Subroutine Caching; Ghost Shroud.
 
 ### 2. Quick Revive — 2,500 Points
 
-**Base (full description).** **Stock BO3** Quick Revive: **faster teammate revives** than default. On this map, **+30% faster HP regen after you take damage** (shorter delay before regen starts and faster regen ramp). **Solo:** **self-revive** per stock BO3 where applicable.
+**Base.** **Revive teammates in 2.0 s** (vs 3.0 s with no perk). **HP regen starts 15% sooner** after you take damage — begins at **2.04 s** instead of the **2.4 s** baseline (an earlier *start*, not a faster heal rate). **Solo:** self-revive per stock BO3 where applicable.
 
-**Mega: Savior (full description).** (1) **Revive speed:** with Savior, each revive completes **40% faster** than with **base** Quick Revive alone — multiply your **base QR revive animation duration** by **0.6** (not 40% of stock time unless base QR is explicitly half stock; implementation keys off **base QR** duration). (2) **When a teammate is down** (bleedout / need-revive state): you move **+15% faster** so you can reach them quickly. (Does *not* require both old “reviver + revived” speed burst unless we add it back in playtest.)
+**Mega: Savior.** (1) **Revive in 1.0 s** — half of base QR's 2.0 s. (2) **HP regen starts 30% sooner** (begins at 1.68 s) — upgraded from base QR's 15%. (3) **+15% move speed** (×1.15) while any *other* player is downed / bleeding out; clears the moment nobody is down (your own down does not count).
 
 **Mechanics**
 
-- **Base**: stock faster revives; **+30%** regen after taking damage; solo self-revive per stock.
-- **Mega — Savior**: revive **×0.6 duration** vs **base** QR; **+15% move speed** while **any teammate is in down/bleedout** (Savior owner). TODO(acc-verify): down-state detection hook.
+- **Revive time:** no perk **3.0 s** → base QR **2.0 s** → Savior **1.0 s**.
+- **Regen delay:** baseline **2.4 s** → base QR **2.04 s** (15% sooner) → Savior **1.68 s** (30% sooner). Heal rate is unchanged; the % is the delay reduction.
+- **Move speed:** Savior **×1.15** while a teammate is in last-stand (multiplicative with other speed buffs).
 
 ### 3. Speed Cola — 3,500 Points
 
-**Base (full description).** **Stock *Black Ops III*:** Speed Cola is **+50% reload speed** and **faster barrier board / repair animations** (see [Speed Cola](https://callofduty.fandom.com/wiki/Speed_Cola)). It does **not** shorten perk-drinking or weapon-switching in stock BO3. **This map adds** **~40%** shorter perk-drink animation and **~30%** faster weapon + equipment swap for QoL at the Lab.
+**Base.** **+50% reload speed** and **faster barrier board / repair** animations (stock). Weapon swap is **not** a Speed Cola effect — it lives on Double Tap's Gun Slinger Mega. *(A faster perk-drink animation was considered but **cut** 2026-06-14 — the drink anim is shared map-wide with no per-perk lever, so it can't be gated to Speed Cola owners.)*
 
-**Mega: Sleight of Hand Expert (full description).** (1) Reload is **+65%** (not +50%) — that is the **Mega replacement** for the reload line, on top of still being “Speed Cola.” (2) **+15% faster gun switch** and **+15% faster perk drink** — **additional** on top of whatever base Speed Cola already gave for those animations (stack in implementation: multiply remaining time by ~0.85 or add 15% speed — TODO(acc-tune)).
-
-**Mechanics**
-
-- **Stock BO3:** **+50%** reload; faster barrier repair animation.
-- **This map — base:** stock reload **plus** **~40%** shorter drink; **~30%** faster swap.
-- **Mega**: **+65%** reload; **+15%** gun switch; **+15%** perk drink (on top of **this map’s** drink/swap bonuses).
-
-### 4. Double Tap 2.0 — 2,000 Points
-
-**Base (full description).** **Stock *Black Ops III*:** Double Tap II raises **rate of fire by ~33%** and uses **two projectiles per shot** on most bullet weapons for **double damage per trigger pull** (ammo cost / weapon exceptions per Treyarch — see [Double Tap Root Beer](https://callofduty.fandom.com/wiki/Double_Tap_Root_Beer)). **This map’s design** abstracts stacking with PaP/Tier/Cyberware as **+33%** fire rate and **+3%** flat weapon damage so `_acc_damage` can stay one pipeline; **verify** against the real perk hook when Phase 3 lands.
-
-**Mega: Gun Slinger (full description).** **+50%** fire rate. Damage is **+6% total** — i.e. **+3%** extra on top of **this map’s** base DT2 line (**+3%**), for **6% combined** from Gun Slinger Mega (verify additive vs GDT).
+**Mega: Sleight of Hand Expert.** **+70% reload** (replaces the base +50%), delivered by the per-gun `fastreload` weapon-variant twin (`reloadTime ×0.882` layered on the engine's +50%).
 
 **Mechanics**
 
-- **Stock BO3:** **+33%** RoF; double-bullet damage model on eligible guns.
-- **This map — base:** **+33%** RoF; **+3%** damage (design abstraction).
-- **Mega — Gun Slinger**: **+50%** fire rate; **+6% damage total** (+3% base map DT2 + **+3%** Mega).
+- **Reload:** base **+50%** (stock engine, off the specialty) → Mega **+70%** (replaces, not additive; the `fastreload` weapon-variant twin layers `reloadTime ×0.882` on top of the engine +50%).
+- **Barrier repair:** faster (stock).
+
+### 4. Double Tap 1.0 — 2,000 Points
+
+*Rate of fire only — the original Double Tap, not the 2.0 double-bullet version. No weapon-damage bonus.*
+
+**Base.** **+33% rate of fire** (stock). No damage bonus.
+
+**Mega: Gun Slinger.** **+50% fire rate**; **weapon-swap time reduced 75%** (≈4× faster weapon swaps — moved here from Speed Cola).
+
+**Mechanics**
+
+- **Fire rate:** base **+33%** → Gun Slinger **+50%**.
+- **Weapon swap (Mega only):** **−75%** swap time (×0.25 duration).
 
 ### 5. Stamin-Up — 2,000 Points
 
-**Base (full description).** **Stock BO3** Stamin-Up (`specialty_longersprint`): you get **more sprint time** before your sprint meter is spent and you return to a jog, and **higher sprint speed** — sprint is still **finite** (not endless rush). We are **not** stacking an extra arbitrary “+10% global move” on top of stock for the base perk; behavior matches Treyarch’s baseline unless GSC tuning proves otherwise.
+**Base.** Sprint lasts **~12 s** (vs ~4 s with no perk); stamina refills in **~4 s** after it depletes; **+7–8% movement speed** (overall mobility caps ~109%). Sprint is still finite. (Stock BO3 engine values.)
 
-**Mega: The Flash (full description).** **Longer sprint** than base Stamin-Up (Mega layer on top of stock Stamin — exact extension is GSC-tuned). **+12% run speed** on top of base. **Walk speed ×2** and **crawl speed ×4** (multiplicative vs base walk/crawl locomotion — implementation ties to player move-mode; TODO(acc-tune)).
+**Mega: The Flash.** **+15% sprint speed** (×1.15) — applied as a uniform move-speed scalar (BO3 has no sprint-only speed lever, so it raises all movement). No sprint-duration change (base already grants the ~12 s reserve).
 
 **Mechanics**
 
-- **Base**: stock BO3 Stamin-Up — longer sprint reserve; faster sprint movement; **not** unlimited sprint.
-- **Mega — The Flash**: longer sprint than base alone; **+12%** run; **×2** walk; **×4** crawl.
-- **Stacking**: Neural Boots (+20% with primary held); Reflex T1 (+10% sprint, +15% stamina regen). Mega **walk ×2 / crawl ×4** are map-specific multipliers on those locomotion states.
+- **Sprint duration:** no perk **~4 s** → Stamin-Up **~12 s** → The Flash unchanged.
+- **Move speed:** base Stamin-Up **+7–8%** → The Flash adds **×1.15**.
+- **Stacking**: Neural Boots, Reflex T1 (multiplicative speed terms).
 
 ### 6. Mule Kick — 2,500 Points
 
-**Base (full description).** Mule Kick gives a **third primary weapon slot** so you can run close / mid / long without returning to the box. **Cost 2,500 Points** (this map’s tuning — below stock 4k for triple-gun fantasy in mid economy).
+**Base.** A **third primary weapon slot** so you can run close / mid / long without returning to the box.
 
-**Mega: The Armory (full description).** **+30% ammo** capacity per weapon (reserves). **+2** extra **lethal** and **+2** extra **tactical** slots **flat** on top of stock counts (e.g. if stock is 2 frags / 2 EMPs, Armory aims for **4 / 4** before other perks — Widow Spiderman may still cap **web** grenades at **6**).
+**Mega: The Armory.** **+25% ammo capacity** per weapon (reserves); **all buys 10% cheaper** — every point purchase (wallbuys, ammo, perks, Pack-a-Punch, Mystery Box) costs **10% less** (×0.9) while you hold The Armory.
 
 **Mechanics**
 
 - **Base**: third primary; **2,500** pts.
-- **Mega — The Armory**: **+30%** ammo per gun; **+2** lethal, **+2** tactical (additive, not “double all slots” unless stock was 2).
+- **Mega — The Armory**: **+25%** reserve ammo per gun; **×0.9** cost on all point purchases.
 
-### 7. Deadshot — 3,500 Points
+### 7. Deadshot — 3,500 Points (custom — not a stock BO3 perk)
 
-**Base (full description).** **ADS** auto-aim toward heads (cone-limited; **no boss snap**) and **×1.5** headshot damage vs body. Map global headshot multipliers (**2×** trash, **3×** boss) **multiply** with Deadshot. ADS only; hip fire has no snap.
+**Base.** **×1.5 headshot damage**, **−35% weapon recoil** (off the 2.5× map base → 1.625× vanilla), and **ADS snap-to-head** (auto-aim to the nearest head while aiming; not on bosses).
 
-**Mega: American Sniper (full description).** Headshot multiplier is **×1.75** (**replaces** base ×1.5 — you do not double-dip 1.5 and 1.75). **No weapon recoil.** ADS head snap **still applies** to regular targets and elites (not bosses). See [Mega damage stack example](#mega-damage-stack-example).
+**Mega: American Sniper.** **×2 headshot** (replaces the base ×1.5 — no double-dip); **−70% recoil** (→ 0.75× vanilla, below stock). Head-snap is inherited from base (unchanged).
 
 **Mechanics**
 
-- **Base**: **×1.5** headshot mult; ADS auto-aim (regulars/elites); **bosses**: no snap.
-- **Stacking (examples)**: regular headshot ≈ **1.5** × **2.0** (map) = **×3.0** vs body; boss headshot ≈ **1.5** × **3.0** = **×4.5** vs body.
-- **Mega — American Sniper**: **×1.75** headshot mult; **zero recoil**; e.g. regular ≈ **1.75 × 2.0 = ×3.5** vs body; boss ≈ **1.75 × 3.0 = ×5.25** vs body.
+- **Headshot multiplier** stacks on top of the map's base headshot multiplier (**×2** trash / **×3** boss): base ≈ **×3.0** trash / **×4.5** boss vs body; American Sniper ≈ **×4.0** / **×6.0**.
+- **Recoil:** base **−35%** → Mega **−70%** (off the 2.5× map base; delivered by the `recoil35`/`recoil70` weapon-variant twins).
 
 ### 8. Widow's Wine — 4,000 Points
 
-**Base (full description).** **Stock BO3** Widow’s Wine: spider **lethals**, melee-kill webs, self-defense on hit. This map adds **+50%/+25%** frag dmg/radius and **+50%/+25%** EMP stun/radius.
+**Base (stock BO3 Widow's Wine).** Your lethal becomes **Widow's Wine grenades** (sticky / Semtex-like) — zombies caught in the blast but not killed are trapped in webs for ~**20 s** (closest frozen, others slowed). **Self-defense webbing:** when a zombie melees you, you release a web burst trapping nearby zombies ~20 s. **Webbing melee:** meleeing a zombie webs/slows it. Web grenades **restock 2 at the start of each round** (also on Max Ammo and from blue spider-drop pickups).
 
-**Mega: Spiderman (full description).** **Zombies only:** **knife/melee always one-hit kills** on ordinary zombies (not bosses/elites unless tuned). **Web (spider) grenades** **one-hit** regular zombies. You can carry **6** web grenades. Elites/bosses keep normal damage/CC rules unless explicitly listed.
-
-**Mechanics**
-
-- **Base**: spider webs; melee defense; +50%/+25% frag; +50%/+25% EMP.
-- **Mega — Spiderman**: melee **OHK** zombies; web nade hit **OHK** regular zombies; **6** web nades max.
-
-### 9. Aura Blast — 2,500 Points
-
-**Base (full description).** **400u** radius shockwave, **3s** stun (type-dependent), **120s** CD; **full bosses immune** to the stun (mini-boss may use partial rules — see below). Fully custom perk for this map.
-
-**Mega: Mega Man (full description).** Keeps **800u**, **60s** CD, **2 charges** — and **bosses can be affected** now (see Mechanics): typically **reduced** stun vs trash (e.g. same **3s** window → **50% duration** or **~1.5s**, or interrupt-only — TODO(acc-tune)) so the fight isn’t trivialized.
+**Mega: Spiderman.** Hold up to **6** web grenades; **restock 4 each round** (instead of 2).
 
 **Mechanics**
 
-- **Activation**: **crouch + melee chord** until the Phase 4 LUI keybind (BO3 has no console command that fires a script notify — VERIFIED, see `_acc_weapon_abilities.gsc`, whose weapon abilities own the ADS+melee chord; Aura Blast deliberately uses a different chord).
-- **Base — radius 400u, stun 3s**, CD **120s** from activation.
-- **Enemy rules (base)**: zombies — full stun; shielded elites — shield down for stun; teleporters — no teleport; EMP elites — **1s** stun; mini-boss — **50%** duration (~1.5s); **full boss — immune**.
-- **Mega — Mega Man**: **800u**; **60s** CD; **2 charges**; **bosses take stun/interrupt** per tuning (not immune). TODO(acc-impl): boss-specific duration cap.
+- **Base**: web grenades, self-defense webbing, webbing melee, **2**/round restock — all stock.
+- **Mega — Spiderman**: **6** max web grenades; **4**/round restock.
+
+### 9. Aura Blast — 2,500 Points (custom — WIP, not on the map yet)
+
+> **🚧 WIP — on hold, not on the map yet.** The description below is the planned design only.
+
+**Base (planned).** **400u** radius shockwave, **3s** stun (type-dependent), **120s** CD; full bosses immune. Activated by a crouch + melee chord.
+
+**Mega: Mega Man (planned).** **800u**, **60s** CD, **2 charges**, and bosses can be affected (reduced effect vs trash — ~1.5s / interrupt-only).
+
+**Mechanics (planned)**
+
+- **Activation**: crouch + melee chord (Phase 4 LUI keybind).
+- **Base — radius 400u, stun 3s**, CD **120s**.
+- **Enemy rules (base)**: zombies full stun; shielded elites shield-down; teleporters no teleport; EMP elites **1s**; mini-boss **50%** (~1.5s); full boss immune.
+- **Mega — Mega Man**: **800u**; **60s** CD; **2 charges**; bosses take stun/interrupt per tuning.
 - **HUD**: cooldown ring (Phase 4 LUI).
 - **Build fit**: Reflex + Phase Step; Overload defense; panic peel.
 
@@ -208,11 +211,11 @@ This mirrors the existing perk-rotation decision texture. Mega-ing a perk is a *
 
 ### Mega damage stack example
 
-PaP L5 + Tier 5 FAL + American Sniper + Gun Slinger + Overload Cyberware + Precision Mode ability + clean headshot on an elite:
+PaP L5 + Tier 5 FAL + American Sniper + Overload Cyberware + Precision Mode ability + clean headshot on an elite:
 
-- Base damage × 1.5 (stock weapon GDT headshot mult) × 2.0 (our headshot mult) × **1.75 (American Sniper Mega)** × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = **~95x damage** per headshot (illustrative — recalc when exact PaP/Tier values are locked).
+- Base damage × 1.5 (stock weapon GDT headshot mult) × 2.0 (our headshot mult) × **2.0 (American Sniper Mega)** × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = **~110x damage** per headshot (illustrative — recalc when exact PaP/Tier values are locked).
 
-On a round-50 boss with Signal Staff's +300% counter damage skipped, that's still the 4.5x boss-headshot multiplier stacked = **~163x damage per hit**.
+On a round-50 boss the **×3.0** boss-headshot multiplier (vs ×2.0 on trash) stacks higher still — American Sniper headshots reach **×6.0** before the rest of the chain.
 
 Absurd. Intended for late-game power-fantasy. Tune via the levers at the bottom of the doc if playtest shows this is *unfun* absurd rather than *earned* absurd.
 
@@ -243,7 +246,7 @@ See [14_controls_and_hud.md](14_controls_and_hud.md) for HUD element spec.
 
 - **Drop rate too generous**: only full bosses drop Mega Bottles (mini-bosses give 50% chance).
 - **Drop rate too stingy**: mini-bosses give 2 bottles each.
-- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper 1.75x → 1.65x, Gun Slinger +50% → +40%).
+- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper ×2.0 → ×1.85, Gun Slinger +50% → +40%).
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
 ## Perk Availability: Per-Round Rotating Lab Machines
@@ -350,29 +353,43 @@ Missing a perk this round is OK. It'll cycle back. **Patience and route manageme
 
 ## Full Stacking Example — "Swiss Army Player" Build
 
-A player with **all 9 perks** + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
+A player with **all 8 live perks** (Aura Blast is WIP) + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
 
-- **HP**: **6**-hit survival vs regular zombie melee with Jug on **this map** (stock BO3 Jug = **5** hits — see baseline).
-- **HP regen**: +30% (Quick Revive).
-- **Reload / swap speed**: +50% reload + +15% reload (Gauntlets if equipped) + ~30% swap (Speed Cola) + 15% swap (Gauntlets).
-- **Move speed / sprint**: Stamin-Up (stock longer sprint + faster sprint) + +10% sprint (Reflex T1) + +20% (Neural Boots if equipped); with **Mega** Stamin add **×2 walk / ×4 crawl / +12% run** vs base Stamin-Up layer.
-- **Fire rate**: +33% (Double Tap).
-- **Headshot damage**: base Deadshot ×1.5 × map mult ×2.0 / ×3.0 × Overload / Tier / PaP; American Sniper Mega uses **×1.75** instead of ×1.5 (see [Deadshot](#7-deadshot--3500-points)).
-- **Grenade damage**: +50% frag dmg, +25% radius (Widow's Wine).
-- **Stun on demand**: Aura Blast (3s, 400u radius, 120s CD).
-- **Weapon slots**: 3 primaries (Mule Kick).
-- **Web on melee hit**: self-defense layer (Widow's Wine).
+- **HP**: **250 HP** → 6-hit survival with Jug; **314 HP** → 7 hits with Ultimate Tank.
+- **HP regen**: starts 15% sooner (Quick Revive) / 30% sooner (Savior).
+- **Revive**: 2.0 s (Quick Revive) / 1.0 s (Savior).
+- **Reload**: +50% reload (Speed Cola) / +70% (Sleight of Hand Expert).
+- **Move / sprint**: ~12 s sprint + ~7–8% move (Stamin-Up); +15% sprint speed (The Flash); +15% move while a teammate is down (Savior); plus Cyberware / Boss-item speed terms (multiplicative).
+- **Fire rate**: +33% (Double Tap 1.0) / +50% (Gun Slinger); Gun Slinger also cuts weapon-swap time 75%.
+- **Headshot damage**: ×1.5 (Deadshot) / ×2.0 (American Sniper) on top of the map's ×2 trash / ×3 boss multiplier; recoil −35% / −70%.
+- **Weapon slots**: 3 primaries (Mule Kick); +25% ammo & all buys 10% cheaper (The Armory).
+- **Crowd control**: Widow's Wine web grenades + self-defense webbing + webbing melee (6 grenades / 4-per-round restock with Spiderman).
 
 Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons = our peak power fantasy. Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
 
 ## Implementation Status
 
-**Audited 2026-06-13, GSC fixes applied 2026-06-14** (24-agent audit → per-perk
-research+verify workflow → hand-applied, `lint_gsc_xref.js` clean). This section is
-the **authoritative implemented-vs-spec ledger** — the prose above is design
-*intent*; the table below is what fires in-game today. The non-GSC remainder (GDT
-+ Radiant, with Asset-Editor steps) is its own work order:
-**[30_perk_gdt_radiant_spec.md](30_perk_gdt_radiant_spec.md)**.
+> **⚠️ Spec finalized 2026-06-14; GSC reconciled to it the same day.** The requirements are the **table + per-perk prose above** (kept in sync with [perk_abilities.md](perk_abilities.md)). The ledger below is the **implemented-vs-spec status** after the overhaul. The old pre-finalization audit (further down) is kept only for code-location reference.
+
+### Implemented ledger (code now matches the spec)
+
+**Legend:** ✅ done in GSC (cited) · 🎨 GDT/APE only — no GSC lever, see [30](30_perk_gdt_radiant_spec.md)/[31](31_ape_perk_gdt_walkthrough.md) · 🧪 confirm number in-game.
+
+- **Jugger-Nog** — ✅ base 250 HP (`_acc_perks.gsc` `ACC_JUGG_HEALTH_ADD=150`); ✅ Ultimate Tank 314 HP (`_acc_mega_bottles.gsc:420` `n_player_health_boost=64`); ✅ boss immunity (`_acc_boss.gsc::protect_immune_players_during_debuff`). 🧪 confirm 6/7 hit counts.
+- **Quick Revive** — ✅ base revive 2.0s / Savior 1.0s (`_acc_perks.gsc::qr_revive_time` via `self.get_revive_time` hook; watcher `qr_revive_watcher`); ✅ base regen 15% / Savior 30% sooner (`qr_regen_booster`, `ACC_QR_REGEN_DELAY_BASE=0.85` / `_SAVIOR=0.70`); ✅ Savior +15% speed (`savior_speed_watcher` + `_acc_utility.gsc:155`).
+- **Speed Cola** — ✅ +50% reload + barrier (stock); ✅ Mega +70% reload via the `fastreload` weapon-variant twin (`reloadTime ×0.882` layered on the engine +50%; baked 2026-06-14, `_acc_weapon_variants.gsc::axis_reload`); ✂️ faster perk-drink **cut** (shared map-wide anim, no per-perk lever). Weapon-swap belongs to Double Tap's Gun Slinger.
+- **Double Tap 1.0** — ✅ base +33% fire rate (stock); ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger +50% fire rate **and** −75% weapon-swap via the `fastfire` twin (`fireTime ×0.667` + raise/drop `×0.25`; baked 2026-06-14, `axis_fire`). Card renamed "Double Tap 1.0".
+- **Stamin-Up** — ✅ base stock sprint; ✅ The Flash ×1.15 move (`_acc_utility.gsc:151`); ✅ sprint-duration override removed (`_acc_mega_bottles.gsc`).
+- **Mule Kick** — ✅ base 3rd primary (stock); 🎨 Armory +25% ammo cap (GDT; GSC fills via `armory_apply`); ✅ Armory **all buys 10% cheaper at POINT OF SALE** (charge **and** displayed price) — done by **vendoring 5 stock files** and repurposing the dormant `pers_double_points` cost hook (gated on the Armory Mega flag, ×0.9): `_zm_pers_upgrades_functions` (perk + stock-PaP charge), `_zm_weapons` (wallbuy/ammo — inert now wall buys are removed), `_zm_magicbox` (box, per-player), `_zm_perks` (perk hint), plus `_acc_pap_levels` tier-up. The old spend-rebate (`armory_discount_watcher`) was **removed**. Co-op display reflects the toucher on shared triggers (perks); box/tier are per-player-exact. See docs/22 + CHANGELOG. ✅ +2 grenade fill removed.
+- **Deadshot** — ✅ base ×1.5 headshot (`_acc_damage.gsc:88`) + ADS snap, no boss (`_acc_boss.gsc:218,371`); ✅ American Sniper ×2 headshot (`_acc_damage.gsc:89` `ACC_DEADSHOT_MEGA_MULT=2.0`); ✅ base −35% / Mega −70% recoil via `recoil35`/`recoil70` twins (off the 2.5× map base; baked 2026-06-14, `axis_recoil`).
+- **Widow's Wine** — ✅ base webs / self-defense / webbing melee (stock); ✅ +50% frag damage removed; ✅ Spiderman melee + web OHK removed (`_acc_damage.gsc`); ✅ restock base 2 / Spiderman 4 per round (`_acc_mega_bottles.gsc::widow_round_restock_watcher`); 🎨 Spiderman hold 6 (GSC fills the clip; GDT clip cap — doc 30).
+- **Aura Blast** — 🚧 **WIP / on hold, not on the map.** `_acc_perk_aura_blast.gsc` stays; no changes.
+
+---
+
+**Original pre-finalization audit (for code locations only):** Audited 2026-06-13, GSC fixes applied 2026-06-14 (24-agent audit → per-perk research+verify → hand-applied, `lint_gsc_xref.js` clean). The non-GSC remainder is detailed in **[30_perk_gdt_radiant_spec.md](30_perk_gdt_radiant_spec.md)**.
+
+> **⚠️ The Status column in the table below is PRE-FINALIZATION and now STALE.** It predates the 2026-06-14 weapon-variant twin matrix + perk overhaul. Several rows are wrong — e.g. Speed Cola "+65% / drink", "Double Tap 2.0", American Sniper "×1.75 / no recoil", Deadshot "−25% / −50%", and the "GDT-only / cut" verdicts on reload / fire-rate / recoil (all now **built** via `_acc_weapon_variants.gsc` twins). **Trust the "Implemented ledger" above, not this table** — it's kept only for the `file:line` code citations.
 
 **Status legend:** **OK** = real code grants it (cited). **OK\*** = GSC implemented
 but the exact tuning number needs an in-game confirm (depends on a baked GDT
@@ -393,88 +410,117 @@ spec blocker.
 
 ### Per-perk ability ledger
 
+**Citations re-verified 2026-06-14** against literal code by a 55-agent audit
+(each requirement opened + adversarially refuted; stale line numbers corrected
+below). The earlier prose `45`-damage melee assumption was disproved and the
+grenade-fill field bug was found and fixed — see the notes.
+
 | Perk (specialty) | Ability | Status | Where (or why not) |
 |---|---|---|---|
-| **Jug** (`armorvest`) | base 6-hit model | OK\* | `_acc_perks.gsc::tune_jugg_health` sets `zombie_perk_juggernaut_health=150` → 250 HP → 6 hits @ melee 45; confirm hit-count in-game (melee is a GDT constant) |
-| | cost 4,000 | OK | `zm_abandoned_cyber_city.gsc:325` |
-| | Mega Ultimate Tank +1→7 hits | OK\* | `_acc_mega_bottles.gsc` armorvest case = `+50` HP → 300 → 7th-hit down (recalibrated from +100) |
+| **Jug** (`armorvest`) | base 6-hit model | OK\* | `_acc_perks.gsc::tune_jugg_health` sets `zombie_perk_juggernaut_health=150` → **250 HP** (read live by `_zm_perks.gsc:803`). **Melee correction:** the open-field melee that downs you is a **baked GDT stat NOT readable from script** — the in-script `60` (`_zm_spawner.gsc:358`) is the *board-hit* value, and "@ melee 45" was an unverified assumption. Exact hit count **must be confirmed in-game**; if not 6, retune `ACC_JUGG_HEALTH_ADD` (the only lever) |
+| | cost 4,000 | OK | `zm_abandoned_cyber_city.gsc:326` |
+| | Mega Ultimate Tank +1 hit | OK\* | `_acc_mega_bottles.gsc:418` armorvest case = `+50` HP → **300 HP**, survives revives via stock `health_reboot` recompute. "+1 over base" inherits base Jug's in-game melee confirmation |
 | | Mega boss-ability immunity | OK | `_acc_boss.gsc::protect_immune_players_during_debuff` re-grants immune holders' perks during disable_*_for. *Caveat: power-off is a global flag, so the holder's traps still go dark — only owned perks are preserved* |
-| **Quick Revive** (`quickrevive`) | base faster teammate revive | STOCK | `_zm_perk_quick_revive` |
-| | base +30% HP regen after damage | OK\* | `_acc_perks.gsc::qr_regen_booster` (regen starts ~30% sooner). *Effect is "earlier start", not a faster steady rate — stock heals instant-to-full at the delay* |
-| | base solo self-revive; cost 2,500 | STOCK / OK | stock; cost `…gsc:326` |
-| | Mega Savior revive ×0.6 | OK | `_acc_perks.gsc::savior_revive_time` via `self.get_revive_time` hook (1.5s→0.9s) |
-| | Mega Savior +15% move while teammate down | OK | `_acc_perks.gsc::savior_speed_watcher` + `×1.15` term in `_acc_utility.gsc:recompute_move_speed` |
-| **Speed Cola** (`fastreload`) | base +50% reload + barrier | STOCK | stock |
-| | base ~40% shorter drink; ~30% faster swap; cost 3,500 | GDT / OK | no GSC weapon-timing lever — anim assets, [doc 30](30_perk_gdt_radiant_spec.md); cost `…gsc:327` |
-| | Mega +65% reload / +15% switch / +15% drink | GDT | no GSC reload/swap setter; unconditional GDT or cut — [doc 30](30_perk_gdt_radiant_spec.md) |
+| **Quick Revive** (`quickrevive`) | base faster teammate revive | STOCK | `_zm_laststand.gsc:1156` halves revive to 1.5s when the reviver owns the specialty |
+| | base +30% HP regen after damage | OK\* | `_acc_perks.gsc::qr_regen_booster` (regen window opens ~30% sooner, then parallel ramp). *Verified: ZM has NO per-player regen-rate hook (MP-only), so "earlier start" is the strongest GSC-reachable interpretation — design call: accept, or reword card to "+30% faster regen start"* |
+| | base solo self-revive; cost 2,500 | STOCK / OK | stock; cost `…gsc:327` |
+| | Mega Savior revive ×0.6 | OK | `_acc_perks.gsc::savior_revive_time` via `self.get_revive_time` hook, consumed at `_zm_laststand.gsc:1163` (1.5s→0.9s; sole writer of the hook — grep-confirmed) |
+| | Mega Savior +15% move while teammate down | OK | `_acc_perks.gsc::savior_speed_watcher` + `×1.15` term in `_acc_utility.gsc:155` |
+| **Speed Cola** (`fastreload`) | base +50% reload + barrier | STOCK | engine response to the specialty |
+| | base ~40% shorter drink; ~30% faster swap; cost 3,500 | GDT / OK | **No GSC lever (proven):** grep over stock = zero drink-/swap-time setters; anim/timing assets, APE-only and map-wide — [doc 30](30_perk_gdt_radiant_spec.md); cost `…gsc:328` |
+| | Mega +65% reload / +15% switch / +15% drink | GDT | no GSC reload/swap setter (proven); unconditional GDT or **cut** — [doc 30](30_perk_gdt_radiant_spec.md) |
 | **Double Tap 2.0** (`doubletap2`) | base +33% fire rate | STOCK | engine-granted free with the specialty (doc abstracts DT to damage-only) |
-| | base +3% damage | OK | `_acc_damage.gsc:279-285` (×1.03) |
-| | cost 2,000 | OK | `…gsc:328` |
-| | Mega Gun Slinger +50% fire rate | GDT/cut | no per-perk fireTime lever; out of scope — [doc 30](30_perk_gdt_radiant_spec.md) |
-| | Mega Gun Slinger +6% damage | OK | `_acc_damage.gsc:281-282` (×1.06, replaces base) |
-| **Stamin-Up** (`staminup`) | base longer/faster sprint; cost 2,000 | STOCK / OK | engine-driven; cost `…gsc:329` |
-| | Mega Flash longer sprint | OK | `_acc_mega_bottles.gsc::apply_flash_sprint` `SetSprintDuration(6.0)` (4.0 stock) + respawn re-apply |
-| | Mega Flash +12% run | OK | `_acc_utility.gsc:149-153` `SetMoveSpeedScale ×1.12` |
-| | Mega Flash ×2 walk / ×4 crawl | MISSING | engine has only a *uniform* move scalar — no per-stance lever exists (verified). Documented limitation |
-| **Mule Kick** (`additionalprimaryweapon`) | base third primary; cost 2,500 | STOCK / OK | `additionalprimaryweapon_limit=3`; cost `…gsc:330` |
-| | Mega Armory +2 lethal / +2 tactical | PARTIAL | `_acc_mega_bottles.gsc::armory_apply` fills to cap; the +2 needs grenade-GDT `maxAmmo` bump — [doc 30](30_perk_gdt_radiant_spec.md) |
-| | Mega Armory +30% ammo (reserves) | PARTIAL | same `armory_apply` fills reserves; the +30% *cap* needs per-weapon GDT — [doc 30](30_perk_gdt_radiant_spec.md) |
-| **Deadshot** (`deadshot`) | base ADS head-snap, no boss snap | STOCK + OK | stock snap; boss snap suppressed `_acc_boss.gsc:218,371` |
-| | base ×1.5 headshot; cost 3,500 | OK / OK | `_acc_damage.gsc:414-419`; cost `…gsc:331` |
-| | Mega American Sniper ×1.75 (replaces 1.5) | OK | `_acc_damage.gsc:416-417` (true if/else, no double-dip) |
-| | Mega no recoil | GDT | static recoil tables; needs a no-recoil weapon-variant swap — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | base +3% damage | OK | `_acc_damage.gsc:294-300` (×1.03) |
+| | cost 2,000 | OK | `…gsc:329` |
+| | Mega Gun Slinger +50% fire rate | GDT | **No runtime lever** (grep-proven: no fire-rate setter/dvar anywhere; stock DT2's +33% is hardcoded to the specialty, `_zm_perk_doubletap2.gsc` has zero rate code). Achievable only via an APE **`fireTime` weapon-variant swap** — clone each gun with a lower `fireTime`, `GiveWeapon` the faster twin while Gun Slinger is active — same heavy per-weapon framework as Deadshot no-recoil ([doc 30](30_perk_gdt_radiant_spec.md)) |
+| | Mega Gun Slinger +6% damage | OK | `_acc_damage.gsc:294-300` (×1.06, true if/else replaces base — no double-dip) |
+| **Stamin-Up** (`staminup`) | base longer/faster sprint; cost 2,000 | STOCK / OK | engine-driven; cost `…gsc:330` |
+| | Mega Flash longer sprint | OK | `_acc_mega_bottles.gsc:475` `SetSprintDuration(6.0)` (4.0 stock) + respawn re-apply |
+| | Mega Flash +12% run | OK | `_acc_utility.gsc:151` `SetMoveSpeedScale ×1.12` |
+| | Mega Flash ×2 walk / ×4 crawl | **cut** | **Engine-impossible (proven):** grep over stock returns ONLY `SetMoveSpeedScale` (uniform) + `SetSprintDuration` — no per-stance walk/crawl setter exists in GSC, GDT, or Radiant. Strike from the card |
+| **Mule Kick** (`additionalprimaryweapon`) | base third primary; cost 2,500 | STOCK / OK | pure stock (owning the specialty grants the 3rd slot — **no `additionalprimaryweapon_limit=3` line exists in our code**; old citation was wrong); cost `…gsc:331` |
+| | Mega Armory +2 lethal / +2 tactical | PARTIAL | `armory_apply` fills the **lethal/tactical CLIP** to cap (**field bug fixed 2026-06-14:** `SetWeaponAmmoStock` → `SetWeaponAmmoClip`; ZM carries grenades in the clip, `_zm.gsc:4582`). The `+2`-over-stock needs the grenade-GDT carry cap raised in APE — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | Mega Armory +30% ammo (reserves) | PARTIAL | `armory_apply` `GiveMaxAmmo` fills gun reserves to cap; the +30% *cap* needs per-weapon GDT `maxAmmo` (no GSC reserve-cap setter — proven) — [doc 30](30_perk_gdt_radiant_spec.md) |
+| **Deadshot** (`deadshot`) | base ADS head-snap, no boss snap | STOCK + OK | stock snap; boss snap suppressed by `DisableAimAssist()` on the boss actor (`_acc_boss.gsc:218,371`) |
+| | base ×1.5 headshot; cost 3,500 | OK / OK | `_acc_damage.gsc:429-435`; cost `…gsc:332` |
+| | Mega American Sniper ×1.75 (replaces 1.5) | OK | `_acc_damage.gsc:429-435` (true if/else, no double-dip) |
+| | Mega no recoil | GDT | **No GSC recoil setter exists** (grep = only vehicle/turret kick fields). Needs a `_norecoil` weapon-variant swap in APE — [doc 30](30_perk_gdt_radiant_spec.md) — or cut |
 | | Mega snap still on regulars/elites | STOCK | stock |
 | **Widow's Wine** (`widowswine`) | base webs / melee / defense | STOCK | stock |
-| | base +50% frag damage | OK | `_acc_damage.gsc:290-294` (×1.50) |
-| | base +25% frag radius | GDT | `explosionRadius` ×1.25 — [doc 30](30_perk_gdt_radiant_spec.md) |
-| | base +50% EMP stun / +25% radius; cost 4,000 | MISSING | spec blocker — stock Widow has no EMP asset; re-scope/strike (doc 30). cost `…gsc:332` |
+| | base +50% frag damage | OK | `_acc_damage.gsc:305-309` (×1.50) |
+| | base +25% frag radius | GDT | `explosionRadius` ×1.25 in APE — [doc 30](30_perk_gdt_radiant_spec.md). (A GSC `RadiusDamage`-on-detonation hack exists but double-counts + ignores falloff — APE preferred) |
+| | base +50% EMP stun / +25% radius; cost 4,000 | **strike** | **Spec blocker (proven):** stock Widow's Wine registers NO EMP component — no asset to edit, no hook tying EMP to `specialty_widowswine`. Re-scope or strike. cost `…gsc:333` |
 | | Mega Spiderman melee OHK zombies | OK | `_acc_damage.gsc:192-199` |
-| | Mega Spiderman web-grenade OHK | OK | `_acc_damage.gsc` web-grenade branch (gated on `level.w_widows_wine_grenade`) |
-| | Mega Spiderman 6 web grenades | PARTIAL | `_acc_mega_bottles.gsc` widowswine case fills reserve to 6; engine clamps to the grenade GDT `maxAmmo` — bump it ([doc 30](30_perk_gdt_radiant_spec.md)) |
+| | Mega Spiderman web-grenade OHK | OK | `_acc_damage.gsc:206-214` (gated on `level.w_widows_wine_grenade`) |
+| | Mega Spiderman 6 web grenades | PARTIAL | `_acc_mega_bottles.gsc` widowswine case fills the **lethal CLIP** to 6 (**field bug fixed 2026-06-14:** `…AmmoStock` → `…AmmoClip`, the field stock reads at `_zm_perk_widows_wine.gsc:214/294`). If the engine clamps the clip to the grenade GDT carry cap (<6), raise it in APE — [doc 30](30_perk_gdt_radiant_spec.md); if not, now fully met. **Confirm in-game** |
 | **Aura Blast** (`electriccherry`) | base 400u / 3s / 120s / crouch+melee; cost 2,500 | OK ×5 | `_acc_perk_aura_blast.gsc` |
-| | base per-enemy-type matrix | OK | `do_aura_blast` rewrite + `aura_stun_with_effects` + teleporter guard in `_acc_elites.gsc`: shielded shield-down, teleporter no-teleport, EMP 1s, mini-boss 50% at base, full boss immune |
+| | base per-enemy-type matrix | OK | `do_aura_blast` + `aura_stun_with_effects` + teleporter guard in `_acc_elites.gsc`: shielded shield-down, teleporter no-teleport, EMP 1s, mini-boss 50% at base, full boss immune |
 | | Mega Man 800u / 60s / 2 charges / bosses affected | OK ×4 | `_acc_perk_aura_blast.gsc` |
 
 ### Shared systems
 
 - **No-perk-cap removal — OK.** `level.perk_purchase_limit = 9`
-  (`zm_abandoned_cyber_city.gsc:192`), consumed by the live stock buy-gate.
+  (`zm_abandoned_cyber_city.gsc:193`), consumed by the live stock buy-gate
+  (`_zm_utility.gsc:5876`/`:5889`).
 - **Per-round rotation — brain OK, body STUB.** `roll_perk_rotation()` rolls/stores
   fine, but `apply_perk_rotation_to_machines` is a `TODO(acc-geom)` stub and **no
-  `acc_lab_perk_*` entities exist in Radiant**, so the rolled array is discarded —
-  all 9 perks are always buyable; the 4-of-9 lockout does not happen. Needs Radiant
-  geometry — [doc 30](30_perk_gdt_radiant_spec.md).
+  `acc_lab_perk_*` entities exist in Radiant**, so the rolled array is never consumed —
+  all 9 perks are always buyable; the 4-of-9 lockout does not happen. **Audit found a
+  headless lockout lever (2026-06-14):** stock `vending_trigger_think` calls
+  `level.custom_perk_validation` on the trigger before each purchase
+  (`_zm_perks.gsc:560-562`); pointing it at a func returning
+  `IsInArray(level.acc_perk_rotation, self.script_noteworthy)` would enforce the 4-of-9
+  lockout on the machines that exist — **no Radiant needed for the gate**. The full
+  designed rotation (4 dedicated Lab machines re-skinned per round) still needs the
+  Radiant entities — [doc 30](30_perk_gdt_radiant_spec.md). *Not enabled by default —
+  it's a balance decision (locks 5/9 perks/round); flip on request.*
 - **Mega Bottle system — OK; effect-application now near-complete.** drop / inventory
-  / apply / flag / persistence all real; of the 9 Mega effects, **8 now fire** (added
-  2026-06-14: Savior, The Flash sprint, The Armory fill). Only **Sleight of Hand
-  Expert** is GDT-blocked (reload/swap timing — doc 30).
+  / apply / flag / persistence all real (SH-3 fully verified); of the 9 Mega effects,
+  **8 fire** (Savior, The Flash sprint, The Armory fill, Spiderman, Ultimate Tank,
+  American Sniper, Mega Man, +6% Gun Slinger damage). Only **Sleight of Hand
+  Expert** is fully GDT-blocked (reload/swap timing — doc 30).
 
-### Remaining work (post-2026-06-14)
+### Remaining work (re-verified 2026-06-14, 55-agent audit)
 
-Everything GSC-reachable is done. The remainder is **GDT/Radiant only** — see
-**[30_perk_gdt_radiant_spec.md](30_perk_gdt_radiant_spec.md)** for asset/field/value
-+ Asset-Editor steps:
+**Every GSC-reachable lever is pulled.** The one remaining GSC defect found by the
+audit — the grenade-fill targeting the unused reserve instead of the clip — **was
+fixed 2026-06-14** (`_acc_mega_bottles.gsc`, Spiderman + Armory cases now use
+`SetWeaponAmmoClip`). What is left is **physically not GSC-reachable** and falls into
+four buckets (proof for each in the per-perk ledger above + [doc 30](30_perk_gdt_radiant_spec.md)):
 
-- **GDT:** Mule Armory caps (+2 grenades, +30% reserve) · Widow +25% frag radius · Widow
-  6-web-grenade cap · Deadshot no-recoil (variant-swap) · Speed Cola reload/drink/swap.
-- **Radiant:** the 4 `acc_lab_perk_*` machines for the rotation lockout.
-- **Design decisions:** Widow EMP line (re-scope/strike) · DT/Gun Slinger fire-rate &
-  Speed Cola timing (cut from card vs ship unconditional map-wide) · in-game confirm of
-  the Jug 3/6/7 hit counts (depends on the melee=45 GDT constant).
+- **APE GUI (weapon GDT, interactive — can't be done headlessly):** Widow 6-web-grenade
+  clip cap · Mule Armory +2 grenade cap + +30% gun reserve · Widow +25% frag radius
+  (`explosionRadius`) · Speed Cola reload/drink/swap timing · **Deadshot no-recoil** and
+  **Gun Slinger +50% fire rate** (both are `_norecoil`/`_fastfire` **weapon-variant
+  swaps** — clone each gun with the field zeroed/lowered, swap it in while the Mega is
+  held). Full click-by-click steps: **[31_ape_perk_gdt_walkthrough.md](31_ape_perk_gdt_walkthrough.md)**.
+  *The stock weapon **stat** files are baked in the base fastfiles — not editable text in
+  this public-tools install — so these require APE's weapon editor + a full rebuild.*
+- **Radiant (interactive):** 4 `acc_lab_perk_*` Lab machines for the full designed
+  rotation (the *lockout gate* alone is headless via `custom_perk_validation`, above —
+  left off by request 2026-06-14).
+- **Engine-impossible (grep-proven, no lever ANYWHERE — not even APE):** The Flash
+  ×2 walk / ×4 crawl (only a uniform move scalar exists). → **struck from cards 2026-06-14.**
+- **Cut by design (no stock asset):** Widow's Wine EMP line. → **struck from cards 2026-06-14.**
+- **Design decisions (yours to make):** Speed Cola Mega timing (cut from card vs ship
+  unconditional map-wide — the GDT edit is NOT perk-gateable) · QR "+30% regen" wording
+  (accept "earlier start" vs reword) · in-game confirm of Jug 6/7 hit counts (depends on
+  the baked open-field melee GDT value, **not** the doc's old `45` assumption).
 
-Custom perks (Aura Blast, Widow's Wine as modified, Deadshot as a variant) follow the custom perk template workflow in [16_gsc_reference.md](16_gsc_reference.md) section 5.
+Custom perks (Deadshot, Aura Blast) follow the custom perk template workflow in [16_gsc_reference.md](16_gsc_reference.md) section 5.
 
 ## Tuning Levers
 
 If perks feel broken after playtest:
 
-- **Jug**: baked into the **3 / 6** hit model on this map (**6** with Jug vs **5** stock BO3 Jug).
-- **Aura Blast**: cooldown 120s → 150s if too spammable.
-- **Deadshot**: 1.5x → 1.3x if headshot damage ceiling is too high.
-- **Widow's Wine grenade boost**: +50% → +25% if frag/EMP spam dominates late game.
-- **Stamin-Up**: sprint duration 2x → 1.5x if speed-running late rounds becomes trivial.
+- **Jug**: the **3 / 6 / 7** hit model — retune the HP adds (250 base / 314 Mega) if hit counts drift.
+- **Deadshot**: ×1.5 / ×2.0 headshot → lower if the headshot ceiling is too high.
+- **Mule Kick (Armory)**: 10% discount / +25% ammo → trim if economy or ammo trivializes late game.
+- **Stamin-Up (The Flash)**: +15% sprint speed → lower if speed-running trivializes late rounds.
+- **Quick Revive (Savior)**: 1.0 s revive / +15% speed → trim if too strong in co-op.
+- **Aura Blast** (when added): cooldown 120s → 150s if too spammable.
 
-All live in `_acc_perks.gsc` constants (planned Phase 3 authoring).
+Numeric levers live in `_acc_perks.gsc` / `_acc_mega_bottles.gsc` / `_acc_damage.gsc` constants; timing / recoil / fire-rate are GDT (APE).
 
 ## Out of Scope for v1.0
 

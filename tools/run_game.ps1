@@ -13,12 +13,16 @@
 # Steam must be running and logged in.
 # =============================================================================
 
-param([switch]$NoBoss, [switch]$NoDev)
+param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug)
 
 # acc_dev 1   = unlimited money, perk cap 18, buyable-door markers (the test sandbox)
 # acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles on death
+# acc_variants_debug 1 = print each weapon-variant SWAP on-screen ("[variants] X -> Y")
+#   so you can SEE Deadshot/Mega change the gun (recoil is otherwise invisible).
+#   (acc_weapon_variants itself is ON by default - no flag needed to enable it.)
 $boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1" }
 $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
+$vdbg = if ($NoVarDebug) { "" } else { " +set acc_variants_debug 1" }
 # THE GAMETYPE FIX (verified 2026-06-13): you MUST pass the engine command
 # `+set_gametype zclassic`, NOT `+set g_gametype zclassic`. The g_gametype dvar
 # is immediately reset to the session default by the engine
@@ -35,7 +39,7 @@ $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
 # "-unsafe-lua" arg is a BOIII-client flag, not a Steam BO3 one - on Steam it logs
 # "Unknown command" and does nothing, so it is intentionally NOT passed here.
 # (L3akMod is still required in the MOD TOOLS bin to BUILD the .lua. docs/28.)
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev"
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev$vdbg"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"
