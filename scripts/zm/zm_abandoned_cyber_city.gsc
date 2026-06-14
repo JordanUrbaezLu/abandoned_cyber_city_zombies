@@ -87,6 +87,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 
 // Fix Power Lag
 #precache("triggerstring", "ZOMBIE_NEED_POWER");

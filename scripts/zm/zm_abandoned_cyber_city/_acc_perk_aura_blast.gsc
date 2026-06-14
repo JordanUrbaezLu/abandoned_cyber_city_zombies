@@ -45,6 +45,7 @@
 #define ACC_AURA_COST          2500
 #define ACC_AURA_RADIUS_SQ     160000      // 400u * 400u (docs/13_perks.md)
 #define ACC_AURA_STUN_SEC      3.0
+#define ACC_AURA_EMP_STUN_SEC  1.0         // EMP elite: shorter 1s stun (docs/13:164)
 #define ACC_AURA_COOLDOWN_MS   120000      // 120s
 
 #precache( "triggerstring", "ZOMBIE_PERK_AURABLAST" );
@@ -257,6 +258,12 @@ function recharge_one_charge()
     }
 }
 
+// docs/13_perks.md:164 base enemy rules: zombies -> full 3s stun; shielded
+// elites -> shield down for the stun; teleporters -> no teleport during the
+// stun; EMP elites -> 1s stun; mini-boss -> 50% duration (~1.5s) at BASE; full
+// boss -> immune at base. Mega Man (docs:158/165): full boss becomes affectable
+// at a reduced (~half) stun. The mini-boss already uses the partial rule, so it
+// is the SAME 1.5s at base and Mega.
 function do_aura_blast( v_origin, n_radius_sq, b_mega )
 {
     a_enemies = GetAITeamArray( level.zombie_team );
@@ -272,22 +279,60 @@ function do_aura_blast( v_origin, n_radius_sq, b_mega )
             continue;
         }
 
-        if ( IS_TRUE( e_zombie.acc_is_boss ) || IS_TRUE( e_zombie.acc_is_mini_boss ) )
+        // --- Full boss (Subroutine Core, .acc_is_boss; _acc_boss.gsc:362) ---
+        // Base: immune. Mega Man: ~half stun (1.5s) so the fight isn't trivialized.
+        if ( IS_TRUE( e_zombie.acc_is_boss ) )
         {
-            // Base tier: bosses immune. Mega Man: reduced (~half) stun so the
-            // fight isn't trivialized (docs/13_perks.md Mega Man mechanics).
             if ( IS_TRUE( b_mega ) )
             {
-                e_zombie thread aura_stun( ACC_AURA_STUN_SEC * 0.5 );
+                e_zombie thread aura_stun_with_effects( ACC_AURA_STUN_SEC * 0.5, false, false );
             }
             continue;
         }
 
-        e_zombie thread aura_stun( ACC_AURA_STUN_SEC );
+        // --- Mini-boss (Juggernaut Host, .acc_is_mini_boss; _acc_boss.gsc:191) ---
+        // Partial rule at BASE: 50% duration (~1.5s); Mega is the same window.
+        if ( IS_TRUE( e_zombie.acc_is_mini_boss ) )
+        {
+            e_zombie thread aura_stun_with_effects( ACC_AURA_STUN_SEC * 0.5, false, false );
+            continue;
+        }
+
+        // --- Elites (.acc_is_elite + .acc_elite_class; _acc_elites.gsc:190-191) ---
+        if ( IS_TRUE( e_zombie.acc_is_elite ) )
+        {
+            // .acc_elite_class is one of "shielded" / "teleporter" / "emp".
+            if ( e_zombie.acc_elite_class == "shielded" )
+            {
+                // Shield down for the stun: drop the frontal damage resist
+                // (self.acc_elite_front_damage_resist, _acc_elites.gsc:233,
+                //  consumed at _acc_damage.gsc) so shots land full while frozen.
+                e_zombie thread aura_stun_with_effects( ACC_AURA_STUN_SEC, true, false );
+            }
+            else if ( e_zombie.acc_elite_class == "teleporter" )
+            {
+                // No teleport during the stun: the teleporter loop
+                // (_acc_elites.gsc) checks .acc_aura_no_teleport before forceteleport.
+                e_zombie thread aura_stun_with_effects( ACC_AURA_STUN_SEC, false, true );
+            }
+            else
+            {
+                // EMP elite ("emp"): shorter 1s stun (docs/13_perks.md:164).
+                e_zombie thread aura_stun_with_effects( ACC_AURA_EMP_STUN_SEC, false, false );
+            }
+            continue;
+        }
+
+        // --- Regular zombie: full stun. ---
+        e_zombie thread aura_stun_with_effects( ACC_AURA_STUN_SEC, false, false );
     }
 }
 
-function aura_stun( n_seconds )
+// self = the enemy AI. Anim-rate freeze plus optional per-type side effects
+// (shield-down for shielded elites, teleport-suppress for teleporters), scoped
+// to exactly the stun window and restored afterward. Deduped by .acc_aura_stunned
+// so an overlapping blast can't double-apply or strand a half-restore.
+function aura_stun_with_effects( n_seconds, b_drop_shield, b_no_teleport )
 {
     self endon( "death" );
 
@@ -297,15 +342,40 @@ function aura_stun( n_seconds )
     }
     self.acc_aura_stunned = true;
 
+    // Shielded elite: temporarily remove the frontal damage resist so it takes
+    // full damage while frozen. Save the original and restore on stun end.
+    n_saved_shield = undefined;
+    if ( IS_TRUE( b_drop_shield ) && isdefined( self.acc_elite_front_damage_resist ) )
+    {
+        n_saved_shield = self.acc_elite_front_damage_resist;
+        self.acc_elite_front_damage_resist = undefined;
+    }
+
+    // Teleporter elite: set the suppress flag the teleporter loop honors.
+    if ( IS_TRUE( b_no_teleport ) )
+    {
+        self.acc_aura_no_teleport = true;
+    }
+
     // VERIFIED(acc): ASMSetAnimationRate is the stock zombie slow mechanism
-    // (Widow's Wine slow path, _zm_perk_widows_wine.gsc:443/:501) - and
-    // Widow's webs own the same rate. If the zombie is webbed when the stun
-    // ends, leave the rate alone (the widows restore path owns it).
+    // (Widow's Wine slow path, _zm_perk_widows_wine.gsc:443/:501). If the zombie
+    // is webbed when the stun ends, leave the rate alone (widows owns it).
     self ASMSetAnimationRate( 0.05 );
     wait n_seconds;
 
-    if ( IsAlive( self )
-         && !IS_TRUE( self.b_widows_wine_slow )
+    // Restore side effects (self is guaranteed alive here: endon("death") would
+    // have terminated this thread otherwise, dropping the temp fields with the
+    // corpse - no leak on death).
+    if ( isdefined( n_saved_shield ) )
+    {
+        self.acc_elite_front_damage_resist = n_saved_shield;
+    }
+    if ( IS_TRUE( b_no_teleport ) )
+    {
+        self.acc_aura_no_teleport = false;
+    }
+
+    if ( !IS_TRUE( self.b_widows_wine_slow )
          && !IS_TRUE( self.b_widows_wine_cocoon ) )
     {
         self ASMSetAnimationRate( 1.0 );

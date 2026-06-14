@@ -52,6 +52,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
