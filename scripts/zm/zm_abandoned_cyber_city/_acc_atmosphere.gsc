@@ -61,19 +61,18 @@ function apply_fog()
     // flag::wait_till returns immediately if already set; a bare waittill hangs.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    set_fog_from_dvars();
+    set_fog_from_dvars();   // apply the #define defaults once at level start
 
-    // Live-tune loop (OFF by default). When `acc_fog_livetune 1`, re-apply every
-    // half second so console dvar edits take effect without a rebuild.
-    if ( getdvarint( "acc_fog_livetune", 0 ) == 1 )
+    // Always-on watch so `acc_fog_livetune 1` can be toggled from the CONSOLE
+    // (~) MID-GAME - the loop must already be running to notice the flip. While
+    // on, it re-applies every half second so `acc_fog_*` dvar edits take effect
+    // live, no rebuild. Cost = one dvar read per tick (negligible). Set it back
+    // to 0 to freeze the look at the last values. (Gate the loop off for ship.)
+    for ( ;; )
     {
-        for ( ;; )
+        wait( 0.5 );
+        if ( getdvarint( "acc_fog_livetune", 0 ) == 1 )
         {
-            wait( 0.5 );
-            if ( getdvarint( "acc_fog_livetune", 0 ) != 1 )
-            {
-                return;
-            }
             set_fog_from_dvars();
         }
     }

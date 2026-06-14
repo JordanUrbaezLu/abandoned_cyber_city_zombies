@@ -225,6 +225,23 @@ low city haze; tune `halfway_dist` to the longest sightline so zombies/wallbuys
 stay visible, cap `max_opacity` ≤ 0.8, bias RGB cool blue-cyan. GSC-only →
 linker-only rebuild.
 
+**Live-tune in-game (no rebuild):** the dev build launches with `+set developer 1`,
+so press **`~`** (tilde, top-left of the keyboard) for the console, then:
+```
+set acc_fog_livetune 1        // turn ON live re-apply (re-applies every 0.5s)
+set acc_fog_halfway_dist 1000 // fog reaches half-density at this distance (lower = thicker)
+set acc_fog_max_opacity 0.55  // 0..1 cap (lower = thinner; keep ≤ 0.8)
+set acc_fog_r 0.02            // colour, 0..1 each (cool blue-cyan)
+set acc_fog_g 0.03
+set acc_fog_b 0.06
+set acc_fog_start_dist 0      // distance where fog begins
+set acc_fog_halfway_height 600
+set acc_fog_base_height 0
+set acc_fog_livetune 0        // freeze at the current look when happy
+```
+When the look is locked, bake the final numbers into the `#define` defaults in
+`_acc_atmosphere.gsc` (REQUIREMENTS.md "no silent tuning" rule) so they ship.
+
 **Grade (optional, Phase 3):** custom cool `.vision` via `SetVisionSet`, or reuse
 stock `zm_factory.vision`. Color-grade only; `rawfile,vision/...` `.zone` line if
 custom. Linker-only.
