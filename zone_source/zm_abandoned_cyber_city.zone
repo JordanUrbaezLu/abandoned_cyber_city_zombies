@@ -57,6 +57,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
 
 // LUI client pipeline foundation (server module + client mirror + Lua overlay).
 // docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the

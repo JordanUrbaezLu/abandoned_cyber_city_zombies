@@ -41,6 +41,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
@@ -71,6 +72,10 @@ function init()
 
     acc_early_round_pacing::init();
     acc_coop_scaling::init();
+
+    // Atmosphere: cold city-haze fog (Phase 1 of docs/29). Pure GSC; the night
+    // sky + wet-ground re-skin + reflection probes are Radiant edits (see doc).
+    acc_atmosphere::init();
 
     // Decontamination must arm its acc_round_start listener before
     // watch_round_transitions below can fire the first one; it also rolls

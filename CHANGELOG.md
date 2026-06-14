@@ -6,6 +6,40 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — atmosphere & materials plan + Phase-1 fog (2026-06-13, branch `Wallpaper`)
+
+First pass at the map's *look* — turning the greybox (every face the placeholder
+`script_wall`/`script_floor_ceiling` tool material, flat `skybox_default_day`)
+into an **abandoned cyber city**. Driven by a 6-agent research workflow
+(install-prober + pipeline + stock-inventory + community-scout + art-director,
+then an adversarial verifier), all findings file-verified against the local Mod
+Tools install + the shipped `tmp/zm_alien_isolation` source.
+
+- **New design doc [docs/29_atmosphere_and_materials.md](docs/29_atmosphere_and_materials.md)** —
+  art direction (palette, low-key neon lighting, smog-night sky/fog), the
+  **build-vs-buy decision (~90% stock-skin, ~10% custom emissive/LUT, ~0% bespoke
+  modeling)**, the verified BO3 material/sky/fog pipeline, a **verified stock
+  asset shortlist** (`t7_*` walls/floors + `default_night` sky), per-zone art
+  direction for all 7 zones, a phased plan, Workshop **licensing policy**, the
+  trap list, and the open design decisions.
+- **New module `_acc_atmosphere.gsc`** (wired into `acc_main::init`, lint-clean,
+  `.zone`-registered): a cold city-haze `SetVolFog` applied after the initial
+  blackscreen. Fog is the ONE atmosphere lever that is pure GSC; the rest (night
+  sky, wet-ground re-skin, reflection probes) are Radiant/BSP edits. Every fog
+  parameter is live-tunable via `acc_fog_*` dvars (`acc_fog_livetune 1` re-applies
+  continuously so the look can be dialed from the console with no rebuild);
+  defaults `(0, 1600, 600, 0, 0.02, 0.03, 0.06, 0.70)`. `SetVolFog`'s 8-arg
+  signature + 0..1 float RGB confirmed against stock `load_shared.gsc:807`.
+- **Verifier caught two costly errors before any build:** (1) the
+  `zm_alien_isolation` material names (`black1_plaster`, `ayz_floor`,
+  `really_dirty_emissive`, …) are that author's **custom, unlicensed** assets, NOT
+  stock — they'd fail to resolve + can't ship; use the verified `t7_*` names.
+  (2) Face materials need **no** `.zone` line (the shipped map has 2 `material,`
+  lines for ~1017 materials); only non-face assets (LUT/sky/FX/decal) get listed.
+- **KB + hard-won facts updated:** [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md)
+  gains a Materials/Sky/Fog recipe; CLAUDE.md gains the face-token=material-name,
+  `default_night` ZM-safe sky, and alien-vocab-not-stock facts.
+
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 
 The perk/PaP info card (UI touchpoint 1, docs/27) is now a premium **LUI** widget,

@@ -29,6 +29,7 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_decontamination.gsc` | Round 1-4 zone-seal hazard: per-run permutation, 20s evac window, kill-on-reentry, emits acc_decontamination_start/complete (perk rotation keys on complete). | main |
 | `_acc_coop_scaling.gsc` | Co-op scaling: regular HP +100%/player, elites/bosses +50% (special_hp_mult), spawn rate +30%/player (max_zombie_func chain). | entry script (post_zm_main), main, elites, boss |
 | `_acc_perk_aura_blast.gsc` | Aura Blast perk: hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline (overwrites cost/hint/give/take after `zm_usermap::main()`). 400u / 3s stun / 120s CD, crouch+melee activation. | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
+| `_acc_atmosphere.gsc` | Cold city-haze volumetric fog (`SetVolFog`) applied after blackscreen; every param live-tunable via `acc_fog_*` dvars. Phase 1 of [docs/29](../../../docs/29_atmosphere_and_materials.md); the night sky + wet-ground re-skin + reflection probes are Radiant edits, not code. | main |
 
 ## Call Order
 
@@ -45,6 +46,8 @@ scripts/zm/zm_abandoned_cyber_city.gsc :: main()
   -> acc_early_round_pacing::post_zm_main()  // chain level.max_zombie_func BEFORE round 1
   -> acc_main::init()                  // threaded; all subsystems init after stock is up
     -> acc_early_round_pacing::init()  // on_ai_spawned speed hook
+    -> acc_coop_scaling::init()
+    -> acc_atmosphere::init()          // cold city-haze fog after blackscreen (docs/29)
     -> acc_data_shards::init()
     -> acc_cyberware::init()
     -> acc_overclocks::init()
