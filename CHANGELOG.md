@@ -87,6 +87,27 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 4 — proper fixes after batch-3 feedback (2026-06-13)
+
+- **PaP gun-steal fixed at the ROOT:** deleted the parallel `acc_pap_tier` trigger
+  entirely (it shared the machine's origin, raced the stock take-back, and ate the Use -
+  worst on the 2nd gun). Tier-ups now ride the stock machine's own `custom_validation`
+  hook: un-upgraded gun → return true (stock does the normal first pack + float +
+  take-back, uninterfered); upgraded gun → tier up in place (charge + bump, NO asset
+  re-swap, NO float) and return false. No second trigger → nothing to steal, no flicker.
+- **PaP tier HUD** lowered to -130 (the -175 in batch 3 was too high).
+- **Rampage Inducer:** dropped the over-the-top `ASMSetAnimationRate(1.7)` "modded" speed;
+  it now forces the SPRINT run cycle = the engine's MAX BASE zombie speed (nothing faster).
+  Removed the early-pacing `acc_mod_force_sprint` deferral that was netting out the +15%
+  and making it feel like nothing, and clears stale move-speed overrides so the sprint
+  applies to live zombies. Toggle (each use on/off) kept.
+- **Boss bar:** overlapping world-space waypoints (bg + fill) rendered as only the black
+  box, so the bar is now a SINGLE red icon whose width = the health fraction.
+- **Floating damage numbers DISABLED** (no more stray top-left number). Hard BO3 rule
+  proven in-game: world-space TEXT is impossible (`SetWaypoint` suppresses text; no
+  `SetWaypoint` dumps to 0,0; no `WorldToScreen`). The correct version (world-projected
+  digit ICONS or a LUI world widget) is being researched + built next.
+
 ### Overhaul batch 3 — test-feedback fixes (2026-06-13)
 
 In-game test of batches 1-2 surfaced:

@@ -33,7 +33,6 @@
 #define ACC_RAMPAGE_MAX_MULT   1.5    // +50% max simultaneous zombies
 #define ACC_RAMPAGE_DELAY_MULT 0.25   // spawn interval x0.25 (~4x faster)
 #define ACC_RAMPAGE_DELAY_MIN  0.1    // never below this many seconds
-#define ACC_RAMPAGE_ANIM_RATE  1.7    // zombie anim/move-rate while raging (vs 1.15 early-pacing)
 
 #namespace acc_rampage_inducer;
 
@@ -150,8 +149,12 @@ function on_zombie_spawned_rampage()
     if ( !( self zombie_utility::is_zombie() ) )
         return;
 
+    // Force the SPRINT run cycle = the engine's max base move speed (a rampage inducer
+    // makes base zombies sprint; we do NOT scale past that). Clear any stale override
+    // first so set_zombie_run_cycle actually re-applies (it early-returns if an override
+    // is already set, zombie_utility.gsc:2078).
+    self.zombie_move_speed_override = undefined;
     self zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
-    self ASMSetAnimationRate( ACC_RAMPAGE_ANIM_RATE ); // proven-visible speed (early pacing uses this)
 }
 
 function sprint_all_live_zombies()
@@ -163,8 +166,8 @@ function sprint_all_live_zombies()
         z = zombies[ i ];
         if ( !isdefined( z ) || !isalive( z ) ) continue;
         if ( !( z zombie_utility::is_zombie() ) ) continue;
+        z.zombie_move_speed_override = undefined; // clear stale, then force sprint
         z zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
-        z ASMSetAnimationRate( ACC_RAMPAGE_ANIM_RATE ); // unmistakable speed boost
     }
 }
 
@@ -176,7 +179,6 @@ function restore_all_live_zombies()
     {
         z = zombies[ i ];
         if ( !isdefined( z ) || !isalive( z ) ) continue;
-        z ASMSetAnimationRate( 1.0 ); // undo the rampage speed boost
         if ( !isdefined( z.zombie_move_speed_override ) ) continue;
         z zombie_utility::set_zombie_run_cycle_restore_from_override();
     }

@@ -161,45 +161,24 @@ function make_boss_bar_set( player, boss, name )
 {
     s = SpawnStruct();
 
-    // bg is a few px LARGER than the fill so the dark frame is always visible AROUND
-    // the red fill (so it never reads as a solid black box - the bug last test). Icons
-    // (SetShader) DO render world-space via SetWaypoint(false) - that part worked.
-    bg = NewClientHudElem( player );
-    bg.archived = false;
-    bg.alignX = "center"; bg.alignY = "middle";
-    bg.x = 0; bg.y = 0; bg.z = 76;
-    bg.color = ( 0, 0, 0 ); bg.alpha = 0.7; bg.sort = 1;
-    bg SetShader( "white", ACC_BOSS_OH_W + 4, ACC_BOSS_OH_H + 4 );
-    bg SetWaypoint( false );
-    bg SetTargetEnt( boss );
-
+    // ONE red "health bar" icon over the boss. Last test: a black bg + red fill at the
+    // SAME world target rendered as just the black box - overlapping world-space waypoints
+    // don't layer reliably, so we use a SINGLE elem. Its WIDTH = the health fraction, so
+    // the bar shrinks as the boss dies. (No text name - text can't render on a world elem.)
     fill = NewClientHudElem( player );
     fill.archived = false;
     fill.alignX = "center"; fill.alignY = "middle";
     fill.x = 0; fill.y = 0; fill.z = 76;
-    fill.color = ( 0.95, 0.15, 0.15 ); fill.alpha = 1.0; fill.sort = 3; // ON TOP of bg
+    fill.color = ( 0.95, 0.12, 0.12 ); fill.alpha = 1.0;
     fill SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
     fill SetWaypoint( false );
     fill SetTargetEnt( boss );
 
-    // Name = TEXT, so SetTargetEnt WITHOUT SetWaypoint (waypoint mode suppresses text).
-    label = NewClientHudElem( player );
-    label.archived = false;
-    label.font = "default";
-    label.fontScale = 1.1;
-    label.alignX = "center"; label.alignY = "middle";
-    label.x = 0; label.y = 0; label.z = 92;
-    label.color = ( 1.0, 0.45, 0.45 ); label.alpha = 1.0; label.sort = 5;
-    label SetText( name );
-    label SetTargetEnt( boss );
-
-    s.bg = bg; s.fill = fill; s.label = label;
+    s.fill = fill;
     return s;
 }
 
 function destroy_boss_bar_set( s )
 {
-    if ( isdefined( s.bg ) )    s.bg Destroy();
-    if ( isdefined( s.fill ) )  s.fill Destroy();
-    if ( isdefined( s.label ) ) s.label Destroy();
+    if ( isdefined( s.fill ) ) s.fill Destroy();
 }

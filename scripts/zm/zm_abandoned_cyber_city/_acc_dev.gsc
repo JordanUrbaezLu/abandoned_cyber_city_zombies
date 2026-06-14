@@ -140,43 +140,13 @@ function show_dmg_number()
 
     if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
 
-    // RAW NewClientHudElem - NOT hud::createFontString, which setParents the elem to the
-    // SCREEN layer (level.uiParent, hud_util_shared.gsc:347) and is exactly why the prior
-    // attempts clamped to the TOP of the screen. The stock over-head FOLLOW pattern is
-    // entityheadicons_shared.gsc: newClientHudElem + a world .z offset + SetWaypoint(false)
-    // + SetTargetEnt(ent). Text DOES render this way - the old screen-parented version
-    // proved the number shows (it was only mis-positioned). Anchor to a short-lived origin
-    // so the number survives the zombie dying mid-float. NEVER call SetShader here (that
-    // switches the elem to icon rendering and hides the text).
-    anchor = Spawn( "script_origin", org );
-    elem = NewClientHudElem( attacker );
-    elem.archived = false;
-    elem.font = "default";
-    elem.fontScale = 1.6;
-    elem.alignX = "center";
-    elem.alignY = "middle";
-    elem.color = ( 1.0, 0.85, 0.2 );
-    elem.alpha = 1.0;          // set before FadeOverTime, else it fades from 0
-    elem.x = 0;
-    elem.y = 0;
-    elem.z = 50;               // ~head height above the anchor (zombie origin = feet)
-    elem SetText( "" + total );
-    // SetTargetEnt WITHOUT SetWaypoint: in-game proof showed SetWaypoint turns the elem
-    // into an icon-only waypoint and SUPPRESSES text (the boss bg ICON appeared over the
-    // boss, the boss NAME text did not). A plain SetTargetEnt elem world-tracks AND renders
-    // text. (NewClientHudElem already keeps it off the screen layer, so no top clamp.)
-    elem SetTargetEnt( anchor );
-
-    elem FadeOverTime( 0.9 );
-    elem.alpha = 0;
-    for ( i = 0; i < 9; i++ )
-    {
-        if ( !isdefined( elem ) ) break;
-        elem.z = 50 + ( i + 1 ) * 4; // rise
-        wait 0.1;
-    }
-    if ( isdefined( elem ) ) elem Destroy();
-    if ( isdefined( anchor ) ) anchor Delete();
+    // DISABLED pending the correct implementation. In-game proof established the hard
+    // BO3 rule: world-space TEXT is impossible - SetWaypoint(false)+SetTargetEnt renders
+    // ICONS over the entity but SUPPRESSES text; removing SetWaypoint dumps the text to
+    // the top-left (0,0); and there is no WorldToScreen for per-frame projection. Floating
+    // damage NUMBERS therefore must be world-projected digit ICONS (or a LUI world-anchored
+    // widget) - being implemented next. Until then we do NOT render the broken top-left
+    // number. (accumulate_dmg_number still tracks the per-hit total above for that work.)
 }
 
 // Zone signage only (the DMG/DPS side panel was replaced by floating numbers).

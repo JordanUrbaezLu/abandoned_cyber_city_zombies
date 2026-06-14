@@ -61,15 +61,60 @@ function tier_repack_cost( tier )
     return 0;
 }
 
-// Stock PaP custom_validation hook (_zm_pack_a_punch.gsc:399-406). self = PaP
-// machine, arg = player. Returning false makes the stock trigger skip an
-// already-upgraded gun, so the stock machine only ever does the FIRST pack and
-// the 2500 AAT reroll never fires - all re-packs route to our tier trigger.
-function acc_pap_block_stock_repack( player )
+// Stock PaP custom_validation hook (_zm_pack_a_punch.gsc:399-406). self = PaP machine,
+// arg = player; called when the player holds Use on the machine. This is now the ONLY
+// tier-up path. The old design spawned a PARALLEL trigger at the machine's origin, which
+// raced the stock take-back and ATE the Use press, so the packed gun could not be grabbed
+// - the "PaP stole my gun" bug (worst on the 2nd gun). Behaviour:
+//   - un-upgraded gun -> return true: the stock machine does its normal FIRST pack
+//     (asset swap + float + take-back), completely uninterfered with.
+//   - upgraded gun -> we do the TIER-UP in place (charge the scaling cost, bump the tier;
+//     NO asset re-swap, NO float) and return FALSE so the stock re-pack does nothing -
+//     there is no floating gun to fail to grab. (aat_in_use=false -> no AAT either.)
+function acc_pap_validate( player )
 {
     w = player GetCurrentWeapon();
-    if ( !isdefined( w ) ) return true;
-    return !zm_weapons::is_weapon_upgraded( w );
+    if ( !isdefined( w ) ) return false;
+
+    if ( !zm_weapons::is_weapon_upgraded( w ) )
+        return true; // first pack -> let the stock machine handle it (float + take-back)
+
+    player thread acc_do_tier_up( w );
+    return false;    // block the stock re-pack; tier up in place, nothing to steal
+}
+
+// self = player. Charge + bump the held upgraded gun's tier. Time-debounced so a single
+// hold can't tier up more than once.
+function acc_do_tier_up( w )
+{
+    if ( isdefined( self.acc_tier_cd ) && GetTime() < self.acc_tier_cd )
+        return;
+    self.acc_tier_cd = GetTime() + 800;
+
+    base = zm_weapons::get_base_weapon( w );
+    if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
+    // engine-PaP'd but unseen by us == tier 1 (the first paid bump isn't free).
+    cur = ( isdefined( self.acc_pap_tier[ base ] ) ? self.acc_pap_tier[ base ] : 1 );
+
+    if ( cur >= ACC_PAP_MAX_TIER )
+    {
+        self IPrintLnBold( "^5PACK-A-PUNCH ^7- already ^6max tier " + ACC_PAP_MAX_TIER );
+        return;
+    }
+
+    next = cur + 1;
+    cost = tier_repack_cost( next );
+    if ( !( self zm_score::can_player_purchase( cost ) ) )
+    {
+        self PlaySound( "zmb_perks_packa_deny" );
+        self IPrintLnBold( "^1Not enough points ^7(need " + cost + ")" );
+        return;
+    }
+
+    self zm_score::minus_to_player_score( cost );
+    self.acc_pap_tier[ base ] = next;
+    self PlaySound( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
+    self IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
 }
 
 function pap_tier_machine_watcher()
@@ -77,153 +122,17 @@ function pap_tier_machine_watcher()
     level endon( "end_game" );
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    // Route re-packs to us (the stock 2500 AAT reroll is suppressed).
+    // All machine use routes through our validation (first pack via stock, tier-ups in
+    // place). NO parallel trigger -> no take-back theft. We do NOT touch the stock
+    // visibility loop, so the machine's own hint shows normally and there is no flicker
+    // (no second trigger to fight).
     if ( isdefined( level.pack_a_punch ) )
-        level.pack_a_punch.custom_validation = &acc_pap_block_stock_repack;
-
-    // Stock PaP use trigger: trigger_radius_use, script_noteworthy=="pack_a_punch".
-    triggers = [];
-    for ( i = 0; i < 60; i++ )
     {
-        all = GetEntArray( "trigger_radius_use", "classname" );
-        triggers = [];
-        for ( j = 0; j < all.size; j++ )
-        {
-            if ( isdefined( all[ j ].script_noteworthy )
-                 && all[ j ].script_noteworthy == "pack_a_punch" )
-                triggers[ triggers.size ] = all[ j ];
-        }
-        if ( triggers.size > 0 ) break;
-        wait 0.5;
+        level.pack_a_punch.custom_validation = &acc_pap_validate;
+        acc_utility::log( "pap_levels: tier-up via custom_validation (no parallel trigger)" );
     }
-    if ( triggers.size == 0 )
-    {
-        acc_utility::log( "pap_levels: no pack_a_punch trigger; tier re-pack unavailable" );
-        return;
-    }
-
-    for ( i = 0; i < triggers.size; i++ )
-    {
-        // FLICKER FIX: kill the stock VISIBILITY loop (pack_a_punch_machine_trigger_think,
-        // _zm_pack_a_punch.gsc:311 - a separate thread from the USE handler). It re-shows
-        // the stock trigger every 0.1s for upgraded guns (weapon_supports_aat ignores
-        // aat_in_use) and fights our 0.25s pap_tier_visibility -> the multi-pack hint
-        // flickers. Notifying its endon ("pack_a_punch_trigger_think") stops ONLY that
-        // visibility loop; the first-pack USE handler (vending_weapon_upgrade) is a
-        // different thread and still works, and our pap_tier_visibility already shows the
-        // stock trigger for un-upgraded guns / hides it for upgraded, so it owns visibility.
-        triggers[ i ] notify( "pack_a_punch_trigger_think" );
-        level thread pap_tier_trigger_think( triggers[ i ] );
-    }
-    acc_utility::log( "pap_levels: tier re-pack trigger on " + triggers.size + " machine(s)" );
-}
-
-function pap_tier_trigger_think( t_stock )
-{
-    level endon( "end_game" );
-
-    t = Spawn( "trigger_radius_use", t_stock.origin, 0, 40, 80 );
-    t.targetname = "acc_pap_tier";
-    t TriggerIgnoreTeam();
-    t UseTriggerRequireLookAt();
-    t SetCursorHint( "HINT_NOICON" );
-    t thread pap_tier_visibility( t_stock );
-
-    for ( ;; )
-    {
-        t waittill( "trigger", player );
-        if ( !isdefined( player ) || !isplayer( player ) ) continue;
-
-        w = player GetCurrentWeapon();
-        if ( !isdefined( w ) ) continue;
-        if ( !zm_weapons::is_weapon_upgraded( w ) ) continue; // only PaP'd guns tier up
-
-        base = zm_weapons::get_base_weapon( w );
-        if ( !isdefined( player.acc_pap_tier ) ) player.acc_pap_tier = [];
-        // engine-PaP'd but unseen by us == tier 1 (the first paid bump isn't free).
-        cur = ( isdefined( player.acc_pap_tier[ base ] ) ? player.acc_pap_tier[ base ] : 1 );
-
-        if ( cur >= ACC_PAP_MAX_TIER )
-        {
-            player IPrintLnBold( "^5PACK-A-PUNCH ^7- already ^6max tier " + ACC_PAP_MAX_TIER );
-            wait 0.5;
-            continue;
-        }
-
-        next = cur + 1;
-        cost = tier_repack_cost( next );
-
-        if ( !( player zm_score::can_player_purchase( cost ) ) )
-        {
-            t PlaySound( "zmb_perks_packa_deny" );
-            player IPrintLnBold( "^1Not enough points ^7(need " + cost + ")" );
-            wait 0.5;
-            continue;
-        }
-
-        player zm_score::minus_to_player_score( cost );
-        player.acc_pap_tier[ base ] = next;
-        t PlaySound( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
-        player IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
-
-        wait 0.6;
-    }
-}
-
-// self = our parallel trigger. t_stock = the stock PaP trigger (hidden per player
-// for upgraded guns so its 2500 hint never competes with ours).
-function pap_tier_visibility( t_stock )
-{
-    level endon( "end_game" );
-    self endon( "death" );
-
-    for ( ;; )
-    {
-        // Keep the stock visibility loop dead (idempotent; a no-op if already gone) in
-        // case anything re-threads pack_a_punch_machine_trigger_think. Belt-and-suspenders
-        // for the flicker fix so the stock trigger never competes with ours.
-        if ( isdefined( t_stock ) )
-            t_stock notify( "pack_a_punch_trigger_think" );
-
-        // any_show = does ANYONE currently need a tier-up? If not, fully DISABLE our
-        // trigger (TriggerEnable false) so it can't EAT the Use during a stock first-pack
-        // take-back (SetInvisibleToPlayer only hides the hint - it does NOT stop the
-        // trigger from firing/consuming Use; that overlap was the "PaP stole my gun" bug:
-        // our trigger ate the take-back press so the packed gun never returned).
-        any_show = false;
-        players = GetPlayers();
-        for ( i = 0; i < players.size; i++ )
-        {
-            p = players[ i ];
-            show = false;
-            held_upgraded = false;
-            if ( isdefined( p ) && isplayer( p ) )
-            {
-                w = p GetCurrentWeapon();
-                if ( isdefined( w ) && zm_weapons::is_weapon_upgraded( w ) )
-                {
-                    held_upgraded = true;
-                    base = zm_weapons::get_base_weapon( w );
-                    tier = 1;
-                    if ( isdefined( p.acc_pap_tier ) && isdefined( p.acc_pap_tier[ base ] ) )
-                        tier = p.acc_pap_tier[ base ];
-                    if ( tier < ACC_PAP_MAX_TIER )
-                    {
-                        cost = tier_repack_cost( tier + 1 );
-                        self SetHintString( "Hold ^3&&1^7 for PaP Tier " + ( tier + 1 )
-                                            + "/" + ACC_PAP_MAX_TIER + " [Cost: " + cost + "]" );
-                        show = true;
-                    }
-                }
-            }
-            self SetInvisibleToPlayer( p, !show );
-            if ( show ) any_show = true;
-            if ( isdefined( t_stock ) )
-                t_stock SetInvisibleToPlayer( p, held_upgraded );
-        }
-        self TriggerEnable( any_show ); // off unless someone can tier up -> no take-back theft
-        wait 0.25;
-    }
+    else
+        acc_utility::log( "pap_levels: level.pack_a_punch undefined; tier-up unavailable" );
 }
 
 function player_setup_loop()
@@ -341,9 +250,9 @@ function pap_hud_loop()
     level endon( "end_game" );
 
     self.acc_pap_hud = self hud::createFontString( "default", 1.4 );
-    // Bottom-RIGHT, raised ABOVE the stock ammo counter (was -100, which the ammo HUD
-    // overlapped) so the tier reads clearly next to the gun.
-    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -175 );
+    // Bottom-RIGHT, just above the stock ammo counter (was -175 = too high, -100 = ammo
+    // overlapped it). -130 sits clear, next to the gun.
+    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -130 );
     self.acc_pap_hud.alignX = "right";
     self.acc_pap_hud.alignY = "middle";
     self.acc_pap_hud.color = ( 0.7, 0.45, 1.0 );
