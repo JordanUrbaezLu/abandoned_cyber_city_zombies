@@ -93,14 +93,15 @@ deactivate.)* Files: `_acc_rampage_inducer.gsc`. *(done in this batch — see co
 - Decision: removing the Frag wallbuy means players keep only their spawn frag.
 - Files: `_acc_map_randomizer.gsc`, `_acc_overclocks.gsc`, `.map`, `docs/05_weapons.md`.
 
-### [!] 5. Per-perk code-proof audit + fix every gap (30 gaps — see table below)
-The audit found ~30 claimed benefits with NO proving code. **Decision needed**
-(the `[!]`): many are **GSC-impossible** (recoil/fire-rate/move-speed/drink-time).
-For those, choose per benefit: **(A)** weapon-GDT Phase-4 work, or **(B)** re-scope
-the card/docs to only claim what's implemented. Recommended: implement ALL
-GSC-possible gaps now (damage mults, HP, ammo, grenade counts, web 1-hit, revive
-time, regen), and **re-scope the GSC-impossible claims** so no card claim is
-unbacked — then revisit GDT later for the headline ones (zero recoil etc.).
+### [~] 5. Per-perk code-proof audit + fix every gap (30 gaps — see table below)
+The audit found ~30 claimed benefits with NO proving code. **DECISION (user, 2026-06-13):
+RE-SCOPE.** Implement every **GSC-possible** gap (damage mults, HP, ammo, grenade
+counts, web 1-hit, revive time, regen, immunity refactor) AND **rephrase/remove the
+GSC-impossible claims** (recoil, fire rate, ×2 walk/×4 crawl, reload/drink/swap time)
+from `acc_hud.lua` (AccPerkCards) + docs/13 so **no card ever claims something the
+code doesn't do**. The hard ones (zero recoil etc.) may be revisited later via
+engine/GDT, but for now the rule is: every remaining card bullet has proving code.
+The table's "**GSC-impossible**" rows → re-scope; all others → implement.
 
 #### Perk gap table (status · tier · benefit · resolution)
 | Perk | Gap | Tier | Resolution |
