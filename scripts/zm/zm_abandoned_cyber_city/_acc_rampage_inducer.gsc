@@ -33,6 +33,7 @@
 #define ACC_RAMPAGE_MAX_MULT   1.5    // +50% max simultaneous zombies
 #define ACC_RAMPAGE_DELAY_MULT 0.25   // spawn interval x0.25 (~4x faster)
 #define ACC_RAMPAGE_DELAY_MIN  0.1    // never below this many seconds
+#define ACC_RAMPAGE_ANIM_RATE  1.7    // zombie anim/move-rate while raging (vs 1.15 early-pacing)
 
 #namespace acc_rampage_inducer;
 
@@ -150,6 +151,7 @@ function on_zombie_spawned_rampage()
         return;
 
     self zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
+    self ASMSetAnimationRate( ACC_RAMPAGE_ANIM_RATE ); // proven-visible speed (early pacing uses this)
 }
 
 function sprint_all_live_zombies()
@@ -162,6 +164,7 @@ function sprint_all_live_zombies()
         if ( !isdefined( z ) || !isalive( z ) ) continue;
         if ( !( z zombie_utility::is_zombie() ) ) continue;
         z zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
+        z ASMSetAnimationRate( ACC_RAMPAGE_ANIM_RATE ); // unmistakable speed boost
     }
 }
 
@@ -173,6 +176,7 @@ function restore_all_live_zombies()
     {
         z = zombies[ i ];
         if ( !isdefined( z ) || !isalive( z ) ) continue;
+        z ASMSetAnimationRate( 1.0 ); // undo the rampage speed boost
         if ( !isdefined( z.zombie_move_speed_override ) ) continue;
         z zombie_utility::set_zombie_run_cycle_restore_from_override();
     }
@@ -281,9 +285,18 @@ function rampage_trigger_think( trig )
     {
         trig waittill( "trigger", player );
         if ( !isdefined( player ) || !isplayer( player ) ) continue;
-        if ( IS_TRUE( level.acc_rampage_active ) ) continue;
 
-        activate();
-        trig SetHintString( "Rampage Inducer ^1ACTIVE" );
+        // TOGGLE: each use flips the inducer on/off (the user must be able to turn it OFF).
+        if ( IS_TRUE( level.acc_rampage_active ) )
+        {
+            deactivate();
+            trig SetHintString( "Hold ^3&&1^7 to activate the Rampage Inducer" );
+        }
+        else
+        {
+            activate();
+            trig SetHintString( "Rampage ^1ON^7 - Hold ^3&&1^7 to deactivate" );
+        }
+        wait 0.6; // debounce the hold
     }
 }

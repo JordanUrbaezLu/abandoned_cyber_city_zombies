@@ -185,6 +185,12 @@ function pap_tier_visibility( t_stock )
         if ( isdefined( t_stock ) )
             t_stock notify( "pack_a_punch_trigger_think" );
 
+        // any_show = does ANYONE currently need a tier-up? If not, fully DISABLE our
+        // trigger (TriggerEnable false) so it can't EAT the Use during a stock first-pack
+        // take-back (SetInvisibleToPlayer only hides the hint - it does NOT stop the
+        // trigger from firing/consuming Use; that overlap was the "PaP stole my gun" bug:
+        // our trigger ate the take-back press so the packed gun never returned).
+        any_show = false;
         players = GetPlayers();
         for ( i = 0; i < players.size; i++ )
         {
@@ -211,9 +217,11 @@ function pap_tier_visibility( t_stock )
                 }
             }
             self SetInvisibleToPlayer( p, !show );
+            if ( show ) any_show = true;
             if ( isdefined( t_stock ) )
                 t_stock SetInvisibleToPlayer( p, held_upgraded );
         }
+        self TriggerEnable( any_show ); // off unless someone can tier up -> no take-back theft
         wait 0.25;
     }
 }
@@ -333,8 +341,9 @@ function pap_hud_loop()
     level endon( "end_game" );
 
     self.acc_pap_hud = self hud::createFontString( "default", 1.4 );
-    // Bottom-RIGHT, above the stock ammo counter, so the tier reads next to the gun.
-    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -100 );
+    // Bottom-RIGHT, raised ABOVE the stock ammo counter (was -100, which the ammo HUD
+    // overlapped) so the tier reads clearly next to the gun.
+    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -175 );
     self.acc_pap_hud.alignX = "right";
     self.acc_pap_hud.alignY = "middle";
     self.acc_pap_hud.color = ( 0.7, 0.45, 1.0 );

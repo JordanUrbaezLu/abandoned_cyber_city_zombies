@@ -87,6 +87,27 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 3 — test-feedback fixes (2026-06-13)
+
+In-game test of batches 1-2 surfaced:
+- **PaP gun-steal (showstopper):** our parallel `acc_pap_tier` trigger (same origin as
+  the stock machine) EATS the Use during a stock first-pack take-back, so the packed gun
+  never returned (`SetInvisibleToPlayer` hides the hint but does NOT stop a trigger
+  firing). Fix: `pap_tier_visibility` now `TriggerEnable(false)`s our trigger whenever
+  nobody can tier up, so it can't intercept the take-back.
+- **PaP tier HUD** raised (`-100`→`-175`) so the ammo HUD stops overlapping it.
+- **World-space HUD TEXT was invisible** (damage numbers, boss name) while the boss bar
+  ICON rendered fine. Root cause proven in-game: `SetWaypoint` puts the elem in icon-only
+  waypoint mode and SUPPRESSES text. Fix: text elems now use `SetTargetEnt` WITHOUT
+  `SetWaypoint` (icons keep `SetWaypoint(false)`). Boss bar bg made a few px larger than
+  the red fill so it reads as a framed bar, not a black box.
+- **Rampage Inducer:** the trigger could only turn ON (`if(active) continue`) and the
+  sprint effect wasn't visibly faster. Fix: the device is now a TOGGLE (each use flips
+  on/off) and the effect layers a proven-visible `ASMSetAnimationRate(1.7)` (the
+  mechanism early-pacing/Widow's Wine use) on live + new zombies, restored to 1.0 on off.
+
+(Flicker fix from batch 1 confirmed working in-game.)
+
 ### Overhaul batch 2 — damage numbers + boss bar over the head (item 8) (2026-06-13)
 
 Root cause (audit + a verified-pattern agent): `hud::createFontString` /

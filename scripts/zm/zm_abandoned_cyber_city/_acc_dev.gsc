@@ -161,7 +161,10 @@ function show_dmg_number()
     elem.y = 0;
     elem.z = 50;               // ~head height above the anchor (zombie origin = feet)
     elem SetText( "" + total );
-    elem SetWaypoint( false );  // 3D world placement; scales with distance, NOT screen-clamped
+    // SetTargetEnt WITHOUT SetWaypoint: in-game proof showed SetWaypoint turns the elem
+    // into an icon-only waypoint and SUPPRESSES text (the boss bg ICON appeared over the
+    // boss, the boss NAME text did not). A plain SetTargetEnt elem world-tracks AND renders
+    // text. (NewClientHudElem already keeps it off the screen layer, so no top clamp.)
     elem SetTargetEnt( anchor );
 
     elem FadeOverTime( 0.9 );
