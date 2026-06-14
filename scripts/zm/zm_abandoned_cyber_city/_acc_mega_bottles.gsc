@@ -156,10 +156,11 @@ function set_mega_perk( player, specialty_string )
     player iprintln( "Mega unlocked: " + mega_name );
     level notify( "acc_mega_perk_applied", player, specialty_string );
 
-    // Re-play the perk drink animation (the bottle is the Mega upgrade) + light
-    // up a glowing icon for the now-Mega'd perk.
+    // Re-play the perk drink animation (the bottle is the Mega upgrade).
     player thread replay_perk_drink( specialty_string );
-    player add_mega_glow_icon( specialty_string );
+    // NOTE: the lower-left "MEGA <perk>" banner was REMOVED (user: not wanted).
+    // The real ask is to glow the actual perk ICON, which the engine perk bar
+    // doesn't expose to script - tracked as a separate, proper LUI task.
 }
 
 // ---------------------------------------------------------------------------

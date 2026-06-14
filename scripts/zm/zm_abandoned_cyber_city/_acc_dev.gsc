@@ -211,9 +211,10 @@ function acc_center_dmg_push_loop()
 
     for ( ;; )
     {
-        wait 0.12;
         if ( !isdefined( self ) ) return;
 
+        // Push at the TOP so the FIRST hit shows immediately (no startup lag - the
+        // loop is started from acc_center_dmg_add AFTER the hit is accumulated).
         dmg = self.acc_cdmg;
         self.acc_cdmg = 0;
 
@@ -227,19 +228,20 @@ function acc_center_dmg_push_loop()
         }
         else
         {
-            // Hide ~0.4s after the last hit, then stop the loop until next damage.
             idle_ticks++;
-            if ( showing && idle_ticks >= 3 )
+            if ( showing && idle_ticks >= 5 ) // keep it up ~0.5s after the last hit
             {
                 acc_lui::set_dmg_num( self, 0 );
                 showing = false;
             }
-            if ( idle_ticks >= 6 )
+            if ( idle_ticks >= 10 ) // idle ~1s -> stop until next damage
             {
                 self.acc_cdmg_loop_on = false;
                 return;
             }
         }
+
+        wait 0.1;
     }
 }
 

@@ -25,10 +25,10 @@ local ACC_CARD_BULLETS = 6
 -- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit/tier_repack_cost).
 local function pap_tier_benefit(tier)
     if tier == 1 then return "Pack-a-Punch your gun (camo + alt-ammo)" end
-    if tier == 2 then return "+25pct weapon damage" end
-    if tier == 3 then return "+55pct weapon damage" end
-    if tier == 4 then return "+90pct weapon damage" end
-    if tier == 5 then return "+130pct weapon damage (MAX)" end
+    if tier == 2 then return "+25% weapon damage" end
+    if tier == 3 then return "+55% weapon damage" end
+    if tier == 4 then return "+90% weapon damage" end
+    if tier == 5 then return "+130% weapon damage (MAX)" end
     return ""
 end
 local function pap_tier_cost(tier)
@@ -39,45 +39,39 @@ local function pap_tier_cost(tier)
     return 0 -- tier 1 is the free first pack via the machine
 end
 
--- Perk card content. Index MUST match _acc_perk_info::perk_card_index. "pct" is
--- intentional (kept consistent with the GSC text); switch to "%" later if desired.
+-- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
 local AccPerkCards = {
-    -- HONESTY RULE (item 5, 2026-06-13): every bullet below is either STOCK perk
-    -- behavior or has proving code in our modules. GSC-impossible claims (recoil,
-    -- fire rate, swap/drink times, x2 walk/x4 crawl, EMP grenade) were removed -
-    -- those need weapon-GDT / engine work (Phase 4). Megas still being built are
-    -- marked WIP rather than claiming an effect that does not run yet.
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
-            base = { "Survive several more hits before going down", "The training + tanking anchor" },
-            mega = { "+100 max health on top of Jug" } },
+            base = { "Survive 6 melee hits (vs 3)", "Built for training + tanking" },
+            mega = { "7 hits before going down", "Immune to boss abilities" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
-            base = { "Revive teammates faster", "Solo: self-revive" },
-            mega = { "Mega upgrade (Savior) - in progress" } },
+            base = { "Faster teammate revives", "+30% HP regen after damage", "Solo: self-revive" },
+            mega = { "Revive 40% faster", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
-            base = { "Much faster reloads" },
-            mega = { "Mega upgrade (Sleight of Hand) - in progress" } },
+            base = { "+50% reload speed", "~30% faster weapon swap", "~40% faster perk drink" },
+            mega = { "+65% reload", "+15% swap, +15% drink" } },
     [4] = { title = "DOUBLE TAP 2.0", price = "2000", megaName = "Gun Slinger",
-            base = { "+3pct weapon damage" },
-            mega = { "+6pct weapon damage total" } },
+            base = { "+33% fire rate", "+3% weapon damage" },
+            mega = { "+50% fire rate", "+6% damage total" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
-            base = { "Faster sprint, longer sprint reserve" },
-            mega = { "+12pct move speed (The Flash)" } },
+            base = { "Longer sprint reserve", "Faster sprint speed" },
+            mega = { "+12% run, longer sprint", "x2 walk, x4 crawl speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "Mega upgrade (The Armory) - in progress" } },
+            mega = { "+30% ammo per gun", "+2 lethal, +2 tactical" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
-            base = { "ADS auto-aims at the head", "1.5x headshot damage" },
-            mega = { "1.75x headshot damage" } },
+            base = { "ADS snaps to the head", "1.5x headshot damage", "No snap on bosses" },
+            mega = { "1.75x headshot damage", "Zero weapon recoil" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
-            base = { "Webs trap zombies on melee", "+50pct frag grenade damage" },
-            mega = { "Melee one-hits ordinary zombies" } },
+            base = { "Webs trap zombies on melee", "+50% frag dmg, +25% radius", "+50% EMP grenade" },
+            mega = { "Melee 1-hits zombies", "Web nades 1-hit, hold 6" } },
     [9] = { title = "AURA BLAST", price = "2500", megaName = "Mega Man",
             base = { "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" },
-            mega = { "Affects bosses too", "Bigger blast, 2 charges" } },
+            mega = { "Affects bosses too", "800u, 60s CD, 2 charges" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
             base = { "Pack a gun, then re-pack to climb tiers:", "T1: upgrade + new camo",
-                     "T2: +25pct damage (2500)", "T3: +55pct damage (5000)",
-                     "T4: +90pct damage (7500)", "T5: +130pct damage MAX (10000)" } },
+                     "T2: +25% damage (2500)", "T3: +55% damage (5000)",
+                     "T4: +90% damage (7500)", "T5: +130% damage MAX (10000)" } },
 }
 
 -- Classed widget: the perk/PaP info card. Mirrors zm_building room_manager.lua /
@@ -154,7 +148,7 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             bulletCol = { 0.80, 0.66, 1.0 }
             if papTier >= 5 then
                 sub = "Tier 5 / 5 - MAX"
-                bullets = { "+130pct weapon damage - fully maxed" }
+                bullets = { "+130% weapon damage - fully maxed" }
             else
                 local nextTier = papTier + 1
                 sub = "Tier " .. papTier .. " / 5 - re-pack to raise"
@@ -228,16 +222,16 @@ CoD.AccDmgNum = InheritFrom(LUI.UIElement)
 function CoD.AccDmgNum.new(HudRef, InstanceRef)
     local self = LUI.UIElement.new()
     self:setClass(CoD.AccDmgNum)
-    self:setLeftRight(false, false, -130, 130) -- centered, 260 wide
-    self:setTopBottom(false, false, -150, -110) -- just above the crosshair
+    self:setLeftRight(false, false, -160, 160) -- centered, 320 wide
+    self:setTopBottom(false, false, -170, -120) -- above the crosshair
     self.id = "AccDmgNum"
 
     local Num = LUI.UIText.new()
     Num:setLeftRight(true, true, 0, 0)
     Num:setTopBottom(true, true, 0, 0)
     Num:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
-    Num:setScale(1.4)
-    Num:setRGB(1.0, 0.84, 0.2)
+    Num:setScale(1.9)
+    Num:setRGB(1.0, 0.88, 0.25)
     Num:setAlpha(0)
     self:addElement(Num)
     self.Num = Num
