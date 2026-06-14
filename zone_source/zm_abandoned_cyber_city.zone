@@ -15,8 +15,23 @@
 //   - comments use //, not #
 // =============================================================================
 
-xmodel,skybox_default_day
+xmodel,skybox_default_night
 material,luts_t7_default
+
+// Stock wall/floor materials painted on faces. These MUST be listed or the linker
+// does NOT pack them into the usermap .ff (BSP face materials are not auto-pulled,
+// unlike worldspawn/SSI refs) -> they render as the missing-material checker.
+// All verified real material.gdf defs (not image/variant names). docs/29 §12.1.
+material,t7_concrete_bare_dark_01
+material,t7_concrete_bare_weathered_01
+material,t7_concrete_floor_garage_cracked_wet_nw
+material,t7_brick_worn_dirty_red_wet
+material,t7_metal_painted_wall_dirty_grey
+material,t7_metal_bare_stainless_steel_brushed
+material,t7_metal_diamond_plate_panel_worn
+material,t7_metal_grate_flooring
+material,t7_metal_floor_lab_panels
+material,t7_asphalt_damaged_dark_wet
 
 // BSP (compiled from map_source/zm/zm_abandoned_cyber_city.map)
 col_map,maps/zm/zm_abandoned_cyber_city.d3dbsp
