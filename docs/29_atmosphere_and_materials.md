@@ -288,7 +288,7 @@ legally redistributable.
 | Global wall skin (`t7_concrete_bare_weathered_01_dark`) | ✅ all 546 wall faces in `.map`; needs build |
 | Global wet floor (`t7_concrete_floor_garage_cracked_wet_nw`) | ✅ all 90 floor faces in `.map`; needs build |
 | Reflection probes | ✅ 7 placed in `.map` (one per zone center, z≈90, named `acc_probe_*`); **grow the box to each zone's extent + retune brightness in Radiant** once visible. Baked → needs the LED pass |
-| Per-zone skins | ⬜ Radiant face-paint, spec'd in §12.1 (Phase 2) |
+| Per-zone skins | ✅ 5 built zones via `tools/apply_zone_materials.js` (spawn=concrete, market=brick, alley=black-metal, corp=steel, lab=brushed-steel); ⬜ **vault + roof have no built wall geometry yet** (see §13) |
 | Neon emissive kit | ⬜ APE authoring, spec'd in §12.2 (Phase 2) |
 | Bespoke HDRI sky | ⬜ APE authoring, build kit in §12.3 (Phase 3) |
 | Custom `.vision` grade | ⬜ §12.4 (Phase 3) |
@@ -306,10 +306,21 @@ Concrete, do-this specs for the parts that need the Windows box (Radiant face-pa
 + APE asset authoring). Names marked `confirm-in-APE` — verify the exact token in
 the material browser before painting (a typo ships a checkerboard).
 
-### 12.1 Per-zone material map (Phase 2, Radiant face-paint)
+### 12.1 Per-zone material map (Phase 2)
 
-Repaint per zone over the global concrete base. Walls/floors are stock `t7_*`;
-glass/metal accents confirm-in-APE.
+✅ **Applied** via `tools/apply_zone_materials.js` — a one-shot that classifies each
+wall/floor face by its own position (nearest zone center) and swaps the global
+concrete for the zone's byte-verified `t7_*` material. Re-run it any time (e.g.
+after Vault/Roof rooms are built, or to change a zone's pick — edit the `ZONES`
+table in the tool). Materials actually applied (all byte-verified present):
+spawn = dark concrete; market = `t7_brick_worn_dirty_red_wet`; alley =
+`t7_metal_painted_wall_dirty_black` + `t7_asphalt_damaged_dark_wet_nw`; corp =
+`t7_metal_panel_2x1_stainless_steel_matte`; vault = `t7_metal_painted_wall_dirty_grey`
++ `t7_metal_grate_flooring`; roof = `t7_concrete_bare_weathered_01` +
+`t7_asphalt_damaged_dark_wet`; lab = `t7_metal_panel_2x1_stainless_steel_brushed`
++ `t7_metal_floor_lab_panels`. (Vault/Roof are wired but have no geometry — see §13.)
+Refine individual faces in Radiant for finer control. The table below is the
+original mood reference.
 
 | Zone | Walls | Floor | Accent |
 |---|---|---|---|
@@ -372,6 +383,31 @@ or reuse stock `zm_factory.vision` for a free dark grade.)
 Cheap 2D/cutout far-tower silhouette with sparse dead-neon dots behind the Helipad —
 fully original (no license risk), high atmosphere-per-effort, sells the "whole dead
 city" establishing read.
+
+---
+
+## 13. Map-state finding: 2 of 7 zones have no built room geometry
+
+Discovered while applying the per-zone material pass (§12.1). The map's **636
+wall/floor faces** classify by position into only **5 zones** — the per-zone pass
+skinned: spawn (342 wall / 51 floor), corp (71/14), alley (50/9), market (42/8),
+lab (41/8). **Vault and Roof got 0 faces** — their region (vault ≈ x1719 y2800,
+roof ≈ x-1719 y2740) contains no wall/floor brushes at all. The built greybox is a
+central spine **Spawn → Corp → Lab** plus **Market** (west) and **Alley** (east);
+the **Server Vault and Rooftop Helipad rooms are not built** — they exist only as
+`info_volume` gameplay zones + spawner structs + door/feature entities, with no
+walls or floor.
+
+**Implications:**
+- Atmosphere can only skin what exists. Vault/Roof will pick up materials (and
+  their §12.1 picks: vault = dirty-grey metal + grate floor; roof = weathered
+  concrete + wet asphalt) **automatically the next time `tools/apply_zone_materials.js`
+  runs**, but only **after** their rooms are built in Radiant.
+- This is a **map-construction gap**, not just an art gap — those two zones aren't
+  playable spaces yet despite being wired into the zone graph + spawn logic. Worth
+  reconciling against the "full 7-zone greybox" status claim elsewhere in the repo.
+- Reflection probes were still placed for all 7 zones (harmless — an unused probe
+  in an unbuilt zone just captures nothing until geometry exists).
 
 ---
 

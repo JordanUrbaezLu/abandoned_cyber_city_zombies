@@ -59,6 +59,20 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   Brush/brace balance verified (559/559), geometry intact.
 - **CREDITS.md added** (owner decision) — asset-provenance ledger + the
   stock/original/CC0-only licensing policy; current assets are all stock+original.
+- **Phase-2 per-zone material differentiation** (`tools/apply_zone_materials.js`,
+  one-shot): classifies each wall/floor face by its own position (nearest zone
+  center) and swaps the global concrete for the zone's byte-verified `t7_*`
+  material. 5 built zones now read distinct — spawn=concrete, market=brick,
+  alley=black-metal+wet-asphalt, corp=stainless-steel, lab=brushed-steel+lab-floor.
+  Geometry byte-identical (braces 559/559, only material tokens changed). First
+  classifier used per-*brush* centroids — wrong for the greybox's large
+  zone-spanning brushes (lumped big shared walls into one zone); fixed to per-*face*.
+- **Finding (docs/29 §13): Vault + Roof have NO built room geometry** — 0 of the
+  636 wall/floor faces fall in their regions. The built greybox is a Spawn→Corp→Lab
+  spine + Market (west) + Alley (east); Vault/Roof are `info_volume` gameplay zones
+  + spawners only, no walls. They'll auto-skin when their rooms are built + the
+  tool re-runs. A map-construction gap to reconcile vs the "full 7-zone greybox"
+  status.
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 
