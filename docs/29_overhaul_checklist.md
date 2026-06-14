@@ -37,7 +37,7 @@ blocks the USE path, not the visibility loop. **Fix:** when our
 
 ## B. LUI features
 
-### [ ] 3. PaP card shows only the NEXT tier (not the full T1–T5 ladder)
+### [x] 3. PaP card shows only the NEXT tier (batch 7 - accPapTier + Lua next-tier render)
 Today `acc_hud.lua` (idx==10) hardcodes the whole ladder; the server pushes a
 constant code 43 with no tier info. **Fix:** new lockstep clientfield
 `accPapTier` (3 bits) in `_acc_lui.gsc`+`.csc`; `_acc_perk_info` `#using _acc_pap_levels`
@@ -45,7 +45,7 @@ and pushes `acc_pap_levels::get_tier(self, GetCurrentWeapon())` when near PaP; t
 card renders one "Next: Tier N — <benefit> (cost)" line (or "MAX" at tier 5).
 Files: `_acc_lui.gsc/.csc`, `_acc_perk_info.gsc`, `acc_hud.lua`.
 
-### [ ] 2. Real perk-icon GLOW (replace the text indicator)
+### [~] 2. Mega indicator = glowing colored badge (batch 7); real stock-icon glow infeasible (engine-LUI + missing materials)
 Today `_acc_mega_bottles::add_mega_glow_icon` is a pulsing TEXT hudelem. **Fix
 (Option B, additive overlay that replicates the stock perk ordering):** new 9-bit
 `accMegaMask` clientfield; a classed Lua widget `CoD.AccPerkGlowBar` that subscribes

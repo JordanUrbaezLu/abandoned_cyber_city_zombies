@@ -104,7 +104,12 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
     not many-per-second combat popups (it would spam the compass + objective list). World-space
     HUD text is impossible and waypoint icons are fixed-size with no digit shaders. The
     crosshair-anchored number is the reliable, correct path.
-- **Registered `accMegaMask` (9b)** ahead of the perk-icon glow widget (built next, isolated).
+- **Mega-perk indicator is now a GLOWING badge, not flat text (item 2).** The stock perk
+  bar is engine-LUI and its `specialty_*_zombies` HUD materials are not loadable in a
+  usermap, so the *real* perk icon can't be glowed here. Replaced the pulsing text label
+  with a per-perk **pulsing colored badge** (`hud::createIcon` "white" tinted to each
+  perk's signature colour) + the Mega name over it, with proper cleanup on perk loss.
+  (`accMegaMask` (9b) registered for a future LUI version; the GSC badge is the reliable now.)
 
 ### Overhaul batch 6 — reliable boss bar + arsenal strip + honest perk cards (2026-06-13)
 
