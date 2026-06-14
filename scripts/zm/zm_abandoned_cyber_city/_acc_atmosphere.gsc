@@ -33,13 +33,13 @@
 // Defaults = cold low city haze. TODO(acc-tune): lock these in a playtest, then
 // mirror the numbers in docs/29_atmosphere_and_materials.md.
 #define ACC_FOG_START_DIST     0      // units from camera where fog begins
-#define ACC_FOG_HALFWAY_DIST    1600  // units to half opacity (~sightline death); tune to longest sightline
-#define ACC_FOG_HALFWAY_HEIGHT  600   // vertical falloff distance
+#define ACC_FOG_HALFWAY_DIST    700   // units to half opacity (~sightline death); tune to longest sightline
+#define ACC_FOG_HALFWAY_HEIGHT  900   // vertical falloff distance
 #define ACC_FOG_BASE_HEIGHT     0     // world-z where the densest fog sits
-#define ACC_FOG_R               0.02  // cold blue-grey (0..1)
-#define ACC_FOG_G               0.03
-#define ACC_FOG_B               0.06
-#define ACC_FOG_MAX_OPACITY     0.70  // cap < 0.8 so zombies / wallbuys stay readable
+#define ACC_FOG_R               0.22  // cool blue-grey smog - MUST be lighter than the dark
+#define ACC_FOG_G               0.27  // night scene or the fog is invisible (lesson learned:
+#define ACC_FOG_B               0.38  // 0.02/0.03/0.06 was near-black = no visible fog)
+#define ACC_FOG_MAX_OPACITY     0.85  // visible haze; dial down with acc_fog_max_opacity if too thick
 
 #namespace acc_atmosphere;
 
