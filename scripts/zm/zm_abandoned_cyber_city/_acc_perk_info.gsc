@@ -24,6 +24,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 
 #define ACC_PERK_INFO_RANGE_SQ 28900   // 170u
 #define ACC_PAP_RANGE_SQ       32400   // 180u
@@ -110,6 +111,19 @@ function update_for_player( machines, pap_org )
         }
         if ( pidx > 0 )
             code = pidx * 4 + mode;
+    }
+
+    // Pack-a-Punch: push the held weapon's CURRENT tier so the Lua card shows the
+    // NEXT tier only (not the whole T1-T5 ladder). The card CODE is constant 43 for
+    // PaP, so the tier is tracked + pushed separately from acc_pinfo_code.
+    if ( isdefined( nearest_id ) && nearest_id == "pap" )
+    {
+        tier = acc_pap_levels::get_tier( self, self GetCurrentWeapon() );
+        if ( !isdefined( self.acc_pap_card_tier ) || self.acc_pap_card_tier != tier )
+        {
+            self.acc_pap_card_tier = tier;
+            acc_lui::set_pap_tier( self, tier );
+        }
     }
 
     if ( isdefined( self.acc_pinfo_code ) && self.acc_pinfo_code == code )

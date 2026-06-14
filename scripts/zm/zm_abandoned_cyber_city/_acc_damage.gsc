@@ -87,6 +87,15 @@
 #define ACC_DEADSHOT_MULT      1.5
 #define ACC_DEADSHOT_MEGA_MULT 1.75
 
+// Double Tap 2.0 weapon-damage layer (docs/13_perks.md): base +3% damage, Gun
+// Slinger Mega +6% total. NOTE: the +fire-rate half is GDT-only (no GSC hook),
+// so it is NOT modeled here and the perk card is re-scoped to match.
+#define ACC_DOUBLETAP_MULT      1.03
+#define ACC_DOUBLETAP_MEGA_MULT 1.06
+
+// Widow's Wine base: +50% grenade (frag) damage for the perk owner.
+#define ACC_WIDOWS_FRAG_MULT    1.50
+
 // Weapon abilities (docs/05_weapons.md ability table).
 #define ACC_ABILITY_CRIT_MULT  4.0
 #define ACC_ABILITY_SLUG_MULT  3.0
@@ -261,6 +270,26 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         if ( has_oc( oc_flags, "overpressure" ) && attacker util::is_ads() )
         {
             n_mult = n_mult * ACC_OC_OVERPRESSURE_ADS_MULT;
+            b_modified = true;
+        }
+
+        // Double Tap 2.0: +3% weapon damage (base), +6% with Gun Slinger Mega.
+        // Guns only (not melee). The perk's fire-rate half is GDT-only (Phase 4),
+        // so only the damage half lives here and the card is re-scoped to match.
+        if ( !b_melee && attacker HasPerk( "specialty_doubletap2" ) )
+        {
+            if ( acc_mega_bottles::has_mega_perk( attacker, "specialty_doubletap2" ) )
+                n_mult = n_mult * ACC_DOUBLETAP_MEGA_MULT;
+            else
+                n_mult = n_mult * ACC_DOUBLETAP_MULT;
+            b_modified = true;
+        }
+
+        // Widow's Wine: +50% grenade (frag) damage for the perk owner. Gated on
+        // a grenade MOD so it never touches bullet/melee damage.
+        if ( is_grenade_mod( meansofdeath ) && attacker HasPerk( "specialty_widowswine" ) )
+        {
+            n_mult = n_mult * ACC_WIDOWS_FRAG_MULT;
             b_modified = true;
         }
     }

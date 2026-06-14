@@ -297,11 +297,14 @@ function weapon_name_to_family( weapon_name )
     //   sniper  -> Drakon, Locus, Intervention
     //   lmg     -> none in v1.0 (pool dormant for post-1.0 LMG re-add)
     //   smg     -> none in v1.0 (pool dormant for post-1.0 SMG re-add)
+    // ARSENAL RESTRICTED (user, 2026-06-13): only ICR-1 + Man-O-War exist on the
+    // map. Both are the "ar" Overclock family. (The old "<name>_zm" strings were
+    // never valid - stock BO3 weapon base names are class-based + unsuffixed, so
+    // weapon_name_to_family would have returned "unknown" and silently disabled
+    // Overclocks on both guns.)
     ar_list = array(
-        // full-auto ARs
-        "icr1_zm", "xr2_zm", "ak47_zm",
-        // semi-auto ARs share the AR Overclock pool
-        "m14ebr_zm", "g3_zm", "fnfal_zm"
+        "ar_accurate",   // ICR-1
+        "ar_damage"      // Man-O-War
     );
     smg_list = array();
     sg_list = array( "haymaker12_zm", "brecci_zm", "tac19_zm" );

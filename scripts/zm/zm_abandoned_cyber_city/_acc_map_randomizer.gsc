@@ -133,50 +133,22 @@ function roll_wallbuy_pool()
     // against the live weapon table and falls back to the slot default if a
     // candidate has no row, so a missing csv entry degrades to the Radiant
     // gun instead of tripping the stock asserts (_zm_weapons.gsc:1419/:1426).
+    // ARSENAL RESTRICTED (user, 2026-06-13): the ONLY guns on the map are the
+    // ICR-1 (ar_accurate) and the Man-O-War (ar_damage). We keep only the ICR
+    // wall slot here and drop the other four wall slots from the pool. With no
+    // pool entry, apply_wallbuy_pool builds NO purchase trigger for those placed
+    // structs, so the Haymaker / Drakon / Sheiva / Frag walls simply go dead -
+    // no .map edit / geometry rebuild needed (apply_wallbuy_pool already logs
+    // "no struct for slot" gracefully for the inverse case). Man-O-War has no
+    // placed wall struct, so it is mystery-box-only (register_mystery_box_pool).
     pool = [];
 
-    // Full-auto AR slot (Radiant default: ICR-1).
-    // TODO(acc-verify): ar_cqb (suspected HVK-30) has NO evidence in the
-    // stock mirror or docs - add it as a third candidate only after the name
-    // is confirmed against the weapon GDT on the Windows box.
-    pool[ "ar_accurate" ] = roll_wallbuy_slot( "ar_accurate", array(
-        weighted( 100, "ar_accurate" ),   // ICR-1 (Radiant default)
-        weighted( 100, "ar_standard" )    // KN-44
-    ) );
+    // ICR-1 wall (Radiant default ar_accurate) - pinned, no alternate roll.
+    pool[ "ar_accurate" ] = "ar_accurate";
 
-    // Shotgun slot (Radiant default: Haymaker 12).
-    pool[ "shotgun_fullauto" ] = roll_wallbuy_slot( "shotgun_fullauto", array(
-        weighted( 100, "shotgun_fullauto" ),  // Haymaker 12 (Radiant default)
-        weighted( 100, "shotgun_precision" )  // KRM-262 (per GDT naming)
-    ) );
-
-    // Sniper slot (Radiant default: Drakon).
-    pool[ "sniper_fastsemi" ] = roll_wallbuy_slot( "sniper_fastsemi", array(
-        weighted( 100, "sniper_fastsemi" ),   // Drakon (Radiant default)
-        weighted( 100, "sniper_fastbolt" )    // Locus
-    ) );
-
-    // Semi-auto AR slot (Radiant default: Sheiva - interim stand-in for the
-    // Phase 4 m14ebr_zm import, see docs/20_requirements_checklist.md:304).
-    pool[ "ar_marksman" ] = roll_wallbuy_slot( "ar_marksman", array(
-        weighted( 100, "ar_marksman" ),   // Sheiva (Radiant default)
-        weighted( 100, "ar_longburst" )   // XR-2
-    ) );
-
-    // Lethal slot (Radiant default: Frag). Single-candidate.
-    // TODO(acc-verify): no second stock ZM lethal wallbuy name has evidence
-    // yet - expand once a candidate is verified on the Windows box.
-    pool[ "frag_grenade" ] = "frag_grenade";
-
-    // Near-perk melee upgrade (Bowie Knife, stock BO3). Fixed by design -
-    // the melee purchase flow has its own stub plumbing, so the bowie slot
-    // does not participate in the roll. (Its struct uses targetname
-    // bowie_upgrade, _zm_weapons.gsc:843.)
+    // Near-perk melee upgrade (Bowie Knife, stock BO3) - not a gun, own stub
+    // plumbing (targetname bowie_upgrade, _zm_weapons.gsc:843); kept.
     pool[ "bowie_knife" ] = "bowie_knife";
-
-    // NOTE: legacy v1.0 keys m14ebr_zm (Corp slot B) and emp_grenade_zm
-    // (Vault tactical) are Phase 4 imports with no placed struct yet - they
-    // re-enter the pool when their GDTs + structs exist (docs/20:303-306).
 
     return pool;
 }
@@ -236,33 +208,18 @@ function register_mystery_box_pool()
 {
     acc_utility::log( "mystery box: registering pool" );
 
+    // ARSENAL RESTRICTED (user, 2026-06-13): box gives ONLY ICR-1 + Man-O-War.
+    // Both are stock rows (in_box=TRUE). The ICR is also a wallbuy, but we want
+    // it in the box too, so the is_rolled_onto_wall exclusion is intentionally
+    // NOT applied to these two (it was for the old bad/strong split).
     box_weapons = array(
-        // Shotguns (stock class names - see roll_wallbuy_pool note)
-        "shotgun_semiauto", // bad (Brecci)
-        "tac19_zm",         // strong (AW import, custom GDT - Phase 4)
-        // AR full-auto
-        "ar_longburst",     // bad (XR-2)
-        "ak47_zm",          // strong (import, custom GDT - Phase 4)
-        // Semi-auto AR
-        "g3_zm",            // bad (WAW import, custom GDT - Phase 4)
-        "fnfal_zm",         // strong (BO1/BO2 import, custom GDT - Phase 4)
-        // Sniper
-        "sniper_fastbolt",  // bad (Locus)
-        "intervention_zm"   // strong (MW2 import, custom GDT - Phase 4)
+        "ar_accurate",      // ICR-1
+        "ar_damage"         // Man-O-War
     );
 
     for ( i = 0; i < box_weapons.size; i++ )
     {
         w = box_weapons[ i ];
-
-        // Keep the box/wall split honest: ar_longburst and sniper_fastbolt
-        // are also wallbuy-slot candidates. Whichever of them got rolled
-        // onto a wall this run stays wall-exclusive (docs/05 tier rule).
-        if ( is_rolled_onto_wall( w ) )
-        {
-            acc_utility::log( "  - box weapon skipped (on a wallbuy this run): " + w );
-            continue;
-        }
 
         // VERIFIED(acc): at this point (post-blackscreen) the box reads the
         // live snapshot level.zombie_weapons[wpn].is_in_box, re-evaluated per

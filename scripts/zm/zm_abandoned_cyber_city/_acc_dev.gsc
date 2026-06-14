@@ -26,6 +26,7 @@
 #using scripts\zm\_zm_score;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
@@ -52,6 +53,70 @@ function init()
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
     level thread dev_round_skip_watcher();
+
+    // Teleports so the greybox door chain never blocks testing:
+    //   acc_tp_perks 1  -> the perk row    acc_tp_spawn 1 -> back to spawn
+    //   acc_open_doors 1 -> set every enter_* door flag (open the whole map)
+    level thread dev_teleport_watcher();
+}
+
+// ---------------------------------------------------------------------------
+// Dev teleports / open-all-doors (console-driven; greybox door chain bypass)
+// ---------------------------------------------------------------------------
+
+function dev_teleport_watcher()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        if ( getdvarint( "acc_tp_perks", 0 ) == 1 )
+        {
+            SetDvar( "acc_tp_perks", "0" );
+            dev_tp_players( ( 0, 4090, 32 ), "the perk row" );
+        }
+        if ( getdvarint( "acc_tp_spawn", 0 ) == 1 )
+        {
+            SetDvar( "acc_tp_spawn", "0" );
+            dev_tp_players( ( -291, -316, 32 ), "spawn" );
+        }
+        if ( getdvarint( "acc_open_doors", 0 ) == 1 )
+        {
+            SetDvar( "acc_open_doors", "0" );
+            dev_open_all_doors();
+        }
+        wait 0.25;
+    }
+}
+
+function dev_tp_players( org, label )
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        p SetOrigin( org );
+        p IPrintLnBold( "^3>> Teleported to " + label );
+    }
+    acc_utility::log( "dev: teleported players to " + label );
+}
+
+// Set every buyable-door flag so the script_brushmodel walls retract - lets you
+// walk the whole map without buying through the (greybox-templated) door chain.
+function dev_open_all_doors()
+{
+    flags = array( "enter_market", "enter_alley", "enter_corp_w", "enter_corp_e",
+                   "enter_vault", "enter_roof", "enter_lab_e", "enter_lab_w" );
+    for ( i = 0; i < flags.size; i++ )
+    {
+        if ( !flag::exists( flags[ i ] ) )
+            flag::init( flags[ i ] );
+        flag::set( flags[ i ] );
+    }
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+        if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( "^3>> All doors opened" );
+    acc_utility::log( "dev: opened all buyable doors" );
 }
 
 // ---------------------------------------------------------------------------
@@ -102,74 +167,82 @@ function dev_skip_round()
 // ---------------------------------------------------------------------------
 
 // Read-only actor-damage callback (self = victim/zombie). Registered AFTER
-// _acc_damage, so the value is already perk/overclock-modified. Spawns a
-// floating damage NUMBER at the hit enemy. NEVER modifies damage (-1).
+// _acc_damage, so the value is already perk/overclock-modified. Feeds the
+// crosshair damage NUMBER on the ATTACKER. NEVER modifies damage (-1).
+//
+// WHY crosshair, not over each zombie: over-entity arbitrary TEXT in BO3 requires
+// globally overriding CoD.Waypoints (the engine's objective/waypoint dispatcher) +
+// shipping objectives.json - it errors the whole HUD if that table fails to load
+// (proven: zm_countryside hb21waypoints.lua). That system is built for persistent
+// quest markers, NOT many-per-second combat popups (it would spam the compass +
+// objective list). The reliable, correct path is a crosshair-anchored LUI number:
+// you aim at the zombie, so it reads on-target. See acc_hud.lua CoD.AccDmgNum.
 function dev_damage_cb( inflictor, attacker, damage, flags, meansofdeath, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
     if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( damage ) && damage > 0 )
-        self accumulate_dmg_number( attacker, int( damage ) );
+        attacker acc_center_dmg_add( int( damage ) );
     return -1; // no damage modification
 }
 
-// self = zombie. Batch hits inside a short window into ONE rising number
-// (perf + readability with automatic weapons).
-function accumulate_dmg_number( attacker, amount )
+// self = player. Accumulate damage; a push loop batches it to the crosshair number
+// every ~0.12s so sustained automatic fire reads as one steadily-updating number
+// (instead of a flicker storm) and hides shortly after you stop firing.
+function acc_center_dmg_add( amount )
 {
-    if ( !isdefined( self.acc_dmg_pending ) ) self.acc_dmg_pending = 0;
-    self.acc_dmg_pending += amount;
-    self.acc_dmg_attacker = attacker;
+    if ( !isdefined( self.acc_cdmg ) ) self.acc_cdmg = 0;
+    self.acc_cdmg += amount;
 
-    if ( !IS_TRUE( self.acc_dmg_num_active ) )
+    if ( !IS_TRUE( self.acc_cdmg_loop_on ) )
     {
-        self.acc_dmg_num_active = true;
-        self thread show_dmg_number();
+        self.acc_cdmg_loop_on = true;
+        self thread acc_center_dmg_push_loop();
     }
 }
 
-// self = zombie.
-function show_dmg_number()
+// self = player.
+function acc_center_dmg_push_loop()
 {
-    wait 0.1; // batch window
-    if ( !isdefined( self ) ) return;
+    self endon( "disconnect" );
+    level endon( "end_game" );
 
-    total = self.acc_dmg_pending;
-    attacker = self.acc_dmg_attacker;
-    org = self.origin;
-    self.acc_dmg_pending = 0;
-    self.acc_dmg_num_active = false;
+    parity = 0;
+    idle_ticks = 0;
+    showing = false;
 
-    if ( !isdefined( attacker ) || !isplayer( attacker ) || total <= 0 ) return;
-
-    // Anchor to a short-lived world origin so the number stays put even if the
-    // zombie dies/despawns mid-float. Same waypoint pattern as the door markers
-    // (which render in-game): elem.z offset + SetWaypoint(true) + SetTargetEnt.
-    anchor = Spawn( "script_origin", org );
-    elem = attacker hud::createFontString( "default", 1.6 );
-    elem.alignX = "center";
-    elem.alignY = "middle";
-    elem.color = ( 1.0, 0.85, 0.2 );
-    elem.alpha = 1.0;          // MUST set before FadeOverTime, else it fades from 0
-    elem.sort = 50;
-    elem.archived = false;
-    elem.hidewheninmenu = true;
-    elem.x = 0;
-    elem.y = 0;
-    elem.z = 56;
-    elem SetWaypoint( false );  // false = 3D world placement at the enemy (NOT
-                                // clamped to screen edge like true would do)
-    elem SetTargetEnt( anchor );
-    elem SetText( "" + total );
-
-    elem FadeOverTime( 0.9 );
-    elem.alpha = 0;
-    for ( i = 0; i < 9; i++ )
+    for ( ;; )
     {
-        if ( !isdefined( elem ) ) break;
-        elem.z = 56 + ( i + 1 ) * 3; // rise
+        if ( !isdefined( self ) ) return;
+
+        // Push at the TOP so the FIRST hit shows immediately (no startup lag - the
+        // loop is started from acc_center_dmg_add AFTER the hit is accumulated).
+        dmg = self.acc_cdmg;
+        self.acc_cdmg = 0;
+
+        if ( dmg > 0 )
+        {
+            if ( dmg > 99999 ) dmg = 99999;
+            parity = 1 - parity;
+            acc_lui::set_dmg_num( self, dmg * 2 + parity );
+            showing = true;
+            idle_ticks = 0;
+        }
+        else
+        {
+            idle_ticks++;
+            if ( showing && idle_ticks >= 5 ) // keep it up ~0.5s after the last hit
+            {
+                acc_lui::set_dmg_num( self, 0 );
+                showing = false;
+            }
+            if ( idle_ticks >= 10 ) // idle ~1s -> stop until next damage
+            {
+                self.acc_cdmg_loop_on = false;
+                return;
+            }
+        }
+
         wait 0.1;
     }
-    if ( isdefined( elem ) ) elem Destroy();
-    if ( isdefined( anchor ) ) anchor Delete();
 }
 
 // Zone signage only (the DMG/DPS side panel was replaced by floating numbers).

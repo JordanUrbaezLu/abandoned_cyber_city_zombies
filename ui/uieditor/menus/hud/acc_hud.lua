@@ -22,40 +22,56 @@
 
 local ACC_CARD_BULLETS = 6
 
--- Perk card content. Index MUST match _acc_perk_info::perk_card_index. "pct" is
--- intentional (kept consistent with the GSC text); switch to "%" later if desired.
+-- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit/tier_repack_cost).
+local function pap_tier_benefit(tier)
+    if tier == 1 then return "Pack-a-Punch your gun (camo + alt-ammo)" end
+    if tier == 2 then return "+25% weapon damage" end
+    if tier == 3 then return "+55% weapon damage" end
+    if tier == 4 then return "+90% weapon damage" end
+    if tier == 5 then return "+130% weapon damage (MAX)" end
+    return ""
+end
+local function pap_tier_cost(tier)
+    if tier == 2 then return 2500 end
+    if tier == 3 then return 5000 end
+    if tier == 4 then return 7500 end
+    if tier == 5 then return 10000 end
+    return 0 -- tier 1 is the free first pack via the machine
+end
+
+-- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
 local AccPerkCards = {
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
             base = { "Survive 6 melee hits (vs 3)", "Built for training + tanking" },
             mega = { "7 hits before going down", "Immune to boss abilities" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
-            base = { "Faster teammate revives", "+30pct HP regen after damage", "Solo: self-revive" },
-            mega = { "Revive 40pct faster", "+15pct speed near a downed ally" } },
+            base = { "Faster teammate revives", "+30% HP regen after damage", "Solo: self-revive" },
+            mega = { "Revive 40% faster", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
-            base = { "+50pct reload speed", "~30pct faster weapon swap", "~40pct faster perk drink" },
-            mega = { "+65pct reload", "+15pct swap, +15pct drink" } },
+            base = { "+50% reload speed", "~30% faster weapon swap", "~40% faster perk drink" },
+            mega = { "+65% reload", "+15% swap, +15% drink" } },
     [4] = { title = "DOUBLE TAP 2.0", price = "2000", megaName = "Gun Slinger",
-            base = { "+33pct fire rate", "+3pct weapon damage" },
-            mega = { "+50pct fire rate", "+6pct damage total" } },
+            base = { "+33% fire rate", "+3% weapon damage" },
+            mega = { "+50% fire rate", "+6% damage total" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
             base = { "Longer sprint reserve", "Faster sprint speed" },
-            mega = { "+12pct run, longer sprint", "x2 walk, x4 crawl speed" } },
+            mega = { "+12% run, longer sprint", "x2 walk, x4 crawl speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "+30pct ammo per gun", "+2 lethal, +2 tactical" } },
+            mega = { "+30% ammo per gun", "+2 lethal, +2 tactical" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
             base = { "ADS snaps to the head", "1.5x headshot damage", "No snap on bosses" },
             mega = { "1.75x headshot damage", "Zero weapon recoil" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
-            base = { "Webs trap zombies on melee", "+50pct frag dmg, +25pct radius", "+50pct EMP grenade" },
+            base = { "Webs trap zombies on melee", "+50% frag dmg, +25% radius", "+50% EMP grenade" },
             mega = { "Melee 1-hits zombies", "Web nades 1-hit, hold 6" } },
     [9] = { title = "AURA BLAST", price = "2500", megaName = "Mega Man",
             base = { "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" },
             mega = { "Affects bosses too", "800u, 60s CD, 2 charges" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
             base = { "Pack a gun, then re-pack to climb tiers:", "T1: upgrade + new camo",
-                     "T2: +25pct damage (2500)", "T3: +55pct damage (5000)",
-                     "T4: +90pct damage (7500)", "T5: +130pct damage MAX (10000)" } },
+                     "T2: +25% damage (2500)", "T3: +55% damage (5000)",
+                     "T4: +90% damage (7500)", "T5: +130% damage MAX (10000)" } },
 }
 
 -- Classed widget: the perk/PaP info card. Mirrors zm_building room_manager.lua /
@@ -107,6 +123,9 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         CardBullets[i] = NewLine(84 + (i - 1) * 28, 110 + (i - 1) * 28, 0.85)
     end
 
+    local papTier = 0
+    local cardModel = Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPerkCard")
+
     local function RenderCard(ModelRef)
         local code = Engine.GetModelValue(ModelRef)
         if not code or code == 0 then
@@ -123,11 +142,24 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
 
         local title, sub, bullets, titleCol, bulletCol
         if idx == 10 then
+            -- Pack-a-Punch: show ONLY the next tier you'd get (not the whole ladder).
             title = d.title
-            sub = "Re-pack to raise tier (scaling cost)"
-            bullets = d.base
             titleCol = { 0.72, 0.45, 1.0 }
             bulletCol = { 0.80, 0.66, 1.0 }
+            if papTier >= 5 then
+                sub = "Tier 5 / 5 - MAX"
+                bullets = { "+130% weapon damage - fully maxed" }
+            else
+                local nextTier = papTier + 1
+                sub = "Tier " .. papTier .. " / 5 - re-pack to raise"
+                local costLine
+                if pap_tier_cost(nextTier) > 0 then
+                    costLine = "Cost: " .. pap_tier_cost(nextTier) .. " Points"
+                else
+                    costLine = "Use the Pack-a-Punch machine"
+                end
+                bullets = { "Next - Tier " .. nextTier .. ": " .. pap_tier_benefit(nextTier), costLine }
+            end
         elseif mode == 1 then
             title = "MEGA: " .. (d.megaName or d.title)
             sub = "Upgrade: 1 Mega Bottle"
@@ -170,8 +202,57 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         self:show()
     end
 
-    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPerkCard"), RenderCard)
+    self:subscribeToModel(cardModel, RenderCard)
+
+    -- PaP tier: update + re-render the card (only matters while the PaP card is up).
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPapTier"), function(m)
+        papTier = Engine.GetModelValue(m) or 0
+        RenderCard(cardModel)
+    end)
+
     self:hide()
+    return self
+end
+
+-- Crosshair damage number. Driven by the "accDmgNum" model (value = dmg*2 + parity;
+-- 0 = hide). Centered just above the crosshair so it reads as damage on the zombie
+-- you're aiming at. Reliable screen-space LUI (no objective/waypoint override).
+CoD.AccDmgNum = InheritFrom(LUI.UIElement)
+
+function CoD.AccDmgNum.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccDmgNum)
+    self:setLeftRight(false, false, -160, 160) -- centered, 320 wide
+    self:setTopBottom(false, false, -170, -120) -- above the crosshair
+    self.id = "AccDmgNum"
+
+    local Num = LUI.UIText.new()
+    Num:setLeftRight(true, true, 0, 0)
+    Num:setTopBottom(true, true, 0, 0)
+    Num:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+    Num:setScale(1.9)
+    Num:setRGB(1.0, 0.88, 0.25)
+    Num:setAlpha(0)
+    self:addElement(Num)
+    self.Num = Num
+
+    local function OnDmg(ModelRef)
+        local v = Engine.GetModelValue(ModelRef) or 0
+        if v == 0 then
+            -- No recent damage: fade out.
+            self.Num:completeAnimation()
+            self.Num:beginAnimation("keyframe", 350, false, false, CoD.TweenType.Linear)
+            self.Num:setAlpha(0)
+            return
+        end
+        local dmg = math.floor(v / 2)
+        if dmg <= 0 then return end
+        self.Num:completeAnimation()
+        self.Num:setText(tostring(dmg))
+        self.Num:setAlpha(1.0)
+    end
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accDmgNum"), OnDmg)
     return self
 end
 
@@ -186,6 +267,10 @@ function LUI.createMenu.acc_hud(Instance)
     local Card = CoD.AccPerkCard.new(Hud, Instance)
     Hud:addElement(Card)
     Hud.accCard = Card
+
+    local DmgNum = CoD.AccDmgNum.new(Hud, Instance)
+    Hud:addElement(DmgNum)
+    Hud.accDmgNum = DmgNum
 
     local function OnHudClose(Sender)
         Sender.accCard:close()

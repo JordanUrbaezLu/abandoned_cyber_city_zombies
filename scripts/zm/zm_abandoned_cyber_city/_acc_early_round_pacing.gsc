@@ -104,9 +104,10 @@ function on_zombie_spawned_speed()
     if ( !( self zombie_utility::is_zombie() ) )
         return;
 
-    // Sprint modifier: stock max-speed zombies from r1; skip our early boost.
-    if ( isdefined( level.acc_mod_force_sprint ) && level.acc_mod_force_sprint )
-        return;
+    // NOTE: the old acc_mod_force_sprint "defer to rampage" skip was REMOVED - it made
+    // the Rampage Inducer feel like nothing (sprint category but minus this +15%, ~no net
+    // change). Now the early +15% STACKS with the rampage sprint category, so rampage is
+    // clearly faster in rounds 1-4 (and pure base-sprint after).
 
     r = level.round_number;
     if ( !isdefined( r ) || r < 1 )

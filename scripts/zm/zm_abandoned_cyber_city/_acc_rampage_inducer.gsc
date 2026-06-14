@@ -81,11 +81,14 @@ function spawn_device()
     level endon( "end_game" );
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    // Start-room spot clear of the box (-1881 1540 14) and PaP (-700 3700 7.5).
-    org = ( -1881, 1900, 14 );
+    // SPAWN PLAZA floor spot, inside start_zone (x[-1056..1094.5] y[-1073.5..928]),
+    // forward-left of the player spawn (info_player_start ~(-227.5,-476.5)) and clear
+    // of the spawn points + window barricade. Faces -Y toward the spawn so players see
+    // the kiosk front as they spawn in.
+    org = ( -600, 200, 14 );
 
     model = Spawn( "script_model", org );
-    model.angles = ( 0, 180, 0 );
+    model.angles = ( 0, 270, 0 );
     model SetModel( "p7_zm_vending_nuke" ); // already loaded by our .map; reads as a kiosk
     model.targetname = "acc_rampage_inducer_model";
     level.acc_rampage_device_model = model;
@@ -146,6 +149,11 @@ function on_zombie_spawned_rampage()
     if ( !( self zombie_utility::is_zombie() ) )
         return;
 
+    // Force the SPRINT run cycle = the engine's max base move speed (a rampage inducer
+    // makes base zombies sprint; we do NOT scale past that). Clear any stale override
+    // first so set_zombie_run_cycle actually re-applies (it early-returns if an override
+    // is already set, zombie_utility.gsc:2078).
+    self.zombie_move_speed_override = undefined;
     self zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
 }
 
@@ -158,6 +166,7 @@ function sprint_all_live_zombies()
         z = zombies[ i ];
         if ( !isdefined( z ) || !isalive( z ) ) continue;
         if ( !( z zombie_utility::is_zombie() ) ) continue;
+        z.zombie_move_speed_override = undefined; // clear stale, then force sprint
         z zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
     }
 }
@@ -195,8 +204,31 @@ function activate()
 
     sprint_all_live_zombies();
 
+    // KEEP-ALIVE: the sprint override decays over time (stock re-evaluates zombie
+    // locomotion on round transitions / state changes and can clobber a one-shot
+    // override - user saw "sprints then stops after ~a minute"). Re-assert sprint on
+    // every live zombie on a short cadence for as long as the inducer is on, so it
+    // PERSISTS. New spawns are still caught by on_zombie_spawned_rampage immediately.
+    level notify( "acc_rampage_keepalive" );   // kill any prior loop (belt-and-suspenders)
+    level thread rampage_keepalive();
+
     announce( "^1RAMPAGE INDUCER ACTIVATED" );
     acc_utility::log( "rampage: ACTIVATED" );
+}
+
+// Re-assert sprint on all live zombies while active. Self-terminates when the
+// inducer is toggled off (level.acc_rampage_active=false) or a new activate()
+// supersedes it (acc_rampage_keepalive notify) or the game ends.
+function rampage_keepalive()
+{
+    level endon( "end_game" );
+    level endon( "acc_rampage_keepalive" );
+
+    while ( IS_TRUE( level.acc_rampage_active ) )
+    {
+        sprint_all_live_zombies();
+        wait 2;
+    }
 }
 
 function deactivate()
@@ -238,11 +270,14 @@ function watch_dvar_toggle()
 
     for ( ;; )
     {
+        // ACTIVATE-ONLY. The old deactivate-when-dvar==0 branch FOUGHT the device
+        // toggle: acc_rampage defaults to 0, so it deactivated a device-activated
+        // rampage ~1s later -> "zombies sprint for a few seconds then go back to
+        // normal" + the device hint never flipped to OFF. The device (rampage_trigger_think)
+        // is the sole toggle now; the dvar can still force it ON for console testing.
         want_on = ( getdvarint( "acc_rampage", 0 ) == 1 );
         if ( want_on && !IS_TRUE( level.acc_rampage_active ) )
             activate();
-        else if ( !want_on && IS_TRUE( level.acc_rampage_active ) )
-            deactivate();
         wait 1;
     }
 }
@@ -278,9 +313,18 @@ function rampage_trigger_think( trig )
     {
         trig waittill( "trigger", player );
         if ( !isdefined( player ) || !isplayer( player ) ) continue;
-        if ( IS_TRUE( level.acc_rampage_active ) ) continue;
 
-        activate();
-        trig SetHintString( "Rampage Inducer ^1ACTIVE" );
+        // TOGGLE: each use flips the inducer on/off (the user must be able to turn it OFF).
+        if ( IS_TRUE( level.acc_rampage_active ) )
+        {
+            deactivate();
+            trig SetHintString( "Hold ^3&&1^7 to activate the Rampage Inducer" );
+        }
+        else
+        {
+            activate();
+            trig SetHintString( "Rampage ^1ON^7 - Hold ^3&&1^7 to deactivate" );
+        }
+        wait 0.6; // debounce the hold
     }
 }

@@ -156,10 +156,11 @@ function set_mega_perk( player, specialty_string )
     player iprintln( "Mega unlocked: " + mega_name );
     level notify( "acc_mega_perk_applied", player, specialty_string );
 
-    // Re-play the perk drink animation (the bottle is the Mega upgrade) + light
-    // up a glowing icon for the now-Mega'd perk.
+    // Re-play the perk drink animation (the bottle is the Mega upgrade).
     player thread replay_perk_drink( specialty_string );
-    player add_mega_glow_icon( specialty_string );
+    // NOTE: the lower-left "MEGA <perk>" banner was REMOVED (user: not wanted).
+    // The real ask is to glow the actual perk ICON, which the engine perk bar
+    // doesn't expose to script - tracked as a separate, proper LUI task.
 }
 
 // ---------------------------------------------------------------------------
@@ -217,20 +218,54 @@ function add_mega_glow_icon( perk )
     if ( isdefined( self.acc_mega_glow[ perk ] ) ) return; // already glowing
 
     idx = self.acc_mega_glow.size;
-    y = -205 - idx * 20; // stack upward, clear of the shards/bottles counters
+    y = -205 - idx * 24; // stack upward, clear of the shards/bottles counters
+    col = mega_perk_color( perk );
 
-    label = self hud::createFontString( "default", 1.05 );
-    label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, y );
-    label.alignX = "left";
-    label.alignY = "middle";
-    label.color = ( 0.5, 0.95, 1.0 );
-    label.alpha = 0.95;
-    label.sort = 5;
-    label.hidewheninmenu = true;
-    label SetText( "^5* MEGA ^7" + mega_display_name( perk ) );
-    label setPulseFX( 80, 650, 650 ); // pulses the text so it "glows"
+    // The stock perk bar is engine-LUI and its perk HUD materials are NOT loadable
+    // in a usermap, so we can't glow the real icon. Instead draw our OWN per-perk
+    // GLOWING badge: a pulsing perk-colored bar (reads as a glow, not flat text)
+    // with the Mega name over it. One per Mega'd perk, stacked at the lower-left.
+    s = SpawnStruct();
 
-    self.acc_mega_glow[ perk ] = label;
+    s.badge = self hud::createIcon( "white", 162, 22 );
+    s.badge hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 12, y );
+    s.badge.alignX = "left";
+    s.badge.alignY = "middle";
+    s.badge.color = col;
+    s.badge.alpha = 0.55;
+    s.badge.sort = 4;
+    s.badge.hidewheninmenu = true;
+    s.badge setPulseFX( 55, 700, 700 ); // the pulse = the "glow"
+
+    s.label = self hud::createFontString( "default", 1.05 );
+    s.label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 20, y );
+    s.label.alignX = "left";
+    s.label.alignY = "middle";
+    s.label.color = ( 1, 1, 1 );
+    s.label.alpha = 1.0;
+    s.label.sort = 5;
+    s.label.hidewheninmenu = true;
+    s.label SetText( "^7MEGA  " + mega_display_name( perk ) );
+
+    self.acc_mega_glow[ perk ] = s;
+}
+
+// Per-perk signature colour for the Mega glow badge.
+function mega_perk_color( perk )
+{
+    switch ( perk )
+    {
+    case "specialty_armorvest":               return ( 0.30, 0.70, 0.22 ); // Jug - green
+    case "specialty_quickrevive":             return ( 0.30, 0.60, 1.00 ); // QR - blue
+    case "specialty_fastreload":              return ( 0.45, 0.90, 0.45 ); // Speed - light green
+    case "specialty_doubletap2":              return ( 0.90, 0.30, 0.20 ); // DT - red
+    case "specialty_staminup":                return ( 0.92, 0.80, 0.20 ); // Stamin - yellow
+    case "specialty_additionalprimaryweapon": return ( 0.80, 0.45, 0.20 ); // Mule - orange
+    case "specialty_deadshot":                return ( 0.65, 0.72, 0.82 ); // Deadshot - steel
+    case "specialty_widowswine":              return ( 0.55, 0.25, 0.65 ); // Widow's - purple
+    case "specialty_electriccherry":          return ( 0.95, 0.50, 0.12 ); // Aura - orange-red
+    }
+    return ( 0.40, 0.85, 1.0 ); // default cyan
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +445,15 @@ function on_perk_bought( perk )
 
 function on_perk_lost( perk )
 {
+    // Remove the Mega glow badge for the lost perk.
+    if ( isdefined( self.acc_mega_glow ) && isdefined( self.acc_mega_glow[ perk ] ) )
+    {
+        g = self.acc_mega_glow[ perk ];
+        if ( isdefined( g.badge ) ) g.badge hud::destroyElem();
+        if ( isdefined( g.label ) ) g.label hud::destroyElem();
+        self.acc_mega_glow[ perk ] = undefined;
+    }
+
     if ( perk == "specialty_armorvest" )
     {
         // Next health_reboot recompute drops the Ultimate Tank bonus.

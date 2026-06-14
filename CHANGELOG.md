@@ -87,6 +87,167 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 7 — LUI: PaP next-tier card + crosshair damage numbers (2026-06-13)
+
+- **PaP card shows the NEXT tier only (item 3).** New `accPapTier` clientuimodel field
+  (3b, lockstep gsc/csc); `_acc_perk_info` pushes the held weapon's current tier when near
+  the machine; `acc_hud.lua` renders one "Next - Tier N: <benefit> (cost)" line (or MAX at
+  5) instead of the whole T1-T5 ladder, re-rendering on tier change.
+- **Damage numbers — crosshair-anchored LUI (item 8).** New `accDmgNum` field (18b);
+  `_acc_dev` batches each attacker's damage and pushes it every ~0.12s; `acc_hud.lua`'s new
+  `CoD.AccDmgNum` widget shows the number just above the crosshair (you aim at the zombie,
+  so it reads on-target) and fades ~0.4s after you stop firing.
+  - **Why not over each zombie's head:** proven from shipped code (`zm_countryside`
+    `hb21waypoints.lua`) that over-entity *text* requires globally overriding `CoD.Waypoints`
+    (the engine's objective/waypoint dispatcher) + shipping `objectives.json`, which `error()`s
+    the entire HUD if that table fails to load. That system renders persistent quest markers,
+    not many-per-second combat popups (it would spam the compass + objective list). World-space
+    HUD text is impossible and waypoint icons are fixed-size with no digit shaders. The
+    crosshair-anchored number is the reliable, correct path.
+- **Mega-perk indicator is now a GLOWING badge, not flat text (item 2).** The stock perk
+  bar is engine-LUI and its `specialty_*_zombies` HUD materials are not loadable in a
+  usermap, so the *real* perk icon can't be glowed here. Replaced the pulsing text label
+  with a per-perk **pulsing colored badge** (`hud::createIcon` "white" tinted to each
+  perk's signature colour) + the Mega name over it, with proper cleanup on perk loss.
+  (`accMegaMask` (9b) registered for a future LUI version; the GSC badge is the reliable now.)
+
+### Overhaul batch 6 — reliable boss bar + arsenal strip + honest perk cards (2026-06-13)
+
+Driven by test feedback ("rampage stops after a minute"; "boss is a box that only
+changes colour — why not a real depleting bar?") + the research workflow (7 agents).
+
+- **Boss health bar — REAL depleting bar.** Confirmed the hard limit: a world-anchored
+  waypoint icon is FIXED-SIZE (SetShader resets the anchor; SetWaypoint resets the size —
+  a catch-22), so it can only recolour, never deplete. Fix: the depleting bar now lives at
+  **top-centre of the screen**, reusing the SAME proven path as the working player health
+  bar (`hud::createBar`/`updateBar`, which sizes a real fill). It shows remaining/max and
+  recolours green→amber→red. The over-boss icon is KEPT but reduced to a colour-only marker
+  so you still know which zombie is the boss. (`_acc_health_bars.gsc`)
+- **Rampage Inducer — PERSISTS now.** Added a keep-alive loop that re-asserts the sprint
+  override on every live zombie every 2s while active (stock re-evaluates locomotion on
+  round/state changes and clobbered the one-shot override → "sprinted then stopped after a
+  minute"). (`_acc_rampage_inducer.gsc`)
+- **Arsenal = ICR-1 + Man-O-War only (item 7).** GSC-only, no geometry rebuild: mystery box
+  pool → `ar_accurate` + `ar_damage`; wallbuy pool keeps only the ICR wall (the other four
+  wall slots get no purchase trigger → Haymaker/Drakon/Sheiva/Frag walls go dead); Bowie
+  melee kept. Overclock AR family fixed from the never-valid `*_zm` names to `ar_accurate`/
+  `ar_damage` (they were silently breaking Overclocks on both guns).
+  (`_acc_map_randomizer.gsc`, `_acc_overclocks.gsc`)
+- **Perk cards are now HONEST (item 5, partial).** Removed every GSC-impossible claim
+  (zero recoil, +fire rate, faster swap/drink times, ×2 walk/×4 crawl, EMP grenade) so no
+  card promises something the code can't do. Implemented the GSC-possible damage perks so
+  their claims are TRUE: **Double Tap 2.0** +3% damage (base) / +6% (Gun Slinger Mega), and
+  **Widow's Wine** +50% frag-grenade damage — both wired into the `_acc_damage` multiplier
+  chain. Megas still being built (Quick Revive / Speed Cola / Mule Kick) are marked "in
+  progress" instead of claiming an effect. (`_acc_damage.gsc`, `acc_hud.lua`)
+- **Deferred to an isolated next build** (UI-error / anchor-guesswork risk kept out of this
+  testable batch): over-the-zombie damage NUMBERS + the perk-icon GLOW overlay + the PaP
+  next-tier card (all LUI), and the remaining GSC-possible perk effects (Mule Kick ammo,
+  Quick Revive regen/revive-speed, Jug exact tuning). Full cited recipes captured from the
+  research workflow.
+
+### Overhaul batch 5 — boss bar + rampage root causes (2026-06-13)
+
+- **Boss bar "top-left, not over the boss" — root cause found + fixed.** `SetShader`
+  RESETS a HudElem's waypoint anchor, so resizing the bar every 0.1s dumped it back to
+  screen-space (0,0). That's exactly why the STATIC black bg used to sit over the boss
+  but the RESIZING red fill did not — and after batch 4 removed the bg, nothing was left
+  over the boss at all. Fix: in `boss_bar_track`, re-apply `SetWaypoint(false)` +
+  `SetTargetEnt(boss)` in the SAME frame right after each `SetShader` (no wait between →
+  no flicker). The bar now follows the boss, shrinks with health, AND runs
+  green→amber→red so it doubles as a "which one is the boss" marker.
+- **Rampage Inducer toggle + persistence — root cause found + fixed.** A leftover dvar
+  watcher (`watch_dvar_toggle`) polled `acc_rampage` (default 0) every second and
+  *deactivated* a device-activated rampage ~1s later — exactly "zombies sprint for a few
+  seconds then go back to normal" and "the device hint never flips to OFF / always says
+  turn on." Made the watcher ACTIVATE-ONLY (it can still force ON for console testing);
+  the in-map device is now the sole on/off toggle and its activation persists.
+
+### Overhaul batch 4 — proper fixes after batch-3 feedback (2026-06-13)
+
+- **PaP gun-steal fixed at the ROOT:** deleted the parallel `acc_pap_tier` trigger
+  entirely (it shared the machine's origin, raced the stock take-back, and ate the Use -
+  worst on the 2nd gun). Tier-ups now ride the stock machine's own `custom_validation`
+  hook: un-upgraded gun → return true (stock does the normal first pack + float +
+  take-back, uninterfered); upgraded gun → tier up in place (charge + bump, NO asset
+  re-swap, NO float) and return false. No second trigger → nothing to steal, no flicker.
+- **PaP tier HUD** lowered to -130 (the -175 in batch 3 was too high).
+- **Rampage Inducer:** dropped the over-the-top `ASMSetAnimationRate(1.7)` "modded" speed;
+  it now forces the SPRINT run cycle = the engine's MAX BASE zombie speed (nothing faster).
+  Removed the early-pacing `acc_mod_force_sprint` deferral that was netting out the +15%
+  and making it feel like nothing, and clears stale move-speed overrides so the sprint
+  applies to live zombies. Toggle (each use on/off) kept.
+- **Boss bar:** overlapping world-space waypoints (bg + fill) rendered as only the black
+  box, so the bar is now a SINGLE red icon whose width = the health fraction.
+- **Floating damage numbers DISABLED** (no more stray top-left number). Hard BO3 rule
+  proven in-game: world-space TEXT is impossible (`SetWaypoint` suppresses text; no
+  `SetWaypoint` dumps to 0,0; no `WorldToScreen`). The correct version (world-projected
+  digit ICONS or a LUI world widget) is being researched + built next.
+
+### Overhaul batch 3 — test-feedback fixes (2026-06-13)
+
+In-game test of batches 1-2 surfaced:
+- **PaP gun-steal (showstopper):** our parallel `acc_pap_tier` trigger (same origin as
+  the stock machine) EATS the Use during a stock first-pack take-back, so the packed gun
+  never returned (`SetInvisibleToPlayer` hides the hint but does NOT stop a trigger
+  firing). Fix: `pap_tier_visibility` now `TriggerEnable(false)`s our trigger whenever
+  nobody can tier up, so it can't intercept the take-back.
+- **PaP tier HUD** raised (`-100`→`-175`) so the ammo HUD stops overlapping it.
+- **World-space HUD TEXT was invisible** (damage numbers, boss name) while the boss bar
+  ICON rendered fine. Root cause proven in-game: `SetWaypoint` puts the elem in icon-only
+  waypoint mode and SUPPRESSES text. Fix: text elems now use `SetTargetEnt` WITHOUT
+  `SetWaypoint` (icons keep `SetWaypoint(false)`). Boss bar bg made a few px larger than
+  the red fill so it reads as a framed bar, not a black box.
+- **Rampage Inducer:** the trigger could only turn ON (`if(active) continue`) and the
+  sprint effect wasn't visibly faster. Fix: the device is now a TOGGLE (each use flips
+  on/off) and the effect layers a proven-visible `ASMSetAnimationRate(1.7)` (the
+  mechanism early-pacing/Widow's Wine use) on live + new zombies, restored to 1.0 on off.
+
+(Flicker fix from batch 1 confirmed working in-game.)
+
+### Overhaul batch 2 — damage numbers + boss bar over the head (item 8) (2026-06-13)
+
+Root cause (audit + a verified-pattern agent): `hud::createFontString` /
+`createServerFontString` / `createServerBar` all `setParent(level.uiParent)` → the
+elem binds to the SCREEN layer, so `SetTargetEnt` + world `.z` are ignored and it
+clamps to the top of the screen (the bug hit twice). And `WorldToScreen` does NOT
+exist in BO3, so per-frame screen projection is impossible. Fix = the stock
+`entityheadicons` follow pattern, mirroring our working door markers: raw
+`NewClientHudElem` (NEVER a `hud::create*` factory) + world `.z` offset +
+`SetWaypoint(false)` + `SetTargetEnt(ent)`.
+- **Damage numbers** (`_acc_dev::show_dmg_number`): `NewClientHudElem(attacker)` +
+  `SetText` + `SetTargetEnt(anchor)` over the zombie, rise + fade. (The old
+  screen-parented version proved the text renders — it was only mis-positioned.)
+- **Boss bar** (`_acc_health_bars::boss_bar_track`): per-player `NewClientHudElem`
+  dark bg + a "white" fill icon whose WIDTH scales with the health fraction (stock
+  `updateBarScale` math) + a name text elem, all following the boss in world space.
+
+All builtins verified vs the stock mirror; build exit 0. One in-game unknown (no
+stock precedent for TEXT on a `SetTargetEnt` elem) — but the prior attempt's text
+DID render (just mis-placed), so confidence is high; the icon bar is stock-proven.
+
+### Overhaul batch 1 — PaP HUD/flicker, rampage in spawn (2026-06-13, MajorImprovements)
+
+First slice of the 9-item overhaul (full code-cited tracker: **docs/29_overhaul_checklist.md**,
+built from a 15-agent audit: per-perk requirement→code proof + per-area gaps/fixes).
+- **(1) PaP tier HUD → bottom-right** (`_acc_pap_levels::pap_hud_loop`, was bottom-left).
+- **(9) Multi-pack flicker fixed:** the stock `pack_a_punch_machine_trigger_think`
+  VISIBILITY loop (0.1s) kept re-showing the stock trigger for upgraded guns and
+  fought our 0.25s `pap_tier_visibility` → hint flicker. We now `notify(
+  "pack_a_punch_trigger_think")` to stop ONLY that visibility loop (the first-pack USE
+  handler `vending_weapon_upgrade` is a separate thread and still works); our loop
+  owns the stock trigger's visibility (shown un-upgraded / hidden upgraded). Re-killed
+  each tick for robustness.
+- **(4) Rampage Inducer relocated into the spawn plaza** (`(-1881,1900)`→`(-600,200,14)`,
+  inside `start_zone`, facing spawn). The device + enrage effect were already
+  implemented/wired; it was just spawning outside the start room. (Audit also notes
+  an optional BO4/CW timed-enrage mode — deferred.)
+
+Audit headline gaps queued (docs/29): ~30 perk benefits claimed-but-unimplemented
+(several GSC-impossible — recoil/fire-rate/move-speed — need weapon-GDT or card
+re-scope); damage numbers + boss bar need the world-space `NewClientHudElem` +
+`SetWaypoint(TRUE)` rewrite; arsenal strip to ICR-1 (`ar_accurate`) + Man-O-War
+(`ar_damage`); PaP card next-tier-only; real perk-icon glow; room-halving (high risk).
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 
