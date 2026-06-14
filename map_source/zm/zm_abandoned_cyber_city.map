@@ -1144,7 +1144,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 2928 88 ) ( 90.5 2928 88 ) ( 90.5 2928 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -1847 459.5 88 ) ( -1847 419.5 88 ) ( -1847 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// ACC room shell: Server Vault (docs/29 §13) - CLOSED box; cut doorways in Radiant
+// ACC room shell: Server Vault (docs/29 §13) - doorway gaps cut in west wall (Corp + Lab); greybox
 // brush floor
 {
  guid "{ACCB0010-0000-4E0C-8A3F-0000000004A0}"
@@ -1165,15 +1165,15 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 2416 3186 144 ) ( 984 3186 144 ) ( 984 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 984 3186 144 ) ( 984 2474 144 ) ( 984 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// brush wall W
+// brush wall W (door gaps: y2474-2536 -> Corp/acc_door_vault, y3120-3186 -> Lab/acc_door_lab_e; this brush = solid middle y2536-3120)
 {
  guid "{ACCB0012-0000-4E0C-8A3F-0000000004A0}"
- ( 1000 3186 0 ) ( 984 3186 0 ) ( 984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 984 2474 128 ) ( 984 3186 128 ) ( 1000 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 984 2474 128 ) ( 1000 2474 128 ) ( 1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 1000 2474 128 ) ( 1000 3186 128 ) ( 1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 1000 3186 128 ) ( 984 3186 128 ) ( 984 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 984 3186 128 ) ( 984 2474 128 ) ( 984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3120 0 ) ( 984 3120 0 ) ( 984 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2536 128 ) ( 984 3120 128 ) ( 1000 3120 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2536 128 ) ( 1000 2536 128 ) ( 1000 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 2536 128 ) ( 1000 3120 128 ) ( 1000 3120 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3120 128 ) ( 984 3120 128 ) ( 984 3120 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 3120 128 ) ( 984 2536 128 ) ( 984 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // brush wall E
 {
@@ -1205,7 +1205,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 2400 3186 128 ) ( 1000 3186 128 ) ( 1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 1000 3186 128 ) ( 1000 3170 128 ) ( 1000 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// ACC room shell: Rooftop Helipad (docs/29 §13) - CLOSED box; cut doorways in Radiant
+// ACC room shell: Rooftop Helipad (docs/29 §13) - doorway gaps cut in east wall (Corp + Lab); greybox
 // brush floor
 {
  guid "{ACCB0020-0000-4E0C-8A3F-0000000004A0}"
@@ -1236,15 +1236,15 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -2400 3186 128 ) ( -2416 3186 128 ) ( -2416 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -2416 3186 128 ) ( -2416 2474 128 ) ( -2416 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// brush wall E
+// brush wall E (door gaps: y2474-2536 -> Corp/acc_door_roof, y3120-3186 -> Lab/acc_door_lab_w; this brush = solid middle y2536-3120)
 {
  guid "{ACCB0023-0000-4E0C-8A3F-0000000004A0}"
- ( -984 3186 0 ) ( -1000 3186 0 ) ( -1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -1000 2474 128 ) ( -1000 3186 128 ) ( -984 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -1000 2474 128 ) ( -984 2474 128 ) ( -984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -984 2474 128 ) ( -984 3186 128 ) ( -984 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -984 3186 128 ) ( -1000 3186 128 ) ( -1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -1000 3186 128 ) ( -1000 2474 128 ) ( -1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 3120 0 ) ( -1000 3120 0 ) ( -1000 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2536 128 ) ( -1000 3120 128 ) ( -984 3120 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2536 128 ) ( -984 2536 128 ) ( -984 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 2536 128 ) ( -984 3120 128 ) ( -984 3120 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 3120 128 ) ( -1000 3120 128 ) ( -1000 3120 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 3120 128 ) ( -1000 2536 128 ) ( -1000 2536 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // brush wall S
 {
