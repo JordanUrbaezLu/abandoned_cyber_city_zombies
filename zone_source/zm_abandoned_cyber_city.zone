@@ -15,8 +15,15 @@
 //   - comments use //, not #
 // =============================================================================
 
-xmodel,skybox_default_day
+xmodel,skybox_default_night
 material,luts_t7_default
+
+// NOTE: stock t7_* wall/floor materials are painted on faces in the .map, but they
+// are NOT listed here yet. Listing them makes the linker try to COMPILE their
+// techset shaders, which FAILS on this install ("failed to open source file:
+// techsetdef_buildshadowmap.hlsl" + "material type '' (0)" + gdtdb shows 0 GDTs).
+// Until the material/shader-compile pipeline is fixed (docs/29 §14), the surfaces
+// render as the missing-material checker. The night sky / fog / probes / rooms work.
 
 // BSP (compiled from map_source/zm/zm_abandoned_cyber_city.map)
 col_map,maps/zm/zm_abandoned_cyber_city.d3dbsp
@@ -57,6 +64,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
 
 // LUI client pipeline foundation (server module + client mirror + Lua overlay).
 // docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the

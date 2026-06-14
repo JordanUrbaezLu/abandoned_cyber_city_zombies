@@ -37,6 +37,7 @@
 
 - **[14_controls_and_hud.md](docs/14_controls_and_hud.md)** — Input bindings (stock + custom `acc_ability` hotkey), HUD element list (Shards, Cyberware stack, Weapon status, Items, Objectives, Boss HP), LUI widget plan.
 - **[15_coop_rules.md](docs/15_coop_rules.md)** — 1-4 player support, HP / spawn-rate scaling, per-player vs shared resources, revive rules, item pickup priority, side event activator-gating.
+- **[29_atmosphere_and_materials.md](docs/29_atmosphere_and_materials.md)** — the map's **look**: art direction (palette, low-key neon lighting, smog-night sky/fog), build-vs-buy (~90% stock-skin), the verified BO3 material/sky/fog pipeline, verified stock asset shortlist, per-zone art direction, phased plan, and Workshop licensing policy. Pairs with the portable recipe in [BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md).
 
 ### 6. Development & Shipping
 
@@ -179,6 +180,7 @@ Every GSC module in [`scripts/zm/zm_abandoned_cyber_city/`](scripts/zm/zm_abando
 | `_acc_points.gsc` | [06_mechanics.md](docs/06_mechanics.md) (also [16_gsc_reference.md](docs/16_gsc_reference.md) for `_zm_score::add_to_player_score` usage) |
 | `_acc_damage.gsc` | [06_mechanics.md](docs/06_mechanics.md) (also [16_gsc_reference.md](docs/16_gsc_reference.md) for verified `callback::on_ai_damage` signature) |
 | `_acc_early_round_pacing.gsc` | [06_mechanics.md](docs/06_mechanics.md) (Early round pressure), [04_progression_and_skills.md](docs/04_progression_and_skills.md) (difficulty curve) |
+| `_acc_atmosphere.gsc` | [29_atmosphere_and_materials.md](docs/29_atmosphere_and_materials.md) (Phase 1 fog; sky/material plan) |
 
 ## How to Use This Document
 

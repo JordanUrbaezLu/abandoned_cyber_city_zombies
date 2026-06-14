@@ -100,6 +100,21 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   stock `vending_*_struct.map` prefabs contain exactly this struct, so inline
   structs are equivalent (zm_alien_isolation ships jug that way). Single-chest
   maps ignore `level.start_chest_name` (`_zm_magicbox.gsc` size==1 branch).
+- **Atmosphere (materials/sky/fog), verified — full plan docs/29, recipe in
+  BO3_MAPMAKING_KB.md:** a brush face's material **token IS the GDT material
+  name** (greybox = `script_wall`/`script_floor_ceiling`); re-skin = change the
+  token. **Face materials need NO `.zone` line** (shipped `zm_alien_isolation`:
+  2 `material,` lines for ~1017 materials) — only non-face assets (LUT/sky/FX/
+  decal/sky-xmodel/HDR) get listed. Stock `t7_{concrete,metal,glass,asphalt,…}`
+  materials ship free (already in fastfiles); verified dark/wet names in docs/29.
+  **TRAP:** the alien map's material names (`black1_plaster`, `ayz_floor`,
+  `really_dirty_emissive`) are that author's *custom, unlicensed* GDT — NOT stock;
+  would "missing material" + can't ship. **Sky** = `volume_sun` `ssi*` +
+  worldspawn `skyboxmodel`; fastest ZM-safe night = stock `default_night` /
+  `skybox_default_night` (never `mp_havoc`). **Fog** = `SetVolFog(start, halfway,
+  halfwayH, baseH, r,g,b, opacity)` 8-arg global, 0..1 floats (load_shared.gsc:807)
+  — ours in `_acc_atmosphere.gsc` (dvar-tunable). Build: material/sky/probe edits
+  are BSP-baked → full cod2map64+LED+linker; script fog/`.vision` → linker-only.
 
 ## First-compile findings (real linker, 2026-06-12 — update as we build)
 

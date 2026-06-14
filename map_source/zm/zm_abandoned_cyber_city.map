@@ -9,9 +9,9 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 "classname" "worldspawn"
 "lightingquality" "1024"
 "samplescale" "1"
-"skyboxmodel" "skybox_default_day"
-"ssi" "default_day"
-"wsi" "default_day"
+"skyboxmodel" "skybox_default_night"
+"ssi" "default_night"
+"wsi" "default_night"
 "fsi" "default"
 "gravity" "800"
 "lodbias" "default"
@@ -1144,6 +1144,128 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 2928 88 ) ( 90.5 2928 88 ) ( 90.5 2928 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -1847 459.5 88 ) ( -1847 419.5 88 ) ( -1847 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
+// ACC room shell: Server Vault (docs/29 §13) - CLOSED box; cut doorways in Radiant
+// brush floor
+{
+ guid "{ACCB0010-0000-4E0C-8A3F-0000000004A0}"
+ ( 2416 3186 -16 ) ( 984 3186 -16 ) ( 984 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 0 ) ( 984 3186 0 ) ( 2416 3186 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 0 ) ( 2416 2474 0 ) ( 2416 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 2474 0 ) ( 2416 3186 0 ) ( 2416 3186 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 3186 0 ) ( 984 3186 0 ) ( 984 3186 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 3186 0 ) ( 984 2474 0 ) ( 984 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush ceiling
+{
+ guid "{ACCB0011-0000-4E0C-8A3F-0000000004A0}"
+ ( 2416 3186 128 ) ( 984 3186 128 ) ( 984 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 144 ) ( 984 3186 144 ) ( 2416 3186 144 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 144 ) ( 2416 2474 144 ) ( 2416 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 2474 144 ) ( 2416 3186 144 ) ( 2416 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 3186 144 ) ( 984 3186 144 ) ( 984 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 3186 144 ) ( 984 2474 144 ) ( 984 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall W
+{
+ guid "{ACCB0012-0000-4E0C-8A3F-0000000004A0}"
+ ( 1000 3186 0 ) ( 984 3186 0 ) ( 984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 128 ) ( 984 3186 128 ) ( 1000 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 2474 128 ) ( 1000 2474 128 ) ( 1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 2474 128 ) ( 1000 3186 128 ) ( 1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3186 128 ) ( 984 3186 128 ) ( 984 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 984 3186 128 ) ( 984 2474 128 ) ( 984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall E
+{
+ guid "{ACCB0013-0000-4E0C-8A3F-0000000004A0}"
+ ( 2416 3186 0 ) ( 2400 3186 0 ) ( 2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 2474 128 ) ( 2400 3186 128 ) ( 2416 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 2474 128 ) ( 2416 2474 128 ) ( 2416 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 2474 128 ) ( 2416 3186 128 ) ( 2416 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2416 3186 128 ) ( 2400 3186 128 ) ( 2400 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 3186 128 ) ( 2400 2474 128 ) ( 2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall S
+{
+ guid "{ACCB0014-0000-4E0C-8A3F-0000000004A0}"
+ ( 2400 2490 0 ) ( 1000 2490 0 ) ( 1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 2474 128 ) ( 1000 2490 128 ) ( 2400 2490 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 2474 128 ) ( 2400 2474 128 ) ( 2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 2474 128 ) ( 2400 2490 128 ) ( 2400 2490 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 2490 128 ) ( 1000 2490 128 ) ( 1000 2490 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 2490 128 ) ( 1000 2474 128 ) ( 1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall N
+{
+ guid "{ACCB0015-0000-4E0C-8A3F-0000000004A0}"
+ ( 2400 3186 0 ) ( 1000 3186 0 ) ( 1000 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3170 128 ) ( 1000 3186 128 ) ( 2400 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3170 128 ) ( 2400 3170 128 ) ( 2400 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 3170 128 ) ( 2400 3186 128 ) ( 2400 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 2400 3186 128 ) ( 1000 3186 128 ) ( 1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1000 3186 128 ) ( 1000 3170 128 ) ( 1000 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC room shell: Rooftop Helipad (docs/29 §13) - CLOSED box; cut doorways in Radiant
+// brush floor
+{
+ guid "{ACCB0020-0000-4E0C-8A3F-0000000004A0}"
+ ( -984 3186 -16 ) ( -2416 3186 -16 ) ( -2416 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 0 ) ( -2416 3186 0 ) ( -984 3186 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 0 ) ( -984 2474 0 ) ( -984 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 2474 0 ) ( -984 3186 0 ) ( -984 3186 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 3186 0 ) ( -2416 3186 0 ) ( -2416 3186 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 3186 0 ) ( -2416 2474 0 ) ( -2416 2474 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush ceiling
+{
+ guid "{ACCB0021-0000-4E0C-8A3F-0000000004A0}"
+ ( -984 3186 128 ) ( -2416 3186 128 ) ( -2416 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 144 ) ( -2416 3186 144 ) ( -984 3186 144 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 144 ) ( -984 2474 144 ) ( -984 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 2474 144 ) ( -984 3186 144 ) ( -984 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 3186 144 ) ( -2416 3186 144 ) ( -2416 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 3186 144 ) ( -2416 2474 144 ) ( -2416 2474 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall W
+{
+ guid "{ACCB0022-0000-4E0C-8A3F-0000000004A0}"
+ ( -2400 3186 0 ) ( -2416 3186 0 ) ( -2416 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 128 ) ( -2416 3186 128 ) ( -2400 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 2474 128 ) ( -2400 2474 128 ) ( -2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 2474 128 ) ( -2400 3186 128 ) ( -2400 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 3186 128 ) ( -2416 3186 128 ) ( -2416 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2416 3186 128 ) ( -2416 2474 128 ) ( -2416 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall E
+{
+ guid "{ACCB0023-0000-4E0C-8A3F-0000000004A0}"
+ ( -984 3186 0 ) ( -1000 3186 0 ) ( -1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2474 128 ) ( -1000 3186 128 ) ( -984 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2474 128 ) ( -984 2474 128 ) ( -984 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 2474 128 ) ( -984 3186 128 ) ( -984 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -984 3186 128 ) ( -1000 3186 128 ) ( -1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 3186 128 ) ( -1000 2474 128 ) ( -1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall S
+{
+ guid "{ACCB0024-0000-4E0C-8A3F-0000000004A0}"
+ ( -1000 2490 0 ) ( -2400 2490 0 ) ( -2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 2474 128 ) ( -2400 2490 128 ) ( -1000 2490 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 2474 128 ) ( -1000 2474 128 ) ( -1000 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2474 128 ) ( -1000 2490 128 ) ( -1000 2490 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 2490 128 ) ( -2400 2490 128 ) ( -2400 2490 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 2490 128 ) ( -2400 2474 128 ) ( -2400 2474 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// brush wall N
+{
+ guid "{ACCB0025-0000-4E0C-8A3F-0000000004A0}"
+ ( -1000 3186 0 ) ( -2400 3186 0 ) ( -2400 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 3170 128 ) ( -2400 3186 128 ) ( -1000 3186 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 3170 128 ) ( -1000 3170 128 ) ( -1000 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 3170 128 ) ( -1000 3186 128 ) ( -1000 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1000 3186 128 ) ( -2400 3186 128 ) ( -2400 3186 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -2400 3186 128 ) ( -2400 3170 128 ) ( -2400 3170 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
 }
 // entity 1
 {
@@ -1494,10 +1616,10 @@ guid "{FB5AD357-A4DC-429A-8A50-AD766502F23D}"
 guid "{D675F5DE-6967-45BF-98F7-31A98642A66F}"
 "classname" "volume_sun"
 "shadowSplitDistance" "800"
-"ssi" "default_day"
-"ssi1" "default_day"
-"ssi1_runtime_override" "default_day"
-"ssi2" "default_day"
+"ssi" "default_night"
+"ssi1" "default_night"
+"ssi1_runtime_override" "default_night"
+"ssi2" "default_night"
 "global_fill_color" "0 0 0"
 "global_fill_intensity" "1"
 "grid_density" "32"
@@ -2819,4 +2941,197 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000239}"
 "model" "_prefabs/zm/zm_core/power_switch.map"
 "origin" "2292 2800 1"
 "script_string" "vault"
+}
+// entity 115
+// ACC: reflection probes (docs/29 Phase 1.4) - one per zone center for wet-ground
+// neon reflections. Origins = avg of each zone's spawn risers, z=90 (~chest height).
+// Box sizes copied from a shipped probe (known-good); GROW the box to each zone's
+// extent + retune brightness in Radiant once you can see them. Baked: needs LED.
+{
+guid "{ACCEF001-0000-4E0B-8A3F-0000000003C1}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "-228 212 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_spawn"
+"placement_offset" "72"
+}
+// entity 116
+{
+guid "{ACCEF002-0000-4E0B-8A3F-0000000003C2}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "-1881 940 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_market"
+"placement_offset" "72"
+}
+// entity 117
+{
+guid "{ACCEF003-0000-4E0B-8A3F-0000000003C3}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "1920 900 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_alley"
+"placement_offset" "72"
+}
+// entity 118
+{
+guid "{ACCEF004-0000-4E0B-8A3F-0000000003C4}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "79 1948 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_corp"
+"placement_offset" "72"
+}
+// entity 119
+{
+guid "{ACCEF005-0000-4E0B-8A3F-0000000003C5}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "1719 2800 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_vault"
+"placement_offset" "72"
+}
+// entity 120
+{
+guid "{ACCEF006-0000-4E0B-8A3F-0000000003C6}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "-1719 2740 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_roof"
+"placement_offset" "72"
+}
+// entity 121
+{
+guid "{ACCEF007-0000-4E0B-8A3F-0000000003C7}"
+"classname" "reflection_probe"
+"ao_range" "38"
+"ao_strength_double_sided" "1"
+"brightnessAdjust" "0"
+"evcomp" "0"
+"origin" "19 3648 90"
+"resolution" "8x"
+"size_max" "712.25 544.75 198.25"
+"size_min" "634.5 548.5 73.25"
+"adaptive_quality_boost" "Off"
+"ao_power" "1"
+"ao_strength" "1"
+"blend_maxs" "3 3 3"
+"blend_mins" "3 3 3"
+"box" "1"
+"client_server" "ClientSide"
+"debugColor" "1 1 1"
+"grid_density" "0"
+"high_detail" "1"
+"in_play_space" "1"
+"inpaint_occluded_rays" "1"
+"name" "acc_probe_lab"
+"placement_offset" "72"
 }

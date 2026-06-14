@@ -6,6 +6,88 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — atmosphere & materials plan + Phase-1 fog (2026-06-13, branch `Wallpaper`)
+
+First pass at the map's *look* — turning the greybox (every face the placeholder
+`script_wall`/`script_floor_ceiling` tool material, flat `skybox_default_day`)
+into an **abandoned cyber city**. Driven by a 6-agent research workflow
+(install-prober + pipeline + stock-inventory + community-scout + art-director,
+then an adversarial verifier), all findings file-verified against the local Mod
+Tools install + the shipped `tmp/zm_alien_isolation` source.
+
+- **New design doc [docs/29_atmosphere_and_materials.md](docs/29_atmosphere_and_materials.md)** —
+  art direction (palette, low-key neon lighting, smog-night sky/fog), the
+  **build-vs-buy decision (~90% stock-skin, ~10% custom emissive/LUT, ~0% bespoke
+  modeling)**, the verified BO3 material/sky/fog pipeline, a **verified stock
+  asset shortlist** (`t7_*` walls/floors + `default_night` sky), per-zone art
+  direction for all 7 zones, a phased plan, Workshop **licensing policy**, the
+  trap list, and the open design decisions.
+- **New module `_acc_atmosphere.gsc`** (wired into `acc_main::init`, lint-clean,
+  `.zone`-registered): a cold city-haze `SetVolFog` applied after the initial
+  blackscreen. Fog is the ONE atmosphere lever that is pure GSC; the rest (night
+  sky, wet-ground re-skin, reflection probes) are Radiant/BSP edits. Every fog
+  parameter is live-tunable via `acc_fog_*` dvars (`acc_fog_livetune 1` re-applies
+  continuously so the look can be dialed from the console with no rebuild);
+  defaults `(0, 1600, 600, 0, 0.02, 0.03, 0.06, 0.70)`. `SetVolFog`'s 8-arg
+  signature + 0..1 float RGB confirmed against stock `load_shared.gsc:807`.
+- **Verifier caught two costly errors before any build:** (1) the
+  `zm_alien_isolation` material names (`black1_plaster`, `ayz_floor`,
+  `really_dirty_emissive`, …) are that author's **custom, unlicensed** assets, NOT
+  stock — they'd fail to resolve + can't ship; use the verified `t7_*` names.
+  (2) Face materials need **no** `.zone` line (the shipped map has 2 `material,`
+  lines for ~1017 materials); only non-face assets (LUT/sky/FX/decal) get listed.
+- **KB + hard-won facts updated:** [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md)
+  gains a Materials/Sky/Fog recipe; CLAUDE.md gains the face-token=material-name,
+  `default_night` ZM-safe sky, and alien-vocab-not-stock facts.
+- **Phase-1 `.map` flip applied (plain-text edits, buildable):** per the owner's
+  choices (full-send scope · bespoke-HDRI sky target · cyan/magenta/amber neon),
+  edited `map_source/zm/zm_abandoned_cyber_city.map`: worldspawn + `volume_sun`
+  sky → night (`skyboxmodel skybox_default_night`, all `ssi*=default_night`;
+  `wsi=default_night`, `fsi` stays `default` — the exact key-set a stock prefab
+  ships, byte-verified); all 546 wall faces → `t7_concrete_bare_weathered_01_dark`;
+  all 90 floor faces → `t7_concrete_floor_garage_cracked_wet_nw` (both byte-
+  verified in `t7_concrete.gdt`). Geometry untouched (2822 lines, 0 `havoc` refs).
+  `default_night` is the interim sky; the bespoke smog-orange HDRI is the locked
+  target (build kit in docs/29 §12.3). Needs a full build (cod2map64+LED+linker)
+  to render — the sky/material changes are BSP-baked. docs/29 §10 records the
+  locked decisions; §12 adds the per-zone / neon / HDRI-sky / vision build kits.
+- **Reflection probes (7) added to the `.map`** — one per zone, origins = the
+  average of each zone's spawn risers (z≈90), keys mirrored from a shipped probe,
+  unique guids, named `acc_probe_*`. They give the wet ground its neon reflections
+  (the #1 "cyberpunk city" signal; we had 0). First-pass box sizes — grow to each
+  zone's extent + retune in Radiant once visible. Baked → needs the LED pass.
+  Brush/brace balance verified (559/559), geometry intact.
+- **CREDITS.md added** (owner decision) — asset-provenance ledger + the
+  stock/original/CC0-only licensing policy; current assets are all stock+original.
+- **Phase-2 per-zone material differentiation** (`tools/apply_zone_materials.js`,
+  one-shot): classifies each wall/floor face by its own position (nearest zone
+  center) and swaps the global concrete for the zone's byte-verified `t7_*`
+  material. 5 built zones now read distinct — spawn=concrete, market=brick,
+  alley=black-metal+wet-asphalt, corp=stainless-steel, lab=brushed-steel+lab-floor.
+  Geometry byte-identical (braces 559/559, only material tokens changed). First
+  classifier used per-*brush* centroids — wrong for the greybox's large
+  zone-spanning brushes (lumped big shared walls into one zone); fixed to per-*face*.
+- **Finding (docs/29 §13): Vault + Roof have NO built room geometry** — 0 of the
+  636 wall/floor faces fall in their regions. The built greybox is a Spawn→Corp→Lab
+  spine + Market (west) + Alley (east); Vault/Roof are `info_volume` gameplay zones
+  + spawners only, no walls. They'll auto-skin when their rooms are built + the
+  tool re-runs. A map-construction gap to reconcile vs the "full 7-zone greybox"
+  status.
+- **Vault + Roof room shells injected** (`tools/gen_rooms.js`, one-shot): each room
+  = 6 worldspawn brushes (floor, ceiling, 4 walls), a **fully closed box** so it's
+  guaranteed leak-free + compiles clean. Winding copied verbatim from a verified
+  box brush (`acc_door_vault` slab); inset to avoid the door slabs; pre-skinned
+  (vault = grey metal + grate floor; roof = weathered concrete + wet asphalt).
+  Braces balanced (583/583). **Closed** = not reachable yet — cut the doorways in
+  Radiant (positions in docs/29 §13) to finish. Build-clean as-is (noclip in to
+  preview the skinned rooms). Audit in §13 confirmed the zone graph + doors +
+  spawners were already coherent — only the shells were missing.
+- **Neon emissive kit — copy-paste APE recipe** (docs/29 §12.2): step-by-step to
+  author the 3 cyan/magenta/amber emissive "dead sign" materials by duplicating a
+  shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
+  retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
+  landmark placement plan. Face tokens → no `.zone` line.
+
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 
 The perk/PaP info card (UI touchpoint 1, docs/27) is now a premium **LUI** widget,
