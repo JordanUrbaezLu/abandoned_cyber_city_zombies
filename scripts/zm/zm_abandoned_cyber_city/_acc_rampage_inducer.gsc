@@ -81,11 +81,14 @@ function spawn_device()
     level endon( "end_game" );
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    // Start-room spot clear of the box (-1881 1540 14) and PaP (-700 3700 7.5).
-    org = ( -1881, 1900, 14 );
+    // SPAWN PLAZA floor spot, inside start_zone (x[-1056..1094.5] y[-1073.5..928]),
+    // forward-left of the player spawn (info_player_start ~(-227.5,-476.5)) and clear
+    // of the spawn points + window barricade. Faces -Y toward the spawn so players see
+    // the kiosk front as they spawn in.
+    org = ( -600, 200, 14 );
 
     model = Spawn( "script_model", org );
-    model.angles = ( 0, 180, 0 );
+    model.angles = ( 0, 270, 0 );
     model SetModel( "p7_zm_vending_nuke" ); // already loaded by our .map; reads as a kiosk
     model.targetname = "acc_rampage_inducer_model";
     level.acc_rampage_device_model = model;

@@ -87,6 +87,28 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 1 — PaP HUD/flicker, rampage in spawn (2026-06-13, MajorImprovements)
+
+First slice of the 9-item overhaul (full code-cited tracker: **docs/29_overhaul_checklist.md**,
+built from a 15-agent audit: per-perk requirement→code proof + per-area gaps/fixes).
+- **(1) PaP tier HUD → bottom-right** (`_acc_pap_levels::pap_hud_loop`, was bottom-left).
+- **(9) Multi-pack flicker fixed:** the stock `pack_a_punch_machine_trigger_think`
+  VISIBILITY loop (0.1s) kept re-showing the stock trigger for upgraded guns and
+  fought our 0.25s `pap_tier_visibility` → hint flicker. We now `notify(
+  "pack_a_punch_trigger_think")` to stop ONLY that visibility loop (the first-pack USE
+  handler `vending_weapon_upgrade` is a separate thread and still works); our loop
+  owns the stock trigger's visibility (shown un-upgraded / hidden upgraded). Re-killed
+  each tick for robustness.
+- **(4) Rampage Inducer relocated into the spawn plaza** (`(-1881,1900)`→`(-600,200,14)`,
+  inside `start_zone`, facing spawn). The device + enrage effect were already
+  implemented/wired; it was just spawning outside the start room. (Audit also notes
+  an optional BO4/CW timed-enrage mode — deferred.)
+
+Audit headline gaps queued (docs/29): ~30 perk benefits claimed-but-unimplemented
+(several GSC-impossible — recoil/fire-rate/move-speed — need weapon-GDT or card
+re-scope); damage numbers + boss bar need the world-space `NewClientHudElem` +
+`SetWaypoint(TRUE)` rewrite; arsenal strip to ICR-1 (`ar_accurate`) + Man-O-War
+(`ar_damage`); PaP card next-tier-only; real perk-icon glow; room-halving (high risk).
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 

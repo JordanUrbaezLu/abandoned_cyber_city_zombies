@@ -103,7 +103,18 @@ function pap_tier_machine_watcher()
     }
 
     for ( i = 0; i < triggers.size; i++ )
+    {
+        // FLICKER FIX: kill the stock VISIBILITY loop (pack_a_punch_machine_trigger_think,
+        // _zm_pack_a_punch.gsc:311 - a separate thread from the USE handler). It re-shows
+        // the stock trigger every 0.1s for upgraded guns (weapon_supports_aat ignores
+        // aat_in_use) and fights our 0.25s pap_tier_visibility -> the multi-pack hint
+        // flickers. Notifying its endon ("pack_a_punch_trigger_think") stops ONLY that
+        // visibility loop; the first-pack USE handler (vending_weapon_upgrade) is a
+        // different thread and still works, and our pap_tier_visibility already shows the
+        // stock trigger for un-upgraded guns / hides it for upgraded, so it owns visibility.
+        triggers[ i ] notify( "pack_a_punch_trigger_think" );
         level thread pap_tier_trigger_think( triggers[ i ] );
+    }
     acc_utility::log( "pap_levels: tier re-pack trigger on " + triggers.size + " machine(s)" );
 }
 
@@ -168,6 +179,12 @@ function pap_tier_visibility( t_stock )
 
     for ( ;; )
     {
+        // Keep the stock visibility loop dead (idempotent; a no-op if already gone) in
+        // case anything re-threads pack_a_punch_machine_trigger_think. Belt-and-suspenders
+        // for the flicker fix so the stock trigger never competes with ours.
+        if ( isdefined( t_stock ) )
+            t_stock notify( "pack_a_punch_trigger_think" );
+
         players = GetPlayers();
         for ( i = 0; i < players.size; i++ )
         {
@@ -316,8 +333,9 @@ function pap_hud_loop()
     level endon( "end_game" );
 
     self.acc_pap_hud = self hud::createFontString( "default", 1.4 );
-    self.acc_pap_hud hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 14, -55 );
-    self.acc_pap_hud.alignX = "left";
+    // Bottom-RIGHT, above the stock ammo counter, so the tier reads next to the gun.
+    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -100 );
+    self.acc_pap_hud.alignX = "right";
     self.acc_pap_hud.alignY = "middle";
     self.acc_pap_hud.color = ( 0.7, 0.45, 1.0 );
     self.acc_pap_hud.alpha = 0;
