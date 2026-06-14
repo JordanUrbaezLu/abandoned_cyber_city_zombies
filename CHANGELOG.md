@@ -87,6 +87,23 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   shipped emissive (`door_light_emissive` et al., verified in the alien GDT) and
   retinting (`colorTint` RGBs given), + source-image specs, build steps, and the
   landmark placement plan. Face tokens → no `.zone` line.
+### Overhaul batch 5 — boss bar + rampage root causes (2026-06-13)
+
+- **Boss bar "top-left, not over the boss" — root cause found + fixed.** `SetShader`
+  RESETS a HudElem's waypoint anchor, so resizing the bar every 0.1s dumped it back to
+  screen-space (0,0). That's exactly why the STATIC black bg used to sit over the boss
+  but the RESIZING red fill did not — and after batch 4 removed the bg, nothing was left
+  over the boss at all. Fix: in `boss_bar_track`, re-apply `SetWaypoint(false)` +
+  `SetTargetEnt(boss)` in the SAME frame right after each `SetShader` (no wait between →
+  no flicker). The bar now follows the boss, shrinks with health, AND runs
+  green→amber→red so it doubles as a "which one is the boss" marker.
+- **Rampage Inducer toggle + persistence — root cause found + fixed.** A leftover dvar
+  watcher (`watch_dvar_toggle`) polled `acc_rampage` (default 0) every second and
+  *deactivated* a device-activated rampage ~1s later — exactly "zombies sprint for a few
+  seconds then go back to normal" and "the device hint never flips to OFF / always says
+  turn on." Made the watcher ACTIVATE-ONLY (it can still force ON for console testing);
+  the in-map device is now the sole on/off toggle and its activation persists.
+
 ### Overhaul batch 4 — proper fixes after batch-3 feedback (2026-06-13)
 
 - **PaP gun-steal fixed at the ROOT:** deleted the parallel `acc_pap_tier` trigger

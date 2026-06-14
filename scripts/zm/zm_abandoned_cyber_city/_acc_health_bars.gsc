@@ -144,10 +144,21 @@ function boss_bar_track( boss, name )
         if ( frac > 1 ) frac = 1;
         w = int( ACC_BOSS_OH_W * frac );
         if ( w < 1 ) w = 1;
+        col = boss_hp_color( frac );
         for ( i = 0; i < sets.size; i++ )
         {
-            if ( isdefined( sets[ i ].fill ) )
-                sets[ i ].fill SetShader( "white", w, ACC_BOSS_OH_H );
+            f = sets[ i ].fill;
+            if ( !isdefined( f ) ) continue;
+
+            // ROOT CAUSE of "boss bar shows top-left, not over the boss": SetShader
+            // RESETS the elem's waypoint state, so resizing the bar each frame dumped
+            // it back to screen-space (0,0). That's why the STATIC bg used to sit over
+            // the boss but the RESIZING fill did not. Re-apply the waypoint anchor in
+            // the SAME frame right after SetShader (no wait between -> no flicker).
+            f SetShader( "white", w, ACC_BOSS_OH_H );
+            f SetWaypoint( false );
+            f SetTargetEnt( boss );
+            f.color = col;
         }
         wait 0.1;
     }
@@ -161,21 +172,30 @@ function make_boss_bar_set( player, boss, name )
 {
     s = SpawnStruct();
 
-    // ONE red "health bar" icon over the boss. Last test: a black bg + red fill at the
-    // SAME world target rendered as just the black box - overlapping world-space waypoints
-    // don't layer reliably, so we use a SINGLE elem. Its WIDTH = the health fraction, so
-    // the bar shrinks as the boss dies. (No text name - text can't render on a world elem.)
+    // ONE "health bar" icon over the boss. SINGLE elem (overlapping world-space
+    // waypoints don't layer, so no separate bg). Its WIDTH = the health fraction so
+    // the bar shrinks as the boss dies, and its COLOR runs green->amber->red so it
+    // doubles as a "which one is the boss" marker even at full health. The per-frame
+    // resize re-anchors the waypoint (see boss_bar_track) because SetShader clears it.
     fill = NewClientHudElem( player );
     fill.archived = false;
     fill.alignX = "center"; fill.alignY = "middle";
     fill.x = 0; fill.y = 0; fill.z = 76;
-    fill.color = ( 0.95, 0.12, 0.12 ); fill.alpha = 1.0;
+    fill.color = boss_hp_color( 1.0 ); fill.alpha = 1.0;
     fill SetShader( "white", ACC_BOSS_OH_W, ACC_BOSS_OH_H );
     fill SetWaypoint( false );
     fill SetTargetEnt( boss );
 
     s.fill = fill;
     return s;
+}
+
+// Boss overhead bar tint: green (healthy) -> amber -> red (nearly dead).
+function boss_hp_color( frac )
+{
+    if ( frac > 0.66 ) return ( 0.25, 0.9, 0.3 );
+    if ( frac > 0.33 ) return ( 0.95, 0.78, 0.15 );
+    return ( 0.95, 0.12, 0.12 );
 }
 
 function destroy_boss_bar_set( s )

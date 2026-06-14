@@ -247,11 +247,14 @@ function watch_dvar_toggle()
 
     for ( ;; )
     {
+        // ACTIVATE-ONLY. The old deactivate-when-dvar==0 branch FOUGHT the device
+        // toggle: acc_rampage defaults to 0, so it deactivated a device-activated
+        // rampage ~1s later -> "zombies sprint for a few seconds then go back to
+        // normal" + the device hint never flipped to OFF. The device (rampage_trigger_think)
+        // is the sole toggle now; the dvar can still force it ON for console testing.
         want_on = ( getdvarint( "acc_rampage", 0 ) == 1 );
         if ( want_on && !IS_TRUE( level.acc_rampage_active ) )
             activate();
-        else if ( !want_on && IS_TRUE( level.acc_rampage_active ) )
-            deactivate();
         wait 1;
     }
 }
