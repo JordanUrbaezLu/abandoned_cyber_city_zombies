@@ -22,6 +22,23 @@
 
 local ACC_CARD_BULLETS = 6
 
+-- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit/tier_repack_cost).
+local function pap_tier_benefit(tier)
+    if tier == 1 then return "Pack-a-Punch your gun (camo + alt-ammo)" end
+    if tier == 2 then return "+25pct weapon damage" end
+    if tier == 3 then return "+55pct weapon damage" end
+    if tier == 4 then return "+90pct weapon damage" end
+    if tier == 5 then return "+130pct weapon damage (MAX)" end
+    return ""
+end
+local function pap_tier_cost(tier)
+    if tier == 2 then return 2500 end
+    if tier == 3 then return 5000 end
+    if tier == 4 then return 7500 end
+    if tier == 5 then return 10000 end
+    return 0 -- tier 1 is the free first pack via the machine
+end
+
 -- Perk card content. Index MUST match _acc_perk_info::perk_card_index. "pct" is
 -- intentional (kept consistent with the GSC text); switch to "%" later if desired.
 local AccPerkCards = {
@@ -112,6 +129,9 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         CardBullets[i] = NewLine(84 + (i - 1) * 28, 110 + (i - 1) * 28, 0.85)
     end
 
+    local papTier = 0
+    local cardModel = Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPerkCard")
+
     local function RenderCard(ModelRef)
         local code = Engine.GetModelValue(ModelRef)
         if not code or code == 0 then
@@ -128,11 +148,24 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
 
         local title, sub, bullets, titleCol, bulletCol
         if idx == 10 then
+            -- Pack-a-Punch: show ONLY the next tier you'd get (not the whole ladder).
             title = d.title
-            sub = "Re-pack to raise tier (scaling cost)"
-            bullets = d.base
             titleCol = { 0.72, 0.45, 1.0 }
             bulletCol = { 0.80, 0.66, 1.0 }
+            if papTier >= 5 then
+                sub = "Tier 5 / 5 - MAX"
+                bullets = { "+130pct weapon damage - fully maxed" }
+            else
+                local nextTier = papTier + 1
+                sub = "Tier " .. papTier .. " / 5 - re-pack to raise"
+                local costLine
+                if pap_tier_cost(nextTier) > 0 then
+                    costLine = "Cost: " .. pap_tier_cost(nextTier) .. " Points"
+                else
+                    costLine = "Use the Pack-a-Punch machine"
+                end
+                bullets = { "Next - Tier " .. nextTier .. ": " .. pap_tier_benefit(nextTier), costLine }
+            end
         elseif mode == 1 then
             title = "MEGA: " .. (d.megaName or d.title)
             sub = "Upgrade: 1 Mega Bottle"
@@ -175,7 +208,14 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         self:show()
     end
 
-    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPerkCard"), RenderCard)
+    self:subscribeToModel(cardModel, RenderCard)
+
+    -- PaP tier: update + re-render the card (only matters while the PaP card is up).
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPapTier"), function(m)
+        papTier = Engine.GetModelValue(m) or 0
+        RenderCard(cardModel)
+    end)
+
     self:hide()
     return self
 end
