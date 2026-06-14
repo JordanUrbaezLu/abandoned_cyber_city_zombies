@@ -39,6 +39,18 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
 - **KB + hard-won facts updated:** [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md)
   gains a Materials/Sky/Fog recipe; CLAUDE.md gains the face-token=material-name,
   `default_night` ZM-safe sky, and alien-vocab-not-stock facts.
+- **Phase-1 `.map` flip applied (plain-text edits, buildable):** per the owner's
+  choices (full-send scope · bespoke-HDRI sky target · cyan/magenta/amber neon),
+  edited `map_source/zm/zm_abandoned_cyber_city.map`: worldspawn + `volume_sun`
+  sky → night (`skyboxmodel skybox_default_night`, all `ssi*=default_night`;
+  `wsi=default_night`, `fsi` stays `default` — the exact key-set a stock prefab
+  ships, byte-verified); all 546 wall faces → `t7_concrete_bare_weathered_01_dark`;
+  all 90 floor faces → `t7_concrete_floor_garage_cracked_wet_nw` (both byte-
+  verified in `t7_concrete.gdt`). Geometry untouched (2822 lines, 0 `havoc` refs).
+  `default_night` is the interim sky; the bespoke smog-orange HDRI is the locked
+  target (build kit in docs/29 §12.3). Needs a full build (cod2map64+LED+linker)
+  to render — the sky/material changes are BSP-baked. docs/29 §10 records the
+  locked decisions; §12 adds the per-zone / neon / HDRI-sky / vision build kits.
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 

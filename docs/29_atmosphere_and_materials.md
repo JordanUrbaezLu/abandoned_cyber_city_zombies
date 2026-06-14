@@ -265,19 +265,17 @@ legally redistributable.
 
 ---
 
-## 10. Open design decisions (need owner input)
+## 10. Decisions (locked 2026-06-13)
 
-1. **Sky:** stock `default_night` (clean, zero-asset, star/moon dome) vs a bespoke
-   smog-orange neon-night HDRI (Phase 3 cost). Is `default_night` enough for v1.0?
-2. **Color grade:** keep `luts_t7_default`, switch to stock `zm_factory.vision`
-   (free dark grade), or author a custom teal-crush `.vision` (Phase 3)?
-3. **Fog tuning:** single global `SetVolFog`, or per-zone tuning (lighter hub/
-   Vault/Lab)? Per-zone is more work, better mood/gameplay balance.
-4. **Neon palette:** confirm cyan="live tech" / magenta="dead nightlife" /
-   amber="dying power" so the emissive kit is authored once and reused.
-5. **v1.0 art ceiling:** is Phase 1 the ceiling until systems ship, or do we do
-   Phase 2 per-zone skins in this pass too?
-6. **Credits file** for any CC0 use (recommended even though not required)?
+| Decision | Choice |
+|---|---|
+| **Sky** | **Bespoke smog-orange neon-night HDRI** (Phase 3 target). Interim: stock `default_night` is set in the `.map` now so the map builds to night immediately; swap to the custom sky once its APE assets exist (build kit in §12.3). |
+| **Art scope** | **Full send** — Phases 1+2+3 (night/fog/wet ground → per-zone skins → hero surfaces + custom sky/grade). Not time-boxed to Phase 1. |
+| **Neon palette** | **Cyan / magenta / amber.** Cyan = live tech (screens, PaP, healthy signage); magenta = dead nightlife (market); amber = dying/emergency power. Emissive kit authored once, reused (§12.2). |
+| **.map work** | **I do the plain-text flip** (sky keys + global wall/floor swap, done); per-face/per-zone paint + APE authoring are on the Windows box (Radiant/APE). |
+| **Color grade** | Custom cool/teal-crush `.vision` in Phase 3 (§12.4). Interim `luts_t7_default`. |
+| **Fog** | Global `SetVolFog` first; per-zone tuning later if needed (lighter hub/Vault/Lab). |
+| **Credits file** | Yes — keep a `CREDITS.md` provenance note for any CC0 asset (takedown-defense), even though CC0 needs none. |
 
 ---
 
@@ -286,12 +284,96 @@ legally redistributable.
 | Item | State |
 |---|---|
 | Fog hook (`_acc_atmosphere.gsc`) | ✅ implemented, wired into `acc_main::init`, lint-clean, `.zone`-registered |
-| Night sky (`default_night` SSI swap) | ⬜ Radiant edit (Phase 1.1) |
-| Wet-ground re-skin (stock `t7_*`) | ⬜ Radiant edit (Phase 1.3) |
-| Reflection probes | ⬜ Radiant edit (Phase 1.4) |
-| Neon emissive kit | ⬜ APE authoring (Phase 1.5 / 2) |
-| Per-zone skins | ⬜ Phase 2 |
-| Custom sky / grade / skyline | ⬜ Phase 3 (deferred) |
+| Night sky (`default_night` interim) | ✅ set in `.map` worldspawn + `volume_sun` (skyboxmodel `skybox_default_night`, all `ssi*=default_night`); **needs a full build** (cod2map64+LED+linker) to render |
+| Global wall skin (`t7_concrete_bare_weathered_01_dark`) | ✅ all 546 wall faces in `.map`; needs build |
+| Global wet floor (`t7_concrete_floor_garage_cracked_wet_nw`) | ✅ all 90 floor faces in `.map`; needs build |
+| Reflection probes | ⬜ Radiant entity placement (Phase 1.4) |
+| Per-zone skins | ⬜ Radiant face-paint, spec'd in §12.1 (Phase 2) |
+| Neon emissive kit | ⬜ APE authoring, spec'd in §12.2 (Phase 2) |
+| Bespoke HDRI sky | ⬜ APE authoring, build kit in §12.3 (Phase 3) |
+| Custom `.vision` grade | ⬜ §12.4 (Phase 3) |
+| Rooftop skyline backdrop | ⬜ §12.5 (Phase 3) |
+
+> **To see the flip:** sync → `cod2map64` → `radiant_modtools -ledSilent +recompute`
+> (LED relight is mandatory) → `linker`. The fog (script-only) would rebuild with
+> linker alone, but the sky + material changes are BSP-baked and need the full pass.
+
+---
+
+## 12. Build kits (full-send, locked decisions)
+
+Concrete, do-this specs for the parts that need the Windows box (Radiant face-paint
++ APE asset authoring). Names marked `confirm-in-APE` — verify the exact token in
+the material browser before painting (a typo ships a checkerboard).
+
+### 12.1 Per-zone material map (Phase 2, Radiant face-paint)
+
+Repaint per zone over the global concrete base. Walls/floors are stock `t7_*`;
+glass/metal accents confirm-in-APE.
+
+| Zone | Walls | Floor | Accent |
+|---|---|---|---|
+| Spawn Plaza | `t7_concrete_bare_weathered_01_dark` (base) | `t7_concrete_floor_garage_cracked_wet_nw` | — |
+| Undercity Market | `t7_metal_corrugated_rust` *(confirm)* + `t7_concrete_poured_bunker_dirty_01_wet` | `t7_concrete_bare_dark_01_wet` + debris | rust streaks (`t7_decal_grunge` confirm) |
+| Service Alley | `t7_metal_duct_insulation_01_grey` | `t7_asphalt_damaged_dark_wet` | pipe/duct props |
+| Corporate Plaza (hub) | `t7_glass_dirty_streaks_cracked` *(confirm)* + `t7_concrete_poured_bunker_dirty_01` | `t7_concrete_floor_garage_cracked_wet_nw` (polished read) | broken curtain wall |
+| Server Vault | `t7_metal_duct_insulation_01_grey` (rack read) | dark grating *(confirm `t7_metal_*grate*`)* | rack-LED emissive (§12.2) |
+| Rooftop Helipad | `t7_concrete_bare_weathered_01` | `t7_asphalt_damaged_dark_wet` (wet pad) | faded "H" decal |
+| Subterranean Lab | `t7_concrete_bare_weathered_01_dark` + panel *(confirm `t7_metal_panel_*`)* | `t7_concrete_floor_garage_cracked_wet_nw` | machine emissive glow |
+
+### 12.2 Neon emissive kit (Phase 2, APE) — cyan / magenta / amber
+
+Author ONE small GDT `acc_neon` (save in `<tools>\source_data`), three emissive
+"dead sign" materials, reused as landmarks (not per-zone bespoke):
+
+| Material | Color (emissive) | Use |
+|---|---|---|
+| `mtl_acc_neon_cyan` | `#19E0FF` | live tech — Corp logo, hack screen, Lab/PaP machines, Spawn district sign |
+| `mtl_acc_neon_magenta` | `#FF2E88` | dead nightlife — Market stall signs/ad boards |
+| `mtl_acc_neon_amber` | `#FF8A1E` | dying power — Alley hazard panel, Vault rack LEDs + Overload core, bulkheads |
+
+APE: `materialType = lit` with an **emissive** colorMap (a self-lit `.tif`),
+`materialCategory = Geometry`, **real `surfaceType`** (never `error`), power-of-2
+TIFF. Painted as face tokens → **no `.zone` line**. Flicker: script-pulse a few
+emissive light entities for the "dead signage" stutter (small GSC follow-up; can
+extend `_acc_atmosphere.gsc`).
+
+### 12.3 Bespoke smog-orange HDRI sky (Phase 3, APE) — the locked sky target
+
+Replaces the interim `default_night`. Steps:
+1. **Source** a CC0 **night-city** equirectangular HDRI from **Poly Haven**
+   (e.g. a "dikhololo_night" / urban-night / "moonless_golf"-style dark sky;
+   pick one with a low warm horizon glow for the smog-orange read). CC0 → ship-safe.
+   Keep it `.exr`/`.hdr`, equirectangular (convert a cubemap to panorama first).
+2. **Image asset** (`image.gdf`): `baseImage` = the `.exr`, `semantic = HDR`,
+   `coreSemantic = HDR`.
+3. **Sky material** (`material.gdf`): `materialType = sky_latlong_hdr`,
+   `materialCategory = Geometry`, `colorMap` = that HDR image. Name `mtl_acc_sky_citynight`.
+4. **Sky xmodel**: an inverted sky-sphere with that material at LOD0. Name
+   `acc_skybox_citynight` (duplicate/retarget a stock sky sphere).
+5. **SSI** (`ssi.gdf`): `acc_ssi_citynight`, `skyboxmodel = acc_skybox_citynight`,
+   cool low sun color, low `ev/stops`, `enablesun = 1`.
+6. **Wire** in the `.map`: worldspawn `skyboxmodel` → `acc_skybox_citynight`;
+   `volume_sun` `ssi*` → `acc_ssi_citynight`. **Never** `mp_havoc`.
+7. **`.zone` lines** (NOT face-referenced, so required):
+   `xmodel,acc_skybox_citynight` + `material,mtl_acc_sky_citynight` + `image,<hdr_image>`.
+8. Decide a repo home for `acc_neon`/`acc_sky` GDT + source `.exr`/`.tif` and pin
+   `baseImage` paths, or a fresh machine can't rebuild (see §9 risks).
+
+### 12.4 Cool color grade (Phase 3)
+
+Author `rawfile,vision/zm_abandoned_cyber_city.vision` — cool color temp, blue/cyan
+grade nodes, slight desaturation. Apply via `SetVisionSet` at level start. Add the
+`rawfile,vision/...` `.zone` line. Linker-only rebuild. (Interim: `luts_t7_default`,
+or reuse stock `zm_factory.vision` for a free dark grade.)
+
+### 12.5 Rooftop skyline backdrop (Phase 3)
+
+Cheap 2D/cutout far-tower silhouette with sparse dead-neon dots behind the Helipad —
+fully original (no license risk), high atmosphere-per-effort, sells the "whole dead
+city" establishing read.
+
+---
 
 Research dossier (full agent findings + sources) is in the workflow transcript;
 verified facts are distilled here and in
