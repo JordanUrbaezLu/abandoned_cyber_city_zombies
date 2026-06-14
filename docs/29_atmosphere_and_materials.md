@@ -409,6 +409,39 @@ walls or floor.
 - Reflection probes were still placed for all 7 zones (harmless — an unused probe
   in an unbuilt zone just captures nothing until geometry exists).
 
+### Audit: what exists vs what's missing (verified 2026-06-13)
+
+The **wiring is coherent** — only the room shells are absent:
+- **Zone graph** (entry script `main()`): `corp_zone↔vault_zone` (`enter_vault`),
+  `corp_zone↔roof_zone` (`enter_roof`), `vault_zone↔lab_zone` (`enter_lab_e`),
+  `roof_zone↔lab_zone` (`enter_lab_w`). ✅ both Lab approaches wired.
+- **Doors** (`trigger_use` `zombie_door` + sliding `script_brushmodel` slab,
+  `script_vector "0 0 130"`): all four exist with valid slab boxes at the zone
+  boundaries — `acc_door_vault`/`acc_door_roof` (1250 pts, Corp side),
+  `acc_door_lab_e`/`acc_door_lab_w` (1500 pts, Lab side). ✅
+- **Spawners + features** in vault/roof: ✅ (risers, power switch `vault` at
+  x2292 y2800, frag/EMP + sniper wallbuys, Overload/Helipad triggers).
+- **Room shells (floor/ceiling/walls): ❌ MISSING** — this is the entire gap.
+
+### Build spec — the two missing rooms (Radiant, NOT blind text)
+
+Room geometry must **seal** (a BSP leak = failed build) and can't be leak-checked
+without Radiant, so build these in Radiant rather than hand-authored `.map` text.
+Approx. extents (from the door slabs + spawner positions; refine visually):
+
+| Room | Floor footprint (x, y) | Doors (openings to leave) | Ceiling |
+|---|---|---|---|
+| **Server Vault** | x **[960 .. 2400]**, y **[2480 .. 3180]** | west edge x≈969: **y≈2320–2536** → Corp (`acc_door_vault`); **y≈3120–3336** → Lab (`acc_door_lab_e`) | z≈256 (floor z0) |
+| **Rooftop Helipad** | x **[-2400 .. -940]**, y **[2480 .. 3180]** | east edge x≈-950: **y≈2320–2536** → Corp (`acc_door_roof`); **y≈3120–3336** → Lab (`acc_door_lab_w`) | open/high (it's a roof) |
+
+Per room: a floor brush, perimeter walls (leave the two door-width gaps where the
+sliding slabs sit), and a ceiling (Vault) or low parapet walls + sky-open top
+(Roof). Texture as caulk/`script_wall`; then **re-run `tools/apply_zone_materials.js`**
+and it auto-applies vault = `t7_metal_painted_wall_dirty_grey` + `t7_metal_grate_flooring`,
+roof = `t7_concrete_bare_weathered_01` + `t7_asphalt_damaged_dark_wet`. Place a
+`reflection_probe` is already done (one sits at each zone center). Verify no leak
+in the compile log, then the per-zone atmosphere is complete.
+
 ---
 
 Research dossier (full agent findings + sources) is in the workflow transcript;
