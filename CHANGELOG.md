@@ -51,6 +51,14 @@ Tools install + the shipped `tmp/zm_alien_isolation` source.
   target (build kit in docs/29 §12.3). Needs a full build (cod2map64+LED+linker)
   to render — the sky/material changes are BSP-baked. docs/29 §10 records the
   locked decisions; §12 adds the per-zone / neon / HDRI-sky / vision build kits.
+- **Reflection probes (7) added to the `.map`** — one per zone, origins = the
+  average of each zone's spawn risers (z≈90), keys mirrored from a shipped probe,
+  unique guids, named `acc_probe_*`. They give the wet ground its neon reflections
+  (the #1 "cyberpunk city" signal; we had 0). First-pass box sizes — grow to each
+  zone's extent + retune in Radiant once visible. Baked → needs the LED pass.
+  Brush/brace balance verified (559/559), geometry intact.
+- **CREDITS.md added** (owner decision) — asset-provenance ledger + the
+  stock/original/CC0-only licensing policy; current assets are all stock+original.
 
 ### Changed — perk info card rebuilt in premium LUI (2026-06-13)
 

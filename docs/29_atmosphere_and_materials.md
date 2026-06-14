@@ -287,7 +287,7 @@ legally redistributable.
 | Night sky (`default_night` interim) | ✅ set in `.map` worldspawn + `volume_sun` (skyboxmodel `skybox_default_night`, all `ssi*=default_night`); **needs a full build** (cod2map64+LED+linker) to render |
 | Global wall skin (`t7_concrete_bare_weathered_01_dark`) | ✅ all 546 wall faces in `.map`; needs build |
 | Global wet floor (`t7_concrete_floor_garage_cracked_wet_nw`) | ✅ all 90 floor faces in `.map`; needs build |
-| Reflection probes | ⬜ Radiant entity placement (Phase 1.4) |
+| Reflection probes | ✅ 7 placed in `.map` (one per zone center, z≈90, named `acc_probe_*`); **grow the box to each zone's extent + retune brightness in Radiant** once visible. Baked → needs the LED pass |
 | Per-zone skins | ⬜ Radiant face-paint, spec'd in §12.1 (Phase 2) |
 | Neon emissive kit | ⬜ APE authoring, spec'd in §12.2 (Phase 2) |
 | Bespoke HDRI sky | ⬜ APE authoring, build kit in §12.3 (Phase 3) |
