@@ -217,6 +217,10 @@ function spawn_brutus()
 	
 	brutus thread track_helmet(); 
 	
+	// [acc] hand the live actor to our boss module (_acc_boss_brutus::spawn_one), which
+	// layers on our health bar + 10x HP + +25% speed + Mega-Bottle/boss-item rewards.
+	level.acc_brutus_last = brutus;
+	level notify( "acc_brutus_spawned" );
 	brutus ForceTeleport( spot.origin, spot.angles, 1 );
 	brutus AnimScripted( "note_notify", brutus.origin, brutus.angles, %brutus_spawn ); 
 	PlayFx( SPAWN_FX, brutus.origin ); 
@@ -225,13 +229,6 @@ function spawn_brutus()
 
 	// brutus thread debug_health();
 	brutus thread custom_find_flesh(); 
-	// [acc] hand the live actor to our boss module only after the pack's
-	// ForceTeleport + spawn AnimScripted sequence is complete. Starting our
-	// boss bar/watchers/buff threads during that transition can hard-CTD the
-	// engine on round-5 Brutus spawns; this preserves Brutus visuals/gameplay
-	// while avoiding concurrent mutation of the spawning custom AI.
-	level.acc_brutus_last = brutus;
-	level notify( "acc_brutus_spawned" );
 	if( level.brutus_lock_machines )
 		brutus thread watch_for_machines(); 
 }

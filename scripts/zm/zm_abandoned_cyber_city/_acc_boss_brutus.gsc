@@ -45,10 +45,9 @@ function spawn_one()
 
     level.acc_brutus_last = undefined;
     level thread brutus::spawn_brutus();
-    // The vendored hook notifies after the pre-spawn telegraph + spawn animation
-    // complete, so our boss systems never mutate the custom AI during that fragile
-    // transition. Give slow machines enough room before treating it as a failure.
-    level util::waittill_any_timeout( 30, "acc_brutus_spawned" );
+    // 15s is comfortably past the pack's short pre-spawn telegraph; a real failure
+    // (no spawn spot / dog round) just times out and returns undefined.
+    level util::waittill_any_timeout( 15, "acc_brutus_spawned" );
 
     return level.acc_brutus_last;
 }
