@@ -210,11 +210,14 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     // brutus_movement_fix.
     host thread brutus_movement_fix();
 
-    // Keep the risky live-AI mutation layer opt-in. The NSZ Brutus pack is stable
-    // as a normal-sized actor, but SetScale on the live AI has caused round-5
-    // spawn CTDs on hardware. Leave the boss threatening through HP/rewards/bar
-    // and the safer movement fix; use dvars only when intentionally bisecting.
+    // === ISOLATION (2026-06-14): SIZE-BUFF TEST ==============================
+    // Safe layer above proven clean (killed cleanly, no crash). Now testing the
+    // SIZE buff in isolation: apply_brutus_buffs is re-enabled but acc_brutus_speed
+    // now defaults OFF (line ~256), so ONLY SetScale(+50%) runs by default. If the
+    // crash returns, SetScale on the live AI is the confirmed culprit. To also test
+    // speed live: console `acc_brutus_speed 1`; to skip size: `acc_brutus_scale 0`.
     host thread apply_brutus_buffs();
+    // =========================================================================
 
     acc_utility::log( "spawned Brutus mini-boss (" + host.maxhealth + " hp)" );
 }
@@ -225,10 +228,11 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
 // spawn animation; custom_find_flesh (which makes him charge) is threaded only AFTER that
 // anim. Mutating the actor's SCALE or ASM ANIM-RATE across that spawn -> move transition
 // is what crashed the spawn ~1-2s in (visible spawn, then CTD). We wait until he is fully
-// in and charging, THEN apply only explicitly enabled buffs:
-//   acc_brutus_scale 1  -> enable the +50% size test (SetScale on the live AI)
-//   acc_brutus_speed 1  -> enable the +25% speed think (ASM anim-rate)
-// Defaults stay OFF so round-5 Brutus spawns do not crash normal playtests.
+// in and charging, THEN apply the buffs. Each is dvar-gated (default ON) so a remaining
+// crash can be bisected LIVE, no rebuild:
+//   acc_brutus_scale 0  -> skip the +50% size (SetScale on the live AI)
+//   acc_brutus_speed 0  -> skip the +25% speed think (ASM anim-rate)
+// If it still crashes with BOTH at 0, the cause is the base pack spawn, not our buffs.
 function apply_brutus_buffs()
 {
     self endon( "death" );
@@ -245,15 +249,17 @@ function apply_brutus_buffs()
     if ( !isalive( self ) ) return;
     wait 0.5; // small settle margin after he is moving
 
-    // +50% model, opt-in only. The helmet is LinkTo'd to j_head, so it inherits this
-    // scale from the parent automatically - do NOT SetScale it again.
-    if ( getdvarint( "acc_brutus_scale", 0 ) != 0 )
+    // +50% model. The helmet is LinkTo'd to j_head, so it inherits this scale from the
+    // parent automatically - do NOT SetScale it again (that double-scaled it to 2.25x
+    // and floated it off the head).
+    if ( getdvarint( "acc_brutus_scale", 1 ) != 0 )
         self SetScale( ACC_BRUTUS_SCALE );
 
     // +25% over the round's sprint tier (re-asserted on a cadence). boss_speed_think
     // locks the run cycle to "sprint" and scales his anim-driven movement +25% on top,
     // so he outruns even a rampage-sprinting wave.
-    // Default OFF until the base Brutus spawn is stable across playtests.
+    // NOTE: default OFF for now (size-buff isolation test, 2026-06-14) - flip with
+    // `acc_brutus_speed 1` once SetScale is cleared / the movement fix lands.
     if ( getdvarint( "acc_brutus_speed", 0 ) != 0 )
         self thread boss_speed_think();
 }
