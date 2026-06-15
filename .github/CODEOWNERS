@@ -1,0 +1,7 @@
+# CODEOWNERS — abandoned_cyber_city_zombies
+#
+# Every change to this repository requires review from the repository owner.
+# (Enforce by enabling branch protection on `main` with
+#  "Require review from Code Owners".)
+
+* @JordanUrbaezLu
