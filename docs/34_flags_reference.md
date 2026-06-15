@@ -111,8 +111,8 @@ defaults **ON** (set `0` to disable); everything else defaults off.
 | `acc_weapon_variants` | **`1` (on)** | Master enable for the weapon-variant "twin" swap system (Deadshot/Speed Cola/Double Tap/Mega stat swaps). Set `0` to disable all swaps (guns fall back to their base weapon). This is an intended live feature — leave on for normal play. | [`_acc_weapon_variants.gsc:624`](../scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc#L624) |
 | `acc_rampage` | `0` | `1` activates the Rampage Inducer (sustained zombie aggression). **Activate-only** (polled every 1s); the in-map device is the only way to turn it back off. | [`_acc_rampage_inducer.gsc:278`](../scripts/zm/zm_abandoned_cyber_city/_acc_rampage_inducer.gsc#L278) |
 | `acc_fog_on` | `0` | `1` enables global volumetric fog (cold city haze); polled every 0.5s so it can be toggled live. | [`_acc_atmosphere.gsc:69`](../scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc#L69) |
-| `acc_brutus_scale` | **`1` (on)** | Master enable for the Brutus mini-boss **+50% size** buff (`SetScale`). Set `0` to skip it (Brutus spawns at normal size). Read once, ~a beat after each Brutus spawn — so a relaunch (not a live set) is needed to change it. Provided as a **spawn-crash bisect knob**: if Brutus still CTDs, set `0` to rule the size buff in/out. | [`_acc_boss.gsc` `apply_brutus_buffs`](../scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) |
-| `acc_brutus_speed` | **`1` (on)** | Master enable for the Brutus **+25% speed** think (ASM anim-rate). Set `0` to skip it (Brutus charges at the normal sprint tier). Read once, ~a beat after each Brutus spawn. Companion **bisect knob** to `acc_brutus_scale`. | [`_acc_boss.gsc` `apply_brutus_buffs`](../scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) |
+| `acc_brutus_scale` | **`0` (off)** | Opt-in Brutus mini-boss **+50% size** buff (`SetScale`). Keep off for normal playtests: scaling the live AI caused round-5 spawn CTDs on hardware. Set `1` only when intentionally bisecting the old crash. Read once, ~a beat after each Brutus spawn. | [`_acc_boss.gsc` `apply_brutus_buffs`](../scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) |
+| `acc_brutus_speed` | **`0` (off)** | Opt-in Brutus **+25% speed** think (ASM anim-rate). Keep off until base Brutus spawns are stable; set `1` only for targeted speed testing. Read once, ~a beat after each Brutus spawn. | [`_acc_boss.gsc` `apply_brutus_buffs`](../scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) |
 
 ### Fog tuning (only read while `acc_fog_on 1`)
 
@@ -143,9 +143,8 @@ On-screen debug output only; no gameplay change. Default `0`.
 
 - **All flags are `acc_`-prefixed.** No un-prefixed custom dvars exist.
 - **Default polarity:** everything defaults to *off / intended behavior* **except
-  `acc_weapon_variants`, `acc_brutus_scale`, and `acc_brutus_speed`** (default on).
-  Those are the only "set to 0 to disable" flags — every other flag is "set to 1
-  to enable".
+  `acc_weapon_variants`** (default on). Brutus scale/speed are opt-in because
+  live AI scale/ASM tweaks caused round-5 spawn crashes during testing.
 - **One-shot vs sustained:** `acc_open_doors`, `acc_skip_round`, `acc_tp_perks`,
   `acc_tp_spawn` auto-reset to `0` after firing (momentary triggers). Everything
   else is a sustained read (stays in effect until you change it / relaunch).
