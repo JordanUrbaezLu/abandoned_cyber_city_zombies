@@ -16,8 +16,21 @@ community map. CC0 needs no attribution, but we record it here for provenance
 | Sky `skybox_default_night` + SSI `default_night` | Stock BO3 | Treyarch (in base install) | interim night sky |
 | Reflection probes, fog (`SetVolFog`) | Original (this project) | — | our `.map` entities + `_acc_atmosphere.gsc` |
 
-No third-party (non-stock) assets are shipped yet. All current atmosphere is
-**stock + original**.
+## Third-party enemy / character assets (game-rip — IP review before Public)
+
+These are community ports of ripped Treyarch/other-studio assets. They build and
+ship fine (they pack as model/aitype dependencies), but carry **no real
+redistribution licence** — resolve the IP question and credit each author **before
+flipping the Workshop item Public** (start Private). Same caveat the project already
+records for Brutus.
+
+| Asset | Source / author | Provenance | Notes |
+|---|---|---|---|
+| Charred horde reskin (`archetype_charred_zombie`, `c_zom_charred_zombie` + gibs) | Logical's Charred Zombie Pack (Logical; Greyhound/HydraX by Scobalula) | 🔴 Treyarch DLC3 sentinel body + DLC4 charred head, recoloured | base-horde skin; both roster spawners remapped (CHANGELOG 2026-06-14) |
+
+> ⚠️ This ledger is **not yet complete**: the `.ff` also ships the 6 Skye weapon
+> ports (TheSkyeLord + LilRobot) and NSZ Brutus (NateSmithZombies), and Panzer
+> work is in progress — all game-rip, all owed provenance rows here before Public.
 
 ## CC0 sources approved for future use (Phase 3)
 

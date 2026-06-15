@@ -6,6 +6,251 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — External-asset onboarding: pack/unpack/check scripts + ONBOARDING manifest (2026-06-14)
+
+A fresh `git clone` is source-only, so a second dev hit linker `no file for filespec`
+errors (Brutus/Skye/Charred) — the game-rip asset packs live in the Mod Tools install,
+not in git (no redistribution licence; CREDITS.md). Added a **zip-and-share** workflow so a
+teammate who already has the packs can hand them over without anyone re-hunting rot-prone
+MEGA links:
+- `tools/external_assets_manifest.ps1` — single source of truth: every external pack,
+  author, Mod-Tools-root install paths, marker, and source link. Dot-sourced by the tools
+  below + shares the `Resolve-ModToolsRoot` detection (proof = `bin\modlauncher.exe`).
+- `tools/pack_external_assets.ps1` — owner runs it; stages every installed pack from the
+  Mod Tools root (relative paths preserved) and zips to `acc_external_assets.zip`
+  (`System.IO.Compression`). Reports packed vs not-installed; `-IncludeOptional` adds
+  Panzer/mechz; `-DryRun` lists without writing.
+- `tools/unpack_external_assets.ps1` — receiving dev runs it; extracts into the Mod Tools
+  root (robocopy `/E` merge, never deletes) and runs `gdtdb /update`.
+- `tools/check_external_assets.ps1` — pre-build gate; PASS/FAIL each pack by its marker
+  path, names the source link for any missing required pack, exit 1 if any required pack is
+  absent (preflight does NOT cover this).
+- `ONBOARDING.md` §2(c) — comprehensive pack list (all documented links + install paths) +
+  the zip workflow, flagged Private-until-IP-review.
+
+Decision (user, 2026-06-14): do NOT vendor these in git — game-rip + multi-GB; the private
+zip is the supported transfer. Also surfaced: the perk-icon shaders
+(`source_data/acc_perk_shaders*`), `tools/deploy_perk_shaders.ps1`, mechz/Panzer scripts,
+and `docs/34_flags_reference.md` are currently **UNTRACKED on main**, so they're absent from
+a fresh clone too — the shaders ride in the asset zip (same game-rip licensing posture);
+the safe text files should be committed (see follow-up).
+
+### Changed — TAC-19 crowd-control profile: range + FMJ + wider spread, −15% damage (2026-06-14)
+
+The TAC-19 (`s1_tac19`, an 8-pellet `weaponClass spread` hitscan shotgun — `shotCount 8`) now
+ships an **always-on, non-perk-gated** profile that leans into its "best crowd-control gun" role:
+- **Small range buff (x1.5)** — falloff *distance* stretched: `maxDamageRange` 550→825,
+  `minDamageRange` 900→1350 (base); 1100→1650 (`_up`). Holds full damage a bit further out.
+- **FMJ over-penetration (`penetrateType` none→`large`)** — pellets pierce through a line of
+  zombies (max tier).
+- **Wider blast "girth" (hip spread x1.25)** — `hipSpread*Min/Max` widened (`hipSpreadStandMin`
+  7→8.75, `hipSpreadMax` 10→12.5, etc.) so the 8 pellets fan across a wider arc and catch more
+  adjacent zombies. `adsSpread` left at 0, so ADS stays a precise single-target shot (hip = crowd).
+- **−15% per-pellet damage (x0.85)** — `damage` 175→148.75 / `damage2` 125→106.25 (base);
+  255→216.75 / 205→174.25 (`_up`). The balance trade for the pierce + width.
+
+Implementation is generator-only — no GSC/zone/asset-count change (still 110 twins):
+- `tools/gen_weapon_variant_gdt.js` gained numeric `--range` (`RANGE_KEYS`: falloff *distances*,
+  excludes the `multishotBaseDamageRange*` ~15000u caps), `--damage` (`DAMAGE_KEYS`:
+  `damage`/`damage2..5`/`minDamage`), `--spread` (`SPREAD_KEYS`: `hipSpread*Min/Max`, excludes
+  decay/bloom dynamics + `adsSpread`), and a `--penetrate <tier>` **literal-set** path (FMJ
+  `penetrateType` is a string enum, not a scalable number — `LITERAL_FIELDS`).
+- `tools/apply_recoil_overhaul.js` gained a per-gun `baseline` config applied **in place** to the
+  base + `_up` forms; because the 11 twins are cloned *from* those forms, they **inherit** the
+  whole profile for free (the base gun and all 22 TAC-19 entries carry it; other 4 guns unchanged).
+  `GUNS[tac19].baseline = { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 }`.
+
+Tunable in that one config object. Regenerated + `gdtdb /update` run (468 assets). **Needs a
+linker/asset recompile** (Launcher Compile, Run unchecked) to bake into the `.ff`; no
+`sync_to_modtools` needed (GDTs deploy straight to source_data, no GSC/zone change). Also fixed
+stale "66 twins / 3 guns" comments → 110 twins / 5 guns in the live code. Docs: docs/05_weapons.md.
+
+### Fixed — Brutus spawn crash #2: defer the size/speed buffs off the spawn→move transition (2026-06-14)
+
+Brutus still **hard-crashed ~1-2s after a visible spawn** even after the `melee_track`
+guard (CHANGELOG below) — i.e. *not* in the spawn frame, but right as his `%brutus_spawn`
+animation ends and the pack threads `custom_find_flesh` (his charge), handing locomotion
+back to the ASM. Our buff layer mutated the actor **across that fragile transition**:
+`SetScale(1.5)` on a live, pathing, custom-animated AI (stock never scales an AI actor —
+only `script_model`s), **plus** `host.helmet SetScale(1.5)` which double-scaled the
+`LinkTo`'d helmet to 2.25×, **plus** `boss_speed_think` hitting the ASM anim-rate while he
+was still `AnimScripted`. These are exactly the "stage-2 promotion" buffs the prior fix
+noted had "shifted it over the limit".
+
+Fix (`_acc_boss.gsc`): the `acc_is_mini_boss` flag, HP, and health-bar notify stay
+immediate, but **size + speed are now applied by a deferred `apply_brutus_buffs()` thread**
+that waits until Brutus is fully in and charging (`.brutus_enemy` set, 8s cap) before
+touching scale/ASM — past the crash window. The **helmet double-scale is removed** (it
+inherits the body's scale via its `j_head` link). Each buff is **dvar-gated, default on**,
+so a remaining crash can be bisected live without a rebuild: `acc_brutus_scale 0`
+(skip +50% size), `acc_brutus_speed 0` (skip +25% speed). If it still CTDs with both `0`,
+the cause is the base NSZ pack spawn, not our buffs. Cadence also moved to r3/every-3
+(`ACC_BRUTUS_FIRST_ROUND`/`_INTERVAL` 5→3) for faster testing. Docs: docs/34 (two new
+flags). **Needs a scripts-only recompile** (sync → linker) to take effect in-game.
+
+### Fixed — perk info-card bullets reconciled against implemented code (2026-06-14)
+
+Audited all 9 perk cards in `ui/uieditor/menus/hud/acc_hud.lua` against the
+finalized spec (docs/perk_abilities.md) **and** the shipped GSC/GDT, fixing every
+bullet that misstated what the perk actually does. Jugger-Nog, Quick Revive, Speed
+Cola, and Double Tap were already accurate. Fixes:
+
+- **Deadshot** — recoil numbers were wrong: base **−25% → −35%**, Mega **−50% →
+  −70%** (the GDT twin bakes `recoil35`=0.65 / `recoil70`=0.30 off the 2.5× map
+  baseline — `tools/apply_recoil_overhaul.js:55`, `_acc_weapon_variants.gsc:425-430`;
+  spec agreed too). Also fixed two stale code-comments in `_acc_damage.gsc` (:88 said
+  −25%/−50%, :468 said ×1.75 Mega headshot — actual `#define` is ×2.0).
+- **Mule Kick (The Armory)** — **"+25% ammo capacity per gun" KEPT** on the card
+  (to be implemented later, owner decision). It is **not implemented yet**:
+  `armory_apply()` (`_acc_mega_bottles.gsc:578-590`) only tops reserve to the existing
+  GDT cap (no raise) and the variant GDT keeps `maxAmmo` identical (docs/30 pending
+  GDT/APE task). "All buys 10% cheaper" is implemented and real.
+- **Widow's Wine** — trap duration **"~20s" → "16s (slow 12s)"** to match the
+  untouched stock durations (verified `WIDOWS_WINE_COCOON_DURATION` 16.0 / `_SLOW_DURATION`
+  12.0 in the stock mirror). Also corrected docs/perk_abilities.md (it inflated 16/12 to ~20).
+- **Stamin-Up** — base **"Faster sprint + mobility" → "+7-8% movement speed"** (the
+  real stock marathon effect; BO3 has no sprint-only speed lever).
+- **Aura Blast** — Mega **"Affects bosses too" → "Bosses affected (reduced stun)"**:
+  on Mega a full boss gets a halved 1.5s stun, not the full 3s (`_acc_perk_aura_blast.gsc:288`).
+- **Double Tap** — card kept as-is, but **flagged a migration in the docs**
+  (docs/perk_abilities.md §4 + docs/13_perks.md §4 + impl-status): the base is
+  currently the **stock Double Tap 2.0** (`specialty_doubletap2`, extra-bullet); the
+  "+33% rate-of-fire-only / Double Tap 1.0" presentation is the migration target, and
+  converting the base to a true 1.0 is a pending TODO.
+
+### Added — Charred zombie base-horde reskin (Logical's Charred Zombie Pack) (2026-06-14)
+
+The whole regular horde now spawns as **charred zombies** (DLC3 sentinel body +
+DLC4 charred head, recoloured), replacing the greybox test bodies. Logical's pack
+is a self-contained custom aitype `archetype_charred_zombie` (stock `zm_zombie.ai_bt`
+behaviour + `zm_factory_zombie` anim tables + charred `c_zom_charred_zombie`
+character + matching gibcharacterdef), so behaviour/health/pathing/limb-gibbing are
+identical to a normal zombie — only the skin changes. Its character/gib materials
+pull transitively as MODEL dependencies, so they dodge the docs/29 §14 brush-face
+shader trap (same asset class as the Brutus model).
+
+Integration (built + linked clean, `.ff` 34.6 MB, 2026-06-14):
+- Assets deployed to the Mod Tools root (`model_export/_custom_zombies/charredzombies/*`
+  + `source_data/_charred_zombies.gdt`); `gdtdb /update` = 1 GDT, 31 assets.
+- `zone_source/…zone`: `aitype,archetype_charred_zombie` (pulls character + 15
+  xmodels + materials/images; verified in the linker dependency tree).
+- `map_source/…map`: BOTH `zombie_spawner`-tagged roster spawners (entity 8 factory
+  + entity 12, random-picked per spawn — docs/research/BO3_stock_round_spawning_flow_actor_spa.txt)
+  remapped to the charred aitype → 100% charred horde. Editor preview model → charred body.
+- Pipeline: `gdtdb` → `cod2map64` → `linker` (entity-only `.map` change; no LED).
+
+**HARD-WON FACT (do not re-learn):** a hand-placed custom-aitype spawner classname
+must be **`actor_<aitype>`**, NOT `actor_spawner_<aitype>`. The linker derives the
+aitype by stripping only the `actor_` prefix, so `actor_spawner_archetype_charred_zombie`
+→ aitype `spawner_archetype_charred_zombie` → ERROR "not a valid aitype asset".
+Stock `actor_spawner_*` classes resolve only because Radiant generates an entity-def
+mapping them; a raw `.map` text edit has no def, so use the generic `actor_<aitype>`
+form (matches entity 12's existing `actor_zm_nuked_basic_01`). cod2map64 accepts
+either spelling — the **linker** is the gate. (Graduate to CLAUDE.md hard-won facts.)
+
+Provenance: Logical (setup) + Scobalula (Greyhound/HydraX). 🔴 game-rip (Treyarch
+DLC3/DLC4 models) — IP review before any Public Workshop publish ([CREDITS.md](CREDITS.md)).
+**In-game visual confirmation pending** (skins can't be verified from a build log).
+
+### Changed — perk info card "owns Mega" view: merged benefit list, Mega name as title (2026-06-14)
+
+When a player owns a perk's **Mega** upgrade, the info card (mode 2) used to stack
+the full base bullet list (cyan) on top of the Mega bullet list (gold), repeating
+every stat the Mega supersedes (e.g. both "+50% reload speed" and "+70% reload
+speed"). It now shows:
+
+- **Title = "Mega: <name>"** — the Mega name (e.g. "Mega: Sleight of Hand Expert")
+  replaces the base perk name; the base name is no longer shown alongside it.
+- **One merged "effective benefits" list** — base + Mega combined, but where a Mega
+  stat supersedes a base stat only the Mega value is listed (Speed Cola Mega →
+  "+70% reload speed", "Faster barrier repair" — never the superseded "+50%").
+  Base-only benefits (e.g. "Faster barrier repair") still show.
+- **Yellow throughout** (the existing Mega colour), title + bullets.
+
+Also **removed the "faster perk drink" bullets** from the Speed Cola card (base
+"25%" + Mega "50%") — that effect was **cut** (the drink animation is shared
+map-wide with no per-perk lever; `_acc_mega_bottles.gsc:550`, docs/13_perks.md),
+so the card was advertising a benefit the perk doesn't grant. Card now matches
+docs/13: Speed Cola = +50%/+70% reload + barrier repair only.
+
+Implemented in `ui/uieditor/menus/hud/acc_hud.lua`: each of the 9 perks gains a
+`megaFull` array (the curated merged list); `RenderCard`'s `mode == 2` branch now
+renders `megaFull` with the Mega name as title. The `base`/`mega` arrays are
+unchanged (still drive the buy card and the Mega preview, modes 0/1). Card-mode
+behaviour documented in [docs/27_ui_plan.md](docs/27_ui_plan.md).
+
+### Added — Mega perk-icon indicator (Ronan's Cyberpunk Shaders), Jugger-Nog vertical slice (2026-06-14)
+
+Custom cyberpunk perk HUD icon whose **colour encodes Mega state** — the at-a-glance
+Mega indicator docs/28's "perk-icon glow" was always meant to be: **RED = base perk,
+TEAL = Mega'd** (user direction). Built end-to-end for **Jugger-Nog only** as a proving
+slice; the other 7 perks expand off this exact pattern (Lua + image work, no new GSC).
+
+- **Asset path = LUI `image` (not stock material override).** The icons are 2D UI
+  `image` assets drawn by the overlay via `setImage(RegisterImage(...))` — the
+  countryside perk-widget idiom — so they need **no custom material/techset** and
+  sidestep the geometry-material shader-compile blocker (docs/29 §14) entirely. This is
+  the lowest-risk path; the stock-name material-override route (medium-confidence on
+  this install) was deliberately avoided.
+- **Source art** ([`source_data/acc_perk_shaders/_images/`](source_data/acc_perk_shaders/_images/))
+  — `acc_perk_jugg_base.png` (Red variant) + `acc_perk_jugg_mega.png` (default/teal),
+  128×128 RGBA from `Ronans_Cyberpunk_Shaders.zip`. GDT
+  [`source_data/acc_perk_shaders.gdt`](source_data/acc_perk_shaders.gdt) (two `image.gdf`
+  assets, `noMipMaps 1` per the pack readme, `noPicMip 1`). Zone: two `image,` lines.
+- **Data bridge** — new 9-bit `accOwnedMask` clientuimodel (bit i = owns perk i+1,
+  perk_card_index order), registered in lockstep in
+  [`_acc_lui.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc) +
+  [`.csc`](scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc). Paired with the existing
+  (previously unused) `accMegaMask`. A per-player `perk_state_watch()` 0.25s loop pushes
+  both masks (uses `owns_or_paused` so a boss EMP-pause doesn't flicker the icon).
+- **Widget** — `CoD.AccPerkIcon` in
+  [`acc_hud.lua`](ui/uieditor/menus/hud/acc_hud.lua): subscribes to both masks, draws
+  Jug's icon (bit 0) over a fixed bottom-left slot — red when owned/base, teal when
+  Mega'd, hidden when not owned. (Fixed position for the slice; multi-perk stock-slot
+  tracking is the expansion step, docs/29 §2.)
+- **Deploy** — GDT assets live at the Mod Tools root (outside the usermap sync), so
+  new [`tools/deploy_perk_shaders.ps1`](tools/deploy_perk_shaders.ps1) copies the GDT +
+  images into `source_data/` and runs `gdtdb /update` (the weapon-GDT deploy pattern).
+- **Test hook** — `acc_dev_jugg_mega 1` (teal) / `2` (red) toggles the Jug Mega flag
+  in dev mode ([`_acc_dev.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc)).
+- **Build is linker-only** (asset/GSC/LUI, no geometry): `deploy_perk_shaders.ps1` →
+  `sync_to_modtools.ps1` → linker. **Licensing:** art is Treyarch + CDPR-derived →
+  **personal build only** (docs/29 §8); not Workshop-publishable without rights.
+- **Open:** this is the first custom 2D `image` asset the map builds — if the linker
+  rejects it on shader-source (it shouldn't; image ≠ geometry techset), fall back per
+  docs/29 §14. The existing GSC text-badge Mega indicator stays until the LUI version
+  covers all perks (then delete per docs/29 §2).
+
+### Fixed — dev sandbox gated behind flags; no flags = clean consumer game (2026-06-14)
+
+The dev/test sandbox was **hardcoded ON** in three places, so a default launch
+shipped in god-mode (infinite money/shards, whole map open, decon hazard off,
+perk cap 18) while the code's own comments claimed it self-gated. Restored the
+opt-in gates so a launch with **no `acc_` dvars is a clean consumer game** — the
+intended player experience. Audit finding #1 (2026-06-14 architecture audit).
+
+- **`_acc_dev::init()`** ([`_acc_dev.gsc:36`](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc#L36))
+  — re-added the `getdvarint("acc_dev",0) != 1` early-return (the gate its own
+  header + `_acc_main` comment always described). With the flag unset the whole
+  module no-ops; production never shows debug HUDs/numbers (the damage-number
+  hook `level.acc_dmg_num_feed` is only set when on, and `_acc_damage` already
+  guards `isdefined` on it — verified, no regression).
+- **Entry script** ([`zm_abandoned_cyber_city.gsc` main()](scripts/zm/zm_abandoned_cyber_city.gsc#L150))
+  — the three hardcoded threads/assignments are now gated:
+  - `acc_dev 1` → `acc_hardcoded_dev()` (unlimited money + Data Shards + Mega
+    Bottles, auto power-on, dev banner).
+  - `acc_open_map 1` → `acc_hardcoded_open_map()` (open all doors + both PaP
+    blockers) **and** `level.acc_disable_decon = true` (decon is lethal when you
+    roam a fully-open map, so it's tied to the same flag).
+  - Both default OFF → closed map, earn-your-own-money, decon live.
+- **Launch scripts** now set the flags so the dev experience is unchanged:
+  `PLAY_TEST_MAP.bat` and `tools/run_game.ps1` pass `+set acc_dev 1 +set
+  acc_open_map 1`. New `run_game.ps1 -ClosedMap` (sandbox but closed map + decon
+  live) and the existing `-NoDev` (clean consumer game) switches.
+- **New doc** [docs/34_flags_reference.md](docs/34_flags_reference.md) — the
+  authoritative list of every `acc_` dvar (dev/test/modifier/tuning/debug),
+  defaults, effects, read sites, and launch recipes. Linked from ONBOARDING.
+
 ### Changed — ONBOARDING.md refreshed for the recent perk / weapon-variant / PaP work (2026-06-14)
 
 New-dev onboarding caught up to this session's changes: (1) the Build section now distinguishes

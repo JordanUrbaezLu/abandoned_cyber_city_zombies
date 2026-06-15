@@ -19,6 +19,15 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   by `.gitattributes`. Setup path: SETUP_WINDOWS.md.
 - Every substantive change: CHANGELOG.md entry + the relevant doc updated in
   the same commit.
+- **External (game-rip) asset packs are NOT in git** (NSZ Brutus / Skye guns /
+  Charred zombies / Ronan perk-icon shaders — no redistribution licence; gitignored).
+  A fresh clone has only the *references*, so the linker fails `no file for filespec`
+  until they're installed in the Mod Tools. Get a teammate's bundle via
+  `tools/unpack_external_assets.ps1 -ZipFile <zip>` (builds it: `pack_external_assets.ps1`;
+  manual download links: ONBOARDING.md §2(c)). **`tools/check_external_assets.ps1` must be
+  all-green before a build** — preflight does NOT cover this. Paths live in
+  `tools/external_assets_manifest.ps1`. Never publish the Workshop item Public until the
+  IP/credit review in CREDITS.md is done.
 
 ## Code map (one line each)
 

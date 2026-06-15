@@ -10,8 +10,12 @@ REM
 REM  Build FIRST in the Launcher (Link only; Run unchecked), THEN double-click
 REM  this. Steam must be running and logged in. Loading takes ~40-60 seconds.
 REM
-REM  Flags: acc_dev 1 = unlimited money / perk cap 18 / door markers.
-REM         acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles.
+REM  Flags (ALL off by default -> a no-flag launch is a clean consumer game;
+REM  full reference: docs\34_flags_reference.md):
+REM         acc_dev 1       = unlimited money + Data Shards + Mega Bottles, auto-power,
+REM                           perk cap 18, dev HUDs + teleport/round-skip console cmds.
+REM         acc_open_map 1  = open every door + both PaP blockers on spawn, disable decon.
+REM         acc_test_boss 1 = test boss from round 2, drops 10 Mega Bottles on death.
 REM         acc_variants_debug 1 = print each weapon-variant swap on-screen
 REM           ("[variants] X -> Y") so you can SEE Deadshot/Mega change the gun
 REM           (recoil is invisible). acc_weapon_variants is ON by default already.
@@ -28,4 +32,4 @@ REM  Custom LUI (acc_hud.lua) runs on Steam BO3 with NO special flag (verified
 REM  2026-06-13). "-unsafe-lua" is a BOIII-client arg, not Steam BO3 - on Steam it
 REM  is "Unknown command", so it is intentionally NOT passed. (L3akMod is still
 REM  needed in the MOD TOOLS bin to BUILD the .lua - docs/28_lui_pipeline.md.)
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_test_boss 1 +set acc_dev 1 +set acc_variants_debug 1"
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1 +set acc_open_map 1 +set acc_test_boss 1 +set acc_variants_debug 1"

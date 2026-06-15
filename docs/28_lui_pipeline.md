@@ -98,25 +98,48 @@ Plus the clientfield register (gsc+csc) for each field the widgets read.
 A `.lua` is a **rawfile** (copied verbatim, parsed at runtime) — a Lua **syntax**
 error shows at load, NOT at link, so the linker passing ≠ the Lua being correct.
 
-## Perk-icon glow technique (next, on the proven substrate)
+## Perk-icon Mega indicator (IMPLEMENTED — Jugger-Nog slice, 2026-06-14)
 
-From ColDog5044/zm_countryside `hb21perklistitemfactory.lua`: a glow `LUI.UIImage`
-with the additive `ui_add` material centered on the perk slot,
-`subscribeToModel(... "<perk>_ui_glow")`, then `beginAnimation("keyframe",100,...)`
-+ `setAlpha(model_value)`; GSC toggles `set_player_uimodel("<perk>_ui_glow", 1/0)`.
-For our additive **overlay** (option B), position the glow sprite at the stock perk
-bar anchor (`setLeftRight(true,false,~130,281)` / `setTopBottom(false,true,~-62,-26)`)
-rather than inside a perk-list item. Per-perk slot mapping (which icon = which
-perk) is the open design detail — a Mega-perks bitmask clientfield drives which
-slots glow.
+The "perk-icon glow" idea became the **Mega perk-icon indicator** (Ronan's Cyberpunk
+Shaders): a custom icon whose **colour encodes Mega state** — **RED = base, TEAL =
+Mega'd**, hidden when not owned. Built end-to-end for **Jugger-Nog only** as a proving
+slice; the other 7 perks expand off the same pattern (add a widget instance + a
+base/mega image pair — no GSC change, the masks already carry all 9 perks).
+
+- **Image, not material.** Icons are 2D UI `image` assets drawn via
+  `Icon:setImage(RegisterImage("i_acc_perk_jugg_base"|"_mega"))` — the
+  ColDog5044/zm_countryside `hb21perklistitemfactory.lua` `PerkImage` idiom. A plain
+  `image` asset needs **no custom material/techset**, so it sidesteps the
+  geometry-material shader-compile blocker (docs/29 §14). GDT =
+  `source_data/acc_perk_shaders.gdt` (deploy via `tools/deploy_perk_shaders.ps1`); zone
+  gets one `image,<name>` line per icon.
+- **Two-mask data bridge.** `accOwnedMask` (9 bits, bit i = owns perk i+1) +
+  `accMegaMask` (9 bits, bit i = Mega'd), both perk_card_index order. The widget picks
+  art: owned+mega → teal, owned+!mega → red, !owned → hide. `_acc_lui.gsc`
+  `perk_state_watch()` (per-player 0.25s poll) computes + pushes both via
+  `owns_or_paused`/`has_mega_perk`. **Lua 5.1/HavokScript has no bitwise ops** — the
+  widget tests bit i arithmetically (`math.floor(mask / 2^i) % 2`).
+- **Widget** `CoD.AccPerkIcon` in `acc_hud.lua` (TOUCHPOINT 2), instanced once for Jug
+  (bit 0). Positioned at a **fixed** bottom-left slot for the slice.
+- **Open design detail (expansion):** the stock perk bar orders icons by **acquisition
+  order** (shifts when a perk is lost), so the multi-perk version must track stock slot
+  order to overlay precisely — docs/29 §2. The slice avoids this with a fixed position.
+- **Test:** dev `acc_dev_jugg_mega 1` (teal) / `2` (red) after buying Jug.
 
 ## Files
 
-- `ui/uieditor/menus/hud/acc_hud.lua` — overlay menu + foundation banner.
-- `scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc` — server: register + open + set.
+- `ui/uieditor/menus/hud/acc_hud.lua` — overlay menu + foundation banner + widgets
+  (AccPerkCard, AccDmgNum, **AccPerkIcon** = Mega perk-icon indicator).
+- `scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc` — server: register + open + set;
+  `perk_state_watch()` drives the owned/mega masks.
 - `scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc` — client mirror register.
 - `scripts/zm/zm_abandoned_cyber_city.csc` — `LuiLoad` in `main()`.
-- `zone_source/zm_abandoned_cyber_city.zone` — 2 scriptparsetree + 1 rawfile line.
+- `zone_source/zm_abandoned_cyber_city.zone` — 2 scriptparsetree + 1 rawfile +
+  `image,` lines for the custom perk icons.
+- `source_data/acc_perk_shaders.gdt` — custom perk-icon `image` assets (Ronan's
+  Cyberpunk Shaders). Source PNGs under `source_data/acc_perk_shaders/_images/`.
+- `tools/deploy_perk_shaders.ps1` — deploy the GDT + images to the Mod Tools
+  `source_data/` + `gdtdb /update` (GDT lives outside the usermap sync).
 
 ## Source maps (cloned in tmp/, mined into docs/22)
 

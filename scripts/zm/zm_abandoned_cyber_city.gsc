@@ -136,17 +136,29 @@ function main()
 	// trigger instead. (level.aat_in_use is the stock gate - _zm_weapons.gsc.)
 	level.aat_in_use = false;
 
-	// [acc] HARDCODED dev sandbox - lives in the ENTRY script (this main() provably
-	// runs - the map loads) so it is independent of every _acc_ module. No dvar gate.
-	// Unlimited money + Data Shards, auto-power, and OPENS THE WHOLE MAP (every door
-	// + zone) so the full map is walkable/testable from spawn.
-	level thread acc_hardcoded_dev();
-	level thread acc_hardcoded_open_map();
-
-	// [acc] HARDCODED: disable the decontamination zone-seal hazard. It kills any
-	// player standing in a zone when it seals (rounds 1-4) - lethal on an open
-	// map you're meant to roam freely. Read by _acc_decontamination::run_decon_phase.
-	level.acc_disable_decon = true;
+	// [acc] Optional dev/test sandbox - ALL OFF by default, so a launch with no
+	// dvars is a clean consumer game (closed map, earn your own money, decon hazard
+	// live). The launch scripts (PLAY_TEST_MAP.bat / tools/run_game.ps1) set these
+	// for test sessions. Full reference: docs/34_flags_reference.md.
+	//   +set acc_dev 1      -> unlimited money + Data Shards + Mega Bottles, auto-power,
+	//                          dev banner (and enables the _acc_dev module: perk cap 18,
+	//                          dev HUDs, teleport / round-skip / open-doors console cmds).
+	//   +set acc_open_map 1 -> open every buyable door + both PaP blockers on spawn so
+	//                          the whole map is walkable, AND disable the decontamination
+	//                          zone-seal hazard (lethal to a player roaming a fully-open
+	//                          map). Decon flag read by _acc_decontamination.
+	// DEV MODE DEFAULT-ON (pre-release): both default to 1 so a plain launch IS the
+	// dev sandbox even when the Steam launcher drops the +set args (it truncates the
+	// command line after `logfile`, dropping acc_dev). Set `acc_dev 0` / `acc_open_map 0`
+	// for a clean consumer test. TODO(ship): flip these defaults back to 0 before a
+	// public/Workshop build, or a shipped build runs in god mode.
+	if ( getdvarint( "acc_dev", 1 ) == 1 )
+		level thread acc_hardcoded_dev();
+	if ( getdvarint( "acc_open_map", 1 ) == 1 )
+	{
+		level thread acc_hardcoded_open_map();
+		level.acc_disable_decon = true;
+	}
 
 	// [acc] Register our callbacks + roll per-run map state. Runs after the
 	// stock bootstrap but still inside main(), i.e. before the first game
@@ -212,9 +224,10 @@ function main()
 	level thread acc_main::init();
 }
 
-// [acc] HARDCODED dev sandbox - entry-script level so it cannot be gated out by
-// any _acc_ module init issue. Banner + permanent unlimited money + unlimited
-// Data Shards + auto-power (so perks/PaP/traps are testable immediately).
+// [acc] Dev sandbox, gated on `acc_dev` at the call site in main(). Lives in the
+// entry script so it runs independently of every _acc_ module init. Banner +
+// permanent unlimited money + unlimited Data Shards + auto-power (so perks/PaP/
+// traps are testable immediately). No-op in normal play (flag unset).
 function acc_hardcoded_dev()
 {
 	level endon( "end_game" );
@@ -271,10 +284,11 @@ function acc_hardcoded_dev()
 	}
 }
 
-// [acc] HARDCODED open-the-whole-map. Opens every buyable door and activates the
-// zone behind it, so the player can walk the entire map from spawn (no buying,
-// no being stuck in the start room). Doors are zombie_door trigger_use entities
-// whose `target` is a script_brushmodel slab that normally slides up on purchase.
+// [acc] Open-the-whole-map, gated on `acc_open_map` at the call site in main().
+// Opens every buyable door and activates the zone behind it, so the player can
+// walk the entire map from spawn (no buying, no being stuck in the start room).
+// Doors are zombie_door trigger_use entities whose `target` is a script_brushmodel
+// slab that normally slides up on purchase. No-op in normal play (flag unset).
 function acc_hardcoded_open_map()
 {
 	level endon( "end_game" );

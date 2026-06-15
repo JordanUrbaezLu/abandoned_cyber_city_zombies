@@ -30,6 +30,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_modifiers;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
@@ -114,6 +115,8 @@ function init()
     acc_boss::init();
     // NSZ Brutus boss pack (stage 1: native spawn, for the asset-import go/no-go).
     acc_boss_brutus::init();
+    // Spiki Panzer boss (stage 1: dvar-gated test spawn at the lab).
+    acc_boss_panzer::init();
     acc_boss_items::init();
     // Weapon-variant swap engine (no-recoil / fast-fire perk twins, Stabilizer).
     // Before mega_bottles so level.acc_variant_* exist before any reconcile poke.

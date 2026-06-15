@@ -61,6 +61,14 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 
 *Rate of fire only — the original Double Tap, not the 2.0 double-bullet version.*
 
+> **⚠️ Migration pending (flagged 2026-06-14):** the base perk is **currently the stock
+> Double Tap 2.0** machine (`specialty_doubletap2`, which fires an extra bullet — not pure
+> rate-of-fire). The **+33% rate-of-fire-only** profile below and the "Double Tap 1.0" name
+> on the card are the **migration target**, not the shipped base. TODO: convert the base to a
+> true Double Tap **1.0** (strip the 2.0 extra-bullet so it is rate-only) and verify the +33%.
+> The Mega (Gun Slinger) +50% rate / −75% swap ARE already implemented via the `fastfire`
+> weapon-variant twin.
+
 **Base abilities:**
 - **+33% rate of fire.** **(BASE)**
 
@@ -115,8 +123,8 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 ## 8. Widow's Wine — 4,000 Points
 
 **Base abilities:**
-- **Widow's Wine grenades** (replace your lethal grenade) — sticky, Semtex-like; zombies caught in the blast but not killed are trapped in webs for **~20 s** (those closest are frozen, farther ones slowed). **(BASE)**
-- **Self-defense webbing** — when a zombie melees you, you release a burst of webbing that traps nearby zombies for **~20 s**. **(BASE)**
+- **Widow's Wine grenades** (replace your lethal grenade) — sticky, Semtex-like; zombies caught in the blast but not killed are webbed: those closest (≤100u) are **frozen for 16 s**, farther ones (≤256u) **slowed for 12 s** (stock `WIDOWS_WINE_COCOON_DURATION` 16.0 / `_SLOW_DURATION` 12.0 — unchanged). **(BASE)**
+- **Self-defense webbing** — when a zombie melees you, you release a burst of webbing that webs nearby zombies (**16 s** frozen / **12 s** slowed). **(BASE)**
 - **Webbing melee** — meleeing a zombie coats it in webbing and slows it. **(BASE)**
 - **Web grenades restock 2 at the start of each round** (also refill on Max Ammo and from blue spider-drop pickups). **(BASE)**
 
