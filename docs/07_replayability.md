@@ -89,6 +89,8 @@ Per weapon family (AR / Shotgun / Sniper; SMG + LMG pools dormant in v1.0), a we
 
 Standard BO3 box move behavior. Initial spawn is weighted per run across 3 possible spawn nodes (one per weapon-carrying zone: Market, Corp, Roof). Weights re-roll.
 
+**No duplicates (2026-06-14):** the box never hands out a gun you already hold. The draw is filtered (via `level.CustomRandomWeaponWeights` → `acc_box_only_weapon_keys` in `_acc_map_randomizer.gsc`) to box-flagged weapons the player does not own *in any form* — base, Pack-a-Punch, or a perk-variant twin (compared by `acc_weapon_variants::true_base`, so e.g. holding a Deadshot `s1_tac19_acc_recoil35` correctly counts as owning the TAC-19). This covers the stock `keys[0]` fallback **and** the twin gap that stock `has_weapon_or_upgrade` misses. Only edge case: if you own every available box gun, the box falls back to a duplicate (max-ammo refill) — unavoidable since the box must give something.
+
 ### Total Variance at Map Load
 
 Rough count:

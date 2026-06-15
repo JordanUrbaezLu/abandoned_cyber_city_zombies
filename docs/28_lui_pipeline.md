@@ -98,33 +98,51 @@ Plus the clientfield register (gsc+csc) for each field the widgets read.
 A `.lua` is a **rawfile** (copied verbatim, parsed at runtime) — a Lua **syntax**
 error shows at load, NOT at link, so the linker passing ≠ the Lua being correct.
 
-## Perk-icon Mega indicator (IMPLEMENTED — Jugger-Nog slice, 2026-06-14)
+## Cyberpunk perk bar — replaces the stock perk bar (IMPLEMENTED + in-game verified, 2026-06-14)
 
-The "perk-icon glow" idea became the **Mega perk-icon indicator** (Ronan's Cyberpunk
-Shaders): a custom icon whose **colour encodes Mega state** — **RED = base, TEAL =
-Mega'd**, hidden when not owned. Built end-to-end for **Jugger-Nog only** as a proving
-slice; the other 7 perks expand off the same pattern (add a widget instance + a
-base/mega image pair — no GSC change, the masks already carry all 9 perks).
+Our own perk bar (Ronan's Cyberpunk Shaders) whose **icon colour encodes Mega state** —
+**RED = base, TEAL = Mega'd**, hidden when not owned — with the **stock perk bar hidden**
+so there's no duplication. All 8 live perks. `CoD.AccPerkBar` in `acc_hud.lua`.
 
 - **Image, not material.** Icons are 2D UI `image` assets drawn via
-  `Icon:setImage(RegisterImage("i_acc_perk_jugg_base"|"_mega"))` — the
-  ColDog5044/zm_countryside `hb21perklistitemfactory.lua` `PerkImage` idiom. A plain
-  `image` asset needs **no custom material/techset**, so it sidesteps the
-  geometry-material shader-compile blocker (docs/29 §14). GDT =
-  `source_data/acc_perk_shaders.gdt` (deploy via `tools/deploy_perk_shaders.ps1`); zone
-  gets one `image,<name>` line per icon.
-- **Two-mask data bridge.** `accOwnedMask` (9 bits, bit i = owns perk i+1) +
-  `accMegaMask` (9 bits, bit i = Mega'd), both perk_card_index order. The widget picks
-  art: owned+mega → teal, owned+!mega → red, !owned → hide. `_acc_lui.gsc`
-  `perk_state_watch()` (per-player 0.25s poll) computes + pushes both via
-  `owns_or_paused`/`has_mega_perk`. **Lua 5.1/HavokScript has no bitwise ops** — the
-  widget tests bit i arithmetically (`math.floor(mask / 2^i) % 2`).
-- **Widget** `CoD.AccPerkIcon` in `acc_hud.lua` (TOUCHPOINT 2), instanced once for Jug
-  (bit 0). Positioned at a **fixed** bottom-left slot for the slice.
-- **Open design detail (expansion):** the stock perk bar orders icons by **acquisition
-  order** (shifts when a perk is lost), so the multi-perk version must track stock slot
-  order to overlay precisely — docs/29 §2. The slice avoids this with a fixed position.
-- **Test:** dev `acc_dev_jugg_mega 1` (teal) / `2` (red) after buying Jug.
+  `setImage(RegisterImage("i_acc_perk_<perk>_base"|"_mega"))` (countryside `PerkImage`
+  idiom). A plain `image` needs **no custom material/techset**, so it sidesteps the
+  geometry-material shader-compile blocker (docs/29 §14). 16 images (8 perks ×
+  base/mega) in `source_data/acc_perk_shaders.gdt` (deploy via
+  `tools/deploy_perk_shaders.ps1`); one `image,<name>` zone line each.
+- **Two-mask data bridge.** `accOwnedMask` (bit i = owns perk i+1) + `accMegaMask` (bit
+  i = Mega'd), perk_card_index order. `_acc_lui.gsc perk_state_watch()` (per-player 0.25s
+  poll) computes both from `owns_or_paused`/`has_mega_perk` and pushes them, so the bar
+  tracks buys / downs / EMP-pause / re-buys with **no manual event tracking**. **Lua
+  5.1/HavokScript has no bitwise ops** — the widget tests bit i arithmetically
+  (`math.floor(mask / 2^i) % 2`). `CoD.AccPerkBar` packs owned perks left-to-right.
+
+### Hiding the stock perk bar — clientfield suppression, NOT asset override (hard-won)
+
+- **A usermap can NEVER shadow a base-game asset by name.** Zones load `zm_patch →
+  zm_common → zm_levelcommon → <usermap>` (usermap **last**), and the "Redundant `<type>`
+  asset 'X' found in zone 'WINNER'" rule keeps the **first-loaded** copy and discards the
+  later (usermap) one. So overriding a stock image/material name with a transparent
+  usermap asset does **nothing** — both `specialty_*_zombies` and `i_t7_specialty_*`
+  override attempts failed for this reason. (Earlier zone comments claiming "our usermap
+  version wins by name" were **wrong** — corrected.)
+- **The stock perk bar is a LUI widget** (`CoD.ZMPerksContainerFactory` → `LUI.UIList`
+  "PerkList" → `CoD.PerkListItemFactory`) that shows a perk's icon only while the
+  per-player model `hudItems.perks.<key>` is `> 0`.
+- **Hide it from GSC by zeroing those models.** `_acc_lui::clear_stock_perk_hud()` writes
+  all 9 `hudItems.perks.<key>` fields to 0 (`clientfield::set_player_uimodel` →
+  `CodeSetUIModelClientField`, no script scoping — sets any named field). **Cosmetic
+  only**: perk effects come from engine `SetPerk`, untouched. Field names verified vs
+  `_zm_perks.gsh PERK_CLIENTFIELD_*` (aliases: staminup→`marathon`,
+  fastreload→`sleight_of_hand`, deadshot→`dead_shot`,
+  additionalprimaryweapon→`additional_primary_weapon`).
+- **Zero flash:** `stock_perk_hud_suppressor()` clears on the stock `perk_acquired` notify,
+  which fires the **same server frame** as the stock OWNED set with no wait between
+  (`_zm_perks.gsc:756→780`) — so the client's end-of-frame snapshot never carries OWNED
+  and the icon never appears on buy. `perk_state_watch`'s 0.25s clear re-asserts for the
+  rarer unpause path (which does not fire `perk_acquired`).
+- **Test:** dev `acc_dev_jugg_mega 1` (teal) / `2` (red); buy any perks → red row, no
+  stock icons, no flash.
 
 ## Files
 

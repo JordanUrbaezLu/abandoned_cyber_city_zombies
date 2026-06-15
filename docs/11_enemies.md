@@ -20,6 +20,12 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
 - **Data Shard drop**: none.
 - **Value in the loop**: drives Point economy, keeps pressure up, triggers AoE Overclocks and Cyberware capstones.
 - **HP scaling delta vs stock**: +1 effective round (start at 150 HP instead of 130, same per-round ramp). See [04_progression_and_skills.md](04_progression_and_skills.md).
+- **Speed curve** (`_acc_zombie_speed.gsc` — replaced the old Rampage Inducer): zombies get faster **every round**, with a **natural gait** (never slow-motion). The BO3 engine has no continuous "move at X% speed" knob for zombies — movement is root-motion / animation-driven, so the only levers are the discrete gait **tier** (walk/run/sprint, each a real animation whose baked gait *is* its ground speed) and the animation **playback rate** (which scales cadence *and* ground speed together, so a rate below 1.0 looks like literal slow-motion — it is the Widow's Wine slow mechanism). So "slower than max" comes from a slower **gait**, not a slowed animation:
+  - **Rounds 1–9:** the **run** gait (a natural jog) at playback rate ≥ 1.0, creeping up `acc_zspeed_jog_step_pct` (2%) per round. The jog's intrinsic speed is the "slow start" (~70–80% of max — baked into the xanim, so it's approximate, not a dialled percentage).
+  - **Round 10** (`acc_zspeed_sprint_round`): zombies break into the full **sprint** gait at rate 1.0 = base-game max — a deliberate, natural escalation. sprint@1.0 clears the topped-out jog, so the wave still steps **up** (strictly monotonic).
+  - **Round > 10:** sprint gait, rate `1.0 + 1%·(round−10)` (`acc_zspeed_sprint_step_pct`) — a faster sprint (rate > 1.0 reads fine, no slow-mo). No upper clamp (R15 ≈ 1.05, R20 ≈ 1.10).
+  The playback rate is **floored at 1.0** in code, so the wave never animates below natural cadence. The "sprint" run modifier (`acc_mod_force_sprint`) forces the sprint gait on every round. Tunable live via the `acc_zspeed_*` dvars — see [34_flags_reference.md](34_flags_reference.md).
+  - *Footgun — two abandoned attempts, kept as warnings:* (1) a walk→run→sprint-**by-round** variant with `rate = target% ÷ category_base%` dipped at each tier up-shift (the per-tier baked speeds are unknowable from data) → read as "slowing down per round." (2) A **sprint-locked** variant scaling `ASMSetAnimationRate` to an exact target % *below 1.0* produced the correct ground speed but a **slow-motion** sprint gait → "slomo running." Deep research (2026-06-15) confirmed there is **no script lever** for continuous speed at natural cadence (`SetMoveSpeedScale` is player-only; `moveplaybackrate` / `animtranslationScale` are dead/death-only). The natural-gait model above is the resolution: exact percentages are traded away for a correct-looking, monotonic ramp.
 
 ### Elite: Shielded ("Riot")
 
@@ -55,7 +61,7 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
 
 - **Spawn**: replaces the normal round wave. Round 10 = 1 mini-boss. Round 20 = 2 mini-bosses simultaneously.
 - **HP**: 500,000 base (10× the prior 50k baseline), scaling +50% per extra player.
-- **Behavior**: charges across the map at **+25% over the current round's top speed** (locked to the sprint tier × 1.25, so it outruns even a Rampage-Inducer wave). Immune to stun from normal damage.
+- **Behavior**: charges across the map at **+25% over the current round's top speed** (locked to the sprint tier × 1.25, so it outruns even a maxed-out wave). Immune to stun from normal damage.
 - **Data Shard drop**: 2 (round 10) / 3 (round 20).
 - **Round pickup**: usually drops a max-ammo or insta-kill powerup alongside the shards.
 - **Item drop**: **50% chance** to drop a random boss item (see [12_boss_items.md](12_boss_items.md)). If the player already has that item, it auto-converts to 3 Data Shards.
@@ -66,6 +72,17 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
   - Heavy-attack parry timed on a charge wind-up knocks the Host on its back + 3s stagger + massive damage.
   - Acquired via Hack Terminal completion + 5 Data Shards. See [05_weapons.md](05_weapons.md#vibro-cleaver-wonder-melee).
 - **Other vulnerabilities**: elemental Overclocks (via Fission sub-node), EMP Grenade stun (brief). These are real but less effective than the Cleaver.
+
+### Mini-Boss: "Glitch Stalker" (rounds 3+, every 10 rounds)
+
+- **Spawn**: **2 per scheduled round** (`acc_glitch_count`), **alongside** the normal wave (does not replace it, does not gate round end). Yields the round to the Subroutine Core on full-boss rounds (r30/40/50) so the two never overlap.
+- **Source**: script-only — a promoted stock zombie (the `spawn_subroutine_core` scaffold), re-skinned at runtime to the **stock Giant zombie body + head** (SetModel + head Detach/Attach; both stock xmodels, no external pack). The map's first *mobile* boss (the Juggernaut Host charges; the Subroutine Core is pinned).
+- **HP**: **3× the round's normal zombie health** (`acc_glitch_hp_mult`, default 3) — auto-scales with the round, no separate curve.
+- **Behavior**: chases at **~15% faster** than the round's normal zombies (`acc_glitch_speed_mult`) and every **2–3.3s teleport-blinks** to flank the nearest player (navmesh-clamped, reusing the Teleporter elite's verified path). For ~1.5s right after each blink it is **vulnerable** and takes **2× damage** — the fight rewards punishing the recovery window, not out-DPS-ing a sponge.
+- **Read**: it wears the **stock ("Giant") zombie skin** (body + head, `acc_glitch_stock_skin`) so it stands out from the charred horde — **no health bar, no over-head marker**; the skin is the only tell. On each blink it also **phase-flickers in** (a brief `Ghost`/`Show` glitch tell — render-only, stays hittable, `acc_glitch_fx`). (A 75% size was considered but dropped — `SetScale` on a live zombie AI is the confirmed `0xC0000005` crasher; would need a pre-scaled model.)
+- **Data Shard / Item / Mega Bottle drop**: "mini" reward tier — 50% chance of a random boss item + **1 Empty Mega Bottle guaranteed to every player** on kill (same as the Juggernaut Host).
+- **Counter-play**: don't chase it — hold an angle and burst it during the post-blink window.
+- **GSC**: `_acc_boss_glitch.gsc` (self-contained: own cadence, spawn, blink, death/reward). Fully dvar-tunable — see [34_flags_reference.md](34_flags_reference.md#glitch-stalker-mini-boss-tuning). Toggle with `acc_glitch_enable`; trace with `acc_glitch_debug 1`.
 
 ### Full Boss: "Subroutine Core" (rounds 30+, every 10 rounds)
 
@@ -138,6 +155,6 @@ Deferred to Phase 5 art pass, but documented here so we don't forget:
 ## Out of Scope (v1.0)
 
 - Random "special event" enemy rounds (Hellhounds, etc.). Stock BO3 has these; we disable them and rely on our elite cadence.
-- Mini-boss variants beyond the Juggernaut Host.
+- ~~Mini-boss variants beyond the Juggernaut Host.~~ (Added 2026-06-15: the "Glitch Stalker" mobile blink mini-boss — script-only, see above.)
 - Additional boss archetypes.
 - Per-run elite-class randomization (which 2 of 3 classes are active this run). Tempting but fights the "predictable pacing" design rule. Revisit post-1.0 as a modifier.

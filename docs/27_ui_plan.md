@@ -55,7 +55,7 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
 | 13 | **Shards / Bottles counters** | labeled text | `counter` w/ icon | P2 |
 | 14 | **Floating damage #s** | done | keep; optional crit color | P3 |
 | 15 | **Zone signage** | done | keep; optional icon | P3 |
-| 16 | **Rampage Inducer device** | hint string | card on approach (what it does) | P2 |
+| 16 | ~~Rampage Inducer device~~ (removed 2026-06-14) | — | n/a — replaced by the per-round zombie speed curve (no UI) | — |
 | 17 | **Emergency drop** | ? | toast/prompt | P2 |
 | 18 | **Buyable ending / quest** | ? | objective HUD | P3 |
 | 19 | **Round / wave info** | stock | optional banner | P3 |

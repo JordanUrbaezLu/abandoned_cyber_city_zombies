@@ -546,6 +546,28 @@ Until then: **greybox `script_wall` + the working sky/fog/probes atmosphere.**
 
 ---
 
+## 15. Soundscape (audio) — see [docs/35](35_sound_plan.md)
+
+This doc owns the map's *look*; **audio has its own spec in
+[35 — Sound & Music Plan](35_sound_plan.md)** (atmosphere bed, per-zone reverb,
+gameplay/elite reads, event cues, music). Short version so the atmosphere picture
+is complete here:
+
+- **Today:** [_acc_atmosphere.gsc](../scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc)
+  is **fog/visual only** — no ambient bed, no reverb, no music. The map ships 5
+  stock `PlaySound` calls and nothing custom.
+- **Target:** the neon palette maps to sound — cyan = live-tech hums/beeps, magenta
+  = dead-nightlife muffle/silence, amber = dying-power buzz/flicker. Per-zone rain/
+  city-drone bed; wet/cavernous undercity vs flatter plaza reverb.
+- **Reverb is BSP-driven** (Radiant `ambient_room` volumes → stock presets via
+  `ambient_mod.csv`), so the per-zone reverb pass (docs/35 Phase B2) is a full
+  `cod2map64`+LED+linker build — same constraint as a sky/probe edit (§3, §9).
+- **Licensing is identical to §8:** stock / self-authored / **CC0 only**. The
+  `icegrenade.co.uk` asset index is **local-playtest only** (ToS forbids
+  redistribution; ~95% game-rips) — never in the shipped `.ff`. See docs/35 §3.
+
+---
+
 Research dossier (full agent findings + sources) is in the workflow transcript;
 verified facts are distilled here and in
 [BO3_MAPMAKING_KB.md](BO3_MAPMAKING_KB.md).

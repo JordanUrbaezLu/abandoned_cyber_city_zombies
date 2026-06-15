@@ -52,17 +52,22 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_brutus.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_panzer.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_corpse_cleanup.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
-scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_aura_blast.gsc
+// PhD Flopper (perk #9): hijacks the stock _zm_perk_electric_cherry pipeline (registered
+// machine + stock nuke model) and presents it as PhD Flopper - fall/explosive immunity +
+// slide-to-explode nova (purple Apothicon FX). No .csc - the stock cherry .csc owns the client side. docs/13_perks.md.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
-scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_rampage_inducer.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_zombie_speed.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
@@ -88,6 +93,10 @@ fx,_NSZ/Brutus/spawn_fx
 fx,_NSZ/Brutus/chest_fx
 fx,_NSZ/Brutus/helmet_smoke
 fx,fire/fx_fire_ground_rubble_50x50
+// PhD Flopper slide/down explosion = the Apothicon Fury purple/void spawn-burst FX
+// (stock dlc4/genesis .efx, source present in the Mod Tools - verified 2026-06-15).
+// _acc_perk_phd_flopper.gsc #precaches + PlayFXs it; def_explosion is the fallback.
+fx,dlc4/genesis/fx_apothicon_fury_spawn_in_exp
 
 // Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
 // aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
@@ -106,6 +115,19 @@ fx,fire/fx_fire_ground_rubble_50x50
 // dependency, so this explicit line is belt-and-suspenders.
 aitype,archetype_charred_zombie
 
+// Stock "Giant" zombie BODY xmodel - used to SKIN the Glitch Stalker mini-boss so it stands out
+// from the charred horde (_acc_boss_glitch.gsc SetModel). Stock base-game asset (t7_characters,
+// gdtDB-registered, source bins on disk - NOT DLC/external); pulls its own materials transitively
+// as a model dep (dodges the brush-face shader trap). Same 'base' skeleton + gib rig as charred,
+// so the SetModel swap keeps anims/gibs intact. Verified via the glitch-base-skin workflow.
+xmodel,c_zom_der_zombie_body1
+// Stock "Giant" zombie HEAD xmodel - completes the FULL stock skin on the Glitch Stalker (the body
+// above + this head; _acc_boss_glitch.gsc detaches the charred head and attaches this). Same stock
+// der family + 'base' skeleton; links the same way as the body. (Use the gdtDB-registered name
+// c_zom_der_zombie_head1 - the raw bin name c_zom_der_head_1 has NO xmodel GDT entry, so it fails
+// to link. Same body/head naming family as c_zom_der_zombie_body1 above.)
+xmodel,c_zom_der_zombie_head1
+
 // LUI client pipeline foundation (server module + client mirror + Lua overlay).
 // docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the
 // game's Lua VM at runtime - a Lua syntax error shows at load, NOT at link).
@@ -119,7 +141,7 @@ rawfile,ui/uieditor/menus/hud/acc_hud.lua
 // stock-name material overrides - so they take the docs/28 LUI image path and
 // avoid the geometry-material shader-compile blocker (docs/29 §14). GDT =
 // source_data/acc_perk_shaders.gdt (deploy: tools/deploy_perk_shaders.ps1).
-// 8 live perks x base(red)/mega(teal), perk_card_index order; drives the perk row.
+// 9 live perks x base(red)/mega(teal); drives the perk row (acc_hud.lua bar-bit order).
 image,i_acc_perk_jugg_base
 image,i_acc_perk_jugg_mega
 image,i_acc_perk_revive_base
@@ -136,20 +158,22 @@ image,i_acc_perk_deadshot_base
 image,i_acc_perk_deadshot_mega
 image,i_acc_perk_widows_base
 image,i_acc_perk_widows_mega
+// PhD Flopper (perk #9) - Ronan's Cyberpunk "exo_flopper" icon (base=Red variant,
+// mega=root variant). GDT = source_data/acc_perk_shaders.gdt. Drives acc_hud.lua
+// CoD.AccPerkBar bit 8. Credit Ronan + Treyarch per the pack readme.
+image,i_acc_perk_phd_base
+image,i_acc_perk_phd_mega
 
-// Transparent overrides of the STOCK perk-bar image names (ZMPerksContainerFactory
-// perksTable: i_t7_specialty_<specialty>) -> our usermap version wins by name and is
-// fully transparent, so the stock perk icons vanish and CoD.AccPerkBar is the ONLY
-// perk display (no duplication). All point at acc_blank.png.
-image,i_t7_specialty_armorvest
-image,i_t7_specialty_quickrevive
-image,i_t7_specialty_fastreload
-image,i_t7_specialty_doubletap2
-image,i_t7_specialty_staminup
-image,i_t7_specialty_additionalprimaryweapon
-image,i_t7_specialty_deadshot
-image,i_t7_specialty_widowswine
-image,i_t7_specialty_electriccherry
+// Power-up HUD icons (Ronan's Cyberpunk Shaders): Insta-Kill / Double Points / Fire Sale.
+// Drawn by acc_hud.lua CoD.AccPowerupBar while each power-up is active (accPowerupMask bits
+// 0/1/2). GDT = source_data/acc_perk_shaders.gdt (deploy: tools/deploy_perk_shaders.ps1).
+image,i_acc_powerup_instakill
+image,i_acc_powerup_double
+image,i_acc_powerup_sale
+
+// (The stock perk bar is hidden by ZEROING its hudItems.perks.* uimodel fields in GSC -
+// _acc_lui::clear_stock_perk_hud - NOT by asset override: a usermap zone loads LAST and a
+// same-named base-zone asset always wins, so transparent image overrides do nothing.)
 
 // Makes the linker read the weapons table (box needs this). The usermap copy
 // at gamedata/weapons/zm/ (deployed by sync) overrides the stock table: it is
@@ -190,121 +214,261 @@ weapon,iw6_ripper_ar_zm
 weapon,iw6_ripper_smg_up_zm
 weapon,iw6_ripper_ar_up_zm
 
+// Box guns re-added (2026-06-15). NO twins (BO3 weapon-count cap). All cleared by the
+// per-gun anomaly scan + adversarial GDT verify (docs/33 "Failure modes").
+// AKIMBO PaP guns (PDW, M1911) must zone BOTH _rdw_up_zm AND _ldw_up_zm or the left-hand
+// partner dangles when the engine spawns the akimbo pair at PaP. AK-74u PaP altWeapon was
+// blanked install-side (skye_t5_ak74u.gdt L10416) to kill the launcher _zm_zm Com_ERROR.
+weapon,t8_paladin_hb50
+weapon,t8_paladin_hb50_up
+weapon,s4_ppsh41_base
+weapon,s4_ppsh41_base_up
+weapon,t9_nail_gun
+weapon,t9_nail_gun_up
+weapon,s1_pdw
+weapon,s1_pdw_rdw_up_zm
+weapon,s1_pdw_ldw_up_zm
+weapon,s2_m1911
+weapon,s2_m1911_rdw_up_zm
+weapon,s2_m1911_ldw_up_zm
+weapon,t5_ak74u
+weapon,t5_ak74u_up_zm
+
 // Perk weapon-variant TWIN matrix (110 = 11 combos x 5 guns x base/_up): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =
 // source_data/acc_weapon_variants.gdt, generated by tools/apply_recoil_overhaul.js
 // (also runs gdtdb /update). Must stay in sync with build_available_twins(). Consumed
 // by _acc_weapon_variants.gsc (axis model); default ON. Add an effect: docs/30.
-weaponfull,s1_asm1_acc_fastfire
-weaponfull,s1_asm1_acc_fastfire_fastreload
-weaponfull,s1_asm1_acc_fastreload
-weaponfull,s1_asm1_acc_recoil35
-weaponfull,s1_asm1_acc_recoil35_fastfire
-weaponfull,s1_asm1_acc_recoil35_fastfire_fastreload
-weaponfull,s1_asm1_acc_recoil35_fastreload
-weaponfull,s1_asm1_acc_recoil70
-weaponfull,s1_asm1_acc_recoil70_fastfire
-weaponfull,s1_asm1_acc_recoil70_fastfire_fastreload
-weaponfull,s1_asm1_acc_recoil70_fastreload
-weaponfull,s1_asm1_up_acc_fastfire
-weaponfull,s1_asm1_up_acc_fastfire_fastreload
-weaponfull,s1_asm1_up_acc_fastreload
-weaponfull,s1_asm1_up_acc_recoil35
-weaponfull,s1_asm1_up_acc_recoil35_fastfire
-weaponfull,s1_asm1_up_acc_recoil35_fastfire_fastreload
-weaponfull,s1_asm1_up_acc_recoil35_fastreload
-weaponfull,s1_asm1_up_acc_recoil70
-weaponfull,s1_asm1_up_acc_recoil70_fastfire
-weaponfull,s1_asm1_up_acc_recoil70_fastfire_fastreload
-weaponfull,s1_asm1_up_acc_recoil70_fastreload
-weaponfull,s1_tac19_acc_fastfire
-weaponfull,s1_tac19_acc_fastfire_fastreload
-weaponfull,s1_tac19_acc_fastreload
-weaponfull,s1_tac19_acc_recoil35
-weaponfull,s1_tac19_acc_recoil35_fastfire
-weaponfull,s1_tac19_acc_recoil35_fastfire_fastreload
-weaponfull,s1_tac19_acc_recoil35_fastreload
-weaponfull,s1_tac19_acc_recoil70
-weaponfull,s1_tac19_acc_recoil70_fastfire
-weaponfull,s1_tac19_acc_recoil70_fastfire_fastreload
-weaponfull,s1_tac19_acc_recoil70_fastreload
-weaponfull,s1_tac19_up_acc_fastfire
-weaponfull,s1_tac19_up_acc_fastfire_fastreload
-weaponfull,s1_tac19_up_acc_fastreload
-weaponfull,s1_tac19_up_acc_recoil35
-weaponfull,s1_tac19_up_acc_recoil35_fastfire
-weaponfull,s1_tac19_up_acc_recoil35_fastfire_fastreload
-weaponfull,s1_tac19_up_acc_recoil35_fastreload
-weaponfull,s1_tac19_up_acc_recoil70
-weaponfull,s1_tac19_up_acc_recoil70_fastfire
-weaponfull,s1_tac19_up_acc_recoil70_fastfire_fastreload
-weaponfull,s1_tac19_up_acc_recoil70_fastreload
-weaponfull,t6_fiveseven_acc_fastfire
-weaponfull,t6_fiveseven_acc_fastfire_fastreload
-weaponfull,t6_fiveseven_acc_fastreload
-weaponfull,t6_fiveseven_acc_recoil35
-weaponfull,t6_fiveseven_acc_recoil35_fastfire
-weaponfull,t6_fiveseven_acc_recoil35_fastfire_fastreload
-weaponfull,t6_fiveseven_acc_recoil35_fastreload
-weaponfull,t6_fiveseven_acc_recoil70
-weaponfull,t6_fiveseven_acc_recoil70_fastfire
-weaponfull,t6_fiveseven_acc_recoil70_fastfire_fastreload
-weaponfull,t6_fiveseven_acc_recoil70_fastreload
-weaponfull,t6_fiveseven_up_acc_fastfire
-weaponfull,t6_fiveseven_up_acc_fastfire_fastreload
-weaponfull,t6_fiveseven_up_acc_fastreload
-weaponfull,t6_fiveseven_up_acc_recoil35
-weaponfull,t6_fiveseven_up_acc_recoil35_fastfire
-weaponfull,t6_fiveseven_up_acc_recoil35_fastfire_fastreload
-weaponfull,t6_fiveseven_up_acc_recoil35_fastreload
-weaponfull,t6_fiveseven_up_acc_recoil70
-weaponfull,t6_fiveseven_up_acc_recoil70_fastfire
-weaponfull,t6_fiveseven_up_acc_recoil70_fastfire_fastreload
-weaponfull,t6_fiveseven_up_acc_recoil70_fastreload
-weaponfull,t6_ak47_acc_fastfire
-weaponfull,t6_ak47_acc_fastfire_fastreload
-weaponfull,t6_ak47_acc_fastreload
-weaponfull,t6_ak47_acc_recoil35
-weaponfull,t6_ak47_acc_recoil35_fastfire
-weaponfull,t6_ak47_acc_recoil35_fastfire_fastreload
-weaponfull,t6_ak47_acc_recoil35_fastreload
-weaponfull,t6_ak47_acc_recoil70
-weaponfull,t6_ak47_acc_recoil70_fastfire
-weaponfull,t6_ak47_acc_recoil70_fastfire_fastreload
-weaponfull,t6_ak47_acc_recoil70_fastreload
-weaponfull,t6_ak47_up_acc_fastfire
-weaponfull,t6_ak47_up_acc_fastfire_fastreload
-weaponfull,t6_ak47_up_acc_fastreload
-weaponfull,t6_ak47_up_acc_recoil35
-weaponfull,t6_ak47_up_acc_recoil35_fastfire
-weaponfull,t6_ak47_up_acc_recoil35_fastfire_fastreload
-weaponfull,t6_ak47_up_acc_recoil35_fastreload
-weaponfull,t6_ak47_up_acc_recoil70
-weaponfull,t6_ak47_up_acc_recoil70_fastfire
-weaponfull,t6_ak47_up_acc_recoil70_fastfire_fastreload
-weaponfull,t6_ak47_up_acc_recoil70_fastreload
+weaponfull,s1_ae4_acc_ammo
 weaponfull,s1_ae4_acc_fastfire
+weaponfull,s1_ae4_acc_fastfire_ammo
 weaponfull,s1_ae4_acc_fastfire_fastreload
+weaponfull,s1_ae4_acc_fastfire_fastreload_ammo
 weaponfull,s1_ae4_acc_fastreload
-weaponfull,s1_ae4_acc_recoil35
-weaponfull,s1_ae4_acc_recoil35_fastfire
-weaponfull,s1_ae4_acc_recoil35_fastfire_fastreload
-weaponfull,s1_ae4_acc_recoil35_fastreload
-weaponfull,s1_ae4_acc_recoil70
-weaponfull,s1_ae4_acc_recoil70_fastfire
-weaponfull,s1_ae4_acc_recoil70_fastfire_fastreload
-weaponfull,s1_ae4_acc_recoil70_fastreload
+weaponfull,s1_ae4_acc_fastreload_ammo
+weaponfull,s1_ae4_acc_recoil25
+weaponfull,s1_ae4_acc_recoil25_ammo
+weaponfull,s1_ae4_acc_recoil25_fastfire
+weaponfull,s1_ae4_acc_recoil25_fastfire_ammo
+weaponfull,s1_ae4_acc_recoil25_fastfire_fastreload
+weaponfull,s1_ae4_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_ae4_acc_recoil25_fastreload
+weaponfull,s1_ae4_acc_recoil25_fastreload_ammo
+weaponfull,s1_ae4_acc_recoil40
+weaponfull,s1_ae4_acc_recoil40_ammo
+weaponfull,s1_ae4_acc_recoil40_fastfire
+weaponfull,s1_ae4_acc_recoil40_fastfire_ammo
+weaponfull,s1_ae4_acc_recoil40_fastfire_fastreload
+weaponfull,s1_ae4_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_ae4_acc_recoil40_fastreload
+weaponfull,s1_ae4_acc_recoil40_fastreload_ammo
+weaponfull,s1_ae4_up_acc_ammo
 weaponfull,s1_ae4_up_acc_fastfire
+weaponfull,s1_ae4_up_acc_fastfire_ammo
 weaponfull,s1_ae4_up_acc_fastfire_fastreload
+weaponfull,s1_ae4_up_acc_fastfire_fastreload_ammo
 weaponfull,s1_ae4_up_acc_fastreload
-weaponfull,s1_ae4_up_acc_recoil35
-weaponfull,s1_ae4_up_acc_recoil35_fastfire
-weaponfull,s1_ae4_up_acc_recoil35_fastfire_fastreload
-weaponfull,s1_ae4_up_acc_recoil35_fastreload
-weaponfull,s1_ae4_up_acc_recoil70
-weaponfull,s1_ae4_up_acc_recoil70_fastfire
-weaponfull,s1_ae4_up_acc_recoil70_fastfire_fastreload
-weaponfull,s1_ae4_up_acc_recoil70_fastreload
+weaponfull,s1_ae4_up_acc_fastreload_ammo
+weaponfull,s1_ae4_up_acc_recoil25
+weaponfull,s1_ae4_up_acc_recoil25_ammo
+weaponfull,s1_ae4_up_acc_recoil25_fastfire
+weaponfull,s1_ae4_up_acc_recoil25_fastfire_ammo
+weaponfull,s1_ae4_up_acc_recoil25_fastfire_fastreload
+weaponfull,s1_ae4_up_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_ae4_up_acc_recoil25_fastreload
+weaponfull,s1_ae4_up_acc_recoil25_fastreload_ammo
+weaponfull,s1_ae4_up_acc_recoil40
+weaponfull,s1_ae4_up_acc_recoil40_ammo
+weaponfull,s1_ae4_up_acc_recoil40_fastfire
+weaponfull,s1_ae4_up_acc_recoil40_fastfire_ammo
+weaponfull,s1_ae4_up_acc_recoil40_fastfire_fastreload
+weaponfull,s1_ae4_up_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_ae4_up_acc_recoil40_fastreload
+weaponfull,s1_ae4_up_acc_recoil40_fastreload_ammo
+weaponfull,s1_asm1_acc_ammo
+weaponfull,s1_asm1_acc_fastfire
+weaponfull,s1_asm1_acc_fastfire_ammo
+weaponfull,s1_asm1_acc_fastfire_fastreload
+weaponfull,s1_asm1_acc_fastfire_fastreload_ammo
+weaponfull,s1_asm1_acc_fastreload
+weaponfull,s1_asm1_acc_fastreload_ammo
+weaponfull,s1_asm1_acc_recoil25
+weaponfull,s1_asm1_acc_recoil25_ammo
+weaponfull,s1_asm1_acc_recoil25_fastfire
+weaponfull,s1_asm1_acc_recoil25_fastfire_ammo
+weaponfull,s1_asm1_acc_recoil25_fastfire_fastreload
+weaponfull,s1_asm1_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_asm1_acc_recoil25_fastreload
+weaponfull,s1_asm1_acc_recoil25_fastreload_ammo
+weaponfull,s1_asm1_acc_recoil40
+weaponfull,s1_asm1_acc_recoil40_ammo
+weaponfull,s1_asm1_acc_recoil40_fastfire
+weaponfull,s1_asm1_acc_recoil40_fastfire_ammo
+weaponfull,s1_asm1_acc_recoil40_fastfire_fastreload
+weaponfull,s1_asm1_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_asm1_acc_recoil40_fastreload
+weaponfull,s1_asm1_acc_recoil40_fastreload_ammo
+weaponfull,s1_asm1_up_acc_ammo
+weaponfull,s1_asm1_up_acc_fastfire
+weaponfull,s1_asm1_up_acc_fastfire_ammo
+weaponfull,s1_asm1_up_acc_fastfire_fastreload
+weaponfull,s1_asm1_up_acc_fastfire_fastreload_ammo
+weaponfull,s1_asm1_up_acc_fastreload
+weaponfull,s1_asm1_up_acc_fastreload_ammo
+weaponfull,s1_asm1_up_acc_recoil25
+weaponfull,s1_asm1_up_acc_recoil25_ammo
+weaponfull,s1_asm1_up_acc_recoil25_fastfire
+weaponfull,s1_asm1_up_acc_recoil25_fastfire_ammo
+weaponfull,s1_asm1_up_acc_recoil25_fastfire_fastreload
+weaponfull,s1_asm1_up_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_asm1_up_acc_recoil25_fastreload
+weaponfull,s1_asm1_up_acc_recoil25_fastreload_ammo
+weaponfull,s1_asm1_up_acc_recoil40
+weaponfull,s1_asm1_up_acc_recoil40_ammo
+weaponfull,s1_asm1_up_acc_recoil40_fastfire
+weaponfull,s1_asm1_up_acc_recoil40_fastfire_ammo
+weaponfull,s1_asm1_up_acc_recoil40_fastfire_fastreload
+weaponfull,s1_asm1_up_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_asm1_up_acc_recoil40_fastreload
+weaponfull,s1_asm1_up_acc_recoil40_fastreload_ammo
+weaponfull,s1_tac19_acc_ammo
+weaponfull,s1_tac19_acc_fastfire
+weaponfull,s1_tac19_acc_fastfire_ammo
+weaponfull,s1_tac19_acc_fastfire_fastreload
+weaponfull,s1_tac19_acc_fastfire_fastreload_ammo
+weaponfull,s1_tac19_acc_fastreload
+weaponfull,s1_tac19_acc_fastreload_ammo
+weaponfull,s1_tac19_acc_recoil25
+weaponfull,s1_tac19_acc_recoil25_ammo
+weaponfull,s1_tac19_acc_recoil25_fastfire
+weaponfull,s1_tac19_acc_recoil25_fastfire_ammo
+weaponfull,s1_tac19_acc_recoil25_fastfire_fastreload
+weaponfull,s1_tac19_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_tac19_acc_recoil25_fastreload
+weaponfull,s1_tac19_acc_recoil25_fastreload_ammo
+weaponfull,s1_tac19_acc_recoil40
+weaponfull,s1_tac19_acc_recoil40_ammo
+weaponfull,s1_tac19_acc_recoil40_fastfire
+weaponfull,s1_tac19_acc_recoil40_fastfire_ammo
+weaponfull,s1_tac19_acc_recoil40_fastfire_fastreload
+weaponfull,s1_tac19_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_tac19_acc_recoil40_fastreload
+weaponfull,s1_tac19_acc_recoil40_fastreload_ammo
+weaponfull,s1_tac19_up_acc_ammo
+weaponfull,s1_tac19_up_acc_fastfire
+weaponfull,s1_tac19_up_acc_fastfire_ammo
+weaponfull,s1_tac19_up_acc_fastfire_fastreload
+weaponfull,s1_tac19_up_acc_fastfire_fastreload_ammo
+weaponfull,s1_tac19_up_acc_fastreload
+weaponfull,s1_tac19_up_acc_fastreload_ammo
+weaponfull,s1_tac19_up_acc_recoil25
+weaponfull,s1_tac19_up_acc_recoil25_ammo
+weaponfull,s1_tac19_up_acc_recoil25_fastfire
+weaponfull,s1_tac19_up_acc_recoil25_fastfire_ammo
+weaponfull,s1_tac19_up_acc_recoil25_fastfire_fastreload
+weaponfull,s1_tac19_up_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,s1_tac19_up_acc_recoil25_fastreload
+weaponfull,s1_tac19_up_acc_recoil25_fastreload_ammo
+weaponfull,s1_tac19_up_acc_recoil40
+weaponfull,s1_tac19_up_acc_recoil40_ammo
+weaponfull,s1_tac19_up_acc_recoil40_fastfire
+weaponfull,s1_tac19_up_acc_recoil40_fastfire_ammo
+weaponfull,s1_tac19_up_acc_recoil40_fastfire_fastreload
+weaponfull,s1_tac19_up_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,s1_tac19_up_acc_recoil40_fastreload
+weaponfull,s1_tac19_up_acc_recoil40_fastreload_ammo
+weaponfull,t6_ak47_acc_ammo
+weaponfull,t6_ak47_acc_fastfire
+weaponfull,t6_ak47_acc_fastfire_ammo
+weaponfull,t6_ak47_acc_fastfire_fastreload
+weaponfull,t6_ak47_acc_fastfire_fastreload_ammo
+weaponfull,t6_ak47_acc_fastreload
+weaponfull,t6_ak47_acc_fastreload_ammo
+weaponfull,t6_ak47_acc_recoil25
+weaponfull,t6_ak47_acc_recoil25_ammo
+weaponfull,t6_ak47_acc_recoil25_fastfire
+weaponfull,t6_ak47_acc_recoil25_fastfire_ammo
+weaponfull,t6_ak47_acc_recoil25_fastfire_fastreload
+weaponfull,t6_ak47_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,t6_ak47_acc_recoil25_fastreload
+weaponfull,t6_ak47_acc_recoil25_fastreload_ammo
+weaponfull,t6_ak47_acc_recoil40
+weaponfull,t6_ak47_acc_recoil40_ammo
+weaponfull,t6_ak47_acc_recoil40_fastfire
+weaponfull,t6_ak47_acc_recoil40_fastfire_ammo
+weaponfull,t6_ak47_acc_recoil40_fastfire_fastreload
+weaponfull,t6_ak47_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,t6_ak47_acc_recoil40_fastreload
+weaponfull,t6_ak47_acc_recoil40_fastreload_ammo
+weaponfull,t6_ak47_up_acc_ammo
+weaponfull,t6_ak47_up_acc_fastfire
+weaponfull,t6_ak47_up_acc_fastfire_ammo
+weaponfull,t6_ak47_up_acc_fastfire_fastreload
+weaponfull,t6_ak47_up_acc_fastfire_fastreload_ammo
+weaponfull,t6_ak47_up_acc_fastreload
+weaponfull,t6_ak47_up_acc_fastreload_ammo
+weaponfull,t6_ak47_up_acc_recoil25
+weaponfull,t6_ak47_up_acc_recoil25_ammo
+weaponfull,t6_ak47_up_acc_recoil25_fastfire
+weaponfull,t6_ak47_up_acc_recoil25_fastfire_ammo
+weaponfull,t6_ak47_up_acc_recoil25_fastfire_fastreload
+weaponfull,t6_ak47_up_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,t6_ak47_up_acc_recoil25_fastreload
+weaponfull,t6_ak47_up_acc_recoil25_fastreload_ammo
+weaponfull,t6_ak47_up_acc_recoil40
+weaponfull,t6_ak47_up_acc_recoil40_ammo
+weaponfull,t6_ak47_up_acc_recoil40_fastfire
+weaponfull,t6_ak47_up_acc_recoil40_fastfire_ammo
+weaponfull,t6_ak47_up_acc_recoil40_fastfire_fastreload
+weaponfull,t6_ak47_up_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,t6_ak47_up_acc_recoil40_fastreload
+weaponfull,t6_ak47_up_acc_recoil40_fastreload_ammo
+weaponfull,t6_fiveseven_acc_ammo
+weaponfull,t6_fiveseven_acc_fastfire
+weaponfull,t6_fiveseven_acc_fastfire_ammo
+weaponfull,t6_fiveseven_acc_fastfire_fastreload
+weaponfull,t6_fiveseven_acc_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_acc_fastreload
+weaponfull,t6_fiveseven_acc_fastreload_ammo
+weaponfull,t6_fiveseven_acc_recoil25
+weaponfull,t6_fiveseven_acc_recoil25_ammo
+weaponfull,t6_fiveseven_acc_recoil25_fastfire
+weaponfull,t6_fiveseven_acc_recoil25_fastfire_ammo
+weaponfull,t6_fiveseven_acc_recoil25_fastfire_fastreload
+weaponfull,t6_fiveseven_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_acc_recoil25_fastreload
+weaponfull,t6_fiveseven_acc_recoil25_fastreload_ammo
+weaponfull,t6_fiveseven_acc_recoil40
+weaponfull,t6_fiveseven_acc_recoil40_ammo
+weaponfull,t6_fiveseven_acc_recoil40_fastfire
+weaponfull,t6_fiveseven_acc_recoil40_fastfire_ammo
+weaponfull,t6_fiveseven_acc_recoil40_fastfire_fastreload
+weaponfull,t6_fiveseven_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_acc_recoil40_fastreload
+weaponfull,t6_fiveseven_acc_recoil40_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_ammo
+weaponfull,t6_fiveseven_up_acc_fastfire
+weaponfull,t6_fiveseven_up_acc_fastfire_ammo
+weaponfull,t6_fiveseven_up_acc_fastfire_fastreload
+weaponfull,t6_fiveseven_up_acc_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_fastreload
+weaponfull,t6_fiveseven_up_acc_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_recoil25
+weaponfull,t6_fiveseven_up_acc_recoil25_ammo
+weaponfull,t6_fiveseven_up_acc_recoil25_fastfire
+weaponfull,t6_fiveseven_up_acc_recoil25_fastfire_ammo
+weaponfull,t6_fiveseven_up_acc_recoil25_fastfire_fastreload
+weaponfull,t6_fiveseven_up_acc_recoil25_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_recoil25_fastreload
+weaponfull,t6_fiveseven_up_acc_recoil25_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_recoil40
+weaponfull,t6_fiveseven_up_acc_recoil40_ammo
+weaponfull,t6_fiveseven_up_acc_recoil40_fastfire
+weaponfull,t6_fiveseven_up_acc_recoil40_fastfire_ammo
+weaponfull,t6_fiveseven_up_acc_recoil40_fastfire_fastreload
+weaponfull,t6_fiveseven_up_acc_recoil40_fastfire_fastreload_ammo
+weaponfull,t6_fiveseven_up_acc_recoil40_fastreload
+weaponfull,t6_fiveseven_up_acc_recoil40_fastreload_ammo
 
 // -----------------------------------------------------------------------------
 // Phase 4+ (uncomment as they come online):
@@ -320,6 +484,6 @@ weaponfull,s1_ae4_up_acc_recoil70_fastreload
 //   "Adding a weapon-variant effect". Combo names (base + _up per gun):
 //     weaponfull,<gun>_acc_fastfire
 //     weaponfull,<gun>_acc_fastreload
-//     weaponfull,<gun>_acc_recoil70_fastfire
-//     weaponfull,<gun>_acc_recoil70_fastfire_fastreload   (full stack)
+//     weaponfull,<gun>_acc_recoil40_fastfire
+//     weaponfull,<gun>_acc_recoil40_fastfire_fastreload_ammo   (full stack)
 // -----------------------------------------------------------------------------

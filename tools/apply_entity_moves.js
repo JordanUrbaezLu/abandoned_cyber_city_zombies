@@ -33,7 +33,7 @@ const moves = {
   '1330FD56-4040-43E2-A9F2-82B3D68FA2C2': { origin: '150 4195 0' },                                 // Mule Kick
   '7A2B9C03-ACC0-4DE1-8A3F-1F00ACCE0033': { origin: '300 4195 0' },                                 // Deadshot
   '7A2B9C0C-ACC0-4DE1-8A3F-1F00ACCE0038': { origin: '450 4195 0', angles: '0 359.999 0' },          // Widow's Wine
-  '7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043': { origin: '600 4195 0', angles: '0 359.999 0' },          // Aura Blast
+  '7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043': { origin: '600 4195 0', angles: '0 359.999 0' },          // PhD Flopper
   // ICR-1 wallbuy -> Corp south wall (faces north, yaw 0)
   '7A2B9C04-ACC0-4DE1-8A3F-1F00ACCE0034': { origin: '-303 1170 53', angles: '0 0 0' },
   '7A2B9C05-ACC0-4DE1-8A3F-1F00ACCE0035': { origin: '-300 1170 56', angles: '0 0 0' },

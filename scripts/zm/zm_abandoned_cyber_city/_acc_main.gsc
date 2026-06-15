@@ -31,17 +31,19 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_glitch;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_corpse_cleanup;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
@@ -117,6 +119,8 @@ function init()
     acc_boss_brutus::init();
     // Spiki Panzer boss (stage 1: dvar-gated test spawn at the lab).
     acc_boss_panzer::init();
+    // Glitch Stalker mini-boss (script-only mobile blink boss; r12+, every 10).
+    acc_boss_glitch::init();
     acc_boss_items::init();
     // Weapon-variant swap engine (no-recoil / fast-fire perk twins, Stabilizer).
     // Before mega_bottles so level.acc_variant_* exist before any reconcile poke.
@@ -129,12 +133,19 @@ function init()
     acc_weapon_abilities::init();
     // Points must init before damage so record_damage is available on the first hit.
     acc_points::init();
+    // Zombie-corpse cleanup: bodies linger ~5s then hide + de-collide (registers its
+    // own per-death callback after points so the body is read by earlier death hooks
+    // before we hide it). Dvar acc_corpse_linger_sec; 0 = old instant removal.
+    acc_corpse_cleanup::init();
     // Damage hooks go last so they sit on top of any hook other modules register.
     acc_damage::init();
 
-    // Rampage Inducer: registers its on_ai_spawned sprint hook + activation
-    // watchers (dvar `acc_rampage` / optional in-map trigger). Inert until on.
-    acc_rampage_inducer::init();
+    // Zombie speed curve: registers the on_ai_spawned per-round speed hook +
+    // the keep-alive. Replaces the old Rampage Inducer with a natural-gait ramp -
+    // a jog that speeds up rounds 1-9, breaking into a full sprint at round 10,
+    // then +1%/round. Never animates below natural cadence (no slow-mo).
+    // docs/11_enemies.md.
+    acc_zombie_speed::init();
 
     // Perk benefit descriptions (base + Mega) shown at the machine.
     acc_perk_info::init();

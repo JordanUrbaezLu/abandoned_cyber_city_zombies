@@ -2,15 +2,17 @@
 
 The arsenal, the Overclock system, custom perks, and the wonder weapon candidates. Most of the within-run replayability weight lives here because Overclocks randomize per run.
 
-> **⚠️ ARSENAL RESTRICTED (user, 2026-06-14).** There are **no wall buys** (all removed at
-> load by `_acc_map_randomizer::remove_all_wallbuys()`); every gun comes from the Mystery Box,
-> which `register_mystery_box_pool()` restricts by clearing `is_in_box` on the whole stock CSV
-> roster and re-enabling only a chosen set. **Box target = Tac-19, Locus, FN FAL, AK-47**
-> (user, 2026-06-14). Only **Locus** (`sniper_fastbolt`) is stock and live now; **Tac-19**
-> (`s1_tac19`), **FN FAL** (`t6_fal`), **AK-47** (`s1_ak47`/`t6_ak47`) are Skye weapon-pack
-> imports being installed — see **[docs/32](32_box_weapon_import_staging.md)** for the staging
-> + download list. **Interim box = ICR-1 + Man-O-War + Locus** until the imports land. The
-> full 16-weapon roster below is the *aspirational design spec*, not the current dispense set.
+> **⚠️ ARSENAL = BOX ONLY (user; box list authoritative in `_acc_map_randomizer::register_mystery_box_pool`).**
+> No wall buys (all removed at load by `remove_all_wallbuys()`); every gun comes from the Mystery
+> Box, which clears `is_in_box` on the whole stock CSV roster and re-enables only the chosen set.
+> **Current box (12 guns, all Skye imports, 2026-06-15):** Five-Seven `t6_fiveseven` (also the
+> starting pistol), ASM1 `s1_asm1`, Tac-19 `s1_tac19`, AK-47 `t6_ak47`, AE4 `s1_ae4`, Ripper
+> `iw6_ripper_smg`, **+ PPSH-41 `s4_ppsh41_base`, AK-74u `t5_ak74u`, PDW-57 `s1_pdw`, Nail Gun
+> `t9_nail_gun`, Paladin HB50 `t8_paladin_hb50`, M1911 `s2_m1911`**. Per-gun damage balance lives
+> in `_acc_damage::acc_weapon_balance_mult` (see the CHANGELOG 2026-06-15 entry for the +6 mults;
+> M1911 is the one BUFF — its port is MP-tuned at dmg 20). PDW/M1911 (akimbo PaP) + Nail Gun
+> (projectile) have NO perk twins, like the convertible Ripper. The 16-weapon roster below is the
+> older *aspirational design spec*, not the live box.
 
 Enemies are in a separate doc: [11_enemies.md](11_enemies.md).
 
@@ -88,7 +90,7 @@ Impact on Overclock pools:
 Unique rules for this weapon:
 - **No headshot multiplier applies.** Energy blasts dissipate too wide for head-hits to register. Damage is flat across hit location. Coded in `_acc_damage.gsc::is_applicable_weapon()`.
 - **Base damage is bumped above stock shotgun values** to compensate for no headshot bonus AND to push it into "best crowd control" territory. Tune at authoring time in `tac19_zm.gdt` (target: one-shot kills chaff through round ~20 base, ~35 at PaP L3, ~45 at PaP L5 + Tier 5).
-- **Always-on crowd-control profile (added 2026-06-14).** Mechanically the Skye `s1_tac19` is an 8-pellet `weaponClass spread` hitscan shotgun (`shotCount 8`), so its GDT carries a non-perk-gated profile that leans into crowd control: **small range buff x1.5** (`maxDamageRange` 550→825, `minDamageRange` 900→1350 base / 1100→1650 `_up`), **FMJ over-penetration** (`penetrateType` none→`large`, pellets pierce a line of zombies), **wider blast "girth"** (hip spread x1.25 — `hipSpreadStandMin` 7→8.75, `hipSpreadMax` 10→12.5, etc., so the 8 pellets fan across a wider arc; `adsSpread` stays 0 → ADS is still a precise single-target shot), traded against **−15% per-pellet damage** (x0.85 — `damage` 175→148.75, PaP 255→216.75). Baked by `tools/apply_recoil_overhaul.js` (`GUNS[tac19].baseline = { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 }`) into the base + `_up` + all 11 perk twins; tune every knob in that one config object. The `multishotBaseDamage*` pellet-cap fields stay untouched. Implementation: the weapon-variant twin section in `_acc_weapon_variants.gsc` + `tools/gen_weapon_variant_gdt.js` (`--range` / `--damage` / `--spread` / `--penetrate`).
+- **Always-on crowd-control profile (added 2026-06-14).** Mechanically the Skye `s1_tac19` is an 8-pellet `weaponClass spread` hitscan shotgun (`shotCount 8`), so its GDT carries a non-perk-gated profile that leans into crowd control: **small range buff x1.5** (`maxDamageRange` 550→825, `minDamageRange` 900→1350 base / 1100→1650 `_up`), **FMJ over-penetration** (`penetrateType` none→`large`, pellets pierce a line of zombies), **wider blast "girth"** (hip spread x1.25 — `hipSpreadStandMin` 7→8.75, `hipSpreadMax` 10→12.5, etc., so the 8 pellets fan across a wider arc; `adsSpread` stays 0 → ADS is still a precise single-target shot), traded against **−15% per-pellet damage** (x0.85, rounded to int — `damage` 175→149, PaP 255→217; `damage` is an INT-typed GDF field, a decimal value makes the gun do 0 damage in-game). Baked by `tools/apply_recoil_overhaul.js` (`GUNS[tac19].baseline = { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 }`) into the base + `_up` + all 11 perk twins; tune every knob in that one config object. The `multishotBaseDamage*` pellet-cap fields stay untouched. Implementation: the weapon-variant twin section in `_acc_weapon_variants.gsc` + `tools/gen_weapon_variant_gdt.js` (`--range` / `--damage` / `--spread` / `--penetrate`).
 - **Against bosses it under-performs.** Full boss + mini-boss have too much HP and not enough adjacent chaff for Tac-19's area damage to shine. If you're boss-fighting with a Tac-19 primary, swap to your secondary or hope your teammate has a sniper.
 
 Import notes: pull model/anims/sound from AW community ports; author GDT at `weapons/zm/sp/tac19_zm.gdt`. The damage-curve bump and the no-headshot rule are the two design knobs that define this weapon - they are explicit balance levers, not accidents.
@@ -158,6 +160,8 @@ Each level raises damage and reserve mag cumulatively.
 - All levels applied at the Pack-a-Punch machine in the Lab. No separate secondary PaP slot needed - it's one machine with 5 interactions.
 - Buying L3 requires L2 already applied, L4 requires L3, etc. Linear progression.
 - A weapon cannot skip levels.
+- **Packing is instant + in-place on every tier** — no gun-into-machine float/animation (user 2026-06-14). Holding Use swaps the held gun for its packed form right there. The first pack adds the gold PaP camo and carries your ammo; tiers 2-5 just bump the damage ladder. The gun **only ever changes when you actually pack** — walking near the machine never swaps it.
+- **Perk weapon-variant twins + PaP:** if you're holding a perk twin (Deadshot recoil, Gun Slinger fire, Speed Cola reload, Armory ammo), the first pack swaps you straight to the *packed twin* in one step, keeping the perk effect. (`_acc_pap_levels::acc_do_first_pack` + `acc_weapon_variants::packed_form`.)
 
 ### Tiers (Data Shards)
 
@@ -243,11 +247,11 @@ M14 EBR, G3, and FAL classify as `"ar"` family for Overclock purposes. The AR Ov
 
 Full perk roster, costs, effects, and stacking rules live in **[13_perks.md](13_perks.md)**. Perks that are especially weapon-relevant:
 
-- **Deadshot** (3,500): 1.5x headshot damage + auto-aim to head on ADS. Stacks multiplicatively with our 2x/3x headshot multiplier. Keystone for precision builds (FAL, Intervention, Drakon, M14 EBR).
+- **Deadshot** (3,500): +1.4 headshot damage bonus + auto-aim to head on ADS. **Added** (not multiplied) into the headshot bonus sum alongside our +2/+2 trash/boss headshot bonus (additive stacking, 2026-06-14). Keystone for precision builds (FAL, Intervention, Drakon, M14 EBR).
 - **Speed Cola** (3,500): +50% reload, faster perk drinking, faster equipment swap. Best on Tac-19 / AK-47 / Haymaker 12.
 - **Double Tap 2.0** (2,000): +33% fire rate + 3% damage. Compounds with PaP L5 + Tier 5 on full-auto ARs.
 - **Widow's Wine** (4,000): +50% frag damage + radius, +50% EMP stun duration + radius. Grenade-heavy builds.
-- **Aura Blast** (2,500): active 3s stun on 400u radius, 120s CD. Clutch in Overload event and boss add-waves.
+- **PhD Flopper** (2,500): immunity to fall damage and your own explosive splash; dive-to-prone triggers a nova explosion that clears nearby zombies (jump → land in a slide → blast), and you explode on going down. Clutch in Overload events and boss add-waves.
 
 Overall: **no perk cap** in this map, 9 perks available, 4 locked out per run. See [13_perks.md](13_perks.md).
 
@@ -339,7 +343,7 @@ Phase 5 asset work only. Mechanically identical to Bowie Knife.
 
 ## Boss-Drop Items
 
-Bosses drop random passive-buff items on death, Machin[a]-style. 6 items in the pool, 2 equipped slots per player. See [12_boss_items.md](12_boss_items.md) for the full design. Cross-referenced here because item effects interact with weapon progression: Kinetic Battery's 3x next-shot is multiplicative with PaP L5 damage and any active Overclocks; Neural Boots' movement buff makes the Slug Round shotgun ability viable at closer ranges; Payroll Ledger feeds +10% Points into every kill so funding 50k-Point PaP L5 across multiple weapons becomes realistic; etc.
+Bosses drop random passive-buff items on death, Machin[a]-style. 6 items in the pool, 2 equipped slots per player. See [12_boss_items.md](12_boss_items.md) for the full design. Cross-referenced here because item effects interact with weapon progression: Kinetic Battery's 3x next-shot is added (additive bonus stacking, 2026-06-14) with PaP L5 damage and any active Overclocks; Neural Boots' movement buff makes the Slug Round shotgun ability viable at closer ranges; Payroll Ledger feeds +10% Points into every kill so funding 50k-Point PaP L5 across multiple weapons becomes realistic; etc.
 
 ## Data Sources (for the code)
 

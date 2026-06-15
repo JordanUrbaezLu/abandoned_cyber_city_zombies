@@ -132,7 +132,7 @@ The module intends to **fully replace** stock kill awards. Stock BO3 awards 60/1
 ### Design Interaction Notes
 
 - **Widow's Wine perk** (see [13_perks.md](13_perks.md)): grenade damage boost applies to the grenade owner, so splash kills via Widow's-boosted frags still feed the 70/30 split normally. The perk doesn't bypass the split; it just makes those grenades more likely to land the final blow.
-- **Deadshot perk** (see [13_perks.md](13_perks.md)): the 1.5x headshot multiplier is per-player — only applies to the shooter's damage, not the share others earn from a Deadshot player's kill.
+- **Deadshot perk** (see [13_perks.md](13_perks.md)): the 1.4x headshot bonus is per-player — only applies to the shooter's damage, not the share others earn from a Deadshot player's kill.
 - **Meltdown capstone** (AoE kills from Cyberware tier-3 Overclock branch): the AoE kill from Meltdown still counts as "the caster's kill" for point purposes (the AoE source is the weapon; the player who fired is the killer).
 - **Multi-kill bonus (+50 per extra zombie killed within 0.5s)**: previously part of this doc's Point Economy section - **cut for now** to keep the point system surface area small. The 2x headshot multiplier plus the precision weapon tier (FAL, Drakon, Intervention) already rewards the playstyle a multi-kill bonus was targeting. Re-add as a modifier in `_acc_modifiers.gsc` if playtest feedback wants it.
 
@@ -145,8 +145,8 @@ The module intends to **fully replace** stock kill awards. Stock BO3 awards 60/1
 
 Stock BO3 applies a small per-weapon headshot damage multiplier baked into each weapon's GDT (roughly 1.5x for most guns). We **multiply on top of that** to sharpen the aim skill ceiling:
 
-- **Regular zombies + elites**: damage is multiplied by **2.0x** on any head-hit, on top of stock.
-- **Bosses (mini-boss + full boss)**: **3.0x**.
+- **Regular zombies + elites**: a **+2.0x** head-hit bonus, on top of stock.
+- **Bosses (mini-boss + full boss)**: **+2.0x** (lowered from 3.0x to match regular, 2026-06-14).
 - **Limb / body hits**: untouched (stock).
 
 Effective numbers (roughly, assuming stock weapon headshot mult ~1.5x):
@@ -154,7 +154,7 @@ Effective numbers (roughly, assuming stock weapon headshot mult ~1.5x):
 | Target | Body shot | Head shot (stock) | Head shot (ours) |
 |---|---|---|---|
 | Regular zombie / elite | 1.0x | ~1.5x | ~3.0x |
-| Boss | 1.0x | ~1.5x | ~4.5x |
+| Boss | 1.0x | ~1.5x | ~3.0x |
 
 ### Why it's a skill lever
 
@@ -164,35 +164,37 @@ Effective numbers (roughly, assuming stock weapon headshot mult ~1.5x):
 
 ### Stacking with Perks / Cyberware / Overclocks
 
-The multiplier is **multiplicative** with every other damage buff. A maxed precision build chains all of these on a single headshot:
+**Bonuses ADD, reductions multiply (2026-06-14).** Every damage *bonus* below is summed into one bonus factor — a literal sum, so a 3x and a 2x give **5x, not 6x**. Damage *reductions* (per-gun balance cuts, the shielded-elite frontal resist) stay multiplicative and apply after the sum: `final = damage × (sum of active bonuses, or 1 if none) × (reductions)`.
 
-- Base weapon damage
-- Stock weapon headshot multiplier (~1.5x)
-- Our headshot multiplier (2.0x regular / 3.0x boss)
-- **Deadshot perk** (1.5x additional headshot damage, see [13_perks.md](13_perks.md))
-- Cyberware **Overclock Tier 1** (`+15%` weapon damage) - 1.15x
-- Cyberware **Overload (Tier 2 OC branch)** (`+30%` crit damage on headshots) - 1.30x
-- Weapon **Overclock** if rolled (e.g. AR **Overpressure** at 1.5x ADS)
-- **Double Tap** perk (+3% damage, small but stacks)
-- Weapon ability **Precision Mode** (auto-crit next 3 shots = 4x) if active
+Bonus layers summed on a single headshot:
 
-On a PaP L5 + Tier 5 FAL with Deadshot + Overload + Precision Mode active + good Overclock rolls, a headshot on an elite can one-tap well past round 40. Boss headshots with the full stack are absurd. **Intended**. Rewards the precision archetype.
+- Our headshot bonus (2.0 regular / 2.0 boss)
+- **Deadshot perk** (1.4, or 1.8 with American Sniper Mega — no double dip; see [13_perks.md](13_perks.md))
+- Cyberware **Amplifier (OC Tier 1)** (`+15%` weapon damage) — 1.15
+- Cyberware **Overload (Tier 2 OC branch)** (`+30%` crit damage on headshots) — 1.30
+- **PaP custom tier** (1.25 / 1.55 / 1.90 / 2.30 for T2–T5)
+- Weapon **Overclock** if rolled (e.g. AR **Overpressure** at 1.5 ADS)
+- Weapon ability **Precision Mode** (auto-crit = 4.0) / **Slug Round** (3.0) / **Kinetic Battery** (3.0) when active
+
+(Base weapon damage and the stock ~1.5x weapon-GDT headshot mult are already baked into the incoming `damage` before any of this.)
+
+Because bonuses now ADD instead of multiply, big stacks no longer explode geometrically — headshot 2.0 + Deadshot 1.4 + Overload 1.30 + PaP 2.30 = **7.0x** (summed), and deeper stacks that used to reach ~100x collapse to roughly the sum of their layers. **Intended** — rewards the precision archetype without runaway multiplication.
 
 ### Deadshot Effective Damage Table (with our multiplier)
 
-Stock weapon headshot GDT multiplier assumed ~1.5x for illustration:
+Stock weapon headshot GDT multiplier assumed ~1.5x for illustration. Our bonuses are **summed** (additive), then multiplied by the stock headshot factor:
 
 | Target | Body | Headshot (no Deadshot) | Headshot + Deadshot |
 |---|---|---|---|
-| Regular zombie / elite | 1.0x | 1.5 × 2.0 = **3.0x** | 1.5 × 2.0 × 1.5 = **4.5x** |
-| Boss | 1.0x | 1.5 × 3.0 = **4.5x** | 1.5 × 3.0 × 1.5 = **6.75x** |
+| Regular zombie / elite | 1.0x | 1.5 × (2.0) = **3.0x** | 1.5 × (2.0 + 1.4) = **5.1x** |
+| Boss | 1.0x | 1.5 × (2.0) = **3.0x** | 1.5 × (2.0 + 1.4) = **5.1x** |
 
-Layer on full Cyberware/Overclock/PaP stack and the precision-on-head build starts one-tapping content meant to be round-50 level. Playtest will tell us if this is fun or broken; tuning levers in [13_perks.md](13_perks.md).
+Layer on the full Cyberware/Overclock/PaP stack (all summed into the bonus factor) and the precision-on-head build still scales hard, but additively rather than geometrically. Playtest will tell us if this is fun or broken; tuning levers in [13_perks.md](13_perks.md).
 
 ### Synergistic Overclocks
 
 - **Adaptive Aim (AR)**: headshots refund one round to the magazine. The 2x headshot damage + ammo refund makes clean aim functionally infinite at range.
-- **Thermal Lock (Sniper)**: 0.5s aim guarantees a headshot hitbox. Cashes in our 2x/3x cleanly.
+- **Thermal Lock (Sniper)**: 0.5s aim guarantees a headshot hitbox. Cashes in our 2x cleanly.
 - **Reactive Powder (Sniper)**: headshots deal 50% AoE damage - AoE is of the *buffed* headshot damage, so it scales with our multiplier too.
 
 ### Implementation
@@ -201,11 +203,11 @@ Hook is `scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc::on_ai_damage`. Mult
 
 ### Tuning backstop
 
-If 2x / 3x feels broken in playtest (likely for snipers / FAL), we can:
+If the 2x headshot bonus feels broken in playtest (likely for snipers / FAL), we can:
 
-- Knock regular down to 1.5x / boss 2.5x.
-- Or split by elite class: regular 2x, elites 1.5x (bullet sponges feel less silly), bosses 3x unchanged.
-- Or flip the boss rule: bosses get NO extra headshot multiplier, but they have an exposed "crit spot" that takes 3x.
+- Knock regular and boss down to 1.5x (both are 2.0x now).
+- Or split by elite class: regular 2x, elites 1.5x (bullet sponges feel less silly).
+- Or flip the boss rule: bosses get NO extra headshot bonus, but they have an exposed "crit spot" that takes a larger one.
 
 Decision deferred to Phase 6 playtest.
 
@@ -306,7 +308,7 @@ Hard rules for any fight in the map:
 - Stock BO3 behavior preserved: down -> bleed out in 30s -> die or be revived.
 - **Subroutine Caching** doubles bleed to 60s.
 - **Self-revive** (when carried): 1-time use, 10s revive animation. Purchase cost 4000 points + 2 Data Shards. Caching halves the Shard cost.
-- **Aura Blast perk** (see `13_perks.md`) isn't a save — but the 3s stun on 400u radius gives you a repositioning window before a second hit lands. Not a "downed prevention" layer but a "recovery option" layer.
+- **PhD Flopper perk** (see `13_perks.md`) isn't a save — but a dive-to-prone nova explosion clears nearby zombies, giving you a repositioning window before a second hit lands. Not a "downed prevention" layer but a "recovery option" layer.
 - **Ghost Shroud boss item** is the clutch 1-HP save; stacks independently with Jugger-Nog's doubled HP pool to maximize survival time before the save is even needed.
 
 ## Emergency Drop System

@@ -130,6 +130,18 @@ if ($node) {
     Check "GSC cross-reference/dependency lint" $true "node not found - skipped (install Node.js to enable)" $true
 }
 
+# Room-geometry source-of-truth lint (node): asserts the 4 duplicated room
+# footprint copies (gen_zone_greybox / gen_map_design / baked .map / gen_rooms
+# shells) + the 2 PaP-origin literals all agree with source_data/rooms.json.
+# Catches a silent map<->generator desync before a build (docs/36 Stage 0).
+if ($node) {
+    $rooms = & node (Join-Path $RepoRoot "tools\validate_rooms.js") 2>&1
+    $roomsOk = ($LASTEXITCODE -eq 0)
+    Check "room-geometry source-of-truth lint" $roomsOk (($rooms | Select-Object -Skip 1) -join ' ')
+} else {
+    Check "room-geometry source-of-truth lint" $true "node not found - skipped (install Node.js to enable)" $true
+}
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"

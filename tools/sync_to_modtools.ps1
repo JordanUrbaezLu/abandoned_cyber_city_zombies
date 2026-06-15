@@ -232,6 +232,15 @@ if (-not $Reverse) {
     }
 }
 
+# CC0 source WAVs live in repo\sound_assets and must land in the TOOLS-ROOT
+# sound_assets\ tree (NOT the usermap) that the sound build reads - the alias
+# FileSpec paths are relative to it. COPY (never mirror) so the externally-
+# installed game-rip packs (skye_ports\, _NSZ\) already in the tools tree are
+# NOT purged. A fresh clone thus deploys our CC0 audio automatically.
+if (-not $Reverse) {
+    Copy-Tree (Join-Path $RepoRoot "sound_assets") (Join-Path $ModTools "sound_assets") "sound_assets (CC0 wavs)" $false
+}
+
 Write-Info "done"
 if (-not $Reverse) {
     Write-Info "next: open Launcher, select $MapName, Compile (map + scripts), Run Game."

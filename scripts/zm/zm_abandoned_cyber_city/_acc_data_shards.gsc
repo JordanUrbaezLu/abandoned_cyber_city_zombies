@@ -205,6 +205,11 @@ function watch_pickup()
 
         // Grant and destroy.
         grant_player( closest, self.acc_shard_count, "pickup" );
+        // Pickup blip (docs/35_sound_plan.md): positional cue on the picking
+        // player at the PHYSICAL pickup only (not grant_player, which passive
+        // regen/objectives also call). Alias "acc_shard_pickup" lives in
+        // sound/aliases/acc_audio.csv; silent no-op until authored + registered.
+        closest PlaySound( "acc_shard_pickup" );
         self notify( "acc_shard_claimed" );
         self delete();
         return;

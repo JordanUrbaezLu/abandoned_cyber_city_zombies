@@ -244,6 +244,14 @@ function run_seal_phase( round_number, zone_name )
     // "Escape window"). Phase 4 replaces with LUI HUD widget + audio alias.
     iprintlnbold( "DECONTAMINATION - EVACUATE " + display_name );
 
+    // Audio half of decon-hud-audio-warning (docs/20, docs/35_sound_plan.md): a 2D
+    // klaxon to every player. zm_utility::play_sound_2D is level-scoped (plays to
+    // all, non-positional - _zm_utility.gsc:3493). Alias "acc_decon_alarm" lives in
+    // sound/aliases/acc_audio.csv; author + register it per docs/35. Until then a
+    // missing alias is a silent no-op (same as the stock evt_* aliases), so this is
+    // build-safe today.
+    zm_utility::play_sound_2D( "acc_decon_alarm" );
+
     wait( ACC_DECON_ESCAPE_WINDOW_SEC - 10 );
     iprintlnbold( "DECONTAMINATION - " + display_name + " SEALS IN 10 SECONDS" );
 

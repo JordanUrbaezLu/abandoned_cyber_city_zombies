@@ -55,8 +55,8 @@
 #using scripts\zm\_zm_perk_doubletap2;
 #using scripts\zm\_zm_perk_deadshot;
 // [acc] Stock-but-unfinished cherry module = the registered perk pipeline we
-// hijack for Aura Blast (see _acc_perk_aura_blast.gsc). Matching #using is in
-// the entry .csc - required, or its clientfield registration mismatches.
+// HIJACK for PhD Flopper (see _acc_perk_phd_flopper.gsc). Matching #using is in the
+// entry .csc - required, or its clientfield registration mismatches.
 #using scripts\zm\_zm_perk_electric_cherry;
 #using scripts\zm\_zm_perk_juggernaut;
 #using scripts\zm\_zm_perk_quick_revive;
@@ -83,10 +83,13 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage_inducer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_aura_blast;
+// [acc] PhD Flopper (perk #9): hijacks the stock-but-unfinished _zm_perk_electric_cherry
+// pipeline (registered machine + stock nuke model) and presents it as PhD Flopper -
+// fall/explosive immunity + dive-to-explode nova. (The real machine model needs a
+// game-rip import, which the stock nuke placeholder avoids.)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_phd_flopper;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 
 // Fix Power Lag
@@ -165,14 +168,14 @@ function main()
 	// tick, first player spawn, and first round calculation.
 	acc_main::pre_init();
 
-	// [acc] Aura Blast: overwrite the stock electric-cherry registration
-	// (cost/hint/give/take) - must run AFTER zm_usermap::main() populated
-	// level._custom_perks, BEFORE the first game tick.
-	acc_perk_aura_blast::init();
+	// [acc] PhD Flopper: hijack the stock electric-cherry registration (cost/hint/give/take
+	// + immunity override) - must run AFTER zm_usermap::main() populated level._custom_perks,
+	// BEFORE the first game tick.
+	acc_perk_phd_flopper::init();
 
 	// [acc] Apply the map's custom per-perk costs (docs/13_perks.md - perk
 	// customization is a headline feature). Runs before the first tick / first
-	// machine read, same as the Aura Blast cost override above.
+	// machine read, same as the PhD Flopper cost override above.
 	set_perk_costs();
 
 	//Setup the levels Zombie Zone Volumes
@@ -214,9 +217,8 @@ function main()
 	// invokes coop first (normalizes n_max to solo) before delegating down.
 	acc_early_round_pacing::post_zm_main();
 	acc_coop_scaling::post_zm_main();
-	// [acc] Rampage Inducer chains both spawn levers (count + delay func) here,
-	// before round 1 - inert until activated via the `acc_rampage` dvar / trigger.
-	acc_rampage_inducer::post_zm_main();
+	// [acc] Zombie speed curve has no spawn-lever chaining - it applies per zombie
+	// on spawn (acc_zombie_speed::init, threaded from acc_main::init).
 
 	// [acc] All remaining custom systems spin up on their own thread. Each
 	// module no-ops gracefully when its Radiant geometry doesn't exist yet,
@@ -356,8 +358,9 @@ function acc_hardcoded_open_map()
 }
 
 // [acc] Custom per-perk costs (docs/13_perks.md). The perk cost is read from
-// level._custom_perks[specialty].cost (same field Aura Blast overrides); set it
-// before the first purchase. Buying all 9 = 26,500 by design.
+// level._custom_perks[specialty].cost (the same field the PhD Flopper module
+// sets); set it before the first purchase. Buying all 9 = 29,500 by design
+// (Double Tap 5,000).
 function set_perk_costs()
 {
 	if ( !isdefined( level._custom_perks ) )
@@ -367,12 +370,12 @@ function set_perk_costs()
 	costs[ "specialty_armorvest" ]               = 4000; // Jugger-Nog
 	costs[ "specialty_quickrevive" ]             = 2500; // Quick Revive
 	costs[ "specialty_fastreload" ]              = 3500; // Speed Cola
-	costs[ "specialty_doubletap2" ]              = 2000; // Double Tap 2.0
+	costs[ "specialty_doubletap2" ]              = 5000; // Double Tap 2.0 (extra bullet = ~2x dmg, priced up 2026-06-14)
 	costs[ "specialty_staminup" ]                = 2000; // Stamin-Up
 	costs[ "specialty_additionalprimaryweapon" ] = 2500; // Mule Kick
 	costs[ "specialty_deadshot" ]                = 3500; // Deadshot
 	costs[ "specialty_widowswine" ]              = 4000; // Widow's Wine
-	// Aura Blast (specialty_electriccherry) = 2500, set in _acc_perk_aura_blast.
+	// PhD Flopper (over specialty_electriccherry) = 2500, set in _acc_perk_phd_flopper.
 
 	keys = GetArrayKeys( costs );
 	for ( i = 0; i < keys.size; i++ )

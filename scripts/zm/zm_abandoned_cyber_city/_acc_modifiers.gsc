@@ -142,6 +142,8 @@ function apply_global_modifiers()
 
     if ( is_active( "sprint" ) )
     {
+        // Consumed by _acc_zombie_speed.gsc: clamps every round's target to >=100%
+        // (base-game max) and forces the sprint run cycle.
         level.acc_mod_force_sprint = true;
     }
 

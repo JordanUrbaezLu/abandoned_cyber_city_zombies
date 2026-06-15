@@ -10,13 +10,13 @@
 // Usage:
 //   node tools/gen_weapon_variant_gdt.js \
 //     --src "<tools>\source_data\skye_s1_tac-19.gdt" \
-//     --asset s1_tac19 --suffix acc_recoil70 --recoil 0.5 \
+//     --asset s1_tac19 --suffix acc_recoil40 --recoil 0.6 \
 //     --out source_data/acc_weapon_variants.gdt [--append]
 //
-//   --recoil <f>   scale factor for kick-magnitude fields (0.5 = -50%, 0.65 = -35%)
+//   --recoil <f>   scale factor for kick-magnitude fields (0.6 = -40%, 0.75 = -25%)
 //   --fire   <f>   scale factor for fireTime/holdFireTime (0.667 ~= +50% RoF)
 //   --reload <f>   scale factor for reload-timing fields (0.88 ~= +70% over engine +50%)
-//   --swap   <f>   scale factor for raise/drop (weapon-swap) timing (0.25 = -75% swap)
+//   --swap   <f>   scale factor for raise/drop (weapon-swap) timing (0.5 = -50% swap)
 //   --range  <f>   scale factor for the damage-falloff DISTANCE breakpoints
 //                  (maxDamageRange/minDamageRange/damageRange2..5); >1 = longer effective
 //                  range (the gun holds full damage further out before falling off)
@@ -24,10 +24,12 @@
 //                  0.85 = -15% damage everywhere on the curve
 //   --spread <f>   scale factor for the hip-fire SPREAD pattern width (hipSpread*Min/Max);
 //                  >1 = wider blast for spread/shotgun-class guns (pellets cover a wider arc)
+//   --ammo   <f>   scale factor for reserve ammo capacity (maxAmmo/startAmmo); 1.25 = +25%.
+//                  INT-typed (rounded). The Mule Kick Mega "The Armory" +25%-reserve twin.
 //   --penetrate <t> SET penetrateType to a literal enum tier (none/small/medium/large) - the
 //                  FMJ bullet-penetration level. It is a STRING field, so it is set, not scaled.
 //   --append       insert into an existing output GDT instead of overwriting
-//   --inplace      scale <asset> IN <src> (no rename) - used for the x2.5 recoil base
+//   --inplace      scale <asset> IN <src> (no rename) - used for the x2.1 recoil base
 //
 // Scales ONLY the keys in the sets below. Any factor left at 1 (default) is a no-op
 // for that category, so one twin can combine several (e.g. recoil + fire + reload).
@@ -73,6 +75,10 @@ const RANGE_KEYS = new Set( [
 // damage out to maxDamageRange; damage2..5 = the breakpoint values; minDamage = the far floor.
 // Scaling all by one factor shifts the whole damage curve uniformly (e.g. 0.85 = -15%). For a
 // multi-pellet/shotgun gun this is PER-PELLET damage (shotCount pellets stack at point blank).
+// HARD-WON (2026-06-14): `damage` is an INT-typed GDF field. A decimal value (e.g. 148.75)
+// fails to parse and the weapon does ZERO damage in-game (verified live: every other gun uses
+// integer damage; only our decimal values broke). => DAMAGE_KEYS is flagged int in KEYSETS so
+// scaled results are Math.round()ed. (range/spread/recoil/timing are float - decimals fine there.)
 const DAMAGE_KEYS = new Set( [
     "damage", "damage2", "damage3", "damage4", "damage5", "minDamage",
 ] );
@@ -87,15 +93,26 @@ const SPREAD_KEYS = new Set( [
     "hipSpreadProneMin", "hipSpreadProneMax",
     "hipSpreadSlideMin", "hipSpreadSlideMax",
 ] );
+// Reserve AMMO capacity (Mule Kick Mega "The Armory" +25%). maxAmmo = the reserve cap the engine
+// clamps stock ammo to (verified: SetWeaponAmmoStock above it is clamped, like Widow grenades);
+// startAmmo = reserve granted on a fresh give. Both INT-typed (round, like damage). clipSize
+// (the magazine) is intentionally NOT here - the +25% is RESERVE only. The Mega is gated by
+// swapping to this twin (raised cap), then GiveMaxAmmo fills the reserve to it (armory_apply).
+const AMMO_KEYS = new Set( [
+    "maxAmmo", "startAmmo",
+] );
 
+// [ keyset, cli-name, roundToInt? ]. roundToInt = the GDF field is INT-typed (decimals make the
+// engine read 0) so the scaled result must be Math.round()ed. `damage` + `ammo` are int.
 const KEYSETS = [
     [ RECOIL_KEYS, "recoil" ],
     [ FIRE_KEYS,   "fire" ],
     [ RELOAD_KEYS, "reload" ],
     [ SWAP_KEYS,   "swap" ],
     [ RANGE_KEYS,  "range" ],
-    [ DAMAGE_KEYS, "damage" ],
+    [ DAMAGE_KEYS, "damage", true ],
     [ SPREAD_KEYS, "spread" ],
+    [ AMMO_KEYS,   "ammo",   true ],
 ];
 
 // String-valued fields that are SET to a literal (not scaled). FMJ/penetration is a string
@@ -150,14 +167,16 @@ function scaleLine( line, scales, literals ) {
     const m = line.match( /^(\s*)"([A-Za-z0-9_]+)"\s+"(-?\d+(?:\.\d+)?)"\s*$/ );
     if ( !m ) return { line, scaled: 0 };
     const [ , indent, key, valStr ] = m;
-    let scale = null;
-    for ( const [ keys, name ] of KEYSETS ) {
-        if ( keys.has( key ) && scales[ name ] !== 1 ) { scale = scales[ name ]; break; }
+    let scale = null, asInt = false;
+    for ( const [ keys, name, isInt ] of KEYSETS ) {
+        if ( keys.has( key ) && scales[ name ] !== 1 ) { scale = scales[ name ]; asInt = isInt === true; break; }
     }
     if ( scale === null ) return { line, scaled: 0 };
     const v = parseFloat( valStr );
     if ( v === 0 ) return { line, scaled: 0 };   // 0 stays 0
-    return { line: `${indent}"${key}" "${fmt( v * scale )}"`, scaled: 1 };
+    let nv = v * scale;
+    if ( asInt ) nv = Math.round( nv );          // INT-typed field: a decimal makes the gun do 0 dmg
+    return { line: `${indent}"${key}" "${fmt( nv )}"`, scaled: 1 };
 }
 
 // Transform every in-scope field in a block (scale numerics, set literals); optionally
@@ -184,6 +203,7 @@ function main() {
         range:  parseFloat( arg( "range", "1" ) ),
         damage: parseFloat( arg( "damage", "1" ) ),
         spread: parseFloat( arg( "spread", "1" ) ),
+        ammo:   parseFloat( arg( "ammo", "1" ) ),
     };
     // Literal string fields to SET (e.g. --penetrate medium -> penetrateType "medium").
     const literals = {};
@@ -194,7 +214,7 @@ function main() {
     const inplace = arg( "inplace", false ) === true;
     const append = arg( "append", false ) === true;
     const litTag = Object.keys( literals ).length ? `, ${Object.entries( literals ).map( ( [ k, v ] ) => `${k}=${v}` ).join( ", " )}` : "";
-    const tag = `recoil x${scales.recoil}, fire x${scales.fire}, reload x${scales.reload}, swap x${scales.swap}, range x${scales.range}, damage x${scales.damage}, spread x${scales.spread}${litTag}`;
+    const tag = `recoil x${scales.recoil}, fire x${scales.fire}, reload x${scales.reload}, swap x${scales.swap}, range x${scales.range}, damage x${scales.damage}, spread x${scales.spread}, ammo x${scales.ammo}${litTag}`;
 
     if ( !src || !asset ) {
         console.error( "usage: --src <gdt> --asset <name> [--recoil f] [--fire f] [--reload f] [--swap f]\n  twin:    --suffix <s> --out <gdt> [--append]\n  inplace: --inplace   (scales <asset> in <src>, rewrites <src>)" );

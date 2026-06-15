@@ -97,22 +97,10 @@
 <text x="441.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
 <circle cx="639.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
 <text x="639.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="507.42" cy="705.2" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="507.42" y="708.2" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
-<circle cx="991.42" cy="615.44" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="991.42" y="618.44" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
 <circle cx="672.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
 <text x="672.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="573.42" cy="287.2" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="573.42" y="290.2" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
-<circle cx="199.42" cy="473.76" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="199.42" y="476.76" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
 <circle cx="705.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
 <text x="705.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="639.42" cy="705.2" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="639.42" y="708.2" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
-<circle cx="947.42" cy="473.76" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
-<text x="947.42" y="476.76" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
 <circle cx="714.22" cy="370.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
 <text x="714.22" y="373.8" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
 <circle cx="261.24" cy="227.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
@@ -160,14 +148,8 @@
 <text x="606.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">MULE</text>
 <text x="441.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">QR</text>
 <text x="639.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">DSHOT</text>
-<text x="496.42" y="708.2" fill="#cfd8e0" font-size="8.5" text-anchor="end">ICR-1</text>
-<text x="980.42" y="618.44" fill="#cfd8e0" font-size="8.5" text-anchor="end">Haymaker 12</text>
 <text x="672.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">WIDOW</text>
-<text x="562.42" y="290.2" fill="#cfd8e0" font-size="8.5" text-anchor="end">Bowie Knife</text>
-<text x="210.42" y="476.76" fill="#cfd8e0" font-size="8.5" text-anchor="start">Drakon (Intervention slot)</text>
-<text x="705.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">AURA</text>
-<text x="650.42" y="708.2" fill="#cfd8e0" font-size="8.5" text-anchor="start">Sheiva (M14 EBR slot)</text>
-<text x="936.42" y="476.76" fill="#cfd8e0" font-size="8.5" text-anchor="end">Frag (EMP slot)</text>
+<text x="705.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">PHD</text>
 <text x="725.22" y="373.8" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (corp)</text>
 <text x="272.24" y="230.8" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (roof)</text>
 <text x="305.46" y="849.44" fill="#cfd8e0" font-size="8.5" text-anchor="end">Door [750] enter_market</text>
@@ -189,7 +171,7 @@
 <rect x="10" y="1242" width="1136" height="225" fill="#161c22" stroke="#3a4a58"/>
 <circle cx="28" cy="1261" r="7" fill="#e64a9c" stroke="#000"/>
 <text x="28" y="1264" fill="#000" font-size="6.5" text-anchor="middle" font-weight="bold">P</text>
-<text x="44" y="1264" fill="#cfd8e0" font-size="11">Perk machine (9: QR/Jug/Speed/DT2/Stamin/Mule in Lab row + Deadshot + Widow’s Wine + Aura Blast)</text>
+<text x="44" y="1264" fill="#cfd8e0" font-size="11">Perk machine (9: QR/Jug/Speed/DT2/Stamin/Mule in Lab row + Deadshot + Widow’s Wine + PhD Flopper)</text>
 <circle cx="28" cy="1283" r="7" fill="#b14ae6" stroke="#000"/>
 <text x="28" y="1286" fill="#000" font-size="6.5" text-anchor="middle" font-weight="bold">PaP</text>
 <text x="44" y="1286" fill="#cfd8e0" font-size="11">Pack-a-Punch (Lab; approach blocked per run on one side - orange bars)</text>

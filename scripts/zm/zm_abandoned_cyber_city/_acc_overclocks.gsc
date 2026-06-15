@@ -294,19 +294,22 @@ function weapon_name_to_family( weapon_name )
     // The map ships 5 guns: Five-Seven (pistol), ASM1 (smg), Tac-19 (shotgun),
     // AK-47 + AE4 (ar). Tac-19, ASM1, AK-47 and AE4 map to an Overclock-able
     // family; there are no sniper / lmg guns on the map.
-    ar_list = array( "t6_ak47", "s1_ae4" );         // AK-47 (BO2), AE4 (AW energy)
+    ar_list = array( "t6_ak47", "s1_ae4",           // AK-47 (BO2), AE4 (AW energy)
+                     "t9_nail_gun" );               // Nail Gun (CW projectile AR, 2026-06-15)
     smg_list = array( "s1_asm1",                    // ASM1
                       "iw6_ripper_smg", "iw6_ripper_smg_zm",
-                      "iw6_ripper_ar", "iw6_ripper_ar_zm" );  // Ripper (both convertible modes -> smg family)
+                      "iw6_ripper_ar", "iw6_ripper_ar_zm",  // Ripper (both convertible modes -> smg family)
+                      "s4_ppsh41_base", "t5_ak74u", "s1_pdw" );  // PPSH-41, AK-74u, PDW (2026-06-15)
     sg_list = array( "s1_tac19" );                  // Tac-19
-    sr_list = array();
+    sr_list = array( "t8_paladin_hb50" );           // Paladin HB50 (BO4 sniper, 2026-06-15)
     lmg_list = array();
 
     // Families that CANNOT be Overclocked (return distinct sentinel "none" so
     // the terminal prints a useful message instead of "unknown"). Real weapons
     // reachable on the map only:
     pistol_list = array( "pistol_standard",         // laststand pistol
-                         "t6_fiveseven" );          // Five-Seven (start pistol)
+                         "t6_fiveseven",            // Five-Seven (start pistol)
+                         "s2_m1911" );              // M1911 (WWII pistol, 2026-06-15)
     melee_list = array( "knife" );                  // basic melee
     grenade_list = array( "frag_grenade" );         // starting lethal
     // Wonder weapons (none placed yet) have intrinsic Overclocks, not

@@ -68,6 +68,15 @@ const roof = room('Rooftop Helipad',
   't7_concrete_bare_weathered_01', 't7_asphalt_damaged_dark_wet', 't7_concrete_bare_weathered_01', 0x20);
 
 const lines = fs.readFileSync(MAP, 'utf8').split(/\r?\n/);
+
+// Re-run guard (docs/36 Stage 0): this script WRITES the .map in place and has
+// no idempotency, so a second run double-injects the shells. Refuse if the
+// distinctive shell comment is already present.
+if (lines.some((l) => l.includes('ACC room shell: Server Vault'))) {
+  console.error('FATAL: room shells already injected (found "ACC room shell: Server Vault") - refusing to double-inject.');
+  process.exit(1);
+}
+
 const e1 = lines.indexOf('// entity 1');
 if (e1 < 1) { console.error('FATAL: could not find // entity 1 (worldspawn boundary)'); process.exit(1); }
 const wsClose = e1 - 1;
