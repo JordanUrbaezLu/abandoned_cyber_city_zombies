@@ -25,7 +25,7 @@ climbs to ~4.7 GB over ~40 s.
 | **Auto-power** | Power is ON at spawn (perks, Pack-a-Punch, traps all work immediately). |
 | **Test boss** | A Juggernaut Host spawns ~10 s into **round 2** (and each round after), dropping **10 Mega Bottles** on death. |
 | **Status banner** | First ~15 s: `[ACC] DEV BUILD LIVE - map open, power on, systems: COMPLETE`. `COMPLETE` confirms the full `_acc_` init chain ran. |
-| **Rampage Inducer** | Console (`~`): `set acc_rampage 1` → zombies sprint + spawn faster; `set acc_rampage 0` off. |
+| **Zombie speed curve** | Zombies ramp 50% → 100% speed over rounds 1–10, then +1%/round. Live-tune: `set acc_zspeed_start_pct <n>` / `set acc_zspeed_max_round <n>` (read per spawn). |
 
 ## Test checklist
 
@@ -44,7 +44,7 @@ climbs to ~4.7 GB over ~40 s.
    Stamin-Up→The Flash, Deadshot→American Sniper, …).
 8. **Data Shards / Cyberware / Overclocks** — shards are maxed; find the kiosk(s)
    and confirm you can buy Cyberware nodes / roll Overclocks.
-9. **Rampage Inducer** — `set acc_rampage 1` / `0`; confirm sprint + spawn changes.
+9. **Zombie speed curve** — early rounds shamble; speed climbs each round, reaching full sprint at round 10 and inching past it after. Optionally tune `acc_zspeed_start_pct` and re-check the feel.
 
 ## Reporting back
 

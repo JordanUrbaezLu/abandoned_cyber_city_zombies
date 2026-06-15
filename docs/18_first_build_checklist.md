@@ -87,20 +87,21 @@ buyable doors yet; zones: Spawn ↔ Market/Alley ↔ Corp ↔ Vault/Roof ↔ Lab
   at the same machine again — a second hint ("Mega upgrade [1 Bottle]")
   appears only while you own that perk + hold a bottle. Apply and verify:
   Jug → +100 max HP (survive ~2 extra hits); Stamin-Up → visibly faster;
-  Deadshot → bigger headshot numbers (1.75x vs 1.5x); Widow's Wine → melee
-  one-hits regular zombies; Aura Blast → 800u radius, 2 charges, 60s CD.
+  Deadshot → bigger headshot numbers (+1.4 bonus, +1.8 Mega); Widow's Wine → melee
+  one-hits regular zombies; PhD Flopper → "Overcharge" Mega (declarative TODO).
 
 **Original single-room notes** (superseded, kept for the first compile):
 
 - **Perk machines (9 of 9)**: north wall row west→east: Quick Revive, Jug,
   Speed Cola, Double Tap, Stamin-Up, Mule Kick, **Deadshot**; south perimeter
-  wall: **Widow's Wine**; west perimeter wall: **Aura Blast** (shows as the
-  stock "nuke" vending model and a raw `ZOMBIE_PERK_AURABLAST` hint token -
-  both known greybox placeholders). Deadshot, Widow's Wine, Aura Blast are
+  wall: **Widow's Wine**; west perimeter wall: **PhD Flopper** (shows as the
+  stock `p7_zm_vending_nuke` vending model + the Ronan `exo_flopper` HUD icon -
+  both known greybox placeholders). Deadshot, Widow's Wine, PhD Flopper are
   hand-authored (inline structs), the other six are template prefabs.
-- **Aura Blast ability test**: buy it (2,500), then **crouch + melee**. Expect
-  "AURA BLAST" on screen and every regular zombie within 400u frozen ~3s;
-  pressing again inside 120s prints the recharge countdown instead.
+- **PhD Flopper ability test**: buy it (2,500), then **DIVE TO PRONE** (sprint →
+  go prone mid-air) near a group of zombies - expect a nova explosion that clears
+  nearby zombies. You also take no fall or self-explosive damage, and explode when
+  you go down. (Dive-triggered + passive immunity; no manual activation chord.)
 - **Wallbuys (6)**: extended north wall: **ICR-1** (chalk) and **Haymaker 12**
   (no chalk - walk the wall for the hint prompt); south perimeter wall
   west→east: **Bowie Knife**, **Drakon** (sniper-slot stand-in for the

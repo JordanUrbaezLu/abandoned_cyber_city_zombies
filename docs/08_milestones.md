@@ -81,7 +81,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 - Mini-boss and full boss implemented (art placeholder models OK).
 - Hack Terminal event (`_acc_events_hack.gsc`) with all 3 stages.
 - Vault Overload event (`_acc_events_overload.gsc`) with 3-wave structure + map shortcut unlock.
-- Custom perks working (Aura Blast active-stun, Deadshot headshot-boost + auto-aim, Widow's Wine grenade-boost), plus retuned stock perks (Jug cost, QR regen, Speed Cola drink/swap speed, Stamin-Up sprint duration cap). No-perk-cap override hooked.
+- Custom perks working (PhD Flopper dive-explosion + self-explosive/fall immunity, Deadshot headshot-boost + auto-aim, Widow's Wine grenade-boost), plus retuned stock perks (Jug cost, QR regen, Speed Cola drink/swap speed, Stamin-Up sprint duration cap). No-perk-cap override hooked.
 - Wonder weapon chosen (one of the three from `05_weapons.md`) and implemented with its 3 Overclocks.
 - LUI: Data Shard HUD element, minimal Cyberware skill-tree UI (can be a simple grid with 9 nodes).
 - All stock perks placed with the randomized per-slot logic.

@@ -52,8 +52,8 @@ CSV/zone/wallbuy wiring — the recipe in that doc is mechanical.
 **Why:** these need asset authoring tools (Maya/Blender + APE conversion),
 not code. Currently using documented stock placeholders.
 
-- Aura Blast machine looks like the stock "nuke" vending machine + raw hint
-  token (`ZOMBIE_PERK_AURABLAST`) until a custom model + localized `.str` exist.
+- PhD Flopper machine looks like the stock "nuke" vending machine + raw hint
+  token (`ZOMBIE_PERK_ELECTRICCHERRY`) until a custom model + localized `.str` exist.
 - Data Shard pickups are invisible `tag_origin`s (functional, no visual).
 - Juggernaut Host / Subroutine Core use buffed regular-zombie bodies (the
   stock mechz mini-boss archetype needs DLC1 zone assets usermaps don't have).
@@ -74,8 +74,7 @@ client `.csc` modules with clientfield pairs. That work is compile-iterate
 heavy — pointless to author blind before the first successful build.
 
 **Currently degraded-but-working:** `iprintlnbold` text for all warnings,
-crouch+melee chord for Aura Blast, ADS+melee chord for weapon abilities,
-numeric hudelem counters.
+ADS+melee chord for weapon abilities, numeric hudelem counters.
 
 ## 5. Engine-property abilities (need weapon GDT variants, not GSC)
 

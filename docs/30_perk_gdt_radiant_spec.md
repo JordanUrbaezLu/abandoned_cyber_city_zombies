@@ -92,7 +92,7 @@ Mega.** So it's **two twins per gun** via the **variant-swap** pattern:
    stem). It's the same override-swap framework `_acc_weapon_abilities.gsc` Stabilizer now
    drives (`apply_timed_variant`).
 - **Lighter scope:** bake only the `_acc_recoil50` (Mega) twins — base Deadshot then keeps
-  just its ×1.5 headshot + ADS-snap (the framework no-ops the −25% with no `recoil25` twin).
+  just its +1.4 headshot bonus + ADS-snap (the framework no-ops the −25% with no `recoil25` twin).
 
 ### Double Tap 1.0 — Gun Slinger +50% fire rate + −75% swap (weapon-variant swap)
 

@@ -236,8 +236,22 @@ function watch_players()
     }
     acc_utility::log( "perk_info: tracking " + machines.size + " perk machines" );
 
-    // PaP machine origin (entity 23 in the .map). Hardcoded - dev map is stable.
+    // PaP origin: read LIVE from the stock pack_a_punch trigger (script_noteworthy
+    // "pack_a_punch", same lookup as acc_pap_levels::pap_cost_display_keeper) so the
+    // info card follows the machine if it's relocated. Was hardcoded ( -700, 3700, 7.5 ),
+    // which silently broke the card on any PaP move (docs/36 Stage 0). The literal is
+    // kept ONLY as a fallback if the trigger never comes up.
     pap_org = ( -700, 3700, 7.5 );
+    for ( i = 0; i < 60; i++ )
+    {
+        pap_ents = GetEntArray( "pack_a_punch", "script_noteworthy" );
+        if ( pap_ents.size > 0 && isdefined( pap_ents[ 0 ] ) )
+        {
+            pap_org = pap_ents[ 0 ].origin;
+            break;
+        }
+        wait 0.5;
+    }
 
     for ( ;; )
     {
@@ -339,7 +353,7 @@ function perk_card_index( id )
     case "specialty_additionalprimaryweapon": return 6;  // Mule Kick
     case "specialty_deadshot":                return 7;  // Deadshot
     case "specialty_widowswine":              return 8;  // Widow's Wine
-    case "specialty_electriccherry":          return 9;  // Aura Blast
+    case "specialty_electriccherry":          return 9;  // PhD Flopper (over the cherry slot)
     case "pap":                               return 10; // Pack-a-Punch
     }
     return 0;

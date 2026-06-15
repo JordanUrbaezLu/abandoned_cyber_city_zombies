@@ -2,16 +2,16 @@
 
 What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, one bullet per effect. Companion to the design spec [13_perks.md](13_perks.md) (source of truth for numbers and stacking).
 
-**`(BASE)`** = stock *Black Ops III* behavior inherited from the vanilla game. Untagged bullets are custom to this map (new or retuned). Mega tiers are all map-specific, so no Mega bullet is `(BASE)`. Deadshot and Aura Blast are custom perks, so they carry no `(BASE)` bullets.
+**`(BASE)`** = stock *Black Ops III* behavior inherited from the vanilla game. Untagged bullets are custom to this map (new or retuned). Mega tiers are all map-specific, so no Mega bullet is `(BASE)`. Deadshot and PhD Flopper are custom perks, so they carry no `(BASE)` bullets.
 
 ## Map-wide perk rules
 
-- **9 perks total** — 7 stock BO3 perks (retuned) + 2 custom (Deadshot, Aura Blast *(WIP — not on the map yet)*). 8 are live on the map today.
-- **No 4-perk cap.** A single player can own and stack **all 9** perks at once if they can afford them.
+- **9 perks total** — 7 stock BO3 perks (retuned) + 2 custom (Deadshot, PhD Flopper). All 9 are live on the map today.
+- **No 4-perk cap.** A single player can own and stack **all 9** perks at once if they can afford them (`level.perk_purchase_limit = 9`).
 - **Where to buy:** all perks are at the **Lab** (4 machines that re-roll to a random 4-of-9 each round). Perks cost **Points**.
 - **Mega tiers are not bought with Points.** Each base perk has a **Mega** upgrade unlocked by spending **1 Empty Mega Bottle** (dropped on every boss kill) at a Lab machine while you own the base perk and it is in rotation. Mega is **sticky for the run** (survives death/re-buy).
 - **Player HP baseline:** no perk = **100 HP**, down on the **3rd** regular zombie melee hit.
-- Buying all 9 base perks = **26,500 Points**.
+- Buying all 9 base perks = **29,500 Points**.
 
 ---
 
@@ -50,31 +50,31 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 - **Faster barrier board / repair animation.** **(BASE)**
 
 **Mega — Sleight of Hand Expert:**
-- **+70% reload speed** (replaces the base +50%).
+- **+75% reload speed** (replaces the base +50%).
 
 > *Faster perk-drink animation was cut (2026-06-14): the drink anim is shared map-wide
 > with no per-perk lever, so it can't be gated to Speed Cola owners.*
 
 ---
 
-## 4. Double Tap 1.0 — 2,000 Points
+## 4. Double Tap 2.0 — 5,000 Points
 
-*Rate of fire only — the original Double Tap, not the 2.0 double-bullet version.*
+*The full stock **Double Tap II Root Beer** — kept as-is. The extra bullet can't be disabled from a usermap, so we embrace it and balance around it.*
 
-> **⚠️ Migration pending (flagged 2026-06-14):** the base perk is **currently the stock
-> Double Tap 2.0** machine (`specialty_doubletap2`, which fires an extra bullet — not pure
-> rate-of-fire). The **+33% rate-of-fire-only** profile below and the "Double Tap 1.0" name
-> on the card are the **migration target**, not the shipped base. TODO: convert the base to a
-> true Double Tap **1.0** (strip the 2.0 extra-bullet so it is rate-only) and verify the +33%.
-> The Mega (Gun Slinger) +50% rate / −75% swap ARE already implemented via the `fastfire`
-> weapon-variant twin.
+> **Design decision (2026-06-14):** the base perk IS the stock `specialty_doubletap2` machine,
+> which fires an **extra bullet per shot** (≈2× damage). There is no usermap-side way to strip
+> that, so we KEEP Double Tap **2.0** (not "1.0") and price/balance around what we have. It now
+> costs **5,000** (vs ~2,000 for a rate-only perk) because doubling bullet output is a major
+> damage perk. The Mega adds fire rate + faster swap via the `fastfire` weapon-variant twin.
 
-**Base abilities:**
-- **+33% rate of fire.** **(BASE)**
+**Base abilities (Double Tap 2.0):**
+- **Fires 2 bullets per shot for the cost of 1 round of ammo** (double the pellets on shotguns) — effectively **~2× damage output**. **(BASE — stock 2.0)**
+- **+33% rate of fire** (the stock Double Tap rate boost). **(BASE)**
+- **Does NOT apply to** Wonder Weapons, the Ballistic Knife, or explosive weapons (stock 2.0 exclusion).
 
 **Mega — Gun Slinger:**
-- **+50% rate of fire.**
-- **Weapon-swap time reduced 75%** (≈4× faster weapon swaps).
+- **+40% rate of fire** (on top of the 2.0 base; `fastfire` twin, fireTime ×0.714 — retuned from +50% on 2026-06-14).
+- **Weapon-swap time reduced 50%** (≈2× faster weapon swaps).
 
 ---
 
@@ -104,19 +104,19 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 
 ## 7. Deadshot — 3,500 Points *(custom — not a stock BO3 perk, so no `(BASE)` tags)*
 
-> **Map recoil baseline:** every gun kicks at **2.5× vanilla recoil** by default (a map-wide
-> skill rule, not a perk). Deadshot's reductions are measured **off that 2.5× baseline**.
+> **Map recoil baseline:** every gun kicks at **2.1× vanilla recoil** by default (a map-wide
+> skill rule, not a perk). Deadshot's reductions are measured **off that 2.1× baseline**.
 
 **Base abilities:**
-- **×1.5 headshot damage.**
-- **−35% weapon recoil** → 2.5 × 0.65 = **1.625× vanilla** (still above stock).
+- **+1.4 headshot damage bonus** (added into the headshot bonus sum, not multiplied — 2026-06-14).
+- **−25% weapon recoil** → 2.1 × 0.75 = **1.575× vanilla** (still above stock).
 - **Snaps to the nearest head while aiming down sights** (not on bosses).
 
 **Mega — American Sniper:**
-- **×2 headshot damage** (replaces the base ×1.5).
-- **−70% weapon recoil** → 2.5 × 0.30 = **0.75× vanilla** (now *below* stock — a real reward).
+- **+1.8 headshot damage bonus** (replaces the base +1.4 — no double dip).
+- **−40% weapon recoil** → 2.1 × 0.60 = **1.26× vanilla** (the tamest tier — still a touch above stock).
 
-**Effective headshot damage** (Deadshot stacks with the map's ×2 trash / ×3 boss headshot multiplier): base ≈ **×3.0** on trash / **×4.5** on bosses; American Sniper ≈ **×4.0** / **×6.0**.
+**Effective headshot damage** — bonuses are **summed**, then multiplied by the stock ~1.5× weapon-GDT headshot mult. Map headshot bonus is **+2.0 trash / +2.0 boss** (boss lowered from 3.0, 2026-06-14): base Deadshot ≈ 1.5 × (2.0 + 1.4) = **×5.1** on trash and bosses; American Sniper ≈ 1.5 × (2.0 + 1.8) = **×5.7**.
 
 ---
 
@@ -134,25 +134,18 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 
 ---
 
-## 9. Aura Blast — 2,500 Points *(custom — not a stock BO3 perk, so no `(BASE)` tags)*
+## 9. PhD Flopper — 2,500 Points *(custom — not a stock BO3 perk, so no `(BASE)` tags)*
 
-> **🚧 WIP — on hold, not on the map yet.** The abilities below are the planned design only.
+> A custom ability that **hijacks** the stock electric-cherry pipeline + machine (the underlying
+> specialty stays `specialty_electriccherry`); our `_acc_perk_phd_flopper.gsc` drives it. Adapted
+> from the shipped HarryBo21/ColDog PhD Flopper.
 
 **Base abilities:**
-- Activated by a **crouch + melee** chord.
-- Releases a **400-unit radius shockwave.**
-- **3-second stun** (duration depends on enemy type — see below).
-- **120-second cooldown.**
-- Per-enemy-type effect:
-  - **Regular zombies:** full stun.
-  - **Shielded elites:** shield knocked down for the stun.
-  - **Teleporter elites:** cannot teleport.
-  - **EMP elites:** 1-second stun.
-  - **Mini-boss:** 50% duration (~1.5 s).
-  - **Full boss:** immune.
+- **Explosive immunity** — immune to fall damage and to your own explosive / grenade / projectile-splash damage.
+- **Slide-to-explode** — starting a slide sets off a nova that clears nearby zombies (on a cooldown). BO3 ZM has the sprint-slide but **no dolphin-dive** (confirmed in-game), so it triggers off the engine `isSliding()` directly — not the BO1/BO2 dive.
+- **Explode when you go down** — entering last-stand sets off an explosion around you.
+- **Blast look & feel** — the burst spawns on the **zombie you slide into** (the impact point, not on you): a **purple/void Apothicon burst** (stock `dlc4/genesis/fx_apothicon_fury_spawn_in_exp`), the **Nuke-powerup "whoomp"** sound (`evt_nuke_flash`), and a screen-shake. (A truly bespoke purple FX would need the FX Editor / a custom import; this reuses a stock purple effect that ships in the Mod Tools.)
+- **Zombies explode** — every zombie the nova kills **pops apart**: head-gib (the Nuke powerup's own dismember death) + a torso gore burst + a corpse-fling away from the blast (capped at 6, Mega 8). Bosses (huge HP) are only chipped, never gibbed/flung.
 
-**Mega — Mega Man:**
-- **800-unit radius shockwave.**
-- **60-second cooldown.**
-- **2 charges.**
-- **Bosses can be affected** — reduced effect vs. trash (~1.5 s / interrupt-only) so the fight isn't trivialized.
+**Mega — PhD Slider:**
+- **Bigger, stronger slide + down explosion** — radius 300 → 500u and roughly **2× damage** on both the slide nova and the down explosion, on a **shorter slide cooldown** (8s → 5s). Live from the Mega flag.

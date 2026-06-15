@@ -19,7 +19,7 @@ entities, but 18+ distinct `acc_*` targetnames exist).
 ## Critical violations (code contradicting the spec)
 
 1. **[FIXED 2026-06-13] Perk specialty-string mismatch** — `_acc_map_randomizer.gsc`
-   listed `specialty_acc_deadshot/widows_wine/aura_blast` in the rotation roster,
+   listed `specialty_acc_deadshot/widows_wine/electriccherry` in the rotation roster,
    but every machine/HasPerk/Mega-flag/cost/damage-hook keys on the stock
    `specialty_deadshot/widowswine/electriccherry`. Rolling a custom perk matched
    nothing → purchase/dispense structurally broken for 3 of 9 perks. **Fixed** to
@@ -38,11 +38,12 @@ entities, but 18+ distinct `acc_*` targetnames exist).
    classifies weapons by `_zm`-suffixed names, but runtime weapons carry stock
    **class** names (`ar_accurate`, `shotgun_fullauto`). The OC terminal likely
    rejects every weapon. *Fix:* reconcile to the class-name domain.
-5. **Sprint modifier inverted** — `is_active("sprint")` only sets
-   `acc_mod_force_sprint=true`, whose sole consumer (early-round pacing) **skips**
-   the +15% boost; nothing applies actual sprint. Net: rounds 1–4 get *slower*.
-   *Fix:* apply sprint when the flag is set (share the Rampage Inducer's spawn
-   hook, decoupled from its own active flag to avoid the toggle clobber).
+5. **Sprint modifier inverted** — ~~`is_active("sprint")` only set
+   `acc_mod_force_sprint=true`, whose sole consumer (early-round pacing) skipped the
+   boost; nothing applied actual sprint.~~ **RESOLVED 2026-06-14:** the new
+   `_acc_zombie_speed.gsc` curve consumes `acc_mod_force_sprint` — when set, it clamps
+   every round's speed target to ≥100% (base-game max) and forces the sprint run cycle.
+   (The Rampage Inducer was removed in the same change.)
 6. **Weapon tier progress keyed by live weapon object** — `_acc_overclocks.gsc:177,192`
    key `acc_weapon_progress` by `getcurrentweapon()` with no base-weapon fallback,
    so PaP wipes/dupes tier state (shard re-tier exploit / silent loss). *Fix:*

@@ -21,32 +21,32 @@ Hit counts assume ~**45** damage per regular zombie melee hit (HP ÷ ~45 → 100
 
 ## Roster (9 perks)
 
-Seven stock BO3 perks (retuned) + two custom (Deadshot, Aura Blast). **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them. This is a deliberate deviation from stock BO3 to match our "systems stack" design language. **Aura Blast (9) is WIP — not on the map yet; 8 perks are live today.**
+Seven stock BO3 perks (retuned) + two custom (Deadshot, PhD Flopper). **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them (`level.perk_purchase_limit = 9`). This is a deliberate deviation from stock BO3 to match our "systems stack" design language. **All 9 perks are live today.**
 
 | # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
 |---:|---|---:|---|---|---|
 | 1 | **Jugger-Nog** | 4,000 | **250 HP** → down on the **6th** zombie melee hit (no perk = 100 HP / 3rd). | **Ultimate Tank** | **314 HP** → down on the **7th** hit; **immune to boss abilities** (Subroutine Core / scripted boss disables). |
 | 2 | **Quick Revive** | 2,500 | Revive teammates in **2.0 s**; HP regen starts **15% sooner** after damage; solo self-revive. | **Savior** | Revive in **1.0 s**; regen starts **30% sooner**; **+15% move speed** while any other player is downed. |
-| 3 | **Speed Cola** | 3,500 | **+50%** reload; faster **barrier board / repair**. | **Sleight of Hand Expert** | **+70%** reload (replaces +50%). |
-| 4 | **Double Tap 1.0** | 2,000 | **+33%** rate of fire (fire rate only — the original Double Tap, not the 2.0 double-bullet version). | **Gun Slinger** | **+50%** fire rate; **weapon-swap time −75%** (≈4× faster swaps). |
+| 3 | **Speed Cola** | 3,500 | **+50%** reload; faster **barrier board / repair**. | **Sleight of Hand Expert** | **+75%** reload (replaces +50%). |
+| 4 | **Double Tap 2.0** | **5,000** | Fires **2 bullets per shot for 1 round of ammo** (≈**2× damage**; double pellets on shotguns) **plus +33%** rate of fire. Excludes Wonder Weapons / Ballistic Knife / explosives. | **Gun Slinger** | **+40%** fire rate; **weapon-swap time −50%** (≈2× faster swaps). |
 | 5 | **Stamin-Up** | 2,000 | Sprint lasts **~12 s** (vs ~4 s no perk); **~4 s** stamina recharge; **+7–8%** move speed (mobility caps ~109%). | **The Flash** | **+15% sprint speed** (×1.15, uniform move scalar). |
 | 6 | **Mule Kick** | **2,500** | Third primary weapon slot. | **The Armory** | **+25%** ammo capacity per weapon; **all buys 10% cheaper**. |
-| 7 | **Deadshot** | 3,500 | **×1.5** headshot damage; **−35%** recoil (off the 2.5× map base); **ADS snap-to-head** (not on bosses). | **American Sniper** | **×2** headshot (replaces ×1.5); **−70%** recoil. |
+| 7 | **Deadshot** | 3,500 | **+1.4** headshot bonus (additive); **−25%** recoil (off the 2.1× map base); **ADS snap-to-head** (not on bosses). | **American Sniper** | **+1.8** headshot (replaces +1.4); **−40%** recoil. |
 | 8 | **Widow's Wine** | 4,000 | Web grenades (web un-killed zombies ~20 s); self-defense webbing on hit; webbing melee; restock **2** web grenades/round. | **Spiderman** | Hold up to **6** web grenades; restock **4**/round (instead of 2). |
-| 9 | **Aura Blast** 🚧 | 2,500 | **WIP — not on the map yet.** Planned: **400u** shockwave, **3s** stun (per enemy type), **120s** CD; full bosses immune. | **Mega Man** | (Planned) **800u**, **60s** CD, **2 charges**, bosses can be affected. |
+| 9 | **PhD Flopper** | 2,500 | **Immune to fall damage and your own explosive / grenade / projectile splash**; **slide-to-explode** (starting a slide fires a purple nova that clears nearby zombies, on a cooldown — BO3 ZM has no dive); **explode when you go down** (PhD-flavoured last-stand). | **PhD Slider** | A **bigger / stronger slide + down explosion** — radius **300→500u**, ~**2× damage**, shorter cooldown. |
 
-**Sources (stock vs custom):** Perks **1–6 and 8** are stock BO3 machines (retuned — see table). **7** Deadshot and **9** Aura Blast are **custom** (not stock BO3 perks). Widow's Wine (8) base is pure stock; its **Spiderman** Mega is custom.
+**Sources (stock vs custom):** Perks **1–6 and 8** are stock BO3 machines (retuned — see table). **7** Deadshot and **9** PhD Flopper are **custom** (from-scratch abilities — not stock BO3 perks). PhD **hijacks the registered stock electric-cherry pipeline + its machine** (the underlying specialty is still `specialty_electriccherry`, exactly as the old Aura Blast placeholder did) — our module `_acc_perk_phd_flopper.gsc` overwrites the cherry cost/hint/give/take and installs a custom `level.perk_damage_override` immunity func; **the ability is entirely our code** (adapted from the shipped HarryBo21 / ColDog PhD Flopper), NOT the stock reload-shockwave. Widow's Wine (8) base is pure stock; its **Spiderman** Mega is custom.
 
-**Mega** tiers are all map-specific. **Aura Blast (9) is WIP and not on the map yet** — 8 perks are live today.
+**Mega** tiers are all map-specific. **All 9 perks are live today.**
 
-Buying all 9 = **26,500 Points** (Mule Kick **2,500**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + high-round headshot farm).
+Buying all 9 = **29,500 Points** (Double Tap **5,000**). Hitting that by round ~25 is possible with dedicated economy play (Payroll Ledger boss item + high-round headshot farm).
 
 The table above is a **complete at-a-glance** summary (base + Mega). Below, **[Perk reference (base + Mega)](#perk-reference-base--mega)** gives **full paragraphs** you can read start-to-finish, then **Mechanics** for exact numbers. **How** to acquire Mega (bottles, Lab machine, persistence) is in **[Mega Bottles (system)](#mega-bottles-system)**.
 
 ## No-Perk-Limit Rule
 
 - The stock BO3 4-perk cap is explicitly **removed** in this map.
-- All 9 perks can stack on a single player.
+- All 9 perks can stack on a single player (`level.perk_purchase_limit = 9`).
 - **Implementation**: override `_zm_perks` slot-limit check at init. See `_acc_perks.gsc` (Phase 3 module, planned).
 - **Co-op**: same rule; each player can hold all 9.
 
@@ -87,32 +87,32 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 **Base.** **+50% reload speed** and **faster barrier board / repair** animations (stock). Weapon swap is **not** a Speed Cola effect — it lives on Double Tap's Gun Slinger Mega. *(A faster perk-drink animation was considered but **cut** 2026-06-14 — the drink anim is shared map-wide with no per-perk lever, so it can't be gated to Speed Cola owners.)*
 
-**Mega: Sleight of Hand Expert.** **+70% reload** (replaces the base +50%), delivered by the per-gun `fastreload` weapon-variant twin (`reloadTime ×0.882` layered on the engine's +50%).
+**Mega: Sleight of Hand Expert.** **+75% reload** (replaces the base +50%), delivered by the per-gun `fastreload` weapon-variant twin (`reloadTime ×0.857` layered on the engine's +50%).
 
 **Mechanics**
 
-- **Reload:** base **+50%** (stock engine, off the specialty) → Mega **+70%** (replaces, not additive; the `fastreload` weapon-variant twin layers `reloadTime ×0.882` on top of the engine +50%).
+- **Reload:** base **+50%** (stock engine, off the specialty) → Mega **+75%** (replaces, not additive; the `fastreload` weapon-variant twin layers `reloadTime ×0.857` on top of the engine +50%).
 - **Barrier repair:** faster (stock).
 
-### 4. Double Tap 1.0 — 2,000 Points
+### 4. Double Tap 2.0 — 5,000 Points
 
-*Rate of fire only — the original Double Tap, not the 2.0 double-bullet version. No weapon-damage bonus.*
+*The full stock Double Tap II Root Beer — kept as-is (the extra bullet can't be stripped from a usermap, so we embrace + balance around it).*
 
-> **⚠️ Migration pending (flagged 2026-06-14):** the base perk is **currently backed by the
-> stock Double Tap 2.0** machine (`specialty_doubletap2` — fires an extra bullet, not pure
-> rate-of-fire). The **+33% rate-of-fire-only** profile and the "Double Tap 1.0" card name are
-> the **migration target**, not the shipped base. **TODO:** convert the base to a true Double
-> Tap **1.0** (strip the 2.0 extra-bullet so it is rate-only) and verify the base +33%. The
-> Mega (Gun Slinger) rate/swap gains are already implemented (see below).
+> **Design decision (2026-06-14):** the base perk IS the stock `specialty_doubletap2` machine,
+> which fires an **extra bullet per shot** (≈2× damage). There is no usermap-side way to remove
+> that, so we **keep Double Tap 2.0** (the old "convert to a rate-only 1.0" plan is cancelled) and
+> price/balance around what we have: **5,000** (up from ~2,000) because doubling bullet output is
+> a major damage perk. The Mega (Gun Slinger) adds fire rate + swap via the `fastfire` twin.
 
-**Base.** **+33% rate of fire** (stock). No damage bonus.
+**Base (Double Tap 2.0).** **Fires 2 bullets per shot for the cost of 1 round of ammo** (double pellets on shotguns) — effectively **~2× damage output** — **plus +33% rate of fire** (stock). Does **not** apply to Wonder Weapons, the Ballistic Knife, or explosive weapons.
 
-**Mega: Gun Slinger.** **+50% fire rate**; **weapon-swap time reduced 75%** (≈4× faster weapon swaps — moved here from Speed Cola).
+**Mega: Gun Slinger.** **+40% fire rate** (on top of the 2.0 base); **weapon-swap time reduced 50%** (≈2× faster weapon swaps — moved here from Speed Cola).
 
 **Mechanics**
 
-- **Fire rate:** base **+33%** → Gun Slinger **+50%**.
-- **Weapon swap (Mega only):** **−75%** swap time (×0.25 duration).
+- **Damage:** the stock 2.0 extra bullet ≈ **×2** output per trigger pull (1 ammo spent), excluding WW / ballistic knife / explosives.
+- **Fire rate:** base **+33%** → Gun Slinger **+40%** (`fastfire` twin, `fireTime ×0.714`).
+- **Weapon swap (Mega only):** **−50%** swap time (×0.5 duration).
 
 ### 5. Stamin-Up — 2,000 Points
 
@@ -139,18 +139,18 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 7. Deadshot — 3,500 Points (custom — not a stock BO3 perk)
 
-**Base.** **×1.5 headshot damage**, **−35% weapon recoil** (off the 2.5× map base → 1.625× vanilla), and **ADS snap-to-head** (auto-aim to the nearest head while aiming; not on bosses).
+**Base.** **+1.4 headshot damage bonus**, **−25% weapon recoil** (off the 2.1× map base → 1.575× vanilla), and **ADS snap-to-head** (auto-aim to the nearest head while aiming; not on bosses).
 
-**Mega: American Sniper.** **×2 headshot** (replaces the base ×1.5 — no double-dip); **−70% recoil** (→ 0.75× vanilla, below stock). Head-snap is inherited from base (unchanged).
+**Mega: American Sniper.** **+1.8 headshot** (replaces the base +1.4 — no double-dip); **−40% recoil** (→ 1.26× vanilla). Head-snap is inherited from base (unchanged).
 
 **Mechanics**
 
-- **Headshot multiplier** stacks on top of the map's base headshot multiplier (**×2** trash / **×3** boss): base ≈ **×3.0** trash / **×4.5** boss vs body; American Sniper ≈ **×4.0** / **×6.0**.
-- **Recoil:** base **−35%** → Mega **−70%** (off the 2.5× map base; delivered by the `recoil35`/`recoil70` weapon-variant twins).
+- **Headshot bonus** is **summed** (additive, 2026-06-14) with the map's base headshot bonus (**+2** trash / **+2** boss), then ×stock ~1.5: base Deadshot ≈ 1.5 × (2.0 + 1.4) = **×5.1** trash & boss vs body; American Sniper ≈ 1.5 × (2.0 + 1.8) = **×5.7**.
+- **Recoil:** base **−25%** → Mega **−40%** (off the 2.1× map base; delivered by the `recoil25`/`recoil40` weapon-variant twins).
 
 ### 8. Widow's Wine — 4,000 Points
 
-**Base (stock BO3 Widow's Wine).** Your lethal becomes **Widow's Wine grenades** (sticky / Semtex-like) — zombies caught in the blast but not killed are trapped in webs for ~**20 s** (closest frozen, others slowed). **Self-defense webbing:** when a zombie melees you, you release a web burst trapping nearby zombies ~20 s. **Webbing melee:** meleeing a zombie webs/slows it. Web grenades **restock 2 at the start of each round** (also on Max Ammo and from blue spider-drop pickups).
+**Base (stock BO3 Widow's Wine).** Your lethal becomes **Widow's Wine grenades** (sticky / Semtex-like) — zombies caught in the blast but not killed are trapped in webs (~**16 s** frozen close in, ~**12 s** slowed further out — stock `WIDOWS_WINE_COCOON_DURATION`/`_SLOW_DURATION`). **Self-defense webbing:** when a zombie melees you, you release a web burst trapping nearby zombies. **Webbing melee:** meleeing a zombie webs/slows it. Web grenades **restock 2 at the start of each round** (also on Max Ammo and from blue spider-drop pickups).
 
 **Mega: Spiderman.** Hold up to **6** web grenades; **restock 4 each round** (instead of 2).
 
@@ -159,22 +159,22 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 - **Base**: web grenades, self-defense webbing, webbing melee, **2**/round restock — all stock.
 - **Mega — Spiderman**: **6** max web grenades; **4**/round restock.
 
-### 9. Aura Blast — 2,500 Points (custom — WIP, not on the map yet)
+### 9. PhD Flopper — 2,500 Points (custom ability — hijacks the stock cherry pipeline)
 
-> **🚧 WIP — on hold, not on the map yet.** The description below is the planned design only.
+**Base.** Three abilities: **(1) Immunity** — you take **no fall damage** and **no splash damage from your own explosives, grenades, or projectiles** (rockets, frags, the launcher, etc. can't hurt you). **(2) Slide-to-explode** — starting a **slide** fires a **nova** that clears the zombies around you (on a cooldown). BO3 ZM has the sprint-slide but **no dolphin-dive** (confirmed in-game 2026-06-15), so it triggers off the engine `isSliding()` directly — not the BO1/BO2 dive-to-prone. **(3) Explode when you go down** — entering last-stand fires a PhD-flavoured explosion, buying you space to be revived. The blast is a **purple/void Apothicon burst** (stock `dlc4/genesis/fx_apothicon_fury_spawn_in_exp`) + the **Nuke-powerup "whoomp"** sound (`evt_nuke_flash`) + a screen-shake.
 
-**Base (planned).** **400u** radius shockwave, **3s** stun (type-dependent), **120s** CD; full bosses immune. Activated by a crouch + melee chord.
+**Mega: PhD Slider.** A **bigger / stronger slide + down explosion** on a **shorter slide cooldown** (8s → 5s). Read live from the Mega flag: the explosion **radius grows 300→500u** and deals roughly **2× damage**. It is a **working Mega** — not a declarative tier; the Empty Mega Bottle sets the flag and the bigger nova fires immediately.
 
-**Mega: Mega Man (planned).** **800u**, **60s** CD, **2 charges**, and bosses can be affected (reduced effect vs trash — ~1.5s / interrupt-only).
+**Mechanics**
 
-**Mechanics (planned)**
-
-- **Activation**: crouch + melee chord (Phase 4 LUI keybind).
-- **Base — radius 400u, stun 3s**, CD **120s**.
-- **Enemy rules (base)**: zombies full stun; shielded elites shield-down; teleporters no teleport; EMP elites **1s**; mini-boss **50%** (~1.5s); full boss immune.
-- **Mega — Mega Man**: **800u**; **60s** CD; **2 charges**; bosses take stun/interrupt per tuning.
-- **HUD**: cooldown ring (Phase 4 LUI).
-- **Build fit**: Reflex + Phase Step; Overload defense; panic peel.
+- **Trigger**: passive — fall-damage / self-splash immunity is always on; the nova fires when you start a **slide** (cooldown-gated), and again when you enter last-stand. No input chord.
+- **Base**: custom fall-damage + self-splash immunity (via a `level.perk_damage_override` func), a slide-triggered nova, and a down-state explosion. Radius **300u**, base damage, **8s** slide cooldown.
+- **Mega — PhD Slider**: the same slide + down nova at radius **500u**, ~**2× damage**, and a **5s** slide cooldown (read live from the Mega flag — implemented, not a TODO).
+- **Blast FX/sound**: the burst centres on the **zombie you slid into** (nearest in-radius zombie = the impact point, not the player) — a stock purple **Apothicon void-burst** (`dlc4/genesis/fx_apothicon_fury_spawn_in_exp` — source ships in the Mod Tools; `def_explosion` is the fallback), `evt_nuke_flash` (the Nuke powerup boom, guaranteed-loaded), and an `Earthquake`. The original `grenadeExplosionEffect` was just the tiny engine poof and `zmb_phdflop_explo` isn't in this map's soundbanks (silent). A *bespoke* purple FX would need the FX Editor / a custom import.
+- **Zombies explode**: every zombie the nova kills pops apart — **head-gib** (`zombie_utility::zombie_head_gib`, the Nuke powerup's own dismember, called on the live zombie pre-kill) + a **torso gore burst** (`level._effect["zombie_guts_explosion"]`) + a **capped corpse-fling** (`StartRagdoll`+`LaunchRagdoll`, the stock Thunder Wall pattern; cap 6 / Mega 8). Gated on `health <= damage` so a living **boss** is only chipped, never gibbed/ragdolled. All stock — no import.
+- **Implementation**: `_acc_perk_phd_flopper.gsc` **hijacks the registered stock `_zm_perk_electric_cherry` pipeline + machine** — it overwrites the cherry cost/hint/give/take and installs the `level.perk_damage_override` immunity func, then layers the slide / down explosion in our code (adapted from the shipped HarryBo21 / ColDog PhD Flopper). The underlying specialty stays `specialty_electriccherry` (HasPerk / rotation / HUD / Mega plumbing all key off it). The old `_acc_perk_electric_cherry.gsc` was **deleted**.
+- **Skin**: machine = stock placeholder `p7_zm_vending_nuke` model (fits PhD's explosion theme and avoids a game-rip vending import); icon = Ronan's Cyberpunk "exo_flopper" (`i_acc_perk_phd_base` / `_mega`) on the LUI perk bar; bottle = stock `zombie_perk_bottle_cherry`.
+- **Build fit**: aggressive movement + crowd clearing on landing; self-explosive-safety; down-state self-defense.
 
 ## Mega Bottles (system)
 
@@ -220,9 +220,9 @@ This mirrors the existing perk-rotation decision texture. Mega-ing a perk is a *
 
 PaP L5 + Tier 5 FAL + American Sniper + Overload Cyberware + Precision Mode ability + clean headshot on an elite:
 
-- Base damage × 1.5 (stock weapon GDT headshot mult) × 2.0 (our headshot mult) × **2.0 (American Sniper Mega)** × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = **~110x damage** per headshot (illustrative — recalc when exact PaP/Tier values are locked).
+- Base damage, then the headshot **crit bonus** (the stock GDT headshot mult **+** our **+2.0** trash bonus **+** American Sniper **+1.8**, which **ADD** — additive stacking, 2026-06-14 — they do *not* multiply), then × 1.15 (Cyberware Oc1) × 1.30 (Overload Cyberware T2) × 4.0 (Precision Mode ability) × 1.5 (Overpressure Overclock if rolled) = a large multiple per headshot (illustrative — recompute once the additive crit total + exact PaP/Tier values are locked).
 
-On a round-50 boss the **×3.0** boss-headshot multiplier (vs ×2.0 on trash) stacks higher still — American Sniper headshots reach **×6.0** before the rest of the chain.
+On a boss the headshot bonus is the **same +2.0 as on trash** (the boss no longer carries a higher headshot multiplier — `ACC_BOSS_HEADSHOT_MULT = 2.0`), so American Sniper's **+1.8** adds equally against any target.
 
 Absurd. Intended for late-game power-fantasy. Tune via the levers at the bottom of the doc if playtest shows this is *unfun* absurd rather than *earned* absurd.
 
@@ -253,12 +253,12 @@ See [14_controls_and_hud.md](14_controls_and_hud.md) for HUD element spec.
 
 - **Drop rate too generous**: only full bosses drop Mega Bottles (mini-bosses give 50% chance).
 - **Drop rate too stingy**: mini-bosses give 2 bottles each.
-- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper ×2.0 → ×1.85, Gun Slinger +50% → +40%).
+- **Mega too strong**: reduce specific Mega effects (e.g. American Sniper +1.8 → +1.6 headshot bonus, Gun Slinger +40% → +35% fire rate).
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
 ## Perk Availability: Per-Round Rotating Lab Machines
 
-**All 9 perks are consolidated to the Laboratory.** There are **4 perk machines** in the Lab, and nowhere else on the map. The 4 machines randomly reassign to 4 of the 9 perks (no duplicates). The other 5 perks are **unavailable for purchase** that round.
+**All 9 perks are consolidated to the Laboratory.** There are **4 perk machines** in the Lab, and nowhere else on the map. The 4 machines randomly reassign to 4 of the 9 perks (no duplicates). The other 5 perks are **unavailable for purchase** that round. *(Note: with only 4 machines, each perk is rarer per round. If a starved feel emerges once the rotation gate is enabled, raise the machine count or weight build-defining perks — see the rotation warning in [perk_abilities.md](perk_abilities.md) / docs/30.)*
 
 **Critical timing (v1.0):** The new lineup is **not** rolled at the first frame of the round. **Lab perk machines re-roll only after the round’s [decontamination phase](03_layout.md#decontamination-zones-round-hazard) completes** — i.e. after the **20s** evacuation window ends and the contaminated zone is sealed (rounds **1–4**), or after the **0s** tick when no new zone seals (**round 5+**). Players rushing the Lab at round start may still see **last round’s** perks until decontamination closes.
 
@@ -296,11 +296,11 @@ flowchart LR
 
 - Probability a specific perk (e.g. Jug) appears in a single round's rotation: **4/9 ≈ 44.4%**.
 - Probability Jug does NOT appear for N consecutive rounds:
-  - 1 round: 5/9 = 55.6%.
+  - 1 round: 5/9 ≈ 55.6%.
   - 3 rounds: (5/9)^3 ≈ 17.1%.
   - 5 rounds: (5/9)^5 ≈ 5.3%.
-  - 10 rounds: (5/9)^10 ≈ 0.3%.
-- **A Jug-less round 5 run has a ~5% probability.** About 1 in 20 runs will force Jug-less play until round 6+. If that feels terrible in playtest, we add a weight bump or a "Jug guaranteed in first-round rotation" rule. See "Tuning Levers" below.
+  - 10 rounds: (5/9)^10 ≈ 0.28%.
+- **A Jug-less first 5 rounds has a ~5% probability.** If that feels terrible in playtest, add a weight bump or a "Jug guaranteed in first-round rotation" rule, or raise the machine count. See "Tuning Levers" below.
 
 ### Per-run variance
 
@@ -345,7 +345,7 @@ Missing a perk this round is OK. It'll cycle back. **Patience and route manageme
 
 ## Powerup Interactions
 
-- **Insta-Kill**: Deadshot's +1.5x headshot still applies during Insta-Kill (redundant for regulars since they insta-die, but relevant for elites/bosses).
+- **Insta-Kill**: Deadshot's +1.4 headshot bonus still applies during Insta-Kill (redundant for regulars since they insta-die, but relevant for elites/bosses).
 - **Double Points**: 2x base kill Points BEFORE 70/30 split, Payroll Ledger's +10% on top.
 - **Max Ammo**: no perk interaction.
 - **Carpenter**: no perk interaction.
@@ -360,17 +360,17 @@ Missing a perk this round is OK. It'll cycle back. **Patience and route manageme
 
 ## Full Stacking Example — "Swiss Army Player" Build
 
-A player with **all 8 live perks** (Aura Blast is WIP) + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
+A player with **all 9 live perks** + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
 
 - **HP**: **250 HP** → 6-hit survival with Jug; **314 HP** → 7 hits with Ultimate Tank.
 - **HP regen**: starts 15% sooner (Quick Revive) / 30% sooner (Savior).
 - **Revive**: 2.0 s (Quick Revive) / 1.0 s (Savior).
-- **Reload**: +50% reload (Speed Cola) / +70% (Sleight of Hand Expert).
+- **Reload**: +50% reload (Speed Cola) / +75% (Sleight of Hand Expert).
 - **Move / sprint**: ~12 s sprint + ~7–8% move (Stamin-Up); +15% sprint speed (The Flash); +15% move while a teammate is down (Savior); plus Cyberware / Boss-item speed terms (multiplicative).
-- **Fire rate**: +33% (Double Tap 1.0) / +50% (Gun Slinger); Gun Slinger also cuts weapon-swap time 75%.
-- **Headshot damage**: ×1.5 (Deadshot) / ×2.0 (American Sniper) on top of the map's ×2 trash / ×3 boss multiplier; recoil −35% / −70%.
+- **Fire rate**: +33% (Double Tap 2.0 base) / +40% (Gun Slinger); Gun Slinger also cuts weapon-swap time 50%. Base also fires an extra bullet per shot (≈2× dmg).
+- **Headshot damage**: +1.4 (Deadshot) / +1.8 (American Sniper) **added** to the map's +2 trash / +2 boss headshot bonus (additive stacking, 2026-06-14); recoil −25% / −40%.
 - **Weapon slots**: 3 primaries (Mule Kick); +25% ammo & all buys 10% cheaper (The Armory).
-- **Crowd control**: Widow's Wine web grenades + self-defense webbing + webbing melee (6 grenades / 4-per-round restock with Spiderman).
+- **Crowd control**: Widow's Wine web grenades + self-defense webbing + webbing melee (6 grenades / 4-per-round restock with Spiderman); PhD Flopper slide-to-explode nova clears zombies (and explodes when you go down) — immune to fall + your own splash damage throughout.
 
 Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons = our peak power fantasy. Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
 
@@ -384,13 +384,13 @@ Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Over
 
 - **Jugger-Nog** — ✅ base 250 HP (`_acc_perks.gsc` `ACC_JUGG_HEALTH_ADD=150`); ✅ Ultimate Tank 314 HP (`_acc_mega_bottles.gsc:420` `n_player_health_boost=64`); ✅ boss immunity (`_acc_boss.gsc::protect_immune_players_during_debuff`). 🧪 confirm 6/7 hit counts.
 - **Quick Revive** — ✅ base revive 2.0s / Savior 1.0s (`_acc_perks.gsc::qr_revive_time` via `self.get_revive_time` hook; watcher `qr_revive_watcher`); ✅ base regen 15% / Savior 30% sooner (`qr_regen_booster`, `ACC_QR_REGEN_DELAY_BASE=0.85` / `_SAVIOR=0.70`); ✅ Savior +15% speed (`savior_speed_watcher` + `_acc_utility.gsc:155`).
-- **Speed Cola** — ✅ +50% reload + barrier (stock); ✅ Mega +70% reload via the `fastreload` weapon-variant twin (`reloadTime ×0.882` layered on the engine +50%; baked 2026-06-14, `_acc_weapon_variants.gsc::axis_reload`); ✂️ faster perk-drink **cut** (shared map-wide anim, no per-perk lever). Weapon-swap belongs to Double Tap's Gun Slinger.
-- **Double Tap 1.0** — ⚠️ **base is still stock Double Tap 2.0** (`specialty_doubletap2`, extra-bullet) presented as 1.0 — **migration to a true rate-only 1.0 is a pending TODO** (strip the 2.0 extra-bullet; verify the +33%); ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger +50% fire rate **and** −75% weapon-swap via the `fastfire` twin (`fireTime ×0.667` + raise/drop `×0.25`; baked 2026-06-14, `axis_fire`). Card renamed "Double Tap 1.0".
+- **Speed Cola** — ✅ +50% reload + barrier (stock); ✅ Mega +75% reload via the `fastreload` weapon-variant twin (`reloadTime ×0.857` layered on the engine +50%; baked 2026-06-14, `_acc_weapon_variants.gsc::axis_reload`); ✂️ faster perk-drink **cut** (shared map-wide anim, no per-perk lever). Weapon-swap belongs to Double Tap's Gun Slinger.
+- **Double Tap 2.0** — ✅ **kept as stock Double Tap 2.0** (`specialty_doubletap2`, extra bullet ≈2× dmg) — the "convert to a rate-only 1.0" plan is **cancelled** (can't strip the extra bullet from a usermap); priced **5,000** (`set_perk_costs`) and balanced around it; ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger **+40%** fire rate **and** −50% weapon-swap via the `fastfire` twin (`fireTime ×0.714` + raise/drop `×0.5`; retuned from +50%/−75% 2026-06-14, `axis_fire`). Card "Double Tap 2.0".
 - **Stamin-Up** — ✅ base stock sprint; ✅ The Flash ×1.15 move (`_acc_utility.gsc:151`); ✅ sprint-duration override removed (`_acc_mega_bottles.gsc`).
 - **Mule Kick** — ✅ base 3rd primary (stock); 🎨 Armory +25% ammo cap (GDT; GSC fills via `armory_apply`); ✅ Armory **all buys 10% cheaper at POINT OF SALE** (charge **and** displayed price) — done by **vendoring 5 stock files** and repurposing the dormant `pers_double_points` cost hook (gated on the Armory Mega flag, ×0.9): `_zm_pers_upgrades_functions` (perk + stock-PaP charge), `_zm_weapons` (wallbuy/ammo — inert now wall buys are removed), `_zm_magicbox` (box, per-player), `_zm_perks` (perk hint), plus `_acc_pap_levels` tier-up. The old spend-rebate (`armory_discount_watcher`) was **removed**. Co-op display reflects the toucher on shared triggers (perks); box/tier are per-player-exact. See docs/22 + CHANGELOG. ✅ +2 grenade fill removed.
-- **Deadshot** — ✅ base ×1.5 headshot (`_acc_damage.gsc:88`) + ADS snap, no boss (`_acc_boss.gsc:218,371`); ✅ American Sniper ×2 headshot (`_acc_damage.gsc:89` `ACC_DEADSHOT_MEGA_MULT=2.0`); ✅ base −35% / Mega −70% recoil via `recoil35`/`recoil70` twins (off the 2.5× map base; baked 2026-06-14, `axis_recoil`).
+- **Deadshot** — ✅ base **+1.4** headshot (`_acc_damage.gsc` `ACC_DEADSHOT_MULT`) + ADS snap, no boss; ✅ American Sniper **+1.8** headshot (`ACC_DEADSHOT_MEGA_MULT=1.8`, replaces base — no double dip); both **add** into the headshot bonus sum (additive stacking, 2026-06-14), not multiply; ✅ base −25% / Mega −40% recoil via `recoil25`/`recoil40` twins (off the 2.1× map base; baked 2026-06-14, `axis_recoil`).
 - **Widow's Wine** — ✅ base webs / self-defense / webbing melee (stock); ✅ +50% frag damage removed; ✅ Spiderman melee + web OHK removed (`_acc_damage.gsc`); ✅ restock base 2 / Spiderman 4 per round (`_acc_mega_bottles.gsc::widow_round_restock_watcher`); 🎨 Spiderman hold 6 (GSC fills the clip; GDT clip cap — doc 30).
-- **Aura Blast** — 🚧 **WIP / on hold, not on the map.** `_acc_perk_aura_blast.gsc` stays; no changes.
+- **PhD Flopper** — ✅ **live.** Custom ability hijacking the registered stock `_zm_perk_electric_cherry` pipeline + machine: `_acc_perk_phd_flopper.gsc` overwrites the cherry cost/hint/give/take (cost **2,500**) and installs a `level.perk_damage_override` immunity func, then layers our own ability (adapted from the shipped HarryBo21 / ColDog PhD Flopper): ✅ immunity to fall damage **and** your own explosive / grenade / projectile splash; ✅ dive-to-prone grenade-explosion nova (jump → slide with a real height drop); ✅ explode-on-down last-stand. The underlying specialty stays `specialty_electriccherry` (HasPerk / rotation / HUD / Mega plumbing key off it). The old `_acc_perk_electric_cherry.gsc` was **deleted**. ✅ **PhD Slider** Mega is a **working tier** (not a TODO) — read live from the Mega flag, the dive + down explosion grows to radius **500u** (from 300u) and ~**2× damage**. 🎨 machine = stock placeholder `p7_zm_vending_nuke` (fits PhD's explosion theme, avoids a game-rip vending import); icon = Ronan "exo_flopper" (`i_acc_perk_phd_base`/`_mega`); bottle = stock `zombie_perk_bottle_cherry`.
 
 ---
 
@@ -407,10 +407,14 @@ spec blocker.
 
 ### Two cross-cutting facts
 
-1. **The repo ships zero `.gdt` files.** Baked weapon/zombie *stats* (fire rate,
-   recoil, reload/drink/swap timing, ammo *capacity*, blast radius) have **no GSC
-   lever** and need an Asset-Editor edit + full rebuild — see
-   [doc 30](30_perk_gdt_radiant_spec.md).
+1. **Baked weapon stats are delivered via the weapon-variant twin matrix** (UPDATED
+   2026-06-14 — this fact was originally "zero `.gdt`, no GSC lever"). The map now ships
+   `source_data/acc_weapon_variants.gdt` (generated by `tools/apply_recoil_overhaul.js`):
+   fire rate, recoil, reload timing, weapon-swap, and ammo *capacity* are each a cloned
+   "twin" GDT the GSC swaps in while the qualifying perk is held (`_acc_weapon_variants.gsc`
+   axes). So Deadshot recoil, Gun Slinger rate/swap, Sleight reload, and Armory ammo are all
+   **built**, not "no GSC lever". Blast radius (Widow frag) is still an APE-only GDT edit —
+   see [doc 30](30_perk_gdt_radiant_spec.md).
 2. **`_acc_perks.gsc` now exists** (authored 2026-06-14) and hosts the base-perk
    GSC retuning (Jug 3/6, QR regen, Savior revive + speed). Cap-removal stays
    inline in the entry script.
@@ -439,7 +443,7 @@ grenade-fill field bug was found and fixed — see the notes.
 | **Double Tap 2.0** (`doubletap2`) | base +33% fire rate | STOCK | engine-granted free with the specialty (doc abstracts DT to damage-only) |
 | | base +3% damage | OK | `_acc_damage.gsc:294-300` (×1.03) |
 | | cost 2,000 | OK | `…gsc:329` |
-| | Mega Gun Slinger +50% fire rate | GDT | **No runtime lever** (grep-proven: no fire-rate setter/dvar anywhere; stock DT2's +33% is hardcoded to the specialty, `_zm_perk_doubletap2.gsc` has zero rate code). Achievable only via an APE **`fireTime` weapon-variant swap** — clone each gun with a lower `fireTime`, `GiveWeapon` the faster twin while Gun Slinger is active — same heavy per-weapon framework as Deadshot no-recoil ([doc 30](30_perk_gdt_radiant_spec.md)) |
+| | Mega Gun Slinger +40% fire rate | DONE | **No runtime lever** (grep-proven: no fire-rate setter/dvar anywhere; stock DT2's +33% is hardcoded to the specialty, `_zm_perk_doubletap2.gsc` has zero rate code). Done via the **`fireTime` weapon-variant swap** — the `fastfire` twin (`fireTime ×0.714`) is `GiveWeapon`'d while Gun Slinger is active (`axis_fire`, baked 2026-06-14) ([doc 30](30_perk_gdt_radiant_spec.md)) |
 | | Mega Gun Slinger +6% damage | OK | `_acc_damage.gsc:294-300` (×1.06, true if/else replaces base — no double-dip) |
 | **Stamin-Up** (`staminup`) | base longer/faster sprint; cost 2,000 | STOCK / OK | engine-driven; cost `…gsc:330` |
 | | Mega Flash longer sprint | OK | `_acc_mega_bottles.gsc:475` `SetSprintDuration(6.0)` (4.0 stock) + respawn re-apply |
@@ -447,7 +451,7 @@ grenade-fill field bug was found and fixed — see the notes.
 | | Mega Flash ×2 walk / ×4 crawl | **cut** | **Engine-impossible (proven):** grep over stock returns ONLY `SetMoveSpeedScale` (uniform) + `SetSprintDuration` — no per-stance walk/crawl setter exists in GSC, GDT, or Radiant. Strike from the card |
 | **Mule Kick** (`additionalprimaryweapon`) | base third primary; cost 2,500 | STOCK / OK | pure stock (owning the specialty grants the 3rd slot — **no `additionalprimaryweapon_limit=3` line exists in our code**; old citation was wrong); cost `…gsc:331` |
 | | Mega Armory +2 lethal / +2 tactical | PARTIAL | `armory_apply` fills the **lethal/tactical CLIP** to cap (**field bug fixed 2026-06-14:** `SetWeaponAmmoStock` → `SetWeaponAmmoClip`; ZM carries grenades in the clip, `_zm.gsc:4582`). The `+2`-over-stock needs the grenade-GDT carry cap raised in APE — [doc 30](30_perk_gdt_radiant_spec.md) |
-| | Mega Armory +30% ammo (reserves) | PARTIAL | `armory_apply` `GiveMaxAmmo` fills gun reserves to cap; the +30% *cap* needs per-weapon GDT `maxAmmo` (no GSC reserve-cap setter — proven) — [doc 30](30_perk_gdt_radiant_spec.md) |
+| | Mega Armory +25% ammo (reserves) | DONE (2026-06-14) | +25% reserve via the **"ammo" weapon-variant twin** (`maxAmmo`/`startAmmo` ×1.25, gated on the Mega flag — the only way to raise a GDT-baked cap per-player, since the engine clamps reserve to `maxAmmo`, proven). `apply_mega_effects` calls `reconcile()` to swap in the twin, then `armory_apply` `GiveMaxAmmo`-fills to the raised cap; `armory_maxammo_watcher` refills on every Max Ammo; box guns only (`axis_ammo` in `_acc_weapon_variants.gsc`, baked by `tools/apply_recoil_overhaul.js`). Doubles the twin matrix 110→230 |
 | **Deadshot** (`deadshot`) | base ADS head-snap, no boss snap | STOCK + OK | stock snap; boss snap suppressed by `DisableAimAssist()` on the boss actor (`_acc_boss.gsc:218,371`) |
 | | base ×1.5 headshot; cost 3,500 | OK / OK | `_acc_damage.gsc:429-435`; cost `…gsc:332` |
 | | Mega American Sniper ×1.75 (replaces 1.5) | OK | `_acc_damage.gsc:429-435` (true if/else, no double-dip) |
@@ -460,9 +464,8 @@ grenade-fill field bug was found and fixed — see the notes.
 | | Mega Spiderman melee OHK zombies | OK | `_acc_damage.gsc:192-199` |
 | | Mega Spiderman web-grenade OHK | OK | `_acc_damage.gsc:206-214` (gated on `level.w_widows_wine_grenade`) |
 | | Mega Spiderman 6 web grenades | PARTIAL | `_acc_mega_bottles.gsc` widowswine case fills the **lethal CLIP** to 6 (**field bug fixed 2026-06-14:** `…AmmoStock` → `…AmmoClip`, the field stock reads at `_zm_perk_widows_wine.gsc:214/294`). If the engine clamps the clip to the grenade GDT carry cap (<6), raise it in APE — [doc 30](30_perk_gdt_radiant_spec.md); if not, now fully met. **Confirm in-game** |
-| **Aura Blast** (`electriccherry`) | base 400u / 3s / 120s / crouch+melee; cost 2,500 | OK ×5 | `_acc_perk_aura_blast.gsc` |
-| | base per-enemy-type matrix | OK | `do_aura_blast` + `aura_stun_with_effects` + teleporter guard in `_acc_elites.gsc`: shielded shield-down, teleporter no-teleport, EMP 1s, mini-boss 50% at base, full boss immune |
-| | Mega Man 800u / 60s / 2 charges / bosses affected | OK ×4 | `_acc_perk_aura_blast.gsc` |
+| **PhD Flopper** (`electriccherry`) | base fall + self-splash immunity; slide-to-explode nova; explode-on-down; cost 2,500 | OK | custom ability hijacking the registered stock `_zm_perk_electric_cherry` pipeline + machine — `_acc_perk_phd_flopper.gsc` overwrites cost/hint/give/take + installs `level.perk_damage_override`; specialty stays `specialty_electriccherry`; slide nova via engine `isSliding()` + purple Apothicon FX (`dlc4/genesis/fx_apothicon_fury_spawn_in_exp`) + `evt_nuke_flash` sound; prior `_acc_perk_electric_cherry.gsc` deleted |
+| | Mega PhD Slider (bigger/stronger slide + down explosion) | OK | working tier — read live from the Mega flag: radius 300→500u, ~2× damage, 8s→5s slide cooldown |
 
 ### Shared systems
 
@@ -484,8 +487,9 @@ grenade-fill field bug was found and fixed — see the notes.
 - **Mega Bottle system — OK; effect-application now near-complete.** drop / inventory
   / apply / flag / persistence all real (SH-3 fully verified); of the 9 Mega effects,
   **8 fire** (Savior, The Flash sprint, The Armory fill, Spiderman, Ultimate Tank,
-  American Sniper, Mega Man, +6% Gun Slinger damage). Only **Sleight of Hand
-  Expert** is fully GDT-blocked (reload/swap timing — doc 30).
+  American Sniper, +6% Gun Slinger damage, **PhD Slider** — bigger dive + down explosion,
+  radius 300→500u / ~2× damage, read live from the Mega flag). **Sleight of Hand Expert**
+  is fully GDT-blocked (reload/swap timing — doc 30).
 
 ### Remaining work (re-verified 2026-06-14, 55-agent audit)
 
@@ -498,7 +502,7 @@ four buckets (proof for each in the per-perk ledger above + [doc 30](30_perk_gdt
 - **APE GUI (weapon GDT, interactive — can't be done headlessly):** Widow 6-web-grenade
   clip cap · Mule Armory +2 grenade cap + +30% gun reserve · Widow +25% frag radius
   (`explosionRadius`) · Speed Cola reload/drink/swap timing · **Deadshot no-recoil** and
-  **Gun Slinger +50% fire rate** (both are `_norecoil`/`_fastfire` **weapon-variant
+  **Gun Slinger +40% fire rate** (both are `_norecoil`/`_fastfire` **weapon-variant
   swaps** — clone each gun with the field zeroed/lowered, swap it in while the Mega is
   held). Full click-by-click steps: **[31_ape_perk_gdt_walkthrough.md](31_ape_perk_gdt_walkthrough.md)**.
   *The stock weapon **stat** files are baked in the base fastfiles — not editable text in
@@ -514,24 +518,24 @@ four buckets (proof for each in the per-perk ledger above + [doc 30](30_perk_gdt
   (accept "earlier start" vs reword) · in-game confirm of Jug 6/7 hit counts (depends on
   the baked open-field melee GDT value, **not** the doc's old `45` assumption).
 
-Custom perks (Deadshot, Aura Blast) follow the custom perk template workflow in [16_gsc_reference.md](16_gsc_reference.md) section 5.
+The custom perks (Deadshot, PhD Flopper) follow the custom perk template workflow in [16_gsc_reference.md](16_gsc_reference.md) section 5. PhD Flopper hijacks the registered stock electric-cherry pipeline + machine for its slot (`_acc_perk_phd_flopper.gsc`) while keeping the `specialty_electriccherry` specialty, then layers its own ability in our code.
 
 ## Tuning Levers
 
 If perks feel broken after playtest:
 
 - **Jug**: the **3 / 6 / 7** hit model — retune the HP adds (250 base / 314 Mega) if hit counts drift.
-- **Deadshot**: ×1.5 / ×2.0 headshot → lower if the headshot ceiling is too high.
+- **Deadshot**: +1.4 / +1.8 headshot bonus (additive) → lower if the headshot ceiling is too high.
 - **Mule Kick (Armory)**: 10% discount / +25% ammo → trim if economy or ammo trivializes late game.
 - **Stamin-Up (The Flash)**: +15% sprint speed → lower if speed-running trivializes late rounds.
 - **Quick Revive (Savior)**: 1.0 s revive / +15% speed → trim if too strong in co-op.
-- **Aura Blast** (when added): cooldown 120s → 150s if too spammable.
+- **PhD Flopper (PhD Slider)**: scale back the dive / down explosion radius (300u base / 500u Mega) or damage (~2× Mega) if it over-clears.
 
 Numeric levers live in `_acc_perks.gsc` / `_acc_mega_bottles.gsc` / `_acc_damage.gsc` constants; timing / recoil / fire-rate are GDT (APE).
 
 ## Out of Scope for v1.0
 
-- **Other stock perks not listed above** (Electric Cherry, PHD Flopper, etc.) — each adds pipeline complexity (damage pre-hook, fall damage handler) and isn't worth the authoring budget.
+- **Other stock perks not listed above** (Tombstone, Vulture-Aid, etc.) — each adds pipeline complexity and isn't worth the authoring budget. (PhD Flopper IS in the roster — perk #9.)
 - **Perk-a-Holic** powerup (random perk drop): scope cut.
 - **Perk Shuffle** modifier: fun idea, not in v1.0.
-- **Perk animations / custom bottle art**: stock for all 9 in v1.0; art pass (Phase 5) may add distinct bottles for the 3 custom variants.
+- **Perk animations / custom bottle art**: stock bottles for all 9 in v1.0 (PhD Flopper already gets the Ronan "exo_flopper" perk-bar icon); a later art pass (Phase 5) may add distinct bottles.

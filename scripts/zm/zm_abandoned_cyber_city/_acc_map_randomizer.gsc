@@ -30,6 +30,7 @@
 #using scripts\zm\_zm_unitrigger;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
 #namespace acc_map_randomizer;
 
@@ -116,18 +117,27 @@ function register_mystery_box_pool()
 {
     acc_utility::log( "mystery box: registering pool" );
 
-    // BOX = exactly 3 guns (user, 2026-06-14): Five-Seven, ASM1, Tac-19 (all Skye
-    // imports). Five-Seven is ALSO the starting pistol (_acc_main::init). Every
-    // other gun (ICR / Man-O-War / Locus / FN FAL / AK-47) has been removed from
-    // the map. A weapon missing from the live table degrades to "not in box"
-    // (never a crash).
+    // BOX pool (all Skye imports). Five-Seven is ALSO the starting pistol
+    // (_acc_main::init). A weapon missing from the live table degrades to "not in
+    // box" (never a crash). +6 guns added 2026-06-15 (user): PPSH-41, AK-74u, PDW,
+    // Nail Gun, Paladin HB50, M1911. Use the exact weapon asset ids (PPSH = the
+    // _base mag variant; PDW/M1911 PaP to akimbo). See docs/05 + 33.
     box_weapons = array(
         "t6_fiveseven",     // Five-Seven (Skye BO2 - also the starting pistol)
         "s1_asm1",          // ASM1       (Skye AW)
         "s1_tac19",         // Tac-19     (Skye AW)
         "t6_ak47",          // AK-47      (Skye BO2)
         "s1_ae4",           // AE4        (Skye AW - directed-energy AR)
-        "iw6_ripper_smg"    // Ripper     (Skye Ghosts - convertible SMG/AR; CSV name, box gives SMG mode)
+        "iw6_ripper_smg",   // Ripper     (Skye Ghosts - convertible SMG/AR; CSV name, box gives SMG mode)
+        // Box guns re-added (2026-06-15). NO twins on any (BO3 weapon-count cap, docs/33).
+        // All 4 below cleared by the per-gun anomaly scan + adversarial GDT verify (docs/33
+        // "Failure modes"): altWeapon chains, akimbo PaP forms, projectile type all checked.
+        "t8_paladin_hb50",       // Paladin HB50 (BO4 sniper) - confirmed working
+        "s4_ppsh41_base",        // PPSH-41 (Vanguard SMG; altWeapon clean)
+        "t9_nail_gun",           // Nail Gun (CW projectile AR; altWeapon empty, twin-less by type)
+        "s1_pdw",                // PDW-57 (AW; base single-wield, PaPs to akimbo rdw+ldw; altWeapon empty)
+        "s2_m1911",              // M1911 (WWII pistol; PaPs to akimbo EXPLOSIVE - balance split in _acc_damage)
+        "t5_ak74u"               // AK-74u (BO1 SMG; PaP altWeapon BLANKED install-side, skye_t5_ak74u.gdt L10416)
     );
 
     // 1) Clear is_in_box across the ENTIRE live weapon table so none of the
@@ -168,13 +178,15 @@ function register_mystery_box_pool()
     // + only 3 box guns). That fallback could hand out a knife / frag /
     // pistol_standard. level.CustomRandomWeaponWeights pre-filters the key list
     // (stock _zm_magicbox.gsc:1273-1275) so BOTH the loop AND the keys[0]
-    // fallback see ONLY box-flagged weapons - worst case is now a duplicate box
-    // gun (stock max-ammo behaviour), never a non-box item.
+    // fallback see ONLY box-flagged weapons, never a non-box item. The same hook
+    // also drops box guns the player already owns (see acc_box_only_weapon_keys), so
+    // the box won't hand out a duplicate unless the player owns EVERY available box gun.
     level.CustomRandomWeaponWeights = &acc_box_only_weapon_keys;
 }
 
 // Box draw key filter (hooked via level.CustomRandomWeaponWeights). Runs ON the
-// drawing player; returns the randomized key list narrowed to is_in_box weapons.
+// drawing player; returns the randomized key list narrowed to is_in_box weapons
+// the player does NOT already own (so the box can't hand out a duplicate).
 function acc_box_only_weapon_keys( keys )
 {
     box_only = [];
@@ -192,7 +204,49 @@ function acc_box_only_weapon_keys( keys )
     {
         return keys;
     }
-    return box_only;
+
+    // No-duplicates (user, 2026-06-14): drop any box gun the player ALREADY holds
+    // in any form (base / PaP / perk-variant twin). This filter feeds BOTH the stock
+    // loop AND its keys[0] fallback (_zm_magicbox.gsc:1273-1287), so it fixes the two
+    // ways a dupe slips through: (a) the keys[0] fallback that fires once every
+    // candidate is owned, and (b) the twin gap - stock CanPlayerReceiveWeapon's
+    // has_weapon_or_upgrade() does NOT recognize a held twin (e.g. s1_tac19_acc_recoil25)
+    // as owning its base s1_tac19, so it would re-roll the gun you're holding under a perk.
+    not_held = [];
+    for ( i = 0; i < box_only.size; i++ )
+    {
+        if ( !player_owns_box_weapon( self, box_only[ i ] ) )
+            not_held[ not_held.size ] = box_only[ i ];
+    }
+
+    // If the player owns EVERY available box gun there is nothing new to give - fall
+    // back to the full box list (stock then hands a duplicate w/ max ammo, an
+    // unavoidable edge case). Otherwise restrict the draw to guns they lack.
+    if ( not_held.size == 0 )
+    {
+        return box_only;
+    }
+    return not_held;
+}
+
+// True if `player` already carries `candidate` in ANY form - base, Pack-a-Punch (_up),
+// or a perk-variant twin - compared by TRUE BASE weapon object. acc_weapon_variants::true_base
+// strips our _acc_<token> twin suffix and maps through the stock base-weapon table, so a held
+// s1_tac19 / s1_tac19_up / s1_tac19_acc_recoil40 all resolve to the same base as the candidate.
+function player_owns_box_weapon( player, candidate )
+{
+    if ( !isdefined( player ) ) return false;
+    cand_base = acc_weapon_variants::true_base( candidate );
+    if ( !isdefined( cand_base ) || cand_base == level.weaponNone ) return false;
+
+    held = player GetWeaponsListPrimaries();
+    for ( i = 0; i < held.size; i++ )
+    {
+        if ( !isdefined( held[ i ] ) || held[ i ] == level.weaponNone ) continue;
+        if ( acc_weapon_variants::true_base( held[ i ] ) == cand_base )
+            return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -222,10 +276,11 @@ function get_full_perk_roster()
         // strings used by every machine / HasPerk / Mega flag / cost / damage
         // hook - NOT custom 'specialty_acc_*' names (which matched nothing, so
         // the rotation silently broke for these 3 perks). Deadshot + Widow's
-        // Wine are stock modules; Aura Blast hijacks the electric-cherry perk.
+        // Wine are stock modules; PhD Flopper hijacks the stock electric-cherry
+        // pipeline (_acc_perk_phd_flopper.gsc).
         "specialty_deadshot",                     // Deadshot (custom-tuned)
         "specialty_widowswine",                   // Widow's Wine (+ boosts)
-        "specialty_electriccherry"                // Aura Blast (over electric cherry)
+        "specialty_electriccherry"                // PhD Flopper (over the cherry slot)
     );
 }
 

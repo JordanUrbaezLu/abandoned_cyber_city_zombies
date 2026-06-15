@@ -169,7 +169,7 @@ There is **no per-player recoil field** (grep-proven). Each tier is a cloned wea
    `acc_weapon_variants 1` once the twins above exist.
 - **Lighter alternative:** bake **only** the `_acc_recoil50` (Mega) twins and skip the base
   −25% (the framework no-ops base Deadshot's recoil when no `recoil25` twin exists). Halves the
-  APE work; base Deadshot then keeps only its ×1.5 headshot + ADS-snap (still distinct from Mega).
+  APE work; base Deadshot then keeps only its +1.4 headshot bonus + ADS-snap (still distinct from Mega).
 
 ## 5. Double Tap "Gun Slinger" — +50% fire rate + −75% swap  (variant-swap)
 

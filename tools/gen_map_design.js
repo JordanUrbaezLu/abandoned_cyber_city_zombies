@@ -90,7 +90,7 @@ const PERK_BY_MODEL = {
 };
 const PERK_BY_SPECIALTY = {
   specialty_deadshot: 'DSHOT', specialty_widowswine: 'WIDOW',
-  specialty_electriccherry: 'AURA',
+  specialty_electriccherry: 'PHD',
 };
 const GUN_NAME = {
   ar_accurate: 'ICR-1', shotgun_fullauto: 'Haymaker 12', sniper_fastsemi: 'Drakon (Intervention slot)',
@@ -192,7 +192,7 @@ for (const m of labeled) {
 const legendY = height - 235;
 svg.push(`<rect x="10" y="${legendY}" width="${width - 20}" height="225" fill="#161c22" stroke="#3a4a58"/>`);
 const L = [
-  ['#e64a9c', 'P', 'Perk machine (9: QR/Jug/Speed/DT2/Stamin/Mule in Lab row + Deadshot + Widow’s Wine + Aura Blast)'],
+  ['#e64a9c', 'P', 'Perk machine (9: QR/Jug/Speed/DT2/Stamin/Mule in Lab row + Deadshot + Widow’s Wine + PhD Flopper)'],
   ['#b14ae6', 'PaP', 'Pack-a-Punch (Lab; approach blocked per run on one side - orange bars)'],
   ['#3fa7ff', 'W', 'Wallbuy (ICR-1 + Sheiva in Corp, Haymaker in Alley, Drakon on Roof, Frag in Vault, Bowie in Lab)'],
   ['#ffb02e', 'B', 'Mystery Box location (Market / Corp / Roof - initial rolled per run)'],

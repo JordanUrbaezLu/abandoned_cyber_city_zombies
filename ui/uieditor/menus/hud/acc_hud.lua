@@ -62,12 +62,12 @@ local AccPerkCards = {
             megaFull = { "Revive teammates in 1.0s", "Regen starts 30% sooner", "Solo: self-revive", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
             base = { "+50% reload speed", "Faster barrier repair" },
-            mega = { "+70% reload speed" },
-            megaFull = { "+70% reload speed", "Faster barrier repair" } },
-    [4] = { title = "DOUBLE TAP 1.0", price = "2000", megaName = "Gun Slinger",
-            base = { "+33% rate of fire" },
-            mega = { "+50% rate of fire", "Weapon swaps 4x faster" },
-            megaFull = { "+50% rate of fire", "Weapon swaps 4x faster" } },
+            mega = { "+75% reload speed" },
+            megaFull = { "+75% reload speed", "Faster barrier repair" } },
+    [4] = { title = "DOUBLE TAP 2.0", price = "5000", megaName = "Gun Slinger",
+            base = { "Fires 2 bullets/shot (~2x dmg)", "+33% rate of fire" },
+            mega = { "+40% rate of fire" },
+            megaFull = { "Fires 2 bullets/shot (~2x dmg)", "+40% rate of fire" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
             base = { "Longer sprint (~12s)", "+7-8% movement speed" },
             mega = { "+15% movement speed" },
@@ -77,17 +77,17 @@ local AccPerkCards = {
             mega = { "+25% ammo capacity per gun", "All buys 10% cheaper" },
             megaFull = { "Carry a 3rd primary weapon", "+25% ammo capacity per gun", "All buys 10% cheaper" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
-            base = { "1.5x headshot damage", "-35% weapon recoil", "ADS snaps to head (not bosses)" },
-            mega = { "2x headshot damage", "-70% weapon recoil" },
-            megaFull = { "2x headshot damage", "-70% weapon recoil", "ADS snaps to head (not bosses)" } },
+            base = { "+1.4 headshot dmg bonus", "-25% weapon recoil", "ADS snaps to head (not bosses)" },
+            mega = { "+1.8 headshot dmg bonus", "-40% weapon recoil" },
+            megaFull = { "+1.8 headshot dmg bonus", "-40% weapon recoil", "ADS snaps to head (not bosses)" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
             base = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Restock 2 web nades / round" },
             mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" },
             megaFull = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Hold up to 6 web grenades", "Restock 4 web nades / round" } },
-    [9] = { title = "AURA BLAST (WIP)", price = "2500", megaName = "Mega Man",
-            base = { "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" },
-            mega = { "Bosses affected (reduced stun)", "800u, 60s CD, 2 charges" },
-            megaFull = { "Crouch+melee: 800u shockwave", "3s stun, 60s CD, 2 charges", "Bosses affected (reduced stun)" } },
+    [9] = { title = "PHD FLOPPER", price = "2500", megaName = "PhD Slider",
+            base = { "Immune to fall + your own explosive damage", "Slide to set off an explosion (clears zombies)", "Explode when you go down" },
+            mega = { "Bigger explosion, shorter slide cooldown" },
+            megaFull = { "Immune to fall + your own explosive damage", "Slide: BIG explosion (shorter cooldown)", "Explode when you go down" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
             base = { "Pack a gun, then re-pack to climb tiers:", "T1: upgrade + new camo",
                      "T2: +25% damage (2500)", "T3: +55% damage (5000)",
@@ -319,9 +319,9 @@ end
 -- whose ART encodes Mega state:
 --     RED icon = base perk  |  TEAL icon = Mega'd  |  (not owned) = hidden
 -- Driven by TWO clientuimodel bitmasks the server pushes (_acc_lui.gsc
--- perk_state_watch): "accOwnedMask" (bit i = owns perk i+1) and "accMegaMask"
--- (bit i = perk i+1 Mega'd), perk_card_index order (1..8 -> bit 0..7; perk 9 Aura
--- Blast is WIP, no icon). setImage(RegisterImage(name)) is the plain-image path
+-- perk_state_watch): "accOwnedMask" (bit i = owns the perk at bar-bit i) and
+-- "accMegaMask" (bit i = that perk is Mega'd), bar-bit order from perk_state_watch
+-- (bits 0..8 = the 9 perks; PhD Flopper at bit 8). setImage(RegisterImage(name)) is the plain-image path
 -- (countryside PerkImage idiom) - no custom material/techset, so it sidesteps the
 -- geometry-material shader-compile blocker (docs/29 §14). Images:
 -- i_acc_perk_<perk>_{base,mega} (source_data/acc_perk_shaders.gdt, zone `image,`). docs/28.
@@ -331,13 +331,15 @@ local function acc_bit_is_set(mask, i)
     return math.floor(mask / (2 ^ i)) % 2 >= 1
 end
 
--- bit index (perk_card_index - 1) -> icon base name (base=red / mega=teal).
--- perk 9 (Aura Blast) is WIP and ships no icon, so the row covers bits 0..7.
+-- bar-bit index -> icon base name (base=red / mega=teal). MUST match the bit order
+-- in _acc_lui.gsc perk_state_watch. All 9 perks render; PhD Flopper is bit 8
+-- (Ronan's exo_flopper icon, i_acc_perk_phd_{base,mega}).
 local ACC_PERK_ICONS = {
     [0] = "jugg", [1] = "revive", [2] = "speed", [3] = "doubletap",
     [4] = "staminup", [5] = "mule", [6] = "deadshot", [7] = "widows",
+    [8] = "phd",
 }
-local ACC_PERK_COUNT = 8
+local ACC_PERK_COUNT = 9
 
 CoD.AccPerkBar = InheritFrom(LUI.UIElement)
 
@@ -401,6 +403,67 @@ function CoD.AccPerkBar.new(HudRef, InstanceRef)
     return self
 end
 
+-- TOUCHPOINT 3 - Power-up active icons (Ronan's Cyberpunk Shaders). CoD.AccPowerupBar.
+-- Shows a cyberpunk icon while each power-up is active: Insta-Kill / Double Points / Fire
+-- Sale. Driven by the "accPowerupMask" clientuimodel bitmask the server pushes
+-- (_acc_lui.gsc powerup_state_watch): bit 0 = insta-kill, bit 1 = double points, bit 2 =
+-- fire sale. Same setImage(RegisterImage(...)) plain-image path as the perk bar (no custom
+-- material - sidesteps the geometry-material shader-compile blocker, docs/29 §14). Images:
+-- i_acc_powerup_{instakill,double,sale} (source_data/acc_perk_shaders.gdt, zone `image,`).
+-- Fixed top-center slots; each icon shows only while its bit is set.
+local ACC_POWERUP_ICONS = {
+    [0] = "instakill", [1] = "double", [2] = "sale",
+}
+local ACC_POWERUP_COUNT = 3
+
+CoD.AccPowerupBar = InheritFrom(LUI.UIElement)
+
+function CoD.AccPowerupBar.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccPowerupBar)
+    self.id = "AccPowerupBar"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Bottom-center row of fixed slots (user 2026-06-15: move to the bottom). These numbers
+    -- position the row - tune in-game. Bottom-anchored like the perk bar; horizontally centered
+    -- so it clears the perk bar (bottom-left) and the ammo/PaP HUD (bottom-right).
+    local SIZE = 48      -- icon width/height (virtual px)
+    local PITCH = 58     -- spacing between slots
+    local BOTTOM = 92    -- gap from the bottom edge (sits above the very-bottom HUD; tune in-game)
+
+    -- 3 fixed slots, horizontally centered (offsets from screen center).
+    local OFFSETS = { [0] = -PITCH, [1] = 0, [2] = PITCH }
+
+    local icons = {}
+    for i = 0, ACC_POWERUP_COUNT - 1 do
+        local img = LUI.UIImage.new()
+        local cx = OFFSETS[i]
+        img:setLeftRight(false, false, cx - SIZE / 2, cx + SIZE / 2)
+        img:setTopBottom(false, true, -(BOTTOM + SIZE), -BOTTOM)
+        img:setImage(RegisterImage("i_acc_powerup_" .. ACC_POWERUP_ICONS[i]))
+        img:hide()
+        self:addElement(img)
+        icons[i] = img
+    end
+
+    local function Render(mask)
+        for i = 0, ACC_POWERUP_COUNT - 1 do
+            if acc_bit_is_set(mask, i) then
+                icons[i]:show()
+            else
+                icons[i]:hide()
+            end
+        end
+    end
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPowerupMask"), function(m)
+        Render(Engine.GetModelValue(m) or 0)
+    end)
+
+    return self
+end
+
 function LUI.createMenu.acc_hud(Instance)
     local Hud = CoD.Menu.NewForUIEditor("acc_hud")
 
@@ -422,6 +485,12 @@ function LUI.createMenu.acc_hud(Instance)
     local PerkBar = CoD.AccPerkBar.new(Hud, Instance)
     Hud:addElement(PerkBar)
     Hud.accPerkBar = PerkBar
+
+    -- Power-up active icons: Insta-Kill / Double Points / Fire Sale (Ronan art), top-center,
+    -- shown only while each power-up is active. Driven by accPowerupMask.
+    local PowerupBar = CoD.AccPowerupBar.new(Hud, Instance)
+    Hud:addElement(PowerupBar)
+    Hud.accPowerupBar = PowerupBar
 
     local function OnHudClose(Sender)
         Sender.accCard:close()

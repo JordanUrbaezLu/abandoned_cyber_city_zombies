@@ -44,20 +44,30 @@ function __init__()
     // Pack-a-Punch current tier (0..5) of the held weapon, pushed when near PaP so
     // the card shows only the NEXT tier (not the whole ladder). 3 bits (0..7).
     clientfield::register( "clientuimodel", "accPapTier", VERSION_SHIP, 3, "int" );
-    // Mega-perk bitmask: bit i set => perk (i+1) is Mega'd (perk_card_index order,
-    // 1..9). 9 bits. acc_hud.lua glows the matching perk-bar slot.
+    // Mega-perk bitmask: bit i set => the perk at bar-bit i is Mega'd (perk_state_watch
+    // order). 9 bits (9 perks; PhD Flopper bit 8). acc_hud.lua tints the matching
+    // perk-bar icon teal.
     clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 9, "int" );
     // Damage number: value = min(dmg,99999)*2 + parity. acc_hud.lua shows it near
     // the crosshair (you aim at the zombie, so it reads on-target). The parity bit
     // flips every push so an identical number still re-triggers the popup. 18 bits.
     clientfield::register( "clientuimodel", "accDmgNum", VERSION_SHIP, 18, "int" );
-    // Owned-perk bitmask: bit i set => the player OWNS perk (i+1) (perk_card_index
-    // order, 1..9), regardless of Mega. Pairs with accMegaMask so the LUI overlay
-    // can pick the icon: owned+mega => teal (Mega), owned+!mega => red (base),
-    // !owned => hide. 9 bits. Driven by perk_state_watch(). Appended LAST so the
-    // existing fields' bit layout is untouched (must match _acc_lui.csc order).
+    // Owned-perk bitmask: bit i set => the player OWNS the perk at bar-bit i
+    // (perk_state_watch order), regardless of Mega. Pairs with accMegaMask so the LUI
+    // overlay can pick the icon: owned+mega => teal (Mega), owned+!mega => red (base),
+    // !owned => hide. 9 bits (9 perks). Driven by perk_state_watch(). Appended LAST so
+    // the existing fields' bit layout is untouched (must match _acc_lui.csc order).
     clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 9, "int" );
+    // Power-up active bitmask: bit 0 = Insta-Kill, bit 1 = Double Points, bit 2 = Fire Sale.
+    // Driven by powerup_state_watch() off the stock zombie_vars; acc_hud.lua CoD.AccPowerupBar
+    // shows the matching Ronan icon while each is active. 3 bits. Appended LAST so the existing
+    // fields' bit layout is untouched (MUST match _acc_lui.csc order/width).
+    clientfield::register( "clientuimodel", "accPowerupMask", VERSION_SHIP, 3, "int" );
     callback::on_connect( &on_player_connect );
+
+    // Hide the STOCK power-up active-icon HUD for the 3 timed power-ups so ONLY our Ronan
+    // icons (CoD.AccPowerupBar) show (user 2026-06-15). See suppress_stock_powerup_hud.
+    level thread suppress_stock_powerup_hud();
 }
 
 // Push the contextual perk/PaP card selector to a player's LUI overlay.
@@ -97,6 +107,13 @@ function set_dmg_num( player, value )
     player clientfield::set_player_uimodel( "accDmgNum", value );
 }
 
+// Push the power-up active bitmask (bit 0 insta-kill, bit 1 double points, bit 2 fire sale).
+function set_powerup_mask( player, mask )
+{
+    if ( !isdefined( mask ) || mask < 0 ) mask = 0;
+    player clientfield::set_player_uimodel( "accPowerupMask", mask );
+}
+
 function on_player_connect()
 {
     self thread player_lui_init();
@@ -119,32 +136,37 @@ function player_lui_init()
     self thread perk_state_watch();
     self thread stock_perk_hud_suppressor();
 
+    // Drive the power-up icon overlay (Ronan Insta-Kill / Double Points / Fire Sale).
+    self thread powerup_state_watch();
+
     acc_utility::log( "lui: overlay opened + banner set for a player" );
 }
 
-// Per-player loop: track which perks the player OWNS and which are Mega'd and push
-// BOTH bitmasks to the LUI overlay, which picks the art (owned+mega => teal Mega,
-// owned+!mega => red base, !owned => hide). Slice scope (2026-06-14): the overlay
-// only renders Jugger-Nog (bit 0) today, but the masks already carry all 9 perks in
-// perk_card_index order, so expanding to the rest is Lua + image work only - no GSC
-// change here. Cheap: a 0.25s poll that pushes a clientfield only when a mask flips.
+// Per-player loop: track which perks the player OWNS and which are Mega'd and push BOTH
+// bitmasks to the LUI overlay (acc_hud.lua CoD.AccPerkBar), which draws one cyberpunk icon
+// per owned perk: owned+mega => teal, owned+!mega => red, !owned => hidden. All 8 live perks
+// render (perk_card_index order). Also re-asserts the stock perk-bar suppression each tick
+// (the instant zero-flash hide is stock_perk_hud_suppressor). Cheap: a 0.25s poll that
+// pushes the masks only when they flip.
 function perk_state_watch()
 {
     self endon( "disconnect" );
     level endon( "end_game" );
 
-    // perk_card_index order (1..9): index N -> bit (N-1). MUST match _acc_perk_info
-    // perk_card_index() and acc_hud.lua AccPerkCards.
+    // BAR-BIT order: array index i -> mask bit i -> acc_hud.lua ACC_PERK_ICONS[i].
+    // All 9 perks now carry a Ronan icon (PhD Flopper got exo_flopper at bit 8), so
+    // every bit renders. MUST stay in lockstep with acc_hud.lua ACC_PERK_ICONS /
+    // ACC_PERK_COUNT and _acc_perk_info::perk_card_index.
     specialties = array(
-        "specialty_armorvest",               // 1 Jugger-Nog       -> bit 0
-        "specialty_quickrevive",             // 2 Quick Revive     -> bit 1
-        "specialty_fastreload",              // 3 Speed Cola       -> bit 2
-        "specialty_doubletap2",              // 4 Double Tap       -> bit 3
-        "specialty_staminup",                // 5 Stamin-Up        -> bit 4
-        "specialty_additionalprimaryweapon", // 6 Mule Kick        -> bit 5
-        "specialty_deadshot",                // 7 Deadshot         -> bit 6
-        "specialty_widowswine",              // 8 Widow's Wine     -> bit 7
-        "specialty_electriccherry"           // 9 Aura Blast (WIP) -> bit 8
+        "specialty_armorvest",               // bit 0  Jugger-Nog
+        "specialty_quickrevive",             // bit 1  Quick Revive
+        "specialty_fastreload",              // bit 2  Speed Cola
+        "specialty_doubletap2",              // bit 3  Double Tap
+        "specialty_staminup",                // bit 4  Stamin-Up
+        "specialty_additionalprimaryweapon", // bit 5  Mule Kick
+        "specialty_deadshot",                // bit 6  Deadshot
+        "specialty_widowswine",              // bit 7  Widow's Wine
+        "specialty_electriccherry"           // bit 8  PhD Flopper
     );
 
     last_owned = -1;
@@ -204,7 +226,7 @@ function clear_stock_perk_hud()
         "hudItems.perks.additional_primary_weapon", // Mule Kick
         "hudItems.perks.dead_shot",                 // Deadshot
         "hudItems.perks.widows_wine",               // Widow's Wine
-        "hudItems.perks.electric_cherry"            // Aura Blast
+        "hudItems.perks.electric_cherry"            // PhD Flopper
     );
     for ( i = 0; i < fields.size; i++ )
         self clientfield::set_player_uimodel( fields[ i ], 0 );
@@ -224,5 +246,95 @@ function stock_perk_hud_suppressor()
     {
         self waittill( "perk_acquired" );
         self clear_stock_perk_hud();
+    }
+}
+
+// Per-player loop: read the stock zombie_vars powerup-active flags and push a 3-bit mask to
+// the LUI overlay (acc_hud.lua CoD.AccPowerupBar), which shows the matching Ronan icon while
+// each power-up is active. Insta-Kill + Double Points are TEAM-scoped
+// (level.zombie_vars[team][...]); Fire Sale is GLOBAL (no team key). Var names verified vs
+// stock _zm_powerups.gsc set_zombie_var + the per-powerup modules (zombie_powerup_*_on).
+// 0.25s poll, push only on change. If the (opt-in) stock powerup vars are absent the mask
+// stays 0 (icons hidden) - safe.
+function powerup_state_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    last_mask = -1;
+    for ( ;; )
+    {
+        wait 0.25;
+
+        // Double Points drives its own stock HUD indicator via this uimodel (set 1 by its
+        // grab, _zm_powerup_double_points.gsc:86 - NOT via the monitor we disable in
+        // suppress_stock_powerup_hud). Zero it every tick so only our Ronan icon shows
+        // (mirrors clear_stock_perk_hud). Cosmetic-only field (no gameplay coupling).
+        self clientfield::set_player_uimodel( "hudItems.doublePointsActive", 0 );
+
+        mask = 0;
+        team = self.team;
+
+        if ( isdefined( level.zombie_vars ) )
+        {
+            // Insta-Kill (team-scoped) -> bit 0. NOTE the inconsistent stock naming: the
+            // insta-kill grab sets "zombie_insta_kill" = 1 directly (_zm_powerup_insta_kill.gsc:68)
+            // and stock's own is_insta_kill_active() reads THAT (_zm_powerups.gsc:1432) - the
+            // registered "zombie_powerup_insta_kill_on" is NOT reliably set. (Double Points /
+            // Fire Sale below DO use the "_on" flag - those grabs set it true directly.)
+            if ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
+                 && IS_TRUE( level.zombie_vars[ team ][ "zombie_insta_kill" ] ) )
+                mask = mask | 1;
+
+            // Double Points (team-scoped) -> bit 1
+            if ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
+                 && IS_TRUE( level.zombie_vars[ team ][ "zombie_powerup_double_points_on" ] ) )
+                mask = mask | 2;
+
+            // Fire Sale (GLOBAL, no team key) -> bit 2
+            if ( IS_TRUE( level.zombie_vars[ "zombie_powerup_fire_sale_on" ] ) )
+                mask = mask | 4;
+        }
+
+        if ( mask != last_mask )
+        {
+            set_powerup_mask( self, mask );
+            last_mask = mask;
+        }
+    }
+}
+
+// Level-once: hide the STOCK power-up active-icon HUD for the 3 TIMED power-ups (Insta-Kill /
+// Double Points / Fire Sale) so ONLY our Ronan icons (CoD.AccPowerupBar) show. The stock HUD
+// is driven by stock powerup_hud_monitor, which builds its per-frame clientfield list ONCE
+// from level.zombie_powerups[name].client_field_name AFTER "start_zombie_round_logic"
+// (_zm_powerups.gsc:212-227). We run at "initial_blackscreen_passed" (fires earlier) and clear
+// client_field_name for those 3, so they drop out of the monitor's list and their stock
+// clientfield stays OFF - the stock icon never renders. client_field_name is used ONLY by the
+// monitor (verified, _zm_powerups.gsc) - no gameplay coupling. Instant power-ups (Max Ammo /
+// Nuke / Carpenter) register NO client_field_name, so they have no persistent stock icon.
+// (Double Points' separate hudItems.doublePointsActive uimodel is zeroed in powerup_state_watch.)
+function suppress_stock_powerup_hud()
+{
+    level endon( "end_game" );
+
+    // Threaded from the REGISTER_SYSTEM __init__ (system-init phase), which runs BEFORE
+    // the zombie game mode flag::init's "initial_blackscreen_passed". wait_till does
+    // !flag::get() -> level.flag[ name ] is undefined -> "cannot cast undefined to bool"
+    // (the Assert in stock get() is compiled out of retail, so it crashes instead of
+    // asserting). Poll until the flag EXISTS, then wait on it. (acc_main-threaded waiters
+    // on this flag are fine - they start after gameplay init; only this system-init thread
+    // is early.) Fixes the server-script crash 2026-06-15.
+    while ( !( level flag::exists( "initial_blackscreen_passed" ) ) )
+        wait( 0.05 );
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    if ( !isdefined( level.zombie_powerups ) ) return;
+
+    timed = array( "insta_kill", "double_points", "fire_sale" );
+    for ( i = 0; i < timed.size; i++ )
+    {
+        if ( isdefined( level.zombie_powerups[ timed[ i ] ] ) )
+            level.zombie_powerups[ timed[ i ] ].client_field_name = undefined;
     }
 }

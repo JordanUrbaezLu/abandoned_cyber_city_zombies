@@ -32,6 +32,12 @@
  "Specs" : [ ]
 },
 {
+ "Type" : "ALIAS",
+ "Name" : "acc_audio",
+ "Filename" : "acc_audio.csv",
+ "Specs" : [ ]
+},
+{
  "Type" : "AMBIENT",
  "Name" : "ambient_mod",
  "Filename" : "ambient_mod.csv",

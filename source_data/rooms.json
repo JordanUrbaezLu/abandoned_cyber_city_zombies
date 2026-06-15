@@ -1,0 +1,66 @@
+{
+  "_doc": "CANONICAL source-of-truth for ACC room geometry. docs/36 Stage 0. See docs/36_map_tightening_research.md §4/§6. Room FOOTPRINTS are duplicated across 4 artifacts (tools/gen_zone_greybox.js, tools/gen_map_design.js, the baked map_source/zm/zm_abandoned_cyber_city.map, and tools/gen_rooms.js for the inner chambers) plus the PaP origin lives in 2 GSC/JS literals. tools/validate_rooms.js asserts every copy matches THIS file. When the map-tightening overhaul shrinks a room, edit THIS file first, then propagate + re-validate. NOTE: spawner/box/perk/power entity ORIGINS are NOT tracked here — they live only in the .map and are hand-tuned (e.g. market dog is at y=1100, not the generator's computed center y=900), so the .map is authoritative for those; this file tracks only the duplicated geometry.",
+  "_units": "BO3 Radiant units. +X=east, +Y=north, +Z=up. Coordinates verified against the baked .map (docs/36 geometry verification, 2026-06-15).",
+
+  "wall": {
+    "_doc": "Room perimeter walls (the 6 greybox rooms + start). VERIFIED 20u thick / 256u tall — NOT the 16u/128u the old session brief assumed. floorTop=walkable z, floorBottom=bottom of the 16u floor slab.",
+    "thickness": 20,
+    "height": 256,
+    "floorTop": 0,
+    "floorBottom": -16
+  },
+
+  "shortNameToZone": {
+    "market": "market_zone",
+    "alley": "alley_zone",
+    "corp": "corp_zone",
+    "vault": "vault_zone",
+    "roof": "roof_zone",
+    "lab": "lab_zone"
+  },
+
+  "rooms": {
+    "_doc": "OUTER footprint = the floor-slab extent (x1<x2, y1<y2). Interior = inset by wall.thickness on all sides. start_zone is NOT emitted by gen_zone_greybox.js (it is the original template arena), so its footprint lives only in gen_map_design.js + the baked .map.",
+    "start_zone":  { "name": "SPAWN PLAZA",       "inGenZoneGreybox": false, "outer": { "x1": -1056,   "x2": 1094.5, "y1": -1073.5, "y2": 928  } },
+    "market_zone": { "name": "UNDERCITY MARKET",  "inGenZoneGreybox": true,  "shortName": "market", "outer": { "x1": -2481, "x2": -1281, "y1": 200, "y2": 1600 } },
+    "alley_zone":  { "name": "SERVICE ALLEY",     "inGenZoneGreybox": true,  "shortName": "alley",  "outer": { "x1": 1319.5, "x2": 2519.5, "y1": 200, "y2": 1600 } },
+    "corp_zone":   { "name": "CORPORATE PLAZA",   "inGenZoneGreybox": true,  "shortName": "corp",   "outer": { "x1": -781, "x2": 819, "y1": 1148, "y2": 2748 } },
+    "vault_zone":  { "name": "SERVER VAULT",      "inGenZoneGreybox": true,  "shortName": "vault",  "outer": { "x1": 1119, "x2": 2319, "y1": 2200, "y2": 3400 } },
+    "roof_zone":   { "name": "ROOFTOP HELIPAD",   "inGenZoneGreybox": true,  "shortName": "roof",   "outer": { "x1": -2319, "x2": -1119, "y1": 2200, "y2": 3400 } },
+    "lab_zone":    { "name": "SUBTERRANEAN LAB",  "inGenZoneGreybox": true,  "shortName": "lab",    "outer": { "x1": -781, "x2": 819, "y1": 3048, "y2": 4248 } }
+  },
+
+  "genRoomsShells": {
+    "_doc": "KNOWN CONFLICT to reconcile in the overhaul (docs/36). tools/gen_rooms.js (run after gen_zone_greybox, with NO re-run guard before Stage 0) injected a SECOND closed box shell for vault+roof — see the '// ACC room shell: Server Vault/Rooftop Helipad' brushes (guid ACCB00xx). gen_rooms assumed those zones had no geometry, but the gen_zone_greybox rooms (rooms.<vault/roof>_zone.outer) WERE applied — so each of vault/roof now has TWO overlapping shells. The gen_rooms shell is 16u-walled, z[-16,144] (128u ceiling), and is actually LARGER in X than the greybox room (984 < 1119; -2416 < -2319) and uses DIFFERENT door-gap Y bands (y2474-2536 / y3120-3186) than the greybox room (y2300-2556 / y3100-3356). gen_rooms room(label, ix0, iy0, ix1, iy1, ...) takes the INTERIOR; walls inset OUTWARD by wallThickness, so bakedOuter = interior expanded by wallThickness (verified vs the baked floor brushes).",
+    "vault_zone": { "label": "Server Vault",    "wallThickness": 16, "wallHeight": 128, "genRoomsInterior": { "ix0": 1000, "iy0": 2490, "ix1": 2400, "iy1": 3170 }, "bakedOuter": { "x1": 984, "x2": 2416, "y1": 2474, "y2": 3186 } },
+    "roof_zone":  { "label": "Rooftop Helipad", "wallThickness": 16, "wallHeight": 128, "genRoomsInterior": { "ix0": -2400, "iy0": 2490, "ix1": -1000, "iy1": 3170 }, "bakedOuter": { "x1": -2416, "x2": -984, "y1": 2474, "y2": 3186 } }
+  },
+
+  "corridors": [
+    { "id": "c_sp_mkt",    "x1": -1281,  "x2": -1056,  "y1": 400,  "y2": 656,  "connects": ["start_zone", "market_zone"] },
+    { "id": "c_sp_al",     "x1": 1094.5, "x2": 1319.5, "y1": 400,  "y2": 656,  "connects": ["start_zone", "alley_zone"] },
+    { "id": "c_mkt_corp",  "x1": -1281,  "x2": -781,   "y1": 1200, "y2": 1456, "connects": ["market_zone", "corp_zone"] },
+    { "id": "c_al_corp",   "x1": 819,    "x2": 1319.5, "y1": 1200, "y2": 1456, "connects": ["alley_zone", "corp_zone"] },
+    { "id": "c_corp_vlt",  "x1": 819,    "x2": 1119,   "y1": 2300, "y2": 2556, "connects": ["corp_zone", "vault_zone"] },
+    { "id": "c_corp_roof", "x1": -1119,  "x2": -781,   "y1": 2300, "y2": 2556, "connects": ["corp_zone", "roof_zone"] },
+    { "id": "c_vlt_lab",   "x1": 819,    "x2": 1119,   "y1": 3100, "y2": 3356, "connects": ["vault_zone", "lab_zone"] },
+    { "id": "c_roof_lab",  "x1": -1119,  "x2": -781,   "y1": 3100, "y2": 3356, "connects": ["roof_zone", "lab_zone"] }
+  ],
+
+  "wallGaps": {
+    "_doc": "Door/corridor openings cut into each room's E/W perimeter walls (keyed by gen_zone_greybox short name). [gapY1, gapY2] per side. All corridors run E-W so N/S room walls stay solid. These MUST stay aligned to the matching door slab + corridor floor when a room shrinks.",
+    "market": { "east": [[400, 656], [1200, 1456]] },
+    "alley":  { "west": [[400, 656], [1200, 1456]] },
+    "corp":   { "west": [[1200, 1456], [2300, 2556]], "east": [[1200, 1456], [2300, 2556]] },
+    "vault":  { "west": [[2300, 2556], [3100, 3356]] },
+    "roof":   { "east": [[2300, 2556], [3100, 3356]] },
+    "lab":    { "west": [[3100, 3356]], "east": [[3100, 3356]] }
+  },
+
+  "papOrigin": {
+    "_doc": "Pack-a-Punch machine origin. Historically hardcoded in 2 places: tools/apply_entity_moves.js (the PaP-prefab move target) and scripts/.../_acc_perk_info.gsc (the proximity card; now a FALLBACK after the Stage-0 live-origin refactor — the GSC reads GetEntArray(\"pack_a_punch\",\"script_noteworthy\")[0].origin at runtime). Both literals must still equal this.",
+    "x": -700,
+    "y": 3700,
+    "z": 7.5
+  }
+}

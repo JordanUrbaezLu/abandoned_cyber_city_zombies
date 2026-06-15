@@ -28,7 +28,7 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_damage.gsc` | Global AI damage hook. Applies 2x/3x headshot multiplier, forwards each hit to `_acc_points::record_damage`. | main |
 | `_acc_decontamination.gsc` | Round 1-4 zone-seal hazard: per-run permutation, 20s evac window, kill-on-reentry, emits acc_decontamination_start/complete (perk rotation keys on complete). | main |
 | `_acc_coop_scaling.gsc` | Co-op scaling: regular HP +100%/player, elites/bosses +50% (special_hp_mult), spawn rate +30%/player (max_zombie_func chain). | entry script (post_zm_main), main, elites, boss |
-| `_acc_perk_aura_blast.gsc` | Aura Blast perk: hijacks the stock-but-unfinished `_zm_perk_electric_cherry` pipeline (overwrites cost/hint/give/take after `zm_usermap::main()`). 400u / 3s stun / 120s CD, crouch+melee activation. | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
+| `_acc_perk_phd_flopper.gsc` | PhD Flopper perk (#9): hijacks the stock electric-cherry pipeline; fall/explosive immunity + dive-to-explode + explode-on-down (sets real cost/hint + fixes the machine-identity bug after `zm_usermap::main()`). | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
 | `_acc_atmosphere.gsc` | Cold city-haze volumetric fog (`SetVolFog`) applied after blackscreen; every param live-tunable via `acc_fog_*` dvars. Phase 1 of [docs/29](../../../docs/29_atmosphere_and_materials.md); the night sky + wet-ground re-skin + reflection probes are Radiant edits, not code. | main |
 
 ## Call Order
@@ -40,7 +40,7 @@ scripts/zm/zm_abandoned_cyber_city.gsc :: main()
   -> acc_main::pre_init()              // registers callbacks, runs modifier + randomizer pre_init
     -> acc_modifiers::pre_init()
     -> acc_map_randomizer::pre_init()
-  -> acc_perk_aura_blast::init()       // overwrite stock cherry registration (cost/hint/give/take);
+  -> acc_perk_phd_flopper::init()      // hijack stock cherry registration (cost/hint + machine-id fix);
                                        // AFTER zm_usermap::main(), BEFORE first game tick
   -> (template wiring: zones, start weapon, starting points)
   -> acc_early_round_pacing::post_zm_main()  // chain level.max_zombie_func BEFORE round 1

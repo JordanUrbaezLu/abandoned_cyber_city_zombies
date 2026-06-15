@@ -48,7 +48,7 @@ Equivalently: `PLAY_TEST_MAP.bat` (double-click) or `.\tools\run_game.ps1`
 (`-NoBoss` / `-NoDev` to drop those flags). Dev/test flags:
 - `acc_dev 1` — unlimited money, perk cap 18, buyable-door markers.
 - `acc_test_boss 1` — Juggernaut Host from round 2, drops 10 Mega Bottles.
-- In-game console (`~`): `set acc_rampage 1` toggles the Rampage Inducer.
+- In-game console (`~`, enabled by `+set developer 1` which this script passes): the zombie speed curve is live-tunable, e.g. `acc_zspeed_sprint_round 8` (break into sprint earlier) / `acc_zspeed_jog_step_pct 3` (faster early ramp) / `acc_zspeed_sprint_step_pct 2`. Read per spawn AND re-asserted on live zombies every ~1.5s, so changes show within a couple seconds. Full list in docs/34. The Rampage Inducer was removed (2026-06-14).
 - **Open-all-map**: `acc_hardcoded_open_map()` auto-opens the whole map at
   blackscreen+3s every dev game — all 8 buyable doors **and both per-run PaP
   blocker brushes** (`acc_pap_block_server` / `acc_pap_block_roof`). The

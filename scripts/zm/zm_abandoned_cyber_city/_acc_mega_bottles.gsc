@@ -51,7 +51,6 @@ function init()
     level.perk_lost_func = &on_perk_lost;
 
     level thread mega_machine_watcher();
-    level thread armory_maxammo_watcher();
     level thread widow_round_restock_watcher();
 }
 
@@ -266,7 +265,9 @@ function replay_perk_drink( perk )
     // inventory. Then we re-raise the TWIN. Result: a Mega upgrade's twin swap is masked
     // by THIS drink instead of showing as a separate gun-swap-and-reload afterwards.
     // reconcile is idempotent, so the parallel apply_mega_effects poke just no-ops.
-    self acc_weapon_variants::reconcile();
+    // force=true: reconcile() now defers while is_drinking (so the stock base-perk drink
+    // can't collide and eat ammo), but THIS holstered swap is our own coordinated one.
+    self acc_weapon_variants::reconcile( true );
     target = original_weapon;
     if ( isdefined( original_weapon ) && original_weapon != level.weaponNone )
     {
@@ -345,7 +346,7 @@ function mega_perk_color( perk )
     case "specialty_additionalprimaryweapon": return ( 0.80, 0.45, 0.20 ); // Mule - orange
     case "specialty_deadshot":                return ( 0.65, 0.72, 0.82 ); // Deadshot - steel
     case "specialty_widowswine":              return ( 0.55, 0.25, 0.65 ); // Widow's - purple
-    case "specialty_electriccherry":          return ( 0.95, 0.50, 0.12 ); // Aura - orange-red
+    case "specialty_electriccherry":          return ( 0.95, 0.50, 0.12 ); // PhD Flopper - orange-red
     }
     return ( 0.40, 0.85, 1.0 ); // default cyan
 }
@@ -469,14 +470,16 @@ function try_apply_mega( player, specialty_string )
 // Mega effect application. Called on upgrade AND on every (re)buy of a
 // Mega'd perk (sticky persistence, docs/13_perks.md). Per-perk status:
 //   IMPLEMENTED here: Ultimate Tank (+64 max HP -> 314), The Flash (+15% speed),
-//     Spiderman (web-grenade clip fill -> 6), The Armory (reserve fill).
+//     Spiderman (web-grenade clip fill -> 6).
 //   IMPLEMENTED elsewhere, read live from the Mega flag each frame/hit/reconcile:
-//     American Sniper (x2.0 headshot _acc_damage + -70% recoil twin), Gun Slinger
-//     (+50% fire rate + -75% swap twin), Sleight of Hand Expert (+70% reload twin)
-//     - all three twins via _acc_weapon_variants (baked 2026-06-14); Savior (revive
-//     speed/regen/+15% speed _acc_perks), Mega Man (800u/60s/2 charges _acc_perk_aura_blast).
-//   The deadshot/doubletap2/fastreload cases below just POKE the swap engine so the
-//   twin applies instantly; the axes also re-derive on the 3s reconcile safety-net.
+//     American Sniper (headshot _acc_damage + -40% recoil twin), Gun Slinger
+//     (+50% fire rate + -75% swap twin), Sleight of Hand Expert (+70% reload twin),
+//     The Armory (+25% reserve ammo "ammo" twin + reserve fill to the raised cap)
+//     - all four twins via _acc_weapon_variants (baked 2026-06-14); Savior (revive
+//     speed/regen/+15% speed _acc_perks).
+//   The deadshot/doubletap2/fastreload/armory cases below POKE (or call) the swap engine so the
+//   twin applies instantly; the axes also re-derive on the 3s reconcile safety-net. The Armory
+//   additionally GiveMaxAmmo-fills the reserve to the twin's raised cap.
 // ---------------------------------------------------------------------------
 
 function apply_mega_effects( player, specialty_string )
@@ -520,17 +523,20 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_additionalprimaryweapon":
-        // The Armory (docs/13 overhaul): +25% gun ammo capacity (GDT cap; GSC fills
-        // every gun's reserve to it) + all buys 10% cheaper (POINT OF SALE, in the
-        // vendored stock cost files via the repurposed pers double-points hook gated
-        // on this Mega flag). Fill the reserves now.
+        // The Armory (docs/13 overhaul): +25% reserve ammo capacity via the "ammo"
+        // weapon-variant twin (maxAmmo x1.25 - the only way to gate a GDT-baked cap;
+        // baked 2026-06-14) + all buys 10% cheaper (POINT OF SALE, vendored cost files
+        // via the repurposed pers double-points hook gated on this Mega flag). Swap to
+        // the raised-cap twin FIRST (reconcile is synchronous), THEN fill every reserve
+        // to that new cap so the +25% is granted immediately, not on the next Max Ammo.
+        player acc_weapon_variants::reconcile();
         player armory_apply();
         break;
 
     case "specialty_deadshot":
-        // American Sniper: the headshot-mult layer (x2.0) lives in _acc_damage; the
-        // -70% recoil half is the weapon-variant swap (base Deadshot is -35%, off the
-        // 2.5x map base). Poke the swap engine to upgrade base->Mega recoil twin
+        // American Sniper: the headshot-mult layer lives in _acc_damage; the
+        // -40% recoil half is the weapon-variant swap (base Deadshot is -25%, off the
+        // 2.1x map base). Poke the swap engine to upgrade base->Mega recoil twin
         // (baked 2026-06-14, docs/perk_abilities §7 / docs/30 §4).
         acc_weapon_variants::request_reconcile( player );
         break;
@@ -544,15 +550,18 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_fastreload":
-        // Sleight of Hand Expert (Speed Cola Mega): +70% reload via the "fastreload"
-        // weapon-variant twin (reloadTime x0.882 on top of the engine +50%, baked
+        // Sleight of Hand Expert (Speed Cola Mega): +75% reload via the "fastreload"
+        // weapon-variant twin (reloadTime x0.857 on top of the engine +50%, baked
         // 2026-06-14). Poke the swap engine; axis_reload reads the Mega flag live.
         // Base +50% reload + barrier repair stay pure-engine; the map-wide drink-anim
         // speedup was CUT (no per-perk lever - docs/perk_abilities §3).
         acc_weapon_variants::request_reconcile( player );
         break;
 
-    case "specialty_electriccherry": // Mega Man - live in _acc_perk_aura_blast
+    case "specialty_electriccherry":
+        // PhD Slider (PhD Flopper Mega): a bigger/stronger dive + down explosion. The deltas
+        // (radius + damage) are read LIVE from the Mega flag in
+        // _acc_perk_phd_flopper::phd_explode, so nothing to apply here.
         break;
 
     default:
@@ -570,46 +579,56 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
-// The Armory Mega (Mule Kick) +25% ammo capacity (docs/13 overhaul): the weapon
-// GDT raises each gun's reserve maxAmmo by 25%; GiveMaxAmmo fills every carried
-// gun's reserve to that (raised) cap. On stock GDTs it is a harmless full top-off.
-// Idempotent - safe on Mega-apply, perk rebuy, and every Max Ammo. (The former
-// +2-grenade fill was removed - Armory no longer touches grenades.)
+// The Armory Mega (Mule Kick) +25% reserve capacity. The "ammo" weapon-variant twin (axis_ammo,
+// _acc_weapon_variants) raises each gun's reserve maxAmmo x1.25 (swapped in by reconcile). On
+// upgrade/rebuy this GRANTS that extra capacity as actual bullets: every carried gun gains
+// (twin maxAmmo - base maxAmmo) = +25% of base max, ADDED to its CURRENT reserve - NOT a full
+// refill. Per the user's spec (2026-06-14): "you have 100/200 ... you go to 150/250" (gain the
+// +50 cap as +50 reserve). Applies to ALL carried guns + the equipped weapon (the pistol slot
+// isn't always in GetWeaponsListPrimaries), same as the other Mega twins. A gun with no ammo
+// twin (e.g. a wallbuy) has delta 0 -> untouched. weapon.maxammo = reserve cap (_zm_weapons:2935);
+// true_base() maps a held twin back to its base weapon to read the un-raised cap. Call AFTER
+// reconcile() has swapped in the twins. Engine clamps the set value to the cap as a backstop.
 function armory_apply()
 {
     self endon( "disconnect" );
 
     guns = self GetWeaponsListPrimaries();
+
+    // Include the equipped weapon (the starting-pistol slot is not always a "primary").
+    eq = self GetCurrentWeapon();
+    if ( isdefined( eq ) && eq != level.weaponNone )
+    {
+        have = false;
+        for ( i = 0; i < guns.size; i++ ) { if ( guns[ i ] == eq ) have = true; }
+        if ( !have ) guns[ guns.size ] = eq;
+    }
+
     for ( i = 0; i < guns.size; i++ )
     {
         g = guns[ i ];
         if ( !isdefined( g ) || g == level.weaponNone ) continue;
         if ( !( self HasWeapon( g ) ) ) continue;
-        self GiveMaxAmmo( g );
+        if ( !isdefined( g.maxammo ) ) continue;
+
+        base = acc_weapon_variants::true_base( g );
+        if ( !isdefined( base ) || base == level.weaponNone || !isdefined( base.maxammo ) ) continue;
+
+        delta = g.maxammo - base.maxammo;   // +25% of base max (0 if this gun has no ammo twin)
+        if ( delta <= 0 ) continue;
+
+        cur = self GetWeaponAmmoStock( g );
+        if ( !isdefined( cur ) ) continue;
+
+        target = cur + delta;
+        if ( target > g.maxammo ) target = g.maxammo;   // clamp at the raised cap
+        self SetWeaponAmmoStock( g, target );
     }
 }
 
-// Re-apply the Armory top-off whenever a Max Ammo powerup fires, for any player
-// who has Mega'd Mule Kick (so the raised grenade caps get filled on every Max
-// Ammo, not just at upgrade time).
-function armory_maxammo_watcher()
-{
-    level endon( "end_game" );
-
-    for ( ;; )
-    {
-        level waittill( "zmb_max_ammo_level" );
-        players = GetPlayers();
-        for ( i = 0; i < players.size; i++ )
-        {
-            p = players[ i ];
-            if ( !isdefined( p ) || !isplayer( p ) ) continue;
-            if ( !( p HasPerk( "specialty_additionalprimaryweapon" ) ) ) continue;
-            if ( !has_mega_perk( p, "specialty_additionalprimaryweapon" ) ) continue;
-            p armory_apply();
-        }
-    }
-}
+// NOTE: no Max-Ammo watcher needed - the "ammo" twin raises the gun's maxAmmo, so the stock
+// Max Ammo powerup (GiveMaxAmmo -> fills reserve to weapon.maxammo) already tops every Armory
+// holder's guns to the raised +25% cap. armory_apply() is the one-time on-upgrade/rebuy grant.
 
 // Stock lifecycle hooks (self = player).
 
@@ -654,10 +673,11 @@ function on_perk_lost( perk )
     }
 
     if ( perk == "specialty_deadshot" || perk == "specialty_doubletap2"
-         || perk == "specialty_fastreload" )
+         || perk == "specialty_fastreload" || perk == "specialty_additionalprimaryweapon" )
     {
-        // Strip the recoil / fastfire / fastreload twin back to the base weapon.
-        // reconcile re-derives from the (now-removed) perk, so the twin is undone.
+        // Strip the recoil / fastfire / fastreload / ammo twin back to the base weapon.
+        // reconcile re-derives from the (now-removed) perk, so the twin is undone (the
+        // engine then re-clamps the reserve to the base cap, dropping the +25%).
         acc_weapon_variants::request_reconcile( self );
     }
 }
@@ -680,11 +700,11 @@ function mega_display_name( specialty_string )
     case "specialty_additionalprimaryweapon":return "The Armory";             // Mule Kick
     // VERIFIED(acc): these are the specialties our machines actually register:
     // Deadshot + Widow's Wine are the stock modules (_zm_perks.gsh:29/:35);
-    // Aura Blast hijacks the stock electric-cherry pipeline (see
-    // _acc_perk_aura_blast.gsc), so its specialty is the cherry's.
+    // PhD Flopper hijacks the stock electric-cherry pipeline (see
+    // _acc_perk_phd_flopper.gsc).
     case "specialty_deadshot":               return "American Sniper";        // Deadshot
     case "specialty_widowswine":             return "Spiderman";              // Widow's Wine
-    case "specialty_electriccherry":         return "Mega Man";               // Aura Blast
+    case "specialty_electriccherry":         return "PhD Slider";             // PhD Flopper
     }
     return "Mega Perk";
 }

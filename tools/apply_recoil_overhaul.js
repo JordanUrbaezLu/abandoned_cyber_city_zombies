@@ -7,14 +7,14 @@
 // docs/30/31.
 //
 // DIMENSIONS (independent perk effects that can stack on one held gun):
-//   recoil  : none / recoil35 / recoil70   (Deadshot base -35% / Mega -70%, off the 2.5x base)
-//   fastfire: Gun Slinger (Double Tap Mega) = fireTime x0.667 (+50% RoF) AND swap x0.25 (-75%)
+//   recoil  : none / recoil25 / recoil40   (Deadshot base -25% / Mega -40%, off the 2.1x base)
+//   fastfire: Gun Slinger (Double Tap Mega) = fireTime x0.714 (+40% RoF) AND swap x0.5 (-50%)
 //   reload  : Sleight of Hand Expert (Speed Cola Mega) = reloadTime x0.882 (+70% net, see below)
 //
 // The cross-product (minus the all-base combo) = 11 twins per gun form:
-//   recoil35, recoil70, fastfire, fastreload, recoil35_fastfire, recoil70_fastfire,
-//   recoil35_fastreload, recoil70_fastreload, fastfire_fastreload,
-//   recoil35_fastfire_fastreload, recoil70_fastfire_fastreload
+//   recoil25, recoil40, fastfire, fastreload, recoil25_fastfire, recoil40_fastfire,
+//   recoil25_fastreload, recoil40_fastreload, fastfire_fastreload,
+//   recoil25_fastfire_fastreload, recoil40_fastfire_fastreload
 //   x (base + _up) x 5 guns = 110 twins. The GSC swap engine resolves the exact
 //   combo for a player's live perk state (graceful fallback if a combo is absent).
 //
@@ -24,21 +24,22 @@
 // range x1.5 + FMJ penetrateType large + wider spread x1.25, traded against -15% damage (x0.85).
 // See GUNS below + gen_weapon_variant_gdt.js (--range / --damage / --spread / --penetrate).
 //
-//   base GDT (in place):  recoil x2.5  -> 2.5x vanilla (no Deadshot)
+//   base GDT (in place):  recoil x2.1  -> 2.1x vanilla (no Deadshot)
 //
 // TUNING (single source; confirm magnitudes in-game, they compose with engine perk bonuses):
-//   RECOIL35/70 - off the 2.5x base: 0.65 -> 1.625x vanilla, 0.30 -> 0.75x vanilla.
-//   FIRE 0.667  - +50% RoF. NB: stock specialty_doubletap2 is the extra-BULLET (2.0)
-//                 effect, not a fireTime change, so the twin carries the whole rate gain.
-//                 If an in-game check shows doubletap2 also lowers fireTime, raise toward ~0.889.
-//   SWAP 0.25   - -75% weapon-swap (raise/drop times); bundled with fastfire (same Mega flag).
-//   RELOAD 0.882- net +70% reload. Speed Cola owners ALSO get the engine +50% (x0.667),
-//                 which compounds: 0.882 x 0.667 ~= 0.588 = +70%. Base (non-Mega) Speed
+//   RECOIL25/40 - off the 2.1x base: 0.75 -> 1.575x vanilla (-25%), 0.60 -> 1.26x vanilla (-40%).
+//   FIRE 0.714  - +40% RoF (1/1.40; was 0.667 = +50%, retuned down 2026-06-14). The base perk
+//                 KEEPS the stock Double Tap 2.0 extra-BULLET (~2x damage) - the twin only adds
+//                 fire rate on top, so the Mega is "+40% RoF + faster swap" over the 2.0 base.
+//                 If an in-game check shows doubletap2 also lowers fireTime, raise toward ~0.9.
+//   SWAP 0.5    - -50% weapon-swap (raise/drop times); bundled with fastfire (same Mega flag).
+//   RELOAD 0.857- net +75% reload. Speed Cola owners ALSO get the engine +50% (x0.667),
+//                 which compounds: 0.857 x 0.667 ~= 0.571 = +75%. Base (non-Mega) Speed
 //                 owners keep the engine +50% only (no twin). Confirm the engine bonus is a
 //                 clean reloadTime multiplier in-game; this is the one lever to retune.
 //
 // IDEMPOTENT: keeps a `.acc-orig` backup of each Skye GDT and restores it before
-// scaling, so re-running never compounds the x2.5. Re-run any time to re-derive.
+// scaling, so re-running never compounds the x2.1. Re-run any time to re-derive.
 //
 // Usage: node tools/apply_recoil_overhaul.js [--source_data "<path>"]
 //   --source_data  the Mod Tools source_data dir (auto-detected if omitted)
@@ -52,15 +53,20 @@ const REPO = path.resolve( __dirname, ".." );
 const GEN = path.join( __dirname, "gen_weapon_variant_gdt.js" );
 const OUT_REPO = path.join( REPO, "source_data", "acc_weapon_variants.gdt" );
 
-const BASE_SCALE = 2.5;
+const BASE_SCALE = 2.1;
 
 // Per-dimension twin levels. [ suffix-part, scale-factors ]. '' = the base level
 // (no twin part). Order here == the suffix concatenation order the GSC expects
-// (recoil -> fastfire -> reload), and the longest-first strip list is derived from it.
+// (recoil -> fastfire -> reload -> ammo), and the longest-first strip list is derived
+// from it. MUST mirror _acc_weapon_variants.gsc variant_dims() order.
+//   ammo: Mule Kick Mega "The Armory" = +25% reserve capacity (maxAmmo x1.25). This is the
+//   ONLY clean way to gate a GDT-baked stat to Mega holders (engine clamps reserve to maxAmmo),
+//   at the cost of doubling the matrix (adds the x2 ammo dimension): 11 -> 23 combos/form.
 const TWIN_DIMS = [
-    [ [ "", {} ], [ "recoil35", { recoil: 0.65 } ], [ "recoil70", { recoil: 0.30 } ] ],
-    [ [ "", {} ], [ "fastfire", { fire: 0.667, swap: 0.25 } ] ],
-    [ [ "", {} ], [ "fastreload", { reload: 0.882 } ] ],
+    [ [ "", {} ], [ "recoil25", { recoil: 0.75 } ], [ "recoil40", { recoil: 0.60 } ] ],
+    [ [ "", {} ], [ "fastfire", { fire: 0.714, swap: 0.5 } ] ],
+    [ [ "", {} ], [ "fastreload", { reload: 0.857 } ] ],
+    [ [ "", {} ], [ "ammo", { ammo: 1.25 } ] ],
 ];
 
 // gun file + its base/PaP asset names (verified on the box 2026-06-14).
@@ -80,6 +86,10 @@ const GUNS = [
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
     { gdt: "skye_t6_ak47.gdt",      base: "t6_ak47",      up: "t6_ak47_up" },
     { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
+    // +3 twin guns REVERTED again 2026-06-15: 8 guns x 46 = 368 twins CRASHES on boot
+    // (engine AV 0xC0000005 at blackops3.exe+0x25DF24E during weapon registration - the
+    // BO3 weapon-count limit). 5 guns x 46 = 230 boots. The base guns are fine; it's the
+    // twin COUNT. Need a twin budget (fewer combos, or fewer twin guns) to fit the new guns.
 ];
 
 // CLI args for a gun's always-on baseline buff (numeric factors are scaled, literals set).
@@ -117,9 +127,45 @@ function gen( args ) { execFileSync( process.execPath, [ GEN, ...args ], { stdio
 
 function factorArgs( f ) {
     const a = [];
-    for ( const k of [ "recoil", "fire", "reload", "swap" ] )
+    for ( const k of [ "recoil", "fire", "reload", "swap", "ammo" ] )
         if ( f[ k ] !== undefined ) a.push( "--" + k, String( f[ k ] ) );
     return a;
+}
+
+// All twin weapon names this matrix produces (guns x [base,_up] x combos), sorted.
+// SINGLE SOURCE OF TRUTH for both the GDT (above) and the zone weaponfull lines (below),
+// so they can never drift. suffix is already "acc_<tokens>".
+function allTwinNames() {
+    const twins = enumerateTwins();
+    const names = [];
+    for ( const g of GUNS )
+        for ( const form of [ g.base, g.up ] )
+            for ( const t of twins )
+                names.push( `${form}_${t.suffix}` );
+    return names.sort();
+}
+
+// Rewrite the zone's twin `weaponfull,<gun>..._acc_<combo>` block in place from allTwinNames()
+// so the linker has a manifest line for every generated twin. Only touches twin weaponfull
+// lines (matched by the `_acc_` infix + our gun prefixes); every other zone line is preserved.
+// Idempotent: replaces the existing block wherever it currently sits.
+function rewriteZoneTwinLines() {
+    const ZONE = path.join( REPO, "zone_source", "zm_abandoned_cyber_city.zone" );
+    if ( !fs.existsSync( ZONE ) ) { console.log( `NOTE: zone not found (${ZONE}); skipped zone update` ); return; }
+
+    const text = fs.readFileSync( ZONE, "utf8" );
+    const eol = text.includes( "\r\n" ) ? "\r\n" : "\n";
+    const lines = text.split( /\r?\n/ );
+
+    const isTwin = ( l ) => /^weaponfull,(s[0-9]_|t[0-9]_|iw[0-9]_)[A-Za-z0-9_]*_acc_[A-Za-z0-9_]+\s*$/.test( l );
+    const firstIdx = lines.findIndex( isTwin );
+    if ( firstIdx === -1 ) { console.log( "NOTE: no existing twin weaponfull lines in zone; skipped (add the block manually once)" ); return; }
+
+    const newBlock = allTwinNames().map( ( n ) => `weaponfull,${n}` );
+    const kept = lines.filter( ( l ) => !isTwin( l ) );   // all twin lines were contiguous from firstIdx
+    kept.splice( firstIdx, 0, ...newBlock );
+    fs.writeFileSync( ZONE, kept.join( eol ) );
+    console.log( `zone: wrote ${newBlock.length} twin weaponfull lines -> ${ZONE}` );
 }
 
 // Cartesian product of the dimension levels -> [ { suffix, factors } ], minus the
@@ -159,14 +205,14 @@ function main() {
         if ( !fs.existsSync( orig ) ) fs.copyFileSync( file, orig );
         fs.copyFileSync( orig, file );
 
-        // 1) scale the base + PaP forms x2.5 recoil IN PLACE (the map skill baseline), plus
+        // 1) scale the base + PaP forms x2.1 recoil IN PLACE (the map skill baseline), plus
         // any per-gun always-on baseline buff (e.g. TAC-19 range/FMJ). The twins in step 2
         // are cloned FROM these now-modified forms, so they inherit the baseline automatically.
         const baseArgs = baselineArgs( g.baseline );
         gen( [ "--src", file, "--asset", g.base, "--recoil", String( BASE_SCALE ), ...baseArgs, "--inplace" ] );
         gen( [ "--src", file, "--asset", g.up,   "--recoil", String( BASE_SCALE ), ...baseArgs, "--inplace" ] );
 
-        // 2) emit every twin combo off the now-2.5x base (base + _up form)
+        // 2) emit every twin combo off the now-2.1x base (base + _up form)
         for ( const form of [ g.base, g.up ] ) {
             for ( const t of twins ) {
                 gen( [ "--src", file, "--asset", form, "--suffix", t.suffix,
@@ -179,7 +225,10 @@ function main() {
     const outDeployed = path.join( SD, "acc_weapon_variants.gdt" );
     fs.copyFileSync( OUT_REPO, outDeployed );
     console.log( `\ndeployed twins -> ${outDeployed}` );
-    console.log( "base GDTs scaled x2.5 in place (backups at *.acc-orig). Re-run any time; idempotent." );
+    console.log( "base GDTs scaled x2.1 in place (backups at *.acc-orig). Re-run any time; idempotent." );
+
+    // Keep the zone's twin weaponfull manifest in lock-step with the GDT (same enumeration).
+    rewriteZoneTwinLines();
 
     // Refresh the GDT DB so the linker can find the new assets. The linker does NOT
     // do this - only GdtDBTray / the Launcher Compile / gdtdb.exe do. Skipping it =

@@ -76,7 +76,7 @@ You **cannot** swap between two equipped items' slots freely - slots are just or
 ### 5. Ghost Shroud (chest archetype)
 
 - **Effect**: on taking lethal damage, drop to 1 HP + **2 seconds of invulnerability + 50% movement speed** during the invuln. **Internal cooldown 90 seconds.**
-- **Build fit**: survival builds. Stacks with **Jugger-Nog** (bigger HP pool delays when Shroud's lethal-save triggers; more generous clutch window) and **Aura Blast** perk (after Shroud's invuln ends, 3s enemy stun from Aura Blast covers your reposition).
+- **Build fit**: survival builds. Stacks with **Jugger-Nog** (bigger HP pool delays when Shroud's lethal-save triggers; more generous clutch window) and **PhD Flopper** perk (after Shroud's invuln ends, a dive-to-prone nova explosion clears nearby enemies to cover your reposition).
 - **Counter-synergy**: none - it's universally good.
 - **Anti-exploit**: the cooldown is "internal to the player who owns the Shroud", not "since pickup". You can't unequip + re-equip to reset.
 
@@ -138,7 +138,7 @@ You **cannot** swap between two equipped items' slots freely - slots are just or
 
 - Each player has their own 2-slot inventory.
 - Items are per-player (boss drop is picked up by one player, not team-wide).
-- In 4p co-op, multiple Shrouds are possible - 4 players with Shroud + Jugger-Nog + Aura Blast on cooldown = extremely forgiving survival layer during the same 120s Aura Blast cooldown window. **Explicitly fine** for 4p - co-op is allowed to be easier.
+- In 4p co-op, multiple Shrouds are possible - 4 players with Shroud + Jugger-Nog + PhD Flopper = extremely forgiving survival layer, since each player's dive-to-prone nova explosion clears nearby enemies right after their Shroud save. **Explicitly fine** for 4p - co-op is allowed to be easier.
 
 ## Stock-Override Concerns
 

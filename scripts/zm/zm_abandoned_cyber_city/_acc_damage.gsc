@@ -31,28 +31,28 @@
 //    Subcritical, Spread Cone, Concussive, Reflow, Thermal Lock, Quick
 //    Chamber) need weapon-fire/reload/aim hooks - Phase 4.
 //
-// MULTIPLIER STACKING - all layers are MULTIPLICATIVE; one accumulator
-// (n_mult), one int() truncation at the very end. Canonical order (order is
-// mathematically irrelevant for pure multiplication, but consumable resets
-// and the final reduction make this the documented sequence):
+// MULTIPLIER STACKING - BONUSES ADD, REDUCTIONS MULTIPLY (2026-06-14, user rule:
+// "if we have 3x and 2x that's 5x not 6x"). Two buckets, one int() truncation at
+// the end. final_damage = int( damage * bonus_factor * reduction ) where:
+//   - bonus_factor = the LITERAL SUM of every applied BONUS value (>1), or 1.0 if
+//     none fired. So a 2x headshot + 1.4x Deadshot = 3.4x, NOT 2.8x.
+//   - reduction = the PRODUCT of every REDUCTION factor (<1), applied AFTER the
+//     bonus sum (a 0.25x resist must cut, never add). ORDER NOW MATTERS.
 //   0. incoming `damage` (already includes stock GDT headshot mult + PaP)
-//   1. crit chain (only when the hit is a crit - real headshot, Precision
-//      Mode shot, or Overload chance proc):
-//        map headshot mult (2.0 regular / 3.0 boss)
-//      x Deadshot (1.5, or 1.75 with American Sniper Mega - no double dip)
-//      x Cyberware Overload crit damage (acc_cw_crit_damage_mult, 1.30)
-//   2. flat attacker mults (every hit):
-//        Cyberware Amplifier (acc_cw_damage_mult, 1.15) - NOT on melee
-//        (Bowie exclusion, docs/05 "different damage hook")
-//      x AR Overpressure Overclock (1.5x while ADS, docs/06:175)
-//   3. one-shot consumables (reset their flag when applied):
-//        Precision Mode crit (x4, decrement acc_ability_crit_shots)
-//      x Slug Round (x3, clear acc_ability_slug_next)
-//      x Kinetic Battery (x3, clear charge + kill counter)
-//   4. target-side reduction:
-//        Shielded elite frontal resist (x0.25 in the front 90-degree arc,
-//        bullets + melee only; bypassed by Piercing / Penetration Round /
-//        Breach Overclocks and by grenades/explosives per docs/11 counter-play)
+//   BONUSES (summed):
+//     - crit chain (crit hits only - real headshot, Precision Mode, Overload proc):
+//         map headshot mult (2.0 regular / 2.0 boss)
+//       + Deadshot (1.4, or 1.8 with American Sniper Mega - no double dip)
+//       + Cyberware Overload crit damage (acc_cw_crit_damage_mult, 1.30)
+//     - PaP custom tier (1.25/1.55/1.90/2.30)
+//     - Cyberware Amplifier (acc_cw_damage_mult, 1.15) - NOT on melee (Bowie excl.)
+//     - AR Overpressure Overclock (1.5x while ADS, docs/06:175)
+//     - one-shot consumables (reset their flag when applied): Precision Mode (4),
+//       Slug Round (3), Kinetic Battery (3)
+//   REDUCTIONS (multiplied, after the sum):
+//     - per-gun balance cut (acc_weapon_balance_mult)
+//     - shielded elite frontal resist (0.25 in the front 90-deg arc, bullets +
+//       melee; bypassed by Piercing/Penetration/Breach + grenades, docs/11)
 // =============================================================================
 
 #insert scripts\shared\shared.gsh;
@@ -71,10 +71,10 @@
 // ---------------------------------------------------------------------------
 // Tuning - see docs/06_mechanics.md.
 //
-// Multipliers apply AFTER stock weapon-GDT headshot damage has been factored
-// in, so effective headshot damage = (stock weapon headshot mult) * (our
-// multiplier). If stock is ~1.5x, our 2.0 makes the effective headshot 3x
-// base, and boss headshots 4.5x base.
+// Bonus multipliers apply AFTER stock weapon-GDT headshot damage has been
+// factored in, so effective headshot damage = (stock weapon headshot mult) *
+// (our bonus factor). If stock is ~1.5x, our +2.0 headshot bonus makes the
+// effective headshot ~3x base; boss headshots are now ALSO ~3x (was ~4.5x).
 //
 // GSC #defines are file-local (#using does not share macros - see the note at
 // _acc_boss_items.gsc:41-45), so damage-side constants for other systems'
@@ -82,13 +82,14 @@
 // ---------------------------------------------------------------------------
 
 #define ACC_HEADSHOT_MULT      2.0
-#define ACC_BOSS_HEADSHOT_MULT 3.0
+#define ACC_BOSS_HEADSHOT_MULT 2.0
 
-// Deadshot layer (docs/13_perks.md): base perk x1.5 headshot, American Sniper
-// Mega replaces it with x2.0 (no double dip). The recoil cuts (base -35% /
-// Mega -70%, off the 2.5x map recoil baseline) are weapon-GDT, not GSC - see docs/30/31.
-#define ACC_DEADSHOT_MULT      1.5
-#define ACC_DEADSHOT_MEGA_MULT 2.0
+// Deadshot layer (docs/13_perks.md): base perk +1.4 headshot, American Sniper
+// Mega replaces it with +1.8 (no double dip). These ADD into the bonus sum (not
+// multiply) - see the stacking header. The recoil cuts (base -25% / Mega -40%,
+// off the 2.1x map recoil baseline) are weapon-GDT, not GSC - see docs/30/31.
+#define ACC_DEADSHOT_MULT      1.4
+#define ACC_DEADSHOT_MEGA_MULT 1.8
 
 // NOTE (docs/13_perks.md, 2026-06-14 overhaul): Double Tap is now "Double Tap 1.0"
 // = fire-rate ONLY (no damage bonus), and Widow's Wine base no longer grants frag
@@ -205,22 +206,27 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         oc_flags = get_oc_flags( attacker, weapon );
     }
 
-    n_mult = 1.0;
+    // Additive bonus model (2026-06-14): BONUS layers add into bonus_sum (literal
+    // sum, 1.0 base if none fired); REDUCTION layers (<1) multiply into reduction
+    // and apply AFTER. final = damage * bonus_factor * reduction. See the header.
+    bonus_sum  = 0.0; // sum of applied bonus multiplier values (each > 1)
+    n_applied  = 0;   // how many bonus layers fired (0 -> bonus_factor stays 1.0)
+    reduction  = 1.0; // product of reduction factors (< 1)
     b_modified = false;
 
     // -----------------------------------------------------------------------
     // 0) Per-weapon BALANCE multiplier (user, 2026-06-14): HARD-map damage cut
     //    Five-Seven -62.5%, ASM1 -73.75%, Tac-19 -25%. A flat per-gun damage
-    //    scale - scales body AND crit alike (multiplication order is
-    //    mathematically irrelevant, see header). Covers base + PaP + Deadshot
-    //    recoil variants via substring match. See acc_weapon_balance_mult.
+    //    scale - a REDUCTION (<1) applied multiplicatively AFTER the bonus sum, so
+    //    it scales body AND buffed hits alike. Covers base + PaP + Deadshot recoil
+    //    variants via substring match. See acc_weapon_balance_mult.
     // -----------------------------------------------------------------------
     if ( isdefined( weapon ) && isdefined( weapon.name ) )
     {
         n_bal = acc_weapon_balance_mult( weapon.name );
         if ( n_bal != 1.0 )
         {
-            n_mult = n_mult * n_bal;
+            reduction = reduction * n_bal; // REDUCTION (<1): stays multiplicative
             b_modified = true;
         }
     }
@@ -259,7 +265,34 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 
     if ( b_headshot || b_ability_crit || b_cw_crit_proc )
     {
-        n_mult = n_mult * crit_chain_multiplier( self, attacker );
+        // Crit chain, now ADDITIVE: each layer ADDS its value into bonus_sum
+        // (was an internal product folded in by one multiply). Base layer = the
+        // map headshot mult (2.0 regular / 2.0 boss).
+        bonus_sum += resolve_headshot_multiplier( self );
+        n_applied++;
+
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+        {
+            // Deadshot: base +1.4, American Sniper Mega replaces it with +1.8
+            // (no double dip - one or the other).
+            if ( attacker HasPerk( "specialty_deadshot" ) )
+            {
+                if ( acc_mega_bottles::has_mega_perk( attacker, "specialty_deadshot" ) )
+                    bonus_sum += ACC_DEADSHOT_MEGA_MULT;
+                else
+                    bonus_sum += ACC_DEADSHOT_MULT;
+                n_applied++;
+            }
+
+            // Cyberware Overload (oc2a): +30% crit-damage layer
+            // (attacker.acc_cw_crit_damage_mult = 1.30, _acc_cyberware.gsc).
+            if ( isdefined( attacker.acc_cw_crit_damage_mult ) )
+            {
+                bonus_sum += attacker.acc_cw_crit_damage_mult;
+                n_applied++;
+            }
+        }
+
         b_modified = true;
     }
 
@@ -279,7 +312,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         pap_mult = acc_pap_levels::pap_tier_mult( acc_pap_levels::get_tier( attacker, weapon ) );
         if ( pap_mult != 1.0 )
         {
-            n_mult = n_mult * pap_mult;
+            bonus_sum += pap_mult; // BONUS: added to the sum
+            n_applied++;
             b_modified = true;
         }
 
@@ -288,7 +322,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // damage buff in v1.0 (docs/05_weapons.md "different damage hook").
         if ( isdefined( attacker.acc_cw_damage_mult ) && !b_melee )
         {
-            n_mult = n_mult * attacker.acc_cw_damage_mult;
+            bonus_sum += attacker.acc_cw_damage_mult; // BONUS: added to the sum
+            n_applied++;
             b_modified = true;
         }
 
@@ -297,7 +332,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // util::is_ads (util_shared.gsc:1492-1495, #namespace util at :35).
         if ( has_oc( oc_flags, "overpressure" ) && attacker util::is_ads() )
         {
-            n_mult = n_mult * ACC_OC_OVERPRESSURE_ADS_MULT;
+            bonus_sum += ACC_OC_OVERPRESSURE_ADS_MULT; // BONUS: added to the sum
+            n_applied++;
             b_modified = true;
         }
 
@@ -321,7 +357,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // multiplier on top (docs/05: "auto-crit (4x damage, ignore hit-loc)").
         if ( b_ability_crit )
         {
-            n_mult = n_mult * ACC_ABILITY_CRIT_MULT;
+            bonus_sum += ACC_ABILITY_CRIT_MULT; // BONUS: added to the sum
+            n_applied++;
             attacker.acc_ability_crit_shots -= 1;
             b_modified = true;
         }
@@ -329,7 +366,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // Weapon ability: Slug Round (shotgun) - next shot 3x single-target.
         if ( IS_TRUE( attacker.acc_ability_slug_next ) && b_fire )
         {
-            n_mult = n_mult * ACC_ABILITY_SLUG_MULT;
+            bonus_sum += ACC_ABILITY_SLUG_MULT; // BONUS: added to the sum
+            n_applied++;
             attacker.acc_ability_slug_next = false;
             b_modified = true;
         }
@@ -340,11 +378,27 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // the item is Phase 4 (docs/20 battery-3x-autoaim-shot).
         if ( IS_TRUE( attacker.acc_item_battery_charged ) && b_fire )
         {
-            n_mult = n_mult * ACC_ITEM_BATTERY_DAMAGE_MULT;
+            bonus_sum += ACC_ITEM_BATTERY_DAMAGE_MULT; // BONUS: added to the sum
+            n_applied++;
             attacker.acc_item_battery_charged = false;
             attacker.acc_item_battery_kill_count = 0;
             b_modified = true;
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // 3b) Glitch Stalker post-blink vulnerability window (target-side BONUS).
+    //     The boss sets self.acc_glitch_vulnerable for a short window right after
+    //     each teleport-blink (_acc_boss_glitch.gsc glitch_vulnerable_window); while
+    //     set, all damage to it gets a bonus layer. Additive into bonus_sum so it
+    //     STACKS with headshots (a head hit on a vulnerable boss = headshot + this).
+    //     Applies to every damage source (not just player guns), default 2.0x, live.
+    // -----------------------------------------------------------------------
+    if ( IS_TRUE( self.acc_glitch_vulnerable ) )
+    {
+        bonus_sum += getdvarfloat( "acc_glitch_recovery_dmg_mult", 2.0 );
+        n_applied++;
+        b_modified = true;
     }
 
     // -----------------------------------------------------------------------
@@ -360,7 +414,7 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
          && !has_pierce_oc( oc_flags )
          && hit_is_frontal( self, attacker, vdir ) )
     {
-        n_mult = n_mult * self.acc_elite_front_damage_resist;
+        reduction = reduction * self.acc_elite_front_damage_resist; // REDUCTION
         b_modified = true;
     }
 
@@ -369,11 +423,16 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     final_damage = damage;
     if ( b_modified )
     {
-        final_damage = int( damage * n_mult );
+        // Bonus factor = literal SUM of applied bonuses (1.0 if none fired);
+        // reduction stays multiplicative and applies AFTER the bonus sum.
+        bonus_factor = 1.0;
+        if ( n_applied > 0 ) bonus_factor = bonus_sum;
+
+        final_damage = int( damage * bonus_factor * reduction );
         if ( final_damage < 1 ) final_damage = 1;
 
         /# acc_utility::log( "damage: " + damage + " -> " + final_damage +
-                             " (x" + n_mult + ")" ); #/
+                             " (bonus x" + bonus_factor + ", red x" + reduction + ")" ); #/
     }
 
     // -----------------------------------------------------------------------
@@ -427,18 +486,46 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 //   AK-47      (t6_ak47):      x0.23   (full-auto AR, highest raw stats of the
 //              box pool - 200 dmg @ 750 RPM; x0.23 lands its sustained DPS just
 //              above the ASM1, the AR-workhorse box reward. docs/05 / docs/33.)
-//   AE4        (s1_ae4):       x0.22   (AW directed-energy AR; 160 dmg @ 500 RPM,
-//              slower fire but medium PENETRATION (pierces a zombie train) + clip
-//              36 + tight spread - x0.22 keeps single-target ~ASM1 tier so its
-//              effective penetrating output lands in band, not above. docs/33.)
+//   AE4        (s1_ae4):       x0.31   (AW energy AR; 160 dmg @ 500 RPM = 1333 raw. The old
+//              x0.22 = 293 DPS was -41% UNDER the ~500 band (balance audit 2026-06-15); x0.31
+//              = 442 DPS, the band floor as the slowest-firing AR. No GDT penetration field,
+//              so no penetration discount applied. docs/33.)
+//   PPSH-41    (s4_ppsh41):    x0.20   (VG smg; real GDT 155 dmg @ 952 RPM = 2460 raw, not the
+//              1400 first assumed -> 0.36 was +77% over band. x0.20 = 492 DPS, in band.)
+//   Paladin    (t8_paladin):   x0.80   (BO4 sniper, 1000 dmg flat; was uncapped at x1.0.
+//              x0.80 -> base headshot one-shots to r14, body r7. See the inline note below.)
 function acc_weapon_balance_mult( weapon_name )
 {
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.375;
     if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.2625;
     if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.75;
     if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.23;
-    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.22;
+    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;   // AE4 (AW energy AR, 160@0.12 = 1333 raw): old 0.22 = 293 DPS (-41% under band); 0.31 = 442 DPS, band floor (slowest-RPM AR). Audit 2026-06-15.
     if ( IsSubStr( weapon_name, "iw6_ripper" ) )   return 0.25;  // Ripper (Ghosts convertible); covers smg/ar x base/_up
+    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
+    // (raw DPS = damage/fireTime from the Skye GDTs). IsSubStr covers base + PaP + twins.
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.20;   // PPSH-41 (VG smg): real GDT 155@0.063 = 2460 raw (NOT the 1400 first assumed); 0.36 gave 885 DPS (+77% over band). 0.20 = 492 DPS, in band. Audit 2026-06-15.
+    if ( IsSubStr( weapon_name, "t5_ak74u" ) )     return 0.22;   // AK-74u  (BO1 smg, 180@0.08 = 2250 raw -> ~495)
+    if ( IsSubStr( weapon_name, "s1_pdw" ) )       return 0.33;   // PDW-57  (AW smg, 120@0.08 = 1500 raw -> ~495)
+    if ( IsSubStr( weapon_name, "t9_nail_gun" ) )  return 0.24;   // Nail Gun (CW projectile AR, 250@0.118 = 2119 raw -> ~510). NOTE: its GDT shipped locTorso 3.0 (body was secretly 3x = ~1525 DPS); loc* normalized to 1.0 install-side (head 5.0), so 0.24 now lands the true 508 DPS. Audit 2026-06-15.
+    // M1911 PaPs to AKIMBO EXPLOSIVE (Mustang-and-Sally pattern): the _rdw/_ldw upgrade
+    // forms are projectileweapons at 7000 direct dmg + splash. acc_weapon_balance_mult
+    // scales ALL damage through on_ai_damage (incl. explosive), so the broad s2_m1911 x3.5
+    // base buff would make the PaP ~24,500/shot. Give the explosive forms their own scale
+    // ABOVE the base match: 7000 x 0.40 = 2800 direct (one-shots ~r20) + scaled splash - a
+    // strong PaP nuke, not trivializing. First-pass; tune in playtest. (docs/33 Failure modes)
+    if ( IsSubStr( weapon_name, "s2_m1911_rdw" ) || IsSubStr( weapon_name, "s2_m1911_ldw" ) ) return 0.40;
+    if ( IsSubStr( weapon_name, "s2_m1911" ) )     return 3.5;    // M1911 base (WWII semi-auto pistol): BUFF - MP-tuned at dmg 20 (~70 eff/shot)
+    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
+    // cause (user, 2026-06-15) was the Skye rip's MP-inflated hit-location mults: locTorso 5.0
+    // (PaP 9.0), limbs 4.0 (8.0), locHead 7.5 (10.0) - so at x1.0 even a BODY/limb shot one-shot
+    // to ~r23 and a headshot to ~r33. FIX: the GDT's loc* mults were normalized to 1.0 install-side
+    // (skye_t8_paladin_hb50.gdt, both base + _up entries; backup .acc-loc-orig; not repo-tracked -
+    // re-apply on a fresh box, see docs/33). With loc=1.0 the gun obeys the additive model like
+    // every other gun (body = base, headshot = our 2.0 map mult only), so x0.80 -> body r7 /
+    // headshot r14 / HS+Deadshot r20, PaP+Cyberware push higher. A real sniper that FALLS OFF
+    // without PaP. Tune the mult here (not the GDT) for further feel changes. Balance audit docs/33.
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.80;
     return 1.0;
 }
 
@@ -453,39 +540,10 @@ function feed_dmg_number( player, amount )
     player [[ level.acc_dmg_num_feed ]]( int( amount ) );
 }
 
-// ---------------------------------------------------------------------------
-// Crit chain: map headshot multiplier x Deadshot x Cyberware Overload.
-// Used for real headshots AND headshot-equivalent crits (Precision Mode,
-// Overload chance proc) - the whole chain travels together by design.
-// ---------------------------------------------------------------------------
-
-function crit_chain_multiplier( target, attacker )
-{
-    n_mult = resolve_headshot_multiplier( target );
-
-    if ( isdefined( attacker ) && isplayer( attacker ) )
-    {
-        // Deadshot layer (docs/13_perks.md): base perk x1.5, American Sniper
-        // Mega replaces it with x2.0 (no double dip). Stacks multiplicatively
-        // with the map multiplier above.
-        if ( attacker HasPerk( "specialty_deadshot" ) )
-        {
-            if ( acc_mega_bottles::has_mega_perk( attacker, "specialty_deadshot" ) )
-                n_mult = n_mult * ACC_DEADSHOT_MEGA_MULT;
-            else
-                n_mult = n_mult * ACC_DEADSHOT_MULT;
-        }
-
-        // Cyberware Overload (oc2a): +30% crit damage
-        // (attacker.acc_cw_crit_damage_mult = 1.30, _acc_cyberware.gsc).
-        if ( isdefined( attacker.acc_cw_crit_damage_mult ) )
-        {
-            n_mult = n_mult * attacker.acc_cw_crit_damage_mult;
-        }
-    }
-
-    return n_mult;
-}
+// crit_chain_multiplier REMOVED 2026-06-14: the crit layers (map headshot mult,
+// Deadshot/Mega, Cyberware Overload) are now ADDED directly into bonus_sum at the
+// crit block in on_ai_damage (additive stacking) instead of multiplied together.
+// resolve_headshot_multiplier (below) is still the source of the headshot value.
 
 // ---------------------------------------------------------------------------
 // Overclock flag access. Storage format owned by _acc_overclocks.gsc

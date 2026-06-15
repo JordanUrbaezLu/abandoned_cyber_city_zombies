@@ -76,14 +76,13 @@ top of the screen. **Fix:**
 
 ## C. Content / systems
 
-### [ ] 4. Rampage Inducer into SPAWN, working
-Audit: the device + effect are **already implemented and wired**
-(`_acc_rampage_inducer.gsc`; entry `:206 post_zm_main`, `_acc_main:100 init`); on
-use it speeds live + new zombies. **Only bug:** it spawns OUTSIDE spawn at
-`(-1881,1900,14)` (market-zone band). **Fix:** relocate `org` in `spawn_device()`
-to a reachable spawn-plaza spot `(-600,200,14)` (inside `start_zone`), fix the stale
-comment, set facing. *(Optional: BO4/CW-style timed enrage via a duration + auto
-deactivate.)* Files: `_acc_rampage_inducer.gsc`. *(done in this batch — see commit)*
+### [~] 4. Rampage Inducer — REMOVED / superseded (2026-06-14)
+**Superseded:** the Rampage Inducer (toggle device + `acc_rampage` dvar + spawn-count/
+delay levers) was removed entirely and replaced by the all-round zombie **speed curve**
+in `_acc_zombie_speed.gsc` — round 1 = 50% of base-game max, equal ramp to 100% at round
+10, then +1 percentage point per round after. The per-run "sprint" modifier now drives
+that system (`acc_mod_force_sprint` → ≥100% every round). See docs/11_enemies.md and the
+CHANGELOG. Removed file: `_acc_rampage_inducer.gsc`.
 
 ### [x] 7. Arsenal = ICR-1 + Man-O-War only — GSC-only (batch 6, corrected 2026-06-14)
 Box draws ONLY `ar_accurate`+`ar_damage`; **ALL** wall buys removed; overclock AR family
@@ -110,7 +109,7 @@ fixed to the real class names. No `.map` rebuild required for function.
   rebuild. `remove_all_wallbuys()` stays as the runtime safety net (no-ops once structs gone).
   **⚠️ The `vending_weapon_upgrade_spawnable` prefab (entity 23) is Pack-a-Punch, NOT a
   wallbuy — it is preserved.** The interleaved perk machines (33 Deadshot / 38 Widow's Wine /
-  43 Electric Cherry) and the box are preserved too.
+  43 PhD Flopper) and the box are preserved too.
 - Files: `_acc_map_randomizer.gsc`, `.map` (+ `docs/05`, `docs/07`, CHANGELOG).
 
 ### [~] 5. Per-perk code-proof audit + fix every gap (30 gaps — see table below)
@@ -151,21 +150,26 @@ The table's "**GSC-impossible**" rows → re-scope; all others → implement.
 | Widow's Wine | +50% EMP grenade (base) | base | blocked on the EMP grenade existing (Phase-4) |
 | Widow's Wine | web nades 1-hit zombies (Mega) | mega | implement: damage branch in `_acc_damage` for spider-grenade MOD |
 | Widow's Wine | hold 6 web nades (Mega) | mega | implement: set spider grenade max ammo 6 in apply_mega_effects |
-| Aura Blast | 120s cooldown (base) | base | works; optional next-ready timestamp for a HUD |
-| Aura Blast | 2 charges (Mega) | mega | implement: refresh charges on Mega apply |
-| Aura Blast | listener singleton safety | — | harden: guard `aura_blast_listener` against duplicate threads |
-| Aura Blast | HUD cooldown ring | base | optional LUI ring (docs/22 Aetherium HUD) |
+| PhD Flopper | finished stock stub (cost/hint/machine-id) | base | done (`_acc_perk_phd_flopper.gsc` hijacks the stock cherry pipeline for the dive-explosion + immunity ability); Overcharge Mega = TODO |
 
 ---
 
 ## D. Geometry (HIGH RISK — last)
 
-### [ ] 6. Halve room sizes + add obstacles
+### [~] 6. Halve room sizes + add obstacles — **research done + Stage 0 built (2026-06-15)**
+**Full research report + staged plan: [docs/36_map_tightening_research.md](36_map_tightening_research.md).**
+**User decisions:** aggressive **~40-50%** shrink, **all 7 zones**, **Stage 0 tooling first**,
+**geometry-only** (no difficulty re-tune yet — revisit speed cap at the first playtest).
+**Stage 0 DONE:** `source_data/rooms.json` (source-of-truth) + `tools/validate_rooms.js`
+(in preflight, 26 ok/0 err) + `gen_rooms.js` re-run guard + `_acc_perk_info.gsc` PaP
+live-origin fix. Verified correction: vault/roof have **two overlapping shells**
+(greybox outer + a larger `gen_rooms` shell) to reconcile in Stage 2.
+
 Audit risk = **HIGH**. The greybox is procedurally generated and **coordinate-
 coupled**: rooms, corridors, wall-gaps, door (trigger+brushmodel) pairs, zone
 `info_volume`s, and ~40 gameplay entity origins all reference shared coordinates.
 Naive global-scale breaks everything; the generators are one-shot/consumed.
-**Plan (staged, one room at a time, build+run between each):**
+**Plan (staged, one room at a time, build+run between each — full detail in docs/36 §6):**
 1. Build a `.map`→JSON round-trip + single source-of-truth for room AABBs (kill the
    3-way duplication in `gen_zone_greybox.js` / `gen_map_design.js` / the baked `.map`).
 2. Stage 1: **market_zone only** (leaf, 2 corridors, isolated) — shrink its brushes,

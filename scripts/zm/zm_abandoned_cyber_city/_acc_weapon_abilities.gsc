@@ -264,12 +264,12 @@ function effect_stabilizer()
     // properties with no live setter, so they are delivered by the weapon-variant
     // SWAP framework (_acc_weapon_variants): hand the player a reduced-recoil +
     // fast-fire twin of their current gun for the duration, then swap the base
-    // back. Maps to the strongest baked recoil tier (-70%, recoil70) + fastfire
-    // (no literal "zero" twin; -70% is the closest level). In Phase 1 the fast half
+    // back. Maps to the strongest baked recoil tier (-40%, recoil40) + fastfire
+    // (no literal "zero" twin; -40% is the closest level). In Phase 1 the fast half
     // no-ops until fastfire twins exist (Phase 2).
     // Inert until the twins are baked + allow-listed (docs/31 §4-5); the cooldown
     // is still consumed so the input loop stays testable end-to-end.
-    self acc_weapon_variants::apply_timed_variant( array( "recoil70", "fastfire" ), 5 );
+    self acc_weapon_variants::apply_timed_variant( array( "recoil40", "fastfire" ), 5 );
     self iprintln( "Stabilizer: 5s recoil/fire-rate boost" );
     acc_utility::log( "ability: stabilizer -> timed weapon-variant (inert until twins baked)" );
 }

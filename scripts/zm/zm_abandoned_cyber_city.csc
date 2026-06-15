@@ -27,8 +27,9 @@
 #using scripts\zm\_zm_perk_additionalprimaryweapon;
 #using scripts\zm\_zm_perk_doubletap2;
 #using scripts\zm\_zm_perk_deadshot;
-// [acc] Client half of the cherry pipeline Aura Blast hijacks - must match
-// the entry .gsc #using or clientfield registration mismatches at load.
+// [acc] Client half of the PhD Flopper pipeline (stock _zm_perk_electric_cherry
+// owns the client clientfield + FX) - must match the entry .gsc #using or the
+// clientfield registration mismatches at load.
 #using scripts\zm\_zm_perk_electric_cherry;
 #using scripts\zm\_zm_perk_juggernaut;
 #using scripts\zm\_zm_perk_quick_revive;

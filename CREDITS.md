@@ -16,6 +16,17 @@ community map. CC0 needs no attribution, but we record it here for provenance
 | Sky `skybox_default_night` + SSI `default_night` | Stock BO3 | Treyarch (in base install) | interim night sky |
 | Reflection probes, fog (`SetVolFog`) | Original (this project) | — | our `.map` entities + `_acc_atmosphere.gsc` |
 
+## Current shipped audio assets (CC0)
+
+Authored audio is **CC0** (safe to bundle in the Workshop `.ff`); recorded here for
+provenance and to honor the creators. Converted to **48 kHz / 16-bit PCM WAV** for
+the BO3 sound build; source WAVs tracked in `sound_assets/acc/`.
+
+| Alias | File | Source | License | Use |
+|---|---|---|---|---|
+| `acc_main_theme` | `sound_assets/acc/music/main_theme.wav` | Joth — "Cyberpunk Moonlight Sonata" ([OpenGameArt](https://opengameart.org/content/cyberpunk-moonlight-sonata)) | CC0 | main theme; plays once at game start (stock ZM music disabled) |
+| `acc_amb_city_bed` | `sound_assets/acc/amb/city_bed.wav` | Joth — "Ambience Pack 1: Sci-Fi Horror" (*Infestation in the Control Room*) ([OpenGameArt](https://opengameart.org/content/ambience-pack-1-sci-fi-horror)) | CC0 | global ambient bed (dvar `acc_amb_on`) |
+
 ## Third-party enemy / character assets (game-rip — IP review before Public)
 
 These are community ports of ripped Treyarch/other-studio assets. They build and
@@ -27,6 +38,7 @@ records for Brutus.
 | Asset | Source / author | Provenance | Notes |
 |---|---|---|---|
 | Charred horde reskin (`archetype_charred_zombie`, `c_zom_charred_zombie` + gibs) | Logical's Charred Zombie Pack (Logical; Greyhound/HydraX by Scobalula) | 🔴 Treyarch DLC3 sentinel body + DLC4 charred head, recoloured | base-horde skin; both roster spawners remapped (CHANGELOG 2026-06-14) |
+| Perk-bar HUD icons (`i_acc_perk_*` base/mega, incl. `i_acc_perk_cherry_*` from `exo_cherry`) | Ronan's Cyberpunk Shaders (Ronan) | 🔴 derivative — pack readme credits Treyarch (perk designs) + Anna Kuźmińska + CD Projekt Red | custom LUI perk bar (`acc_hud.lua` `CoD.AccPerkBar`); GDT `source_data/acc_perk_shaders.gdt`. Pack readme: **"Remember to credit"** — credit Ronan + the above before Public |
 
 > ⚠️ This ledger is **not yet complete**: the `.ff` also ships the 6 Skye weapon
 > ports (TheSkyeLord + LilRobot) and NSZ Brutus (NateSmithZombies), and Panzer

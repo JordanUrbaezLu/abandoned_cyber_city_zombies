@@ -363,7 +363,7 @@ TODO(acc-implement): our custom 5-level PaP needs to intercept the PaP trigger a
 
 ## 5. Custom Perks (modme wiki pattern)
 
-For our **Aura Blast**, **Deadshot**, and **Widow's Wine** perks (see [13_perks.md](13_perks.md)), follow this pattern:
+For our **Deadshot** and **Widow's Wine** perks (see [13_perks.md](13_perks.md)), follow this pattern:
 
 1. **Script files**: create `_zm_perk_<name>.gsc`, `.csc`, and `.gsh` in `usermaps/<map>/scripts/zm/`. Use a template (Harry Bo21 / DTZxPorter base is canonical).
 2. **`.gsh` file** defines:
@@ -373,9 +373,9 @@ For our **Aura Blast**, **Deadshot**, and **Widow's Wine** perks (see [13_perks.
    - Models for machine and bottle.
 3. **Zone file** additions:
    ```
-   scriptparsetree,scripts/zm/_zm_perk_aura_blast.gsc
-   scriptparsetree,scripts/zm/_zm_perk_aura_blast.csc
-   scriptparsetree,scripts/zm/_zm_perk_aura_blast.gsh
+   scriptparsetree,scripts/zm/_zm_perk_custom_active.gsc
+   scriptparsetree,scripts/zm/_zm_perk_custom_active.csc
+   scriptparsetree,scripts/zm/_zm_perk_custom_active.gsh
    xmodel,<machine_model>
    weapon,<bottle_weapon_file>
    ```
@@ -383,49 +383,49 @@ For our **Aura Blast**, **Deadshot**, and **Widow's Wine** perks (see [13_perks.
 5. **Init** in `init()`:
    ```gsc
    _zm_perks::register_perk(
-       "specialty_aura_blast",         // specialty id (engine-unique)
-       &acquire_aura_blast,            // on-acquire callback
-       "aura_blast_bottle_zm",         // bottle weapon GDT name
+       "specialty_<your_perk>",        // specialty id (engine-unique)
+       &acquire_custom_active,         // on-acquire callback
+       "custom_active_bottle_zm",      // bottle weapon GDT name
        2500,                           // point cost (see docs/13_perks.md)
-       "Aura Blast",                   // display name
-       "&&1 for Aura Blast [Cost: 2500]"
+       "Custom Perk",                  // display name
+       "&&1 for Custom Perk [Cost: 2500]"
    );
    ```
-6. **Effect function** (`acquire_aura_blast`) sets per-player flags + registers the active-ability hotkey listener.
+6. **Effect function** (`acquire_custom_active`) sets per-player flags + registers the active-ability hotkey listener.
 
-Pattern for an **active** perk (Aura Blast-style):
+Pattern for an **active** (manual-input) perk — a generic template; this map does not currently ship a manual-input perk (PhD Flopper is dive-triggered, not hotkey-fired):
 
 ```gsc
-acquire_aura_blast()
+acquire_custom_active()
 {
-    self.acc_perk_aura_blast = true;
-    self.acc_perk_aura_blast_ready_at = 0;
-    self thread aura_blast_ability_listener();
+    self.acc_perk_custom_active = true;
+    self.acc_perk_custom_active_ready_at = 0;
+    self thread custom_active_listener();
 }
 
-aura_blast_ability_listener()
+custom_active_listener()
 {
     self endon( "disconnect" );
-    self notify( "acc_aura_blast_restart" );
-    self endon( "acc_aura_blast_restart" );
+    self notify( "acc_custom_active_restart" );
+    self endon( "acc_custom_active_restart" );
 
     for ( ;; )
     {
-        self waittill( "acc_perk_ability" );   // hotkey-fired notify
+        self waittill( "acc_custom_active_input" );   // hotkey-fired notify
         now = gettime();
-        if ( now < self.acc_perk_aura_blast_ready_at )
+        if ( now < self.acc_perk_custom_active_ready_at )
         {
-            self iprintln( "Aura Blast on cooldown" );
+            self iprintln( "Custom Perk on cooldown" );
             continue;
         }
-        self.acc_perk_aura_blast_ready_at = now + 120000;  // 120s CD in ms
-        self trigger_aura_blast();
+        self.acc_perk_custom_active_ready_at = now + 120000;  // 120s CD in ms
+        self trigger_custom_active();
     }
 }
 
-trigger_aura_blast()
+trigger_custom_active()
 {
-    // stun all enemies within 400u for 3s. Details in _acc_perks.gsc.
+    // active-ability effect goes here. Details in _acc_perks.gsc.
 }
 ```
 
