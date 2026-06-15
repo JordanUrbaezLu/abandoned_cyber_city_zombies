@@ -36,9 +36,10 @@ function __init__()
     // Must match the .csc mirror EXACTLY (scope/name/version/bits/type) AND in the
     // SAME ORDER - the bit layout is assigned in registration order.
     clientfield::register( "clientuimodel", "accLuiTest", VERSION_SHIP, 4, "int" );
-    // Perk/PaP info card selector: code = perkIndex*4 + mode (0 = hide). Max 10*4+3
-    // = 43 -> 6 bits. Decoded + rendered by acc_hud.lua's perk-card lookup table.
-    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 6, "int" );
+    // Perk/PaP info card selector: code = perkIndex*4 + mode (0 = hide), +64 when the
+    // viewing player holds The Armory (Mule Kick Mega) so the card shows the 10%-off
+    // price. Max 10*4+3+64 = 107 -> 7 bits. Decoded + rendered by acc_hud.lua.
+    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 7, "int" );
     // Pack-a-Punch current tier (0..5) of the held weapon, pushed when near PaP so
     // the card shows only the NEXT tier (not the whole ladder). 3 bits (0..7).
     clientfield::register( "clientuimodel", "accPapTier", VERSION_SHIP, 3, "int" );

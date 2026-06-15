@@ -85,20 +85,33 @@ to a reachable spawn-plaza spot `(-600,200,14)` (inside `start_zone`), fix the s
 comment, set facing. *(Optional: BO4/CW-style timed enrage via a duration + auto
 deactivate.)* Files: `_acc_rampage_inducer.gsc`. *(done in this batch — see commit)*
 
-### [x] 7. Arsenal = ICR-1 + Man-O-War only — GSC-only (batch 6)
-Box pool → `ar_accurate`+`ar_damage`; wallbuy pool keeps only the ICR wall (other 4 wall
-slots get no trigger → dead); overclock AR family fixed to the real class names. No `.map`
-rebuild (the dead wall structs are inert). *Original plan retained below for reference.*
-- **GSC (fast, low-risk):** `_acc_map_randomizer::register_mystery_box_pool` box
-  array → exactly `array("ar_accurate","ar_damage")`; remove the `is_rolled_onto_wall`
-  skip so ICR-1 isn't excluded from the box; `roll_wallbuy_pool` → pin the ICR-1
-  slot to `ar_accurate` (drop the `ar_standard`/KN-44 alternate) and drop the other
-  pool slots; `_acc_overclocks::weapon_name_to_family` `ar_list` →
-  `array("ar_accurate","ar_damage")` (else Overclocks silently break on both guns).
-- **.map (needs cod2map geometry rebuild):** delete the 5 wallbuy entity PAIRS
-  (Haymaker 36/37, Bowie 39/40, Drakon 41/42, Sheiva 44/45, Frag 46/47).
-- Decision: removing the Frag wallbuy means players keep only their spawn frag.
-- Files: `_acc_map_randomizer.gsc`, `_acc_overclocks.gsc`, `.map`, `docs/05_weapons.md`.
+### [x] 7. Arsenal = ICR-1 + Man-O-War only — GSC-only (batch 6, corrected 2026-06-14)
+Box draws ONLY `ar_accurate`+`ar_damage`; **ALL** wall buys removed; overclock AR family
+fixed to the real class names. No `.map` rebuild required for function.
+
+**CORRECTION (user, 2026-06-14)** — the batch-6 pass left two real bugs, now fixed:
+- **Box still gave the whole stock arsenal.** Setting `is_in_box=true` on our two guns is
+  not enough: the map ships the STOCK `zm_levelcommon_weapons.csv` (zone:78) with ~47 rows
+  flagged `in_box=TRUE`, and the box gate reads each weapon's live `is_in_box` per spin.
+  Fix: `register_mystery_box_pool` now **clears `is_in_box` on every `level.zombie_weapons`
+  entry first**, then re-enables only `ar_accurate`/`ar_damage`.
+- **4 wall buys were still LIVE.** Slots with no pool entry (Haymaker/Drakon/Sheiva/Frag)
+  were *skipped*, not killed — they kept dispensing their Radiant-default gun (the old
+  "go dead" claim was wrong). User now wants **no wall buys at all** (incl. ICR + Bowie).
+  Fix: new `remove_all_wallbuys()` walks `level._spawned_wallbuys` and
+  `zm_unitrigger::unregister_unitrigger`s every stub in `pre_init` (before any player → no
+  purchase trigger is ever built). `roll_wallbuy_pool`/`roll_wallbuy_slot`/
+  `weapon_in_zm_table`/`is_rolled_onto_wall`/`apply_wallbuy_pool` deleted.
+- Overclock AR family already `array("ar_accurate","ar_damage")` — unchanged.
+- **Cosmetic removal (done 2026-06-14, full geometry rebuild):** unregistering kills the
+  PURCHASE only; the wall gun model + chalk + fx are client-spawned and would remain as
+  "ghost" walls. Deleted the 6 wallbuy entity PAIRS from the `.map` (ICR 34/35,
+  Haymaker 36/37, Bowie 39/40, Drakon 41/42, Sheiva 44/45, Frag 46/47) + cod2map/LED/linker
+  rebuild. `remove_all_wallbuys()` stays as the runtime safety net (no-ops once structs gone).
+  **⚠️ The `vending_weapon_upgrade_spawnable` prefab (entity 23) is Pack-a-Punch, NOT a
+  wallbuy — it is preserved.** The interleaved perk machines (33 Deadshot / 38 Widow's Wine /
+  43 Electric Cherry) and the box are preserved too.
+- Files: `_acc_map_randomizer.gsc`, `.map` (+ `docs/05`, `docs/07`, CHANGELOG).
 
 ### [~] 5. Per-perk code-proof audit + fix every gap (30 gaps — see table below)
 The audit found ~30 claimed benefits with NO proving code. **DECISION (user, 2026-06-13):

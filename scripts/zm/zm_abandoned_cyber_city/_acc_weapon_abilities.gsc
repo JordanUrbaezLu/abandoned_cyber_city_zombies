@@ -7,21 +7,21 @@
 // hotkey with a cooldown. The ability is intrinsic to the weapon (no unlock,
 // no cost) and available from round 1.
 //
-// Status: PARTIAL.
-//  - Live: ability table, ADS+melee chord listener, per-player cooldowns,
-//    and three effects:
-//      * Precision Mode (ar_semi) - arms player.acc_ability_crit_shots = 3;
-//        _acc_damage::on_ai_damage consumes it (auto-crit 4x per hit,
-//        decrements). The damage math lives in _acc_damage, NOT here.
-//      * Slug Round (shotgun) - arms player.acc_ability_slug_next = true;
-//        _acc_damage consumes it (3x once, then clears). The 2x-range /
-//        tight-cone half needs a weapon-override GDT and stays Phase 4.
-//      * Whirlwind (melee) - self-contained 96-unit AoE, implemented below.
-//  - Phase 4 stubs (honest no-ops; cooldown still consumed so the input
-//    loop is testable end-to-end): Triple Tap, Stabilizer, Thermal Vision,
-//    Extended Fuse, Overcharge. Each needs a weapon-fire hook, a
-//    weapon-override GDT, or LUI/clientfield work that does not exist yet -
-//    see the per-function comments.
+// Status: LIVE for all 5 shipped guns (user, 2026-06-14). Each HELD gun maps to
+// one LIVE effect (build_ability_table):
+//      * Five-Seven (pistol)  -> Precision Mode: arms player.acc_ability_crit_shots
+//        = 3; _acc_damage::on_ai_damage consumes it (auto-crit 4x/hit, decrements).
+//      * ASM1 (smg)           -> Whirlwind: self-contained 96-unit AoE (below).
+//      * Tac-19 (shotgun)     -> Slug Round: arms player.acc_ability_slug_next;
+//        _acc_damage consumes it (3x once). The 2x-range/tight-cone half needs a
+//        weapon-override GDT and stays Phase 4.
+//      * AK-47 + AE4 (ar)     -> Focus Fire: arms acc_ability_crit_shots = 6 (same
+//        damage contract as Precision Mode, longer burst for full-auto ARs; both
+//        ARs share the category ability - AE4's identity is energy + penetration).
+//  - UNUSED effects (kept defined, not in the table, no reachable weapon now):
+//    effect_triple_tap, effect_stabilizer (variant-swap; the recoil twins are
+//    Deadshot-perk-driven, not this), effect_thermal_vision, effect_extended_fuse,
+//    effect_overcharge. Re-add to build_ability_table if a matching gun returns.
 // =============================================================================
 
 #using scripts\shared\array_shared;
@@ -34,10 +34,12 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
 #define ACC_WHIRLWIND_RADIUS_SQ    9216  // 96u * 96u (docs/05_weapons.md)
 #define ACC_WHIRLWIND_ELITE_DAMAGE 1000  // flat - elites are not chaff
 #define ACC_PRECISION_CRIT_SHOTS   3
+#define ACC_FOCUS_FIRE_CRIT_SHOTS  6   // AK-47 (AR): longer auto-crit burst (full-auto)
 
 #namespace acc_weapon_abilities;
 
@@ -75,14 +77,15 @@ function build_ability_table()
 {
     t = [];
 
-    t[ "pistol" ]         = ability( "triple_tap",      15, &effect_triple_tap );
-    t[ "ar_full" ]        = ability( "stabilizer",      25, &effect_stabilizer );
-    t[ "ar_semi" ]        = ability( "precision_mode",  30, &effect_precision_mode );
-    t[ "shotgun" ]        = ability( "slug_round",      20, &effect_slug_round );
-    t[ "sniper" ]         = ability( "thermal_vision",  30, &effect_thermal_vision );
-    t[ "melee" ]          = ability( "whirlwind",       20, &effect_whirlwind );
-    t[ "grenade_lethal" ] = ability( "extended_fuse",   15, &effect_extended_fuse );
-    t[ "grenade_tac" ]    = ability( "overcharge",      20, &effect_overcharge );
+    // The map ships 5 HELD guns; each gets ONE LIVE signature ability.
+    // (Melee/grenade/sniper categories stay gone: getcurrentweapon() never
+    // returns an offhand and no sniper gun exists, so they could never fire -
+    // see weapon_name_to_ability_category. effect_triple_tap / _stabilizer /
+    // _thermal_vision / _extended_fuse / _overcharge remain defined but unused.)
+    t[ "pistol" ]  = ability( "precision_mode", 30, &effect_precision_mode ); // Five-Seven: 3 auto-crit shots
+    t[ "smg" ]     = ability( "whirlwind",      20, &effect_whirlwind );      // ASM1: 96u AoE panic clear
+    t[ "shotgun" ] = ability( "slug_round",     20, &effect_slug_round );     // Tac-19: next shot 3x single-target
+    t[ "ar" ]      = ability( "focus_fire",     25, &effect_focus_fire );     // AK-47 + AE4: 6 auto-crit shots
 
     return t;
 }
@@ -101,65 +104,35 @@ function ability( id, cooldown_sec, on_activate )
 // a SEPARATE category here because their ability differs, even though they
 // share the AR Overclock pool).
 //
-// Stock BO3 weapon names are CLASS-based and unsuffixed - the old
-// "<marketing>_zm" strings (BO1/BO2 convention) can NEVER match a runtime
-// weapon name and have been replaced.
-// VERIFIED(acc): "pistol_standard" = MR6, the starting/laststand pistol
-//   (zm_usermap.gsc:331, _zm.gsc:1152).
-// VERIFIED(acc): in-map roster names "ar_accurate" (ICR-1 - "ar_standard"
-//   is the KN-44!), "shotgun_fullauto" (Haymaker 12), "sniper_fastsemi"
-//   (Drakon), "ar_marksman" (Sheiva), "bowie_knife", "frag_grenade" -
-//   docs/19_stock_api_verification.md "BO3 weapon names" row; the
-//   map_source wallbuy structs use exactly these strings.
-// Box-roster stock names "shotgun_semiauto" (Brecci), "ar_longburst"
-//   (XR-2), "sniper_fastbolt" (Locus) come from the same ledger row -
-//   TODO(acc-verify): mapped from GDT naming, confirm on first compile.
-//
-// Future Skye imports are engine-prefixed (iw4_=MW2, t5_=BO1, t6_=BO2,
-// s1_=AW, h1_=MWR - docs/21_weapon_import_sources.md). Each commented line
-// below activates when its GDT lands on the Windows box.
+// THE MAP SHIPS 5 GUNS (user, 2026-06-14):
+//   Five-Seven  t6_fiveseven  (pistol)  - start pistol; ability = Precision Mode
+//   ASM1        s1_asm1       (smg)     - ability = Whirlwind (96u AoE panic)
+//   Tac-19      s1_tac19      (shotgun) - ability = Slug Round (next shot 3x)
+//   AK-47       t6_ak47       (ar)      - ability = Focus Fire (6 auto-crit shots)
+//   AE4         s1_ae4        (ar)      - AW directed-energy; shares Focus Fire
+// Offhand framework weapons (knife melee, frag_grenade lethal) + laststand
+// pistol_standard stay for the framework but have NO ability (never the HELD
+// weapon, so getcurrentweapon never returns them). Everything else
+// (ICR/Man-O-War/Locus/etc.) was removed. Skye imports engine-prefixed
+// (s1_=AW, t6_=BO2, docs/21); stock names class-based + unsuffixed.
 // ---------------------------------------------------------------------------
 
 function weapon_name_to_ability_category( weapon_name )
 {
-    // TODO(acc-data): consolidate category tables into a GDT-driven dict
-    // shared with _acc_overclocks::weapon_name_to_family.
-
-    pistol_list   = array( "pistol_standard" );
-    // TODO(acc-import): + "t6_b23r" (B23R starter, Skye BO2 pack)
-
-    ar_full_list  = array( "ar_accurate", "ar_longburst" );
-    // TODO(acc-import): + "iw4_ak47" (AK-47; t5_/t6_/s1_/h1_ era alternates)
-
-    ar_semi_list  = array( "ar_marksman" );
-    // TODO(acc-import): + "iw4_m14ebr" (M14 EBR), "h1_g3" (G3),
-    // "t5_fal" (FN FAL)
-
-    shotgun_list  = array( "shotgun_fullauto", "shotgun_semiauto" );
-    // TODO(acc-import): + "s1_tac19" (Tac-19, Skye AW pack)
-
-    sniper_list   = array( "sniper_fastsemi", "sniper_fastbolt" );
-    // TODO(acc-import): + "iw4_intervention" (Intervention)
-
-    melee_list    = array( "bowie_knife" );
-    // (Cyber Cleaver is a Phase 5 art reskin of the SAME bowie GDT - no
-    // separate weapon name exists; docs/05_weapons.md.)
-
-    grenade_lethal_list = array( "frag_grenade" );
-
-    grenade_tac_list = [];
-    // TODO(acc-import): + "emp_grenade_zm" (custom-authored Phase 4 GDT -
-    // we own the name, so the _zm suffix is OUR choice, not a stock claim;
-    // see _acc_weapon_emp_grenade.gsc plan in docs/05_weapons.md).
+    // Only the 5 HELD guns map to a category. getcurrentweapon() drives this
+    // (try_activate_ability) - the offhand knife + grenades are never the
+    // "current weapon", so they have no reachable ability and are absent.
+    pistol_list  = array( "pistol_standard", "t6_fiveseven" );  // Five-Seven (+ laststand)
+    smg_list     = array( "s1_asm1",                            // ASM1
+                          "iw6_ripper_smg", "iw6_ripper_smg_zm",
+                          "iw6_ripper_ar", "iw6_ripper_ar_zm" );  // Ripper (both modes -> Whirlwind)
+    shotgun_list = array( "s1_tac19" );                         // Tac-19
+    ar_list      = array( "t6_ak47", "s1_ae4" );               // AK-47, AE4 (both ARs -> Focus Fire)
 
     if ( array::contains( pistol_list, weapon_name ) ) return "pistol";
-    if ( array::contains( ar_full_list, weapon_name ) ) return "ar_full";
-    if ( array::contains( ar_semi_list, weapon_name ) ) return "ar_semi";
+    if ( array::contains( smg_list, weapon_name ) ) return "smg";
     if ( array::contains( shotgun_list, weapon_name ) ) return "shotgun";
-    if ( array::contains( sniper_list, weapon_name ) ) return "sniper";
-    if ( array::contains( melee_list, weapon_name ) ) return "melee";
-    if ( array::contains( grenade_lethal_list, weapon_name ) ) return "grenade_lethal";
-    if ( array::contains( grenade_tac_list, weapon_name ) ) return "grenade_tac";
+    if ( array::contains( ar_list, weapon_name ) ) return "ar";
     return "none";
 }
 
@@ -287,12 +260,18 @@ function effect_triple_tap()
 
 function effect_stabilizer()
 {
-    // docs/05: 5s zero recoil + 20% fire rate.
-    // NOT implementable yet: recoil tables and fire time are GDT properties;
-    // GSC has no per-player recoil or fire-rate setter on a live weapon. The
-    // Phase 4 plan is an override-GDT variant swapped in for the duration.
-    self iprintln( "Stabilizer - effect lands in Phase 4" );
-    acc_utility::log( "ability: stabilizer stub (needs weapon-override GDT)" );
+    // docs/05: 5s zero recoil + 20% fire rate. Both are baked weapon-GDT
+    // properties with no live setter, so they are delivered by the weapon-variant
+    // SWAP framework (_acc_weapon_variants): hand the player a reduced-recoil +
+    // fast-fire twin of their current gun for the duration, then swap the base
+    // back. Maps to the strongest baked recoil tier (-70%, recoil70) + fastfire
+    // (no literal "zero" twin; -70% is the closest level). In Phase 1 the fast half
+    // no-ops until fastfire twins exist (Phase 2).
+    // Inert until the twins are baked + allow-listed (docs/31 §4-5); the cooldown
+    // is still consumed so the input loop stays testable end-to-end.
+    self acc_weapon_variants::apply_timed_variant( array( "recoil70", "fastfire" ), 5 );
+    self iprintln( "Stabilizer: 5s recoil/fire-rate boost" );
+    acc_utility::log( "ability: stabilizer -> timed weapon-variant (inert until twins baked)" );
 }
 
 function effect_precision_mode()
@@ -303,6 +282,16 @@ function effect_precision_mode()
     // The damage math lives in _acc_damage; this module only arms the state.
     self.acc_ability_crit_shots = ACC_PRECISION_CRIT_SHOTS;
     acc_utility::log( "ability: precision_mode armed (" + ACC_PRECISION_CRIT_SHOTS + " crit shots)" );
+}
+
+function effect_focus_fire()
+{
+    // docs/05: AK-47 (AR) signature - next ACC_FOCUS_FIRE_CRIT_SHOTS shots
+    // auto-crit (4x, ignore hit-loc). Reuses the SAME damage CONTRACT as
+    // Precision Mode (_acc_damage::on_ai_damage consumes acc_ability_crit_shots,
+    // decrementing per hit) but arms a longer burst to fit a full-auto AR.
+    self.acc_ability_crit_shots = ACC_FOCUS_FIRE_CRIT_SHOTS;
+    acc_utility::log( "ability: focus_fire armed (" + ACC_FOCUS_FIRE_CRIT_SHOTS + " crit shots)" );
 }
 
 function effect_slug_round()

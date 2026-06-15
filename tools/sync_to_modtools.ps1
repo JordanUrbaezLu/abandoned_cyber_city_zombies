@@ -184,6 +184,9 @@ $mappings = @(
     @{ Label = "zone_source";  RepoRel = "zone_source";  ModRel = "zone_source";  Mirror = $true  },
     @{ Label = "sound";        RepoRel = "sound";        ModRel = "sound";        Mirror = $true  },
     @{ Label = "ui";           RepoRel = "ui";           ModRel = "ui";           Mirror = $true  },
+    # Custom level weapon table override (stock rows + Skye box imports). Copy,
+    # not mirror, so an imported weapon CSV never purges anything unexpectedly.
+    @{ Label = "gamedata";     RepoRel = "gamedata";     ModRel = "gamedata";     Mirror = $false },
     @{ Label = "zone";         RepoRel = "zone";         ModRel = "zone";         Mirror = $false }
 )
 
@@ -208,6 +211,25 @@ if ($Reverse) {
     Copy-One $modMap $repoMap "map_source"
 } else {
     Copy-One $repoMap $modMap "map_source"
+}
+
+# Sound alias CSVs ALSO have to land in the canonical sound-source path that the
+# linker's sound-bank build reads (share\raw\sound\aliases\), NOT just the
+# usermap. The usermap copy alone is silently ignored at sound-compile time. A
+# stale/missing source here makes the WHOLE sound bank fail to load the moment
+# any source changes (the cached .all.alias.sz hides it until then) - learned
+# 2026-06-14 adding the AK-47. COPY (never mirror) so stock sources
+# (user_aliases.csv, dummy) survive. AMBIENT sources live in share\raw\sound\
+# ambients\ and are stock, so they are not touched here.
+if (-not $Reverse) {
+    $aliasSrc = Join-Path $RepoRoot "sound\aliases"
+    $aliasDst = Join-Path $ModTools "share\raw\sound\aliases"
+    if (Test-Path $aliasSrc) {
+        Ensure-Dir $aliasDst
+        Get-ChildItem $aliasSrc -Filter *.csv | ForEach-Object {
+            Copy-One $_.FullName (Join-Path $aliasDst $_.Name) "sound-alias->share\raw"
+        }
+    }
 }
 
 Write-Info "done"

@@ -1,0 +1,217 @@
+================================================================================
+NSZ BO2 Pack: Zombie Boss - BRUTUS  (NateSmithZombies)
+Research dossier for the Juggernaut-Host -> Brutus mini-boss swap.
+Plan: ~/.claude/plans/virtual-wibbling-raven.md  (approved 2026-06-14)
+================================================================================
+
+STATUS LEGEND
+  [VERIFIED-PUBLIC]  confirmed from public release threads / wiki (pre-download)
+  [TO-CONFIRM]       must be checked against the ACTUAL pack files in Phase 0
+                     (we have NOT downloaded the MEGA pack yet)
+
+--------------------------------------------------------------------------------
+1. WHAT IT IS
+--------------------------------------------------------------------------------
+[VERIFIED-PUBLIC] A public, full custom-AI boss: the BO2 Mob-of-the-Dead "Brutus"
+(the Warden) ported to BO3 by NateSmithZombies. NOT just a model - it ships a real
+archetype: model + animations + behavior tree + FX + GDT + sound + GSC, so it
+spawns and fights on its own. This is the key difference from the stock `mechz`
+archetype (which our repo can't use because its assets are locked in core/DLC
+fastfiles, not redistributable - see docs/research/BO3_stock_round_spawning_flow_*).
+NSZ ships the assets, so it genuinely works in usermaps.
+
+Latest stable release: v1.0.4 (fixed a bullet-collision bug; earlier versions had
+GDT archetype issues).
+
+--------------------------------------------------------------------------------
+2. SOURCES
+--------------------------------------------------------------------------------
+- modme thread #765 "NSZ Zombie Boss: Brutus"
+  https://forum.modme.co/wiki/threads/765.html
+  (GitHub mirror: dtzxporter/ModmeForum wiki/threads/765.md)
+- UGX-Mods "NSZ BO2 Pack: Zombie Boss - Brutus"
+  https://www.ugx-mods.com/forum/mods/7/nsz-bo2-pack-zombie-boss-brutus/10676/
+- Download (WORKING, 2026-06-14): the per-pack MEGA single-file link in thread #765
+  is DEAD ("file may have been deleted"). Use the NSZ "All Releases" MEGA FOLDER
+  instead (folder links survive better) - it contains Brutus V1.0.4:
+    old format: https://mega.nz/#F!g7BHRCyI!5v2pEFoKQ058pAeWlHfmnA
+    new format: https://mega.nz/folder/g7BHRCyI#5v2pEFoKQ058pAeWlHfmnA
+  Inside, grab the NSZ_Brutus (v1.0.4) subfolder.
+  Durable hub if that folder also rots: modme "NSZ_POWERUPS_MEGATHREAD (ALL
+  DOWNLOADS)" thread #2831 (forum.modme.co/wiki/threads/2831.html).
+- Related known-issue threads: #848 "Brutus only spawning in the start_zone",
+  #2073 "bo3 brutus", #2864 "Is there anyway to download Brutus" (links to #2831),
+  #3512 "Brutus (NSZ) crashes BO3 after round 30 with no errors", #2875 "Brutus 2".
+
+--------------------------------------------------------------------------------
+3. SCRIPT API  (namespace `brutus`)
+--------------------------------------------------------------------------------
+[VERIFIED-PUBLIC]
+  #using scripts\_NSZ\nsz_brutus;
+  brutus::init();            // activates the pack's OWN round-based spawn loop
+  brutus::spawn_brutus();    // manual spawn trigger (callable e.g. from door events)
+
+  Config level vars (set before init / per design):
+    level.min_brutus_round     // earliest round he can appear
+    level.max_brutus_round     // max round spacing between appearances
+    level.max_brutus           // max concurrent Brutus instances
+    level.brutus_lock_machines // enable/disable perk-machine + box locking
+    level.nsz_debug            // debug output toggle
+
+  Internal: `function new_death()` handles his death path.
+
+[VERIFIED-PACK 2026-06-14 from share/raw/scripts/_NSZ/nsz_brutus.gsc (full read)]
+  (a) spawn_brutus() (line 138) does NOT return the actor and is called as
+      `level spawn_brutus()`. The actor IS findable: it sets targetname="zombie_boss"
+      + animname="zombie_boss" (zombie_spawn_init line 735/740) and `.is_boss=true`
+      (line 210). So get the handle via GetEntArray("zombie_boss","targetname") or
+      .is_boss, OR (cleaner, the script is ours to vendor+edit) add `return brutus` /
+      `level notify("acc_brutus_spawned", brutus)` inside spawn_brutus.
+      TRAP: spawn_brutus has long INTERNAL random waits before he appears -
+      `wait(RandomIntRange(5,20))` (line 143) + `wait(3)` (line 162). For a snappy
+      boss-round feel we'd trim these in our vendored copy.
+  (b) YES - new_death() (line 639) is `self waittill("death")`. Our watch_mini_boss_death
+      + health bar's "death"/.health polling work as-is. (new_death ALSO runs its own
+      death sequence + drops a powerup when the last brutus dies - additive, fine.)
+  (c) The pack sets `brutus.health` (line 182/184) but NEVER `.maxhealth`. Our health
+      bar needs BOTH -> our promotion MUST set maxhealth+health (it already does).
+      HP formula: brutus_base_health(3500) * round * n_players, capped 85000 (code) /
+      "35000" (instructions typo). We OVERRIDE with our 10x (ACC_BOSS_MINI_HP=500000).
+      track_helmet() (line 683) snapshots pop_off = self.health/2 at thread start, so
+      set our HP BEFORE/at spawn or the helmet pops at the wrong threshold.
+  (d) brutus.zombie_move_speed="sprint" (line 200) + init_zombie_run_cycle (line 841);
+      movement is the stock run cycle with a custom goal (v_zombie_custom_goal_pos) +
+      custom %brutus_run anim. So ASMSetAnimationRate(1.25) SHOULD speed his charge and
+      our boss_speed_think run-cycle line is a no-op (already "sprint"). CONFIRM in-game
+      that the anim-rate scales his root-motion run (attacks are AnimScripted, separate).
+  (e) init() (line 43) sets config vars then `thread main()`, and main() (after
+      "all_players_connected") runs activate_brutus_spawns() (needs the spawn-point
+      structs) THEN threads brutus_spawn_logic() (his OWN min5/max7-round cadence).
+      For our r10/r20 schedule we must run the setup but NOT his auto-loop: vendor-edit
+      main() to drop `thread brutus_spawn_logic()` (or gate it), then WE call
+      spawn_brutus() from _acc_boss round hooks. activate_brutus_spawns() must still run.
+  (f) YES, `brutus.ignore_enemy_count = true` (line 204). *** CONFLICT *** with our
+      wave-suppressing mini-boss: our run_mini_boss zeroes the wave so the boss is the
+      ONLY round-end gate - if Brutus is ignored, the round ENDS INSTANTLY. Must either
+      set ignore_enemy_count=false (Brutus becomes the gate, our current design) OR stop
+      suppressing the wave on Brutus rounds (he charges ALONGSIDE the wave, his native
+      design). -> DESIGN DECISION (see section 9).
+
+  OTHER VERIFIED FACTS:
+  - Spawner is classname `actor_spawner_zm_brutus` + script_noteworthy "zombie_brutus"
+    + model "bo2_brutus_fb" (brutus_spawner.map). So the GDT registers a custom AITYPE
+    `zm_brutus` (NOT a behavior-tree archetype) - stock zombie behavior, custom model +
+    anims. This is the SAME class of thing as our buffed-zombie boss, just with real
+    custom assets. LOW archetype risk; the only hard gate is the APE GDT import.
+  - Spawn points: script_struct targetname "brutus_spawner_spot", script_string = a ZONE
+    FLAG (brutus_your_zone.map); he spawns at the point nearest a random player
+    (choose_a_spawn). brutus_start_zone.map = the start_zone variant.
+  - Signature PERK/BOX LOCK: watch_for_machines (line 346) - Brutus locks the nearest
+    perk machine / PaP / mystery box (anim + fire FX), and players pay 2000 to unlock
+    (locked_think, line 500). Gated on level.brutus_lock_machines + the *_lock prefabs
+    placed at each machine/box. This is a whole subsystem -> KEEP or DROP decision.
+  - He's immune to all AATs (aat_override), instakill (anti_instakill), nuke, tesla
+    chain, thundergun fling/knockdown (custom funcs do fixed DoDamage instead).
+  - He uses %brutus_swing AnimScripted melee (melee_track, DoDamage 75 + shellshock).
+  - Helmet pops at 50% HP (track_helmet) -> enrage. Pure cosmetic/audio phase.
+
+--------------------------------------------------------------------------------
+4. ASSETS SHIPPED  (the import surface)
+--------------------------------------------------------------------------------
+[VERIFIED-PUBLIC] (names from release notes - confirm exact strings in Phase 0)
+  GSC      scripts\_NSZ\nsz_brutus.gsc
+  xmodels  bo2_brutus_fb, bo2_brutus_fb_death, brutus_helmet, perk_clip
+  FX       _NSZ/Brutus/spawn_fx, _NSZ/Brutus/chest_fx, _NSZ/Brutus/helmet_smoke,
+           fire/fx_fire_ground_rubble_50x50 (stock)
+  scriptbundle  brutus_bundle
+  sound    ~15 aliases under _NSZ\Brutus\ -> useraliases.csv (share/raw/sound/aliases)
+  GDT      Brutus GDT (model + animations + ARCHETYPE/character/aitype/behavior data)
+  prefabs  perk-lock prefabs (Quick Revive etc.) + traversal-avoidance setups
+
+[TO-CONFIRM] exact zone lines, whether the GDT auto-pulls the xmodels/FX (then no
+explicit zone line needed - linker "missing xmodel/fx" warnings are NON-FATAL and
+tell us which ones to add), and whether xanims need a fresh APE import on this box.
+
+[VERIFIED 2026-06-14 via the SIBLING pack in the same MEGA folder - "Invincible
+power up by ZoekMeMaar" (ZMM_GODMODE_PWRUP.zip)] These NSZ/ZMM packs share one
+layout, so Brutus will mirror it under `_NSZ`. The zip extracts to a tree that maps
+ONTO THE MOD TOOLS ROOT (share/raw + the *_export dirs are SYSTEM-WIDE, not the
+usermap):
+    <PackName>/
+      Instructions & Credits.txt          <- READ FIRST (install steps + credits)
+      model_export/_NSZ/GDT/*.gdt          <- archetype/model GDT (import via APE/gdtdb)
+      model_export/_NSZ/.../*.XMODEL_BIN   <- raw model source (needs GDT + APE)
+      xanim_export/_NSZ/...                <- raw anim source (Brutus has custom anims)
+      share/raw/fx/_NSZ/Brutus/*.efx       <- RAW FX SOURCE -> must be APE-compiled
+      share/raw/scripts/_NSZ/nsz_brutus.gsc (+ .csc?)  <- the script(s)
+      sound_assets/_NSZ/Brutus/*.wav       <- sounds
+      texture_assets/_NSZ/...              <- textures
+CONFIRMS the "asset import is new territory" risk: .efx and .XMODEL_BIN are SOURCE
+assets requiring an APE/gdtdb pass (not drop-in compiled assets), unlike our
+plaintext weapon GDTs. Install = copy these trees into the Mod Tools root, import
+the GDT in APE, THEN add zone lines + our GSC wiring.
+
+--------------------------------------------------------------------------------
+5. INSTALL STEPS (pack's own, condensed)
+--------------------------------------------------------------------------------
+[VERIFIED-PUBLIC]
+  1. Sound: add the ~15 Brutus aliases to useraliases.csv in share/raw/sound/aliases.
+  2. GSC: `brutus::init();` in mapname.gsc main()  (we will NOT do this verbatim -
+     actor-only architecture calls spawn_brutus() through our boss pipeline instead).
+  3. Zone: add the Brutus zone lines (scriptparsetree/scriptbundle/xmodel/fx).
+  4. GDT: import the included Brutus GDT (APE / gdtdb).
+  5. Radiant: place his prefabs - "red box IN the machine/box, green box OUTSIDE"
+     (the perk-lock lockdown spots). Assign script_string = zone name on the spawn
+     struct prefabs to control spawn locations.
+
+--------------------------------------------------------------------------------
+6. KNOWN ISSUES / LIMITATIONS  (plan Phase 3 must address)
+--------------------------------------------------------------------------------
+[VERIFIED-PUBLIC]
+  - Usermaps ONLY (cannot spawn in base-game / mod playlists). <- we ARE a usermap, OK.
+  - Pack-a-Punch special abilities DISABLED while Brutus is alive (archetype
+    constraint). Decide keep vs suppress for our map.
+  - Traversal incompatibility: must mark traversal START nodes to ignore Brutus.
+  - Co-op high-round spawn CRASHES reported without proper spawn-delay config ->
+    our r20 double-spawn must stagger the 2nd Brutus.
+  - Minor bullet-collision oddity above dead bodies (mostly fixed in v1.0.4).
+  - Some weapons cause unexpected states (invisible zombies / invuln) - watch for it.
+  - "Sounds don't play for Brutus" reported by a user on the All-Releases-folder
+    copy (matches our Phase 1 sound caveat - aliases/.wav may need manual wiring).
+  - Thread #3512: "crashes BO3 after round 30 with no errors". Our use is the r10/r20
+    MINI-boss, so we mostly dodge r30+; still cap/guard if we ever reuse him later.
+
+--------------------------------------------------------------------------------
+7. OUR INTEGRATION DECISION (recap from the approved plan)
+--------------------------------------------------------------------------------
+Brutus replaces the Juggernaut Host MINI-boss (r10=1, r20=2). Full boss (Subroutine
+Core) untouched. FINALIZED DESIGN (user, 2026-06-14):
+  - ROUND LOGIC = "charges ALONGSIDE the wave" (his native design). So we DROP our
+    suppress_normal_wave on Brutus rounds; the normal wave runs and gates round-end;
+    Brutus is a roaming hazard. Keep his ignore_enemy_count=true (don't make him the
+    gate). This is the OPPOSITE of the old Juggernaut Host (which replaced the wave).
+  - PERK-LOCK = DROPPED. Set level.brutus_lock_machines=false. No *_lock prefabs, no
+    reconciliation with our custom perk machines.
+  - SPAWN TIMING = OUR r10/r20 schedule, not his min5/max7 cadence -> disable his
+    brutus_spawn_logic auto-loop; WE call spawn_brutus() from _acc_boss round hooks
+    (and the test_boss_loop from round 2 for testing).
+  - LAYERED ON: our health bar + over-boss marker ("acc_boss_spawned" notify), 10x HP
+    (ACC_BOSS_MINI_HP=500000, set maxhealth+health since the pack sets neither maxhealth
+    nor caps to our value), boss_speed_think (+25% via ASMSetAnimationRate, no-op run
+    cycle since he's already "sprint"), Mega-Bottle + boss-item drops (watch_mini_boss_death
+    on his "death" notify).
+Fallback if the GDT won't import/spawn on this box: SetModel("bo2_brutus_fb") reskin on
+our existing buffed-stock-zombie boss (keeps all systems, loses his custom anims).
+IP/ship caveat: ripped BO2 Treyarch model - fine locally, flag before Workshop publish.
+
+--------------------------------------------------------------------------------
+8. PHASE 0 ACQUISITION + AUDIT CHECKLIST  (do this before any integration code)
+--------------------------------------------------------------------------------
+  [ ] Download the MEGA pack (thread #765 / UGX) and extract it. (USER action.)
+  [ ] Share the extracted tree (or at least nsz_brutus.gsc + the GDT + the file
+      list) so the section-3 [TO-CONFIRM] items a-f can be answered from real source.
+  [ ] USER (Windows): import the GDT (APE/gdtdb) + confirm a bare Brutus spawns
+      in-game via the pack's own install in a throwaway map. GO/NO-GO gate.
+  [ ] Record the confirmed API + asset names + behaviors back into THIS file
+      (flip [TO-CONFIRM] -> [VERIFIED-PACK]).
+================================================================================

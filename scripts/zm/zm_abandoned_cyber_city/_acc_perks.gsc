@@ -3,9 +3,9 @@
 //
 // Owns the map-specific BASE-perk tuning + custom Mega effects that have a real
 // GSC lever and don't belong to a more specific module. Current tenants:
-//   - Jug 3/6 hit model           (tune_jugg_health)
-//   - Quick Revive +30% regen      (qr_regen_booster + qr_damage_time_watcher)
-//   - Savior (QR Mega) revive x0.6 (savior_revive_time + savior_revive_watcher)
+//   - Jug hit model (250 HP)       (tune_jugg_health)
+//   - QR regen: base 15% / Savior 30% sooner (qr_regen_booster + qr_damage_time_watcher)
+//   - QR revive: base 2.0s / Savior 1.0s     (qr_revive_time + qr_revive_watcher)
 //   - Savior (QR Mega) +15% speed  (savior_speed_watcher + recompute term in
 //                                   _acc_utility::recompute_move_speed)
 //
@@ -23,21 +23,23 @@
 
 #insert scripts\shared\shared.gsh;
 
-// --- Jug 3/6 hit model (melee = 45 dmg/hit, stock GDT, unchangeable) ---------
+// --- Jug hit model (melee ~45 dmg/hit, stock GDT, unchangeable) ---------------
 // player_base_health = 100 (stock _zm.gsc:1229) -> no-Jug downs on the 3rd melee.
-// with-Jug HP = 100 + jugg add; for exactly 6 hits need 225 < HP <= 270, i.e.
-// 125 < add <= 170. 150 = robust center -> HP 250 (survive 5x45=225, down 6x45=270).
+// with-Jug HP = 100 + jugg add; docs/13: base Jug = 250 HP -> down on the 6th.
 // Tuning lever: change ONLY this to move the with-Jug hit count.
 #define ACC_JUGG_HEALTH_ADD          150
 #define ACC_JUGG_HEALTH_ADD_UPGRADE  150  // stock persistent-upgrade var mirror
 
-// --- Quick Revive base +30% faster regen -------------------------------------
-#define ACC_QR_REGEN_DELAY_SCALE  0.70   // start regen at 70% of stock delay (=30% sooner)
+// --- Quick Revive regen: base 15% sooner, Savior Mega 30% sooner (docs/13) ---
+#define ACC_QR_REGEN_DELAY_BASE   0.85   // base QR: regen delay x0.85 (=15% sooner -> ~2.04s)
+#define ACC_QR_REGEN_DELAY_SAVIOR 0.70   // Savior: regen delay x0.70 (=30% sooner -> ~1.68s)
 #define ACC_QR_REGEN_RATE         0.10   // ratio healed/server-frame (= stock local regenRate)
 
-// --- Savior (QR Mega) revive speed -------------------------------------------
-#define ACC_REVIVE_BASE_TIME      3      // stock base revive seconds (_zm_laststand.gsc:1154)
-#define ACC_SAVIOR_REVIVE_SCALE   0.6    // docs/13: base QR revive duration x0.6
+// --- Revive time override (docs/13): base QR 2.0s, Savior Mega 1.0s ----------
+// Replaces stock reviveTime (3s no-perk / 1.5s stock-QR) via the self.get_revive_time
+// reviver hook, so BOTH base QR and Savior key off our numbers.
+#define ACC_QR_BASE_REVIVE_TIME   2.0    // base QR reviver
+#define ACC_SAVIOR_REVIVE_TIME    1.0    // Savior Mega reviver (half of base QR)
 
 #namespace acc_perks;
 
@@ -50,9 +52,9 @@ function init()
 // self unused; called as acc_perks::on_player_connect( player ) from acc_main.
 function on_player_connect( player )
 {
-    // Savior revive override lives for the whole connection (sticky Mega flag),
-    // so it is started once per connect, NOT per spawn.
-    player thread savior_revive_watcher();
+    // Revive-time override lives for the whole connection (covers base QR and the
+    // sticky Savior Mega flag), so it is started once per connect, NOT per spawn.
+    player thread qr_revive_watcher();
 }
 
 // self unused; called as acc_perks::on_player_spawned( player ) from acc_main.
@@ -89,12 +91,13 @@ function tune_jugg_health()
 }
 
 // ---------------------------------------------------------------------------
-// Quick Revive base: +30% faster HP regen after damage
+// Quick Revive: HP regen starts sooner after damage - base 15% sooner, Savior
+// Mega 30% sooner (docs/13).
 //
 // VERIFIED(acc): the ZM regen authority (_zm_playerhealth.gsc::playerHealthRegen)
 // honors NO per-player override field and uses a hardcoded local regenRate. So we
-// run a PARALLEL per-player booster that starts healing 30% sooner than the stock
-// delay and matches the stock 0.1/frame ramp. During [0.7*delay, delay) stock is
+// run a PARALLEL per-player booster that starts healing earlier than the stock
+// delay and matches the stock 0.1/frame ramp. During [scale*delay, delay) stock is
 // still in its `continue` window (no setnormalhealth yet) so our writes are
 // uncontested; after the delay both heal toward 1.0 (harmless).
 // ---------------------------------------------------------------------------
@@ -116,7 +119,8 @@ function qr_regen_booster()
         if ( self.health >= self.maxHealth ) continue;  // already topped off
         if ( self.health <= 0 ) continue;               // downed/dead - leave to stock
 
-        boosted_delay = level.playerHealth_RegularRegenDelay * ACC_QR_REGEN_DELAY_SCALE;
+        scale = ( acc_mega_bottles::has_mega_perk( self, "specialty_quickrevive" ) ? ACC_QR_REGEN_DELAY_SAVIOR : ACC_QR_REGEN_DELAY_BASE );
+        boosted_delay = level.playerHealth_RegularRegenDelay * scale;
         elapsed = gettime() - self.acc_qr_last_hit_time;
         if ( elapsed < boosted_delay ) continue;        // not hurt long enough yet
 
@@ -146,39 +150,41 @@ function qr_damage_time_watcher()
 }
 
 // ---------------------------------------------------------------------------
-// Savior (QR Mega): revive YOU perform completes 40% faster (base QR x0.6)
+// Quick Revive: the revive YOU perform takes 2.0s (base QR) / 1.0s (Savior Mega).
 //
 // VERIFIED(acc): _zm_laststand.gsc::revive_get_revive_time runs on SELF = the
 // reviver; if self.get_revive_time is defined it CALLS it and uses the return
-// verbatim (:1161-1164). Nothing else sets that hook (grep clean). The Savior
-// owner always owns base QR, so base revive = 1.5s; Savior = 1.5 * 0.6 = 0.9s.
-// The override REPLACES stock's computation, so we include the QR-half ourselves.
+// verbatim (:1161-1164). Nothing else sets that hook (grep clean). Our override
+// REPLACES stock's computation (3s no-perk / 1.5s stock QR) entirely, so the
+// number we return IS the revive time for any QR owner.
 // ---------------------------------------------------------------------------
 
-function savior_revive_time( e_revivee )
+// self = the reviver. Base Quick Revive -> 2.0s; with the Savior Mega -> 1.0s
+// (docs/13). Fully replaces stock's computed reviveTime (3s no-perk / 1.5s stock QR).
+function qr_revive_time( e_revivee )
 {
-    base_qr_time = ACC_REVIVE_BASE_TIME / 2;          // stock QR half: 3 / 2 = 1.5s
-    return base_qr_time * ACC_SAVIOR_REVIVE_SCALE;     // 1.5 * 0.6 = 0.9s
+    if ( acc_mega_bottles::has_mega_perk( self, "specialty_quickrevive" ) )
+        return ACC_SAVIOR_REVIVE_TIME;
+    return ACC_QR_BASE_REVIVE_TIME;
 }
 
-// Binds self.get_revive_time to savior_revive_time while the player holds the
-// Savior Mega flag AND owns base QR; clears it otherwise. Light 0.5s poll - only
-// matters while a revive is in progress.
-function savior_revive_watcher()
+// Binds self.get_revive_time to qr_revive_time whenever the player owns Quick
+// Revive (base OR Savior), so every revive they perform uses our time; clears it
+// otherwise. Light 0.5s poll - only matters while a revive is in progress.
+function qr_revive_watcher()
 {
     self endon( "disconnect" );
 
     for ( ;; )
     {
-        if ( acc_mega_bottles::has_mega_perk( self, "specialty_quickrevive" )
-             && self HasPerk( "specialty_quickrevive" ) )
+        if ( self HasPerk( "specialty_quickrevive" ) )
         {
             if ( !isdefined( self.get_revive_time ) )
-                self.get_revive_time = &savior_revive_time;
+                self.get_revive_time = &qr_revive_time;
         }
         else
         {
-            if ( isdefined( self.get_revive_time ) && self.get_revive_time == &savior_revive_time )
+            if ( isdefined( self.get_revive_time ) && self.get_revive_time == &qr_revive_time )
                 self.get_revive_time = undefined;
         }
         wait 0.5;

@@ -30,12 +30,20 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
 
 #insert scripts\shared\shared.gsh;
 
 #define ACC_BOSS_MINI_FIRST_ROUND 10
 #define ACC_BOSS_FULL_FIRST_ROUND 30
 #define ACC_BOSS_INTERVAL 10
+
+// Brutus mini-boss buffs + cadence (user request).
+#define ACC_BOSS_MINI_HP 500000      // 10x the old 50k baseline
+#define ACC_BOSS_SPEED_SCALE 1.25    // moves +25% over the round's top speed tier
+#define ACC_BRUTUS_SCALE 1.5         // 50% bigger model
+#define ACC_BRUTUS_FIRST_ROUND 5     // first Brutus round
+#define ACC_BRUTUS_INTERVAL 5        // then every 5 rounds (r5, 10, 15, 20, 25, ...)
 
 #namespace acc_boss;
 
@@ -45,10 +53,9 @@ function init()
 
     level thread round_hook_loop();
 
-    // Dev/test loop: `acc_test_boss 1` in the console (works mid-match -
-    // sampled every round) spawns a low-HP Juggernaut Host every round from
-    // round 2, so the Mega Bottle drop -> perk upgrade loop is testable
-    // without surviving to round 10. Same code path as the real mini-boss.
+    // Dev/test loop: `acc_test_boss 1` in the console (works mid-match - sampled
+    // every round) spawns a low-HP test Brutus every round from round 2, so the
+    // Mega Bottle drop -> perk upgrade loop is testable without surviving to round 5.
     level thread test_boss_loop();
 }
 
@@ -59,24 +66,21 @@ function test_boss_loop()
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
-        // HARDCODED ON (no dvar gate) - user requested flags-free testing.
-        // Re-add `if ( getdvarint("acc_test_boss",0) != 1 ) continue;` before ship.
+        // Dev only: `acc_test_boss 1` spawns a low-HP test Brutus from round 2 so the
+        // Mega-Bottle -> perk-upgrade loop is testable without surviving to round 5.
+        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going
-        acc_utility::log( "TEST BOSS spawning" );
-        // Announce on-screen - the test boss is a buffed normal-looking zombie
-        // (no custom model yet), so without this you can't tell it apart.
+        acc_utility::log( "TEST BOSS (Brutus) spawning" );
         players = GetPlayers();
         for ( pi = 0; pi < players.size; pi++ )
         {
             if ( isdefined( players[ pi ] ) )
-                players[ pi ] IPrintLnBold( "^1JUGGERNAUT HOST INBOUND ^7- kill it for ^310 Mega Bottles" );
+                players[ pi ] IPrintLnBold( "^1BRUTUS INBOUND ^7- kill it for ^310 Mega Bottles" );
         }
-        // NOTE: deliberately additive - the test loop never suppresses the
-        // wave, only real mini-boss rounds do (run_mini_boss). 2nd arg = bulk
-        // Mega Bottle drop (10) so the perk-upgrade loop is testable fast.
-        spawn_juggernaut_host( 1500, 10 ); // killable with the starting pistol era
+        // Low HP override + bulk Mega Bottle drop (10) so the perk loop is testable fast.
+        spawn_brutus_miniboss( 1500, 10 );
     }
 }
 
@@ -88,14 +92,16 @@ function round_hook_loop()
     {
         level waittill( "acc_round_start", round_number );
 
-        if ( round_number < ACC_BOSS_MINI_FIRST_ROUND ) continue;
-        if ( round_number % ACC_BOSS_INTERVAL != 0 ) continue;
-
-        if ( round_number >= ACC_BOSS_FULL_FIRST_ROUND )
+        // Full boss "Subroutine Core": r30, 40, 50+ (every 10 from r30). Takes
+        // precedence so a full-boss round doesn't ALSO spawn Brutus.
+        if ( round_number >= ACC_BOSS_FULL_FIRST_ROUND && round_number % ACC_BOSS_INTERVAL == 0 )
         {
             level thread run_full_boss( round_number );
+            continue;
         }
-        else
+
+        // Brutus mini-boss: every 5 rounds from round 5 (r5, 10, 15, 20, 25, 35, 45, ...).
+        if ( round_number >= ACC_BRUTUS_FIRST_ROUND && round_number % ACC_BRUTUS_INTERVAL == 0 )
         {
             level thread run_mini_boss( round_number );
         }
@@ -111,19 +117,16 @@ function run_mini_boss( round_number )
     level endon( "end_game" );
     level endon( "acc_round_end" );
 
-    // docs/11: the mini-boss REPLACES the wave. Suppress chaff first; the
-    // host(s) spawned below then become the only thing gating round end
-    // (they are counted - see spawn_juggernaut_host flag rationale).
-    suppress_normal_wave( round_number );
-
-    // Mini rounds are exactly 10 and 20 (round_hook_loop routes >= 30 to the
-    // full boss), so this spawns 1 host at r10 and 2 simultaneous at r20.
+    // Brutus charges ALONGSIDE the normal wave (user choice): do NOT suppress the wave,
+    // and he keeps his native ignore_enemy_count (he does NOT gate round end - the wave
+    // does). r10 = 1 Brutus, r20 = 2, staggered a beat apart for co-op spawn safety.
     count = ( round_number >= 20 ? 2 : 1 );
-    acc_utility::log( "mini boss round " + round_number + " spawning " + count );
+    acc_utility::log( "mini boss (Brutus) round " + round_number + " spawning " + count );
 
     for ( i = 0; i < count; i++ )
     {
-        spawn_juggernaut_host();
+        spawn_brutus_miniboss();
+        wait 1.5;
     }
 }
 
@@ -159,36 +162,24 @@ function suppress_normal_wave( round_number )
     level.zombie_total = 0;
 }
 
-function spawn_juggernaut_host( n_health_override, n_bottle_count )
+function spawn_brutus_miniboss( n_health_override, n_bottle_count )
 {
-    // Buffed-regular-zombie mini-boss: the stock mechz archetype needs DLC1
-    // zone assets a usermap lacks (behavior tree / models / FX), so the
-    // practical Juggernaut Host is the same proven pattern as _acc_elites:
-    // spawn a normal zombie, wait for init, then promote it.
-    if ( !isdefined( level.zombie_spawners ) || level.zombie_spawners.size == 0 )
+    // Brutus (NSZ pack) IS our mini-boss. acc_boss_brutus::spawn_one() spawns one via
+    // the pack (which builds his model / anims / charge / melee / helmet / death) and
+    // returns the live actor; we then layer OUR systems on top.
+    host = acc_boss_brutus::spawn_one();
+    if ( !isdefined( host ) || !isalive( host ) )
     {
-        acc_utility::log( "boss: no zombie_spawners, cannot spawn Juggernaut Host" );
+        acc_utility::log( "boss: Brutus spawn returned none" );
         return;
     }
-
-    spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
-    host = zombie_utility::spawn_zombie( spawner );
-    if ( !isdefined( host ) )
-    {
-        acc_utility::log( "boss: spawn_zombie returned undefined (spawner missing script_forcespawn?)" );
-        return;
-    }
-
-    // VERIFIED(acc): zombie_spawn_init runs at frame end and clobbers
-    // health/maxhealth - poll the init flag before promoting (the
-    // _zm_ai_faller.gsc:168 pattern, same as _acc_elites.gsc:129).
-    while ( isdefined( host ) && !isdefined( host.zombie_init_done ) )
-    {
-        util::wait_network_frame();
-    }
-    if ( !isdefined( host ) || !isalive( host ) ) return;
 
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
+
+    // 50% bigger (user request). Scale the linked helmet too so it tracks the head.
+    host SetScale( ACC_BRUTUS_SCALE );
+    if ( isdefined( host.helmet ) )
+        host.helmet SetScale( ACC_BRUTUS_SCALE );
 
     // Test boss passes a bulk bottle count; real mini-boss leaves it undefined
     // (-> 1 per player, the normal rule). Read in watch_mini_boss_death.
@@ -203,31 +194,52 @@ function spawn_juggernaut_host( n_health_override, n_bottle_count )
     }
     else
     {
-        // docs/15: elites/bosses scale +50% per extra player.
-        host.maxhealth = int( 50000 * acc_coop_scaling::special_hp_mult() );
+        // 10x baseline (500k). docs/15: elites/bosses scale +50% per extra player.
+        host.maxhealth = int( ACC_BOSS_MINI_HP * acc_coop_scaling::special_hp_mult() );
     }
     host.health = host.maxhealth;
 
-    // Boss durability set, mirrored from stock mechz spawn setup
-    // (mechz.gsc:946-957). VERIFIED(acc): the boss is COUNTED toward round
-    // end (no ignore_enemy_count - dying is the reward trigger; with the wave
-    // suppressed it is the only round-end gate), so it must stay eligible for
-    // the stock stuck-zombie failsafe (kills anything that moves <24in in 30s,
-    // zombie_utility.gsc:1870) - opting out of both would let a pathing-stuck
-    // boss soft-lock the round forever.
+    // Brutus sets his own durability in the pack (no_gib, ignore_nuke, ignore_enemy_count,
+    // AAT / instakill / tesla / thundergun immunity). He KEEPS ignore_enemy_count, so he
+    // charges ALONGSIDE the normal wave and does NOT gate round end (user choice).
     host DisableAimAssist();
     host.disableAmmoDrop = true;
-    host.no_gib = true;
-    host.ignore_nuke = true;
-    // VERIFIED(acc): raw .zombie_move_speed writes skip the anim bookkeeping;
-    // set_zombie_run_cycle is the stock setter.
-    host zombie_utility::set_zombie_run_cycle( "run" );
+    // Speed: the Host charges 25% faster than the CURRENT round speed. boss_speed_think
+    // locks it to the sprint tier (the round's top base tier AND the cap the Rampage
+    // Inducer forces the wave to, _acc_rampage_inducer) and scales its anim-driven
+    // movement +25% on top, so it outruns even a rampage-sprinting wave. Threaded
+    // (re-asserts on a cadence) because round/state changes can clobber the anim rate.
+    host thread boss_speed_think();
 
-    // Drives the boss health bar + nameplate (_acc_health_bars listens).
-    level notify( "acc_boss_spawned", host, "JUGGERNAUT HOST" );
+    // Drives the boss health bar + over-boss marker (_acc_health_bars listens).
+    level notify( "acc_boss_spawned", host, "BRUTUS" );
     host thread watch_mini_boss_death();
 
-    acc_utility::log( "spawned Juggernaut Host (" + host.maxhealth + " hp)" );
+    acc_utility::log( "spawned Brutus mini-boss (" + host.maxhealth + " hp)" );
+}
+
+// self = the Juggernaut Host. Keep it 25% faster than the CURRENT round speed: pin the
+// run cycle to "sprint" (the round's top base tier, and the cap the Rampage Inducer forces
+// the wave to) and scale its movement +25% on top via ASMSetAnimationRate (zombie movement
+// is root-motion / anim-driven - the same lever early-round pacing and Widow's Wine use).
+// Re-asserted on a 2s cadence: round transitions / state changes (and Widow's Wine) can
+// reset a one-shot anim rate, and a mid-fight Rampage toggle can drift the run cycle - so
+// the Host stays above BOTH the round speed and the rampage limit, whichever is in effect.
+function boss_speed_think()
+{
+    self endon( "death" );
+
+    for ( ;; )
+    {
+        // Lock to the sprint tier if it ever drifts below. While Rampage is active its own
+        // override already holds the boss at "sprint", so this stays a no-op (no churn).
+        if ( self.zombie_move_speed != "sprint" )
+            self zombie_utility::set_zombie_run_cycle( "sprint" );
+
+        // +25% over whatever the sprint tier's base move speed is this round.
+        self ASMSetAnimationRate( ACC_BOSS_SPEED_SCALE );
+        wait 2;
+    }
 }
 
 function watch_mini_boss_death()
@@ -577,7 +589,10 @@ function protect_immune_players_during_debuff()
         {
             p = level.players[ i ];
             if ( !isdefined( p ) || !isplayer( p ) ) continue;
-            if ( acc_mega_bottles::has_mega_perk( p, "specialty_armorvest" ) )
+            // Ultimate-Tank EMP immunity is a LIVE Jug effect: require the player to
+            // currently HOLD Juggernog, not just the persistent Mega flag (it survives a
+            // down by design), so a player who lost Jug doesn't keep unearned immunity.
+            if ( acc_mega_bottles::has_active_mega_perk( p, "specialty_armorvest" ) )
                 p restore_immune_player_perks();
         }
         util::wait_network_frame();

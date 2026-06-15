@@ -1,0 +1,152 @@
+================================================================================
+Adding the STOCK BO3 Panzer / mechz to a custom usermap — method + feasibility
+Researched 2026-06-14 (2 parallel agents, cross-checked vs local stock source +
+this machine's install). Context: user wants the Panzer as the next mob after Brutus.
+================================================================================
+
+VERDICT: POSSIBLE but ADVANCED — the single most failure-prone AI add in BO3.
+It is NOT a clean drop-in like the NSZ Brutus pack. Many maps have it only because a
+handful of modders pre-solved the hard parts and bundled the result. No credible
+first-hand "it just worked, clean drop-in" account was found. Budget a multi-session
+job with live runtime crash-debugging, not one evening.
+
+--------------------------------------------------------------------------------
+WHY IT'S HARD (verified)
+--------------------------------------------------------------------------------
+1. DLC1 CLIENTFIELDS. mechz registers 11 clientfields; 10 are VERSION_DLC1, only 1 is
+   VERSION_SHIP (mechz.gsc:62-73). A usermap runs at VERSION_SHIP. Verified consts
+   (version.gsh): VERSION_SHIP=1, VERSION_DLC1=5000, there is NO VERSION_BASE.
+   -> A clean port must change those VERSION_DLC1 args to VERSION_SHIP in BOTH the
+   copied mechz.gsc AND mechz.csc (kept identical), or faceplate/armor/claw/grapple
+   visuals silently break / a clientfield mismatch disconnects the client.
+   GOOD NEWS (local): mechz.gsc/.csc/.gsh ARE present in our stock ref
+   (tmp/bo3_stock_ref/scripts/shared/ai/) AND the install share/raw — so we HAVE the
+   source to re-version. (Agent B wrongly claimed they're absent; direct read refutes.)
+   Model defines (mechz.gsh): c_zom_mech_body, c_zom_mech_armor_knee_{left,right},
+   c_zom_mech_armor_shoulder_{left,right}, c_zom_mech_gun_barrel, c_zom_mech_faceplate,
+   c_zom_mech_powersupply_cap. FX: dlc1/castle/fx_mech_*.
+
+2. ASSETS NOT IN A FRESH INSTALL. The model/anim/FX/sound are DLC1 (Der Eisendrache).
+   This install (verified): NO mech GDT in source_data, NO c_zom_mech* in model_export,
+   NO mech aitype, NO castle/stalingrad DLC zones. Only the SCRIPTS exist.
+   The user DOES own Origins (zm_tomb.ff/.xpak present) which contains the Panzer, so
+   self-extraction is possible. Owning the DLC/Chronicles does NOT auto-populate
+   source_data/model_export — assets are redistributed informally, not exposed by ownership.
+
+--------------------------------------------------------------------------------
+HOW MAPS ACTUALLY DO IT (two routes)
+--------------------------------------------------------------------------------
+ROUTE A (community pack — dominant): "Spiki's Asset Dump (Most AI)" modme #3087
+   (https://forum.modme.co/wiki/threads/3087.html, password "Chungus4Prez", MEGA).
+   Includes Panzer + Panzer Origins (+ Mangler, Margwa, Apothicon Fury, Sentinel,
+   Thrasher, Spiders, Wasps, Raps, Keeper). CAVEATS: ships GDT + XMODEL_BIN + XANIM_BIN
+   + .gsc/.csc but "no sounds/images" for several; materials "may not be official";
+   GDT CONFLICTS with HarryBo21's mechz ("you MUST uninstall his") — use exactly ONE.
+ROUTE B (self-extract — clean/legit, how the packs were made): Greyhound + HydraX
+   (Scobalula) to rip model/anims/behavior + export2bin, rebuild GDT in APE, from the
+   user's own Origins (zm_tomb) / Der Eisendrache install.
+
+--------------------------------------------------------------------------------
+ORDERED METHOD (Route A, the cleanest viable path)
+--------------------------------------------------------------------------------
+1. Acquire Spiki's pack (#3087, pw Chungus4Prez). Use only Spiki's OR Harry's (GDT conflict).
+2. Import its GDTs (gdtdb / APE); run export2bin if any bins missing. Ensure the FULL FX
+   folder lands (a partial FX set = FATAL linker abort "textures wrong type for fx combo").
+3. Re-version the DLC1 clientfields to VERSION_SHIP in BOTH the copied mechz.gsc + .csc.
+4. Add the script #using to BOTH our map .gsc AND .csc (clientfield parity).
+5. COMMENT the duplicate boss gsc/csc lines in zone_source\all\assetlist (per Spiki: fixes
+   "spawns but won't move / ignores player" -> "they move out of the box"); also comment
+   any core_common.csv line our custom zone now also includes (e.g. customizationtable).
+6. Zone lines: aitype,<archetype> + scriptparsetree for the scripts + the pack's xmodel/fx/
+   sound assetlist. Place the spawner (archetype "mechz", script_forcespawn=1) in Radiant.
+7. Spawn API: mechz init() is `autoexec` (engine auto-runs at load; do NOT call it). On
+   spawn, MechzServerUtils::mechzSpawnSetup auto-runs (registered via
+   spawner::add_archetype_spawn_function(ARCHETYPE_MECHZ,...)). Drive spawns with
+   zombie_utility::spawn_zombie(spawner) — same pattern as our _acc_boss. Tune via level
+   override callbacks (level.mechz_damage_override, level.mechz_flamethrower_player_callback,
+   level.mechz_powercap_destroyed_callback, etc.). NOTE: set_zombie_var("mech_first_round"),
+   can_spawn_mech(), maps\_zombiemode_ai_mech are WaW/BO1-PORT names, NOT BO3 stock
+   (verified zero occurrences) — only valid with the UGX/Harry wrapper scripts.
+8. Full cod2map64 -> LED -> linker (geometry/asset change, not linker-only). Expect a
+   missing-XANIM APE fix (set the offending anim, e.g. *_blackhole_death, to "delta" type).
+9. In-game validate: the attack-crash (Risk 2), faceplate/armor detach + grapple-escape
+   (DLC1-gated mechanics), and that mechz don't starve the normal zombie spawn pool.
+
+--------------------------------------------------------------------------------
+RISK LIST (prioritized; first-hand unless noted)
+--------------------------------------------------------------------------------
+R1 DLC1 clientfield gating (HIGH/HIGH) - source-verified; runtime mismatch inferred.
+R2 CRASH on attack / being attacked (HIGH impact, confirmed first-hand, NO posted fix) -
+   "when he attacks me or I attack him the map crashes". Workaround attempts: custom
+   mechz_prespawn / damage override. This is the biggest blocker risk.
+R3 Incomplete FX folder = FATAL linker abort (HIGH likelihood, fixable - ship full FX).
+   Ties to our existing "Could not find material/fx ... mech/DLC" log noise.
+R4 Spawns but inert / ignores player (MED, fixed by step 5 assetlist commenting).
+R5 GDT conflict between panzer packs (MED) - install exactly one.
+R6 Destructible armor / Origins grapple-escape broken (MED, first-hand) - DLC1-gated.
+R7 Missing XANIM_BIN death anim (MED, APE delta-type fix).
+R8 Asset acquisition off-platform (password MEGA / Discord), link-rot-prone, unlicensed.
+R9 Navmesh/traverse for mech jumps (LOW confidence for Panzer specifically).
+R10 Co-op/round-30 crashes: NOT attributable to Panzer (a #3536 case was traced to perks).
+
+--------------------------------------------------------------------------------
+THE EASY ALTERNATIVE (the Brutus-class experience)
+--------------------------------------------------------------------------------
+Self-contained custom-aitype bosses import in ~one clean gdtdb run and pre-align their own
+clientfields at ship version. Example: Spiki's "Brutus 2" (modme #2875) is verbatim
+"drag and drop" ("Zone: Nothing fam"). That is the difference: a self-contained boss buys
+easy IMPORT (our NSZ Brutus took ~1 gdtdb run); the Panzer carries DLC1 re-versioning +
+GDT-conflict + DLC-asset extraction + "I won't hold your hand" + the attack-crash tail.
+
+KEY SOURCES: modme #3087 (Spiki) / #2875 (Brutus 2) / #3849 (FX fatal) / #3233 (XANIM) /
+#830 (clientfield parity) / #1209 (spawn+crash) ; bo3explorer mechz_8gsc / version_8gsh ;
+Steam Mod Tools crash thread ; Greyhound+HydraX (github.com/Scobalula). Local: our
+tmp/bo3_stock_ref mechz.{gsc,csc,gsh} + version.gsh; install has zm_tomb (Origins).
+================================================================================
+
+================================================================================
+DEEP DISCOVERY UPDATE (workflow weievq031, 2026-06-14 — 10 agents, adversarially verified)
+================================================================================
+GO/NO-GO = PREFER-ALTERNATIVE. Both make-or-break claims were adversarially REFUTED
+(holds_up=false): (1) "the attack-crash is reliably fixable" — NO published fix exists
+anywhere; (2) "a single pack yields a fully-working Panzer with no hand-porting" — none does.
+
+ROOT CAUSE of the attack-crash (verified vs local stock source): it is ASSET-DRIVEN, not a
+script bug. Of mechz's 11 clientfields, only MECHZ_FACE is at VERSION_SHIP (the rest DLC1) —
+and MECHZ_FACE fires on attack/pain/death, where mechzFaceCallback (mechz.csc) runs
+`self SetAnim(ai_face_zombie_generic_attack_1/_pain_1/_death_1)`. SetAnim on a facial-overlay
+xanim that's missing (base install lacks it) = textbook client crash, exactly matching
+"crashes when it attacks OR is attacked". Second path = the claw-grab scene/FX; third = the
+melee_soldat anim. A COMPLETE native asset import MIGHT cure it, but that is a RECONSTRUCTED,
+END-TO-END-UNVERIFIED hypothesis (no first-hand "I imported the full set and it stopped").
+
+KEY NUANCE (resolves the earlier tension): Spiki's standalone "Panzer / Panzer Origins" in
+dump #3087 is a SELF-CONTAINED custom AITYPE (its OWN GDT — the author says you must uninstall
+HarryBo21's "because of the gdt conflict", proving independent assets), NOT a thin overlay on
+stock mechz. The "scripts only, no sounds/images" caveat applies to the dump's gameplay-mechanics
+section, NOT the Panzer AI. So Spiki's Panzer can import LIKE Brutus and sidestep the stock-mechz
+DLC-asset/clientfield wall — BUT it carries UNFIXED defects: destructible/degradable parts don't
+function on either variant, and the Origins variant's grab is "no way to escape its grasp".
+(Verify on import: open its scripts, grep VERSION_SHIP vs VERSION_DLC1, to confirm it doesn't
+reintroduce the DLC1 path.)
+
+RANKED PATHS:
+  R1 (LOW effort) Self-contained Panzer-LIKE boss via the Brutus pattern: re-theme our existing
+     NSZ Brutus as "Panzer", OR import Spiki's Brutus 2 / Cellbreaker (#2875). Imports like the
+     Brutus we shipped; sidesteps the whole mechz failure surface. COST: armored humanoid, not a
+     literal mech. Blocker: Brutus 2 needs Harry's FX pack; helmet physics preset = "default".
+  R2 (MEDIUM) Spiki's standalone "Panzer" (#3087) imported like Brutus = the LITERAL Panzer
+     chassis without stock mechz. Ship the STANDARD variant only (dodge the inescapable Origins
+     grab); accept non-functional destructibles (solid-armor boss); install needs the assetlist-
+     comment + new-spawn-func step; can't co-exist with Harry's GDT; MEGA pw Chungus4Prez.
+  R3 (VERY-HIGH) Native stock mechz: Greyhound+HydraX-extract the full set from our owned
+     zm_tomb + re-version 10 clientfields DLC1->SHIP in mechz.gsc AND .csc. The "complete import
+     cures the crash" premise is UNVERIFIED — high risk of full effort + still crashing. EXPERIMENT
+     only (time-boxed, +set logfile 1 / +set com_clientfieldsdebug 1), never the shipping path.
+  R4 UGX "Panzer Soldat V1.5" = DISQUALIFIED (a World at War mod, not BO3).
+
+RECOMMENDATION: GO self-contained. For the literal Panzer look -> R2 (Spiki standalone Panzer
+#3087, audit it like Brutus first to confirm self-contained). For lowest risk / "heavy armored
+menace" -> R1. Do NOT gate the feature on R3.
+Full result: task weievq031 output (sweep + 4 verify verdicts + synth).
+================================================================================

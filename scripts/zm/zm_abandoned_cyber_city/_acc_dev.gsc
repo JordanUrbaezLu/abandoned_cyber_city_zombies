@@ -46,9 +46,15 @@ function init()
     level thread dev_unlimited_money();
     level thread dev_door_markers();
 
-    // Damage indicators: a read-only actor-damage callback feeds per-player
-    // last-hit + DPS; the HUD loop renders them and the current-zone sign.
-    zm::register_actor_damage_callback( &dev_damage_cb );
+    // Damage numbers: expose the per-player accumulator as a hook that
+    // _acc_damage feeds from INSIDE its own actor-damage callback. A separate
+    // callback does NOT work - stock dispatch short-circuits on the first non -1
+    // return (_zm.gsc:5824), and _acc_damage runs first + returns the modified
+    // damage, so a later callback never sees a modified hit (every headshot,
+    // every gun hit once you own Double Tap, every PaP'd hit). Feeding from
+    // _acc_damage's record path catches EVERY hit. (Hook auto-clears when dev
+    // mode is off, so production never shows debug numbers.)
+    level.acc_dmg_num_feed = &acc_center_dmg_add;
     level thread dev_player_hud_loop();
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
@@ -101,22 +107,71 @@ function dev_tp_players( org, label )
     acc_utility::log( "dev: teleported players to " + label );
 }
 
-// Set every buyable-door flag so the script_brushmodel walls retract - lets you
-// walk the whole map without buying through the (greybox-templated) door chain.
+// Open EVERY barrier so the whole map - Mystery Box included - is walkable from
+// spawn. Two classes of barrier, both handled here:
+//   1) The 8 buyable doors (zombie_door triggers). flag::set on the door's
+//      script_flag only ACTIVATES THE ZONE behind it (stock sets that flag as an
+//      OUTPUT of a purchase, _zm_blockers.gsc:1322); it does NOT retract the
+//      door slab. So we also physically clear each slab (Hide/NotSolid/
+//      ConnectPaths) - the same thing the entry script's acc_hardcoded_open_map
+//      does on load.
+//   2) The per-run PaP blocker brush. The randomizer (apply_pap_approach) leaves
+//      ONE of acc_pap_block_server / acc_pap_block_roof solid every run; it is a
+//      bare script_brushmodel (no trigger/flag), so the door pass misses it. That
+//      is the "one door that never opens" and it walls off the box when the box
+//      rolls to the blocked side - open BOTH.
 function dev_open_all_doors()
 {
-    flags = array( "enter_market", "enter_alley", "enter_corp_w", "enter_corp_e",
-                   "enter_vault", "enter_roof", "enter_lab_e", "enter_lab_w" );
-    for ( i = 0; i < flags.size; i++ )
+    doors = GetEntArray( "zombie_door", "targetname" );
+    for ( i = 0; i < doors.size; i++ )
     {
-        if ( !flag::exists( flags[ i ] ) )
-            flag::init( flags[ i ] );
-        flag::set( flags[ i ] );
+        door = doors[ i ];
+        if ( !isdefined( door ) )
+            continue;
+
+        if ( isdefined( door.script_flag ) && flag::exists( door.script_flag ) )
+            flag::set( door.script_flag );
+
+        if ( isdefined( door.target ) )
+        {
+            slab = GetEnt( door.target, "targetname" );
+            if ( isdefined( slab ) )
+            {
+                slab Hide();
+                slab NotSolid();
+                slab ConnectPaths();
+            }
+        }
+
+        door TriggerEnable( false );
     }
+
+    dev_open_pap_blockers();
+
     players = GetPlayers();
     for ( i = 0; i < players.size; i++ )
-        if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( "^3>> All doors opened" );
-    acc_utility::log( "dev: opened all buyable doors" );
+        if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( "^3>> All doors + PaP blockers opened" );
+    acc_utility::log( "dev: opened " + doors.size + " buyable doors + PaP blockers" );
+}
+
+// Open BOTH per-run PaP blocker brushes regardless of which side this run blocked
+// (inverse of the randomizer's block: Hide / NotSolid / ConnectPaths).
+function dev_open_pap_blockers()
+{
+    names = array( "acc_pap_block_server", "acc_pap_block_roof" );
+    for ( n = 0; n < names.size; n++ )
+    {
+        brushes = GetEntArray( names[ n ], "targetname" );
+        for ( i = 0; i < brushes.size; i++ )
+        {
+            b = brushes[ i ];
+            if ( !isdefined( b ) )
+                continue;
+            b Hide();
+            b NotSolid();
+            b ConnectPaths();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -166,9 +221,11 @@ function dev_skip_round()
 // Damage indicators + zone signage HUD
 // ---------------------------------------------------------------------------
 
-// Read-only actor-damage callback (self = victim/zombie). Registered AFTER
-// _acc_damage, so the value is already perk/overclock-modified. Feeds the
-// crosshair damage NUMBER on the ATTACKER. NEVER modifies damage (-1).
+// Crosshair damage NUMBER. self = the ATTACKING player; `amount` = the FINAL
+// (perk/overclock/PaP-modified) damage, fed by _acc_damage from inside its own
+// actor-damage callback via level.acc_dmg_num_feed. See the init() comment for why
+// it must be fed there (stock dispatch short-circuit) - a second callback misses
+// every modified/headshot/PaP hit.
 //
 // WHY crosshair, not over each zombie: over-entity arbitrary TEXT in BO3 requires
 // globally overriding CoD.Waypoints (the engine's objective/waypoint dispatcher) +
@@ -177,12 +234,6 @@ function dev_skip_round()
 // quest markers, NOT many-per-second combat popups (it would spam the compass +
 // objective list). The reliable, correct path is a crosshair-anchored LUI number:
 // you aim at the zombie, so it reads on-target. See acc_hud.lua CoD.AccDmgNum.
-function dev_damage_cb( inflictor, attacker, damage, flags, meansofdeath, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
-{
-    if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( damage ) && damage > 0 )
-        attacker acc_center_dmg_add( int( damage ) );
-    return -1; // no damage modification
-}
 
 // self = player. Accumulate damage; a push loop batches it to the crosshair number
 // every ~0.12s so sustained automatic fire reads as one steadily-updating number

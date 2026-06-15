@@ -54,8 +54,8 @@ Weapons are in a separate doc: [05_weapons.md](05_weapons.md).
 ### Mini-Boss: "Juggernaut Host" (rounds 10, 20)
 
 - **Spawn**: replaces the normal round wave. Round 10 = 1 mini-boss. Round 20 = 2 mini-bosses simultaneously.
-- **HP**: ~10x a regular elite.
-- **Behavior**: charges across the map. Immune to stun from normal damage.
+- **HP**: 500,000 base (10× the prior 50k baseline), scaling +50% per extra player.
+- **Behavior**: charges across the map at **+25% over the current round's top speed** (locked to the sprint tier × 1.25, so it outruns even a Rampage-Inducer wave). Immune to stun from normal damage.
 - **Data Shard drop**: 2 (round 10) / 3 (round 20).
 - **Round pickup**: usually drops a max-ammo or insta-kill powerup alongside the shards.
 - **Item drop**: **50% chance** to drop a random boss item (see [12_boss_items.md](12_boss_items.md)). If the player already has that item, it auto-converts to 3 Data Shards.

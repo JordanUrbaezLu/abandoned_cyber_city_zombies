@@ -20,6 +20,18 @@
  "Specs" : [ ]
 },
 {
+ "Type" : "ALIAS",
+ "Name" : "acc_skye_box_weapons",
+ "Filename" : "acc_skye_box_weapons.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "nsz_brutus",
+ "Filename" : "nsz_brutus.csv",
+ "Specs" : [ ]
+},
+{
  "Type" : "AMBIENT",
  "Name" : "ambient_mod",
  "Filename" : "ambient_mod.csv",

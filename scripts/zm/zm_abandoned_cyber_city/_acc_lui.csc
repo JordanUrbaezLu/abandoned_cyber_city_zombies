@@ -30,7 +30,7 @@ function __init__()
     // SAME fields, SAME order, SAME widths as _acc_lui.gsc - lockstep or the
     // clientuimodel bit layout desyncs.
     clientfield::register( "clientuimodel", "accLuiTest", VERSION_SHIP, 4, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 6, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+    clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accPapTier", VERSION_SHIP, 3, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 9, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accDmgNum", VERSION_SHIP, 18, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );

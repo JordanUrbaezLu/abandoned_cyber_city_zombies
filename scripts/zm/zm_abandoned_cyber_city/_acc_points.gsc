@@ -20,6 +20,8 @@
 // =============================================================================
 
 #using scripts\shared\array_shared;
+#using scripts\shared\flag_shared;
+#using scripts\shared\hud_util_shared;
 #using scripts\shared\util_shared;
 
 #using scripts\zm\_zm_score;

@@ -22,9 +22,15 @@
 
 local ACC_CARD_BULLETS = 6
 
+-- The Armory (Mule Kick Mega) makes all buys 10% cheaper. 10% off, floored to a clean
+-- multiple of 10 - MUST match the GSC (armory_discounted / _acc_pap_levels keeper).
+local function acc_discount(n)
+    return math.floor(n * 0.9 / 10) * 10
+end
+
 -- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit/tier_repack_cost).
 local function pap_tier_benefit(tier)
-    if tier == 1 then return "Pack-a-Punch your gun (camo + alt-ammo)" end
+    if tier == 1 then return "Upgrade gun + new camo" end
     if tier == 2 then return "+25% weapon damage" end
     if tier == 3 then return "+55% weapon damage" end
     if tier == 4 then return "+90% weapon damage" end
@@ -42,30 +48,30 @@ end
 -- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
 local AccPerkCards = {
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
-            base = { "Survive 6 melee hits (vs 3)", "Built for training + tanking" },
-            mega = { "7 hits before going down", "Immune to boss abilities" } },
+            base = { "250 HP - down on the 6th hit", "(no perk: 100 HP / 3rd hit)" },
+            mega = { "314 HP - down on the 7th hit", "Immune to boss abilities" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
-            base = { "Faster teammate revives", "+30% HP regen after damage", "Solo: self-revive" },
-            mega = { "Revive 40% faster", "+15% speed near a downed ally" } },
+            base = { "Revive teammates in 2.0s", "Regen starts 15% sooner", "Solo: self-revive" },
+            mega = { "Revive in 1.0s", "Regen starts 30% sooner", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
-            base = { "+50% reload speed", "~30% faster weapon swap", "~40% faster perk drink" },
-            mega = { "+65% reload", "+15% swap, +15% drink" } },
-    [4] = { title = "DOUBLE TAP 2.0", price = "2000", megaName = "Gun Slinger",
-            base = { "+33% fire rate", "+3% weapon damage" },
-            mega = { "+50% fire rate", "+6% damage total" } },
+            base = { "+50% reload speed", "Faster barrier repair", "25% faster perk drink" },
+            mega = { "+70% reload speed", "50% faster perk drink" } },
+    [4] = { title = "DOUBLE TAP 1.0", price = "2000", megaName = "Gun Slinger",
+            base = { "+33% rate of fire" },
+            mega = { "+50% rate of fire", "Weapon swaps 4x faster" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
-            base = { "Longer sprint reserve", "Faster sprint speed" },
-            mega = { "+12% run, longer sprint", "x2 walk, x4 crawl speed" } },
+            base = { "Longer sprint (~12s)", "Faster sprint + mobility" },
+            mega = { "+15% movement speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "+30% ammo per gun", "+2 lethal, +2 tactical" } },
+            mega = { "+25% ammo capacity per gun", "All buys 10% cheaper" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
-            base = { "ADS snaps to the head", "1.5x headshot damage", "No snap on bosses" },
-            mega = { "1.75x headshot damage", "Zero weapon recoil" } },
+            base = { "1.5x headshot damage", "-25% weapon recoil", "ADS snaps to head (not bosses)" },
+            mega = { "2x headshot damage", "-50% weapon recoil" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
-            base = { "Webs trap zombies on melee", "+50% frag dmg, +25% radius", "+50% EMP grenade" },
-            mega = { "Melee 1-hits zombies", "Web nades 1-hit, hold 6" } },
-    [9] = { title = "AURA BLAST", price = "2500", megaName = "Mega Man",
+            base = { "Web grenades trap zombies ~20s", "Self-defense + melee webbing", "Restock 2 web nades / round" },
+            mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" } },
+    [9] = { title = "AURA BLAST (WIP)", price = "2500", megaName = "Mega Man",
             base = { "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" },
             mega = { "Affects bosses too", "800u, 60s CD, 2 charges" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
@@ -81,8 +87,11 @@ CoD.AccPerkCard = InheritFrom(LUI.UIElement)
 function CoD.AccPerkCard.new(HudRef, InstanceRef)
     local self = LUI.UIElement.new()
     self:setClass(CoD.AccPerkCard)
-    self:setLeftRight(false, true, -394, -22) -- right side, 372 wide, 22px margin
-    self:setTopBottom(false, false, -168, 168) -- centered, 336 tall
+    -- ORIGINAL right-side location (user confirmed this position was fine) with a
+    -- SMALLER height. Text is nudged right in NewLine below (first few letters were
+    -- starting off the left edge of the card).
+    self:setLeftRight(false, true, -394, -22)
+    self:setTopBottom(false, false, -140, 140) -- centered, 280 tall (was 336)
     self.id = "AccPerkCard"
     self.soundSet = "default"
 
@@ -108,7 +117,9 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
     -- two-sided anchor when combined with setScale + left alignment.
     local function NewLine(topPx, botPx, scale)
         local t = LUI.UIText.new()
-        t:setLeftRight(true, false, 18, 354) -- left-anchored, ~336 wide within the 372 card
+        -- Original left-anchored box, but the left offset bumped 18 -> 44 so the first
+        -- few letters no longer start off the left edge of the card. (true = parent-left.)
+        t:setLeftRight(true, false, 44, 380)
         t:setTopBottom(true, false, topPx, botPx)
         t:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
         t:setScale(scale)
@@ -116,7 +127,7 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         return t
     end
 
-    local CardTitle = NewLine(16, 48, 1.15)
+    local CardTitle = NewLine(16, 48, 1.0)
     local CardSub   = NewLine(50, 74, 0.9)
     local CardBullets = {}
     for i = 1, ACC_CARD_BULLETS do
@@ -132,6 +143,12 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             self:hide()
             return
         end
+        -- High bit (+64) = viewer holds The Armory -> show the 10%-off price.
+        local discounted = false
+        if code >= 64 then
+            discounted = true
+            code = code - 64
+        end
         local idx = math.floor(code / 4)
         local mode = code % 4
         local d = AccPerkCards[idx]
@@ -141,6 +158,7 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
         end
 
         local title, sub, bullets, titleCol, bulletCol
+        local bulletColsByIndex -- optional per-bullet color overrides (nil = use bulletCol)
         if idx == 10 then
             -- Pack-a-Punch: show ONLY the next tier you'd get (not the whole ladder).
             title = d.title
@@ -148,34 +166,69 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             bulletCol = { 0.80, 0.66, 1.0 }
             if papTier >= 5 then
                 sub = "Tier 5 / 5 - MAX"
-                bullets = { "+130% weapon damage - fully maxed" }
+                bullets = { "+130% weapon damage (MAX)" } -- short: avoids wrap at scale 0.85
             else
                 local nextTier = papTier + 1
                 sub = "Tier " .. papTier .. " / 5 - re-pack to raise"
                 local costLine
                 if pap_tier_cost(nextTier) > 0 then
-                    costLine = "Cost: " .. pap_tier_cost(nextTier) .. " Points"
+                    local pc = pap_tier_cost(nextTier)
+                    if discounted then
+                        costLine = "Cost: " .. acc_discount(pc) .. " Points (-10%)"
+                    else
+                        costLine = "Cost: " .. pc .. " Points"
+                    end
                 else
                     costLine = "Use the Pack-a-Punch machine"
                 end
-                bullets = { "Next - Tier " .. nextTier .. ": " .. pap_tier_benefit(nextTier), costLine }
+                -- Header / benefit / cost on SEPARATE lines: the combined "Next - Tier
+                -- N: <benefit>" string was long enough (esp. tier 1) to wrap into the
+                -- cost line below it. One line each = no wrap, no overlap.
+                bullets = {
+                    "Next: Tier " .. nextTier .. " / 5",
+                    pap_tier_benefit(nextTier),
+                    costLine
+                }
             end
         elseif mode == 1 then
-            title = "MEGA: " .. (d.megaName or d.title)
-            sub = "Upgrade: 1 Mega Bottle"
+            -- Owns base, not Mega'd yet: preview what the Mega bottle adds.
+            title = d.megaName or d.title
+            sub = "Mega upgrade: 1 Bottle"
             bullets = d.mega or {}
             titleCol = { 0.96, 0.78, 0.25 }
             bulletCol = { 0.96, 0.84, 0.5 }
         elseif mode == 2 then
+            -- Owned + Mega'd: show the FULL description - base bullets (cyan) then
+            -- the Mega bullets (gold), so the whole perk reads at a glance.
             title = d.title
-            sub = "Owned + Mega upgraded"
+            sub = "Mega: " .. (d.megaName or "")
             bullets = {}
+            bulletColsByIndex = {}
+            local baseCol = { 0.78, 0.92, 1.0 }
+            local megaCol = { 0.96, 0.84, 0.5 }
+            if d.base then
+                for _, b in ipairs(d.base) do
+                    bullets[#bullets + 1] = b
+                    bulletColsByIndex[#bullets] = baseCol
+                end
+            end
+            if d.mega then
+                for _, b in ipairs(d.mega) do
+                    bullets[#bullets + 1] = b
+                    bulletColsByIndex[#bullets] = megaCol
+                end
+            end
             titleCol = { 0.45, 0.9, 0.5 }
-            bulletCol = { 0.45, 0.9, 0.5 }
+            bulletCol = baseCol
         else
             title = d.title
             if d.price ~= "" then
-                sub = "Cost: " .. d.price .. " Points"
+                local p = tonumber(d.price)
+                if discounted and p then
+                    sub = "Cost: " .. acc_discount(p) .. " Points (-10%)"
+                else
+                    sub = "Cost: " .. d.price .. " Points"
+                end
             else
                 sub = ""
             end
@@ -193,7 +246,8 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             local b = bullets[i]
             if b then
                 CardBullets[i]:setText("- " .. b)
-                CardBullets[i]:setRGB(bulletCol[1], bulletCol[2], bulletCol[3])
+                local c = (bulletColsByIndex and bulletColsByIndex[i]) or bulletCol
+                CardBullets[i]:setRGB(c[1], c[2], c[3])
             else
                 CardBullets[i]:setText("")
             end

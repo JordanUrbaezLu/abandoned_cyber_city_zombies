@@ -26,13 +26,15 @@ is acceptable or the line should be cut.
 
 ### Mule Kick — "The Armory" capacity (GSC fill is live; raise the caps here)
 
-The GSC `armory_apply()` already fills reserves/grenades to `weapon.maxAmmo` on
-Mega-apply, perk re-buy, and every Max Ammo. It is **inert until these caps go up**
-(with stock GDTs it just tops to the stock cap = no visible bonus).
+The GSC `armory_apply()` fills gun reserves (`GiveMaxAmmo`) and the **grenade clip**
+(`SetWeaponAmmoClip`, fixed 2026-06-14 — was wrongly writing the unused grenade
+reserve) to `weapon.maxAmmo` on Mega-apply, perk re-buy, and every Max Ammo. It is
+**inert until these caps go up** (with stock GDTs it just tops to the stock cap = no
+visible bonus). Note grenades are clamped to their GDT **carry cap**, not a reserve.
 
 | Asset (GDT) | Field | Change |
 |---|---|---|
-| `frag_grenade` (default lethal) | `maxAmmo` (reserve cap) | stock → **stock + 2** (e.g. 4 → 6) |
+| `frag_grenade` (default lethal) | `maxAmmo` (grenade carry cap) | stock → **stock + 2** (e.g. 4 → 6) |
 | `cymbal_monkey` (default tactical) | `maxAmmo` | stock → **stock + 2** |
 | Every primary in the roster (`zm_levelcommon_weapons.csv`: `ar_accurate`, `shotgun_fullauto`, …) | `maxAmmo` (reserve cap) | stock → **ceil(stock × 1.30)** |
 
@@ -48,60 +50,96 @@ Mega-apply, perk re-buy, and every Max Ammo. It is **inert until these caps go u
 | Asset (GDT) | Field | Change |
 |---|---|---|
 | `sticky_grenade_widows_wine` | `explosionRadius` + `explosionInnerRadius` | × **1.25** each (+25% radius) |
-| `sticky_grenade_widows_wine` | `maxAmmo` (reserve cap) | → **6** (so GSC `SetWeaponAmmoStock(…,6)` isn't clamped) |
+| `sticky_grenade_widows_wine` | `maxAmmo` (grenade carry cap) | → **6** (so the GSC `SetWeaponAmmoClip(…,6)` fill isn't clamped below 6) |
 
-- The Spiderman web-grenade **OHK** and the GSC top-up-to-6 are already coded; this
-  GDT raises the ceiling the GSC fills to. Ship both.
+- The Spiderman web-grenade **OHK** and the GSC top-up-to-6 are already coded; the GSC
+  now writes the **lethal clip** (`SetWeaponAmmoClip`, fixed 2026-06-14 — the web
+  grenade is the player's lethal, carried in the clip per `_zm_perk_widows_wine.gsc:214`),
+  so this GDT only matters **if** the engine clamps the clip to the carry cap below 6.
+  Confirm in-game: if `SetWeaponAmmoClip(web, 6)` already yields 6, this row is moot.
 - **`+50%/+25% EMP` line is a spec blocker, not a build task.** Stock Widow's Wine
   has **no EMP component** (it registers only the web grenade + webbed-knife
   variants). There is no "Widow's Wine EMP" asset to edit and no hook tying an EMP
   effect to `specialty_widowswine`. **Recommend design strike or re-scope** this
   line (likely a conflation with the EMP *elite* enemy / tactical-slot text).
 
-### Deadshot — "American Sniper" no recoil (variant-swap, heavier)
+### Deadshot — recoil −35% (base) / −70% (Mega), off a 2.5× map baseline (variant-swap)
 
-Recoil is a static weapon-asset property — there's no per-player recoil field. A
-*true* perk-gated zero-recoil needs the **variant-swap** pattern:
+> **PHASE 1 IMPLEMENTED + AUTOMATED (2026-06-14).** Model: every gun's base recoil is **×2.5**
+> (map-wide skill rule, edited in place in the Skye GDTs) and Deadshot reduces it **−35% base
+> / −70% Mega** off that baseline (→ 1.625× / 0.75× vanilla). `tools/apply_recoil_overhaul.js`
+> does the base scaling + generates the 12 twins; `_acc_weapon_variants.gsc` swaps them per
+> perk (base Deadshot + Mega both poke it via `_acc_mega_bottles`). **PaP persists** across the
+> swaps via `acc_weapon_variants::true_base()` + a 150u machine-proximity twin suppression.
+> See [31_ape_perk_gdt_walkthrough.md](31_ape_perk_gdt_walkthrough.md) §4 for the full recipe.
 
-1. APE → duplicate each affected weapon to `<weapon>_acc_norecoil`, zeroing
-   `gunKickPitch/Yaw Min/Max`, `gunKickAccel/SpeedMax`, `viewKickPitch/Yaw Min/Max`,
-   and tightening `hipSpread*`/`adsSpread*`.
-2. Register the new names in the `.zone` weapon table + precache; full rebuild.
-3. GSC (extend `_acc_mega_bottles` `specialty_deadshot` Mega apply / `on_perk_lost`):
-   `GiveWeapon` the `_acc_norecoil` twin on American Sniper, restore the base twin on
-   loss — carrying ammo/PaP/clip/Tier state across the swap.
-- **Heavy:** one twin per weapon, and PaP'd weapons need upgraded twins too. This is
-  the same override-swap framework `_acc_weapon_abilities.gsc` plans for Stabilizer
-  (currently an unimplemented stub).
-- **Recommended scope:** either ship a flat low-recoil pass on a few sniper/marksman
-  guns (always-on for that gun, not perk-gated — matches the sniper fantasy), or
-  defer to the Phase-4 override system. Don't advertise true per-perk zero-recoil
-  until that lands.
+Recoil is a static weapon-asset property — there's no per-player recoil field. Deadshot is a
+recoil **reduction** off the 2.5× baseline (docs/perk_abilities §7): **−35% any owner, −70%
+Mega.** So it's **two twins per gun** via the **variant-swap** pattern:
 
-### Double Tap 2.0 — fire rate (already out of scope)
+1. APE → duplicate each affected (IMPORTED) gun to **two** twins and **SCALE** the recoil
+   fields (do NOT zero): `<weapon>_acc_recoil25` = ×0.75, `<weapon>_acc_recoil50` = ×0.50.
+   Fields: `hipGunKickPitch/Yaw Min/Max`, `hipGunKickAccel/SpeedMax/StaticDecay/SpeedDecay`,
+   the `adsGunKick*` mirror, `hipViewKickPitch/Yaw Min/Max` + `adsViewKick*`. (Field names
+   corrected 2026-06-14 — bare `gunKick*` was wrong; recoil keys carry `hip`/`ads` prefixes.
+   **Base must be an IMPORTED gun or a HydraX dump — stock guns have no editable GDT to
+   clone**, see docs/31 §4 SOURCING + docs/22 "Weapon-GDT sourcing reality".)
+2. Register the twin names in the `.zone` (`weaponfull,<name>`) + `build_available_twins()`;
+   rebuild. Bake the `_up` PaP twins too.
+3. GSC — **DONE** (`_acc_weapon_variants.gsc`): the reconcile loop `GiveWeapon`s the
+   `_acc_recoil25` twin while base Deadshot is held and `_acc_recoil50` while Mega is held,
+   restoring the base on loss, carrying clip/reserve across (PaP handled by keeping the `_up`
+   stem). It's the same override-swap framework `_acc_weapon_abilities.gsc` Stabilizer now
+   drives (`apply_timed_variant`).
+- **Lighter scope:** bake only the `_acc_recoil50` (Mega) twins — base Deadshot then keeps
+  just its ×1.5 headshot + ADS-snap (the framework no-ops the −25% with no `recoil25` twin).
+
+### Double Tap 1.0 — Gun Slinger +50% fire rate + −75% swap (weapon-variant swap)
+
+> **✅ BUILT + AUTOMATED (2026-06-14).** Done via the `fastfire` weapon-variant twin —
+> `fireTime ×0.667` (+50% RoF) **and** raise/drop times `×0.25` (−75% swap), bundled since
+> both gate on the Double-Tap Mega flag. Generated headlessly by
+> `tools/apply_recoil_overhaul.js` into `source_data/acc_weapon_variants.gdt`, wired in the
+> zone (`weaponfull,*_acc_fastfire*`) + `build_available_twins()` +
+> `_acc_weapon_variants.gsc::axis_fire`. The "+6% damage" alternative below was **dropped**
+> (Double Tap 1.0 is rate-only). Remaining: a Launcher Compile + in-game feel confirm (tune
+> the `FIRE`/`SWAP` constants in the generator). The bullets below are kept as background.
 
 - Base **+33% RoF** is **engine-granted for free** the moment a player owns
-  `specialty_doubletap2` (the machine grants it normally) — no GDT edit needed.
-- Mega Gun Slinger **+50% RoF** has **no GDT or GSC lever** (no per-perk fireTime
-  field). The doc already re-scoped Double Tap to **damage-only** (+3% base / +6%
-  Mega, both shipped in `_acc_damage.gsc`). **Action: none — just don't promise the
-  +50% RoF number in the LUI card.** The Mega's mechanical benefit in-build is +6%
-  damage.
+  `specialty_doubletap2` — no GDT edit needed. **Verified 2026-06-14:**
+  `_zm_perk_doubletap2.gsc` has *zero* fire-rate code (only registration), so the
+  +33% is hardcoded to the specialty in the engine.
+- Mega Gun Slinger **+50% RoF** has **no runtime lever** — grep over the entire stock
+  script tree returns **no** `Set*FireRate`/`ScaleWeaponFire*` builtin and **no**
+  fire-rate dvar. So the only way to make a gun fire faster is the **`fireTime`
+  weapon-variant swap** — exactly the same framework as Deadshot no-recoil below: clone
+  each gun to `<weapon>_acc_fastfire` with a lower `fireTime` (and `fireTimeAkimbo`),
+  register the twins, and `GiveWeapon` the fast twin while Gun Slinger is held (carrying
+  ammo/PaP/clip across), restoring the base twin on loss. **Heavy:** one twin per
+  weapon, PaP'd twins too. See the variant-swap how-to under Deadshot, and the
+  step-by-step in [31_ape_perk_gdt_walkthrough.md](31_ape_perk_gdt_walkthrough.md).
+- **Cheaper alternative (recommended if the variant framework isn't built):** keep
+  Gun Slinger as the **+6% damage** half (already shipped in `_acc_damage.gsc`) and a
+  flat low-`fireTime` pass on a couple of signature guns (always-on, not perk-gated),
+  rather than a full per-weapon twin set. Design call.
 
-### Speed Cola — reload/drink/swap (mostly un-gateable, design decision)
+### Speed Cola — Mega +70% reload (weapon-variant swap); drink/swap resolved
 
-All three are GDT-baked **and** cannot be gated per-perk (no GSC weapon-timing
-setter, no swap-on-perk hook), so any edit is **unconditional/map-wide**:
-
-| Line | Asset / field | Note |
-|---|---|---|
-| Mega **+65% reload** | every weapon `reloadTime`/`reloadEmptyTime` ≈ × 0.91 over the engine +50% | unconditional; speeds up non-Speed-Cola players too |
-| Base **~40% shorter drink** | `zombie_perk_bottle_*` drink anim ≈ 0.60× length | one map-wide value; base+Mega tiers not separable |
-| Base **~30% faster swap** + Mega +15% switch | every weapon raise/drop anim ≈ 0.70× | unconditional, per-weapon |
-
-- **Recommendation:** either **cut** the drink/swap/+65% lines from Speed Cola's value
-  prop, or accept them as a **static map-wide QoL** and document as such. Base stock
-  **+50% reload** already works for free via the specialty. Design call.
+> **✅ RESOLVED (2026-06-14).** The old "all map-wide / un-gateable, cut-or-accept"
+> framing is superseded:
+> - **Mega +70% reload — BUILT, perk-gated.** Via the `fastreload` weapon-variant twin
+>   (`reloadTime`/`reloadEmptyTime`/`*AddTime` ×0.882, layered on the engine's +50% →
+>   ~+70% net), generated by `tools/apply_recoil_overhaul.js`, wired in the zone +
+>   `build_available_twins()` + `_acc_weapon_variants.gsc::axis_reload`. **Not** map-wide —
+>   only Speed-Cola-Mega owners swap to the twin. (Spec number corrected +65% → **+70%**.)
+> - **Faster perk-drink — CUT.** Shared map-wide anim, played before you own the perk, so
+>   no per-perk lever exists. Removed from Speed Cola's card (docs/perk_abilities §3).
+> - **Faster weapon-swap — moved to Double Tap's Gun Slinger** (the `fastfire` twin's
+>   raise/drop ×0.25); it is **not** a Speed Cola effect.
+>
+> Base **+50% reload** + faster barrier repair remain free from the stock specialty.
+> Remaining: a Launcher Compile + in-game confirm of the reload feel (tune the `RELOAD`
+> constant in the generator if the engine +50% composes differently than assumed).
 
 ---
 
@@ -115,6 +153,27 @@ The rotation **brain** is live (`_acc_map_randomizer::roll_perk_rotation` rolls
 `acc_lab_perk_*` entities exist**. Today all 9 perks are always buyable from fixed
 machines and the lockout never happens.
 
+> **Headless lockout option (no Radiant needed) — found by the 2026-06-14 audit.**
+> Stock `vending_trigger_think` calls `level.custom_perk_validation` on the trigger
+> before every purchase (`_zm_perks.gsc:560-562`); the trigger's perk is
+> `self.script_noteworthy`. So the **4-of-9 lockout gate** can be enforced entirely in
+> GSC on whatever machines exist:
+> ```gsc
+> // in _acc_map_randomizer init:
+> level.custom_perk_validation = &acc_perk_buy_allowed;
+> function acc_perk_buy_allowed( player )
+> {
+>     if ( !isdefined( level.acc_perk_rotation ) || level.acc_perk_rotation.size == 0 )
+>         return true;                                   // pre-roll: allow all
+>     return IsInArray( level.acc_perk_rotation, self.script_noteworthy );
+> }
+> ```
+> Caveat: this only gates the **machines that exist** (currently 3 inline structs), and
+> it cannot *re-skin* a live machine to a new perk (the stock trigger snapshots its perk
+> once at spawn). The full designed experience — 4 dedicated Lab machines whose perk
+> rotates each round — still needs the Radiant entities below. **Left off by default: a
+> 4-of-9 lockout is a balance decision (locks 5/9 perks per round); enable on request.**
+
 - In Radiant, place **4** perk-machine entities tagged `acc_lab_perk_a` / `_b` /
   `_c` / `_d` (the slot indices `apply_perk_rotation_to_machines` reads). Wire them
   so each can be reskinned/assigned to `level.acc_perk_rotation[slot]`.
@@ -125,6 +184,38 @@ machines and the lockout never happens.
   rotating ones); see [13_perks.md](13_perks.md) "Per-Round Rotating Lab Machines".
 
 ---
+
+## Adding a weapon-variant effect (the extensible framework — for agents)
+
+`_acc_weapon_variants.gsc` is a **data-driven, effect-agnostic** swap engine. The swap
+mechanics (instant `SwitchToWeaponImmediate`, re-entrancy mute, `true_base()` PaP keying,
+`_up`-twin upgrade registration, near-PaP suppression, laststand defer) are **shared and
+never need to change**. A new perk/ability effect is added by declaring an **axis** and
+baking its **twins**. Each axis is one independent weapon-stat dimension (recoil, fire rate,
+reload, …); the gun a player holds is `<gun>[_up]_acc_<tok1>_<tok2>…` for the active tokens,
+resolved with graceful fallback (a missing combined twin degrades to a partial effect, then
+base). Existing axes: **recoil** (Deadshot −35%/−70%), **fire** (Gun Slinger), **reload**
+(Speed Cola Mega).
+
+**To add an effect (e.g. a new ability that lowers ADS-in time), do ONLY these — no core change:**
+
+1. **Bake the twins.** Add a dimension to `tools/apply_recoil_overhaul.js` `TWIN_DIMS` (a
+   `[suffix, {field: scale}]`) — the generator already scales recoil/fire/reload/swap GDT
+   key-sets; add a new key-set in `tools/gen_weapon_variant_gdt.js` if your field isn't covered.
+   Run it → twins named `<gun>[_up]_acc_<token>` land in `source_data/acc_weapon_variants.gdt`.
+2. **Zone:** add a `weaponfull,<twin>` line per new twin.
+3. **`_acc_weapon_variants.gsc`:**
+   - `variant_dims()` — append your axis's token(s) (canonical order = generator order).
+   - `build_available_twins()` — add the new combo suffix tails to `built` (the "compiled-in" gate).
+   - Write an `axis_<name>()` returning your token when the perk/ability is active (read
+     `HasPerk`/`has_mega`; honor `timed_has()` for ability overlays).
+   - `init()` — append `&axis_<name>` to `level.acc_variant_axes` (canonical order).
+4. **Build** (full `cod2map64`→LED→linker — GDT is fastfile-baked). `true_base`/PaP/HUD all
+   keep working because they're effect-agnostic.
+
+`build_variant_suffixes()` (the stem-stripper list) is computed from `variant_dims()` as a
+mixed-radix cross-product, so it stays in sync automatically. Keep `variant_dims()` order ==
+`level.acc_variant_axes` order == the generator's `TWIN_DIMS` order.
 
 ## Build reminder
 

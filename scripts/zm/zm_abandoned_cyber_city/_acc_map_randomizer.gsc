@@ -14,12 +14,10 @@
 //     zm_power threads its switch logic from a REGISTER_SYSTEM_EX *postload*
 //     func that the engine runs in CodeCallback_FinalizeInitialization, after
 //     main() (see VERIFIED notes on the function).
-//   - apply_wallbuy_pool() must run after zm_usermap::main() (the stock
-//     wallbuy stubs it rewrites are built inside it) and before the first
+//   - remove_all_wallbuys() must run after zm_usermap::main() (the stock
+//     wallbuy stubs it unregisters are built inside it) and before the first
 //     player can approach a wallbuy (purchase triggers are built lazily per
-//     player). pre_init() satisfies both. See the long note on the function
-//     for why we deliberately do NOT rewrite the Radiant structs before the
-//     stock read point.
+//     player). pre_init() satisfies both. See the long note on the function.
 // =============================================================================
 
 #using scripts\shared\array_shared;
@@ -29,6 +27,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_weapons;
+#using scripts\zm\_zm_unitrigger;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
@@ -41,7 +40,6 @@ function pre_init()
     state = spawnstruct();
     state.power_switch_side = roll_power_switch_side();
     state.pap_approach = roll_pap_approach();
-    state.wallbuy_pool = roll_wallbuy_pool();
     state.mystery_box_initial = roll_mystery_box_initial();
     // VERIFIED(acc): the initial box location must be set HERE, not at
     // blackscreen time - stock treasure_chest_init runs ~0.05s after magicbox
@@ -62,10 +60,10 @@ function pre_init()
     // contract in the file header + the VERIFIED notes on each function):
     //   - power: delete the dead side's stock switch trigger BEFORE the
     //     zm_power postload thread collects it.
-    //   - wallbuys: rewrite the stock purchase stubs BEFORE any player
+    //   - wallbuys: unregister every stock purchase stub BEFORE any player
     //     proximity builds a purchase trigger from them.
     apply_power_switch_side( state.power_switch_side );
-    apply_wallbuy_pool( state.wallbuy_pool );
+    remove_all_wallbuys();
 
     // Apply the remaining state to the world (PaP blocker brushes, dead-side
     // emergency-drop trigger disable, box pool registration) after _zm has
@@ -91,143 +89,66 @@ function roll_pap_approach()
     return ( acc_utility::acc_rand_int( 2 ) == 0 ? "server" : "roof" );
 }
 
-function roll_wallbuy_pool()
-{
-    // Source of truth: docs/05_weapons.md (weapon roster) +
-    // docs/07_replayability.md (per-run wallbuy randomization).
-    //
-    // Rule: wallbuys dispense NORMAL-tier weapons only. Bad + Strong tier
-    // weapons live in the Mystery Box (see register_mystery_box_pool). If a
-    // box-pool weapon gets rolled onto a wall this run, it is skipped during
-    // box registration so it stays wall-exclusive (see is_rolled_onto_wall).
-    //
-    // SLOT KEYS are the Radiant-authored zombie_weapon_upgrade defaults of the
-    // placed wallbuy structs (start-room gameplay set). The key doubles as the
-    // slot's identity when apply_wallbuy_pool matches structs, so each placed
-    // wallbuy MUST keep a unique default weapon:
-    //   ar_accurate (ICR-1), shotgun_fullauto (Haymaker 12),
-    //   sniper_fastsemi (Drakon), ar_marksman (Sheiva),
-    //   frag_grenade (Frag), bowie_knife (Bowie, targetname bowie_upgrade).
-    //
-    // VERIFIED(acc): stock BO3 weapon names are class-based and unsuffixed
-    // (every GetWeapon("...") in the stock mirror: "pistol_standard",
-    // "shotgun_fullauto", "bowie_knife"...). The old "<marketing>_zm" names
-    // exist nowhere in stock - that's the BO1/BO2 convention. Candidate-name
-    // evidence (only names with verified evidence are used - others stay
-    // single-candidate with a TODO):
-    //   ar_accurate/ar_standard/ar_longburst/sniper_fastsemi/sniper_fastbolt/
-    //   shotgun_fullauto/bowie_knife: docs/19_stock_api_verification.md:41
-    //   ("ar_standard is the KN-44!").
-    //   ar_standard additionally: GetWeapon("ar_standard") in stock
-    //   scene_shared.gsc:72 + _character_customization.csc:388.
-    //   shotgun_precision: stock zombies AI code matches the class name
-    //   (mechz.gsc:1471 isSubStr(weapon.name, "shotgun_precision")).
-    //   ar_marksman/frag_grenade: docs/20_requirements_checklist.md:263.
-    // Marketing identities for the alternates (KN-44, KRM-262, Locus, XR-2)
-    // come from mod tools GDT naming - confirm on first compile (the class
-    // names themselves are the load-bearing part).
-    //
-    // Stock candidates ride into the fastfile via the zm_levelcommon_weapons
-    // csv stringtable (docs/16_gsc_reference.md:345) - no weaponfull zone
-    // lines needed. roll_wallbuy_slot() still validates each candidate
-    // against the live weapon table and falls back to the slot default if a
-    // candidate has no row, so a missing csv entry degrades to the Radiant
-    // gun instead of tripping the stock asserts (_zm_weapons.gsc:1419/:1426).
-    // ARSENAL RESTRICTED (user, 2026-06-13): the ONLY guns on the map are the
-    // ICR-1 (ar_accurate) and the Man-O-War (ar_damage). We keep only the ICR
-    // wall slot here and drop the other four wall slots from the pool. With no
-    // pool entry, apply_wallbuy_pool builds NO purchase trigger for those placed
-    // structs, so the Haymaker / Drakon / Sheiva / Frag walls simply go dead -
-    // no .map edit / geometry rebuild needed (apply_wallbuy_pool already logs
-    // "no struct for slot" gracefully for the inverse case). Man-O-War has no
-    // placed wall struct, so it is mystery-box-only (register_mystery_box_pool).
-    pool = [];
-
-    // ICR-1 wall (Radiant default ar_accurate) - pinned, no alternate roll.
-    pool[ "ar_accurate" ] = "ar_accurate";
-
-    // Near-perk melee upgrade (Bowie Knife, stock BO3) - not a gun, own stub
-    // plumbing (targetname bowie_upgrade, _zm_weapons.gsc:843); kept.
-    pool[ "bowie_knife" ] = "bowie_knife";
-
-    return pool;
-}
-
-// Roll one wallbuy slot from a weighted candidate list, keeping only
-// candidates that actually have a row in the loaded weapon table. Falls back
-// to the slot's Radiant default when validation eliminates everything (or
-// when the table is not up yet, which would mean pre_init ran before
-// zm_usermap::main - an ordering regression we degrade through, not crash).
-function roll_wallbuy_slot( slot_default, candidates )
-{
-    valid = [];
-    for ( i = 0; i < candidates.size; i++ )
-    {
-        if ( weapon_in_zm_table( candidates[ i ].value ) )
-        {
-            valid[ valid.size ] = candidates[ i ];
-        }
-        else
-        {
-            acc_utility::log( "wallbuy slot " + slot_default +
-                              ": candidate missing from weapon table: " +
-                              candidates[ i ].value );
-        }
-    }
-
-    if ( valid.size == 0 )
-    {
-        return slot_default;
-    }
-
-    return acc_utility::acc_weighted_pick( valid );
-}
-
-function weapon_in_zm_table( weapon_name )
-{
-    // VERIFIED(acc): level.zombie_weapons is keyed by weapon OBJECT, and the
-    // stock cost/hint getters assert table membership instead of returning a
-    // default (_zm_weapons.gsc:1417-1429) - validate before ever calling them.
-    if ( !isdefined( level.zombie_weapons ) )
-    {
-        return false;
-    }
-
-    wpn = GetWeapon( weapon_name );
-    return isdefined( wpn ) && isdefined( level.zombie_weapons[ wpn ] );
-}
-
-// Mystery Box pool. Registered once on map load; roll is handled by stock
-// _zm_magicbox logic which we extend by registering our weapons into its pool.
+// Mystery Box pool. Registered once on map load (post-blackscreen); the draw
+// is handled by stock _zm_magicbox logic, gated per spin on each weapon's live
+// level.zombie_weapons[wpn].is_in_box flag.
 //
-// Contains all BAD and STRONG tier weapons from docs/05_weapons.md. Normal
-// tier weapons are NOT in the box in v1.0 - that's an intentional design
-// choice to preserve the "bad vs strong roll" tension. If you want wallbuy
-// weapons to also appear in the box, add them here.
+// BOX ARSENAL (user, 2026-06-14): the box is being switched to Tac-19, Locus,
+// FN FAL, AK-47 (docs/05_weapons.md tiers; import staging in docs/32). Of those
+// only Locus is stock BO3 (sniper_fastbolt); Tac-19 (s1_tac19), FN FAL (t6_fal)
+// and AK-47 (s1_ak47 / t6_ak47) are Skye weapon-pack imports that must be
+// installed on the Windows box before they can be enabled. A weapon that is not
+// in the live table just degrades to "not in box" (never a crash), so naming an
+// uninstalled import here is harmless.
+//
+// INTERIM (imports not yet installed): ICR-1 + Man-O-War + Locus.
+//
+// The map ships the STOCK zm_levelcommon_weapons.csv
+// (zone_source/zm_abandoned_cyber_city.zone:78), whose ~47 rows are flagged
+// in_box=TRUE - so a stock box would draw the whole stock arsenal. Setting
+// is_in_box=true on our guns is therefore NOT enough on its own: we must first
+// CLEAR the flag on every other weapon. The box gate reads the flag live
+// (treasure_chest_CanPlayerReceiveWeapon -> zm_weapons::get_is_in_box,
+// _zm_magicbox.gsc:1222 -> _zm_weapons.gsc:1492), re-evaluated on each draw, so
+// flipping the flags here is authoritative and needs no CSV edit / fastfile
+// rebuild.
 function register_mystery_box_pool()
 {
     acc_utility::log( "mystery box: registering pool" );
 
-    // ARSENAL RESTRICTED (user, 2026-06-13): box gives ONLY ICR-1 + Man-O-War.
-    // Both are stock rows (in_box=TRUE). The ICR is also a wallbuy, but we want
-    // it in the box too, so the is_rolled_onto_wall exclusion is intentionally
-    // NOT applied to these two (it was for the old bad/strong split).
+    // BOX = exactly 3 guns (user, 2026-06-14): Five-Seven, ASM1, Tac-19 (all Skye
+    // imports). Five-Seven is ALSO the starting pistol (_acc_main::init). Every
+    // other gun (ICR / Man-O-War / Locus / FN FAL / AK-47) has been removed from
+    // the map. A weapon missing from the live table degrades to "not in box"
+    // (never a crash).
     box_weapons = array(
-        "ar_accurate",      // ICR-1
-        "ar_damage"         // Man-O-War
+        "t6_fiveseven",     // Five-Seven (Skye BO2 - also the starting pistol)
+        "s1_asm1",          // ASM1       (Skye AW)
+        "s1_tac19",         // Tac-19     (Skye AW)
+        "t6_ak47",          // AK-47      (Skye BO2)
+        "s1_ae4",           // AE4        (Skye AW - directed-energy AR)
+        "iw6_ripper_smg"    // Ripper     (Skye Ghosts - convertible SMG/AR; CSV name, box gives SMG mode)
     );
 
+    // 1) Clear is_in_box across the ENTIRE live weapon table so none of the
+    //    stock CSV's in_box=TRUE rows can be rolled. Keyed by weapon OBJECT.
+    if ( isdefined( level.zombie_weapons ) )
+    {
+        all_weapons = getarraykeys( level.zombie_weapons );
+        for ( i = 0; i < all_weapons.size; i++ )
+        {
+            level.zombie_weapons[ all_weapons[ i ] ].is_in_box = false;
+        }
+    }
+
+    // 2) Re-enable ONLY our two guns. Each still needs a row in the loaded
+    //    weapon table - without one there is no level.zombie_weapons struct to
+    //    flip, so a missing CSV entry degrades to "not in box", never a crash.
     for ( i = 0; i < box_weapons.size; i++ )
     {
         w = box_weapons[ i ];
-
-        // VERIFIED(acc): at this point (post-blackscreen) the box reads the
-        // live snapshot level.zombie_weapons[wpn].is_in_box, re-evaluated per
-        // spin (_zm_magicbox.gsc:1273/1222 -> _zm_weapons.gsc:1492). Each
-        // weapon also needs a row in the loaded weapon table (CSV) - without
-        // one there is no level.zombie_weapons struct to flip.
         wpn = GetWeapon( w );
-        if ( isdefined( level.zombie_weapons[ wpn ] ) )
+        if ( isdefined( wpn ) && isdefined( level.zombie_weapons[ wpn ] ) )
         {
             level.zombie_weapons[ wpn ].is_in_box = true;
             acc_utility::log( "  + box weapon: " + w );
@@ -239,26 +160,39 @@ function register_mystery_box_pool()
     }
 
     level.acc_mystery_box_weapons = box_weapons;
+
+    // FIX (user, 2026-06-14): constrain the stock box draw to box weapons ONLY.
+    // Stock treasure_chest_ChooseWeightedRandomWeapon falls back to keys[0] (a
+    // RANDOM key from the whole 6-weapon table) when no weapon passes its filter
+    // - which happens once a player owns all 3 box guns (reachable with Mule Kick
+    // + only 3 box guns). That fallback could hand out a knife / frag /
+    // pistol_standard. level.CustomRandomWeaponWeights pre-filters the key list
+    // (stock _zm_magicbox.gsc:1273-1275) so BOTH the loop AND the keys[0]
+    // fallback see ONLY box-flagged weapons - worst case is now a duplicate box
+    // gun (stock max-ammo behaviour), never a non-box item.
+    level.CustomRandomWeaponWeights = &acc_box_only_weapon_keys;
 }
 
-function is_rolled_onto_wall( weapon_name )
+// Box draw key filter (hooked via level.CustomRandomWeaponWeights). Runs ON the
+// drawing player; returns the randomized key list narrowed to is_in_box weapons.
+function acc_box_only_weapon_keys( keys )
 {
-    if ( !isdefined( level.acc_map_state ) ||
-         !isdefined( level.acc_map_state.wallbuy_pool ) )
-    {
-        return false;
-    }
-
-    keys = getarraykeys( level.acc_map_state.wallbuy_pool );
+    box_only = [];
     for ( i = 0; i < keys.size; i++ )
     {
-        if ( level.acc_map_state.wallbuy_pool[ keys[ i ] ] == weapon_name )
+        w = keys[ i ];
+        if ( isdefined( level.zombie_weapons[ w ] ) &&
+             IS_TRUE( level.zombie_weapons[ w ].is_in_box ) )
         {
-            return true;
+            box_only[ box_only.size ] = w;
         }
     }
-
-    return false;
+    // Safety: never hand the box an empty list (keys[0] would be undefined).
+    if ( box_only.size == 0 )
+    {
+        return keys;
+    }
+    return box_only;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +316,7 @@ function apply_state_when_ready()
     // VERIFIED(acc): flag, not notify - see _acc_main.gsc note.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    // NOTE: apply_power_switch_side and apply_wallbuy_pool already ran
+    // NOTE: apply_power_switch_side and remove_all_wallbuys already ran
     // synchronously in pre_init() - both have pre-tick timing requirements
     // (see their VERIFIED notes). Only the pieces that are safe (and in the
     // PaP case, intended) at blackscreen run here.
@@ -526,151 +460,71 @@ function apply_pap_approach( blocked_side )
                       " brush(es))" );
 }
 
-function apply_wallbuy_pool( pool )
+function remove_all_wallbuys()
 {
-    // REAL slot randomization, applied to the stock purchase layer.
+    // ARSENAL RESTRICTED (user, 2026-06-14): the map must have NO wall buys -
+    // every weapon comes from the Mystery Box (ICR-1 + Man-O-War). The Radiant
+    // source places 6 wall structs (ICR / Haymaker / Drakon / Sheiva / Frag via
+    // targetname "weapon_upgrade", plus the Bowie via "bowie_upgrade"); stock
+    // init_spawnable_weapon_upgrade turned each into a live purchase unitrigger
+    // stub. We unregister every one of those stubs so no purchase trigger is
+    // ever built for any player.
     //
-    // WHERE STOCK READS THE STRUCTS (the read point we are working around):
-    // VERIFIED(acc): init_spawnable_weapon_upgrade reads the wallbuy structs
-    // via struct::get_array("weapon_upgrade"/"bowie_upgrade","targetname")
-    // (_zm_weapons.gsc:836,:842-843). It is NOT a REGISTER_SYSTEM_EX
-    // postload - _zm_weapons has no system registration at all; its init()
-    // runs synchronously INSIDE zm_usermap::main(): zm_usermap.gsc:144
-    // load::main() -> _load.gsc:79 zm::init() -> _zm.gsc:365
-    // zm_weapons::init() -> _zm_weapons.gsc:60 init_weapon_upgrade() ->
-    // :1382 init_spawnable_weapon_upgrade(). So by the time pre_init() runs,
-    // the structs have already been read.
+    // WHERE THE STUBS COME FROM (the list we walk):
+    // VERIFIED(acc): init_spawnable_weapon_upgrade collects the wallbuy structs
+    // (struct::get_array of "weapon_upgrade"/"bowie_upgrade"/...,"targetname"),
+    // builds a unitrigger_stub per struct via
+    // zm_unitrigger::register_static_unitrigger, and stores them on
+    // level._spawned_wallbuys[i].trigger_stub (_zm_weapons.gsc:836-1019). That
+    // init runs synchronously INSIDE zm_usermap::main(), so by pre_init() the
+    // list is fully populated (this is the same read window the old per-run
+    // wallbuy rewrite relied on).
     //
-    // WHY WE DELIBERATELY DO NOT REWRITE THE STRUCTS BEFORE THAT READ:
-    // a pre-zm_usermap::main() rewrite of .zombie_weapon_upgrade would land
-    // before the read, but it is server-only, and the wallbuy CLIENTFIELD
-    // NAMES are built from .zombie_weapon_upgrade + origin on BOTH VMs:
-    // VERIFIED(acc): GSC registers "world" fields named
-    // zombie_weapon_upgrade+"_"+origin (_zm_weapons.gsc:904,:913) and the
-    // client registers the SAME names from ITS copy of the structs
-    // (_zm_weapons.csc:232,:243), with stock's own warning that the two
-    // constructions "must be matched in _zm_weapons.csc function init() or
-    // your level will not load" (_zm_weapons.gsc:839). A .csc cannot call
-    // .gsc (separate VMs), so the client copy can never see a server-side
-    // roll - a pre-read server rewrite provably diverges the registrations.
+    // WHY UNREGISTER-IN-PRE_INIT IS COMPLETE:
+    // VERIFIED(acc): purchase triggers are built lazily per player from the
+    // stub's zone entry; unregister_unitrigger removes the stub from its zone /
+    // dynamic stub lists and flags it registered=0
+    // (_zm_unitrigger.gsc:173-216), so the per-player build never sees it.
+    // pre_init() runs before any player exists, so no trigger is ever created.
     //
-    // WHY THE POST-READ STUB REWRITE IS FULLY EFFECTIVE INSTEAD:
-    // VERIFIED(acc): purchase triggers do not exist at init - they are built
-    // lazily per player from the unitrigger stub
-    // (check_and_build_trigger_from_unitrigger_stub, _zm_unitrigger.gsc:637;
-    // build_trigger_from_unitrigger_stub :665) which reads stub.cursor_hint /
-    // cursor_hint_weapon (:734-736), stub.hint_string/cost (:749-765) and
-    // copies stub.weapon onto the trigger (:800). The purchase logic itself
-    // reads self.weapon / self.stub.weapon (weapon_spawn_think,
-    // _zm_weapons.gsc:1994,:1996; prompt :1176-1178), and game-restart
-    // reset_wallbuys re-derives hint+cost from stub.weapon
-    // (_zm_weapons.gsc:1367-1369). The stubs live on the structs in
-    // level._spawned_wallbuys (struct at _zm_weapons.gsc:1021, stub attached
-    // at :1017). Rewriting struct+stub HERE - in pre_init, before any player
-    // exists - is therefore provably before any trigger is built, and never
-    // touches either VM's clientfield registration inputs.
-    //
-    // COSMETIC LIMIT (TODO(acc-art), Phase 4 .csc work): the client keeps the
-    // Radiant-default gun for everything visual - chalk decal, wall weapon
-    // model + bought-state model and blue-light fx (the client reads its own
-    // struct copy: _zm_weapons.csc:232,:300) - and the trigger box dims were
-    // sized from the default gun's model bounds (_zm_weapons.gsc:943-960).
-    // Same-category guns keep this unnoticeable; a proper re-skin needs a
-    // client module.
+    // COSMETIC LIMIT (TODO(acc-art)/TODO(acc-geom)): unregistering kills the
+    // PURCHASE only. The wall's weapon model + chalk + blue-light fx are spawned
+    // CLIENT-side from the .csc's own struct copy (_zm_weapons.csc:300-314,
+    // which a .gsc cannot reach), so a "ghost" gun would stay visible on the
+    // wall. The visuals are removed for good by deleting the 6 wallbuy struct
+    // PAIRS from map_source/zm/zm_abandoned_cyber_city.map (the weapon_upgrade /
+    // bowie_upgrade structs + their target model structs) and a full geometry
+    // rebuild - done 2026-06-14. This function stays as the runtime safety net
+    // (it no-ops once the structs are gone, since level._spawned_wallbuys is
+    // then empty). NOTE: the vending_weapon_upgrade_spawnable prefab is
+    // Pack-a-Punch, NOT a wallbuy - never delete it.
     if ( !isdefined( level._spawned_wallbuys ) )
     {
         acc_utility::log( "wallbuy: level._spawned_wallbuys missing - stock " +
-                          "init has not run; slots keep Radiant defaults" );
+                          "init has not run; nothing to remove" );
         return;
     }
 
-    applied = [];
+    removed = 0;
     for ( i = 0; i < level._spawned_wallbuys.size; i++ )
     {
         s = level._spawned_wallbuys[ i ];
-        if ( !isdefined( s.zombie_weapon_upgrade ) )
-        {
-            continue;
-        }
 
-        // Slot identity = the Radiant-authored default weapon name.
-        slot_key = s.zombie_weapon_upgrade;
-        if ( !isdefined( pool[ slot_key ] ) )
-        {
-            acc_utility::log( "wallbuy: unmanaged slot (no pool entry): " + slot_key );
-            continue;
-        }
-
-        applied[ slot_key ] = true;
-
-        rolled = pool[ slot_key ];
-        if ( rolled == slot_key )
-        {
-            acc_utility::log( "wallbuy " + slot_key + " -> (kept default)" );
-            continue;
-        }
-
-        // Belt + braces: roll_wallbuy_slot already validated, but never let
-        // an unvalidated name reach the stock asserts
-        // (_zm_weapons.gsc:1419/:1426).
-        if ( !weapon_in_zm_table( rolled ) )
-        {
-            acc_utility::log( "wallbuy " + slot_key + ": rolled weapon '" +
-                              rolled + "' missing from weapon table - reverting" );
-            level.acc_map_state.wallbuy_pool[ slot_key ] = slot_key;
-            continue;
-        }
-
-        wpn = GetWeapon( rolled );
-
-        // Rewrite the server-side wallbuy record (consumed by reset paths and
-        // anything walking level._spawned_wallbuys)...
-        s.zombie_weapon_upgrade = rolled;
-        s.weapon = wpn;
-
-        // ...and the live purchase stub (consumed at lazy trigger build +
-        // purchase, see VERIFIED block above).
         stub = s.trigger_stub;
-        if ( isdefined( stub ) )
+        if ( !isdefined( stub ) )
         {
-            stub.weapon = wpn;
-            if ( isdefined( stub.targetname ) && stub.targetname == "weapon_upgrade" )
-            {
-                // Mirrors stock's own stub setup for this targetname
-                // (_zm_weapons.gsc:966-977).
-                stub.cost = zm_weapons::get_weapon_cost( wpn );
-                stub.hint_string = zm_weapons::get_weapon_hint( wpn );
-                if ( !IS_TRUE( level.weapon_cost_client_filled ) )
-                {
-                    stub.hint_parm1 = stub.cost;
-                }
-                if ( isdefined( stub.cursor_hint ) && stub.cursor_hint == "HINT_WEAPON" )
-                {
-                    stub.cursor_hint_weapon = wpn;
-                }
-            }
-        }
-        else
-        {
-            acc_utility::log( "wallbuy " + slot_key + ": struct has no " +
-                              "trigger_stub (buildable/deferred?) - struct-only rewrite" );
+            // Buildable/deferred wallbuy (no static stub yet) - nothing here.
+            continue;
         }
 
-        acc_utility::log( "wallbuy " + slot_key + " -> " + rolled );
+        zm_unitrigger::unregister_unitrigger( stub );
+        removed += 1;
+
+        slot = ( isdefined( s.zombie_weapon_upgrade ) ? s.zombie_weapon_upgrade : "?" );
+        acc_utility::log( "wallbuy removed: " + slot );
     }
 
-    // Surface slots that rolled but have no struct in the map (geometry not
-    // placed yet, or filtered out by a script_noteworthy location mismatch -
-    // ours must be empty or 'zclassic_perks_start_room'-style gametype tags
-    // per _zm_weapons.gsc:880-897).
-    keys = getarraykeys( pool );
-    for ( i = 0; i < keys.size; i++ )
-    {
-        if ( !isdefined( applied[ keys[ i ] ] ) )
-        {
-            acc_utility::log( "wallbuy: no placed struct for slot " + keys[ i ] );
-        }
-    }
+    acc_utility::log( "wallbuy: removed " + removed + " wall buy trigger(s)" );
 }
 
 function apply_mystery_box_initial( node_name )
@@ -699,12 +553,7 @@ function log_state( state )
                        " pap_blocked=" + state.pap_approach +
                        " box_initial=" + state.mystery_box_initial );
 
-    keys = getarraykeys( state.wallbuy_pool );
-    for ( i = 0; i < keys.size; i++ )
-    {
-        acc_utility::log( "  wb " + keys[ i ] + "=" + state.wallbuy_pool[ keys[ i ] ] );
-    }
-
-    // Perk rotation is logged per-round by roll_perk_rotation; not part of
-    // map-load state.
+    // Wall buys are fully removed on this map (remove_all_wallbuys); no
+    // per-run wallbuy pool to log. Perk rotation is logged per-round by
+    // roll_perk_rotation; not part of map-load state.
 }
