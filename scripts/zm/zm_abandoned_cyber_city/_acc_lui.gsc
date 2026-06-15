@@ -24,6 +24,7 @@
 #insert scripts\shared\version.gsh;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 
 #precache( "lui_menu", "acc_hud" );
 
@@ -50,6 +51,12 @@ function __init__()
     // the crosshair (you aim at the zombie, so it reads on-target). The parity bit
     // flips every push so an identical number still re-triggers the popup. 18 bits.
     clientfield::register( "clientuimodel", "accDmgNum", VERSION_SHIP, 18, "int" );
+    // Owned-perk bitmask: bit i set => the player OWNS perk (i+1) (perk_card_index
+    // order, 1..9), regardless of Mega. Pairs with accMegaMask so the LUI overlay
+    // can pick the icon: owned+mega => teal (Mega), owned+!mega => red (base),
+    // !owned => hide. 9 bits. Driven by perk_state_watch(). Appended LAST so the
+    // existing fields' bit layout is untouched (must match _acc_lui.csc order).
+    clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 9, "int" );
     callback::on_connect( &on_player_connect );
 }
 
@@ -73,6 +80,13 @@ function set_mega_mask( player, mask )
 {
     if ( !isdefined( mask ) || mask < 0 ) mask = 0;
     player clientfield::set_player_uimodel( "accMegaMask", mask );
+}
+
+// Push the owned-perk bitmask (bit i = player owns perk i+1). See accOwnedMask reg.
+function set_owned_mask( player, mask )
+{
+    if ( !isdefined( mask ) || mask < 0 ) mask = 0;
+    player clientfield::set_player_uimodel( "accOwnedMask", mask );
 }
 
 // Push a crosshair damage number. `value` = min(dmg,99999)*2 + parity (the caller
@@ -100,5 +114,115 @@ function player_lui_init()
     wait 0.1; // menu must instantiate client-side before we push model data
     self clientfield::set_player_uimodel( "accLuiTest", 1 );
 
+    // Drive the perk-icon overlay (owned/mega bitmasks -> acc_hud.lua CoD.AccPerkBar) and
+    // suppress the stock perk bar (instant zero-flash hide on perk gain + 0.25s re-assert).
+    self thread perk_state_watch();
+    self thread stock_perk_hud_suppressor();
+
     acc_utility::log( "lui: overlay opened + banner set for a player" );
+}
+
+// Per-player loop: track which perks the player OWNS and which are Mega'd and push
+// BOTH bitmasks to the LUI overlay, which picks the art (owned+mega => teal Mega,
+// owned+!mega => red base, !owned => hide). Slice scope (2026-06-14): the overlay
+// only renders Jugger-Nog (bit 0) today, but the masks already carry all 9 perks in
+// perk_card_index order, so expanding to the rest is Lua + image work only - no GSC
+// change here. Cheap: a 0.25s poll that pushes a clientfield only when a mask flips.
+function perk_state_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    // perk_card_index order (1..9): index N -> bit (N-1). MUST match _acc_perk_info
+    // perk_card_index() and acc_hud.lua AccPerkCards.
+    specialties = array(
+        "specialty_armorvest",               // 1 Jugger-Nog       -> bit 0
+        "specialty_quickrevive",             // 2 Quick Revive     -> bit 1
+        "specialty_fastreload",              // 3 Speed Cola       -> bit 2
+        "specialty_doubletap2",              // 4 Double Tap       -> bit 3
+        "specialty_staminup",                // 5 Stamin-Up        -> bit 4
+        "specialty_additionalprimaryweapon", // 6 Mule Kick        -> bit 5
+        "specialty_deadshot",                // 7 Deadshot         -> bit 6
+        "specialty_widowswine",              // 8 Widow's Wine     -> bit 7
+        "specialty_electriccherry"           // 9 Aura Blast (WIP) -> bit 8
+    );
+
+    last_owned = -1;
+    last_mega  = -1;
+
+    for ( ;; )
+    {
+        owned = 0;
+        mega  = 0;
+        for ( i = 0; i < specialties.size; i++ )
+        {
+            sp = specialties[ i ];
+            // owns_or_paused (not bare HasPerk) so a boss EMP-pause of the perk does
+            // NOT flicker the icon off mid-fight (mirrors has_active_mega_perk intent).
+            if ( acc_mega_bottles::owns_or_paused( self, sp ) )
+            {
+                owned = owned | ( 1 << i );
+                if ( acc_mega_bottles::has_mega_perk( self, sp ) )
+                    mega = mega | ( 1 << i );
+            }
+        }
+
+        // Re-assert stock perk-bar suppression. The common BUY case is already ZERO-flash
+        // (stock_perk_hud_suppressor clears it the same frame the perk is gained); this
+        // 0.25s re-assert just covers the rarer unpause / edge re-gives.
+        self clear_stock_perk_hud();
+
+        if ( owned != last_owned )
+        {
+            set_owned_mask( self, owned );
+            last_owned = owned;
+        }
+        if ( mega != last_mega )
+        {
+            set_mega_mask( self, mega );
+            last_mega = mega;
+        }
+
+        wait 0.25;
+    }
+}
+
+// Zero the 9 stock perk-bar LUI model fields (hudItems.perks.<key>) for this player, which
+// HIDES the stock perk-bar icons (we draw our own CoD.AccPerkBar). Cosmetic ONLY - perk
+// EFFECTS come from engine SetPerk, not this model. Asset-name overrides CANNOT hide these
+// (usermap zone loads last, base zone wins). Field names verified vs stock _zm_perks.gsh
+// PERK_CLIENTFIELD_* (aliases: staminup->marathon, fastreload->sleight_of_hand,
+// deadshot->dead_shot, additionalprimaryweapon->additional_primary_weapon).
+function clear_stock_perk_hud()
+{
+    fields = array(
+        "hudItems.perks.juggernaut",                // Jugger-Nog
+        "hudItems.perks.quick_revive",              // Quick Revive
+        "hudItems.perks.sleight_of_hand",           // Speed Cola
+        "hudItems.perks.doubletap2",                // Double Tap
+        "hudItems.perks.marathon",                  // Stamin-Up
+        "hudItems.perks.additional_primary_weapon", // Mule Kick
+        "hudItems.perks.dead_shot",                 // Deadshot
+        "hudItems.perks.widows_wine",               // Widow's Wine
+        "hudItems.perks.electric_cherry"            // Aura Blast
+    );
+    for ( i = 0; i < fields.size; i++ )
+        self clientfield::set_player_uimodel( fields[ i ], 0 );
+}
+
+// ZERO-FLASH stock perk-bar hide. Stock give_perk sets the perk's HUD clientfield to OWNED
+// then fires "perk_acquired" in the SAME server frame with no wait in between
+// (_zm_perks.gsc:756 -> :780), so clearing the fields on that notify lands in the same
+// frame - the client's end-of-frame snapshot never carries the OWNED value, so the stock
+// icon never appears (no flash). perk_state_watch's 0.25s re-assert covers the rarer
+// unpause path that does NOT fire perk_acquired.
+function stock_perk_hud_suppressor()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        self waittill( "perk_acquired" );
+        self clear_stock_perk_hud();
+    }
 }

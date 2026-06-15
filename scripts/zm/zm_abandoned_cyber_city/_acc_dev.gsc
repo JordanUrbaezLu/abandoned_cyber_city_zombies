@@ -23,6 +23,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm;
+#using scripts\zm\_zm_perks;
 #using scripts\zm\_zm_score;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
@@ -35,10 +36,14 @@
 
 function init()
 {
-    // HARDCODED ON (no dvar gate) - user requested flags-free dev sandbox while
-    // we validate the build end-to-end. Re-add a `getdvarint("acc_dev")` gate
-    // before shipping.
-    acc_utility::log( "DEV MODE ON (hardcoded): unlimited money + door markers + perk cap 18" );
+    // DEV MODE DEFAULT-ON (pre-release) - default 1, matches the entry script. A plain
+    // launch IS the dev sandbox (the Steam launcher truncates +set args, so we can't
+    // rely on the flag arriving). Set `acc_dev 0` to disable for a clean consumer test.
+    // TODO(ship): flip the default back to 0 before a public build. docs/34_flags_reference.md.
+    if ( getdvarint( "acc_dev", 1 ) != 1 )
+        return;
+
+    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + door markers + perk cap 18" );
 
     // Raise the perk cap so all machines in the one-room test build are buyable.
     level.perk_purchase_limit = 18;
@@ -59,6 +64,11 @@ function init()
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
     level thread dev_round_skip_watcher();
+
+    // Jugger-Nog perk-icon test: console `acc_dev_jugg_mega 1` = grant Jug + Mega
+    // (icon TEAL), `2` = grant Jug base (icon RED). Self-contained - it GIVES you Jug,
+    // so no money/machine needed to see the icon.
+    level thread dev_jugg_mega_watcher();
 
     // Teleports so the greybox door chain never blocks testing:
     //   acc_tp_perks 1  -> the perk row    acc_tp_spawn 1 -> back to spawn
@@ -218,6 +228,49 @@ function dev_skip_round()
 }
 
 // ---------------------------------------------------------------------------
+// Jugger-Nog Mega toggle - perk-icon indicator test (console: acc_dev_jugg_mega
+// 1 = Mega/teal, 2 = base/red). Buy Jug first (the icon needs ownership to show).
+// ---------------------------------------------------------------------------
+
+function dev_jugg_mega_watcher()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        v = getdvarint( "acc_dev_jugg_mega", 0 );
+        if ( v != 0 )
+        {
+            SetDvar( "acc_dev_jugg_mega", "0" );
+            dev_apply_jugg_state( v );
+        }
+        wait 0.25;
+    }
+}
+
+// Self-contained perk-icon test: GRANTS Jugger-Nog if you don't already own it (no
+// money/machine needed), then sets the Mega flag has_mega_perk() reads so the
+// _acc_lui perk_state_watch loop swaps the overlay icon. v: 1 = Jug + Mega (icon
+// TEAL), 2 = Jug base (icon RED). give_perk is the stock grant (real perk + HP).
+function dev_apply_jugg_state( v )
+{
+    mega = ( v == 1 );
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+
+        if ( !( p HasPerk( "specialty_armorvest" ) ) )
+            p zm_perks::give_perk( "specialty_armorvest", false );
+
+        if ( !isdefined( p.acc_mega_perks ) ) p.acc_mega_perks = [];
+        p.acc_mega_perks[ "specialty_armorvest" ] = mega;
+        p IPrintLnBold( ( mega ? "^3>> Jugger-Nog + Mega (icon -> ^5TEAL^3)" : "^3>> Jugger-Nog base (icon -> ^1RED^3)" ) );
+    }
+    acc_utility::log( "dev: jugg state v=" + v + " mega=" + ( mega ? "1" : "0" ) );
+}
+
+// ---------------------------------------------------------------------------
 // Damage indicators + zone signage HUD
 // ---------------------------------------------------------------------------
 
@@ -326,6 +379,10 @@ function ensure_dev_huds( p )
         p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
         p.acc_dev_zone_hud.alpha = 0.85;
         p.acc_dev_zone_hud.hidewheninmenu = true;
+
+        // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active
+        // (also logs as [ SCRIPTER] in console_mp.log). Absent = NOT in dev mode.
+        p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
     }
 }
 

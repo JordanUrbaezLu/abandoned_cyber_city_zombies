@@ -88,6 +88,15 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
   `zm_score::can_player_purchase`/`minus_to_player_score`. Held-weapon tier HUD
   moved to **bottom-left** next to the gun. **`%`→"pct"** everywhere (the HUD
   font renders `%` as `.`).
+- **Perk card Mega view (2026-06-14):** the four card modes are now: **buy** (0)
+  base name + price + base bullets; **Mega preview** (1, own base) title = Mega
+  name, "Mega upgrade: 1 Bottle", the bullets the bottle adds; **owns Mega** (2)
+  title = **"Mega: <name>"** (the Mega name replaces the perk name), and a **single
+  merged "effective benefits" list** (`megaFull` in `acc_hud.lua`) — every benefit
+  you have, with each Mega stat **replacing** the base stat it supersedes (no
+  "+50%" *and* "+70%" — just "+70%"), kept in the yellow Mega colour; **PaP** (3)
+  next-tier only. Previously mode 2 stacked the full base list (cyan) over the Mega
+  list (gold), repeating superseded stats.
 
 ## Roadmap
 

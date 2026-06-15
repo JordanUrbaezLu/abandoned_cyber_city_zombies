@@ -98,6 +98,13 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 *Rate of fire only — the original Double Tap, not the 2.0 double-bullet version. No weapon-damage bonus.*
 
+> **⚠️ Migration pending (flagged 2026-06-14):** the base perk is **currently backed by the
+> stock Double Tap 2.0** machine (`specialty_doubletap2` — fires an extra bullet, not pure
+> rate-of-fire). The **+33% rate-of-fire-only** profile and the "Double Tap 1.0" card name are
+> the **migration target**, not the shipped base. **TODO:** convert the base to a true Double
+> Tap **1.0** (strip the 2.0 extra-bullet so it is rate-only) and verify the base +33%. The
+> Mega (Gun Slinger) rate/swap gains are already implemented (see below).
+
 **Base.** **+33% rate of fire** (stock). No damage bonus.
 
 **Mega: Gun Slinger.** **+50% fire rate**; **weapon-swap time reduced 75%** (≈4× faster weapon swaps — moved here from Speed Cola).
@@ -378,7 +385,7 @@ Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Over
 - **Jugger-Nog** — ✅ base 250 HP (`_acc_perks.gsc` `ACC_JUGG_HEALTH_ADD=150`); ✅ Ultimate Tank 314 HP (`_acc_mega_bottles.gsc:420` `n_player_health_boost=64`); ✅ boss immunity (`_acc_boss.gsc::protect_immune_players_during_debuff`). 🧪 confirm 6/7 hit counts.
 - **Quick Revive** — ✅ base revive 2.0s / Savior 1.0s (`_acc_perks.gsc::qr_revive_time` via `self.get_revive_time` hook; watcher `qr_revive_watcher`); ✅ base regen 15% / Savior 30% sooner (`qr_regen_booster`, `ACC_QR_REGEN_DELAY_BASE=0.85` / `_SAVIOR=0.70`); ✅ Savior +15% speed (`savior_speed_watcher` + `_acc_utility.gsc:155`).
 - **Speed Cola** — ✅ +50% reload + barrier (stock); ✅ Mega +70% reload via the `fastreload` weapon-variant twin (`reloadTime ×0.882` layered on the engine +50%; baked 2026-06-14, `_acc_weapon_variants.gsc::axis_reload`); ✂️ faster perk-drink **cut** (shared map-wide anim, no per-perk lever). Weapon-swap belongs to Double Tap's Gun Slinger.
-- **Double Tap 1.0** — ✅ base +33% fire rate (stock); ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger +50% fire rate **and** −75% weapon-swap via the `fastfire` twin (`fireTime ×0.667` + raise/drop `×0.25`; baked 2026-06-14, `axis_fire`). Card renamed "Double Tap 1.0".
+- **Double Tap 1.0** — ⚠️ **base is still stock Double Tap 2.0** (`specialty_doubletap2`, extra-bullet) presented as 1.0 — **migration to a true rate-only 1.0 is a pending TODO** (strip the 2.0 extra-bullet; verify the +33%); ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger +50% fire rate **and** −75% weapon-swap via the `fastfire` twin (`fireTime ×0.667` + raise/drop `×0.25`; baked 2026-06-14, `axis_fire`). Card renamed "Double Tap 1.0".
 - **Stamin-Up** — ✅ base stock sprint; ✅ The Flash ×1.15 move (`_acc_utility.gsc:151`); ✅ sprint-duration override removed (`_acc_mega_bottles.gsc`).
 - **Mule Kick** — ✅ base 3rd primary (stock); 🎨 Armory +25% ammo cap (GDT; GSC fills via `armory_apply`); ✅ Armory **all buys 10% cheaper at POINT OF SALE** (charge **and** displayed price) — done by **vendoring 5 stock files** and repurposing the dormant `pers_double_points` cost hook (gated on the Armory Mega flag, ×0.9): `_zm_pers_upgrades_functions` (perk + stock-PaP charge), `_zm_weapons` (wallbuy/ammo — inert now wall buys are removed), `_zm_magicbox` (box, per-player), `_zm_perks` (perk hint), plus `_acc_pap_levels` tier-up. The old spend-rebate (`armory_discount_watcher`) was **removed**. Co-op display reflects the toucher on shared triggers (perks); box/tier are per-player-exact. See docs/22 + CHANGELOG. ✅ +2 grenade fill removed.
 - **Deadshot** — ✅ base ×1.5 headshot (`_acc_damage.gsc:88`) + ADS snap, no boss (`_acc_boss.gsc:218,371`); ✅ American Sniper ×2 headshot (`_acc_damage.gsc:89` `ACC_DEADSHOT_MEGA_MULT=2.0`); ✅ base −35% / Mega −70% recoil via `recoil35`/`recoil70` twins (off the 2.5× map base; baked 2026-06-14, `axis_recoil`).

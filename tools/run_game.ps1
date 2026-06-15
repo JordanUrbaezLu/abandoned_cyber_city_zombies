@@ -7,21 +7,30 @@
 # Launching THROUGH Steam (steam://run/311210) gives the proper DRM context,
 # so the game opens and loads the dev map. VERIFIED working 2026-06-12.
 #
-# Usage:  .\tools\run_game.ps1            (test boss on)
-#         .\tools\run_game.ps1 -NoBoss    (no test boss)
+# Usage:  .\tools\run_game.ps1              (full test sandbox: dev + open map + boss)
+#         .\tools\run_game.ps1 -NoBoss      (sandbox, no test boss)
+#         .\tools\run_game.ps1 -ClosedMap   (dev sandbox but map starts CLOSED + decon live)
+#         .\tools\run_game.ps1 -NoDev       (clean consumer game: no sandbox, closed map)
 # Build first (Launcher: Compile/Light/Link, or just Compile Scripts for GSC).
 # Steam must be running and logged in.
 # =============================================================================
 
-param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug)
+param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug, [switch]$ClosedMap)
 
-# acc_dev 1   = unlimited money, perk cap 18, buyable-door markers (the test sandbox)
-# acc_test_boss 1 = Juggernaut Host from round 2, drops 10 Mega Bottles on death
+# All flags below are OFF by default in the game -> a no-flag launch is a clean
+# consumer game. Full reference: docs/34_flags_reference.md.
+# acc_dev 1      = unlimited money + Data Shards + Mega Bottles, auto-power, perk cap 18,
+#                  dev HUDs + teleport/round-skip console cmds (the test sandbox).
+# acc_open_map 1 = open every door + both PaP blockers on spawn, disable decon hazard.
+# acc_test_boss 1 = test boss from round 2, drops 10 Mega Bottles on death.
 # acc_variants_debug 1 = print each weapon-variant SWAP on-screen ("[variants] X -> Y")
 #   so you can SEE Deadshot/Mega change the gun (recoil is otherwise invisible).
 #   (acc_weapon_variants itself is ON by default - no flag needed to enable it.)
 $boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1" }
 $dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
+# Open map follows the dev sandbox, but -ClosedMap keeps the sandbox while leaving
+# the map closed + the decon hazard live (to test door buys / decontamination).
+$openmap = if ($NoDev -or $ClosedMap) { "" } else { " +set acc_open_map 1" }
 $vdbg = if ($NoVarDebug) { "" } else { " +set acc_variants_debug 1" }
 # THE GAMETYPE FIX (verified 2026-06-13): you MUST pass the engine command
 # `+set_gametype zclassic`, NOT `+set g_gametype zclassic`. The g_gametype dvar
@@ -39,7 +48,7 @@ $vdbg = if ($NoVarDebug) { "" } else { " +set acc_variants_debug 1" }
 # "-unsafe-lua" arg is a BOIII-client flag, not a Steam BO3 one - on Steam it logs
 # "Unknown command" and does nothing, so it is intentionally NOT passed here.
 # (L3akMod is still required in the MOD TOOLS bin to BUILD the .lua. docs/28.)
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$boss$dev$vdbg"
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev$openmap$boss$vdbg"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

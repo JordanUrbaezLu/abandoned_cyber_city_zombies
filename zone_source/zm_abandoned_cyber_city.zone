@@ -51,6 +51,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_brutus.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_panzer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
@@ -74,6 +75,11 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
 // Tools root; the script is vendored under scripts/_NSZ. Full audit:
 // docs/research/NateSmithZombies_Brutus_BO2_boss_pack.txt
 scriptparsetree,scripts/_NSZ/nsz_brutus.gsc
+
+// Spiki Panzer (stock mechz archetype). Assets imported via gdtdb from
+// model_export/Custom/Panzer_soldat.gdt; the spawner (actor_spawner_zm_castle_mechz)
+// pulls the aitype + models/anims/materials transitively. docs/research/BO3_Panzer_*.
+scriptparsetree,scripts/zm/mechz_spiki.gsc
 scriptbundle,brutus_bundle
 xmodel,brutus_helmet
 xmodel,bo2_brutus_fb_death
@@ -83,12 +89,67 @@ fx,_NSZ/Brutus/chest_fx
 fx,_NSZ/Brutus/helmet_smoke
 fx,fire/fx_fire_ground_rubble_50x50
 
+// Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
+// aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
+// (zm_zombie.ai_bt + zm_factory_zombie anim tables) + charred character
+// `c_zom_charred_zombie` (DLC3 sentinel body + DLC4 charred head) + matching
+// `c_zom_charred_zombie_gib_def`. Character/gib materials pull transitively as
+// MODEL dependencies, so they DODGE the brush-face shader trap (docs/29 §14) -
+// same class of asset as the Brutus model, which builds fine here.
+// Import: drag the pack's model_export/ + source_data/ into the Mod Tools root,
+// then gdtdb /update (registers source_data/_charred_zombies.gdt).
+// Whole-horde reskin = in Radiant, Remap the SINGLE base spawner
+// (actor_spawner_zm_factory_zombie, origin -131.5 630.5 208) to the charred
+// spawner class - do NOT duplicate it (a 2nd spawner => ~50/50 normal+charred mix).
+// UNCOMMENT the line below AFTER the GDT is imported (else linker = "missing
+// aitype"); the Radiant spawner placement also pulls the aitype as a BSP
+// dependency, so this explicit line is belt-and-suspenders.
+aitype,archetype_charred_zombie
+
 // LUI client pipeline foundation (server module + client mirror + Lua overlay).
 // docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the
 // game's Lua VM at runtime - a Lua syntax error shows at load, NOT at link).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc
+scriptparsetree,scripts/zm/mechz_spiki.csc
 rawfile,ui/uieditor/menus/hud/acc_hud.lua
+
+// Custom perk HUD icons (Ronan's Cyberpunk Shaders), drawn by acc_hud.lua's
+// CoD.AccPerkBar via setImage(RegisterImage(...)). 2D UI `image` assets - NOT
+// stock-name material overrides - so they take the docs/28 LUI image path and
+// avoid the geometry-material shader-compile blocker (docs/29 §14). GDT =
+// source_data/acc_perk_shaders.gdt (deploy: tools/deploy_perk_shaders.ps1).
+// 8 live perks x base(red)/mega(teal), perk_card_index order; drives the perk row.
+image,i_acc_perk_jugg_base
+image,i_acc_perk_jugg_mega
+image,i_acc_perk_revive_base
+image,i_acc_perk_revive_mega
+image,i_acc_perk_speed_base
+image,i_acc_perk_speed_mega
+image,i_acc_perk_doubletap_base
+image,i_acc_perk_doubletap_mega
+image,i_acc_perk_staminup_base
+image,i_acc_perk_staminup_mega
+image,i_acc_perk_mule_base
+image,i_acc_perk_mule_mega
+image,i_acc_perk_deadshot_base
+image,i_acc_perk_deadshot_mega
+image,i_acc_perk_widows_base
+image,i_acc_perk_widows_mega
+
+// Transparent overrides of the STOCK perk-bar image names (ZMPerksContainerFactory
+// perksTable: i_t7_specialty_<specialty>) -> our usermap version wins by name and is
+// fully transparent, so the stock perk icons vanish and CoD.AccPerkBar is the ONLY
+// perk display (no duplication). All point at acc_blank.png.
+image,i_t7_specialty_armorvest
+image,i_t7_specialty_quickrevive
+image,i_t7_specialty_fastreload
+image,i_t7_specialty_doubletap2
+image,i_t7_specialty_staminup
+image,i_t7_specialty_additionalprimaryweapon
+image,i_t7_specialty_deadshot
+image,i_t7_specialty_widowswine
+image,i_t7_specialty_electriccherry
 
 // Makes the linker read the weapons table (box needs this). The usermap copy
 // at gamedata/weapons/zm/ (deployed by sync) overrides the stock table: it is

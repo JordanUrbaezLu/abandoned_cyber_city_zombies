@@ -85,8 +85,8 @@
 #define ACC_BOSS_HEADSHOT_MULT 3.0
 
 // Deadshot layer (docs/13_perks.md): base perk x1.5 headshot, American Sniper
-// Mega replaces it with x2.0 (no double dip). The recoil halves (base -25% /
-// Mega -50%) are weapon-GDT, not GSC - see docs/30/31.
+// Mega replaces it with x2.0 (no double dip). The recoil cuts (base -35% /
+// Mega -70%, off the 2.5x map recoil baseline) are weapon-GDT, not GSC - see docs/30/31.
 #define ACC_DEADSHOT_MULT      1.5
 #define ACC_DEADSHOT_MEGA_MULT 2.0
 
@@ -466,7 +466,7 @@ function crit_chain_multiplier( target, attacker )
     if ( isdefined( attacker ) && isplayer( attacker ) )
     {
         // Deadshot layer (docs/13_perks.md): base perk x1.5, American Sniper
-        // Mega replaces it with x1.75 (no double dip). Stacks multiplicatively
+        // Mega replaces it with x2.0 (no double dip). Stacks multiplicatively
         // with the map multiplier above.
         if ( attacker HasPerk( "specialty_deadshot" ) )
         {

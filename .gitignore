@@ -15,6 +15,13 @@ console.log
 tmp/
 local_sync_cache/
 
+# External (game-rip) asset packs + their share bundle — NEVER commit: no
+# redistribution licence + multi-GB binaries. Transferred privately via
+# tools/pack_external_assets.ps1 -> tools/unpack_external_assets.ps1.
+acc_external_assets.zip
+source_data/acc_perk_shaders.gdt
+source_data/acc_perk_shaders/
+
 .idea/
 .vscode/*
 !.vscode/settings.json

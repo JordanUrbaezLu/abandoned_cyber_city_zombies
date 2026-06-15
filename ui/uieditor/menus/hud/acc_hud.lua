@@ -46,34 +46,48 @@ local function pap_tier_cost(tier)
 end
 
 -- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
+--   base     = benefits of the BASE perk (shown on the buy card + as the Mega preview's
+--              "before"); mega = what the Mega bottle ADDS/UPGRADES (shown when you own
+--              base but haven't Mega'd - mode 1). megaFull = the single merged list shown
+--              once you OWN the Mega (mode 2): every effective benefit, with Mega values
+--              REPLACING the base ones they supersede (no "+50%" AND "+70%" - just "+70%").
 local AccPerkCards = {
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
             base = { "250 HP - down on the 6th hit", "(no perk: 100 HP / 3rd hit)" },
-            mega = { "314 HP - down on the 7th hit", "Immune to boss abilities" } },
+            mega = { "314 HP - down on the 7th hit", "Immune to boss abilities" },
+            megaFull = { "314 HP - down on the 7th hit", "Immune to boss abilities" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
             base = { "Revive teammates in 2.0s", "Regen starts 15% sooner", "Solo: self-revive" },
-            mega = { "Revive in 1.0s", "Regen starts 30% sooner", "+15% speed near a downed ally" } },
+            mega = { "Revive in 1.0s", "Regen starts 30% sooner", "+15% speed near a downed ally" },
+            megaFull = { "Revive teammates in 1.0s", "Regen starts 30% sooner", "Solo: self-revive", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
-            base = { "+50% reload speed", "Faster barrier repair", "25% faster perk drink" },
-            mega = { "+70% reload speed", "50% faster perk drink" } },
+            base = { "+50% reload speed", "Faster barrier repair" },
+            mega = { "+70% reload speed" },
+            megaFull = { "+70% reload speed", "Faster barrier repair" } },
     [4] = { title = "DOUBLE TAP 1.0", price = "2000", megaName = "Gun Slinger",
             base = { "+33% rate of fire" },
-            mega = { "+50% rate of fire", "Weapon swaps 4x faster" } },
+            mega = { "+50% rate of fire", "Weapon swaps 4x faster" },
+            megaFull = { "+50% rate of fire", "Weapon swaps 4x faster" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
-            base = { "Longer sprint (~12s)", "Faster sprint + mobility" },
-            mega = { "+15% movement speed" } },
+            base = { "Longer sprint (~12s)", "+7-8% movement speed" },
+            mega = { "+15% movement speed" },
+            megaFull = { "Longer sprint (~12s)", "+15% movement speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "+25% ammo capacity per gun", "All buys 10% cheaper" } },
+            mega = { "+25% ammo capacity per gun", "All buys 10% cheaper" },
+            megaFull = { "Carry a 3rd primary weapon", "+25% ammo capacity per gun", "All buys 10% cheaper" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
-            base = { "1.5x headshot damage", "-25% weapon recoil", "ADS snaps to head (not bosses)" },
-            mega = { "2x headshot damage", "-50% weapon recoil" } },
+            base = { "1.5x headshot damage", "-35% weapon recoil", "ADS snaps to head (not bosses)" },
+            mega = { "2x headshot damage", "-70% weapon recoil" },
+            megaFull = { "2x headshot damage", "-70% weapon recoil", "ADS snaps to head (not bosses)" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
-            base = { "Web grenades trap zombies ~20s", "Self-defense + melee webbing", "Restock 2 web nades / round" },
-            mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" } },
+            base = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Restock 2 web nades / round" },
+            mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" },
+            megaFull = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Hold up to 6 web grenades", "Restock 4 web nades / round" } },
     [9] = { title = "AURA BLAST (WIP)", price = "2500", megaName = "Mega Man",
             base = { "Crouch+melee: 400u shockwave", "3s stun, 120s cooldown", "Full bosses immune" },
-            mega = { "Affects bosses too", "800u, 60s CD, 2 charges" } },
+            mega = { "Bosses affected (reduced stun)", "800u, 60s CD, 2 charges" },
+            megaFull = { "Crouch+melee: 800u shockwave", "3s stun, 60s CD, 2 charges", "Bosses affected (reduced stun)" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
             base = { "Pack a gun, then re-pack to climb tiers:", "T1: upgrade + new camo",
                      "T2: +25% damage (2500)", "T3: +55% damage (5000)",
@@ -198,28 +212,17 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             titleCol = { 0.96, 0.78, 0.25 }
             bulletCol = { 0.96, 0.84, 0.5 }
         elseif mode == 2 then
-            -- Owned + Mega'd: show the FULL description - base bullets (cyan) then
-            -- the Mega bullets (gold), so the whole perk reads at a glance.
-            title = d.title
-            sub = "Mega: " .. (d.megaName or "")
-            bullets = {}
-            bulletColsByIndex = {}
-            local baseCol = { 0.78, 0.92, 1.0 }
-            local megaCol = { 0.96, 0.84, 0.5 }
-            if d.base then
-                for _, b in ipairs(d.base) do
-                    bullets[#bullets + 1] = b
-                    bulletColsByIndex[#bullets] = baseCol
-                end
-            end
-            if d.mega then
-                for _, b in ipairs(d.mega) do
-                    bullets[#bullets + 1] = b
-                    bulletColsByIndex[#bullets] = megaCol
-                end
-            end
-            titleCol = { 0.45, 0.9, 0.5 }
-            bulletCol = baseCol
+            -- Owned + Mega'd: the Mega NAME replaces the perk name as the title, and we
+            -- show ONE merged "effective benefits" list (megaFull) - every benefit you
+            -- have, but where a Mega stat supersedes a base stat only the Mega value is
+            -- listed (e.g. "+70% reload speed" + "Faster barrier repair", never both
+            -- "+50%" and "+70%"). Not base stacked over mega - a single curated list.
+            -- The whole card stays the yellow Mega color.
+            title = "Mega: " .. (d.megaName or d.title)
+            sub = ""
+            bullets = d.megaFull or d.mega or {}
+            titleCol = { 0.96, 0.78, 0.25 }
+            bulletCol = { 0.96, 0.84, 0.5 }
         else
             title = d.title
             if d.price ~= "" then
@@ -310,6 +313,94 @@ function CoD.AccDmgNum.new(HudRef, InstanceRef)
     return self
 end
 
+-- TOUCHPOINT 2 - Mega perk-icon ROW (Ronan's Cyberpunk Shaders). CoD.AccPerkBar.
+-- Our own perk bar (the stock bar can't show Mega state and its perk materials are
+-- not loadable in a usermap). One cyberpunk icon per OWNED perk, packed left-to-right,
+-- whose ART encodes Mega state:
+--     RED icon = base perk  |  TEAL icon = Mega'd  |  (not owned) = hidden
+-- Driven by TWO clientuimodel bitmasks the server pushes (_acc_lui.gsc
+-- perk_state_watch): "accOwnedMask" (bit i = owns perk i+1) and "accMegaMask"
+-- (bit i = perk i+1 Mega'd), perk_card_index order (1..8 -> bit 0..7; perk 9 Aura
+-- Blast is WIP, no icon). setImage(RegisterImage(name)) is the plain-image path
+-- (countryside PerkImage idiom) - no custom material/techset, so it sidesteps the
+-- geometry-material shader-compile blocker (docs/29 §14). Images:
+-- i_acc_perk_<perk>_{base,mega} (source_data/acc_perk_shaders.gdt, zone `image,`). docs/28.
+
+-- Lua 5.1 / HavokScript has no bitwise operators - test bit i arithmetically.
+local function acc_bit_is_set(mask, i)
+    return math.floor(mask / (2 ^ i)) % 2 >= 1
+end
+
+-- bit index (perk_card_index - 1) -> icon base name (base=red / mega=teal).
+-- perk 9 (Aura Blast) is WIP and ships no icon, so the row covers bits 0..7.
+local ACC_PERK_ICONS = {
+    [0] = "jugg", [1] = "revive", [2] = "speed", [3] = "doubletap",
+    [4] = "staminup", [5] = "mule", [6] = "deadshot", [7] = "widows",
+}
+local ACC_PERK_COUNT = 8
+
+CoD.AccPerkBar = InheritFrom(LUI.UIElement)
+
+function CoD.AccPerkBar.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccPerkBar)
+    self.id = "AccPerkBar"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Bottom-left row. These 4 numbers position the whole bar - tune in-game.
+    local SIZE = 44     -- icon width/height (virtual px)
+    local PITCH = 38    -- horizontal spacing between owned icons (tighter = lower)
+    local START_X = 96  -- left offset of the first icon (clears the round counter)
+    local BOTTOM = 26   -- gap from the bottom edge
+
+    -- One UIImage per perk; hidden until owned, repositioned on each ownership change.
+    local icons = {}
+    for i = 0, ACC_PERK_COUNT - 1 do
+        local img = LUI.UIImage.new()
+        img:setTopBottom(false, true, -(BOTTOM + SIZE), -BOTTOM)
+        img:setImage(RegisterImage("i_acc_perk_" .. ACC_PERK_ICONS[i] .. "_base"))
+        img:hide()
+        self:addElement(img)
+        icons[i] = { img = img, art = nil }
+    end
+
+    local ownedMask = 0
+    local megaMask = 0
+
+    -- Pack owned perks left-to-right (perk_card_index order); red=base / teal=Mega.
+    local function Render()
+        local slot = 0
+        for i = 0, ACC_PERK_COUNT - 1 do
+            local rec = icons[i]
+            if acc_bit_is_set(ownedMask, i) then
+                local x = START_X + slot * PITCH
+                rec.img:setLeftRight(true, false, x, x + SIZE)
+                local wantArt = acc_bit_is_set(megaMask, i) and "mega" or "base"
+                if wantArt ~= rec.art then
+                    rec.art = wantArt
+                    rec.img:setImage(RegisterImage("i_acc_perk_" .. ACC_PERK_ICONS[i] .. "_" .. wantArt))
+                end
+                rec.img:show()
+                slot = slot + 1
+            else
+                rec.img:hide()
+            end
+        end
+    end
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accOwnedMask"), function(m)
+        ownedMask = Engine.GetModelValue(m) or 0
+        Render()
+    end)
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accMegaMask"), function(m)
+        megaMask = Engine.GetModelValue(m) or 0
+        Render()
+    end)
+
+    return self
+end
+
 function LUI.createMenu.acc_hud(Instance)
     local Hud = CoD.Menu.NewForUIEditor("acc_hud")
 
@@ -325,6 +416,12 @@ function LUI.createMenu.acc_hud(Instance)
     local DmgNum = CoD.AccDmgNum.new(Hud, Instance)
     Hud:addElement(DmgNum)
     Hud.accDmgNum = DmgNum
+
+    -- Mega perk-icon row: one cyberpunk icon per owned perk (red=base / teal=Mega),
+    -- packed left-to-right at the bottom. Driven by accOwnedMask + accMegaMask.
+    local PerkBar = CoD.AccPerkBar.new(Hud, Instance)
+    Hud:addElement(PerkBar)
+    Hud.accPerkBar = PerkBar
 
     local function OnHudClose(Sender)
         Sender.accCard:close()

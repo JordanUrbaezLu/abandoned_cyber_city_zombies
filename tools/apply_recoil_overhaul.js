@@ -15,8 +15,14 @@
 //   recoil35, recoil70, fastfire, fastreload, recoil35_fastfire, recoil70_fastfire,
 //   recoil35_fastreload, recoil70_fastreload, fastfire_fastreload,
 //   recoil35_fastfire_fastreload, recoil70_fastfire_fastreload
-//   x (base + _up) x 3 guns = 66 twins. The GSC swap engine resolves the exact
+//   x (base + _up) x 5 guns = 110 twins. The GSC swap engine resolves the exact
 //   combo for a player's live perk state (graceful fallback if a combo is absent).
+//
+// PER-GUN BASELINE BUFFS (always-on, not perk-gated): a gun's `baseline` config is applied
+// IN PLACE to its base + _up forms before the twins are cloned, so the base gun AND every
+// twin inherit it for free (zero extra assets). Current: TAC-19 crowd-control profile - small
+// range x1.5 + FMJ penetrateType large + wider spread x1.25, traded against -15% damage (x0.85).
+// See GUNS below + gen_weapon_variant_gdt.js (--range / --damage / --spread / --penetrate).
 //
 //   base GDT (in place):  recoil x2.5  -> 2.5x vanilla (no Deadshot)
 //
@@ -57,14 +63,35 @@ const TWIN_DIMS = [
     [ [ "", {} ], [ "fastreload", { reload: 0.882 } ] ],
 ];
 
-// gun file + its base/PaP asset names (verified on the box 2026-06-14)
+// gun file + its base/PaP asset names (verified on the box 2026-06-14).
+// `baseline` (optional) = always-on per-gun buffs applied to the base + _up forms IN PLACE,
+// so every twin cloned from them (step 2) inherits the buff for free - no extra assets and
+// the buff persists whether or not a perk twin is active. range = damage-falloff distance
+// multiplier (>1 = longer effective range); penetrate = penetrateType FMJ tier
+// (none/small/medium/large). See gen_weapon_variant_gdt.js for the exact fields touched.
 const GUNS = [
-    { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up" },
+    // TAC-19: crowd-control profile. Small range buff (x1.5 falloff distance: ~550u->~825u
+    // full-damage, ~900u->~1350u min) + FMJ over-penetration (penetrateType large, max pierce)
+    // + wider blast "girth" (hip spread x1.25, catches more adjacent zombies) traded against
+    // -15% per-pellet damage (x0.85). Tune any factor here; bump penetrate to none/small/medium
+    // to dial pierce back. shotCount 8 (per-pellet damage), adsSpread stays 0 (ADS = precise).
+    { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up",    baseline: { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 } },
     { gdt: "skye_s1_asm1.gdt",      base: "s1_asm1",      up: "s1_asm1_up" },
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
     { gdt: "skye_t6_ak47.gdt",      base: "t6_ak47",      up: "t6_ak47_up" },
     { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
 ];
+
+// CLI args for a gun's always-on baseline buff (numeric factors are scaled, literals set).
+function baselineArgs( b ) {
+    if ( !b ) return [];
+    const a = [];
+    if ( b.range !== undefined )     a.push( "--range", String( b.range ) );
+    if ( b.damage !== undefined )    a.push( "--damage", String( b.damage ) );
+    if ( b.spread !== undefined )    a.push( "--spread", String( b.spread ) );
+    if ( b.penetrate !== undefined ) a.push( "--penetrate", b.penetrate );
+    return a;
+}
 
 function arg( name, def ) {
     const i = process.argv.indexOf( "--" + name );
@@ -132,9 +159,12 @@ function main() {
         if ( !fs.existsSync( orig ) ) fs.copyFileSync( file, orig );
         fs.copyFileSync( orig, file );
 
-        // 1) scale the base + PaP forms x2.5 recoil IN PLACE (the map skill baseline)
-        gen( [ "--src", file, "--asset", g.base, "--recoil", String( BASE_SCALE ), "--inplace" ] );
-        gen( [ "--src", file, "--asset", g.up,   "--recoil", String( BASE_SCALE ), "--inplace" ] );
+        // 1) scale the base + PaP forms x2.5 recoil IN PLACE (the map skill baseline), plus
+        // any per-gun always-on baseline buff (e.g. TAC-19 range/FMJ). The twins in step 2
+        // are cloned FROM these now-modified forms, so they inherit the baseline automatically.
+        const baseArgs = baselineArgs( g.baseline );
+        gen( [ "--src", file, "--asset", g.base, "--recoil", String( BASE_SCALE ), ...baseArgs, "--inplace" ] );
+        gen( [ "--src", file, "--asset", g.up,   "--recoil", String( BASE_SCALE ), ...baseArgs, "--inplace" ] );
 
         // 2) emit every twin combo off the now-2.5x base (base + _up form)
         for ( const form of [ g.base, g.up ] ) {
