@@ -249,11 +249,9 @@ function apply_brutus_buffs()
     if ( !isalive( self ) ) return;
     wait 0.5; // small settle margin after he is moving
 
-    // +50% model. The helmet is LinkTo'd to j_head, so it inherits this scale from the
-    // parent automatically - do NOT SetScale it again (that double-scaled it to 2.25x
-    // and floated it off the head).
-    if ( getdvarint( "acc_brutus_scale", 1 ) != 0 )
-        self SetScale( ACC_BRUTUS_SCALE );
+    // Size buff is applied inside the NSZ spawn function before linked attachments
+    // and spawn AnimScripted start. Do not SetScale here: late live-AI scaling during
+    // spawn -> movement is the suspected round-5 CTD.
 
     // +25% over the round's sprint tier (re-asserted on a cadence). boss_speed_think
     // locks the run cycle to "sprint" and scales his anim-driven movement +25% on top,
