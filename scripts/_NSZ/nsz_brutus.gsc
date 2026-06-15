@@ -170,6 +170,11 @@ function spawn_brutus()
 	playsound_to_players( "brutus_spawn_short" ); 
 	
 	brutus = zombie_utility::spawn_zombie( spawner ); 
+	// [acc] Apply the existing Brutus size buff before linked attachments and
+	// spawn AnimScripted start. Scaling later, after the spawn sequence has
+	// handed off into movement, can hard-CTD the engine on round 5.
+	if ( getdvarint( "acc_brutus_scale", 1 ) != 0 )
+		brutus SetScale( 1.5 );
 	brutus attach_helmet(); 
 	brutus attach_light(); 
 	brutus thread zombie_spawn_init();
