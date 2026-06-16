@@ -126,8 +126,8 @@ function weapon_name_to_ability_category( weapon_name )
     smg_list     = array( "s1_asm1",                            // ASM1
                           "iw6_ripper_smg", "iw6_ripper_smg_zm",
                           "iw6_ripper_ar", "iw6_ripper_ar_zm" );  // Ripper (both modes -> Whirlwind)
-    shotgun_list = array( "s1_tac19" );                         // Tac-19
-    ar_list      = array( "t6_ak47", "s1_ae4" );               // AK-47, AE4 (both ARs -> Focus Fire)
+    shotgun_list = array( "s1_tac19", "t6_olympia" );           // Tac-19, Olympia (BO2, 2026-06-15) -> Slug Round
+    ar_list      = array( "t6_ak47", "s1_ae4", "t6_galil" );   // AK-47, AE4, Galil (BO2, 2026-06-15) -> Focus Fire
 
     if ( array::contains( pistol_list, weapon_name ) ) return "pistol";
     if ( array::contains( smg_list, weapon_name ) ) return "smg";

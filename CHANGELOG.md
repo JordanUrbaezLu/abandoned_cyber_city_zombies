@@ -6,6 +6,517 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Added — Glitch Stalker teleport "warp" SFX (2026-06-15)
+
+The Glitch Stalker now plays a 3D positional **warp** sound at its destination every time it blinks
+(`_acc_boss_glitch::glitch_blink_loop`, gated by `acc_glitch_warp_snd`, default on). Source WAV
+(`warp.wav`) converted to the BO3 3D-SFX convention (**48 kHz / 16-bit / mono**) via the new
+`tools/convert_wav_48k_mono.ps1` (no ffmpeg needed), placed at `sound_assets/acc/fx/warp.wav`, aliased
+as `acc_glitch_warp` in `sound/aliases/acc_audio.csv` (3D, NONLOOPING). **Build note (corrects docs/35):**
+the linker *does* rebuild the soundbank on a `-GscOnly` pass when an alias CSV or WAV changed (verified:
+bank + `.alias.sz` regenerated, `acc_glitch_warp` present) — a stale-bank reuse only happens when the
+sound sources are unchanged. ⚠️ **LICENSE:** `warp.wav` came from a local download — its origin/licence
+must be verified (CC0 / self-authored only) before the Workshop item goes Public (CREDITS.md / docs/35).
+
+### Fixed — Twin guns (AE4/Tac-19/etc.) had NO Pack-a-Punch prompt while a perk was active (user, 2026-06-15)
+
+**Real root cause of the recurring "some guns can't PaP" report** — and it was neither max-tier
+nor the akimbo CSV `_zm` bug. The PaP machine's interact **prompt visibility** is gated by stock
+`can_pack_weapon` (`_zm_pack_a_punch.gsc:253`) → `is_weapon_or_base_included` + `can_upgrade_weapon`,
+both of which look up `level.zombie_weapons[ weapon.rootWeapon ]`. The weapon-variant **base twins**
+(`s1_ae4_acc_recoil25`, etc. — what you actually HOLD whenever **Deadshot / Gun Slinger / Speed Cola
+Mega / The Armory** is active) have `rootWeapon == themselves` and are **deliberately absent** from
+`level.zombie_weapons` (so the Mystery Box can't roll a twin). So the machine judged the held weapon
+un-packable and `SetInvisibleToPlayer`-hid the trigger → **no prompt at all**. It read as random
+because it is **perk-gated and twin-only** (the 5 `variant_guns`), "moving" to whichever twin gun you
+held with a qualifying perk — pistols before, AE4 + Tac-19 now. The variant twin GDTs carry no
+`rootWeapon` field, which is the kernel of the user's "_zm / gun name" hunch.
+
+Fix in `_acc_weapon_variants::register_twin_box_weapons()` (new, called from `init()` after
+`register_twin_upgrades`): register each base twin into `level.zombie_weapons` mirroring its base
+gun's struct (`.upgrade` → the packed twin) but with **`is_in_box = false`**. `is_weapon_included` +
+`can_upgrade_weapon` now pass → the prompt shows; the box still skips it
+(`treasure_chest_CanPlayerReceiveWeapon` gates on `get_is_in_box`, `_zm_magicbox.gsc:1222`). The pack
+itself is unchanged — our `acc_pap_validate` custom_validation still does the in-place first-pack and
+returns false, so stock's float pack never runs. PaP'd (`_up`) twins already showed the prompt via the
+AAT re-pack path, so only the un-upgraded base twins needed this. GSC-only; xref lint clean; linker-only
+rebuild. **Needs in-game confirm:** hold a twin gun with Deadshot/Gun Slinger/Speed Cola Mega/Armory
+active → the Pack-a-Punch prompt now appears and first-packs normally.
+
+### Changed — Zone display names simplified to one word each (2026-06-15)
+
+Rebranded every zone's human-readable **display name** from two words to one, across all docs,
+code, the SVG, and the SoT. Internal identifiers are **untouched** (zone keys `*_zone`, `shortName`s,
+script_strings `corp`/`vault`, decon flags, mermaid node ids) — only the names players/designers read.
+
+| Zone | Old name | New name |
+|---|---|---|
+| `start_zone` | Spawn Plaza | **Spawn** |
+| `market_zone` | Undercity Market | **Market** |
+| `alley_zone` | Service Alley | **Alley** |
+| `corp_zone` | Corporate Plaza | **Plaza** |
+| `vault_zone` | Server Vault | **Vault** |
+| `roof_zone` | Rooftop Helipad | **Helipad** |
+| `lab_zone` | Subterranean Lab | **Lab** |
+
+- **SoT:** `source_data/rooms.json` `rooms.*.name`. Propagated to the in-game strings
+  (`_acc_decontamination::get_zone_display_name`, `_acc_dev` zone HUD), generators
+  (`gen_map_design.js`, `gen_zone_greybox.js`, `gen_rooms.js`), and ~20 docs. `docs/03_layout.md`
+  ASCII diagram + mermaid graphs hand-redrawn; `docs/map_design.svg` regenerated via
+  `node tools/gen_map_design.js`. `validate_rooms.js` still PASS (22 ok, names aren't geometry).
+- **Deliberately left as historical record:** prior CHANGELOG entries (dated, names accurate at the
+  time) and the `*.map.*-bak` snapshots (internal `// ACC room shell` comments only, no display names).
+
+### Fixed — Brutus mini-boss "spawns then stands frozen" (TRUE root cause, 2026-06-15)
+
+Brutus spawned in the lab and never moved (only swung if you walked into melee range). Root-caused
+**live** via temporary `[BRUTUS-DBG]` instrumentation, which printed `pm=move allowed, hasPath=Y,
+target=Y, goalSet=Y, moved=0` every second — i.e. his pathing was **perfect** (valid navmesh path to
+the player) but his body never translated. So it was never a navmesh / PathMode / ignoreall / spawn-anim
+bug (every prior theory — all disproven by the data). It was a **locomotion/ASM** bug: our
+`_acc_zombie_speed.gsc` `speed_keepalive()` sweep runs every 1.5 s and calls
+`set_zombie_run_cycle_override_value()` + `ASMSetAnimationRate()` on every actor where
+`zombie_utility::is_zombie()` is true. Brutus sets `self.is_zombie = true` (needed for melee), so the
+sweep grabbed him and **stomped his custom `zm_brutus` run-cycle animation** — re-freezing him every
+1.5 s. (This system replaced the old Rampage Inducer, which is exactly the "he moved a few PRs ago"
+window.)
+- **Fix:** `_acc_zombie_speed::apply_speed_for_round` now early-outs for any boss
+  (`is_boss` / `acc_boss_custom_speed` / `acc_is_boss` / `acc_is_mini_boss`) — one chokepoint covering
+  both the on-spawn hook and the keepalive sweep. The pack flags Brutus `is_boss` + `acc_boss_custom_speed`
+  the instant he spawns (before any callback can race). The Glitch Stalker already opted out the same way;
+  this generalizes it. **Invariant going forward: the zombie-speed curve only ever touches regular zombies
+  — any custom-AI boss MUST set a boss marker.**
+- **Restored** Brutus's full promotion now that the cause is known: 10× HP, boss health bar + nameplate,
+  Mega-Bottle/boss-item rewards, boss music. Added belt-and-suspenders robustness in the pack:
+  `GetClosestPointOnNavMesh` clamp on the spawn spot + a host-player fallback if the lab spot isn't
+  activated (no more silent no-shows).
+- **Removed** all the debug scaffolding and dead experiments (the `[BRUTUS-DBG]`/`[BRUTUS-TEST]` diag,
+  hardcoded spawner, `brutus_spawn_diag`, the obsolete `brutus_force_resume` band-aid, and the
+  `apply_brutus_buffs`/`boss_speed_think`/`brutus_movement_fix` size/speed experiments). The **+50% size
+  buff stays OUT** — `SetScale` on the live Brutus AI is a *separately* confirmed engine CTD (0xC0000005,
+  minidump-verified), unrelated to this freeze.
+
+### Fixed/Investigated — Radiant LED crash root-caused; baked darkness is a dead end here (2026-06-15)
+
+The Mod Tools **Radiant lightmapper crashes** (`SANITY CHECK FAILURE` `brush.cpp:1860` →
+`Device.cpp:395 (pDevice)` → `GfxFrustumRegister`/`Gfx::ProbeInst` "outstanding allocations" cascade)
+on the enclosed-vault geometry (ceiling + door seals). **Exhaustively confirmed it crashes in EVERY
+config:** GUI Launcher (Compile+Light) AND headless; `+localprobes` ON and OFF; BlackOps3 running and
+closed. So it's **not** the probes, GPU contention, or brush winding (cod2map64 accepts the brushes as
+valid boxes) — it's the same lightmapper limitation that shelved the lab ceilings (docs/36/38). Output
+of a multi-agent root-cause workflow + an empirical probe-free build test.
+- **Real bug found + fixed:** all 7 `reflection_probe` entities had an **inverted Y box** (`size_min`
+  548.5 > `size_max` 544.75 — a verbatim `zm_alien_isolation` copy) → corrected to 540.75 in the `.map`.
+  (Did not stop the crash, but is a genuine latent bug to fix before LED is ever usable again.)
+- **Brush generators** (`add_vault_ceiling.js`, `add_lockdown_seals.js`) rewritten to emit **real corner
+  coordinates** (not the filler-coordinate winding) — good hygiene; cod2map64 was always fine with both.
+- **`build_map.ps1`:** LED comment updated to the verified dead-end; **build this map with `-SkipLED`**.
+  `+localprobes` dropped (fragile GPU pass) so LED can be retried IF the ceiling/seals are removed.
+- **Path forward for a dark vault = LED-free per-player vision** (`VisionSetNaked("zombie_turned")` in a
+  `.csc`, driven by a zone-IsTouching clientfield) — no lightmap, no crash. Spec: docs/37 §11. New
+  memory: `led-relight-dead-end-enclosed-geometry`.
+- Red alarm FX (`_acc_lockdown.gsc`) is unaffected/LED-free and now pulses + has on-screen `[lockdown]` debug.
+
+### Investigated (NOT a bug) — "can't PaP Tac-19/AK-47" was MAX-TIER, not the Olympia/Galil add (user, 2026-06-15)
+
+After adding the Olympia + Galil box guns, the user reported the Tac-19 and AK-47 would no
+longer Pack-a-Punch. Investigated with a temporarily-widened `PaPDIAG` print in
+`acc_pap_validate`. The diag was conclusive — **there was no bug**:
+```
+held=s1_tac19    upg=0 tier=0  getup=s1_tac19_up  packed=s1_tac19_up   (fresh base → first-packs)
+held=s1_tac19_up upg=1 tier=1..4  getup=s1_tac19_up  packed=s1_tac19_up  (tiers fine, → 5/5 MAX)
+```
+The upgrade resolution (`getup`/`packed`) works at every step. The "can't PaP" was the guns
+being at **MAX TIER 5/5** from earlier that session — `acc_do_tier_up` correctly refuses a maxed
+gun ("already max tier 5"), which reads as "won't PaP". `acc_pap_tier` is an in-memory player
+field keyed by `true_base`, so a maxed tier persists across losing/re-boxing that base within a
+session and only clears on a **relaunch** (new session) or a fresh first-pack (resets to 1) —
+which is why it "worked again" after the user relaunched. The gun-add was coincidental: the build
+has all the upgrade assets (verified `s1_tac19_up`/`t6_ak47_up` + twins in the asset deps), and a
+new gun's assets are independent of existing guns' PaP. Documented the trap in the
+`_acc_pap_levels.gsc` header ("MAX-TIER reads as can't-PaP"); `PaPDIAG` reverted to its original
+akimbo-only scope (the Tac-19/AK-47 widening removed). No functional change. Linker-only rebuild.
+
+### Added — docs/38: LED-safe enclosed lab-tunnel research (read-only; corrects the LED diagnosis) (2026-06-15)
+
+Read-only investigation (10-agent workflow + adversarial verification) into doing the deferred lab-approach
+ceilings + maze + lighting **seamlessly** — no code/geometry changes (map owned by a concurrent agent).
+New doc **`docs/38_lab_tunnel_led_safe_research.md`** with a decision-ready, asset-verified recipe.
+- **Corrects the earlier root-cause:** the "coplanar z256 ceiling crashes the LED lightmapper" theory is
+  **not proven and partly contradicted** — `gen_rooms`' coplanar-overlapping shells baked clean (2026-06-13), and
+  the crashing `C0` ceiling was z264 (8u *above* the wall tops, not coplanar). **Dominant cause = headless
+  `-ledSilent` instability** (nondeterministic after repeated runs + a force-kill); thin slivers (8u-off-wall cover)
+  are the only credible geometric co-factor; enclosure/no-light bakes **black**, it does not crash.
+- **New latent hazard found:** all 7 `reflection_probe`s have a malformed box (`size_min Y 548.5 > size_max Y
+  544.75` → inner ball not contained) — a documented LED-crash trigger; fix independently.
+- **Verified-real assets:** the `light` entity = kelson8 `PRIMARY_OMNI` block with **no `def` key**
+  (`tmp/kelson8_testmap/...:3792`); `caulk`/`clip`/`hint` tool materials are real (shipped maps use them).
+- **Recipe:** build each tunnel as ONE watertight closed tube (replace the open-top walls, don't cap them) +
+  an in-tunnel omni light + a contained per-tunnel probe; **put the maze cover in the vault/roof rooms, not the
+  216u corridors** (too tight — at/below the horde-lane floor + already gated by a door + PaP blocker); resolve the
+  z258 door-open-vs-ceiling clearance. **Diagnose LED flakiness first** (rebuild current map headless twice);
+  confirm a REAL relight (fresh `.led` mtime + lit-not-black in-game), never ship a black tunnel.
+
+### Added — Lockdown stage 2: Server Vault door seal (full geometry build) (2026-06-15)
+
+The DEFCON lockdown now physically **seals the room's doors** (not just the red light), built for the
+**Server Vault** (the current pinned test room). Decision: **locks players IN, no escape window** (docs/37 §11).
+- **New geometry:** `tools/add_lockdown_seals.js` (idempotent) appends two `acc_seal_vault_zone`
+  `script_brushmodel` box brushes — one per vault doorway (both on the west wall x=1119: corp↔vault
+  corridor y[2300,2556], vault↔lab corridor y[3100,3356]). Box-brush winding reused from
+  `apply_room_shrink.js`; inset 8u off corridor walls (LED coplanar-crash gotcha), full height z[0,256].
+- **Wiring** in [_acc_lockdown.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc): `init_seals()` hides them at startup;
+  `lock_doors()` = `show`+`solid`+`disconnectpaths`, `unlock_doors()` = `hide`+`notsolid`+`connectpaths`
+  (the `_acc_map_randomizer::apply_pap_approach` pattern). `lockdown_apply` seals, `lockdown_clear` unseals.
+- **Dvar** `acc_lockdown_lock_doors` (default 1; `0` = red light only — walk in, then `1` to seal next round).
+- **Vault ceiling + brighter red (visibility pass):** `tools/add_vault_ceiling.js` caps the vault
+  (z[256,272]) — a guaranteed-visible landmark + a surface for the red FX to read against. Red FX now
+  also emits at the room center and defaults to 6 emitters @ z180. Launchers set `acc_lockdown_lock_doors
+  0` so you can walk in and see it (`1` to test the seal).
+- **Build:** `cod2map64` bakes the brushes + regenerates navmesh; linker packs `.ff` 34.54 MB.
+  ⚠️ **Radiant LED `-ledSilent +recompute` CRASHES** on the added ceiling/seal brushes (`SANITY CHECK
+  FAILURE` / `brush.cpp:1860`, exit `-2147483645`) — same lightmapper fragility that deferred the lab
+  ceilings (docs/36). Build-time **modal popup only** (never at launch), **non-fatal** (the `.ff` packs).
+  **Build with `build_map.ps1 -SkipLED`** until an LED-safe geometry pass; lighting isn't recomputed but
+  the checker greybox + red FX are visible.
+- **To seal more rooms:** add their corridor-mouth boxes to `add_lockdown_seals.js` `SEALS` + full build.
+
+### Added — Olympia + Galil box guns (BO2 ports, twin-less) (user, 2026-06-15)
+
+Two more Mystery Box guns: **Olympia** (double-barrel shotgun) and **Galil** (full-auto AR).
+User asked for the BO1 rips, but only their GDTs were installed (no models/sounds), so the
+**fully-installed BO2 ports** (`t6_olympia`, `t6_galil`) are used — same guns. Both pre-screened
+against all three boot-crash modes (docs/33) and clean: **empty `altWeapon`** (no AK-74u-style
+`_zm_zm` Com_ERROR), **single-wield bulletweapon** (no akimbo/projectile twin break), and shipped
+**twin-less** (the weapon-count cap silently access-violates at boot past ~230 twins, and the
+5-gun twin matrix is already at the ceiling). Galil's loc mults are identical to the shipped
+AK-47 (locHead 5.0, torso 1.0) so no install-side GDT edit was needed.
+
+Wiring per gun (docs/33 ten-point recipe, steps 8–10 twins skipped):
+- **Olympia** — CSV row (shotgun), zone `weapon,t6_olympia`/`_up`, box pool, **Slug Round**
+  ability (shotgun category), shotgun Overclock family, balance ×0.85 + **headshot-excluded**
+  (flat-damage crowd control like the Tac-19), fire + foley sounds (`close/open/shell_in/switch`).
+- **Galil** — CSV row (rifle), zone `weapon,t6_galil`/`_up`, box pool, **Focus Fire** ability
+  (AR category, shared w/ AK-47/AE4), AR Overclock family, balance ×0.21 (220@0.08 = 2750 raw →
+  ~578 eff, AK-47 band; keeps the AR headshot chain), fire + foley (`bolt_*/futz/mag_*`).
+
+Sounds via `tools/gen_box_weapon_sounds.js` (added both to `GUNS[]`, foley auto-scanned). Built
+one-at-a-time per the runbook's hard rule (Olympia first, then Galil). Linker-only (no geometry);
+each `.ff` fresh + growing (34.3 → 34.4 → 34.54 MB), sound bank 13.5 → 14.04 MB, errorlog shows
+only the pre-existing waived Five-Seven camo `^1 ERROR` (new guns appear only in non-fatal `^3`
+xmodel-processing warnings). **Needs in-game boot-test + box spin confirming both fire/PaP/sound.**
+
+### Fixed — Brutus spawn-freeze SOLVED: `ignoreall` + dead custom-goal under stock dvar (2026-06-15)
+
+**Root cause (verified against stock `_zm_behavior.gsc`/`zombie.gsc` via an ultracode multi-agent
+workflow + independent re-read).** Brutus stood still (only AnimScripted spawn/melee played) because the
+NSZ pack's chase model is **dead code under stock BO3's default**. The pack chases by writing
+`self.v_zombie_custom_goal_pos` (custom_find_flesh), but stock defaults `SetDvar("scr_zm_use_code_enemy_selection",1)`
+([_zm_behavior.gsc:145]) → `zombieFindFlesh` delegates to `zombieFindFleshCode` (`:160-164`) which targets
+`self.enemy`, **not** the custom goal — the only custom-goal consumer (`:276`) is dead under that dvar. And
+`brutus.ignoreall = true` ([nsz_brutus.gsc:195], never cleared) makes the engine never assign `self.enemy`
+**and** gates off the alternate consumer `zombieTargetService` ([zombie.gsc:443]). So `zombieFindFleshCode`
+takes its no-target branch → `SetGoal(self.origin)` (`:438`) → `HasPath()` false forever → frozen.
+
+**Fix (code-only, GSC-only build):** add `brutus.ignoreall = false;` in `spawn_brutus`'s post-spawn-anim
+block ([_NSZ/nsz_brutus.gsc](scripts/_NSZ/nsz_brutus.gsc)) so the **standard code-side find-flesh chase** runs — the exact path that already
+moves the Glitch Stalker (which never sets `ignoreall`) in this same map. `canattack`/`allowmelee` stay
+false so the pack's scripted melee remains his only attack; the navmesh-clamp + PathMode/SetGoal stay as
+harmless belt-and-suspenders. **Why the prior fixes failed:** navmesh-clamp fixes only spawn *position* (goal
+was pinned to origin regardless); `PathMode` is checked only in the dead legacy branch (`:171`) so re-opening
+it is a no-op under dvar=1; `SetGoal(brutus.origin)` re-confirmed the freeze.
+
+Also fixed 3 orthogonal **death-path** crashers surfaced by the runtime log (concurrent edits, verified in
+tree): `track_helmet` missing `endon("death")`; `new_death` unguarded `self.light`/`self`/`clone` deletes;
+and the `_acc_boss.gsc` base-pack log line concatenating an undefined `host.maxhealth`.
+
+### Changed — Brutus: STRIPPED to pure base-pack (all promotion commented out) to isolate the spawn-freeze (user, 2026-06-15)
+
+User reports Brutus **still freezes every spawn** after the movement fix was defaulted off, and asked to
+**comment out ALL our changes** to see the pure pack version move, then re-add incrementally. Done:
+- `spawn_brutus_miniboss` ([_acc_boss.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc)) now spawns the **pure NSZ pack actor** — the entire
+  promotion block (HP override, mini-boss flag, `DisableAimAssist`, boss health bar `acc_boss_spawned`,
+  death-reward drops, boss music, movement fix, force-resume, size/speed buffs) is **commented out as
+  labeled STEP 1–5 blocks** for one-at-a-time re-add. The only thing kept is the **observational**
+  `brutus_spawn_diag` (reads pack fields, never mutates him — it's how we measure whether base moves).
+- This **supersedes** the prior `acc_brutus_runfwd 1→0` revert (that default is unchanged; the whole
+  call is now commented anyway).
+
+**This freeze IS recorded before (≥4 times):** "Brutus stuck at spawn (off-navmesh z=45) + moved to the
+lab" (the z fix), "Brutus 'spawns then stands frozen' — added an off-by-default spawn diagnostic" (twice),
+and the two earlier **crash** (not freeze) fixes (`melee_track` deref guard; defer size/speed buffs).
+The recurring pattern: each fix addressed one cause, then it resurfaced from another — so this time we
+go to the **pure base** and add back deliberately.
+
+**Investigation (the user's "we made a change to help his pathing" hypothesis does NOT hold up):**
+- The Brutus GSC (`_acc_boss.gsc` / `_acc_boss_brutus.gsc` / vendored `nsz_brutus.gsc`) is **unchanged**
+  since the last commit (`1ebcea5`). What changed recently (uncommitted) is the **map** (room-tightening),
+  but `lab_zone` was **held** (`apply_room_shrink.js` `new == old`; lab cover/maze ADD brushes are
+  disabled) and the **navmesh is fresh** (rebuilt 5:18 PM, after the 4:48 PM map edits) — so neither our
+  code nor Brutus's lab arena changed under him.
+- `brutus_movement_fix` gates on `self.brutus_enemy` (only touches goal/anim fields *after* he acquires a
+  target), so it **cannot** cause an *immediate* on-spawn freeze. Prime suspect is the **base pack spawn**:
+  it `ForceTeleport`s Brutus to the **raw, un-navmesh-clamped** origin `(19,3648,0)` (`nsz_brutus.gsc:224`,
+  unlike stock `clampToNavmeshLocation`) and runs an `AnimScripted(%brutus_spawn)`; if locomotion doesn't
+  resume after that anim, or the spot is marginally off-mesh, he stands frozen.
+- **Confirmed pack race this turn:** the pack fires `acc_brutus_spawned` (`nsz_brutus.gsc:223`, which
+  starts ALL our layer) and THEN, in the same spawn function, `ForceTeleport`s (:224) + `AnimScripted`s
+  (:225). Locomotion is unlocked on a **separate** thread: `zombie_spawn_init` → `PathMode "dont move"`
+  (:847) → `boss_think` → `PathMode "move allowed"` (:573) + `SetGoal(self.origin)`. That `SetGoal`/unlock
+  RACES the teleport — if it runs before the teleport, his goal/path is anchored to the pre-teleport
+  origin. This is why `brutus_force_resume` (re-assert PathMode+SetGoal AFTER the anim, STEP 3 in the
+  re-add list) is the likely real fix.
+- **Next test (to confirm the cause in one run):** launch with `acc_brutus_debug 1` and read the
+  `[brutus diag]` line — `target=N` ⇒ never acquires a target; `target=Y goal=Y movedLastSec~0` ⇒ has a
+  goal but can't path (off-mesh/spot); then try `acc_brutus_force_resume 1` (re-asserts
+  `PathMode("move allowed")` + `SetGoal` after the spawn anim — the likely real fix if it's a
+  locomotion-resume stall). Linker-only rebuild (GSC-only change).
+
+### Changed — Glitch Stalker: −50% melee damage + blinks 2× more often (user, 2026-06-15)
+
+Two live-dvar tweaks to the Glitch Stalker mini-boss ([_acc_boss_glitch.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc)):
+- **Melee damage to players −50%.** New `host.meleeDamage` write in `spawn_glitch` (after the
+  init-gate, so stock `zombie_spawn_init` can't clobber it — `zombie_init_done`:389 is set after
+  `meleeDamage`:358). Scales the stock zombie's `60` by `acc_glitch_melee_dmg_mult` (default **0.5
+  → 30**). This is the damage the boss *deals*; the existing `acc_glitch_recovery_dmg_mult` is the
+  damage it *takes* while vulnerable (unchanged).
+- **Blinks 2× more often.** Halved `acc_glitch_blink_cd_min` `2.0 → 1.0` and `acc_glitch_blink_cd_max`
+  `3.33 → 1.665` (now 6× the original 6–10s baseline). Cadence only — blink distance, recovery
+  window, and FX are unchanged.
+
+Docs synced: [docs/11_enemies.md](docs/11_enemies.md) Glitch Stalker entry + [docs/34_flags_reference.md](docs/34_flags_reference.md) dvar table (new
+`acc_glitch_melee_dmg_mult` row). Linker-only rebuild (GSC-only change).
+
+**Not done — perk drink speed 40% faster:** no GSC/text-config lever exists. The perk-drink
+duration is the perk-bottle viewmodel *animation* (the drink ends on `weapon_change_complete`,
+which is anim-timed), and the stock vending flow (`_zm_perks.gsc::vending_trigger_post_think`)
+can't be overridden by a usermap. This is the same proven blocker that cut Speed Cola's faster-drink
+(docs/13 :441, docs/30 :135). A map-wide change would require re-exporting the bottle xanims at a
+higher rate (APE/asset pipeline) — out of scope for a headless edit. Surfaced to the user.
+
+### Fixed — Mystery Box guns no longer come out PaP'd/tiered (user, 2026-06-15)
+
+A gun pulled from the box that the player had previously PaP'd/tiered still did upgraded damage
+and showed the `PaP TIER x/5` HUD, even though the box only ever hands out **stock base** forms.
+Root cause: `player.acc_pap_tier[]` is keyed by BASE weapon and never cleared, so the old tier
+stuck to the base weapon forever. Fix in `_acc_pap_levels::get_tier`: the tier only counts while
+the player holds the **upgraded** form (`zm_weapons::is_weapon_upgraded`). A stock/base gun now
+reads tier 0 — no damage mult ([_acc_damage.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc) reads through `get_tier`), no HUD, no machine
+re-pack cost (already gated on upgraded). Re-packing that base re-records tier 1 from scratch.
+The box pool is confirmed all base forms (`_acc_map_randomizer`), so box guns are correct stock
+models; this was purely the tier-tracking bleeding onto the re-rolled base. Linker-only rebuild.
+
+### Added — Per-round "DEFCON" room lockdown, stage 1: red alarm lighting (built, linker-only) (2026-06-15)
+
+First slice of the punishing-middle / room-event idea (docs/37): each round one room is put
+under a **red flashing security alert**, and which room lights up rotates every round. New module
+**`scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc`** (orchestrated by `acc_main::init()`,
+armed before `watch_round_transitions` like decon). **OFF by default** — same stance as the fog/
+ambient knobs; the owner enables + eyeballs it in-game.
+- **Localized red, not global:** `SetVolFog`/vision are whole-map, so fog/tint can't be confined
+  to a room. The alarm look is **placed FX emitters** instead — a few flashing-red light FX spawned
+  on invisible `tag_origin` hosts inside the room (`PlayFXOnTag`), `Delete()`d to clear. Anchored to
+  the room's own `<zone>_spawners` structs so the placement auto-tracks the docs/36 geometry shrink
+  (no hardcoded coords; rooms.json stays SoT).
+- **FX (verified present in this install, `<tools>\share\raw\fx\light\`):** primary
+  `light/fx_light_flashing_red_factory_zmb` (the ZM Giant/factory flashing-red alarm light, self-
+  flashing — no script pulse needed); alt `light/fx_glow_blink_red_5` (set `acc_lockdown_use_glow 1`).
+  Both `#precache`d + listed in `zone_source/…zone` (the research's suggested FX names did **not**
+  exist here — checked on disk before building).
+- **Rotation:** per-run Fisher-Yates order over the 6 non-start rooms (`acc_utility::acc_rand_int`),
+  indexed `(round-1) % size` (no out-of-bounds), skipping any decon-sealed room.
+- **Dvars:** `acc_lockdown_on` (master, default 0), `acc_lockdown_use_glow`, `acc_lockdown_fx_z`
+  (emitter height, default 140), `acc_lockdown_emitters` (max/room, default 4),
+  `acc_lockdown_force_zone` (test pin to one room, default ""). **Both playtest launchers currently
+  enable lockdown AND pin it to `vault_zone`** for easy testing — remove the `acc_lockdown_force_zone`
+  token to resume per-round rotation.
+- **Stage 2 (NOT built — needs Radiant geometry):** physically LOCKING the room's doors via new
+  hidden `acc_seal_<zone>` brushes + show/solid/disconnectpaths. **Decision recorded: lock players
+  IN, no escape window** (punishing by design). See docs/37 §11.
+- **Build:** linker-only (`build_map.ps1 -GscOnly`); fresh `.ff` 34.25 MB, FX linked clean, only the
+  pre-existing waived `mtl_origins_camo_alt` warning. xref lint green.
+
+### Changed — Map tightening Stage 3: further ~25% squeeze + start cover (built); lab tunnels deferred (2026-06-15)
+
+Second squeeze of the 4 free-wall rooms + start obstacles, built clean. **Lab-approach ceilings + maze
+were attempted but reverted — they crash the LED lightmapper** (see gotcha below); deferred to an LED-safe pass.
+Backups: `…map.pre-stage2-bak`, `…map.pre-stage3-bak`.
+- **Further shrink (~25% on free walls)** via `tools/apply_room_shrink.js` (Stage-3 config): market `X[-1951,-1281]`,
+  alley `X[1319.5,1989.5]`, vault `X[1119,1744]`, roof `X[-1744,-1119]` (Y is gap-locked, so the squeeze is in X;
+  interiors now ~630 (market/alley) / ~585 (vault/roof) wide). All 4 footprint copies synced; validator 22 ok/0 err;
+  0 crossed bounds; all spawners inside.
+- **Start obstacles**: the tool now also APPENDS brushes (idempotent `{ACCADD` guids) — 2 cover blocks
+  `S0 X[-680,-510] Y[-80,80]`, `S1 X[480,650] Y[60,220]` (z0-128), clear of every start spawner, to break the open
+  spawn arena (the "first-room freedom" note; see docs/37).
+- **Built**: cod2map (no leak, fresh navmesh) → linker; deployed `.ff` 35.9 MB. Regenerated `docs/map_design.svg`.
+- **⚠️ LED-lightmapper gotcha (verified, hard-won):** radiant `-ledSilent +recompute` **crashes** (`0x80000003` /
+  exit -1, no `.led` written; cod2map + navmesh are unaffected) on cover/enclosure inside the narrow 216u lab
+  corridors — BOTH flush-coplanar AND 8u-off-wall maze, AND the ceilings (bottom coplanar with z256 wall tops).
+  Coplanar parallel faces and thin slivers between cover and wall are the trigger; enclosed greybox tunnels get no
+  sky light. Bottom-on-floor at z0 is fine (Stage-1/2 stalls). **Also: headless LED is flaky after repeated runs +
+  a force-kill** — same geometry that relit fine earlier later crashed; the build uses a valid relight of this exact
+  geometry. **Lab-approach difficulty is DEFERRED** to a dedicated pass (in-tunnel `light` entities + no-sliver
+  cover, or author in the Radiant GUI whose relight is reliable). Disabled C*/M* coords kept in `apply_room_shrink.js`.
+
+### Added — docs/37: "Punishing the Middle" design investigation (pre-implementation, NO code) (2026-06-15)
+
+Investigated how to make the map **middle** (Corp + its 4 corridor mouths — the cut-vertex
+band every Spawn↔Lab trip must cross) punishing enough to push players to settle at a pole
+(Spawn or Lab) and only cross under risk/fear. Output of a 26-agent design workflow (5 research
+deep-dives → 5 competing concepts → 3 adversarial judges each → synthesis). New doc
+**`docs/37_punishing_middle_design.md`** — decision-ready, no code authored.
+- **Key finding:** the map is a one-way ratchet toward the Lab (all recurring sinks are
+  top-anchored; Shards are portable; Spawn is barren — no perks/box/wallbuys). A scary middle
+  alone just freezes players at Lab+Roof. **The load-bearing piece is a recurring, non-portable,
+  bottom-anchored reason to cross** (a new Spawn "Regulator" console whose credit is spent at the
+  Lab and that resets the middle's safe window — "the trip down buys the trip back up").
+- **Two directions fleshed out side-by-side** (per owner request): **A — The Contaminated Core**
+  (environmental zone-state DoT cycle; clones the decon engine; no AI ⇒ sidesteps every live-AI
+  crash class; can't be kited; judge avg 7.0) vs **B — The Toll Daemon** (a named mini-boss leashed
+  to Corp that taxes presence; clones `_acc_boss_glitch`; a "face to fear"; avg 6.7 with 3 fixable
+  issues). 3 other concepts rejected/parked (false-reuse / unproven AI / worst-stack double-count).
+- **Open decisions deferred by owner:** entity-vs-environment and the reason-to-cross reward
+  (free-Overclock-tier vs perk-reroll token) — both captured in docs/37 §10. Composition guards
+  (decon double-count, speed-curve + 24-cap, Corp never-sealed, opt-in modifier first) documented.
+
+### Changed — Map tightening Stage 2: alley/vault/roof/start shrunk + vault/roof double-shell removed (built) (2026-06-15)
+
+Scaled the market pilot (Stage 1) to 4 more rooms via a new deterministic tool, then BUILT
+(full cod2map64→LED→linker; no leak, navmesh fresh, `.ff` 35.9 MB). Lab + Corp held for a
+dedicated pass (lab = dense PaP/perks/boss + unplaced `acc_lab_perk` machines; corp = cut-vertex
+hub, ~10% cap without corridor surgery). Backups: `…map.market-bak` (pre-Stage-1), `…map.pre-stage2-bak`.
+- **New tool `tools/apply_room_shrink.js`** — shrinks rooms by GUID/geometry from a per-room
+  old→new footprint. Floor + perimeter walls (planes that touch a room edge) get **value-remapped**
+  (edge→new edge, gap coords untouched); interior obstacles/triggers/spawners get **proportionally
+  moved + clamped** inside; non-axis-aligned brushes (start's angled template cover) are **skipped**;
+  gen_rooms shell brushes deleted by guid-prefix. All edits surgical (UV/winding/GUIDs preserved).
+  **Regression-validated**: `--verify-market` reproduces the hand-edited+playtested market geometry
+  byte-for-byte before trusting it on other rooms. (Caught + fixed 2 bugs pre-write: a loose guid
+  substring match that would have deleted 2 start walls, and angled-brush distortion.)
+- **Shrunk** (interior): **alley** 1160×1360→840×1096 (X-mirror of market, ~41.6%); **vault**
+  1160×1160→780×1100 (east wall in 380, ~36%); **roof** mirror of vault; **start**
+  ~2110×1962→2070×1240 (N/S trimmed, X fixed by the spawn corridors, ~36%). All 4 footprint copies
+  synced (rooms.json + gen_zone_greybox + gen_map_design + baked `.map`); 17 spawners + box +
+  obstacles relocated inside; `validate_rooms` 22 ok / 0 error.
+- **vault/roof double-shell RESOLVED** (docs/36 §12): deleted the 12 overlapping `gen_rooms` shell
+  brushes (guids `ACCB0010-0015`/`ACCB0020-0025`) — the rooms are now single open-top greybox boxes
+  (cod2map confirms no leak). genRoomsShells dropped from `rooms.json`.
+- Verified: market regression byte-exact, validator green, braces balanced (262/262), 0 crossed
+  bounds, all spawners inside new interiors, cod2map clean (0 degenerate tris). Regenerated
+  `docs/map_design.svg`. **Pending: in-game playtest** (docs/36 §11 per room).
+
+### Fixed — AE4 + Ripper missing-FX linker errors (muzzle flash / shell eject) (2026-06-15)
+
+The two Skye box guns each logged a non-fatal missing-FX `ERROR:` that another agent
+flagged as a pre-existing asset-pack issue. Both root-caused and repaired install-side
+(the Skye GDTs/`.efx` are game-rip, NOT repo-tracked — same Reproducibility-gap class as
+the AK-74u altWeapon edit; `.acc-fx-orig` backups kept; a fresh box must re-apply):
+- **AE4 muzzle flash** (`iw7_efx_plasma_muz_flash`): the weapon field points at a `.efx`
+  that exists — the missing reference was a single material string buried in the effect's
+  companion file `share\raw\fx\skye_efx\s1_efx\fx_s1_fusion_muz_flash_efxs.efx` (line 884,
+  a `billboardSprite` element). Repointed it from the missing IW7 material to the present
+  sibling `mtl_s1_plasma_muz_flash` already used by the rest of that effect. `.efx` edit →
+  linker-only (no gdtdb).
+- **Ripper shell eject**: a `ffx\` path **typo** in `source_data\skye_iw6_ripper.gdt`
+  (line 34705, `"viewShellEjectEffect" "ffx\\…h1_shell_eject_57x28.efx"` vs the 7 correct
+  `fx\\` siblings). The `.efx` and its shell xmodel are both installed — so the prior
+  "Scobalula pack lacks the 57x28 variant" claim (docs/33) was wrong; only the typo broke
+  it. Fixed `ffx`→`fx`, then `gdtdb /update`.
+- **Verified** via a headless linker re-run: both errors gone from the log, the only
+  remaining `ERROR:` is the pre-existing/waived Five-Seven PaP camo `mtl_origins_camo_alt`,
+  a fresh 34.26 MB `.ff` was written, and no new FX/material warnings were introduced.
+- Docs/tooling synced: docs/33 ("FIX APPLIED — AE4 + Ripper FX" + corrected exit baseline,
+  now 1 waived error not 3), docs/32, CLAUDE.md, and `tools/build_map.ps1` (dropped
+  `iw7_efx_plasma_muz_flash` from `$WaivedLinkerErrors` so a regression would re-surface).
+
+### Fixed — Brutus stuck at spawn (off-navmesh z=45) + moved to the lab (user, 2026-06-15)
+
+Brutus spawned then stood frozen. Root cause: the single `brutus_spawner_spot` struct sat at
+**z=45** while every real spawner/riser/dog location in the map is at **z=0** (the floor). The NSZ
+pack teleports him to the struct's **raw, unclamped** origin (`nsz_brutus.gsc:224`
+`ForceTeleport(spot.origin, spot.angles, 1)`) — unlike stock AI teleports, which clamp to ground/
+navmesh (`zombie.gsc:1225/:762`). So he landed ~45u **above** the navmesh; his chase goal is set
+fine (`custom_find_flesh` → `v_zombie_custom_goal_pos`, consumed at `_zm_behavior.gsc:276`) but **no
+path can be generated off-mesh** → frozen. Fix: relocated the struct to the **lab center
+`(19 3648 0)`** (the lab `dog_location` origin — proven on-navmesh/pathable, on the floor at z=0),
+which fixes the z=45 bug AND fulfills the "spawn him in the lab" request.
+- **User choice: always-lab.** There is still only ONE spawn spot, so Brutus ALWAYS spawns in the
+  lab. Accepted caveat: at early boss rounds (first = r4) players are usually in the start zone and
+  may be too far / behind a closed door to be reached until they open the path to the lab. (The
+  pack's `choose_a_spawn` picks the placed spot nearest a player; adding per-zone spots later would
+  make him appear near players again.)
+- `script_string` kept as the literal `"start_zone"` — that is the pack's "active from match start"
+  sentinel (`nsz_brutus.gsc:94`), NOT a geometric tie to the start zone; keeps the spot always
+  available so a spawn always happens even before the lab is unlocked.
+- **BUILT 2026-06-15** via the new `tools/build_map.ps1` (full geometry pipeline: sync → cod2map64
+  [cwd=bin, navmesh regenerated] → radiant LED → linker). Fresh 34.26 MB `.ff` written; the only
+  linker errors were the two pre-existing user-waived material warnings (`mtl_origins_camo_alt`,
+  `iw7_efx_plasma_muz_flash`). Ready to test (`tools/run_game.ps1`; test boss spawns from round 2).
+- File: `map_source/zm/zm_abandoned_cyber_city.map` (struct at the `brutus_spawner_spot` entity).
+  Diag harness unchanged: `acc_brutus_debug 1` still prints target/goal/dist/moved if it recurs.
+
+### Added — `tools/build_map.ps1`: one-command headless map build (2026-06-15)
+
+Agents kept punting "compile the geometry" to the user even though the whole pipeline is
+CLI-scriptable on this box. `build_map.ps1` closes that gap: `.\tools\build_map.ps1` runs
+asset-gate → sync → cod2map64 (BSP+navmesh, **cwd=bin** so the navmesh actually regenerates) →
+Radiant LED → linker → verifies a fresh `.ff`; `-GscOnly` is the linker-only fast path for
+script/zone/csv changes; `-Run` chains `run_game.ps1`. Auto-detects the Mod Tools root (via
+`bin\modlauncher.exe`), refuses to build stale (hashes deployed `.map` vs repo after sync), treats
+the silent navmesh-abort string as fatal. **Build success = a FRESH `.ff` was written, NOT the
+linker exit code** — the linker prints `ERROR:` for missing-but-substituted assets (the two waived
+camo/FX materials), exits nonzero, yet still packs a valid `.ff`; the script waives those and only
+fails when no fresh `.ff` lands. File: `tools/build_map.ps1`.
+
+### Changed — Map tightening Stage 1: market_zone shrunk ~41.6% + leftover gun chalk removed (2026-06-15)
+
+First geometry edit of the docs/36 overhaul (the market_zone pilot), plus a requested cleanup.
+**Needs a full geometry rebuild** (cod2map64 [cwd=bin] → radiant LED → linker) — not linker-only —
+then an in-game playtest (docs/36 §11 checklist). Backup: `map_source/zm/zm_abandoned_cyber_city.map.market-bak`.
+- **market_zone shrunk** outer `X[-2481,-1281] Y[200,1600]` → `X[-2161,-1281] Y[360,1496]` (interior
+  1160×1360 → 840×1096 = **41.6% smaller**). Used the **non-flush variant** (docs/36 §10): only constant-axis
+  plane values edited, **no brush deletions** — the EAST wall + both corridor gaps (`Y[400,656]` start,
+  `Y[1200,1456]` corp_w) are untouched; WEST/NORTH/SOUTH walls moved in, with bw35/bw37 kept as 20u stubs
+  so the 256u corridor mouths stay full-width.
+- **Propagated to all 4 footprint copies** (rooms.json SoT + `gen_zone_greybox.js` + `gen_map_design.js` +
+  baked `.map` floor) — `validate_rooms.js` green (26 ok / 0 error).
+- **Relocated inside the new footprint** (origins are .map-authoritative): 4 risers `(-2066,560)/(-2066,1296)/
+  (-1376,560)/(-1376,1296)`, dog `(-1721,1130)`, MagicBox both entities `(-1721,1340)`, reflection probe
+  origin `(-1721,928)` (size left — cosmetic), 3 stalls shifted +160u east to fit (`X[-2021,-1861]/
+  [-1801,-1641]/[-1581,-1421]`). Zero GSC coupling (market referenced only by name).
+- **Removed 5 orphaned wallbuy chalk decals** (the gun outlines left on walls after the wallbuys were
+  deleted): `t7_zm_chalk_buy_` icr1/bowie/drakon/shiva/frag meshes (guids `ACCB0020/0025/0026/0027/0028`,
+  `contents nonColliding` → visual-only). Removed by GUID via a brace-balanced pass; grep confirms 0 chalk
+  remain, `.map` braces balanced (274/274), worldspawn boundary intact.
+- Files: `map_source/zm/zm_abandoned_cyber_city.map`, `source_data/rooms.json`, `tools/gen_zone_greybox.js`,
+  `tools/gen_map_design.js`. Pending: build + playtest (then regen `docs/map_design.svg`).
+
+### Fixed — PaP tier-ups (2→5) now replay the first-pack pullout/re-cock (user, 2026-06-15)
+
+The first pack visibly swaps the gun + plays the "pulled out / needs re-cocking" draw;
+tier-ups 2→5 showed nothing. Root cause in `_acc_pap_levels::replay_pack_draw`: a deploy
+animation only plays when you `SwitchTo` an asset that ISN'T the one currently deployed. The
+first pack animates because it swaps a different asset in (base → `_up`). The tier-up re-gave
+the SAME held weapon — `TakeWeapon(w)` + `GiveWeapon(w)` + `SwitchToWeapon(w)` in one frame
+never changes the current weapon, so the give re-adds before the take resolves and the
+switch-to-already-current no-ops. Immediate-vs-non-immediate was a red herring (both no-op on
+the equipped weapon). Fix (user: "do the twin gun swap, don't hide the animation"): blip to the
+un-packed base form and back. `increment_is_drinking()` + `disable_player_move_states()` wrap
+the whole swap (exactly like the stock knuckle crack / `replay_perk_drink`): give base,
+`SwitchToWeaponImmediate(base)`, **wait two server frames** so base actually becomes current
+(one frame collapses to a no-op), then `SwitchToWeaponImmediate(w)` back — base→packed is a real
+deployed-asset change, so the packed gun pulls out. The earlier attempts swapped to the player's
+OTHER gun for two reasons, both fixed here: **(1) reconcile interference** — our switches raise
+`weapon_change`, which woke `acc_weapon_variants::reconcile()` mid-swap and, with a second
+primary present, churned the player onto the other gun; the `is_drinking` wrap makes reconcile
+defer (it early-returns while `is_drinking>0`). **(2) taking the packed gun** — the old code did
+`TakeWeapon(w)`+`GiveWeapon(w)` to re-give it "fresh," and any frame where `w` wasn't current let
+the engine auto-switch; now `w` is **never taken** (keeps camo + ammo), and the only transient is
+`base`, removed only once `w` is current again — nothing to auto-switch onto. Gated by
+`acc_pap_tier_anim` (default 1). **Needs in-game confirm** — a brief flash of the un-camo'd base
+before the packed pulls out is expected; watch the akimbo/dual guns. Tune knobs: 2-frame base
+dwell, or drop `disable_player_move_states` if the input lock feels like a hitch.
+
 ### Fixed — Akimbo/`_zm` guns couldn't Pack-a-Punch (CSV upgrade name) (user, 2026-06-15)
 
 AK-74u, PDW, and M1911 silently refused to PaP. Root cause: their `zm_levelcommon_weapons.csv`

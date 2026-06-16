@@ -15,15 +15,24 @@ REM  full reference: docs\34_flags_reference.md):
 REM         acc_dev 1       = unlimited money + Data Shards + Mega Bottles, auto-power,
 REM                           perk cap 18, dev HUDs + teleport/round-skip console cmds.
 REM         acc_open_map 1  = open every door + both PaP blockers on spawn, disable decon.
-REM         acc_test_boss 1 = test boss (Brutus); the real Brutus now first spawns ROUND 4.
+REM         acc_test_boss 1 = test boss (Brutus) every round from round 2; the real Brutus first
+REM           spawns ROUND 4.
 REM         acc_glitch_test 1 = spawn the "Glitch Stalker" mini-boss (mobile teleport-blink boss,
-REM           x2/round) from ROUND 3. It now moves ~15%% faster than normal zombies, blinks 3x as
-REM           often, uses the STOCK zombie body (vs the charred horde), has a purple over-head box
-REM           and NO health bar. acc_glitch_debug 1 prints [glitch] lines.
+REM           x2/round) from ROUND 3. It moves ~15%% faster than normal zombies, blinks 2x more
+REM           often (~1-1.67s), deals -50%% melee damage (user 2026-06-15), uses the STOCK zombie
+REM           body (vs the charred horde), and has NO health bar / NO over-head marker.
+REM           acc_glitch_debug 1 prints [glitch] lines.
 REM           (Glitch r3 / Brutus r4 are the in-code DEFAULTS now - they apply even without flags.)
 REM         acc_variants_debug 1 = print each weapon-variant swap on-screen
 REM           ("[variants] X -> Y") so you can SEE Deadshot/Mega change the gun
 REM           (recoil is invisible). acc_weapon_variants is ON by default already.
+REM         acc_lockdown_on 1 = per-round "DEFCON" room lockdown (docs/37 §11): red flashing
+REM           alarm lights inside the room (+ optional door seal). ENABLED below, pinned to the
+REM           Vault (acc_lockdown_force_zone vault_zone) for testing. Doors are set to NOT
+REM           seal (acc_lockdown_lock_doors 0) so you can WALK IN and see the red light + the new
+REM           vault ceiling - in the ~ console type acc_lockdown_lock_doors 1 to test the door seal
+REM           (locks players IN, no escape window) on the next round. Tune live: acc_lockdown_use_glow
+REM           1 (softer glow), acc_lockdown_fx_z 180 (light height), acc_lockdown_emitters 6.
 REM         acc_amb_on 1    = play the looping ambient city bed. (The main theme
 REM           "The Surreal Truth" plays ONCE at game start + stock ZM music is OFF by
 REM           default; Brutus boss music "Juhani Junkala - Epic Boss Battle" loops while
@@ -54,4 +63,4 @@ set ZSPEED_JOG_START=100
 set ZSPEED_JOG_STEP=2
 set ZSPEED_SPRINT_START=100
 set ZSPEED_SPRINT_STEP=1
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1 +set acc_open_map 1 +set acc_test_boss 1 +set acc_glitch_test 1 +set acc_glitch_debug 1 +set acc_variants_debug 1 +set acc_amb_on 1 +set acc_zspeed_sprint_round %ZSPEED_SPRINT_ROUND% +set acc_zspeed_jog_start_pct %ZSPEED_JOG_START% +set acc_zspeed_jog_step_pct %ZSPEED_JOG_STEP% +set acc_zspeed_sprint_start_pct %ZSPEED_SPRINT_START% +set acc_zspeed_sprint_step_pct %ZSPEED_SPRINT_STEP%"
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1 +set acc_open_map 1 +set acc_test_boss 1 +set acc_glitch_test 1 +set acc_glitch_debug 1 +set acc_variants_debug 1 +set acc_amb_on 1 +set acc_lockdown_on 1 +set acc_lockdown_force_zone vault_zone +set acc_lockdown_lock_doors 0 +set acc_zspeed_sprint_round %ZSPEED_SPRINT_ROUND% +set acc_zspeed_jog_start_pct %ZSPEED_JOG_START% +set acc_zspeed_jog_step_pct %ZSPEED_JOG_STEP% +set acc_zspeed_sprint_start_pct %ZSPEED_SPRINT_START% +set acc_zspeed_sprint_step_pct %ZSPEED_SPRINT_STEP%"

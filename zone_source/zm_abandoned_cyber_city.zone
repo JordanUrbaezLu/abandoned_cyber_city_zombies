@@ -66,6 +66,8 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
 // slide-to-explode nova (purple Apothicon FX). No .csc - the stock cherry .csc owns the client side. docs/13_perks.md.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
+// Per-round DEFCON room lockdown (stage 1: red alarm-light half). docs/37.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_zombie_speed.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc
@@ -97,6 +99,13 @@ fx,fire/fx_fire_ground_rubble_50x50
 // (stock dlc4/genesis .efx, source present in the Mod Tools - verified 2026-06-15).
 // _acc_perk_phd_flopper.gsc #precaches + PlayFXs it; def_explosion is the fallback.
 fx,dlc4/genesis/fx_apothicon_fury_spawn_in_exp
+
+// Per-round DEFCON room lockdown red alarm lights (_acc_lockdown.gsc). Stock ZM
+// .efx, source present in <tools>\share\raw\fx\light\ (verified 2026-06-15):
+//   fx_light_flashing_red_factory_zmb = the Giant/factory flashing-red alarm light (primary)
+//   fx_glow_blink_red_5               = softer blinking-red glow (acc_lockdown_use_glow 1)
+fx,light/fx_light_flashing_red_factory_zmb
+fx,light/fx_glow_blink_red_5
 
 // Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
 // aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
@@ -233,6 +242,16 @@ weapon,s2_m1911_rdw_up_zm
 weapon,s2_m1911_ldw_up_zm
 weapon,t5_ak74u
 weapon,t5_ak74u_up_zm
+
+// Olympia (BO2 t6_olympia) = double-barrel shotgun box gun (user, 2026-06-15). BO1 rip
+// only had GDTs installed, so the BO2 port is used (same gun). Twin-less (weapon-count cap).
+weapon,t6_olympia
+weapon,t6_olympia_up
+
+// Galil (BO2 t6_galil) = full-auto AR box gun (user, 2026-06-15). BO1 rip GDT-only, BO2 port
+// used. Std loc mults (= AK-47). Twin-less (weapon-count cap).
+weapon,t6_galil
+weapon,t6_galil_up
 
 // Perk weapon-variant TWIN matrix (110 = 11 combos x 5 guns x base/_up): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =

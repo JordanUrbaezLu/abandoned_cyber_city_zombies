@@ -20,6 +20,23 @@
 //   -> _acc_damage multiplies pap_tier_mult(tier) into every gun hit.
 //   -> HUD shows "PaP TIER x/5" for the held weapon (bottom-right, next to the gun).
 //   -> each pack/tier-up prints the new tier's benefit so the player can decide.
+//
+// THREE distinct things have read as "can't PaP gun X" - diagnose which before assuming:
+//   (a) NO INTERACT PROMPT AT ALL while a weapon-variant perk (Deadshot / Gun Slinger / Speed
+//       Cola Mega / The Armory) is active = you are holding a base TWIN the stock machine didn't
+//       recognize as packable. FIXED 2026-06-15 in acc_weapon_variants::register_twin_box_weapons
+//       (registers base twins as PaP-includable, box-excluded). This was the recurring AE4/Tac-19
+//       "no PaP option" report. See that function + CHANGELOG.
+//   (b) prompt shows but a re-pack silently no-ops = (c) below (MAX TIER).
+//   (c) MAX TIER. A report of "cannot PaP gun X" with the prompt PRESENT
+// is almost never a broken upgrade path - it is gun X already at MAX TIER 5/5. Re-packing a
+// maxed gun correctly REFUSES ("PACK-A-PUNCH - already max tier 5", acc_do_tier_up), which
+// reads to a player as "won't PaP". acc_pap_tier is an in-memory PLAYER field keyed by
+// true_base, so a maxed tier survives losing / re-boxing that base weapon WITHIN a session and
+// only clears on a fresh first-pack (resets to 1) or a relaunch (new session). The temp
+// PaPDIAG (acc_pap_validate) proved getup/packed resolve for every gun - a gun-ADD never breaks
+// an existing gun's PaP (the upgrade assets are independent). Before chasing a "can't PaP" bug:
+// check the tier (PaPDIAG `upg=1 tier=5`) and try a FRESH box copy / relaunch first.
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -30,6 +47,7 @@
 
 #using scripts\zm\_zm;
 #using scripts\zm\_zm_score;
+#using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_weapons;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
@@ -160,17 +178,21 @@ function acc_pap_validate( player )   // self = the PaP machine trigger
     w = player GetCurrentWeapon();
     if ( !isdefined( w ) || w == level.weaponNone ) return false;
 
-    // TEMP DIAG (akimbo PaP debug, 2026-06-15 - REMOVE once fixed). For the two dual-wield
-    // guns, dump the upgrade resolution to screen + console_mp.log so we can see WHERE the
-    // pack fails: no line = validate not reached; packed=NONE = upgrade lookup fails;
-    // packed=<rdw> = lookup OK, so the failure is the give/akimbo-equip.
+    // TEMP DIAG (akimbo PaP debug, 2026-06-15 - REMOVE once akimbo PaP confirmed). For the
+    // dual-wield guns, dump the upgrade resolution to screen + console_mp.log: no line = validate
+    // not reached; packed=NONE = upgrade lookup fails; packed=<rdw> = lookup OK so the failure is
+    // the give/akimbo-equip. (Briefly widened to Tac-19/AK-47 on 2026-06-15 to chase a "can't PaP"
+    // report - the diag PROVED getup/packed resolve fine and the guns were just at MAX TIER 5/5,
+    // not a bug; widening reverted. See the header "MAX-TIER reads as can't-PaP" note + CHANGELOG.)
     if ( IsSubStr( w.name, "s1_pdw" ) || IsSubStr( w.name, "s2_m1911" ) || IsSubStr( w.name, "t5_ak74u" ) )
     {
         up = zm_weapons::get_upgrade_weapon( w );
         pf = acc_weapon_variants::packed_form( w );
+        tb = acc_weapon_variants::true_base( w );
         up_name = "NONE"; if ( isdefined( up ) && up != level.weaponNone ) up_name = up.name;
         pf_name = "NONE"; if ( isdefined( pf ) && pf != level.weaponNone ) pf_name = pf.name;
-        player IPrintLnBold( "^3PaPDIAG held=" + w.name + " upgraded=" + zm_weapons::is_weapon_upgraded( w ) + " getup=" + up_name + " packed=" + pf_name );
+        tb_name = "NONE"; if ( isdefined( tb ) && tb != level.weaponNone ) tb_name = tb.name;
+        player IPrintLnBold( "^3PaPDIAG held=" + w.name + " upg=" + zm_weapons::is_weapon_upgraded( w ) + " tier=" + get_tier( player, w ) + " base=" + tb_name + " getup=" + up_name + " packed=" + pf_name );
     }
 
     if ( zm_weapons::is_weapon_upgraded( w ) )
@@ -298,18 +320,26 @@ function acc_do_tier_up( w )
     self IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
 }
 
-// self = player. Replay the first-pack "gun comes out" draw on the HELD weapon so a
-// tier-up reads the same as the first pack (user 2026-06-15). A tier-up keeps the SAME
-// weapon asset (only the damage mult changes), so there is no model swap to see - we have
-// to play an actual lower+raise. This mirrors the STOCK PaP give-back, which does
-// TakeWeapon -> GiveWeapon -> SwitchToWeapon (_zm_pack_a_punch.gsc:823-831): the
-// NON-immediate SwitchToWeapon is what plays the putaway+pullout animation.
-// SwitchToWeaponImmediate plays NO raise/lower (it is exactly why the recoil-twin swaps are
-// invisible), so it showed nothing here - that was the bug. SwitchToWeapon only animates
-// when the target is not the current weapon, so we TakeWeapon first to clear it (GiveWeapon
-// never auto-equips - stock always follows it with an explicit switch). Take->give->switch
-// is one frame with no wait. Carries clip+reserve across. Gated by acc_pap_tier_anim
-// (default 1) so it can be reverted to instant tier-ups live.
+// self = player. Replay the first-pack "gun comes out" draw on a tier-up (user 2026-06-15).
+//
+// APPROACH (user's idea, 2026-06-15): a tier-up keeps the SAME packed asset, and every in-place
+// re-deploy attempt either showed nothing (re-giving the already-held weapon is a no-op) or
+// swapped the player onto their OTHER gun (giving the un-packed base conflicts with the held
+// packed gun, and taking the current gun auto-switches to the next one). The robust fix:
+//   - SNAPSHOT every primary + its ammo,
+//   - TAKE THEM ALL (player is empty-handed for a split second, so there is nothing for the
+//     engine to fall back to),
+//   - GIVE THE PACKED GUN BACK FIRST and switch to it - a FRESH give plays the first-raise/
+//     re-cock, exactly like the first pack,
+//   - RESTORE the other guns WITHOUT switching, so the packed gun stays in hand.
+// No base form -> no weapon-family conflict; everything is taken -> no auto-switch target.
+//
+// Camo: the gold PaP camo is an OPTION (not baked into the asset), so we re-apply it to the
+// packed gun and to any OTHER upgraded gun on restore (all PaP'd guns share the one camo index).
+// Ammo is saved/restored per gun. Wrapped in increment_is_drinking()/disable_player_move_states()
+// like the stock knuckle crack so the variant reconcile loop + player input can't fight the swap.
+// Gated by acc_pap_tier_anim (default 1) so tier-ups can be reverted to instant live (set 0).
+// Tune knob: the empty-handed dwell is EMPTY_FRAMES below.
 function replay_pack_draw( w )
 {
     if ( getdvarint( "acc_pap_tier_anim", 1 ) == 0 ) return;
@@ -318,16 +348,64 @@ function replay_pack_draw( w )
 
     camo = zm_weapons::get_pack_a_punch_camo_index( undefined );
     if ( !isdefined( camo ) ) camo = 0;
-    options = self CalcWeaponOptions( camo, 0, 0 );
+    pap_options = self CalcWeaponOptions( camo, 0, 0 );
 
-    clip  = self GetWeaponAmmoClip( w );
-    stock = self GetWeaponAmmoStock( w );
+    // Snapshot every primary + ammo. Include the held gun even if the primaries list omits the
+    // starting-pistol slot (mirrors reconcile()'s same guard).
+    prims = self GetWeaponsListPrimaries();
+    have_w = false;
+    for ( i = 0; i < prims.size; i++ ) { if ( prims[ i ] == w ) have_w = true; }
+    if ( !have_w ) prims[ prims.size ] = w;
 
-    self TakeWeapon( w );
-    self GiveWeapon( w, options );
-    self SwitchToWeapon( w );               // NON-immediate: plays the lower+raise (stock give-back)
-    self SetWeaponAmmoStock( w, stock );
-    self SetWeaponAmmoClip( w, clip );
+    saved_w = [];
+    saved_clip = [];
+    saved_stock = [];
+    for ( i = 0; i < prims.size; i++ )
+    {
+        p = prims[ i ];
+        if ( !isdefined( p ) || p == level.weaponNone ) continue;
+        n = saved_w.size;
+        saved_w[ n ] = p;
+        saved_clip[ n ] = self GetWeaponAmmoClip( p );
+        saved_stock[ n ] = self GetWeaponAmmoStock( p );
+    }
+
+    self zm_utility::increment_is_drinking();
+    self zm_utility::disable_player_move_states( true );
+
+    // Take EVERY primary - now the held gun has nothing to auto-switch onto when removed.
+    for ( i = 0; i < saved_w.size; i++ )
+        self TakeWeapon( saved_w[ i ] );
+
+    // Brief empty-handed dwell so the takes process and the packed gun re-gives FRESH (a
+    // same-frame take+give collapses to a no-op = no draw).
+    EMPTY_FRAMES = 2;
+    for ( i = 0; i < EMPTY_FRAMES; i++ ) WAIT_SERVER_FRAME;
+    if ( !isdefined( self ) ) return;
+
+    // Packed gun back FIRST + raise it -> the first-raise/re-cock plays (fresh give).
+    self GiveWeapon( w, pap_options );
+    self SwitchToWeaponImmediate( w );
+
+    // Restore the rest (camo for any upgraded gun, ammo for all), WITHOUT switching, so the
+    // packed gun stays in hand.
+    for ( i = 0; i < saved_w.size; i++ )
+    {
+        p = saved_w[ i ];
+        if ( !isdefined( p ) || p == level.weaponNone ) continue;
+        if ( p != w )
+        {
+            if ( zm_weapons::is_weapon_upgraded( p ) )
+                self GiveWeapon( p, pap_options );
+            else
+                self GiveWeapon( p );
+        }
+        self SetWeaponAmmoStock( p, saved_stock[ i ] );
+        self SetWeaponAmmoClip( p, saved_clip[ i ] );
+    }
+
+    self zm_utility::enable_player_move_states();
+    self zm_utility::decrement_is_drinking();
 }
 
 function pap_tier_machine_watcher()
@@ -407,7 +485,13 @@ function pap_taken_watcher()
 
 function get_tier( player, weapon )
 {
-    if ( !isdefined( weapon ) || !isdefined( player.acc_pap_tier ) ) return 0;
+    if ( !isdefined( weapon ) || weapon == level.weaponNone || !isdefined( player.acc_pap_tier ) ) return 0;
+    // The tier rides the UPGRADED ("packed") weapon only. A stock/base gun reads tier 0 even if
+    // this player once tiered the SAME base weapon - acc_pap_tier is keyed by base and never
+    // cleared, so a gun pulled fresh from the Mystery Box (always a stock base form) would
+    // otherwise keep the old PaP damage + "PaP TIER" HUD on a non-packed gun (user 2026-06-15:
+    // box guns must come out stock, never papped/tiered). Re-packing that base re-records tier 1.
+    if ( !( zm_weapons::is_weapon_upgraded( weapon ) ) ) return 0;
     base = acc_weapon_variants::true_base( weapon );   // twin-aware: tier follows recoil swaps
     if ( !isdefined( player.acc_pap_tier[ base ] ) ) return 0;
     return player.acc_pap_tier[ base ];

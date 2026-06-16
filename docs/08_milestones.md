@@ -59,7 +59,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 
 **Deliverables.**
 - `_acc_data_shards.gsc` - currency, elite-kill drop entity, HUD counter (simple `iprintln` or small HUD elem OK; LUI deferred).
-- `_acc_cyberware.gsc` - skill-node graph with the 9 nodes from `04_progression_and_skills.md`, with a placeholder interaction trigger (a pedestal in Spawn Plaza that cycles through nodes via F keypress for now - LUI skill tree in Phase 4).
+- `_acc_cyberware.gsc` - skill-node graph with the 9 nodes from `04_progression_and_skills.md`, with a placeholder interaction trigger (a pedestal in Spawn that cycles through nodes via F keypress for now - LUI skill tree in Phase 4).
 - `_acc_overclocks.gsc` - weapon family registry, per-run active pool roll, application via a Lab Overclock Terminal trigger.
 - `_acc_map_randomizer.gsc` - power switch side, PaP approach, wallbuy pool, perk pool all re-roll on map load. Logs the chosen state to `console.log`.
 - `_acc_elites.gsc` - at least one elite class (Shielded) spawning on round 5+, dropping a Shard.

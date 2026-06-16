@@ -159,13 +159,13 @@ worth custom emissive/backdrop work.
 
 | Zone | Mood | Walls / floors | Neon accent | Sky | Hero surface |
 |---|---|---|---|---|---|
-| **Spawn Plaza** | dead transit plaza, first breath of the ruin | grimed concrete + cracked wet pavement | one dead **cyan** district sign; sodium bulkheads | partial (open) | flickering cyan welcome-sign archway; puddle field + reflection probes |
-| **Undercity Market** | drowned neon bazaar gone to rot | corrugated metal + plaster, heavy rust; wet tile | densest zone — **magenta** dead stall signage | mostly enclosed | wall of stacked dead magenta ad boards; sparking-cable tangle |
-| **Service Alley** | claustrophobic wet utility corridor | dirty metal ducting + pipes; wet concrete runoff | minimal — one failing sodium light + red hazard panel | none | dripping-pipe + steam-vent run w/ single sodium cone |
-| **Corporate Plaza** (hub) | lobby of a fallen tech megacorp | ruined polished stone/metal + broken glass curtain wall; dark polished tile | **cyan** corporate logo wall, half-flickering | partial (broken skylight) | giant backlit corp logo over dead fountain; live cyan hack-terminal screen |
-| **Server Vault** | cold sealed data-fortress | blue-grey server racks + metal panels; dark grating | sea of tiny **cyan+amber** rack LEDs | none (underground) | server-rack corridor w/ thousands of blinking LEDs; Overload core column (amber pulse) |
-| **Rooftop Helipad** | exposed to the dead sky, ruined skyline | wet helipad concrete + faded "H"; low AC units | distant dark skyline + amber edge lights | **maximum** — the sky-reveal payoff | ruined-city skyline backdrop (custom cutout); derelict helicopter wreck |
-| **Subterranean Lab** | clandestine cyberware lab, tech still hums | clean-gone-grimy panels + conduit; tech floor w/ under-glow | richest **live cyan+magenta** machine glows (justified — upgrade hub) | none (deepest) | PaP/Overclock terminal cluster glow; Signal Staff craft centerpiece |
+| **Spawn** | dead transit plaza, first breath of the ruin | grimed concrete + cracked wet pavement | one dead **cyan** district sign; sodium bulkheads | partial (open) | flickering cyan welcome-sign archway; puddle field + reflection probes |
+| **Market** | drowned neon bazaar gone to rot | corrugated metal + plaster, heavy rust; wet tile | densest zone — **magenta** dead stall signage | mostly enclosed | wall of stacked dead magenta ad boards; sparking-cable tangle |
+| **Alley** | claustrophobic wet utility corridor | dirty metal ducting + pipes; wet concrete runoff | minimal — one failing sodium light + red hazard panel | none | dripping-pipe + steam-vent run w/ single sodium cone |
+| **Plaza** (hub) | lobby of a fallen tech megacorp | ruined polished stone/metal + broken glass curtain wall; dark polished tile | **cyan** corporate logo wall, half-flickering | partial (broken skylight) | giant backlit corp logo over dead fountain; live cyan hack-terminal screen |
+| **Vault** | cold sealed data-fortress | blue-grey server racks + metal panels; dark grating | sea of tiny **cyan+amber** rack LEDs | none (underground) | server-rack corridor w/ thousands of blinking LEDs; Overload core column (amber pulse) |
+| **Helipad** | exposed to the dead sky, ruined skyline | wet helipad concrete + faded "H"; low AC units | distant dark skyline + amber edge lights | **maximum** — the sky-reveal payoff | ruined-city skyline backdrop (custom cutout); derelict helicopter wreck |
+| **Lab** | clandestine cyberware lab, tech still hums | clean-gone-grimy panels + conduit; tech floor w/ under-glow | richest **live cyan+magenta** machine glows (justified — upgrade hub) | none (deepest) | PaP/Overclock terminal cluster glow; Signal Staff craft centerpiece |
 
 Fog is **lighter** in the Corp hub, Vault Overload point, and Lab (readability),
 **heavier** in corridors.
@@ -341,13 +341,13 @@ original mood reference.
 
 | Zone | Walls | Floor | Accent |
 |---|---|---|---|
-| Spawn Plaza | `t7_concrete_bare_weathered_01_dark` (base) | `t7_concrete_floor_garage_cracked_wet_nw` | — |
-| Undercity Market | `t7_metal_corrugated_rust` *(confirm)* + `t7_concrete_poured_bunker_dirty_01_wet` | `t7_concrete_bare_dark_01_wet` + debris | rust streaks (`t7_decal_grunge` confirm) |
-| Service Alley | `t7_metal_duct_insulation_01_grey` | `t7_asphalt_damaged_dark_wet` | pipe/duct props |
-| Corporate Plaza (hub) | `t7_glass_dirty_streaks_cracked` *(confirm)* + `t7_concrete_poured_bunker_dirty_01` | `t7_concrete_floor_garage_cracked_wet_nw` (polished read) | broken curtain wall |
-| Server Vault | `t7_metal_duct_insulation_01_grey` (rack read) | dark grating *(confirm `t7_metal_*grate*`)* | rack-LED emissive (§12.2) |
-| Rooftop Helipad | `t7_concrete_bare_weathered_01` | `t7_asphalt_damaged_dark_wet` (wet pad) | faded "H" decal |
-| Subterranean Lab | `t7_concrete_bare_weathered_01_dark` + panel *(confirm `t7_metal_panel_*`)* | `t7_concrete_floor_garage_cracked_wet_nw` | machine emissive glow |
+| Spawn | `t7_concrete_bare_weathered_01_dark` (base) | `t7_concrete_floor_garage_cracked_wet_nw` | — |
+| Market | `t7_metal_corrugated_rust` *(confirm)* + `t7_concrete_poured_bunker_dirty_01_wet` | `t7_concrete_bare_dark_01_wet` + debris | rust streaks (`t7_decal_grunge` confirm) |
+| Alley | `t7_metal_duct_insulation_01_grey` | `t7_asphalt_damaged_dark_wet` | pipe/duct props |
+| Plaza (hub) | `t7_glass_dirty_streaks_cracked` *(confirm)* + `t7_concrete_poured_bunker_dirty_01` | `t7_concrete_floor_garage_cracked_wet_nw` (polished read) | broken curtain wall |
+| Vault | `t7_metal_duct_insulation_01_grey` (rack read) | dark grating *(confirm `t7_metal_*grate*`)* | rack-LED emissive (§12.2) |
+| Helipad | `t7_concrete_bare_weathered_01` | `t7_asphalt_damaged_dark_wet` (wet pad) | faded "H" decal |
+| Lab | `t7_concrete_bare_weathered_01_dark` + panel *(confirm `t7_metal_panel_*`)* | `t7_concrete_floor_garage_cracked_wet_nw` | machine emissive glow |
 
 ### 12.2 Neon emissive kit (Phase 2, APE) — cyan / magenta / amber
 
@@ -442,7 +442,7 @@ skinned: spawn (342 wall / 51 floor), corp (71/14), alley (50/9), market (42/8),
 lab (41/8). **Vault and Roof got 0 faces** — their region (vault ≈ x1719 y2800,
 roof ≈ x-1719 y2740) contains no wall/floor brushes at all. The built greybox is a
 central spine **Spawn → Corp → Lab** plus **Market** (west) and **Alley** (east);
-the **Server Vault and Rooftop Helipad rooms are not built** — they exist only as
+the **Vault and Helipad rooms are not built** — they exist only as
 `info_volume` gameplay zones + spawner structs + door/feature entities, with no
 walls or floor.
 
@@ -485,8 +485,8 @@ probe already sits at each zone center. Footprints (interior, z0–128):
 
 | Room | Interior (x, y) | Doorways (✅ CUT in source 2026-06-13) |
 |---|---|---|
-| **Server Vault** | x **[1000 .. 2400]**, y **[2490 .. 3170]** | **west wall** (x≈984–1000): Corp door @y≈2490–2536 (`acc_door_vault`); Lab door @y≈3120–3170 (`acc_door_lab_e`) |
-| **Rooftop Helipad** | x **[-2400 .. -1000]**, y **[2490 .. 3170]** | **east wall** (x≈-1000…-984): Corp door @y≈2490–2536 (`acc_door_roof`); Lab door @y≈3120–3170 (`acc_door_lab_w`) |
+| **Vault** | x **[1000 .. 2400]**, y **[2490 .. 3170]** | **west wall** (x≈984–1000): Corp door @y≈2490–2536 (`acc_door_vault`); Lab door @y≈3120–3170 (`acc_door_lab_e`) |
+| **Helipad** | x **[-2400 .. -1000]**, y **[2490 .. 3170]** | **east wall** (x≈-1000…-984): Corp door @y≈2490–2536 (`acc_door_roof`); Lab door @y≈3120–3170 (`acc_door_lab_w`) |
 
 **DONE (2026-06-13):** doorway gaps cut directly in the `.map` worldspawn — the
 Vault **west wall** (`ACCB0012`) and Roof **east wall** (`ACCB0023`) were each

@@ -45,13 +45,13 @@ function origin(e) {
 
 // ---- world geometry (gen_zone_greybox.js constants) ---------------------------
 const rooms = [
-  { name: 'SPAWN PLAZA', zone: 'start_zone', x1: -1056, x2: 1094.5, y1: -1073.5, y2: 928 },
-  { name: 'UNDERCITY MARKET', zone: 'market_zone', x1: -2481, x2: -1281, y1: 200, y2: 1600 },
-  { name: 'SERVICE ALLEY', zone: 'alley_zone', x1: 1319.5, x2: 2519.5, y1: 200, y2: 1600 },
-  { name: 'CORPORATE PLAZA', zone: 'corp_zone', x1: -781, x2: 819, y1: 1148, y2: 2748 },
-  { name: 'SERVER VAULT', zone: 'vault_zone', x1: 1119, x2: 2319, y1: 2200, y2: 3400 },
-  { name: 'ROOFTOP HELIPAD', zone: 'roof_zone', x1: -2319, x2: -1119, y1: 2200, y2: 3400 },
-  { name: 'SUBTERRANEAN LAB', zone: 'lab_zone', x1: -781, x2: 819, y1: 3048, y2: 4248 },
+  { name: 'SPAWN', zone: 'start_zone', x1: -1056, x2: 1094.5, y1: -560, y2: 740 },
+  { name: 'MARKET', zone: 'market_zone', x1: -1951, x2: -1281, y1: 360, y2: 1496 },
+  { name: 'ALLEY', zone: 'alley_zone', x1: 1319.5, x2: 1989.5, y1: 360, y2: 1496 },
+  { name: 'PLAZA', zone: 'corp_zone', x1: -781, x2: 819, y1: 1148, y2: 2748 },
+  { name: 'VAULT', zone: 'vault_zone', x1: 1119, x2: 1744, y1: 2260, y2: 3400 },
+  { name: 'HELIPAD', zone: 'roof_zone', x1: -1744, x2: -1119, y1: 2260, y2: 3400 },
+  { name: 'LAB', zone: 'lab_zone', x1: -781, x2: 819, y1: 3048, y2: 4248 },
 ];
 const corridors = [
   { x1: -1281, x2: -1056, y1: 400, y2: 656 },

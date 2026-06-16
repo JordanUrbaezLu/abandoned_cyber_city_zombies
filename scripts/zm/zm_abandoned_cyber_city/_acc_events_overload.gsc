@@ -1,5 +1,5 @@
 // =============================================================================
-// _acc_events_overload.gsc - Vault Overload side event (Server Vault)
+// _acc_events_overload.gsc - Vault Overload side event (Vault)
 //
 // Design reference: docs/06_mechanics.md (Vault Overload state machine),
 // docs/15_coop_rules.md (activator tether).

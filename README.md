@@ -103,7 +103,7 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), `scrip
 
 When you sync and compile on Windows for the first time (full walkthrough: [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md)):
 
-- **Geometry exists**: `map_source/zm/zm_abandoned_cyber_city.map` is a byte-for-byte copy of the stock Launcher zm template starting room (spawns, barrier, zombie spawner, `start_zone`, perk slots, PaP, Mystery Box, power switch). It compiles as-is; Spawn Plaza greybox shaping happens in Radiant later.
+- **Geometry exists**: `map_source/zm/zm_abandoned_cyber_city.map` is a byte-for-byte copy of the stock Launcher zm template starting room (spawns, barrier, zombie spawner, `start_zone`, perk slots, PaP, Mystery Box, power switch). It compiles as-is; Spawn greybox shaping happens in Radiant later.
 - **Will parse**: all GSC was converted to BO3 syntax (`function` keyword, `#namespace`, stock namespace names). Entry scripts are structured exactly like the stock template.
 - **Will fail gracefully**: any `TODO(acc-geom)` lookup for a Radiant entity that doesn't exist yet will log and continue - no crash.
 - **Expect**: a handful of `TODO(acc-verify)` sites where a stock API name may have drifted - documented in each file near the call site.

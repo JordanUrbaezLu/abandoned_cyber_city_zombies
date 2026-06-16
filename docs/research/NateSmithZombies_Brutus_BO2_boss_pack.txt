@@ -106,6 +106,13 @@ GDT archetype issues).
   - Spawn points: script_struct targetname "brutus_spawner_spot", script_string = a ZONE
     FLAG (brutus_your_zone.map); he spawns at the point nearest a random player
     (choose_a_spawn). brutus_start_zone.map = the start_zone variant.
+    - [acc] OUR MAP: ONE spot, in the LAB CENTER (19 3648 0, the lab dog_location, on-navmesh,
+      z=0), script_string "start_zone" (the always-active sentinel - NOT a geometric tie).
+      So Brutus ALWAYS spawns in the lab (user choice 2026-06-15). PRIOR BUG (fixed same day):
+      the spot was at z=45 -> ForceTeleport (unclamped, nsz_brutus.gsc:224) put him OFF the
+      navmesh -> no path -> "stuck at spawn". All real spawners/risers/dogs are z=0; keep any
+      future brutus_spawner_spot at floor z. Adding per-zone spots (the pack's intended design,
+      gated by each zone flag) would make him appear near players again.
   - Signature PERK/BOX LOCK: watch_for_machines (line 346) - Brutus locks the nearest
     perk machine / PaP / mystery box (anim + fire FX), and players pay 2000 to unlock
     (locked_think, line 500). Gated on level.brutus_lock_machines + the *_lock prefabs

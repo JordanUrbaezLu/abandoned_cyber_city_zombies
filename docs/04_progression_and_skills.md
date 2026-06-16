@@ -17,8 +17,8 @@ Points are fast and plentiful. Data Shards are **slow and precious** - a well-pl
 
 - **Elite kill** (shielded / teleporter / EMP zombie): 1 Shard. Elites start appearing round 5 and scale to ~1 per 8-12 regular zombies.
 - **Boss round** (every 10 rounds): 2 Shards on round 10, 3 on round 20, 4 on round 30, capped at 4. Round 10 bosses are mini-bosses; round 30+ bosses are full.
-- **Hack Terminal success** (Corporate Plaza): 2 Shards. One per run.
-- **Vault Overload success** (Server Vault): 3 Shards. One per run.
+- **Hack Terminal success** (Plaza): 2 Shards. One per run.
+- **Vault Overload success** (Vault): 3 Shards. One per run.
 - **Side objectives**: 1-2 Shards each, 3-5 available per run (pool, see `07_replayability.md`).
 - **Max Shard drop from a round**: soft-capped so you can't grind low rounds. Exceeding 2 Shards-per-round from elites triggers diminishing returns on that round only.
 

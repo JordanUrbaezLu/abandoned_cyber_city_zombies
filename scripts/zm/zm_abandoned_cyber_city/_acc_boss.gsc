@@ -38,10 +38,10 @@
 #define ACC_BOSS_FULL_FIRST_ROUND 30
 #define ACC_BOSS_INTERVAL 10
 
-// Brutus mini-boss buffs + cadence (user request).
+// Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
+// 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
+// that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
 #define ACC_BOSS_MINI_HP 500000      // 10x the old 50k baseline
-#define ACC_BOSS_SPEED_SCALE 1.25    // moves +25% over the round's top speed tier
-#define ACC_BRUTUS_SCALE 1.5         // 50% bigger model
 #define ACC_BRUTUS_FIRST_ROUND 4     // first Brutus round (user 2026-06-15, "for now")
 #define ACC_BRUTUS_INTERVAL 5        // then every 5 rounds (r4, 9, 14, 19, 24, ...)
 
@@ -53,9 +53,8 @@ function init()
 
     level thread round_hook_loop();
 
-    // Dev/test loop: `acc_test_boss 1` in the console (works mid-match - sampled
-    // every round) spawns a low-HP test Brutus every round from round 2, so the
-    // Mega Bottle drop -> perk upgrade loop is testable without surviving to round 5.
+    // Dev/test loop: a low-HP test Brutus every round from round 2 so the Mega-Bottle ->
+    // perk-upgrade loop is testable without surviving to the real boss rounds.
     level thread test_boss_loop();
 }
 
@@ -66,9 +65,10 @@ function test_boss_loop()
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
-        // Dev only: `acc_test_boss 1` spawns a low-HP test Brutus from round 2 so the
-        // Mega-Bottle -> perk-upgrade loop is testable without surviving to round 5.
-        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
+        // Spawn from round 2 when in the dev sandbox. Honors BOTH acc_test_boss and acc_dev
+        // (mirrors the Glitch Stalker, _acc_boss_glitch.gsc) so any dev launch spawns him even
+        // if the acc_test_boss launch arg didn't survive Steam. Set acc_dev 0 for a clean game.
+        if ( getdvarint( "acc_test_boss", 0 ) != 1 && getdvarint( "acc_dev", 0 ) != 1 ) continue;
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going
@@ -167,9 +167,12 @@ function suppress_normal_wave( round_number )
 
 function spawn_brutus_miniboss( n_health_override, n_bottle_count )
 {
-    // Brutus (NSZ pack) IS our mini-boss. acc_boss_brutus::spawn_one() spawns one via
-    // the pack (which builds his model / anims / charge / melee / helmet / death) and
-    // returns the live actor; we then layer OUR systems on top.
+    // Brutus (NSZ pack) IS our mini-boss. acc_boss_brutus::spawn_one() spawns one via the pack
+    // (model / anims / charge / melee / helmet / death) and returns the live actor; we layer OUR
+    // systems on top. The pack drives his locomotion natively (custom_find_flesh). NOTE: the long
+    // "spawns then stands frozen" bug was NOT in this promotion layer - it was _acc_zombie_speed
+    // stomping his run-cycle ASM; fixed at the source (it excludes is_boss actors, and the pack
+    // now flags him is_boss on spawn). See docs/11_enemies.md "Brutus" + CHANGELOG 2026-06-15.
     host = acc_boss_brutus::spawn_one();
     if ( !isdefined( host ) || !isalive( host ) )
     {
@@ -177,72 +180,19 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
         return;
     }
 
+    // HP + boss health bar + rewards.
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
-
-    // Test boss passes a bulk bottle count; real mini-boss leaves it undefined
-    // (-> 1 per player, the normal rule). Read in watch_mini_boss_death.
-    if ( isdefined( n_bottle_count ) )
-        host.acc_bottle_drop = n_bottle_count;
-
-    // HP: docs/11_enemies.md mini-boss ~50k solo baseline; the test loop
-    // passes a small override so the drop loop is testable at round 2.
-    if ( isdefined( n_health_override ) )
-    {
-        host.maxhealth = n_health_override;
-    }
-    else
-    {
-        // 10x baseline (500k). docs/15: elites/bosses scale +50% per extra player.
-        host.maxhealth = int( ACC_BOSS_MINI_HP * acc_coop_scaling::special_hp_mult() );
-    }
+    if ( isdefined( n_bottle_count ) ) host.acc_bottle_drop = n_bottle_count;
+    if ( isdefined( n_health_override ) ) host.maxhealth = n_health_override;
+    else host.maxhealth = int( ACC_BOSS_MINI_HP * acc_coop_scaling::special_hp_mult() );
     host.health = host.maxhealth;
-
-    // Brutus sets his own durability in the pack (no_gib, ignore_nuke, ignore_enemy_count,
-    // AAT / instakill / tesla / thundergun immunity). He KEEPS ignore_enemy_count, so he
-    // charges ALONGSIDE the normal wave and does NOT gate round end (user choice).
     host DisableAimAssist();
     host.disableAmmoDrop = true;
+    level notify( "acc_boss_spawned", host, "BRUTUS" ); // health bar + nameplate
+    host thread watch_mini_boss_death();                // Mega-Bottle / boss-item drops
 
-    // Drives the boss health bar (_acc_health_bars listens).
-    level notify( "acc_boss_spawned", host, "BRUTUS" );
-    host thread watch_mini_boss_death();
-
-    // Boss music (user request): loop the Juhani Junkala "Epic Boss Battle" track
-    // while Brutus lives, slow-fade on death. Multi-Brutus safe (r20 spawns 2) - a
-    // refcount starts the loop on the first spawn and fades only when the last dies.
+    // Boss music (Juhani Junkala "Epic Boss Battle", CC0 - gated acc_boss_music_on, default on).
     level thread brutus_boss_music( host );
-
-    // Diagnostic for the "Brutus spawns then stands frozen" report (2026-06-15). OFF by
-    // default; `acc_brutus_debug 1` prints, every second for ~25s, whether he acquired a
-    // target, his distance to the nearest player, and whether he is actually translating.
-    // That separates the candidate causes (see brutus_spawn_diag) without a rebuild.
-    if ( getdvarint( "acc_brutus_debug", 0 ) != 0 )
-        host thread brutus_spawn_diag();
-
-    // Frozen-statue fallback (acc_brutus_force_resume 1, default OFF). If Brutus spawns and
-    // never charges because locomotion didn't resume after his spawn anim, re-assert the
-    // stock zombie-think resume sequence on the live actor a beat after spawn. Confirm the
-    // cause with acc_brutus_debug FIRST: if the diag shows he has a goal but can't PATH
-    // (navmesh stale after the room-shrink), this won't help - regen the navmesh per CLAUDE.md.
-    if ( getdvarint( "acc_brutus_force_resume", 0 ) != 0 )
-        host thread brutus_force_resume();
-
-    // Movement fix: keep him charging STRAIGHT (forward run) instead of strafing/slowing
-    // when the player circles him. Independent of the size/speed buffs (stock zombie fields
-    // only, no SetScale/ASM) so it stays active even with acc_brutus_scale 0. See
-    // brutus_movement_fix.
-    host thread brutus_movement_fix();
-
-    // === BRUTUS BUFFS (2026-06-14) ===========================================
-    // CONFIRMED LIVE: SetScale(+50%) on the live Brutus AI HARD-CRASHES the game
-    // ~1-2s after spawn (0xC0000005), with speed off and the movement fix (stock
-    // fields) proven innocent. So BOTH buffs now default OFF (acc_brutus_scale /
-    // acc_brutus_speed, gates below) -> a normal launch is STABLE. apply_brutus_buffs
-    // stays threaded only as the live experiment harness. The straight-charge
-    // movement fix (brutus_movement_fix, above) is separate and stays ON.
-    // A crash-safe +50% size needs a different route (e.g. a pre-scaled model), TBD.
-    host thread apply_brutus_buffs();
-    // =========================================================================
 
     acc_utility::log( "spawned Brutus mini-boss (" + host.maxhealth + " hp)" );
 }
@@ -288,180 +238,6 @@ function brutus_boss_music( host )
             level.acc_brutus_music_ent StopLoopSound( 4.0 );   // slow 4s fade-out
         acc_utility::log( "boss music FADE (Brutus dead)" );
     }
-}
-
-// self = the live Brutus. The +50% size and +25% speed buffs are deliberately deferred
-// out of the spawn sequence. The NSZ pack hands us the actor (acc_brutus_spawned) and
-// then, still in that frame, ForceTeleports it and starts its AnimScripted(%brutus_spawn)
-// spawn animation; custom_find_flesh (which makes him charge) is threaded only AFTER that
-// anim. Mutating the actor's SCALE or ASM ANIM-RATE across that spawn -> move transition
-// is what crashed the spawn ~1-2s in (visible spawn, then CTD). We wait until he is fully
-// in and charging, THEN apply the buffs. Each is dvar-gated (default ON) so a remaining
-// crash can be bisected LIVE, no rebuild:
-//   acc_brutus_scale 0  -> skip the +50% size (SetScale on the live AI)
-//   acc_brutus_speed 0  -> skip the +25% speed think (ASM anim-rate)
-// If it still crashes with BOTH at 0, the cause is the base pack spawn, not our buffs.
-function apply_brutus_buffs()
-{
-    self endon( "death" );
-
-    // Brutus is "active" once custom_find_flesh has acquired a target (.brutus_enemy);
-    // that runs only after %brutus_spawn finishes, so this lands us safely past the
-    // fragile spawn -> move transition. Cap the wait so a no-target lull still buffs him.
-    t = 0;
-    while ( isalive( self ) && !isdefined( self.brutus_enemy ) && t < 8 )
-    {
-        wait 0.25;
-        t += 0.25;
-    }
-    if ( !isalive( self ) ) return;
-    wait 0.5; // small settle margin after he is moving
-
-    // +50% model. CONFIRMED CRASHER (2026-06-14): SetScale on the live Brutus AI ->
-    // 0xC0000005 ~1-2s after spawn (isolated live: speed off + movement fix off-path).
-    // Default OFF; `acc_brutus_scale 1` is for experiments only. A crash-safe size
-    // needs a different route (pre-scaled model / scale before the helmet+light link).
-    if ( getdvarint( "acc_brutus_scale", 0 ) != 0 )
-        self SetScale( ACC_BRUTUS_SCALE );
-
-    // +25% over the round's sprint tier (re-asserted on a cadence). boss_speed_think
-    // locks the run cycle to "sprint" and scales his anim-driven movement +25% on top,
-    // so he outruns even a max-speed wave.
-    // NOTE: default OFF for now (size-buff isolation test, 2026-06-14) - flip with
-    // `acc_brutus_speed 1` once SetScale is cleared / the movement fix lands.
-    if ( getdvarint( "acc_brutus_speed", 0 ) != 0 )
-        self thread boss_speed_think();
-}
-
-// self = the live Brutus. MOVEMENT FIX (2026-06-14): a circling player otherwise puts him
-// into the slow strafe/sidestep anim - the engine's QuadrantAnimWeights (zombie_utility.gsc
-// :601-607) picks a strafe whenever his FACING != his TRAVEL direction, and strafe/back
-// root-motion covers ~75% less ground than the forward sprint (that IS the slowdown). The
-// pack re-aims him at the player's exact origin every 0.05s with 360deg view + a 32u goal
-// radius, so an orbiting player keeps his torso fixed while the goal slides sideways -> big
-// yaw -> strafe. He also trips the stock stuck->cant_move check (zombie.gsc:1449-1466) while
-// micro-strafing in the at-goal band -> the intermittent freeze.
-//   Fix = stock zombie FIELDS only (no SetScale / no ASM anim-rate, so it cannot reintroduce
-//   the spawn CTD and is independent of the size/speed buffs):
-//     - alwaysRunForward -> QuadrantAnimWeights short-circuits to a pure forward run; he
-//       always plays the sprint cycle and the body rotates to follow the player.
-//     - goalradius/n_zombie_custom_goal_radius 64 (stays under the pack's 75u melee gate,
-//       nsz_brutus.gsc:599) -> he commits to a straight approach instead of orbiting the 32u
-//       band, which also stops the stuck-freeze.
-//   Live kill switch: acc_brutus_runfwd 0 (read once at spawn) reverts to stock strafe.
-function brutus_movement_fix()
-{
-    self endon( "death" );
-
-    if ( getdvarint( "acc_brutus_runfwd", 1 ) == 0 ) return;
-
-    // Wait until he is charging (past the fragile spawn -> move transition), the same window
-    // the buffs use. Cap so a no-target lull still applies the fix.
-    t = 0;
-    while ( isalive( self ) && !isdefined( self.brutus_enemy ) && t < 8 )
-    {
-        wait 0.25;
-        t += 0.25;
-    }
-    if ( !isalive( self ) ) return;
-
-    // Commit to a straight charge. n_zombie_custom_goal_radius is honored by the behavior-tree
-    // goal path across the pack's 20Hz goal resets; pathenemylookahead leads the path a little
-    // so it doesn't snap to the raw perpendicular goal each frame (pack sets 0).
-    self.goalradius = 64;
-    self.n_zombie_custom_goal_radius = 64;
-    self.pathenemylookahead = 64;
-
-    for ( ;; )
-    {
-        // Defined (never false, per the assert at zombie_utility.gsc:603) -> pure forward run.
-        self.alwaysRunForward = true;
-        wait 1; // re-assert: his AnimScripted swing/spawn anims can clear locomotion fields.
-    }
-}
-
-// self = the Juggernaut Host. Keep it 25% faster than the CURRENT round speed: pin the
-// run cycle to "sprint" (the round's top base tier) and scale its movement +25% on top via
-// ASMSetAnimationRate (zombie movement is root-motion / anim-driven - the same lever the
-// zombie speed curve in _acc_zombie_speed.gsc and Widow's Wine use).
-// Re-asserted on a 2s cadence: round transitions / state changes (and Widow's Wine) can
-// reset a one-shot anim rate - so the Host stays above the round speed.
-// NOTE: mini-bosses spawn only at rounds 10/20, where the wave tops out at sprint x1.15
-// (round 20, per the zombie speed curve), so +25% (x1.25) still outruns the wave.
-function boss_speed_think()
-{
-    self endon( "death" );
-
-    for ( ;; )
-    {
-        // Lock to the sprint tier if it ever drifts below (it normally won't - the Host
-        // owns its own run-cycle override, set on spawn).
-        if ( self.zombie_move_speed != "sprint" )
-            self zombie_utility::set_zombie_run_cycle( "sprint" );
-
-        // +25% over whatever the sprint tier's base move speed is this round.
-        self ASMSetAnimationRate( ACC_BOSS_SPEED_SCALE );
-        wait 2;
-    }
-}
-
-// self = the live Brutus. Diagnostic ONLY (acc_brutus_debug 1) for the "spawns then stands
-// frozen" report (2026-06-15). Prints to all players once a second for ~25s: target
-// acquired?, has a custom goal?, distance to the nearest player, and how far he moved in the
-// last second. Read the output to pin the cause without a rebuild:
-//   - target=N the whole time           -> custom_find_flesh never acquires (no valid target)
-//   - target=Y goal=Y but moved ~0      -> he has a goal but can't path: navmesh/spawn-spot
-//        is off the mesh (likely stale navmesh after the room-shrink) - regen navmesh
-//        (cod2map64, see CLAUDE.md) and/or move the brutus_spawner_spot struct onto the mesh
-//   - target=Y goal=Y and moved > 0     -> he IS translating (freeze is elsewhere/intermittent)
-//   - target=N AND no anim at all       -> stuck in the AnimScripted(%brutus_spawn) state /
-//        Brutus anims didn't load (verify the NSZ external pack: check_external_assets.ps1)
-function brutus_spawn_diag()
-{
-    self endon( "death" );
-
-    last = self.origin;
-    for ( i = 0; i < 25; i++ )
-    {
-        wait 1;
-        if ( !isalive( self ) ) return;
-
-        players = GetPlayers();
-        best = 999999999;
-        for ( p = 0; p < players.size; p++ )
-        {
-            if ( !isdefined( players[ p ] ) ) continue;
-            d = Distance( self.origin, players[ p ].origin );
-            if ( d < best ) best = d;
-        }
-
-        moved = Distance( self.origin, last );
-        last = self.origin;
-
-        has_enemy = ( isdefined( self.brutus_enemy ) ? "Y" : "N" );
-        has_goal  = ( isdefined( self.v_zombie_custom_goal_pos ) ? "Y" : "N" );
-
-        msg = "^3[brutus diag] target=" + has_enemy + " goal=" + has_goal
-            + " distPlayer=" + int( best ) + " movedLastSec=" + int( moved );
-        for ( p = 0; p < players.size; p++ )
-            if ( isdefined( players[ p ] ) ) players[ p ] IPrintLn( msg );
-    }
-}
-
-// self = the live Brutus. Frozen-statue fallback (gated by acc_brutus_force_resume, OFF by
-// default). Re-asserts the stock zombie-think resume sequence a beat after spawn so that, if
-// locomotion never resumed after AnimScripted(%brutus_spawn), he is unstuck: SetGoal +
-// PathMode("move allowed") - the exact calls boss_think makes (_zm_spawner.gsc:588-589). The
-// pack's custom_find_flesh still drives the real chase goal (v_zombie_custom_goal_pos); this
-// only unlocks pathing. Idempotent + safe on an already-charging Brutus. Does NOT help if the
-// goal is simply unreachable (off-mesh / stale navmesh) - that needs a navmesh regen.
-function brutus_force_resume()
-{
-    self endon( "death" );
-    wait 1.5; // past the spawn anim + the buff/movement-fix settle window
-    if ( !isalive( self ) ) return;
-    self PathMode( "move allowed" );
-    self SetGoal( self.origin );
 }
 
 function watch_mini_boss_death()

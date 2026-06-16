@@ -13,10 +13,14 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   (tools root: `...\steamapps\common\Call of Duty Black Ops III 455130` —
   AppID-suffixed folder; scripts detect it via `bin\modlauncher.exe`, never
   folder name). `tools/preflight_windows.ps1` = live machine state (all-green
-  2026-06-12, repo synced into the usermap). Compiles happen via the Launcher
-  GUI (user action); keep verifying against known-good references
-  (hard-won facts + docs/research/) before each build. Line endings pinned LF
-  by `.gitattributes`. Setup path: SETUP_WINDOWS.md.
+  2026-06-12, repo synced into the usermap). **BUILD THE MAP YOURSELF — agents
+  run `.\tools\build_map.ps1` (full pipeline) or `-GscOnly` (linker-only); the
+  Launcher GUI is NOT required and compiling is NOT a user action. The user's job
+  is to TEST, not compile.** Build success = a FRESH `.ff`, NOT the linker exit
+  code (it prints `ERROR:` for waived missing materials yet still packs a valid
+  `.ff`). Details below + memory `agents-build-geometry-themselves`. Keep verifying
+  against known-good references (hard-won facts + docs/research/) before each build.
+  Line endings pinned LF by `.gitattributes`. Setup path: SETUP_WINDOWS.md.
 - Every substantive change: CHANGELOG.md entry + the relevant doc updated in
   the same commit.
 - **External (game-rip) asset packs are NOT in git** (NSZ Brutus / Skye guns /
@@ -220,6 +224,17 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   `...455130\usermaps\zm_abandoned_cyber_city\`) → THEN build. Skipping the sync
   silently builds stale code = "I changed the code but nothing changed in game"
   (cost hours, 2026-06-13). Verify a deploy landed before trusting a build.
+- **BUILD THE MAP YOURSELF — don't punt it to the user.** `.\tools\build_map.ps1`
+  is the one-command headless pipeline (asset-gate → sync → cod2map64 [cwd=bin] →
+  LED → linker → verify fresh `.ff`); `-GscOnly` = linker-only fast path;
+  `-Run` chains `run_game.ps1`. The user's job is to TEST, not to compile (see
+  memory `agents-build-geometry-themselves`). **Build success = a FRESH `.ff` was
+  written, NOT the linker exit code:** the linker prints `ERROR: Material … not
+  found in gdtDB` for missing-but-substituted assets (the user-waived
+  `mtl_origins_camo_alt` — the AE4/Ripper FX errors were fixed install-side
+  2026-06-15, docs/33), exits NONZERO, yet still
+  packs a valid `.ff`; build_map.ps1 waives those and fails only if no fresh `.ff`
+  lands. The raw commands it wraps:
 - **You can build the `.ff` directly (no Launcher GUI):** for GSC-only changes,
   `& "<tools>\bin\linker_modtools.exe" -language english -modsource zm_abandoned_cyber_city`
   recompiles scriptparsetree + repacks the `.ff` (geometry/BSP from the last

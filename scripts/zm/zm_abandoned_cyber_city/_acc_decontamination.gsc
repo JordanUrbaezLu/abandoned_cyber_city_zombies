@@ -5,8 +5,8 @@
 // docs/13_perks.md "Per-Round Rotating Lab Machines" (timing contract).
 //
 // Rules implemented (docs/03_layout.md Rules v1.0):
-//   - A permutation of the 4 eligible zones (Undercity Market, Service Alley,
-//     Server Vault, Rooftop Helipad) is rolled ONCE at map load. NEVER
+//   - A permutation of the 4 eligible zones (Market, Alley,
+//     Vault, Helipad) is rolled ONCE at map load. NEVER
 //     start_zone / corp_zone / lab_zone (spawn-safe floor / cut vertex / the
 //     perk+PaP hub).
 //   - On acc_round_start for rounds 1-4, slot (round-1) is declared
@@ -100,8 +100,8 @@ function is_zone_sealed( zone_name )
 // Eligible zones + display names
 // ---------------------------------------------------------------------------
 
-// docs/03_layout.md: eligible seals are EXACTLY these four. Spawn Plaza
-// (start_zone), Corporate Plaza (corp_zone) and Subterranean Lab (lab_zone)
+// docs/03_layout.md: eligible seals are EXACTLY these four. Spawn
+// (start_zone), Plaza (corp_zone) and Lab (lab_zone)
 // are NEVER sealed - do not add them here.
 function get_eligible_zones()
 {
@@ -130,19 +130,19 @@ function get_zone_display_name( zone_name )
 {
     if ( zone_name == "market_zone" )
     {
-        return "Undercity Market";
+        return "Market";
     }
     if ( zone_name == "alley_zone" )
     {
-        return "Service Alley";
+        return "Alley";
     }
     if ( zone_name == "vault_zone" )
     {
-        return "Server Vault";
+        return "Vault";
     }
     if ( zone_name == "roof_zone" )
     {
-        return "Rooftop Helipad";
+        return "Helipad";
     }
     return zone_name;
 }
