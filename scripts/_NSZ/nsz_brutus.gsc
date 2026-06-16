@@ -148,12 +148,25 @@ function spawn_brutus()
 	else
 		wait( RandomIntRange( 5, 20 ) );
 	nsz_iprintlnbold( "brutus Spawned" );
-	spot = choose_a_spawn(); 
+	spot = choose_a_spawn();
 	if( !isDefined( spot ) )
 	{
-		nsz_iprintlnbold( "^1 No Available Spots For brutus" ); 
-		level.current_brutuses--; 
-		return; 
+		// [acc] FALLBACK: the lab brutus_spawner_spot was not found/activated (e.g. its script_string
+		// door-flag never fired). Instead of silently NOT spawning - the "Brutus never appears" symptom
+		// - synthesize a spot ON the host player so he ALWAYS shows up.
+		nsz_iprintlnbold( "^1 no activated brutus_spawner_spot - FALLBACK to host player origin" );
+		fb_players = getplayers();
+		if ( fb_players.size > 0 && isdefined( fb_players[0] ) )
+		{
+			spot = spawn( "script_origin", fb_players[0].origin );
+			spot.angles = fb_players[0].angles;
+		}
+		else
+		{
+			nsz_iprintlnbold( "^1 No Available Spots For brutus" );
+			level.current_brutuses--;
+			return;
+		}
 	}
 	
 	if( level flag::exists( "dog_round" ) && level flag::get("dog_round" ) )
@@ -169,8 +182,14 @@ function spawn_brutus()
 	playsound_to_players( "brutus_vox_spawn" ); 
 	playsound_to_players( "brutus_spawn_short" ); 
 	
-	brutus = zombie_utility::spawn_zombie( spawner ); 
-	brutus attach_helmet(); 
+	brutus = zombie_utility::spawn_zombie( spawner );
+	// [acc] 2026-06-15: mark him a boss IMMEDIATELY (before any thread/callback runs) so our
+	// zombie-speed system (_acc_zombie_speed.gsc) never grabs him. is_zombie() is true on Brutus
+	// (set for melee), so without this our keepalive sweep stomps his locomotion ASM and freezes
+	// him in place (valid path, moved=0). is_boss is re-set later at its original site too (idempotent).
+	brutus.is_boss = true;
+	brutus.acc_boss_custom_speed = true;
+	brutus attach_helmet();
 	brutus attach_light(); 
 	brutus thread zombie_spawn_init();
 	brutus thread boss_footsteps(); 
@@ -218,19 +237,27 @@ function spawn_brutus()
 	brutus thread track_helmet(); 
 	
 	// [acc] hand the live actor to our boss module (_acc_boss_brutus::spawn_one), which
-	// layers on our health bar + 10x HP + +25% speed + Mega-Bottle/boss-item rewards.
+	// layers on our health bar + 10x HP + Mega-Bottle/boss-item rewards + boss music.
 	level.acc_brutus_last = brutus;
 	level notify( "acc_brutus_spawned" );
-	brutus ForceTeleport( spot.origin, spot.angles, 1 );
-	brutus AnimScripted( "note_notify", brutus.origin, brutus.angles, %brutus_spawn ); 
-	PlayFx( SPAWN_FX, brutus.origin ); 
-	Earthquake( 0.4, 4, brutus.origin, 5000 ); 
-	wait( GetAnimLength( %brutus_spawn ) ); 
+
+	// [acc] Clamp the spawn spot onto the navmesh before teleporting (robustness). The stock pack
+	// used the RAW spot.origin (no clampToNavmeshLocation); if a spot is ever off-mesh Brutus lands
+	// off the navmesh and can't generate a path. GetClosestPointOnNavMesh snaps him onto a real point.
+	nav_spot = GetClosestPointOnNavMesh( spot.origin, 256, 64 );
+	if ( !isdefined( nav_spot ) )
+		nav_spot = spot.origin;
+
+	brutus ForceTeleport( nav_spot, spot.angles, 1 );
+	brutus AnimScripted( "note_notify", brutus.origin, brutus.angles, %brutus_spawn );
+	PlayFx( SPAWN_FX, brutus.origin );
+	Earthquake( 0.4, 4, brutus.origin, 5000 );
+	wait( GetAnimLength( %brutus_spawn ) );
 
 	// brutus thread debug_health();
-	brutus thread custom_find_flesh(); 
+	brutus thread custom_find_flesh();   // pack-native chase (writes v_zombie_custom_goal_pos)
 	if( level.brutus_lock_machines )
-		brutus thread watch_for_machines(); 
+		brutus thread watch_for_machines();
 }
 
 function attach_light()
@@ -652,7 +679,11 @@ function note_tracker()
 function new_death()
 {
 	self waittill( "death" );
-	self.light delete(); 
+	// [acc] FIX 2026-06-15: guard self.light - it is only set if create_fire()/the
+	// chest-FX setup ran (nsz_brutus.gsc:269). If Brutus died before that, this threw
+	// "undefined is not an entity".
+	if ( isdefined( self.light ) )
+		self.light delete();
 	level.current_brutuses--;
 	PlayFx( SPAWN_FX, self.origin ); 
 	
@@ -668,11 +699,17 @@ function new_death()
 	clone SetModel( "bo2_brutus_fb" ); 
 	self hide(); 
 	clone UseAnimTree( #animtree ); 
-	clone AnimScripted( "placeholder", clone.origin, clone.angles, %brutus_death );	
-	wait( GetAnimLength(%brutus_death) ); 
-	self delete(); 
-	wait(30); 
-	clone delete(); 
+	clone AnimScripted( "placeholder", clone.origin, clone.angles, %brutus_death );
+	wait( GetAnimLength(%brutus_death) );
+	// [acc] FIX 2026-06-15: after the death-anim wait the real Brutus actor may already
+	// have been reaped by the engine (zombie cleanup / round end) -> self delete() threw
+	// "undefined is not an entity". Guard it; the visual clone (also guarded) is what the
+	// player actually sees during the death anim.
+	if ( isdefined( self ) )
+		self delete();
+	wait(30);
+	if ( isdefined( clone ) )
+		clone delete();
 }
 
 function attach_helmet()
@@ -693,23 +730,35 @@ function playsound_to_players(sound)
 
 function track_helmet()
 {
-	pop_off = self.health/2; 
+	// [acc] FIX 2026-06-15: this thread had NO endon("death"). It busy-waits on
+	// self.health, then drives self / self.helmet across several waits. If Brutus
+	// dies mid-loop the actor (and j_head tag) go undefined and every line below
+	// threw "undefined is not an entity/object" (log lines 728/730/731/732).
+	// endon("death") kills the thread the instant he dies; the isdefined guards
+	// cover the case where the helmet was never attached / already removed.
+	self endon( "death" );
+
+	pop_off = self.health/2;
 	while(self.health > pop_off )
-		wait(0.05); 
-	
-	self PlaySound( "brutus_helmet" ); 
-	self PlaySound( "brutus_vox_yell" ); 
-	
-	self.helmet Unlink(); 
-	self.helmet Launch( (0,0,200), (0,200,200) ); 
-	
-	PlayFxOnTag( HELMET_SMOKE, self, "j_head" ); 
-	
-	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_headpain, undefined, undefined, undefined, .1 ); 
-	wait( GetAnimLength(%brutus_headpain) ); 
-	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_enrage, undefined, undefined, undefined, .2 ); 
-	wait(5); 
-	self.helmet delete(); 
+		wait(0.05);
+
+	self PlaySound( "brutus_helmet" );
+	self PlaySound( "brutus_vox_yell" );
+
+	if ( isdefined( self.helmet ) )
+	{
+		self.helmet Unlink();
+		self.helmet Launch( (0,0,200), (0,200,200) );
+	}
+
+	PlayFxOnTag( HELMET_SMOKE, self, "j_head" );
+
+	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_headpain, undefined, undefined, undefined, .1 );
+	wait( GetAnimLength(%brutus_headpain) );
+	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_enrage, undefined, undefined, undefined, .2 );
+	wait(5);
+	if ( isdefined( self.helmet ) )
+		self.helmet delete();
 }
 
 function anti_instakill( player, mod, hit_location )

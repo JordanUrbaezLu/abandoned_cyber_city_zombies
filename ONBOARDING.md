@@ -127,7 +127,7 @@ launches through Steam with the right dev args.
 > must be EMPTY** (Steam doubles the args otherwise). See
 > [docs/23_launch_runbook.md](docs/23_launch_runbook.md).
 
-You spawn in Spawn Plaza. The launch scripts pass dev **flags**, so you get a
+You spawn in Spawn. The launch scripts pass dev **flags**, so you get a
 sandbox: unlimited money + Data Shards, power on, whole map open, a boss on
 round 2. Those flags are all opt-in — **launch with no `acc_` flags and you get
 the clean consumer game** (closed map, earn your own money, decon hazard live).

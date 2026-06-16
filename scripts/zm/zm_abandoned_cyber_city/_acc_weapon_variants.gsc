@@ -93,6 +93,11 @@ function init()
     // Make the PaP'd ("_up") twins first-class engine UPGRADES so the Pack-a-Punch
     // HUD / tier-up / re-pack all recognize a held twin (fixes "PaP indicator breaks").
     register_twin_upgrades();
+
+    // Make the un-upgraded ("base") twins PACKABLE by the stock PaP machine, so the
+    // interact prompt SHOWS while you hold a perk-swapped twin (fixes "some guns have no
+    // Pack-a-Punch option at all"). Must run AFTER the stock CSV weapons are registered.
+    register_twin_box_weapons();
 }
 
 // Register every PaP'd ("_up") twin in level.zombie_weapons_upgraded (twin OBJECT ->
@@ -125,6 +130,75 @@ function register_twin_upgrades()
         n++;
     }
     acc_utility::log( "weapon_variants: registered " + n + " _up twins as engine upgrades" );
+}
+
+// Make the UN-upgraded ("base") variant twins PACKABLE by the STOCK Pack-a-Punch machine.
+//
+// ROOT CAUSE of the recurring "some guns have no PaP interact option at all" report
+// (AE4 / Tac-19 / earlier the pistols, 2026-06-15): the PaP trigger's PROMPT VISIBILITY is
+// gated by the stock can_pack_weapon (_zm_pack_a_punch.gsc:253) -> is_weapon_or_base_included
+// + can_upgrade_weapon, both of which look up level.zombie_weapons[ weapon.rootWeapon ]. A
+// base twin (e.g. s1_ae4_acc_recoil25 - what you HOLD whenever Deadshot / Gun Slinger /
+// Speed Cola Mega / The Armory is active) has rootWeapon == itself and is DELIBERATELY absent
+// from level.zombie_weapons (so the Mystery Box can't roll a twin). So the machine decides the
+// held weapon is un-packable and SetInvisibleToPlayer-hides the trigger -> no prompt. It read
+// as random because it is perk-gated and twin-only (the 5 variant_guns), "moving" to whichever
+// twin gun you happen to hold with a qualifying perk. NOT max-tier, NOT the akimbo CSV bug.
+//
+// FIX: register each base twin in level.zombie_weapons mirroring its base gun's struct
+// (.upgrade -> the packed twin) but with is_in_box = FALSE. is_weapon_included +
+// can_upgrade_weapon now pass so the prompt shows, while the box still skips it
+// (treasure_chest_CanPlayerReceiveWeapon gates on get_is_in_box, _zm_magicbox.gsc:1222). The
+// actual pack is unchanged - our acc_pap_validate custom_validation still does the in-place
+// first-pack and returns false, so the stock float pack never runs. The PaP'd ("_up") twins
+// already show the prompt via the AAT re-pack path, so ONLY the base twins need this.
+function register_twin_box_weapons()
+{
+    if ( !isdefined( level.zombie_weapons ) ) return;
+
+    guns = variant_guns();
+    suffixes = build_variant_suffixes();   // every legal "_acc_<combo>"
+    n = 0;
+    for ( gi = 0; gi < guns.size; gi++ )
+    {
+        base_name = guns[ gi ];
+        base_w = GetWeapon( base_name );
+        if ( !isdefined( base_w ) || base_w == level.weaponNone ) continue;
+        if ( !isdefined( level.zombie_weapons[ base_w ] ) ) continue;   // base gun must be CSV-registered first
+
+        base_struct = level.zombie_weapons[ base_w ];
+
+        for ( si = 0; si < suffixes.size; si++ )
+        {
+            tw_name = base_name + suffixes[ si ];   // base twin "<gun>_acc_<combo>"
+            if ( !isdefined( level.acc_variant_available[ tw_name ] ) ) continue;
+
+            tw = GetWeapon( tw_name );
+            if ( !isdefined( tw ) || tw == level.weaponNone ) continue;
+
+            key = tw.rootWeapon;   // == tw (a twin has no attachments / rootWeapon override)
+            if ( isdefined( level.zombie_weapons[ key ] ) ) continue;   // already registered
+
+            up = try_resolve_twin( base_name + "_up" + suffixes[ si ] );   // matching packed twin
+
+            struct = SpawnStruct();
+            struct.weapon = tw;
+            struct.upgrade = ( isdefined( up ) ? up : base_struct.upgrade );   // .upgrade must be defined for can_upgrade_weapon
+            struct.weapon_classname = "weapon_" + tw_name + "_zm";
+            struct.hint = base_struct.hint;
+            struct.cost = base_struct.cost;
+            struct.vox = base_struct.vox;
+            struct.vox_response = base_struct.vox_response;
+            struct.is_wonder_weapon = base_struct.is_wonder_weapon;
+            struct.force_attachments = [];
+            struct.ammo_cost = base_struct.ammo_cost;
+            struct.is_in_box = false;   // KEY: the Mystery Box must NEVER roll a twin
+
+            level.zombie_weapons[ key ] = struct;
+            n++;
+        }
+    }
+    acc_utility::log( "weapon_variants: registered " + n + " base twins as PaP-includable (box-excluded)" );
 }
 
 // The guns that have twins (imported box guns only - stock guns have no editable

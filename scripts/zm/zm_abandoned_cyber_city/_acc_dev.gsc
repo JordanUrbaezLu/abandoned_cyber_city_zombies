@@ -427,13 +427,13 @@ function dev_zone_name( zone )
 {
     switch ( zone )
     {
-    case "start_zone":  return "SPAWN PLAZA";
-    case "market_zone": return "UNDERCITY MARKET";
-    case "alley_zone":  return "SERVICE ALLEY";
-    case "corp_zone":   return "CORPORATE PLAZA";
-    case "vault_zone":  return "SERVER VAULT";
-    case "roof_zone":   return "ROOFTOP HELIPAD";
-    case "lab_zone":    return "SUBTERRANEAN LAB";
+    case "start_zone":  return "SPAWN";
+    case "market_zone": return "MARKET";
+    case "alley_zone":  return "ALLEY";
+    case "corp_zone":   return "PLAZA";
+    case "vault_zone":  return "VAULT";
+    case "roof_zone":   return "HELIPAD";
+    case "lab_zone":    return "LAB";
     }
     return zone;
 }

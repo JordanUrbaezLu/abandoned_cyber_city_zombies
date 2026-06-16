@@ -11,21 +11,23 @@
 #         .\tools\run_game.ps1 -NoBoss      (sandbox, no test boss)
 #         .\tools\run_game.ps1 -ClosedMap   (dev sandbox but map starts CLOSED + decon live)
 #         .\tools\run_game.ps1 -NoDev       (clean consumer game: no sandbox, closed map)
+#         .\tools\run_game.ps1 -NoLockdown  (sandbox, but no per-round red-alarm room lockdown)
 # Build first (Launcher: Compile/Light/Link, or just Compile Scripts for GSC).
 # Steam must be running and logged in.
 # =============================================================================
 
-param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug, [switch]$ClosedMap, [switch]$NoAmbient)
+param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug, [switch]$ClosedMap, [switch]$NoAmbient, [switch]$NoLockdown)
 
 # All flags below are OFF by default in the game -> a no-flag launch is a clean
 # consumer game. Full reference: docs/34_flags_reference.md.
 # acc_dev 1      = unlimited money + Data Shards + Mega Bottles, auto-power, perk cap 18,
 #                  dev HUDs + teleport/round-skip console cmds (the test sandbox).
 # acc_open_map 1 = open every door + both PaP blockers on spawn, disable decon hazard.
-# acc_test_boss 1 = test boss (Brutus) every round (the real Brutus now first spawns ROUND 4).
+# acc_test_boss 1 = test boss (Brutus) every round from round 2 (the real Brutus first spawns ROUND 4).
 # acc_glitch_test 1 = spawn the "Glitch Stalker" mini-boss (mobile teleport-blink boss, x2/round)
-#   from ROUND 3; it now moves ~15% faster than normal zombies, blinks 3x as often, uses the
-#   STOCK zombie body (vs the charred horde), has a purple over-head box and NO health bar.
+#   from ROUND 3; it moves ~15% faster than normal zombies, blinks 2x more often (~1-1.67s),
+#   deals -50% melee damage (user 2026-06-15), uses the STOCK zombie body (vs the charred horde),
+#   and has NO health bar / NO over-head marker (the skin is the only tell).
 #   acc_glitch_debug 1 prints [glitch] lines. -NoBoss disables ALL test-boss spawns.
 #   (Glitch r3 / Brutus r4 are the in-code DEFAULTS now, so they apply even without these flags.)
 # acc_variants_debug 1 = print each weapon-variant SWAP on-screen ("[variants] X -> Y")
@@ -45,6 +47,15 @@ $vdbg = if ($NoVarDebug) { "" } else { " +set acc_variants_debug 1" }
 # ambient city bed - ON for the play-test so all audio is exercised. -NoAmbient mutes
 # just the bed.
 $audio = if ($NoAmbient) { "" } else { " +set acc_amb_on 1" }
+
+# Per-round "DEFCON" room lockdown (docs/37 §11, _acc_lockdown.gsc): red flashing alarm
+# lights inside the room (+ optional door seal). ON for the play-test, pinned to the Server
+# Vault (acc_lockdown_force_zone vault_zone); -NoLockdown mutes it. Doors set to NOT seal
+# (acc_lockdown_lock_doors 0) so you can WALK IN and see the red light + the new vault ceiling;
+# type acc_lockdown_lock_doors 1 in the ~ console to test the door seal (locks players IN, no
+# escape window) next round. Tune live: acc_lockdown_use_glow 1 (softer glow), acc_lockdown_fx_z
+# 180 (height), acc_lockdown_emitters 6. REMOVE acc_lockdown_force_zone to resume rotation.
+$lockdown = if ($NoLockdown) { "" } else { " +set acc_lockdown_on 1 +set acc_lockdown_force_zone vault_zone +set acc_lockdown_lock_doors 0" }
 
 # -----------------------------------------------------------------------------
 # ZOMBIE SPEED CURVE knobs (docs/34 "D" + _acc_zombie_speed.gsc). Natural-gait
@@ -76,7 +87,7 @@ $zspeed = " +set acc_zspeed_sprint_round $ZSpeedSprintRound +set acc_zspeed_jog_
 # "-unsafe-lua" arg is a BOIII-client flag, not a Steam BO3 one - on Steam it logs
 # "Unknown command" and does nothing, so it is intentionally NOT passed here.
 # (L3akMod is still required in the MOD TOOLS bin to BUILD the .lua. docs/28.)
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev$openmap$boss$vdbg$audio$zspeed"
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev$openmap$boss$vdbg$audio$lockdown$zspeed"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

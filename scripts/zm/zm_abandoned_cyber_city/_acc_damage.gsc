@@ -499,7 +499,9 @@ function acc_weapon_balance_mult( weapon_name )
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.375;
     if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.2625;
     if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.75;
+    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.85;   // Olympia (BO2 double-barrel SG): 110/pellet x ~8, only 2 in mag + 3.3s reload, so a touch above Tac-19's 0.75 for punchy low-sustained burst. Headshot-excluded like all SGs. First-pass; tune in playtest. (docs/33)
     if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.23;
+    if ( IsSubStr( weapon_name, "t6_galil" ) )     return 0.21;   // Galil (BO2 full-auto AR): 220@0.08 = 2750 raw -> ~578 eff (= AK-47 band). Std loc mults (locHead 5.0 = AK-47, no GDT edit). Keeps the AR headshot chain. Audit 2026-06-15.
     if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;   // AE4 (AW energy AR, 160@0.12 = 1333 raw): old 0.22 = 293 DPS (-41% under band); 0.31 = 442 DPS, band floor (slowest-RPM AR). Audit 2026-06-15.
     if ( IsSubStr( weapon_name, "iw6_ripper" ) )   return 0.25;  // Ripper (Ghosts convertible); covers smg/ar x base/_up
     // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
@@ -779,6 +781,7 @@ function is_weapon_headshot_excluded( w_weapon )
     // Tac-19 (Skye AW import s1_tac19) is the "no headshot bonus, flat damage"
     // crowd-control gun (docs/05). Inert until the AW pack is installed.
     if ( name == "s1_tac19" ) return true;
+    if ( name == "t6_olympia" ) return true;   // Olympia (BO2 SG): flat-damage crowd control like Tac-19 (2026-06-15)
     return false;
 }
 

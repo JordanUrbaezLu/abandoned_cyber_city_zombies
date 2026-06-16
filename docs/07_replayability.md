@@ -16,14 +16,14 @@ Re-rolled at map load. Documented so players can learn the *space* of randomizat
 
 ### Power Switch Side
 
-- State A: Power Switch A active in Corporate Plaza. Server Vault switch is dead (handle inert).
+- State A: Power Switch A active in Plaza. Vault switch is dead (handle inert).
 - State B: reverse.
 - Effect: changes where you rush for power. Affects perk unlock order (power-gated perks).
 - Weight: 50/50.
 
 ### Pack-a-Punch Approach
 
-- State A: approach from Server Vault. Roof-side door welded shut.
+- State A: approach from Vault. Roof-side door welded shut.
 - State B: reverse.
 - Effect: after the PaP round, the Lab approach determines which zone you've already familiar with mid-run.
 - Weight: 50/50.
@@ -40,11 +40,11 @@ single-candidate slot plan below is kept only for when a future version re-expan
 
 Historical slots (no longer wired — kept for reference):
 
-- ~~**Service Alley shotgun**: Haymaker 12.~~
-- ~~**Corporate Plaza AR (full-auto slot)**: ICR-1.~~ (now Box-only)
-- ~~**Corporate Plaza AR (semi-auto slot)**: M14 EBR.~~
-- ~~**Rooftop Helipad sniper**: Intervention.~~
-- ~~**Server Vault tactical**: EMP Grenade.~~
+- ~~**Alley shotgun**: Haymaker 12.~~
+- ~~**Plaza AR (full-auto slot)**: ICR-1.~~ (now Box-only)
+- ~~**Plaza AR (semi-auto slot)**: M14 EBR.~~
+- ~~**Helipad sniper**: Intervention.~~
+- ~~**Vault tactical**: EMP Grenade.~~
 - ~~**Near-perk melee upgrade**: Bowie Knife.~~
 
 **What actually randomizes in wallbuys now**: *nothing* - there are no wall buys. Per-run variance comes from:

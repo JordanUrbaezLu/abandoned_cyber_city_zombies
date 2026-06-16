@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// gen_rooms.js - ONE-SHOT: inject sealed greybox room shells for Server Vault +
-// Rooftop Helipad into the worldspawn of the .map (docs/29 §13).
+// gen_rooms.js - ONE-SHOT: inject sealed greybox room shells for Vault +
+// Helipad into the worldspawn of the .map (docs/29 §13).
 //
 // WHY: those two zones are fully wired (zone graph, doors+slabs, spawners, power
 // switch, wallbuys) but have NO room geometry - opening their doors reveals void.
@@ -60,10 +60,10 @@ function room(label, ix0, iy0, ix1, iy1, wallMat, floorMat, ceilMat, g) {
 }
 
 // Footprints from docs/29 §13 (inset east/west of the door slabs to avoid overlap).
-const vault = room('Server Vault',
+const vault = room('Vault',
   1000, 2490, 2400, 3170,
   't7_metal_painted_wall_dirty_grey', 't7_metal_grate_flooring', 't7_metal_painted_wall_dirty_grey', 0x10);
-const roof = room('Rooftop Helipad',
+const roof = room('Helipad',
   -2400, 2490, -1000, 3170,
   't7_concrete_bare_weathered_01', 't7_asphalt_damaged_dark_wet', 't7_concrete_bare_weathered_01', 0x20);
 
@@ -72,8 +72,8 @@ const lines = fs.readFileSync(MAP, 'utf8').split(/\r?\n/);
 // Re-run guard (docs/36 Stage 0): this script WRITES the .map in place and has
 // no idempotency, so a second run double-injects the shells. Refuse if the
 // distinctive shell comment is already present.
-if (lines.some((l) => l.includes('ACC room shell: Server Vault'))) {
-  console.error('FATAL: room shells already injected (found "ACC room shell: Server Vault") - refusing to double-inject.');
+if (lines.some((l) => l.includes('ACC room shell: Vault'))) {
+  console.error('FATAL: room shells already injected (found "ACC room shell: Vault") - refusing to double-inject.');
   process.exit(1);
 }
 

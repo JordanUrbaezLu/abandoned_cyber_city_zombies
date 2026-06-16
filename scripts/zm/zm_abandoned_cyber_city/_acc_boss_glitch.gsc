@@ -48,11 +48,12 @@
 #define ACC_GLITCH_FIRST_ROUND_DEF          3   // first round it can spawn (user 2026-06-15)
 #define ACC_GLITCH_INTERVAL_DEF            10   // then every N rounds (3, 13, 23, ...)
 #define ACC_GLITCH_TEST_ROUND_DEF           3   // dev/test path: first round it spawns (user 2026-06-15)
-#define ACC_GLITCH_BLINK_CD_MIN_DEF         2.0 // min seconds between blinks (3x more frequent, user 2026-06-15)
-#define ACC_GLITCH_BLINK_CD_MAX_DEF         3.33 // max seconds between blinks (3x more frequent)
+#define ACC_GLITCH_BLINK_CD_MIN_DEF         1.0 // min seconds between blinks (2x more often, user 2026-06-15; now 6x the original 6.0s baseline)
+#define ACC_GLITCH_BLINK_CD_MAX_DEF         1.665 // max seconds between blinks (2x more often; now 6x the original 10.0s baseline)
 #define ACC_GLITCH_BLINK_DIST_DEF         300   // flank offset (units) from the target
 #define ACC_GLITCH_RECOVERY_SEC_DEF         1.5 // post-blink vulnerability window (s)
-#define ACC_GLITCH_RECOVERY_DMG_MULT_DEF    2.0 // damage multiplier while vulnerable
+#define ACC_GLITCH_RECOVERY_DMG_MULT_DEF    2.0 // damage multiplier while vulnerable (damage IT takes - not the damage it deals)
+#define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.5 // melee damage DEALT to players vs a stock zombie (0.5 = -50%, user 2026-06-15)
 #define ACC_GLITCH_SPEED_MULT_DEF           1.15 // move speed vs the round's normal zombies (1.15 = +15%, user 2026-06-15)
 #define ACC_GLITCH_COUNT_DEF                2   // bosses spawned per scheduled round (acc_glitch_count)
 
@@ -229,6 +230,19 @@ function spawn_glitch( round_number )
     host.maxhealth = int( normal_hp * mult );
     host.health = host.maxhealth;
 
+    // Melee damage DEALT to players: HALVED (user 2026-06-15, default 0.5x). Stock
+    // zombie_spawn_init sets self.meleeDamage = 60 (_zm_spawner.gsc:358) and the factory
+    // melee swing does player DoDamage( self.meleeDamage, ..., "MOD_MELEE" )
+    // (shared/ai/zombie.gsc:402), so scaling this one field directly cuts what the boss
+    // hits for. Written AFTER the init-gate (like maxhealth above) - zombie_init_done is
+    // set at _zm_spawner.gsc:389, LATER than meleeDamage:358, so stock init can't clobber
+    // this. Live-tunable via acc_glitch_melee_dmg_mult, no rebuild.
+    melee_mult = getdvarfloat( "acc_glitch_melee_dmg_mult", ACC_GLITCH_MELEE_DMG_MULT_DEF );
+    if ( melee_mult < 0 ) melee_mult = 0;
+    base_melee = ( isdefined( host.meleeDamage ) ? host.meleeDamage : 60 );
+    host.meleeDamage = int( base_melee * melee_mult );
+    if ( host.meleeDamage < 1 ) host.meleeDamage = 1;
+
     // Durability: a mobile boss that fights alongside the wave. It MOVES, so it is
     // never failsafe-culled and must NOT be pinned (no ignore_round_spawn_failsafe).
     host DisableAimAssist();
@@ -335,6 +349,13 @@ function glitch_blink_loop()
         if ( !isdefined( flank_pos ) ) continue; // no valid navmesh point -> no blink
 
         self forceteleport( flank_pos );
+        // [acc] teleport "warp" SFX EMITTED BY the zombie. `self PlaySound` attaches the sound to the
+        // AI entity (the same call the Brutus pack uses for its vocals), so it is a true 3D world sound
+        // that originates at the zombie and follows him - inaudible when he's far, louder up close,
+        // exactly like a zombie cry. The distance falloff itself is the alias's 3D curve
+        // (DistMin/DistMaxDry/DistMaxWet in acc_audio.csv). Gated by acc_glitch_warp_snd (default on).
+        if ( getdvarint( "acc_glitch_warp_snd", 1 ) != 0 )
+            self PlaySound( "acc_glitch_warp" );
         self thread glitch_blink_fx();
         self thread glitch_vulnerable_window();
         gdebug( "blink" );

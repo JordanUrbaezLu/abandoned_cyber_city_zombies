@@ -195,17 +195,19 @@ node tools/apply_recoil_overhaul.js              # twins + gdtdb (step 8)
 ```
 - **No geometry changed** → linker only (no `cod2map64`/LED). gdtdb already refreshed
   by the recoil tool.
-- **Expected exit = `3003000`** (current known-good baseline, 2026-06-15): **3 waived
-  `^1ERROR`s × 1,000,000 + 3 cosmetic `^3` warnings × 1,000.** The three waived errors
-  are all on *existing* guns and all cosmetic-only (gun still fires/sounds/damages):
-  (1) Five-Seven PaP camo `mtl_origins_camo_alt`; (2) AE4 muzzle FX
-  `iw7_efx_plasma_muz_flash` (cross-pack IW7 FX, + its 2 atlas warnings); (3) Ripper
-  shell-eject FX `_scobalula/shellejects/mwr/h1_shell_eject_57x28` (the installed
-  Scobalula pack has the AK-74u's `545x39` variant but not the Ripper's `57x28`).
-  The exit is the engine's low byte (`3003000 mod 256 = 120`). **Method:** don't trust
-  the exit number — read the errorlog and confirm every `ERROR` is one of these three
-  and that **none of your new gun's asset ids appear**. A genuinely new error adds
-  another 1,000,000 *and* names your gun.
+- **Expected exit ≈ `1XXX000`** (known-good baseline, updated 2026-06-15): **1 waived
+  `^1ERROR` × 1,000,000 + N cosmetic `^3` warnings × 1,000.** The lone remaining waived
+  error is cosmetic-only (gun still fires/sounds/damages): Five-Seven PaP camo
+  `mtl_origins_camo_alt`. The `^3` warning count (`N`) **varies build to build** and is
+  NOT a regression signal — e.g. a clean GSC-only build logged 13 (`1013000`): 12 are the
+  PhD-Flopper Apothicon-Fury FX segments (`dlc4/genesis/fx_apothicon_fury_spawn_in_exp`)
+  + 1 bullet-mesh report (`zm_..._bulletreport.csv`), all unrelated to weapons.
+  **Errors (2) and (3) in the old `3003000` baseline — the AE4 muzzle FX
+  `iw7_efx_plasma_muz_flash` and the Ripper shell-eject FX `h1_shell_eject_57x28` — were
+  FIXED install-side 2026-06-15** (see "FIX APPLIED — AE4 + Ripper FX" below); that is why
+  the error count dropped 3 → 1. **Method:** don't trust the exit number — read the
+  errorlog and confirm the only `ERROR:` is the camo and that **none of your new gun's
+  asset ids appear**. A genuinely new error adds another 1,000,000 *and* names your gun.
 - **FF** at `usermaps\zm_abandoned_cyber_city\zone\zm_abandoned_cyber_city.ff` — confirm
   a fresh `LastWriteTime` and a size bump (the AK added ~4 MB: 24.98 → 29.26).
 - In-game (`PLAY_TEST_MAP.bat`, `+set_gametype zclassic`): spin the box, confirm the
@@ -233,11 +235,41 @@ node tools/apply_recoil_overhaul.js              # twins + gdtdb (step 8)
   camo table is self-contained in its GDT (the AK's `t6_camo_ak47_table`) resolves
   fine and adds no error. Don't chase camo (user call).
 - **Ported energy/sci-fi guns can reference FX from a DIFFERENT game's pack.** The AW
-  AE4's muzzle flash is `iw7_efx_plasma_muz_flash` (an *Infinite Warfare* FX). With the
-  IW pack absent, the linker logs `Material <fx> not found in gdtDB` — **non-fatal, same
-  class as the camo waiver**: the gun fires/sounds/damages, only that one VFX is missing.
-  Fix only if you care: repoint the FX field in the gun's GDT to a stock muzzle FX, or
-  install the source game's pack. Each such miss adds ~1,000,000 to the linker exit code.
+  AE4's muzzle flash chains to `iw7_efx_plasma_muz_flash` (an *Infinite Warfare* material).
+  With the IW pack absent, the linker logs `Material <fx> not found in gdtDB` — **non-fatal,
+  same class as the camo waiver**: the gun fires/sounds/damages, only that one VFX is
+  missing. Each such miss adds ~1,000,000 to the linker exit code. **TRAP:** the broken
+  reference is usually NOT the weapon GDT's `viewFlashEffect`/`viewShellEjectEffect` field
+  (that points at a `.efx` file that DOES exist) — it's a material/atlas string buried
+  *inside* the `.efx` (and its `_efxs` companion) under `share\raw\fx\`. Trace it:
+  `grep -rn "<missing-name>" "<tools>\source_data" "<tools>\share\raw"` finds the one real
+  site. Fix = repoint that line to an existing sibling material in the same `.efx` (or to a
+  stock FX). `.efx` files are raw assets compiled by the linker directly, so a `.efx` edit
+  needs only a linker re-run — NO `gdtdb /update` (that is GDT-only).
+
+  **FIX APPLIED — AE4 + Ripper FX (2026-06-15).** Both box guns had a missing-FX `ERROR:`;
+  both were repaired install-side (game-rip assets, NOT repo-tracked — see the
+  Reproducibility gap gotcha; a fresh box must re-apply, `.acc-fx-orig` backups kept):
+  - **AE4 muzzle flash.** `s1_ae4`'s base `viewFlashEffect`/`worldFlashEffect` →
+    `fx\skye_efx\s1_efx\fx_s1_fusion_muz_flash.efx` → its `_efxs` companion. In
+    `share\raw\fx\skye_efx\s1_efx\fx_s1_fusion_muz_flash_efxs.efx` **one** element
+    (a `billboardSprite`, line 884) referenced the missing IW7 material
+    `iw7_efx_plasma_muz_flash`; every other element of that same effect already used the
+    present sibling `mtl_s1_plasma_muz_flash` (line 308, defined in `skye_s1_wepcommon.gdt`).
+    Fix = swap that one line `iw7_efx_plasma_muz_flash` → `mtl_s1_plasma_muz_flash`. Pure
+    `.efx` edit → linker re-run only, no gdtdb. (The PaP form already used the working
+    `fx_s1_yellow_plasma_muz_flash.efx`.)
+  - **Ripper shell eject.** A plain **typo**, not a missing asset: in
+    `source_data\skye_iw6_ripper.gdt` line 34705 the PaP-AR form's `viewShellEjectEffect`
+    read `"ffx\\_scobalula\\shellejects\\mwr\\h1_shell_eject_57x28.efx"` (`ffx`, double-f)
+    while the 7 sibling shell-eject lines correctly said `fx\\`. The `.efx`
+    (`h1_shell_eject_57x28.efx`) AND its shell xmodel (`wpn_h1_shell_57x28_npc`) are both
+    installed — so the earlier note that "the Scobalula pack lacks the 57x28 variant" was
+    WRONG; the only bug was the path typo. Fix = `ffx` → `fx`, then `gdtdb /update` (GDT
+    change → `processed (1 GDTs) (87 assets)`).
+  - **Verified** by a headless linker re-run: `iw7_efx_plasma_muz_flash` and every
+    `57x28`/`ffx`/`shelleject` hit gone from the log; the only `ERROR:` left is the
+    Five-Seven camo; fresh 34.26 MB `.ff` written; no new FX/material warnings.
 - **Convertible / dual-mode weapons (`altWeapon`) need ALL assets + skip the twins.** The
   Ghosts Ripper is 4 GDT assets (smg/ar × base/_up) linked by `altWeapon` (weapon-switch
   toggles mode). Wire ALL 4 `weapon,` zone lines (the altWeapon targets must resolve), but
@@ -269,7 +301,20 @@ alone crashes the load. The hard rule that fell out of it:
 
 Confirmed-safe roster after this pass: the original 6 + **Paladin HB50** +
 **PPSH-41** (both twin-less). Still benched: AK-74u, M1911, PDW, Nail Gun (reasons
-below).
+below). **Later un-benched (install-side fixes): AK-74u, M1911, PDW, Nail Gun.**
+
+**Added 2026-06-15 — Olympia + Galil (BO2 `t6_olympia`, `t6_galil`), twin-less.** The
+cleanest add yet: both pre-screened CLEAN on all three modes — `altWeapon` empty (no §B),
+single-wield `bulletweapon` (no §C), twin-less (no §A) — so **no install-side GDT edit**
+(unlike AK-74u/Paladin). **Source trap:** the user asked for the **BO1** rips but only
+`skye_t5_{olympia,galil}.gdt` were installed — **no models/sounds** (`vm_t5_olympia` +
+`wpn_t5_*` referenced but absent on disk). The **BO2** ports (`t6_*`) were fully installed
+(model_export + sound_assets), so they were used instead — verify all THREE legs (GDT +
+`model_export\skye_ports\<g>` + `sound_assets\skye_ports\<g>`) per Step 0, not just the GDT.
+Olympia = shotgun (Slug Round ability, sg Overclock, ×0.85 + headshot-excluded); Galil = AR
+(Focus Fire, ar Overclock, ×0.21; loc mults = AK-47, no GDT edit). New guns show only `^3`
+xmodel-processing warnings (`N warnings … vm_t6_galil`), never a `^1 ERROR` — those warnings
+are normal for ports and harmless.
 
 ### A. Twin weapon-count cap (engine access-violation at boot)
 

@@ -31,11 +31,11 @@ All standard BO3 controls are preserved. Custom bindings are additive.
 | Action | Default binding | Notes |
 |---|---|---|
 | **Weapon Ability** | **H** (KBM) / **D-pad Down** (Gamepad) | TODO(acc-input): final binding TBD during Phase 4 LUI work. Community-standard bind is `bind h notify acc_ability` via console. Current scaffold listens for `"acc_ability"` notify event; any binding that emits that works. |
-| Cyberware Kiosk interaction | Hold F on the kiosk (Spawn Plaza) | Stock interact, Cyberware handled contextually |
+| Cyberware Kiosk interaction | Hold F on the kiosk (Spawn) | Stock interact, Cyberware handled contextually |
 | Overclock Terminal interaction | Hold F on the terminal (Lab) | Stock interact |
 | Pack-a-Punch interaction | Hold F on the PaP machine (Lab) | Stock interact, our code multiplies to L1-L5 |
-| Hack Terminal activation | Hold F on terminal (Corp Plaza) | 500-Point cost |
-| Vault Overload activation | Hold F on terminal (Server Vault) | 1000-Point cost |
+| Hack Terminal activation | Hold F on terminal (Plaza) | 500-Point cost |
+| Vault Overload activation | Hold F on terminal (Vault) | 1000-Point cost |
 | Emergency Drop call | Hold F on active power switch | 3-Shard cost |
 | Boss item pickup | Walk within 64u of item entity | Auto-pickup unless inventory full |
 | Unequip boss item | Hold F on Cyberware Kiosk with context | Drops to ground for 30s |

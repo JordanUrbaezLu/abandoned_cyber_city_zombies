@@ -33,21 +33,21 @@ Four categories x three tiers + four utility slots = **16 weapons** in v1.0.
 | # | Weapon | Category | Tier | Source | Placement |
 |---|---|---|---|---|---|
 | 1 | **B23R** | Pistol | Starter | Import (MW series) | Spawn loadout |
-| 2 | **Haymaker 12** | Shotgun | Normal | Stock BO3 | Wallbuy (Service Alley) |
+| 2 | **Haymaker 12** | Shotgun | Normal | Stock BO3 | Wallbuy (Alley) |
 | 3 | **Brecci** | Shotgun | Bad | Stock BO3 | Mystery Box only |
 | 4 | **Tac-19** | Shotgun | Strong | Import (Advanced Warfare) | Mystery Box only |
-| 5 | **ICR-1** | AR full-auto | Normal | Stock BO3 | Wallbuy (Corp Plaza) |
+| 5 | **ICR-1** | AR full-auto | Normal | Stock BO3 | Wallbuy (Plaza) |
 | 6 | **XR-2** | AR full-auto | Bad | Stock BO3 | Mystery Box only |
 | 7 | **AK-47** | AR full-auto | Strong | Import | Mystery Box only |
-| 8 | **M14 EBR** | Semi-auto AR | Normal | Import (MW2) | Wallbuy (Corp Plaza) |
+| 8 | **M14 EBR** | Semi-auto AR | Normal | Import (MW2) | Wallbuy (Plaza) |
 | 9 | **G3** | Semi-auto AR | Bad | Import (WAW) | Mystery Box only |
 | 10 | **FN FAL** | Semi-auto AR | Strong | Import (BO1 / BO2) | Mystery Box only |
-| 11 | **Intervention** | Sniper | Normal | Import (MW2) | Wallbuy (Rooftop Helipad) |
+| 11 | **Intervention** | Sniper | Normal | Import (MW2) | Wallbuy (Helipad) |
 | 12 | **Locus** | Sniper | Bad | Stock BO3 | Mystery Box only |
 | 13 | **Drakon** | Sniper | Strong | Stock BO3 | Mystery Box only |
 | 14 | **Bowie Knife** | Melee upgrade | - | Stock BO3 | Wallbuy (near perk) |
 | 15 | **Frag Grenade** | Lethal grenade | Starter | Stock BO3 | Spawn loadout |
-| 16 | **EMP Grenade** | Tactical grenade | - | Custom (authored) | Wallbuy (Server Vault) |
+| 16 | **EMP Grenade** | Tactical grenade | - | Custom (authored) | Wallbuy (Vault) |
 
 **Import / custom count**: 7 imports + 1 custom = 8 non-stock weapons. The other 8 are stock BO3.
 
@@ -81,7 +81,7 @@ Impact on Overclock pools:
 
 ### Shotgun Category
 
-**2. Haymaker 12 (normal, wallbuy)** - stock BO3 automatic shotgun. 1500 wallbuy at Service Alley. Reliable, forgiving, auto-fire for panic moments. PaP: "Haymaker 12 Hades". Overclock family: shotgun.
+**2. Haymaker 12 (normal, wallbuy)** - stock BO3 automatic shotgun. 1500 wallbuy at Alley. Reliable, forgiving, auto-fire for panic moments. PaP: "Haymaker 12 Hades". Overclock family: shotgun.
 
 **3. Brecci (bad, box)** - stock BO3 semi-auto pump shotgun, lower per-shot damage than Haymaker, awkward cone. "I spent 950 points for THIS?" energy. Exists as a designed bad-roll. PaP: "Fully Brecci'd". Overclock family: shotgun (you'll want Spread Cone if you get it).
 
@@ -97,7 +97,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 ### AR Full-Auto Category
 
-**5. ICR-1 (normal, wallbuy)** - stock BO3 full-auto AR, BO3's SCAR-analog silhouette. Tight recoil, moderate RoF, reliable generalist. 1500 wallbuy at Corp Plaza. PaP: "ICR Outperformer". Overclock family: ar.
+**5. ICR-1 (normal, wallbuy)** - stock BO3 full-auto AR, BO3's SCAR-analog silhouette. Tight recoil, moderate RoF, reliable generalist. 1500 wallbuy at Plaza. PaP: "ICR Outperformer". Overclock family: ar.
 
 **6. XR-2 (bad, box)** - stock BO3 energy-based AR. Lower effective DPS than ICR-1 at zombie ranges, weird handling. The AR bad-roll. PaP: "XR-2 Ultramax". Overclock family: ar.
 
@@ -109,7 +109,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 ### Semi-Auto AR Category
 
-**8. M14 EBR (normal, wallbuy)** - MW2 import. Semi-auto marksman rifle, clean trigger, high per-shot damage. 1500 wallbuy at Corp Plaza (separate slot from ICR-1). PaP placeholder: **"M14 Enforcer"**. Overclock family: ar (shared with full-auto ARs). Import notes: iconic DMR, community ports exist.
+**8. M14 EBR (normal, wallbuy)** - MW2 import. Semi-auto marksman rifle, clean trigger, high per-shot damage. 1500 wallbuy at Plaza (separate slot from ICR-1). PaP placeholder: **"M14 Enforcer"**. Overclock family: ar (shared with full-auto ARs). Import notes: iconic DMR, community ports exist.
 
 **9. G3 (bad, box)** - World at War import. Semi-auto battle rifle, slower feel, dated silhouette. The semi-auto bad-roll. PaP placeholder: **"G3 Purger"**. Overclock family: ar. Import notes: WAW asset, ports exist but may need animation tuning for BO3 rig.
 
@@ -117,7 +117,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 ### Sniper Category
 
-**11. Intervention (normal, wallbuy)** - MW2 import. Bolt-action sniper. Clean one-shot baseline, but with a slower rechamber than Drakon and no magazine depth. 3500 wallbuy at Rooftop Helipad. PaP placeholder: **"Intervention Apex"**. Overclock family: sniper. Import notes: most-loved sniper in CoD history; community ports are thorough and well-tested. **Deployment risk**: because this is a wallbuy, the import has to work cleanly before playable greybox testing is meaningful. Fallback plan: swap to Drakon at wallbuy if the Intervention port is unstable on first compile.
+**11. Intervention (normal, wallbuy)** - MW2 import. Bolt-action sniper. Clean one-shot baseline, but with a slower rechamber than Drakon and no magazine depth. 3500 wallbuy at Helipad. PaP placeholder: **"Intervention Apex"**. Overclock family: sniper. Import notes: most-loved sniper in CoD history; community ports are thorough and well-tested. **Deployment risk**: because this is a wallbuy, the import has to work cleanly before playable greybox testing is meaningful. Fallback plan: swap to Drakon at wallbuy if the Intervention port is unstable on first compile.
 
 **12. Locus (bad, box)** - stock BO3 bolt-action sniper. Solid gun mechanically - but when the box could roll a Drakon, hitting Locus is disappointing. "Not the one you wanted" energy. PaP: "Locus Lockdown". Overclock family: sniper.
 
@@ -129,7 +129,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 **15. Frag Grenade (starter lethal)** - stock BO3. Spawn with 2, max 4. Meltdown capstone makes grenade kills chain via AoE.
 
-**16. EMP Grenade (custom tactical, wallbuy)** - authored custom grenade. 250 wallbuy re-ammo at Server Vault. Regular zombies: 2s stun. Shielded elites: shield disabled 4s. Teleporter elites: teleport disabled 8s. EMP elites: no effect. Phase 4 GSC authoring work in a new `_acc_weapon_emp_grenade.gsc`; design sketch below in "Custom Weapon GSC Notes".
+**16. EMP Grenade (custom tactical, wallbuy)** - authored custom grenade. 250 wallbuy re-ammo at Vault. Regular zombies: 2s stun. Shielded elites: shield disabled 4s. Teleporter elites: teleport disabled 8s. EMP elites: no effect. Phase 4 GSC authoring work in a new `_acc_weapon_emp_grenade.gsc`; design sketch below in "Custom Weapon GSC Notes".
 
 ## Weapon Progression (dual-track)
 
@@ -278,7 +278,7 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
   - *Broadcast*: pulse cone widens ~50%.
   - *Interference*: hit enemies take +50% damage from all sources for 3s.
   - *Overflow*: every 5th pulse is a "burst" that deals 3x damage.
-- **Acquisition**: craft at the **Subterranean Lab terminal**. Requires Vault Overload completed this run + 5 Data Shards spent. Without Overload completion, the staff cannot be crafted.
+- **Acquisition**: craft at the **Lab terminal**. Requires Vault Overload completed this run + 5 Data Shards spent. Without Overload completion, the staff cannot be crafted.
 - **Status**: **custom weapon, Phase 4 authoring.** Planned module `scripts/zm/zm_abandoned_cyber_city/_acc_wonder_signal_staff.gsc`.
 
 ### Vibro Cleaver (wonder melee)
@@ -295,7 +295,7 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
   - *Resonance*: kills leave a 2s damage-over-time field that affects remaining enemies in swing arc.
   - *Counterstroke*: parrying a melee attack (zombie lunge or Host charge) refunds the heavy-attack cooldown.
   - *Phase Blade*: swings pass through walls for 0.5s after each use - emergency escape tool.
-- **Acquisition**: craft at the **Server Vault terminal**. Requires Hack Terminal completed this run + 5 Data Shards spent. Without Hack completion, the cleaver cannot be crafted.
+- **Acquisition**: craft at the **Vault terminal**. Requires Hack Terminal completed this run + 5 Data Shards spent. Without Hack completion, the cleaver cannot be crafted.
 - **Status**: **custom weapon, Phase 4 authoring.** Planned module `scripts/zm/zm_abandoned_cyber_city/_acc_wonder_vibro_cleaver.gsc`.
 
 ### Design Notes

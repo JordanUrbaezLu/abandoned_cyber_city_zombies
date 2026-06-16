@@ -242,7 +242,7 @@ To prevent low-round elite farming:
 
 ## Risk/Reward Events
 
-### Hack Terminal (Corporate Plaza)
+### Hack Terminal (Plaza)
 
 State machine:
 
@@ -266,7 +266,7 @@ Each stage runs back-to-back. Fail at any stage and the terminal is locked for t
 
 **Parallel Processing** (Subroutine Tier 2) allows a second attempt; the second attempt stages rotate (different elite types, different zombie counts) so it's not a replay.
 
-### Vault Overload (Server Vault)
+### Vault Overload (Vault)
 
 90-second hold event. Player stands on a point; leaving the point pauses progress.
 
@@ -285,7 +285,7 @@ stateDiagram-v2
 ```
 
 - You **can** leave the point briefly (≤8s) to reposition. Longer and it fails.
-- The "map shortcut unlock" for the run opens a direct path from Server Vault to Rooftop Helipad (bypasses Corp). This is a tangible quality-of-life reward for nailing the event.
+- The "map shortcut unlock" for the run opens a direct path from Vault to Helipad (bypasses Corp). This is a tangible quality-of-life reward for nailing the event.
 
 ### Why These Two Events Exist
 

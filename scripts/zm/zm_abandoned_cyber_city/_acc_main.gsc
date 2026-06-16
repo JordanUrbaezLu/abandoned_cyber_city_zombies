@@ -42,6 +42,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
@@ -104,6 +105,12 @@ function init()
     // watch_round_transitions below can fire the first one; it also rolls
     // the per-run seal permutation.
     acc_decontamination::init();
+
+    // Per-round "DEFCON" room lockdown - stage 1 is the red alarm-light half
+    // (rotates one lit room per round; OFF by default via acc_lockdown_on). Like
+    // decon it must arm its acc_round_start listener before watch_round_transitions
+    // fires the first one. Door-locking is stage 2 (needs Radiant seal brushes).
+    acc_lockdown::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.

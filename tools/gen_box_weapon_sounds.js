@@ -60,6 +60,10 @@ const GUNS = [
     { sid: "t9_nailgun",     shot: seq( 6,  "wpn_t9_nailgun_shot" ),   pap: "wpn_t9_nailgun_pap_flux.wav" },
     { sid: "s1_pdw",         shot: [ "wpn_s1_pdw_shot.wav" ],          pap: "wpn_s1_pdw_pap_shot.wav" },
     { sid: "s2_m1911",       shot: [ "wpn_s2_m1911_shot.wav" ],        pap: "wpn_s2_m1911_pap_shot.wav" },
+    // +2 box guns (user, 2026-06-15): Olympia + Galil (BO2 ports; BO1 had GDTs only).
+    // Foley auto-scanned from foley\ (Olympia: close/open/shell_in/switch; Galil: bolt_*/futz/mag_*).
+    { sid: "t6_olympia",     shot: [ "wpn_t6_olympia_shot.wav" ],      pap: "wpn_t6_olympia_pap_shot.wav" },
+    { sid: "t6_galil",       shot: [ "wpn_t6_galil_shot.wav" ],        pap: "wpn_t6_galil_pap_shot.wav" },
 ];
 
 const lines = fs.readFileSync( CSV, "utf8" ).split( /\r?\n/ );

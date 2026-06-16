@@ -1,4 +1,4 @@
-TOPIC: BO3 stock power-switch system (_zm_power.gsc / _zm_perks.gsc / _zm.gsc|.csc): prefab entity contract, activation sequence, multi-switch/power-zone support, and minimal-code plan for run-randomized "switch A (Corp) vs B (Server Vault)"
+TOPIC: BO3 stock power-switch system (_zm_power.gsc / _zm_perks.gsc / _zm.gsc|.csc): prefab entity contract, activation sequence, multi-switch/power-zone support, and minimal-code plan for run-randomized "switch A (Corp) vs B (Vault)"
 
 FINDINGS:
 (1) ENTITY CONTRACT THE STOCK SWITCH PREFAB MUST SATISFY (derived from consuming scripts; the prefab .map itself is in Mod Tools `map_source/_prefabs/zm/`, NOT in this repo or the tmp/bo3_stock_ref scripts-only mirror — our map currently contains NO power-switch entities, grep of map_source/zm/zm_abandoned_cyber_city.map for use_elec_switch/elec_switch/power_on returned zero matches):
@@ -77,5 +77,5 @@ scripts/zm/zm_abandoned_cyber_city.gsc:170-178 (CheckForPower waits global power
 scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc:275-310 (apply at initial_blackscreen_passed; TODO acc_power_corp/acc_power_vault triggerenable(false))
 scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc:31-75 (piggybacks acc_power_* triggers; gates on global power_on flag)
 scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc:217-233 (boss debuff clears/sets global power_on flag)
-docs/07_replayability.md:17-22 (requirement: switch A Corp / B Server Vault, dead handle inert, 50/50)
+docs/07_replayability.md:17-22 (requirement: switch A Corp / B Vault, dead handle inert, 50/50)
 tmp/bo3_stock_ref/scripts/zm/_zm_pack_a_punch.gsc:135 (PaP registers as ANY_POWER powered item)

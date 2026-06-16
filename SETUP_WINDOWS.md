@@ -178,7 +178,7 @@ Steam must be running and logged in.
    if the field is available (enables the `~` console + console.log). For the
    Mega-loop test add `+set acc_test_boss 1` (or set the dvar in console —
    it's re-read every round).
-2. **Run Game**. You spawn in Spawn Plaza: pistol, 500 points, window
+2. **Run Game**. You spawn in Spawn: pistol, 500 points, window
    barricade, debris-pile training loop.
 3. Console (`~`): expect `[acc] pre_init done`, `[acc] init complete`, the
    decontamination order log lines, and zone/door logs as you buy through.

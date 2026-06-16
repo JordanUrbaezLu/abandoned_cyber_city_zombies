@@ -153,6 +153,19 @@ function rate_for_round( round )
 
 function apply_speed_for_round( round )
 {
+    // [acc] ROOT-CAUSE FIX 2026-06-15 (the Brutus "spawns then stands frozen" bug, confirmed via
+    // [BRUTUS-DBG]: pm=move allowed, hasPath=Y, target=Y, goalSet=Y, yet moved=0 every tick).
+    // Bosses drive a CUSTOM locomotion ASM (Brutus = the zm_brutus animtable; he sets self.is_zombie
+    // = true for melee, so is_zombie() does NOT exclude him). set_zombie_run_cycle_override_value()
+    // + ASMSetAnimationRate() below STOMP that custom ASM, leaving him with a valid path but no
+    // locomotion animation -> he never translates, and the 1.5s keepalive sweep re-froze him forever.
+    // NEVER touch a boss's speed - each boss owns its own movement (Glitch Stalker already opted out
+    // via acc_boss_custom_speed; this generalizes it to every boss marker so the chokepoint covers
+    // BOTH the on-spawn hook and the keepalive sweep).
+    if ( IS_TRUE( self.is_boss ) || IS_TRUE( self.acc_boss_custom_speed ) ||
+         IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) )
+        return;
+
     tier = tier_for_round( round );
     rate = rate_for_round( round );
 

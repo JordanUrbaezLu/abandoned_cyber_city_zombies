@@ -80,7 +80,7 @@ function pre_init()
 
 function roll_power_switch_side()
 {
-    // A (Corp) or B (Server Vault). 50/50.
+    // A (Corp) or B (Vault). 50/50.
     return ( acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault" );
 }
 
@@ -137,7 +137,12 @@ function register_mystery_box_pool()
         "t9_nail_gun",           // Nail Gun (CW projectile AR; altWeapon empty, twin-less by type)
         "s1_pdw",                // PDW-57 (AW; base single-wield, PaPs to akimbo rdw+ldw; altWeapon empty)
         "s2_m1911",              // M1911 (WWII pistol; PaPs to akimbo EXPLOSIVE - balance split in _acc_damage)
-        "t5_ak74u"               // AK-74u (BO1 SMG; PaP altWeapon BLANKED install-side, skye_t5_ak74u.gdt L10416)
+        "t5_ak74u",              // AK-74u (BO1 SMG; PaP altWeapon BLANKED install-side, skye_t5_ak74u.gdt L10416)
+        // +2 box guns (user, 2026-06-15): Olympia + Galil. BO1 rips had GDTs only, so the
+        // fully-installed BO2 ports are used. Both pre-screened clean (empty altWeapon, single-
+        // wield bulletweapon, std loc mults) and shipped TWIN-LESS (weapon-count cap). docs/33.
+        "t6_olympia",            // Olympia (BO2 double-barrel shotgun)
+        "t6_galil"               // Galil   (BO2 full-auto AR)
     );
 
     // 1) Clear is_in_box across the ENTIRE live weapon table so none of the

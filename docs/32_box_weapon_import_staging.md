@@ -17,10 +17,15 @@ guns**, all Skye imports:
   balance ×0.25, Whirlwind ability + SMG Overclock pool, 4 `altWeapon` assets, NO twins).
 
 The box returns ONLY these six. **Locus / ICR / Man-O-War / FN FAL** are out. All 6
-guns built + packed + have sounds. `.ff` = 30.18 MB. Non-fatal cosmetic warnings
-(user-waived): the Five-Seven PaP camo `mtl_origins_camo_alt`, and the AE4's muzzle-flash
-FX `iw7_efx_plasma_muz_flash` (an IW FX Skye references; the AE4 fires/sounds/damages
-fine, only the muzzle VFX is absent). Gameplay unaffected.
+guns built + packed + have sounds. `.ff` = 30.18 MB. The only remaining non-fatal
+cosmetic warning (user-waived) is the Five-Seven PaP camo `mtl_origins_camo_alt`.
+
+> **AE4 + Ripper muzzle/shell FX — FIXED install-side 2026-06-15.** The AE4's base
+> muzzle-flash FX (the missing IW7 material `iw7_efx_plasma_muz_flash`) and the Ripper's
+> shell-eject FX (a `ffx\` path typo in its GDT) were repaired in the install-side Skye
+> assets — both now resolve and render. Full recipe (exact files/lines/backups) in
+> docs/33 "FIX APPLIED — AE4 + Ripper FX". Install-side only (not repo-tracked), so a
+> fresh box must re-apply them — same reproducibility caveat as the AK-74u altWeapon edit.
 
 ### History (superseded)
 An earlier pass had the box = Tac-19/Locus/FN-FAL/AK-47, then cut to 3 guns

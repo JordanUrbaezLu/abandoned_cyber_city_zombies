@@ -11,11 +11,11 @@
 // Geometry plan (docs/03_layout.md zone graph, greybox boxes):
 //   start_zone (existing arena)   x[-1056,1094.5]  y[-1073.5,928]
 //   market_zone (Undercity Mkt)   x[-2481,-1281]   y[200,1600]
-//   alley_zone  (Service Alley)   x[1319.5,2519.5] y[200,1600]
-//   corp_zone   (Corporate Plaza) x[-781,819]      y[1148,2748]
-//   vault_zone  (Server Vault)    x[1119,2319]     y[2200,3400]
-//   roof_zone   (Rooftop Helipad) x[-2319,-1119]   y[2200,3400]
-//   lab_zone    (Subterranean Lab)x[-781,819]      y[3048,4248]
+//   alley_zone  (Alley)   x[1319.5,2519.5] y[200,1600]
+//   corp_zone   (Plaza) x[-781,819]      y[1148,2748]
+//   vault_zone  (Vault)    x[1119,2319]     y[2200,3400]
+//   roof_zone   (Helipad) x[-2319,-1119]   y[2200,3400]
+//   lab_zone    (Lab)x[-781,819]      y[3048,4248]
 // 8 corridors = the 8 zone-graph edges (no direct Spawn<->Corp or Corp<->Lab).
 // =============================================================================
 
@@ -52,11 +52,11 @@ function box(x1, x2, y1, y2, z1, z2, tex) {
 }
 
 const rooms = {
-  market: { x1: -2481, x2: -1281, y1: 200, y2: 1600 },
-  alley: { x1: 1319.5, x2: 2519.5, y1: 200, y2: 1600 },
+  market: { x1: -1951, x2: -1281, y1: 360, y2: 1496 },
+  alley: { x1: 1319.5, x2: 1989.5, y1: 360, y2: 1496 },
   corp: { x1: -781, x2: 819, y1: 1148, y2: 2748 },
-  vault: { x1: 1119, x2: 2319, y1: 2200, y2: 3400 },
-  roof: { x1: -2319, x2: -1119, y1: 2200, y2: 3400 },
+  vault: { x1: 1119, x2: 1744, y1: 2260, y2: 3400 },
+  roof: { x1: -1744, x2: -1119, y1: 2260, y2: 3400 },
   lab: { x1: -781, x2: 819, y1: 3048, y2: 4248 },
 };
 
