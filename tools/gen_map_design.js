@@ -45,10 +45,10 @@ function origin(e) {
 
 // ---- world geometry (gen_zone_greybox.js constants) ---------------------------
 const rooms = [
-  { name: 'SPAWN', zone: 'start_zone', x1: -1056, x2: 1094.5, y1: -560, y2: 740 },
+  { name: 'PLAZA', zone: 'start_zone', x1: -1056, x2: 1094.5, y1: -560, y2: 740 },
   { name: 'MARKET', zone: 'market_zone', x1: -1951, x2: -1281, y1: 360, y2: 1496 },
   { name: 'ALLEY', zone: 'alley_zone', x1: 1319.5, x2: 1989.5, y1: 360, y2: 1496 },
-  { name: 'PLAZA', zone: 'corp_zone', x1: -781, x2: 819, y1: 1148, y2: 2748 },
+  { name: 'BUS STATION', zone: 'corp_zone', x1: -781, x2: 819, y1: 1148, y2: 2748 },
   { name: 'VAULT', zone: 'vault_zone', x1: 1119, x2: 1744, y1: 2260, y2: 3400 },
   { name: 'HELIPAD', zone: 'roof_zone', x1: -1744, x2: -1119, y1: 2260, y2: 3400 },
   { name: 'LAB', zone: 'lab_zone', x1: -781, x2: 819, y1: 3048, y2: 4248 },
@@ -63,16 +63,10 @@ const corridors = [
   { x1: 819, x2: 1119, y1: 3100, y2: 3356 },
   { x1: -1119, x2: -781, y1: 3100, y2: 3356 },
 ];
-const obstacles = [
-  { label: 'debris', x1: -81, x2: 119, y1: -172, y2: 28 },
-  { label: 'fountain', x1: -131, x2: 169, y1: 1798, y2: 2098 },
-  { label: '', x1: -481, x2: -61, y1: 1448, y2: 1468 },
-  { label: '', x1: 99, x2: 519, y1: 1598, y2: 1618 },
-  { label: 'stalls', x1: -2181, x2: -2021, y1: 850, y2: 950 },
-  { label: '', x1: -1961, x2: -1801, y1: 850, y2: 950 },
-  { label: '', x1: -1741, x2: -1581, y1: 850, y2: 950 },
-  { label: 'obstacle', x1: -1847, x2: -1591, y1: 2672, y2: 2928 },
-];
+// 2026-06-16: training obstacles REMOVED from the map (flat rooms, no free-standing
+// blocking structures). Box/PaP/perks/walls/doors are unaffected. Kept empty so the
+// design SVG matches the built geometry.
+const obstacles = [];
 
 // ---- projection ---------------------------------------------------------------
 const W = { x1: -2561, x2: 2600, y1: -1154, y2: 4330 };
@@ -130,6 +124,21 @@ const papBlocks = [
   { x: -1048, y: 3228, label: 'PaP blocker (roof side)' },
 ];
 
+// Lab perk alcoves: each of the 9 perks sits in its own door-gated crevasse on the
+// Lab north wall (tools/add_perk_alcoves.js). Parse the acc_perk_door_<spec> brush
+// gates; the alcove runs from the door mouth back to the Lab interior wall (y=4228).
+const ALCOVE_BACK_Y = 4228;
+function brushBounds(e) {
+  if (!e._planes || e._planes.length < 6) return null;
+  const first = (i, tok) => Number(e._planes[i].trim().split(/\s+/)[tok]);
+  const y1 = first(2, 2), x2 = first(3, 1), y2 = first(4, 2), x1 = first(5, 1);
+  return { x1: Math.min(x1, x2), x2: Math.max(x1, x2), y1: Math.min(y1, y2), y2: Math.max(y1, y2) };
+}
+const perkAlcoves = ents
+  .filter(e => (e.targetname || '').startsWith('acc_perk_door_'))
+  .map(e => brushBounds(e))
+  .filter(Boolean);
+
 // ---- emit SVG -------------------------------------------------------------------
 const svg = [];
 svg.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" font-family="Consolas, monospace">`);
@@ -149,6 +158,17 @@ for (const o of obstacles) {
 }
 for (const b of papBlocks) {
   svg.push(`<rect x="${PX(b.x) - 4}" y="${PY(b.y) - 12}" width="8" height="24" fill="#ff8c4a" opacity="0.9"/>`);
+}
+
+// Lab perk alcoves (crevasses) + pink door-gate bar at each mouth.
+for (const a of perkAlcoves) {
+  const doorY = (a.y1 + a.y2) / 2;
+  svg.push(`<rect x="${PX(a.x1)}" y="${PY(ALCOVE_BACK_Y)}" width="${(a.x2 - a.x1) * S}" height="${(ALCOVE_BACK_Y - doorY) * S}" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>`);
+  svg.push(`<rect x="${PX(a.x1)}" y="${PY(doorY) - 1.5}" width="${(a.x2 - a.x1) * S}" height="3" fill="#e64a9c" opacity="0.95"/>`);
+}
+if (perkAlcoves.length) {
+  const cx = perkAlcoves.reduce((s, a) => s + (a.x1 + a.x2) / 2, 0) / perkAlcoves.length;
+  svg.push(`<text x="${PX(cx)}" y="${PY(ALCOVE_BACK_Y) - 4}" fill="#b07ac8" font-size="8" text-anchor="middle">9 perk alcoves — random 3 doors open / round</text>`);
 }
 
 // small markers first (risers/spawns), labeled markers after

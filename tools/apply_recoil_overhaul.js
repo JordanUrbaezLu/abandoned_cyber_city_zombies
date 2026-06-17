@@ -53,7 +53,7 @@ const REPO = path.resolve( __dirname, ".." );
 const GEN = path.join( __dirname, "gen_weapon_variant_gdt.js" );
 const OUT_REPO = path.join( REPO, "source_data", "acc_weapon_variants.gdt" );
 
-const BASE_SCALE = 2.1;
+const BASE_SCALE = 1.75;   // map base-recoil "skill theme" (was 2.1, lowered 2026-06-16). Mega Deadshot recoil50 = ×0.50 off this -> ~0.875x vanilla.
 
 // Per-dimension twin levels. [ suffix-part, scale-factors ]. '' = the base level
 // (no twin part). Order here == the suffix concatenation order the GSC expects
@@ -63,10 +63,13 @@ const BASE_SCALE = 2.1;
 //   ONLY clean way to gate a GDT-baked stat to Mega holders (engine clamps reserve to maxAmmo),
 //   at the cost of doubling the matrix (adds the x2 ammo dimension): 11 -> 23 combos/form.
 const TWIN_DIMS = [
-    [ [ "", {} ], [ "recoil25", { recoil: 0.75 } ], [ "recoil40", { recoil: 0.60 } ] ],
+    // 2026-06-16 cap-savings rework: recoil collapsed 3->2 tiers, gated on Deadshot MEGA only
+    // (base Deadshot now has NO recoil twin). One -50% tier (×0.50 off the 2.1x base ≈ vanilla).
+    [ [ "", {} ], [ "recoil50", { recoil: 0.50 } ] ],
     [ [ "", {} ], [ "fastfire", { fire: 0.714, swap: 0.5 } ] ],
     [ [ "", {} ], [ "fastreload", { reload: 0.857 } ] ],
-    [ [ "", {} ], [ "ammo", { ammo: 1.25 } ] ],
+    // ammo axis REMOVED 2026-06-16: Armory is now a runtime round-start +35% reserve refill
+    // (_acc_mega_bottles::armory_refill), NOT a maxAmmo twin. Frees the axis (46->14/gun).
 ];
 
 // gun file + its base/PaP asset names (verified on the box 2026-06-14).
@@ -86,10 +89,16 @@ const GUNS = [
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
     { gdt: "skye_t6_ak47.gdt",      base: "t6_ak47",      up: "t6_ak47_up" },
     { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
-    // +3 twin guns REVERTED again 2026-06-15: 8 guns x 46 = 368 twins CRASHES on boot
-    // (engine AV 0xC0000005 at blackops3.exe+0x25DF24E during weapon registration - the
-    // BO3 weapon-count limit). 5 guns x 46 = 230 boots. The base guns are fine; it's the
-    // twin COUNT. Need a twin budget (fewer combos, or fewer twin guns) to fit the new guns.
+    // STAGE 2 (2026-06-16): with the slimmed 14-twin/gun layout (ammo→runtime, recoil 2-tier),
+    // 9 guns x 14 = 126 twins fit under the ~230 cap. +4 clean single-wield guns:
+    { gdt: "skye_s4_ppsh-41.gdt",    base: "s4_ppsh41_base", up: "s4_ppsh41_base_up" },
+    { gdt: "skye_t6_galil.gdt",      base: "t6_galil",       up: "t6_galil_up" },
+    { gdt: "skye_t6_olympia.gdt",    base: "t6_olympia",     up: "t6_olympia_up" },
+    { gdt: "skye_t8_paladin_hb50.gdt", base: "t8_paladin_hb50", up: "t8_paladin_hb50_up" },
+    // AK-74u (2026-06-16): its PaP GDT asset is the irregular `t5_ak74u_up_zm` (the zone loads that
+    // name; CSV says `t5_ak74u_up`). Use the real asset name as `up`; the GSC variant_up_name()
+    // helper mirrors it. -> 10 guns x 14 = 140 twins. Ripper/Nail/PDW/M1911 = structural (no twins).
+    { gdt: "skye_t5_ak74u.gdt",      base: "t5_ak74u",       up: "t5_ak74u_up_zm" },
 ];
 
 // CLI args for a gun's always-on baseline buff (numeric factors are scaled, literals set).

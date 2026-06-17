@@ -21,10 +21,10 @@
 
   "rooms": {
     "_doc": "OUTER footprint = the floor-slab extent (x1<x2, y1<y2). Interior = inset by wall.thickness on all sides. start_zone is NOT emitted by gen_zone_greybox.js (it is the original template arena), so its footprint lives only in gen_map_design.js + the baked .map.",
-    "start_zone":  { "name": "SPAWN",       "inGenZoneGreybox": false, "outer": { "x1": -1056,   "x2": 1094.5, "y1": -560, "y2": 740  } },
+    "start_zone":  { "name": "PLAZA",       "inGenZoneGreybox": false, "outer": { "x1": -1056,   "x2": 1094.5, "y1": -560, "y2": 740  } },
     "market_zone": { "name": "MARKET",  "inGenZoneGreybox": true,  "shortName": "market", "outer": { "x1": -1951, "x2": -1281, "y1": 360, "y2": 1496 } },
     "alley_zone":  { "name": "ALLEY",     "inGenZoneGreybox": true,  "shortName": "alley",  "outer": { "x1": 1319.5, "x2": 1989.5, "y1": 360, "y2": 1496 } },
-    "corp_zone":   { "name": "PLAZA",   "inGenZoneGreybox": true,  "shortName": "corp",   "outer": { "x1": -781, "x2": 819, "y1": 1148, "y2": 2748 } },
+    "corp_zone":   { "name": "BUS STATION",   "inGenZoneGreybox": true,  "shortName": "corp",   "outer": { "x1": -781, "x2": 819, "y1": 1148, "y2": 2748 } },
     "vault_zone":  { "name": "VAULT",      "inGenZoneGreybox": true,  "shortName": "vault",  "outer": { "x1": 1119, "x2": 1744, "y1": 2260, "y2": 3400 } },
     "roof_zone":   { "name": "HELIPAD",   "inGenZoneGreybox": true,  "shortName": "roof",   "outer": { "x1": -1744, "x2": -1119, "y1": 2260, "y2": 3400 } },
     "lab_zone":    { "name": "LAB",  "inGenZoneGreybox": true,  "shortName": "lab",    "outer": { "x1": -781, "x2": 819, "y1": 3048, "y2": 4248 } }
@@ -32,6 +32,11 @@
 
   "genRoomsShells": {
     "_doc": "KNOWN CONFLICT to reconcile in the overhaul (docs/36). tools/gen_rooms.js (run after gen_zone_greybox, with NO re-run guard before Stage 0) injected a SECOND closed box shell for vault+roof — see the '// ACC room shell: Vault/Helipad' brushes (guid ACCB00xx). gen_rooms assumed those zones had no geometry, but the gen_zone_greybox rooms (rooms.<vault/roof>_zone.outer) WERE applied — so each of vault/roof now has TWO overlapping shells. The gen_rooms shell is 16u-walled, z[-16,144] (128u ceiling), and is actually LARGER in X than the greybox room (984 < 1119; -2416 < -2319) and uses DIFFERENT door-gap Y bands (y2474-2536 / y3120-3186) than the greybox room (y2300-2556 / y3100-3356). gen_rooms room(label, ix0, iy0, ix1, iy1, ...) takes the INTERIOR; walls inset OUTWARD by wallThickness, so bakedOuter = interior expanded by wallThickness (verified vs the baked floor brushes). RESOLVED 2026-06-15: the gen_rooms double-shells for vault/roof were DELETED from the .map (docs/36 §12, via tools/apply_room_shrink.js) before shrinking those zones. No shell entries remain; validate_rooms.js skips the _doc key."
+  },
+
+  "trenches": {
+    "_doc": "Sunken cross-room channels cut into a room floor (added 2026-06-16, user request). The room's single z[-16,0] floor slab is REPLACED by: a south slab (outer.y1..trench.y1) + a north slab (trench.y2..outer.y2), both THICKENED to z[slabBottom,0] so their inner faces (at trench.y1 / trench.y2) form the trench retaining walls with no under-floor leak; plus a trench-floor slab spanning trench.y1..trench.y2 with top at floorZ. A thin stair walkway (x[stairX1,stairX2] wide) crosses dead-centre: stepCount steps of stepRise/stepRun down the south lip and up the north lip (16/16 = stock stair pitch, so the navmesh links across and zombies funnel through the channel). Geometry generator: tools/gen_corp_trench.js (one-shot, like gen_zone_greybox). Jumping in costs ~fallDamage (velocity-gated, PhD-negated) via scripts/.../_acc_bus_trench.gsc. validate_rooms.js checks these baked slabs for a trench zone INSTEAD of the single full-footprint slab. Keyed by gen_zone_greybox short name.",
+    "corp": { "y1": 1723, "y2": 2173, "floorZ": -288, "slabBottom": -304, "endWalls": true, "stairGuardRails": true, "stairChannels": [ { "x1": -761, "x2": -665, "lip": "south", "wall": "west" }, { "x1": 703, "x2": 799, "lip": "north", "wall": "east" } ], "stepRise": 16, "stepRun": 16, "stepCount": 17, "fallDamage": 25 }
   },
 
   "corridors": [

@@ -10,7 +10,7 @@
 <rect x="753.6" y="224.28" width="66" height="56.32" fill="#1d2832" stroke="#3a4a58" stroke-width="1"/>
 <rect x="327.24" y="224.28" width="74.36" height="56.32" fill="#1d2832" stroke="#3a4a58" stroke-width="1"/>
 <rect x="341.1" y="799.8" width="473.11" height="286" fill="#16202a" stroke="#54a0d8" stroke-width="2"/>
-<text x="577.655" y="817.8" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">SPAWN</text>
+<text x="577.655" y="817.8" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">PLAZA</text>
 <text x="577.655" y="829.8" fill="#3a5468" font-size="9" text-anchor="middle">start_zone</text>
 <rect x="144.2" y="633.48" width="147.4" height="249.92" fill="#16202a" stroke="#54a0d8" stroke-width="2"/>
 <text x="217.9" y="651.48" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">MARKET</text>
@@ -19,7 +19,7 @@
 <text x="937.41" y="651.48" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">ALLEY</text>
 <text x="937.41" y="663.48" fill="#3a5468" font-size="9" text-anchor="middle">alley_zone</text>
 <rect x="401.6" y="358.04" width="352" height="352" fill="#16202a" stroke="#54a0d8" stroke-width="2"/>
-<text x="577.6" y="376.04" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">PLAZA</text>
+<text x="577.6" y="376.04" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">BUS STATION</text>
 <text x="577.6" y="388.04" fill="#3a5468" font-size="9" text-anchor="middle">corp_zone</text>
 <rect x="819.6" y="214.6" width="137.5" height="250.8" fill="#16202a" stroke="#54a0d8" stroke-width="2"/>
 <text x="888.35" y="232.6" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">VAULT</text>
@@ -30,16 +30,27 @@
 <rect x="401.6" y="28.04" width="352" height="264" fill="#16202a" stroke="#54a0d8" stroke-width="2"/>
 <text x="577.6" y="46.04" fill="#54a0d8" font-size="13" text-anchor="middle" font-weight="bold">LAB</text>
 <text x="577.6" y="58.04" fill="#3a5468" font-size="9" text-anchor="middle">lab_zone</text>
-<rect x="555.6" y="956.44" width="44" height="44" fill="#2a3642"/>
-<rect x="544.6" y="501.04" width="66" height="66" fill="#2a3642"/>
-<rect x="467.6" y="639.64" width="92.4" height="4.4" fill="#2a3642"/>
-<rect x="595.2" y="606.64" width="92.4" height="4.4" fill="#2a3642"/>
-<rect x="93.6" y="753.6" width="35.2" height="22" fill="#2a3642"/>
-<rect x="142" y="753.6" width="35.2" height="22" fill="#2a3642"/>
-<rect x="190.4" y="753.6" width="35.2" height="22" fill="#2a3642"/>
-<rect x="167.08" y="318.44" width="56.32" height="56.32" fill="#2a3642"/>
 <rect x="799.98" y="240.44" width="8" height="24" fill="#ff8c4a" opacity="0.9"/>
 <rect x="338.86" y="240.44" width="8" height="24" fill="#ff8c4a" opacity="0.9"/>
+<rect x="425.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="425.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="458.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="458.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="491.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="491.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="524.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="524.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="557.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="557.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="590.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="590.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="623.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="623.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="656.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="656.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="689.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="689.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<text x="573.42" y="28.439999999999998" fill="#b07ac8" font-size="8" text-anchor="middle">9 perk alcoves — random 3 doors open / round</text>
 <circle cx="650.09" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="396.65" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="523.37" cy="854.1708" r="2.5" fill="#8a5a44" opacity="0.8"/>
@@ -77,8 +88,8 @@
 <circle cx="665.6" cy="94.04" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="523.37" cy="874.7474" r="8" fill="#c8c8c8" stroke="#000" stroke-width="1"/>
 <text x="523.37" y="877.7474" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">BAR</text>
-<circle cx="747.22" cy="544.6" r="8" fill="#ffe34a" stroke="#000" stroke-width="1"/>
-<text x="747.22" y="547.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">PWR</text>
+<circle cx="747.22" cy="588.6" r="8" fill="#ffe34a" stroke="#000" stroke-width="1"/>
+<text x="747.22" y="591.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">PWR</text>
 <circle cx="419.42" cy="148.6" r="8" fill="#b14ae6" stroke="#000" stroke-width="1"/>
 <text x="419.42" y="151.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">PaP</text>
 <circle cx="217.9" cy="667.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
@@ -137,8 +148,16 @@
 <text x="577.6" y="163.04" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">BOSS</text>
 <circle cx="943.9" cy="340" r="8" fill="#ffe34a" stroke="#000" stroke-width="1"/>
 <text x="943.9" y="343" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">PWR</text>
+<circle cx="507.42" cy="808.6" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
+<text x="507.42" y="811.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
+<circle cx="937.3" cy="667.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
+<text x="937.3" y="670.8" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
+<circle cx="950.5" cy="390.6" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
+<text x="950.5" y="393.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
+<circle cx="408.2" cy="214.6" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
+<text x="408.2" y="217.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
 <text x="512.37" y="877.7474" fill="#cfd8e0" font-size="8.5" text-anchor="end">Window Barricade</text>
-<text x="758.22" y="547.6" fill="#cfd8e0" font-size="8.5" text-anchor="start">Power Switch corp</text>
+<text x="758.22" y="591.6" fill="#cfd8e0" font-size="8.5" text-anchor="start">Power Switch corp</text>
 <text x="408.42" y="151.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Pack-a-Punch</text>
 <text x="228.9" y="670.8" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (market)</text>
 <text x="474.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">JUG</text>
@@ -168,6 +187,10 @@
 <text x="947.86" y="325.86199999999997" fill="#cfd8e0" font-size="8.5" text-anchor="start">Emergency Drop (vault)</text>
 <text x="588.6" y="163.04" fill="#cfd8e0" font-size="8.5" text-anchor="start">Subroutine Core spawn</text>
 <text x="954.9" y="343" fill="#cfd8e0" font-size="8.5" text-anchor="start">Power Switch vault</text>
+<text x="496.42" y="811.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Mystery Box (start)</text>
+<text x="926.3" y="670.8" fill="#cfd8e0" font-size="8.5" text-anchor="end">Mystery Box (alley)</text>
+<text x="961.5" y="393.6" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (vault)</text>
+<text x="397.2" y="217.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Mystery Box (lab)</text>
 <rect x="10" y="1242" width="1136" height="225" fill="#161c22" stroke="#3a4a58"/>
 <circle cx="28" cy="1261" r="7" fill="#e64a9c" stroke="#000"/>
 <text x="28" y="1264" fill="#000" font-size="6.5" text-anchor="middle" font-weight="bold">P</text>

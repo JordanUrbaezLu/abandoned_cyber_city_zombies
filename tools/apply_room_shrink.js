@@ -98,8 +98,10 @@ const ADD = [
   // { id: 'M1', box: [995, 1035, 3226, 3328, 0, 160], mat: 'script_wall' }, // lab_e maze N
   // { id: 'M2', box: [-910, -860, 3128, 3230, 0, 160], mat: 'script_wall' },// lab_w maze S
   // { id: 'M3', box: [-1030, -990, 3226, 3328, 0, 160], mat: 'script_wall' },// lab_w maze N
-  { id: 'S0', label: 'start cover W', box: [-680, -510, -80, 80, 0, 128], mat: 'script_wall' },
-  { id: 'S1', label: 'start cover E', box: [480, 650, 60, 220, 0, 128], mat: 'script_wall' },
+  // 2026-06-16: start cover S0/S1 REMOVED — user wants flat rooms, no free-standing
+  // blocking structures (box/PaP/perks/walls/doors stay). Do NOT re-enable.
+  // { id: 'S0', label: 'start cover W', box: [-680, -510, -80, 80, 0, 128], mat: 'script_wall' },
+  // { id: 'S1', label: 'start cover E', box: [480, 650, 60, 220, 0, 128], mat: 'script_wall' },
 ];
 function addBrush(b, mat, guid) {
   const t = `${mat} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0`;

@@ -83,7 +83,7 @@ function init()
     // >>> ADD A NEW PERK/ABILITY EFFECT by appending its axis here (and a matching
     // dim in variant_dims() + the built combos in build_available_twins). See the
     // "EXTENSION POINT" banner above the axis functions. <<<
-    level.acc_variant_axes = array( &axis_recoil, &axis_fire, &axis_reload, &axis_ammo );
+    level.acc_variant_axes = array( &axis_recoil, &axis_fire, &axis_reload );   // ammo axis removed 2026-06-16 (Armory = runtime refill)
 
     // Allow-list of twin weapon names that ACTUALLY EXIST in the build. We only
     // ever GetWeapon() a name in here, so an un-baked twin cannot throw. POPULATE
@@ -179,7 +179,7 @@ function register_twin_box_weapons()
             key = tw.rootWeapon;   // == tw (a twin has no attachments / rootWeapon override)
             if ( isdefined( level.zombie_weapons[ key ] ) ) continue;   // already registered
 
-            up = try_resolve_twin( base_name + "_up" + suffixes[ si ] );   // matching packed twin
+            up = try_resolve_twin( variant_up_name( base_name ) + suffixes[ si ] );   // matching packed twin
 
             struct = SpawnStruct();
             struct.weapon = tw;
@@ -210,9 +210,20 @@ function register_twin_box_weapons()
 // recoil/fire/reload).
 function variant_guns()
 {
-    // +3 twin guns REVERTED again 2026-06-15: 368 twins (8 guns) crash on boot - BO3
-    // weapon-count limit. 230 (5 guns) boots. Need a twin budget to re-add the new guns.
-    return array( "s1_tac19", "s1_asm1", "t6_fiveseven", "t6_ak47", "s1_ae4" );
+    // 2026-06-16: slimmed 14-twin/gun layout fits 10 guns (140 twins) under the ~230 cap.
+    // MUST mirror tools/apply_recoil_overhaul.js GUNS. AK-74u's PaP form is irregular
+    // (t5_ak74u_up_zm) - handled by variant_up_name(). Ripper/Nail/PDW/M1911 = structural (no twins).
+    return array( "s1_tac19", "s1_asm1", "t6_fiveseven", "t6_ak47", "s1_ae4",
+                  "s4_ppsh41_base", "t6_galil", "t6_olympia", "t8_paladin_hb50", "t5_ak74u" );
+}
+
+// The PaP ("_up") asset name for a base gun. Almost always "<base>_up", but AK-74u's PaP GDT asset
+// is the irregular "t5_ak74u_up_zm" (the zone loads that exact name). MUST mirror the `up` field in
+// tools/apply_recoil_overhaul.js GUNS so the generated twins and the GSC lookups agree.
+function variant_up_name( base_name )
+{
+    if ( base_name == "t5_ak74u" ) return "t5_ak74u_up_zm";
+    return base_name + "_up";
 }
 
 // Variant DIMENSIONS = the token level(s) per axis, CANONICAL ORDER. ONE source of
@@ -222,10 +233,10 @@ function variant_guns()
 function variant_dims()
 {
     dims = [];
-    dims[ 0 ] = array( "recoil25", "recoil40" );   // axis_recoil  (Deadshot)
+    dims[ 0 ] = array( "recoil50" );               // axis_recoil  (Deadshot MEGA only, -50%)
     dims[ 1 ] = array( "fastfire" );               // axis_fire    (Gun Slinger)
     dims[ 2 ] = array( "fastreload" );             // axis_reload  (Speed Cola Mega)
-    dims[ 3 ] = array( "ammo" );                   // axis_ammo    (Mule Kick Mega - The Armory)
+    // ammo axis REMOVED 2026-06-16: Armory = runtime round-start refill, not a twin.
     return dims;
 }
 
@@ -276,7 +287,7 @@ function build_available_twins()
     guns = variant_guns();
     for ( gi = 0; gi < guns.size; gi++ )
     {
-        forms = array( guns[ gi ], guns[ gi ] + "_up" );
+        forms = array( guns[ gi ], variant_up_name( guns[ gi ] ) );
         for ( fi = 0; fi < forms.size; fi++ )
         {
             for ( si = 0; si < suffixes.size; si++ )
@@ -410,7 +421,24 @@ function swap_weapon( w_from, w_to, equipped )
     stock = self GetWeaponAmmoStock( w_from );
     was_equipped = ( w_from == equipped );
 
-    self GiveWeapon( w_to );
+    // Preserve the gold PaP camo across the perk-twin swap. With the 3-tier PaP revamp
+    // (2026-06-16) a tier-1 gun is a camo'd BASE form (is_weapon_upgraded false), so we read the
+    // PaP tier off player.acc_pap_tier directly (keyed by true_base; raw read avoids a #using
+    // cycle, like has_mega): tier >= 1 -> re-give WITH the camo option so a Deadshot / Gun
+    // Slinger / Speed Cola swap doesn't strip the camo off a packed gun.
+    pap_base = true_base( w_to );
+    pap_tier = 0;
+    if ( isdefined( self.acc_pap_tier ) && isdefined( self.acc_pap_tier[ pap_base ] ) )
+        pap_tier = self.acc_pap_tier[ pap_base ];
+
+    if ( pap_tier >= 1 )
+    {
+        camo = zm_weapons::get_pack_a_punch_camo_index( undefined );
+        if ( !isdefined( camo ) ) camo = 0;
+        self GiveWeapon( w_to, self CalcWeaponOptions( camo, 0, 0 ) );
+    }
+    else
+        self GiveWeapon( w_to );
     // IMMEDIATE switch = no raise/lower animation, so the swap is invisible AND
     // GetCurrentWeapon never returns a transitional value during a ~0.5s raise -
     // that transitional window was the flip-flop / "random swap out" source.
@@ -481,12 +509,10 @@ function compute_tokens( player )
 // overlay (Stabilizer) taking the STRONGER reduction.
 function axis_recoil()
 {
-    lvl = deadshot_recoil_level( self );
-    if ( timed_has( self, "recoil40" ) && lvl < 40 ) lvl = 40;
-    else if ( timed_has( self, "recoil25" ) && lvl < 25 ) lvl = 25;
-
-    if ( lvl == 40 ) return "recoil40";
-    if ( lvl == 25 ) return "recoil25";
+    // 2026-06-16: single -50% recoil tier, MEGA Deadshot (American Sniper) ONLY. Base Deadshot
+    // is now a pure headshot-damage perk with NO recoil twin (the dropped layer).
+    if ( self HasPerk( "specialty_deadshot" ) && has_mega( self, "specialty_deadshot" ) ) return "recoil50";
+    if ( timed_has( self, "recoil50" ) ) return "recoil50";
     return undefined;
 }
 

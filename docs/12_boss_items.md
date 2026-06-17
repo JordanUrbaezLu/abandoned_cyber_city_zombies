@@ -38,7 +38,7 @@ flowchart LR
 
 Each player has 2 item slots (`slot_a`, `slot_b`). Items worn are **visible** via a small HUD indicator (Phase 4 LUI work).
 
-You can **unequip** an item at any time via the Cyberware Kiosk (Spawn) - drops it on the ground for 30 seconds, giving you or a teammate a chance to pick it up.
+You can **unequip** an item at any time via the Cyberware Kiosk (Plaza) - drops it on the ground for 30 seconds, giving you or a teammate a chance to pick it up.
 
 You **cannot** swap between two equipped items' slots freely - slots are just organizational, effects don't care which slot.
 

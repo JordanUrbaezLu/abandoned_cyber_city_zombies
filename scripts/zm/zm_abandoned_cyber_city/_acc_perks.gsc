@@ -47,6 +47,8 @@ function init()
 {
     acc_utility::log( "perks init" );
     level thread tune_jugg_health();
+    // Perk machines start lit + buyable via level.vending_machines_powered_on_at_start
+    // (set in the entry script before zm_usermap::main) - no power watcher needed.
 }
 
 // self unused; called as acc_perks::on_player_connect( player ) from acc_main.

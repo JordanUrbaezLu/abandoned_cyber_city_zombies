@@ -16,7 +16,7 @@ Re-rolled at map load. Documented so players can learn the *space* of randomizat
 
 ### Power Switch Side
 
-- State A: Power Switch A active in Plaza. Vault switch is dead (handle inert).
+- State A: Power Switch A active in Bus Station. Vault switch is dead (handle inert).
 - State B: reverse.
 - Effect: changes where you rush for power. Affects perk unlock order (power-gated perks).
 - Weight: 50/50.
@@ -41,8 +41,8 @@ single-candidate slot plan below is kept only for when a future version re-expan
 Historical slots (no longer wired — kept for reference):
 
 - ~~**Alley shotgun**: Haymaker 12.~~
-- ~~**Plaza AR (full-auto slot)**: ICR-1.~~ (now Box-only)
-- ~~**Plaza AR (semi-auto slot)**: M14 EBR.~~
+- ~~**Bus Station AR (full-auto slot)**: ICR-1.~~ (now Box-only)
+- ~~**Bus Station AR (semi-auto slot)**: M14 EBR.~~
 - ~~**Helipad sniper**: Intervention.~~
 - ~~**Vault tactical**: EMP Grenade.~~
 - ~~**Near-perk melee upgrade**: Bowie Knife.~~

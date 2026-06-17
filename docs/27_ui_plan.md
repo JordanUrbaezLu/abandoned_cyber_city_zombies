@@ -41,7 +41,7 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
 | # | Touchpoint | Current state | Target | Priority |
 |---|---|---|---|---|
 | 1 | **Perk purchase** | 3 plain lines (`_acc_perk_info`) | info_card: name, price, **base + Mega bullets** | **P0 (now)** |
-| 2 | **Pack-a-Punch** | tier label + iprintln | info_card: 5-tier ladder + benefits + next cost | **P0 (now)** |
+| 2 | **Pack-a-Punch** | tier label + iprintln | info_card: 3-tier ladder + benefits + next cost | **P0 (now)** |
 | 3 | **Mega upgrade prompt** | stock hint string | card: "Mega: <name>" + bullets + cost (1 bottle) | P1 |
 | 4 | **Wall buys** | stock name+price | card: weapon name, price, ammo/role bullet | P1 |
 | 5 | **Cyberware tree** | shards HUD only; no browse/buy UI | **menu/tree UI**: nodes, branches, costs, effects | **P0-big** |
@@ -70,7 +70,7 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
   component (translucent box + accent strip + big title + gold price + color-coded
   bullet pool, auto-height via `setShader`).
 - **P0 done:** perk card + PaP card live in `_acc_perk_info` (all 9 perks with
-  base + Mega bullets; PaP shows the 5-tier ladder).
+  base + Mega bullets; PaP shows the 3-tier ladder).
 - **LUI migration (2026-06-13):** the LUI client pipeline is live (docs/28), so
   **touchpoint 1 (perk card) is now PREMIUM LUI**, not the server-HUD card. The
   card is a classed widget `CoD.AccPerkCard` in `acc_hud.lua` (room_manager pattern),
@@ -79,9 +79,10 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
   Cyberware menu, counters, boss bar) reuse this LUI substrate next; the `acc_ui`
   server-HUD card stays as a non-LUI fallback. LUI was the Phase-4 "ceiling" below -
   it landed early.
-- **PaP overhaul (2026-06-13):** the card now lists the **scaling re-pack cost
-  per tier** (T2 2500 / T3 5000 / T4 7500 / T5 10000) and no longer mentions
-  alt-ammo. Backing mechanic in `_acc_pap_levels`: stock **AAT disabled**
+- **PaP 3-tier revamp (2026-06-16):** the card now lists **3 tiers** with the
+  scaling cost (T1 5000 / T2 7500 / T3 10000) and the deferred transform (T1 =
+  +50% dmg + camo only; T2 = +100% dmg + the `_up` transform; T3 = +150% MAX).
+  Backing mechanic in `_acc_pap_levels`: stock **AAT disabled**
   (`level.aat_in_use = false`, no turned/fireworks rerolls), stock re-pack
   blocked for upgraded guns (`level.pack_a_punch.custom_validation`), and a
   parallel `acc_pap_tier` `trigger_radius_use` charges the scaling cost via

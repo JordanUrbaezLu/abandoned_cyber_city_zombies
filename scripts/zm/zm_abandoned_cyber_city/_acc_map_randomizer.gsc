@@ -70,8 +70,12 @@ function pre_init()
     // emergency-drop trigger disable, box pool registration) after _zm has
     // initialized. Defer to post-init via thread+flag.
     level thread apply_state_when_ready();
-    // Per-round perk rotation listener.
-    level thread watch_round_for_perk_rotation();
+    // Per-round perk gating is now done by _acc_perk_doors.gsc (random 3 of the 9
+    // Lab perk-alcove DOORS open each round). The old machine-reskin rotation below
+    // (roll_perk_rotation / watch_round_for_perk_rotation) targeted acc_lab_perk_a..d
+    // machines that were never placed, so it was inert; disabled 2026-06-16 to avoid
+    // a second, conflicting per-round perk roll. Kept (unthreaded) for reference.
+    // level thread watch_round_for_perk_rotation();
 }
 
 // ---------------------------------------------------------------------------
@@ -80,8 +84,16 @@ function pre_init()
 
 function roll_power_switch_side()
 {
-    // A (Corp) or B (Vault). 50/50.
-    return ( acc_utility::acc_rand_int( 2 ) == 0 ? "corp" : "vault" );
+    // ONE fixed power switch (user 2026-06-17): the live side is DETERMINISTIC now,
+    // not random, so the same switch works every run. Default = corp (Bus Station,
+    // origin 790 1600); override with `set acc_power_side vault` BEFORE the map loads
+    // (apply_power_switch_side runs at map init). The dead side's trigger is deleted
+    // so only one switch is functional; its baked switch body stays visible until a
+    // geometry pass removes it (Stage 2).
+    side = getdvarstring( "acc_power_side", "corp" );
+    if ( side != "corp" && side != "vault" )
+        side = "corp";
+    return side;
 }
 
 function roll_pap_approach()
@@ -360,8 +372,10 @@ function apply_perk_rotation_to_machines( rotation )
 
 function roll_mystery_box_initial()
 {
-    // Pick one of three initial nodes (Market, Corp, Roof).
-    nodes = array( "market", "corp", "roof" );
+    // Pick one of the 7 box-spawn nodes - one per room (acc_box_<node> chests in
+    // the .map). The single box starts here and teddy-bear-moves among all 7.
+    // start = Plaza, corp = Bus Station, roof = Helipad.
+    nodes = array( "market", "corp", "roof", "start", "alley", "vault", "lab" );
     return nodes[ acc_utility::acc_rand_int( nodes.size ) ];
 }
 
@@ -383,6 +397,9 @@ function apply_state_when_ready()
     disable_dead_side_emergency_triggers( level.acc_map_state.power_switch_side );
     apply_pap_approach( level.acc_map_state.pap_approach );
     apply_mystery_box_initial( level.acc_map_state.mystery_box_initial );
+    // Keep ONLY the active box's collision clip solid (the MagicBox model has no
+    // player clip; acc_box_clip_<node> brushmodels added by tools/add_room_boxes.js).
+    level thread manage_box_collision();
     // Perk rotation is NOT applied at map-load; it rolls per-round.
     // See watch_round_for_perk_rotation().
 
@@ -593,6 +610,87 @@ function apply_mystery_box_initial( node_name )
     // level.start_chest_name (must be set before _zm_magicbox init runs,
     // long before blackscreen). This is log-only by design now.
     acc_utility::log( "mystery box initial -> " + node_name );
+}
+
+// ---------------------------------------------------------------------------
+// Mystery box collision: ONE moving box, a clip per room node (acc_box_clip_<node>).
+// The MagicBox model has no player clip, so the box reads as walk-through. We keep
+// only the ACTIVE node's clip solid (VERIFIED: level.chests[level.chest_index] is
+// the active chest - _zm_magicbox.gsc:95/168/207; inactive chests are hidden), so
+// the 6 rooms the box is NOT in have no phantom invisible block.
+// ---------------------------------------------------------------------------
+
+function box_clip_nodes()
+{
+    return array( "market", "corp", "roof", "start", "alley", "vault", "lab" );
+}
+
+function set_active_box_clip( active_noteworthy )
+{
+    nodes = box_clip_nodes();
+    solid_count = 0;
+    for ( i = 0; i < nodes.size; i++ )
+    {
+        is_active = ( active_noteworthy == "acc_box_" + nodes[ i ] );
+        clips = getentarray( "acc_box_clip_" + nodes[ i ], "targetname" );
+        for ( c = 0; c < clips.size; c++ )
+        {
+            if ( is_active )
+            {
+                clips[ c ] solid();
+                clips[ c ] show();
+                solid_count++;
+            }
+            else
+            {
+                clips[ c ] notsolid();
+            }
+        }
+    }
+    return solid_count;
+}
+
+function manage_box_collision()
+{
+    level endon( "end_game" );
+
+    // Wait for the stock magicbox system to build level.chests / chest_index.
+    while ( !isdefined( level.chests ) || !isdefined( level.chest_index ) )
+    {
+        wait 0.1;
+    }
+
+    box_clip_dbg( "chests ready=" + level.chests.size + " idx=" + level.chest_index );
+
+    // Author-default brushmodels are solid; clear them all first, then light up
+    // the active one (and re-track it whenever the teddy bear moves the box).
+    set_active_box_clip( "" );
+
+    last_idx = -1;
+    for ( ;; )
+    {
+        idx = level.chest_index;
+        if ( idx != last_idx && isdefined( level.chests[ idx ] ) )
+        {
+            last_idx = idx;
+            nw = level.chests[ idx ].script_noteworthy;
+            n = set_active_box_clip( nw );
+            box_clip_dbg( "active=" + nw + " clipsSolid=" + n );
+        }
+        wait 0.5;
+    }
+}
+
+// Temporary diagnostic: route a box-collision message to console_mp.log via the
+// reliable IPrintLnBold-on-a-player channel ([ SCRIPTER] lines).
+function box_clip_dbg( msg )
+{
+    players = GetPlayers();
+    if ( players.size > 0 && isdefined( players[ 0 ] ) )
+    {
+        players[ 0 ] IPrintLnBold( "^3[acc-box] " + msg );
+    }
+    acc_utility::log( "box_collision: " + msg );
 }
 
 // ---------------------------------------------------------------------------

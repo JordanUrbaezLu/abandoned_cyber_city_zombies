@@ -100,6 +100,22 @@ function dev_teleport_watcher()
             SetDvar( "acc_open_doors", "0" );
             dev_open_all_doors();
         }
+        // Reliable power-on for testing the power-gating (perks light + buyable, PaP,
+        // traps, fog lift) WITHOUT hunting for the switch. `set acc_power_on 1`.
+        if ( getdvarint( "acc_power_on", 0 ) == 1 )
+        {
+            SetDvar( "acc_power_on", "0" );
+            if ( !( level flag::get( "power_on" ) ) )
+                level flag::set( "power_on" );
+            // Setting the flag alone does NOT fire the stock powered-item callbacks that
+            // light the machines - do what the switch (and boss EMP recovery) do: unpause
+            // every perk machine so they light up + become buyable (zm_perks 1314-1330).
+            level thread zm_perks::perk_unpause_all_perks();
+            players = GetPlayers();
+            for ( i = 0; i < players.size; i++ )
+                if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( "^2>> POWER ON (perks lit + buyable, PaP/traps enabled, fog lifting)" );
+            acc_utility::log( "dev: forced power_on + unpaused perks" );
+        }
         wait 0.25;
     }
 }
@@ -427,10 +443,10 @@ function dev_zone_name( zone )
 {
     switch ( zone )
     {
-    case "start_zone":  return "SPAWN";
+    case "start_zone":  return "PLAZA";
     case "market_zone": return "MARKET";
     case "alley_zone":  return "ALLEY";
-    case "corp_zone":   return "PLAZA";
+    case "corp_zone":   return "BUS STATION";
     case "vault_zone":  return "VAULT";
     case "roof_zone":   return "HELIPAD";
     case "lab_zone":    return "LAB";

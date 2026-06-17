@@ -28,6 +28,7 @@
 #define ACC_SPIDERMAN_WEB_GRENADES   6
 #define ACC_SPIDERMAN_ROUND_RESTOCK  4
 #define ACC_WIDOW_BASE_ROUND_RESTOCK 2
+#define ACC_ARMORY_ROUND_REFILL 0.35   // Armory (Mule Kick Mega): +35% of each gun's reserve cap, refilled at round start
 
 #namespace acc_mega_bottles;
 
@@ -52,6 +53,7 @@ function init()
 
     level thread mega_machine_watcher();
     level thread widow_round_restock_watcher();
+    level thread armory_round_refill_watcher();
 }
 
 function on_player_connect( player )
@@ -523,14 +525,12 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_additionalprimaryweapon":
-        // The Armory (docs/13 overhaul): +25% reserve ammo capacity via the "ammo"
-        // weapon-variant twin (maxAmmo x1.25 - the only way to gate a GDT-baked cap;
-        // baked 2026-06-14) + all buys 10% cheaper (POINT OF SALE, vendored cost files
-        // via the repurposed pers double-points hook gated on this Mega flag). Swap to
-        // the raised-cap twin FIRST (reconcile is synchronous), THEN fill every reserve
-        // to that new cap so the +25% is granted immediately, not on the next Max Ammo.
-        player acc_weapon_variants::reconcile();
-        player armory_apply();
+        // The Armory (reworked 2026-06-16): NO LONGER a maxAmmo twin. The engine clamps reserve to
+        // the baked cap, so a +capacity boost required a twin - that axis was removed to free the
+        // twin budget (docs/39). Armory is now a SUSTAIN perk: +35% reserve refill per carried gun
+        // at the start of every round (armory_round_refill_watcher), plus this instant top-up on
+        // acquire/rebuy. The 10%-off point-of-sale discount (gated on this Mega flag) is unchanged.
+        player armory_refill();
         break;
 
     case "specialty_deadshot":
@@ -579,23 +579,19 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
-// The Armory Mega (Mule Kick) +25% reserve capacity. The "ammo" weapon-variant twin (axis_ammo,
-// _acc_weapon_variants) raises each gun's reserve maxAmmo x1.25 (swapped in by reconcile). On
-// upgrade/rebuy this GRANTS that extra capacity as actual bullets: every carried gun gains
-// (twin maxAmmo - base maxAmmo) = +25% of base max, ADDED to its CURRENT reserve - NOT a full
-// refill. Per the user's spec (2026-06-14): "you have 100/200 ... you go to 150/250" (gain the
-// +50 cap as +50 reserve). Applies to ALL carried guns + the equipped weapon (the pistol slot
-// isn't always in GetWeaponsListPrimaries), same as the other Mega twins. A gun with no ammo
-// twin (e.g. a wallbuy) has delta 0 -> untouched. weapon.maxammo = reserve cap (_zm_weapons:2935);
-// true_base() maps a held twin back to its base weapon to read the un-raised cap. Call AFTER
-// reconcile() has swapped in the twins. Engine clamps the set value to the cap as a backstop.
-function armory_apply()
+// The Armory Mega (Mule Kick), reworked 2026-06-16: a SUSTAIN refill, NOT a capacity boost.
+// Adds +35% (ACC_ARMORY_ROUND_REFILL) of each carried gun's reserve CAP to its current reserve,
+// clamped to the cap. This is runtime-legal (filling toward the existing baked cap, never above it
+// - the reason the old +25%-capacity needed a maxAmmo twin, now removed). Called once on
+// acquire/rebuy (instant top-up) and every round start (armory_round_refill_watcher). Applies to
+// all carried guns + the equipped weapon (the pistol slot isn't always in GetWeaponsListPrimaries).
+// weapon.maxammo = reserve cap in rounds (_zm_weapons:2935). self = player.
+function armory_refill()
 {
     self endon( "disconnect" );
 
     guns = self GetWeaponsListPrimaries();
 
-    // Include the equipped weapon (the starting-pistol slot is not always a "primary").
     eq = self GetCurrentWeapon();
     if ( isdefined( eq ) && eq != level.weaponNone )
     {
@@ -611,24 +607,37 @@ function armory_apply()
         if ( !( self HasWeapon( g ) ) ) continue;
         if ( !isdefined( g.maxammo ) ) continue;
 
-        base = acc_weapon_variants::true_base( g );
-        if ( !isdefined( base ) || base == level.weaponNone || !isdefined( base.maxammo ) ) continue;
-
-        delta = g.maxammo - base.maxammo;   // +25% of base max (0 if this gun has no ammo twin)
-        if ( delta <= 0 ) continue;
-
         cur = self GetWeaponAmmoStock( g );
         if ( !isdefined( cur ) ) continue;
 
-        target = cur + delta;
-        if ( target > g.maxammo ) target = g.maxammo;   // clamp at the raised cap
-        self SetWeaponAmmoStock( g, target );
+        add = int( g.maxammo * ACC_ARMORY_ROUND_REFILL );   // +35% of the reserve cap
+        target = cur + add;
+        if ( target > g.maxammo ) target = g.maxammo;       // never exceed the baked cap
+        if ( target > cur ) self SetWeaponAmmoStock( g, target );
     }
 }
 
-// NOTE: no Max-Ammo watcher needed - the "ammo" twin raises the gun's maxAmmo, so the stock
-// Max Ammo powerup (GiveMaxAmmo -> fills reserve to weapon.maxammo) already tops every Armory
-// holder's guns to the raised +25% cap. armory_apply() is the one-time on-upgrade/rebuy grant.
+// Round-start +35% reserve refill for every Armory (Mule Kick Mega) holder. Mirrors
+// widow_round_restock_watcher: wakes on the map's "acc_round_start" event.
+function armory_round_refill_watcher()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "acc_round_start" );
+
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( !( p HasPerk( "specialty_additionalprimaryweapon" ) ) ) continue;
+            if ( !has_mega_perk( p, "specialty_additionalprimaryweapon" ) ) continue;
+            p armory_refill();
+        }
+    }
+}
 
 // Stock lifecycle hooks (self = player).
 

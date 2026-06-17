@@ -256,11 +256,13 @@ See [14_controls_and_hud.md](14_controls_and_hud.md) for HUD element spec.
 - **Mega too strong**: reduce specific Mega effects (e.g. American Sniper +1.8 → +1.6 headshot bonus, Gun Slinger +40% → +35% fire rate).
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
-## Perk Availability: Per-Round Rotating Lab Machines
+## Perk Availability: Per-Round Door-Gated Lab Alcoves
 
-**All 9 perks are consolidated to the Laboratory.** There are **4 perk machines** in the Lab, and nowhere else on the map. The 4 machines randomly reassign to 4 of the 9 perks (no duplicates). The other 5 perks are **unavailable for purchase** that round. *(Note: with only 4 machines, each perk is rarer per round. If a starved feel emerges once the rotation gate is enabled, raise the machine count or weight build-defining perks — see the rotation warning in [perk_abilities.md](perk_abilities.md) / docs/30.)*
+**All 9 perks are consolidated to the Laboratory**, each in its **own door-gated alcove** on the Lab north wall (nowhere else on the map). **IMPLEMENTED 2026-06-16** (`tools/add_perk_alcoves.js` geometry + `_acc_perk_doors.gsc`): every round, a **random 3 of the 9 alcove doors open** (`acc_perk_door_<specialty>` `script_brushmodel` gates); the other 6 are walled off and **unbuyable that round**. The roll re-shuffles each round (`acc_round_start`). A closed door blocks *access to the machine* only — a perk you already own keeps working. **Dev: all 9 open** (follows `acc_open_map`; force with `acc_perk_doors_all_open 1`); a ship build launches `acc_open_map 0` to enable the rotation.
 
-**Critical timing (v1.0):** The new lineup is **not** rolled at the first frame of the round. **Lab perk machines re-roll only after the round’s [decontamination phase](03_layout.md#decontamination-zones-round-hazard) completes** — i.e. after the **20s** evacuation window ends and the contaminated zone is sealed (rounds **1–4**), or after the **0s** tick when no new zone seals (**round 5+**). Players rushing the Lab at round start may still see **last round’s** perks until decontamination closes.
+*(Supersedes the earlier "4 machines reassign to 4-of-9" plan — that targeted `acc_lab_perk_a..d` machines that were never placed, so `_acc_map_randomizer::watch_round_for_perk_rotation` was inert and is now disabled. The map has all 9 real machines; gating is purely the door layer.)*
+
+**Tuning levers:** `ACC_PERK_DOORS_OPEN_PER_ROUND` in `_acc_perk_doors.gsc` (default 3-of-9) — raise if a starved feel emerges. The doors currently re-roll on `acc_round_start` (round start), NOT gated to the decontamination-complete tick the old plan used; revisit if the timing should align with decon.
 
 ### How it works
 

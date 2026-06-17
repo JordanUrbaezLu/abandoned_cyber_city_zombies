@@ -72,6 +72,8 @@
 #using scripts\zm\_zm_powerup_full_ammo;
 #using scripts\zm\_zm_powerup_insta_kill;
 #using scripts\zm\_zm_powerup_nuke;
+#using scripts\zm\_zm_power;
+#using scripts\zm\_zm_perks;
 
 //Traps
 #using scripts\zm\_zm_trap_electric;
@@ -81,6 +83,7 @@
 // [acc] Custom systems. Modules live in scripts/zm/zm_abandoned_cyber_city/.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_main;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
@@ -238,9 +241,22 @@ function acc_hardcoded_dev()
 	// (flag::wait_till returns immediately if already set).
 	level flag::wait_till( "initial_blackscreen_passed" );
 
-	// Auto-power ON: perks, Pack-a-Punch and traps all gate on this stock flag.
-	if ( !( level flag::get( "power_on" ) ) )
-		level flag::set( "power_on" );
+	// HARDCODED power-on (user 2026-06-17): do EXACTLY what flipping the switch does.
+	// The stock switch handler (_zm_power.gsc:106 + :115) runs TWO calls, and each of my
+	// earlier attempts only did one piece:
+	//   1) zm_perks::perk_unpause_all_perks()      -> LIGHTS the perk machines + buyable
+	//   2) zm_power::turn_power_on_and_open_doors() -> sets power_on flag + zombie_power_on
+	//      clientfield -> PaP powers (its "turn on power" hint clears), traps arm, doors open
+	// Setting the flag alone fired NEITHER, which is why perks stayed dark + PaP still
+	// said "turn on power". No switch, no console, no fog flash.
+	// (Set acc_auto_power 0 to gate it behind the switch later.)
+	if ( getdvarint( "acc_auto_power", 1 ) == 1 && !( level flag::get( "power_on" ) ) )
+	{
+		wait 1.5;   // let the power system + perk machines finish registering powered-items
+		level thread zm_perks::perk_unpause_all_perks();
+		level zm_power::turn_power_on_and_open_doors();
+		acc_utility::log( "auto power-on: replicated switch (perks lit + buyable, PaP/traps on)" );
+	}
 
 	count = 0;
 	for ( ;; )

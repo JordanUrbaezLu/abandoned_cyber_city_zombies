@@ -29,9 +29,9 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
-#namespace acc_corpse_cleanup;
-
 #define ACC_CORPSE_LINGER_DEFAULT 5
+
+#namespace acc_corpse_cleanup;
 
 function init()
 {

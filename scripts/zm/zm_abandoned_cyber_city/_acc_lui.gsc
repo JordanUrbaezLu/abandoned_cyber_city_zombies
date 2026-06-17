@@ -19,6 +19,7 @@
 #using scripts\shared\flag_shared;
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
+#using scripts\shared\ai\zombie_utility;
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
@@ -58,16 +59,28 @@ function __init__()
     // !owned => hide. 9 bits (9 perks). Driven by perk_state_watch(). Appended LAST so
     // the existing fields' bit layout is untouched (must match _acc_lui.csc order).
     clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 9, "int" );
-    // Power-up active bitmask: bit 0 = Insta-Kill, bit 1 = Double Points, bit 2 = Fire Sale.
-    // Driven by powerup_state_watch() off the stock zombie_vars; acc_hud.lua CoD.AccPowerupBar
-    // shows the matching Ronan icon while each is active. 3 bits. Appended LAST so the existing
-    // fields' bit layout is untouched (MUST match _acc_lui.csc order/width).
-    clientfield::register( "clientuimodel", "accPowerupMask", VERSION_SHIP, 3, "int" );
+    // Power-up active bitmask: bit 0 = Insta-Kill, bit 1 = Double Points, bit 2 = Fire Sale
+    // (TIMED, shown while active), bit 3 = Nuke, bit 4 = Max Ammo, bit 5 = Carpenter, bit 6 =
+    // Random Perk / free_perk (INSTANT, flashed 3s on pickup). Driven by powerup_state_watch() off
+    // the stock zombie_vars + the pickup-flash stamps; acc_hud.lua CoD.AccPowerupBar shows the
+    // matching Ronan icon. 7 bits. Appended LAST so the existing fields' bit layout is untouched
+    // (MUST match _acc_lui.csc order/width).
+    clientfield::register( "clientuimodel", "accPowerupMask", VERSION_SHIP, 7, "int" );
+    // Round-progress bar (upper-right): fill PERCENT 0..100 (full at round start, drains to 0
+    // as the round's zombies die). 7 bits (0..127). Appended LAST so existing fields' bit
+    // layout is untouched (MUST match _acc_lui.csc order/width). NOTE: kept to 7 bits because
+    // the clientuimodel clientfield pool is nearly full - wider count fields overflow it and
+    // a STOCK field (zmhud.swordEnergy) then fails to register => Com_ERROR at load. docs/42.
+    clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int" );
     callback::on_connect( &on_player_connect );
 
     // Hide the STOCK power-up active-icon HUD for the 3 timed power-ups so ONLY our Ronan
     // icons (CoD.AccPowerupBar) show (user 2026-06-15). See suppress_stock_powerup_hud.
     level thread suppress_stock_powerup_hud();
+
+    // Flash Carpenter / Random-Perk (free_perk) icons 3s on pickup via the generic stock
+    // powerup_dropped -> powerup_grabbed signal pair (works for ANY powerup by name).
+    level thread powerup_drop_flash_watch();
 }
 
 // Push the contextual perk/PaP card selector to a player's LUI overlay.
@@ -77,7 +90,7 @@ function set_perk_card( player, code )
     player clientfield::set_player_uimodel( "accPerkCard", code );
 }
 
-// Push the held weapon's current PaP tier (0..5) so the card renders the NEXT tier.
+// Push the held weapon's current PaP tier (0..3) so the card renders the NEXT tier.
 function set_pap_tier( player, tier )
 {
     if ( !isdefined( tier ) || tier < 0 ) tier = 0;
@@ -114,6 +127,61 @@ function set_powerup_mask( player, mask )
     player clientfield::set_player_uimodel( "accPowerupMask", mask );
 }
 
+// Push the round-progress bar fill percent (0..100). 100 = full, 0 = empty.
+function set_round_ring( player, pct )
+{
+    if ( !isdefined( pct ) || pct < 0 ) pct = 0;
+    if ( pct > 100 ) pct = 100;
+    player clientfield::set_player_uimodel( "accRoundRing", pct );
+}
+
+// Per-player loop driving the round-progress bar (acc_hud.lua CoD.AccRoundRing). The bar is
+// ALWAYS visible. remaining = alive on field + still-to-spawn = "zombies left to kill this
+// round" (drops by exactly 1 per kill); total = the round's full count, tracked as the peak
+// of `remaining` this round. We push the PERCENT remaining (remaining/total*100) - the raw
+// counts would need wider clientfields than the (full) clientuimodel pool allows. On change.
+function round_ring_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    last_round = -1;
+    total = 1;
+    last_pct = -1;
+    for ( ;; )
+    {
+        // New round -> reset the denominator after a short settle so stock has baselined
+        // level.zombie_total for the round (avoids a between-rounds 0 flicker).
+        if ( isdefined( level.round_number ) && level.round_number != last_round )
+        {
+            last_round = level.round_number;
+            wait 1;
+            total = 1;
+        }
+
+        alive = zombie_utility::get_current_zombie_count();
+        togo  = 0;
+        if ( isdefined( level.zombie_total ) && level.zombie_total > 0 )
+            togo = level.zombie_total;
+        remaining = alive + togo;
+        if ( remaining < 0 ) remaining = 0;
+
+        if ( remaining > total ) total = remaining;   // peak = the round's full count
+
+        pct = Int( ( remaining * 100 ) / total );
+        if ( pct < 0 ) pct = 0;
+        if ( pct > 100 ) pct = 100;
+
+        if ( pct != last_pct )
+        {
+            set_round_ring( self, pct );
+            last_pct = pct;
+        }
+
+        wait 0.25;
+    }
+}
+
 function on_player_connect()
 {
     self thread player_lui_init();
@@ -138,6 +206,12 @@ function player_lui_init()
 
     // Drive the power-up icon overlay (Ronan Insta-Kill / Double Points / Fire Sale).
     self thread powerup_state_watch();
+    // Flash the INSTANT power-ups (Nuke / Max Ammo) for 3s on pickup (no timed window).
+    self thread pickup_flash_watch();
+
+    // Round-progress bar (upper-right). Per-player watcher; always-visible bar, drains as
+    // the round's zombies die.
+    self thread round_ring_watch();
 
     acc_utility::log( "lui: overlay opened + banner set for a player" );
 }
@@ -296,6 +370,18 @@ function powerup_state_watch()
                 mask = mask | 4;
         }
 
+        // INSTANT power-ups have no "active" var; pickup_flash_watch stamps an expiry GetTime() on
+        // the player, and we OR the bit in until it lapses (~3s). The on-change push + 0.25s poll
+        // turns the icon on within a tick of pickup and off within a tick of expiry.
+        if ( isdefined( self.acc_flash_nuke_until ) && GetTime() < self.acc_flash_nuke_until )
+            mask = mask | 8;      // bit 3 = Nuke
+        if ( isdefined( self.acc_flash_maxammo_until ) && GetTime() < self.acc_flash_maxammo_until )
+            mask = mask | 16;     // bit 4 = Max Ammo
+        if ( isdefined( self.acc_flash_carpenter_until ) && GetTime() < self.acc_flash_carpenter_until )
+            mask = mask | 32;     // bit 5 = Carpenter
+        if ( isdefined( self.acc_flash_randomperk_until ) && GetTime() < self.acc_flash_randomperk_until )
+            mask = mask | 64;     // bit 6 = Random Perk (free_perk)
+
         if ( mask != last_mask )
         {
             set_powerup_mask( self, mask );
@@ -304,37 +390,132 @@ function powerup_state_watch()
     }
 }
 
+// ---------------------------------------------------------------------------
+// Instant power-up pickup flash (Nuke / Max Ammo) - 3s, no timed window
+// ---------------------------------------------------------------------------
+
+// self = player. The INSTANT power-ups have no "active" duration, so we stamp a 3s window on the
+// player; powerup_state_watch ORs the matching accPowerupMask bit while the stamp is live, so the
+// Ronan icon shows in the power-up row for ~3s then clears. Two stock grab signals drive it:
+//   - Max Ammo: team-wide level notify "zmb_max_ammo_level" (_zm_powerup_full_ammo.gsc:59) - every
+//     player's watcher wakes and flashes itself.
+//   - Nuke: "nuke_triggered" on the GRABBING player only (_zm_powerup_nuke.gsc:59); power-ups are
+//     team-global, so the grabber's thread flashes ALL players.
+function pickup_flash_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    self thread maxammo_flash_watch();
+    self thread nuke_flash_watch();
+}
+
+function maxammo_flash_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        level waittill( "zmb_max_ammo_level" );
+        self.acc_flash_maxammo_until = GetTime() + 3000;
+    }
+}
+
+function nuke_flash_watch()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        self waittill( "nuke_triggered" );   // stock notifies only the grabbing player
+        foreach ( p in GetPlayers() )        // power-ups are team-global -> flash everyone
+            p.acc_flash_nuke_until = GetTime() + 3000;
+    }
+}
+
+// Level-once. Generic pickup flash for the remaining INSTANT power-ups that have no dedicated grab
+// signal of their own (Carpenter, Random Perk / free_perk). Stock fires level notify
+// "powerup_dropped" with the powerup ENT on every drop (_zm_powerups.gsc:681/692); the ent carries
+// .powerup_name and notifies itself "powerup_grabbed" on pickup (:963). We watch each dropped ent
+// for its grab and flash the matching bit. (Nuke / Max Ammo keep their own watchers above; this
+// only acts on carpenter/free_perk, so there's no double-handling.) Drops may not be enabled on the
+// map yet - this fires only if/when those power-ups actually drop.
+function powerup_drop_flash_watch()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        level waittill( "powerup_dropped", powerup );
+        if ( isdefined( powerup ) )
+            level thread one_powerup_grab_flash( powerup );
+    }
+}
+
+function one_powerup_grab_flash( powerup )
+{
+    level endon( "end_game" );
+    powerup endon( "powerup_timedout" );   // expired un-grabbed -> stop watching
+
+    powerup waittill( "powerup_grabbed" );
+    if ( !isdefined( powerup ) || !isdefined( powerup.powerup_name ) ) return;
+
+    // power-ups are team-global -> flash all players (matches the Nuke behaviour)
+    if ( powerup.powerup_name == "carpenter" )
+    {
+        foreach ( p in GetPlayers() )
+            p.acc_flash_carpenter_until = GetTime() + 3000;
+    }
+    else if ( powerup.powerup_name == "free_perk" )
+    {
+        foreach ( p in GetPlayers() )
+            p.acc_flash_randomperk_until = GetTime() + 3000;
+    }
+}
+
 // Level-once: hide the STOCK power-up active-icon HUD for the 3 TIMED power-ups (Insta-Kill /
-// Double Points / Fire Sale) so ONLY our Ronan icons (CoD.AccPowerupBar) show. The stock HUD
-// is driven by stock powerup_hud_monitor, which builds its per-frame clientfield list ONCE
-// from level.zombie_powerups[name].client_field_name AFTER "start_zombie_round_logic"
-// (_zm_powerups.gsc:212-227). We run at "initial_blackscreen_passed" (fires earlier) and clear
-// client_field_name for those 3, so they drop out of the monitor's list and their stock
-// clientfield stays OFF - the stock icon never renders. client_field_name is used ONLY by the
-// monitor (verified, _zm_powerups.gsc) - no gameplay coupling. Instant power-ups (Max Ammo /
-// Nuke / Carpenter) register NO client_field_name, so they have no persistent stock icon.
+// Double Points / Fire Sale) so ONLY our Ronan icons (CoD.AccPowerupBar) show. The stock HUD is
+// driven by stock powerup_hud_monitor, which captures each powerup's client_field_name ONCE - the
+// frame "start_zombie_round_logic" fires (_zm_powerups.gsc:167,216) - and only includes powerups
+// whose client_field_name IsDefined. Null it for the 3 timed powerups and they drop out of the
+// monitor -> their stock clientfield is never set -> the stock icon never renders. client_field_name
+// is used ONLY by the monitor (verified, _zm_powerups.gsc) - no gameplay coupling. Instant power-ups
+// (Max Ammo / Nuke / Carpenter) register NO client_field_name, so they have no persistent stock icon.
 // (Double Points' separate hudItems.doublePointsActive uimodel is zeroed in powerup_state_watch.)
+//
+// RACE FIX (2026-06-17): the old code did a ONE-SHOT clear at "initial_blackscreen_passed", betting
+// that fires before the monitor's "start_zombie_round_logic" capture. It RACED and intermittently
+// lost - base icons showed some sessions, not others. Now we LOOP-null from system-init (the moment
+// the powerups exist) until the capture has happened, so the monitor ALWAYS reads undefined,
+// regardless of flag order. We never flag::wait_till a gameplay flag from this REGISTER_SYSTEM
+// __init__ thread (that crashes - "cannot cast undefined to bool", 2026-06-15); flag::exists is safe
+// anytime, and flag::get is only called after exists confirms it.
 function suppress_stock_powerup_hud()
 {
     level endon( "end_game" );
 
-    // Threaded from the REGISTER_SYSTEM __init__ (system-init phase), which runs BEFORE
-    // the zombie game mode flag::init's "initial_blackscreen_passed". wait_till does
-    // !flag::get() -> level.flag[ name ] is undefined -> "cannot cast undefined to bool"
-    // (the Assert in stock get() is compiled out of retail, so it crashes instead of
-    // asserting). Poll until the flag EXISTS, then wait on it. (acc_main-threaded waiters
-    // on this flag are fine - they start after gameplay init; only this system-init thread
-    // is early.) Fixes the server-script crash 2026-06-15.
-    while ( !( level flag::exists( "initial_blackscreen_passed" ) ) )
-        wait( 0.05 );
-    level flag::wait_till( "initial_blackscreen_passed" );
-
-    if ( !isdefined( level.zombie_powerups ) ) return;
-
     timed = array( "insta_kill", "double_points", "fire_sale" );
-    for ( i = 0; i < timed.size; i++ )
+
+    // Poll until the stock powerups are registered (their REGISTER_SYSTEM runs at system-init too,
+    // so registration order vs ours is not guaranteed).
+    while ( !isdefined( level.zombie_powerups ) || !isdefined( level.zombie_powerups[ "insta_kill" ] ) )
+        wait( 0.05 );
+
+    // Keep client_field_name null every frame until the monitor's one-shot capture has fired. Nothing
+    // re-sets client_field_name after registration, so once null it stays null across the capture.
+    for ( ;; )
     {
+        for ( i = 0; i < timed.size; i++ )
+            if ( isdefined( level.zombie_powerups[ timed[ i ] ] ) )
+                level.zombie_powerups[ timed[ i ] ].client_field_name = undefined;
+
+        if ( level flag::exists( "start_zombie_round_logic" ) && level flag::get( "start_zombie_round_logic" ) )
+            break;
+        wait( 0.05 );
+    }
+
+    // One more sweep a frame after capture (belt-and-suspenders vs same-frame thread wake order).
+    wait( 0.1 );
+    for ( i = 0; i < timed.size; i++ )
         if ( isdefined( level.zombie_powerups[ timed[ i ] ] ) )
             level.zombie_powerups[ timed[ i ] ].client_field_name = undefined;
-    }
 }

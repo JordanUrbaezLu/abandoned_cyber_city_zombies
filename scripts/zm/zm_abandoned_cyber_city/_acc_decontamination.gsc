@@ -100,8 +100,8 @@ function is_zone_sealed( zone_name )
 // Eligible zones + display names
 // ---------------------------------------------------------------------------
 
-// docs/03_layout.md: eligible seals are EXACTLY these four. Spawn
-// (start_zone), Plaza (corp_zone) and Lab (lab_zone)
+// docs/03_layout.md: eligible seals are EXACTLY these four. Plaza
+// (start_zone), Bus Station (corp_zone) and Lab (lab_zone)
 // are NEVER sealed - do not add them here.
 function get_eligible_zones()
 {
@@ -221,7 +221,7 @@ function run_seal_phase( round_number, zone_name )
 {
     if ( !is_eligible_zone( zone_name ) )
     {
-        // docs/03_layout.md: Spawn / Corp / Lab are NEVER sealed. This can
+        // docs/03_layout.md: Plaza / Bus Station / Lab are NEVER sealed. This can
         // only trip if someone edits get_eligible_zones / the order roll.
         /# assertmsg( "decontamination rolled non-eligible zone: " + zone_name ); #/
         acc_utility::log( "decon: REFUSING to seal non-eligible zone " + zone_name );
