@@ -43,12 +43,14 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_doors;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
 
 #namespace acc_main;
@@ -101,6 +103,11 @@ function init()
     // sky + wet-ground re-skin + reflection probes are Radiant edits (see doc).
     acc_atmosphere::init();
 
+    // Bus Station trench: small velocity-gated fall tax when you jump into the
+    // cross-room trench (the stair walkway down is free). MOD_FALLING, so PhD
+    // negates it. ALWAYS ON (no flag); retune via the ACC_TRENCH_FALL_DMG constant.
+    acc_bus_trench::init();
+
     // Decontamination must arm its acc_round_start listener before
     // watch_round_transitions below can fire the first one; it also rolls
     // the per-run seal permutation.
@@ -111,6 +118,11 @@ function init()
     // decon it must arm its acc_round_start listener before watch_round_transitions
     // fires the first one. Door-locking is stage 2 (needs Radiant seal brushes).
     acc_lockdown::init();
+
+    // Per-round random perk access: 3 of the 9 Lab perk-alcove doors open each
+    // round (dev: all open via acc_open_map). Arms an acc_round_start listener,
+    // so init before watch_round_transitions fires (next to acc_lockdown).
+    acc_perk_doors::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.

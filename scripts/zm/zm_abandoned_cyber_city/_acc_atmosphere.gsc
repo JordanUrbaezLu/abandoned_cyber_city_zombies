@@ -17,11 +17,11 @@
 //   (A wider 18-arg sun-fog overload exists in _art.gsc's dev block; the 8-arg
 //   shipped-path form is what we want.)
 //
-// Fog is OFF by default (owner prefers the clean dark night room). To enable +
-// tune: `set acc_fog_on 1` (console ~, or +set at launch), then dial the per-
-// parameter `acc_fog_*` dvars live - the watch loop re-applies every half second,
-// no rebuild (same live-dvar pattern as the `acc_zspeed_*` speed-curve knobs). When
-// a look is locked, bake the numbers into the #define defaults AND docs/29.
+// Fog is ON by default (the cyber-night atmosphere pass, docs/40). Disable with
+// `set acc_fog_on 0`. Tune the per-parameter `acc_fog_*` dvars live - the watch loop
+// re-applies every half second, no rebuild (same live-dvar pattern as the
+// `acc_zspeed_*` speed-curve knobs). When a look is locked, bake the numbers into the
+// #define defaults AND docs/29. The colour grade (vision) is the companion lever below.
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -35,13 +35,19 @@
 // Defaults = cold low city haze. TODO(acc-tune): lock these in a playtest, then
 // mirror the numbers in docs/29_atmosphere_and_materials.md.
 #define ACC_FOG_START_DIST     0      // units from camera where fog begins
-#define ACC_FOG_HALFWAY_DIST    700   // units to half opacity (~sightline death); tune to longest sightline
-#define ACC_FOG_HALFWAY_HEIGHT  900   // vertical falloff distance
-#define ACC_FOG_BASE_HEIGHT     0     // world-z where the densest fog sits
-#define ACC_FOG_R               0.22  // cool blue-grey smog - MUST be lighter than the dark
-#define ACC_FOG_G               0.27  // night scene or the fog is invisible (lesson learned:
-#define ACC_FOG_B               0.38  // 0.02/0.03/0.06 was near-black = no visible fog)
-#define ACC_FOG_MAX_OPACITY     0.85  // visible haze; dial down with acc_fog_max_opacity if too thick
+#define ACC_FOG_HALFWAY_DIST    550   // units to half opacity; denser for the shrunk rooms (tune live)
+#define ACC_FOG_HALFWAY_HEIGHT  750   // vertical falloff - dense at the floor, thinner at eye level
+#define ACC_FOG_BASE_HEIGHT     0     // densest fog sits ON the floor -> obscures the stale floor shadows
+#define ACC_FOG_R               0.15  // cool blue-grey night smog. MUST stay lighter than scene-black or
+#define ACC_FOG_G               0.19  // the fog is invisible (0.02/0.03/0.06 was near-black = nothing).
+#define ACC_FOG_B               0.29  // blue > red so it reads as a cold cyber haze.
+#define ACC_FOG_MAX_OPACITY     0.80  // thick enough for mood + floor cover; dial with acc_fog_max_opacity
+
+// "The city wakes up" reveal: when POWER turns on, the fog lifts smoothly to nothing
+// over ACC_FOG_CLEAR_TIME seconds (one-way). Gated by acc_fog_clear_on_power; tune the
+// duration live with acc_fog_clear_time. Manual test trigger: `set acc_fog_clear 1`.
+#define ACC_FOG_CLEAR_TIME       12   // seconds for the haze to fade out after power-on
+#define ACC_FOG_CLEAR_ON_POWER   1    // 1 = power-on clears the fog; 0 = fog stays
 
 // Ambient bed = the AUDIO half of the atmosphere (the fog above is the visual
 // half). A single 2D LOOPING city/rain soundscape, authored as the alias below
@@ -54,6 +60,17 @@
 // Main theme = a CC0 cyberpunk track (Joth, "Cyberpunk Moonlight Sonata"),
 // played ONCE at game start. 2D/IsMusic alias in sound/aliases/acc_audio.csv.
 #define ACC_MUSIC_ALIAS         "acc_main_theme"
+
+// Cyber-night COLOUR GRADE = the visual half of "make it dark" that the LED bake
+// can't deliver (docs/40): a global VisionSetNaked colour grade (cool/dark), which
+// the engine applies at RUNTIME with NO lightmap bake. The grade lives in
+// vision/zm_abandoned_cyber_city.vision (zone: rawfile,vision/...). ON by default;
+// `set acc_vision_on 0` reverts to the stock "default" vision live, and
+// `set acc_vision_set <name>` hot-swaps to any loaded vision (e.g. a stock one) to
+// experiment. VERIFIED(acc): a BARE server-side `VisionSetNaked( name, blend )`
+// sets the GLOBAL naked vision for all players (stock _emp.gsc:428-431).
+#define ACC_VISION_ON           1
+#define ACC_VISION_SET          "zm_abandoned_cyber_city"
 
 #namespace acc_atmosphere;
 
@@ -77,7 +94,10 @@ function init()
         level.bonuszm_musicoverride = true;
     }
 
+    level.acc_fog_fade = 1.0;   // full fog, always (the haze just stays - user 2026-06-17)
+
     level thread apply_fog();
+    level thread apply_vision();
     level thread apply_ambient_bed();
     level thread apply_music();
 }
@@ -90,16 +110,72 @@ function apply_fog()
     // flag::wait_till returns immediately if already set; a bare waittill hangs.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    // Fog is OFF by default - the owner prefers the clean dark night room (no fog).
-    // To turn it on: launch with `+set acc_fog_on 1`, or type `set acc_fog_on 1` in
-    // the console (~); the watch loop below picks it up live and re-applies every
-    // half second so the acc_fog_* tuning dvars take effect with no rebuild.
+    if ( !isdefined( level.acc_fog_fade ) ) level.acc_fog_fade = 1.0;
+    if ( !isdefined( level.acc_fog_target_fade ) ) level.acc_fog_target_fade = 1.0;
+
+    // SINGLE fog authority (user 2026-06-17): this is the ONLY thread that calls
+    // SetVolFog, so nothing fights it (the old separate clear_fog thread + this loop
+    // both calling SetVolFog made the haze "flash" but never settle). It eases the live
+    // fade toward its target every 0.1s; watch_fog_clear sets the target to 0 on power-on
+    // so the haze lifts smoothly over acc_fog_clear_time. `acc_fog_on 0` stops it; the
+    // acc_fog_* tuning dvars still take effect live (re-read every tick).
     for ( ;; )
     {
-        if ( getdvarint( "acc_fog_on", 0 ) == 1 )
+        if ( getdvarint( "acc_fog_on", 1 ) == 1 )
         {
+            tgt = level.acc_fog_target_fade;
+            ct  = getdvarfloat( "acc_fog_clear_time", ACC_FOG_CLEAR_TIME );
+            if ( ct < 0.1 ) ct = 0.1;
+            step = 0.1 / ct;               // full 1.0 -> 0.0 over ct seconds
+
+            if ( level.acc_fog_fade > tgt )
+            {
+                level.acc_fog_fade = level.acc_fog_fade - step;
+                if ( level.acc_fog_fade < tgt ) level.acc_fog_fade = tgt;
+            }
+            else if ( level.acc_fog_fade < tgt )
+            {
+                level.acc_fog_fade = level.acc_fog_fade + step;
+                if ( level.acc_fog_fade > tgt ) level.acc_fog_fade = tgt;
+            }
+
             set_fog_from_dvars();
         }
+        wait( 0.1 );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cyber-night colour grade - global VisionSetNaked, no lightmap bake (docs/40).
+// Watches acc_vision_on / acc_vision_set so the look can be toggled + hot-swapped
+// live. Applies only on CHANGE so it does not spam the renderer every half second.
+// ---------------------------------------------------------------------------
+
+function apply_vision()
+{
+    level endon( "end_game" );
+
+    // Same flag the fog waits on - players are in once the blackscreen passes.
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    applied = "";
+    for ( ;; )
+    {
+        on   = ( getdvarint( "acc_vision_on", ACC_VISION_ON ) == 1 );
+        vset = getdvarstring( "acc_vision_set", ACC_VISION_SET );
+        // OFF -> revert to the stock neutral "default" vision (not "", which no-ops).
+        want = ( on ? vset : "default" );
+
+        if ( want != applied && want != "" )
+        {
+            // VERIFIED(acc): bare server-side VisionSetNaked( name, blend ) = the
+            // GLOBAL naked vision for every player (stock _emp.gsc:428-431). New
+            // joiners inherit the global render state.
+            VisionSetNaked( want, 1.0 );
+            applied = want;
+            acc_utility::log( "atmosphere vision: " + want );
+        }
+
         wait( 0.5 );
     }
 }
@@ -115,11 +191,20 @@ function set_fog_from_dvars()
     b              = getdvarfloat( "acc_fog_b", ACC_FOG_B );
     max_opacity    = getdvarfloat( "acc_fog_max_opacity",    ACC_FOG_MAX_OPACITY );
 
+    // Power-on "the city wakes" reveal: level.acc_fog_fade ramps 1->0 (clear_fog),
+    // scaling the opacity so the haze lifts smoothly. Defaults to 1 (full fog).
+    if ( !isdefined( level.acc_fog_fade ) )
+        level.acc_fog_fade = 1.0;
+    max_opacity = max_opacity * level.acc_fog_fade;
+
     // VERIFIED(acc): see header - stock 8-arg signature, 0..1 RGB + opacity.
     SetVolFog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, max_opacity );
 
     acc_utility::log( "atmosphere fog applied (halfway=" + halfway_dist + " opacity=" + max_opacity + ")" );
 }
+
+// (Fog lift-on-power was removed 2026-06-17 - the haze just stays. Simpler, and it
+// never reliably faded anyway. apply_fog keeps level.acc_fog_fade at 1.0.)
 
 // ---------------------------------------------------------------------------
 // Ambient bed - global looping soundscape. Mirrors the fog pattern: wait for

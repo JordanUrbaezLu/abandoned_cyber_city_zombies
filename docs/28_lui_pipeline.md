@@ -144,6 +144,40 @@ so there's no duplication. All 8 live perks. `CoD.AccPerkBar` in `acc_hud.lua`.
 - **Test:** dev `acc_dev_jugg_mega 1` (teal) / `2` (red); buy any perks → red row, no
   stock icons, no flash.
 
+## Power-up bar — timed + instant power-ups (`CoD.AccPowerupBar`, 2026-06-15 / 2026-06-16)
+
+A centered row of Ronan power-up icons, same `setImage(RegisterImage(...))` image rail as the perk
+bar (no custom material). Driven by one 5-bit `accPowerupMask` clientuimodel (`_acc_lui.gsc`).
+
+- **Timed power-ups** (bit 0 Insta-Kill / 1 Double Points / 2 Fire Sale) show **while active**.
+  `powerup_state_watch()` (per-player 0.25s poll) reads the stock `level.zombie_vars` active flags
+  and pushes the mask on change. The stock power-up icons for these 3 are suppressed
+  (`suppress_stock_powerup_hud`, clears their `client_field_name` so the stock monitor drops them).
+- **Instant power-ups** (bit 3 Nuke / 4 Max Ammo / 5 Carpenter / 6 Random Perk) have no active
+  window, so they **flash for ~3s on pickup**. The server stamps `self.acc_flash_<name>_until =
+  GetTime()+3000` and `powerup_state_watch` ORs the bit in while the stamp is live. Two signal paths:
+  - **Dedicated** (Nuke / Max Ammo): `pickup_flash_watch()` per player listens for Max Ammo's
+    team-wide `level notify "zmb_max_ammo_level"` (each player flashes itself) and Nuke's
+    `nuke_triggered` on the grabber (which flashes ALL players, since power-ups are team-global).
+  - **Generic** (Carpenter / Random Perk = `free_perk`): a level-once `powerup_drop_flash_watch()`
+    listens for stock `level notify "powerup_dropped"` (fires per drop with the powerup ent), then
+    watches that ent for its self-`"powerup_grabbed"` notify and flashes by `powerup.powerup_name`.
+    Works for ANY powerup by name; fires only if/when those drops are enabled on the map.
+- **Images:** `i_acc_powerup_{instakill,double,sale,nuke,maxammo,carpenter,randomperk}`.
+  `CoD.AccPowerupBar` lays out N centered slots: slot i at `(i-(N-1)/2)*PITCH` from screen center.
+
+## PaP tier icon — roman-numeral cyber shield (`CoD.AccPapTierIcon`, 2026-06-16)
+
+Replaced the old bottom-right `"PaP TIER x/3"` GSC `createFontString` with a single small teal hex
+roman-numeral shield (I/II/III) centered over the gadget HUD circle (bottom-right). Same image rail.
+
+- **Data:** the existing `accPapTier` clientuimodel (0..3). `_acc_pap_levels::pap_hud_loop` now pushes
+  the held weapon's `get_tier` on change (was drawing the font string); this is the same value
+  `_acc_perk_info` pushes for the PaP info card, so the two writers never disagree. 0 = icon hidden.
+- **Images:** `i_acc_pap_tier{1,2,3}`. Element shows only the icon matching the current tier.
+- **Position:** right-anchored + bottom-anchored; `SIZE`/`RIGHT`/`BOTTOM` are eyeballed over the
+  stock gadget art — **tune in-game** for a pixel-perfect center.
+
 ## Files
 
 - `ui/uieditor/menus/hud/acc_hud.lua` — overlay menu + foundation banner + widgets

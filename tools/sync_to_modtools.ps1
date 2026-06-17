@@ -184,6 +184,8 @@ $mappings = @(
     @{ Label = "zone_source";  RepoRel = "zone_source";  ModRel = "zone_source";  Mirror = $true  },
     @{ Label = "sound";        RepoRel = "sound";        ModRel = "sound";        Mirror = $true  },
     @{ Label = "ui";           RepoRel = "ui";           ModRel = "ui";           Mirror = $true  },
+    # Custom color-grade vision (rawfile,vision/*.vision). Copy, not mirror.
+    @{ Label = "vision";       RepoRel = "vision";       ModRel = "vision";       Mirror = $false },
     # Custom level weapon table override (stock rows + Skye box imports). Copy,
     # not mirror, so an imported weapon CSV never purges anything unexpectedly.
     @{ Label = "gamedata";     RepoRel = "gamedata";     ModRel = "gamedata";     Mirror = $false },

@@ -71,25 +71,27 @@
 // ---------------------------------------------------------------------------
 // Tuning - see docs/06_mechanics.md.
 //
-// Bonus multipliers apply AFTER stock weapon-GDT headshot damage has been
-// factored in, so effective headshot damage = (stock weapon headshot mult) *
-// (our bonus factor). If stock is ~1.5x, our +2.0 headshot bonus makes the
-// effective headshot ~3x base; boss headshots are now ALSO ~3x (was ~4.5x).
+// Bonus multipliers apply AFTER the weapon-GDT hit-location mult is baked into the
+// incoming `damage`, so effective head:body ratio = (gun locHead) x (our headshot bonus).
+// Most box guns are locHead 5.0, so the 0.5 reg / 1.0 boss bonus = 2.5x reg / 5x boss head;
+// Paladin (locHead 1.0) = 0.5x / 1.0x. (Was 2.0/2.0 = 10x/10x reg+boss; nerfed 2026-06-16.)
 //
 // GSC #defines are file-local (#using does not share macros - see the note at
 // _acc_boss_items.gsc:41-45), so damage-side constants for other systems'
 // effects live HERE because this is the file that applies them.
 // ---------------------------------------------------------------------------
 
-#define ACC_HEADSHOT_MULT      2.0
-#define ACC_BOSS_HEADSHOT_MULT 2.0
+#define ACC_HEADSHOT_MULT      0.5    // map headshot BONUS, regular/elite (was 2.0, lowered 2026-06-16).
+#define ACC_BOSS_HEADSHOT_MULT 1.0    // bosses/mini-bosses (was 2.0). Effective head:body = gun locHead x this
+                                      // (most guns locHead 5.0 -> 2.5x reg / 5x boss; Paladin locHead 1.0 -> 0.5x/1x).
 
-// Deadshot layer (docs/13_perks.md): base perk +1.4 headshot, American Sniper
-// Mega replaces it with +1.8 (no double dip). These ADD into the bonus sum (not
-// multiply) - see the stacking header. The recoil cuts (base -25% / Mega -40%,
-// off the 2.1x map recoil baseline) are weapon-GDT, not GSC - see docs/30/31.
+// Deadshot layer (docs/13_perks.md): base perk +1.4 headshot, American Sniper Mega
+// replaces it with +1.6 (no double dip; retuned 1.8->1.6 2026-06-16). These ADD into
+// the bonus sum (not multiply) - see the stacking header. Recoil: base Deadshot now has
+// NONE; Mega = -50% (single weapon-GDT twin tier, MEGA-gated, off the 2.1x base) - see
+// docs/30/31 + docs/39. The recoil half is weapon-GDT (twin), not GSC.
 #define ACC_DEADSHOT_MULT      1.4
-#define ACC_DEADSHOT_MEGA_MULT 1.8
+#define ACC_DEADSHOT_MEGA_MULT 1.6
 
 // NOTE (docs/13_perks.md, 2026-06-14 overhaul): Double Tap is now "Double Tap 1.0"
 // = fire-rate ONLY (no damage bonus), and Widow's Wine base no longer grants frag
@@ -301,8 +303,11 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     // -----------------------------------------------------------------------
     if ( b_player_attacker )
     {
-        // Pack-a-Punch custom tier (T2..T5): flat damage multiplier on top of the
-        // stock single-PaP already baked into `damage`. CONSOLIDATED here
+        // Pack-a-Punch custom tier (T1..T3, 3-tier revamp 2026-06-16): flat damage layer
+        // (+50% / +100% / +150% = 1.5 / 2.0 / 2.5) added to bonus_sum. The "_up" transform's
+        // own raw damage is normalized per-gun by acc_weapon_balance_mult (substring match on
+        // base/_up/twin alike), so this ladder is the ONLY PaP damage lever - no double-count.
+        // CONSOLIDATED here
         // (2026-06-14) from a SEPARATE actor-damage callback (_acc_pap_levels
         // pap_damage_cb): the stock dispatch returns the FIRST non -1 callback and
         // passes the ORIGINAL damage to each (_zm.gsc:5824), so two modifying
@@ -496,28 +501,28 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 //              x0.80 -> base headshot one-shots to r14, body r7. See the inline note below.)
 function acc_weapon_balance_mult( weapon_name )
 {
-    if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.375;
-    if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.2625;
+    if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.30;    // Five-Seven (start pistol): -20% (user 2026-06-16, was 0.375). 200 raw -> 60 eff/shot.
+    if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // ASM1 (AW smg): NERF to ~401 DPS (tier audit 2026-06-16 -> Bad). Fast reload + medium pen keep it usable, but it is now the weakest auto by design.
     if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.75;
-    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.85;   // Olympia (BO2 double-barrel SG): 110/pellet x ~8, only 2 in mag + 3.3s reload, so a touch above Tac-19's 0.75 for punchy low-sustained burst. Headshot-excluded like all SGs. First-pass; tune in playtest. (docs/33)
-    if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.23;
-    if ( IsSubStr( weapon_name, "t6_galil" ) )     return 0.21;   // Galil (BO2 full-auto AR): 220@0.08 = 2750 raw -> ~578 eff (= AK-47 band). Std loc mults (locHead 5.0 = AK-47, no GDT edit). Keeps the AR headshot chain. Audit 2026-06-15.
-    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;   // AE4 (AW energy AR, 160@0.12 = 1333 raw): old 0.22 = 293 DPS (-41% under band); 0.31 = 442 DPS, band floor (slowest-RPM AR). Audit 2026-06-15.
+    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.9775;  // Olympia (BO2 double-barrel SG): +15% (user 2026-06-16, was 0.85). 110/pellet x ~8, only 2 in mag + 3.3s reload. Headshot-excluded like all SGs.
+    if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.184;   // AK-47: NERF to ~460 DPS (tier audit 2026-06-16 -> Average). Focus Fire ability + jackpot identity keep it appealing, but DPS now sits below the Good cluster.
+    if ( IsSubStr( weapon_name, "t6_galil" ) )     return 0.1785;  // Galil (BO2 full-auto AR): AR -15% (user 2026-06-16, was 0.21). Std loc mults (locHead 5.0 = AK-47). Keeps the AR headshot chain.
+    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.38;    // AE4 (AW energy AR, 160@0.12 = 1333 raw): BUFF to ~506 DPS (balance audit 2026-06-16). It is the slowest-firing AR (500 RPM) so it sits at the TOP of the Good band to offset the sluggish feel; medium penetration + 200 reserve. Undoes the blanket -15% (0.2635) + lifts it off the DPS floor it was complained about.
     if ( IsSubStr( weapon_name, "iw6_ripper" ) )   return 0.25;  // Ripper (Ghosts convertible); covers smg/ar x base/_up
     // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
     // (raw DPS = damage/fireTime from the Skye GDTs). IsSubStr covers base + PaP + twins.
-    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.20;   // PPSH-41 (VG smg): real GDT 155@0.063 = 2460 raw (NOT the 1400 first assumed); 0.36 gave 885 DPS (+77% over band). 0.20 = 492 DPS, in band. Audit 2026-06-15.
-    if ( IsSubStr( weapon_name, "t5_ak74u" ) )     return 0.22;   // AK-74u  (BO1 smg, 180@0.08 = 2250 raw -> ~495)
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.17;   // PPSH-41 (VG smg): -15% (user 2026-06-16, was 0.20). 155@0.063 = 2460 raw -> ~418 DPS.
+    if ( IsSubStr( weapon_name, "t5_ak74u" ) )     return 0.225;  // AK-74u (BO1 smg, 180@0.08): ~506 DPS (tier audit 2026-06-16 -> Good). Small bump for clean separation above the now-Average AK-47; fast handling + clip 20/reserve 160.
     if ( IsSubStr( weapon_name, "s1_pdw" ) )       return 0.33;   // PDW-57  (AW smg, 120@0.08 = 1500 raw -> ~495)
-    if ( IsSubStr( weapon_name, "t9_nail_gun" ) )  return 0.24;   // Nail Gun (CW projectile AR, 250@0.118 = 2119 raw -> ~510). NOTE: its GDT shipped locTorso 3.0 (body was secretly 3x = ~1525 DPS); loc* normalized to 1.0 install-side (head 5.0), so 0.24 now lands the true 508 DPS. Audit 2026-06-15.
+    if ( IsSubStr( weapon_name, "t9_nail_gun" ) )  return 0.37;    // Nail Gun (CW projectile AR): BUFF to ~589 DPS (tier audit 2026-06-16 -> Excellent). Heavy per-nail punch (92/shot) at the slow 382 RPM + 30-round clip; the high raw DPS offsets the projectile travel-time handicap. loc* normalized to 1.0 install-side (head 5.0).
     // M1911 PaPs to AKIMBO EXPLOSIVE (Mustang-and-Sally pattern): the _rdw/_ldw upgrade
     // forms are projectileweapons at 7000 direct dmg + splash. acc_weapon_balance_mult
     // scales ALL damage through on_ai_damage (incl. explosive), so the broad s2_m1911 x3.5
     // base buff would make the PaP ~24,500/shot. Give the explosive forms their own scale
     // ABOVE the base match: 7000 x 0.40 = 2800 direct (one-shots ~r20) + scaled splash - a
     // strong PaP nuke, not trivializing. First-pass; tune in playtest. (docs/33 Failure modes)
-    if ( IsSubStr( weapon_name, "s2_m1911_rdw" ) || IsSubStr( weapon_name, "s2_m1911_ldw" ) ) return 0.40;
-    if ( IsSubStr( weapon_name, "s2_m1911" ) )     return 3.5;    // M1911 base (WWII semi-auto pistol): BUFF - MP-tuned at dmg 20 (~70 eff/shot)
+    if ( IsSubStr( weapon_name, "s2_m1911_rdw" ) || IsSubStr( weapon_name, "s2_m1911_ldw" ) ) return 0.50;  // +25% (user 2026-06-16, was 0.40): akimbo-explosive PaP, 7000 x 0.50 = 3500 direct.
+    if ( IsSubStr( weapon_name, "s2_m1911" ) )     return 4.375;  // M1911 base (WWII semi-auto pistol): +25% (user 2026-06-16, was 3.5). MP-tuned at dmg 20 -> ~88 eff/shot.
     // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
     // cause (user, 2026-06-15) was the Skye rip's MP-inflated hit-location mults: locTorso 5.0
     // (PaP 9.0), limbs 4.0 (8.0), locHead 7.5 (10.0) - so at x1.0 even a BODY/limb shot one-shot
@@ -527,7 +532,7 @@ function acc_weapon_balance_mult( weapon_name )
     // every other gun (body = base, headshot = our 2.0 map mult only), so x0.80 -> body r7 /
     // headshot r14 / HS+Deadshot r20, PaP+Cyberware push higher. A real sniper that FALLS OFF
     // without PaP. Tune the mult here (not the GDT) for further feel changes. Balance audit docs/33.
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.80;
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.70;  // NERF to 700/shot (tier audit 2026-06-16 -> Good). Was 0.80/Excellent; still a strong one-shot sniper but falls off a couple rounds sooner, no longer the outright boss-killer king.
     return 1.0;
 }
 

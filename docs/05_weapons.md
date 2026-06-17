@@ -13,6 +13,15 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > M1911 is the one BUFF — its port is MP-tuned at dmg 20). PDW/M1911 (akimbo PaP) + Nail Gun
 > (projectile) have NO perk twins, like the convertible Ripper. The 16-weapon roster below is the
 > older *aspirational design spec*, not the live box.
+>
+> **Ammo economy (2026-06-16).** Every box gun runs a global **30% ammo cut** baked by
+> `tools/reduce_base_ammo.js` (FACTOR 0.70). In the Skye GDTs `maxAmmo`/`startAmmo` are reserve
+> **magazine** counts, so **in-game reserve rounds = `maxAmmo × clipSize`**; cutting `clipSize`
+> ×0.70 drops both the mag and the reserve by 30% in one edit. Two special cases: **Olympia**
+> (double-barrel, `clipSize 2` floor) takes its 30% off `maxAmmo` instead (clip stays 2); the
+> **PDW akimbo-PaP** shipped a broken `maxAmmo 920` (Skye data error, clamped to 18 ≈ 306 reserve).
+> Approx live reserves — autos ~130-225 base / ~280-420 PaP; shotguns/snipers/pistols ~26-84 (low
+> by design). Tune in that one tool; re-run + `gdtdb /update` + linker.
 
 Enemies are in a separate doc: [11_enemies.md](11_enemies.md).
 
@@ -36,10 +45,10 @@ Four categories x three tiers + four utility slots = **16 weapons** in v1.0.
 | 2 | **Haymaker 12** | Shotgun | Normal | Stock BO3 | Wallbuy (Alley) |
 | 3 | **Brecci** | Shotgun | Bad | Stock BO3 | Mystery Box only |
 | 4 | **Tac-19** | Shotgun | Strong | Import (Advanced Warfare) | Mystery Box only |
-| 5 | **ICR-1** | AR full-auto | Normal | Stock BO3 | Wallbuy (Plaza) |
+| 5 | **ICR-1** | AR full-auto | Normal | Stock BO3 | Wallbuy (Bus Station) |
 | 6 | **XR-2** | AR full-auto | Bad | Stock BO3 | Mystery Box only |
 | 7 | **AK-47** | AR full-auto | Strong | Import | Mystery Box only |
-| 8 | **M14 EBR** | Semi-auto AR | Normal | Import (MW2) | Wallbuy (Plaza) |
+| 8 | **M14 EBR** | Semi-auto AR | Normal | Import (MW2) | Wallbuy (Bus Station) |
 | 9 | **G3** | Semi-auto AR | Bad | Import (WAW) | Mystery Box only |
 | 10 | **FN FAL** | Semi-auto AR | Strong | Import (BO1 / BO2) | Mystery Box only |
 | 11 | **Intervention** | Sniper | Normal | Import (MW2) | Wallbuy (Helipad) |
@@ -97,7 +106,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 ### AR Full-Auto Category
 
-**5. ICR-1 (normal, wallbuy)** - stock BO3 full-auto AR, BO3's SCAR-analog silhouette. Tight recoil, moderate RoF, reliable generalist. 1500 wallbuy at Plaza. PaP: "ICR Outperformer". Overclock family: ar.
+**5. ICR-1 (normal, wallbuy)** - stock BO3 full-auto AR, BO3's SCAR-analog silhouette. Tight recoil, moderate RoF, reliable generalist. 1500 wallbuy at Bus Station. PaP: "ICR Outperformer". Overclock family: ar.
 
 **6. XR-2 (bad, box)** - stock BO3 energy-based AR. Lower effective DPS than ICR-1 at zombie ranges, weird handling. The AR bad-roll. PaP: "XR-2 Ultramax". Overclock family: ar.
 
@@ -109,7 +118,7 @@ Import notes: pull model/anims/sound from AW community ports; author GDT at `wea
 
 ### Semi-Auto AR Category
 
-**8. M14 EBR (normal, wallbuy)** - MW2 import. Semi-auto marksman rifle, clean trigger, high per-shot damage. 1500 wallbuy at Plaza (separate slot from ICR-1). PaP placeholder: **"M14 Enforcer"**. Overclock family: ar (shared with full-auto ARs). Import notes: iconic DMR, community ports exist.
+**8. M14 EBR (normal, wallbuy)** - MW2 import. Semi-auto marksman rifle, clean trigger, high per-shot damage. 1500 wallbuy at Bus Station (separate slot from ICR-1). PaP placeholder: **"M14 Enforcer"**. Overclock family: ar (shared with full-auto ARs). Import notes: iconic DMR, community ports exist.
 
 **9. G3 (bad, box)** - World at War import. Semi-auto battle rifle, slower feel, dated silhouette. The semi-auto bad-roll. PaP placeholder: **"G3 Purger"**. Overclock family: ar. Import notes: WAW asset, ports exist but may need animation tuning for BO3 rig.
 
@@ -143,25 +152,39 @@ flowchart LR
     Tier --> MaxTier[Max Tier 5<br/>5 Overclock slots active]
 ```
 
-Both tracks apply independently. A weapon at **PaP L5 + Tier 5** has +100% damage, +5 reserve mag, 5 active Overclocks, and its ability is available from round 1 on cooldown.
+Both tracks apply independently. A weapon at **PaP T3 + Tier 5** has +150% damage, the upgraded "_up" form, 5 active Overclocks, and its ability is available from round 1 on cooldown.
 
-### Pack-a-Punch Levels (money)
+### Pack-a-Punch Tiers (money) — 3-tier system (revamp 2026-06-16)
 
-Each level raises damage and reserve mag cumulatively.
+Three tiers, each a flat damage layer on top of the gun's normalized base damage. **The actual
+PaP transform (the upgraded "_up" form — explosive M1911, akimbo PDW, gold-camo'd upgrade, etc.)
+is DEFERRED to tier 2:** tier 1 is a "camo + damage" pack that keeps the base gun's
+appearance/behavior, so the transform is a deliberate second investment.
 
-| Level | Damage bonus | Reserve mag bonus | Cost | Cumulative cost |
+| Tier | Damage bonus | Asset | Cost | Cumulative |
 |---|---|---|---|---|
-| L1 | +20% | +1 | 5,000 | 5,000 |
-| L2 | +40% | +2 | 7,500 | 12,500 |
-| L3 | +60% | +3 | 10,000 | 22,500 |
-| L4 | +80% | +4 | 12,500 | 35,000 |
-| L5 | +100% | +5 | 15,000 | **50,000** |
+| T1 | +50% | base gun + gold PaP camo (no transform) | 5,000 | 5,000 |
+| T2 | +100% | **transforms** to the upgraded "_up" form + camo | 7,500 | 12,500 |
+| T3 | +150% | upgraded form (MAX) | 10,000 | **22,500** |
 
-- All levels applied at the Pack-a-Punch machine in the Lab. No separate secondary PaP slot needed - it's one machine with 5 interactions.
-- Buying L3 requires L2 already applied, L4 requires L3, etc. Linear progression.
-- A weapon cannot skip levels.
-- **Packing is instant + in-place on every tier** — no gun-into-machine float/animation (user 2026-06-14). Holding Use swaps the held gun for its packed form right there. The first pack adds the gold PaP camo and carries your ammo; tiers 2-5 just bump the damage ladder. The gun **only ever changes when you actually pack** — walking near the machine never swaps it.
-- **Perk weapon-variant twins + PaP:** if you're holding a perk twin (Deadshot recoil, Gun Slinger fire, Speed Cola reload, Armory ammo), the first pack swaps you straight to the *packed twin* in one step, keeping the perk effect. (`_acc_pap_levels::acc_do_first_pack` + `acc_weapon_variants::packed_form`.)
+- **"% is the only damage lever":** `acc_weapon_balance_mult` (`_acc_damage.gsc`) normalizes every
+  form (base / `_up` / perk-twin) per gun by substring match, so the `_up` form's own higher raw
+  damage doesn't double-count — the +50/100/150% ladder IS the PaP damage progression. The `_up`
+  transform's *functional* identity (explosive splash, akimbo, etc.) still applies on top.
+- All tiers applied at the Pack-a-Punch machine in the Lab — one machine, three interactions.
+- Buying T2 requires T1, T3 requires T2. A weapon cannot skip tiers.
+- **Packing is instant + in-place on every tier** — no gun-into-machine float/animation (user
+  2026-06-14). Holding Use packs the held gun right there: T1 applies camo, T2 swaps to the `_up`
+  form, T3 bumps damage. Every tier replays the first-pack in-hand draw. The gun **only ever
+  changes when you actually pack** — walking near the machine never swaps it.
+- **Perk weapon-variant twins + PaP (twins follow tiers):** if you're holding a perk twin
+  (Deadshot recoil, Gun Slinger fire, Speed Cola reload), tier 1 keeps you on the **base-form**
+  twin (camo'd); tier 2 transforms you to the matching **packed `_up` twin** in one step, keeping
+  the perk effect. (`_acc_pap_levels::acc_do_first_pack` / `acc_do_transform` +
+  `acc_weapon_variants::packed_form`.)
+- **Box guns come out stock:** tier 1 is now a base-form gun (no `is_weapon_upgraded` to lean on),
+  so a Mystery-Box copy of a gun you previously packed is reset to tier 0 via
+  `box_grab_clear_watcher` (on the stock `user_grabbed_weapon` notify) + `prune_lost_tiers`.
 
 ### Tiers (Data Shards)
 

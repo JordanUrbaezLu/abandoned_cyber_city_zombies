@@ -28,21 +28,20 @@ local function acc_discount(n)
     return math.floor(n * 0.9 / 10) * 10
 end
 
--- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit/tier_repack_cost).
+-- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit / tier_repack_cost +
+-- ACC_PAP_FIRST_PACK_COST). 3-tier revamp 2026-06-16: the transform ("_up" form) is DEFERRED
+-- to tier 2; tier 1 is camo + damage only.
 local function pap_tier_benefit(tier)
-    if tier == 1 then return "Upgrade gun + new camo" end
-    if tier == 2 then return "+25% weapon damage" end
-    if tier == 3 then return "+55% weapon damage" end
-    if tier == 4 then return "+90% weapon damage" end
-    if tier == 5 then return "+130% weapon damage (MAX)" end
+    if tier == 1 then return "+50% damage + new camo" end
+    if tier == 2 then return "+100% damage + upgraded form" end
+    if tier == 3 then return "+150% weapon damage (MAX)" end
     return ""
 end
 local function pap_tier_cost(tier)
-    if tier == 2 then return 2500 end
-    if tier == 3 then return 5000 end
-    if tier == 4 then return 7500 end
-    if tier == 5 then return 10000 end
-    return 0 -- tier 1 is the free first pack via the machine
+    if tier == 1 then return 5000 end  -- first pack (the machine's own cost; may differ on a sale)
+    if tier == 2 then return 7500 end
+    if tier == 3 then return 10000 end
+    return 0
 end
 
 -- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
@@ -74,12 +73,12 @@ local AccPerkCards = {
             megaFull = { "Longer sprint (~12s)", "+15% movement speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "+25% ammo capacity per gun", "All buys 10% cheaper" },
-            megaFull = { "Carry a 3rd primary weapon", "+25% ammo capacity per gun", "All buys 10% cheaper" } },
+            mega = { "+35% reserve ammo each round", "All buys 10% cheaper" },
+            megaFull = { "Carry a 3rd primary weapon", "+35% reserve ammo each round", "All buys 10% cheaper" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
-            base = { "+1.4 headshot dmg bonus", "-25% weapon recoil", "ADS snaps to head (not bosses)" },
-            mega = { "+1.8 headshot dmg bonus", "-40% weapon recoil" },
-            megaFull = { "+1.8 headshot dmg bonus", "-40% weapon recoil", "ADS snaps to head (not bosses)" } },
+            base = { "+1.4 headshot dmg bonus", "ADS snaps to head (not bosses)" },
+            mega = { "+1.6 headshot dmg bonus", "-50% weapon recoil" },
+            megaFull = { "+1.6 headshot dmg bonus", "-50% weapon recoil", "ADS snaps to head (not bosses)" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
             base = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Restock 2 web nades / round" },
             mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" },
@@ -89,9 +88,8 @@ local AccPerkCards = {
             mega = { "Bigger explosion, shorter slide cooldown" },
             megaFull = { "Immune to fall + your own explosive damage", "Slide: BIG explosion (shorter cooldown)", "Explode when you go down" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
-            base = { "Pack a gun, then re-pack to climb tiers:", "T1: upgrade + new camo",
-                     "T2: +25% damage (2500)", "T3: +55% damage (5000)",
-                     "T4: +90% damage (7500)", "T5: +130% damage MAX (10000)" } },
+            base = { "Pack a gun, then re-pack to climb tiers:", "T1: +50% damage + camo (5000)",
+                     "T2: +100% damage + UPGRADE (7500)", "T3: +150% damage MAX (10000)" } },
 }
 
 -- Classed widget: the perk/PaP info card. Mirrors zm_building room_manager.lua /
@@ -178,12 +176,12 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             title = d.title
             titleCol = { 0.72, 0.45, 1.0 }
             bulletCol = { 0.80, 0.66, 1.0 }
-            if papTier >= 5 then
-                sub = "Tier 5 / 5 - MAX"
-                bullets = { "+130% weapon damage (MAX)" } -- short: avoids wrap at scale 0.85
+            if papTier >= 3 then
+                sub = "Tier 3 / 3 - MAX"
+                bullets = { "+150% weapon damage (MAX)" } -- short: avoids wrap at scale 0.85
             else
                 local nextTier = papTier + 1
-                sub = "Tier " .. papTier .. " / 5 - re-pack to raise"
+                sub = "Tier " .. papTier .. " / 3 - re-pack to raise"
                 local costLine
                 if pap_tier_cost(nextTier) > 0 then
                     local pc = pap_tier_cost(nextTier)
@@ -199,7 +197,7 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
                 -- N: <benefit>" string was long enough (esp. tier 1) to wrap into the
                 -- cost line below it. One line each = no wrap, no overlap.
                 bullets = {
-                    "Next: Tier " .. nextTier .. " / 5",
+                    "Next: Tier " .. nextTier .. " / 3",
                     pap_tier_benefit(nextTier),
                     costLine
                 }
@@ -331,6 +329,17 @@ local function acc_bit_is_set(mask, i)
     return math.floor(mask / (2 ^ i)) % 2 >= 1
 end
 
+-- Round-progress ring color: teal (full) -> magenta/red (empty). t in 0..1 = emptiness
+-- (0 = round full, 1 = round empty). Used by CoD.AccRoundRing. docs/42.
+local ACC_RING_FULL  = { 0.25, 0.85, 0.80 }   -- teal/cyan glow
+local ACC_RING_EMPTY = { 0.90, 0.20, 0.55 }   -- magenta/red
+local function acc_ring_color(t)
+    if t < 0 then t = 0 elseif t > 1 then t = 1 end
+    return ACC_RING_FULL[1] + (ACC_RING_EMPTY[1] - ACC_RING_FULL[1]) * t,
+           ACC_RING_FULL[2] + (ACC_RING_EMPTY[2] - ACC_RING_FULL[2]) * t,
+           ACC_RING_FULL[3] + (ACC_RING_EMPTY[3] - ACC_RING_FULL[3]) * t
+end
+
 -- bar-bit index -> icon base name (base=red / mega=teal). MUST match the bit order
 -- in _acc_lui.gsc perk_state_watch. All 9 perks render; PhD Flopper is bit 8
 -- (Ronan's exo_flopper icon, i_acc_perk_phd_{base,mega}).
@@ -410,11 +419,16 @@ end
 -- fire sale. Same setImage(RegisterImage(...)) plain-image path as the perk bar (no custom
 -- material - sidesteps the geometry-material shader-compile blocker, docs/29 §14). Images:
 -- i_acc_powerup_{instakill,double,sale} (source_data/acc_perk_shaders.gdt, zone `image,`).
--- Fixed top-center slots; each icon shows only while its bit is set.
+-- Dynamic bottom-center list (re-centers as it grows); each icon shows only while its bit is set.
+-- Bits 0-2 are the TIMED power-ups (shown while active); bits 3-6 are the INSTANT power-ups Nuke /
+-- Max Ammo / Carpenter / Random Perk, which the server flashes for 3s on pickup (_acc_lui pickup-flash
+-- watchers). Same rail. The stock power-up active icons for these are suppressed server-side
+-- (_acc_lui::suppress_stock_powerup_hud) so ONLY these show.
 local ACC_POWERUP_ICONS = {
-    [0] = "instakill", [1] = "double", [2] = "sale",
+    [0] = "instakill", [1] = "double", [2] = "sale", [3] = "nuke", [4] = "maxammo",
+    [5] = "carpenter", [6] = "randomperk",
 }
-local ACC_POWERUP_COUNT = 3
+local ACC_POWERUP_COUNT = 7
 
 CoD.AccPowerupBar = InheritFrom(LUI.UIElement)
 
@@ -425,21 +439,19 @@ function CoD.AccPowerupBar.new(HudRef, InstanceRef)
     self:setLeftRight(true, true, 0, 0)
     self:setTopBottom(true, true, 0, 0)
 
-    -- Bottom-center row of fixed slots (user 2026-06-15: move to the bottom). These numbers
-    -- position the row - tune in-game. Bottom-anchored like the perk bar; horizontally centered
-    -- so it clears the perk bar (bottom-left) and the ammo/PaP HUD (bottom-right).
+    -- Bottom-center DYNAMIC list (user 2026-06-17): NOT fixed per-powerup slots - only the ACTIVE
+    -- icons show, packed left-to-right and CENTERED AS A GROUP (the stock-powerup-HUD feel). The row
+    -- re-centers as it grows/shrinks, so a lone icon is dead-center and e.g. the 3rd of 5 active lands
+    -- in the exact middle. Bottom-anchored; clears the perk bar (bottom-left) + ammo/PaP (bottom-right).
     local SIZE = 48      -- icon width/height (virtual px)
-    local PITCH = 58     -- spacing between slots
-    local BOTTOM = 92    -- gap from the bottom edge (sits above the very-bottom HUD; tune in-game)
+    local PITCH = 58     -- spacing between adjacent active icons
+    local BOTTOM = 58    -- gap from the bottom edge; lowered from 92 (user 2026-06-17); tune in-game
 
-    -- 3 fixed slots, horizontally centered (offsets from screen center).
-    local OFFSETS = { [0] = -PITCH, [1] = 0, [2] = PITCH }
-
+    -- One UIImage per powerup; created bottom-anchored. Horizontal position is assigned per-render
+    -- (depends on how many are active), so we don't fix it here.
     local icons = {}
     for i = 0, ACC_POWERUP_COUNT - 1 do
         local img = LUI.UIImage.new()
-        local cx = OFFSETS[i]
-        img:setLeftRight(false, false, cx - SIZE / 2, cx + SIZE / 2)
         img:setTopBottom(false, true, -(BOTTOM + SIZE), -BOTTOM)
         img:setImage(RegisterImage("i_acc_powerup_" .. ACC_POWERUP_ICONS[i]))
         img:hide()
@@ -447,18 +459,148 @@ function CoD.AccPowerupBar.new(HudRef, InstanceRef)
         icons[i] = img
     end
 
+    -- Show only active icons, packed in bit order and centered as a group. With K active, the j-th
+    -- (0-based) sits (j - (K-1)/2) * PITCH from screen center.
     local function Render(mask)
+        local active = {}
         for i = 0, ACC_POWERUP_COUNT - 1 do
-            if acc_bit_is_set(mask, i) then
-                icons[i]:show()
-            else
-                icons[i]:hide()
-            end
+            if acc_bit_is_set(mask, i) then active[#active + 1] = i end
+        end
+        local K = #active
+        for i = 0, ACC_POWERUP_COUNT - 1 do icons[i]:hide() end
+        for j = 1, K do
+            local i = active[j]
+            local cx = ((j - 1) - (K - 1) / 2) * PITCH
+            icons[i]:setLeftRight(false, false, cx - SIZE / 2, cx + SIZE / 2)
+            icons[i]:show()
         end
     end
 
     self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPowerupMask"), function(m)
         Render(Engine.GetModelValue(m) or 0)
+    end)
+
+    return self
+end
+
+-- TOUCHPOINT 4 - Pack-a-Punch tier icon (Ronan teal hex shields, roman I/II/III). CoD.AccPapTierIcon.
+-- Shows the HELD weapon's current PaP tier as ONE small icon centered over the gadget HUD circle
+-- (bottom-right), replacing the old "PaP TIER x/3" font string (user 2026-06-16). Driven by the
+-- "accPapTier" clientuimodel (0..3; _acc_pap_levels::pap_hud_loop pushes the held gun's tier on
+-- change). 0 = hidden. Same setImage(RegisterImage(...)) plain-image path as the perk/powerup bars
+-- (no custom material - sidesteps the geometry-material shader-compile blocker, docs/29 §14).
+-- Images: i_acc_pap_tier{1,2,3} (source_data/acc_perk_shaders.gdt, zone `image,`).
+local ACC_PAP_TIER_MAX = 3
+
+CoD.AccPapTierIcon = InheritFrom(LUI.UIElement)
+
+function CoD.AccPapTierIcon.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccPapTierIcon)
+    self.id = "AccPapTierIcon"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Small fixed-size icon over the gadget HUD circle, anchored to the BOTTOM-RIGHT corner. RIGHT =
+    -- gap from the right edge to the icon's right side; BOTTOM = gap from the bottom edge to its
+    -- bottom side; the icon extends SIZE left/up from there. Uses the proven far-edge fixed-box idiom
+    -- (false,true + NEGATIVE offsets) - same as the perk/powerup bars. (NOTE: setLeftRight(true,true,..)
+    -- is STRETCH/fill mode, which is what made this span the whole screen before - do NOT use it for a
+    -- fixed box.) TUNE RIGHT/BOTTOM in-game to center it on the gadget.
+    local SIZE = 40       -- icon width/height (virtual px)
+    local RIGHT = 67      -- gap from the right edge (final position, user 2026-06-17)
+    local BOTTOM = 82     -- gap from the bottom edge (final position, user 2026-06-17)
+
+    local icons = {}
+    for t = 1, ACC_PAP_TIER_MAX do
+        local img = LUI.UIImage.new()
+        img:setLeftRight(false, true, -(RIGHT + SIZE), -RIGHT)
+        img:setTopBottom(false, true, -(BOTTOM + SIZE), -BOTTOM)
+        img:setImage(RegisterImage("i_acc_pap_tier" .. t))
+        img:hide()
+        self:addElement(img)
+        icons[t] = img
+    end
+
+    -- Show only the icon matching the current tier (1..3); hide all at tier 0.
+    local function Render(tier)
+        for t = 1, ACC_PAP_TIER_MAX do
+            if t == tier then icons[t]:show() else icons[t]:hide() end
+        end
+    end
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPapTier"), function(m)
+        Render(Engine.GetModelValue(m) or 0)
+    end)
+
+    return self
+end
+
+-- TOUCHPOINT 5 - Cyber round-progress BAR (upper-right). CoD.AccRoundRing. A health-bar-style
+-- meter: FULL at round start, the teal fill drains (left-to-right) as the round's zombies are
+-- killed, with a "pct%" readout centered on it. Built from CoD.TextWithBg.Bg rectangles (the
+-- proven-to-render primitive used by the perk card) - no material/shader. Driven by ONE
+-- clientuimodel int (_acc_lui.gsc round_ring_watch): "accRoundRing" = fill percent 0..100;
+-- frac = pct/100, teal (full) -> magenta (empty) via acc_ring_color. We show % (not raw zombie
+-- counts) because wider count fields overflow the full clientuimodel pool. docs/42.
+CoD.AccRoundRing = InheritFrom(LUI.UIElement)
+
+-- Bar geometry (virtual px). Upper-right; tune freely.
+local ACC_BAR_W     = 240   -- bar width
+local ACC_BAR_H     = 22    -- bar height (room for the count text)
+local ACC_BAR_RIGHT = 40    -- gap from the right edge
+local ACC_BAR_TOPC  = -200  -- vertical offset from screen CENTER (negative = up toward the top)
+
+function CoD.AccRoundRing.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccRoundRing)
+    self.id = "AccRoundRing"
+    -- POSITIONED box (proven anchors): right-anchored horizontally (the AccPerkCard idiom) +
+    -- vertical offset from CENTER (the AccDmgNum idiom, negative = up). Children fill it.
+    self:setLeftRight(false, true, -(ACC_BAR_RIGHT + ACC_BAR_W), -ACC_BAR_RIGHT)
+    self:setTopBottom(false, false, ACC_BAR_TOPC, ACC_BAR_TOPC + ACC_BAR_H)
+
+    -- Navy track (empty bar) = a TextWithBg STRETCHED to fill self (the proven AccPerkCard
+    -- CardBg pattern). Always visible.
+    local Track = CoD.TextWithBg.new(HudRef, InstanceRef)
+    Track:setLeftRight(true, true, 0, 0)
+    Track:setTopBottom(true, true, 0, 0)
+    Track.Text:setText("")
+    Track.Bg:setRGB(0, 0.035, 0.085)
+    Track.Bg:setAlpha(0.9)
+    self:addElement(Track)
+
+    -- Teal fill: resize its inner .Bg (a UIImage) to the LEFT frac of the bar (the proven
+    -- AccPerkBar setLeftRight(true,false,x,x+W) idiom) so the teal shrinks right-to-left.
+    local Fill = CoD.TextWithBg.new(HudRef, InstanceRef)
+    Fill:setLeftRight(true, true, 0, 0)
+    Fill:setTopBottom(true, true, 0, 0)
+    Fill.Text:setText("")
+    Fill.Bg:setRGB(ACC_RING_FULL[1], ACC_RING_FULL[2], ACC_RING_FULL[3])
+    Fill.Bg:setAlpha(0.95)
+    self:addElement(Fill)
+    self.Fill = Fill
+
+    -- "left / total" count, centered on the bar (health-bar readout, on top of the fill).
+    local Label = LUI.UIText.new()
+    Label:setLeftRight(true, true, 0, 0)
+    Label:setTopBottom(true, true, 0, 0)
+    Label:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+    Label:setScale(0.5)
+    Label:setRGB(0.92, 0.97, 1.0)
+    self:addElement(Label)
+    self.Label = Label
+
+    -- Driven by one clientuimodel int: accRoundRing = fill PERCENT 0..100 (the raw zombie
+    -- counts would need wider fields than the full clientuimodel pool allows). frac = pct/100;
+    -- text = "pct%". (docs/42: the clientfield pool is the constraint behind showing % not counts.)
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accRoundRing"), function(m)
+        local pct = Engine.GetModelValue(m) or 100
+        if pct > 100 then pct = 100 elseif pct < 0 then pct = 0 end
+        local frac = pct / 100
+        self.Fill.Bg:setLeftRight(true, false, ACC_BAR_W - frac * ACC_BAR_W, ACC_BAR_W)   -- right frac (drains L->R)
+        self.Fill.Bg:setRGB(acc_ring_color(1 - frac))                 -- teal (full) -> magenta (empty)
+        self.Label:setText(pct .. "%")
     end)
 
     return self
@@ -492,6 +634,18 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(PowerupBar)
     Hud.accPowerupBar = PowerupBar
 
+    -- Pack-a-Punch tier icon: one roman-numeral cyber shield (I/II/III) over the gadget circle
+    -- (bottom-right), shown for the held weapon's current PaP tier. Driven by accPapTier.
+    local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
+    Hud:addElement(PapTier)
+    Hud.accPapTierIcon = PapTier
+
+    -- Round-progress bar: a teal cyber health-bar (upper-right) that drains as the round's
+    -- zombies are killed, with a "pct%" readout. Driven by accRoundRing (fill percent 0..100).
+    local RoundRing = CoD.AccRoundRing.new(Hud, Instance)
+    Hud:addElement(RoundRing)
+    Hud.accRoundRing = RoundRing
+
     local function OnHudClose(Sender)
         Sender.accCard:close()
     end
@@ -499,3 +653,4 @@ function LUI.createMenu.acc_hud(Instance)
 
     return Hud
 end
+-- ACC_GSCONLY_SIZE_PROBE_BLOCK_BEGIN xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ACC_GSCONLY_SIZE_PROBE_BLOCK_END

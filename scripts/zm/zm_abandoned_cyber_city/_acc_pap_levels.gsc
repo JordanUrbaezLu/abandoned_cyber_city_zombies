@@ -1,42 +1,43 @@
 // =============================================================================
-// _acc_pap_levels.gsc - 5-tier money-track Pack-a-Punch
+// _acc_pap_levels.gsc - 3-tier money-track Pack-a-Punch
 //
-// BO3 has exactly ONE upgraded asset per base weapon, so "PaP 5 times" can't be
-// 5 engine upgrades. Instead: tier 1 = the first pack (swap to the "_up" gun + gold camo);
-// tiers 2..5 are a numeric ladder applied as a damage MULTIPLIER read by our damage
-// pipeline. Keyed on the BASE weapon. ALL packs happen IN PLACE - no machine float /
-// take-back animation, on any tier. Holding Use swaps/upgrades the held gun right there,
-// and EVERY tier replays the first-pack in-hand "gun comes out" draw (user 2026-06-15;
-// see replay_pack_draw / acc_pap_tier_anim).
+// 3 TIERS (revamp 2026-06-16, user): the damage ladder is +50% / +100% / +150% over the
+// gun's normalized base damage, and the ACTUAL PaP TRANSFORM (the "_up" asset - explosive
+// M1911, akimbo PDW, gold-camo'd upgrade, etc.) is DEFERRED to tier 2. Tier 1 is a pure
+// "camo + damage" pack that keeps the base gun's appearance/behavior.
 //
-//   TIER 0->1: acc_do_first_pack - instant GiveWeapon of the packed form (the matching
-//     packed TWIN when the held gun is a perk twin) WITH the gold PaP camo, carries ammo,
-//     records tier 1, charges the stock first-pack cost. The stock machine's float pack is
-//     BLOCKED (acc_pap_validate returns false for EVERY gun).
-//   TIER 1->5: acc_do_tier_up - charge a SCALING cost (2500/5000/7500/10000), bump the tier
-//     in place. No asset re-swap, no alt-ammo (stock AAT off via level.aat_in_use=false).
+//   TIER 0->1 (cost 5000): acc_do_first_pack - apply the gold PaP camo to the HELD gun IN
+//     PLACE (NO asset swap - still the base form / base perk-twin) and record tier 1. +50% dmg.
+//     The "explosive M1911 / akimbo PDW / _up" transform does NOT happen yet.
+//   TIER 1->2 (cost 7500): acc_do_tier_up - NOW swap to the packed "_up" form (the matching
+//     packed TWIN when holding a perk twin) WITH the gold camo, carrying ammo. This is the
+//     real PaP transform. +100% dmg.
+//   TIER 2->3 (cost 10000): acc_do_tier_up - in place, no asset re-swap, bump damage. +150% (MAX).
 //
-//   player.acc_pap_tier[ base_weapon ] = 1..5
-//   -> _acc_damage multiplies pap_tier_mult(tier) into every gun hit.
-//   -> HUD shows "PaP TIER x/5" for the held weapon (bottom-right, next to the gun).
+// ALL packs happen IN PLACE - no machine float / take-back animation, on any tier. Holding
+// Use packs the held gun right there, and EVERY tier replays the first-pack in-hand "gun
+// comes out" draw (user 2026-06-15; see replay_pack_draw / acc_pap_tier_anim). The stock
+// machine's float pack is BLOCKED (acc_pap_validate returns false for EVERY gun).
+//
+//   player.acc_pap_tier[ base_weapon ] = 1..3   (keyed by acc_weapon_variants::true_base)
+//   -> _acc_damage multiplies pap_tier_mult(tier) into every gun hit (1.5 / 2.0 / 2.5).
+//   -> HUD shows a roman-numeral cyber-shield icon (I/II/III) for the held weapon, centered
+//      on the gadget circle (bottom-right) - acc_hud.lua CoD.AccPapTierIcon via accPapTier.
 //   -> each pack/tier-up prints the new tier's benefit so the player can decide.
 //
-// THREE distinct things have read as "can't PaP gun X" - diagnose which before assuming:
-//   (a) NO INTERACT PROMPT AT ALL while a weapon-variant perk (Deadshot / Gun Slinger / Speed
-//       Cola Mega / The Armory) is active = you are holding a base TWIN the stock machine didn't
-//       recognize as packable. FIXED 2026-06-15 in acc_weapon_variants::register_twin_box_weapons
-//       (registers base twins as PaP-includable, box-excluded). This was the recurring AE4/Tac-19
-//       "no PaP option" report. See that function + CHANGELOG.
-//   (b) prompt shows but a re-pack silently no-ops = (c) below (MAX TIER).
-//   (c) MAX TIER. A report of "cannot PaP gun X" with the prompt PRESENT
-// is almost never a broken upgrade path - it is gun X already at MAX TIER 5/5. Re-packing a
-// maxed gun correctly REFUSES ("PACK-A-PUNCH - already max tier 5", acc_do_tier_up), which
-// reads to a player as "won't PaP". acc_pap_tier is an in-memory PLAYER field keyed by
-// true_base, so a maxed tier survives losing / re-boxing that base weapon WITHIN a session and
-// only clears on a fresh first-pack (resets to 1) or a relaunch (new session). The temp
-// PaPDIAG (acc_pap_validate) proved getup/packed resolve for every gun - a gun-ADD never breaks
-// an existing gun's PaP (the upgrade assets are independent). Before chasing a "can't PaP" bug:
-// check the tier (PaPDIAG `upg=1 tier=5`) and try a FRESH box copy / relaunch first.
+// BOX GUNS MUST COME OUT STOCK (user 2026-06-15). Tier 1 is now a BASE-FORM gun (camo only),
+// so we can NO LONGER lean on is_weapon_upgraded() to keep a box copy stock (that was the old
+// 5-tier invariant: tier rode the "_up" asset). Two mechanisms replace it, both keyed by
+// true_base:
+//   - box_grab_clear_watcher (per player, on the stock "user_grabbed_weapon" notify): the
+//     weapon just handed over by the Mystery Box is reset to tier 0, so a re-boxed copy of a
+//     gun you previously packed is stock again.
+//   - tier_possession_prune (in pap_hud_loop): clears acc_pap_tier[ base ] for any base the
+//     player no longer carries ANY form of (covers wallbuy-over / slot swaps). Gated on
+//     !laststand && !is_drinking && !acc_pap_busy so it never fires mid-pack / mid-down.
+//
+// "Can't PaP gun X" with the prompt PRESENT but a re-pack no-op = MAX TIER (3/3). Re-packing
+// a maxed gun correctly REFUSES ("already max tier 3").
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -52,12 +53,11 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
-#define ACC_PAP_MAX_TIER 5
-#define ACC_PAP_TIER_COST_2 2500
-#define ACC_PAP_TIER_COST_3 5000
-#define ACC_PAP_TIER_COST_4 7500
-#define ACC_PAP_TIER_COST_5 10000
+#define ACC_PAP_MAX_TIER 3
+#define ACC_PAP_TIER_COST_2 7500
+#define ACC_PAP_TIER_COST_3 10000
 
 // PaP has no machine float / weapon-lock on any tier - the pack/upgrade happens in hand the
 // moment you finish the Use-hold (every tier replays the first-pack in-hand draw, 2026-06-15).
@@ -82,13 +82,23 @@ function init()
     level thread pap_cost_display_keeper(); // show the real tier-up cost on the machine
 }
 
-// The stock PaP machine, for an already-upgraded weapon, prints the "re-Pack-a-Punch"
-// hint with `self.aat_cost`. We can't change that wording from a usermap (stock string,
-// re-written every frame), but the engine reads `self.aat_cost` LIVE, so we set it to
-// the player's actual next-TIER cost (10% off for The Armory). Result: the prompt shows
-// the correct price you'll be charged. Per-player isn't possible on the shared trigger,
-// so it tracks the nearest player at the machine (solo-exact). Reads the Armory flag
-// field directly (no #using cycle). self unused; level loop.
+// Keep the machine's advertised price equal to the player's ACTUAL next-pack charge. The
+// stock hint reads the cost LIVE every frame: an UPGRADED ("_up") gun shows self.aat_cost,
+// a base/upgradeable gun shows self.cost (verified vs _zm_pack_a_punch.gsc:430-442). We can't
+// reword the stock string from a usermap, but we CAN drive the number. Per-player isn't
+// possible on the shared trigger, so it tracks the nearest player (solo-exact). The 10% Armory
+// discount is folded in. Reads the perk field directly (no #using cycle). self unused; level loop.
+//
+// 3-tier mapping (revamp 2026-06-16):
+//   tier 0 (stock base)      -> self.cost stays the machine's own cost (5000, or 1000 on a
+//                               bonfire sale) - DON'T touch it, so bonfire sales survive.
+//   tier 1 (camo'd base)     -> the NEXT pack is the transform (tier 2). The gun is still
+//                               un-upgraded, so the prompt reads self.cost -> OVERRIDE it to the
+//                               tier-2 price (save/restore so a leftover override never clobbers
+//                               the bonfire/stock cost once a tier-0 player returns).
+//   tier 2 (_up)             -> self.aat_cost = tier-3 price.
+//   tier 3 (_up, MAX)        -> self.aat_cost = 0 (no re-pack; holding Use no-ops, so zeroing
+//                               stops the stale tier-3 price falsely advertising a re-pack).
 function pap_cost_display_keeper()
 {
     level endon( "end_game" );
@@ -111,30 +121,62 @@ function pap_cost_display_keeper()
             if ( !isdefined( t ) ) continue;
 
             np = nearest_pap_player( t.origin );
-            if ( !isdefined( np ) ) continue;
-
-            w = np GetCurrentWeapon();
-            if ( !isdefined( w ) || w == level.weaponNone ) continue;
-            if ( !zm_weapons::is_weapon_upgraded( w ) ) continue; // first-pack: stock self.cost
-
-            base = acc_weapon_variants::true_base( w );   // strips _acc twin suffix so the tier follows recoil swaps
-            tier = get_tier( np, w );
-            if ( tier < 1 ) tier = 1;
-            if ( tier >= ACC_PAP_MAX_TIER )
+            tier = -1;
+            w = undefined;
+            if ( isdefined( np ) )
             {
-                // Maxed: no further tier-up. The stock hint always advertises a re-pack
-                // with self.aat_cost for ANY upgraded gun (no max-tier concept, and we
-                // can't reword the string from a usermap), so zero the cost instead of
-                // leaving the stale tier-4 price - otherwise a maxed gun falsely offers a
-                // ~10000-point re-pack that holding Use silently no-ops (acc_do_tier_up).
-                t.aat_cost = 0;
-                continue;
+                w = np GetCurrentWeapon();
+                if ( isdefined( w ) && w != level.weaponNone )
+                    tier = get_tier( np, w );
             }
 
-            cost = np armory_discount( tier_repack_cost( tier + 1 ) );   // 10% off with The Armory
-            t.aat_cost = cost; // stock update_hint_string shows this for an upgraded gun
+            if ( is_upgraded_safe( w ) )
+            {
+                // tier 2/3 (_up form): stock prompt reads self.aat_cost. Clear any leftover
+                // self.cost override first so a returning tier-0 player sees the real cost.
+                restore_machine_cost( t );
+                if ( tier < 2 ) tier = 2; // an _up gun is always >= tier 2
+                if ( tier >= ACC_PAP_MAX_TIER )
+                    t.aat_cost = 0; // maxed: no re-pack
+                else
+                    t.aat_cost = np armory_discount( tier_repack_cost( tier + 1 ) );
+            }
+            else if ( tier == 1 )
+            {
+                // tier 1 (camo'd base, still un-upgraded): stock prompt reads self.cost, but the
+                // NEXT pack is the tier-2 transform - override the displayed cost to its price.
+                if ( !IS_TRUE( t.acc_cost_overridden ) )
+                {
+                    t.acc_saved_cost = t.cost;
+                    t.acc_cost_overridden = true;
+                }
+                t.cost = np armory_discount( tier_repack_cost( 2 ) );
+            }
+            else
+            {
+                // tier 0 / no player: stock first-pack cost owns self.cost (bonfire-safe).
+                restore_machine_cost( t );
+            }
         }
         wait 0.2;
+    }
+}
+
+// is_weapon_upgraded with an undefined/weaponNone guard (the keeper may have no nearby player).
+function is_upgraded_safe( w )
+{
+    if ( !isdefined( w ) || w == level.weaponNone ) return false;
+    return zm_weapons::is_weapon_upgraded( w );
+}
+
+// Undo a tier-1 self.cost override so the machine's own cost (5000, or a bonfire 1000)
+// shows again for a tier-0 first pack.
+function restore_machine_cost( t )
+{
+    if ( IS_TRUE( t.acc_cost_overridden ) )
+    {
+        t.cost = t.acc_saved_cost;
+        t.acc_cost_overridden = false;
     }
 }
 
@@ -153,15 +195,13 @@ function nearest_pap_player( origin )
     return np;
 }
 
-// cost to move TO `tier` (the NEW tier, 2..5)
+// cost to move TO `tier` (the NEW tier, 2..3)
 function tier_repack_cost( tier )
 {
     switch ( tier )
     {
     case 2: return ACC_PAP_TIER_COST_2;
     case 3: return ACC_PAP_TIER_COST_3;
-    case 4: return ACC_PAP_TIER_COST_4;
-    case 5: return ACC_PAP_TIER_COST_5;
     }
     return 0;
 }
@@ -171,39 +211,27 @@ function tier_repack_cost( tier )
 // PLACE and INSTANTLY (user 2026-06-14: no machine float / animation on any tier), and
 // ALWAYS return false so the stock machine's float pack + take-back never runs (that
 // take-back is also what raced + ate the Use press = the old "PaP stole my gun" bug).
-//   - un-upgraded gun -> acc_do_first_pack: instant swap to the packed form + camo.
-//   - upgraded gun     -> acc_do_tier_up: instant tier bump (no asset re-swap, no AAT).
+//
+// Routed by the player's CURRENT tier on the held gun (3-tier revamp 2026-06-16):
+//   - tier 0 -> acc_do_first_pack: gold camo on the base gun + record tier 1. NO transform.
+//   - tier 1 -> acc_do_tier_up (->2): swap to the packed "_up" form (the real transform) + camo.
+//   - tier 2 -> acc_do_tier_up (->3): in-place damage bump, no asset re-swap.
+//   - tier 3 -> acc_do_tier_up: refuses (already max).
 function acc_pap_validate( player )   // self = the PaP machine trigger
 {
     w = player GetCurrentWeapon();
     if ( !isdefined( w ) || w == level.weaponNone ) return false;
 
-    // TEMP DIAG (akimbo PaP debug, 2026-06-15 - REMOVE once akimbo PaP confirmed). For the
-    // dual-wield guns, dump the upgrade resolution to screen + console_mp.log: no line = validate
-    // not reached; packed=NONE = upgrade lookup fails; packed=<rdw> = lookup OK so the failure is
-    // the give/akimbo-equip. (Briefly widened to Tac-19/AK-47 on 2026-06-15 to chase a "can't PaP"
-    // report - the diag PROVED getup/packed resolve fine and the guns were just at MAX TIER 5/5,
-    // not a bug; widening reverted. See the header "MAX-TIER reads as can't-PaP" note + CHANGELOG.)
-    if ( IsSubStr( w.name, "s1_pdw" ) || IsSubStr( w.name, "s2_m1911" ) || IsSubStr( w.name, "t5_ak74u" ) )
-    {
-        up = zm_weapons::get_upgrade_weapon( w );
-        pf = acc_weapon_variants::packed_form( w );
-        tb = acc_weapon_variants::true_base( w );
-        up_name = "NONE"; if ( isdefined( up ) && up != level.weaponNone ) up_name = up.name;
-        pf_name = "NONE"; if ( isdefined( pf ) && pf != level.weaponNone ) pf_name = pf.name;
-        tb_name = "NONE"; if ( isdefined( tb ) && tb != level.weaponNone ) tb_name = tb.name;
-        player IPrintLnBold( "^3PaPDIAG held=" + w.name + " upg=" + zm_weapons::is_weapon_upgraded( w ) + " tier=" + get_tier( player, w ) + " base=" + tb_name + " getup=" + up_name + " packed=" + pf_name );
-    }
-
-    if ( zm_weapons::is_weapon_upgraded( w ) )
-        player thread acc_do_tier_up( w );
-    else
+    if ( get_tier( player, w ) <= 0 )
     {
         // Pass the machine's LIVE cost (self = trigger; self.cost = 5000, or 1000 on a
-        // bonfire sale) so we charge exactly what the stock prompt advertises.
+        // bonfire sale) so we charge exactly what the stock prompt advertises for tier 1.
         cost = ( isdefined( self.cost ) ? self.cost : ACC_PAP_FIRST_PACK_COST );
         player thread acc_do_first_pack( w, cost );
     }
+    else
+        player thread acc_do_tier_up( w );
+
     return false;    // ALWAYS block the stock float; both packs happen in-hand, instantly
 }
 
@@ -225,10 +253,11 @@ function armory_discount( cost )
     return cost;
 }
 
-// self = player. FIRST pack (tier 0->1), IN PLACE + INSTANT: swap the held gun for its
-// packed form (the matching packed TWIN if it's a perk twin) with the gold PaP camo, carry
-// ammo across, record tier 1. No machine float / take-back. Debounced so one Use-hold can't
-// pack twice.
+// self = player. FIRST pack (tier 0->1), IN PLACE + INSTANT. The 3-tier revamp DEFERS the
+// "_up" transform to tier 2, so this pack does NOT swap the asset - it applies the gold PaP
+// camo to the HELD gun (base form, or base perk-twin) and records tier 1 (+50% damage). The
+// gun keeps its base appearance/behavior; the explosive/akimbo/_up form arrives at tier 2.
+// Debounced so one Use-hold can't pack twice.
 function acc_do_first_pack( w, cost )
 {
     if ( isdefined( self.acc_tier_cd ) && GetTime() < self.acc_tier_cd )
@@ -237,9 +266,10 @@ function acc_do_first_pack( w, cost )
 
     if ( !isdefined( w ) || w == level.weaponNone ) return;
 
+    // Only PACKABLE guns: a hold with no upgrade path (knife / equipment / already-packed)
+    // must NOT be chargeable. packed_form() returns the weapon UNCHANGED when there is no
+    // upgrade, so packed==w means "nothing to pack".
     packed = acc_weapon_variants::packed_form( w );
-    // packed == w means "no upgrade exists" (already packed / non-upgradeable hold like a
-    // knife or equipment) - bail WITHOUT charging so it can't be "packed".
     if ( !isdefined( packed ) || packed == level.weaponNone || packed == w ) return;
 
     if ( !isdefined( cost ) ) cost = ACC_PAP_FIRST_PACK_COST;
@@ -251,9 +281,116 @@ function acc_do_first_pack( w, cost )
     }
     self zm_score::minus_to_player_score( cost );
 
-    // Instant in-hand give of the packed gun WITH the gold PaP camo (mirrors the stock give:
-    // CalcWeaponOptions(camo,..) -> GiveWeapon(weapon, options) - _zm_weapons.gsc:2584/2597).
-    // Carry clip+reserve across (cap-delta, clamp-at-0) so the pack keeps your ammo.
+    base = acc_weapon_variants::true_base( w );   // tier keyed by the true base
+    if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
+    self.acc_pap_tier[ base ] = 1;
+
+    // Apply the gold PaP camo to the held gun (NO asset swap). replay_pack_draw re-gives the
+    // held weapon WITH the camo options (tier 1 is now recorded) AND plays the draw; when the
+    // draw anim is disabled it early-returns, so fall back to a direct camo re-give so tier 1
+    // always gets its camo.
+    self.acc_pap_busy = true;
+    if ( getdvarint( "acc_pap_tier_anim", 1 ) != 0 )
+        self replay_pack_draw( w );
+    else
+        self apply_pap_camo( w );
+    self.acc_pap_busy = false;
+
+    self PlaySound( "zmb_perks_packa_ready" );          // no aat::acquire -> NO alt-ammo
+    self IPrintLnBold( "^5PaP TIER 1/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( 1 ) );
+}
+
+// self = player. Charge + bump the held gun's tier (2 or 3), INSTANT + in place.
+//   tier 1 -> 2: the REAL PaP transform - swap to the packed "_up" form (the matching packed
+//                TWIN if holding a perk twin) WITH gold camo, carrying ammo.
+//   tier 2 -> 3: damage-only bump, no asset re-swap (replays the draw for feedback).
+// Debounced so a single hold can't tier up more than once.
+function acc_do_tier_up( w )
+{
+    if ( isdefined( self.acc_tier_cd ) && GetTime() < self.acc_tier_cd )
+        return;
+    self.acc_tier_cd = GetTime() + int( ACC_PAP_PACK_DEBOUNCE * 1000 );
+
+    base = acc_weapon_variants::true_base( w );   // strips _acc twin suffix so the tier follows recoil swaps
+    if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
+    // Effective current tier: stored value, but an already-"_up" gun is at least tier 2.
+    cur = ( isdefined( self.acc_pap_tier[ base ] ) ? self.acc_pap_tier[ base ] : 1 );
+    if ( zm_weapons::is_weapon_upgraded( w ) && cur < 2 ) cur = 2;
+
+    if ( cur >= ACC_PAP_MAX_TIER )
+    {
+        self IPrintLnBold( "^5PACK-A-PUNCH ^7- already ^6max tier " + ACC_PAP_MAX_TIER );
+        return;
+    }
+
+    next = cur + 1;
+    cost = self armory_discount( tier_repack_cost( next ) );   // 10% off with The Armory
+    if ( !( self zm_score::can_player_purchase( cost ) ) )
+    {
+        self PlaySound( "zmb_perks_packa_deny" );
+        self IPrintLnBold( "^1Not enough points ^7(need " + cost + ")" );
+        return;
+    }
+
+    self.acc_pap_busy = true;
+    if ( next == 2 )
+    {
+        // TIER 1 -> 2: the real transform. Swap the held base gun for its packed "_up" form
+        // (or matching packed twin) WITH gold camo, carrying ammo. Bail WITHOUT charging if no
+        // packed form resolves (should not happen - first pack already proved one exists).
+        if ( !acc_do_transform( w, base ) )
+        {
+            self.acc_pap_busy = false;
+            return;
+        }
+    }
+    else
+    {
+        // TIER 2 -> 3: same "_up" asset, damage-only bump. Replay the draw for visible feedback
+        // (user 2026-06-15: "do the same exact animation we do for first time pap" on every tier).
+        self replay_pack_draw( w );
+    }
+
+    self zm_score::minus_to_player_score( cost );
+    self.acc_pap_tier[ base ] = next;
+    self.acc_pap_busy = false;
+    self PlaySound( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
+    self IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
+}
+
+// self = player. Apply the gold PaP camo to the HELD gun in place (no asset swap), carrying
+// ammo. Used by the tier-1 first pack when the draw anim is disabled (acc_pap_tier_anim 0) -
+// replay_pack_draw applies the camo itself when the anim is on.
+function apply_pap_camo( w )
+{
+    if ( !isdefined( w ) || w == level.weaponNone ) return;
+    if ( ( self GetCurrentWeapon() ) != w ) return;
+
+    camo = zm_weapons::get_pack_a_punch_camo_index( undefined );
+    if ( !isdefined( camo ) ) camo = 0;
+    options = self CalcWeaponOptions( camo, 0, 0 );
+
+    clip  = self GetWeaponAmmoClip( w );
+    stock = self GetWeaponAmmoStock( w );
+    self GiveWeapon( w, options );
+    self SwitchToWeaponImmediate( w );
+    self SetWeaponAmmoStock( w, stock );
+    self SetWeaponAmmoClip( w, clip );
+}
+
+// self = player. The tier-1 -> tier-2 asset transform: swap the held gun for its packed "_up"
+// form (the matching packed TWIN when holding a perk twin) WITH the gold PaP camo, carrying
+// clip+reserve across (cap-delta, clamp-at-0). Mirrors the stock PaP give (CalcWeaponOptions
+// -> GiveWeapon(weapon, options), _zm_weapons.gsc:2584/2597). Returns true on a real swap,
+// false if no upgrade resolves (caller must not charge). NOTE: the tier is recorded by the
+// CALLER after the charge succeeds, so don't write acc_pap_tier here.
+function acc_do_transform( w, base )
+{
+    if ( !isdefined( w ) || w == level.weaponNone ) return false;
+
+    packed = acc_weapon_variants::packed_form( w );
+    if ( !isdefined( packed ) || packed == level.weaponNone || packed == w ) return false;
+
     camo = zm_weapons::get_pack_a_punch_camo_index( undefined );
     if ( !isdefined( camo ) ) camo = 0;
     options = self CalcWeaponOptions( camo, 0, 0 );
@@ -272,52 +409,7 @@ function acc_do_first_pack( w, cost )
     self SetWeaponAmmoClip( packed, new_clip );
     self TakeWeapon( w );
 
-    base = acc_weapon_variants::true_base( packed );   // tier keyed by the true base
-    if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
-    self.acc_pap_tier[ base ] = 1;
-
-    self PlaySound( "zmb_perks_packa_ready" );          // no aat::acquire -> NO alt-ammo
-    self IPrintLnBold( "^5PaP TIER 1/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( 1 ) );
-}
-
-// self = player. Charge + bump the held upgraded gun's tier (2..5), INSTANT + in place.
-// Debounced so a single hold can't tier up more than once.
-function acc_do_tier_up( w )
-{
-    if ( isdefined( self.acc_tier_cd ) && GetTime() < self.acc_tier_cd )
-        return;
-    self.acc_tier_cd = GetTime() + int( ACC_PAP_PACK_DEBOUNCE * 1000 );
-
-    base = acc_weapon_variants::true_base( w );   // strips _acc twin suffix so the tier follows recoil swaps
-    if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
-    // engine-PaP'd but unseen by us == tier 1 (the first paid bump isn't free).
-    cur = ( isdefined( self.acc_pap_tier[ base ] ) ? self.acc_pap_tier[ base ] : 1 );
-
-    if ( cur >= ACC_PAP_MAX_TIER )
-    {
-        self IPrintLnBold( "^5PACK-A-PUNCH ^7- already ^6max tier " + ACC_PAP_MAX_TIER );
-        return;
-    }
-
-    next = cur + 1;
-    cost = self armory_discount( tier_repack_cost( next ) );   // 10% off with The Armory
-    if ( !( self zm_score::can_player_purchase( cost ) ) )
-    {
-        self PlaySound( "zmb_perks_packa_deny" );
-        self IPrintLnBold( "^1Not enough points ^7(need " + cost + ")" );
-        return;
-    }
-
-    self zm_score::minus_to_player_score( cost );
-
-    // In place, no asset re-swap / float / weapon lock. The tier bumps the moment you finish
-    // the Use-hold. The held gun is the SAME asset across tiers 1..5 (only the damage mult
-    // changes), so we replay the first-pack draw animation for visible feedback (user
-    // 2026-06-15: "do the same exact animation we do for first time pap" on every tier).
-    self.acc_pap_tier[ base ] = next;
-    self replay_pack_draw( w );
-    self PlaySound( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
-    self IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
+    return true;
 }
 
 // self = player. Replay the first-pack "gun comes out" draw on a tier-up (user 2026-06-15).
@@ -395,7 +487,10 @@ function replay_pack_draw( w )
         if ( !isdefined( p ) || p == level.weaponNone ) continue;
         if ( p != w )
         {
-            if ( zm_weapons::is_weapon_upgraded( p ) )
+            // Re-apply the gold camo to any PaP'd gun (tier >= 1) - NOT just engine-upgraded
+            // ones: a tier-1 gun is a camo'd BASE form (is_weapon_upgraded false) and must keep
+            // its camo across the take/restore.
+            if ( get_tier( self, p ) >= 1 )
                 self GiveWeapon( p, pap_options );
             else
                 self GiveWeapon( p );
@@ -443,6 +538,7 @@ function player_setup_loop()
             p.acc_pap_setup_done = true;
             if ( !isdefined( p.acc_pap_tier ) ) p.acc_pap_tier = [];
             p thread pap_taken_watcher();
+            p thread box_grab_clear_watcher();   // box guns must come out stock (3-tier revamp)
             p thread pap_hud_loop();
         }
         wait 1;
@@ -483,58 +579,110 @@ function pap_taken_watcher()
     }
 }
 
+// self = player. The Mystery Box must hand over a STOCK gun (user 2026-06-15). Tier 1 is now a
+// camo'd BASE form, so is_weapon_upgraded() can no longer keep a re-boxed copy stock - this
+// watcher resets the tier of whatever base the box just gave. Stock fires "user_grabbed_weapon"
+// on the player when they take a box weapon (_zm_magicbox.gsc:809); after the give settles the
+// box weapon is the current weapon, so clearing that base's tier makes the copy stock again.
+function box_grab_clear_watcher()
+{
+    self endon( "disconnect" );
+
+    for ( ;; )
+    {
+        self waittill( "user_grabbed_weapon" );
+        self util::waittill_any_timeout( 1.0, "weapon_change_complete" ); // let the box give settle
+        if ( !isdefined( self ) ) return;
+
+        w = self GetCurrentWeapon();
+        if ( !isdefined( w ) || w == level.weaponNone ) continue;
+        // A box gun is always a BASE form (the box never rolls our "_up" twins). Only clear base
+        // forms so a rare BGB crate-power box upgrade isn't wrongly zeroed.
+        if ( zm_weapons::is_weapon_upgraded( w ) ) continue;
+
+        base = acc_weapon_variants::true_base( w );
+        if ( isdefined( self.acc_pap_tier ) && isdefined( self.acc_pap_tier[ base ] ) )
+            self.acc_pap_tier[ base ] = 0;
+    }
+}
+
+// self = player. Clear acc_pap_tier[ base ] for any base the player no longer carries ANY form
+// of (covers wallbuy-over / slot swaps that leave a stale tier so a future stock copy of that
+// base would falsely read PaP'd). The box-grab clear above handles re-boxing the SAME base; this
+// catches everything else. Gated so it never fires during a pack / perk drink / laststand -
+// windows where the primaries list is transiently incomplete and a legit tier would be dropped.
+function prune_lost_tiers()
+{
+    if ( !isdefined( self.acc_pap_tier ) ) return;
+    if ( IS_TRUE( self.laststand ) || IS_TRUE( self.acc_pap_busy ) ) return;
+    if ( isdefined( self.is_drinking ) && self.is_drinking > 0 ) return;
+
+    held = [];
+    guns = self GetWeaponsListPrimaries();
+    eq = self GetCurrentWeapon();
+    if ( isdefined( eq ) && eq != level.weaponNone ) guns[ guns.size ] = eq;
+    for ( i = 0; i < guns.size; i++ )
+    {
+        g = guns[ i ];
+        if ( !isdefined( g ) || g == level.weaponNone ) continue;
+        b = acc_weapon_variants::true_base( g );
+        if ( isdefined( b ) && b != level.weaponNone ) held[ b ] = true;
+    }
+
+    keys = getarraykeys( self.acc_pap_tier );
+    for ( i = 0; i < keys.size; i++ )
+    {
+        k = keys[ i ];
+        if ( self.acc_pap_tier[ k ] <= 0 ) continue;
+        if ( !IS_TRUE( held[ k ] ) ) self.acc_pap_tier[ k ] = 0;
+    }
+}
+
+// PaP tier for `weapon` on `player` (0..3). Twin-aware (keyed by acc_weapon_variants::true_base
+// so the tier follows recoil/fire swaps). 3-tier revamp: a BASE gun reads its stored tier
+// directly (0 = stock / box-fresh, 1 = camo'd first pack) - the box-grab clear + possession prune
+// keep a box copy at 0, so a base gun never shows phantom PaP. An engine-"_up" gun is the tier-2
+// transform form or higher; clamp up defensively if our record ever lagged behind the asset.
 function get_tier( player, weapon )
 {
     if ( !isdefined( weapon ) || weapon == level.weaponNone || !isdefined( player.acc_pap_tier ) ) return 0;
-    // The tier rides the UPGRADED ("packed") weapon only. A stock/base gun reads tier 0 even if
-    // this player once tiered the SAME base weapon - acc_pap_tier is keyed by base and never
-    // cleared, so a gun pulled fresh from the Mystery Box (always a stock base form) would
-    // otherwise keep the old PaP damage + "PaP TIER" HUD on a non-packed gun (user 2026-06-15:
-    // box guns must come out stock, never papped/tiered). Re-packing that base re-records tier 1.
-    if ( !( zm_weapons::is_weapon_upgraded( weapon ) ) ) return 0;
-    base = acc_weapon_variants::true_base( weapon );   // twin-aware: tier follows recoil swaps
-    if ( !isdefined( player.acc_pap_tier[ base ] ) ) return 0;
-    return player.acc_pap_tier[ base ];
+    base = acc_weapon_variants::true_base( weapon );   // twin-aware: tier follows recoil/fire swaps
+    stored = ( isdefined( player.acc_pap_tier[ base ] ) ? player.acc_pap_tier[ base ] : 0 );
+    if ( zm_weapons::is_weapon_upgraded( weapon ) && stored < 2 ) return 2;
+    return stored;
 }
 
-// Tier for the INFO CARD. Clamps an already-upgraded-but-unrecorded gun to tier 1 - a
-// belt-and-suspenders for any window where a gun reads is_weapon_upgraded but our
-// acc_pap_tier hasn't been written yet (acc_do_first_pack records tier 1 synchronously, so
-// this is rare now). Without it the card would render an upgraded gun as a free first pack
-// even though re-packing bills tier-2 cost. Keeps the card, the machine hint, and the
-// charge in agreement.
+// Tier for the INFO CARD. get_tier already clamps an "_up" gun to >= 2, so this is now a thin
+// pass-through (kept for callers / future divergence).
 function get_card_tier( player, weapon )
 {
-    tier = get_tier( player, weapon );
-    if ( tier < 1 && isdefined( weapon ) && weapon != level.weaponNone
-         && zm_weapons::is_weapon_upgraded( weapon ) )
-        tier = 1;
-    return tier;
+    return get_tier( player, weapon );
 }
 
-// Tier 1 = the stock asset upgrade itself (no extra mult). Tiers 2..5 layer on
-// a flat extra damage multiplier on top of the stock-PaP'd gun.
+// PaP damage ladder (3-tier revamp 2026-06-16): +50% / +100% / +150% over the gun's normalized
+// base damage. Returned as a layer for _acc_damage's ADDITIVE bonus_sum (a "+50%" = a 1.5 layer;
+// bonus_factor is the literal sum of layers, _acc_damage.gsc:427-430). The "% is the only damage
+// lever" model (user 2026-06-16): acc_weapon_balance_mult normalizes every form (base/_up/twin)
+// per gun, so the "_up" transform's own raw damage doesn't double-count - this ladder IS the PaP
+// damage progression.
 function pap_tier_mult( tier )
 {
     switch ( tier )
     {
-    case 2: return 1.25;
-    case 3: return 1.55;
-    case 4: return 1.90;
-    case 5: return 2.30;
+    case 1: return 1.5;
+    case 2: return 2.0;
+    case 3: return 2.5;
     }
-    return 1.0; // tier 0 (not packed) or 1 (stock upgrade only)
+    return 1.0; // tier 0 (not packed)
 }
 
 function tier_benefit( tier )
 {
     switch ( tier )
     {
-    case 1: return "Pack-a-Punched (camo + alt-ammo). Pack again to raise the tier.";
-    case 2: return "+25pct weapon damage";
-    case 3: return "+55pct weapon damage";
-    case 4: return "+90pct weapon damage";
-    case 5: return "+130pct weapon damage (MAX)";
+    case 1: return "+50pct damage + camo. Pack again to TRANSFORM the gun (tier 2).";
+    case 2: return "+100pct damage + upgraded form (explosive / akimbo / etc.)";
+    case 3: return "+150pct damage (MAX)";
     }
     return "";
 }
@@ -546,7 +694,7 @@ function tier_benefit( tier )
 // truth that chain reads.
 
 // ---------------------------------------------------------------------------
-// HUD: held weapon's tier, bottom-right
+// HUD: held weapon's tier -> accPapTier clientuimodel (roman-numeral icon, bottom-right)
 // ---------------------------------------------------------------------------
 
 function pap_hud_loop()
@@ -554,30 +702,26 @@ function pap_hud_loop()
     self endon( "disconnect" );
     level endon( "end_game" );
 
-    self.acc_pap_hud = self hud::createFontString( "default", 1.4 );
-    // Bottom-RIGHT, just above the stock ammo counter (was -175 = too high, -100 = ammo
-    // overlapped it). -130 sits clear, next to the gun.
-    self.acc_pap_hud hud::setPoint( "BOTTOM_RIGHT", "BOTTOM_RIGHT", -20, -130 );
-    self.acc_pap_hud.alignX = "right";
-    self.acc_pap_hud.alignY = "middle";
-    self.acc_pap_hud.color = ( 0.7, 0.45, 1.0 );
-    self.acc_pap_hud.alpha = 0;
-    self.acc_pap_hud.hidewheninmenu = true;
+    // The held weapon's PaP tier is shown as a roman-numeral cyber-shield icon (I/II/III)
+    // by acc_hud.lua's CoD.AccPapTierIcon, centered over the gadget HUD circle (bottom-right).
+    // It's driven by the accPapTier clientuimodel, which we push here every 0.25s on change
+    // (icon hidden at tier 0). This REPLACED the old bottom-right "PaP TIER x/3" font string
+    // (user 2026-06-16) - the same get_tier value perk_info pushes for the PaP card, so the
+    // two writers never disagree. set_pap_tier clamps; prune keeps box-fresh bases at 0.
+    last_pushed = -1;
 
     for ( ;; )
     {
         wait 0.25;
         if ( !isdefined( self ) ) return;
 
+        self prune_lost_tiers();   // keep box-fresh / dropped bases at tier 0
+
         tier = get_tier( self, self GetCurrentWeapon() );
-        if ( tier > 0 )
+        if ( tier != last_pushed )
         {
-            self.acc_pap_hud SetText( "^5PaP TIER " + tier + "/" + ACC_PAP_MAX_TIER );
-            self.acc_pap_hud.alpha = 0.9;
-        }
-        else
-        {
-            self.acc_pap_hud.alpha = 0;
+            acc_lui::set_pap_tier( self, tier );
+            last_pushed = tier;
         }
     }
 }

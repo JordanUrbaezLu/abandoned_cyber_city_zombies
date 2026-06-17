@@ -97,26 +97,29 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 - **Third primary weapon slot** (carry 3 primaries instead of 2). **(BASE)**
 
 **Mega — The Armory:**
-- **+25% ammo capacity** per weapon (reserve ammo).
+- **+35% reserve ammo refilled at the start of every round**, per carried weapon (reworked 2026-06-16
+  — was "+25% capacity"; a baked reserve cap can't be raised at runtime, so it's now a sustain refill
+  instead. Also given instantly on acquire). Clamped to each gun's normal cap.
 - **All buys 10% cheaper** — every point purchase (wallbuys, ammo, perks, Pack-a-Punch, Mystery Box) costs 10% less while you hold The Armory.
 
 ---
 
 ## 7. Deadshot — 3,500 Points *(custom — not a stock BO3 perk, so no `(BASE)` tags)*
 
-> **Map recoil baseline:** every gun kicks at **2.1× vanilla recoil** by default (a map-wide
-> skill rule, not a perk). Deadshot's reductions are measured **off that 2.1× baseline**.
+> **Map recoil baseline:** the box guns kick at **1.75× vanilla recoil** by default (a map-wide
+> skill rule, not a perk; lowered from 2.1× on 2026-06-16). Recoil reduction is **Mega-only** now —
+> see American Sniper. Base Deadshot no longer changes recoil (the dropped layer that freed twin slots).
 
 **Base abilities:**
 - **+1.4 headshot damage bonus** (added into the headshot bonus sum, not multiplied — 2026-06-14).
-- **−25% weapon recoil** → 2.1 × 0.75 = **1.575× vanilla** (still above stock).
 - **Snaps to the nearest head while aiming down sights** (not on bosses).
+- *(No recoil change — recoil reduction moved to the Mega tier 2026-06-16.)*
 
 **Mega — American Sniper:**
-- **+1.8 headshot damage bonus** (replaces the base +1.4 — no double dip).
-- **−40% weapon recoil** → 2.1 × 0.60 = **1.26× vanilla** (the tamest tier — still a touch above stock).
+- **+1.6 headshot damage bonus** (replaces the base +1.4 — no double dip; retuned 1.8→1.6 on 2026-06-16).
+- **−50% weapon recoil** → 1.75 × 0.50 = **0.875× vanilla** (below stock — a genuinely steady gun).
 
-**Effective headshot damage** — bonuses are **summed**, then multiplied by the stock ~1.5× weapon-GDT headshot mult. Map headshot bonus is **+2.0 trash / +2.0 boss** (boss lowered from 3.0, 2026-06-14): base Deadshot ≈ 1.5 × (2.0 + 1.4) = **×5.1** on trash and bosses; American Sniper ≈ 1.5 × (2.0 + 1.8) = **×5.7**.
+**Effective headshot damage** — the bonuses are **summed**, then multiplied against the incoming damage (which already carries the gun's baked **`locHead`** hit-location mult). Map headshot bonus is now **+0.5 trash / +1.0 boss** (lowered from 2.0/2.0 on 2026-06-16). Effective head:body ratio = `locHead × (bonus sum)`. Most box guns are `locHead 5.0`, so a no-perk headshot ≈ **2.5× body (trash) / 5× body (boss)**; **Paladin** is `locHead 1.0` → **0.5× / 1.0×** (it one-shots via raw damage, not headshots). Adding Deadshot raises the bonus sum: e.g. trash with American Sniper ≈ `5.0 × (0.5 + 1.6) = ×10.5` on a locHead-5.0 gun.
 
 ---
 

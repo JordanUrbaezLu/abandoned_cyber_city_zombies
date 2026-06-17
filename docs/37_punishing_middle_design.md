@@ -18,7 +18,7 @@
 ## 1. The goal & the trap
 
 **The ask:** make the *middle* of the map dangerous to dwell in, so players naturally settle at one
-of the two poles — **Spawn** ("first room", south) or **Lab** (north apex) — and
+of the two poles — **Plaza** ("first room", south) or **Lab** (north apex) — and
 only cross the middle when they must, with that crossing carrying real risk and *fear*. The leading
 idea was **a new entity that controls the middle**.
 
@@ -30,13 +30,13 @@ idea was **a new entity that controls the middle**.
         ROOF    VAULT   (Roof = best late train, one hop from Lab; Vault = Power B + Overload)
            \    /
            CORP  ← THE MIDDLE. Cut-vertex hub: Power A, AR/box, hack terminal, 2 trains.
-           /    \    NEVER sealed (sealing it disconnects Spawn↔Lab). Still un-shrunk (docs/36).
+           /    \    NEVER sealed (sealing it disconnects Plaza↔Lab). Still un-shrunk (docs/36).
       MARKET    ALLEY
            \    /
-          SPAWN  ← south pole: no perks, no box, and (2-gun directive) NO wallbuys either.
+          PLAZA  ← south pole: no perks, no box, and (2-gun directive) NO wallbuys either.
 ```
 
-To go Spawn↔Lab you **must** pass through **Corp + one lower spoke + one upper spoke**. Corp is the
+To go Plaza↔Lab you **must** pass through **Corp + one lower spoke + one upper spoke**. Corp is the
 sole articulation point in the zone graph — which is exactly why it's the right place to make
 fearsome, and exactly why it **can never be a wall**: seal it and you strand the team from the Lab.
 Any "punishing middle" must be a survivable **toll** (damage / fear / cost you can always run out of),
@@ -45,7 +45,7 @@ keeping **≥2 traversable routes through Corp at every frame**.
 **The trap underneath the question (the most important finding):** the map is a **one-way ratchet
 toward the Lab.** Every recurring reason to move lives at or beside the Lab pole (PaP, all perks,
 Overclocks, wonder-weapon, Mega Bottles), Roof — the best late train — is one hop from Lab, and Data
-Shards are **portable** (corpse drops + passive timer follow the player anywhere). Spawn is barren:
+Shards are **portable** (corpse drops + passive timer follow the player anywhere). Plaza is barren:
 no perks, no box, and no wallbuys (the 2-gun box-only arsenal directive removed them all). So layering
 a scary middle onto today's economy doesn't make players cross *more* — **it freezes them at the
 Lab+Roof cluster forever and never sends them back down.** The fear lands on nobody because nobody
@@ -59,15 +59,15 @@ crosses. A punishing middle is **necessary but insufficient.**
 **recurring, NON-PORTABLE, bottom-anchored demand**, both directions below degrade into a wall that
 either strands players or freezes them at the top. The demand must satisfy all of:
 
-- **Terminate at Spawn** (never sealed) — *not* Corp or Roof (both are Lab-adjacent and would let
+- **Terminate at Plaza** (never sealed) — *not* Corp or Roof (both are Lab-adjacent and would let
   players shortcut the trip).
 - **Not be Shards or any portable currency** — players already earn those everywhere. It must be a
   unique resource/service that exists *only at the bottom*.
-- **Be newly placed** — Spawn has no existing anchor to lean on.
+- **Be newly placed** — Plaza has no existing anchor to lean on.
 - **Fire on a cadence** (every ~3 rounds) so the commute *recurs* rather than being a one-time errand.
 
 The elegant coupling all five concepts converged on: **the trip down buys the trip back up.** A new
-**Spawn Regulator console** (hold-to-bank, every few rounds) grants a non-portable credit you redeem
+**Plaza Regulator console** (hold-to-bank, every few rounds) grants a non-portable credit you redeem
 at the Lab — *and* simultaneously **resets the middle's safe window to maximum.** Descending is
 rational because it pays for the team's next safe ascent.
 
@@ -80,7 +80,7 @@ rational because it pays for the team's next safe ascent.
 
 > **The judges' single most consistent criticism across all five concepts:** this bottom-pull is the
 > **load-bearing, least-built, most-fragile** half, and several concepts mislabel net-new economy
-> plumbing as "reuse." Treat the Spawn console + credit as the **primary build risk**, not a polish
+> plumbing as "reuse." Treat the Plaza console + credit as the **primary build risk**, not a polish
 > pass bolted onto a cool hazard.
 
 ---
@@ -94,7 +94,7 @@ A 26-agent panel generated and adversarially scored 5 concepts. Two are live; th
 | **A — The Contaminated Core** (environmental) | **7.0** | The middle *breathes*: safe windows + a telegraphed lethal "saturation" you must dash through. No creature — the *place* is the threat. |
 | **B — The Toll Daemon** (your entity idea) | 6.7 | A named boss leashed to Corp that *taxes presence* (drain + lock-on), reskinned stock zombie, dies to a PaP gun in 1–2s. Highest raw feasibility (8). |
 
-Both are fleshed out below. Both pair with the §2 Spawn console.
+Both are fleshed out below. Both pair with the §2 Plaza console.
 
 ---
 
@@ -106,7 +106,7 @@ Both are fleshed out below. Both pair with the §2 Spawn console.
 costs HP and points; loitering the full window downs you. **Never a seal** — all four mouths stay open
 and spawning, so the cut-vertex and ≥2-exits rules hold by construction.
 
-**How it controls the middle.** The hazard exists *only* where every Spawn↔Lab path converges — the
+**How it controls the middle.** The hazard exists *only* where every Plaza↔Lab path converges — the
 Corp interior (the existing `corp_zone` info_volumes, tested with the verified
 `get_zone_volumes` / `player_in_zone_volumes` `IsTouching` pattern from `_acc_decontamination.gsc`) plus
 the four 256u corridor mouths (anchored to placed structs so the test survives the planned Corp shrink).
@@ -216,7 +216,7 @@ avoids entirely.
 | **Judge avg** | **7.0** (no killer flaw) | 6.7 (3 fixable issues) |
 | **Biggest risk** | tuning sub-lethal DoT; `.csc` read | kite-abuse; the 3 false-reuse fixes |
 
-Both share the **same** §2 Spawn-console reason-to-cross and the same fairness guarantees. The fork is
+Both share the **same** §2 Plaza-console reason-to-cross and the same fairness guarantees. The fork is
 really **"faceless-but-bulletproof"** vs **"named-but-riskier."**
 
 ---
@@ -227,7 +227,7 @@ really **"faceless-but-bulletproof"** vs **"named-but-riskier."**
 |---|---|
 | **Decontamination** (double-count risk) | **Suspend the hazard entirely during the `acc_decontamination_start..complete` evac window**; gate `first_round = 5` so it never fires during the R1–4 seal window. On rounds where decon has funneled the team to a single lower+upper spoke (`is_zone_sealed`), soften that round (longer safe window / weaker tax). **Listen only** to the decon notifies — never rename/suppress `acc_decontamination_complete` (it's the sole trigger for the perk re-roll). |
 | **Speed curve + AI-cap-24 congestion** | **A:** adds no bodies — peak-alive stays 24, no second speed writer. **B:** adds an AI body — must stay within the cap and **avoid the documented worst-stack** (tight Corp + sprint modifier + 4p) the overhaul defers (docs/36). Any optional hot-wave surge stays **default OFF**. |
-| **Corp cut-vertex** | Respected absolutely: **no seal, no spawn-kill, all four mouths always open and live.** `is_eligible_zone` already hard-refuses Corp — we never touch that path. Both designs are escapable pressure, structurally incapable of disconnecting Spawn↔Lab. |
+| **Corp cut-vertex** | Respected absolutely: **no seal, no spawn-kill, all four mouths always open and live.** `is_eligible_zone` already hard-refuses Corp — we never touch that path. Both designs are escapable pressure, structurally incapable of disconnecting Plaza↔Lab. |
 | **Modifiers (opt-in first?)** | **Ship opt-in.** Add to `_acc_modifiers.gsc`'s `all[]` → `level.acc_mod_*`; gate every effect on `IS_TRUE(...)`. Documented opt-in-first path ([36](36_map_tightening_research.md) Q5); harder-modifier score-multiplier interaction already specced ([07](07_replayability.md)). Promote to default only after the worst-stack playtest. |
 | **Randomizer** | Optional per-run variant (safe-window length, or which mouth telegraphs first) rolled in `_acc_map_randomizer::pre_init` via `acc_utility::acc_rand_int` (seeded PRNG). Not required for v1. |
 | **Corp shrink (docs/36, still pending)** | The middle hazard's volume/mouth anchors and the eventual Corp interior shrink **should be planned together** — anchor the mouth tests to placed structs, not literal coords, so the shrink doesn't desync the hazard. |

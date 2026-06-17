@@ -41,7 +41,7 @@
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
-#define ACC_BOSS_MINI_HP 500000      // 10x the old 50k baseline
+#define ACC_BOSS_MINI_HP 250000      // 5x the 50k baseline (was 10x/500000, lowered 2026-06-16)
 #define ACC_BRUTUS_FIRST_ROUND 4     // first Brutus round (user 2026-06-15, "for now")
 #define ACC_BRUTUS_INTERVAL 5        // then every 5 rounds (r4, 9, 14, 19, 24, ...)
 

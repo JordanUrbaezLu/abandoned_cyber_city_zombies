@@ -128,10 +128,33 @@ const genrooms = parseGenRooms();
 
 const mapSrc = read('map_source/zm/zm_abandoned_cyber_city.map');
 const wsBrushes = parseWorldspawnBrushes(mapSrc);
-const floorBoxes = wsBrushes
-  .map(brushAABB)
-  .filter((b) => b && eq(b.z1, sot.wall.floorBottom) && eq(b.z2, sot.wall.floorTop))
+const allBoxes = wsBrushes.map(brushAABB).filter(Boolean);
+const floorBoxes = allBoxes
+  .filter((b) => eq(b.z1, sot.wall.floorBottom) && eq(b.z2, sot.wall.floorTop))
   .map((b) => ({ ...b, cx: (b.x1 + b.x2) / 2, cy: (b.y1 + b.y2) / 2 }));
+
+// Match a baked brush by full AABB (all 6 faces). Baked boxes come pre-normalized
+// (brushAABB uses min/max), so pass a normalized expected box.
+const box6Eq = (a, b) => eq(a.x1, b.x1) && eq(a.x2, b.x2) && eq(a.y1, b.y1) &&
+  eq(a.y2, b.y2) && eq(a.z1, b.z1) && eq(a.z2, b.z2);
+const findBox6 = (b) => allBoxes.find((x) => box6Eq(x, b));
+
+// A trench zone's floor is split into 3 baked slabs (see rooms.json "trenches").
+function checkTrenchSlabs(zone, want, tr) {
+  const fb = sot.wall.floorTop; // 0
+  const slabs = {
+    'south slab': { x1: want.x1, x2: want.x2, y1: want.y1, y2: tr.y1, z1: tr.slabBottom, z2: fb },
+    'north slab': { x1: want.x1, x2: want.x2, y1: tr.y2, y2: want.y2, z1: tr.slabBottom, z2: fb },
+    'trench floor': { x1: want.x1, x2: want.x2, y1: tr.y1, y2: tr.y2, z1: tr.slabBottom, z2: tr.floorZ },
+  };
+  // norm() only orders x/y; keep z (min/max) so box6Eq's z compare is defined.
+  const normZ = (b) => ({ ...norm(b), z1: Math.min(b.z1, b.z2), z2: Math.max(b.z1, b.z2) });
+  for (const [label, b] of Object.entries(slabs)) {
+    const want6 = normZ(b);
+    if (findBox6(want6)) ok(`.map ${zone} trench ${label}`);
+    else err(`.map ${zone} trench ${label}: no baked brush matching ${fmt(want6)} z[${want6.z1},${want6.z2}]`);
+  }
+}
 
 for (const [zone, r] of Object.entries(sot.rooms)) {
   if (typeof r !== 'object' || !r.outer) continue;
@@ -153,18 +176,25 @@ for (const [zone, r] of Object.entries(sot.rooms)) {
   }
 
   // 4. baked .map floor slab
-  const exact = floorBoxes.find((b) => boxEq(b, want));
-  if (exact) {
-    ok(`.map floor ${zone}`);
+  const tr = sot.trenches && sot.trenches[r.shortName];
+  if (tr) {
+    // Trench zone: the single floor slab was replaced by south/north/trench
+    // slabs (rooms.json "trenches"). Verify those instead.
+    checkTrenchSlabs(zone, want, tr);
   } else {
-    const inside = floorBoxes.filter((b) => b.cx > want.x1 && b.cx < want.x2 && b.cy > want.y1 && b.cy < want.y2);
-    if (inside.length) err(`.map ${zone}: no floor slab matching SoT ${fmt(want)}; nearest candidate ${fmt(inside[0])}`);
-    else warn(`.map ${zone}: no z[${sot.wall.floorBottom},${sot.wall.floorTop}] floor slab found at SoT footprint ${fmt(want)} (start uses the original template floor; verify manually)`);
-  }
+    const exact = floorBoxes.find((b) => boxEq(b, want));
+    if (exact) {
+      ok(`.map floor ${zone}`);
+    } else {
+      const inside = floorBoxes.filter((b) => b.cx > want.x1 && b.cx < want.x2 && b.cy > want.y1 && b.cy < want.y2);
+      if (inside.length) err(`.map ${zone}: no floor slab matching SoT ${fmt(want)}; nearest candidate ${fmt(inside[0])}`);
+      else warn(`.map ${zone}: no z[${sot.wall.floorBottom},${sot.wall.floorTop}] floor slab found at SoT footprint ${fmt(want)} (start uses the original template floor; verify manually)`);
+    }
 
-  // informational: extra overlapping floor shells inside this room
-  const overlapping = floorBoxes.filter((b) => b.cx > want.x1 && b.cx < want.x2 && b.cy > want.y1 && b.cy < want.y2 && !boxEq(b, want));
-  if (overlapping.length) warn(`.map ${zone}: ${overlapping.length} extra overlapping floor shell(s) inside the room (e.g. ${fmt(overlapping[0])}) - see genRoomsShells conflict in rooms.json`);
+    // informational: extra overlapping floor shells inside this room
+    const overlapping = floorBoxes.filter((b) => b.cx > want.x1 && b.cx < want.x2 && b.cy > want.y1 && b.cy < want.y2 && !boxEq(b, want));
+    if (overlapping.length) warn(`.map ${zone}: ${overlapping.length} extra overlapping floor shell(s) inside the room (e.g. ${fmt(overlapping[0])}) - see genRoomsShells conflict in rooms.json`);
+  }
 }
 
 // 3. gen_rooms shells (vault/roof) vs SoT genRoomsShells

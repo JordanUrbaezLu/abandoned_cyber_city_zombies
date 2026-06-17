@@ -59,7 +59,7 @@ author in this repo today.
 - [x] **reroll-box-location** `implemented` *(closed 2026-06-12 second ultracode pass)* — Initial Mystery Box location re-rolls each game among 3 nodes (market/corp/roof) via level.start_chest_name.
   - *Next:* Place three mystery-box prefabs with script_noteworthy acc_box_market / acc_box_corp / acc_box_roof once the Market/Corp/Roof zones exist in Radiant.
 - [ ] **hack-objective-gates-rewards** `map-missing` — Optional Hack Terminal objective gates rewards: 500-point activation, 3 timed kill stages, success pays 2 shards, failure locks terminal and spawns a penalty wave.
-  - *Next:* Place the acc_hack_terminal trigger_use in Radiant (Plaza zone) and implement spawn_penalty_wave via zombie_utility::spawn_zombie.
+  - *Next:* Place the acc_hack_terminal trigger_use in Radiant (Bus Station zone) and implement spawn_penalty_wave via zombie_utility::spawn_zombie.
 - [ ] **overload-objective-gates-rewards** `map-missing` — Optional Vault Overload objective gates rewards: 1000-point activation, 90s hold within 96 units (fail after 8s off-point), success pays 3 shards + unlocks Server-to-Roof shortcut.
   - *Next:* Place acc_overload_terminal, acc_overload_point, and the acc_shortcut_server_roof brush door in Radiant (Vault zone) and implement the wave spawn TODOs.
 - [x] **zones-small-connected** `implemented` *(closed 2026-06-12: 7-zone greybox geometry landed)* — Map is multiple small, connected, readable zones (density over scale) rather than a single space.
@@ -87,7 +87,7 @@ author in this repo today.
   - *Next:* Build the Lab zone with 4 acc_lab_perk_a..d machine entities and write the trigger/purchase logic that reads .acc_current_specialty and grants that perk via the stock perk pipeline.
 - [ ] **alley-first-elite-guaranteed-shard** `scaffolded` — The first elite spawns in Alley around round 5 and guarantees the run's first Data Shard drop.
   - *Next:* Pin the run's first elite spawn to an alley_spawners struct and add a level.acc_first_elite_shard_granted guarantee that forces a shard drop on that kill.
-- [ ] **corp-hack-terminal-event** `scaffolded` — Plaza has an optional Hack Terminal intrusion event: success rewards 2 Data Shards; failure locks it for the run and spawns a penalty wave.
+- [ ] **corp-hack-terminal-event** `scaffolded` — Bus Station has an optional Hack Terminal intrusion event: success rewards 2 Data Shards; failure locks it for the run and spawns a penalty wave.
   - *Next:* Implement spawn_penalty_wave via zombie_utility::spawn_zombie (~8 fast zombies near the terminal) and place an acc_hack_terminal trigger_use in the Corp zone.
 - [ ] **vault-overload-event** `scaffolded` — Vault has the Vault Overload event: defend a point for 90 seconds against scaled waves; success = 3 Data Shards + permanent run shortcut; failure = takedown wave.
   - *Next:* Implement the overload wave + takedown spawning via zombie_utility, and place the terminal trigger, defend-point struct, and acc_shortcut_server_roof door brushmodel in the Vault zone.
@@ -97,25 +97,25 @@ author in this repo today.
   - *Next:* Build the Alley zone and move/retag the Haymaker wallbuy struct there as the acc-addressable alley_shotgun slot.
 - [ ] **vault-emp-wallbuy** `stubbed` — Vault has an EMP Grenade tactical wallbuy.
   - *Next:* Author the emp_grenade_zm weapon GDT (Phase 4 Windows-side) and place its wallbuy struct in the Vault zone.
-- [x] **zones-7-total** `implemented` *(closed 2026-06-12: all 7 info_volume zones + spawner structs in the .map and add_adjacent_zone wiring in the entry script)* — The map contains exactly 7 zones (Spawn, Market, Alley, Plaza, Vault, Helipad, Lab) as zonemgr-managed info_volume player_volume entities.
+- [x] **zones-7-total** `implemented` *(closed 2026-06-12: all 7 info_volume zones + spawner structs in the .map and add_adjacent_zone wiring in the entry script)* — The map contains exactly 7 zones (Plaza, Market, Alley, Bus Station, Vault, Helipad, Lab) as zonemgr-managed info_volume player_volume entities.
   - *Next:* Author the 6 remaining zone info_volumes (+ matching <zone>_spawners structs) in Radiant and extend the entry script's init_zones/zm_zonemgr::add_adjacent_zone wiring for all 7 zones.
-- [x] **zone-graph-8-edges** `implemented` *(closed 2026-06-12: 8 corridors + 8 add_adjacent_zone calls (always_on greybox flags))* — The zone graph has exactly 8 bidirectional connections: Spawn-Market, Spawn-Alley, Market-Corp, Alley-Corp, Corp-Vault, Corp-Roof, Vault-Lab, Roof-Lab (Lab reachable via two approaches).
+- [x] **zone-graph-8-edges** `implemented` *(closed 2026-06-12: 8 corridors + 8 add_adjacent_zone calls (always_on greybox flags))* — The zone graph has exactly 8 bidirectional connections: Plaza-Market, Plaza-Alley, Market-Corp, Alley-Corp, Corp-Vault, Corp-Roof, Vault-Lab, Roof-Lab (Lab reachable via two approaches).
   - *Next:* Build the 8 inter-zone connections (door triggers + debris/brush geometry) in Radiant and register zone adjacency in the entry script per the docs/03_layout.md mermaid graph.
-- [ ] **spawn-two-buyable-exits** `map-missing` — Spawn has two exits (to Market and to Alley), both buyable early so players pick their opener.
-  - *Next:* Place two zombie_door buyable-debris triggers on the Spawn perimeter, one targeting the Market connection and one targeting the Alley connection, with early-game prices.
-- [x] **power-switch-a-or-b-per-run** `implemented` *(closed 2026-06-12 second ultracode pass)* — Exactly one of Power Switch A (Plaza) or B (Vault) is active per run (50/50 roll); the other is dead for the entire run.
+- [ ] **spawn-two-buyable-exits** `map-missing` — Plaza has two exits (to Market and to Alley), both buyable early so players pick their opener.
+  - *Next:* Place two zombie_door buyable-debris triggers on the Plaza perimeter, one targeting the Market connection and one targeting the Alley connection, with early-game prices.
+- [x] **power-switch-a-or-b-per-run** `implemented` *(closed 2026-06-12 second ultracode pass)* — Exactly one of Power Switch A (Bus Station) or B (Vault) is active per run (50/50 roll); the other is dead for the entire run.
   - *Next:* Place two power-switch prefabs in Corp and Vault with trigger targetnames acc_power_corp and acc_power_vault when those zones are built.
 - [x] **lab-approach-blocked-per-run** `implemented` *(closed 2026-06-12 second ultracode pass)* — One of the two Lab approaches (Server-side or Roof-side) is randomly blocked per run by a solid blocker.
   - *Next:* Add two hidden-by-default script_brushmodels named acc_pap_block_server and acc_pap_block_roof on the Vault-to-Lab and Roof-to-Lab connections in Radiant.
 - [ ] **mystery-box-3-locations-weighted-initial** `map-missing` — The Mystery Box can spawn at Market, Corp, or Roof, with the initial location randomized per run.
   - *Next:* Place three mystery-box chest prefabs (Market, Corp, Roof) with script_noteworthy acc_box_market/acc_box_corp/acc_box_roof when those zones are built; remove or relocate the start-room test box.
-- [ ] **spawn-no-perks** `map-missing` — Spawn contains no perk machines (forces movement).
-  - *Next:* When the Lab zone is built, relocate all 9 perk machines out of Spawn (replace fixed machines with the 4 rotating acc_lab_perk_a..d slots in the Lab).
+- [ ] **spawn-no-perks** `map-missing` — Plaza contains no perk machines (forces movement).
+  - *Next:* When the Lab zone is built, relocate all 9 perk machines out of Plaza (replace fixed machines with the 4 rotating acc_lab_perk_a..d slots in the Lab).
 - [ ] **lab-pap-machine** `map-missing` — The Pack-a-Punch machine is located in the Lab.
   - *Next:* Move the vending_weapon_upgrade_spawnable prefab into the Lab zone once it is built (and retag its location script_string).
 - [ ] **lab-overclock-terminal** `map-missing` — The Lab contains the Overclock Terminal (spend Data Shards to advance weapon tier or re-roll an Overclock).
   - *Next:* Place an acc_overclock_terminal trigger_use in the Lab zone in Radiant.
-- [x] **training-spot-geometry** `implemented` *(closed 2026-06-12: spawn debris pile, market stall row, corp fountain + S-curve, roof central obstacle brushes landed)* — Designated training geometry exists: Spawn central-debris loop, Market stall-row loop, Corp fountain loop + lobby S-curve (two distinct spots), Roof large open arena with central obstacle, Vault single defend-point spot; two distinct spots per major zone.
+- [x] **training-spot-geometry** `implemented` *(closed 2026-06-12: spawn debris pile, market stall row, corp fountain + S-curve, roof central obstacle brushes landed)* — Designated training geometry exists: Plaza central-debris loop, Market stall-row loop, Corp fountain loop + lobby S-curve (two distinct spots), Roof large open arena with central obstacle, Vault single defend-point spot; two distinct spots per major zone.
   - *Next:* Block out the five training-loop geometries in Radiant when each zone is built, validating loop clearances against zombie pathing on the Windows box.
 - [ ] **roof-vault-late-unlock** `map-missing` — Verticality is earned: Helipad (via paid elevator or service stairs) and the Vault are late-unlock so early rounds stay grounded.
   - *Next:* Build the elevator/service-stairs route geometry with appropriately priced door triggers when the Roof and Vault zones are authored.
@@ -123,7 +123,7 @@ author in this repo today.
   - *Next:* Enforce the two-exit rule during the Radiant blockout of each zone; audit the final zone graph against the docs/03_layout.md mermaid edges before first compile.
 - [x] **decon-module-notifies** `implemented` *(closed 2026-06-12 second ultracode pass)* — A decontamination system emits acc_decontamination_start (round, zone_id) at round start and acc_decontamination_complete after the 20s window + seal logic.
   - *Next:* Create scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc that listens for acc_round_start, picks the round's contaminated zone, and emits acc_decontamination_start/acc_decontamination_complete; add it to _acc_main.gsc init order and the .zone manifest.
-- [x] **decon-eligible-only-4** `implemented` *(closed 2026-06-12 second ultracode pass)* — Only Market, Alley, Vault, and Helipad are decontamination-eligible; Spawn, Plaza, and Lab are never sealed.
+- [x] **decon-eligible-only-4** `implemented` *(closed 2026-06-12 second ultracode pass)* — Only Market, Alley, Vault, and Helipad are decontamination-eligible; Plaza, Bus Station, and Lab are never sealed.
   - *Next:* In the new _acc_decontamination.gsc, hardcode the eligible array to exactly [market, alley, vault, roof] and assert spawn/corp/lab are never selectable.
 - [x] **decon-permutation-rounds-1-4** `implemented` *(closed 2026-06-12 second ultracode pass)* — A permutation of the 4 eligible zones is rolled once at map load; round 1 seals slot 1 through round 4 sealing slot 4; round 5+ adds no new permanent seal.
   - *Next:* Add state.decon_order = array::randomize([market,alley,vault,roof]) to _acc_map_randomizer::pre_init() and have _acc_decontamination.gsc consume slot (round_number-1) for rounds 1-4 and no-op (nominal 0s tick) for round 5+.
@@ -135,8 +135,8 @@ author in this repo today.
   - *Next:* On timer expiry in _acc_decontamination.gsc, run the stock laststand/kill path (e.g. player DoDamage(player.health + 666, player.origin) through the stock damage pipeline) per offending player, verifying the exact stock-correct call against tmp/bo3_stock_ref before first compile.
 - [ ] **decon-permanent-seal** `missing` — After the timer, the zone seals for the rest of the run: doors close, debris blocks entry, a kill volume covers re-entry, and spawners inside are disabled or redirected.
   - *Next:* Add per-zone seal logic (close acc_seal_<zone> script_brushmodels, enable acc_killvol_<zone> trigger_hurt, strip <zone>_spawners from level.zombie_spawners) to _acc_decontamination.gsc and place the matching Radiant entities when the zones are built.
-- [ ] **spawn-wallbuys-pistol-smg** `missing` — Spawn features 2x pistol wallbuy, an SMG wallbuy, and a starting pistol upgrade terminal.
-  - *Next:* Reconcile docs/03_layout.md Spawn features with the docs/05_weapons.md v1.0 roster (SMG dropped), then add the agreed spawn wallbuy slots to roll_wallbuy_pool and place the structs + pistol upgrade terminal in the Spawn zone.
+- [ ] **spawn-wallbuys-pistol-smg** `missing` — Plaza features 2x pistol wallbuy, an SMG wallbuy, and a starting pistol upgrade terminal.
+  - *Next:* Reconcile docs/03_layout.md Plaza features with the docs/05_weapons.md v1.0 roster (SMG dropped), then add the agreed spawn wallbuy slots to roll_wallbuy_pool and place the structs + pistol upgrade terminal in the Plaza zone.
 - [ ] **market-lmg-wallbuy** `missing` — Market has an LMG wallbuy and is a Mystery Box possible-spawn node, with no perk machines.
   - *Next:* Resolve the doc conflict (03_layout says LMG wallbuy; 05_weapons v1.0 roster has no LMG), then add the Market wallbuy slot to the pool and build the Market zone with its box chest (acc_box_market).
 - [ ] **hack-success-overclock-reward** `missing` — Hack Terminal success also grants a random Overclock (in addition to the 2 shards).
@@ -207,8 +207,8 @@ author in this repo today.
   - *Next:* In a zm_spawner zombie-death callback, RadiusDamage at the corpse when attacker.acc_cw_meltdown_aoe is set, tagging AoE-caused deaths so they cannot re-trigger (no chaining).
 - [ ] **rx3-overdrive** `stubbed` — Overdrive (RX T3): sprinting grants a ramping damage buff (+1% per second, max 30%), reset on taking damage.
   - *Next:* Add a sprint-tracking loop accumulating a bonus (cap 0.30, cleared by a player-damage callback) and consume it in _acc_damage::on_ai_damage.
-- [ ] **hack-terminal-2-shards** `map-missing` — Hack Terminal (Plaza) success grants 2 Shards, one attempt per run.
-  - *Next:* Place a trigger_use with targetname 'acc_hack_terminal' in Radiant (start room interim until Plaza exists).
+- [ ] **hack-terminal-2-shards** `map-missing` — Hack Terminal (Bus Station) success grants 2 Shards, one attempt per run.
+  - *Next:* Place a trigger_use with targetname 'acc_hack_terminal' in Radiant (start room interim until Bus Station exists).
 - [ ] **vault-overload-3-shards** `map-missing` — Vault Overload (Vault) success grants 3 Shards, one attempt per run (90s hold, fail if off-point >8s).
   - *Next:* Place trigger_use 'acc_overload_terminal' plus script_struct 'acc_overload_point' in Radiant.
 - [ ] **cyberware-kiosk-interaction** `map-missing` — Players purchase Cyberware at an in-map kiosk.
@@ -236,8 +236,8 @@ author in this repo today.
 
 - [x] **wallbuy-haymaker-1500** `implemented` — Haymaker 12 is a 1,500-point wallbuy (final home: Alley).
   - *Next:* Relocate to Alley once that zone exists; verify the 1500 cost in zm_levelcommon_weapons.csv on first Windows compile.
-- [x] **wallbuy-icr1-1500** `implemented` — ICR-1 is a 1,500-point wallbuy at Plaza.
-  - *Next:* Relocate to Plaza once built; verify 1500 cost in the weapons CSV on first compile.
+- [x] **wallbuy-icr1-1500** `implemented` — ICR-1 is a 1,500-point wallbuy at Bus Station.
+  - *Next:* Relocate to Bus Station once built; verify 1500 cost in the weapons CSV on first compile.
 - [x] **wallbuy-bowie-3000** `implemented` — Bowie Knife is a 3,000-point wallbuy near one of the perk machines.
   - *Next:* Verify 3000 cost (stock default) on first compile; confirm bowie_upgrade targetname matches stock _zm_melee API expectations.
 - [x] **box-excludes-normals** `implemented` — Normal-tier (wallbuy) weapons do NOT appear in the Mystery Box in v1.0.
@@ -300,7 +300,7 @@ author in this repo today.
   - *Next:* Set level.perk_purchase_limit = 9 (or define level.get_player_perk_purchase_limit) in the entry script main() before zm_usermap::main().
 - [ ] **starter-b23r** `phase4-blocked` — B23R 3-round-burst pistol (import) replaces the stock M1911 as the spawn-loadout starting weapon.
   - *Next:* Author weapons/zm/sp/b23r_zm.gdt from a stock pistol GDT, add weaponfull,b23r_zm to the zone, then set startingWeapon="b23r_zm" in zm_abandoned_cyber_city.gsc:144.
-- [ ] **wallbuy-m14ebr-1500** `phase4-blocked` — M14 EBR (MW2 import) is a 1,500-point wallbuy at Plaza slot B, separate from ICR-1.
+- [ ] **wallbuy-m14ebr-1500** `phase4-blocked` — M14 EBR (MW2 import) is a 1,500-point wallbuy at Bus Station slot B, separate from ICR-1.
   - *Next:* Author m14ebr_zm GDT + weaponfull line, then swap the map struct from ar_marksman to the import (or document Sheiva as the interim stand-in in 05_weapons.md).
 - [ ] **wallbuy-emp-250** `phase4-blocked` — EMP Grenade is a 250-point re-ammo wallbuy at Vault.
   - *Next:* Author emp_grenade_zm GDT (frag shell base), place a wallbuy struct with 250 cost, add weaponfull zone line.
@@ -379,8 +379,8 @@ author in this repo today.
   - *Next:* When implementing the Meltdown AoE, deal the AoE damage with the caster as attacker so _acc_points::record_damage and the death callback attribute it
 - [ ] **lab-perk-machines** `map-missing` — Four Lab perk machines with targetnames acc_lab_perk_a/b/c/d receive the rotation and dispense rotation[index]'s specialty.
   - *Next:* Place 4 acc_lab_perk_a..d machine entities in Radiant (Lab room) and write the dispense trigger logic that grants machine.acc_current_specialty
-- [ ] **hack-map-entity** `map-missing` — A trigger with targetname acc_hack_terminal exists in Plaza for the event.
-  - *Next:* Place a trigger_use targetname=acc_hack_terminal in Radiant (Plaza zone, or temporarily in the start room for testing)
+- [ ] **hack-map-entity** `map-missing` — A trigger with targetname acc_hack_terminal exists in Bus Station for the event.
+  - *Next:* Place a trigger_use targetname=acc_hack_terminal in Radiant (Bus Station zone, or temporarily in the start room for testing)
 - [ ] **overload-success-reward** `map-missing` — Overload success grants 3 Shards and unlocks a run-long shortcut from Vault to Helipad (door entities acc_shortcut_server_roof become hidden/non-solid).
   - *Next:* Add the script_brushmodel door named acc_shortcut_server_roof between Vault and Rooftop when those zones are built
 - [ ] **overload-map-entities** `map-missing` — A trigger targetname acc_overload_terminal and a script_struct targetname acc_overload_point exist in Vault.
@@ -404,7 +404,7 @@ author in this repo today.
 
 ## docs/07_replayability.md audit. Repo root: c:/Users/Jordan Urbaez/Repositories/abandoned_cyber_city_zombies — all evidence paths below are relative to it. Key files examined: scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc (Tier 1 per-run state), _acc_modifiers.gsc (Tier 3), _acc_overclocks.gsc, _acc_events_hack.gsc, _acc_early_round_pacing.gsc, _acc_cyberware.gsc, _acc_data_shards.gsc, _acc_elites.gsc, _acc_main.gsc, the entry script scripts/zm/zm_abandoned_cyber_city.gsc, and map_source/zm/zm_abandoned_cyber_city.map. Headline findings: (1) the map contains ZERO "acc_*"-targetnamed entities (grep of the .map for '"acc_' returns nothing), so every randomizer application path (power switch sides, PaP blockers, lab perk machines acc_lab_perk_a-d, box nodes acc_box_market/corp/roof, acc_overclock_terminal, acc_hack_terminal) is map-missing; the start room has only static stock prefabs (one power_switch at map:492, one box_start at map:655, fixed wallbuys at map:785-915). (2) Of the 11 modifiers, only 4 have consumed effects (express, sprint-half, shortened_rounds, fragility-half); 7 set level.acc_mod_* vars that no other module reads (grep across scripts/ shows only _acc_early_round_pacing.gsc:65,108 consuming any). (3) Cross-module bug: _acc_overclocks.gsc family tables use legacy "_zm"-suffixed names (icr1_zm, haymaker12_zm, drakon_zm at :300-308) while the actual weapons are stock class names (ar_accurate, shotgun_fullauto, sniper_fastsemi — _acc_map_randomizer.gsc:93-105 and map:786/807/861), so weapon_name_to_family returns "unknown" for every stock weapon and tier-up would refuse them. (4) Doc/code contradiction: doc 07:40 and docs/05_weapons.md:33 say the Rooftop sniper wallbuy is Intervention with Drakon box-only, but code (_acc_map_randomizer.gsc:103-105 "sniper_fastsemi") and map (map:861) ship Drakon as the wallbuy and put intervention_zm in the box (_acc_map_randomizer.gsc:139). (5) The entire score-multiplier and meta-progression sections have no code at all. (6) _acc_main.gsc:46-47 claims Shardless disables data-shard pickups, but _acc_data_shards.gsc contains no shardless check. Wiring chain is otherwise sound: entry script calls acc_main::pre_init (gsc:128) -> acc_modifiers::pre_init/acc_map_randomizer::pre_init (_acc_main.gsc:48-51), early_round_pacing::post_zm_main (gsc:162), acc_main::init (gsc:167); both modules are in the zone manifest (zone_source/zm_abandoned_cyber_city.zone:40,44).
 
-- [x] **power-switch-roll-5050** `implemented` — Power switch side is rolled 50/50 per map load between Plaza (state A) and Vault (state B).
+- [x] **power-switch-roll-5050** `implemented` — Power switch side is rolled 50/50 per map load between Bus Station (state A) and Vault (state B).
 - [x] **pap-approach-roll-5050** `implemented` — Pack-a-Punch approach is rolled 50/50 per map load: either the Vault approach or the Roof-side approach is welded shut.
 - [x] **wallbuy-roll-runs-per-load** `implemented` — The wallbuy pool randomization function runs at every map load even though v1.0 slots are single-candidate, so post-1.0 pools plug in without changing callers.
 - [x] **perk-rotation-4of9-no-dupes** `implemented` — All 9 perks are in one roster; each round a random 4-of-9 rotation is rolled with no duplicates.
@@ -455,15 +455,15 @@ author in this repo today.
 - [ ] **mod-roguelike-lite** `stubbed` — Roguelike Lite modifier: every down removes the player's lowest-cost Cyberware node (the node itself, not a refund).
   - *Next:* Add acc_cyberware::remove_lowest_cost_node(player) (find min-cost owned node, strip its effects via strip_all_node_effects+reapply, no refund) and call it from roguelike_player_down_watch.
 - [ ] **power-switch-dead-side-inert** `map-missing` — The losing side's power switch handle is inert (trigger disabled) for the run.
-  - *Next:* In Radiant place two power-switch setups (Plaza + Vault zones once built) each with a trigger targetname acc_power_corp / acc_power_vault wired to the stock power_switch prefab logic.
+  - *Next:* In Radiant place two power-switch setups (Bus Station + Vault zones once built) each with a trigger targetname acc_power_corp / acc_power_vault wired to the stock power_switch prefab logic.
 - [ ] **pap-blocked-side-welded** `map-missing` — The blocked PaP approach is physically sealed by a welded-door blocker shown+solid at run start.
   - *Next:* In Radiant author two hidden-by-default script_brushmodel welded-door blockers targetnamed acc_pap_block_server and acc_pap_block_roof at the two PaP approaches (requires Vault/Roof zones to exist).
 - [ ] **perk-lab-4-machines** `map-missing` — Exactly 4 perk machines at the Lab (acc_lab_perk_a/b/c/d) consume the rotation and dispense the rotated perk.
   - *Next:* Build the Lab zone with 4 machine entities targetnamed acc_lab_perk_a-d, write the purchase/dispense logic that grants machine.acc_current_specialty on use, and remove/repurpose the 9 static start-room machines.
 - [ ] **oc-terminal-entity** `map-missing` — An Overclock terminal trigger exists in the map for tier-up/re-roll interactions.
   - *Next:* Place a trigger_use targetnamed acc_overclock_terminal in the start room (later the Lab) in Radiant.
-- [ ] **hack-terminal-entity** `map-missing` — A Hack Terminal trigger exists in Plaza (500-point activation).
-  - *Next:* Place a trigger_use targetnamed acc_hack_terminal (start room interim, Plaza once built) in Radiant.
+- [ ] **hack-terminal-entity** `map-missing` — A Hack Terminal trigger exists in Bus Station (500-point activation).
+  - *Next:* Place a trigger_use targetnamed acc_hack_terminal (start room interim, Bus Station once built) in Radiant.
 - [ ] **box-initial-3-nodes** `map-missing` — Mystery Box initial spawn is rolled per run across 3 spawn nodes (Market, Corp, Roof) with standard BO3 box-move behavior afterwards.
   - *Next:* Place 3 chest prefabs with script_noteworthy acc_box_market / acc_box_corp / acc_box_roof (one per weapon-carrying zone when zones exist); note doc says 'weighted' while code is uniform — add per-run weights or amend the doc.
 - [ ] **mod-shardless-no-drops** `missing` — Shardless modifier: no Data Shards drop at all.
@@ -736,12 +736,12 @@ author in this repo today.
   - *Next:* Implement Ghost Shroud activation + cooldown tracking in _acc_boss_items.gsc, then surface it in the Phase 4 slots widget.
 - [ ] **visor-hp-bars-gate** `stubbed` — Enemy HP bars exist ONLY as the Targeting Visor item's unlock.
   - *Next:* Implement the visor HP-bar overlay (client-side) gated on acc_item_visor in Phase 4.
-- [ ] **cyberware-kiosk-interact** `map-missing` — Cyberware Kiosk: Hold F on a kiosk in Spawn opens cyberware purchasing.
-  - *Next:* Place a trigger_use with targetname acc_cyberware_kiosk in Radiant (start room for now, Spawn later).
+- [ ] **cyberware-kiosk-interact** `map-missing` — Cyberware Kiosk: Hold F on a kiosk in Plaza opens cyberware purchasing.
+  - *Next:* Place a trigger_use with targetname acc_cyberware_kiosk in Radiant (start room for now, Plaza later).
 - [ ] **overclock-terminal-interact** `map-missing` — Overclock Terminal: Hold F on the terminal advances weapon tier (1-5 shards) or re-rolls at max tier (1 shard).
   - *Next:* Place a trigger_use with targetname acc_overclock_terminal in Radiant.
 - [ ] **hack-terminal-500** `map-missing` — Hack Terminal activation: Hold F on terminal, costs exactly 500 points, runs the 3-stage state machine.
-  - *Next:* Place a trigger_use targetname acc_hack_terminal in Radiant (Plaza once it exists).
+  - *Next:* Place a trigger_use targetname acc_hack_terminal in Radiant (Bus Station once it exists).
 - [ ] **overload-terminal-1000** `map-missing` — Vault Overload activation: Hold F on terminal, costs exactly 1000 points, 90s hold-the-point event.
   - *Next:* Place trigger_use acc_overload_terminal and script_struct acc_overload_point in Radiant.
 - [ ] **emergency-drop-3-shards** `map-missing` — Emergency Drop: Hold F on the ACTIVE power switch costs exactly 3 Data Shards and delivers a weighted random drop.
@@ -830,7 +830,7 @@ author in this repo today.
 - [ ] **side-event-state-mapwide** `map-missing` — Hack/Vault Overload success/failure state is map-wide: one player's failed attempt locks the event for everyone.
   - *Next:* Place trigger_use entities targetname acc_hack_terminal and acc_overload_terminal plus script_struct acc_overload_point in Radiant.
 - [ ] **hack-reward-activator-only** `map-missing` — Hack Terminal: activation gated to the first player who triggers; 2 Data Shards go to the activator only (no 70/30 on event Shards).
-  - *Next:* Place trigger_use targetname acc_hack_terminal in Radiant (Plaza zone once it exists).
+  - *Next:* Place trigger_use targetname acc_hack_terminal in Radiant (Bus Station zone once it exists).
 - [ ] **events-one-activation-pp-two** `map-missing` — Hack and Vault Overload: one activation per run each, or two with Parallel Processing Cyberware.
   - *Next:* Same Radiant placement task as the two terminals; logic needs no change.
 - [ ] **overload-reward-shortcut** `map-missing` — Vault Overload success: 3 Data Shards to the activator only, plus a map shortcut unlock that is map-wide.

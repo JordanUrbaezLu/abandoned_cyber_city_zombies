@@ -39,7 +39,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 
 **Deliverables.**
 - `usermaps/zm_abandoned_cyber_city/` initialized from the zm template.
-- Geometry for all 7 zones (Spawn, Market, Alley, Corp, Vault, Roof, Lab) - boxy, untextured beyond stock caulk/devgrid. No art.
+- Geometry for all 7 zones (Plaza, Market, Alley, Corp, Vault, Roof, Lab) - boxy, untextured beyond stock caulk/devgrid. No art.
 - All doors/debris prefabs placed between zones with stock costs.
 - All perk machine slots placed (placeholder perks - Jug everywhere is fine for now).
 - Pack-a-Punch prefab placed in the Lab.
@@ -49,7 +49,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 **Exit criteria.**
 - You can reach round 10 on the greybox map, using Mystery Box and PaP, with all zones accessible.
 - No script errors in `console.log` during a 10-round playtest.
-- The zone flow from `03_layout.md` works - you can traverse Spawn -> Market -> Corp -> Vault -> Lab without getting stuck.
+- The zone flow from `03_layout.md` works - you can traverse Plaza -> Market -> Corp -> Vault -> Lab without getting stuck.
 
 **Estimate.** 4-8 weeks of evenings.
 
@@ -59,7 +59,7 @@ Concrete phased deliverables. Each phase has **exit criteria** - objective tests
 
 **Deliverables.**
 - `_acc_data_shards.gsc` - currency, elite-kill drop entity, HUD counter (simple `iprintln` or small HUD elem OK; LUI deferred).
-- `_acc_cyberware.gsc` - skill-node graph with the 9 nodes from `04_progression_and_skills.md`, with a placeholder interaction trigger (a pedestal in Spawn that cycles through nodes via F keypress for now - LUI skill tree in Phase 4).
+- `_acc_cyberware.gsc` - skill-node graph with the 9 nodes from `04_progression_and_skills.md`, with a placeholder interaction trigger (a pedestal in Plaza that cycles through nodes via F keypress for now - LUI skill tree in Phase 4).
 - `_acc_overclocks.gsc` - weapon family registry, per-run active pool roll, application via a Lab Overclock Terminal trigger.
 - `_acc_map_randomizer.gsc` - power switch side, PaP approach, wallbuy pool, perk pool all re-roll on map load. Logs the chosen state to `console.log`.
 - `_acc_elites.gsc` - at least one elite class (Shielded) spawning on round 5+, dropping a Shard.

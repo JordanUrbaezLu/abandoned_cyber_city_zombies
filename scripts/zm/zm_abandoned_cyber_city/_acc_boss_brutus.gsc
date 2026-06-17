@@ -10,7 +10,7 @@
 // charging ALONGSIDE the normal wave (his native ignore_enemy_count - he does not
 // gate round end), with the perk/box LOCK mechanic dropped (lock_machines=false in
 // the vendored copy). _acc_boss promotes each spawned actor with our health bar +
-// over-boss marker + 10x HP + +25% speed + Mega-Bottle/boss-item rewards.
+// over-boss marker + 5x HP + +25% speed + Mega-Bottle/boss-item rewards.
 //
 // init() disables the pack's own min/max-round spawn cadence (it only sets up the
 // spawn-point structs); spawn_one() then spawns a single Brutus on demand and returns

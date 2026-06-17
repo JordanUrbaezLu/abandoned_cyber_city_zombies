@@ -171,6 +171,16 @@ function armory_perk_pricing()
             if ( !isdefined( level._custom_perks ) || !isdefined( level._custom_perks[ perk ] ) ) continue;
             if ( !isdefined( level._custom_perks[ perk ].hint_string ) ) continue;
 
+            // POWER GATE (user 2026-06-17): only overwrite the machine hint with our
+            // price/benefit copy once power is ON. While power is off, leave it alone so
+            // the stock "Turn on the Power!" hint shows. Clear the cache so the discount
+            // hint re-applies the instant power returns.
+            if ( !( level flag::exists( "power_on" ) && level flag::get( "power_on" ) ) )
+            {
+                m.acc_shown_cost = undefined;
+                continue;
+            }
+
             base = perk_base_cost( perk );
             if ( base <= 0 ) continue;
 

@@ -172,13 +172,13 @@ Bonus layers summed on a single headshot:
 - **Deadshot perk** (1.4, or 1.8 with American Sniper Mega — no double dip; see [13_perks.md](13_perks.md))
 - Cyberware **Amplifier (OC Tier 1)** (`+15%` weapon damage) — 1.15
 - Cyberware **Overload (Tier 2 OC branch)** (`+30%` crit damage on headshots) — 1.30
-- **PaP custom tier** (1.25 / 1.55 / 1.90 / 2.30 for T2–T5)
+- **PaP custom tier** (1.5 / 2.0 / 2.5 for T1–T3, 3-tier revamp 2026-06-16; the `_up` transform is deferred to T2, and `acc_weapon_balance_mult` normalizes base/`_up`/twin so this ladder is the only PaP damage lever)
 - Weapon **Overclock** if rolled (e.g. AR **Overpressure** at 1.5 ADS)
 - Weapon ability **Precision Mode** (auto-crit = 4.0) / **Slug Round** (3.0) / **Kinetic Battery** (3.0) when active
 
 (Base weapon damage and the stock ~1.5x weapon-GDT headshot mult are already baked into the incoming `damage` before any of this.)
 
-Because bonuses now ADD instead of multiply, big stacks no longer explode geometrically — headshot 2.0 + Deadshot 1.4 + Overload 1.30 + PaP 2.30 = **7.0x** (summed), and deeper stacks that used to reach ~100x collapse to roughly the sum of their layers. **Intended** — rewards the precision archetype without runaway multiplication.
+Because bonuses now ADD instead of multiply, big stacks no longer explode geometrically — headshot 2.0 + Deadshot 1.4 + Overload 1.30 + PaP 2.5 (T3) = **7.2x** (summed), and deeper stacks that used to reach ~100x collapse to roughly the sum of their layers. **Intended** — rewards the precision archetype without runaway multiplication.
 
 ### Deadshot Effective Damage Table (with our multiplier)
 
@@ -242,7 +242,7 @@ To prevent low-round elite farming:
 
 ## Risk/Reward Events
 
-### Hack Terminal (Plaza)
+### Hack Terminal (Bus Station)
 
 State machine:
 

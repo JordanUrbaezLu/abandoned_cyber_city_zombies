@@ -9,14 +9,14 @@
 // Re-running it after the .map has diverged would clobber hand edits; don't.
 //
 // Geometry plan (docs/03_layout.md zone graph, greybox boxes):
-//   start_zone (existing arena)   x[-1056,1094.5]  y[-1073.5,928]
+//   start_zone (Plaza, existing arena)   x[-1056,1094.5]  y[-1073.5,928]
 //   market_zone (Undercity Mkt)   x[-2481,-1281]   y[200,1600]
 //   alley_zone  (Alley)   x[1319.5,2519.5] y[200,1600]
-//   corp_zone   (Plaza) x[-781,819]      y[1148,2748]
+//   corp_zone   (Bus Station) x[-781,819]      y[1148,2748]
 //   vault_zone  (Vault)    x[1119,2319]     y[2200,3400]
 //   roof_zone   (Helipad) x[-2319,-1119]   y[2200,3400]
 //   lab_zone    (Lab)x[-781,819]      y[3048,4248]
-// 8 corridors = the 8 zone-graph edges (no direct Spawn<->Corp or Corp<->Lab).
+// 8 corridors = the 8 zone-graph edges (no direct Plaza<->BusStation or BusStation<->Lab).
 // =============================================================================
 
 'use strict';
@@ -123,19 +123,18 @@ for (const c of corridors) {
 }
 
 // --- training obstacles (docs/03 per-zone notes) -------------------------------
-// spawn debris pile (small loop anchor)
-brushes.push({ label: 'spawn debris pile', text: box(-81, 119, -172, 28, 0, 64, 'script_wall') });
-// corp fountain (big safe loop)
-brushes.push({ label: 'corp fountain', text: box(-131, 169, 1798, 2098, 0, 48, 'script_wall') });
-// corp S-curve (two staggered walls, south half)
-brushes.push({ label: 'corp s-curve A', text: box(-481, -61, 1448, 1468, 0, 128, 'script_wall') });
-brushes.push({ label: 'corp s-curve B', text: box(99, 519, 1598, 1618, 0, 128, 'script_wall') });
-// market stall row (three stalls)
-brushes.push({ label: 'market stall 1', text: box(-2181, -2021, 850, 950, 0, 96, 'script_wall') });
-brushes.push({ label: 'market stall 2', text: box(-1961, -1801, 850, 950, 0, 96, 'script_wall') });
-brushes.push({ label: 'market stall 3', text: box(-1741, -1581, 850, 950, 0, 96, 'script_wall') });
-// roof central obstacle (best late train)
-brushes.push({ label: 'roof obstacle', text: box(-1847, -1591, 2672, 2928, 0, 64, 'script_wall') });
+// 2026-06-16: REMOVED — user wants flat rooms with NO free-standing blocking
+// structures (debris pile / fountain / S-curve / market stalls / roof obstacle).
+// Functional structs (mystery box, PaP, perk machines, walls, doors) are unaffected.
+// Left here, disabled, as the historical record of what used to be generated.
+// brushes.push({ label: 'spawn debris pile', text: box(-81, 119, -172, 28, 0, 64, 'script_wall') });
+// brushes.push({ label: 'corp fountain', text: box(-131, 169, 1798, 2098, 0, 48, 'script_wall') });
+// brushes.push({ label: 'corp s-curve A', text: box(-481, -61, 1448, 1468, 0, 128, 'script_wall') });
+// brushes.push({ label: 'corp s-curve B', text: box(99, 519, 1598, 1618, 0, 128, 'script_wall') });
+// brushes.push({ label: 'market stall 1', text: box(-2181, -2021, 850, 950, 0, 96, 'script_wall') });
+// brushes.push({ label: 'market stall 2', text: box(-1961, -1801, 850, 950, 0, 96, 'script_wall') });
+// brushes.push({ label: 'market stall 3', text: box(-1741, -1581, 850, 950, 0, 96, 'script_wall') });
+// brushes.push({ label: 'roof obstacle', text: box(-1847, -1591, 2672, 2928, 0, 64, 'script_wall') });
 
 // --- spawn perimeter splits (existing brushes 23/24 get corridor gaps) --------
 const spawnWestLo = box(-1056, -1036, -1073.5, 400, 0, WALL_H, 'script_wall');

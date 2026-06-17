@@ -1,5 +1,5 @@
 // =============================================================================
-// _acc_events_hack.gsc - Hack Terminal side event (Plaza)
+// _acc_events_hack.gsc - Hack Terminal side event (Bus Station)
 //
 // Design reference: docs/06_mechanics.md (Hack Terminal state machine),
 // docs/15_coop_rules.md (activator gating).

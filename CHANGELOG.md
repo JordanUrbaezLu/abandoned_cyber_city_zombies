@@ -6,6 +6,486 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed/Changed — HUD polish: PaP icon stretch, centered powerup list, lower row (user, 2026-06-17)
+
+In-game test feedback on the new HUD icons (`ui/uieditor/menus/hud/acc_hud.lua`):
+- **PaP tier icon was stretched across the whole screen.** `CoD.AccPapTierIcon` used
+  `setLeftRight(true, true, …)` which is STRETCH/fill mode (the form the parent containers use to
+  fill). Switched to the far-edge fixed-box idiom `setLeftRight(false, true, -(RIGHT+SIZE), -RIGHT)` +
+  `setTopBottom(false, true, …)` (the proven `AccPerkCard` right-anchor pattern) so it's a fixed 40px
+  box in the bottom-right corner. RIGHT/BOTTOM still want an in-game nudge to center on the gadget.
+- **Powerup row is now a DYNAMIC centered list, not fixed slots.** `CoD.AccPowerupBar` Render now shows
+  ONLY active icons, packed in bit order and centered as a group (with K active, the j-th sits
+  `(j-(K-1)/2)*PITCH` from center) — a lone icon is dead-center, the 3rd of 5 lands in the middle, like
+  the stock powerup HUD. Lowered the row (`BOTTOM` 92 → 58).
+- **Stock powerup active-icons — race fixed (was intermittent).** `suppress_stock_powerup_hud` nulled
+  the 3 timed powerups' `client_field_name` ONCE at `initial_blackscreen_passed`, betting it beats the
+  stock monitor's one-shot capture at `start_zombie_round_logic` — it RACED and lost some sessions
+  (base icons showed e.g. the Double Points "2X"). Now it LOOP-nulls from the moment the powerups
+  register, every frame, until the capture has fired (then one sweep after), so the monitor always
+  reads `undefined`. Same fix shape as the perk-bar suppression (continuous re-assert, not one-shot).
+- **PaP tier icon nudged** toward the gadget (`RIGHT` 80 → 40, `BOTTOM` 100 → 50).
+
+LUI + one GSC function; linker build (sync + relink).
+
+### Added — cyber round-progress BAR HUD (top-right, drains as the round dies) (2026-06-17)
+
+A teal cyber health-bar-style meter at the top-right that is FULL at round start and drains
+right-to-left to empty as the round's zombies are killed, lerping teal→magenta as it empties. Built
+clean (`-GscOnly`, fresh `.ff` 2026-06-17). Backed by `docs/42_round_progress_ring_research.md`
+(6-domain deep-research + adversarial-verify). A circular radial ring was the first attempt but the
+stock `hud_objective_circle_meter` material draws in full screen space (it needs the center/radius
+shader components the shipped recipe sets); deferred to a later upgrade in favor of this simple,
+robust bar built only from proven primitives.
+
+- **LUI** (`acc_hud.lua`): new `CoD.AccRoundRing` widget (TOUCHPOINT 5), proven primitives only —
+  `CoD.TextWithBg.Bg` solid rectangles (renders, per the perk card) for the cyan outline + navy track
+  + teal fill, and the drain is a dynamic `Fill.Bg:setLeftRight(true, false, 0, frac*W)` (the exact
+  `AccPerkBar` UIImage resize idiom). `acc_ring_color` lerps teal `(0.25,0.85,0.80)` → magenta
+  `(0.90,0.20,0.55)`. Top-right; geometry knobs `ACC_BAR_W/H/RIGHT/TOP/BORDER`.
+- **Bridge**: new `accRoundRing` clientuimodel int (7 bits), appended LAST in lockstep in `_acc_lui.gsc`
+  + `_acc_lui.csc`. Values: 0..100 = fill %, 127 = hide. `set_round_ring()` setter.
+- **GSC** (`_acc_lui.gsc`): `round_ring_director()` (one level thread, started once + guarded)
+  captures the per-round denominator ONCE on round change (after a 0.5s settle) and decides
+  visibility; per-player `round_ring_watch()` pushes `remaining = get_current_zombie_count() +
+  level.zombie_total` over that denominator each 0.25s (push-on-change). Added
+  `#using scripts\shared\ai\zombie_utility;`. **Math (2 research refutations applied):** the numerator
+  sum is correct (hits 0 at round end), but the denominator is captured once — NOT a high-water-mark
+  latch (refuted: `zombie_total` only decrements + would mis-track overload waves). Boss rounds force
+  `zombie_total=0` → bar hides (denom `<1`); overload/hack `+= N` is clamped to a full bar.
+
+### Changed — PaP tier HUD = roman-numeral icon + Nuke/Max-Ammo pickup icons (user, 2026-06-16)
+
+Two HUD changes, both on the proven LUI plain-image rail (`setImage(RegisterImage(...))`, no custom
+material — sidesteps the docs/29 §14 shader-compile blocker), using Ronan's Cyberpunk Shaders art.
+
+- **PaP tier icon (replaces the bottom-right "PaP TIER x/3" text).** The held weapon's current PaP
+  tier now shows as one small teal hex roman-numeral shield (I/II/III) centered over the gadget HUD
+  circle (bottom-right). New LUI element `CoD.AccPapTierIcon` in `acc_hud.lua`, driven by the existing
+  `accPapTier` clientuimodel; `_acc_pap_levels::pap_hud_loop` now pushes the held gun's tier on change
+  instead of drawing a `createFontString` (same `get_tier` value `_acc_perk_info` pushes for the card,
+  so the two writers never disagree). Images `i_acc_pap_tier{1,2,3}`. Position is eyeballed — `SIZE`/
+  `RIGHT`/`BOTTOM` in the element need an in-game tune for a pixel-perfect center.
+- **Instant power-up pickup flashes (Nuke / Max Ammo / Carpenter / Random Perk).** These INSTANT
+  power-ups have no timed window, so they now flash their Ronan icon in the power-up row for ~3s on
+  pickup. `accPowerupMask` widened 3→7 bits (bit 3 = Nuke, 4 = Max Ammo, 5 = Carpenter, 6 = Random
+  Perk/`free_perk`; `.gsc` + `.csc` in lockstep); `_acc_lui` stamps a 3s window per player and
+  `powerup_state_watch` ORs the bit in while live. Nuke / Max Ammo use dedicated grab signals
+  (`zmb_max_ammo_level` team-wide; `nuke_triggered` on the grabber → all players). Carpenter / Random
+  Perk use a generic `powerup_dropped`→`powerup_grabbed` watcher (`powerup_drop_flash_watch`) keyed on
+  `powerup.powerup_name`, so they fire if/when those drops are enabled on the map (not assumed live).
+  `CoD.AccPowerupBar` extended to 7 centered slots. Images
+  `i_acc_powerup_{nuke,maxammo,carpenter,randomperk}`.
+
+Assets added to `source_data/acc_perk_shaders.gdt` + zone `image,` lines; deploy via
+`tools/deploy_perk_shaders.ps1` (gdtdb) before linking. Linker-only build (no geometry/BSP).
+
+### Changed — Brutus mini-boss HP 10x → 5x (user, 2026-06-16)
+
+`ACC_BOSS_MINI_HP` 500000 → **250000** (5× the 50k baseline) in `_acc_boss.gsc`. The r10/r20 Brutus
+now spawns at 250k HP × co-op scaling (`special_hp_mult`). Dev test spawn (1500 HP, behind
+`acc_test_boss`/`acc_dev`) unchanged. Comments synced in `_acc_boss.gsc` + `_acc_boss_brutus.gsc`.
+Linker-only; `.ff` 34.50 MB.
+
+### Changed — Headshot bonus nerf: 2.0→0.5 trash, 2.0→1.0 boss (user, 2026-06-16)
+
+`ACC_HEADSHOT_MULT` 2.0 → **0.5** (regular/elite), `ACC_BOSS_HEADSHOT_MULT` 2.0 → **1.0** (boss/mini)
+in `_acc_damage.gsc`. These are summed bonus values; effective head:body ratio = `gun locHead ×
+bonus`. Most box guns are `locHead 5.0` → headshots drop from 10× to **2.5× (trash) / 5× (boss)** body;
+**Paladin** (`locHead 1.0`) → **0.5× / 1.0×** (still one-shots via raw damage, doesn't lean on heads).
+With Deadshot the bonus sum climbs again (e.g. American Sniper trash ≈ 5.0×(0.5+1.6)=×10.5 on a
+5.0-loc gun) — so Deadshot is what makes headshots premium now. Shotguns stay headshot-excluded.
+docs/perk_abilities.md synced. Linker-only; `.ff` 34.50 MB.
+
+### Fixed — Stale in-game perk cards (Deadshot/Armory) after the perk rework (user, 2026-06-16)
+
+The functionality changed but the LUI perk cards (`ui/uieditor/menus/hud/acc_hud.lua` `AccPerkCards`)
+still showed the OLD text — that's why the descriptions "looked wrong." Updated to match:
+- **Deadshot:** base now "+1.4 HS, ADS-snap" (dropped the stale "−25% recoil"); American Sniper
+  "**+1.6** HS, **−50%** recoil" (was +1.8 / −40%).
+- **Armory (Mule Kick Mega):** "**+35% reserve ammo each round**" (was "+25% ammo capacity").
+Card-index map (`_acc_perk_info::perk_card_index`) verified correct (deadshot→7, mule→6). Functionality
+audited and intact: `axis_recoil` returns `recoil50` only for Mega Deadshot; `armory_round_refill_watcher`
+fires on `acc_round_start` (emitted by `_acc_main:260`) and `armory_refill` adds 35% of cap (clamped).
+Linker-only; LUI packed clean; `.ff` 34.51 MB. Other 7 cards spot-checked accurate.
+
+### Changed — Pack-a-Punch 3-tier revamp; transform deferred to tier 2 (user, 2026-06-16, NEEDS BOOT TEST)
+
+Full PaP rework from the 5-tier money ladder to **3 tiers**, and the actual PaP **transform**
+(the upgraded "_up" form — explosive M1911, akimbo PDW, gold-camo'd upgrade) is now **deferred to
+tier 2** instead of landing on the first pack. Tier 1 is a pure "camo + damage" pack.
+- **Tiers / costs:** T1 **5000** (+50% dmg, gold camo on the **base** gun, NO transform) → T2
+  **7500** (+100% dmg, **transforms** to the `_up` form / matching packed twin + camo) → T3
+  **10000** (+150% dmg, MAX). `pap_tier_mult` = 1.5 / 2.0 / 2.5 (additive layer into
+  `_acc_damage`'s `bonus_sum`). `ACC_PAP_MAX_TIER` 5→3; `ACC_PAP_TIER_COST_4/5` removed.
+- **"% is the only damage lever"** (user choice): `acc_weapon_balance_mult` already normalizes
+  base / `_up` / twin per gun by substring, so the `_up` form's higher raw damage doesn't
+  double-count — the +50/100/150% ladder is the whole PaP damage progression. No `_acc_damage`
+  logic change; comment updated.
+- **Routing (`_acc_pap_levels.gsc`):** `acc_pap_validate` now routes by `get_tier` (tier 0 →
+  `acc_do_first_pack` = camo-only; tier ≥1 → `acc_do_tier_up`). New `acc_do_transform` does the
+  T1→T2 base→`_up` asset swap (the old first-pack swap body, moved). `acc_do_first_pack` just
+  applies camo via `replay_pack_draw` + records tier 1.
+- **Box-stock invariant rebuilt:** tier 1 is now a base-form gun, so the old
+  `is_weapon_upgraded()` guard (which kept Mystery-Box copies stock) no longer works. Replaced by
+  (a) `box_grab_clear_watcher` — on the stock `user_grabbed_weapon` notify, reset the just-boxed
+  base's tier to 0; (b) `prune_lost_tiers` (in `pap_hud_loop`) — clear tiers for any base the
+  player no longer carries, gated on `!laststand && !is_drinking && !acc_pap_busy`. `get_tier`
+  drops the upgraded-only guard and reads the stored base tier (clamping an `_up` gun to ≥2).
+- **Twins follow tiers** (user choice): reconcile already reskins whatever form is held, so a
+  tier-1 gun uses base-form twins and a tier-2 gun uses `_up` twins automatically. Added camo
+  preservation to `acc_weapon_variants::swap_weapon` (reads `acc_pap_tier` raw, like `has_mega`)
+  so a perk-twin swap keeps the gold camo on a tier-1 base gun.
+- **Cost display (`pap_cost_display_keeper`):** now drives `self.cost` for a tier-1 base gun (the
+  next pack is the T2 transform) with save/restore so bonfire/stock first-pack cost isn't
+  clobbered; `self.aat_cost` for `_up` guns (T3 cost, or 0 when maxed).
+- **UI:** `acc_hud.lua` PaP card + `tier_benefit` rewritten to the 3-tier ladder; `set_pap_tier`
+  comment 0..5→0..3. Docs: `05_weapons.md` (PaP tier table), `06_mechanics.md` (damage stack),
+  `27_ui_plan.md`.
+- **No twin/GDT regen:** the recoil/fire/reload twin matrix is unchanged (both base and `_up`
+  twins already exist), so no `apply_recoil_overhaul.js` re-run and no twin-cap pressure.
+
+### Investigated — LED relight definitively dead; stale-shadow "fix" rejected, deferred (user, 2026-06-16)
+
+Persistent floor shadows = the `.led` lightmap is from 6/15 (baked while the now-removed pillars
+still existed); every `-SkipLED` build re-packs that stale lightmap. Ran the controlled test
+docs/38 §6 step-0 never ran: a fresh LED bake on the **current pillars-removed** geometry,
+**game closed / GPU free** → SAME crash (`SANITY CHECK FAILURE … brush.cpp:1860`, live modal
+captured). So geometry simplification did NOT help and it is NOT GPU contention — the install's
+lightmapper is genuinely dead (confirms memory `led-relight-dead-end-enclosed-geometry`).
+Also verified the **no-lightmap fallback fails**: re-linking with the `.led` moved aside packs a
+valid `.ff` (linker warns `Failed to open …​.led`, non-fatal) but the world renders **fullbright
+pure white** (greybox base color = white). Restored the stale `.led`; `.ff` back to 34.5 MB normal
+brightness. Stale lightmap backed up at `share/raw/maps/zm/zm_abandoned_cyber_city.led.stale-6-15-bak`.
+**Then attempted the full per-feature LED-safe rework (~30 bakes, fast bisection harness):** proved
+Radiant is healthy (clean ~13s bakes of old snapshots — **no reinstall**) and localized the crash to
+4 recent generator brush groups (vault seals, perk flank walls, box collision clips, vault ceiling).
+But the fix **does not converge** — even the simplest static flank walls crash in every config
+(z256/z250/penetrate/abut/no-overlap) while the same map without them bakes clean; the docs/36
+"LED-safe" heuristics are false on this install. `tools/fix_led_safe_geometry.js` is a parked
+incomplete artifact. **Final decision: abandon baked LED; deliver the dark look via runtime vision
+tint + fog (LED-free), which makes the stale shadows moot.** Full writeup docs/40.
+
+### Changed — Perk-handling rework STAGE 3: AK-74u added → all 10 eligible guns (user, 2026-06-16, NEEDS BOOT TEST)
+
+Final gun in the twin set. **140 twins / 10 guns**, `.ff` 34.50 MB, lint + node-syntax clean.
+- **AK-74u twin** wired via a new `variant_up_name()` helper (`_acc_weapon_variants.gsc`): its PaP
+  GDT asset is the irregular `t5_ak74u_up_zm` (zone loads that; CSV says `t5_ak74u_up`). The helper
+  returns the real `_up_zm` name for build_available_twins + register_twin_box_weapons; gen uses the
+  same via GUNS `up`. **Non-destructive** (no GDT/zone rename). NOTE: if in-game the PaP'd AK-74u's
+  runtime weapon name turns out to be `t5_ak74u_up` (CSV) rather than `t5_ak74u_up_zm`, its *PaP*
+  twins won't swap (base twins still work, no crash) — would then need the GDT-entry rename instead.
+- **Stem-based CLIP_FIX** (`reduce_base_ammo.js` `stemOf()`): AK-74u's clip override (20/40) now
+  covers its twins too (verified twin clip 20 base-form / 40 up-form, not floored to 14).
+- All 10 eligible guns (ASM1, AE4, AK-47, Tac-19, Five-Seven, PPSH, Galil, Olympia, Paladin,
+  AK-74u) now get recoil(Mega Deadshot)/fire/reload twins + runtime Armory + base perks + damage.
+  Ripper/Nail/PDW/M1911 stay structural (no twins). **Perk-handling rework COMPLETE pending boot test.**
+
+### Changed — Base recoil 2.1×→1.75× + Mega Deadshot/Armory doc sync (user, 2026-06-16)
+
+- **Map base-recoil "skill theme" lowered 2.1× → 1.75×** (`apply_recoil_overhaul.js` `BASE_SCALE`)
+  on the 9 twin guns. Mega Deadshot's recoil twin (`recoil50` = ×0.50) is now 1.75 × 0.50 =
+  **0.875× vanilla** (was 1.05×). Tool chain re-run (the 9 twin guns' + variant ammo-backups reset
+  so the clip-cut re-snapshots the new recoil; ak74u/nail/pdw/m1911 untouched). `.ff` 34.43 MB.
+- **docs/perk_abilities.md** synced to the new perk wording: base Deadshot = no recoil (dropped
+  layer); American Sniper = **+1.6 HS** (was 1.8) + **−50% recoil** (0.875× vanilla); Armory =
+  **+35% reserve refill at round start** (was "+25% capacity"). (No in-game text card exists —
+  `_acc_perk_info` is index-only; perks use stock vending visuals.)
+- **Still TODO:** AK-74u twin (CSV `_up` vs GDT `_up_zm` name mismatch — needs an in-game check of
+  the PaP'd weapon's real name before wiring, or a GDT-entry rename; deferred to avoid a risky build).
+
+### Changed — Perk-handling rework STAGE 2: expand twins to 9 guns (user, 2026-06-16, NEEDS BOOT TEST)
+
+With the slimmed 14-twin/gun layout from Stage 1, expanded the twin matrix from 5 → **9 guns**
+(added **PPSH-41, Galil, Olympia, Paladin HB50**) = **126 twins** (well under the ~230 cap). Those
+4 guns now get the recoil(Mega Deadshot)/Gun-Slinger-fire/Sleight-reload twins + runtime Armory
+refill + base perks + universal damage — i.e. full perk handling, same as the original 5.
+
+- `apply_recoil_overhaul.js` GUNS +4; `_acc_weapon_variants.gsc` `variant_guns()` +4 (lockstep).
+- **Olympia-twin clip fix:** `reduce_base_ammo.js` `MAXAMMO_WEAPONS` exact-set → `isMaxAmmoWeapon()`
+  PREFIX match, so Olympia's twins keep clipSize 2 (double-barrel) and take the cut on maxAmmo
+  instead (verified: `t6_olympia_acc_recoil50` = clip 2 / maxAmmo 13), not floored to clip 1.
+- Tool chain re-run (pristine reset of the +4 base GDTs first); `.ff` 34.43 MB; linker clean.
+
+**Held back:** **AK-74u** — CSV PaP name `t5_ak74u_up` ≠ GDT asset `t5_ak74u_up_zm`; needs a
+`variant_up_name()` helper in the GSC (build_available_twins + register_twin_box_weapons) before it
+can be a twin gun. **Ripper / Nail Gun / PDW / M1911** stay structural (altWeapon/projectile/akimbo)
+— runtime ammo + base perks + damage only.
+
+**Still TODO:** Mega Deadshot **UI card** + perk docs (13_perks / perk_abilities / 30 / 31) to the
+1.6× / −50%-Mega-only / Armory-sustain wording; AK-74u up-name fix (→10 guns); remove dead
+`axis_ammo`/`deadshot_recoil_level` + stale recoil25/40 comments.
+
+### Changed — Perk-handling rework STAGE 1: ammo→runtime, recoil Mega-only, Mega Deadshot 1.6× (user, 2026-06-16, NEEDS BOOT TEST)
+
+Cuts the twin count so perk handling can later reach all 10 eligible guns (plan: docs/39).
+Mechanics changed on the CURRENT 5 twin guns first (5 × 14 = **70 twins**, down from 230);
+Stage 2 = expand to 10 guns. The 414-twin count-cap experiment above was reverted; this is the
+real fix.
+
+- **Armory (Mule Kick Mega) → runtime sustain.** No more `maxAmmo` twin (the engine clamps
+  reserve to the baked cap, so +capacity *required* a twin — that axis is now removed). Armory is
+  now **+35% reserve refill per carried gun at the start of every round** (`ACC_ARMORY_ROUND_REFILL`,
+  `armory_round_refill_watcher` on `acc_round_start`) + an instant top-up on acquire. `armory_apply`
+  → `armory_refill`. The 10%-off discount is unchanged.
+- **Recoil → single −50% tier, MEGA Deadshot only.** Base Deadshot now has NO recoil twin (dropped
+  layer); recoil axis 3→2 levels. `recoil25`/`recoil40` → one `recoil50` (×0.50). `axis_recoil`
+  gated on `has_mega(specialty_deadshot)`.
+- **Mega Deadshot headshot 1.8 → 1.6** (`ACC_DEADSHOT_MEGA_MULT`). Base Deadshot stays 1.4×.
+- Ammo axis removed from `apply_recoil_overhaul.js` TWIN_DIMS + `variant_dims()` +
+  `acc_variant_axes`. `lint_gsc_xref` clean; tool chain re-run; `.ff` 34.36 MB.
+
+**TODO (after a clean boot):** Stage 2 (add PPSH/Galil/Olympia/Paladin + AK-74u `_up_zm` fix →
+10 guns / 140 twins); update the **Mega Deadshot UI card** + perk docs (13_perks / perk_abilities /
+30 / 31) to the new 1.6×/−50%-Mega-only + Armory-sustain definitions; remove the now-dead
+`axis_ammo`/`deadshot_recoil_level` helpers + stale recoil25/40 comments.
+
+### EXPERIMENTAL — twin count-cap re-test: 9 guns / 414 twins (user, 2026-06-16, PENDING BOOT TEST)
+
+User believes the "~230 twin boot cap" is a misdiagnosis and asked to test past it (revertible).
+Expanded the twin matrix from 5 → **9 guns** (added PPSH, Galil, Olympia, Paladin — the
+structurally-safe single-wield bulletweapons with clean `_up` PaP names) = **414 twins**,
+decisively past the 368 that previously AV'd at boot. Held out: AK-74u (irregular `_up_zm` PaP
+name desyncs the GSC twin lookup), Ripper (convertible altWeapon), Nail Gun (projectile),
+PDW/M1911 (akimbo) — separate crash modes.
+
+Changes: `apply_recoil_overhaul.js` GUNS +4; `_acc_weapon_variants.gsc` `variant_guns()` +4;
+tool chain re-run (reset the +4 GDT backups to pristine first so clips don't double-cut / recoil
+doesn't get wiped); zone auto-regenerated to 414 `weaponfull` lines; gdtdb (1838 assets).
+**Linker packs a clean `.ff` (34.80 MB)** — but the cap crashes at RUNTIME weapon registration,
+which the linker can't catch, so this NEEDS an in-game boot test.
+- **If it boots:** cap was a misdiagnosis → proceed to AK-74u (rename fix) + the structural guns.
+- **If it black-screens / won't load:** cap confirmed. REVERT = `git checkout` the two source
+  files, restore the +4 base GDTs from `*.acc-ammo-orig`, re-run apply_recoil_overhaul +
+  reduce_base_ammo + gdtdb (regenerates the 230/5-gun state).
+- Known cosmetic TODO if it boots: Olympia *twins* got clipSize floored to 1 (the double-barrel
+  maxAmmo-instead rule only protects the exact base/up names, not twins) — fix before shipping.
+
+### Changed — Tier reassignment pass; 6 guns re-pointed + restatted (user, 2026-06-16)
+
+User reshuffled the tier table; each moved gun's damage mult was retuned so its actual
+power matches the new tier (all `acc_weapon_balance_mult` edits → cover base+PaP+twins via
+`IsSubStr`; no GDT/twin GSC changes this round). Moves + restats:
+- **Nail Gun** Bad → **Excellent**: ×0.204 → **×0.37** (~589 DPS; heavy per-nail punch offsets projectile travel).
+- **Paladin HB50** Excellent → **Good**: ×0.80 → **×0.70** (700/shot; one-shots a couple rounds sooner).
+- **ASM1** Good → **Bad**: ×0.2625 → **×0.21** (~401 DPS; now the weakest auto by design).
+- **AK-47** Good → **Average**: ×0.1955 → **×0.184** (~460 DPS; Focus Fire keeps it appealing).
+- **AK-74u** Average → **Good**: ×0.22 → **×0.225** (~506 DPS; clear of the now-Average AK-47).
+- **AE4** stays **Good** (×0.38). Galil/Ripper/Tac-19/PPSH/PDW/M1911/Five-Seven/Olympia unchanged.
+
+New tiers — **Excellent:** Tac-19, Ripper, Nail Gun. **Good:** AE4, Galil, AK-74u, Paladin.
+**Average:** PPSH-41, PDW-57, M1911, AK-47. **Bad:** Five-Seven, Olympia, ASM1.
+Linker-only; `.ff` 34.55 MB clean.
+
+**Twin-alignment sweep (2026-06-16): VERIFIED clean, no edits needed.** Audited all 230
+perk-variant entries in `acc_weapon_variants.gdt` (46 each × ASM1/AE4/AK-47/Tac-19/Five-Seven)
+vs their base/PaP reference: every twin's baked `damage`/`clipSize`/`maxAmmo` matches the base
+(ammo twins correctly at maxAmmo ×1.25), and every twin name carries its base substring so the
+`acc_weapon_balance_mult` `IsSubStr` lookup applies the tier multiplier to it at runtime. **0 drift.**
+This is by design — tier damage is a runtime GSC multiplier keyed by substring, so a base-gun
+tier change auto-propagates to all its twins; the GDT only bakes recoil/fire/reload/ammo (clip
+unchanged for the 5 twin guns this pass), so nothing to hand-edit.
+
+### Changed — Balance audit + 4-tier classification; AE4 buff (user, 2026-06-16)
+
+Full power audit of all 14 box guns, sorted into **Excellent / Good / Average / Bad**
+(~25% each) on a holistic score: single-target DPS, horde power (penetration/pellets/RoF),
+ammo economy (reserve/clip/reload), ease-of-use (RPM feel, projectile travel), and
+role/PaP-gimmick value — NOT raw DPS alone.
+
+- **AE4 buffed** ×0.2635 → **×0.38** (~351 → ~506 body DPS). It was the DPS floor AND the
+  slowest-firing AR (500 RPM), so it sits at the TOP of the Good band to offset the sluggish
+  feel. Lands ~AK-47/Galil/ASM1 with the bonus of medium penetration + 200 reserve.
+- No other mechanical change — the just-applied PPSH/Nail-Gun nerfs + Olympia buff are
+  intentional and define the lower/role tiers; nothing else was "crazy" out of band.
+
+Final tiers:
+- **Excellent:** Tac-19, Paladin HB50, Ripper.
+- **Good:** AE4, AK-47, Galil, ASM1.
+- **Average:** AK-74u, PPSH-41, PDW-57, M1911.
+- **Bad:** Five-Seven, Nail Gun, Olympia.
+
+Auto DPS band after the buff: ~418 (PPSH) – 565 (Ripper) = 1.35x spread (role/Bad guns sit
+outside by design). Linker-only (GSC mult); fresh `.ff` 34.55 MB, clean. Needs playtest feel-check.
+
+### Changed — Weapon balance pass: per-gun damage + AK-74u/Nail Gun stats (user, 2026-06-16)
+
+Seven targeted changes across two systems. **Damage** retunes go through
+`_acc_damage::acc_weapon_balance_mult` (an `IsSubStr` lookup, so each edit covers base +
+PaP + every perk twin in one line — nothing to propagate by hand). **Clip / reserve /
+fire-rate** are GDT fields handled by `tools/reduce_base_ammo.js` (new `CLIP_FIX` /
+`FIRETIME_FIX` maps); both retuned guns are **twin-less** (not in `acc_weapon_variants.gdt`),
+so the base-GDT edit is the whole story.
+
+Damage (`acc_weapon_balance_mult`):
+- **Olympia +15%** ×0.85 → **×0.9775**.
+- **PPSH-41 −15%** ×0.20 → **×0.17**.
+- **Five-Seven −20%** ×0.375 → **×0.30**.
+- **M1911 +25%** base ×3.5 → **×4.375**; akimbo-explosive PaP ×0.40 → **×0.50**.
+- **All ARs −15%** (rifle-class, incl. Nail Gun per user): AK-47 ×0.23 → **×0.1955**,
+  Galil ×0.21 → **×0.1785**, AE4 ×0.31 → **×0.2635**, Nail Gun ×0.24 → **×0.204**.
+
+Clip / reserve / fire-rate (`reduce_base_ammo.js`):
+- **AK-74u** clip restored **20 / 40** (base/PaP) — exempt from the 30% cut; with maxAmmo
+  8/7 that's **reserve 160 / 280** (user: "back to 20, reserve 160"). `CLIP_FIX`.
+- **Nail Gun** clip **30 / 40** (`CLIP_FIX`) and **fire rate −25%** — `fireTime` 0.118→**0.157**
+  base, 0.10→**0.133** PaP (RPM ~508→381) via `FIRETIME_FIX`. Reserve follows clip → 210/320.
+
+Pipeline: `_acc_damage.gsc` edit + `node tools/reduce_base_ammo.js` → `gdtdb /update`
+(15 GDTs, 1654 assets) → linker. Fresh `.ff` 34.55 MB, GSC clean, 1-waiver baseline.
+**Needs in-game confirmation.** REVERT damage = git revert the GSC; REVERT ammo = restore
+`*.acc-ammo-orig` + remove the CLIP_FIX/FIRETIME_FIX entries + `gdtdb /update`.
+
+### Fixed — Ammo-economy pass: Olympia/Galil reduction + PDW-PaP 920 outlier (user, 2026-06-16)
+
+Two gaps in the global 30% ammo cut (`tools/reduce_base_ammo.js`, FACTOR 0.70):
+
+- **Olympia + Galil were never reduced.** Both were added to the box on 2026-06-15
+  but left out of the tool's `GDTS` list, so they shipped at full Skye-port ammo while
+  every other box gun was already 30% tighter (no `.acc-ammo-orig` backup existed for
+  either = proof they were never processed). **Galil** now takes the standard `clipSize`
+  ×0.70 (mag 35→25 base / 50→35 PaP; reserve 315→225 / 600→420). **Olympia** is a
+  double-barrel (`clipSize 2`) — ×0.70 would round it to **1** (a single-barrel gun), so
+  its 30% comes off `maxAmmo`/`startAmmo` instead (reserve 38→26 base / 60→42 PaP, clip
+  stays 2). The tool now handles this floor case via `MAXAMMO_WEAPONS`.
+- **PDW PaP `s1_pdw_rdw_up_zm` had `maxAmmo`/`startAmmo` 920** — a Skye-port data error,
+  ~70-130× every peer (others are 6-12; the m1911 akimbo-PaP uses 10). Reserve = clipSize
+  × maxAmmo, so 920 mags is a wildly broken stockpile. Clamped to **18** (reserve ≈ 306,
+  right in the PaP band of ~280-420) via the tool's new `MAXAMMO_FIX`. This is the "PDW PaP
+  has ~900 bullets while other guns have ~300" imbalance.
+
+Reserve model (verified across all 14 box guns): `maxAmmo`/`startAmmo` are reserve
+**magazine** counts (6-12), so in-game reserve rounds = `maxAmmo × clipSize`. Low-clip guns
+carry more mags (Tac-19/Paladin clip 4 × 12 = 48; Olympia clip 2) and high-clip guns fewer
+(Galil 35 × 9). After this pass the economy is consistent — no >2× outliers. **Damage**
+balance is a separate lever (`_acc_damage::acc_weapon_balance_mult`) and was NOT touched here.
+
+Pipeline: `node tools/reduce_base_ammo.js` (idempotent, reduces from `.acc-ammo-orig`) →
+`gdtdb /update` (15 GDTs, 1654 assets) → linker. Fresh `.ff` 34.55 MB at the 1-waiver
+baseline. **Needs in-game confirmation** of the new reserve counts (box-spin Olympia/Galil/PDW,
+PaP each). REVERT = restore `*.acc-ammo-orig` + `gdtdb /update`.
+
+### Added — Bus Station cross-room trench + jump-down fall tax (user, 2026-06-16)
+
+The **Bus Station (corp_zone)** now has a horizontal (E-W) **trench cut
+dead-centre**, splitting the room into a south half (Market/Alley entrances +
+power switch + box) and a north half (doors to Vault/Helipad). It spans the full
+1600u width, is **288u deep with vertical walls on all four sides** (incl. E/W
+**end walls** below the perimeter walls — without them the trench's open ends let
+players walk off the map), and the **450u top gap can't be jumped** — to cross you
+go down and up the far side. **One thin 96u staircase per side, hugging the E/W
+side walls** (so they don't eat the open pit floor): a **west-wall** stair (south
+lip) + an **east-wall** stair (north lip), joined by the open floor → you cross by
+going **down one wall and up the other** (diagonal: SW down → NE up). Each stair has
+a **guard rail down its open (pit-facing) side** (end wall on the other) so you can't
+fall off the stair into the pit; the bottom stays open so it still spills onto the floor.
+Walk it free, or **just jump in** (preferred). At **288u it is now past the engine's
+256u fall-damage threshold**, so a jump-in takes a little NATIVE fall damage on top
+of the scripted tax. _(Scaled from the initial 112u/288u: depth ×1.2 → ×1.3 → ×1.2
+→ ×1.2 → ×1.15 = 288u; width ×1.2 → ×1.3 = 450u; on user request,
+2026-06-16.)_ Geometry: one-shot generator `tools/gen_corp_trench.js` replaces
+the single corp floor brush with south + north thick ground slabs (z[-304,0] —
+inner faces are the N/S retaining walls), the trench floor (top z=-288), 2 E/W
+end walls, and 2×17 stair brushes (one per lip); the corp `info_volume` floor was
+lowered (-16 → -320) so the trench interior stays inside the zone; the corp power
+switch (790,1900→790,1600) and dog spawn (319,1948→319,1560) were moved clear of
+the trench band.
+
+**Jump-down fall tax:** new module `_acc_bus_trench.gsc` (wired in `_acc_main::init`
++ `.zone`) applies a **~25 `MOD_FALLING` tax** when a player drops into the trench
+with downward velocity past a threshold — so jumping in is taxed but **walking the
+stair walkway down is free**. Native engine fall damage can't do this (stock ZM
+`bg_fallDamageMinHeight` is 256u — the 288u trench is now just past it, so native fall dmg stacks on the scripted tax), hence the scripted, velocity-
+gated tax. Uses `MOD_FALLING` so **PhD Flopper's existing damage override negates it**.
+**Always on — no flag/dvar** (retune via the `ACC_TRENCH_FALL_DMG` constant, default 25).
+
+SoT: `source_data/rooms.json` gains a `"trenches"` block (corp); `tools/validate_rooms.js`
+is now trench-aware (checks the 3 split slabs instead of the single full-footprint
+floor — 24 ok / 0 err). Docs: `docs/03_layout.md` Bus Station. ⚠️ **Playtest:** the
+trench walls block every crossing except the stair channel, so **zombies funnel
+through it** — verify navmesh links the 16/16 stairs and the chokepoint feels right.
+Requires a **full geometry build** (cod2map64 + navmesh), not GSC-only.
+
+### Added — Lab perk alcoves with per-round random-3 access (user, 2026-06-16)
+
+The 9 Lab perk machines (the row at Y=4195: QR/Jug/Speed/DoubleTap/Stamin/Mule/
+Deadshot/Widow's/PhD) are now each in their own **door-gated alcove** on the Lab
+north wall, and only a **random 3 of the 9 open each round** (the rest are walled
+off and unbuyable that round; a closed door never removes an already-owned perk).
+New geometry via `tools/add_perk_alcoves.js`: 10 partition walls (one stall per
+machine), 9 `acc_perk_door_<specialty>` `script_brushmodel` gates across the stall
+mouths, and all 9 machines reoriented to face south (into the stall/player). New
+module `_acc_perk_doors.gsc` (wired in `_acc_main::init` + `.zone`) closes all then
+opens a random 3 on each `acc_round_start` (Fisher-Yates via `acc_utility::acc_rand_int`,
+gates toggled with the `_acc_lockdown` seal idiom). **Dev: all 9 open** (follows
+`acc_open_map`; force with `acc_perk_doors_all_open 1`). A ship build launches
+`acc_open_map 0` to enable the rotation.
+
+**Follow-up (2026-06-16, `tools/fix_perk_facing_flanks.js`):** the yaw-270 reorient
+above actually faced the machines WEST (sideways) — reverted all 9 to **yaw 0**
+(the original facing = south, toward the player at the stall mouth). Also added two
+**flanking walls** (west `X[-761,-675]`, east `X[675,799]`, full stall depth + height)
+so the gallery reads as a recess in the back wall ("the wall moved forward") instead
+of moving the machines behind the real hull (which would leak). Still verify facing
+in-game; if a model looks backwards it's a one-line yaw flip.
+
+### Added — Mystery box spawn node in every room + walk-through collision fix (user, 2026-06-16)
+
+The single moving Mystery Box now has a spawn node in **all 7 rooms** (was 3:
+Market/Bus Station/Helipad; added Plaza/Alley/Vault/Lab via `tools/add_room_boxes.js`,
+each tucked against a room wall). `roll_mystery_box_initial` rolls all 7; the stock
+teddy-bear move walks the box among them. **Collision:** the MagicBox model has no
+player clip (walk-through), so each node gets an invisible `acc_box_clip_<node>`
+`clip` brushmodel; `_acc_map_randomizer::manage_box_collision` keeps **only the
+active node's clip solid** (tracks `level.chests[level.chest_index]`), so the 6
+rooms without the box have no phantom invisible block.
+
+### Changed — Zone rename: Plaza→Bus Station, Spawn→Plaza (user, 2026-06-16)
+
+Two **display-name** renames (internal zone IDs `corp_zone` / `start_zone` are
+UNCHANGED — only the human-facing names move):
+- `corp_zone` "Plaza" → **"Bus Station"**
+- `start_zone` "Spawn" → **"Plaza"**
+
+Updated everywhere the names surface: `source_data/rooms.json` (`name` fields),
+`_acc_dev.gsc::dev_zone_name`, `tools/gen_map_design.js` zone labels (SVG
+regenerated), `tools/gen_zone_greybox.js` header comments, and the GSC comments in
+`_acc_decontamination.gsc` / `_acc_events_hack.gsc`. Doc sweep across `docs/*.md`
+(Plaza→Bus Station first, then the start-zone location "Spawn"→Plaza, leaving spawn
+*mechanics* words untouched). Decon eligibility and all gameplay wiring key off the
+unchanged internal IDs, so behaviour is identical.
+
+### Reverted — Scattered match-start spawns (attempted, shelved; user, 2026-06-16)
+
+A "each player starts in a random outer zone (Helipad/Vault/Market/Alley), not
+Plaza" feature was attempted but **hit two BO3 engine walls and was removed**;
+players spawn in Plaza (`start_zone`) as before. Module `_acc_spawn_distribute.gsc`
+deleted, unwired from `_acc_main` + the `.zone`, spawn points restored to start_zone.
+(1) **Teleport after spawn** → player spawns fine but is consistently lifted to
+`z=105` and stuck ~7s later (not a zombie swarm — verified `znear=0`); reground/clear
+mitigations didn't hold. (2) **Moving the `initial_spawn_points` structs into the
+zones** → stock `_zm.gsc`/`clientfield_shared.gsc` `cannot cast undefined to int`
+crash on spawn (BO3 initial-spawn isn't built to start players in a non-start zone).
+Full diagnosis: memory `scatter-spawn-engine-walls`. Plaza spawn is the known-good
+baseline; revisit per-zone spawns as a researched, standalone task.
+
+### Removed — All free-standing blocking obstacles → flat rooms (user, 2026-06-16)
+
+Per user request, the map's rooms are now **flat/open**: every free-standing blocking
+structure was removed so only the room shells (floor/walls/ceiling), doors, and
+functional structs (mystery box, Pack-a-Punch, perk machines) remain. Deleted 10
+worldspawn `script_wall` cover brushes from
+`map_source/zm/zm_abandoned_cyber_city.map` (guids `…0145`–`…014C` + `ACCADDS0/ACCADDS1`):
+spawn debris pile, corp fountain, corp S-curve A/B, the 3 market stalls, the roof
+central obstacle, and the two Stage-3 start-cover blocks. The vault ceiling
+(`ACCVCEIL`), the spawn barricade-window frame, and all gameplay structs were left
+untouched. Source-of-truth generators updated so a regen can't reintroduce them:
+training-obstacle pushes commented out in `tools/gen_zone_greybox.js`, `S0/S1`
+disabled in `tools/apply_room_shrink.js` ADD list, `obstacles[]` emptied in
+`tools/gen_map_design.js` (SVG regenerated — no obstacle markers). Backup:
+`…map.pre-flatten-bak`. Geometry change → needs the FULL build (cod2map+navmesh+LED+
+linker), not a `-GscOnly` pass.
+
 ### Added — Glitch Stalker teleport "warp" SFX (2026-06-15)
 
 The Glitch Stalker now plays a 3D positional **warp** sound at its destination every time it blinks

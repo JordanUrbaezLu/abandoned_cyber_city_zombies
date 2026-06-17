@@ -72,9 +72,9 @@ zombies path through the window, confirm points award on kills (40/hit-kill
 profile is ours, not stock - see docs/06_mechanics.md).
 
 **7-zone greybox walkthrough** (2026-06-12 layout — all corridors open, no
-buyable doors yet; zones: Spawn ↔ Market/Alley ↔ Corp ↔ Vault/Roof ↔ Lab):
+buyable doors yet; zones: Plaza ↔ Market/Alley ↔ Corp ↔ Vault/Roof ↔ Lab):
 
-- Walk Spawn → west corridor → Market (Mystery Box, stall row), north →
+- Walk Plaza → west corridor → Market (Mystery Box, stall row), north →
   Corp (ICR-1 + Sheiva wallbuys, power switch east wall, fountain + S-curve),
   east → Vault (Frag wallbuy) / west → Roof (Drakon wallbuy, central
   obstacle), north from either → Lab (all 9 perk machines, PaP, Bowie).

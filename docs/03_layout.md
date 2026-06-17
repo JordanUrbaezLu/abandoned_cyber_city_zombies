@@ -14,7 +14,7 @@ Gameplay-first layout. Theme and art are flavor only; this doc is about **flow, 
 - **Two distinct training spots per major zone.** A training spot = a loop or chokepoint where a skilled player can herd the horde. Without them, late-game collapses into "camp one corner".
 - **Every zone has at least two exits.** No dead-end panic traps unless the panic is a designed risk (see Vault Overload).
 - **Verticality is earned.** Rooftops and the Vault are late-unlock so early rounds stay grounded.
-- **Spawn and Lab are never permanently sealed** by decontamination (see below). **Plaza** is never sealed: it is a **cut vertex** in the zone graph; sealing it would strand players away from the Lab.
+- **Plaza and Lab are never permanently sealed** by decontamination (see below). **Bus Station** is never sealed: it is a **cut vertex** in the zone graph; sealing it would strand players away from the Lab.
 
 ## Map Diagram (read + build reference)
 
@@ -31,13 +31,13 @@ Hub-and-spoke with two Lab approaches. `==` / `||` are **doors** (buyable or alw
          +-----------------------------+----------------------------+
          |                             |                            |
          |                     +-------+--------+                   |
-         |                     |       Plaza       |                 |
+         |                     |       Bus Station       |                 |
          |                     |    (HUB — never   |                 |
          |                     |   decontaminated) |                 |
          +----------+----------+-------+--------+----------+--------+
          |          |                  |          |          |        |
   +------+---+  +---+------+     +-----+----+ +---+-----+ +--+-------+--+
-  |  Spawn   |  |  Market  |     |  Alley  | | Vault   | |   Lab    |
+  |  Plaza   |  |  Market  |     |  Alley  | | Vault   | |   Lab    |
   |          |  |          |     |         | |         | |          |
   | (SAFE)   |  |xxxxxxxxxx|     |         | |         | | (SAFE)   |
   +------+---+  +----------+     +---------+ +----+----+ +-----+----+
@@ -51,8 +51,8 @@ Hub-and-spoke with two Lab approaches. `==` / `||` are **doors** (buyable or alw
 
 **Legend**
 
-- **SAFE**: Spawn and Lab are **never** chosen as decontamination seals (see [Decontamination zones](#decontamination-zones-round-hazard)).
-- **HUB**: Plaza is **never** sealed — required for connectivity between Spawn, side zones, and both Lab approaches.
+- **SAFE**: Plaza and Lab are **never** chosen as decontamination seals (see [Decontamination zones](#decontamination-zones-round-hazard)).
+- **HUB**: Bus Station is **never** sealed — required for connectivity between Plaza, side zones, and both Lab approaches.
 - **Eligible seals** (four): Market, Alley, Vault, Helipad. One of these **locks permanently for the run** each round for the first four rounds (order is **run-randomized**).
 
 ### Mermaid (same graph, for slides / wiki)
@@ -60,12 +60,12 @@ Hub-and-spoke with two Lab approaches. `==` / `||` are **doors** (buyable or alw
 ```mermaid
 flowchart LR
     subgraph safe["Never sealed"]
-        SP[Spawn]
+        SP[Plaza]
         LAB[Lab<br/>PaP, perks, Overclock]
     end
 
     subgraph hub["Never sealed — hub"]
-        CORP[Plaza<br/>Power A, hack, AR, box]
+        CORP[Bus Station<br/>Power A, hack, AR, box]
     end
 
     subgraph sealable["Decontamination-eligible"]
@@ -87,10 +87,10 @@ flowchart LR
 
 Key properties:
 
-- Spawn has two exits (Market, Alley), both buyable early so players pick their opener.
+- Plaza has two exits (Market, Alley), both buyable early so players pick their opener.
 - Corp is the **hub** — four connections, two training spots, one of two power switches.
 - Lab (PaP + perks) has two approaches (Server or Roof). One approach may be **randomly blocked per run** (see Randomization) — independent of decontamination.
-- Total: **7 zones**. Eligible for **permanent seal**: **4** (Market, Alley, Vault, Roof). **Never sealed**: Spawn, Corp, Lab.
+- Total: **7 zones**. Eligible for **permanent seal**: **4** (Market, Alley, Vault, Roof). **Never sealed**: Plaza, Corp, Lab.
 
 ## Decontamination zones (round hazard)
 
@@ -101,7 +101,7 @@ Key properties:
 | Rule | Detail |
 |---|---|
 | **What triggers** | At the **start of each round** (after `start_of_round` / `acc_round_start`), one **eligible zone** is declared **contaminated** for that round’s seal event. |
-| **Eligible zones** | **Market**, **Alley**, **Vault**, **Helipad** only. **Not** Spawn, **not** Plaza, **not** Lab. |
+| **Eligible zones** | **Market**, **Alley**, **Vault**, **Helipad** only. **Not** Plaza, **not** Bus Station, **not** Lab. |
 | **Order** | A **permutation** of the four zones is rolled **once at map load**. **Round 1** contaminates slot 1, **round 2** slot 2, … **round 4** slot 4. **Round 5+**: **no new permanent zone seal** from this system (map stays at four zones locked). *(Tuning: later rounds could add “soft” re-contamination without new seals — not v1.0.)* |
 | **Player warning** | Global HUD + audio: **“DECONTAMINATION — EVACUATE [ZONE NAME]”** at round start. |
 | **Escape window** | **20 seconds.** Anyone **inside** the contaminated zone’s volume when the round starts must **leave** that zone’s flagged bounds before the timer hits 0. |
@@ -109,11 +109,11 @@ Key properties:
 | **After the timer** | The zone **seals for the rest of the run**: doors close, debris blocks, **kill volume** on re-entry. Zombies may still spawn elsewhere; spawners inside the sealed zone are disabled or redirected in Radiant/script. |
 | **Lab perk rotation** | The Lab’s **4-of-9 perk re-roll does not happen at the first frame of the round.** It runs **only after** the decontamination phase completes: **after** the 20s window ends and the zone is sealed (or after round 5+ when there is no new seal — rotation still runs **after** the nominal 0s decontamination tick). See [13_perks.md](13_perks.md#perk-availability-per-round-rotating-lab-machines). |
 
-### Why Corp / Spawn / Lab are excluded
+### Why Corp / Plaza / Lab are excluded
 
-- **Spawn**: must remain a **spawn-safe** floor; sealing it ends the run by definition.
+- **Plaza**: must remain a **spawn-safe** floor; sealing it ends the run by definition.
 - **Lab**: Pack-a-Punch, Overclocks, **all perks** — sealing it removes progression and contradicts the perk loop.
-- **Plaza**: graph-theoretic **cut vertex**; sealing it disconnects typical paths from Spawn to Lab unless duplicate edges exist (they do not in v1.0).
+- **Bus Station**: graph-theoretic **cut vertex**; sealing it disconnects typical paths from Plaza to Lab unless duplicate edges exist (they do not in v1.0).
 
 ### Skill expression
 
@@ -130,10 +130,10 @@ Key properties:
 
 ```mermaid
 flowchart TD
-    Spawn[Spawn<br/>Starting zone, pistol / SMG wallbuys]
+    Spawn[Plaza<br/>Starting zone, pistol / SMG wallbuys]
     Market[Market<br/>Box, LMG wallbuy]
     Alley[Alley<br/>Shotgun wallbuy, Shard lane]
-    Corp[Plaza<br/>Power switch A, box, AR, hack]
+    Corp[Bus Station<br/>Power switch A, box, AR, hack]
     Server[Vault<br/>Power switch B, Overload]
     Roof[Helipad<br/>Box, sniper, late train]
     Lab[Lab<br/>PaP, Overclock, ALL perks]
@@ -150,7 +150,7 @@ flowchart TD
 
 ## Per-Zone Gameplay Notes
 
-### Spawn
+### Plaza
 - **Purpose**: first 3-4 rounds. Establish economy.
 - **Features**: 2x pistol wallbuy, SMG wallbuy, starting pistol upgrade terminal.
 - **Training**: one small loop around a central debris pile. Usable through round ~8.
@@ -169,10 +169,10 @@ flowchart TD
 - **Training**: bad. It's a corridor. Don't camp here.
 - **Decontamination**: **eligible** — can be permanently sealed.
 
-### Plaza
+### Bus Station
 - **Purpose**: **the hub**. Where a large share of a typical run is spent.
 - **Features**: Power Switch A (one of two), Mystery Box possible spawn, AR wallbuy. **No perk machines** — all perks at the Lab.
-- **Training**: two distinct spots — the fountain loop (big, safe) and the lobby S-curve (tight, efficient).
+- **Trench (cross-room)**: a horizontal (E-W) trench is cut **dead-centre**, splitting the room into a south half (the two entrances from Market/Alley, plus the power switch and box) and a north half (the doors to Vault/Helipad). It spans the full room width and is **288u deep with vertical walls** (all four sides sealed — including end walls at the E/W ends, since the perimeter walls only start at floor level) — you can't step over it or jump the 450u gap across the top, so to cross you go **down and up the far side**. (At 288u it's now past the engine's 256u fall-damage threshold, so a jump-in takes a little native fall damage on top of the scripted tax.) **One thin (96u) staircase per side, hugging the side walls** (so they don't eat the open pit floor): a stair against the **west wall** (south lip) and one against the **east wall** (north lip), joined by the open trench floor — so you cross by going **down one wall and up the other** (a diagonal: SW down → across the open pit → NE up). Each stair has a **guard rail down its open (pit-facing) side** (and hugs an end wall on the other), so you can't fall off the stair into the pit — the bottom stays open so the stair still spills onto the floor. Walk a walkway down and back up for free, or **just jump in** (preferred/faster). Jumping/falling in costs a small **~25 fall tax** (velocity-gated — the stair walk is free; PhD Flopper negates the tax). Native engine fall damage can't do this at 112u (stock min height is 256u), so the tax is scripted: `_acc_bus_trench.gsc` — **always on, no flag** (retune the `ACC_TRENCH_FALL_DMG` constant). Geometry SoT: `source_data/rooms.json` "trenches".corp; brushes `tools/gen_corp_trench.js`. **Note**: because the trench walls block every crossing except the two wall-hugging stairs (joined by the open floor), zombies funnel down the west-wall stair, across the floor, and up the east-wall stair — verify in-game that the navmesh links the 16/16 stairs and the diagonal crossing feels right.
 - **Hack terminal**: optional intrusion event (see `06_mechanics.md`). Success rewards 2 Data Shards + a random Overclock. Failure locks it for the run and spawns a penalty wave.
 - **Decontamination**: **never** sealed (connectivity).
 
@@ -217,8 +217,8 @@ These are features **of the layout** that re-roll per run. Full randomization ca
 Knowing where you can train is a skill check. Listed best-to-worst for late game **after accounting for sealed zones** (your order may remove Market, Alley, Vault, or Roof):
 
 1. **Helipad** — biggest, cleanest circle (unless sealed).
-2. **Plaza fountain** — big, safe, central.
-3. **Plaza S-curve** — tighter, higher efficiency, unforgiving.
+2. **Bus Station fountain** — big, safe, central.
+3. **Bus Station S-curve** — tighter, higher efficiency, unforgiving.
 4. **Market stall row** — early-game only; **gone** if Market sealed early.
 5. **Vault point** — only viable during non-Overload state, and **gone** if Vault sealed.
 
