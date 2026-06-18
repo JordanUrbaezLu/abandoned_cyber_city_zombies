@@ -96,8 +96,8 @@ function flash_respawn_watcher()
 
 // Widow's Wine grenade round-restock: base perk tops the web-grenade clip to 2 at
 // the start of each round; the Spiderman Mega tops it to 4 (docs/13). Restock =
-// "ensure at least N", never reduces a higher count (drop pickups still stack to
-// the GDT cap). Runs for every Widow owner each round.
+// "ensure at least N", never reduces a higher count. Spiderman's actual max-cap
+// fill is force_spiderman_web_capacity(), called on Mega apply/re-apply.
 function widow_round_restock_watcher()
 {
     level endon( "end_game" );
@@ -505,23 +505,9 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_widowswine":
-        // Spiderman (docs/13 overhaul): hold up to 6 web grenades. Top the player's
-        // CURRENT web-grenade count to 6. VERIFIED(acc): ZM carries the web grenade
-        // in the LETHAL CLIP, not the reserve - stock decrements via
-        // SetWeaponAmmoClip( current_lethal_grenade, ... ) on throw
-        // (_zm_perk_widows_wine.gsc:214) and reads it with GetWeaponAmmoClip (:294).
-        // The engine clamps the clip to the grenade GDT carry max, so a 6 above that
-        // cap still needs the GDT raise (docs/30). The restock-4/round half is in
-        // widow_round_restock_watcher.
-        if ( isdefined( level.w_widows_wine_grenade )
-             && player HasWeapon( level.w_widows_wine_grenade ) )
-        {
-            cur = player GetWeaponAmmoClip( level.w_widows_wine_grenade );
-            if ( !isdefined( cur ) || cur < ACC_SPIDERMAN_WEB_GRENADES )
-            {
-                player SetWeaponAmmoClip( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
-            }
-        }
+        // Spiderman: set the owned web-grenade stack to its Mega max capacity.
+        // Round-start restock remains 4 and is handled by widow_round_restock_watcher.
+        player force_spiderman_web_capacity();
         break;
 
     case "specialty_additionalprimaryweapon":
@@ -568,6 +554,17 @@ function apply_mega_effects( player, specialty_string )
         acc_utility::log( "mega effect pending implementation: " + specialty_string );
         break;
     }
+}
+
+// self = player. Spiderman's max capacity is 6 web grenades, carried in the
+// lethal clip. This is intentionally a max-cap fill, not a passive loop, so
+// throwing grenades still spends them normally.
+function force_spiderman_web_capacity()
+{
+    if ( !isdefined( level.w_widows_wine_grenade ) ) return;
+    if ( !( self HasWeapon( level.w_widows_wine_grenade ) ) ) return;
+
+    self SetWeaponAmmoClip( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
 }
 
 function apply_flash_speed()
