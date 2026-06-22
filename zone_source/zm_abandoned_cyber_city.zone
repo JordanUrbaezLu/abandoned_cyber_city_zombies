@@ -24,6 +24,14 @@ material,luts_t7_default
 // tools/sync_to_modtools.ps1). LED-free runtime atmosphere (no bake).
 rawfile,vision/zm_abandoned_cyber_city.vision
 
+// Live-swappable alternate grades for in-game A/B (no rebuild to choose): set
+// acc_vision_set acc_grade_magenta | acc_grade_orange | acc_grade_dark. The default
+// (zm_abandoned_cyber_city) is now a VIBRANT MAGENTA; these are hotter-magenta,
+// orange-neon, and darker-magenta casts (docs/29 §7b). LED-free.
+rawfile,vision/acc_grade_magenta.vision
+rawfile,vision/acc_grade_orange.vision
+rawfile,vision/acc_grade_dark.vision
+
 // NOTE: stock t7_* wall/floor materials are painted on faces in the .map, but they
 // are NOT listed here yet. Listing them makes the linker try to COMPILE their
 // techset shaders, which FAILS on this install ("failed to open source file:
@@ -54,11 +62,14 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_exo.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_brutus.gsc
-scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_panzer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
@@ -74,18 +85,26 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 // Per-round DEFCON room lockdown (stage 1: red alarm-light half). docs/37.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc
+// Lockdown CHALLENGE room (Phase A): trap -> 30 confined glitch zombies -> reward. docs/43.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown_challenge.gsc
 // Per-round random-3 access to the 9 Lab perk-alcove door gates.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_doors.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_zombie_speed.gsc
 // Bus Station cross-room trench: velocity-gated fall tax (PhD-negated). docs/03.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc
+// Dual-switch power: BOTH Bus Station switches required (one each side of trench).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_power.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
+// Perk machine + Pack-a-Punch glow on power-on. Server (.gsc) sets a colour-index
+// clientfield on the power_on flag; client (.csc, listed below by _acc_lui.csc) PlayFX's
+// the glow. The .csc is the render half (server-side PlayFX does not render in this build).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_lights.gsc
 
 // NSZ Brutus boss pack (custom aitype zm_brutus + BO2 model + custom anims).
 // Assets imported via APE from model_export/_NSZ/_GDT/_NSZ_Brutus.gdt at the Mod
@@ -93,10 +112,6 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
 // docs/research/NateSmithZombies_Brutus_BO2_boss_pack.txt
 scriptparsetree,scripts/_NSZ/nsz_brutus.gsc
 
-// Spiki Panzer (stock mechz archetype). Assets imported via gdtdb from
-// model_export/Custom/Panzer_soldat.gdt; the spawner (actor_spawner_zm_castle_mechz)
-// pulls the aitype + models/anims/materials transitively. docs/research/BO3_Panzer_*.
-scriptparsetree,scripts/zm/mechz_spiki.gsc
 scriptbundle,brutus_bundle
 xmodel,brutus_helmet
 xmodel,bo2_brutus_fb_death
@@ -116,6 +131,22 @@ fx,dlc4/genesis/fx_apothicon_fury_spawn_in_exp
 //   fx_glow_blink_red_5               = softer blinking-red glow (acc_lockdown_use_glow 1)
 fx,light/fx_light_flashing_red_factory_zmb
 fx,light/fx_glow_blink_red_5
+
+// Perk/PaP power-on glow FX (_acc_perk_lights.csc PlayFX's these client-side, one per perk
+// colour). Recoloured clones of the proven green power-up aura, generated by
+// tools/gen_perk_glow_fx.js into <tools>\share\raw\fx\acc\light\ (NOT in git - regenerate
+// from that tool, like the external asset packs). The green source is confirmed to render
+// in this build (validated in-game 2026-06-18).
+fx,acc/light/fx_perk_glow_red
+fx,acc/light/fx_perk_glow_green
+fx,acc/light/fx_perk_glow_yellow
+fx,acc/light/fx_perk_glow_orange
+fx,acc/light/fx_perk_glow_amber
+fx,acc/light/fx_perk_glow_blue
+fx,acc/light/fx_perk_glow_white
+fx,acc/light/fx_perk_glow_purple
+fx,acc/light/fx_perk_glow_blacklight
+fx,acc/light/fx_perk_glow_teal
 
 // Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
 // aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
@@ -147,12 +178,54 @@ xmodel,c_zom_der_zombie_body1
 // to link. Same body/head naming family as c_zom_der_zombie_body1 above.)
 xmodel,c_zom_der_zombie_head1
 
+// Custom ground-pickup world models (referenced ONLY by SetModel in script, so
+// the linker needs these explicit lines - same reason as the Glitch Stalker
+// models above). Stock assets, gdtDB-registered (verified via the dropped-item
+// model workflow); materials ride in transitively (dodge the brush-face trap).
+//   p7_fxanim_zm_stal_ray_gun_ball_mod = Data Shard drop (_acc_data_shards.gsc)
+// Boss Cyberware items - one distinct model each (_acc_boss_items build_item_pool).
+// 5 props packed here; item 4 "Repair Kit" uses a runtime-loaded powerup icon (no
+// line needed). (zombie_zapper_handle + p6_power_lever were tried and FAILED to
+// link - "xmodel missing", not in ZM-common fastfiles - so they were swapped out.)
+//   nitrous_tank=Gas Tank, octobomb=Li'l Arnie, teddybear=Teddy Bear,
+//   rocket_shield=Rocket Shield, monkey_bomb=Monkey Bomb
+xmodel,p7_fxanim_zm_stal_ray_gun_ball_mod
+xmodel,p7_zm_zod_nitrous_tank
+xmodel,p7_fxanim_zm_zod_octobomb_mod
+xmodel,p7_boots_safehouse_01
+xmodel,zombietron_gold_brick
+xmodel,wpn_t7_zmb_zod_rocket_shield_world
+xmodel,wpn_t7_zmb_monkey_bomb_world
+// Plaza Implant Bench prop: Cyber City white metal workbench (stock t7_props, on
+// disk at model_export/t7_props/p7_cai_work_table_metal_set/). NOT in zm_levelcommon,
+// so the linker compiles it from its GDT and packs it here (needs gdtdb-registered).
+xmodel,p7_cai_work_table_metal_03_white
+// Underground "Foundry" props (stock t7 props; same p7_cai_ family as the workbench
+// above, so they compile from their GDTs + pack here). Glitch Altar base = interactive
+// kiosk; Data Cache = cargo crate; Overclock terminal = ticket kiosk. Verified vs the
+// build ERRORLOG (the oracle - see stock-pickup-model-safety).
+xmodel,p7_cai_sign_inteactive_kiosk
+xmodel,p7_cai_stacking_cargo_crate
+xmodel,p7_cai_ticket_kiosk_theatre
+
+// Cymbal Monkey (cymbal_monkey_zm) + Octobomb / Li'l Arnie (octobomb_zm) are
+// granted by boss items. Both weapon DEFS already ship in zm_levelcommon (every
+// usermap loads it at runtime - assetlist lines 6175 + 6225), so we do NOT add a
+// `weapon,<name>_zm` line here: that forces a re-pack from a GDT source that ISN'T
+// on disk and errors "Unable to load weapon". Inclusion is done purely via CSV rows
+// in gamedata/weapons/zm/zm_levelcommon_weapons.csv (is_weapon_included -> true);
+// GetWeapon("octobomb"/"cymbal_monkey") then resolves from zm_levelcommon. (Earlier
+// build error was self-inflicted by the redundant weapon, lines - removed.)
+
 // LUI client pipeline foundation (server module + client mirror + Lua overlay).
 // docs/28_lui_pipeline.md. The .lua is a rawfile (copied verbatim, parsed by the
 // game's Lua VM at runtime - a Lua syntax error shows at load, NOT at link).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc
-scriptparsetree,scripts/zm/mechz_spiki.csc
+// Client half of the perk/PaP power-on glow (REGISTER_SYSTEM mirror + PlayFX render).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_lights.csc
+// Client half of the Phantom holographic glow aura (accPhantomAura clientfield -> PlayFXOnTag).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.csc
 rawfile,ui/uieditor/menus/hud/acc_hud.lua
 
 // Custom perk HUD icons (Ronan's Cyberpunk Shaders), drawn by acc_hud.lua's
@@ -278,6 +351,13 @@ weapon,t6_olympia_up
 // used. Std loc mults (= AK-47). Twin-less (weapon-count cap).
 weapon,t6_galil
 weapon,t6_galil_up
+
+// LMGs (user, 2026-06-19): M60 + RPD (Skye BO2, COMPILED models). Diverse (M60 heavy/slow, RPD fast/drum).
+// Twin-less (weapon-count cap). (Stoner63/HK21 BO1 ports wanted first but their xmodels aren't compiled.)
+weapon,t6_m60
+weapon,t6_m60_up
+weapon,t6_rpd
+weapon,t6_rpd_up
 
 // Perk weapon-variant TWIN matrix (110 = 11 combos x 5 guns x base/_up): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =

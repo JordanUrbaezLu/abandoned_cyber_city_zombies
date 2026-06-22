@@ -6,6 +6,2259 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — Pitch-black-until-power lighting + power lever moved to force a dark crossing (user, 2026-06-21)
+
+The map now goes **truly dark until the power switch is flipped** — the player must cross a pitch-black Bus
+Station to reach the lever.
+- **Root cause of "bright before AND after power" was a FULLBRIGHT `.ff`, not the source.** The baked lightmap
+  lives in the `.led`; a build had regenerated the `.d3dbsp` (cod2map) *after* the LED bake, so the linker packed
+  an un-relit BSP → every lighting state rendered identically and the `set_lighting_state(0→1)` flip was a visual
+  no-op. Oracle going forward: **`.led` mtime must be newer than `.d3dbsp`** (file size is NOT the tell — a relit
+  BSP is still ~617 KB). Fix = full `build_map.ps1` (cod2map → LED → linker). Memory `fullbright-ff-stale-led-vs-bsp`.
+- **Interior rooms: pure black until power.** Dropped the pre-power DIM floor set entirely (the `0.02` trace still
+  read "too light"); each sealed room now bakes black in the pre-power state and lights up on power. The 63 BRIGHT
+  (post-power) lights stay. `tools/gen_room_roofs.js` `EMIT_DIM_PREPOWER = false`.
+- **Sealed areas (abyss + underground) now power-gate too.** The 24 abyss + 41 underground lights were always-on
+  (`lightingstate1..4 = 1`); flipped to `0,1,1,1` (dark pre-power, lit post-power) via `tools/_gate_sealed_lights.js`
+  (light-KVP only — no geometry/navmesh regen) + the generator sources (`gen_abyss_layer.js`,
+  `gen_underground_lights.js` `POWER_MASK`). Only the **15 Plaza lights** stay always-on (the lit safe-haven spawn).
+- **Night sky dimmed to 0.6.** `worldspawn sky_intensity_factor0/1` `1 → 0.6` (global multiplier, not per-state) to
+  cut the `default_night` sun's bleed into open doorways.
+- **Power lever moved across the trench to the Lab side, FAR (west) wall.** The Bus Station has an E–W trench
+  (y[1723,2173]) splitting it into a south/Plaza half and a north/Lab half, crossed by stairs whose only north
+  exit is the EAST channel (x[703,799]). The `power_switch.map` prefab moved from the south/Plaza side
+  `(790 1600 1)` to the north/Lab half **west wall** `(-752 2250 1)`, angles `0 90 0` (faces east into the room).
+  Players drop through the pitch-black trench, climb out the NE stairs, then must cross the dark Lab half to the
+  opposite (west) wall to flip it — so they can't power on the instant they leave the stairs. (Interim spot
+  `(790 2250 1)` sat right beside the east stairs — too easy.) `_acc_power.gsc` stands down to the prefab's
+  native trigger, so no script change. FULL LED build.
+
+### Added — Overclock kiosk: full held-gun report card + zap SFX + PaP-style re-draw (user, 2026-06-21)
+
+Walk up to an Overclock kiosk → a card now reports the **gun in your hand**: its name, PaP level (+ benefit),
+and Overclock level (+ all three benefits at that tier). Plus tactile feedback when you overclock.
+- **Report card** (`acc_hud.lua` + `_acc_perk_info.gsc` + `_acc_overclocks.gsc`). The kiosk records its
+  trigger origins (`level.acc_oc_kiosk_origins`); `_acc_perk_info::update_for_player` competes them with the
+  perk/PaP machines for the nearest interactable. When the kiosk wins it shows a combined card:
+  - **Gun name** — encoded into the **unused `accPerkCard` code range 44..63** as `44 + gun_card_index(held)`
+    (the gap between perk codes 0..43 and the +64 Armory-discount bit). `acc_hud.lua` decodes `gunIdx = code-44`
+    → `AccGunNames[]` (mirrors `_acc_perk_info::gun_card_index`). **No new clientfield** — the full clientuimodel
+    pool is untouched (avoids the documented overflow that breaks `zmhud.swordEnergy`).
+  - **PaP + Overclock levels/benefits** — read from the already-live `accPapTier` / `accOcTier` models (the held
+    gun's tiers), so the card needs no extra data. OC benefit text mirrors `_acc_damage`: +5%/tier damage,
+    +25%/tier vs glitch zombies, 10%/tier ammo back on a headshot KILL. The +64 discount is guarded off for the
+    overclock card.
+- **Zap SFX on overclock** — new CC0 alias `acc_overclock_zap` (freesound community laser-zap) in
+  `sound/aliases/acc_audio.csv` → `sound_assets/acc/fx/overclock_zap.wav`, played `player PlaySound(...)` on each
+  tier-up. The source wav was **24 kHz** (BO3 linker rejects: *"wav is not 48k sample rate"*); resampled in-repo
+  to **48 kHz** via a no-dependency Node 2× frame-duplication upsampler (same pitch/length). ⚠️ **The soundbank
+  only recompiles on a GAME-CLOSED build** (a running game file-locks `CachedBanks/*.sabs`, so the linker reuses
+  the stale bank). **Done:** rebuilt with the game closed (deleted the locked `CachedBanks`, relinked) and verified
+  `overclock_zap` is baked into the `.sabl` bank + compiled `.sz` — the zap plays. Memory `custom-sound-48k-and-game-lock`.
+- **PaP-style re-draw on overclock** — `player acc_pap_levels::replay_pack_draw(current)` replays the same
+  "gun comes out" first-raise PaP uses (preserving the gun's camo/tier), so an overclock *feels* like an upgrade.
+  Gated by the existing `acc_pap_tier_anim` dvar.
+  - **Fix (post-review):** `replay_pack_draw` re-gave the redrawn held gun with the gold PaP camo
+    **unconditionally** (`_acc_pap_levels.gsc:494`) — fine when only PaP called it, but overclocking a never-packed
+    gun would paint it gold. Now tier-gated (`if get_tier(self,w) >= 1`) exactly like the restore loop; PaP camo
+    unaffected (both PaP callers hold a tier ≥1 gun at that point).
+- **Adversarial verification pass** (`verify-overclock-batch` workflow, 13 agents): 5 review dimensions (clientfield
+  lockstep, the card encode/decode contract, GSC runtime-fatal patterns, logic correctness incl. the headshot-KILL
+  timing, balance-number consistency) → adversarial refute per finding. Result: wiring + gameplay values all correct;
+  issues found = stale tier comment tags (Five-Seven `[B]`→`[C-]`, AE4 `[A]`→`[B]` in `_acc_damage.gsc`) + a stale
+  docs/05 LMG paragraph (M60 `A-top`→`S`, RPD `0.13/B`→`0.10/C`) + the camo bug above. All fixed. `-GscOnly`, BUILD OK.
+
+### Changed — Location title: trench/abyss layers + transient 5s reveal (user, 2026-06-21)
+
+The on-screen area name (top-center "zone signage" in `_acc_dev.gsc`, `dev_update_zone`) now:
+- **Names the trench/abyss layers** — descending overrides the surface zone via
+  `acc_bus_trench::underground_layer()`: `BUS STATION (TRENCHES LV1)` (the pit) … `LV5` (the deepest
+  floor). Surface zones (Plaza/Market/Alley/Bus Station/Vault/Helipad/Lab) unchanged.
+- **Is transient (declutter):** it was a persistent label; now it **fades in only when you ENTER a new
+  area, holds 5 s, then fades out**, and re-appears for 5 s on the next new area (`FadeOverTime` + a
+  `GetTime()+5000` timer per player; HUD starts hidden). Applies to surface zones AND trench layers.
+- New helpers `dev_get_player_area` (trench override → surface zone) + `dev_area_name` (trench names →
+  `dev_zone_name`). `-GscOnly`, BUILD OK.
+- **NOTE:** this element lives in the dev module and is gated on `acc_dev` (default-on pre-release, so
+  it shows now; **off in a public build**). If it should be a permanent player feature, it needs
+  promoting out of the `acc_dev` gate — not done yet (awaiting the call).
+
+THE actual fix for "zombies don't hit me in the trench" (after the nav-snap attempts failed). Decisive user clue: **zombies spawned IN the trench can't melee, but ones that spawn above ground and WALK down can.** `-GscOnly`, BUILD OK.
+- **Root cause / what changed:** the pit surge/drip relocates zombies onto z=-240 risers via `spawn_zombie(spawner,_,riser)` → `do_zombie_rise`, with no navmesh validation. This worked when the pit floor was one clean slab (surge added 2026-06-18, zombies meleed). The **2026-06-21 Abyss L1 well carve fragmented the pit-floor navmesh** (the "map generation issues"), so risen zombies at the central risers are now **off-mesh → they drift at you but never enter the melee attack state**. Walk-down zombies reach you over the still-meshed stairs/edges, so they melee fine. The earlier nav-snap couldn't help because there's no good navmesh at the riser spots to snap to.
+- **Fix:** `spawn_corp_surge` now spawns the surge at the **normal navmesh-valid corp spawners** (the same proven-working path the walk-down zombies use) and lets them path in — so the surge zombies CAN melee. The **pit-floor eruption is opt-in** via `acc_trench_surge_from_pit 1` (default 0); flip it back on once the pit-floor navmesh is rebuilt (single-slab + full bake). Drip / reactor / altar surges all route through this, so all are fixed. No other lever changed (AI-cap bump, drip cadence, aggro, per-layer scaling untouched).
+- **Trade-off:** the surge no longer literally erupts from the pit floor — the zombies rush in from the corp spawners. Working melee > broken eruption; the eruption returns for free once the floor navmesh is fixed (a separate geometry task).
+
+### Fixed/Added — PaP full ammo + overclock-loss fix + Overclock tier HUD ("vN") (user, 2026-06-21)
+
+Three weapon fixes (`-GscOnly`):
+- **Full ammo on Pack-a-Punch.** Every pack tier now refills the gun (`self GiveMaxAmmo()` at the end of `acc_do_first_pack` (T1) and `acc_do_tier_up` (T2/T3) in `_acc_pap_levels.gsc`) — matching stock PaP, which the in-place pack system had stopped doing.
+- **Overclock no longer randomly lost.** The Overclock tier was keyed by the **held weapon object** in `_acc_overclocks::terminal_loop`, so overclocking while holding a PaP'd or perk-twin form stored it under that object — then switching forms (PaP, or a Mega-perk twin swapping in/out) made `get_oc_tier` miss it and read 0. Now keyed by `acc_weapon_variants::true_base(current)` (form-invariant), matching `get_oc_tier`'s own true-base fallback.
+- **Overclock tier indicator on the HUD.** Display-name append isn't possible (weapon display names are static), so added a "**vN**" text near the gun name (bottom-right, above the PaP tier icon), driven by a new `accOcTier` clientuimodel + `_acc_overclocks::oc_hud_loop` + `acc_lui::set_oc_tier` + `acc_hud.lua CoD.AccOcTierText`. **Safe-by-design:** `accOcTier` **repurposes the dead `accLuiTest` test field** (same 4-bit slot/order in both `_acc_lui.gsc`/`.csc`), so the clientfield bit layout is unchanged — no pool growth, no risk of the documented overflow that breaks the stock `zmhud.swordEnergy` field. docs/46 + tag comments synced.
+
+### Fixed — Trench risen zombies were off-mesh (couldn't melee); corrected riser nav-snap (user, 2026-06-21)
+
+The real root cause of "zombies never hit me in the trench," found from the user's decisive clue: **zombies spawned IN the trench can't melee, but ones that spawn above ground and walk down CAN.** `-GscOnly`, BUILD OK.
+- **Cause:** our pit risers carry `script_noteworthy "riser_location"`, so the surge/drip spawn routes through stock `zm_spawner::do_zombie_rise(spot)`, which emerges the zombie **at `spot.origin` with no navmesh registration** (`move_zombie_spawn_location` → `do_zombie_rise`). If the raw z=-240 riser isn't exactly on a navmesh poly, the risen zombie is **off-mesh** — it drifts at you but never enters the melee attack state. A walked-down zombie is continuously on-mesh, so it melees fine. (This is why the pit floor navmesh being freshly baked didn't matter, and why the prior "remove the clamp" fix didn't work — raw risers are still off-mesh.)
+- **Fix:** `get_trench_risers()` nav-snaps each riser onto the floor navmesh — but with the **correct parameters** this time: a **small radius** (`acc_trench_riser_navsnap_radius` 128, well under the ~240u gap to the z=0 surface) **plus a down-guard** (`snapped[2] <= origin[2] + 16`) that rejects any up-snap toward the lip (mirrors `_zm_weap_gravityspikes.gsc:1325`). So it resolves **down onto the pit floor**, never up to the surface — unlike the earlier radius-256 clamp that snapped the whole horde topside. Toggle `acc_trench_riser_navsnap 0` to A/B against raw origins.
+- A down-snapped on-mesh point is also correct for the Brutus warden (shares this cache).
+- **If this still doesn't restore melee**, the central pit floor genuinely has no navmesh (a cod2map/geometry problem, not script) → rebuild the floor as a single clean slab + full bake. Confirm path: `set acc_trench_riser_navsnap 0/1` to compare; `set acc_trench_drip_on 0 / acc_trench_surge_on 0` to check walked-down zombies (which already melee).
+
+### Fixed — Overclock ammo refund now requires a headshot KILL, not just a headshot hit (user, 2026-06-21)
+
+Cyberware Weapon Overclock effect 3/3 (Adaptive Aim ammo refund) previously rolled its per-tier chance on *any* headshot hit. Now it only triggers when the headshot is the **killing blow** — gated on `final_damage >= self.health` in `_acc_damage::on_ai_damage` (the callback runs pre-damage, so `self.health` is still the target's current health; if our returned damage meets/exceeds it, the hit kills). `-GscOnly`. docs/46 + the `#define` comment synced.
+
+### Changed — Tac-19 clip cut (→ A+) + PDW packed → bottom S (user, 2026-06-21)
+
+- **Tac-19 clip 4→3 / PaP 7→6** (`reduce_base_ammo.js` CLIP_FIX). With the prior damage −9% + `MAXAMMO_FIX` 9, this drops it from low-S to **A+ base (~7.45)** / **S packed (8.1)**; reserve follows to **27 base / 54 PaP**. The user opted to cut the clip knowing it leaves S. Still chaff-strong; boss-damage cut (`ACC_SHOTGUN_BOSS_MULT`) unchanged.
+- **PDW-57 packed → bottom S:** gave the akimbo PaP forms (`s1_pdw_rdw`/`_ldw`) a **separate higher balance mult (0.33, +50% over the 0.22 base)** in `acc_weapon_balance_mult` — same split pattern as the M1911. Base PDW stays **C**; the packed akimbo (double-fire + PaP ladder on top) now reaches **bottom S (~7.7)**. Tune in playtest (akimbo damage stacking is hard to predict precisely).
+- docs/05 both tables + tier-tags + CHANGELOG synced. `-GscOnly` (Tac-19 clip = GDT regen; PDW mult = GSC).
+
+### Changed — Tac-19 all-around nerf (kept at low S) (user, 2026-06-21)
+
+Damage **−9%** (`acc_weapon_balance_mult` 0.75→**0.68**) + reserve **−25%** (`reduce_base_ammo.js` `MAXAMMO_FIX` s1_tac19 12→**9** mags: base 48→36, PaP 84→63). [Superseded same day by the clip cut above.] (This is separate from the earlier `ACC_SHOTGUN_BOSS_MULT` boss-damage cut.) docs/05 both tables + tier-tag synced. `-GscOnly`.
+
+### Changed — Gun curation batch + Tac-19 boss-damage fix + base/PaP tier lists (user, 2026-06-21)
+
+Stat changes (all built; GSC mults + GDT ammo):
+- **M60** stays S but DPS↓ traded for ammo: `acc_weapon_balance_mult` 0.24→**0.20** (~696→~580 DPS), clip 60→**100** / PaP 100→**120** (reserve **400/480**). The huge mag (sustain) carries it now.
+- **PPSH-41 → A+**: 0.27→**0.20** (~664→~492 DPS).
+- **Galil → B+**: 0.198→**0.15** (~545→~412 DPS).
+- **Paladin → low S**: clip 4→**8** / PaP 7→**11** (reserve 96/132) + now **scored on single-target DPS** (a one-shot boss-killer, not chaff) in the tier formula.
+- **Five-Seven → C**: reserve 84→**56** (`MAXAMMO_FIX` 6→4 mags); clip kept for the early game.
+- **Tac-19 boss-damage fix:** new **`ACC_SHOTGUN_BOSS_MULT`** (default **×0.25**, dvar `acc_shotgun_boss_mult`) + `is_pellet_shotgun()` helper in `_acc_damage.gsc`. Root cause: an 8-pellet shotgun is balanced for chaff (pellets spread), but on a boss all 8 concentrate → ~8× stacked damage. Now pellet shotguns (Tac-19 + Olympia) deal ¼ damage vs bosses/mini-bosses — chaff tier (S) unchanged, boss-nuke removed (the intended "shotguns under-perform vs bosses").
+- **docs/05 now has TWO tier lists** — **Base guns** (roll quality) and **Fully-PaP T3** (investment ceiling). Key PaP insight: the transform pistols **M1911 / PDW / Five-Seven are C base but A packed** (akimbo / explosive); **Olympia stays C even maxed** (2-round clip). Tier-tags + formula notes synced.
+
+### Changed — Tier scoring formula v2 ("sustain" model): clip now rewarded via effective reload (user, 2026-06-21, docs/05)
+
+The tier formula under-rewarded exceptional clips (clip was a low-weight, hard-capped factor). v2 folds clip into a **Sustain** factor = **effective reload (reloadEmpty ÷ clip)**, log-scaled — a huge clip earns its keep by making you reload rarely, with built-in diminishing returns — and **log-scales reserve**. Weights: **DPS 30 · Mobility 16 · Sustain 18 · Penetration 14 · Reserve 14 · Handling 8** (clip is no longer a standalone factor); DPS scale steepened (340→1 … 664→10) so weak-DPS guns can't free-ride on handling. **No stat changes** — this is a scoring-model + docs + tier-tag-comment change only, so no rebuild (the live `.ff` already matches). Resulting tier moves vs the previous list: **M60 now EARNS S** (8.1 — its 60-clip makes the 9.7s reload trivial per-round, no more `*` override), **AE4 → A**, **AK-47 → A**, **ASM1 → B**, **Tac-19 → S**, **Paladin → B** (4-round clip + 4s reload = poor horde sustain), **Olympia → C** (2-round clip), **Five-Seven → B**. `_acc_damage.gsc` tier-tags + docs/05 table synced.
+
+### Fixed — Trench nav-clamp regression reverted (zombies melee in the pit again) (user, 2026-06-21)
+
+The earlier riser nav-clamp (added to fix "run into me but never swing") **caused a worse regression: zombies NEVER hit the player in the trench.** Root-caused via a multi-agent investigation (confirmed by synthesis + 2/3 adversarial verifiers + the author's own code). `-GscOnly`, BUILD OK.
+- **Cause:** `get_trench_risers` ran `GetClosestPointOnNavMesh(riser.origin, 256, 64)` **unconditionally, mutating `.origin` in place**, on every z=-240 pit riser. A nav-snap on a z=-240 point can resolve **UP to the z=0 surface lip** (the ~240u gap is inside the 256u radius; the 64u boundary arg pushes the result off the tight pit floor onto the large surface slab). The surge/drip horde — the **only** pit population (risers are surge-only, not `corp_zone_spawners`) — then erupted **on the surface**, so a player in the pit was never approached/meleed.
+- **Smoking gun:** `_acc_boss_brutus.gsc:124-126` already documents this exact hazard and *deliberately* drops the warden on the raw z=-240 origin ("the trench SURGE proves entities spawn AND path there"). The clamp did the very thing Brutus avoids — and, via the **shared cache**, silently snapped the Brutus warden to the surface too.
+- **Fix:** removed the clamp; `get_trench_risers` returns the raw z=-240 structs (which spawn + path fine on the full-baked pit navmesh). Un-breaks the Brutus warden. Documented the "never nav-clamp deep sunken spawn points" rule at the function.
+- **Ruled out** (same investigation): the per-layer melee-damage hook, the +25% health buff, the speed/anim-rate change, and "stale navmesh" — none can produce a never-melee; the navmesh was fully re-baked after the well rework.
+- **Confirm in-game:** `set acc_trench_aggro_melee 0` → still no hits (proves the damage hook is innocent); `set acc_trench_drip_on 0 / acc_trench_surge_on 0` → only walked-down zombies remain (if those swing, the clamp was it). After the fix, surge zombies should erupt in the pit and melee. Also re-check the Brutus warden drops into the pit (`acc_warden_trench 1`).
+
+### Changed — Gun tier curation pass: M60/Nail→S, AE4→B, PDW/RPD→C, Five-Seven→C- (user, 2026-06-21)
+
+Retuned six guns to target tiers (stats aligned via the multi-factor formula in docs/05; tier-tags + tier table synced):
+- **M60 → S**: `acc_weapon_balance_mult` 0.20 → **0.24** (~580 → ~696 DPS). Move/reload untouched per user — so the formula caps M60 at ~7.3 (top A); curated **S** (`*`).
+- **Nail Gun → S without touching DPS**: clip 30 → **40** + reload 2.6 → **2.0s** (new `RELOAD_FIX` in `reduce_base_ammo.js`); reserve ~280. Composite 7.7 = S.
+- **AE4 → B**: 0.35 → **0.31** (~467 → ~413 DPS). Formula still reads 6.8 (A) — its reload/pierce/mobility kit is A-grade; curated **B** (`*`), trim clip/pierce for a true formula-B.
+- **PDW-57 → C**: 0.33 → **0.22** (~495 → ~330 DPS).
+- **RPD → C**: 0.13 → **0.10** (~439 → ~337 DPS) — the "bad LMG".
+- **Five-Seven → C-**: 0.30 → **0.26** (~60 → ~52/shot); sits on the 5.6 B/C line (`*`).
+- Tooling: `reduce_base_ammo.js` gained a `RELOAD_FIX` map (+ `RELOAD` regex) for reload tuning. Build: `node tools/reduce_base_ammo.js` → `gdtdb /update` → linker. BUILD OK.
+
+### Added — Documented multi-factor gun tier scoring formula (user, 2026-06-21, docs/05)
+
+The Gun Tier List is now **formula-driven**, not DPS-only. Composite (0–10) = weighted sum of seven 1–10 factor scores → S/A/B/C. Weights (user-tuned this pass: mobility 12→18, penetration 18→14, clip 12→10): **DPS 28 · Mobility 18 · Reload 16 · Penetration 14 · Clip 10 · Reserve 8 · Handling 6**. Thresholds S ≥7.7 / A 6.6 / B 5.6 / C below. Each factor's 1–10 scale documented (e.g. penetration none 2 / small 4 / medium 7 / large 10; mobility `moveSpeedScale` 0.8→4…1.0→10; reload 0.47s→10…9.7s→1). Full raw-stat matrix pulled from the Skye GDTs (move/reload/penetration/clip/reserve/range/fire-type) feeds the scores. **Docs-only** — no code/stat changes. The formula's output moves four guns vs the earlier DPS-first hand-set picks (Tac-19 A→S, Nail Gun S→A, AE4 B→A, ASM1 C→B; M60 stays A but borderline at 6.7 due to its 9.7s reload + 0.8 move); `_acc_damage.gsc` tier-tags left as-is pending confirmation.
+
+### Changed — Gun re-tier pass + Nail Gun PaP de-explosived (user, 2026-06-21)
+
+Re-tiered six guns (and aligned `acc_weapon_balance_mult` to the new tier's DPS band; one `IsSubStr` return covers base + `_up` + all perk twins). All `-GscOnly` except the Nail Gun GDT change:
+- **M60** → **top A**: 0.15 → **0.20** (~435 → ~580). *(RPD left at B — flagged to align if wanted.)*
+- **Galil** → **mid A**: 0.1785 → **0.198** (~491 → ~545).
+- **AK-74u** → **low A**: 0.2925 → **0.23** (~658 → ~518; reverts the earlier +30%).
+- **PPSH-41** → **S**: 0.17 → **0.27** (~418 → ~664).
+- **AK-47** → **B**: 0.21 → **0.186** (~525 → ~465).
+- **AE4** → **B**: 0.38 → **0.35** (~506 → ~467).
+- **Nail Gun PaP de-explosived:** the `_up` form shipped an explosive transform (`explosionInnerDamage 1300 / Outer 1000 / Radius 144`) the user disliked. Zeroed those + matched `_up` fireTime to base (0.133 → 0.157) in `tools/reduce_base_ammo.js` (new `EXPLOSION_ZERO` map + `EXPLODE` regex; durable across generator re-runs). PaP now upgrades **only** damage (% ladder + raw 600) / clip (30→40) / reserve (210→320), keeping base nail behavior. Build: `node tools/reduce_base_ammo.js` → `gdtdb /update` → linker.
+- Tier-tags + docs/05 Gun Tier List re-sorted; LMG section synced.
+
+### Fixed — Trench melee actually scales + zombies swing again (user, 2026-06-21)
+
+Two pre-existing trench bugs the new per-layer rules exposed. `-GscOnly`, BUILD OK.
+- **Melee damage never applied (got 45, not the trench value).** Root cause: `apply_trench_melee` wrote `self.meleeDamage`, but that field is only read by the **window-board** melee path (`_zm_spawner.gsc:1156`); **open-field** zombie melee (the whole trench) uses the engine `Melee()` builtin = the zombie's melee **weapon**, which ignores `self.meleeDamage`. So the trench bump never landed. **Fix:** add to the **player's incoming `MOD_MELEE` damage** by their trench layer — a **flat `+acc_trench_layer_dmg_add` HP/layer** (default 10; L1 ≈55/hit … L5 ≈95) — in the existing player-damage callback (`_acc_elites::on_player_damaged` → new `acc_bus_trench::trench_melee_scaled`). Works regardless of melee path; player's layer == the adjacent zombie's layer. Retired the dead per-zombie write (`apply_trench_melee` → `apply_baseline_melee`, holds the 45 baseline for the board path only).
+- **"Run into me but never swing" in the trench (only there).** Attempted fix here was a nav-clamp on the risers (`get_trench_risers` `GetClosestPointOnNavMesh(origin, 256, 64)`) — **this BACKFIRED into "never hit me at all" and was reverted; see the "Trench nav-clamp regression reverted" entry above.** The real fix for the residual no-swing is the geometry/full-bake (the L2 well rework) + raw z=-240 risers, not a script clamp.
+- **Speed (+5%/layer) unchanged** — `ASMSetAnimationRate` is the right lever and already worked.
+- Note: any residual no-swing with only *walked-down* zombies (test: `set acc_trench_drip_on 0 / acc_trench_surge_on 0`) would be the carved floor's own navmesh seams — a geometry/full-bake fix, not script. Docs: 11, 34.
+
+### Added — Gun Tier List (S/A/B/C) + gun tweak batch (user, 2026-06-21)
+
+New **Gun Tier List (design intent)** section in `docs/05_weapons.md`: every gun gets an S/A/B/C tier + rationale + current stats (mult / eff-DPS / clip / reserve / ability), and the workflow is "set the tier, then align stats to its band." Every `acc_weapon_balance_mult` return line in `_acc_damage.gsc` is now tier-tagged `[S]/[A]/[B]/[C]` to match. Tiers: **S** AK-74u, Nail Gun, Wunderwaffe · **A** AK-47, AE4, Tac-19, Paladin, Ripper · **B** PDW, Galil, M60, RPD, Five-Seven, Olympia · **C** ASM1, PPSH (→B with a buff), M1911 base (→A packed).
+
+Bundled gun changes (all `-GscOnly`):
+- **AK-47 buff** `acc_weapon_balance_mult` 0.184 → **0.21** (~460 → ~525 DPS) — the AR jackpot was the weakest auto; lifted into the A band.
+- **Weapon abilities: every box gun now has one.** The category lookup (`_acc_weapon_abilities.gsc::weapon_name_to_ability_category`) was never updated for the 2026-06-15/19 box guns, so M1911 / PPSH / AK-74u / PDW / Nail Gun / Paladin / M60 / RPD had NO ability. Wired them to their category's existing LIVE effect and added **sniper → Precision Mode** + **lmg → Focus Fire** table entries (distinct cooldown ids). No new gameplay code.
+- **Comment hygiene:** rewrote the stale `acc_weapon_balance_mult` header (it listed old mults that drifted from the live returns) to point at the tier list; refreshed the stale "5 shipped guns" headers in `_acc_weapon_abilities.gsc`; updated the docs/05 box count (12 → 17) + ability table to the live mapping.
+- **Documented** a known minor issue: `armory_refill` uses `weapon.maxammo` (mags-not-rounds for akimbo), so Mule Kick's refill on a packed PDW/M1911 is tiny — left as-is pending a robust akimbo cap.
+
+### Changed — Perk retune: Mule Kick refill 35→20%, Quick Revive regen 15→20% / Savior 30→40% (user, 2026-06-21)
+
+- **Mule Kick / The Armory** round-start reserve refill **35% → 20%** (`ACC_ARMORY_ROUND_REFILL` 0.35→0.20, `_acc_mega_bottles.gsc`; covers both the per-round refill and the instant top-up on acquire).
+- **Quick Revive** HP-regen-start **15% → 20% sooner** (`ACC_QR_REGEN_DELAY_BASE` 0.85→0.80, begin 2.04s→1.92s) and **Savior** Mega **30% → 40% sooner** (`ACC_QR_REGEN_DELAY_SAVIOR` 0.70→0.60, begin 1.68s→1.44s) in `_acc_perks.gsc`.
+- Display + docs synced: perk HUD cards (`ui/uieditor/menus/hud/acc_hud.lua` QUICK REVIVE + MULE KICK), `docs/perk_abilities.md`, `docs/13_perks.md` (table + detail + quick-ref + status + trim list). `-GscOnly` (the HUD `.lua` rebuilds with the linker; no geometry/GDT).
+
+### Added — Exo Suit (trench depth gate) + 5-tier overclock + layered trench slow (user, 2026-06-21, docs/47)
+
+The trench now descends in LAYERS, each slower; the new **Exo Suit** is the key to depth. `-GscOnly`, BUILD OK,
+not yet playtested. Layer 1 works today; layers 2–5 light up as the geometry agent builds floors (they extend
+`acc_bus_trench::underground_layer`, deepest-z-first — no system change needed).
+
+- **New `_acc_exo.gsc`** — per-player `acc_exo_tier` (0–5), a buy Station in the pit (250,1800,-240,
+  `TriggerIgnoreTeam`), costs **5/10/15/20/25**. Wired into `_acc_main` (init + connect + spawned) and the `.zone`.
+- **Layered trench slow** — `acc_utility::recompute_move_speed` now applies a depth-aware slow from
+  `player.acc_trench_layer` (set each poll by the `_acc_bus_trench` watcher via `underground_layer`) + the
+  player's exo tier: reduction = 0 if layer≤tier, else `0.20 + 0.10*(layer-tier-1)` (−20% first uncovered
+  layer, −10%/layer deeper, cap 0.90). Replaced the old flat boolean trench slow. Re-applied on spawn
+  (`acc_exo::on_player_spawned`) since `SetMoveSpeedScale` resets each spawn. Dvars `acc_exo_slow_first` (0.20),
+  `acc_exo_slow_step` (0.10), `acc_exo_cost_t1..t5`, `acc_exo_on`.
+- **Gun Overclock → 5 tiers** — `ACC_TIER_MAX` 4→5, `ACC_TIER_COST_T5` 24 (ladder 2/4/8/16/24, 54 to max). The
+  3 effects scale off the tier automatically, reaching T5: flat dmg +25%, glitch +125%, ammo refund 50%.
+- Docs/46 reconciled (overclock row + detailed section to 3 effects / 5 tiers, + the Exo Suit section/table);
+  docs/47 marked built.
+
+### Fixed — akimbo-PaP reserve collapse (PDW/M1911 "~30 bullets" bug, user, 2026-06-21)
+
+PaP'ing the PDW-57 (and M1911) dropped its reserve to ~18 rounds. Root cause in `_acc_pap_levels::acc_do_transform`: the reserve carry was `stock + (packed.maxAmmo - w.maxAmmo)`, but `weapon.maxAmmo` reads as reserve-in-**rounds** for the single-wield base (132) yet as the raw **magazine count** for the akimbo `_rdw_up` packed form (18), so the mixed-unit subtraction gave `132 + (18 - 132) = 18`. Fixed: carry the player's current reserve in rounds, clamped to the packed gun's real full reserve (`GetWeaponAmmoStock` after the fresh give, which reports rounds for both wield types). Clip carry was already correct (uses `clipSize` = rounds). `-GscOnly`. Needs a playtest confirm.
+
+### Changed — M1911 nerf (user, 2026-06-21)
+
+`acc_weapon_balance_mult` (`_acc_damage.gsc`): base **4.375 → 3.50** (~88 → ~70 eff/shot) and the akimbo-explosive PaP **0.50 → 0.35** (7000×0.35 = 2450 direct + scaled splash, was 3500). Still a strong PaP nuke, falls off a few rounds sooner. `-GscOnly`.
+
+### Changed — AK-74u +30% damage (user, 2026-06-21)
+
+`acc_weapon_balance_mult`: **0.225 → 0.2925** (~506 → ~658 DPS), now the top of the SMG pack. `-GscOnly`.
+
+### Changed — PPSH-41 +5 clip on all versions (user, 2026-06-21)
+
+`reduce_base_ammo.js` `CLIP_FIX`: `s4_ppsh41_base` **25 → 30**, `s4_ppsh41_base_up` **39 → 44** (base + PaP + all perk twins via stem match). Reserve rises with it (`maxAmmo` 9 mags unchanged): base 225 → 270, PaP 351 → 396. Build: `node tools/reduce_base_ammo.js` → `gdtdb /update` → linker.
+
+### Added — Abyss descent: all 5 floors (Made in Abyss vertical pivot, user 2026-06-21)
+
+Reframing the map around the Bus Station trench as a **Made in Abyss / Persona descent** — deeper =
+harder, reach the bottom. **5 floors total**, trench = Layer 1, plus 4 identical enclosed floors
+straight down (240u pitch: L2 −480, L3 −720, L4 −960, L5 −1200). Research first established there is
+**no practical depth limit** (engine world bound ≥ ±65,536, symmetric; current map only spans ≈
++272..−256) so we build DOWN rather than moving the map up — full plan + per-layer recipe in
+**docs/48_abyss_descent.md**.
+
+**All 5 floors now built** via the multi-layer `gen_abyss_layer.js` (`--upto N` for incremental
+bake-gating): one carved pit floor + four generated rooms joined by four **slim WIDE-AXIS (X-running)
+center stairwells** that step off the bottom into open interior floor (never a wall), alternating
+south/north (D1 XS, D2 XN, D3 XS, D4 XN) so a floor's down-well is never where the stairs from above
+land. Every floor stays a connected surface (West–Bridge–East) — never bisected. Full build **OK**
+(fresh .ff 36.02 MB, navmesh regenerated). 24 always-dim lights (6/room).
+
+**Descent placement iterated 4× (all user-caught 2026-06-21, pathing):** (1) full-depth central well
+**bisected** the trench (zombies couldn't cross); (2) SE-**corner** well merged with the existing east
+trench stair → **navmesh break point**; (3) center but **short-axis (Y) stairs ended jammed at the next
+layer's wall** → zombies stuck at the bottom; (4) **FIX = wide-axis (X) center stairs** — the well is
+`x[−112,112]`×128u against the S/N wall, stairs run west→east and exit at x≈+112 (~700u of open floor),
+so zombies disperse. Only the orientation/placement changed; floors, z-levels, and the per-layer scaling
+(`underground_layer`, pitch 240) are unchanged and still aligned.
+Floors are identical greybox shells for now; per-layer escalation/props later.
+
+**(5) Overclock-room door moved off the descent well (user-caught 2026-06-21):** the south under-room
+(overclock terminal) door sat at the **center** of the south trench wall (x[−96,96]) — directly behind
+the centered D1 descent well, so zombies couldn't path across the hole to reach it → **player invincible
+in that room**. Moved the door (doorway + sliding brush + use-trigger) to the room's **WEST edge**
+(`x[−192,−112]`, by the terminal), onto the solid west floor chunk, clear of the well. The descent stays
+centered. (`.map`-only edit to the `acc_door_under_plaza` brushes; the abyss generator's strip leaves
+them alone. Guard comment added in `gen_abyss_layer.js`: do NOT move the D1 well west or it re-blocks the
+door.) Re-baked + rebuilt OK (fresh .ff 36.02 MB).
+
+**D1 pathing fix (user-caught 2026-06-21):** the L1 pit already has the trench crossing stairs (far
+west `x[−761,−665]` + east `x[703,799]` walls). Two earlier D1 placements broke zombie pathing: (1) a
+full-depth central well **bisected** the trench; (2) an SE-**corner** well put the east stair on the
+small carved chunk, so the navmesh merged the descent into the existing stair = a **break point** on the
+pit floor. Fix: D1's well moved to the **center-south** (`x[−64,64] y[1723,1947]`, against the south
+wall), ~600u clear of both stairs; the pit carves into west + east full-depth chunks + a north bridge,
+staying one connected surface. (Only L1 needs this — L2–L5 are our rooms with no other stairs, so corner
+wells are fine there.) Re-baked + rebuilt. Also verified the per-layer zombie scaling
+(`underground_layer`, `ACC_LAYER_PITCH=240` / `ACC_LAYER_MAX=5`) aligns with the built floors at exactly
+−240·N: speed (+5%/layer), **health (+25%/layer, `apply_trench_health`)**, and melee (+10 HP/layer) all
+land on the correct layer 1–5 automatically.
+
+The detail below describes the original L2-only build + the v1→v2 bisection fix.
+
+**This change builds L2 (z=−480) only.** New generator `tools/gen_abyss_layer.js` (re-runnable,
+idempotent): carves the single pit-floor brush into a WEST + EAST chunk leaving a **full-depth central
+well** (x[−128,128]) — full-depth strips meet at matching vertices so there's **no T-junction
+fall-through cull** (memory `single-slab-floor-over-room`); adds a single-slab L2 floor, 4 sealing
+walls, a **14-step stairwell** (16/16 navmesh-linking pitch) descending the well from the pit floor
+(−240) to L2 (−480), and 6 always-dim lights. Brushes reuse the EXACT bake-safe `box()` filler-winding
++ hex GUID (real-corner windings crash `brush.cpp:1860`). **No GSC change needed** — L2 sits inside the
+existing trench OOB-veto band (`player_in_underground`: z≤−36, x[−900,900], y[−400,2900]), so standing
+on it doesn't trip the stock out-of-playable-area hard-kill; zombies path down via the regenerated
+navmesh. **LED BAKED 16.4s; full build OK** (fresh .ff 35.99 MB). L2 is a sealed dead-end until its
+down-well is added with L3.
+
+**REVERTED then REWORKED same-day (user, 2026-06-21):** v1's full-depth central well **bisected the
+trench floor** into two disconnected islands → zombie path/targeting broke (user-caught). Reverted
+(`node tools/gen_abyss_layer.js --revert`, restores the original pit-floor brush — git can't be used,
+the .map had other uncommitted WIP), then **reworked to a slim SE-corner well** `x[691,819]
+y[1723,1947]` with slim stairs `x[691,799]`: the pit floor is carved into a connected L-shape (chunk A
+= full main floor + chunk B = NE patch carrying the east stair) so the **trench is NOT bisected**. Only
+one benign same-plane T-junction (cod2map-fixed), not the thin-lip cull. v2 **LED BAKED 16s, full build
+OK** (fresh .ff). Awaiting in-game walk + zombie-path test.
+
+### Changed — Trench zombies: per-layer scaling, no forced sprint/beeline (user, 2026-06-21)
+
+The combat companion to the Abyss descent: how zombies behave in the trench. `-GscOnly`, BUILD OK.
+- **Removed forced sprint gait** and **removed beeline** (`level.should_zigzag` override deleted → every zombie keeps stock zig-zag). The forced beeline made the trench pack stack on one vector and *bump-without-swinging* (the "they run into me but never hit" bug).
+- **Re-gated on the zombie's OWN position, not its target.** Previously every zombie *chasing* a player in the trench got buffed (so the whole map "ran at you"); now only a zombie **physically standing in a trench layer** is affected. Surface zombies are 100% stock.
+- **Three per-layer levers:** **+5% move** (anim-rate), **+25% max health** (on top of round health; one-way by deepest layer reached — added as armor on descent, never re-healed so the keepalive can't exploit it), and **+10 HP melee** (flat, added to the player's incoming hit). L1 = +5%/+25%/+10 HP … L5 = +25%/+125%/+50 HP. (Melee delivery: see the "Trench melee actually scales" fix above — open-field melee ignores `self.meleeDamage`, so it's added to incoming damage.)
+- **Layer is depth-based**, reusing the Abyss 240u pitch: `acc_bus_trench::underground_layer(origin)` = how many 240u steps below the lip (L1 −240 … L5 −1200, clamp `ACC_LAYER_MAX` 5). So each new floor's zombies scale correctly the instant its geometry lands — no per-layer code edit.
+- New dvars: `acc_trench_layer_speed_pct` (5), `acc_trench_layer_hp_pct` (25), `acc_trench_layer_dmg_add` (10, flat HP). Retired: `acc_trench_aggro_rate`, `acc_trench_melee_dmg`, `acc_trench_no_zigzag` (+ `ACC_TRENCH_MELEE_DEF`). Kept: `acc_trench_aggro` (master gate), `acc_trench_aggro_melee` (per-layer melee on/off). Docs: 11, 34, 46.
+
+### Changed — LMG reserve ammo +33% (user "~25% more", 2026-06-21)
+
+Both LMGs (M60 `t6_m60`, RPD `t6_rpd`) get more reserve ammo: base **180 → 240**, PaP **300 → 400**. Lever is `tools/reduce_base_ammo.js` `MAXAMMO_FIX` (M60/RPD base+`_up` raised **3 → 4 magazines**; clipSize unchanged at 60 base / 100 PaP). Reserve = `maxAmmo` (in magazines) × `clipSize`, so it is **quantized to whole magazines** — an exact +25% (225/375) isn't reachable without an odd clip; 3→4 mags = **+33%**, the closest step above the request (erring high suits a sustained-fire LMG). Build: `node tools/reduce_base_ammo.js` → `gdtdb /update` → linker (`-GscOnly`; GDT/ammo only, no geometry). docs/05 LMG section updated.
+
+### Changed — Trench exposed move-slow → −20% (user, 2026-06-21)
+
+The Bus Station trench / underground move-speed penalty is now **−20%** (`acc_trench_slow_mult` default **0.80**; history 0.65 → 0.75 → 0.80). Still composed through the single move-speed owner `_acc_utility::recompute_move_speed` and still **negated by the Boots boss item**. `-GscOnly` (dvar default only, no geometry). Also swept the leftover **"−35%"** wording — the effective value had already moved to −25% but two comments in `_acc_bus_trench.gsc` plus `docs/46` still read −35%; synced those and `docs/03`.
+
+### Changed — Cyberware Weapon Overclock finalized to 3 effects (user, 2026-06-19)
+
+Dropped from 4 effects to 3 (still small-per-tier, per-gun, all raised each tier). `-GscOnly`, BUILD OK; docs/46 updated.
+- **1 Flat Damage** (`acc_oc_dmg_per_tier` 0.05) — +5%/tier ALWAYS on (hip + ADS, gun hits). Replaced the old ADS-only "Overpressure".
+- **2 Glitch Piercing** (`acc_oc_glitch_per_tier` 0.25) — +25%/tier (+100% at T4) bonus damage vs GLITCH zombies (`self.acc_is_glitch_zombie`, set on the Glitch Stalker host in `_acc_boss_glitch` — covers the Stalker + lockdown-challenge glitch zombies). Replaced the old anti-Shielded-elite "Armor-Pierce" (the elite frontal resist reverts to explosives/flank-countered, no overclock involvement).
+- **3 Ammo Refund** (`acc_oc_adaptive_per_tier` 0.10, cut 60% from 0.25) — headshot refund chance +10%/tier (40% at T4).
+- **Removed Headshot AoE** (the old 4th effect; `reactive_powder_aoe` left defined but unwired).
+
+### Added — Perk machines: "max perks reached" message when at your slot limit (user, 2026-06-19)
+
+Buying a perk you don't own while at your perk-slot limit previously just played a deny sound with no
+explanation (stock `_zm_perks.gsc:585`). Now it shows clear text. Extended our existing
+`level.custom_perk_validation` hook (`_acc_perk_info.gsc::acc_perk_validate`, which runs on F-press right
+before the stock limit gate): if `zm_utility::can_player_purchase_perk()` is false (num_perks ≥ the
+player's `acc_perks::acc_perk_slot_limit`), it plays the deny sound and prints
+`"You've reached your max of <N> perks - raise the limit at the Neural Expansion in the Bus Station trenches"`,
+then blocks the buy. Matches
+stock's own limit condition exactly (incl. the unquenchable-BGB exception). GSC-only (`-GscOnly`).
+
+### Added — Wonder weapon: Wunderwaffe DG-2 in the mystery box (user, 2026-06-19)
+
+The map's first wonder weapon. User picked the Wunderwaffe DG-2 (`tesla_gun`, chain lightning — fits the
+electrical/cyber theme) from the 4 stock options, via the box at **uniform odds**. A 5-agent inventory
+verified the no-download landscape: the **only** wonder weapons addable without DLC are the 4
+`is_wonder_weapon=TRUE` rows cooked into the base ZM common fastfiles — **Ray Gun (`ray_gun`), Wunderwaffe
+(`tesla_gun`), Ray Gun Mark III (`raygun_mark3`), Thundergun (`thundergun`)**. Every DLC WW (Bows / KT-4 /
+GKZ-45 / Apothicon Servant / Ray Gun Mark II) is BLOCKED — those map fastfiles aren't installed.
+
+- **Two-line, `-GscOnly` add** (no model compile, no LED, **no `weapon,` `.zone` line** — the def is cooked in
+  `zm_levelcommon`): (1) a row in our weapon table `gamedata/weapons/zm/zm_levelcommon_weapons.csv`
+  (`tesla_gun,tesla_gun_upgraded,,10000,tesla,…,special,TRUE,TRUE` — the stock columns; `is_limited`=1 so only
+  one exists at a time, stock WW behavior); (2) `"tesla_gun"` in `_acc_map_randomizer::register_mystery_box_pool`
+  `box_weapons[]`. KEY: our weapon table is a **slim 22-row OVERRIDE** of the stock common table (same path,
+  usermap copy wins), so a stock gun is NOT auto-present — it needs the CSV row for `level.zombie_weapons` to
+  hold a struct the box gate can flip (the octobomb/cymbal_monkey precedent). Stock weapon = full cooked
+  sounds + stock damage (no `gen_box_weapon_sounds` / no `_acc_damage` balance entry).
+- **Box odds caveat (set expectations):** the BO3 box is a UNIFORM draw — `is_wonder_weapon` does NOT make it
+  rarer. In the ~19-gun pool it rolls ~1/19 like any box gun. A true rare-roll (or a dedicated reward) would
+  need custom weighting code — not added (user chose uniform).
+- **FIX — couldn't PaP a 3rd time (user 2026-06-19):** the Wunderwaffe packed to tier 2 then refused tier 3.
+  Root cause: I'd copied stock's `is_aat_exempt=TRUE`. The map's 3-tier PaP reaches tier 3 via the stock
+  machine's *re-pack* prompt on an already-upgraded gun, and stock gates that prompt on
+  `!can_upgrade_weapon && !weapon_supports_aat` (`_zm_pack_a_punch.gsc:303/412`) — an AAT-exempt upgraded gun
+  shows NO prompt, so our `custom_validation` tier-up hook never fired. Set `is_aat_exempt=FALSE` so the
+  re-pack prompt appears; our hook still returns false so no actual alt-ammo is ever applied (the map never
+  grants AAT). Now packs all 3 tiers like every other gun. CSV-only, `-GscOnly`.
+- **⚠️ LAUNCH-VERIFY** (BUILD OK ≠ runtime): box-roll until `tesla_gun` appears, confirm it draws + fires
+  (chain lightning) + PaPs to `tesla_gun_upgraded`. If it never shows, the box log says
+  `! box weapon missing from weapon table: tesla_gun` (graceful degrade, no crash) = the asset wasn't cooked
+  on this install after all → fall back to `ray_gun` (the known-good shipped precedent).
+
+### Changed — Shard economy scaled WAY down so 1 shard matters + Cyberware tree cut (user, 2026-06-19)
+
+Tight, even, low numbers. `-GscOnly`, BUILD OK.
+- **Cap 99 → 30** (= the cost to fully overclock one weapon). `ACC_SHARDS_MAX`.
+- **Data Caches: flat 1 shard each**, once/round, first-come (was 2/3 + round scaling; scaling removed).
+- **Trench Warden: everyone +2** (was 3). `acc_warden_shard_reward`.
+- **Glitch Altar: 2/spin** (was 4); jackpot 7→3, drain 6→2. Still net-negative EV.
+- **Reactor: reworked** — FREE, **once per round**, survive the surge → **everyone +3 shards + a shared
+  Insta-Kill** (was a paid, escalating-tier sink with a Mega Bottle). Per-round re-arm on `acc_round_start`.
+  `acc_reactor_reward` (3), `acc_reactor_waves`/`_wave_count`/`_wave_interval`.
+- **Overclock tier costs 2/4/8/16** (was 1/2/3/4) = 30 to max one weapon.
+- **Cyberware tree REMOVED** from play (`acc_cyberware_on` 0; kiosk no longer spawned). The weapon Overclock
+  terminal is rebranded **"Cyberware Weapon Overclock"** and is now the sole upgrade. Module stays loaded
+  (its damage-flag readers are harmless no-ops with no nodes bought); re-enable with `acc_cyberware_on 1`.
+- **Overclock EFFECT redesigned (user choice):** each tier now gives a SMALL boost to ALL FOUR effects at
+  once (was: roll one random effect per tier), scaling with the gun's tier — minimal at T1, full at T4.
+  **Per-gun** (tracked on the held weapon, carries through PaP). New `_acc_damage::get_oc_tier`; the four
+  effects scale off it: ADS damage `+acc_oc_ads_per_tier`/tier (0.05), headshot AoE `acc_oc_aoe_per_tier`/tier
+  (0.05), ammo-refund CHANCE `acc_oc_adaptive_per_tier`/tier (0.25 → 100% at T4), and armor-pierce = tier/4 of
+  the elite frontal resist bypassed (full at T4). The terminal just raises the tier now (no random roll/reroll).
+  Engine note: fire rate / reload / mobility are NOT runtime-settable, so "all aspects" = damage + on-hit.
+
+### Changed — All trench machine feedback uses one positioned HUD message (not iprintln) + docs/46 trench guide (user, 2026-06-19)
+
+The altar fix generalized: `iprintln` lands in the bottom notification area where the round counter /
+points cover it. Added a shared `acc_utility::hud_msg( text )` — one per-player upper-center hudelem,
+dvar-tunable (`acc_msg_y`, smaller = higher; `acc_msg_sec` = hold time), refreshes in place. Routed
+**every** trench/shard feedback through it: Glitch Altar, Cyberware kiosk, Overclock terminal, Neural
+Expansion Bay (perk slots), Reactor Plinth, Data Caches + the `+X Data Shards` grant tick, and the
+Emergency Drop. The altar's own `altar_msg` is now a thin delegate. `-GscOnly`, BUILD OK.
+
+Also added **[docs/46_trench_systems_guide.md](docs/46_trench_systems_guide.md)** — a super-high-level
+"what each thing in the trench does" guide (caches / Bay / Reactor / altar / cyberware / overclock /
+Warden + the danger + the loop). Systems view; geometry stays in docs/45.
+
+### Added — Two LMGs (M60 + RPD) — the arsenal's first LMG category (user, 2026-06-19)
+
+User wanted two diverse, theme-fitting LMGs ("Stoner63 + HK21 from BO1"). Those exact Skye ports have
+**uncompiled xmodels** (linker "Unable to load weapon" — needs APE, not headless; memory
+`skye-lmg-ports-uncompiled`), so per the user's follow-up ("pick any LMG from the packs that fit + are
+diverse") I shipped the two Skye LMGs whose models ARE compiled, verified by build:
+
+- **M60** (`t6_m60`, Skye BO2) — heavy belt-fed, 600 RPM. **clip 60 / reserve 180** (PaP 100/300). Balance mult **0.15** (~435 DPS).
+- **RPD** (`t6_rpd`, Skye BO2) — faster drum-fed, 750 RPM. **clip 60 / reserve 180** (PaP 100/300). Balance mult **0.13** (~440 DPS; lighter feel).
+- Both **box-only**, **twin-less** (weapon-count cap). Wiring: rows in `zm_levelcommon_weapons.csv` (class `lmg`,
+  cost 1500) + `weapon,*`/`*_up` in the `.zone` + `_acc_map_randomizer` box pool + `_acc_damage::acc_weapon_balance_mult`
+  + activated the dormant `_acc_overclocks` `lmg_list`. Build loaded both clean (no "Unable to load").
+- **REBALANCE (user 2026-06-19): they held WAY too much + hit too hard.** Native was clip 100 / reserve 400 (base)
+  and PaP clip 300-200 / reserve **900-1000** = you never reloaded. Cut via `reduce_base_ammo.js` CLIP_FIX
+  (base 60 / PaP 100) + MAXAMMO_FIX (3 mags → base reserve 180, PaP 300), and dropped the damage mults 0.17→0.15
+  (M60) / 0.15→0.13 (RPD) so they sit just BELOW the AR Good band (LMG = sustained fire, not top per-shot).
+  Ammo path: `reduce_base_ammo.js` → `gdtdb /update` → relink. Twin-less, so the `_up` PaP forms are the only
+  variants and got the same treatment (CLIP_FIX `_up` + the damage substring covers `_up`).
+- **Pre-test audit (4-agent) caught 2 fixes** before the audit's verdict: (a) **balance was ~2× hot** — the
+  first-pass mults (0.33/0.27) assumed lower raw GDT damage; corrected to 0.17/0.15 to land ~500 DPS like the
+  AE4/AK-74u peers. (b) **silent guns** — the Skye pack ships M60/RPD `.wav`s but no aliases, so added them to
+  `tools/gen_box_weapon_sounds.js` (fire + PaP-fire + auto-scanned foley) → regenerated `acc_skye_box_weapons.csv`.
+  Sound needs a **bank rebuild** (the linker reuses stale `CachedBanks` on a relink, docs/35) — cleared the
+  cached banks + FULL build so the `.szc` recompiles. crash-modes / registration / PaP all PASSED the audit.
+- **⚠️ LAUNCH-VERIFY** (BUILD OK ≠ runtime-proven): box-roll each, confirm they draw + **fire WITH sound** +
+  reload/foley + PaP (`_up`) + the Overclock terminal offers the LMG family, and kill-rounds feel ~peer (not 2×).
+
+Playtest hit "I walk up to it and can't use it." Root cause: a script-spawned `trigger_radius_use` is NOT
+player-usable in ZM until you call `TriggerIgnoreTeam()` on it (ZM players carry a team; the fresh trigger's
+team filter excludes them). The stock perk machine (`_zm_perks.gsc:1523`) and navcard (`_zm_utility.gsc:5442`)
+both call it; our only one that did was the elite-kill shard pickup. **Every other trench interactable omitted
+it** — so the Glitch Altar, Cyberware kiosk, Overclock terminal, Data Caches, the perk-slot **Neural Expansion
+Bay**, and the Reactor Plinth all spawned but gave no usable prompt. Added `t TriggerIgnoreTeam();` to all six
+(right after spawn, before `SetCursorHint`). This is why "can't increase past 4 perks" — the Bay was unusable.
+`-GscOnly`, BUILD OK. Memory: `script-trigger-needs-ignoreteam`.
+
+### Added — PANZER (mechz) boss spawns at Plaza — from-scratch integration, SPAWNS in-game (user, 2026-06-19)
+
+Clean-room redo of the broken decompiled Panzer attempt (Phantom removed earlier; Panzer takes the
+~round-10 boss slot). **Verified in-game: the Panzer SPAWNS at Plaza** (the map starts fine — the earlier
+"can't start" was transient). The attack-crash (the historical killer) is the one remaining gate to confirm
+by playtest (melee/shoot/kill it).
+
+- **`_acc_boss_panzer.gsc` rewritten** — round-10 cadence, spawns the mechz at the central Plaza riser
+  (`acc_panzer_spot`/`mechz_genesis_spawner`, `-227.5 350 0`), boss bar + `acc_boss::boss_music` + on-death
+  rewards, Brutus CTD-safety flags (`acc_boss_custom_speed`). Calls `mechz_spiki::mechz_health_increases()`
+  first (it's defined-but-never-called → otherwise HP = undefined).
+- **Attack-crash fix** (`mechz_spiki.gsc`) — stock `mechz.gsc` registers `mechz_face` at VERSION_SHIP and
+  sets it on attack/death/idle/pain, but the usermap client never registers it → set-on-attack = layout
+  desync crash. Fixed by re-binding the 4 face StartFunctions (`mechzAttackStart`/`Death`/`Idle`/`Pain`,
+  name-bound via `BT_REGISTER_API`, last-write-wins) to a no-op so `mechz_face` is never set.
+- **Spawner classname** — `actor_archetype_zm_mechz_genesis` (the `actor_<aitype>` pattern, like the charred
+  spawner). `actor_spawner_zm_castle_mechz` is a DLC class this install rejects ("not a valid aitype").
+- **Zone** — `aitype,archetype_zm_mechz_genesis` (its `.ai_asm`/`.ai_bt` are on disk) + mechz models/fx.
+  `.ff` +4 MB. Non-fatal waived noise: `gfx_spark_blink_anim_pcloud_em` (from `fx_mech_dmg_sparks`) +
+  `mechz.zpkg` — cosmetic; trim `fx_mech_dmg_sparks` for a clean log.
+- A full revert + re-apply was exercised; the changes are stashed in `tools/_panzer_stash/`. Workshop stays
+  Private until the IP/credit review (the mechz pack is an unlicensed game-rip; gitignored).
+
+### Added — The Reactor Surge: the underground climax event (new `_acc_reactor.gsc`, docs/45) (user, 2026-06-19)
+
+The marquee shard SINK at the top of the trench risk/reward ladder. An **Arm Plinth** in the pit (the docs/45
+§3 anchor (0,2120,-240), on existing pit floor at the future Core entrance): pay shards to trigger a **timed,
+escalating zombie Surge** that erupts from the pit floor (reuses `acc_bus_trench::spawn_corp_surge` — tagged
+low-payout + `ignore_enemy_count`, so the round count is untouched); **survive it** for a **tier-dialed payout**
+(shards + Insta-Kill + a Mega Bottle). Each completion **raises the tier** — the next Surge costs more and pays
+more. You don't farm it, you raid it.
+
+- **Self-contained + geometry-safe:** all GSC, no `.map`. The Plinth sits on the existing pit floor and the
+  Surge runs **open in the pit** today (the spawned zombies persist and hunt you — a real survival test). When
+  the parallel geometry agent builds the Core room + seal, it becomes a true sealed arena via a named-entity
+  contract: a `script_brushmodel` `targetname acc_reactor_seal` that listens for `acc_reactor_seal_close` /
+  `acc_reactor_seal_open` notifies (until it exists, `getentarray` is empty → harmless no-op).
+- **Owner split honored (docs/45):** system agent owns the event logic + Plinth + payout (this module);
+  geometry agent owns the Core room, seal door, FX seam. Wired in `_acc_main` after `acc_glitch_altar`;
+  `scriptparsetree` added to the `.zone`.
+- **Dvars:** `acc_reactor_on`(1), `acc_reactor_cost`(8)+`_step`(2)/tier, `acc_reactor_reward`(10)+`_step`(3)/tier,
+  `acc_reactor_waves`(3), `acc_reactor_wave_count`(5+tier), `acc_reactor_wave_interval`(6), `acc_reactor_bottle`(1).
+  `-GscOnly` build, BUILD OK. Not yet playtested.
+
+### REVERTED — Death-screen "RESTART LEVEL" menu broke the map load (user, 2026-06-19)
+
+Attempted a `zm_countryside`-cloned game-over "RESTART LEVEL" button (LUI `Intermission_Main.lua` rawfile +
+`_acc_restart_menu.gsc` opener). It LINKED ("BUILD OK", Lua syntax OK) but added an **UNRECOVERABLE linker
+error** — verified by bisection: with the menu in, the build reported **6** unexpected errors + UNRECOVERABLE;
+removing it dropped to **5** (the unrelated concurrent Panzer errors) and the UNRECOVERABLE disappeared. The
+`.ff` it produced **would not load** (user: "I cannot start the map anymore").
+
+- **Reverted in full:** deleted `_acc_restart_menu.gsc` + `ui/uieditor/menus/Intermission/Intermission_Main.lua`,
+  removed the `acc_main` `#using`/`init` + both `.zone` lines. `-GscOnly` rebuild → BUILD OK, no UNRECOVERABLE.
+- **LESSON (hard-won):** a custom LUI menu rawfile can pass the linker's Lua *syntax* check yet still cause an
+  UNRECOVERABLE link error (likely the `require(...)` of stock widgets / overriding the stock `Intermission_Main`
+  menu name) that yields a non-loadable `.ff` — "BUILD OK" is NOT proof of a loadable map for LUI menus.
+  If we retry a restart MENU later, build it incrementally + confirm the map LOADS, and prefer a uniquely-named
+  menu over overriding a stock one. (The stock pause-menu Restart, `restart_level_zm`→`MissionFailed`, is the
+  zero-risk alternative.)
+
+### Fixed — Glitch Stalker corpses lingered on the ground (cleanup-skip bug; possible crash factor) (user, 2026-06-19)
+
+User saw "glitch bodies on the ground" and wondered if they crashed the game. Root cause: the Glitch Stalker
+sets `acc_is_mini_boss=true` (for the 2× headshot multiplier), and `_acc_corpse_cleanup` **skips** anything
+flagged boss/mini-boss (so death-anim bosses like Brutus aren't deleted mid-animation). But the Glitch
+Stalker is a **reskinned zombie with NO death anim**, so its body just lingered — and the lockdown challenge
+spawns ~30 of them, so they pile up (entity bloat → a real crash suspect).
+
+- **Fix:** `_acc_boss_glitch::glitch_death_watch` now threads `cleanup_glitch_corpse()` on death (NotSolid +
+  Ghost now, then Delete one frame later) — for BOTH the normal kill and the lockdown-tagged (`acc_ldc`)
+  path, *before* the reward branch (so the drop still captures `self.origin` first). Mirrors
+  `_acc_corpse_cleanup::corpse_linger_remove`.
+- Regular zombies + elites already vanish on death (cleanup linger default 0). Brutus/Panzer keep their
+  death animations (intentionally skipped). The **Phantom** (currently disabled) would need the same one-liner
+  if re-enabled. `-GscOnly` build, BUILD OK.
+
+### Removed — Phantom boss disabled for now (it overlapped the Glitch Stalker); Panzer to take the slot (user, 2026-06-19)
+
+The Phantom read as a redundant, less-aggressive Glitch Stalker (both cyan + phase/"blink" + tanky), so
+it's **disabled by default** (`ACC_PHANTOM_ENABLE_DEF` 1→0) while the **Panzer (mechz)** is wired in from
+scratch to take the ~round-10 boss slot. The module + its `.csc` aura are left fully intact and
+recoverable — flip `acc_phantom_enable 1` to bring it back (ideally re-themed distinct from the Glitch
+first). GSC-only (`-GscOnly`). The Panzer integration is a separate, in-progress from-scratch effort.
+
+### Changed — Data Shards become a TRENCH-ONLY economy + the trench is finally worth descending into (user, 2026-06-19)
+
+A 27-agent audit found the trench was all-risk-no-reward: today's geometry rewrite (`fill_trench_rooms.js`
++ `add_under_room.js`) had **stranded 4 of 5 underground interactables in void/solid** (the GSC placer in
+`_acc_glitch_altar.gsc` still targeted the deleted Hall A / Chamber B coords — only the altar landed on
+floor), the main weapon sink was **16/22 inert overclocks**, the dev grant pinned everyone at the 99 cap, and
+the signature trench boss dropped no shards. Full incentive pass (all GSC-only, `-GscOnly`, no LED bake):
+
+- **Underground content re-placed onto the live geometry** (`_acc_glitch_altar.gsc::spawn_altars`, coords now
+  PINNED to `add_under_room.js`). **SOURCE: 2 Data Caches in the EXPOSED trench PIT** (`±360, 1950, -240`) —
+  you brave the amped horde/slow/surge to loot them, no door needed. **SINKS: the Foundry inside the enclosed
+  room** (`y[1379,1723]`, behind the 1500 `enter_under_plaza` door): Glitch Altar (center) + Cyberware kiosk
+  (`-140,1420`) + Overclock terminal (`140,1420`), all on real floor, triggers spaced clear of each other.
+- **Trench-only sources (user choice):** the topside **elite shard drop is OFF by default** (`acc_elite_shard_drop`
+  0) and the **Trench Warden now pays shards** on death (`acc_warden_shard_reward`, default 3, all players,
+  skips the dev bulk boss). Shards now come from the trench: pit caches + Warden + altar jackpot.
+- **Pit-cache yield scales with the round** (`_acc_data_shards::cache_yield`: base + 1 / `acc_cache_scale_rounds`
+  rounds, cap `acc_cache_yield_max` 9) so the trench faucet keeps pace; re-arms each round (unchanged). Bases
+  `acc_cache_w_count` 2 / `acc_cache_e_count` 3.
+- **Overclock terminal no longer sells no-ops:** `build_family_pools` TRIMMED to the 4 implemented effects
+  (Overpressure / Piercing-Penetration-Breach / Adaptive Aim / Reactive Powder), every family gets all 4,
+  `ACC_TIER_MAX` 5→4 so every tier-up rolls a REAL effect (maxing a gun = 1+2+3+4 = 10 shards). Reroll at max
+  now dry-runs first so a fully-overclocked gun is never charged for nothing.
+- **HUD always-on (dim at 0):** the Data Shards counter is now visible at 0 shards (alpha 0.35 vs old 0) so the
+  currency is discoverable (`_acc_data_shards::sync_shards_to_client`).
+- **Real economy is now testable:** the dev shard firehose is gated behind `acc_dev_shards` (default 1) — flip
+  `acc_dev_shards 0` to playtest with money/open-map dev still on.
+- *Still inert (separate follow-ups, not shard-loop blockers):* cyberware `rx3` Overdrive + `oc2b` Fission, the
+  Emergency-Drop overclock-scroll, the EMP cyberware-lockout. Tracked in memory `data-shard-trench-economy-audit`.
+
+### Added — The marquee shard incentive: buy PERK SLOTS in the trench (start at 4, up to 9) (user, 2026-06-19)
+
+The headline reason to chase shards. You now **start with 4 perk slots** and **buy more (up to 9) with Data
+Shards** at a new **Neural Expansion Bay** in the exposed trench pit — the most powerful upgrade demands the
+most danger.
+
+- **Per-player cap via the stock hook:** `acc_perks::acc_perk_slot_limit` is installed as
+  `level.get_player_perk_purchase_limit` (_zm_utility.gsc:5874-5889), returning `base + player.acc_perk_slot_bonus`.
+  The global `level.perk_purchase_limit` dropped 9 → **4** (the base/floor); the hook adds each player's bought
+  bonus on top, so it's individual in co-op.
+- **Escalating sink:** each extra slot costs `acc_perk_slot_cost_base`(4) + bonus×`acc_perk_slot_cost_step`(2)
+  → 4/6/8/10/12 shards (40 total to go 4→9) — a long-horizon goal bigger than the whole Cyberware tree. Caps at
+  `acc_perk_slot_max`(9). Vendor `acc_perks::spawn_perk_slot_vendor_at`, placed by `_acc_glitch_altar` in the pit
+  at (0,1800,-240).
+- **Dev:** `acc_dev_perks` (default 1) makes the hook return max in dev so every machine is buyable while
+  testing; flip `acc_dev_perks 0` (with `acc_dev_shards 0`) to playtest the real perk-slot purchase. The old
+  `_acc_dev` `perk_purchase_limit = 18` is now superseded by the hook.
+
+### Changed — Glitch Altar: Mega Win is now a ~1% jackpot (user, 2026-06-19)
+
+The altar weights sum to 100 (= % chance). **Mega Win** (free Perk + Insta-Kill) cut 6 → **1** (the rare single
+big win); the freed weight went to the common boons (Max Ammo 16→18, Free Perk 10→12, Shard Jackpot 12→13) so
+the boon/curse split stays ~72/28. (`_acc_glitch_altar.gsc::resolve_gamble`)
+
+### Changed — Hack Terminal / Vault Overload shard rewards OFF by default (trench-only) (user, 2026-06-19)
+
+Adversarial review caught that these two **topside** objectives still paid shards (+2 / +3), contradicting the
+trench-only economy. Both shard grants are now gated behind `acc_hack_shard_drop` / `acc_overload_shard_drop`
+(default **0**). The Vault Overload's map-shortcut unlock still fires (its real payoff). Flip the dvars to 1 to
+restore them as surface sources.
+
+> **Coordination note:** the underground is being redesigned in parallel into "The Black Market" (docs/45). The
+> shard-system spawn coords follow the docs/45 §3 anchor table where rooms exist (Altar + pit caches match
+> exactly). Cyberware/Overclock anchors there target the new Stalls/Cages rooms (not built yet), so they stay in
+> the existing Foundry room until that geometry lands, then migrate. The Neural Expansion Bay needs a §3 anchor
+> row (currently in the guaranteed pit floor at (0,1800,-240)).
+
+### Changed — Phantom: made genuinely menacing (he earns the guaranteed Mega Bottle) (user, 2026-06-19)
+
+The Phantom drops a guaranteed Mega Bottle but wasn't threatening — same melee as a normal zombie, only
+1.1× speed, and he revealed from 400u away. Scary pass:
+
+- **Hits HARD:** sets `host.meleeDamage` = `acc_phantom_melee_dmg` (**85**, vs the 45/60 horde) after the
+  init-gate — confirmed it sticks because `_acc_zombie_speed::apply_speed_for_round` returns early for any
+  boss, so the trench-melee system never resets it. Two hits down a no-Jug player, and you don't see them coming.
+- **Relentless:** `acc_phantom_speed_mult` 1.1 → **1.4** (hard to kite).
+- **Startling reveal:** `acc_phantom_reveal_dist` 400 → **240** — he stays cloaked until he's almost on you,
+  then materializes (with the cyan aura burst) right in your face.
+- **Materialize screech:** new `materialize_scare()` plays a warp screech (`acc_glitch_warp`, the confirmed
+  Glitch SFX) on the cloaked→visible reveal, 2 s cooldown'd. Gated by `acc_phantom_screech`.
+- **Tankier:** `acc_phantom_hp_mult` 8 → **10** (survives long enough to press the attack).
+- New dvars: `acc_phantom_melee_dmg`, `acc_phantom_screech`. All live-tunable — dial speed/melee down if too
+  brutal. The guaranteed Mega Bottle drop is kept (the reward now matches the danger). GSC-only (`-GscOnly`).
+
+### Added — Crash-diagnostic breadcrumb logging for the boots+slide CTD (user, 2026-06-19)
+
+User hit a random crash equipping the Boots item and then sliding. GSC can't catch a hard engine CTD, so
+instead we drop a breadcrumb at each step of the suspect paths — the LAST `[CRASHDBG]` line in
+`console_mp.log` = the step just before the crash.
+
+- **New channel `acc_utility::crash_log(player, msg)`** — gated by the `acc_crash_debug` dvar (default 0,
+  silent). Routes via `IPrintLnBold` (the only channel that reaches `console_mp.log` as `[ SCRIPTER]`).
+  Plus `acc_utility::active_speed_flags(player)` for a compact active-flags string.
+- **Instrumented every slide-triggered path + the convergence point:**
+  - `_acc_utility::recompute_move_speed` — logs scale + active flags **immediately before** `SetMoveSpeedScale`
+    and again after (so if the CTD is that engine call, you see the value but never the "OK").
+  - `_acc_boss_items`: `apply_boots`/`remove_boots`, and `rocket_shield_watch` (slide-kick `SetVelocity` + slide on/off).
+  - `_acc_mega_bottles::mega_flopper_slide_watch` — slide on/off.
+  - `_acc_perk_phd_flopper::phd_slide_watcher` — before/after `phd_explode` (the slide-to-explode nova, the
+    most complex slide-triggered action).
+- **Usage:** launch with `+set acc_crash_debug 1 +set logfile 1`, reproduce, then read the last `[CRASHDBG]`
+  lines in `<game>\console_mp.log`. Off by default → no spam in normal play. `-GscOnly` build.
+
+### Fixed (PERMANENT) — Perk machine facing FORCED at runtime, immune to .map reverts (user, 2026-06-19)
+
+The facing reverted a **4th** time: concurrent `.map` restores keep rolling the perk-struct `"angles"` back
+to the wrong `"0 270 0"`, and re-fixing the (baked) `.map` keeps losing that race. **New durable fix:** force
+the facing at **runtime** in GSC, where it's immune to whatever the `.ff` baked.
+
+- `_acc_perks::force_perk_machine_facing()` (threaded from `init()`): polls until the perk machines spawn,
+  then sets each machine **model's** angle to yaw `acc_perk_face_yaw` (default **359.999** — the established
+  facing). Reuses the proven handle: stock `perk_machine_spawn_init` (`_zm_perks.gsc:1526-1560`) spawns each
+  machine as a `script_model` linked to its `zombie_vending` use-trigger via `trigger.machine` (the same
+  trigger `_acc_perk_lights` already uses). Re-asserts a few times post-spawn. `-GscOnly` build.
+- The `.map` fixes still stand (`fix_perk_facing.js` + `add_perk_alcoves.js` now emits 359.999) so the
+  editor/baked state is correct too — but the runtime force is the guarantee. **This should be the last time.**
+
+### Fixed — Perk machines facing the wrong way AGAIN (recurrence) + root cause (user, 2026-06-19)
+
+The 9 Lab perk machines were facing the wrong way again — a `.map` restore (the bus-station floor fix)
+rolled their `"angles"` back to `"0 270 0"`, the value `add_perk_alcoves.js` originally stamped. The
+vending models actually face the player at **`"0 359.999 0"`** (270 = "face south" was wrong; documented
+the first time, 2026-06-18).
+
+- **Current `.map` fixed:** re-ran `tools/fix_perk_facing.js` → all **9** machines set to `0 359.999 0`
+  (3 inline `zm_perk_machine` + 6 vending-prefab structs); the 74 riser angles (legitimately `0 270 0`)
+  were left untouched.
+- **Root cause fixed (durability):** `add_perk_alcoves.js::setSouthFacing()` hardcoded `"0 270 0"` — now
+  emits `"0 359.999 0"` (a named `MACHINE_ANGLES` const), so re-running the alcove generator no longer
+  re-breaks the facing.
+- **⚠️ Known fragility:** the facing lives in the `.map` entity lump, so **any `.map` restore from an old
+  backup reverts it. After restoring the `.map`, re-run `node tools/fix_perk_facing.js`** (idempotent).
+- Full build (cod2map re-emits the entity lump → LED → linker).
+
+### Fixed/Added — Roofs: full coverage (corridors + east strip) + de-duplicated stacked ceilings (user, 2026-06-19)
+
+Finished the ceiling pass — **every non-Plaza floor is now roofed** (Plaza stays open). A deterministic
+coverage probe (`tools/probe_coverage.js` — parses each brush as axis-aligned planes, grid-samples
+floor-without-ceiling) showed the room bounding-box ceilings missed all 8 room-to-room **corridors** + a
+central Plaza→Bus-Station **spine** + a walled strip **east of the Alley**. Added a ceiling + light for
+each (abutting the room ceilings edge-to-edge, no overlapping coplanar slabs). Coverage probe now reports
+**MISSING = 0**.
+
+Also fixed a **dedup bug in `gen_room_roofs.js`**: the old `strip()` only removed the *first* ceiling per
+re-run, so repeated runs (×2 agents) stacked **2–3 duplicate coplanar ceilings** at the same z (an LED
+overlap hazard + bloat — 34 ceiling entries for ~16 areas). Rewrote `strip()` to remove **every** roof
+artifact by its `-ACC7-` guid marker (order-independent, idempotent); one run collapsed 34 → **16 unique
+ceilings, 0 duplicate footprints**. Full build OK (cod2map → LED bake → linker → fresh `.ff`); the brighter
+grid lighting bakes in ~15s. (Two pre-existing/concurrent linker FX errors — the Ripper SMG shell-eject
+and the Phantom boss's `fx_apothicon_fury_spawn_in_exp` invalid atlas — are unrelated to the roofs; the
+`.ff` builds, those FX just won't render.)
+
+### Fixed — Power switch: one wall switch with native anim + sound (dropped the mid-air duplicate) (user, 2026-06-19)
+
+The Bus Station ended up with TWO stacked switches: a stock `power_switch` **prefab** wall-mounted at
+`(790 1600 1)` — which has the native flip animation + power-on sound — **and** our custom
+`acc_power_switch` trigger, whose generator brush has degenerate winding so its centroid floated and the
+(earlier-spawned) lever model appeared **mid-air**. User chose to keep the wall prefab and remove the
+mid-air duplicate.
+
+- **`_acc_power.gsc` now STANDS DOWN** (replaces the earlier same-day "spawn a lever + decouple the sound"
+  attempt): it no longer deletes the prefab's stock `use_elec_switch` trigger (so stock `_zm_power` powers
+  the map **natively** — animation + sound — when you flip the wall switch), no longer spawns a lever
+  model, and just **deletes our leftover `acc_power_switch` trigger(s)** at runtime so there's no mid-air
+  use-prompt. Pure GSC, no `.map` edit → LED-safe, no interference with concurrent Radiant edits.
+- Reverted the two `xmodel,p7_zm_der_pswitch_*` zone lines (the script-spawned lever is gone) and the
+  `acc_power_*` tuning dvars. `acc_auto_power` stays `0`, so the player still flips the wall switch.
+- The custom DUAL-switch is recoverable from git if wanted later (restore notes in `_acc_power.gsc`).
+
+### Changed — Interior lighting: brighter + denser grid (user, 2026-06-18)
+
+The roofs (ceilings on every room except Plaza) made interiors dark, and the hand-placed 4-6 radius-150
+lights per room were far too dim — "we need a ton more light inside, it's so dark; trenches can be dark."
+
+- **`tools/gen_room_roofs.js`** now fills each ceiling footprint with a **GRID** of lights (was a hand-placed
+  4-6) and brightens each one: `LIGHT_RADIUS` 150→320, `bake_intensity_scale` 1→1.3, `GRID_SPACING` 420.
+  Result: **62 lights** (was 28) — corp 16, lab 12, each other room 6, plus the corridors. All tunable
+  constants at the top of the generator; re-run + FULL build (LED) to retune.
+- **Trenches stay dark** — `gen_room_roofs.js` lights only the rooms + corridors; the trench / trench-rooms
+  get no lights, so they remain dark in both lighting states.
+- FULL build with the LED bake (geometry/light change → BSP+lightmap re-bake; the bake is the gate).
+
+> ⚠️ **CORRECTION (2026-06-19): the "already power-gated" claim was WRONG** — see the dim/bright entry below.
+> The lights carried `lightingstate1..4="1"`, so the `set_lighting_state(0)→(1)` power flip was a NO-OP
+> (lit in both states). The fix is the dim/bright state split below.
+
+### Changed — Lighting: DIM before power, BRIGHT on power (lighting-state OFF-BY-ONE fix) (user, 2026-06-19)
+
+User: "add a dim light — still hard to see but you can see — then way brighter when power is on." A
+parallel research pass (verified vs stock `zm_giant_light.map` + `share/raw/scripts/shared/util_shared.gsc`)
+uncovered the real mechanism + a bug:
+
+- **BO3 lighting-state OFF-BY-ONE (hard-won):** GSC `set_lighting_state(N)` displays Radiant **State N+1** =
+  the light field `lightingstate(N+1)`. There is **no `lightingstate0` key** (absent from `bin/t7.def.json`).
+  Our `CheckForPower` runs `set_lighting_state(0)` pre-power then `(1)` on `power_on`, so **pre-power =
+  `lightingstate1`, post-power = `lightingstate2`**.
+- **The bug:** all 62 grid lights had `lightingstate1..4="1"` → lit in *both* states → the power flip did
+  nothing; the scene only looked dark because `volume_sun global_fill_color="0 0 0"` (black base).
+- **The fix (`gen_room_roofs.js`):** emit **two** lights per grid point, split by state —
+  a **DIM** set (`lightingstate1="1"`, others `"0"`; `DIM_RADIUS` **220**, `DIM_INTENSITY` **0.02** — stepped
+  0.30→0.15→0.06→0.02 on 2026-06-19 per user, final ask "almost pitch black inside"; a parallel audit confirmed
+  each step WAS live/baked, just too bright; the bright/post-power set was kept "perfect" and untouched) lit
+  **pre-power only** = the faint navigable floor; and the existing **BRIGHT** set (`lightingstate1="0"`,
+  `2/3/4="1"`; radius 320, intensity 1.3) lit **post-power only** = the powered look. **126 lights** (63 dim
+  + 63 bright). No GSC change. Masks/`DIM_INTENSITY` tunable at the top of the generator.
+- **Trenches stay pitch-dark** (no lights there, no global ambient added). FULL build, LED baked clean.
+- Documented fallback (not used): a faint state-independent floor via `volume_sun global_fill_color` if the
+  dim lights ever read too dark in corners — but that lifts trenches + reduces contrast, so dim lights win.
+- **Dark inside / safe outside (user 2026-06-19):** final ask was "almost pitch black inside; feel safe
+  outside until power." An audit found the open Plaza was NOT sky-lit (default_night + black global_fill),
+  so it was dark too. Added an **always-on Plaza light grid** (`acc_roof_light_plaza_*`, `lightingstate1..4`
+  all `"1"` = `ALWAYS_MASK`, **15 lights**, `PLAZA_INTENSITY` 0.55, `PLAZA_RADIUS` 360, NO ceiling — Plaza
+  stays open) so OUTSIDE is a lit safe haven in both power states, while the roofed rooms (DIM 0.02) go almost
+  black pre-power. **141 lights** total (63 bright + 63 dim + 15 Plaza).
+
+### Changed — Perk-door rotation CUT (temporary): all 9 alcove doors open every round (user, 2026-06-18)
+
+The per-round random-3-of-9 Lab perk-door rotation is temporarily disabled — all 9 alcove doors now
+open every round (every perk always buyable). The user wants it back later, so the cut is minimal and
+clearly reversible.
+
+- `_acc_perk_doors::init()` now just calls `open_all()` and does NOT start the round watcher. All the
+  rotation machinery (`watch_rounds` / `apply_round` / `roll_order` / `candidates_excluding_last` /
+  `close_all` / `dev_all_open`) is left **intact-but-unused** — a `CUT 2026-06-18` comment block in
+  `init()` gives the exact one-line restore (`if(dev_all_open()) open_all(); else close_all();` +
+  `level thread watch_rounds();`). A STATUS banner at the top of the file flags the override.
+- **Side effect (documented in docs/13):** since every Lab machine is now always reachable, every base
+  perk is also always **Mega-able** — the "wait for your perk to rotate in" Mega-bottle texture is paused
+  until the rotation is restored. No code change to the Mega path (the gate was physical access only).
+- Verified the rotation is self-contained: only `acc_main::init()` calls into the module, and nothing
+  else touches the `acc_perk_door_*` gates (the `_acc_map_randomizer` mention is an inert comment).
+- GSC-only (existing geometry, just left open) → `-GscOnly`, no LED bake.
+
+### Changed — The whole underground IS the trench now + a calmer 4s danger warning (user, 2026-06-18)
+
+Two trench tweaks in `_acc_bus_trench`:
+- **The new underground rooms + Hall/Chamber floor now count as "the trench"** — they were a respite, but the
+  user wants the entire sub-level to carry the trench danger. `player_in_trench` now aliases
+  `player_in_underground` (the broad footprint), so **every** trench effect that gates on it — −35% move slow,
+  spawn surge, raised AI cap, zombie aggro (`_acc_zombie_speed`), and the danger warning — applies anywhere down
+  there, not just the open pit. (The fall-tax still only *fires* on a real fast fall, which only happens dropping
+  into the pit, so walking room-to-room never gets taxed.)
+- **The red danger warning is shorter + less naggy** — was a continuous fast pulse; now a **4s** window
+  (`acc_trench_warn_sec` 5→4) with a **slower ~2s pulse** (new dvar `acc_trench_warn_pulse`, default 1.0s
+  half-cycle = ~2 gentle breaths) that auto-offs and only re-triggers on a fresh entry. GSC-only.
+
+### Added — Real models + pickup/use logic for the underground systems (the "Foundry") (user, 2026-06-18)
+
+Wired actual stock models + interaction onto every underground system (placeholders → real props), all
+**verified to pack** (present in the build `xmodel.csv`; errorlog clean of "missing", only benign DROPPED-VERTS
+mesh warnings). Models chosen from **docs/44** (stock model reference), all `p7_cai_*` family (same as the
+proven-packed Plaza workbench):
+- **Glitch Altar** (Plaza room) — base = `p7_cai_sign_inteactive_kiosk` (interactive kiosk) + a glowing
+  spinning orb (`p7_fxanim_zm_stal_ray_gun_ball_mod`) floating above. (Logic already existed.)
+- **Data Caches** (Hall A + Chamber B) — `p7_cai_stacking_cargo_crate`; **new** `_acc_data_shards::spawn_cache_at`
+  + hold-USE `cache_loop`: grants shards **once per round** then shows "depleted" until round start (anti-grind:
+  one pay/cache/round to whoever loots first; `vault_cache` tag skips the elite diminish). This is the
+  underground shard **SOURCE** (moving collection down here).
+- **Cyberware kiosk** (Chamber B west) — `p7_cai_work_table_metal_03_white`; **new** `_acc_cyberware::spawn_kiosk_at`
+  spawns the model + a trigger running the existing `kiosk_loop`. First time the Cyberware sink is reachable in-game.
+- **Overclock terminal** (Chamber B east) — `p7_cai_ticket_kiosk_theatre`; **new** `_acc_overclocks::spawn_terminal_at`
+  + the existing `terminal_loop`. First time the Overclock sink is reachable.
+
+`_acc_glitch_altar::spawn_altars` is now the underground content **placer** (knows the built-geometry origins);
+each system's model+logic lives in its own module. 4 zone `xmodel,` lines added. Pure GSC/`-GscOnly` (models are
+runtime-spawned via SetModel; geometry unchanged). Live counts: `acc_cache_hall_count` (2) / `acc_cache_chamber_count` (3).
+
+### Added — Phantom v2: holographic cyan GLOW aura (cloak-aware, client-side FX) (user, 2026-06-18)
+
+The strongest part of the holographic look: a cyan energy glow now wraps the Phantom while it's
+MATERIALIZED, so it reads as a destabilizing hologram rather than just a cloaked zombie.
+
+- **Cloak-aware:** the aura is ON only while the Phantom is materialized (near a player) and OFF while
+  cloaked — a floating glow over an invisible body would betray its position. Materializing now reads as
+  "phases in with a cyan energy burst"; the glow tracks the materialized state, NOT the per-tick flicker,
+  so the field stays steady while the body phases.
+- **Pipeline = the proven client-FX path** (server PlayFX doesn't render in this build): new actor-scope
+  clientfield `accPhantomAura` (1 bit), registered in lockstep by `_acc_boss_phantom.gsc` (server, REGISTER_SYSTEM)
+  + new `_acc_boss_phantom.csc` (client, `PlayFXOnTag`, leak-safe). Server sets the field on the cloak
+  transitions in `phantom_cloak_loop`; client draws the glow. Mirrors `_acc_perk_lights`.
+- **FX = `acc/light/fx_perk_glow_teal`** — the cyan/teal recoloured power-up aura, ALREADY packed (the PaP
+  machine uses it) and confirmed to render here → zero new asset. Swap `level._effect["acc_phantom_aura"]`
+  in the `.csc` to try a different look (e.g. an electric `.efx`) with no server change.
+- dvar `acc_phantom_aura` (default 1) toggles it live. Wired into the entry `.csc` `#using` + a
+  `scriptparsetree` zone line. GSC/CSC/existing-FX only → `-GscOnly`, no LED bake.
+
+### Changed — DEFCON cadence (defeat → 4-round cooldown), room-name HUD raised, banner removed, glitch 40 (user, 2026-06-18)
+
+- **DEFCON is no longer a per-round rotation.** A room lights RED and **stays lit until the player
+  DEFEATS the challenge inside it**; on defeat the alarm turns **off** (so players don't think another
+  is available) and the next DEFCON lights `acc_lockdown_cooldown` (**4**) rounds later, round-robin
+  through the four rooms. First DEFCON still gated to `acc_lockdown_first_round` (7); a FAILED attempt
+  re-arms next round. `_acc_lockdown::run_lockdown` reworked (keep-lit-until-defeated + cooldown gate),
+  `pick_zone` is now counter-based (DEFCONs are sparse), new `on_defcon_cleared`/`on_defcon_failed`
+  called from `_acc_lockdown_challenge::challenge_clear`/`challenge_fail`.
+- **Glitch challenge total 50 → 40.**
+- **Room-name HUD raised 50** (`_acc_dev` zone sign y70 → y20, above the boss nameplate); the
+  "`>> <room>`" room-switch banner removed (the persistent label is enough).
+- GSC-only (`-GscOnly`), builds clean.
+
+### Changed — Perk/PaP glow: steady GLOW instead of moving sparkle (user, 2026-06-18)
+
+The power-on glow (recolored clones of the green power-up aura, `tools/gen_perk_glow_fx.js`) read as a
+rising/twinkling SPARKLE — user wants a steady glow. Added two reshape rules to the generator: kill
+`gravity` (50→0, so sprites don't drift up/down) and lengthen every particle's `lifeSpanMsec` ×`LIFE_MULT`
+(5, so sprites persist + fade slowly instead of rapidly spawning/dying); dropped `DENSITY` 3→2 to offset
+the longer life. Regenerated all 10 `acc/light/fx_perk_glow_*` .efx; `-GscOnly` repack. Tunables in the
+generator (`LIFE_MULT`, `DENSITY`, `gravity` rule) — re-run + rebuild to retune. Item-pickup glow (same
+effect via the client-FX path) is a separate follow-up.
+
+The Phantom is the real ~round-10 boss, so it gets the full boss treatment; Brutus (now the trench guard)
+keeps his HP but drops to a regular mini-boss — no boss music, no boss health bar.
+
+- **Phantom = boss:** named boss **health bar** (`acc_boss_spawned` "PHANTOM", already had it) + boss **music**
+  now (`level thread acc_boss::boss_music( host )` in `spawn_phantom`).
+- **Brutus down-leveled:** removed the `acc_boss_spawned` emit (no health bar) and the music call from
+  `_acc_boss::spawn_brutus_miniboss`. He KEEPS all his HP (`ACC_BOSS_MINI_HP` × coop) + rewards + the
+  Trench-Warden roam — just no bar/music. He reads as a tough mini-boss, not THE boss.
+- **Generic boss music:** renamed `brutus_boss_music` → `acc_boss::boss_music` (public, refcounted, plays
+  the CC0 "Epic Boss Battle" loop, fades 4s on the last boss's death) so any boss can use it. Gated by
+  `acc_boss_music_on`. (The next rotation boss just calls it too.)
+- Phantom cadence confirmed: first spawn **round 10**, every 10 after (Core owns r30+); `acc_dev 0` to
+  see the real cadence (dev mode test-spawns it from round 8). GSC-only (`-GscOnly`).
+
+### Fixed — Perk alcoves: walls now CLOSE, machines face right + better item models (user, 2026-06-18)
+
+Three fixes after testing:
+- **Walls weren't closing** — the 3-of-9 rotation was gated behind `acc_open_map` (default 1 → all 9 open in dev).
+  Made the rotation the **DEFAULT** (`_acc_perk_doors::dev_all_open` now only all-open if `acc_perk_doors_all_open 1`).
+  Round 1 opens 3, the other 6 close, each round swaps to 3 new (no immediate repeats) — no dvar needed.
+- **Perks faced the wrong way** — `add_perk_alcoves.js` had reoriented the 9 machines to `0 270 0` (wrong for these
+  vending models). `tools/fix_perk_facing.js` reverts the 9 machine entities to their original `0 359.999 0`
+  (machines only — the risers correctly keep `0 270 0`).
+- **Item models** — +10% Points: double-points icon → **gold brick** (`zombietron_gold_brick`, money; renamed
+  "Payroll Ledger" → **"Loot Stash"**) — verified PACKS (xmodel.csv, real geom). Tried a medical syringe for Repair
+  Kit but `p7_medical_surgical_tools_syringe` is a campaign asset ("is missing" in zm) → **reverted Repair Kit to the
+  proven carpenter** (no zm-packable medkit exists; a custom one needs the Poly Haven→APE route). Full LED bake clean.
+
+The long-standing "enclosed ceilings crash the LED lightmapper" conclusion was **wrong** — it was
+confounded by a brush-construction bug. `add_vault_ceiling.js` (and the 2026-06-15 "exhaustive" test
+that used it) emit brushes with **real-corner points + a malformed non-hex GUID**, and *that* trips
+`brush.cpp:1860`. The proven `gen_zone_greybox` / `add_perk_alcoves` **filler-plane winding + a hex
+GUID** bakes fine. Verified via `tools/_bake_test.ps1` on the current map: baseline BAKED 13s; + a vault
+ceiling BAKED 12.8s; + a cover box BAKED 13.2s; the same geometry with the old winding CRASHED. So
+**roofs AND cover are both feasible** — emit brushes the right way, add incrementally, bake-gate each
+batch (the lightmap atlas budget is finite). Memory `led-relight-dead-end-enclosed-geometry` corrected.
+
+First real increment: **the Vault is now roofed** — a `script_floor_ceiling` slab on the z256 walls +
+**4 `light` entities** (verified kelson8 `PRIMARY_OMNI`, white, radius **150** — `radius 500` was a
+crash; keep omni radius ≤~150). FULL build OK (cod2map → LED → linker → fresh `.ff`); `light` entities
+need **no `.zone` line** (worldspawn-baked). New tools: `tools/gen_room_roofs.js` (ceilings + lights,
+keyed per room, re-runnable), `tools/gen_room_cover.js` (waist-high cover, proven winding),
+`tools/probe_rooms.js` (live room model from spawner/door origins — the old greybox generators are
+stale). Plaza stays open/roofless by design. **NEXT (bake-gated, room by room):** roll roofs out to
+Helipad/Market/Alley/Bus Station/Lab + add cover (Plaza lightest, Bus Station most hectic), tuning the
+lighting to playtest. Backup at `map_source/zm/*.map.pre-roofs-bak`.
+
+### Added — Underground floor, segment 1: tight Hall A + Chamber B off the Plaza-facing room (user, 2026-06-18)
+
+First piece of the **underground gauntlet** (workflow "Data Vault"). `tools/add_trench_floor.js` (post-processor
+after `add_trench_rooms.js`, reads the south back-wing's **live** z) carves a 192u-wide **tight hall (Hall A)**
+and a wider **Chamber B** extending **south** out of the Plaza-facing trench room, at the same z-band as the
+rooms (floor −240, ceiling void top −80). Built as fully-**enclosed sealed boxes** (floor + ceiling-slab-to-z0
++ all walls) with a 192u doorway carved through the room's back wall. **Key validation:** the south extension
+**did NOT leak** (cod2map sealed it — the map's outer hull contains the sub-level) and the **LED bake held**
+with +15 brushes — so the floor is buildable **segment-by-segment with the generators**, bake-gating each
+(refutes the design-critic's "generator geometry can never bake" worst case; the 2 rooms + this segment all
+bake). Navmesh regenerated through the doorway (zombies path in). Interiors are empty greybox — shard caches +
+the deeper gauntlet (Hall C → Vault/kiosks) are the next segments. Re-run after any `gen_corp_trench`/`add_trench_rooms` regen.
+
+### Added — "Phantom" mini-boss: holographic cloaker, the ~round-10 rotation-boss slot (user, 2026-06-18)
+
+After deep-researching new bosses + boss models, added a NEW script-only boss for the every-~10-rounds
+slot (distinct from Brutus the trench guard). The user wanted a custom model, but a genuinely non-zombie
+mesh needs Maya/APE rigging (not headless), so this is the **"Cyber Phantom" combo**: a promoted stock
+zombie whose identity is built from headless cosmetic levers (the model research's recommended path), NOT
+a mesh import. New `_acc_boss_phantom.gsc`, cloned from the proven `_acc_boss_glitch.gsc` template.
+
+- **Holographic CLOAKER:** invisible (`Ghost`) while stalking at range, **materializes** (`Show`) within
+  `acc_phantom_reveal_dist` (400) of a player to strike, with a ~12% per-tick **flicker** (brief invisible
+  blips) = a destabilizing hologram. Still always solid/hittable (cloak = "can't see it coming," not
+  invulnerable). Cyan eyes via the existing actor eye-tint clientfield (shared color, no new `.csc`).
+  Distinct stock Giant body as the canvas (mostly cloaked anyway).
+- **Cadence = a round-boss ROTATION slot** (user: random pick per ~10-round slot): fires every
+  `acc_phantom_interval` (10) rounds from `acc_phantom_first_round` (10), randomly picking from a pool
+  (one entry now = Phantom; future script-only bosses register in `run_round_boss`). Yields to the
+  Subroutine Core on its sealed rounds.
+- **Boss scaffold (all landmines pre-solved by the template):** init-gated promotion, `acc_is_mini_boss`,
+  `ignore_enemy_count`, `acc_boss_custom_speed` (keep-alive skip → no ASM-stomp freeze), NO `SetScale`.
+  HP = `acc_phantom_hp_mult` (8) × the round's zombie health. Named boss bar. Death → boss-item roll +
+  Mega Bottle (`on_boss_death`).
+- dvars: `acc_phantom_enable/_hp_mult/_first_round/_interval/_reveal_dist/_speed_mult/_flicker_pct/
+  _cloak/_eyes/_stock_skin/_test/_test_round/_debug`. GSC + existing `.csc` only → `-GscOnly`, no LED bake.
+- **v2 (offered, not built):** a full-body cyan **glow aura** (an actor-scope clientfield + `PlayFXOnTag`,
+  the `_acc_perk_lights` pattern) for the strongest holographic read.
+
+### Changed — Boss-item models: thematic fixes (user, 2026-06-18)
+
+Audited all 8 boss-item models vs their effects; the 6 that fit kept (Gas Tank=nitro tank, Li'l Arnie=octobomb,
+Repair Kit=carpenter, Rocket Shield, Monkey Bomb, Phase Serum=bottle). Two mismatches fixed:
+- **+10% Points: teddy bear → the double-points ×2 icon** (`p7_zm_power_up_double_points`, runtime-loaded so no
+  `.zone` line) + renamed display **"Teddy Bear" → "Payroll Ledger"**. Teddy bear didn't read as cash.
+- **Boots: perk-bottle placeholder → real boots prop** (`p7_boots_safehouse_01`) — verified it PACKS (in the
+  build xmodel.csv with real geometry; only harmless LOD warnings) + added the `.zone` line (dropped the now-unused
+  `p7_zm_teddybear` line). Model_z tuned (8 / 4) — fine-tune live if the pickup floats/sinks. GSC + zone, builds clean.
+
+Decided **what Data Shards DO** (workflow `underground-shards-design`, 14 agents): the user chose **shard
+gambling**. New `_acc_glitch_altar.gsc` — a **Glitch Altar** in the Plaza-facing trench room where you spend
+shards (default 4) for a **weighted jackpot**: ~72% boons (Max Ammo / Insta-Kill / Double Points / free Perk /
+**Shard Jackpot +7** / **Mega Win**) and ~28% glitch-curses (**Surge** / **Corruption** shard-drain / **Dud**)
+that **never instant-down** you. Modeled on the Emergency Drop (weighted-pick + `specific_powerup_drop` +
+`give_random_perk`), but higher-variance with a real downside and **negative shard EV** (a sink, not a farm).
+**Pure GSC** — the altar core + hold-USE trigger are script-spawned (no `.map` entity, no geometry), ships
+`-GscOnly` with zero LED risk. Live dvars: `acc_altar_cost/cooldown/jackpot/surge/drain`. Wired in `acc_main`
+after `emergency_drop`; docs/06 §Glitch Altar.
+
+**Also fixed (was a latent bug in the 2 new trench rooms):** the OOB hard-kill. `_acc_bus_trench`'s
+out-of-playable-area veto only covered the trench **y-band**, so a player standing in a room at z=−240
+(outside the band) got the stock ~3 s hp-full no-MOD kill. The veto now covers the whole **underground
+footprint** (`player_in_underground`, x[−900,900] y[−400,2900] below z=−36) — the trench + both rooms + any
+future floor are safe; the fall-tax/surge stay gated to `player_in_trench` so the rooms remain a respite.
+
+### Added — Stock-model reference doc (user, 2026-06-18)
+
+`tools/gen_stock_models_doc.js` enumerates every stock BO3 xmodel this install references (stock scripts'
+SetModel/precache + model-prefixed strings + stock prefabs + GDT xmodels) → **`docs/44_stock_models.md`**
+(6001 models, categorized: perks/vending, power-ups, characters, props, weapons world vs view, vehicles,
+gore, FX) + flat dump `docs/stock_models_full.txt`. All stock models are Workshop-publishable (ship in the
+Mod Tools). Caveat in the doc: a name is a *source* reference — confirm any specific one packs via the build
+ERRORLOG (some are DLC/SoE-fastfile-only). Re-runnable after a Mod Tools update.
+
+### Added — Boots boss item (#8) + shrink Li'l Arnies (user, 2026-06-18)
+
+- **New boss item "Boots"** (#8): **+8% move speed everywhere** (`acc_boots_mult` 1.08 factor in
+  `_acc_utility::recompute_move_speed`) AND **immune to the Bus Station trench slow** — the −35% trench slow
+  is now gated on `!acc_item_boots`, so with Boots you walk normal in the pit. Registered in the
+  `_acc_boss_items` pool with `apply_boots`/`remove_boots` (mirror Neural Boots; reapplied on spawn via the
+  existing hook). **Model is a placeholder** (`zombie_pickup_perk_bottle`, proven-safe) — swap the string in
+  the pool entry to a real boots xmodel any time.
+- **Li'l Arnies shrunk to ~1/3** (`acc_arnie_scale` 0.33): the thrown Octobomb's visible model
+  (`e_grenade.anim_model`, a script_model in `level.octobombs` — NOT live AI, so `SetScale` is crash-safe)
+  is scaled by a new `_acc_boss_items::scale_octobombs_watch` poll. Visual-only; attract/explode behavior
+  (on the grenade entity) is untouched. Set `acc_arnie_scale 1` for stock size. GSC-only.
+
+Two greybox rooms now open off the trench at the **trench-floor level**: a **Plaza-facing** room behind the
+south wall and a **Lab-facing** room behind the north wall, each gated by a **buyable stock `zombie_door`**
+(1500 pts, `enter_trench_plaza` / `enter_trench_lab` → `acc_door_trench_plaza` / `acc_door_trench_lab`) that
+slides **sideways** into the wall pocket (so room height isn't limited by a slide-up). Built by
+`tools/add_trench_rooms.js` — a post-processor that finds the two ground slabs by their **live** z-bounds (so
+it tracks the parallel trench-depth retunes, which had already moved the floor from −288 to −240), carves a
+~512×384×160 room into each (the slab above stays solid = the walkable floor), and emits the door entities.
+The fall-tax (`_acc_bus_trench`, **y-band gated**) is untouched: it still bites in the pit but **not inside
+the rooms** (a respite). **Full LED bake + cod2map navmesh clean** (BAKED 13.6 s, fresh `.ff`); navmesh
+regenerates through the doorways so zombies follow once a door is bought. Empty interiors for now (contents
+TBD). **Re-run the generator after any `gen_corp_trench` regen.**
+
+### Added — Per-round perk-closet rotation: 3-of-9 open, no immediate repeats (user, 2026-06-18)
+
+The 9 Lab perks now each sit in their own door-gated closet; 3 random open each round, the other 6 walled
+off. Two parts: (1) **built the alcove geometry** — ran `tools/add_perk_alcoves.js` (the 9 machines already
+lined the Lab north wall at Y=4195, X=−600..600): 10 thin partitions → 9 stalls, 9 `acc_perk_door_<spec>`
+script_brushmodel gates across each mouth, machines reoriented to face south. Open-top stalls = **LED bake
+clean** (full build). (2) **No-repeat rotation** in `_acc_perk_doors`: each round rolls 3 from the perks that
+were NOT open last round (`candidates_excluding_last`), so the 3 that open are always different from the 3
+that just closed; door OPEN = hide/notsolid (buyable), CLOSED = show/solid/disconnectpaths (walled off, perks
+you already own are unaffected — gate is access-only). Round 1 = any 3 of 9. **To test the rotation without
+full ship mode: `set acc_perk_doors_rotate 1`** (in dev, default `acc_open_map 1` keeps all 9 open).
+
+The challenge room stopped locking — a regression I introduced. The prior "crush-safe" seal switched to
+`zm_blockers::door_activate(t, false)`, which **`MoveTo`s the door slab down by `script_vector` (130u)**.
+That's correct only if the door was opened via the stock buy path (slab slid +130z UP). But **this map
+force-opens every door in place** — `acc_hardcoded_open_map` (and `dev_open_all_doors`) do `slab
+ConnectPaths(); NotSolid(); Hide()` with **no MoveTo**, so the slab sits at its closed origin z[0,128],
+just hidden. `door_activate(false)` therefore slid it **below the floor**, where it blocked nothing. Fixed
+by re-closing **in place**: `Show(); DisconnectPaths(); Solid()` (unseal = `Hide(); NotSolid();
+ConnectPaths()`, matching how the map opens them). Crush-safety is preserved without moving the slab —
+`Solid()` is gated on `door_player_touching()` (stock `IsTouching`, only solidify when the doorway is
+player-clear) and the 1 Hz `reseal_monitor` re-asserts it; the commit-time relocate to the room centre
+still clears the doorway first. docs/43 §8 + the BO3 KB door recipe corrected (check *how* a door was
+opened before re-closing it).
+
+Plus the requested wave bump: **total 30 → 50**, **concurrent 8 → 10**, **stagger 1.3 → 0.6s**, and a new
+**fast initial fill** — the first room-load spawns at `acc_lockdown_challenge_stagger_initial` (0.3s) so
+the room fills quickly when the trap snaps shut instead of trickling in, then settles to the normal
+replacement pace. HUD ("GLITCH PURGE X/Y") and the clear threshold already read the total dvar, so they
+track 50 automatically. All live-tunable. `-GscOnly`, no `.map` edit.
+
+### Changed — Slide-speed perks → 1.35×, Mega Flopper now slide-gated + explosive nerf (user, 2026-06-18)
+
+- **Rocket Shield slide: +25% → +35%** (`acc_rocket_slide_mult` 1.25→1.35 in `_acc_utility::recompute_move_speed`).
+- **PhD Flopper Mega: now a 1.35× SLIDE-speed boost** (`acc_mega_flopper_slide_mult` 1.35), replacing the old
+  always-on +20% move. A new `_acc_mega_bottles::mega_flopper_slide_watch` (mirrors the Rocket Shield's
+  `IsSliding` watcher, single-instance via a stop notify) sets `acc_mega_flopper_speed` only while sliding.
+  Both slide boosts stack multiplicatively if you have the Rocket Shield + PhD Flopper Mega.
+- **Mega Flopper explosive damage: +20% → +15%** (`ACC_MEGA_FLOPPER_EXPLOSIVE_MULT` 1.20→1.15 in `_acc_damage`).
+- GSC-only. Docs: perk_abilities.md §9 + docs/12 synced.
+
+### Changed — Trench ~25% less aggressive (user, 2026-06-18)
+
+Eased the pit kill-box ~25% across all four drivers (defaults; all live-tunable dvars): entry burst
+`acc_trench_surge_count` 6→5, in-pit AI-cap bonus `acc_trench_ai_bonus` 18→14, sustained eruption
+interval `acc_trench_drip_sec` 4→5s, and in-pit zombie move-speed `acc_trench_aggro_rate` 1.15→1.11
+(+15%→+11%). Still a clear kill-box, just less punishing. GSC-only.
+
+### Changed — KILL-ONLY economy: no more points-per-shot, map-wide (user, 2026-06-18)
+
+You now earn points ONLY on kills — the stock +10/shot (chip-damage points) is gone everywhere.
+`_acc_points::init` registers a suppressor (`score_per_hit`) on the three stock per-hit score events
+(`"damage"` / `"damage_ads"` / `"damage_light"`, fired at `_zm_spawner.gsc:1941/1957/2066/2082`), returning
+**0** by default. Kills are unchanged (the existing `_acc_points` custom kill awards). Reversible: dvar
+`acc_hit_points 1` restores the stock per-hit values (`zombie_score_damage_normal`, ×1.25 ADS,
+`zombie_score_damage_light`). Note: this lowers early-round income by design (a harder, kill-driven
+economy). GSC-only.
+
+Playtest feedback: the Stalker "attacks me then teleports away, almost like a glitch," wasn't
+aggressive, and the lockdown round was super easy. Root cause (found via a research→design→
+adversarial-verify workflow): `glitch_blink_loop` was an **unconditional fixed-timer teleporter** — it
+blinked 300u away every 1.0–1.665s **with no check for whether it was already on its target**, so it
+reached a stationary player, swung once, then yanked itself away and re-charged forever. Standing still
+was the safe option. The lockdown was worse because challenge zombies blinked to **random in-room
+anchors** (a containment side-effect) — actively scattering *away* from you. Fixes, all in
+`_acc_boss_glitch.gsc`, GSC-only / live-dvar-tunable:
+
+- **Engagement gate (the core fix).** If a Stalker is within `acc_glitch_engage_dist` (160u) of its
+  target it does **not** blink — it commits to the melee swing. Re-checked every tick, so a target that
+  flees just gets chased (no stale pin). Kills the "attacks then teleports" bug and makes standing still
+  dangerous (it stays and hits you).
+- **Pounce on campers.** A target that barely moved since the last tick (`acc_glitch_still_thresh` 48u)
+  and isn't downed gets **pounced**: the boss blinks to a point just short of them *along its own
+  approach vector* (`pounce_point`, never behind the player's facing — that would clamp into a wall) so
+  it lands in melee, then the gate holds it there. A per-target throttle (`claim_pounce`,
+  `acc_glitch_pounce_cooldown` 1200ms) stops a whole pack from teleport-stacking one camper; downed
+  (laststand) players are exempt so a revive can't be pounced mid-animation.
+- **No free-shoot.** The 2×-damage-taken window now fires **only on a real repositioning flank**, never
+  on a pounce/commit — so a camper can't step back and free-shoot a stationary, currently-vulnerable
+  boss (a cheese the naive fix would have *created*).
+- **Phases in closer.** `acc_glitch_reveal_dist` 240→140 so it reveals inside engage range and presses
+  the attack instead of un-hiding far out and re-blinking before contact.
+- **Lockdown aggression (the "super easy" fix).** Challenge zombies now blink **toward** the player
+  (`ldc_aggressive_blink`, small offsets only, every candidate `ldc_in_room`-checked with the random
+  anchor as the guaranteed-in-room fallback) instead of scattering — containment fully preserved
+  (verified vs docs/43 §4.5).
+- **Modest difficulty bump:** `acc_glitch_recovery_sec` 1.5→1.2, `acc_glitch_melee_dmg_mult` 0.5→0.6,
+  lockdown `concurrent` 6→8, `stagger` 1.5→1.3. HP/speed/blink-cadence unchanged — the aggression fix is
+  the main lever.
+
+Crash-safety + containment invariants preserved: no `SetScale`, no second speed writer (the
+`_acc_zombie_speed` keep-alive stays the sole owner), every teleport still `GetClosestPointOnNavMesh`-
+clamped, every challenge blink `ldc_in_room`-gated. The adversarial pass caught and removed two
+would-be regressions: `EnemyInMeleeRange()` is **not** a real builtin (would have built clean but
+**fatal'd at load**), and the naive pounce would have opened a pin-and-free-shoot cheese. New dvars:
+`acc_glitch_engage_dist` (160), `acc_glitch_still_thresh` (48), `acc_glitch_pounce_dist` (56),
+`acc_glitch_pounce_cooldown` (1200), `acc_glitch_ldc_blink_dist` (90). **Needs a playtest to confirm the
+feel** — every number is a live dvar (no rebuild to retune). `-GscOnly`, no `.map` edit.
+
+### Fixed — Spiderman 6 web grenades now actually work (virtual pool + WEB GRENADES HUD counter) (user, 2026-06-18)
+
+The "hold 6 web grenades" Mega never worked: the web grenade is carried in the lethal **clip**, which the
+engine clamps to the grenade GDT carry cap (~2), and a usermap **can't raise that cap** (overriding a
+base-game weapon — the doc/30 `maxAmmo→6` edit is **abandoned**; stock cost-override + stock-special-weapon
+zone-line evidence both say it won't take). So the stock HUD showed ~2 and you only ever had ~2.
+
+Replaced with a GSC **virtual pool** (`_acc_mega_bottles.gsc`): `player.acc_web_pool` (0..6 Mega / 0..2 base)
+is the real reserve. `web_grenade_pool_watcher` spends it on each throw (stock `grenade_fire` notify, matched
+to `level.w_widows_wine_grenade` — modeled on `last_stand_take_thrown_grenade`) and refills the clip, so you
+throw **up to 6 in a row**; `web_grenade_manage_watcher` inits/caps the pool (handles buy / Max-Ammo / pickup /
+revive) and drives the HUD. The round restock now tops the **pool** (2 base / 4 Mega), and `apply_mega_effects`
+raises it to 6.
+
+Display: a custom **WEB GRENADES N** counter — a `hudelem` (mirrors `sync_bottle_count_to_client`) at TOP_LEFT
+under MEGA BOTTLES, showing the *real* pool count (the stock grenade-clip HUD stays clamped and isn't
+authoritative). No clientfield used (the LUI clientuimodel pool is near-full — `hudelem` sidesteps it).
+
+Docs updated to the **actual** ability: `docs/13_perks.md` (table + Spiderman section + impl status),
+`docs/perk_abilities.md` §8, `docs/30` (GDT cap raise marked ABANDONED/superseded), and the Spiderman
+perk-info card (`acc_hud.lua` [8]). GSC + LUI only (`-GscOnly`).
+
+### Changed — Trench surge zombies: excluded from the round + flat 10-pt payout (user, 2026-06-18)
+
+The pit horde is a THREAT, not a farm or a round-extender. Surge/drip zombies (`_acc_bus_trench::spawn_corp_surge`)
+are now tagged in `tag_trench_zombie` (after `zombie_init_done`) with: (1) `ignore_enemy_count = true` — the
+stock field (margwa.gsc:866 / mechz.gsc:953 precedent, read at `_zm_utility.gsc:105`) that drops them from
+the round enemy count, so the surge can't keep adding to the round / stop it ending; and (2) `acc_trench_zombie`,
+which `_acc_points::on_zombie_death` reads to award a **flat `acc_trench_zombie_points` (default 10)** on kill —
+no damage-share split, no headshot/knife bonus, no Kinetic Battery accrual. Set the dvar to `0` for no payout.
+GSC-only.
+
+The map had three box spots (Market, Bus Station, Helipad). Added **three more** — Plaza (start room), Lab, and Vault — and changed the first-spawn rule so the box always *starts* in the Plaza (deterministic every run), then teddy-bears randomly among **all six**.
+
+- **`.map` (`map_source/zm/zm_abandoned_cyber_city.map`):** three new `acc_box_<node>` chest pairs, each a `zbarrier_zmcore_MagicBox` (`script_noteworthy "acc_box_<node>_zbarrier"`) + a `script_struct` (`targetname "treasure_chest_use"`, `script_noteworthy "acc_box_<node>"`, `zombie_cost 950`) at the same origin — Plaza `(0, 350)`, Lab `(400, 3400)`, Vault `(1400, 2560)`, all z `13.75`. Placed clear of spawns, PaP, perk machines, `acc_boss_spawn` (19, 3648) and `acc_overload_point` (1524, 2925). Mirrors the existing Market/Corp/Roof pairs exactly. The six node names are mutually non-substring (required by stock's `IsSubStr` start match).
+- **`roll_mystery_box_initial()` (`_acc_map_randomizer.gsc`):** returns `"plaza"` — the first box is **always** the Plaza (was `market|corp|roof`, briefly `plaza|lab`; pinned to Plaza per user 2026-06-18). Only the *start* node is constrained; the wider teddy-bear rotation pool is every chest in the map (stock `_zm_magicbox` default move logic), so all six spots are reachable after the first move. The Plaza always has a chest, avoiding the silent "no-match → all boxes hidden" failure (docs/research/BO3_Mystery_Box_Radiant_anatomy_multi_.txt §C).
+- **`box_clip_nodes()`:** updated to the six real chest nodes (collision clips still unauthored, so it remains a no-op — the box model is walk-through on every spot, same as the existing three).
+- Docs: `docs/07_replayability.md` (Mystery Box Spawn Weights + variance count). **Geometry change → full build WITH LED bake** (entities are point entities, but the `.map` changed → cod2map re-embeds the entity lump; ran the gate).
+
+### Added — Brutus "Trench Warden": roams the trench, spawns at the bottom, trench-floor-only target + damage, guaranteed item drop (user, 2026-06-18)
+
+Next step of repurposing Brutus as the Trench Warden — making him a true trench guardian, done
+**safely** (Brutus has a long CTD/freeze history, so this respects every known landmine and edits
+**no** vendored-pack code).
+
+- **New supervisor thread `acc_boss_brutus::trench_warden_think()`** (threaded from
+  `_acc_boss::spawn_brutus_miniboss`, gated by `acc_warden_trench` default 1). It drives the pack's
+  OWN variables — `self.brutus_enemy` (target lock) and `self.v_zombie_custom_goal_pos` (the
+  legacy-find-flesh goal consumed under the usermap's `scr_zm_use_code_enemy_selection=0`) — so it
+  never fights a stock `SetGoalPos` and never touches the pack source (`scripts/_NSZ/nsz_brutus.gsc`).
+- **Spawns at the trench bottom:** one-time navmesh-clamped `ForceTeleport` onto a `get_trench_risers()`
+  point (z=-240) right after spawn (he spawns at the lab spot, then drops into the pit).
+- **Targets only trench-floor players:** every 0.05s it builds the set of valid players where
+  `acc_bus_trench::player_in_trench(p)` is true, locks the closest, and refreshes the pack's chase
+  timer so it never re-acquires the global-closest (off-trench) player. Nobody on the floor → it clears
+  the target and **patrols** between the trench risers (always a valid in-pit goal → never freezes,
+  never paths out).
+- **Safety:** NO `SetScale`, NO `PathMode` change, NO speed/anim-rate setter (the `_acc_zombie_speed`
+  `is_boss`/`acc_boss_custom_speed` guard keeps the keep-alive off him — touching it = the known freeze);
+  every goal/teleport is `GetClosestPointOnNavMesh`-clamped (off-mesh = frozen).
+- **Damage-gated to the pit (no rim-sniping):** while he's the pit boss (`self.acc_warden_active`, set when
+  he drops in), `_acc_damage::on_ai_damage` returns **0** for any player not `acc_bus_trench::player_in_trench`
+  — you can't snipe/grenade him from the rim/stairs/slab, you must commit and drop in. Non-player/scripted
+  damage unaffected; inert when the gate is off.
+- **Guaranteed item drop:** killing the Warden now ALWAYS drops a boss item (user: "killing him gives an
+  item") via `grant_challenge_reward` — not the 50%-design mini roll. `_acc_boss::watch_mini_boss_death`,
+  gated by `acc_warden_item` (1; set 0 = back to the chance roll). The Glitch Stalker's roll is unchanged.
+  Mega Bottle drop unchanged.
+- **Rollback:** `set acc_warden_trench 0` → instant revert to the pack-native charge, mid-fight (re-read
+  each tick). New dvars: `acc_warden_trench` (1), `acc_warden_item` (1), `acc_warden_patrol_dwell` (2.5),
+  `acc_warden_patrol_reach` (96), `acc_warden_debug` (0). GSC-only (`-GscOnly`). NEEDS in-game verification
+  (goal-write contention, riser nav for his hull, no freeze) — `set acc_warden_debug 1` shows tgt / inTrench / hasPath.
+
+### Changed — DEFCON / lockdown gated to round 7+ (was every round from r1) (user, 2026-06-18)
+
+DEFCON started on round 1 — too early (no ammo / not prepared for the 30-glitch trap). `_acc_lockdown::run_lockdown` lit one room every round with no floor; the challenge trap arms off that `acc_lockdown_room_lit` notify, so it fired early too. Added a round gate: no room lights (and therefore no trap can arm) before `acc_lockdown_first_round` (default **7**, dvar-tunable). Rounds 1–6 stay dark via `lockdown_clear()`. Single point of control — gating the lighting source covers both the red alarm and the challenge trap. GSC-only (`-GscOnly`). `#define ACC_LOCKDOWN_FIRST_ROUND 7`.
+
+### Added — Trench boss-arena walls v1 (block sniping the reward-boss from above) (user, 2026-06-18)
+
+Prep for a reward-boss in the pit (the "Trench Warden"): players must commit and go down, not snipe him
+from the rim. `tools/gen_trench_walls.js` (one-shot, like gen_corp_trench) emits **rim parapet walls**
+(`script_wall`, z[0,128]) along both long rims, GAPPED at the two stair mouths (so you can still descend)
+and at the Rocket-Shield slab/bridge column (x[-109,147]); that column gets an **under-slab fill**
+(z[0,42]) so it isn't a ground-level peek-hole under the floating slab. PLUS **stair pit-side walls**
+(`script_wall`, z[−240,128]) on each stair's pit-facing edge (west stair east edge x=−665; east stair west
+edge x=703) for the full run, so you can't shoot the pit while descending — only at the bottom (where the
+stair opens onto the floor) do you get a line = you've committed. 8 brushes total, spliced into worldspawn
+after the bridge brush; **full LED bake clean** (enclosed trench geometry survived the lightmapper — the
+known brush.cpp:1860 risk). Tunable: `PARAPET_TOP`/`STAIR_WALL_TOP`/`PAR_TH` in the generator, re-run to retune.
+PLUS a **Trench Warden damage-gate** (done 2026-06-18): once Brutus drops into the pit
+(`trench_warden_think` sets `self.acc_warden_active`), `_acc_damage::on_ai_damage` returns **0** for any
+player attacker who isn't `acc_bus_trench::player_in_trench` — so he can't be sniped/grenaded from the
+rim, stairs, or slab regardless of any wall sightline gap; you must commit and go all the way down. Inert
+when the warden behaviour is off (`acc_warden_trench 0` → flag never set). GSC-only. The walls are the
+visual/atmosphere layer; this is the hard lock (hacky-is-good).
+
+### Changed — Brutus = the "Trench Warden": first spawn gated on POWER (was round 4) (user, 2026-06-18)
+
+User: "we want this to be the actual warden ... right now we have him spawn on round 4 but let's change
+that and have him spawn when power is on. That's the first step." → **him = Brutus.** Brutus is being
+repurposed as the recurring trench Warden (it already has massive HP, an every-5-round cadence, and a
+boss-item / Mega-Bottle drop — it just needed to stop appearing before the area is powered).
+
+- **First Brutus now appears when the Bus Station power is turned on**, not at a fixed round. New
+  `_acc_boss::brutus_power_watch` waits the blackscreen → polls the global `power_on` flag → spawns ONE
+  Brutus. **Respawn is KILL-ANCHORED, one at a time** (corrected 2026-06-18 — the first cut was a fixed
+  power-on grid of 5 that could stack two): on death `watch_mini_boss_death` records
+  `level.acc_brutus_kill_round` + clears `level.acc_brutus_active`; `round_hook_loop` respawns him
+  `ACC_BRUTUS_RESPAWN_INTERVAL` (**3**) rounds after the kill ("kill him → back 3 rounds later"), and
+  `acc_brutus_active` blocks a second while he's alive. `run_mini_boss` spawns exactly ONE (no more r20=2).
+  No power on / never-killed → no respawn. Dvar `acc_brutus_respawn_interval` (3).
+- `ACC_BRUTUS_FIRST_ROUND` (4) and `ACC_BRUTUS_INTERVAL` (5) are superseded (dead constants for ref).
+- The dev `test_boss_loop` (round-2 test Brutus under `acc_dev`/`acc_test_boss`) is unchanged — set
+  `acc_dev 0` for clean power-gated behavior when testing.
+- **Pivot note:** an earlier standalone `_acc_boss_trench_warden.gsc` (a separate promoted-zombie roamer)
+  was built then removed when the user clarified the Warden should BE Brutus — its trench-roam logic will
+  be grafted onto Brutus in a later step ("make the Warden roam the trench").
+- GSC-only (`-GscOnly`). NEXT STEPS (user-directed): tether Brutus to roam the Bus Station trench; verify
+  the guaranteed item drop.
+
+### Removed — dog/hellhound rounds disabled entirely (user, 2026-06-18)
+
+Dog rounds were silently ACTIVE: stock `zm_usermap::main` DEFAULTs `level.dog_rounds_allowed` to 1 and
+calls `zm_ai_dogs::enable_dog_rounds()` → `dog_round_tracker` swaps a wave to hellhounds every 4–7 rounds.
+Our entry script never overrode it. Fix: set `level.dog_rounds_allowed = 0;` before `zm_usermap::main()`
+in `zm_abandoned_cyber_city.gsc` (the tracker thread never starts). No round-pacing side effects (dogs use
+a separate special-round counter); the 7 orphan `dog_location` structs stay (harmless, removing them = a
+needless LED-gated rebuild). GSC-only (`-GscOnly`).
+
+### Added — Spiderman (Mega Widow's Wine): one-hit melee on regular zombies (user, 2026-06-18)
+
+Re-added the **melee one-hit-kill** the 2026-06-14 overhaul had removed: a melee from a player holding
+Mega'd Widow's Wine instakills a **regular zombie** (gated `!is_boss_or_elite`, so bosses/elites are
+unaffected). GSC short-circuit return in `_acc_damage::on_ai_damage` (`has_active_mega_perk("specialty_widowswine")`).
+The **6 web-grenade max** and **4/round restock** were already live (`_acc_mega_bottles`); the web-grenade
+OHK stays removed. UI: the Spiderman perk-info card now lists the one-knife. **NOT done — +30% knife swing
+speed:** the engine exposes no per-player melee-swing-speed lever (same class as the slide-duration /
+global jump-height limits we already hit); the only path is a custom/twinned melee weapon (involved +
+uncertain), so it's deferred — the OHK delivers the "strong knife" goal instead.
+
+### Fixed — Lockdown CHALLENGE: keep the glitch zombies inside the sealed room (no blink-out) (user, 2026-06-18)
+
+The Glitch Stalker's signature blink + invisible-charge both teleport via
+`GetClosestPointOnNavMesh` + `forceteleport`, and that nav clamp can land on the *corridor* side of a
+sealed door (the navmesh polys still exist past the door even though `disconnectpaths` cut the
+*pathing*) — stranding a challenge zombie outside, where the 30-kill quota could never complete
+(docs/43 §4.5). Three layers now keep challenge-tagged zombies (`self.acc_ldc`) in-room, all no-op for
+normal bosses: (1) **blink → a random IN-ROOM spawn anchor** instead of a free flank point (the
+anchors are interior risers, guaranteed inside the seal); (2) the **invisible charge skips any step
+whose nav point left the room** (`ldc_in_room` — within `acc_lockdown_challenge_bounds_margin`,
+default 300u, of any room anchor — else it walks the last bit via the AI); (3) a **1 Hz yank-back
+safety net** (`ldc_keep_in_room`) that force-teleports any zombie that still ends up outside back to a
+random anchor. The challenge stocks each zombie's room anchor origins on the actor at spawn. `-GscOnly`,
+no `.map` edit. docs/43 §4.5 marked resolved.
+
+### Fixed — Lockdown CHALLENGE door seal: actually seals + can't crush/eject the player (move-door + crush-safety) (user, 2026-06-18)
+
+A research→design→adversarial-verify workflow (the user asked "make sure the door can't kill the
+player or knock him out the map") caught a **critical bug in the first door-seal pass and the safety
+gap together**, both now fixed. Two findings, verified against stock `_zm_blockers.gsc` + the `.map`:
+
+1. **The seal didn't actually seal (move-door bug).** The `acc_door_*` brushmodels carry
+   `script_vector "0 0 130"` and no `script_string`, so stock `door_classify` auto-sets
+   `script_string="move"` — a **bought door has physically slid +130z UP** out of the doorway (solid
+   up at z[130,258]; the gap z[0,128] is wide open). The first pass did `e show(); e solid()`, which
+   re-solidified the slab **at its raised position → players and zombies walked straight under it.**
+2. **A door going `solid()` on a player can stick→eject→OOB-kill them.** The engine generates no crush
+   damage from a static `solid()`, but a player caught inside the collision gets displaced, and if that
+   lands them outside the zone `player_volume` the stock out-of-playable-area monitor **hard-kills
+   them** (full hp, no MOD, Sam laugh — same mechanism as the sunken-floor trench bug).
+
+**Fix — drive the stock crush-safe CLOSE instead of `show`/`solid`:** `_acc_lockdown_challenge` now
+seals via `zm_blockers::door_activate(t, false)` (after clearing the door's `door_moving` once-guard):
+`NotSolid()` so it can't crush during the descent → `MoveTo` the door back DOWN into the doorway →
+`door_solid_thread()` re-`Solid()`s it **only once no player `IsTouching`** it → `disconnect_paths_
+when_done()` cuts the nav. Teardown re-opens via `door_activate(t, true)`. The 1 Hz `reseal_monitor`
+now re-asserts **`DisconnectPaths` only** (never `Solid()`), so it can't crush either. Belt-and-
+suspenders: `commit_challenge` first `SetOrigin`s the party to a **navmesh-snapped, degenerate-guarded**
+room centre (`relocate_party_safe` — guards the `room_center_origin` (0,0,0)-with-no-spawners case that
+would itself OOB-kill, and never moves a laststand player). The OOB-monitor-veto backstop was
+deliberately NOT used (it would clobber `_acc_bus_trench`'s single `player_out_of_playable_area_
+monitor_callback`). New dvars: `acc_lockdown_door_close_time` (0.6s slam). All stock-proven logic;
+`-GscOnly`, no `.map` edit, LED bake untouched.
+
+### Added — Lockdown CHALLENGE room Phase B: the door seal (the hard lock-in), LED-safe (user, 2026-06-18)
+
+The "doors slam, you're stuck for the round" lock-in — implemented **without any new geometry** (zero
+LED-bake risk; the original plan's seal brushes were a confirmed `brush.cpp:1860` culprit). A geometry
+probe of the *current* map (reworked vs the stale rooms.json) found each of the 4 challenge rooms is
+bordered by exactly **2 stock buyable doors** (`acc_door_*`). `_acc_lockdown_challenge` re-closes those
+on commit and re-opens on teardown — only the ones that were OPEN (`enter_*` flag set), so an un-bought
+door stays a wall. Mapping: vault=`acc_door_vault`+`acc_door_lab_e`, roof=`acc_door_roof`+`acc_door_lab_w`,
+alley=`acc_door_alley`+`acc_door_corp_e`, market=`acc_door_market`+`acc_door_corp_w`. Combined with
+`disable_zone_spawning` (no risers inside) + the glitch in-room teleport clamps, this is a true seal
+(no walk-in, no walk-out, no rise-inside, no blink-out). `acc_lockdown_lock_doors` (1) gates it.
+**The actual close mechanism + crush-safety were corrected the same day — see the Fixed entry above.**
+`tools/add_lockdown_seals.js` is obsolete. docs/43 §8 updated.
+
+### Added — Mega Flopper (PhD Slider): +20% move speed + +20% explosive damage (user, 2026-06-18)
+
+PhD Flopper's Mega (PhD Slider) now also grants, on top of the bigger slide/down explosion:
+- **+20% move speed** — uniform, identical to The Flash Mega. Stacks multiplicatively with the Rocket
+  Shield's +25% slide bonus (`recompute_move_speed` multiplies all flags → ×1.5 while sliding). New `acc_mega_flopper_speed` flag in
+  `_acc_utility::recompute_move_speed`, set via `_acc_mega_bottles::apply_mega_flopper_speed()` from the
+  `specialty_electriccherry` mega case, and re-applied each respawn in `flash_respawn_watcher` (the spawn
+  path resets `SetMoveSpeedScale`).
+- **+20% explosive damage** — grenades / projectiles / `MOD_EXPLOSIVE` deal +20% to zombies. A GSC
+  damage-dealt scalar in `_acc_damage::on_ai_damage` (new `is_explosive_mod` + `ACC_MEGA_FLOPPER_EXPLOSIVE_MULT`
+  1.20, gated on `has_active_mega_perk`). **No weapon twin needed** — twins are only for weapon-GDT stats
+  (recoil, a gun's base damage); a damage scalar in the actor-damage callback is pure GSC.
+
+Display UI updated: the PhD Flopper perk-info card (`acc_hud.lua` `[9]`) lists both buffs under Mega. Docs:
+`docs/13_perks.md` (table + PhD Slider section) + `docs/perk_abilities.md` §9.
+
+### Added/Changed — trench depth −240, in-pit spawns, pit slow, spawn surge, more Plaza/Lab risers, bench, 5s warning (user, 2026-06-18)
+
+- **Trench floor −112 → −240** (deep pit). Safe at any depth via the OOB-kill veto below.
+  gen_corp_trench.js: TRENCH_FLOOR −240 / SLAB_BOT −256 / N_STEPS 14 (treads to −224 + a clean 16u drop;
+  NOT 15 — that = a zero-height bottom step); rooms.json `trenches.corp` synced; .map re-spliced (33
+  brushes, bridge preserved). Full LED bake clean each time.
+- **Zombies SPAWN IN THE PIT** (user: "they should start spawning down there", "as fearful as possible").
+  10 surge-only risers `acc_trench_risers` on the pit floor (z=−240, central, `zone_name corp_zone`).
+  `spawn_corp_surge` relocates the burst there via `spawn_zombie(spawner,_,struct)` — VERIFIED safe vs
+  stock: the relocate (move_zombie_spawn_location) does no navmesh/zone validation, there is NO zombie
+  out-of-playable-area kill at −240 (only a ~−500 below-world floor + a motion stuck-timer), and the
+  struct's `zone_name` zones the spawned zombie directly. No info_volume edit needed.
+- **Continuous pit eruption** while you stay down (`trench_ai_pressure` drip: `acc_trench_drip_count` 2 every
+  `acc_trench_drip_sec` 4s, single-in-flight + AI-cap-bounded = a treadmill, not runaway; `acc_trench_drip_on` 1).
+- **Pit slows you −35%** while exposed (`acc_trench_slow` factor in `_acc_utility::recompute_move_speed`,
+  ×`acc_trench_slow_mult` 0.65; composes with Gas Tank / Rocket Shield / perks).
+- **Entry burst + raised cap**: `spawn_corp_surge` bursts `acc_trench_surge_count` (6) on fresh entry
+  (`acc_trench_surge_cd_sec` 8s cooldown); `trench_ai_pressure` raises `level.zombie_ai_limit` by
+  `acc_trench_ai_bonus` (18) while ANY player is in the pit (poll-based, self-corrects on disconnect).
+- **Danger warning now auto-offs after 5s** (`acc_trench_warn_sec` 5) and only re-arms on a fresh entry
+  (step out + back in), instead of pulsing the whole time you're down.
+- **More risers at Plaza + Lab** (were a slow trickle "from the sides"). start_zone 3 → 12 (+9), lab_zone
+  4 → 14 (+10), interpolated strictly within each zone's known-good riser span (proven walkable floor;
+  same approach as corp's +10). Auto-wired via the existing `target "<zone>_spawners"`.
+- **Plaza Implant Bench −35z** (`acc_bench_off_z` −35) — it sat too high; trigger moves down with it.
+- Removed the obsolete fall-through “catch-net” (deaths were the OOB kill, not a leak; it would
+  false-trigger on a normal stander at −200).
+
+### Changed — Perk/PaP glow: whole-machine coverage + more intense + recolor (user, 2026-06-18)
+
+Three lighting requests on the `_acc_perk_lights` client-FX glow. (First researched whether base BO3
+lights machines natively — it does, but via SERVER-side `PlayFXOnTag` (`_zm_perks.gsc:302`) which does
+NOT render in usermaps, the same reason our 2026-06-17 attempt failed; our client-FX path is the only
+one that renders, so we kept it. There is no emissive-model native light to use.)
+
+- **Whole-machine coverage + intensity:** the source aura was a small sphere at `tag_origin` (machine
+  base) → only the bottom lit. `tools/gen_perk_glow_fx.js` now `reshape()`s the `.efx` (tunable consts):
+  glow sprites ×1.6 (`SIZE_MULT`) so one aura envelops the ~70u cabinet, emission lifted +25u
+  (`LIFT_Z`) to centre on the body, `emitDensity` ×2 (`DENSITY`) for a fuller glow, dynamic-light
+  `_color` ×1.5 (`LIGHT_BOOST`) for stronger coloured cast light, and a widened cull box. Single
+  `PlayFXOnTag` unchanged (one leak-safe handle per machine).
+- **Recolor:** Deadshot → **blacklight/UV** `[0.45,0,1.0]`, Widow's Wine → **white** `[1,1,1]`,
+  PhD Flopper → **purple** `[0.62,0.08,1.0]`, Pack-a-Punch → **teal** `[0,0.85,0.75]`. Done with honest
+  `.efx` filenames (added `fx_perk_glow_blacklight`/`_teal`, retired `_cyan`/`_gold`) updated in lockstep
+  across `gen_perk_glow_fx.js` COLORS, `_acc_perk_lights.csc` (`#precache` + `level._effect`), and the
+  `zone_source` `fx,acc/light/...` lines; index↔perk map in `_acc_perk_lights.gsc` unchanged.
+- GSC/CSC/FX only — `-GscOnly`, no LED bake. (Blacklight is intentionally dim/violet; teal vs the now-
+  removed cyan no longer collide. Coverage/intensity consts may want an in-game tuning pass.)
+
+### Changed — Concurrent zombie cap 28 → 50 + corpses delete on death (user, 2026-06-18)
+
+User wanted more zombies on screen at once. The engine HARD cap is **64** (netcode-imposed; verified vs
+UGX/community) and is gated by BOTH `level.zombie_ai_limit` (alive) AND `level.zombie_actor_limit`
+(alive + corpses, `get_current_actor_count` = live AI + `GetCorpseArray`). So corpses eat the cap.
+
+- **Corpses now DELETE on death** (`_acc_corpse_cleanup.gsc`): default `acc_corpse_linger_sec` 5 → **0**.
+  A `Ghost()`'d body stays invisible but still counts as an actor; we now `Delete()` it (mirroring stock
+  giant-cleanup `zm_giant_cleanup_mgr.gsc:236-241`: NotSolid + hide now, brief wait so death drops/points
+  fire, then Delete) so it never throttles the cap. Set the dvar > 0 to restore visible piling (now also
+  slot-freeing). Bosses/mini-bosses still skipped.
+- **Alive cap 28 → 50** (`_acc_main.gsc` `ACC_AI_LIMIT`), `ACC_ACTOR_LIMIT` 35 → **56** (small headroom
+  over alive; corpses no longer consume it). Well under the 64 ceiling. (4-player netcode may strain
+  near the top — drop toward ~40 if it rubber-bands.)
+- GSC-only (`-GscOnly`). docs/11 + memory updated.
+
+### Added — Lockdown CHALLENGE room, Phase A (GSC-only trap → 30-glitch wave → reward) (user, 2026-06-18)
+
+Built from the deep plan (docs/43) in two LED-safe increments (`-GscOnly`, no `.map` touched). The
+lit DEFCON room becomes a **trap**: walk in and a confined wave of 30 Glitch Stalkers spawns; kill all
+30 and the room drops a free-for-all random boss-item. Isolated from the round via the glitch
+`ignore_enemy_count` flag (it doesn't count the round nor eat the spawn budget); it stays committed
+across rounds until cleared. New module `_acc_lockdown_challenge.gsc`.
+- **Increment 1 (additive hooks, zero behaviour change):** `_acc_lockdown` gains `room_center_origin`,
+  an `acc_lockdown_room_lit` notify, and a round-boundary guard (the rotation pauses while a challenge
+  is active — fixes the unseal-mid-fight conflict); `_acc_decontamination` gains a public
+  `enable_zone_spawning` (the re-enable decon never does — needed so the room's outside spawns come back
+  on teardown); `_acc_boss_items` gains `grant_challenge_reward` (guaranteed free-for-all drop);
+  `_acc_boss_glitch::maybe_spawn_for_round` is gated off while a challenge is active.
+- **Increment 2 (the module):** trap (ambient catch + grace), commit + `disable_zone_spawning` (the
+  fatal riser-leak fix — stops the horde rising inside the sealed room), confined producer reusing
+  `spawn_glitch` (now returns the host; its `glitch_death_watch` skips the per-kill reward for
+  `acc_ldc`-tagged actors → no 30-items bug), private kill counter, one-shot-guarded clear/fail
+  teardown (+ `acc_ldc_done` endon so culled stragglers never re-count), basic fail detection, and the
+  Phase-A SOFT confinement (script yank-back; the hard `disconnectpaths` seal is Phase B, LED-gated).
+- **Increment 3 (HUD + feedback):** the real per-inside-player "GLITCH PURGE X / 30" objective HUD —
+  a server-side `hud::createFontString` label + a `hud::createBar` that fills as you clear (reusing
+  `acc_health_bars::acc_set_bar_smooth`), top-centre, created on commit + destroyed on teardown. NO
+  `clientuimodel` field (that pool is full at 64 bits → load crash, per the verifier). Plus the robust
+  `watch_fail` (fail only when every live party member is down AND an outside player is alive, so it
+  never pre-empts the stock solo/team-wipe → `end_game`; re-arms on revive).
+- Dvars: `acc_lockdown_challenge_on` (1) / `_total` (30) / `_concurrent` (6) / `_stagger` / `_grace` /
+  `_confine` / `_debug` / `_force "<zone>"` (dev start). All three increments build clean (`-GscOnly`).
+  Phase B (the physical `disconnectpaths` door-seal for the hard lock-in) is the LED-gated next step
+  (docs/43 §8). docs/43.
+
+### Fixed — ROOT CAUSE of the trench deaths: stock out-of-playable-area kill (user, 2026-06-18)
+
+After a long hunt (the deaths were NOT fall damage, NOT zombies, NOT a leak — a research workflow +
+in-game per-tick logging nailed it): the **corp_zone `player_volume` only spans z=[-16, 400]**, but the
+trench rework dropped the floor to z=-112, so a player standing in the trench is **entirely below the
+zone volume**. Stock ZM's per-player monitor (`_zm.gsc:2064-2100`) then flags them as out of the
+playable area and **hard-kills** them on its ~3s poll (`self.lives=0; dodamage(self.health+1000);
+bleedout_time=0`) — a no-laststand, HP-still-full, no-MOD, delayed kill (every reported symptom; and it
+"worked before" only because the old shallow floor kept the player box inside the -16 volume). FIX
+(GSC-only, verified vs `_zm.gsc:2066` — the monitor kills only if the callback is undefined OR returns
+true): `_acc_bus_trench::init` registers `level.player_out_of_playable_area_monitor_callback =
+&acc_trench_oob_allow`, which returns **false** for a player in the trench (vetoing the kill there) and
+true everywhere else (rest of the map stays guarded). Decon, scripted kills, native fall damage, and a
+hull leak were each independently ruled out. Proper follow-up (optional, geometry): extend the corp_zone
+`player_volume` bottom plane (-16 → below -128) so the volume actually covers the trench. With the OOB
+kill vetoed, the trench can now be ANY depth safely.
+
+### Changed — Ultimate Tank (Mega Jugger-Nog) health 314 → 300 (user, 2026-06-18)
+
+User asked for a round 300 number. Base Jugger-Nog stays **250 HP** (6th-hit down); only the Mega
+(Ultimate Tank) drops from 314 → **300 HP**. Hit count is unchanged — at the ~45 baseline melee both
+314 and 300 survive 6 hits and **down on the 7th** (6×45 = 270 < 300 < 315 = 7×45), so this is a
+display/number cleanup, not a balance shift.
+
+- **Code:** `_acc_mega_bottles.gsc` `n_player_health_boost` 64 → **50** (250 + 50 = 300; the field is
+  the only one the stock `health_reboot` recompute adds, so it survives revives). Comments updated.
+- **UI:** `acc_hud.lua` Jug perk card `mega` + `megaFull` → "300 HP - down on the 7th hit".
+- **Docs:** `13_perks.md` (all 314 → 300, boost ref 64 → 50) + `perk_abilities.md` (314 → 300).
+- GSC + LUI only (`-GscOnly`, no geometry → no LED bake). memory `spawn-intensity-moderate-tune`.
+
+### Fixed — trench RAISED: floor was below the world bottom limit = instant void death (user report, 2026-06-18)
+
+The earlier "died in the trench, not from a zombie" was NOT (just) fall damage — the trench floor at
+**z = −288** sat **below the map's world bottom limit**, so entering the pit by ANY route (jump OR the
+stairs, which descended to −288) dropped the player into the void = instant death every time (confirmed
+by the in-game `[trench-dbg]` z readout + "even on the stairs I'm dying"). Fix: **raised the trench floor
+−288 → −112** (above the world hull AND below the 256u fall-damage threshold, so the drop is survivable
+and the danger is the amped zombies). Changed `source_data/rooms.json` trenches.corp (`floorZ −112`,
+`slabBottom −128`, `stepCount 7`) + `tools/gen_corp_trench.js` (`TRENCH_FLOOR/SLAB_BOT/N_STEPS`),
+regenerated the 21 trench brushes and spliced them into the `.map` (the bridge + end-trench marker
+preserved), and ran the **FULL build** (cod2map64 BSP + navmesh + Radiant LED — baked clean, navmesh
+regenerated so zombies path the new shape). `validate_rooms` passes for the trench. (The earlier
+bg_fallDamage disable in `_acc_bus_trench` stays as belt-and-suspenders.)
+
+### Changed — Zombie melee damage: baseline 60 → 45, Bus Station trench → 50 (user, 2026-06-18)
+
+User asked to lower regular-zombie melee from the stock value back toward the old number, and make
+the Bus Station trench a fixed harder hit.
+
+- **Baseline regular-zombie melee 60 → 45 HP.** Stock `zombie_spawn_init` sets `self.meleeDamage = 60`
+  (`_zm_spawner.gsc:358` — its trailing `// 45` is the pre-bump value, which is what "I thought it was
+  45" referred to). We now re-assert **45** every speed sweep on non-boss zombies via
+  `_acc_zombie_speed.gsc::apply_trench_melee` (the `off` branch), which is already boss-guarded
+  (`apply_speed_for_round` returns early for bosses) so bosses keep their own melee.
+- **Bus Station trench melee → absolute 50 HP** (was the old `×1.5` of base = 90). Trench-aggro
+  zombies now hit for a flat 50 while their target is in the pit — still a step up from the 45 baseline,
+  but no longer a big spike. Replaces dvar `acc_trench_aggro_melee_mult` with `acc_trench_melee_dmg`.
+- New dvars (hardcoded defaults, live-tunable): `acc_zombie_melee_base` (45), `acc_trench_melee_dmg` (50).
+  `#define ACC_ZOMBIE_MELEE_BASE_DEF` / `ACC_TRENCH_MELEE_DEF`. Glitch Stalker (`×0.5`) unchanged.
+- GSC-only (`-GscOnly`, no geometry → no LED bake). docs/11, docs/34 updated; memory
+  `spawn-intensity-moderate-tune`.
+
+### Changed — per-round red room lockdown (Vault/Alley/Helipad/Market) now RENDERS, on the client-FX path (user, 2026-06-18)
+
+`_acc_lockdown` already did "each round one room lights red, rotating" but played its FX
+**server-side**, so the red light never actually showed (same wall the perk-glow hit — server
+`PlayFX` doesn't render here). Reworked onto the proven **client-side glow pipeline**:
+- The red alarm is now driven via `acc_perk_lights::set_glow(host, 1)` — a new public helper on
+  `_acc_perk_lights` that sets the `accPerkGlow` clientfield (the `.csc` renders the red
+  `acc/light/fx_perk_glow_red` clone). `_acc_lockdown` spawns invisible `script_model` hosts at
+  each room's `<zone>_spawners` anchors (centroid + perimeter) and glows them; clears on round
+  change (set 0 + delete). Dropped the old server `PlayFXOnTag` + pulse loop + flash/glow FX.
+- **Rooms repointed to the four requested:** Vault (`vault_zone`), Alley (`alley_zone`), Helipad
+  (`roof_zone` — the rooftop helipad), Market (`market_zone`). Dropped corp/lab/start. Per-run
+  Fisher-Yates shuffle → per-round round-robin (a different room each round).
+- **ON by default now** (`acc_lockdown_on` 1, was 0) since it's a wanted feature. Live knobs:
+  `acc_lockdown_color` (1 red … 10 gold), `acc_lockdown_fx_z`, `acc_lockdown_emitters`,
+  `acc_lockdown_force_zone <zone>` (pin one room), `acc_lockdown_debug 0` (silence the
+  on-screen "round N → zone" text).
+- **Stage 2 (doors lock, stuck in the room for the round) stays scaffolded:** `lock_doors`/
+  `unlock_doors` toggle `acc_seal_<zone>` script_brushmodels — none authored yet, so it's a
+  no-op until those Radiant seals exist (the future step you flagged). Pure GSC/CSC, reuses the
+  already-packed red `.efx` → LED-safe `-GscOnly` build, no `.map` edit. docs/37 updated.
+
+### Changed — Trench: stair rails removed + Rocket-Shield-only BRIDGE (user, 2026-06-18)
+
+Removed both stair guard rails (the trench is now a real fall risk on foot). Added one central
+**bridge** deck across the trench (`tools/add_trench_bridge.js`): `x[-45,83]` (128u) × `y[1723,2173]`
+(full S→N span), floating over the open pit with its **top at z=+58 = 58u above the rim**. The ONLY way
+up is the **Rocket Shield 2× jump** — apex ≈78u (velocity ×1.42) clears it; the stock ≈39u apex can't.
+Anti-cheese (user: "only way on is the 2× jump"): the deck floats over the 288u pit with no supports or
+footholds, sheer 16u sides, ends flush with the rim edges (so the approach is a pure vertical hop), and
+it's disconnected from the navmesh so zombies can't path onto it. The open pit floor under it is
+untouched, so the down-one-stair / across / up-the-other route still works for everyone else. Height is
+baked geometry — retune the `BZ2` constant + rebuild if the in-game feel needs it. LED bake GATE PASSED (13.1 s).
+
+### Fixed — trench killed you on the DROP (native fall damage), not from zombies (user report, 2026-06-18)
+
+User jumped into the trench and died with no zombie involved. Cause: the trench floor was deepened to
+**z=−288** (`gen_corp_trench.js`), which is **past the stock 256u `bg_fallDamageMinHeight`** — so native
+engine fall damage applied on a jump-in, on top of the scripted 25 tax (the generator comment even notes
+"native fall dmg stacks on the scripted tax"). The trench was designed assuming native fall damage = 0
+(the 25 tax was meant to be the only, PhD-negatable cost). Fix: `_acc_bus_trench::init` now threads
+`disable_native_fall_damage()` which (after `_globallogic` sets 256/512 at match init) raises
+`bg_fallDamageMinHeight 1024` / `MaxHeight 2048` so no realistic map fall triggers native damage — the
+trench's danger is the amped zombies, not the drop. Only the controlled 25 `MOD_FALLING` tax remains
+(non-lethal, PhD-negated; set `ACC_TRENCH_FALL_DMG 0` to remove it entirely). Stale 112u header comment
+corrected to 288u. GSC/linker-only build.
+
+The new `_acc_power.gsc` (dual-switch power) called `trig trigger_off();` at line 79 — but **there is no
+`trigger_off` function** in BO3 (in stock `_zm_power.gsc:683` `trigger_off` is an entity *field*, not a
+function). It linked (the public linker packed it as a deferred external) but the game's script loader
+rejected it: `Unresolved external "trigger_off"` → **Fatal Error on load**. Replaced it with the engine
+builtin `trig TriggerEnable( false )` (52 stock uses) — disables the relay so it can't be re-flipped while
+keeping the entity alive (the next line reads `trig.origin`). GSC/linker-only build. **Lesson:** a bare
+undefined function call (no namespace) can slip past `lint_gsc_xref.js` + the linker and only fatal at game
+load — the game load is the real check.
+
+User-directed customization of zombie spawning (researched first via the spawn-system briefing —
+all 4 axes tuned, hardcoded values, physical `.map` spawn additions). **"Moderate" intensity:** denser
+and faster, kept under the ~32 netcode ceiling stock warns about. All GSC knobs are hardcoded constants.
+
+- **Concurrent on-screen cap:** `level.zombie_ai_limit` 24 → **28**, `level.zombie_actor_limit` 31 → **35**
+  (keeps the +7 corpse headroom). Set in `_acc_main::configure_spawn_density()` (new), called from
+  `init()` after `zm::main()` so it overrides the stock defaults (`_zm.gsc:337-343`) before the spawn
+  loop reads them. `#define ACC_AI_LIMIT` / `ACC_ACTOR_LIMIT`.
+- **Wave fill speed:** inter-spawn delay ×**0.85** (0.1 s floor). Chains the stock
+  `level.func_get_zombie_spawn_delay` hook (`_zm.gsc:307/4502`) with `acc_spawn_delay_override()` —
+  own prev-slot, never clobbers. `#define ACC_SPAWN_DELAY_MULT`.
+- **Early-round count:** r1 ×1.40 → **×1.50**, r2-4 ×1.35 → **×1.45** (`_acc_early_round_pacing.gsc`).
+- **Elite cadence:** spacing 45 → **38 s** (`_acc_elites.gsc` `spawn_elites_over_round`).
+- **Co-op scaling unchanged** (Moderate keeps +30% spawn / extra player).
+- **Bus Station (`corp_zone`) = high-threat avoid-zone:** +10 `riser_location` structs added to
+  `corp_zone_spawners` in the `.map` (**4 → 14 risers**, ~3.5× any other zone), 5 each on the two floor
+  rows (y=1548 / y=2348) straddling the trench, x interpolated strictly inside the existing-inside
+  footprint (x[-381,419]) so every origin is guaranteed inside the `info_volume` on the z=0 floor.
+  Point entities only (no brushes) → LED-bake-neutral.
+- **Build: full pipeline WITH LED bake — GATE PASSED** (cod2map64 BSP+navmesh regen → LED recompute,
+  no `brush.cpp:1860` crash → linker → fresh 35.32 MB `.ff`). docs/06, docs/11 updated; memory
+  `spawn-intensity-moderate-tune`.
+
+### Added — Bus Station trench DANGER warning (player feedback that the pit is dangerous) (user, 2026-06-18)
+
+While a player is in the trench (reusing `player_in_trench`, hooked onto the existing
+`trench_fall_watcher` enter/leave transitions), show a **pulsing danger warning** so they feel the
+threat: a red banner **"DANGER — EXPOSED IN THE TRENCH"** (upper-center, `fontscale 1.4`) + a subtle
+pulsing **red screen tint**, both fading in/out together (~0.8 s cycle) and fading out on exit. Created
+lazily per player, hidden (not destroyed) on exit, reused on re-entry. Pairs with the trench zombie
+aggression. Gated by dvar `acc_trench_warn` (default 1). Banner placed at TOP y=110 to clear the boss
+nameplate/bar and the dev zone sign (no HUD overlap). GSC/linker-only build. docs/34 updated.
+
+### Added — Bus Station trench geometry re-added + DUAL-SWITCH power (user, 2026-06-18)
+
+**Trench geometry re-added** (it was lost in the pre-stage3 revert): the cross-room E-W cut at
+`y[1723,2173]`, recessed floor at z=-288, sealed E/W end walls, and the two diagonal 17-step staircases
+(down the west/south side, up the east/north side) + guard rails — 41 brushes from
+`tools/gen_corp_trench.js`, injected by the new `tools/add_corp_trench.js` (which removes the flat
+1600×1600 corp floor slab first). The fall-tax script `_acc_bus_trench.gsc` already matched these exact
+coords, so it re-armed with no script change. **LED bake GATE PASSED** (13.9 s) — proving the LED crash
+was the cumulative tightening overhaul, not trench-style sunken geometry.
+
+**Power is now DUAL-SWITCH** (`_acc_power.gsc`, new module): BOTH Bus Station switches must be flipped
+to turn power on, one each side of the trench — Switch A relocated **south-east** (`790 1600 1`; it was
+left floating inside the new trench) and Switch B added **north-west** (`-750 2300 1`). Order-independent;
+flipping one shows `POWER RELAY 1/2` and you must cross the trench (jump in / diagonal stairs) to reach the
+other. HACK (we don't own `_zm_power`): stock is OR-logic (any `use_elec_switch` powers on), so we
+`Delete()` the stock switches and gate power behind our own two `acc_power_switch` trigger_use brushes →
+`zm_power::turn_power_on_and_open_doors`. Lever handles still flip for feedback. Auto-power stays off
+(`acc_auto_power=0`). Tools: `tools/add_power_switches.js`, `tools/list_walls.js`,
+`tools/remove_walls_in_region.js`. LED bake GATE PASSED (13.7 s); GSC linked clean.
+
+### Added — Bus Station trench AGGRESSION: zombies get scary when you're in the pit (user, 2026-06-18)
+
+Design goal: make players afraid to cross the trench on foot. While any player is in the trench band
+(reusing the existing `acc_bus_trench::player_in_trench` test), every zombie **chasing that player**
+now gets three stacked, dvar-gated levers — wired INSIDE `_acc_zombie_speed.gsc` so the 1.5 s keepalive
+re-asserts them (an external thread would be stomped):
+- **Faster** — forced **sprint** gait + anim-rate ×`acc_trench_aggro_rate` (1.15).
+- **Beeline** — installed a `level.should_zigzag` override (`trench_should_zigzag`) returning false for
+  trench-chasers so they cut straight at you (verified contract `_zm_behavior.gsc:550`); every other
+  zombie keeps stock zig-zag.
+- **Harder hits** — cached + raised `self.meleeDamage` ×`acc_trench_aggro_melee_mult` (1.5 → 90), restored
+  when the target leaves.
+Co-op safe: only affects zombies ALREADY targeting the trench player (no re-targeting / aggro theft); the
+whole-horde "designated target" funnel was deliberately NOT added (it steals teammate aggro). Master gate
+`acc_trench_aggro` + per-lever dvars (`_aggro_rate` / `_aggro_melee` / `_aggro_melee_mult` / `_no_zigzag`),
+all live. GSC/linker-only build. docs/34 updated.
+
+**Still TODO (separate, full-geometry step):** the Rocket-Shield "jump over the trench" skip. Investigation
+(workflow) confirmed NO jump clears the current 450u gap (shield max ~310u). Per user decision we'll keep
+the 450u pit + add a **center mid-platform** (two ~200u hops: a shield hop clears 200u, a normal ~175u jump
+falls in) + keep the stairs. That's a baked-brush change (rooms.json → gen_corp_trench.js → cod2map64+LED+
+navmesh) — not done here.
+
+### Changed — Gas Tank: +100% burst speed + the NITRO label is now a small activation hint (user, 2026-06-18)
+
+- Nitro burst **+50% → +100%** move speed (`acc_gas_burst_mult` default 2.0 = double speed; live dvar).
+- The on-screen **"NITRO" label rendered hugely oversized** in-game. Root cause: `hud::createFontString`
+  stores its 2nd arg as `.fontscale`, and a **sub-1.0 fontscale (0.9) renders oversized** in this build —
+  it was the only sub-1.0 HUD element. Set the gas label to **fontscale 1.0** (matches HEALTH, which
+  renders correctly) and changed its text from "NITRO" to the activation hint **"Double-tap Sprint to
+  activate"** so it reads as a small caption for the bar. Added a code comment warning to keep this
+  label's fontscale >= 1.0. GSC/linker-only build. docs/12 + docs/34 updated.
+
+Base-zombies "the machines light up when you restore power" look: dark before the Bus
+Station switch, coloured glow after. New `_acc_perk_lights.gsc` (server) + `.csc` (client).
+
+**Root cause of the 2026-06-17 failure, found via a multi-agent research/design/verify
+workflow:** that attempt played the glow FX **server-side** (`PlayFX` in a `.gsc`, like
+`_acc_lockdown`), and **server-side PlayFX does not render in this build** — which is also
+why stock perk machines (server-side `perk_fx`) are dark here. The path that DOES render is
+the **client VM**: stock power-ups glow via a `scriptmover` clientfield + client-side
+`PlayFXOnTag` (`_zm_powerups.csc`), and power-ups render fine. So we copy that exactly.
+
+- **Server** (`_acc_perk_lights.gsc`): on the `power_on` flag (polled like
+  `_acc_atmosphere::apply_fog`, after the blackscreen — no flag-wait-from-`__init__` crash),
+  enumerate `GetEntArray("zombie_vending","targetname")` and set a per-perk colour-index
+  `accPerkGlow` clientfield on each `trigger.machine` (the renderable script_model). PaP's
+  `pack_a_punch` ent is a *trigger*, not a model, so we spawn an invisible `script_model`
+  host at its origin (the `_acc_lockdown` idiom) and glow that. Idempotent; value latches so
+  late joiners glow too. Correct specialty keys (`specialty_doubletap2` / `specialty_staminup`).
+- **Client** (`_acc_perk_lights.csc`): registers the mirror clientfield + a callback that
+  `PlayFXOnTag`s the glow on the machine, leak-safe (stores the handle, `StopFX` before
+  replacing, replays on the initial-snapshot for new clients) — verbatim from stock
+  `_zm_powerups.csc`. The missing **client `#precache("client_fx")` half** is the fix the
+  2026-06-17 attempt lacked.
+- **Per-perk colours (validated in-game 2026-06-18):** first a green-everywhere proof build
+  confirmed the client-FX path renders on all 9 machines + the PaP host (the earlier "Jugg/PaP
+  dark" was just the faint red-blink + one-shot packapunch FX). Then `tools/gen_perk_glow_fx.js`
+  generates 10 **recoloured clones of the proven green power-up aura** (the colour is pure
+  `colorGraph` tint on white sprites → recolourable; `PlayFX` takes no runtime tint, so one
+  `.efx` per colour): Jugg red, Speed Cola green, Double Tap yellow, Stamin-Up orange, Mule
+  Kick amber, Quick Revive blue, Deadshot white, Widow's Wine purple, Electric Cherry/PhD cyan,
+  Pack-a-Punch gold. Clones live in `<tools>\share\raw\fx\acc\light\` (regenerate via the tool,
+  like the external asset packs — not in git). `set acc_perk_lights_debug 1` re-shows the live
+  specialty→colour map on screen.
+- **LED-SAFE / no Radiant risk:** pure `.gsc/.csc/.zone/.fx` — never touches `map_source/*.map`,
+  ships with `build_map.ps1 -GscOnly` (no cod2map64/LED). Build clean, fresh `.ff`.
+- `set acc_perk_lights_on 0` disables the feature. docs/29 §7c added; memory
+  [[power-on-lights-perks-mechanism]] updated (client-side FX renders; server-side does not).
+
+### Fixed — HUD overlap audit: re-spaced the top-left stack so nothing overlaps (user, 2026-06-18)
+
+A 4-agent audit enumerated every on-screen HUD element (GSC hudelems + LUI) and computed each one's
+screen rect. The top-left column was packed at a 20 px pitch — too tight for the 1.3-scale counters,
+so descenders touched. Re-spaced for positive gaps everywhere: HEALTH label 16 / bar 32 / DATA SHARDS
+50 / **MEGA BOTTLES 70→74** / **BOSS-ITEM 90→100** / **NITRO label 108→124** / **NITRO bar 122→142**
+(files `_acc_mega_bottles.gsc`, `_acc_boss_items.gsc`). Also moved the dev-only zone-name sign
+`_acc_dev.gsc` TOP 36→70 so it clears the top-center boss nameplate+bar during a boss fight.
+Verified non-issues: the GSC `_acc_ui.gsc` info card is **retired** (no live callers — `_acc_perk_info`
+drives only the LUI `accPerkCard`), so no GSC-vs-LUI card overlap; the off-screen `AccRoundRing`
+(`ACC_BAR_TOPC=-300`) is the deferred radial ring, parked intentionally. GSC/linker-only build.
+
+User wants the rooms cleared of random freestanding structures (keep walls, floor, and
+all gameplay: boxes/perks/bench). The reverted pre-stage3 baseline still had the training
+obstacles the generator stopped emitting on 6/16 (gen_zone_greybox.js:130-137: debris pile,
+fountain, 2 S-curves, 3 market stalls, roof obstacle) — but at room-shrunk coords, so an
+exact-coord match only caught 3. New `tools/remove_obstacles.js` removes them by a robust,
+position-independent signal: **short `script_wall` box brushes in worldspawn (z-min≈0,
+z-max<250)** — walls are full-height `WALL_H=256`, obstacles are ≤128, and functional structs
+(PaP/doors) are separate `script_brushmodel` entities, so they're untouched. Removed **10**
+(the 8 above + 2 thin 8u panels in spawn); kept all **66** full-height walls + the floor +
+every entity (3 boxes, 3 perks, spawn, 7 zone volumes). LED bake GATE PASSED (13.9s, fresh
+.led). Backup at `.map.pre-obstacle-removal-bak`. Map/geometry build (cod2map+LED+linker).
+
+### Changed — boss-item buff tuning: Gas Tank +50%/60s, Rocket Shield +25% slide + 2× jump, Monkey Bomb model up (user, 2026-06-18)
+
+Per-user tuning, all live-tunable dvars (no rebuild to re-tune):
+- **Gas Tank** nitro burst **+20% → +50%** (`acc_gas_burst_mult` 1.50) and cooldown **30 s → 60 s**
+  (`acc_gas_regen_sec` 60; the NITRO bar reads the same dvar so its refill stays in sync).
+- **Rocket Shield** slide speed **+15% → +25%** (`acc_rocket_slide_mult` 1.25); jump changed from a
+  ~1.5× additive impulse to a velocity **multiply** for **2× apex height** (`acc_rocket_jump_mult` 1.42 —
+  height ∝ velocity², so ×1.42 ≈ double). Retired `acc_rocket_slide_thresh` (slide now `IsSliding()`)
+  and `acc_rocket_jump_kick`.
+- **Monkey Bomb** pickup `model_z` **−11 → +14** (it was sunk in the floor; user: +25).
+
+GSC/linker-only build. docs/12 + docs/34 updated.
+
+### Added — Gas Tank "NITRO" charge bar (player indication) (user, 2026-06-18)
+
+User wanted an on-screen gas bar that drains on use and regens smoothly. Added a left-HUD bar
+(reusing the verified `hud::createBar` widget from `_acc_health_bars.gsc`): full **cyan** = ready,
+drains to empty over the 5 s burst, refills **orange** over the 30 s regen. `gas_bar_loop`
+(threaded by `apply_gas_tank`, ended on `acc_gas_tank_removed`, destroyed by `remove_gas_tank`)
+polls at 20 Hz and reads `gas_charge_frac`, which derives the 0..1 fill from a new
+`acc_gas_burst_start` timestamp stamped in `gas_tank_burst` — so the motion glides. Burst/regen
+durations are now `ACC_GAS_BURST_SEC` (5) / `ACC_GAS_REGEN_SEC` (30) defines shared by the burst
+and the bar. `remove_gas_tank` now also clears `acc_gas_cooldown` so unequipping mid-lockout leaves
+the item ready on re-equip. GSC/linker-only build. docs/12 updated.
+
+### Fixed — three boss-item buffs that did nothing + the boss-item HUD overlap (user report, 2026-06-18)
+
+A research workflow (5 agents, verified on disk — `recompute_move_speed` confirmed CORRECT, so each
+buff failed at its OWN trigger, not a shared sink):
+- **Phase Serum (cloak) now hides you from the Glitch Stalker's WHOLE behavior, not just blink/charge.**
+  The `acc_cloak_glitch` flag was only consulted at the blink (`:353`) and charge (`:409`) targeting, so
+  the Stalker's stock follow+melee AI still walked up and hit you. Now `spawn_glitch` sets
+  `host.closest_player_override = &glitch_pick_uncloaked_target` — stock `get_closest_valid_player`
+  consults that per-AI picker first (`_zm_utility.gsc:1472`) for both `favoriteenemy` (movement) and
+  `enemy` (melee). The picker strips cloaked players then delegates to the stock factory picker via the
+  `level.closest_player_override` pointer, so non-cloaked players are targeted exactly as stock.
+- **Gas Tank double-tap now works.** It polled `IsSprinting()`, which latches continuously true under ZM
+  auto-sprint and so never produced a second rising edge — `gas_tank_burst` was unreachable. Switched
+  the detector to `SprintButtonPressed()` (the raw sprint-KEY edge, verified stock builtin `_prowler.gsc:45`).
+- **Rocket Shield slide now works.** It gated on `GetStance()=="crouch"`, but `GetStance()` only returns
+  stand/crouch/prone — never a slide value — so the gate never latched (no +15% speed, no lunge). Switched
+  to `IsSliding()` (dedicated slide-state builtin, verified stock `_behavior_tracker.gsc`/`challenges_shared.gsc`).
+- **Boss-item HUD line no longer overlaps Shards/Mega Bottles.** Moved `sync_items_hud` from `TOP_LEFT 16,68`
+  (which collided with the Shards descender at y=50 and Mega Bottles at y=70) down to `16,90` — clean left
+  column: HEALTH / SHARDS / MEGA BOTTLES / BOSS-ITEM.
+
+All four are pure server-GSC edits in `_acc_boss_glitch.gsc` + `_acc_boss_items.gsc`; linked clean.
+docs/12 updated. GSC/linker-only build.
+
+### Changed — auto-power OFF; ONE power switch (Bus Station/corp), vault switch removed (user, 2026-06-18)
+
+User: remove the auto-power trigger and drive power off the Bus Station power switch (powers
+perks + PaP **and** starts the fog settle); also remove the vault switch.
+- **Auto-power off.** `acc_auto_power` default `1 → 0` in `zm_abandoned_cyber_city.gsc`. Power
+  now comes only from the player flipping the stock Bus Station (corp) switch — the stock handler
+  (`_zm_power.gsc`) lights perks (`perk_unpause_all_perks`), powers PaP/traps/doors and sets the
+  global `power_on` flag, which the fog loop already polls → the haze settles on switch flip. The
+  auto-power block is kept behind `acc_auto_power 1` as a dev shortcut (no longer tied to `acc_dev`).
+- **Vault switch removed.** Deleted the vault `power_switch` misc_prefab from the `.map` source
+  (entity 114) — its body is gone now, not just its trigger. The map ships ONE switch (corp). Both
+  the inner `use_elec_switch` trigger and its `elec_switch_fx` struct go together, so the
+  `zombie_power_on/off` clientfield widths stay consistent server↔client at count 1 (a normal
+  single-switch map). `_acc_map_randomizer`: `roll_power_switch_side` now hard-returns `corp`
+  (the `acc_power_side` override is retired — vault no longer exists), and `apply_power_switch_side`
+  early-returns for the single-switch map instead of warning about a missing dead side.
+- **Build:** full pipeline (cod2map64 + LED + linker) — removing the prefab changes baked geometry.
+  docs/34 (flags) updated; docs/29 already notes the fog keys off `power_on`.
+
+### Fixed — mystery box "light but no chest" on the reverted pre-stage3 map (user report, 2026-06-18)
+
+Two stacking bugs (found via a 4-probe workflow, verified vs repo + built fastfile manifest):
+(1) `_acc_map_randomizer.gsc:roll_mystery_box_initial()` rolled the start box over **7** node
+names but the reverted pre-stage3 map has only **3** chests (market/corp/roof). On ~4/7 runs
+it set `level.start_chest_name` to a non-existent box, so stock `_zm_magicbox`
+`init_starting_chest_location()` hid ALL boxes (no model, no use prompt) then dumped the
+orphan `pandora_light` beam on a random box → "light beam, no chest, no prompt." Fix: clamp the
+roll to `array("market","corp","roof")` (restore the 7-node list when the 6/16 box geometry
+returns). (2) The 3 box entities overrode `zbarrierboardmodel*` to `p6_anim_zm_magic_box`,
+which is NOT in the built `.ff` (only `p7_zm_der_magic_box` is, auto-pulled by the zmcore
+MagicBox zbarrier) → a shown box drew nothing. Fix: point the 9 board-model KVPs at
+`p7_zm_der_magic_box`/`_fake` (already loaded → zero new assets). Now exactly one of the 3 boxes
+shows light + a visible Der-box chest + a working prompt; the others hide cleanly. LED bake
+GATE PASSED (13.4s, fresh .led) — no geometry change. GSC + map-entity build (full pipeline).
+
+### Fixed — Li'l Arnie (octobomb) + Monkey Bomb (cymbal_monkey) thrown grenades now actually function (user report, 2026-06-18)
+
+User: the granted Li'l Arnie throws but the projectile "just sits there" (no attract/explode).
+Root cause (research workflow, verified on disk): our `give_octobomb` / `give_monkey_bomb` grant
+the weapon with a **raw** `self GiveWeapon(w)`, which bypasses `zm_weapons::weapon_give` — the only
+stock path that dispatches the registered zombie-weapon callback (`player_give_octobomb` /
+`player_give_cymbal_monkey`). That callback is what threads the per-player `grenade_fire` watcher
+(`player_handle_*`) driving attract / spore / point-of-interest / detonate. The engine still handles
+the THROW (so the projectile appears), but with no watcher it's inert. Fix: after `GiveWeapon` both
+functions now dispatch the callback exactly the way stock does —
+`if (isdefined(level.zombie_weapons_callbacks[w])) self thread [[ level.zombie_weapons_callbacks[w] ]]();`
+(verbatim `_zm_weapons.gsc:2791-2793`). The watchers self-guard via notify/endon so the revive
+re-grant is safe; no new `#using` and no clientfield work. The SoE/DLC FX (spore/glow/lightning)
+are absent from this install so visuals won't render, but the gameplay is server-side and works.
+Also fixed a stale code comment that wrongly told future agents Monkey Bomb needs a
+`weapon,cymbal_monkey_zm` `.zone` line (it's CSV-row-only). docs/12 documents the hack.
+GSC/linker-only build.
+
+### Changed — TEMP: mini-boss boss-item drop chance 50% -> 100% for testing + made per-tier chance live-tunable (user, 2026-06-18)
+
+User wants Brutus / Glitch Stalker to drop a boss item **every** kill for now (testing; will tune
+later). Bumped `ACC_BOSS_ITEM_DROP_CHANCE_MINI` `0.50 -> 1.00` in `_acc_boss_items.gsc` and made
+`on_boss_death` read both tiers from live dvars so the rate can be tuned with no rebuild:
+`acc_boss_item_chance_mini` (default `1.0`, **design value 0.5** — restore when done) and
+`acc_boss_item_chance_full` (default `1.0`). docs/12 tuning table + docs/34 flags reference updated.
+GSC/linker-only build.
+
+### Docs — boss-items doc + code comments corrected to match live v2 (2026-06-18)
+
+Aligned [docs/12_boss_items.md](docs/12_boss_items.md) with the shipped v2 system: "At a Glance"
+and the Mega-Bottles note now say **7 items / 1 active item** (were 6 items / 2 slots); the
+**Cloak** implementation note now reflects the custom `acc_cloak_glitch` flag instead of the old
+`increment_ignoreme` text (which contradicted both the code and the rejected whole-horde-cloak
+bug). Fixed the `apply_arnie_octobomb` code comment in `_acc_boss_items.gsc` that still told future
+agents to add a `weapon,octobomb_zm` `.zone` line — corrected to **CSV-row-only** (the zone line
+re-packs from an absent GDT and errors `Unable to load weapon`; the def ships in `zm_levelcommon`).
+Reverted the temporary `acc_drops_debug` default (`1 -> 0`) used to diagnose the "no items on
+ground" report (root cause was transient; drops verified working in-game). GSC/linker-only build.
+
+### Changed — fog now SETTLES AWAY DOWNWARD when POWER is turned on (user, 2026-06-18)
+
+User: don't teleport the fog away in one frame — make it look like a fade by moving it a slight
+amount once per second, straight **down** so it settles into the ground; and trigger it **when
+power is turned on** (was: on the first zombie kill). Replaced the instant `disable_fog()` call
+with a new `settle_fog_step()` in `_acc_atmosphere.gsc`, driven by the existing single-authority
+`apply_fog` loop. **Trigger:** that loop now polls the stock `power_on` flag (exists-guarded, no
+separate flag-wait thread → sidesteps the flag-not-yet-created crash); the old per-death callback
+`on_zombie_death_clear_fog` + its `register_zombie_death_event_callback` registration (and the now-
+unused `_zm_spawner` import) were removed. Once power is on it flips `level.acc_fog_cleared` and
+each tick re-applies the haze with a **base height** (`SetVolFog` arg 4 = where fog is densest)
+that drops one slight step **once per second**; vol-fog opacity halves every `acc_fog_halfway_height`
+units above the base, so as the dense layer sinks below the floor the haze thins to nothing at eye
+level. When the base has sunk `acc_fog_settle_depth` (7500u) below the floor — invisible — or
+`acc_fog_settle_max_steps` (1200) nudges have run, it hard-disables for good (`disable_fog()`,
+planes pushed out — opacity still can't be faded directly, so the *sink* is the fade). Five live
+dvars (`acc_fog_clear_on_power` gate + `acc_fog_settle_interval` / `_step` / `_depth` / `_max_steps`);
+defaults settle over ~38s, tunable live, no rebuild. Pacing is by accumulated-time counter
+(framerate-safe). **Timing:** with the dev build's auto-power (~1.5s post-blackscreen) the haze is
+brief; a switch-gated ship build (`acc_auto_power 0`) holds it until the player turns power on.
+GSC/linker-only build. docs/29 + the in-code fog-history note updated.
+
+### Fixed — boss-item polish: glitch-only cloak, carry-drop, carry HUD + real bench model (user, 2026-06-18)
+
+- **Phase Serum cloak is now Glitch-Stalker-only** (was hiding you from the whole
+  horde). Dropped `zm_utility::increment_ignoreme` (engine-wide ignore) for a custom
+  `self.acc_cloak_glitch` flag that ONLY `acc_utility::get_closest_uncloaked_player`
+  (the Stalker's targeting, ×2 in `_acc_boss_glitch`) honors; the charred horde uses
+  the stock find-flesh path and still targets you.
+- **Pickup no longer destroys a carried item.** Grabbing a new item while carrying a
+  different un-enabled one now `spawn_pickup`s the old one back to the ground (at the
+  new item's spot) instead of overwriting it. Enabled/implanted items are unaffected.
+- **"CARRYING" HUD line fixed.** `sync_items_hud` had a leftover early-return on
+  `acc_equipped_items.size == 0` that hid the whole element whenever nothing was
+  enabled — so a carried-but-not-yet-enabled item never showed. Removed it; carry text
+  is now bright `^3CARRYING <id - name> (enable at bench)` (was an near-invisible `^8`).
+- **Plaza Implant Bench now uses a real model** — imported the stock Cyber City white
+  metal workbench `p7_cai_work_table_metal_03_white` (on-disk t7_props GDT, packed via
+  an `xmodel,` `.zone` line; errorlog-clean) instead of the carpenter-icon placeholder.
+  Licensing-clean (stock Treyarch asset).
+
+GSC-only / linker build.
+
+### Changed — colour grade OFF by default; map ships with BASE GAME COLOURS (user, 2026-06-18)
+
+User: every tint we tried made it look worse — **remove any lighting tint, go with base
+game colours.** Flipped `ACC_VISION_ON` `1 -> 0` in `_acc_atmosphere.gsc`. With the grade
+off, `apply_vision` applies the stock neutral `"default"` vision and adds no tint of its
+own, so the map renders in base game colours. Nothing deleted — the custom grades
+(`zm_abandoned_cyber_city` / `acc_grade_magenta` / `acc_grade_orange` / `acc_grade_dark`)
+stay zoned and dormant; re-enable live with `set acc_vision_on 1` (+ `set acc_vision_set
+<name>` to pick one). Supersedes the cyan/magenta/neutral grade churn below. Fog
+(`acc_fog_on`, the cool haze that clears on first kill) is a SEPARATE system and is
+untouched — disable it too with `set acc_fog_on 0` if base-game air is wanted. Linker-only
+(GSC) build. docs/29 §7b updated.
+
+### Changed — default colour grade = NEUTRAL look with a very small cyan tint (user, 2026-06-18)
+
+User: away from magenta — make the map look **normal with a very, very small cyan
+tint**. The earlier "light cyan" restore (below) still washed the scene to a light
+blue-grey, because its luminance curve topped out dim + blue-grey
+(`vkRGB4 0.69/0.72/0.80`, `vkRM 0.8`) and the fullbright scene sits at that top stop.
+Replaced the default `vision/zm_abandoned_cyber_city.vision` with a **near-identity
+neutral curve** (`vkRGB1..4 = 0.25/0.5/0.75/1.0` grey ramp, `vkRM 1.0`, tint filter
+off `vkTS 0` / `vkTC 1/1/1`) so brightness + contrast read normal, then knocked **red
+down ~4% at every stop** (`R = 0.96·G` e.g. top stop `0.96/1.00/1.00`). Cyan = white
+minus red, so a uniform small red cut = a faint pale-cyan cool with no other shift.
+Tune strength by the red column (lower red = more cyan; `1.00/1.00/1.00` = dead
+neutral). The vibrant magenta / orange / dark looks remain as live-swappable
+`acc_grade_*` files (set `acc_vision_set acc_grade_magenta`). Linker-only build
+(`.vision` is BSP-independent). docs/29 §7b updated.
+
+### Reverted then superseded — default reverted to the prior light cyan/cool grade (user, 2026-06-18)
+
+User: move the map tint back from magenta to the **light cyan**. Restored
+`vision/zm_abandoned_cyber_city.vision` (the `ACC_VISION_SET` default) to its prior
+cool grade (`vkTS 0`, `vkTC 0.91/0.97/1.11`, blue-grey curve to `0.69/0.72/0.80`,
+`vkRM 0.8`). Superseded same day by the neutral+small-cyan grade above (the light-grey
+wash was still too strong). The vibrant magenta look stays live-swappable as
+`acc_grade_magenta`.
+
+### Changed — boss items now GRANT the real Octobomb + Cymbal Monkey; cloak split to its own item (user, 2026-06-18)
+
+Corrects the prior "give-the-real-tactical is infeasible" conclusion — it was wrong.
+Both `octobomb_zm` and `cymbal_monkey_zm` weapon defs ship in **zm_levelcommon**
+(assetlist 6175/6225), which every usermap loads at runtime, so they're grantable.
+
+- **Lesson:** include such a weapon with a **CSV row only** in
+  `gamedata/weapons/zm/zm_levelcommon_weapons.csv` (→ `is_weapon_included` true,
+  `GetWeapon` resolves at runtime). Adding `weapon,<name>_zm` to the `.zone` is what
+  caused the earlier `Unable to load weapon` errors — it forces a re-pack from a GDT
+  source not on disk. Removed those zone lines; build is errorlog-clean.
+- **Li'l Arnie (item 2)** now grants the **Octobomb** tactical (`apply_arnie_octobomb`);
+  **Monkey Bomb (item 6)** now grants the **Cymbal Monkey** (`apply_monkey_bomb`,
+  un-shelved). Both via `GiveWeapon` + `set_player_tactical_grenade` + regrant-on-spawn.
+- **Cloak** moved off Li'l Arnie to a NEW **item 7 "Phase Serum"** (perk-bottle vial,
+  `apply_arnie_cloak`). Pool is now **7 items**.
+
+docs/12 (7-item table + corrected caveat) + memory updated. GSC-only build.
+
+### Changed — boss-item v2: bench-gated single active item + new per-item buffs (user, 2026-06-17)
+
+Major redesign of the boss-item system (`_acc_boss_items.gsc` + `_acc_utility` + `_acc_boss_glitch`).
+
+- **Acquisition = carry → bench.** Picking an item off the ground now only CARRIES
+  it (no buff); a new **Plaza Implant Bench** (runtime `script_model` + `trigger_radius_use`
+  at the `player_respawn_point` struct, no Radiant edit) ENABLES it onto your character.
+  **Single active item**; first enable FREE, each swap costs **2500 points**
+  (`zm_score::can_player_purchase`/`minus_to_player_score`). New state:
+  `acc_carried_item`/`acc_active_item`/`acc_bench_first_done`; `ACC_ITEM_SLOTS_PER_PLAYER=1`;
+  the old 2-slot auto-equip + ground-swap removed. HUD shows `(carry)` vs `IMPLANT`.
+- **New per-item buffs:** 1 Gas Tank = double-tap-sprint nitro burst (+20% 5s, 30s
+  lockout, uncancellable; `IsSprinting` polling); 2 Li'l Arnie = cloak via
+  `zm_utility::increment/decrement_ignoreme` + a cloak-aware `get_closest_uncloaked_player`
+  swapped into the Glitch Stalker targeting (×2); 3 Teddy Bear = +10% points (unchanged);
+  4 Repair Kit = +10 HP/s (was 8); 5 Rocket Shield = +15% slide speed + slide-start
+  forward lunge + ~1.5× jump impulse (polled `GetStance`/velocity/`IsOnGround`);
+  6 Monkey Bomb = **placeholder** +1 shard/20s.
+- **Per-item floor-lift** (`model_z`) so each model sits right (Gas −6, Arnie −1,
+  Teddy/Repair 19, Rocket 24, Monkey −11), overriding the global `acc_drop_model_z`.
+- New tuning dvars (docs/34): `acc_bench_off_x`, `acc_gas_dtap_ms`,
+  `acc_rocket_slide_thresh`/`_slide_kick`/`_jump_kick`.
+
+**Could NOT be done as asked (surfaced to user):** (1) Giving special-grenade weapons is
+BLOCKED on this install — tested + confirmed for the Cymbal Monkey (`Unable to load weapon
+'cymbal_monkey_zm'`, DLC3) AND the Octobomb/Li'l Arnie (`'octobomb_zm'`, base-game SoE). The
+weapon DEFS aren't in the loadable set (only `_zm_weap_*` scripts+models ship; gdtdb limited),
+so it's not a DLC-only issue. → Li'l Arnie stays the cloak; Monkey Bomb stays a shard-income
+placeholder; either would need the weapon asset imported (external-pack style). (2) Slide
+"1.5× duration" has no per-player engine lever → shipped as a distance lunge. (3) Jump uses
+a per-player velocity impulse, not the global `jump_height` dvar. Build errorlog clean.
+docs/12 rewritten (v2 spec + legacy section). GSC-only build.
+
+### Changed — atmosphere retuned DARK + VIBRANT, pivoted to MAGENTA palette; 4 live-swappable grades (user, 2026-06-17)
+
+User: the map reads dull/washed light-grey ("white"), wants **dark but vibrant**.
+Root cause (6-probe investigation): the global colour grade
+`vision/zm_abandoned_cyber_city.vision` was doing it — `vkTS 0` (saturation OFF)
+plus a 5-stop luminance→colour curve where every stop is a near-equal R≈G≈B
+blue-grey at `vkRM 0.8`. That's a hard DESATURATE + BRIGHTEN. And because the map
+renders effectively fullbright (LED bake is permanently dead — `brush.cpp:1860`
+crash on enclosed geometry; zero placed lights; `global_fill_color "0 0 0"`), every
+surface sits at the TOP of that curve → the brightest/greyest stop
+(`vkRGB4 0.69/0.72/0.80`) → washed light blue-grey. The grade is BOTH the cause and
+the fix: it's the only colour lever that's linker-only + live-swappable
+(`VisionSetNaked`, `set acc_vision_set`).
+
+First pass was a dark TEAL grade (`vkTS 0.70`, cyan cast). User tested it: **still
+super dull** + wanted away from teal toward orange/magenta. Lesson: on a flat
+fullbright scene the grade tints a uniform field, so the hue must be BOLD and the
+saturation/cast pushed hard, or it reads muddy. **Pivoted to a vibrant MAGENTA
+palette and cranked everything:** `vkTS 0.90` (was 0.70), `vkRM 1.0` (full curve
+authority, was 0.8/0.9), strong magenta `vkTC 1.28/0.60/1.20 @ 0.45`, and a curve
+with green CRUSHED at every stop + big R/B spread (top stop `0.72/0.26/0.64`) so
+surfaces read hot neon magenta. Now ships **four** live-swappable grades (one
+build): default `zm_abandoned_cyber_city` = vibrant magenta;
+`acc_grade_magenta` = hotter/brighter pink (`vkTS 0.98`); `acc_grade_orange` =
+amber-neon (warm `vkTT 7400`, R↑G·B↓ curve); `acc_grade_dark` = deeper magenta
+(negative-`vkTC`-alpha global-darken, per stock `zod_ritual_dim`). All zoned
+(`rawfile,vision/...`). Pick live: `set acc_vision_set acc_grade_orange` /
+`acc_grade_magenta` / `acc_grade_dark` / (default) `zm_abandoned_cyber_city`, no
+rebuilds. **Known ceiling:** the grade can only saturate a flat field — if magenta
+still reads dull, the real neon punch needs SCENE contrast (emissive prop xmodels +
+placed colour FX), the next lever (docs/29 §7b). LED stays dead; material reskin
+stays blocked (§14). GSC/linker-only build. Memory: [[hacky-solutions-encouraged]].
+
+### Changed — boss-item redesign: 6 model-fit items, each with a unique buff + floor-lift (user, 2026-06-17)
+
+Model-first redesign of the 6 boss items (name chosen to fit the model) + a real
+player buff per item + a fix for models sinking into the floor.
+
+- **6 items** (`_acc_boss_items.gsc` `build_item_pool`): 1 Gas Tank (`nitrous_tank`,
+  +20% move speed), 2 Li'l Arnie (`octobomb`, every 10 kills → next shot 3×), 3 Teddy
+  Bear (`teddybear`, +10% Points/kill), 4 Repair Kit (`p7_zm_power_up_carpenter`, +8
+  HP/sec regen), 5 Rocket Shield (`rocket_shield`, +50 max HP), 6 Monkey Bomb
+  (`monkey_bomb`, +1 Data Shard/20s). Items 1-3 REUSE the already-wired effects
+  (neural_boots / kinetic_battery / payroll_ledger); items 4-6 are NEW self-contained
+  buffs — `apply_overcharge` (regen thread), `apply_bulwark` (idempotent max-HP
+  recompute + spawn-reapply, mirrors the move-speed reapply), `apply_salvage` (timed
+  shard thread). Only safe levers (self.health add capped at maxhealth, maxhealth
+  delta, grant_player) — no fragile cross-module rewiring. `_acc_points` battery-charge
+  message made generic ("Charged shot ready").
+- **Model link-verification:** `zombie_zapper_handle` + `p6_power_lever` FAILED to
+  link ("xmodel missing" — not in ZM-common fastfiles), caught by the build errorlog;
+  swapped to `p7_fxanim_zm_zod_octobomb_mod` + `p7_zm_power_up_carpenter`. All 6 now
+  errorlog-clean.
+- **Floor-sink fix:** drops spawned at the corpse origin sank ~70% into the floor
+  (high model pivot). Models now spawn lifted by dvar **`acc_drop_model_z`** (default
+  24, live-tunable); the trigger stays at +40. Swap re-drop uses the stored unlifted
+  `acc_ground_origin` so repeated swaps don't creep upward. Applied to the shard drop too.
+
+CHANGELOG + docs/12 (table + legacy note) + docs/34 (dvar). GSC-only build.
+
+### Changed — boss items each get a unique world model (user, 2026-06-17)
+
+All 6 boss items shared the one `p7_zm_zod_nitrous_tank` model; now each has a
+distinct stock xmodel so they read differently on the ground (not thematically
+matched — just unique). `item()` gained a `model` field; `spawn_pickup` reads
+`item_struct.model` (fallback nitrous tank); all 6 `#precache`'d. Mapping: 1 Boots
+= nitrous_tank, 2 Gauntlets = zombie_pickup_perk_bottle, 3 Visor =
+p7_zm_power_up_insta_kill, 4 Battery = p7_zm_power_up_max_ammo, 5 Shroud =
+p7_zm_power_up_double_points, 6 Ledger = p7_zm_power_up_nuke.
+
+Each is link-verified safe on this install (build errorlog clean): packed via the
+`.zone` (nitrous tank) or already runtime-loaded by stock (perk-bottle pickup via
+our `#using`; powerup icons `_zm_powerups` precaches in every ZM map). Established
+the reliable test — a model is safe if our build errorlog has no entry for it;
+`xmodel.csv` only lists OUR-packed models, NOT base-fastfile ones. docs/12 updated.
+GSC-only build.
+
+### Fixed — fog now actually disappears on the first kill (root cause: opacity ≠ disable) (user, 2026-06-17)
+
+**Hard-won fact:** you CANNOT remove BO3 volumetric fog by zeroing its opacity.
+Stock `_art.gsc:231` hits the same wall verbatim — `setExpFog( 100000000,
+100000001, 0, 0, 0, 0 ); // couldn't find discreet fog disabling other than to
+never set it in the first place`. The reliable disable is to push the fog START
+PLANE out to ~100,000,000 units so fog begins far beyond the world and never
+reaches the camera. This is why every prior fog-clear attempt (power-on lift, then
+the opacity-fade-on-first-kill shipped earlier today) "never reliably faded" — the
+death callback fired fine, but ramping opacity to 0 left the haze fully visible.
+
+Fix in `_acc_atmosphere.gsc`: ripped out the fade machinery (`acc_fog_fade`,
+`acc_fog_target_fade`, the ease, `acc_fog_clear_time`, the opacity-multiply) and
+replaced it with an INSTANT hard disable. `apply_fog` (still the single `SetVolFog`
+authority) applies the full haze each tick until `level.acc_fog_cleared` flips, then
+calls `disable_fog()` = `SetVolFog( 100000000, 100000001, 0,0,0,0,0,0 )` (planes
+out). The per-death callback `on_zombie_death_clear_fog`
+(`zm_spawner::register_zombie_death_event_callback`) just flips the flag on the first
+kill — no fade, removed within 0.1s. The `initial_blackscreen_passed` wait stays
+(fog cannot be set before players are in — that is how it gets set at all). Gated by
+`acc_fog_clear_on_kill` (default 1). GSC-only build. Doc: docs/29.
+
+### Fixed — swapped boss item now actually drops to the ground (user, 2026-06-17)
+
+The swap-on-pickup path equipped the new item but the old one never reappeared.
+Cause: `spawn_pickup()` for the dropped item was called AFTER `cleanup_pickup()`,
+which does `self delete()` on the trigger — deleting `self` ends the running
+thread, so the re-drop line never executed. Fix: re-drop the old item (and
+capture its struct/origin) BEFORE the notify + cleanup. `_acc_boss_items.gsc`
+`watch_pickup`. GSC-only build.
+
+### Reverted — teal round counter ABANDONED ENTIRELY; stock red counter kept (user, 2026-06-17)
+
+**The whole teal-round-counter feature was dropped at the user's request after every approach
+failed in-game.** Attempts: (1) same-path `RoundStatus.lua` rawfile, (2) `require` from `acc_hud`,
+(3) wrapping the HUD-root `T7Hud_zm_factory`, (4) a teal overlay + opaque cover. None worked
+reliably and it can't be debugged blind (no runtime LUI introspection; stock HUD menu
+names/load-timing unverifiable offline). **Fully reverted** — removed `CoD.AccRoundNum` (acc_hud.lua),
+the `world`-scope `accRound` clientfield + `round_num_watch` (`_acc_lui.gsc`), the `accRound_cb`
+mirror (`_acc_lui.csc`), and the `acc_round_status.lua` / `RoundStatus.lua` widget files + zone
+line. The stock red round counter is back, untouched. (The round-progress/zombies-remaining BAR,
+`CoD.AccRoundRing`, is a SEPARATE feature and stays.) The deep-dive notes below are retained for
+reference only — they describe what was tried, not what shipped.
+
+### Changed — perk bar: purchase-order stacking + shifted right (user, 2026-06-17)
+
+The bottom-left Mega perk-icon bar (`CoD.AccPerkBar`, `acc_hud.lua`) now **stacks in acquisition
+order**: the first perk you buy keeps the leftmost slot and each new perk appears to its RIGHT.
+Previously it packed by perk-TYPE bit order, so a newly-bought low-bit perk (e.g. Jugger-Nog,
+bit 0) jumped to the leftmost slot ahead of perks owned longer. `Render` now maintains a persistent
+`order` list (keep still-owned entries in place, append newly-owned ones; bit order only breaks
+ties when two are gained within one 0.25s poll). Also moved the whole bar **+10px right**
+(`START_X` 96 → 106) so it no longer clips the round number at bottom-left. LUI only; linker build.
+
+<details><summary>(retained reference: the failed HUD-root override investigation)</summary>
+
+**Earlier (superseded) write-up.** The stock
+zombies round number is built by the HUD ROOT menu `LUI.createMenu.T7Hud_zm_factory`, which calls
+`LUI.createMenu.RoundStatus(InstanceRef)` (chalk marks + `ZOMBIE_ROUND` + round number, driven by
+the `GameScore`/`roundsPlayed` global model; zm_building `t7hud_zm_custom.lua:145`).
+
+What did NOT work: dropping a rawfile at the stock `RoundStatus.lua` path (a packed rawfile doesn't
+execute on its own, and lost the load/cache race) → stayed red. **What works (HUD-root wrapper):**
+1. ship our teal round-counter at a UNIQUE path `ui/uieditor/widgets/hud/acc_round_status.lua` so a
+   `require` ALWAYS executes it (no stock-`RoundStatus` cache collision); it stashes its factory in
+   `CoD.AccTealRoundStatus`.
+2. in `acc_hud.lua` (loaded early), `require` it, then WRAP `LUI.createMenu.T7Hud_zm_factory`: keep
+   the original and, on each call, force `LUI.createMenu.RoundStatus = CoD.AccTealRoundStatus` before
+   delegating — so the round widget the stock HUD builds is ours, regardless of load order. All
+   `pcall`/nil-guarded so it can never take down the rest of the overlay.
+
+Our `acc_round_status.lua` is the stock round-counter structure UNCHANGED except `DefaultColor`
+dark-red `(0.21,0,0)` → cyber **teal** `(0.25,0.88,0.82)` — native chalk/round-up animation
+preserved. All assets stock (`bo1_hud_chalk_1..5`, the fonts, `ZOMBIE_ROUND`); no new assets.
+
+**Removed** the earlier overlay approach: `CoD.AccRoundNum` + opaque mask in `acc_hud.lua` and its
+whole data path (`world`-scope `accRound` clientfield + `round_num_watch` in `_acc_lui.gsc`, the
+`accRound_cb` mirror in `_acc_lui.csc`). Net: no extra clientfield, no mask, no position-guessing.
+LUI + GSC/CSC; linker build. (Reusable technique logged in docs/22: override a stock LUI HUD widget
+by wrapping the HUD-root factory.)
+
+</details>
+
+### Changed — boss items: swap-on-pickup when full + numeric item IDs in all displays (user, 2026-06-17)
+
+- **Swap when full:** grabbing a boss item while both slots are full no longer
+  refuses — it now **drops your oldest equipped item (slot 0)** back to the ground
+  as a fresh `spawn_pickup` (re-grabbable, own 60s lifetime) and equips the new one.
+  The drop spot is captured before `cleanup_pickup()` deletes the grabbed entity.
+  FIFO rotation; a per-slot replace prompt remains the Phase-4 LUI upgrade.
+- **Numeric item IDs:** `item()` now takes a stable `num` (1 Neural Boots · 2
+  Overclocked Gauntlets · 3 Targeting Visor · 4 Kinetic Battery · 5 Ghost Shroud ·
+  6 Payroll Ledger). New shared `display_for(item) -> "<num> - <name>"` drives the
+  world pickup prompt, the pickup/swap message, and the equipped-items HUD, so all
+  three read e.g. `3 - Targeting Visor`. docs/12 + docs/14 §1c updated.
+
+GSC-only / linker build.
+
+### Fixed — pickups now despawn on grab + added equipped-item HUD indicator (user, 2026-06-17)
+
+Two follow-ups to the hold-Use pickup change:
+
+- **Despawn bug:** a picked-up Data Shard / Boss-item drop stayed on the ground
+  forever. Root cause was a GSC `endon` trap introduced with the interact change —
+  `watch_pickup` had `self endon( "acc_*_claimed" )`, so its own
+  `self notify( "acc_*_claimed" )` (meant only to stop the sibling lifetime timer)
+  aborted the thread one line BEFORE `cleanup_pickup()` ran, so the model + trigger
+  were never deleted (the grant still happened, which masked it). Fix: that `endon`
+  now lives ONLY on `watch_lifetime`; `watch_pickup` ends via its explicit `return`
+  after cleanup. Both `_acc_data_shards.gsc` and `_acc_boss_items.gsc`.
+- **Equipped-item indicator:** there was no persistent on-screen sign you were
+  holding a Boss Cyberware item (only a one-shot `iprintln` at pickup). New
+  `_acc_boss_items::sync_items_hud` — a server-side hudelem mirroring the Data
+  Shards counter, stacked under it (`TOP_LEFT` 16,68), showing `ITEMS <name> | <name>`
+  for the ≤2 equipped slots, updated on equip/unequip, hidden when empty
+  (`#using hud_util_shared` added). Documented in docs/14 §1c.
+
+GSC-only / linker build.
+
+### Changed — pickups are now HOLD-USE interact + drop-lifecycle logging (user, 2026-06-17)
+
+The two custom ground pickups (Data Shard, Boss Cyberware item) no longer
+auto-grab on proximity — you now **hold ⓕ Use** to take them, and the whole
+drop/pickup lifecycle is logged behind a dvar for debugging.
+
+- **Interact pickup** (`_acc_data_shards.gsc`, `_acc_boss_items.gsc`): each drop
+  now spawns a stock `trigger_radius_use` alongside the model (canonical navcard
+  recipe, `_zm_utility.gsc:5439`). Wiring: `TriggerIgnoreTeam` (any player) +
+  `UseTriggerRequireLookAt` (no grabbing through walls; trigger origin raised
+  `+40z`) + `SetCursorHint("HINT_NOICON")` + `SetHintString("Hold ^3[{+activate}]^7
+  to grab …")`. The watchers now run **on the trigger** (`self.acc_model` reaches
+  the model); the use-loop is `waittill("trigger", player)` (fires only on
+  use-press — no 0.1s proximity poll, no `wait(1.0)` anti-spam needed). New
+  `cleanup_pickup()` (one per file) deletes trigger + model together; lifetime
+  despawn (30s shards / 60s items) routes through it. Hint token is the
+  stock-proven `[{+activate}]` (raw `&&1` has zero stock backing).
+- **Logging** (`_acc_utility::drops_debug`): new shared helper gated by the
+  `acc_drops_debug` dvar (default 0). Uses `IPrintLnBold` — the only channel that
+  reaches `console_mp.log` (`[ SCRIPTER] [drops] …`, needs `+set logfile 1`).
+  Log points: DROP-ROLL / DROP-MISS / SPAWN / PICKUP-TRY / GRANT / EQUIP / DUPE /
+  FULL / DESPAWN. Documented in `docs/34_flags_reference.md` §E.
+- **Drop attribution (no behavior change, documented):** Brutus mini-boss →
+  boss item @50% + Mega Bottle each + one NSZ-pack stock powerup (last Brutus
+  only); Glitch Stalker mini-boss → boss item @50% + Mega Bottle each (no
+  powerup); Subroutine Core full boss → boss item @100% + flat Data Shards to
+  every player; elite kills → a Data-Shard pickup entity (+ a stock powerup every
+  5th elite under the Subroutine T3 capstone).
+
+GSC-only / linker build (no `.map`/`.zone`/`.csc`/BSP). Known doc/code drift left
+as-is per scope: `docs/12` still names the mini-boss "Juggernaut Host @ r10/20"
+(code = Brutus @ r4-then-every-5, Glitch unlisted), and the elite-shard
+diminishing branch is dead (`source_tag "pickup"` never matches `"elite_kill"`).
+
+### Added — QA: zombie wallhack markers (hardcoded ON, user, 2026-06-17)
+
+A small red through-walls waypoint now floats over **every live zombie** so a stuck /
+broken-pathing one is always findable. New always-on system in `_acc_health_bars.gsc`
+(`zombie_wallhack_loop` / `zombie_wallhack_one` / `create_zombie_marker`), threaded from
+`init()`. **Not behind a flag** — hardcoded on per request (the dev door-marker system it
+mirrors is gated on `acc_dev`; this is independent). Recipe = the proven `_acc_dev`
+door-marker HudElem path: `NewClientHudElem(player)` + `SetShader("white", 10, 10)` +
+`SetWaypoint(true)` + `SetTargetEnt(zombie)` (`"white"` is an engine built-in material →
+no asset risk). A discovery loop (0.5 s) tags each new zombie once and hands it to a
+LEVEL-scoped per-zombie manager (level thread, not on the zombie, so it survives corpse
+removal and still destroys the player-owned elems); each manager keeps one marker per
+connected player (refreshes for co-op late joins) and destroys them all on death.
+**TODO(ship): remove before a public build.** GSC only; linker build.
+
+- **Smaller markers (user, 2026-06-17):** the dot shrank from 10 px to `ACC_WH_MARKER_SIZE` = 2 px
+  (~90% smaller footprint) to cut on-screen clutter with a full round of zombies.
+
+### Changed — round bar redesigned (cyber HUD) + % readout removed (user, 2026-06-17)
+
+The zombies-remaining bar (`CoD.AccRoundRing`, `acc_hud.lua`) lost its `pct%` readout and
+got a layered cyberpunk look, all from the render-safe `CoD.TextWithBg.Bg` rectangle
+primitive (no custom material/shader): an outer cyan **halo**, the navy track, the
+teal→magenta drain fill, **segment notches** (battery/tech-gauge divisions), a bright
+**"drain front" sliver** that rides the fill's moving edge (also tweened), a **top accent
+line**, four **corner targeting brackets**, and a small right-aligned **"HOSTILES"
+caption** above the bar (replaces the number). The drain-front sliver hides once the round
+is cleared (`frac <= 0.02`). LUI only; linker build.
+
+### Changed — Glitch Stalker: teal eyes + clean teleport-in + 3 per round (user, 2026-06-17)
+
+Three Glitch Stalker tweaks (`_acc_boss_glitch.gsc`, GSC/CSC-only / linker build):
+
+- **3 per round** (was 2): `ACC_GLITCH_COUNT_DEF` / `acc_glitch_count` default → `3`.
+- **No more visible standstill after a blink (exaggerated fix).** Just hiding the actor wasn't
+  enough — when the AI's post-teleport re-path took longer than the reveal cap it would un-hide a
+  still-frozen zombie. Now the boss not only `Ghost()`s the instant it blinks in, it is physically
+  DRIVEN toward the nearest player while hidden (navmesh-clamped micro-teleports at
+  `acc_glitch_charge_speed`, default 900 u/s) so it actually CLOSES the gap during the invisible
+  window. Once within `acc_glitch_reveal_dist` (240, just outside melee) it hands control back to the zombie AI and
+  `Show()`s only once the AI has resumed moving (origin drift) — so it reappears already charging,
+  never standing. The whole re-path pause is spent hidden. Hard `acc_glitch_phasein_max` (2.5s)
+  failsafe; `Ghost`/`Show` are render-only (stays hittable); a fresh blink cancels an in-flight
+  phase-in (`endon "acc_glitch_phasein"`). Belt-and-suspenders `Show()` on death so a corpse can
+  never be left invisible. (`glitch_blink_fx` → `glitch_phase_in`, `acc_glitch_fx` gate.)
+- **Teal eyes** (`acc_glitch_teal_eyes`, default on), **no FX asset** (by request). The
+  zombie eye glow is client-side, and only orange (default) + green ship prebuilt — no teal
+  FX exists, and authoring one needs the FX editor. Instead we recolour the boss's eyeball
+  MATERIAL via the engine's intended hook: a new 1-bit **actor**-scope clientfield `accEyeTint`
+  (registered in the `_acc_lui` pair, separate pool from the near-full clientuimodel fields)
+  set on the boss at spawn; the `_acc_lui.csc` callback drives `mapshaderconstant("scriptVector2",
+  luminance, colour)` — the exact stock eye-colour path (`_zm.csc zombie_eyes_clientfield_cb`) —
+  with `acc_glitch_eye_color` / `acc_glitch_eye_lum`. Both are **live-tunable** (1s re-apply
+  loop): the exact value→colour mapping is the engine's eye shader, so the colour is dialed
+  in-game by eye, no rebuild. This is also the lever for the "all eyes glow white" FYI — the
+  map's dark `VisionSetNaked` grade (highlight ≈ `0.69 0.72 0.80`, desaturated cool grey)
+  washes the bright orange eye glow toward white; the same grade applies to the recolour, so
+  drop `acc_glitch_eye_lum` if teal blows out.
+
+Docs: [11_enemies.md](docs/11_enemies.md), [34_flags_reference.md](docs/34_flags_reference.md).
+
+### Changed — dropped-item world models: Data Shard + Boss item now visible (user, 2026-06-17)
+
+The two custom proximity-pickups were spawning a `script_model` skinned to the
+invisible `tag_origin` placeholder — they worked but you couldn't see them on the
+ground. Both now use verified stock xmodels (no APE/GDT import; no FX, by request):
+
+- **Data Shard** (`_acc_data_shards.gsc:56`) → `p7_fxanim_zm_stal_ray_gun_ball_mod`
+  (glowing energy ball, reads as a data shard). Stock asset, used as a `script_model`
+  pickup in `_zm_weap_raygun_mark3.gsc`.
+- **Boss Cyberware item** (`_acc_boss_items.gsc:204`) → `p7_zm_zod_nitrous_tank`
+  (tech canister). Per-slot models (boots/gauntlets/visor/battery/shroud) are a later
+  art pass; one shared model for now.
+
+Pipeline (the reusable recipe for any custom drop): change the `setmodel` string →
+add a `#precache( "model", … )` directive (after `#using`/`#define`, before
+`#namespace`) → add an `xmodel,<name>` line to `zone_source/*.zone` (a `setmodel` is a
+script ref, so the linker won't pull it in otherwise — same reason the Glitch Stalker
+models are listed). Stock models need no GDT import; materials ride in transitively.
+GSC-only / linker build (no geometry). Stock-powerup drops (emergency/recursion) were
+already visible and are untouched.
+
+### Changed — HUD bars SLIDE instead of jumping: health + round-progress (user, 2026-06-17)
+
+Both meters now animate to their new value rather than snapping to it.
+
+- **Round-progress / zombies-remaining bar** (`CoD.AccRoundRing`, `acc_hud.lua`): the teal
+  fill now SLIDES via the proven LUI tween path (`completeAnimation()` →
+  `beginAnimation("keyframe", 250, …, CoD.TweenType.Linear)` — the same call
+  `CoD.AccDmgNum` uses for its alpha fade), which interpolates the `setLeftRight` offsets
+  **and** the teal→magenta `setRGB` from the current state to the target. The FIRST update
+  stays instant so the `(true,false,..)` anchor baseline is set before any tween (mixing
+  anchor flags mid-tween renders wrong). 250 ms ≈ the server push cadence
+  (`round_ring_watch` waits 0.25 s) so consecutive steps chain into a continuous drain.
+- **Player + boss health bars** (`_acc_health_bars.gsc`): new `acc_set_bar_smooth(bar_bg,
+  frac, dur)` helper drives the stock `createBar` fill (`.bar`) with `scaleOverTime` — the
+  SAME engine call stock `updateBarScale` uses for its `rateOfChange` path
+  (`hud_util_shared.gsc`) — so the fill GLIDES to the new width instead of the instant
+  `setShader` snap `hud::updateBar` does. First touch snaps (establishes size); every later
+  change animates over 0.25 s. Re-issues only when the target width changes, so the 0.1 s
+  poll calling it each tick is cheap and never restarts the glide on a no-op.
+
+LUI + GSC; linker-only build (no geometry).
+
+### Changed — crosshair damage number: teal on headshots + 20% smaller (user, 2026-06-17)
+
+The center-screen damage number (`CoD.AccDmgNum`, `acc_hud.lua`) now turns **teal
+`(0.20, 0.95, 0.85)`** when the batch landed a headshot (amber `(1.0, 0.88, 0.25)` for
+normal hits), and the text is **20% smaller** (scale `1.9` → `1.52`).
+
+Plumbing: `_acc_damage::on_ai_damage` already knows `b_headshot`, so it now passes it
+through `feed_dmg_number(attacker, final_damage, b_headshot)` → `level.acc_dmg_num_feed`
+→ `_acc_dev::acc_center_dmg_add(amount, is_headshot)`. The headshot flag is **sticky-OR'd
+across the ~0.1s accumulation batch** (per-shot color is impossible — many shots batch
+into one number), then read + cleared each push in `acc_center_dmg_push_loop`.
+
+Encoding change (the `accDmgNum` clientuimodel is a fixed **18-bit** field, max 262143, and
+the clientuimodel pool is full so it **cannot** be widened): was `dmg*2 + parity`, now
+`min(dmg,65535)*4 + headshot_bit + parity`. Capping dmg at 65535 makes the max value
+`65535*4 + 2 + 1 = 262143` fit the 18 bits **exactly** (was 99999; the lower cap only
+clamps absurd single-tick burst sums). Lua decodes `dmg = floor(v/4)`,
+`headshot = floor(v/2) % 2`, `parity = v % 2`. LUI + GSC (`_acc_damage`, `_acc_dev`,
+`_acc_lui` comment); linker build (sync + relink, no geometry).
+
 ### Fixed/Changed — HUD polish: PaP icon stretch, centered powerup list, lower row (user, 2026-06-17)
 
 In-game test feedback on the new HUD icons (`ui/uieditor/menus/hud/acc_hud.lua`):

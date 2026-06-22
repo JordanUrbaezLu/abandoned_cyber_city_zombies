@@ -37,7 +37,11 @@ function __init__()
 {
     // Must match the .csc mirror EXACTLY (scope/name/version/bits/type) AND in the
     // SAME ORDER - the bit layout is assigned in registration order.
-    clientfield::register( "clientuimodel", "accLuiTest", VERSION_SHIP, 4, "int" );
+    // [acc] Held weapon's Cyberware Overclock tier (0..5), shown as "vN" near the gun name by
+    // acc_hud.lua CoD.AccOcTierText; pushed by _acc_overclocks::oc_hud_loop. REPURPOSED 2026-06-21
+    // from the dead `accLuiTest` test field - SAME 4-bit slot in the SAME registration order, so the
+    // clientfield bit layout is UNCHANGED (no pool growth -> no overflow / stock-field break, docs/42).
+    clientfield::register( "clientuimodel", "accOcTier", VERSION_SHIP, 4, "int" );
     // Perk/PaP info card selector: code = perkIndex*4 + mode (0 = hide), +64 when the
     // viewing player holds The Armory (Mule Kick Mega) so the card shows the 10%-off
     // price. Max 10*4+3+64 = 107 -> 7 bits. Decoded + rendered by acc_hud.lua.
@@ -72,6 +76,11 @@ function __init__()
     // the clientuimodel clientfield pool is nearly full - wider count fields overflow it and
     // a STOCK field (zmhud.swordEnergy) then fails to register => Com_ERROR at load. docs/42.
     clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int" );
+    // [acc] ACTOR-scope eye-tint marker for the Glitch Stalker (teal eyes, NO FX). Separate
+    // bit pool from the clientuimodel fields above. MUST match _acc_lui.csc EXACTLY
+    // (scope/name/version/bits/type). Server only registers + sets; the client mirror owns the
+    // recolour callback. See set_actor_eye_tint + _acc_boss_glitch.gsc spawn_glitch.
+    clientfield::register( "actor", "accEyeTint", VERSION_SHIP, 1, "int" );
     callback::on_connect( &on_player_connect );
 
     // Hide the STOCK power-up active-icon HUD for the 3 timed power-ups so ONLY our Ronan
@@ -98,6 +107,14 @@ function set_pap_tier( player, tier )
     player clientfield::set_player_uimodel( "accPapTier", tier );
 }
 
+// Push the held weapon's Cyberware Overclock tier (0..5) -> acc_hud.lua "vN" indicator (0 = hidden).
+function set_oc_tier( player, tier )
+{
+    if ( !isdefined( tier ) || tier < 0 ) tier = 0;
+    if ( tier > 5 ) tier = 5;
+    player clientfield::set_player_uimodel( "accOcTier", tier );
+}
+
 // Push the Mega-perk bitmask (bit i = perk i+1 is Mega'd) so the HUD glows them.
 function set_mega_mask( player, mask )
 {
@@ -112,8 +129,9 @@ function set_owned_mask( player, mask )
     player clientfield::set_player_uimodel( "accOwnedMask", mask );
 }
 
-// Push a crosshair damage number. `value` = min(dmg,99999)*2 + parity (the caller
-// owns the parity flip so identical numbers re-pop). 0 hides the number.
+// Push a crosshair damage number. `value` = min(dmg,65535)*4 + headshot_bit + parity
+// (the caller owns the encoding: parity flips so identical numbers re-pop, bit 1 = the
+// hit was a headshot -> teal). 0 hides the number. Fits the 18-bit accDmgNum field exactly.
 function set_dmg_num( player, value )
 {
     if ( !isdefined( value ) || value < 0 ) value = 0;
@@ -133,6 +151,15 @@ function set_round_ring( player, pct )
     if ( !isdefined( pct ) || pct < 0 ) pct = 0;
     if ( pct > 100 ) pct = 100;
     player clientfield::set_player_uimodel( "accRoundRing", pct );
+}
+
+// Mark/unmark an ACTOR for the teal eye-tint recolour (Glitch Stalker). The matching client
+// callback (_acc_lui.csc eye_tint_cb) recolours ONLY this actor's eyeball material - no FX asset,
+// horde untouched. `on` falsey => clear back to the stock eye colour.
+function set_actor_eye_tint( actor, on )
+{
+    if ( !isdefined( actor ) ) return;
+    actor clientfield::set( "accEyeTint", ( IS_TRUE( on ) ? 1 : 0 ) );
 }
 
 // Per-player loop driving the round-progress bar (acc_hud.lua CoD.AccRoundRing). The bar is
@@ -197,7 +224,6 @@ function player_lui_init()
 
     self.acc_lui_menu = self OpenLUIMenu( "acc_hud" );
     wait 0.1; // menu must instantiate client-side before we push model data
-    self clientfield::set_player_uimodel( "accLuiTest", 1 );
 
     // Drive the perk-icon overlay (owned/mega bitmasks -> acc_hud.lua CoD.AccPerkBar) and
     // suppress the stock perk bar (instant zero-flash hide on perk gain + 0.25s re-assert).

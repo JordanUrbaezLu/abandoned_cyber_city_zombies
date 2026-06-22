@@ -7,7 +7,7 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 ## Map-wide perk rules
 
 - **9 perks total** — 7 stock BO3 perks (retuned) + 2 custom (Deadshot, PhD Flopper). All 9 are live on the map today.
-- **No 4-perk cap.** A single player can own and stack **all 9** perks at once if they can afford them (`level.perk_purchase_limit = 9`).
+- **Start at 4 perk slots; buy more with Data Shards (up to 9).** The base cap is `level.perk_purchase_limit = 4`; each extra slot is bought at the underground **Neural Expansion Bay** for an escalating shard cost (4/6/8/10/12), raising the per-player limit via the stock hook `level.get_player_perk_purchase_limit` (`acc_perks::acc_perk_slot_limit`). This is the marquee trench incentive — see [13_perks.md](13_perks.md) Perk-Slot Rule.
 - **Where to buy:** all perks are at the **Lab** (4 machines that re-roll to a random 4-of-9 each round). Perks cost **Points**.
 - **Mega tiers are not bought with Points.** Each base perk has a **Mega** upgrade unlocked by spending **1 Empty Mega Bottle** (dropped on every boss kill) at a Lab machine while you own the base perk and it is in rotation. Mega is **sticky for the run** (survives death/re-buy).
 - **Player HP baseline:** no perk = **100 HP**, down on the **3rd** regular zombie melee hit.
@@ -22,10 +22,10 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 - Survive **5** regular zombie melee hits — **down on the 6th** (no perk: down on the 3rd).
 
 **Mega — Ultimate Tank:**
-- Raises max health to **314 HP** — survive **6** hits, **down on the 7th**.
+- Raises max health to **300 HP** — survive **6** hits, **down on the 7th**.
 - **Immune to boss abilities** — scripted Subroutine Core disables (power-off, perks-off, boss-phase stun fields) do not affect you.
 
-**Hit counts** (at ~45 damage per zombie melee hit): **100 HP → down on 3rd · 250 HP → down on 6th · 314 HP → down on 7th**. ("Down on the Nth hit" = you survive N−1 hits; the Nth drops you into last-stand.)
+**Hit counts** (at ~45 damage per zombie melee hit): **100 HP → down on 3rd · 250 HP → down on 6th · 300 HP → down on 7th**. ("Down on the Nth hit" = you survive N−1 hits; the Nth drops you into last-stand.)
 
 ---
 
@@ -33,12 +33,12 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 
 **Base abilities:**
 - **Revive teammates in 2.0 s** (vs 3.0 s with no perk).
-- **HP regen starts 15% sooner** after you take damage — begins at **2.04 s** instead of the **2.4 s** baseline (earlier start, same heal rate).
+- **HP regen starts 20% sooner** after you take damage — begins at **1.92 s** instead of the **2.4 s** baseline (earlier start, same heal rate).
 - **Solo self-revive.** **(BASE)**
 
 **Mega — Savior:**
 - **Revive teammates in 1.0 s** (half of base QR's 2.0 s).
-- **HP regen starts 30% sooner** — begins at **1.68 s** instead of 2.4 s.
+- **HP regen starts 40% sooner** — begins at **1.44 s** instead of 2.4 s.
 - **+15% move speed** (×1.15) while any *other* player is downed / bleeding out (clears the moment nobody is down; your own down does not count). Multiplicative with other speed buffs.
 
 ---
@@ -97,9 +97,9 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 - **Third primary weapon slot** (carry 3 primaries instead of 2). **(BASE)**
 
 **Mega — The Armory:**
-- **+35% reserve ammo refilled at the start of every round**, per carried weapon (reworked 2026-06-16
+- **+20% reserve ammo refilled at the start of every round**, per carried weapon (reworked 2026-06-16
   — was "+25% capacity"; a baked reserve cap can't be raised at runtime, so it's now a sustain refill
-  instead. Also given instantly on acquire). Clamped to each gun's normal cap.
+  instead. Also given instantly on acquire. Refill rate lowered 35% → 20% on 2026-06-21). Clamped to each gun's normal cap.
 - **All buys 10% cheaper** — every point purchase (wallbuys, ammo, perks, Pack-a-Punch, Mystery Box) costs 10% less while you hold The Armory.
 
 ---
@@ -132,8 +132,9 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 - **Web grenades restock 2 at the start of each round** (also refill on Max Ammo and from blue spider-drop pickups). **(BASE)**
 
 **Mega — Spiderman:**
-- **Hold up to 6 web grenades.**
-- **Restock 4 web grenades each round** (instead of 2).
+- **6 usable web grenades** — a GSC **virtual pool** of 6 throws that auto-refills the lethal clip on use (the engine clamps the clip to ~2 in a usermap, so the old clip-fill never held — the docs/30 GDT carry-cap raise is **abandoned**). A custom **WEB GRENADES** HUD counter (top-left, under MEGA BOTTLES) shows the true count; the stock grenade-clip HUD stays clamped and isn't authoritative.
+- **Restock 4 web grenades to the pool each round** (instead of base 2).
+- **One-hit melee on regular zombies** (user 2026-06-18) — a melee from a Mega-Widow's player instakills a normal zombie; **not bosses/elites** (`is_boss_or_elite` gate). Re-adds the melee OHK the 2026-06-14 overhaul removed; the web-grenade OHK stays removed. GSC short-circuit in `_acc_damage::on_ai_damage`.
 
 ---
 
@@ -152,3 +153,5 @@ What every perk in `zm_abandoned_cyber_city` does — base tier and Mega tier, o
 
 **Mega — PhD Slider:**
 - **Bigger, stronger slide + down explosion** — radius 300 → 500u and roughly **2× damage** on both the slide nova and the down explosion, on a **shorter slide cooldown** (8s → 5s). Live from the Mega flag.
+- **1.35× SLIDE speed** (user 2026-06-18) — slide-GATED, not always-on: while you're sliding you move at 1.35× (a watcher sets `acc_mega_flopper_speed` only while `IsSliding`, mirroring the Rocket Shield; recomputed by `acc_utility::recompute_move_speed`, dvar `acc_mega_flopper_slide_mult`). Stacks **multiplicatively** with the Rocket Shield's own 1.35× slide bonus (see docs/12).
+- **+15% explosive damage** (user 2026-06-18, nerfed from +20%) — your grenades / projectiles / `MOD_EXPLOSIVE` deal +15% to zombies. A GSC damage-dealt scalar in `_acc_damage::on_ai_damage` (gated on `has_active_mega_perk`) — **no weapon twin needed** (twins are only for weapon-GDT stats like recoil / a gun's base damage).

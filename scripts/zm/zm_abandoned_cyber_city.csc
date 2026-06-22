@@ -55,6 +55,16 @@
 // autoexec registers the clientuimodel mirror (see _acc_lui.csc).
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
+// [acc] Client half of the perk/PaP power-on glow - its REGISTER_SYSTEM autoexec
+// registers the "accPerkGlow" clientfield mirror + PlayFX's the glow (see
+// _acc_perk_lights.csc / .gsc). Client-side FX is the path that renders here.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;
+
+// [acc] Client half of the Phantom holographic glow aura - its REGISTER_SYSTEM autoexec
+// registers the "accPhantomAura" actor clientfield mirror + PlayFXOnTag's the cyan glow
+// while the Phantom is materialized (see _acc_boss_phantom.csc / .gsc).
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
+
 function main()
 {
 	// [acc] Register our custom LUI HUD overlay with the client LUI VM before the

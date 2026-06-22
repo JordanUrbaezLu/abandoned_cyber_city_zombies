@@ -76,6 +76,14 @@ function init()
     zm_score::register_score_event( "death", &suppress_stock_kill_score );
     zm_score::register_score_event( "ballistic_knife_death", &suppress_stock_kill_score );
 
+    // KILL-ONLY ECONOMY (user 2026-06-18): no points-per-shot map-wide - you earn ONLY on
+    // kills. Suppress the stock per-hit score events (_zm_spawner.gsc:1941/1957/2066/2082 ->
+    // "damage" / "damage_ads" / "damage_light"). Reversible: dvar acc_hit_points 1 restores
+    // the stock per-hit values; default 0 = removed.
+    zm_score::register_score_event( "damage",       &score_per_hit );
+    zm_score::register_score_event( "damage_ads",   &score_per_hit );
+    zm_score::register_score_event( "damage_light", &score_per_hit );
+
     // VERIFIED(acc): there is no level-wide "zombie_killed" notify in stock
     // (the only notify site is on the PLAYER, no args - _zm_powerups.gsc:1463).
     // The stock per-death hook is zm_spawner::register_zombie_death_event_callback
@@ -91,8 +99,42 @@ function suppress_stock_kill_score( event, mod, hit_location, zombie_team, damag
     return 0; // _acc_points owns all kill awards (docs/06_mechanics.md Point Economy)
 }
 
+// Per-hit points (the +10/shot). Default 0 = kill-only economy (user 2026-06-18). Set
+// acc_hit_points 1 to restore the stock per-hit values the _zm_score switch would have used.
+function score_per_hit( event, mod, hit_location, zombie_team, damage_weapon )
+{
+    if ( getdvarint( "acc_hit_points", 0 ) != 1 )
+        return 0;
+
+    normal = 10;
+    if ( isdefined( level.zombie_vars ) && isdefined( level.zombie_vars[ "zombie_score_damage_normal" ] ) )
+        normal = level.zombie_vars[ "zombie_score_damage_normal" ];
+
+    if ( event == "damage_light" )
+    {
+        light = normal;
+        if ( isdefined( level.zombie_vars ) && isdefined( level.zombie_vars[ "zombie_score_damage_light" ] ) )
+            light = level.zombie_vars[ "zombie_score_damage_light" ];
+        return light;
+    }
+    if ( event == "damage_ads" )
+        return int( normal * 1.25 );
+    return normal;
+}
+
 function on_zombie_death( attacker ) // self = the killed zombie
 {
+    // Trench surge/drip zombies (tagged in _acc_bus_trench::tag_trench_zombie) are a THREAT,
+    // not a payout: a flat tiny award (default 10, dvar acc_trench_zombie_points - set 0 for
+    // none), with NO damage-share split, headshot/knife bonus, or Kinetic Battery accrual.
+    // (They're also excluded from the round count via ignore_enemy_count.)
+    if ( isdefined( self.acc_trench_zombie ) && self.acc_trench_zombie )
+    {
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+            award_player( attacker, getdvarint( "acc_trench_zombie_points", 10 ) );
+        return;
+    }
+
     distribute_points( self, attacker, self.damagemod, self.damagelocation );
 
     // Kinetic Battery accrual (docs/12): every 10 kills charges the battery;
@@ -109,7 +151,7 @@ function on_zombie_death( attacker ) // self = the killed zombie
         if ( attacker.acc_item_battery_kill_count >= 10 )
         {
             attacker.acc_item_battery_charged = true;
-            attacker iprintln( "Kinetic Battery CHARGED" );
+            attacker iprintln( "^3Charged shot ready" ); // Zapper Handle (kinetic-battery effect)
         }
     }
 }

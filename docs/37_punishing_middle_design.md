@@ -314,6 +314,19 @@ speed-writer fight by having no AI; **B** inherits those and mitigates via the G
 
 ## 11. Stage-1 shipped — per-round red-alarm room lockdown (2026-06-15)
 
+> **UPDATE 2026-06-18 — now actually RENDERS + repointed to 4 rooms + ON by default.** The original
+> red FX was played **server-side** (`PlayFXOnTag` from this `.gsc`), which does NOT render in this
+> build (the same wall the perk-glow hit — see docs/29 §7c). Reworked onto the proven **client-side
+> glow pipeline**: the red is now driven by `acc_perk_lights::set_glow(host, 1)` → the `accPerkGlow`
+> clientfield → `_acc_perk_lights.csc` PlayFX of the red `acc/light/fx_perk_glow_red` clone. The
+> module still spawns invisible `script_model` hosts at the `<zone>_spawners` anchors, but glows them
+> via the clientfield instead of server FX (steady red — the clone loops, no pulse loop). The old
+> server flash/glow FX (`fx_light_flashing_red_factory_zmb` / `fx_glow_blink_red_5`) are dropped.
+> **Rooms narrowed to the four requested: Vault / Alley / Helipad (`roof_zone`) / Market** (dropped
+> corp/lab). **`acc_lockdown_on` now defaults 1** (was 0). New knob `acc_lockdown_color` (1 red … 10
+> gold). Stage 2 door-seal scaffolding (below) unchanged — still a no-op until `acc_seal_<zone>`
+> brushes exist. The sections below describe the original 2026-06-15 server-FX design (kept for history).
+
 > **First concrete slice is built** (linker-only, OFF by default). This is the **telegraph / "place
 > is alive" read** the bigger directions both depend on (Direction A's haze, Direction B's "clear the
 > middle" beat), delivered as a standalone, asset-free piece that works on any room — not yet the

@@ -53,12 +53,12 @@ end
 local AccPerkCards = {
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
             base = { "250 HP - down on the 6th hit", "(no perk: 100 HP / 3rd hit)" },
-            mega = { "314 HP - down on the 7th hit", "Immune to boss abilities" },
-            megaFull = { "314 HP - down on the 7th hit", "Immune to boss abilities" } },
+            mega = { "300 HP - down on the 7th hit", "Immune to boss abilities" },
+            megaFull = { "300 HP - down on the 7th hit", "Immune to boss abilities" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
-            base = { "Revive teammates in 2.0s", "Regen starts 15% sooner", "Solo: self-revive" },
-            mega = { "Revive in 1.0s", "Regen starts 30% sooner", "+15% speed near a downed ally" },
-            megaFull = { "Revive teammates in 1.0s", "Regen starts 30% sooner", "Solo: self-revive", "+15% speed near a downed ally" } },
+            base = { "Revive teammates in 2.0s", "Regen starts 20% sooner", "Solo: self-revive" },
+            mega = { "Revive in 1.0s", "Regen starts 40% sooner", "+15% speed near a downed ally" },
+            megaFull = { "Revive teammates in 1.0s", "Regen starts 40% sooner", "Solo: self-revive", "+15% speed near a downed ally" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
             base = { "+50% reload speed", "Faster barrier repair" },
             mega = { "+75% reload speed" },
@@ -73,23 +73,34 @@ local AccPerkCards = {
             megaFull = { "Longer sprint (~12s)", "+15% movement speed" } },
     [6] = { title = "MULE KICK", price = "2500", megaName = "The Armory",
             base = { "Carry a 3rd primary weapon" },
-            mega = { "+35% reserve ammo each round", "All buys 10% cheaper" },
-            megaFull = { "Carry a 3rd primary weapon", "+35% reserve ammo each round", "All buys 10% cheaper" } },
+            mega = { "+20% reserve ammo each round", "All buys 10% cheaper" },
+            megaFull = { "Carry a 3rd primary weapon", "+20% reserve ammo each round", "All buys 10% cheaper" } },
     [7] = { title = "DEADSHOT", price = "3500", megaName = "American Sniper",
             base = { "+1.4 headshot dmg bonus", "ADS snaps to head (not bosses)" },
             mega = { "+1.6 headshot dmg bonus", "-50% weapon recoil" },
             megaFull = { "+1.6 headshot dmg bonus", "-50% weapon recoil", "ADS snaps to head (not bosses)" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
             base = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Restock 2 web nades / round" },
-            mega = { "Hold up to 6 web grenades", "Restock 4 / round (vs 2)" },
-            megaFull = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "Hold up to 6 web grenades", "Restock 4 web nades / round" } },
+            mega = { "6 web grenades (virtual pool)", "Restock 4 / round (vs 2)", "One-hit melee (normal zombies)" },
+            megaFull = { "Web grenades trap zombies 16s (slow 12s)", "Self-defense + melee webbing", "6 web grenades (virtual pool)", "Restock 4 / round", "One-hit melee (normal zombies)" } },
     [9] = { title = "PHD FLOPPER", price = "2500", megaName = "PhD Slider",
             base = { "Immune to fall + your own explosive damage", "Slide to set off an explosion (clears zombies)", "Explode when you go down" },
-            mega = { "Bigger explosion, shorter slide cooldown" },
-            megaFull = { "Immune to fall + your own explosive damage", "Slide: BIG explosion (shorter cooldown)", "Explode when you go down" } },
+            mega = { "Bigger explosion, shorter slide cooldown", "+20% move speed", "+20% explosive dmg" },
+            megaFull = { "Immune to fall + own explosive dmg", "Slide: BIG explosion (shorter cooldown)", "Explode when you go down", "+20% move speed", "+20% explosive dmg" } },
     [10] = { title = "PACK-A-PUNCH", price = "",
             base = { "Pack a gun, then re-pack to climb tiers:", "T1: +50% damage + camo (5000)",
                      "T2: +100% damage + UPGRADE (7500)", "T3: +150% damage MAX (10000)" } },
+}
+
+-- Overclock report card: gun display names by index (MUST match _acc_perk_info::gun_card_index).
+-- The kiosk pushes accPerkCard = 44 + gunIdx (the unused range between perk codes 0..43 and the
+-- +64 Armory-discount bit), so the card knows the held gun's name; PaP + OC levels come from the
+-- accPapTier / accOcTier models (already pushed for the held weapon).
+local AccGunNames = {
+    [0] = "Five-Seven", [1] = "ASM1", [2] = "Tac-19", [3] = "AK-47", [4] = "AE4",
+    [5] = "Ripper", [6] = "Paladin HB50", [7] = "PPSH-41", [8] = "Nail Gun", [9] = "PDW-57",
+    [10] = "M1911", [11] = "AK-74u", [12] = "Olympia", [13] = "Galil", [14] = "M60",
+    [15] = "RPD", [16] = "Wunderwaffe DG-2", [17] = "Held weapon",
 }
 
 -- Classed widget: the perk/PaP info card. Mirrors zm_building room_manager.lua /
@@ -147,6 +158,7 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
     end
 
     local papTier = 0
+    local ocTier = 0
     local cardModel = Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPerkCard")
 
     local function RenderCard(ModelRef)
@@ -155,6 +167,43 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
             self:hide()
             return
         end
+
+        -- OVERCLOCK REPORT CARD: code 44..63 = 44 + gunIdx (the unused gap between perk codes 0..43
+        -- and the +64 Armory-discount range). Walk up to the kiosk -> full report of the HELD gun:
+        -- name + PaP level/benefit + Overclock level/benefits (PaP/OC tiers from the live models).
+        -- OC benefit formula mirrors _acc_damage: +5%/tier dmg, +25%/tier glitch, 10%/tier ammo.
+        if code >= 44 and code <= 63 then
+            CardTitle:setText(AccGunNames[code - 44] or "Held weapon")
+            CardTitle:setRGB(0.30, 0.95, 0.85)
+            CardSub:setText("PaP " .. papTier .. " / 3      Overclock v" .. ocTier .. " / 5")
+            CardSub:setRGB(0.86, 0.9, 0.95)
+
+            local lines = {}
+            if papTier <= 0 then
+                lines[#lines + 1] = "Pack-a-Punch: not packed"
+            else
+                lines[#lines + 1] = "PaP " .. papTier .. "/3: " .. pap_tier_benefit(papTier)
+            end
+            if ocTier <= 0 then
+                lines[#lines + 1] = "Overclock: none - spend Data Shards here"
+            else
+                lines[#lines + 1] = "Overclock v" .. ocTier .. "/5 active:"
+                lines[#lines + 1] = "  +" .. (ocTier * 5) .. "% weapon damage (always on)"
+                lines[#lines + 1] = "  +" .. (ocTier * 25) .. "% damage vs glitch zombies"
+                lines[#lines + 1] = "  " .. (ocTier * 10) .. "% ammo back on a headshot KILL"
+            end
+            for i = 1, ACC_CARD_BULLETS do
+                if lines[i] then
+                    CardBullets[i]:setText(lines[i])
+                    CardBullets[i]:setRGB(0.55, 0.92, 0.95)
+                else
+                    CardBullets[i]:setText("")
+                end
+            end
+            self:show()
+            return
+        end
+
         -- High bit (+64) = viewer holds The Armory -> show the 10%-off price.
         local discounted = false
         if code >= 64 then
@@ -259,9 +308,15 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
 
     self:subscribeToModel(cardModel, RenderCard)
 
-    -- PaP tier: update + re-render the card (only matters while the PaP card is up).
+    -- PaP tier: update + re-render the card (only matters while the PaP / overclock card is up).
     self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accPapTier"), function(m)
         papTier = Engine.GetModelValue(m) or 0
+        RenderCard(cardModel)
+    end)
+
+    -- Overclock tier: update + re-render (matters while the overclock report card is up).
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accOcTier"), function(m)
+        ocTier = Engine.GetModelValue(m) or 0
         RenderCard(cardModel)
     end)
 
@@ -269,9 +324,12 @@ function CoD.AccPerkCard.new(HudRef, InstanceRef)
     return self
 end
 
--- Crosshair damage number. Driven by the "accDmgNum" model (value = dmg*2 + parity;
--- 0 = hide). Centered just above the crosshair so it reads as damage on the zombie
--- you're aiming at. Reliable screen-space LUI (no objective/waypoint override).
+-- Crosshair damage number. Driven by the "accDmgNum" model (value = dmg*4 + headshot*2
+-- + parity; 0 = hide). Centered just above the crosshair so it reads as damage on the
+-- zombie you're aiming at. Reliable screen-space LUI (no objective/waypoint override).
+-- Headshot hits tint the number teal (GSC sets bit 1 when the batch landed a head hit).
+local ACC_DMG_COLOR    = { 1.0, 0.88, 0.25 }   -- normal hit (amber)
+local ACC_DMG_COLOR_HS = { 0.20, 0.95, 0.85 }  -- headshot hit (teal)
 CoD.AccDmgNum = InheritFrom(LUI.UIElement)
 
 function CoD.AccDmgNum.new(HudRef, InstanceRef)
@@ -285,8 +343,8 @@ function CoD.AccDmgNum.new(HudRef, InstanceRef)
     Num:setLeftRight(true, true, 0, 0)
     Num:setTopBottom(true, true, 0, 0)
     Num:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
-    Num:setScale(1.9)
-    Num:setRGB(1.0, 0.88, 0.25)
+    Num:setScale(1.52)  -- 20% smaller than the original 1.9 (user 2026-06-17)
+    Num:setRGB(ACC_DMG_COLOR[1], ACC_DMG_COLOR[2], ACC_DMG_COLOR[3])
     Num:setAlpha(0)
     self:addElement(Num)
     self.Num = Num
@@ -300,9 +358,13 @@ function CoD.AccDmgNum.new(HudRef, InstanceRef)
             self.Num:setAlpha(0)
             return
         end
-        local dmg = math.floor(v / 2)
+        -- Decode dmg*4 + headshot*2 + parity (parity = bit0 re-pops identical numbers).
+        local dmg = math.floor(v / 4)
         if dmg <= 0 then return end
+        local hs = math.floor(v / 2) % 2 >= 1
+        local c = hs and ACC_DMG_COLOR_HS or ACC_DMG_COLOR
         self.Num:completeAnimation()
+        self.Num:setRGB(c[1], c[2], c[3])
         self.Num:setText(tostring(dmg))
         self.Num:setAlpha(1.0)
     end
@@ -362,7 +424,8 @@ function CoD.AccPerkBar.new(HudRef, InstanceRef)
     -- Bottom-left row. These 4 numbers position the whole bar - tune in-game.
     local SIZE = 44     -- icon width/height (virtual px)
     local PITCH = 38    -- horizontal spacing between owned icons (tighter = lower)
-    local START_X = 96  -- left offset of the first icon (clears the round counter)
+    local START_X = 106 -- left offset of the first icon (was 96; +10 right so it clears the round
+                        -- counter at bottom-left, user 2026-06-17)
     local BOTTOM = 26   -- gap from the bottom edge
 
     -- One UIImage per perk; hidden until owned, repositioned on each ownership change.
@@ -378,25 +441,42 @@ function CoD.AccPerkBar.new(HudRef, InstanceRef)
 
     local ownedMask = 0
     local megaMask = 0
+    local order = {}    -- perk indices in ACQUISITION order (stable slots; new perks append RIGHT)
 
-    -- Pack owned perks left-to-right (perk_card_index order); red=base / teal=Mega.
+    -- STACK owned perks in the order they were ACQUIRED (user 2026-06-17): the first perk you buy
+    -- keeps the leftmost slot, and each new perk appears to its RIGHT - NOT re-sorted by perk type
+    -- (which used to put the newest perk on the left). red=base / teal=Mega icon art.
     local function Render()
-        local slot = 0
-        for i = 0, ACC_PERK_COUNT - 1 do
-            local rec = icons[i]
-            if acc_bit_is_set(ownedMask, i) then
-                local x = START_X + slot * PITCH
-                rec.img:setLeftRight(true, false, x, x + SIZE)
-                local wantArt = acc_bit_is_set(megaMask, i) and "mega" or "base"
-                if wantArt ~= rec.art then
-                    rec.art = wantArt
-                    rec.img:setImage(RegisterImage("i_acc_perk_" .. ACC_PERK_ICONS[i] .. "_" .. wantArt))
-                end
-                rec.img:show()
-                slot = slot + 1
-            else
-                rec.img:hide()
+        -- Rebuild `order`: keep still-owned entries first (preserves each perk's existing slot),
+        -- then append any newly-owned perks (bit order only breaks ties if two are gained in one tick).
+        local newOrder = {}
+        local seen = {}
+        for _, i in ipairs(order) do
+            if acc_bit_is_set(ownedMask, i) and not seen[i] then
+                newOrder[#newOrder + 1] = i
+                seen[i] = true
             end
+        end
+        for i = 0, ACC_PERK_COUNT - 1 do
+            if acc_bit_is_set(ownedMask, i) and not seen[i] then
+                newOrder[#newOrder + 1] = i
+                seen[i] = true
+            end
+        end
+        order = newOrder
+
+        for i = 0, ACC_PERK_COUNT - 1 do icons[i].img:hide() end
+        for slot = 1, #order do
+            local i = order[slot]
+            local rec = icons[i]
+            local x = START_X + (slot - 1) * PITCH
+            rec.img:setLeftRight(true, false, x, x + SIZE)
+            local wantArt = acc_bit_is_set(megaMask, i) and "mega" or "base"
+            if wantArt ~= rec.art then
+                rec.art = wantArt
+                rec.img:setImage(RegisterImage("i_acc_perk_" .. ACC_PERK_ICONS[i] .. "_" .. wantArt))
+            end
+            rec.img:show()
         end
     end
 
@@ -536,20 +616,72 @@ function CoD.AccPapTierIcon.new(HudRef, InstanceRef)
     return self
 end
 
--- TOUCHPOINT 5 - Cyber round-progress BAR (upper-right). CoD.AccRoundRing. A health-bar-style
--- meter: FULL at round start, the teal fill drains (left-to-right) as the round's zombies are
--- killed, with a "pct%" readout centered on it. Built from CoD.TextWithBg.Bg rectangles (the
--- proven-to-render primitive used by the perk card) - no material/shader. Driven by ONE
--- clientuimodel int (_acc_lui.gsc round_ring_watch): "accRoundRing" = fill percent 0..100;
--- frac = pct/100, teal (full) -> magenta (empty) via acc_ring_color. We show % (not raw zombie
--- counts) because wider count fields overflow the full clientuimodel pool. docs/42.
+-- TOUCHPOINT 4b - Cyberware Overclock tier text ("v1".."v5"). CoD.AccOcTierText. Shows the HELD
+-- weapon's current Overclock tier as small teal text near the gun name (bottom-right, just ABOVE the
+-- PaP tier icon, so OC + PaP stack). Driven by the "accOcTier" clientuimodel (0..5;
+-- _acc_overclocks::oc_hud_loop pushes the held gun's tier on change; 0 = hidden). Plain LUI.UIText -
+-- same render-safe path as CoD.AccDmgNum (no custom material/font). (accOcTier reuses the dead
+-- accLuiTest clientfield slot - no new field, no clientfield-pool growth.)
+local ACC_OC_COLOR = { 0.20, 0.95, 0.85 }   -- cyber teal
+
+CoD.AccOcTierText = InheritFrom(LUI.UIElement)
+
+function CoD.AccOcTierText.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccOcTierText)
+    self.id = "AccOcTierText"
+
+    -- Fixed box anchored BOTTOM-RIGHT (far-edge idiom: false,true + negative offsets), just above the
+    -- PaP tier icon (RIGHT 67 / BOTTOM 82). Tune RIGHT/BOTTOM in-game to sit it by the weapon name.
+    local W = 90
+    local H = 26
+    local RIGHT = 42
+    local BOTTOM = 124
+    self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
+    self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
+
+    local Txt = LUI.UIText.new()
+    Txt:setLeftRight(true, true, 0, 0)
+    Txt:setTopBottom(true, true, 0, 0)
+    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+    Txt:setScale(1.15)
+    Txt:setRGB(ACC_OC_COLOR[1], ACC_OC_COLOR[2], ACC_OC_COLOR[3])
+    Txt:setText("")
+    self:addElement(Txt)
+    self.Txt = Txt
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accOcTier"), function(m)
+        local t = Engine.GetModelValue(m) or 0
+        if t > 0 then
+            self.Txt:setText("v" .. t)
+        else
+            self.Txt:setText("")
+        end
+    end)
+
+    return self
+end
+
+-- TOUCHPOINT 5 - Cyber "HOSTILES" threat BAR (upper-right). CoD.AccRoundRing. A layered
+-- cyberpunk depleting meter: FULL at round start, drains as the round's zombies are killed.
+-- Built ENTIRELY from CoD.TextWithBg.Bg rectangles (the only render-safe primitive here - no
+-- custom material/shader, docs/29 §14): outer cyan halo, navy track, teal->magenta drain fill,
+-- segment notches, a bright "drain front" sliver that rides the fill edge, a top accent line,
+-- four corner targeting brackets, and a small "HOSTILES" caption (the % readout was REMOVED per
+-- user 2026-06-17). Driven by ONE clientuimodel int (_acc_lui.gsc round_ring_watch):
+-- "accRoundRing" = fill percent 0..100; frac = pct/100, teal (full) -> magenta (empty) via
+-- acc_ring_color. docs/42.
 CoD.AccRoundRing = InheritFrom(LUI.UIElement)
 
 -- Bar geometry (virtual px). Upper-right; tune freely.
 local ACC_BAR_W     = 240   -- bar width
-local ACC_BAR_H     = 22    -- bar height (room for the count text)
-local ACC_BAR_RIGHT = 40    -- gap from the right edge
-local ACC_BAR_TOPC  = -200  -- vertical offset from screen CENTER (negative = up toward the top)
+local ACC_BAR_H     = 22    -- bar height
+local ACC_BAR_RIGHT = 10    -- gap from the right edge (user 2026-06-17: moved right 30, 40->10)
+local ACC_BAR_TOPC  = -300  -- vertical offset from screen CENTER (negative = up; user 2026-06-17: up 100, -200->-300)
+local ACC_BAR_HOTW  = 5     -- width of the bright "drain front" sliver
+local ACC_BAR_SEGS  = 8     -- number of segment divisions (draws SEGS-1 notches)
+local ACC_BAR_BR_TH = 2     -- corner-bracket arm thickness
+local ACC_BAR_BR_LN = 11    -- corner-bracket arm length
 
 function CoD.AccRoundRing.new(HudRef, InstanceRef)
     local self = LUI.UIElement.new()
@@ -560,47 +692,101 @@ function CoD.AccRoundRing.new(HudRef, InstanceRef)
     self:setLeftRight(false, true, -(ACC_BAR_RIGHT + ACC_BAR_W), -ACC_BAR_RIGHT)
     self:setTopBottom(false, false, ACC_BAR_TOPC, ACC_BAR_TOPC + ACC_BAR_H)
 
-    -- Navy track (empty bar) = a TextWithBg STRETCHED to fill self (the proven AccPerkCard
-    -- CardBg pattern). Always visible.
-    local Track = CoD.TextWithBg.new(HudRef, InstanceRef)
+    -- Solid-rectangle helper: an empty CoD.TextWithBg whose .Bg is the visible fill (the proven
+    -- render-safe primitive). Caller sets anchors; returns the widget (use .Bg to recolor/move).
+    local function Rect(r, g, b, a)
+        local e = CoD.TextWithBg.new(HudRef, InstanceRef)
+        e.Text:setText("")
+        e.Bg:setRGB(r, g, b)
+        e.Bg:setAlpha(a)
+        return e
+    end
+
+    -- (0) Outer cyan halo - a slightly oversized dim rect behind the track = soft glow frame.
+    local Halo = Rect(0.12, 0.55, 0.85, 0.16)
+    Halo:setLeftRight(true, true, -4, 4)
+    Halo:setTopBottom(true, true, -4, 4)
+    self:addElement(Halo)
+
+    -- (1) Navy track (empty bar), stretched to fill self.
+    local Track = Rect(0, 0.035, 0.085, 0.9)
     Track:setLeftRight(true, true, 0, 0)
     Track:setTopBottom(true, true, 0, 0)
-    Track.Text:setText("")
-    Track.Bg:setRGB(0, 0.035, 0.085)
-    Track.Bg:setAlpha(0.9)
     self:addElement(Track)
 
-    -- Teal fill: resize its inner .Bg (a UIImage) to the LEFT frac of the bar (the proven
-    -- AccPerkBar setLeftRight(true,false,x,x+W) idiom) so the teal shrinks right-to-left.
-    local Fill = CoD.TextWithBg.new(HudRef, InstanceRef)
+    -- (2) Teal->magenta drain fill: resize its inner .Bg to the RIGHT frac of the bar (proven
+    -- setLeftRight(true,false,x,x+W) idiom) so the fill shrinks and the empty part grows from left.
+    local Fill = Rect(ACC_RING_FULL[1], ACC_RING_FULL[2], ACC_RING_FULL[3], 0.95)
     Fill:setLeftRight(true, true, 0, 0)
     Fill:setTopBottom(true, true, 0, 0)
-    Fill.Text:setText("")
-    Fill.Bg:setRGB(ACC_RING_FULL[1], ACC_RING_FULL[2], ACC_RING_FULL[3])
-    Fill.Bg:setAlpha(0.95)
     self:addElement(Fill)
     self.Fill = Fill
 
-    -- "left / total" count, centered on the bar (health-bar readout, on top of the fill).
-    local Label = LUI.UIText.new()
-    Label:setLeftRight(true, true, 0, 0)
-    Label:setTopBottom(true, true, 0, 0)
-    Label:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
-    Label:setScale(0.5)
-    Label:setRGB(0.92, 0.97, 1.0)
-    self:addElement(Label)
-    self.Label = Label
+    -- (3) Segment notches - thin dark dividers over the fill = battery / tech-gauge readout.
+    for k = 1, ACC_BAR_SEGS - 1 do
+        local x = ACC_BAR_W * k / ACC_BAR_SEGS
+        local seg = Rect(0, 0.02, 0.05, 0.6)
+        seg:setLeftRight(true, false, x - 1, x + 1)
+        seg:setTopBottom(true, true, 0, 0)
+        self:addElement(seg)
+    end
 
-    -- Driven by one clientuimodel int: accRoundRing = fill PERCENT 0..100 (the raw zombie
-    -- counts would need wider fields than the full clientuimodel pool allows). frac = pct/100;
-    -- text = "pct%". (docs/42: the clientfield pool is the constraint behind showing % not counts.)
+    -- (4) Bright "drain front" sliver - rides the fill's moving left edge (positioned in the
+    -- callback). Starts hidden (alpha 0) until the first push places it.
+    local Hot = Rect(0.85, 1.0, 1.0, 0)
+    Hot:setLeftRight(true, true, 0, 0)
+    Hot:setTopBottom(true, true, 0, 0)
+    self:addElement(Hot)
+    self.Hot = Hot
+
+    -- (5) Top accent line (the perk-card cyan strip idiom).
+    local Accent = Rect(0.2, 0.75, 1.0, 0.85)
+    Accent:setLeftRight(true, true, 0, 0)
+    Accent:setTopBottom(true, false, 0, 2)
+    self:addElement(Accent)
+
+    -- (6) Four corner "targeting" brackets (8 thin arms) = cyber-HUD frame.
+    local function Bracket(lA, rA, lO, rO, tA, bA, tO, bO)
+        local e = Rect(0.3, 0.85, 1.0, 0.9)
+        e:setLeftRight(lA, rA, lO, rO)
+        e:setTopBottom(tA, bA, tO, bO)
+        self:addElement(e)
+    end
+    local TH, LN = ACC_BAR_BR_TH, ACC_BAR_BR_LN
+    Bracket(true,  false,  0,  LN, true,  false,  0,  TH)   -- top-left (horizontal arm)
+    Bracket(true,  false,  0,  TH, true,  false,  0,  LN)   -- top-left (vertical arm)
+    Bracket(false, true,  -LN,  0, true,  false,  0,  TH)   -- top-right (horizontal)
+    Bracket(false, true,  -TH,  0, true,  false,  0,  LN)   -- top-right (vertical)
+    Bracket(true,  false,  0,  LN, false, true,  -TH,  0)   -- bottom-left (horizontal)
+    Bracket(true,  false,  0,  TH, false, true,  -LN,  0)   -- bottom-left (vertical)
+    Bracket(false, true,  -LN,  0, false, true,  -TH,  0)   -- bottom-right (horizontal)
+    Bracket(false, true,  -TH,  0, false, true,  -LN,  0)   -- bottom-right (vertical)
+
+    -- Driven by one clientuimodel int: accRoundRing = fill PERCENT 0..100 (0 = round cleared).
+    -- SMOOTH SLIDE (user 2026-06-17): the fill + drain-front sliver SLIDE to the new value via the
+    -- proven LUI tween (completeAnimation -> beginAnimation, the same call CoD.AccDmgNum uses),
+    -- which interpolates the setLeftRight offsets AND setRGB from the current state. The FIRST
+    -- update is instant so the (true,false,..) anchor baseline is set before any tween. 250ms ~=
+    -- the server push cadence (round_ring_watch waits 0.25s) so steps chain into a continuous drain.
+    local ringStarted = false
     self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accRoundRing"), function(m)
         local pct = Engine.GetModelValue(m) or 100
         if pct > 100 then pct = 100 elseif pct < 0 then pct = 0 end
         local frac = pct / 100
-        self.Fill.Bg:setLeftRight(true, false, ACC_BAR_W - frac * ACC_BAR_W, ACC_BAR_W)   -- right frac (drains L->R)
+        local leftOff = ACC_BAR_W - frac * ACC_BAR_W
+        if ringStarted then
+            self.Fill.Bg:completeAnimation()
+            self.Fill.Bg:beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)
+            self.Hot.Bg:completeAnimation()
+            self.Hot.Bg:beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)
+        else
+            ringStarted = true
+        end
+        self.Fill.Bg:setLeftRight(true, false, leftOff, ACC_BAR_W)     -- right frac (drains L->R)
         self.Fill.Bg:setRGB(acc_ring_color(1 - frac))                 -- teal (full) -> magenta (empty)
-        self.Label:setText(pct .. "%")
+        -- bright drain front rides the fill's left edge; hidden once the round is cleared.
+        self.Hot.Bg:setLeftRight(true, false, leftOff - ACC_BAR_HOTW * 0.5, leftOff + ACC_BAR_HOTW * 0.5)
+        self.Hot.Bg:setAlpha(frac > 0.02 and 0.95 or 0)
     end)
 
     return self
@@ -639,6 +825,11 @@ function LUI.createMenu.acc_hud(Instance)
     local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
     Hud:addElement(PapTier)
     Hud.accPapTierIcon = PapTier
+
+    -- Overclock tier "vN" text near the gun name (above the PaP icon), driven by accOcTier.
+    local OcTier = CoD.AccOcTierText.new(Hud, Instance)
+    Hud:addElement(OcTier)
+    Hud.accOcTierText = OcTier
 
     -- Round-progress bar: a teal cyber health-bar (upper-right) that drains as the round's
     -- zombies are killed, with a "pct%" readout. Driven by accRoundRing (fill percent 0..100).

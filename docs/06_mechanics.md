@@ -36,7 +36,7 @@ Stock BO3 front-loads a slow walk phase; we **compress that window** so the firs
 
 | Lever | Rule |
 |---|---|
-| **Spawn count** | Multiply stock `[[ level.max_zombie_func ]]( n_max, n_round )` output: **×1.40** on round **1**, **×1.35** on rounds **2–4** (integer **ceil**). From round **5**, multiplier **×1.0**. Other systems (e.g. **Shortened Rounds** modifier) multiply on top of this. |
+| **Spawn count** | Multiply stock `[[ level.max_zombie_func ]]( n_max, n_round )` output: **×1.50** on round **1**, **×1.45** on rounds **2–4** (integer **ceil**). From round **5**, multiplier **×1.0**. Other systems (e.g. **Shortened Rounds** modifier) multiply on top of this. _(Moderate spawn-intensity tune, 2026-06-18 — up from ×1.40/×1.35.)_ |
 | **Move speed** | On zombie AI spawn, apply **`setmovespeedscale( 1.15 )`** for rounds **1–4** (stacks with stock anim tier). **Sprint** modifier skips this boost (see `07_replayability.md`). |
 
 **Code**: [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc) — `post_zm_main()` chains `level.max_zombie_func` from `scripts/zm/zm_abandoned_cyber_city.gsc` after `zm_usermap::main()`, still inside `main()` so the chain exists before round 1; `init()` registers `callback::on_ai_spawned` for speed. Constants: `ACC_EARLY_SPAWN_MULT_R1`, `ACC_EARLY_SPAWN_MULT`, `ACC_EARLY_SPEED_SCALE`, `ACC_EARLY_ROUND_MAX`.
@@ -213,28 +213,45 @@ Decision deferred to Phase 6 playtest.
 
 ## Data Shard Economy (detailed flow)
 
+**Data Shards are a TRENCH-ONLY economy (user, 2026-06-19).** Every shard the run produces comes from
+descending into the dangerous underground trench — there is no topside faucet. This is the whole point of
+the trench: it is the dangerous place, and shards are the reward for braving it. The loop is fully
+underground — you earn in the exposed pit and spend in the Foundry room.
+
 ```mermaid
 flowchart LR
-    Elite[Elite kill] --> Drop[Shard drops at feet]
-    Boss[Boss round ends] --> Direct[Shards granted directly]
-    Obj[Hack / Overload] --> Direct
-    Drop --> Pickup[Player picks up]
-    Pickup --> Bank[self.data_shards]
-    Direct --> Bank
-    Bank --> Skill[Cyberware spend]
-    Bank --> OC[Overclock spend]
-    Bank --> Emergency[Emergency drop spend]
+    Pit[Pit Data Caches<br/>exposed, re-arm/round, scale w/ round] --> Bank[self.acc_data_shards]
+    Warden[Trench Warden kill] --> Bank
+    Altar[Glitch Altar jackpot] --> Bank
+    Bank --> Skill[Cyberware kiosk]
+    Bank --> OC[Overclock terminal]
+    Bank --> AltarSpend[Glitch Altar gamble]
+    Bank --> Emergency[Emergency drop]
 ```
 
-### Why Shards Drop for Elites Instead of Auto-Granting
+- **SOURCE — Pit Data Caches:** two caches sit on the open trench-pit floor (the amped-horde danger zone,
+  reached for free off the stairs — no door). Each pays once per round to the first looter, then shows
+  "depleted" and re-arms next round. Yield **scales with the round** (`cache_yield`: base + 1 per
+  `acc_cache_scale_rounds`, capped at `acc_cache_yield_max`) so the faucet keeps pace with rising costs.
+- **SOURCE — Trench Warden:** the recurring trench boss grants `acc_warden_shard_reward` shards to every
+  player on death.
+- **SOURCE — Glitch Altar:** the jackpot boon (net-negative EV — see below).
+- The **topside elite drop is OFF by default** (`acc_elite_shard_drop` 0); flip it on to restore the old
+  1-shard corpse pickup if you want a surface trickle.
 
-- Skill check: you must finish the elite *and* survive long enough to grab the Shard. High-pressure situations can forfeit Shards.
-- Co-op politics: whoever grabs it gets it. Encourages communication without forcing it.
-- Visual feedback: Shards glint on the ground, giving a tactile "progress" signal.
+### The Foundry (where shards are spent)
 
-### Diminishing Returns
+All the deep sinks live in the enclosed underground room, entered from the pit through the buyable
+`enter_under_plaza` door (1500 points — a one-time investment to unlock your spend hub): the **Cyberware
+kiosk**, the **Overclock terminal**, and the **Glitch Altar**. So you brave the pit to *earn*, then duck
+into the room to *spend* without surfacing. (The Cyberware/Overclock sinks also have surface fallback
+triggers in the Lab.)
 
-To prevent low-round elite farming:
+> **Note (2026-06-19):** the old elite-kill *diminishing-returns* rule below is now inert — elites are no
+> longer a default shard source, and the DR branch was gated on a `source_tag` that was never produced. Kept
+> for historical context; the anti-farm pressure now comes from the trench danger + per-round cache re-arm.
+
+### Diminishing Returns (historical — now inert)
 
 - Past round 10, elite Shard yield is normal.
 - Between rounds 1-10, elite Shard drops reduce to 50% after the second elite kill that round.
@@ -324,6 +341,24 @@ Spend 3 Data Shards at any power switch to call an **emergency drop** - a random
 Weights are biased by round: early rounds lean economy (double points, max ammo), late rounds lean survival (full perk, insta-kill).
 
 Emergency drops are a **clutch button**. 3 Shards is meaningful (third of a full build), so you don't spam them. They exist so that a player with Shards banked and a terrible situation has a lever to pull.
+
+## Glitch Altar System (the shard gamble)
+
+The dangerous Bus Station **trench** is also a **casino**. A **Glitch Altar** sits in the Plaza-facing trench
+room: **gamble Data Shards** (default **4**, dvar `acc_altar_cost`) for a **weighted jackpot** on a short
+cooldown (`acc_altar_cooldown`, 6 s). Roughly **72% boons / 28% glitch-curses**, odds telegraphed in the use
+hint. Curses **never instant-down** you. Implemented in `_acc_glitch_altar.gsc` — a script-spawned hold-USE
+trigger + glowing core, **pure GSC** (no geometry, ships `-GscOnly`).
+
+- **Boons:** Max Ammo · Insta-Kill · Double Points · a random free Perk · **Shard Jackpot** (+7 shards) · **Mega Win** (free Perk + Insta-Kill).
+- **Curses (never down you):** **Surge** (an immediate burst of trench zombies via `acc_bus_trench::spawn_corp_surge`) · **Corruption** (lose up to 6 banked shards) · **Dud** (nothing — you lose the spin).
+
+Distinct from the Emergency Drop (the *guaranteed* 3-shard clutch button): the Altar is **higher variance**
+with a real downside, and its shard EV per spin is **negative** (the partial jackpot can't be farmed — the
+altar is a sink, the boons are the value). This is the user-chosen answer to "what do Data Shards do"
+(2026-06-18, workflow `underground-shards-design`); more shard sinks (Cyberware/Overclock kiosks, a
+deeper-access door) are planned to land with the underground floor. All payouts are live dvars
+(`acc_altar_jackpot` / `acc_altar_surge` / `acc_altar_drain`) for tuning.
 
 ## Feedback Loops (summary)
 

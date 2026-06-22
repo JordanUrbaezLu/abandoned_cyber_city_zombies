@@ -129,7 +129,11 @@ function terminal_loop()
 
         if ( result == "success" )
         {
-            acc_data_shards::grant_player( player, ACC_OVERLOAD_REWARD_SHARDS, "overload" );
+            // Trench-only economy (user 2026-06-19): shards come from the trench, so this TOPSIDE
+            // Vault objective's shard reward is OFF by default. The map-shortcut unlock still fires
+            // (it's the objective's real payoff). Set `acc_overload_shard_drop 1` to restore the +3.
+            if ( getdvarint( "acc_overload_shard_drop", 0 ) )
+                acc_data_shards::grant_player( player, ACC_OVERLOAD_REWARD_SHARDS, "overload" );
             unlock_map_shortcut();
             level.acc_overload_state = "consumed";
         }

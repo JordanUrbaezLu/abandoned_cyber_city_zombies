@@ -12,6 +12,24 @@
 
 ---
 
+## Mindset: HACKY IS GOOD — you don't own the engine
+
+Custom BO3 maps are **not production code**, and you control only the GSC/CSC/Radiant
+surface Treyarch exposed — not the engine, not stock scripts. So **when no clean API
+exists for what you want (common), the correct move is a creative hack using whatever
+lever the engine *does* give you.** Hacks are encouraged, not a compromise. Pattern:
+(1) confirm there's no first-class API (check the stock-API ledger + community ledger);
+(2) find any engine behavior that produces the effect as a side-effect; (3) ship it;
+(4) document the hack + *why* (code comment + doc + memory) so it's reused, not
+re-discovered. Worked examples from this map: **"disable" volumetric fog by pushing its
+start plane to ~100,000,000 units** (there is NO fog-off builtin — even stock `_art.gsc`
+resorts to this); HUD via clientfields because `.csc` can't call `.gsc`; surface re-skin
+by swapping the brush-face **material token** (face materials need no `.zone` line);
+per-player `VisionSetNaked` to darken when the LED lightmapper crashes on enclosed
+geometry. **A working hack beats a "clean" solution that's blocked by code you can't edit.**
+
+---
+
 ## 0. Quick reference (the commands that actually work)
 
 ```powershell
@@ -91,6 +109,10 @@ Stock prefabs live in `<tools>\map_source\_prefabs\zm\zm_core\`. Inline structs 
 - **Zones:** `info_volume` noteworthy `player_volume`, targetname `<zone>`, target `<zone>_spawners`. A zone only exists once `zone_init` runs — reached via `zm_zonemgr::add_adjacent_zone(a, b, flag)` or the `manage_zones` init list. The entry script wires the graph in `<map>::main()`.
 - **Zombie spawn locations:** `script_struct` targetname `<zone>_spawners`, noteworthy `riser_location` / `dog_location`. One `actor_spawner_zm_factory_zombie` per map drives them.
 - **Buyable doors:** `trigger_use` targetname `zombie_door`, `target <door_slab>`, `zombie_cost <n>`, `script_flag <enter_x>`. The `<door_slab>` = `script_brushmodel` (same targetname as the trigger's `target`) with `script_vector "0 0 130"` + `script_transition_time` (slides up on purchase). Stock `_zm_blockers::door_init` `flag::init`s the `script_flag` during load.
+  - **To re-close a door in script (e.g. a lockdown seal), FIRST check how the map OPENED it** — the inverse op differs:
+    - **Force-opened in place** (a dev/auto "open whole map" that does `slab ConnectPaths(); NotSolid(); Hide()` — e.g. this map's `acc_hardcoded_open_map`): the slab **never moved**, it's hidden at its closed origin z[0,128]. Re-close = `slab Show(); slab DisconnectPaths(); slab Solid();` IN PLACE. **Do NOT `MoveTo`** — the slab is already closed-position, so moving it `origin − script_vector` drops it through the floor and it stops blocking.
+    - **Stock buy path** (player bought it with points): `_zm_blockers::door_classify` auto-sets `script_string="move"` (script_vector + no script_string), so on purchase the slab `MoveTo`s `origin + (0 0 130)` and stays solid UP at z+130. There, `show/solid` in place floats a slab above the gap — instead drive the stock CLOSE `slab.door_moving = undefined; slab thread zm_blockers::door_activate(time, false)` (MoveTo back down).
+  - **Crush-safety either way:** never `Solid()` a slab a player is standing in (it can stick→eject→OOB-kill). Gate it: only `Solid()` when no `GetPlayers()[i] IsTouching(slab)` (stock `door_solid_thread`, `_zm_blockers.gsc:1104`); re-assert on a ~1s loop so it solidifies once the doorway clears. (`zm_abandoned_cyber_city` lockdown seal, 2026-06-18 — got both wrong once: show/solid floated, then door_activate dropped it through the floor because the map force-opens in place.)
 - **Perk machines:** `script_struct` targetname `zm_perk_machine`, `script_noteworthy` = specialty (e.g. `specialty_armorvest`), `model` = vending model, optional `script_string` location filter (`<gametype>_perks_<location>`).
 - **Pack-a-Punch:** `misc_prefab` model `_prefabs/zm/zm_core/vending_weapon_upgrade_spawnable.map`, `script_string <gametype>_perks_<location>`.
 - **Wallbuys:** `script_struct` targetname `weapon_upgrade` (`zombie_weapon_upgrade` = class weapon name, `target` → a second struct carrying the world `model`). Chalk decal optional.

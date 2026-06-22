@@ -20,6 +20,7 @@
 #using scripts\shared\util_shared;
 
 #using scripts\zm\_zm_magicbox;
+#using scripts\zm\_zm_utility;
 
 #insert scripts\shared\shared.gsh;
 
@@ -35,6 +36,7 @@
 #define ACC_PERK_INFO_RANGE_SQ 11025   // 105u (slightly above perk buy distance)
 #define ACC_PAP_RANGE_SQ       12100   // 110u
 #define ACC_BOX_RANGE_SQ       10000   // 100u (players "at the box" for the group discount)
+#define ACC_OC_RANGE_SQ        14400   // 120u (overclock kiosk info card - kiosk use-trigger is r64, so the card leads it)
 
 #namespace acc_perk_info;
 
@@ -127,6 +129,21 @@ function box_firesale_active()
 // the player is shown they're charged, every time, at any range you can buy from.
 function acc_perk_validate( player )
 {
+    // MAX-PERKS message (user 2026-06-19). This hook runs on F-press for a perk the player does NOT
+    // own (stock HasPerk already handled owned perks), immediately BEFORE the stock perk-limit gate
+    // (_zm_perks.gsc:585) - which only plays a deny SOUND with no explanation. If the player is at
+    // their slot limit, show a clear message + block the buy here. zm_utility::can_player_purchase_perk
+    // = num_perks < limit (with the unquenchable-BGB exception), so this matches stock's gate exactly,
+    // and the limit comes from OUR acc_perks::acc_perk_slot_limit hook. We play the deny sound ourselves
+    // since returning false here means stock never reaches its own deny.
+    if ( !player zm_utility::can_player_purchase_perk() )
+    {
+        limit = player zm_utility::get_player_perk_purchase_limit();
+        self playsound( "evt_perk_deny" );
+        player IPrintLnBold( "^1You've reached your max of ^3" + limit + " ^1perks ^7- raise the limit at the ^5Neural Expansion ^7in the Bus Station trenches" );
+        return false; // block the purchase (no buy, no charge)
+    }
+
     perk = self.script_noteworthy;
     if ( isdefined( perk ) && isdefined( level._custom_perks ) && isdefined( level._custom_perks[ perk ] ) )
     {
@@ -302,31 +319,59 @@ function update_for_player( machines, pap_org )
         nearest_id = "pap";
     }
 
+    // Overclock kiosk(s) compete too - walking up shows the held weapon's Overclock REPORT card
+    // (tier + the benefits at that tier). Origins recorded by _acc_overclocks (placed + spawned).
+    if ( isdefined( level.acc_oc_kiosk_origins ) )
+    {
+        for ( k = 0; k < level.acc_oc_kiosk_origins.size; k++ )
+        {
+            oc_sq = DistanceSquared( self.origin, level.acc_oc_kiosk_origins[ k ] );
+            if ( oc_sq < ACC_OC_RANGE_SQ && oc_sq < best_sq )
+            {
+                best_sq = oc_sq;
+                nearest_id = "overclock";
+            }
+        }
+    }
+
     code = 0; // 0 = hide the card
     if ( isdefined( nearest_id ) )
     {
-        pidx = perk_card_index( nearest_id );
-        // Context: show only what buying NOW gives you - base(0) / Mega upgrade(1)
-        // / maxed(2) / PaP tier ladder(3). The Lua card renders the right bullets.
-        mode = 0;
-        if ( nearest_id == "pap" )
-            mode = 3;
-        else if ( self HasPerk( nearest_id ) )
+        if ( nearest_id == "overclock" )
         {
-            if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
-                mode = 2;
-            else
-                mode = 1;
+            // Overclock report card: encode the HELD gun's index into the unused 44..63 code range
+            // (the gap between perk codes 0..43 and the +64 Armory bit). acc_hud.lua reads
+            // gunIdx = code-44 for the gun NAME, and the live accPapTier/accOcTier models for the
+            // PaP + Overclock levels/benefits.
+            code = 44 + gun_card_index( self GetCurrentWeapon() );
         }
-        if ( pidx > 0 )
-            code = pidx * 4 + mode;
+        else
+        {
+            pidx = perk_card_index( nearest_id );
+            // Context: show only what buying NOW gives you - base(0) / Mega upgrade(1)
+            // / maxed(2) / PaP tier ladder(3). The Lua card renders the right bullets.
+            mode = 0;
+            if ( nearest_id == "pap" )
+                mode = 3;
+            else if ( self HasPerk( nearest_id ) )
+            {
+                if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
+                    mode = 2;
+                else
+                    mode = 1;
+            }
+            if ( pidx > 0 )
+                code = pidx * 4 + mode;
+        }
     }
 
     // Armory (Mule Kick Mega) = all buys 10% cheaper. The CHARGE is already discounted
     // at point of sale (acc_perk_validate / _acc_pap_levels), so flag the card too (+64)
     // and the Lua shows the matching 10%-off price. The flag tracks the viewer's CURRENT
     // Armory status, so the card flips the instant they Mega Mule Kick / lose it.
-    if ( code != 0 && acc_mega_bottles::has_active_mega_perk( self, "specialty_additionalprimaryweapon" ) )
+    // The overclock card costs Data Shards (not Points), so the Armory 10%-off discount bit
+    // does NOT apply to it - only perk/PaP (Point) cards get +64.
+    if ( code != 0 && nearest_id != "overclock" && acc_mega_bottles::has_active_mega_perk( self, "specialty_additionalprimaryweapon" ) )
         code += 64; // ACC_CARD_DISCOUNT_BIT (acc_hud.lua RenderCard decodes it)
 
     // Pack-a-Punch: push the held weapon's CURRENT tier so the Lua card shows the
@@ -367,4 +412,31 @@ function perk_card_index( id )
     case "pap":                               return 10; // Pack-a-Punch
     }
     return 0;
+}
+
+// Stable held-gun -> card index for the Overclock REPORT card (acc_hud.lua AccGunNames).
+// MUST match that Lua table. IsSubStr covers base + PaP + perk-twin forms; 17 = other/non-box.
+function gun_card_index( weapon )
+{
+    if ( !isdefined( weapon ) || weapon == level.weaponNone ) return 17;
+    n = weapon.name;
+    if ( !isdefined( n ) ) return 17;
+    if ( IsSubStr( n, "t6_fiveseven" ) )    return 0;
+    if ( IsSubStr( n, "s1_asm1" ) )         return 1;
+    if ( IsSubStr( n, "s1_tac19" ) )        return 2;
+    if ( IsSubStr( n, "t6_ak47" ) )         return 3;
+    if ( IsSubStr( n, "s1_ae4" ) )          return 4;
+    if ( IsSubStr( n, "iw6_ripper" ) )      return 5;
+    if ( IsSubStr( n, "t8_paladin_hb50" ) ) return 6;
+    if ( IsSubStr( n, "s4_ppsh41" ) )       return 7;
+    if ( IsSubStr( n, "t9_nail_gun" ) )     return 8;
+    if ( IsSubStr( n, "s1_pdw" ) )          return 9;
+    if ( IsSubStr( n, "s2_m1911" ) )        return 10;
+    if ( IsSubStr( n, "t5_ak74u" ) )        return 11;
+    if ( IsSubStr( n, "t6_olympia" ) )      return 12;
+    if ( IsSubStr( n, "t6_galil" ) )        return 13;
+    if ( IsSubStr( n, "t6_m60" ) )          return 14;
+    if ( IsSubStr( n, "t6_rpd" ) )          return 15;
+    if ( IsSubStr( n, "tesla_gun" ) )       return 16;
+    return 17;
 }

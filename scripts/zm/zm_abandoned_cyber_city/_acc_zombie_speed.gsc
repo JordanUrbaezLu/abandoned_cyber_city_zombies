@@ -53,6 +53,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
 #define ACC_ZSPEED_SPRINT_ROUND_DEF    10   // round zombies break from jog into full sprint
 #define ACC_ZSPEED_JOG_START_PCT_DEF   100  // round-1 jog playback rate (100 = natural jog cadence)
@@ -60,6 +61,13 @@
 #define ACC_ZSPEED_SPRINT_START_PCT_DEF 100 // sprint playback rate at sprint_round (100 = natural full sprint)
 #define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 1    // + sprint playback % per round after sprint_round
 #define ACC_ZSPEED_KEEPALIVE_WAIT      1.5  // s between keep-alive re-assert sweeps
+
+// Regular-zombie melee damage to players (absolute, in HP). Stock zombie_spawn_init
+// sets self.meleeDamage = 60 (_zm_spawner.gsc:358; its trailing "// 45" shows the
+// pre-bump value). We re-assert OUR baseline every speed sweep on regular zombies
+// (boss-guarded - bosses keep their own). User 2026-06-18: 45 baseline. The trench now SCALES it
+// per layer (+acc_trench_layer_dmg_add HP per layer, user 2026-06-21) instead of a flat in-trench value.
+#define ACC_ZOMBIE_MELEE_BASE_DEF      45   // baseline melee dmg (was stock 60)
 
 #namespace acc_zombie_speed;
 
@@ -75,6 +83,11 @@ function init()
 
     callback::on_ai_spawned( &on_zombie_spawned_speed );
     level thread speed_keepalive();
+
+    // Beeline REMOVED (user 2026-06-21): the trench no longer overrides level.should_zigzag, so
+    // EVERY zombie keeps stock zig-zag pathing. (The forced beeline made the trench pack stack on
+    // one vector and bump-without-swinging.) Trench danger is now per-layer move/melee scaling only
+    // (see apply_speed_for_round), gated on the zombie's OWN position - not "all zombies run at you".
 }
 
 // VERIFIED(acc): callback::on_ai_spawned dispatches with NO args ON the spawned
@@ -169,6 +182,24 @@ function apply_speed_for_round( round )
     tier = tier_for_round( round );
     rate = rate_for_round( round );
 
+    // [acc] TRENCH PER-LAYER SCALING (user 2026-06-21): a zombie PHYSICALLY in the trench is deadlier,
+    // scaling with how deep it is (the layer). NO forced sprint, NO beeline. Gated on the ZOMBIE'S OWN
+    // position (not its target), so a surface zombie chasing a trench player stays 100% stock; the buff
+    // kicks in only once it's down here and steps up as it descends. Lives inside apply_speed_for_round
+    // so the 1.5s keepalive re-asserts SPEED. Per layer: +acc_trench_layer_speed_pct% move (here),
+    // +acc_trench_layer_hp_pct% max health (apply_trench_health, one-way), and +acc_trench_layer_dmg_add
+    // HP melee. (The +melee is NOT here - open-field zombie melee ignores self.meleeDamage [engine Melee()
+    // uses the melee WEAPON], so it's added to the player's INCOMING hit in _acc_elites::on_player_damaged
+    // -> acc_bus_trench::trench_melee_scaled.)
+    layer = trench_layer_for_zombie( self );
+    if ( layer > 0 )
+    {
+        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 5 ) / 100.0 ); // +5%/layer
+        rate = rate * spd;
+    }
+    self apply_baseline_melee();
+    self apply_trench_health( layer );
+
     // (Re)lock the gait tier ONLY when it has actually drifted. A one-shot override
     // DECAYS (stock re-evaluates locomotion on round/state change and clobbers it),
     // while ASMSetAnimationRate PERSISTS - so a drifted low tier @ our rate would be
@@ -187,6 +218,68 @@ function apply_speed_for_round( round )
     self ASMSetAnimationRate( rate );
 
     self.acc_zspeed_round = round;
+}
+
+// ---------------------------------------------------------------------------
+// Trench per-layer scaling (user 2026-06-21). A zombie standing IN the trench is deadlier, scaling with
+// how deep it is (the layer, via acc_bus_trench::underground_layer). Master gate acc_trench_aggro
+// (default 1). THREE per-layer levers:
+//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 5) - here, in apply_speed_for_round.
+//   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 25) - apply_trench_health (one-way).
+//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 10, flat) - added to the player's INCOMING
+//     damage in acc_bus_trench::trench_melee_scaled, because open-field zombie melee uses the engine
+//     Melee() weapon, NOT self.meleeDamage (a per-zombie meleeDamage write never lands).
+// NO forced sprint, NO beeline. Gated on the ZOMBIE'S OWN position, NOT its target - surface = stock.
+// ---------------------------------------------------------------------------
+
+// self = zombie. The trench LAYER this zombie is physically standing in (0 = not in a trench layer,
+// 1 = top trench, 2..N = deeper layers as they're built). 0 short-circuits the buff; the master
+// gate acc_trench_aggro also forces 0.
+function trench_layer_for_zombie( zombie )
+{
+    if ( getdvarint( "acc_trench_aggro", 1 ) != 1 )
+        return 0;
+    return acc_bus_trench::underground_layer( zombie.origin );
+}
+
+// Assert this zombie's BASELINE melee damage (ABSOLUTE HP), re-asserted every keepalive sweep. NOTE:
+// self.meleeDamage is ONLY read by the WINDOW-BOARD melee path (_zm_spawner.gsc:1156); OPEN-FIELD melee
+// (the whole trench) uses the engine Melee() builtin = the zombie's melee WEAPON, which ignores this
+// field. So the TRENCH per-layer melee bump is NOT done here - it's scaled on the player's INCOMING
+// damage (acc_bus_trench::trench_melee_scaled, from _acc_elites::on_player_damaged). This just holds the
+// 45 baseline (down from stock 60) for the board path. Boss melee is never touched (early return above).
+function apply_baseline_melee()   // self = zombie
+{
+    self.meleeDamage = getdvarint( "acc_zombie_melee_base", ACC_ZOMBIE_MELEE_BASE_DEF );
+}
+
+// Make a zombie TANKIER by its trench layer: +acc_trench_layer_hp_pct% max health per layer (user
+// 2026-06-21). ONE-WAY by the DEEPEST layer reached: we ADD the per-layer delta to current + max
+// health when the zombie descends to a NEW layer, and NEVER re-apply on the same layer. (Re-asserting
+// health every 1.5s keepalive sweep would heal it back to full = near-unkillable; adding only the
+// delta on a fresh-deeper layer is "armor" that does NOT undo damage already taken.) Base = the
+// round-scaled max health captured once at first touch (~spawn). Surface = stock; boss health never
+// touched (apply_speed_for_round returns early for bosses before this runs).
+function apply_trench_health( layer )   // self = zombie
+{
+    if ( getdvarint( "acc_trench_aggro", 1 ) != 1 ) return;
+    pct = getdvarint( "acc_trench_layer_hp_pct", 25 );
+    if ( pct <= 0 || layer <= 0 ) return;
+
+    if ( !isdefined( self.acc_base_health ) ) self.acc_base_health = self.maxhealth;   // round-scaled base
+    if ( !isdefined( self.acc_trench_hp_layer ) ) self.acc_trench_hp_layer = 0;
+
+    if ( layer <= self.acc_trench_hp_layer ) return;   // same/shallower - never re-add (no heal exploit)
+
+    target = int( self.acc_base_health * ( 1.0 + layer * pct / 100.0 ) );
+    prev   = int( self.acc_base_health * ( 1.0 + self.acc_trench_hp_layer * pct / 100.0 ) );
+    delta  = target - prev;
+    if ( delta > 0 )
+    {
+        self.maxhealth += delta;
+        self.health    += delta;   // add the new "armor" on top of current HP (does NOT heal damage taken)
+    }
+    self.acc_trench_hp_layer = layer;
 }
 
 // ---------------------------------------------------------------------------

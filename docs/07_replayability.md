@@ -87,7 +87,7 @@ Per weapon family (AR / Shotgun / Sniper; SMG + LMG pools dormant in v1.0), a we
 
 ### Mystery Box Spawn Weights
 
-Standard BO3 box move behavior. Initial spawn is weighted per run across 3 possible spawn nodes (one per weapon-carrying zone: Market, Corp, Roof). Weights re-roll.
+Standard BO3 box move behavior. There are **six** box spots in the map — Plaza, Lab, Market, Bus Station (Corp), Helipad (Roof), Vault. The **initial** spawn is **always the Plaza** (start room) — deterministic every run (`roll_mystery_box_initial` in `_acc_map_randomizer.gsc` returns `"plaza"`), so the first box is always in the same known location the players spawn into; after that the stock `_zm_magicbox` teddy-bear move rotates the single box randomly among **all six** spots (the wider pool is not constrained — only the start node is). Every node is backed by an `acc_box_<node>` chest pair (script_struct `treasure_chest_use` + a `<node>_zbarrier`) in the `.map`; the start node must have a chest or stock hides all boxes, and the Plaza always does.
 
 **No duplicates (2026-06-14):** the box never hands out a gun you already hold. The draw is filtered (via `level.CustomRandomWeaponWeights` → `acc_box_only_weapon_keys` in `_acc_map_randomizer.gsc`) to box-flagged weapons the player does not own *in any form* — base, Pack-a-Punch, or a perk-variant twin (compared by `acc_weapon_variants::true_base`, so e.g. holding a Deadshot `s1_tac19_acc_recoil35` correctly counts as owning the TAC-19). This covers the stock `keys[0]` fallback **and** the twin gap that stock `has_weapon_or_upgrade` misses. Only edge case: if you own every available box gun, the box falls back to a duplicate (max-ammo refill) — unavoidable since the box must give something.
 
@@ -99,7 +99,7 @@ Rough count:
 - Wallbuy pool: ~300 combinations across 7 slots (product of pool sizes)
 - Perk pool: ~60 combinations
 - Overclock active pool: 5 families x C(pool, 3) = very large
-- Mystery Box initial: 3
+- Mystery Box initial: 1 (always Plaza); then rotates among all 6 spots
 
 You never see the same opening twice. In practice, players will register the top ~10 archetype patterns and play into them.
 

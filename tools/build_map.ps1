@@ -172,20 +172,21 @@ if (-not $GscOnly) {
     # =======================================================================
     if (-not $SkipLED) {
         Step "Radiant LED (lighting recompute)"
-        # ⚠️ LED is a DEAD END for the current enclosed-vault geometry on this install.
-        # Verified exhaustively 2026-06-15: Radiant's lightmapper SANITY CHECK FAILUREs
-        # (brush.cpp:1860 -> Device.cpp:395 pDevice -> ProbeInst/GfxFrustumRegister cascade)
-        # in the GUI Launcher AND headless, with +localprobes ON and OFF, with BO3 running
-        # and closed. Same lightmapper limitation that shelved the lab ceilings (docs/36/38).
-        # => BUILD THIS MAP WITH -SkipLED. Darkness is delivered by a per-player vision tint
-        # in-zone (docs/37 §11), NOT a baked lightmap. Fixes already applied so LED can be
-        # retried IF the vault ceiling/seals are ever removed: +localprobes dropped (fragile
-        # GPU pass) and the 7 reflection_probe boxes' inverted Y (size_min>size_max) corrected.
+        # THE LED BAKE IS THE GATE (user, 2026-06-18). As of the pre-stage3 revert this map
+        # BAKES CLEAN (~13s, fresh .led). LED is now REQUIRED, not skipped - it's how we catch
+        # the brush.cpp:1860 regression the cumulative tightening-overhaul geometry caused.
+        # => Run a FULL build (no -SkipLED) after any geometry/.map/material/sky/probe change.
+        #    If LED HANGS on the SANITY CHECK FAILURE modal (brush.cpp:1860), the change just
+        #    re-introduced the lightmapper-killing geometry -> REVERT/FIX before testing.
+        # NOTE: Invoke-BuildExe has NO timeout, so a crash MODAL would hang this build. For an
+        # isolated, auto-killed bake check use tools/_bake_test.ps1. -SkipLED is now a RED FLAG
+        # (it hides a broken bake); only use it knowingly. Working baseline + the overhaul
+        # incompatibility: memory led-relight-dead-end-enclosed-geometry, docs/40.
         $radArgs = @('-ledSilent', '+medium', '+forceclean', '+recompute', (Q $MapSrc))
         $r = Invoke-BuildExe $Radiant $radArgs 'Radiant LED' $Bin
-        if (-not $DryRun -and $r.Code -ne 0) { Write-Host $r.Out; Warn "Radiant LED exited $($r.Code) (continuing - lighting may be stale, geometry/scripts are unaffected)" }
+        if (-not $DryRun -and $r.Code -ne 0) { Write-Host $r.Out; Warn "Radiant LED exited $($r.Code) - lighting may be stale; if it CRASHED (brush.cpp:1860) a geometry change regressed the bake - FIX before testing" }
     } else {
-        Warn "-SkipLED: lighting not recomputed"
+        Warn "-SkipLED: lighting NOT recomputed (RED FLAG - only valid for GSC/zone-only changes; never to hide a broken bake)"
     }
 } else {
     Warn "-GscOnly: skipping cod2map64 + LED (reusing the last BSP + navmesh). Invalid if any brush/entity/material moved."

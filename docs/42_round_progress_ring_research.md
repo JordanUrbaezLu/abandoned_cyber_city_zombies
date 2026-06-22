@@ -8,6 +8,27 @@ material draws in FULL SCREEN SPACE (it needs the `setShaderVector(1/2/3)` cente
 components the shipped `challenge_control.lua` sets, not just comp 0) — kept here as the
 **deferred upgrade** recipe. The GSC bridge/math (§2–4) is shared by both.
 
+**Update 2 (user, 2026-06-17): redesigned + % readout REMOVED.** The plain bar is now a
+layered cyberpunk meter (still 100% render-safe `CoD.TextWithBg.Bg` rectangles, no custom
+material): outer cyan **halo**, navy track, teal→magenta drain fill, **segment notches**, a
+bright **"drain front" sliver** that rides the fill's moving left edge (tweened with the
+fill), a **top accent line**, four **corner targeting brackets**, and a small right-aligned
+**"HOSTILES" caption** above the bar in place of the old `pct%` text. Geometry/colors are
+local consts at the top of `CoD.AccRoundRing` (`ACC_BAR_*`); tune freely.
+
+**Update (user, 2026-06-17): the shipped bar now SLIDES, not jumps.** The first bar
+implementation snapped the fill width on every push (it dropped the radial design's
+tween, §5b line 341-342). It now drives the fill with the SAME LUI tween path the
+radial sketch used — `self.Fill.Bg:completeAnimation()` →
+`beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)` around the
+`setLeftRight`/`setRGB`, with the FIRST update kept instant to establish the
+`(true,false,..)` anchor baseline before any tween. (The radial sketch animates
+`self.Fill` via `setShaderVector`; the bar animates the inner `self.Fill.Bg` via
+`setLeftRight` offsets — same tween primitive, different animated property.) The
+sibling player/boss **health** bars got the matching treatment in
+`_acc_health_bars.gsc` via a new `acc_set_bar_smooth()` helper (`scaleOverTime` on the
+stock `createBar` fill, the engine call stock `updateBarScale` itself uses).
+
 **Method:** produced by a 6-domain deep-research + adversarial-verify pass
 (2026-06-17). Every fact below was read on disk (repo + `tmp/bo3_stock_ref` stock
 mirror + shipped community usermaps `tmp/zm_building`, `tmp/zm_countryside`,

@@ -186,7 +186,9 @@ function phd_slide_watcher()
             wait 0.05;
         }
 
+        acc_utility::crash_log( self, "phd_slide_watcher: slide ->phd_explode" );
         self phd_explode();
+        acc_utility::crash_log( self, "phd_slide_watcher: phd_explode returned" );
 
         // Cooldown: ignore further slides for a beat (Mega shortens it)...
         n_cd = ( acc_mega_bottles::has_mega_perk( self, PERK_ELECTRIC_CHERRY ) ? ACC_PHD_SLIDE_CD_MEGA : ACC_PHD_SLIDE_CD );

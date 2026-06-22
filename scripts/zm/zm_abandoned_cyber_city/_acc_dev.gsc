@@ -28,6 +28,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer() for trench/abyss location titles
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
@@ -43,10 +44,12 @@ function init()
     if ( getdvarint( "acc_dev", 1 ) != 1 )
         return;
 
-    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + door markers + perk cap 18" );
+    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + door markers + all perk slots (acc_dev_perks)" );
 
-    // Raise the perk cap so all machines in the one-room test build are buyable.
-    level.perk_purchase_limit = 18;
+    // Perk cap is now owned per-player by acc_perks::acc_perk_slot_limit (the level.get_player_perk_purchase_limit
+    // hook), which returns the MAX while acc_dev + acc_dev_perks (both default-on) are set - so every machine is
+    // buyable in dev without raising the global. Flip `acc_dev_perks 0` to test the shard-bought perk-slot purchase.
+    // (Raising level.perk_purchase_limit here would be a no-op now: the hook's return overrides it.)
 
     level thread dev_unlimited_money();
     level thread dev_door_markers();
@@ -307,10 +310,15 @@ function dev_apply_jugg_state( v )
 // self = player. Accumulate damage; a push loop batches it to the crosshair number
 // every ~0.12s so sustained automatic fire reads as one steadily-updating number
 // (instead of a flicker storm) and hides shortly after you stop firing.
-function acc_center_dmg_add( amount )
+function acc_center_dmg_add( amount, is_headshot )
 {
     if ( !isdefined( self.acc_cdmg ) ) self.acc_cdmg = 0;
     self.acc_cdmg += amount;
+
+    // Sticky within the batch: any headshot in the ~0.1s accumulation window tints the
+    // pushed number teal. Per-shot coloring is impossible (many shots batch into one
+    // number), so OR the flag in here; the push loop reads + clears it each tick.
+    if ( IS_TRUE( is_headshot ) ) self.acc_cdmg_hs = true;
 
     if ( !IS_TRUE( self.acc_cdmg_loop_on ) )
     {
@@ -336,13 +344,21 @@ function acc_center_dmg_push_loop()
         // Push at the TOP so the FIRST hit shows immediately (no startup lag - the
         // loop is started from acc_center_dmg_add AFTER the hit is accumulated).
         dmg = self.acc_cdmg;
+        hs  = IS_TRUE( self.acc_cdmg_hs );
         self.acc_cdmg = 0;
+        self.acc_cdmg_hs = false;
 
         if ( dmg > 0 )
         {
-            if ( dmg > 99999 ) dmg = 99999;
+            // Encoding: dmg*4 + headshot_bit + parity, packed into the 18-bit accDmgNum
+            // clientfield (max 262143). Cap dmg at 65535 so 65535*4 + 2 + 1 = 262143 fits
+            // EXACTLY - do NOT widen the field (the clientuimodel pool is full, _acc_lui.gsc).
+            // parity flips each push so identical numbers re-pop; bit 1 = headshot (teal).
+            if ( dmg > 65535 ) dmg = 65535;
             parity = 1 - parity;
-            acc_lui::set_dmg_num( self, dmg * 2 + parity );
+            hs_bit = 0;
+            if ( hs ) hs_bit = 2;
+            acc_lui::set_dmg_num( self, dmg * 4 + hs_bit + parity );
             showing = true;
             idle_ticks = 0;
         }
@@ -391,9 +407,11 @@ function ensure_dev_huds( p )
     if ( !isdefined( p.acc_dev_zone_hud ) )
     {
         p.acc_dev_zone_hud = p hud::createFontString( "default", 2.0 );
-        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 36 );
+        // y=20 (raised 50 from 70, user 2026-06-18): sits above the top-center boss
+        // nameplate+bar (y[22,60]) near the top edge.
+        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 20 );
         p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
-        p.acc_dev_zone_hud.alpha = 0.85;
+        p.acc_dev_zone_hud.alpha = 0;   // hidden until you enter a new area (then 5s reveal, then fade)
         p.acc_dev_zone_hud.hidewheninmenu = true;
 
         // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active
@@ -402,21 +420,43 @@ function ensure_dev_huds( p )
     }
 }
 
-// Zone signage: greybox locations look identical, so show the current zone's
-// name (top of screen) + a banner on change so you can tell them apart.
+// Location title: show the current AREA's name (top of screen) ONLY when it CHANGES,
+// hold 5s, then fade out to declutter the HUD (user 2026-06-21). Re-appears for 5s on the
+// next new area. Trench/Abyss layers override the surface zone (e.g. "BUS STATION (TRENCHES LV2)").
 function dev_update_zone( p )
 {
-    zone = dev_get_player_zone( p );
-    if ( !isdefined( zone ) )
-        return;
+    area = dev_get_player_area( p );
 
-    if ( !isdefined( p.acc_dev_cur_zone ) || p.acc_dev_cur_zone != zone )
+    // Entered a NEW area -> reveal the title for 5s.
+    if ( isdefined( area ) && ( !isdefined( p.acc_dev_cur_zone ) || p.acc_dev_cur_zone != area ) )
     {
-        p.acc_dev_cur_zone = zone;
-        name = dev_zone_name( zone );
-        p.acc_dev_zone_hud SetText( name );
-        p IPrintLnBold( "^5>> " + name );
+        p.acc_dev_cur_zone = area;
+        p.acc_dev_zone_hud SetText( dev_area_name( area ) );
+        p.acc_dev_zone_hud FadeOverTime( 0.3 );
+        p.acc_dev_zone_hud.alpha = 0.85;            // fade in
+        p.acc_dev_zone_until = GetTime() + 5000;    // hold 5 seconds
+        p.acc_dev_zone_shown = true;
+        return;
     }
+
+    // 5s elapsed since the last change -> fade out (declutter).
+    if ( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown &&
+         isdefined( p.acc_dev_zone_until ) && GetTime() >= p.acc_dev_zone_until )
+    {
+        p.acc_dev_zone_hud FadeOverTime( 0.5 );
+        p.acc_dev_zone_hud.alpha = 0;               // fade out
+        p.acc_dev_zone_shown = false;
+    }
+}
+
+// Current AREA key: the trench/abyss layer (underground) OVERRIDES the surface zone, so
+// descending the trench reads "trench1".."trench5" instead of the corp surface zone.
+function dev_get_player_area( p )
+{
+    layer = acc_bus_trench::underground_layer( p.origin );
+    if ( layer > 0 )
+        return "trench" + layer;          // trench1 = the pit/Lv1 .. trench5 = the deepest floor
+    return dev_get_player_zone( p );       // surface zone key (undefined while between zone volumes)
 }
 
 function dev_get_player_zone( p )
@@ -452,6 +492,21 @@ function dev_zone_name( zone )
     case "lab_zone":    return "LAB";
     }
     return zone;
+}
+
+// Friendly area name incl. the trench/abyss layers (user format, 2026-06-21:
+// "Bus Station (Trenches LvN)"). Surface zones delegate to dev_zone_name().
+function dev_area_name( area )
+{
+    switch ( area )
+    {
+    case "trench1": return "BUS STATION (TRENCHES LV1)";
+    case "trench2": return "BUS STATION (TRENCHES LV2)";
+    case "trench3": return "BUS STATION (TRENCHES LV3)";
+    case "trench4": return "BUS STATION (TRENCHES LV4)";
+    case "trench5": return "BUS STATION (TRENCHES LV5)";
+    }
+    return dev_zone_name( area );
 }
 
 // ---------------------------------------------------------------------------

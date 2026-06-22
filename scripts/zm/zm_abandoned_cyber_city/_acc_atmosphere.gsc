@@ -43,11 +43,25 @@
 #define ACC_FOG_B               0.29  // blue > red so it reads as a cold cyber haze.
 #define ACC_FOG_MAX_OPACITY     0.80  // thick enough for mood + floor cover; dial with acc_fog_max_opacity
 
-// "The city wakes up" reveal: when POWER turns on, the fog lifts smoothly to nothing
-// over ACC_FOG_CLEAR_TIME seconds (one-way). Gated by acc_fog_clear_on_power; tune the
-// duration live with acc_fog_clear_time. Manual test trigger: `set acc_fog_clear 1`.
-#define ACC_FOG_CLEAR_TIME       12   // seconds for the haze to fade out after power-on
-#define ACC_FOG_CLEAR_ON_POWER   1    // 1 = power-on clears the fog; 0 = fog stays
+// "The city wakes up" reveal: when POWER IS TURNED ON the fog SETTLES AWAY DOWNWARD
+// (user 2026-06-18 - was first-kill). We can't fade vol fog by opacity
+// (VERIFIED(acc): zeroing opacity does NOT clear it - stock _art.gsc:231 hits the same wall),
+// so the "fade" is done by SINKING it: lower the fog's base height (the SetVolFog `baseHeight`
+// arg - the Z where the haze is densest) a SLIGHT step once per second. vol-fog opacity falls
+// off exponentially with height above the base (halving every acc_fog_halfway_height units), so
+// as the dense layer slides below the floor the haze at eye level thins to nothing - it looks
+// like the fog is settling into the ground. Once the base has sunk acc_fog_settle_depth below
+// the floor (invisible), OR acc_fog_settle_max_steps nudges have run (safety cap), we hard-
+// disable for good via disable_fog() (planes pushed out, the only true off). TRIGGER: apply_fog
+// (the single SetVolFog authority) polls the stock "power_on" FLAG each tick; once set it flips
+// level.acc_fog_cleared and runs settle_fog_step() instead of the haze. (NOTE: with the dev
+// build's auto-power, power comes on ~1.5s after the haze appears, so the haze is brief; in a
+// switch-gated ship build it holds until the player turns power on.) All knobs are live dvars.
+#define ACC_FOG_CLEAR_ON_POWER   1    // 1 = power-on settles the fog away; 0 = haze stays all match
+#define ACC_FOG_SETTLE_INTERVAL  1.0  // seconds between each slight downward nudge (user: once per second)
+#define ACC_FOG_SETTLE_STEP      200  // units the fog base sinks per nudge - keep "slight"; smaller = slower/smoother
+#define ACC_FOG_SETTLE_DEPTH     7500 // base must sink this far below the floor to read as invisible (then locked off)
+#define ACC_FOG_SETTLE_MAX_STEPS 1200 // hard cap on nudges so the descent always terminates (user: "like 1200 times")
 
 // Ambient bed = the AUDIO half of the atmosphere (the fog above is the visual
 // half). A single 2D LOOPING city/rain soundscape, authored as the alias below
@@ -61,15 +75,17 @@
 // played ONCE at game start. 2D/IsMusic alias in sound/aliases/acc_audio.csv.
 #define ACC_MUSIC_ALIAS         "acc_main_theme"
 
-// Cyber-night COLOUR GRADE = the visual half of "make it dark" that the LED bake
-// can't deliver (docs/40): a global VisionSetNaked colour grade (cool/dark), which
-// the engine applies at RUNTIME with NO lightmap bake. The grade lives in
-// vision/zm_abandoned_cyber_city.vision (zone: rawfile,vision/...). ON by default;
-// `set acc_vision_on 0` reverts to the stock "default" vision live, and
-// `set acc_vision_set <name>` hot-swaps to any loaded vision (e.g. a stock one) to
-// experiment. VERIFIED(acc): a BARE server-side `VisionSetNaked( name, blend )`
+// Cyber-night COLOUR GRADE = an optional global VisionSetNaked colour grade applied
+// at RUNTIME with NO lightmap bake (docs/40). OFF BY DEFAULT (user 2026-06-18): every
+// custom grade (cyan / magenta / neutral+cyan) read worse than stock on this flat
+// fullbright scene, so the map ships with BASE GAME COLOURS - apply_vision with
+// acc_vision_on 0 applies the stock neutral "default" vision and adds no tint of its own.
+// The custom grades are NOT deleted, just dormant: `set acc_vision_on 1` re-enables the
+// grade and `set acc_vision_set <name>` hot-swaps any loaded vision
+// (zm_abandoned_cyber_city / acc_grade_magenta / acc_grade_orange / acc_grade_dark) to
+// experiment live. VERIFIED(acc): a BARE server-side `VisionSetNaked( name, blend )`
 // sets the GLOBAL naked vision for all players (stock _emp.gsc:428-431).
-#define ACC_VISION_ON           1
+#define ACC_VISION_ON           0
 #define ACC_VISION_SET          "zm_abandoned_cyber_city"
 
 #namespace acc_atmosphere;
@@ -94,7 +110,12 @@ function init()
         level.bonuszm_musicoverride = true;
     }
 
-    level.acc_fog_fade = 1.0;   // full fog, always (the haze just stays - user 2026-06-17)
+    level.acc_fog_cleared = false;   // flips true once power is on; apply_fog then settles the fog away
+
+    // Power-on fog removal (was first-kill): apply_fog (the ONLY SetVolFog caller) polls the stock
+    // "power_on" flag each tick and, once it's set, flips acc_fog_cleared and starts the downward
+    // settle. No separate flag-wait thread (avoids the flag-not-yet-created crash) - the poll is
+    // gated by acc_fog_clear_on_power and only runs until cleared.
 
     level thread apply_fog();
     level thread apply_vision();
@@ -108,41 +129,113 @@ function apply_fog()
 
     // VERIFIED(acc): "initial_blackscreen_passed" is a FLAG (_zm.gsc) -
     // flag::wait_till returns immediately if already set; a bare waittill hangs.
+    // This wait is MANDATORY: fog cannot be set before players are in - it is literally how
+    // the haze gets set in the first place, NOT optional "flag stuff" we can drop.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    if ( !isdefined( level.acc_fog_fade ) ) level.acc_fog_fade = 1.0;
-    if ( !isdefined( level.acc_fog_target_fade ) ) level.acc_fog_target_fade = 1.0;
+    if ( !isdefined( level.acc_fog_cleared ) ) level.acc_fog_cleared = false;
 
-    // SINGLE fog authority (user 2026-06-17): this is the ONLY thread that calls
-    // SetVolFog, so nothing fights it (the old separate clear_fog thread + this loop
-    // both calling SetVolFog made the haze "flash" but never settle). It eases the live
-    // fade toward its target every 0.1s; watch_fog_clear sets the target to 0 on power-on
-    // so the haze lifts smoothly over acc_fog_clear_time. `acc_fog_on 0` stops it; the
-    // acc_fog_* tuning dvars still take effect live (re-read every tick).
+    // SINGLE fog authority (user 2026-06-17): this is the ONLY thread that calls SetVolFog, so
+    // nothing fights it. Every 0.1s it applies either the full haze OR the settle-away descent,
+    // depending on acc_fog_cleared. settle_fog_step() re-asserts the fog each tick (so nothing
+    // else re-fogs) and nudges it down once per second. `acc_fog_on 0` freezes the loop; the
+    // acc_fog_* tuning dvars take effect live.
     for ( ;; )
     {
         if ( getdvarint( "acc_fog_on", 1 ) == 1 )
         {
-            tgt = level.acc_fog_target_fade;
-            ct  = getdvarfloat( "acc_fog_clear_time", ACC_FOG_CLEAR_TIME );
-            if ( ct < 0.1 ) ct = 0.1;
-            step = 0.1 / ct;               // full 1.0 -> 0.0 over ct seconds
-
-            if ( level.acc_fog_fade > tgt )
+            // TRIGGER (user 2026-06-18): start the settle once POWER is on. Poll the stock
+            // "power_on" flag (exists-guarded; it's created early, surely by now post-blackscreen)
+            // only until cleared. Gated live by acc_fog_clear_on_power.
+            if ( !level.acc_fog_cleared
+                 && getdvarint( "acc_fog_clear_on_power", ACC_FOG_CLEAR_ON_POWER ) == 1
+                 && level flag::exists( "power_on" ) && level flag::get( "power_on" ) )
             {
-                level.acc_fog_fade = level.acc_fog_fade - step;
-                if ( level.acc_fog_fade < tgt ) level.acc_fog_fade = tgt;
-            }
-            else if ( level.acc_fog_fade < tgt )
-            {
-                level.acc_fog_fade = level.acc_fog_fade + step;
-                if ( level.acc_fog_fade > tgt ) level.acc_fog_fade = tgt;
+                level.acc_fog_cleared = true;
+                acc_utility::log( "atmosphere fog: power on -> settling away" );
             }
 
-            set_fog_from_dvars();
+            if ( level.acc_fog_cleared )
+                settle_fog_step();      // power is on -> sink the fog away (settles down over time)
+            else
+                set_fog_from_dvars();   // full cyber-night haze
         }
         wait( 0.1 );
     }
+}
+
+// Power-on "fade": instead of teleporting the fog away instantly, SINK it (user 2026-06-18).
+// Called every 0.1s once acc_fog_cleared is set (i.e. power has come on). It re-applies the haze each tick with a base
+// height that drops one SLIGHT step (acc_fog_settle_step) every acc_fog_settle_interval seconds,
+// so the dense floor layer slides straight down and the haze thins to nothing at eye level
+// (vol-fog opacity halves every acc_fog_halfway_height units above the base). When the base has
+// sunk acc_fog_settle_depth below the floor (invisible) OR acc_fog_settle_max_steps nudges have
+// run, it's locked off for good via disable_fog(). Framerate-independent: pacing is by an
+// accumulated-time counter, not per-frame, so the cadence holds at any tick rate.
+function settle_fog_step()
+{
+    // Already fully settled -> hold it hard-disabled (cheap, and blocks any re-fog).
+    if ( isdefined( level.acc_fog_settle_done ) && level.acc_fog_settle_done )
+    {
+        disable_fog();
+        return;
+    }
+
+    interval  = getdvarfloat( "acc_fog_settle_interval",  ACC_FOG_SETTLE_INTERVAL );
+    step      = getdvarfloat( "acc_fog_settle_step",      ACC_FOG_SETTLE_STEP );
+    depth     = getdvarfloat( "acc_fog_settle_depth",     ACC_FOG_SETTLE_DEPTH );
+    max_steps = getdvarint(   "acc_fog_settle_max_steps", ACC_FOG_SETTLE_MAX_STEPS );
+    if ( interval < 0.1 ) interval = 0.1;   // never faster than the tick
+
+    base_start = getdvarfloat( "acc_fog_base_height", ACC_FOG_BASE_HEIGHT );
+
+    // First settle tick after the kill: begin the descent at the current (live) base height.
+    if ( !isdefined( level.acc_fog_settle_base ) )
+    {
+        level.acc_fog_settle_base  = base_start;
+        level.acc_fog_settle_steps = 0;
+        level.acc_fog_settle_acc   = 0;     // seconds accumulated toward the next nudge
+    }
+
+    // Pace one downward nudge per `interval` seconds, even though this loop ticks every 0.1s.
+    level.acc_fog_settle_acc += 0.1;
+    if ( level.acc_fog_settle_acc + 0.001 >= interval )
+    {
+        level.acc_fog_settle_acc = 0;
+        level.acc_fog_settle_base -= step;        // the slight move, straight DOWN
+        level.acc_fog_settle_steps += 1;
+
+        // Stop once it's far enough below the floor to be invisible, or the cap is reached.
+        sunk = base_start - level.acc_fog_settle_base;
+        if ( sunk >= depth || level.acc_fog_settle_steps >= max_steps )
+        {
+            level.acc_fog_settle_done = true;
+            disable_fog();
+            acc_utility::log( "atmosphere fog: settled away after " + level.acc_fog_settle_steps + " steps" );
+            return;
+        }
+    }
+
+    // Re-apply the haze with the descending base height; colour / opacity / distances unchanged
+    // so the layer SINKS rather than fades-to-clear, and nothing else can re-fog between nudges.
+    start_dist     = getdvarfloat( "acc_fog_start_dist",     ACC_FOG_START_DIST );
+    halfway_dist   = getdvarfloat( "acc_fog_halfway_dist",   ACC_FOG_HALFWAY_DIST );
+    halfway_height = getdvarfloat( "acc_fog_halfway_height", ACC_FOG_HALFWAY_HEIGHT );
+    r              = getdvarfloat( "acc_fog_r", ACC_FOG_R );
+    g              = getdvarfloat( "acc_fog_g", ACC_FOG_G );
+    b              = getdvarfloat( "acc_fog_b", ACC_FOG_B );
+    max_opacity    = getdvarfloat( "acc_fog_max_opacity",    ACC_FOG_MAX_OPACITY );
+
+    SetVolFog( start_dist, halfway_dist, halfway_height, level.acc_fog_settle_base, r, g, b, max_opacity );
+}
+
+// Remove volumetric fog for good. VERIFIED(acc): opacity 0 does NOT clear vol fog (stock
+// _art.gsc:231: "couldn't find discreet fog disabling other than to never set it"). The
+// reliable disable is to push the fog start plane out to ~100,000,000 units so fog begins
+// far beyond the world and never reaches the camera (stock uses the same trick via setExpFog).
+function disable_fog()
+{
+    SetVolFog( 100000000, 100000001, 0, 0, 0, 0, 0, 0 );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,20 +284,20 @@ function set_fog_from_dvars()
     b              = getdvarfloat( "acc_fog_b", ACC_FOG_B );
     max_opacity    = getdvarfloat( "acc_fog_max_opacity",    ACC_FOG_MAX_OPACITY );
 
-    // Power-on "the city wakes" reveal: level.acc_fog_fade ramps 1->0 (clear_fog),
-    // scaling the opacity so the haze lifts smoothly. Defaults to 1 (full fog).
-    if ( !isdefined( level.acc_fog_fade ) )
-        level.acc_fog_fade = 1.0;
-    max_opacity = max_opacity * level.acc_fog_fade;
-
-    // VERIFIED(acc): see header - stock 8-arg signature, 0..1 RGB + opacity.
+    // VERIFIED(acc): see header - stock 8-arg signature, 0..1 RGB + opacity. Full haze at
+    // max_opacity; the power-on removal is a downward sink ending in disable_fog() (planes out),
+    // NOT an opacity ramp, because opacity 0 does not clear vol fog.
     SetVolFog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, max_opacity );
 
     acc_utility::log( "atmosphere fog applied (halfway=" + halfway_dist + " opacity=" + max_opacity + ")" );
 }
 
-// (Fog lift-on-power was removed 2026-06-17 - the haze just stays. Simpler, and it
-// never reliably faded anyway. apply_fog keeps level.acc_fog_fade at 1.0.)
+// (Fog clear history: lift-on-power -> opacity-fade-on-first-kill -> instant disable-on-first-kill
+// -> settle-away-downward-on-first-kill -> SETTLE-AWAY-DOWNWARD-on-POWER-ON. The opacity fade NEVER
+// worked: zeroing vol-fog opacity does not remove it (fixed 2026-06-17 by disable_fog() pushing the
+// planes out, per _art.gsc:231). 2026-06-18: the instant disable became a gradual downward sink
+// (settle_fog_step) for a "settles into the ground" fade, and the trigger moved from first-kill to
+// the "power_on" flag - we lower the base height, since opacity still can't be faded directly.)
 
 // ---------------------------------------------------------------------------
 // Ambient bed - global looping soundscape. Mirrors the fog pattern: wait for

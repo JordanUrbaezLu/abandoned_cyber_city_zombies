@@ -27,6 +27,7 @@
 #define ACC_BOSS_BAR_H   14
 #define ACC_BOSS_OH_W    80   // overhead (world-space) boss bar width, px
 #define ACC_BOSS_OH_H    7    // overhead (world-space) boss bar height, px
+#define ACC_WH_MARKER_SIZE 2  // zombie wallhack marker px (was 10; ~90% smaller per user 2026-06-17)
 
 #namespace acc_health_bars;
 
@@ -35,6 +36,7 @@ function init()
     acc_utility::log( "health_bars: init" );
     level thread player_bars_loop();
     level thread boss_bar_listener();
+    level thread zombie_wallhack_loop();
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +102,8 @@ function update_player_bar( p )
     if ( frac < 0 ) frac = 0;
     if ( frac > 1 ) frac = 1;
 
-    p.acc_hp_bar hud::updateBar( frac );
+    // Smooth: SLIDE the fill to the new health instead of snapping (was hud::updateBar).
+    acc_set_bar_smooth( p.acc_hp_bar, frac, 0.25 );
     // createBar returns the BG; the colored fill is .bar - recolor THAT.
     if ( isdefined( p.acc_hp_bar.bar ) )
         p.acc_hp_bar.bar.color = hp_color( frac );
@@ -122,6 +125,39 @@ function hp_color( frac )
     if ( frac > 0.66 ) return ( 0.2, 0.85, 0.25 ); // green
     if ( frac > 0.33 ) return ( 0.95, 0.8, 0.15 ); // amber
     return ( 0.9, 0.12, 0.12 );                     // red - one hit from down
+}
+
+// Smoothly SLIDE a stock createBar fill to `frac` over `dur` seconds instead of the instant
+// width snap stock hud::updateBar does (it setShaders the fill to the new width every call).
+// We drive the fill HudElem (.bar) with scaleOverTime - the SAME engine call stock
+// updateBarScale uses for its rateOfChange path (hud_util_shared.gsc) - so the bar GLIDES to
+// the new value rather than jumping. The first touch snaps (establishes the size); after that
+// every change animates. Re-issues only when the target width actually changes, so a fast
+// poll calling this each tick is cheap and doesn't restart the glide on no-ops.
+function acc_set_bar_smooth( bar_bg, frac, dur )
+{
+    if ( !isdefined( bar_bg ) || !isdefined( bar_bg.bar ) ) return;
+    if ( frac < 0 ) frac = 0;
+    if ( frac > 1 ) frac = 1;
+    if ( !isdefined( dur ) || dur <= 0 ) dur = 0.25;
+
+    fill = bar_bg.bar;
+    target_w = int( bar_bg.width * frac + 0.5 );
+    if ( target_w < 1 ) target_w = 1;
+
+    if ( !isdefined( fill.acc_shown_w ) )
+    {
+        // First touch: snap to the current width so the glide starts from the right place.
+        fill setShader( fill.shader, target_w, bar_bg.height );
+        fill.acc_shown_w = target_w;
+        fill.frac = frac;
+        return;
+    }
+    if ( fill.acc_shown_w == target_w ) return;   // unchanged -> don't restart the slide
+
+    fill scaleOverTime( dur, target_w, bar_bg.height );
+    fill.acc_shown_w = target_w;
+    fill.frac = frac;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +204,11 @@ function boss_bar_track( boss, name )
             s = sets[ i ];
             if ( !isdefined( s ) ) continue;
 
-            // (1) Screen bar - the real depleting health bar.
+            // (1) Screen bar - the real depleting health bar. Smooth: SLIDE to the new
+            // value instead of snapping (was hud::updateBar).
             if ( isdefined( s.screen_bar ) )
             {
-                s.screen_bar hud::updateBar( frac );
+                acc_set_bar_smooth( s.screen_bar, frac, 0.25 );
                 if ( isdefined( s.screen_bar.bar ) )
                     s.screen_bar.bar.color = col;
             }
@@ -218,4 +255,82 @@ function destroy_boss_bar_set( s )
     if ( !isdefined( s ) ) return;
     if ( isdefined( s.label ) ) s.label hud::destroyElem();
     if ( isdefined( s.screen_bar ) ) s.screen_bar hud::destroyElem();
+}
+
+// ---------------------------------------------------------------------------
+// Zombie wallhack markers (QA: see every zombie through walls, incl. stuck ones)
+// ---------------------------------------------------------------------------
+// HARDCODED ON (user 2026-06-17): a small red through-walls waypoint floats over every live
+// zombie so a stuck / broken-pathing one is always findable. Same proven HudElem recipe as the
+// dev door markers (_acc_dev::create_door_marker): NewClientHudElem + SetShader("white",..) +
+// SetWaypoint(true) + SetTargetEnt(zombie). "white" is an engine built-in material (no
+// missing-asset risk). NOT behind a flag, per request. TODO(ship): remove before a public build.
+//
+// Discovery loop tags each new zombie once (z.acc_wh_tagged) and hands it to a LEVEL-scoped
+// per-zombie manager (level thread, NOT a thread ON the zombie - so it survives the corpse being
+// removed and can still destroy the player-owned HudElems).
+function zombie_wallhack_loop()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    for ( ;; )
+    {
+        team = ( isdefined( level.zombie_team ) ? level.zombie_team : "axis" );
+        zombies = GetAITeamArray( team );
+        for ( i = 0; i < zombies.size; i++ )
+        {
+            z = zombies[ i ];
+            if ( !isdefined( z ) || !isalive( z ) ) continue;
+            if ( IS_TRUE( z.acc_wh_tagged ) ) continue;   // already managed
+            z.acc_wh_tagged = true;
+            level thread zombie_wallhack_one( z );
+        }
+        wait 0.5;
+    }
+}
+
+// One through-walls marker per connected player; refreshes for co-op late joins; destroys all
+// markers once the zombie is dead/removed. markers[] is keyed by the player's entity number and
+// kept LOCAL so cleanup works even after `zombie` goes undefined.
+function zombie_wallhack_one( zombie )
+{
+    level endon( "end_game" );
+
+    markers = [];
+    while ( isdefined( zombie ) && isalive( zombie ) )
+    {
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            key = p GetEntityNumber();
+            if ( isdefined( markers[ key ] ) ) continue;
+            markers[ key ] = create_zombie_marker( p, zombie );
+        }
+        wait 1;
+    }
+
+    keys = GetArrayKeys( markers );
+    for ( i = 0; i < keys.size; i++ )
+        if ( isdefined( markers[ keys[ i ] ] ) )
+            markers[ keys[ i ] ] Destroy();
+}
+
+// Red square that tracks the zombie and shows through walls (off-screen arrow points toward it).
+// "white" is the engine built-in material, tinted by .color.
+function create_zombie_marker( player, zombie )
+{
+    elem = NewClientHudElem( player );
+    elem.archived = false;
+    elem.x = 0;
+    elem.y = 0;
+    elem.z = 64;                       // float above the zombie's origin
+    elem.alpha = 0.85;
+    elem.color = ( 1.0, 0.25, 0.18 );  // red = enemy
+    elem SetShader( "white", ACC_WH_MARKER_SIZE, ACC_WH_MARKER_SIZE );  // small locator dot
+    elem SetWaypoint( true );          // constant on-screen size + edge arrow when offscreen
+    elem SetTargetEnt( zombie );
+    return elem;
 }

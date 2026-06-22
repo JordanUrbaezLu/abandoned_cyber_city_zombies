@@ -50,8 +50,8 @@ const WALL_TH = 20;                 // perimeter wall thickness (matches gen_zon
 
 // --- trench dimensions (1.2x, then 1.3x, then floor lowered another 1.2x; user 2026-06-16)
 const TRENCH_Y1 = 1723, TRENCH_Y2 = 2173;   // 450u gap, centred on y=1948 (width unchanged this pass)
-const TRENCH_FLOOR = -288;                   // walkable trench-floor top (250*1.15 ~= 288 = 18*16; now PAST the 256u native-falldmg threshold, so native fall dmg stacks on the scripted tax)
-const SLAB_BOT = -304;                        // bottom of every corp floor slab (16u under the floor)
+const TRENCH_FLOOR = -240;                   // walkable trench-floor top (user 2026-06-18: deep pit, -240). The old -288 wasn't lethal because of depth/fall - it was the stock OUT-OF-PLAYABLE-AREA kill (corp_zone player_volume only spans z[-16,400], so a player below it is "out of the map" and hard-killed). That's now VETOED for trench players in _acc_bus_trench::init (player_out_of_playable_area_monitor_callback), so depth is free. -240 (still < 256 native-falldmg, and we disable native fall dmg anyway).
+const SLAB_BOT = -256;                        // bottom of every corp floor slab (16u under the floor)
 const FLOOR_TOP = 0;
 
 // --- thin stair walkways crossing the trench ---------------------------------
@@ -69,8 +69,9 @@ const STAIR_CHANNELS = [
 ];
 const GUARD_TH = 16;                         // guard-rail thickness (sealed open side of each stair)
 const STEP = 16;                             // 16 tall / 16 deep (stock pitch)
-const N_STEPS = 17;                          // 17 * 16 = 272u run; treads -16..-272, floor at
-                                             // -288 (clean: 288 = 18*16, lowest step a full 16u)
+const N_STEPS = 14;                           // 14 * 16 = 224u run; treads -16..-224, then a clean 16u
+                                             // step down to the -240 floor. (NOT 15: 15*16=240=floor -> a
+                                             // ZERO-height bottom step = degenerate brush. 14 is the max.)
 
 let guidCounter = 0x300;
 function guid() {
@@ -157,16 +158,11 @@ for (const ch of STAIR_CHANNELS) {
 // the 288u pit (step off it and you fall in). Seal that open side with a rail
 // from the floor up to z=0, running the stair's full length but stopping at the
 // stair BOTTOM so the stair still spills onto the floor (the cross route).
-const runY = N_STEPS * STEP;
-for (const ch of STAIR_CHANNELS) {
-  const yA = (ch.side === 'south') ? TRENCH_Y1 : TRENCH_Y2 - runY;
-  const yB = (ch.side === 'south') ? TRENCH_Y1 + runY : TRENCH_Y2;
-  // Rail on the long side facing the pit = opposite the end wall it hugs.
-  const gx1 = (ch.wall === 'west') ? ch.x2 : ch.x1 - GUARD_TH;
-  const gx2 = (ch.wall === 'west') ? ch.x2 + GUARD_TH : ch.x1;
-  emit(`corp trench ${ch.name} stair guard rail`,
-    box(gx1, gx2, yA, yB, TRENCH_FLOOR, FLOOR_TOP, 'script_wall'));
-}
+// GUARD RAILS REMOVED (user, 2026-06-18): the stairs are intentionally open on
+// their pit-facing side now (the trench is a fall risk on foot). Do NOT re-emit
+// the rails on a regen, or tools/remove_guard_rails.js has to strip them again.
+// (Kept the GUARD_TH/runY context above for reference if ever re-enabled.)
+void GUARD_TH;
 
 out.push('===== MANIFEST (' + manifest.length + ' brushes) =====');
 out.push(manifest.map((m, i) => `  ${i + 1}. ${m}`).join('\n'));

@@ -47,7 +47,9 @@ function pre_init()
     // init (_zm_magicbox.gsc:96) reading level.start_chest_name (default
     // "start_chest", :58), matched against chest script_noteworthy via
     // IsSubStr (:223). Radiant chests need script_noteworthy acc_box_market /
-    // acc_box_corp / acc_box_roof.
+    // acc_box_corp / acc_box_roof / acc_box_plaza / acc_box_lab / acc_box_vault
+    // (six chests; roll_mystery_box_initial only ever returns plaza|lab so the
+    // START node always has a chest).
     level.start_chest_name = "acc_box_" + state.mystery_box_initial;
     // Perk rotation is rolled PER ROUND, not per run. See roll_perk_rotation
     // below and the hookup in init() / apply_state_when_ready().
@@ -84,16 +86,11 @@ function pre_init()
 
 function roll_power_switch_side()
 {
-    // ONE fixed power switch (user 2026-06-17): the live side is DETERMINISTIC now,
-    // not random, so the same switch works every run. Default = corp (Bus Station,
-    // origin 790 1600); override with `set acc_power_side vault` BEFORE the map loads
-    // (apply_power_switch_side runs at map init). The dead side's trigger is deleted
-    // so only one switch is functional; its baked switch body stays visible until a
-    // geometry pass removes it (Stage 2).
-    side = getdvarstring( "acc_power_side", "corp" );
-    if ( side != "corp" && side != "vault" )
-        side = "corp";
-    return side;
+    // ONE power switch, the Bus Station (corp) one (user 2026-06-18): the VAULT switch
+    // prefab was REMOVED from the map source entirely (its baked body is gone now, not just
+    // its trigger), so corp is the only switch that exists. Always corp - the `acc_power_side`
+    // override is retired (selecting "vault" would leave the map with no working switch).
+    return "corp";
 }
 
 function roll_pap_approach()
@@ -154,7 +151,19 @@ function register_mystery_box_pool()
         // fully-installed BO2 ports are used. Both pre-screened clean (empty altWeapon, single-
         // wield bulletweapon, std loc mults) and shipped TWIN-LESS (weapon-count cap). docs/33.
         "t6_olympia",            // Olympia (BO2 double-barrel shotgun)
-        "t6_galil"               // Galil   (BO2 full-auto AR)
+        "t6_galil",              // Galil   (BO2 full-auto AR)
+        // First LMGs (user 2026-06-19): M60 + RPD (Skye BO2). COMPILED models verified (the Stoner63/HK21
+        // BO1 ports the user wanted first have UNCOMPILED xmodels -> "Unable to load"; M60/RPD are complete).
+        // Diverse: M60 = heavy slow belt (600 RPM), RPD = faster drum (750 RPM). Twin-less (weapon-count cap).
+        // Native ammo for now; clip/reserve tuning is a follow-up via reduce_base_ammo. Balanced in _acc_damage.
+        "t6_m60",                // M60  (BO2 heavy belt-fed LMG)
+        "t6_rpd",                // RPD  (BO2 drum-fed LMG)
+        // WONDER WEAPON (user 2026-06-19): Wunderwaffe DG-2. STOCK common weapon (def cooked in
+        // zm_levelcommon -> NO `weapon,` .zone line; just a row in our slim weapon table CSV, the
+        // octobomb/cymbal_monkey precedent). Chain-lightning; is_limited=1 (one in the world at a time =
+        // stock WW behavior). UNIFORM box odds - the BO3 box has no rarity weighting, so is_wonder_weapon
+        // does NOT make it rarer; it rolls ~1/N like any box gun (a true rare-roll would need custom code).
+        "tesla_gun"              // Wunderwaffe DG-2 (chain lightning - the map's wonder weapon)
     );
 
     // 1) Clear is_in_box across the ENTIRE live weapon table so none of the
@@ -372,11 +381,19 @@ function apply_perk_rotation_to_machines( rotation )
 
 function roll_mystery_box_initial()
 {
-    // Pick one of the 7 box-spawn nodes - one per room (acc_box_<node> chests in
-    // the .map). The single box starts here and teddy-bear-moves among all 7.
-    // start = Plaza, corp = Bus Station, roof = Helipad.
-    nodes = array( "market", "corp", "roof", "start", "alley", "vault", "lab" );
-    return nodes[ acc_utility::acc_rand_int( nodes.size ) ];
+    // FIRST box location is ALWAYS the PLAZA (start room) - deterministic, every
+    // run (user, 2026-06-18). After this initial spawn the stock _zm_magicbox
+    // teddy-bear move rotates the single box randomly among ALL six chests in the
+    // map (market/corp/roof/plaza/lab/vault) - that wider pool is NOT constrained
+    // here, only the START node is pinned.
+    //
+    // CONTRACT: the node returned here MUST have a matching acc_box_<node> chest
+    // pair (script_struct targetname "treasure_chest_use" + zbarrier
+    // "<node>_zbarrier") in map_source/.../zm_abandoned_cyber_city.map, or stock
+    // _zm_magicbox finds no start match and HIDES ALL boxes (silent no-box, see
+    // docs/research/BO3_Mystery_Box_Radiant_anatomy_multi_.txt §C gotcha). The
+    // acc_box_plaza chest exists (added with the +3-spots change).
+    return "plaza";
 }
 
 // ---------------------------------------------------------------------------
@@ -413,37 +430,18 @@ function apply_state_when_ready()
 
 function apply_power_switch_side( side )
 {
-    // Kill the LOSING side's stock power switch so its handle becomes an
-    // inert prop, leaving the live side 100% stock (hint, flip animation,
-    // sparks, "power_on" flag, perk unpause, doors, RecordMapEvent).
+    // SINGLE power switch now (user 2026-06-18): the VAULT switch prefab was REMOVED from
+    // the map source, so the map ships ONE stock power-switch prefab (the Bus Station / corp
+    // one). This function used to delete the losing side's trigger at runtime; with only one
+    // switch in the map there is nothing to delete, so it just confirms the live switch and
+    // returns. Kept as a safety no-op (and so a future second switch could be re-introduced).
     //
-    // Radiant contract: TWO stock power-switch prefab instances. Each inner
-    // trigger carries targetname use_elec_switch plus an instance-propagated
-    // script_string "corp" / "vault" (stock reads only target / script_int /
-    // script_noteworthy on these triggers, so script_string is free for us).
-    // Each trigger has exactly one companion elec_switch_fx struct.
-    //
-    // VERIFIED(acc): stock collects the switch triggers via
-    // GetEntArray("use_elec_switch","targetname") in electric_switch_init
-    // (_zm_power.gsc:41), threaded from zm_power's __main__ - a
-    // REGISTER_SYSTEM_EX *postload* func (_zm_power.gsc:24-37) that the
-    // engine runs in CodeCallback_FinalizeInitialization AFTER entry main()
-    // returns (callbacks_shared.gsc:540-543, system_shared.gsc:17-23). This
-    // function is called from pre_init(), i.e. still inside entry main(), so
-    // the Delete() lands before stock ever sees the trigger.
-    // VERIFIED(acc): deleting here (after zm_usermap::main()) cannot skew the
-    // power clientfields - "zombie_power_on"/"zombie_power_off" bit widths
-    // are computed from the use_elec_switch trigger COUNT in
-    // init_client_field_callback_funcs (_zm.gsc:1655-1661), which zm::init
-    // already called (_zm.gsc:352) inside zm_usermap::main(), before we run.
-    // The client sizes the same fields from the elec_switch_fx struct count
-    // (_zm.csc:329-336), which we never touch. Both sides keep counting 2 -
-    // map must ship exactly 2 triggers + 2 fx structs.
-    // VERIFIED(acc): do NOT put script_int on either trigger - zoned switches
-    // set flag "power_on"+N and never the global "power_on" flag every acc
-    // consumer waits on (_zm_power.gsc:728-737).
-    dead_side = ( side == "corp" ? "vault" : "corp" );
-
+    // VERIFIED(acc): the "zombie_power_on/off" clientfield bit widths come from the
+    // use_elec_switch trigger COUNT server-side (_zm.gsc:1655-1661) and the elec_switch_fx
+    // struct count client-side (_zm.csc:329-336). Removing the WHOLE vault prefab drops both
+    // by one, so they stay consistent at 1 (a normal single-switch map). Do NOT put script_int
+    // on the trigger - that makes a ZONED switch ("power_on"+N) instead of the global "power_on"
+    // flag every acc consumer (and the fog settle) waits on (_zm_power.gsc:728-737).
     switch_trigs = getentarray( "use_elec_switch", "targetname" );
     if ( switch_trigs.size == 0 )
     {
@@ -451,6 +449,15 @@ function apply_power_switch_side( side )
         return;
     }
 
+    if ( switch_trigs.size <= 1 )
+    {
+        // Expected state: single switch (corp). Nothing to delete - it's already the only one.
+        acc_utility::log( "power: single switch (corp / Bus Station) - live, nothing to delete" );
+        return;
+    }
+
+    // Legacy path (only if a second switch is ever re-added): delete the non-live side.
+    dead_side = ( side == "corp" ? "vault" : "corp" );
     killed = 0;
     for ( i = 0; i < switch_trigs.size; i++ )
     {
@@ -460,13 +467,6 @@ function apply_power_switch_side( side )
             trig delete();
             killed++;
         }
-    }
-
-    if ( killed == 0 )
-    {
-        acc_utility::log( "power: WARNING no use_elec_switch trigger tagged '" +
-                          dead_side + "' - both switches remain live" );
-        return;
     }
 
     acc_utility::log( "power: live switch = " + side + ", deleted " + killed +
@@ -622,7 +622,11 @@ function apply_mystery_box_initial( node_name )
 
 function box_clip_nodes()
 {
-    return array( "market", "corp", "roof", "start", "alley", "vault", "lab" );
+    // One entry per real acc_box_<node> chest in the .map (the six box spots). A
+    // node with no acc_box_clip_<node> brushmodel just no-ops in set_active_box_clip
+    // (none are placed yet - the MagicBox model is walk-through on every spot today),
+    // so this list is only load-bearing once collision clips are authored.
+    return array( "market", "corp", "roof", "plaza", "lab", "vault" );
 }
 
 function set_active_box_clip( active_noteworthy )

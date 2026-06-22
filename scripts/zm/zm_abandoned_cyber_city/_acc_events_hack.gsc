@@ -132,7 +132,11 @@ function terminal_loop()
 
         if ( result == "success" )
         {
-            acc_data_shards::grant_player( player, ACC_HACK_REWARD_SHARDS, "hack_terminal" );
+            // Trench-only economy (user 2026-06-19): shards come from the trench (pit caches +
+            // Trench Warden + altar), so this TOPSIDE objective's shard reward is OFF by default.
+            // Set `acc_hack_shard_drop 1` to restore the +2 (e.g. if you want hack as a surface source).
+            if ( getdvarint( "acc_hack_shard_drop", 0 ) )
+                acc_data_shards::grant_player( player, ACC_HACK_REWARD_SHARDS, "hack_terminal" );
             // TODO(acc-oc): grant a free Overclock roll voucher as documented
             // once the overclock voucher system exists.
             level.acc_hack_state = "consumed";

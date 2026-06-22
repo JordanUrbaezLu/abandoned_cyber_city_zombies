@@ -133,6 +133,14 @@ function main()
 	// undefined, so pre-setting wins.
 	level._zombie_custom_add_weapons =&custom_add_weapons;
 
+	// [acc] Disable stock dog/hellhound rounds entirely (user 2026-06-18). Stock
+	// zm_usermap::main DEFAULTs level.dog_rounds_allowed to 1 then calls
+	// zm_ai_dogs::enable_dog_rounds() -> threads dog_round_tracker (a dog round
+	// every 4-7 rounds). Pre-setting 0 makes that gate fail so the tracker never
+	// starts. No normal-round-pacing side effect (dogs use a separate special-round
+	// counter); the 7 orphan dog_location structs stay (harmless once tracker off).
+	level.dog_rounds_allowed = 0;
+
 	zm_usermap::main();
 
 	// [acc] Disable stock Alternate Ammo Types (AAT) on Pack-a-Punch. Our PaP is
@@ -146,9 +154,10 @@ function main()
 	// dvars is a clean consumer game (closed map, earn your own money, decon hazard
 	// live). The launch scripts (PLAY_TEST_MAP.bat / tools/run_game.ps1) set these
 	// for test sessions. Full reference: docs/34_flags_reference.md.
-	//   +set acc_dev 1      -> unlimited money + Data Shards + Mega Bottles, auto-power,
-	//                          dev banner (and enables the _acc_dev module: perk cap 18,
-	//                          dev HUDs, teleport / round-skip / open-doors console cmds).
+	//   +set acc_dev 1      -> unlimited money + Data Shards + Mega Bottles + dev banner
+	//                          (and enables the _acc_dev module: perk cap 18, dev HUDs,
+	//                          teleport / round-skip / open-doors console cmds). Power is NO
+	//                          longer auto-on - flip the Bus Station switch (or `acc_auto_power 1`).
 	//   +set acc_open_map 1 -> open every buyable door + both PaP blockers on spawn so
 	//                          the whole map is walkable, AND disable the decontamination
 	//                          zone-seal hazard (lethal to a player roaming a fully-open
@@ -202,13 +211,13 @@ function main()
 	//Start Points
 	level.player_starting_points = 500;
 
-	// [acc] No perk cap (docs/13): all 9 perks can be held at once.
-	// VERIFIED(acc): level.perk_purchase_limit is the writable stock field
-	// (default 4, _zm_perks.gsc:43; consumed via can_player_purchase_perk ->
-	// get_player_perk_purchase_limit, _zm_utility.gsc:5874-5889). Shipped
-	// precedent: zm_alien_isolation sets 100 (zm_alien_isolation.gsc:209),
-	// zm_countryside sets 15 - see docs/22_community_techniques.md.
-	level.perk_purchase_limit = 9;
+	// [acc] BASE perk cap = 4 (user 2026-06-19): you START with 4 slots and BUY more (up to 9) with
+	// Data Shards at the underground Neural Expansion Bay - the marquee trench incentive. The per-player
+	// limit is applied on top of this base by acc_perks::acc_perk_slot_limit, installed as the stock
+	// hook level.get_player_perk_purchase_limit (consumed by can_player_purchase_perk ->
+	// get_player_perk_purchase_limit, _zm_utility.gsc:5874-5889). VERIFIED(acc): level.perk_purchase_limit
+	// is the writable stock base field (default 4, _zm_perks.gsc:43).
+	level.perk_purchase_limit = 4;
 
 	level zm_perks::spare_change();
 
@@ -241,21 +250,19 @@ function acc_hardcoded_dev()
 	// (flag::wait_till returns immediately if already set).
 	level flag::wait_till( "initial_blackscreen_passed" );
 
-	// HARDCODED power-on (user 2026-06-17): do EXACTLY what flipping the switch does.
-	// The stock switch handler (_zm_power.gsc:106 + :115) runs TWO calls, and each of my
-	// earlier attempts only did one piece:
-	//   1) zm_perks::perk_unpause_all_perks()      -> LIGHTS the perk machines + buyable
-	//   2) zm_power::turn_power_on_and_open_doors() -> sets power_on flag + zombie_power_on
-	//      clientfield -> PaP powers (its "turn on power" hint clears), traps arm, doors open
-	// Setting the flag alone fired NEITHER, which is why perks stayed dark + PaP still
-	// said "turn on power". No switch, no console, no fog flash.
-	// (Set acc_auto_power 0 to gate it behind the switch later.)
-	if ( getdvarint( "acc_auto_power", 1 ) == 1 && !( level flag::get( "power_on" ) ) )
+	// OPTIONAL auto power-on, OFF by default (user 2026-06-18): power now comes from the
+	// Bus Station (corp) power switch the player flips - the stock switch handler
+	// (_zm_power.gsc:106 + :115) runs the two calls below itself (perk_unpause_all_perks +
+	// turn_power_on_and_open_doors), which lights perks + buyable, sets the "power_on" flag
+	// (-> PaP powers, traps arm, doors open) AND triggers the fog settle (apply_fog polls
+	// power_on). So nothing here is needed in normal play. Kept behind `acc_auto_power 1` as a
+	// dev shortcut to skip hunting for the switch (replicates exactly what the flip does).
+	if ( getdvarint( "acc_auto_power", 0 ) == 1 && !( level flag::get( "power_on" ) ) )
 	{
 		wait 1.5;   // let the power system + perk machines finish registering powered-items
 		level thread zm_perks::perk_unpause_all_perks();
 		level zm_power::turn_power_on_and_open_doors();
-		acc_utility::log( "auto power-on: replicated switch (perks lit + buyable, PaP/traps on)" );
+		acc_utility::log( "auto power-on (dev): replicated switch (perks lit + buyable, PaP/traps on, fog settles)" );
 	}
 
 	count = 0;
@@ -275,12 +282,17 @@ function acc_hardcoded_dev()
 			if ( cur < 100000 )
 				p zm_score::add_to_player_score( 1000000 - cur );
 
-			// Unlimited Data Shards (Cyberware / Overclock currency). grant_player
-			// clamps to the cap + syncs the HUD; "dev" source skips diminishing.
-			if ( !isdefined( p.acc_data_shards ) )
-				p.acc_data_shards = 0;
-			if ( p.acc_data_shards < 200 )
-				acc_data_shards::grant_player( p, 999, "dev" );
+			// Unlimited Data Shards (Cyberware / Overclock currency). grant_player clamps to the
+			// cap + syncs the HUD; "dev" source skips diminishing. Gated by acc_dev_shards (default
+			// 1) so you can flip `acc_dev_shards 0` to PLAYTEST the real trench shard economy while
+			// the rest of dev mode (god money / open map) stays on (user 2026-06-19).
+			if ( getdvarint( "acc_dev_shards", 1 ) )
+			{
+				if ( !isdefined( p.acc_data_shards ) )
+					p.acc_data_shards = 0;
+				if ( p.acc_data_shards < 200 )
+					acc_data_shards::grant_player( p, 999, "dev" );
+			}
 
 			// Mega Bottles topped up so perk Mega-upgrades are testable WITHOUT
 			// having to kill the boss (own the perk, hold a bottle, look at its
