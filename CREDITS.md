@@ -24,7 +24,7 @@ the BO3 sound build; source WAVs tracked in `sound_assets/acc/`.
 
 | Alias | File | Source | License | Use |
 |---|---|---|---|---|
-| `acc_main_theme` | `sound_assets/acc/music/main_theme.wav` | Joth — "Cyberpunk Moonlight Sonata" ([OpenGameArt](https://opengameart.org/content/cyberpunk-moonlight-sonata)) | CC0 | main theme; plays once at game start (stock ZM music disabled) |
+| `acc_main_theme` | `sound_assets/acc/music/main_theme.wav` | **StockTune** — "Ethereal Neon Odyssey" (user, 2026-06-19) | ⚠️ **VERIFY before publish** — StockTune is royalty-free but **not confirmed CC0**; ship policy above is CC0/stock/original only. Confirm StockTune's license permits Workshop redistribution, or swap back to a CC0 track. | main theme; plays once at game start (stock ZM music disabled) |
 | `acc_amb_city_bed` | `sound_assets/acc/amb/city_bed.wav` | Joth — "Ambience Pack 1: Sci-Fi Horror" (*Infestation in the Control Room*) ([OpenGameArt](https://opengameart.org/content/ambience-pack-1-sci-fi-horror)) | CC0 | global ambient bed (dvar `acc_amb_on`) |
 
 ## Third-party enemy / character assets (game-rip — IP review before Public)

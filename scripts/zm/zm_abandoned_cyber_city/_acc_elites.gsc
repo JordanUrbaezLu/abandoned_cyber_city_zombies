@@ -30,6 +30,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
 // ---------------------------------------------------------------------------
 // Tuning (tuned against docs/04_progression_and_skills.md difficulty table)
@@ -139,7 +140,8 @@ function spawn_elites_over_round( quota, round_number )
     // Spread the quota across the round at 20%, 50%, 80%, ... of round duration.
     // We use a hacky "wait a few seconds then spawn" model; real impl should
     // hook the stock round-clock if we want perfect timing.
-    spacing_sec = 45; // TODO(acc-tune): scale with round expected length.
+    spacing_sec = 38; // Moderate spawn-intensity tune 2026-06-18 (was 45).
+                      // TODO(acc-tune): scale with round expected length.
 
     for ( i = 0; i < quota; i++ )
     {
@@ -285,20 +287,29 @@ function promote_to_emp( z )
 function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, weapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
     if ( !isdefined( iDamage ) || iDamage <= 0 ) return -1;
-    if ( !isdefined( eAttacker ) || !IS_TRUE( eAttacker.acc_emp_on_hit ) ) return -1;
 
-    // VERIFIED(acc): zombie melee on players arrives as meansofdeath
-    // "MOD_MELEE" - the factory-zombie attack is entity.enemy DoDamage( ...,
-    // "MOD_MELEE" ) with the zombie itself as attacker (shared/ai/zombie.gsc:402).
+    // We only act on zombie MELEE. VERIFIED(acc): zombie melee on players arrives as meansofdeath
+    // "MOD_MELEE" (shared/ai/zombie.gsc:402 / engine Melee()).
     if ( !isdefined( sMeansOfDeath ) || sMeansOfDeath != "MOD_MELEE" ) return -1;
 
-    // This hook fires BEFORE player_damage_override's laststand/god-mode
-    // checks (_zm.gsc:5110 vs :5137) - don't debuff downed/invalid players.
+    // This hook fires BEFORE player_damage_override's laststand/god-mode checks (_zm.gsc:5110 vs
+    // :5137) - don't act on downed/invalid players.
     if ( !zm_utility::is_player_valid( self ) ) return -1;
 
-    self apply_emp_melee_debuff();
+    // EMP elite on-hit debuff (side effect; leaves the damage value alone).
+    if ( isdefined( eAttacker ) && IS_TRUE( eAttacker.acc_emp_on_hit ) )
+        self apply_emp_melee_debuff();
 
-    return -1; // the hit's damage itself is unchanged
+    // TRENCH per-layer melee bump (user 2026-06-21): a melee hit while you're in trench layer L hits
+    // for +acc_trench_layer_dmg_add HP per layer (flat). This is the ONLY reliable lever - open-field zombie melee
+    // deals engine Melee() WEAPON damage and ignores self.meleeDamage, so we scale the INCOMING hit
+    // here. Returns the modified damage (check_player_damage_callbacks uses the first != -1 return,
+    // _zm.gsc:5512); -1 = leave unchanged. Done LAST so the returned value reflects the scaling.
+    scaled = acc_bus_trench::trench_melee_scaled( self, iDamage );
+    if ( scaled != iDamage )
+        return scaled;
+
+    return -1; // unchanged
 }
 
 // Runs on the player. No waits - keeps the damage pipeline synchronous.
@@ -341,8 +352,11 @@ function on_elite_zombie_death( attacker )
 
     level.acc_elite_active_count = acc_utility::clamp_int( level.acc_elite_active_count - 1, 0, 99 );
 
-    // Spawn shard pickup at corpse origin.
-    acc_data_shards::spawn_pickup_at( self.origin, ACC_ELITE_SHARD_REWARD );
+    // Trench-only economy (user 2026-06-19): elites are NOT a shard source by default - shards come
+    // from the trench (pit caches + Trench Warden + Glitch Altar), so the topside elite drop here is
+    // OFF unless re-enabled. Set `acc_elite_shard_drop 1` to restore the 1-shard corpse pickup.
+    if ( getdvarint( "acc_elite_shard_drop", 0 ) )
+        acc_data_shards::spawn_pickup_at( self.origin, ACC_ELITE_SHARD_REWARD );
 
     // Subroutine T3 capstone - every 5th elite drops a random pickup.
     if ( isdefined( attacker ) && isplayer( attacker ) && isdefined( attacker.acc_cw_recursion_active ) )

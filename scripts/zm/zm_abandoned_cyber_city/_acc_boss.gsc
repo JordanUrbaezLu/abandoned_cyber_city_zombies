@@ -42,8 +42,9 @@
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
 #define ACC_BOSS_MINI_HP 250000      // 5x the 50k baseline (was 10x/500000, lowered 2026-06-16)
-#define ACC_BRUTUS_FIRST_ROUND 4     // first Brutus round (user 2026-06-15, "for now")
-#define ACC_BRUTUS_INTERVAL 5        // then every 5 rounds (r4, 9, 14, 19, 24, ...)
+#define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
+#define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
+#define ACC_BRUTUS_RESPAWN_INTERVAL 3 // Trench Warden: rounds AFTER a kill before he respawns (user 2026-06-18)
 
 #namespace acc_boss;
 
@@ -52,6 +53,14 @@ function init()
     acc_utility::log( "boss init" );
 
     level thread round_hook_loop();
+
+    // Trench Warden (Brutus) schedule (user 2026-06-18): FIRST spawn is power-on
+    // (brutus_power_watch); after he is KILLED he respawns ACC_BRUTUS_RESPAWN_INTERVAL rounds
+    // later (round_hook_loop). ONE at a time - acc_brutus_active guards a second spawn while
+    // he's alive; acc_brutus_kill_round (set in watch_mini_boss_death) drives the respawn.
+    level.acc_brutus_active = false;
+    level.acc_brutus_kill_round = undefined;
+    level thread brutus_power_watch();
 
     // Dev/test loop: a low-HP test Brutus every round from round 2 so the Mega-Bottle ->
     // perk-upgrade loop is testable without surviving to the real boss rounds.
@@ -100,15 +109,43 @@ function round_hook_loop()
             continue;
         }
 
-        // Brutus mini-boss: first at ACC_BRUTUS_FIRST_ROUND, then every ACC_BRUTUS_INTERVAL
-        // (r4, 9, 14, 19, ...). `(round - first) % interval` so `first` need not be a multiple
-        // of `interval` (user set first = 4, 2026-06-15).
-        if ( round_number >= ACC_BRUTUS_FIRST_ROUND
-             && ( ( round_number - ACC_BRUTUS_FIRST_ROUND ) % ACC_BRUTUS_INTERVAL ) == 0 )
+        // Brutus mini-boss = the TRENCH WARDEN (user 2026-06-18). FIRST spawn = power-on
+        // (brutus_power_watch). RESPAWN = kill-anchored: once he's KILLED (acc_brutus_kill_round
+        // set in watch_mini_boss_death), he comes back ACC_BRUTUS_RESPAWN_INTERVAL rounds later -
+        // NOT a fixed grid. ONE at a time: acc_brutus_active blocks a second while he's alive (so
+        // not killing him never stacks two). No power / never-killed-yet => no respawn here.
+        if ( !IS_TRUE( level.acc_brutus_active )
+             && isdefined( level.acc_brutus_kill_round )
+             && round_number >= level.acc_brutus_kill_round
+                                + getdvarint( "acc_brutus_respawn_interval", ACC_BRUTUS_RESPAWN_INTERVAL ) )
         {
             level thread run_mini_boss( round_number );
         }
     }
+}
+
+// FIRST Trench Warden (Brutus) appears the moment the Bus Station power is turned on. Same
+// power gate the perk-glow / fog use: wait the blackscreen, poll the global "power_on" flag
+// (set by the dual Bus Station switches), then spawn ONE. Every respawn AFTER is kill-anchored
+// in round_hook_loop (acc_brutus_kill_round + ACC_BRUTUS_RESPAWN_INTERVAL).
+function brutus_power_watch()
+{
+    level endon( "end_game" );
+
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    // First Trench Warden requires BOTH: the Bus Station power is on AND round >= acc_warden_first_round
+    // (default 5, user 2026-06-18 - too early otherwise). If power comes on before round 5, hold here
+    // until round 5; if it's already past, spawn as soon as power flips. Respawns are kill-anchored
+    // (kill_round + interval), naturally >= this, so only the first spawn needs the floor.
+    while ( !( level flag::exists( "power_on" ) && level flag::get( "power_on" ) )
+            || level.round_number < getdvarint( "acc_warden_first_round", 5 ) )
+        wait( 0.5 );
+
+    if ( IS_TRUE( level.acc_brutus_active ) ) return;        // one already alive
+    if ( isdefined( level.acc_brutus_kill_round ) ) return;  // already started; kills drive the rest
+    acc_utility::log( "boss: power ON + round >= first -> first Trench Warden (Brutus)" );
+    level thread run_mini_boss( level.round_number );
 }
 
 // ---------------------------------------------------------------------------
@@ -120,17 +157,16 @@ function run_mini_boss( round_number )
     level endon( "end_game" );
     level endon( "acc_round_end" );
 
-    // Brutus charges ALONGSIDE the normal wave (user choice): do NOT suppress the wave,
-    // and he keeps his native ignore_enemy_count (he does NOT gate round end - the wave
-    // does). r10 = 1 Brutus, r20 = 2, staggered a beat apart for co-op spawn safety.
-    count = ( round_number >= 20 ? 2 : 1 );
-    acc_utility::log( "mini boss (Brutus) round " + round_number + " spawning " + count );
+    // The Trench Warden is a SINGLE roaming boss (user 2026-06-18): exactly ONE at a time. He
+    // charges/roams ALONGSIDE the normal wave (native ignore_enemy_count - does NOT gate round
+    // end). Mark active so the kill-anchored respawn in round_hook_loop can't spawn a second
+    // while he lives; watch_mini_boss_death clears it + records the kill round on his death.
+    level.acc_brutus_active = true;
+    acc_utility::log( "Trench Warden (Brutus) spawning, round " + round_number );
 
-    for ( i = 0; i < count; i++ )
-    {
-        spawn_brutus_miniboss();
-        wait 1.5;
-    }
+    host = spawn_brutus_miniboss();
+    if ( !isdefined( host ) )
+        level.acc_brutus_active = false; // spawn failed -> don't soft-lock the respawn schedule
 }
 
 // Zero the remaining wave budget so the boss round is boss-only.
@@ -188,55 +224,64 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     host.health = host.maxhealth;
     host DisableAimAssist();
     host.disableAmmoDrop = true;
-    level notify( "acc_boss_spawned", host, "BRUTUS" ); // health bar + nameplate
     host thread watch_mini_boss_death();                // Mega-Bottle / boss-item drops
 
-    // Boss music (Juhani Junkala "Epic Boss Battle", CC0 - gated acc_boss_music_on, default on).
-    level thread brutus_boss_music( host );
+    // Brutus is DOWN-LEVELED to a regular mini-boss (user 2026-06-18): he KEEPS the HP (above)
+    // but gets NO boss health bar and NO boss music - those now belong to the Phantom (the real
+    // ~round-10 boss). So we deliberately do NOT emit "acc_boss_spawned" and do NOT call boss_music
+    // here. (He's still the Trench Warden - the roam thread below applies.)
 
-    acc_utility::log( "spawned Brutus mini-boss (" + host.maxhealth + " hp)" );
+    // Trench Warden (user 2026-06-18): roam the Bus Station trench, spawn at the trench
+    // bottom, and only target a player on the trench floor with him. Supervisor thread (does
+    // NOT edit the vendored pack); gated by acc_warden_trench (set 0 = pack-native charge).
+    if ( getdvarint( "acc_warden_trench", 1 ) )
+        host thread acc_boss_brutus::trench_warden_think();
+
+    acc_utility::log( "spawned Brutus mini-boss (" + host.maxhealth + " hp, down-leveled: no bar/music)" );
+    return host; // run_mini_boss checks this to clear the active guard if the spawn failed
 }
 
 // ---------------------------------------------------------------------------
-// Brutus boss music - loop the Juhani Junkala "Epic Boss Battle" (CC0, seamless)
-// track while any Brutus is alive, then slow-fade (4s) when the LAST one dies. A
-// level refcount makes it multi-Brutus safe (r20 spawns 2). Gated by
-// acc_boss_music_on (default 1). Alias acc_brutus_music = BUS_FX + LOOPING
-// (acc_audio.csv); PlayLoopSound/StopLoopSound(fade) on a reused level emitter.
+// Boss music (GENERIC, public) - loop the Juhani Junkala "Epic Boss Battle" (CC0, seamless)
+// track while any boss using it is alive, then slow-fade (4s) when the LAST one dies. A level
+// refcount makes it multi-boss safe. Gated by acc_boss_music_on (default 1). Alias
+// acc_brutus_music = the boss track (acc_audio.csv). PUBLIC so any boss thread can call
+// `level thread acc_boss::boss_music( host )` - the PHANTOM uses it (it's the real boss);
+// Brutus no longer does (down-leveled to a music-less mini-boss, 2026-06-18).
 // ---------------------------------------------------------------------------
-function brutus_boss_music( host )
+function boss_music( host )
 {
     level endon( "end_game" );
 
     if ( getdvarint( "acc_boss_music_on", 1 ) != 1 )
         return;
 
-    if ( !isdefined( level.acc_brutus_music_count ) )
-        level.acc_brutus_music_count = 0;
+    if ( !isdefined( level.acc_boss_music_count ) )
+        level.acc_boss_music_count = 0;
 
-    level.acc_brutus_music_count++;
+    level.acc_boss_music_count++;
 
-    // First Brutus of the encounter -> start the looping track (reuse one emitter).
-    if ( level.acc_brutus_music_count == 1 )
+    // First boss of the encounter -> start the looping track (reuse one emitter).
+    if ( level.acc_boss_music_count == 1 )
     {
-        if ( !isdefined( level.acc_brutus_music_ent ) )
-            level.acc_brutus_music_ent = spawn( "script_origin", (0,0,0) );
-        level.acc_brutus_music_ent PlayLoopSound( "acc_brutus_music" );
-        acc_utility::log( "boss music ON (Brutus)" );
+        if ( !isdefined( level.acc_boss_music_ent ) )
+            level.acc_boss_music_ent = spawn( "script_origin", (0,0,0) );
+        level.acc_boss_music_ent PlayLoopSound( "acc_brutus_music" );
+        acc_utility::log( "boss music ON" );
     }
 
-    // Keep looping while THIS Brutus lives (poll covers death AND despawn/delete).
+    // Keep looping while THIS boss lives (poll covers death AND despawn/delete).
     while ( isdefined( host ) && isalive( host ) )
         wait( 0.5 );
 
-    // This Brutus is down - fade only when the LAST one dies.
-    level.acc_brutus_music_count--;
-    if ( level.acc_brutus_music_count <= 0 )
+    // This boss is down - fade only when the LAST one dies.
+    level.acc_boss_music_count--;
+    if ( level.acc_boss_music_count <= 0 )
     {
-        level.acc_brutus_music_count = 0;
-        if ( isdefined( level.acc_brutus_music_ent ) )
-            level.acc_brutus_music_ent StopLoopSound( 4.0 );   // slow 4s fade-out
-        acc_utility::log( "boss music FADE (Brutus dead)" );
+        level.acc_boss_music_count = 0;
+        if ( isdefined( level.acc_boss_music_ent ) )
+            level.acc_boss_music_ent StopLoopSound( 4.0 );   // slow 4s fade-out
+        acc_utility::log( "boss music FADE (last boss dead)" );
     }
 }
 
@@ -248,13 +293,38 @@ function watch_mini_boss_death()
     drop_origin = self.origin;
     n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
 
-    // Regular boss-item drop (50% chance at mini tier).
-    acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
+    // Boss-item drop. The Trench Warden (= Brutus) GUARANTEES an item (user 2026-06-18:
+    // "killing him gives an item") - unlike the 50%-design mini roll. grant_challenge_reward
+    // is the guaranteed free-for-all drop (no chance roll; already-owned dupes convert to
+    // Data Shards at pickup via watch_pickup). acc_warden_item 0 = fall back to the chance roll
+    // (only the Glitch Stalker uses the chance roll now, via its own death watch).
+    if ( getdvarint( "acc_warden_item", 1 ) )
+        acc_boss_items::grant_challenge_reward( drop_origin );
+    else
+        acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
+
+    // Trench Warden = the trench's signature boss, so it PAYS Data Shards (the economy is trench-only:
+    // shards come from the pit caches + Warden + altar, user 2026-06-19). Flat grant to every player,
+    // "warden" source (skips the elite diminish). Skip the dev bulk-test boss (n_bottles>1) so it
+    // doesn't pollute the real economy. Tunable via acc_warden_shard_reward.
+    if ( n_bottles <= 1 )
+    {
+        warden_shards = getdvarint( "acc_warden_shard_reward", 2 );   // 3 -> 2 (scaled-back economy, user 2026-06-19)
+        if ( warden_shards > 0 )
+        {
+            for ( wi = 0; wi < level.players.size; wi++ )
+                acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
+            acc_utility::log( "Trench Warden rewarded " + warden_shards + " shards to each player" );
+        }
+    }
 
     if ( n_bottles <= 1 )
     {
-        // Guaranteed Mega Bottle drop to all players (1 each, the normal rule).
-        acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
+        // Mega Bottle drop: 40% CHANCE now (user 2026-06-18; was a guaranteed grant). One roll -
+        // if it hits, every player gets +1 (the on_boss_death rule). acc_warden_bottle_chance tunable.
+        bottle_chance = getdvarfloat( "acc_warden_bottle_chance", 0.40 );
+        if ( acc_utility::acc_rand_float() <= bottle_chance )
+            acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
     }
     else
     {
@@ -265,6 +335,15 @@ function watch_mini_boss_death()
             if ( isdefined( p ) && isplayer( p ) )
                 p acc_mega_bottles::grant_bottle( n_bottles, "test_boss" );
         }
+    }
+
+    // Trench Warden respawn schedule (user 2026-06-18): record the kill round so round_hook_loop
+    // respawns him ACC_BRUTUS_RESPAWN_INTERVAL rounds later, and free the one-at-a-time guard.
+    // Skip the dev bulk-test boss (n_bottles > 1) so dev mode doesn't pollute the real schedule.
+    if ( n_bottles <= 1 )
+    {
+        level.acc_brutus_kill_round = level.round_number;
+        level.acc_brutus_active = false;
     }
 }
 

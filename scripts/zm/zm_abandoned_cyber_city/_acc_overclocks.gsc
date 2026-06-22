@@ -23,16 +23,24 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 
-// Tier costs per level (1-indexed in the design, but arrays are 0-indexed).
-// Index 0 = cost to advance to T1, index 4 = cost to advance to T5.
+// Tier costs per level. ACC_TIER_MAX 4 -> 5 (user 2026-06-21): both the gun Overclock and the Exo Suit
+// go to 5 tiers (parity with the 5 trench layers, docs/47). The 3 effects scale off the tier in
+// _acc_damage (get_oc_tier), so they extend to T5 automatically: flat dmg +25%, glitch +125%, ammo 50%.
+// Cost ladder 2 / 4 / 8 / 16 / 24 = 54 to max one gun (T5=24 fits the 50 cap).
 #define ACC_TIER_MAX 5
-#define ACC_TIER_COST_T1 1
-#define ACC_TIER_COST_T2 2
-#define ACC_TIER_COST_T3 3
-#define ACC_TIER_COST_T4 4
-#define ACC_TIER_COST_T5 5
+#define ACC_TIER_COST_T1 2
+#define ACC_TIER_COST_T2 4
+#define ACC_TIER_COST_T3 8
+#define ACC_TIER_COST_T4 16
+#define ACC_TIER_COST_T5 24
 #define ACC_OC_REROLL_COST_SHARDS 1
+
+// Overclock terminal world model (a freestanding kiosk; stock t7 prop, xmodel-listed in the .zone).
+#precache( "model", "p7_cai_ticket_kiosk_theatre" );
 
 #namespace acc_overclocks;
 
@@ -48,6 +56,11 @@ function init()
     // Active-3-per-family roll REMOVED in new design - pools are visible in
     // full, randomization happens per tier-up.
 
+    // Kiosk origins for the proximity info CARD (_acc_perk_info reads this to show the
+    // held weapon's Overclock report when you walk up). Appended by watch_terminal_trigger
+    // (placed triggers) + spawn_terminal_at (script-spawned ones). user 2026-06-21.
+    level.acc_oc_kiosk_origins = [];
+
     level thread watch_terminal_trigger();
 }
 
@@ -59,6 +72,43 @@ function on_player_connect( player )
     //   overclocks (array of overclock_id strings, length = tier)
     // }
     player.acc_weapon_progress = [];
+
+    // HUD: push the held weapon's Overclock tier as a "vN" indicator near the gun name (mirrors the
+    // PaP tier icon). user 2026-06-21.
+    player thread oc_hud_loop( player );
+}
+
+// Resolve the held weapon's Overclock tier (0..5), mirroring _acc_damage::get_oc_tier: held-object
+// first, then the true-base fallback (progress is keyed by true_base since the 2026-06-21 fix).
+function held_oc_tier( player )
+{
+    if ( !isdefined( player.acc_weapon_progress ) ) return 0;
+    w = player getcurrentweapon();
+    if ( !isdefined( w ) || w == level.weaponNone ) return 0;
+    if ( isdefined( player.acc_weapon_progress[ w ] ) ) return player.acc_weapon_progress[ w ].tier;
+    base = acc_weapon_variants::true_base( w );
+    if ( isdefined( base ) && isdefined( player.acc_weapon_progress[ base ] ) ) return player.acc_weapon_progress[ base ].tier;
+    return 0;
+}
+
+// Per-player loop: push the held weapon's Overclock tier to the LUI "vN" indicator on change.
+function oc_hud_loop( player )
+{
+    player endon( "disconnect" );
+    level endon( "end_game" );
+
+    last = -1;
+    for ( ;; )
+    {
+        wait( 0.25 );
+        if ( !isdefined( player ) ) return;
+        tier = held_oc_tier( player );
+        if ( tier != last )
+        {
+            acc_lui::set_oc_tier( player, tier );
+            last = tier;
+        }
+    }
 }
 
 // Helper: get or init progress struct for a weapon.
@@ -94,43 +144,46 @@ function tier_cost( target_tier )
 
 function build_family_pools()
 {
+    // DEAD since 2026-06-19 (kept harmless/unreferenced): the overclock no longer ROLLS effects from these
+    // pools. Each tier just raises progress.tier (terminal_loop), and the 3 LIVE effects (flat damage /
+    // glitch piercing / ammo refund) scale off that tier in _acc_damage via get_oc_tier (ACC_TIER_MAX is now
+    // 5). These pools + the apply_oc_* / roll_new_overclock_for_weapon helpers DO NOTHING now - don't wire
+    // them back without a real damage-side consumer.
     pools = [];
 
     pools[ "ar" ] = array(
-        oc( "ar_burst_coil",   "Burst Coil",     &apply_oc_ar_burst_coil ),
-        oc( "ar_overpressure", "Overpressure",   &apply_oc_ar_overpressure ),
-        oc( "ar_piercing",     "Piercing Rounds",&apply_oc_ar_piercing ),
-        oc( "ar_adaptive",     "Adaptive Aim",   &apply_oc_ar_adaptive ),
-        oc( "ar_overheat",     "Overheat",       &apply_oc_ar_overheat ),
-        oc( "ar_subcritical",  "Subcritical",    &apply_oc_ar_subcritical )
+        oc( "ar_overpressure", "Overpressure",     &apply_oc_ar_overpressure ),
+        oc( "ar_piercing",     "Piercing Rounds",  &apply_oc_ar_piercing ),
+        oc( "ar_adaptive",     "Adaptive Aim",     &apply_oc_ar_adaptive ),
+        oc( "ar_reactive",     "Reactive Powder",  &apply_oc_sr_reactive )
     );
 
     pools[ "smg" ] = array(
-        oc( "smg_swarm",       "Swarm",          &apply_oc_smg_swarm ),
-        oc( "smg_reflex_fire", "Reflex Fire",    &apply_oc_smg_reflex ),
-        oc( "smg_coolant",     "Coolant Flow",   &apply_oc_smg_coolant ),
-        oc( "smg_shrapnel",    "Shrapnel",       &apply_oc_smg_shrapnel ),
-        oc( "smg_microboost",  "Micro-Boost",    &apply_oc_smg_microboost )
+        oc( "smg_overpressure","Overpressure",     &apply_oc_ar_overpressure ),
+        oc( "smg_piercing",    "Piercing Rounds",  &apply_oc_ar_piercing ),
+        oc( "smg_adaptive",    "Adaptive Aim",     &apply_oc_ar_adaptive ),
+        oc( "smg_reactive",    "Reactive Powder",  &apply_oc_sr_reactive )
     );
 
     pools[ "shotgun" ] = array(
-        oc( "sg_spread_cone",  "Spread Cone",    &apply_oc_sg_spread ),
-        oc( "sg_breach",       "Breach",         &apply_oc_sg_breach ),
-        oc( "sg_concussive",   "Concussive",     &apply_oc_sg_concussive ),
-        oc( "sg_reflow",       "Reflow",         &apply_oc_sg_reflow )
+        oc( "sg_breach",       "Breach",           &apply_oc_sg_breach ),
+        oc( "sg_overpressure", "Overpressure",     &apply_oc_ar_overpressure ),
+        oc( "sg_adaptive",     "Adaptive Aim",     &apply_oc_ar_adaptive ),
+        oc( "sg_reactive",     "Reactive Powder",  &apply_oc_sr_reactive )
     );
 
     pools[ "sniper" ] = array(
-        oc( "sr_thermal",      "Thermal Lock",   &apply_oc_sr_thermal ),
-        oc( "sr_penetration",  "Penetration Round", &apply_oc_sr_penetration ),
-        oc( "sr_reactive",     "Reactive Powder",&apply_oc_sr_reactive ),
-        oc( "sr_quickchamber", "Quick Chamber",  &apply_oc_sr_quickchamber )
+        oc( "sr_penetration",  "Penetration Round",&apply_oc_sr_penetration ),
+        oc( "sr_reactive",     "Reactive Powder",  &apply_oc_sr_reactive ),
+        oc( "sr_overpressure", "Overpressure",     &apply_oc_ar_overpressure ),
+        oc( "sr_adaptive",     "Adaptive Aim",     &apply_oc_ar_adaptive )
     );
 
     pools[ "lmg" ] = array(
-        oc( "lmg_sustained",   "Sustained Fire", &apply_oc_lmg_sustained ),
-        oc( "lmg_suppression", "Suppression",    &apply_oc_lmg_suppression ),
-        oc( "lmg_reload_drum", "Reload Drum",    &apply_oc_lmg_reloaddrum )
+        oc( "lmg_overpressure","Overpressure",     &apply_oc_ar_overpressure ),
+        oc( "lmg_piercing",    "Piercing Rounds",  &apply_oc_ar_piercing ),
+        oc( "lmg_adaptive",    "Adaptive Aim",     &apply_oc_ar_adaptive ),
+        oc( "lmg_reactive",    "Reactive Powder",  &apply_oc_sr_reactive )
     );
 
     return pools;
@@ -160,10 +213,31 @@ function watch_terminal_trigger()
         return;
     }
 
+    if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
     for ( i = 0; i < triggers.size; i++ )
     {
         triggers[ i ] thread terminal_loop();
+        level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = triggers[ i ].origin;
     }
+}
+
+// Spawn an Overclock terminal (kiosk model + a hold-USE trigger running the existing
+// terminal_loop) at origin, facing yaw. Pure GSC - the trench "Foundry" home for the
+// weapon-tier system. Called by _acc_glitch_altar with the underground origins.
+function spawn_terminal_at( origin, yaw )
+{
+    m = spawn( "script_model", origin );
+    m setmodel( "p7_cai_ticket_kiosk_theatre" );
+    if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
+    t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
+    t SetCursorHint( "HINT_NOICON" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE OVERCLOCK^7 - upgrade your held weapon" );
+    t thread terminal_loop();
+    if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
+    level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = origin;
+    acc_utility::log( "overclocks: terminal spawned at " + origin );
 }
 
 function terminal_loop()
@@ -178,75 +252,55 @@ function terminal_loop()
         family = weapon_name_to_family( current );
         if ( family == "unknown" )
         {
-            player iprintln( "Overclock Terminal: weapon not supported" );
+            player acc_utility::hud_msg( "Cyberware Overclock: weapon not supported" );
             wait( 0.5 );
             continue;
         }
         if ( family == "none" )
         {
-            player iprintln( "Overclock Terminal: this weapon class cannot be tiered" );
+            player acc_utility::hud_msg( "Cyberware Overclock: this weapon class cannot be tiered" );
             wait( 0.5 );
             continue;
         }
 
-        progress = get_or_init_progress( player, current );
+        // FIX (user 2026-06-21 "randomly lose the overclock"): key the tier by the TRUE BASE weapon,
+        // not the held object. Previously this used `current` (the held form), so overclocking while
+        // holding a PaP'd or perk-twin form stored the tier under that object - then switching forms
+        // (PaP, or a Mega-perk twin swapping in/out) made get_oc_tier miss it and read 0. true_base
+        // strips the _acc twin suffix + maps PaP, so the tier is form-invariant and get_oc_tier's
+        // own true_base fallback always finds it.
+        base_wpn = acc_weapon_variants::true_base( current );
+        progress = get_or_init_progress( player, base_wpn );
 
-        // TODO(acc-ui): the real UX should present TWO options at the terminal:
-        //   [1] Advance to Tier N+1 (cost: tier_cost(N+1) Shards)
-        //   [2] Re-roll an existing Tier's Overclock (cost: 1 Shard)
-        // For Phase 3 we auto-advance tier if possible, fall back to re-roll
-        // the most-recent tier if already maxed. LUI pick screen comes Phase 4.
-
-        if ( progress.tier < ACC_TIER_MAX )
+        // Each tier gives a SMALL boost to ALL THREE overclock effects at once (user 2026-06-19) -
+        // the magnitudes scale with progress.tier in _acc_damage (get_oc_tier), so the terminal just
+        // raises the tier. No more random per-effect roll. PER-GUN (tracked on the true-base weapon).
+        if ( progress.tier >= ACC_TIER_MAX )
         {
-            next_tier = progress.tier + 1;
-            cost = tier_cost( next_tier );
-
-            if ( !acc_data_shards::try_spend( player, cost ) )
-            {
-                player iprintln( "Overclock Terminal: Tier " + next_tier +
-                                 " costs " + cost + " Shard(s)" );
-                wait( 0.5 );
-                continue;
-            }
-
-            applied = roll_new_overclock_for_weapon( player, current, family, progress );
-            progress.tier = next_tier;
-            if ( isdefined( applied ) )
-            {
-                progress.overclocks[ progress.overclocks.size ] = applied.id;
-                player [[ applied.on_apply ]]( current );
-                player iprintln( "Tier " + next_tier + " - " + applied.display_name );
-            }
-            else
-            {
-                player iprintln( "Tier " + next_tier + " (family pool exhausted, slot empty)" );
-            }
+            player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - weapon fully overclocked (Tier " + ACC_TIER_MAX + ")" );
             wait( 0.5 );
             continue;
         }
 
-        // Already at max tier - re-roll the most recent Overclock.
-        if ( !acc_data_shards::try_spend( player, ACC_OC_REROLL_COST_SHARDS ) )
+        next_tier = progress.tier + 1;
+        cost = tier_cost( next_tier );
+        if ( !acc_data_shards::try_spend( player, cost ) )
         {
-            player iprintln( "Overclock Terminal: re-roll costs " +
-                             ACC_OC_REROLL_COST_SHARDS + " Shard" );
+            player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards" );
             wait( 0.5 );
             continue;
         }
-        new_roll = roll_new_overclock_for_weapon( player, current, family, progress );
-        if ( isdefined( new_roll ) )
-        {
-            // Replace last slot.
-            last_idx = progress.overclocks.size - 1;
-            progress.overclocks[ last_idx ] = new_roll.id;
-            player [[ new_roll.on_apply ]]( current );
-            player iprintln( "Re-rolled Tier 5 - " + new_roll.display_name );
-        }
-        else
-        {
-            player iprintln( "Re-roll: no new Overclock available" );
-        }
+
+        progress.tier = next_tier;
+
+        // Feedback (user 2026-06-21): a zap SFX + the SAME PaP "gun comes out" re-draw animation, so
+        // overclocking FEELS like you just enhanced the weapon. replay_pack_draw re-gives the held gun
+        // (preserving its PaP camo/tier) and plays the first-raise; gated by the acc_pap_tier_anim dvar.
+        player PlaySound( "acc_overclock_zap" );
+        player acc_pap_levels::replay_pack_draw( current );
+
+        player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + "/" + ACC_TIER_MAX +
+                                     " ^7(damage / glitch-pierce / ammo all +)" );
         wait( 0.5 );
     }
 }
@@ -303,7 +357,7 @@ function weapon_name_to_family( weapon_name )
                       "s4_ppsh41_base", "t5_ak74u", "s1_pdw" );  // PPSH-41, AK-74u, PDW (2026-06-15)
     sg_list = array( "s1_tac19", "t6_olympia" );    // Tac-19, Olympia (BO2, 2026-06-15)
     sr_list = array( "t8_paladin_hb50" );           // Paladin HB50 (BO4 sniper, 2026-06-15)
-    lmg_list = array();
+    lmg_list = array( "t6_m60", "t6_rpd" );         // M60 + RPD (Skye BO2 LMGs, 2026-06-19) - activate the dormant LMG Overclock family
 
     // Families that CANNOT be Overclocked (return distinct sentinel "none" so
     // the terminal prints a useful message instead of "unknown"). Real weapons

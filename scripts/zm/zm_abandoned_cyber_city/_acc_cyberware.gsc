@@ -42,6 +42,10 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
+// Cyberware kiosk world model (the "implant bench"; stock t7 prop, also xmodel-listed
+// in the .zone). Same white metal workbench as the Plaza Implant Bench.
+#precache( "model", "p7_cai_work_table_metal_03_white" );
+
 // ---------------------------------------------------------------------------
 // Tuning - see docs/04_progression_and_skills.md.
 // ---------------------------------------------------------------------------
@@ -85,11 +89,12 @@ function init()
 
     level.acc_cyberware_tree = build_tree();
 
-    // Register the "skill kiosk" trigger once geometry exists.
-    // TODO(acc-geom): this runs a waittill on a Radiant-placed trigger_use
-    // named "acc_cyberware_kiosk" (planned home: the Lab). Until Radiant has
-    // it, this thread no-ops.
-    level thread watch_kiosk_trigger();
+    // CYBERWARE TREE REMOVED from play (user 2026-06-19): the weapon Overclock terminal ("Cyberware
+    // Weapon Overclock") is now the sole upgrade. The kiosk is no longer spawned (underground spawn
+    // removed in _acc_glitch_altar; the Lab trigger is gated off here). Module stays loaded (its
+    // damage-flag readers are harmless no-ops with no nodes bought). Re-enable with `acc_cyberware_on 1`.
+    if ( getdvarint( "acc_cyberware_on", 0 ) )
+        level thread watch_kiosk_trigger();
 
     // Subroutine T1 passive shard regen ticker.
     level thread subroutine_passive_regen_loop();
@@ -271,7 +276,7 @@ function try_purchase( player, node_id )
 
     player.acc_cyberware_nodes[ player.acc_cyberware_nodes.size ] = node_id;
     player apply_node_effects( node_id );
-    player iprintln( "Unlocked: " + node.display_name );
+    player acc_utility::hud_msg( "Unlocked: " + node.display_name );
     level notify( "acc_cyberware_purchased", player, node_id );
     return true;
 }
@@ -316,7 +321,7 @@ function try_respec_last_node( player )
         player apply_node_effects( player.acc_cyberware_nodes[ i ] );
     }
 
-    player iprintln( "Respec: " + refund_node.display_name + " refunded (" + ACC_CW_RESPEC_TAX + " Shard tax)" );
+    player acc_utility::hud_msg( "Respec: " + refund_node.display_name + " refunded (" + ACC_CW_RESPEC_TAX + " Shard tax)" );
     return true;
 }
 
@@ -350,7 +355,7 @@ function remove_lowest_cost_node( player )
         player apply_node_effects( player.acc_cyberware_nodes[ i ] );
     }
 
-    player iprintln( "Cyberware lost: " + removed.display_name );
+    player acc_utility::hud_msg( "Cyberware lost: " + removed.display_name );
     return true;
 }
 
@@ -404,6 +409,24 @@ function watch_kiosk_trigger()
     }
 }
 
+// Spawn a Cyberware kiosk (implant-bench model + a hold-USE trigger running the existing
+// kiosk_loop) at origin, facing yaw. Pure GSC - the trench "Foundry" home for the tree
+// (the watch_kiosk_trigger Radiant-trigger path was never placed). Called by
+// _acc_glitch_altar with the underground origins.
+function spawn_kiosk_at( origin, yaw )
+{
+    m = spawn( "script_model", origin );
+    m setmodel( "p7_cai_work_table_metal_03_white" );
+    if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
+    t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
+    t SetCursorHint( "HINT_NOICON" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE^7 - buy node (crouch = respec)" );
+    t thread kiosk_loop();
+    acc_utility::log( "cyberware: kiosk spawned at " + origin );
+}
+
 function kiosk_loop()
 {
     self endon( "death" );
@@ -419,7 +442,7 @@ function kiosk_loop()
         {
             if ( !try_respec_last_node( player ) )
             {
-                player iprintln( "Respec unavailable (once per run, 3 Shards, never Tier 3)" );
+                player acc_utility::hud_msg( "Respec unavailable (once per run, 3 Shards, never Tier 3)" );
             }
             wait( 0.5 );
             continue;
@@ -440,7 +463,7 @@ function kiosk_loop()
         }
         if ( !bought_something )
         {
-            player iprintln( "No cyberware available (not enough shards or no valid path)" );
+            player acc_utility::hud_msg( "No cyberware available (not enough shards or no valid path)" );
         }
         wait( 0.5 );
     }
@@ -733,7 +756,7 @@ function ghost_set_cloaked( b_cloak )
     {
         self zm_utility::increment_ignoreme();
         self.acc_cw_ghost_cloaked = true;
-        self iprintln( "Ghost Protocol: cloaked" );
+        self acc_utility::hud_msg( "Ghost Protocol: cloaked" );
     }
     else
     {

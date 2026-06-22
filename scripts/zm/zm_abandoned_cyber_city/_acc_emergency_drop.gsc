@@ -76,7 +76,7 @@ function emergency_loop()
 
         if ( !acc_data_shards::try_spend( player, ACC_EMERGENCY_COST_SHARDS ) )
         {
-            player iprintln( "Emergency Drop: needs " + ACC_EMERGENCY_COST_SHARDS + " Shards" );
+            player acc_utility::hud_msg( "Emergency Drop: needs " + ACC_EMERGENCY_COST_SHARDS + " Shards" );
             wait( 0.5 );
             continue;
         }
@@ -116,7 +116,7 @@ function pick_drop_type( round_number )
 function deliver_drop( player, drop_type )
 {
     acc_utility::log( "emergency drop: " + drop_type );
-    player iprintln( "Emergency Drop: " + drop_type );
+    player acc_utility::hud_msg( "Emergency Drop: " + drop_type );
 
     // VERIFIED(acc): zm_powerups::specific_powerup_drop( name, drop_spot )
     // (_zm_powerups.gsc:688, trailing 5 args optional); stock callers invoke

@@ -1,6 +1,8 @@
 weapon_name,upgrade_name,hint,cost,weaponVO,weaponVOresp,ammo_cost,create_vox,obsolete_false,in_box,upgrade_in_box,is_limited,limit,upgrade_limit,obsolete2_false,wallbuy_autospawn,class,is_aat_exempt,is_wonder_weapon,force_attachments
 pistol_standard,pistol_standard_upgraded,,50,pistol,,0,,,FALSE,FALSE,TRUE,0,,FALSE,FALSE,pistol,TRUE,,
 frag_grenade,,,250,grenade,,250,,,FALSE,FALSE,FALSE,,,FALSE,TRUE,grenade,,,
+octobomb,octobomb_upgraded,,2000,octobomb,,0,,,FALSE,FALSE,FALSE,,,FALSE,FALSE,grenade,,,
+cymbal_monkey,,,2000,monkey,,,,,FALSE,FALSE,FALSE,,,FALSE,FALSE,grenade,,,
 knife,,,0,,,0,,,FALSE,FALSE,,,,FALSE,FALSE,special,,,
 s1_tac19,s1_tac19_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,
 t6_fiveseven,t6_fiveseven_up,,900,pistol,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,pistol,,,
@@ -16,3 +18,6 @@ t8_paladin_hb50,t8_paladin_hb50_up,,2000,sniper,,,,,TRUE,FALSE,FALSE,,,FALSE,TRU
 s2_m1911,s2_m1911_rdw_up,,1000,pistol,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,pistol,,,
 t6_olympia,t6_olympia_up,,1500,shotgun,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,shotgun,,,
 t6_galil,t6_galil_up,,1250,rifle,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,rifle,,,
+t6_m60,t6_m60_up,,1500,lmg,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,lmg,,,
+t6_rpd,t6_rpd_up,,1500,lmg,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,lmg,,,
+tesla_gun,tesla_gun_upgraded,,10000,tesla,,,,,TRUE,FALSE,TRUE,1,,FALSE,TRUE,special,FALSE,TRUE,

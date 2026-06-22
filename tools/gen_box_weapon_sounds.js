@@ -64,6 +64,9 @@ const GUNS = [
     // Foley auto-scanned from foley\ (Olympia: close/open/shell_in/switch; Galil: bolt_*/futz/mag_*).
     { sid: "t6_olympia",     shot: [ "wpn_t6_olympia_shot.wav" ],      pap: "wpn_t6_olympia_pap_shot.wav" },
     { sid: "t6_galil",       shot: [ "wpn_t6_galil_shot.wav" ],        pap: "wpn_t6_galil_pap_shot.wav" },
+    // +2 LMGs (user, 2026-06-19): M60 + RPD (BO2 ports). Foley auto-scanned from foley\ (bolt/mag/etc.).
+    { sid: "t6_m60",         shot: [ "wpn_t6_m60_shot.wav" ],          pap: "wpn_t6_m60_pap_shot.wav" },
+    { sid: "t6_rpd",         shot: [ "wpn_t6_rpd_shot.wav" ],          pap: "wpn_t6_rpd_pap_shot.wav" },
 ];
 
 const lines = fs.readFileSync( CSV, "utf8" ).split( /\r?\n/ );

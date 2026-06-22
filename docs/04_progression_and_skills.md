@@ -30,13 +30,19 @@ Points are fast and plentiful. Data Shards are **slow and precious** - a well-pl
 - Round 40: ~25 Shards
 - Round 50: ~32 Shards (with aggressive side objectives and good elite uptime)
 
+> **Trench-only sources (user, 2026-06-19):** shards are now earned almost exclusively underground — the
+> exposed-pit **Data Caches** (re-arm/round, scale with round), the **Trench Warden** kill, and the **Glitch
+> Altar** jackpot. The old topside sources (elite drops, Hack, Vault Overload) are OFF by default (dvar-gated).
+> All sinks live in the underground "Foundry/Black Market" (docs/45). You raid the trench to earn AND to spend.
+
 **Where Shards get spent (per-run competition for budget):**
 
 | Sink | Cost | When you buy it |
 |---|---|---|
+| **Perk slots** (start at 4, buy up to 9) | 4/6/8/10/12 (40 total) | The marquee goal — grind toward it all run |
 | Cyberware full branch (Tier 1 + Tier 2 + Tier 3) | 10 Shards | Round 15-25 for the payoff |
-| Weapon Tier progression (T1 - T5, one weapon) | 15 Shards | Spread across whole run |
-| Weapon Overclock re-roll | 1 Shard each | Opportunistic, 1-3 per run |
+| Weapon Overclock tiers (T1-T4, one weapon) | 10 Shards (1+2+3+4) | Spread across whole run |
+| Weapon Overclock re-roll | 1 Shard each | Opportunistic (inert once a gun owns all 4) |
 | Emergency Drop | 3 Shards | Clutch use, 0-2 per run |
 | Respec Cyberware tier | 3 Shards | Rare, once per run max |
 

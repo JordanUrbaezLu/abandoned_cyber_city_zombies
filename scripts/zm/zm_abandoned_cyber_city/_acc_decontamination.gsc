@@ -472,6 +472,28 @@ function disable_zone_spawning( zone_name )
                        " (" + spots.size + " spawner spots)" );
 }
 
+// Public RE-ENABLE (decon itself never re-enables - it seals rooms permanently). The lockdown
+// CHALLENGE seals a room only for the duration of its fight, so it MUST restore both gates on
+// teardown or that room's outside spawns stay dead for the rest of the run. Inverse of
+// disable_zone_spawning: the next manage_zones scan (~1s) re-harvests the room's spawner spots.
+function enable_zone_spawning( zone_name )
+{
+    if ( isdefined( level.zones ) && isdefined( level.zones[ zone_name ] ) )
+    {
+        level.zones[ zone_name ].is_spawning_allowed = true;
+    }
+
+    spots = get_zone_spawner_spots( zone_name );
+    for ( i = 0; i < spots.size; i++ )
+    {
+        spots[ i ].is_enabled = true;
+        spots[ i ].is_blocked = false;
+    }
+
+    acc_utility::log( "decon: spawning RE-ENABLED for " + zone_name +
+                       " (" + spots.size + " spawner spots)" );
+}
+
 function enforce_spawn_seal( zone_name )
 {
     level endon( "end_game" );

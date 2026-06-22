@@ -265,6 +265,18 @@ mirror of the [docs/20](20_requirements_checklist.md) `phase4-blocked` audio ite
 - Linker builds the **deployed** copy → `sync_to_modtools.ps1` first.
 - One bad/missing wav referenced in a CSV can **abort the whole sound build** →
   comment the row with `#` on the `Name` to isolate.
+- **WAVs MUST be 48 kHz** (16-bit PCM). A non-48k wav is a hard linker error —
+  `ERROR: <wav> / wav is not 48k sample rate` (non-fatal: the `.ff` still packs, but the
+  sound won't load). No ffmpeg on the box → resample with **no dependencies** via the Node
+  2× frame-duplication upsampler used for `acc_overclock_zap` (24k→48k, same pitch/length;
+  see CHANGELOG 2026-06-21). For pristine quality re-export the source at 48k instead.
+- **The soundbank `.sabs` is file-locked while the game is RUNNING** → even a sound-stage
+  build reuses the stale bank (sync can't delete the locked `CachedBanks`), so a new/changed
+  sound **does not compile until a GAME-CLOSED build**. Symptom: alias is valid, no linker
+  error, yet the cue is silent. Close BlackOps3, then `build_map.ps1`.
+- Live aliases: `acc_amb_city_bed`, `acc_main_theme`, `acc_brutus_music`, `acc_glitch_warp`,
+  `acc_overclock_zap` (overclock kiosk zap, 2026-06-21). Others `PlaySound`'d in GSC
+  (`acc_shard_pickup`, `evt_bottle_dispense`, …) have **no alias row yet** → silent.
 - Reverb (B2) requires the heavier geometry build, not a linker-only pass.
 - Decon LUI widget + any client `forceambientroom` are `.csc`-only (need L3akMod;
   can't call `.gsc`).

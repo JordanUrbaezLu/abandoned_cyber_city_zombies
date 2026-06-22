@@ -98,9 +98,13 @@ if (lines.some(l => l.includes('acc_perk_door_'))) {
   process.exit(0);
 }
 
-// --- 1. reorient the 9 machines to face south (yaw 270) -----------------------
-// Walk entities; an entity is a perk machine if it has the matching model (prefab)
-// or script_noteworthy (inline). Set/insert angles "0 270 0".
+// --- 1. set the 9 machines to their CORRECT facing (yaw 359.999) --------------
+// !! user 2026-06-18 AND 2026-06-19 (hit TWICE): these vending models already FACE THE
+// PLAYER at "0 359.999 0". The old "face south = yaw 270" turned them the WRONG way, so
+// we set 359.999 here (NOT 270). (Function name kept for callers; "south" is historical.)
+// Walk entities; a perk machine has the matching model (prefab) or script_noteworthy
+// (inline). Set/insert angles "0 359.999 0".
+const MACHINE_ANGLES = '"angles" "0 359.999 0"';
 function setSouthFacing() {
   // Collect matches first, then apply bottom-to-top so splices don't shift indices.
   const hits = [];
@@ -121,9 +125,9 @@ function setSouthFacing() {
   hits.sort((a, b) => b.s - a.s); // bottom-to-top
   for (const h of hits) {
     if (h.aIdx >= 0) {
-      if (lines[h.aIdx] !== '"angles" "0 270 0"') { lines[h.aIdx] = '"angles" "0 270 0"'; changed++; }
+      if (lines[h.aIdx] !== MACHINE_ANGLES) { lines[h.aIdx] = MACHINE_ANGLES; changed++; }
     } else {
-      lines.splice(h.s + 2, 0, '"angles" "0 270 0"'); // after opening brace + guid line
+      lines.splice(h.s + 2, 0, MACHINE_ANGLES); // after opening brace + guid line
       changed++;
     }
   }

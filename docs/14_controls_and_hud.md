@@ -53,7 +53,12 @@ Stock BO3 zombies has a base HUD (round, points, crosshair, perks, weapon/ammo).
 
 ### Stock HUD elements (unchanged)
 
-- **Round counter** - upper-right corner.
+- **Round counter** - the stock round number is recolored to **teal** (user 2026-06-17) by
+  OVERRIDING its own LUI widget: we ship `ui/uieditor/widgets/hud/RoundStatus.lua` at the stock
+  path (redefining `LUI.createMenu.RoundStatus`), so the engine draws our version. It is the stock
+  round-counter structure with only `DefaultColor` changed dark-red→teal, so the native
+  chalk/round-up animation is preserved. The zm_building technique (rawfile only, no LuiLoad). This
+  replaced an earlier overlay+mask attempt (`CoD.AccRoundNum`, now removed). docs/42, docs/22.
 - **Points counter** - lower-left.
 - **Perk icons** - above points (stock 4-slot row).
 - **Weapon + ammo** - lower-right.
@@ -99,6 +104,14 @@ Rendered via LUI; implementation deferred to Phase 4. Layout sketch below.
 - **Phase 3 fallback**: `iprintln` text ("+1 Empty Mega Bottle") on boss drops and "-1 Empty Mega Bottle (Mega'd <Perk>)" on consumption.
 - **Hidden if count is 0** (avoid HUD clutter for players who haven't seen their first boss yet).
 
+#### 1c. Equipped boss-item indicator
+
+- **Position**: top-left, stacked directly under the Data Shards line (`TOP_LEFT` 16, 68).
+- **Format**: `ITEMS 1 - Neural Boots | 3 - Targeting Visor` — each entry is `id - name`, where `id` is the item's stable numeric ID (1–6). Up to 2 equipped slots, ` | `-separated.
+- **Updates**: on equip / unequip / swap (`_acc_boss_items::sync_items_hud` — a server-side `createFontString`, mirroring the Data Shards hudelem; `id - name` comes from the shared `display_for()` helper, also used by the world pickup prompt + message).
+- **Hidden when no items are equipped** (alpha 0).
+- **Implemented** (2026-06-17): replaces the previous transient `iprintln("Picked up: …")`-only feedback, which left no persistent sign you were holding an item.
+
 #### 2. Cyberware stack indicator
 
 - **Position**: lower-left, above currency row.
@@ -143,13 +156,26 @@ Rendered via LUI; implementation deferred to Phase 4. Layout sketch below.
 - **Format**: full-width bar with phase markers (33% / 66% boundaries for mini-boss, 66% / 33% / 15% for full boss).
 - **Lifecycle**: appears on boss spawn, disappears on death.
 - **Content**: boss name + current phase + HP bar.
+- **Motion** (user, 2026-06-17): the depleting fill **slides** to the new value instead of
+  snapping. Both the player HEALTH bar (top-left) and the boss bar use
+  `acc_set_bar_smooth()` in `_acc_health_bars.gsc`, which animates the stock `createBar` fill
+  with `scaleOverTime` (0.25 s glide) rather than the instant `hud::updateBar` width set. The
+  round-progress / zombies-remaining bar (`CoD.AccRoundRing`, `acc_hud.lua`) slides the same
+  way via the LUI `beginAnimation` tween. See docs/42.
 
-#### 7. Damage numbers (optional, modifier-gated)
+#### 7. Damage numbers (crosshair-anchored)
 
-- **Off by default** (feels arcade-y; most zombies players dislike them).
-- **Enable via modifier**: `acc_mod_damage_numbers` dvar or a modifier toggle.
-- **Format**: floating text that rises from the hit location and fades.
-- **Color**: white for body, yellow for headshot, red for boss hits.
+- **Position**: a single number centered just above the crosshair (reads as damage on
+  the zombie you're aiming at) — `CoD.AccDmgNum` in `acc_hud.lua`. Over-entity floating
+  text was rejected (requires overriding `CoD.Waypoints`; see `_acc_dev.gsc` comment).
+- **Batching**: sustained fire accumulates into one steadily-updating number over a
+  ~0.1s window (no flicker storm); hides ~0.5s after the last hit.
+- **Color**: amber `(1.0, 0.88, 0.25)` for normal hits, **teal `(0.20, 0.95, 0.85)`
+  when the batch landed a headshot** (user, 2026-06-17). Headshot is sticky-OR'd across
+  the batch — any head hit in the window tints the number teal.
+- **Size**: text scale `1.52` (20% smaller than the original `1.9`, user 2026-06-17).
+- **Encoding**: `accDmgNum` clientuimodel int = `min(dmg,65535)*4 + headshot_bit + parity`
+  (18-bit field, fits exactly; parity flips so identical numbers re-pop).
 
 #### 8. Emergency Drop prompt
 

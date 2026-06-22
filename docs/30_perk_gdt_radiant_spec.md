@@ -45,18 +45,22 @@ visible bonus). Note grenades are clamped to their GDT **carry cap**, not a rese
   the whole roster *and* global. Consider shipping Armory **grenades-only** (+2/+2,
   just the 2 grenade GDTs) and dropping the gun-reserve +30%. Design call.
 
-### Widow's Wine — frag radius + 6 web grenades
+### Widow's Wine — frag radius (+ 6 web grenades: ABANDONED, superseded by a GSC pool)
 
 | Asset (GDT) | Field | Change |
 |---|---|---|
-| `sticky_grenade_widows_wine` | `explosionRadius` + `explosionInnerRadius` | × **1.25** each (+25% radius) |
-| `sticky_grenade_widows_wine` | `maxAmmo` (grenade carry cap) | → **6** (so the GSC `SetWeaponAmmoClip(…,6)` fill isn't clamped below 6) |
+| `sticky_grenade_widows_wine` | `explosionRadius` + `explosionInnerRadius` | × **1.25** each (+25% radius) — still valid |
+| ~~`sticky_grenade_widows_wine`~~ | ~~`maxAmmo` (grenade carry cap)~~ | **ABANDONED** — a usermap can't lift the engine's lethal-clip clamp, so this raise never delivered 6 (stock HUD showed ~2). Superseded by a GSC **virtual pool** of 6 throws. |
 
-- The Spiderman web-grenade **OHK** and the GSC top-up-to-6 are already coded; the GSC
-  now writes the **lethal clip** (`SetWeaponAmmoClip`, fixed 2026-06-14 — the web
-  grenade is the player's lethal, carried in the clip per `_zm_perk_widows_wine.gsc:214`),
-  so this GDT only matters **if** the engine clamps the clip to the carry cap below 6.
-  Confirm in-game: if `SetWeaponAmmoClip(web, 6)` already yields 6, this row is moot.
+- **SUPERSEDED (web-grenade count).** The plan to raise the grenade `maxAmmo` so a
+  `SetWeaponAmmoClip(web, 6)` fill isn't clamped is **abandoned** — a usermap can't lift the
+  engine's lethal-clip clamp, so the fill alone never yielded 6. The **actual** implementation
+  (2026-06-18) is a GSC **virtual pool** of 6 usable throws (`_acc_mega_bottles.gsc`
+  `acc_web_pool`: `web_grenade_pool_watcher` spends it per throw on the stock `grenade_fire`
+  notify + refills the clip; base pool 2 / Mega 6; restock 2-base / 4-Mega per round) + a custom
+  **WEB GRENADES** HUD counter (`sync_web_grenades_to_client`). No GDT edit needed for the count.
+  The Spiderman **melee OHK** (regular zombies) is also coded (`_acc_damage.gsc`). The
+  `explosionRadius` ×1.25 frag-radius row above still stands (an APE edit, if ever wanted).
 - **`+50%/+25% EMP` line is a spec blocker, not a build task.** Stock Widow's Wine
   has **no EMP component** (it registers only the web grenade + webbed-knife
   variants). There is no "Widow's Wine EMP" asset to edit and no hook tying an EMP

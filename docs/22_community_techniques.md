@@ -1407,3 +1407,40 @@ true)` in the menu Lua (OpenMenu alone doesn't grab input). 5 names must match e
   SHARED trigger string (not per-player), so a per-player price needs a per-player hint
   loop (we re-set the hint to the TOUCHING player's price) or per-player triggers; the box
   trigger is already per-player so its display is exact.
+
+## LUI HUD widget override — recolor/replace a STOCK HUD element (zm_building, 2026-06-17)
+
+> **STATUS: UNVERIFIED / did NOT work on our setup (2026-06-17).** We tried all of the below to
+> recolor the stock round counter teal — same-path rawfile, `require`, and the HUD-root wrapper —
+> and the counter stayed red in-game every time. zm_building clearly ships this, but we could not
+> reproduce it here and can't debug blind (no runtime LUI introspection). The feature was abandoned.
+> Treat this section as THEORY to revisit only with live LUI debugging, not a proven recipe.
+
+
+- **What:** the stock zombies HUD elements are individual LUI widgets, built by the HUD ROOT menu
+  `LUI.createMenu.T7Hud_zm_factory`, which instantiates each by CALLING its `LUI.createMenu.<name>`
+  factory — e.g. the round counter: `LUI.createMenu.RoundStatus(InstanceRef)` (chalk marks +
+  `ZOMBIE_ROUND` + round number, driven by the `GameScore`/`roundsPlayed` global model). Source:
+  `tmp/zm_building/ui/uieditor/menus/hud/t7hud_zm_custom.lua:68` (defines `T7Hud_zm_factory`) `:145`
+  (calls `LUI.createMenu.RoundStatus`); the widget body `.../widgets/hud/RoundStatus.lua`.
+- **WHAT DOESN'T WORK (tried, stayed red):** shipping a `.lua` rawfile at the stock widget's *same
+  path* and expecting it to auto-override. A packed rawfile does NOT execute on its own, and even
+  when loaded it loses the load-order / `require`-cache race against the stock copy. (zm_building
+  ships RoundStatus.lua as a rawfile, but it ALSO `require`s it from its full HUD-root replacement —
+  the rawfile alone is not the mechanism.)
+- **WHAT WORKS — wrap the HUD-root factory:** (1) put your widget at a UNIQUE path
+  (`acc_round_status.lua`) so `require` ALWAYS executes it (no stock-name cache collision); have it
+  stash its factory in a global (`CoD.AccTealRoundStatus = LUI.createMenu.RoundStatus`). (2) From a
+  LUI file that loads early (our `acc_hud.lua`, LuiLoad'd in the `.csc __init__`), `require` it, then
+  wrap the root:
+  `local o = LUI.createMenu.T7Hud_zm_factory; LUI.createMenu.T7Hud_zm_factory = function(I) LUI.createMenu.RoundStatus = CoD.AccTealRoundStatus; return o(I) end`.
+  Forcing the factory ref right before delegating defeats the order/cache race. `pcall`/nil-guard it.
+- **Asset-name rule still applies separately:** for *assets* (materials/images/xmodels) the base
+  zone wins a name collision (docs/29 — why the perk bar can't be recolored via image names). LUI
+  *behavior* is overridable via the `LUI.createMenu.*` function table (code), which is the lever here.
+- **Applied (ACC round counter teal, docs/14/42):** `acc_round_status.lua` = the stock structure with
+  ONLY `CoD.RoundStatus.DefaultColor` dark-red→teal `(0.25,0.88,0.82)`; native chalk/round-up
+  animation preserved; all assets stock. Replaced an earlier overlay+mask hack (`CoD.AccRoundNum` +
+  a `world` clientfield), now removed. Needs L3akMod (custom-LUI linker), which we already run.
+- **Reuse:** the same factory-wrap can restyle other stock HUD widgets the root builds (ammo, score,
+  perks) — override their `LUI.createMenu.<name>` inside the same `T7Hud_zm_factory` wrapper.

@@ -4,45 +4,91 @@ Machin[a]-style randomized passive-buff items dropped on boss kills. Shape your 
 
 ## At a Glance
 
-- **6 items** in the drop pool.
-- **2 equipped slots** per player (cannot wear more).
+- **7 items** in the drop pool.
+- **1 active item** per player (bench-gated; first enable FREE, each swap = 2500 pts).
 - Drops from both **mini-boss** (50% chance) and **full boss** (guaranteed).
 - **Duplicates** convert to 3 Data Shards.
 - **No persistence across runs** - items are lost on death / run-end.
 
 ## Separate From Mega Bottles
 
-**This doc covers the 6-item equippable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take one of the 2 item slots and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-system) for the Mega Bottle acquisition + persistence rules; per-perk Mega effects are under **Perk reference (base + Mega)** in the same doc.
+**This doc covers the 7-item implantable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take the active-item slot and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-system) for the Mega Bottle acquisition + persistence rules; per-perk Mega effects are under **Perk reference (base + Mega)** in the same doc.
 
 ## Drop Mechanics
 
+> **v2 (2026-06-17): bench-gated, single active item.** Picking an item up only
+> CARRIES it; you ENABLE its buff at the Plaza Implant Bench. First enable free,
+> swaps cost 2500. The legacy 2-slot auto-equip + the original 6 items are
+> superseded (kept under "The 6 Items (LEGACY)" below for design history).
+
 ```mermaid
 flowchart LR
-    Kill[Boss killed] --> Roll{Already<br/>have it?}
-    Roll -->|No| Drop[Item entity spawns at corpse<br/>glowing pickup, 60s lifetime]
-    Roll -->|Yes| Dust[Converts to 3 Data Shards<br/>granted to killer directly]
-    Drop --> Pickup{Player<br/>picks up}
-    Pickup -->|Slot free| Equip[Equipped automatically]
-    Pickup -->|2 slots full| Replace[UI prompt:<br/>replace slot 1, 2, or decline<br/>declined item reverts to Shards]
+    Kill[Boss killed] --> Roll{Already have<br/>or carrying it?}
+    Roll -->|Yes| Dust[Converts to 3 Data Shards]
+    Roll -->|No| Drop[Item drops at corpse<br/>hold ⓕ Use = GRAB / carry it]
+    Drop --> Bench[Plaza Implant Bench<br/>hold ⓕ Use = ENABLE the buff]
+    Bench -->|first enable| Free[FREE]
+    Bench -->|swap to a new one| Cost[costs 2500 points]
 ```
 
-- Drop chance:
-  - **Juggernaut Host** (mini-boss, rounds 10, 20): **50% chance** to drop one item.
-  - **Subroutine Core** (full boss, round 30+): **100% guaranteed** drop per boss kill.
-  - With a 6-item pool, reaching round 50 yields roughly 4-5 drops (1 r10 + 1 r20 + 1 r30 + 1 r40 + 1 r50, with the mini-boss 50% RNG). You'll typically see 4 of 6 items by round 40, so **expect your 2 equipped to be a gradually-filled-and-swapped set**, not a fast "lucky combo" lock-in.
-- Drop item is **random from the pool**. No weighting (uniform).
-- Drop entity spawns at the boss corpse origin; anyone can pick up.
-- Dropped but uncollected items despawn after **60 seconds** (long enough to finish the boss cleanup, short enough that you can't bank them indefinitely).
+### Acquisition flow
+1. **Bosses drop items.** A random pool item drops at the corpse (Brutus / Glitch Stalker **50%**, Subroutine Core **100%**). Hold **ⓕ Use** to **grab** it — this only **carries** it (HUD: `CARRYING <item>`); the buff is NOT active yet. Uncollected drops despawn after **60 s**. Grabbing an item you already carry/have → **+3 Data Shards**. Grabbing a NEW item while already carrying a different (un-enabled) one **drops the old one back to the ground** (re-grabbable) — it's never lost. (An already-implanted item stays implanted.)
+2. **Enable it at the Plaza Implant Bench** (beside the Plaza spawn). Hold **ⓕ Use** to **implant** the carried item → buff goes active (HUD: `IMPLANT <item>`).
+3. **One active item at a time.** Your **first** enable is **FREE**; each later **swap** (enabling a different carried item) costs **2500 points** and removes the previous item's buff. Just carrying a new item does nothing until you bench it.
 
-## Slot Model
+### The 7 items
+| ID | Item | Model | Buff | How to use |
+|----|------|-------|------|-----------|
+| 1 | **Gas Tank** | nitrous tank | **Nitro burst** — +100% move speed for 5 s | **Double-tap the Sprint button** to trigger. Runs the full 5 s (uncancellable), then a **60 s** lockout — can't re-trigger until fully recharged. A **NITRO bar** on the left HUD shows the charge: full **cyan** = ready; it drains to empty over the burst, then refills **orange** over the 60 s regen. |
+| 2 | **Li'l Arnie** | octobomb | **Grants the Octobomb tactical** (Li'l Arnie throwable) | Passive grant; throw it like a tactical (attracts + spores zombies). The only source in this map. |
+| 3 | **Loot Stash** | gold brick (`zombietron_gold_brick`) | **+10% Points** on every kill | Passive. (gold = money/points; was a teddy bear — user 2026-06-18) |
+| 4 | **Repair Kit** | carpenter icon | **+10 HP/sec** passive health regen | Passive (caps at max health; pauses while downed). |
+| 5 | **Rocket Shield** | rocket shield | **Mobility** — +35% speed while sliding, a forward lunge on slide-start, **2× jump height** | Passive — just slide and jump. |
+| 6 | **Monkey Bomb** | monkey bomb | **Grants the Cymbal Monkey tactical** | Passive grant; throw it to distract zombies. The only source in this map. |
+| 7 | **Phase Serum** | perk-bottle vial | **Cloak — Glitch Stalker ONLY** — the Glitch Stalker can't see/target you; the regular horde still attacks | Passive. (Glitch-only by design — a full horde cloak made you invulnerable.) |
+| 8 | **Boots** | boots prop (`p7_boots_safehouse_01`) | **Mobility** — **+8% move speed everywhere**. (No longer cancels the trench slow — user 2026-06-21; only the Exo Suit does that, docs/47.) | Passive. (user 2026-06-18) |
 
-Each player has 2 item slots (`slot_a`, `slot_b`). Items worn are **visible** via a small HUD indicator (Phase 4 LUI work).
+All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. Models are link-verified (errorlog-clean) and per-item floor-lifted (`model_z`) so they don't sink in.
 
-You can **unequip** an item at any time via the Cyberware Kiosk (Plaza) - drops it on the ground for 30 seconds, giving you or a teammate a chance to pick it up.
+### Caveats / honest framing
+- **Granting the Octobomb / Cymbal Monkey works via a CSV row only** (no `.zone` weapon line). Both weapon defs already ship in `zm_levelcommon` (the common fastfile every usermap loads — assetlist lines 6175/6225), so a row in `gamedata/weapons/zm/zm_levelcommon_weapons.csv` makes `is_weapon_included` true and `GetWeapon("octobomb"/"cymbal_monkey")` resolves at runtime. **Do NOT add `weapon,<name>_zm` to the `.zone`** — that forces a re-pack from a GDT source not on disk and errors `Unable to load weapon` (that was an earlier self-inflicted build error, since corrected).
+- **The thrown grenade's BEHAVIOR (attract / spore / explode) has to be manually activated — the HACK (2026-06-18).** `GiveWeapon` alone makes the grenade *throwable*, but the thrown projectile "just sits there": the attract/explode logic lives in a per-player watcher thread (`player_handle_octobomb` / `player_handle_cymbal_monkey`) that stock starts ONLY from `zm_weapons::weapon_give`, which fires the registered `level.zombie_weapons_callbacks[weapon]`. Our boss-item grant uses a **raw** `GiveWeapon`, which skips that path, so the watcher never starts. Fix: `give_octobomb` / `give_monkey_bomb` now dispatch the callback themselves — `self thread [[ level.zombie_weapons_callbacks[w] ]]()` — **verbatim the stock dispatch at `_zm_weapons.gsc:2791-2793`**. The watchers self-guard (notify/endon), so the revive re-grant is safe; no `#using` or clientfield needed (it's a `level` field). The SoE/DLC3 **spore / glow / lightning FX are absent from this install** (in no fastfile here) so the visuals won't render, but the gameplay (attract + damage + detonate) is fully server-side and works.
+- **Rocket Shield "slide lasts 1.5× longer" isn't literally possible** — BO3 exposes no per-player slide-duration lever. Shipped as a **forward distance lunge** on slide-start (slide carries you farther) + the +35% slide speed. The **2× jump height** is a per-player upward velocity **multiply** (×1.42 → apex ~2×, since height ∝ velocity²; NOT the global `jump_height` dvar, which is all-players + persists).
+- **Detection uses the right engine builtin per trigger** (the `*_begin` notifies are MP-only, so we poll): Gas Tank double-tap reads **`SprintButtonPressed()`** — the raw sprint-KEY edge — because `IsSprinting()` latches continuously true under ZM auto-sprint and so can never register the second tap (that was the "Gas Tank does nothing" bug). Rocket Shield slide reads **`IsSliding()`** (the dedicated slide-state builtin) because `GetStance()` only ever returns stand/crouch/prone — never a slide value (that was the "slide doesn't work" bug). Jump + lunge still read `IsOnGround`/velocity. Tune the feel with the dvars below.
 
-You **cannot** swap between two equipped items' slots freely - slots are just organizational, effects don't care which slot.
+### Tuning dvars (live, no rebuild)
+| Dvar | Default | Effect |
+|------|---------|--------|
+| `acc_boss_item_chance_mini` | **1.0 (TEMP)** | mini-boss (Brutus / Glitch Stalker) drop chance. **Design value is 0.5** — currently forced to 100% for testing (2026-06-18); set `0.5` to restore. |
+| `acc_boss_item_chance_full` | 1.0 | full-boss (Subroutine Core) drop chance |
+| `acc_drop_model_z` | 24 | global fallback floor-lift for drop models (per-item `model_z` overrides) |
+| `acc_bench_off_x` | 64 | bench X offset from the Plaza spawn struct |
+| `acc_bench_off_z` | -35 | bench Z offset from the Plaza spawn struct (it sat too high; 2026-06-18) |
+| `acc_gas_dtap_ms` | 350 | Gas Tank double-tap-sprint window (ms) |
+| `acc_gas_burst_mult` | 1.50 | Gas Tank nitro burst move-speed multiplier (+50%) |
+| `acc_gas_regen_sec` | 60 | Gas Tank cooldown/regen seconds after the 5 s burst (= NITRO bar refill time) |
+| `acc_rocket_slide_mult` | 1.35 | Rocket Shield slide move-speed multiplier (+35%) |
+| `acc_mega_flopper_slide_mult` | 1.35 | PhD Flopper Mega slide move-speed multiplier (+35%, slide-gated) |
+| `acc_boots_mult` | 1.08 | Boots item move-speed multiplier (+8% everywhere; no longer negates the trench slow, user 2026-06-21) |
+| `acc_arnie_scale` | 0.33 | Li'l Arnie (octobomb) visual scale — 1.0 = stock size |
+| `acc_rocket_slide_kick` | 200 | Rocket Shield slide-start forward lunge |
+| `acc_rocket_jump_mult` | 1.42 | Rocket Shield jump velocity multiply (~2× apex height; height ∝ velocity²) |
 
-## The 6 Items
+### Implementation (all in `_acc_boss_items.gsc` unless noted)
+- **State:** `player.acc_carried_item` (picked up, no buff) + `player.acc_active_item` (implanted) + `player.acc_bench_first_done`. `ACC_ITEM_SLOTS_PER_PLAYER = 1`.
+- **Bench:** `spawn_bench()` (runtime `script_model` + `trigger_radius_use` at the `player_respawn_point` struct — no Radiant edit) → `bench_use_loop()` applies the carried item's `on_equip`, charges `ACC_BENCH_SWAP_COST` (2500) after the first via `zm_score::can_player_purchase`/`minus_to_player_score`, and `on_unequip`s the previous.
+- **Cloak (Phase Serum):** `apply_arnie_cloak` sets a custom `player.acc_cloak_glitch` flag — deliberately **NOT** `zm_utility::increment_ignoreme` (that hid you from the *entire* horde = invulnerable, the rejected bug). The Glitch Stalker honors it by setting **`host.closest_player_override = &glitch_pick_uncloaked_target`** on every spawn: stock `get_closest_valid_player` consults this per-AI picker FIRST (`_zm_utility.gsc:1472`) to derive BOTH the Stalker's movement target (`favoriteenemy`) and its melee target (`enemy`), so the cloak now hides you from its **whole behavior** — follow + melee + blink + charge — not just the two blink/charge calls (the old scope, which let it still walk up and hit you = the "Phase Serum doesn't work" bug). The picker strips cloaked players then delegates to the stock factory target picker (via the `level.closest_player_override` pointer) so everyone else is targeted exactly as stock; the regular horde always sees you. All players cloaked → the Stalker has no target and idles.
+- **Speed buffs** (nitro burst, slide +15%) ride `_acc_utility::recompute_move_speed`; regen + jump/slide impulses are self-contained polling threads.
+- **Gas Tank NITRO bar:** `gas_bar_loop` (threaded on equip, ended on `acc_gas_tank_removed`) reuses the verified `hud::createBar` widget (left HUD stack, y≈108/122). `gas_tank_burst` stamps `acc_gas_burst_start`; `gas_charge_frac` derives the 0..1 fill from elapsed time (drain over `ACC_GAS_BURST_SEC`, refill over `ACC_GAS_REGEN_SEC`), polled at 20 Hz so it glides. Created/destroyed with the item (single-active).
+
+## The 6 Items (LEGACY — superseded by the v2 table above)
+
+> **LEGACY (pre-2026-06-17).** The detailed designs below describe the *original*
+> 6 items. The live pool was redesigned model-first (see the **Item IDs + buffs**
+> table above) — Gas Tank / Li'l Arnie / Teddy Bear / Repair Kit / Rocket Shield /
+> Monkey Bomb. Items 1-3 reuse three of the effects described below (move speed /
+> charged-shot / +points); the rest are superseded by the new self-contained buffs.
+> This section is kept for the effect-design rationale pending a full rewrite.
 
 ### 1. Neural Boots (feet archetype)
 

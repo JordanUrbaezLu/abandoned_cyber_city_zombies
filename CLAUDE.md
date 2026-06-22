@@ -7,6 +7,33 @@ Cyberware tree, Overclocks, per-run randomization) on Steam Workshop.
 docs/BO3_MAPMAKING_KB.md** — build pipeline, launch, GSC dialect, entity
 recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
 
+## Working philosophy — HACKY IS GOOD (user, 2026-06-17)
+
+This is a **custom BO3 zombies map, NOT production code.** We do **not own the engine
+or the stock scripts** — we only have the GSC/CSC/Radiant surface Treyarch exposed.
+So when a clean API for what you want does not exist (it often won't), **a hacky,
+creative workaround is the CORRECT answer — encouraged, not apologized for.** Find the
+lever the engine *does* give you, even if it's ugly, and ship it. Canonical examples
+already in the codebase: "disable" vol fog by shoving its start plane to 100,000,000
+units (there is no fog-off call — even stock `_art.gsc` does this); drive custom HUD
+off clientfields because `.csc` can't call `.gsc`; reskin surfaces by swapping the
+material *token* because face materials take no `.zone` line; finish stock-but-broken
+pipelines (electric cherry) from our side. **Prefer a working hack that ships over a
+"clean" approach that's blocked by code we can't touch.** When you find one, DOCUMENT
+the hack + *why* (code comment + the relevant doc + a memory) so the next agent reuses
+it instead of re-hitting the wall. Verify hacks against stock/shipped precedent where
+possible (docs/19, docs/22), but absence of precedent is not a blocker — invent it.
+
+## Dev/test mode — ONE flag, HARDCODED (user, 2026-06-21)
+
+The user wants a single `acc_dev` flag that, when enabled, **hardcodes everything the way they want for
+testing** (god / unlimited shards / all perks + slots / open map / fast rounds / test boss spawns / etc.) —
+a binary **normal play vs dev mode**, baked in GSC. They do **NOT** want a runtime-tweakable dev console.
+**Never tell the user to "set dvar X in the console"** to test something, and never make a new tunable dvar
+the dev path — gate it on the single dev flag and hardcode the value, **even though a runtime dvar is the
+"normal" practice.** (Live-balance tuning dvars for the user's own experiments are still fine — this rule is
+specifically about the DEV/TEST-mode UX.) Pass this to any subagent. Memory: `dev-mode-hardcoded-not-console`.
+
 ## Hard constraints
 
 - This repo lives on the **Windows dev box** and **Mod Tools ARE installed**
@@ -21,6 +48,18 @@ recipes, stock APIs, dev/test toolkit, gotchas. Read it first.
   `.ff`). Details below + memory `agents-build-geometry-themselves`. Keep verifying
   against known-good references (hard-won facts + docs/research/) before each build.
   Line endings pinned LF by `.gitattributes`. Setup path: SETUP_WINDOWS.md.
+- **THE RADIANT LED BAKE IS THE GATE — it MUST pass before any change is tested or kept
+  (user, 2026-06-18).** As of the pre-stage3 revert the map BAKES again, so `-SkipLED` is
+  NO LONGER the default — it is now a RED FLAG that hides the `brush.cpp:1860` lightmapper
+  regression. After ANY geometry / `.map` / material / sky / probe change, run a FULL build
+  WITH the LED bake (`.\tools\build_map.ps1`, **no** `-SkipLED`) or the fast gate
+  `.\tools\_bake_test.ps1 <map.path>` (cod2map + LED, prints **BAKED** / **CRASHED**). If LED
+  CRASHES (hangs on `brush.cpp:1860`, auto-killed), the change RE-INTRODUCED the
+  lightmapper-killing geometry — **REVERT or FIX it before testing/committing; never ship a
+  change that fails the bake.** (`-GscOnly` stays fine for GSC/`.csc`/`.zone`/`.csv`-only
+  changes that touch NO geometry — the BSP+lightmap are reused, so they can't regress the
+  bake.) The cumulative tightening-overhaul geometry is what broke it; working baseline =
+  `pre-stage3` (memory `led-relight-dead-end-enclosed-geometry`).
 - Every substantive change: CHANGELOG.md entry + the relevant doc updated in
   the same commit.
 - **External (game-rip) asset packs are NOT in git** (NSZ Brutus / Skye guns /

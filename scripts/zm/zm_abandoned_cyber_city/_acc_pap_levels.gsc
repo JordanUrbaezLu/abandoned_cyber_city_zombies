@@ -296,6 +296,8 @@ function acc_do_first_pack( w, cost )
         self apply_pap_camo( w );
     self.acc_pap_busy = false;
 
+    self GiveMaxAmmo( w );   // full ammo on pack (user 2026-06-21); T1 keeps the base form in hand
+
     self PlaySound( "zmb_perks_packa_ready" );          // no aat::acquire -> NO alt-ammo
     self IPrintLnBold( "^5PaP TIER 1/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( 1 ) );
 }
@@ -354,6 +356,7 @@ function acc_do_tier_up( w )
     self zm_score::minus_to_player_score( cost );
     self.acc_pap_tier[ base ] = next;
     self.acc_pap_busy = false;
+    self GiveMaxAmmo( self GetCurrentWeapon() );   // full ammo on pack (user 2026-06-21); held = the packed form after the swap
     self PlaySound( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
     self IPrintLnBold( "^5PaP TIER " + next + "/" + ACC_PAP_MAX_TIER + " ^7- " + tier_benefit( next ) );
 }
@@ -401,10 +404,22 @@ function acc_do_transform( w, base )
     self GiveWeapon( packed, options );
     self SwitchToWeaponImmediate( packed );
 
-    new_clip  = clip  + ( packed.clipSize - w.clipSize );
-    new_stock = stock + ( packed.maxAmmo  - w.maxAmmo );
-    if ( new_clip  < 0 ) new_clip  = 0;
+    // Clip top-up uses clipSize (always ROUNDS - consistent units), so the delta is safe.
+    new_clip = clip + ( packed.clipSize - w.clipSize );
+    if ( new_clip < 0 ) new_clip = 0;
+
+    // Reserve carry - akimbo-PaP bug fix (user 2026-06-21): do NOT delta off weapon.maxAmmo.
+    // For single-wield Skye guns weapon.maxAmmo reads as reserve-in-ROUNDS, but for the akimbo
+    // "_rdw_up" packed forms (PDW, M1911) it reads as the raw MAGAZINE count, so the old
+    // `stock + (packed.maxAmmo - w.maxAmmo)` mixed units and collapsed the akimbo reserve to a
+    // few dozen rounds ("PaP'd PDW has ~30 bullets"). Instead carry the player's current reserve
+    // in rounds, clamped to the packed gun's real full reserve (the fresh-give default the engine
+    // just set on GiveWeapon, which GetWeaponAmmoStock reports in rounds for both wield types).
+    packed_full = self GetWeaponAmmoStock( packed );
+    new_stock = stock;
+    if ( isdefined( packed_full ) && new_stock > packed_full ) new_stock = packed_full;
     if ( new_stock < 0 ) new_stock = 0;
+
     self SetWeaponAmmoStock( packed, new_stock );
     self SetWeaponAmmoClip( packed, new_clip );
     self TakeWeapon( w );
@@ -475,8 +490,15 @@ function replay_pack_draw( w )
     for ( i = 0; i < EMPTY_FRAMES; i++ ) WAIT_SERVER_FRAME;
     if ( !isdefined( self ) ) return;
 
-    // Packed gun back FIRST + raise it -> the first-raise/re-cock plays (fresh give).
-    self GiveWeapon( w, pap_options );
+    // Packed gun back FIRST + raise it -> the first-raise/re-cock plays (fresh give). Tier-gate the
+    // camo like the restore loop below: replay_pack_draw is now ALSO called on OVERCLOCK (any held
+    // gun, incl. never-PaP'd), so a tier-0 gun must re-give WITHOUT the gold PaP camo (user 2026-06-21).
+    // get_tier returns >=1 for both PaP callers (T1 sets the tier before this call; T2/T3 hold an
+    // already-"_up" gun), so PaP camo is unaffected.
+    if ( get_tier( self, w ) >= 1 )
+        self GiveWeapon( w, pap_options );
+    else
+        self GiveWeapon( w );
     self SwitchToWeaponImmediate( w );
 
     // Restore the rest (camo for any upgraded gun, ammo for all), WITHOUT switching, so the

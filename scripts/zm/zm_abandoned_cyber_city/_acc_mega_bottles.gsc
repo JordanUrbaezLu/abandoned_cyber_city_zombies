@@ -28,7 +28,7 @@
 #define ACC_SPIDERMAN_WEB_GRENADES   6
 #define ACC_SPIDERMAN_ROUND_RESTOCK  4
 #define ACC_WIDOW_BASE_ROUND_RESTOCK 2
-#define ACC_ARMORY_ROUND_REFILL 0.35   // Armory (Mule Kick Mega): +35% of each gun's reserve cap, refilled at round start
+#define ACC_ARMORY_ROUND_REFILL 0.20   // Armory (Mule Kick Mega): +20% of each gun's reserve cap, refilled at round start (was 0.35, user 2026-06-21)
 
 #namespace acc_mega_bottles;
 
@@ -64,6 +64,13 @@ function on_player_connect( player )
     player.acc_mega_perks = [];
     player sync_bottle_count_to_client();
     player thread flash_respawn_watcher();
+
+    // Spiderman web-grenade virtual pool (6 usable throws): one lifetime watcher pair per
+    // player (endon disconnect) - the throw-spender + the init/cap/HUD poll. NOT re-threaded
+    // per spawn (would stack duplicate spenders).
+    player.acc_web_pool = 0;
+    player thread web_grenade_pool_watcher();
+    player thread web_grenade_manage_watcher();
 }
 
 // The Flash move-speed bonus is wiped on every (re)spawn: zm_usermap's
@@ -78,11 +85,18 @@ function flash_respawn_watcher()
     {
         self waittill( "spawned_player" );
         self.acc_flash_speed = false;
+        self.acc_mega_flopper_speed = false;
         wait 0.25; // after the spawn-path speed reset
         if ( self HasPerk( "specialty_staminup" )
              && has_mega_perk( self, "specialty_staminup" ) )
         {
             self apply_flash_speed();
+        }
+        // Mega Flopper (PhD Slider) +15% move - same respawn re-apply as The Flash.
+        if ( self HasPerk( "specialty_electriccherry" )
+             && has_mega_perk( self, "specialty_electriccherry" ) )
+        {
+            self apply_mega_flopper_speed();
         }
     }
 }
@@ -94,10 +108,10 @@ function flash_respawn_watcher()
 // holder: PERKS in _acc_perk_info::armory_perk_pricing, PaP tier-up in
 // _acc_pap_levels::acc_do_tier_up. (Box display/charge + PaP first-pack: TODO.)
 
-// Widow's Wine grenade round-restock: base perk tops the web-grenade clip to 2 at
-// the start of each round; the Spiderman Mega tops it to 4 (docs/13). Restock =
-// "ensure at least N", never reduces a higher count (drop pickups still stack to
-// the GDT cap). Runs for every Widow owner each round.
+// Widow's Wine grenade round-restock: tops the virtual WEB-GRENADE POOL (not the clamped
+// clip) - base 2, Spiderman Mega 4 (docs/13). Restock = "ensure at least N", never reduces
+// a higher count. The pool (player.acc_web_pool) is the real reserve; acc_web_refill_clip
+// pushes it into the GDT-clamped clip. Runs for every Widow owner each round.
 function widow_round_restock_watcher()
 {
     level endon( "end_game" );
@@ -116,9 +130,11 @@ function widow_round_restock_watcher()
             if ( !( p HasWeapon( level.w_widows_wine_grenade ) ) ) continue;
 
             target = ( has_mega_perk( p, "specialty_widowswine" ) ? ACC_SPIDERMAN_ROUND_RESTOCK : ACC_WIDOW_BASE_ROUND_RESTOCK );
-            cur = p GetWeaponAmmoClip( level.w_widows_wine_grenade );
-            if ( !isdefined( cur ) || cur < target )
-                p SetWeaponAmmoClip( level.w_widows_wine_grenade, target );
+            if ( !isdefined( p.acc_web_pool ) ) p.acc_web_pool = 0;
+            if ( p.acc_web_pool < target )
+                p.acc_web_pool = target;   // regen the POOL (4 Mega / 2 base), never reduce
+            p acc_web_refill_clip();
+            p sync_web_grenades_to_client();
         }
     }
 }
@@ -471,7 +487,7 @@ function try_apply_mega( player, specialty_string )
 // ---------------------------------------------------------------------------
 // Mega effect application. Called on upgrade AND on every (re)buy of a
 // Mega'd perk (sticky persistence, docs/13_perks.md). Per-perk status:
-//   IMPLEMENTED here: Ultimate Tank (+64 max HP -> 314), The Flash (+15% speed),
+//   IMPLEMENTED here: Ultimate Tank (+50 max HP -> 300), The Flash (+15% speed),
 //     Spiderman (web-grenade clip fill -> 6).
 //   IMPLEMENTED elsewhere, read live from the Mega flag each frame/hit/reconcile:
 //     American Sniper (headshot _acc_damage + -40% recoil twin), Gun Slinger
@@ -489,12 +505,12 @@ function apply_mega_effects( player, specialty_string )
     switch ( specialty_string )
     {
     case "specialty_armorvest":
-        // Ultimate Tank: docs/13 = 314 HP. VERIFIED(acc): n_player_health_boost is
+        // Ultimate Tank: docs/13 = 300 HP. VERIFIED(acc): n_player_health_boost is
         // the only field the stock "health_reboot" recompute adds
         // (_zm_perks.gsc:828-831), and that recompute re-runs at every revive - so
         // the bonus survives downs. A bare SetMaxHealth would be wiped by the next
-        // recompute. base Jug = 100 + 150 = 250; +64 -> 314 HP (down on the 7th @ ~45).
-        player.n_player_health_boost = 64;
+        // recompute. base Jug = 100 + 150 = 250; +50 -> 300 HP (down on the 7th @ ~45).
+        player.n_player_health_boost = 50;
         player zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
         break;
 
@@ -505,22 +521,21 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_widowswine":
-        // Spiderman (docs/13 overhaul): hold up to 6 web grenades. Top the player's
-        // CURRENT web-grenade count to 6. VERIFIED(acc): ZM carries the web grenade
-        // in the LETHAL CLIP, not the reserve - stock decrements via
-        // SetWeaponAmmoClip( current_lethal_grenade, ... ) on throw
-        // (_zm_perk_widows_wine.gsc:214) and reads it with GetWeaponAmmoClip (:294).
-        // The engine clamps the clip to the grenade GDT carry max, so a 6 above that
-        // cap still needs the GDT raise (docs/30). The restock-4/round half is in
-        // widow_round_restock_watcher.
+        // Spiderman: 6 USABLE web grenades via a GSC VIRTUAL POOL. The web grenade is carried
+        // in the LETHAL CLIP, which the engine clamps to the grenade GDT carry cap (~2) - and a
+        // usermap can't raise that cap, so the old SetWeaponAmmoClip(...,6) fill never held
+        // (the docs/30 GDT raise is ABANDONED). player.acc_web_pool is the real reserve;
+        // web_grenade_pool_watcher spends it per throw + refills the clip, so the player throws
+        // up to 6. Mega -> raise the pool to 6; the custom "WEB GRENADES" HUD counter shows the
+        // true count. The 4/round restock is widow_round_restock_watcher.
         if ( isdefined( level.w_widows_wine_grenade )
              && player HasWeapon( level.w_widows_wine_grenade ) )
         {
-            cur = player GetWeaponAmmoClip( level.w_widows_wine_grenade );
-            if ( !isdefined( cur ) || cur < ACC_SPIDERMAN_WEB_GRENADES )
-            {
-                player SetWeaponAmmoClip( level.w_widows_wine_grenade, ACC_SPIDERMAN_WEB_GRENADES );
-            }
+            if ( !isdefined( player.acc_web_pool ) ) player.acc_web_pool = 0;
+            if ( player.acc_web_pool < ACC_SPIDERMAN_WEB_GRENADES )
+                player.acc_web_pool = ACC_SPIDERMAN_WEB_GRENADES;   // 6
+            player acc_web_refill_clip();
+            player sync_web_grenades_to_client();
         }
         break;
 
@@ -561,7 +576,10 @@ function apply_mega_effects( player, specialty_string )
     case "specialty_electriccherry":
         // PhD Slider (PhD Flopper Mega): a bigger/stronger dive + down explosion. The deltas
         // (radius + damage) are read LIVE from the Mega flag in
-        // _acc_perk_phd_flopper::phd_explode, so nothing to apply here.
+        // _acc_perk_phd_flopper::phd_explode. ALSO (user 2026-06-18): +15% move speed (flag ->
+        // recompute_move_speed, like The Flash) + +15% explosive damage (read live in
+        // _acc_damage::on_ai_damage via has_active_mega_perk - GSC, no weapon twin needed).
+        player apply_mega_flopper_speed();
         break;
 
     default:
@@ -579,8 +597,59 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
+// Mega Flopper (PhD Slider) = 1.35x SLIDE speed (user 2026-06-18, matches the Rocket Shield
+// slide boost). Slide-GATED, not always-on: a per-player watcher sets acc_mega_flopper_speed
+// only while you're actually sliding (IsSliding, mirrors _acc_boss_items::rocket_shield_watch),
+// recomputing through acc_utility's single owner. Single-instance via the stop notify (no
+// stacking on re-acquire / respawn re-apply).
+function apply_mega_flopper_speed()
+{
+    self notify( "acc_mega_flopper_watch_stop" );
+    self.acc_mega_flopper_speed = false;
+    self thread mega_flopper_slide_watch();
+    if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
+}
+
+function mega_flopper_slide_watch()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_mega_flopper_watch_stop" );
+
+    sliding = false;
+    for ( ;; )
+    {
+        wait( 0.05 );
+
+        // Lost the Mega Flopper (downed-out / round loss)? clear the bonus and stop.
+        if ( !( self HasPerk( "specialty_electriccherry" ) && has_mega_perk( self, "specialty_electriccherry" ) ) )
+        {
+            if ( sliding )
+            {
+                self.acc_mega_flopper_speed = false;
+                acc_utility::recompute_move_speed( self );
+            }
+            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
+            return;
+        }
+
+        now_slide = ( self IsSliding() && self IsOnGround() );
+        if ( now_slide != sliding )
+        {
+            sliding = now_slide;
+            self.acc_mega_flopper_speed = now_slide;   // 1.35x via recompute_move_speed
+            acc_utility::crash_log( self, "mega_flopper_slide_watch: slide " + ( now_slide ? "ON" : "off" ) );
+            acc_utility::recompute_move_speed( self );
+            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
+            {
+                if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.35 ) + ")" );
+                else self iprintln( "^7PhD Slider: slide boost off" );
+            }
+        }
+    }
+}
+
 // The Armory Mega (Mule Kick), reworked 2026-06-16: a SUSTAIN refill, NOT a capacity boost.
-// Adds +35% (ACC_ARMORY_ROUND_REFILL) of each carried gun's reserve CAP to its current reserve,
+// Adds +20% (ACC_ARMORY_ROUND_REFILL) of each carried gun's reserve CAP to its current reserve,
 // clamped to the cap. This is runtime-legal (filling toward the existing baked cap, never above it
 // - the reason the old +25%-capacity needed a maxAmmo twin, now removed). Called once on
 // acquire/rebuy (instant top-up) and every round start (armory_round_refill_watcher). Applies to
@@ -610,14 +679,18 @@ function armory_refill()
         cur = self GetWeaponAmmoStock( g );
         if ( !isdefined( cur ) ) continue;
 
-        add = int( g.maxammo * ACC_ARMORY_ROUND_REFILL );   // +35% of the reserve cap
+        // KNOWN MINOR ISSUE (2026-06-21): g.maxammo reads as MAGAZINES (not rounds) for the akimbo
+        // PaP forms (s1_pdw_rdw_up / s2_m1911_rdw_up) - the same quirk fixed in the PaP transform
+        // (_acc_pap_levels::acc_do_transform) - so the refill on a packed PDW/M1911 is tiny. Single-
+        // wield guns are correct (maxammo = rounds). Low impact; left as-is pending a robust akimbo cap.
+        add = int( g.maxammo * ACC_ARMORY_ROUND_REFILL );   // +20% of the reserve cap
         target = cur + add;
         if ( target > g.maxammo ) target = g.maxammo;       // never exceed the baked cap
         if ( target > cur ) self SetWeaponAmmoStock( g, target );
     }
 }
 
-// Round-start +35% reserve refill for every Armory (Mule Kick Mega) holder. Mirrors
+// Round-start +20% reserve refill for every Armory (Mule Kick Mega) holder. Mirrors
 // widow_round_restock_watcher: wakes on the map's "acc_round_start" event.
 function armory_round_refill_watcher()
 {
@@ -719,8 +792,109 @@ function mega_display_name( specialty_string )
 }
 
 // ---------------------------------------------------------------------------
+// Spiderman web-grenade virtual pool (user 2026-06-18)
+//
+// The web grenade is carried in the LETHAL CLIP, which the engine clamps to the grenade
+// GDT carry cap (~2) - and a usermap can't raise that cap (the docs/30 GDT edit is
+// ABANDONED). So the REAL reserve is player.acc_web_pool (0..6 Mega / 0..2 base):
+// web_grenade_pool_watcher decrements it on each throw (stock "grenade_fire" notify) and
+// refills the clip from it, so you throw up to 6; web_grenade_manage_watcher inits/caps the
+// pool + drives the custom "WEB GRENADES" HUD counter (sync_web_grenades_to_client). The
+// stock grenade-clip HUD stays clamped at ~2 and is NOT authoritative.
+// ---------------------------------------------------------------------------
+
+function acc_web_pool_max()    // self = player. Pool cap follows the Mega flag.
+{
+    if ( has_mega_perk( self, "specialty_widowswine" ) )
+        return ACC_SPIDERMAN_WEB_GRENADES;   // 6
+    return ACC_WIDOW_BASE_ROUND_RESTOCK;     // 2
+}
+
+// Push as much of the virtual pool into the lethal clip as the GDT cap allows. The engine
+// clamps SetWeaponAmmoClip down to the carry cap, and the readback is then min(cap, pool).
+function acc_web_refill_clip()    // self = player
+{
+    w = level.w_widows_wine_grenade;
+    if ( !isdefined( w ) || !( self HasWeapon( w ) ) ) return;
+    if ( !isdefined( self.acc_web_pool ) ) return;
+    want = self.acc_web_pool;
+    if ( want < 0 ) want = 0;
+    self SetWeaponAmmoClip( w, want );
+}
+
+// ONE per player for the run (endon disconnect). Spends the pool on each web-grenade throw,
+// then refills the clip - so the player keeps throwing until the pool empties. Modeled on
+// stock last_stand_take_thrown_grenade (_zm.gsc:3151): grenade_fire + weapon match.
+function web_grenade_pool_watcher()    // self = player
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        self waittill( "grenade_fire", grenade, weapon );
+
+        if ( !isdefined( level.w_widows_wine_grenade ) ) continue;
+        if ( weapon != level.w_widows_wine_grenade ) continue;   // ignore other lethals/tacticals
+        if ( !isdefined( self.acc_web_pool ) ) continue;
+
+        if ( self.acc_web_pool > 0 ) self.acc_web_pool--;
+        wait 0.05;   // let the engine's own clip decrement settle before we overwrite it
+        self acc_web_refill_clip();
+        self sync_web_grenades_to_client();
+    }
+}
+
+// ONE per player for the run. Inits the pool to the live clip on a stock grant (buy /
+// Max Ammo / pickup / revive raises the clip above the pool), caps it to the live max
+// (lost Mega -> 2), keeps the clip topped from the pool, and drives the HUD counter.
+function web_grenade_manage_watcher()    // self = player
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        w = level.w_widows_wine_grenade;
+        if ( self HasPerk( "specialty_widowswine" ) && isdefined( w ) && self HasWeapon( w ) )
+        {
+            if ( !isdefined( self.acc_web_pool ) ) self.acc_web_pool = 0;
+            cap  = self acc_web_pool_max();
+            clip = self GetWeaponAmmoClip( w );
+            if ( isdefined( clip ) && self.acc_web_pool < clip ) self.acc_web_pool = clip;  // stock grant raised the clip
+            if ( self.acc_web_pool > cap ) self.acc_web_pool = cap;                          // lost Mega -> cap the pool down
+            self acc_web_refill_clip();
+        }
+        else
+        {
+            self.acc_web_pool = 0;
+        }
+        self sync_web_grenades_to_client();
+        wait 0.25;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // HUD sync
 // ---------------------------------------------------------------------------
+
+// Custom "WEB GRENADES N" counter (hudelem - mirrors sync_bottle_count_to_client), top-left
+// under MEGA BOTTLES (y=74 -> y=98). Shows the REAL pool count (the stock grenade-clip HUD
+// stays clamped at ~2). Hidden unless the player holds the Widow's Wine web grenade.
+function sync_web_grenades_to_client()    // self = player
+{
+    if ( !isdefined( self.acc_web_pool ) ) self.acc_web_pool = 0;
+    if ( !isdefined( self.acc_web_hud ) )
+    {
+        self.acc_web_hud = self hud::createFontString( "default", 1.3 );
+        self.acc_web_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 98 );
+    }
+    show = ( self HasPerk( "specialty_widowswine" )
+             && isdefined( level.w_widows_wine_grenade )
+             && self HasWeapon( level.w_widows_wine_grenade ) );
+    self.acc_web_hud SetText( "^6WEB GRENADES ^7" + self.acc_web_pool );
+    self.acc_web_hud.alpha = ( show ? 0.9 : 0 );
+}
 
 function sync_bottle_count_to_client()
 {
@@ -728,9 +902,9 @@ function sync_bottle_count_to_client()
     if ( !isdefined( self.acc_bottle_hud ) )
     {
         self.acc_bottle_hud = self hud::createFontString( "default", 1.3 );
-        // TOP-LEFT, just under the Data Shards line (which is at y=50), so both sit
-        // under the health bar instead of behind the stock points display.
-        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 70 );
+        // TOP-LEFT under the Data Shards line. Shards is a 1.3-scale line at y=50
+        // (spans to ~70.8), so sit at y=74 for a clear ~3px gap (no descender overlap).
+        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 74 );
         self.acc_bottle_hud.alignX = "left";
         self.acc_bottle_hud.alignY = "top";
         self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );

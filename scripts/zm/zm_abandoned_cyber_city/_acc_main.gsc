@@ -27,11 +27,14 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_hack;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_overload;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_emergency_drop;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_modifiers;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_glitch;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
@@ -43,6 +46,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_early_round_pacing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown_challenge;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_doors;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
@@ -50,8 +54,32 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_power;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
+
+// ---------------------------------------------------------------------------
+// Spawn-intensity tune (2026-06-18). Stock knobs we override. Hardcoded - retune here.
+//   ACC_AI_LIMIT       : concurrent LIVE zombies on screen. Stock 24
+//                        (_zm.gsc:339); the spawn loop stalls at >= this
+//                        (_zm.gsc:3735). Engine HARD cap is 64 (netcode-imposed).
+//                        50 = a big horde; safe to run this high because corpses are
+//                        DELETED on death (_acc_corpse_cleanup) so they never eat the
+//                        actor cap. (4-player netcode may strain near the ceiling -
+//                        if it rubber-bands, drop toward ~40.)
+//   ACC_ACTOR_LIMIT    : live + corpse cap (_zm.gsc:343; get_current_actor_count =
+//                        live AI + GetCorpseArray). Stock 31. With instant corpse
+//                        delete, actors ~= alive, so a small +6 headroom over
+//                        ACC_AI_LIMIT (covers the brief death-frame + skipped bosses)
+//                        is plenty and stays well under the 64 engine ceiling.
+//   ACC_SPAWN_DELAY_MULT: scales the stock per-round inter-spawn delay
+//                        (_zm.gsc:4598 get_zombie_spawn_delay). 0.85 = waves
+//                        fill 15% faster. Floored at 0.1s (stock's own floor).
+// ---------------------------------------------------------------------------
+#define ACC_AI_LIMIT 50
+#define ACC_ACTOR_LIMIT 56
+#define ACC_SPAWN_DELAY_MULT 0.85
 
 #namespace acc_main;
 
@@ -96,6 +124,12 @@ function init()
         acc_utility::log( "start weapon: t6_fiveseven missing from table - kept stock MR6" );
     }
 
+    // Spawn-intensity tune (Moderate): raise the concurrent on-screen cap and
+    // speed up the inter-spawn delay. init() runs after zm::main() (where stock
+    // sets these defaults, _zm.gsc:337-343/307) and before round 1's spawn loop
+    // reads them (_zm.gsc:3735/4502), so our values win and stick. GSC-only.
+    configure_spawn_density();
+
     acc_early_round_pacing::init();
     acc_coop_scaling::init();
 
@@ -103,10 +137,21 @@ function init()
     // sky + wet-ground re-skin + reflection probes are Radiant edits (see doc).
     acc_atmosphere::init();
 
+    // Perk machine + Pack-a-Punch glow on power-on (the base-zombies "machines light
+    // up when you turn the power on" look). Server sets a per-machine colour clientfield
+    // on the power_on flag; the .csc renders the glow client-side (the path that works
+    // here - server-side PlayFX does not). Pure GSC/CSC, no .map edit -> LED-safe.
+    acc_perk_lights::init();
+
     // Bus Station trench: small velocity-gated fall tax when you jump into the
     // cross-room trench (the stair walkway down is free). MOD_FALLING, so PhD
     // negates it. ALWAYS ON (no flag); retune via the ACC_TRENCH_FALL_DMG constant.
     acc_bus_trench::init();
+
+    // Dual-switch power: BOTH Bus Station switches (one each side of the trench)
+    // must be flipped to turn the power on (deletes the stock OR-switches). The
+    // trench forces a crossing between them. Auto-power stays off (acc_auto_power=0).
+    acc_power::init();
 
     // Decontamination must arm its acc_round_start listener before
     // watch_round_transitions below can fire the first one; it also rolls
@@ -133,14 +178,21 @@ function init()
     acc_events_hack::init();
     acc_events_overload::init();
     acc_emergency_drop::init();
+    acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
+    acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/45)
+    acc_exo::init();            // Exo Suit station: per-player depth-gate (cancels the per-layer trench slow; docs/47)
     acc_boss::init();
     // NSZ Brutus boss pack (stage 1: native spawn, for the asset-import go/no-go).
     acc_boss_brutus::init();
-    // Spiki Panzer boss (stage 1: dvar-gated test spawn at the lab).
-    acc_boss_panzer::init();
     // Glitch Stalker mini-boss (script-only mobile blink boss; r12+, every 10).
     acc_boss_glitch::init();
+    // Phantom mini-boss (script-only holographic cloaker; the ~round-10 rotation-boss slot).
+    acc_boss_phantom::init();
     acc_boss_items::init();
+    // Lockdown CHALLENGE room (Phase A): the lit DEFCON room becomes a TRAP -> 30 confined
+    // glitch zombies -> free-for-all reward. After lockdown/glitch/items so its reuse targets
+    // exist. Isolated from the round via ignore_enemy_count. docs/43.
+    acc_lockdown_challenge::init();
     // Weapon-variant swap engine (no-recoil / fast-fire perk twins, Stabilizer).
     // Before mega_bottles so level.acc_variant_* exist before any reconcile poke.
     // Inert until twins baked + `acc_weapon_variants 1` (docs/30-31).
@@ -187,6 +239,44 @@ function init()
     acc_utility::log( "init complete" );
 }
 
+// ---------------------------------------------------------------------------
+// Spawn-intensity tune (Moderate, 2026-06-18) - see the #defines up top.
+// ---------------------------------------------------------------------------
+
+function configure_spawn_density()
+{
+    // Concurrent caps: more zombies alive at once (the biggest "denser horde"
+    // lever). Live values - the spawn loop re-reads them every iteration.
+    level.zombie_ai_limit = ACC_AI_LIMIT;
+    level.zombie_actor_limit = ACC_ACTOR_LIMIT;
+
+    // Inter-spawn delay: chain the stock spawn-delay hook so waves fill faster.
+    // Stock invokes [[ level.func_get_zombie_spawn_delay ]]( round ) once per
+    // round (_zm.gsc:4502) to refresh zombie_vars["zombie_spawn_delay"]; we wrap
+    // it and scale the result. Chain politely (own prev-slot, never clobber).
+    if ( isdefined( level.func_get_zombie_spawn_delay ) )
+        level.acc_prev_func_get_zombie_spawn_delay = level.func_get_zombie_spawn_delay;
+    level.func_get_zombie_spawn_delay = &acc_spawn_delay_override;
+
+    acc_utility::log( "spawn density: ai_limit " + ACC_AI_LIMIT + " / actor_limit " +
+                      ACC_ACTOR_LIMIT + " / spawn-delay x" + ACC_SPAWN_DELAY_MULT );
+}
+
+// Level-scope: stock calls this with the round number (_zm.gsc:4502) and stores
+// the returned seconds into zombie_vars["zombie_spawn_delay"].
+function acc_spawn_delay_override( n_round )
+{
+    if ( isdefined( level.acc_prev_func_get_zombie_spawn_delay ) )
+        base = [[ level.acc_prev_func_get_zombie_spawn_delay ]]( n_round );
+    else
+        base = 2.0; // stock 1p base, should never hit (hook set at _zm.gsc:307)
+
+    out = base * ACC_SPAWN_DELAY_MULT;
+    if ( out < 0.1 )
+        out = 0.1; // stock's own floor (_zm.gsc:4631)
+    return out;
+}
+
 // NOTE: there is intentionally no client_init() here. In BO3 the client VM
 // (.csc) cannot call into server scripts (.gsc) - client-side _acc_ modules
 // will be separate .csc files when the LUI/HUD work lands in Phase 4.
@@ -206,6 +296,7 @@ function on_player_connect()
     acc_mega_bottles::on_player_connect( self );
     acc_perks::on_player_connect( self );
     acc_weapon_abilities::on_player_connect( self );
+    acc_exo::on_player_connect( self );
 }
 
 // Fires on every respawn (round start, revive, map load).
@@ -223,6 +314,7 @@ function on_player_spawned()
     acc_data_shards::on_player_spawned( self );
     acc_cyberware::on_player_spawned( self );
     acc_perks::on_player_spawned( self );
+    acc_exo::on_player_spawned( self );   // re-apply move speed (exo slow) after spawn
 }
 
 function on_player_disconnect()

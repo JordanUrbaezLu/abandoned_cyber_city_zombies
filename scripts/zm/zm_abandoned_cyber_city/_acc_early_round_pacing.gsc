@@ -4,8 +4,9 @@
 // Design reference: docs/06_mechanics.md ("Early round pressure"),
 // docs/04_progression_and_skills.md (Difficulty Curve).
 //
-// Rounds 1-4: +35% zombies vs stock max_zombie_func output (round 1 = +40%).
+// Rounds 1-4: +45% zombies vs stock max_zombie_func output (round 1 = +50%).
 // From round 5 onward, stock counts unchanged (aside from modifiers).
+// (Moderate spawn-intensity tune, 2026-06-18: bumped from +35%/+40%.)
 //
 // Move SPEED is no longer handled here - it moved to the all-round speed curve in
 // _acc_zombie_speed.gsc (which replaced the Rampage Inducer, 2026-06-14). This
@@ -25,8 +26,8 @@
 // ---------------------------------------------------------------------------
 
 #define ACC_EARLY_ROUND_MAX 4
-#define ACC_EARLY_SPAWN_MULT 1.35
-#define ACC_EARLY_SPAWN_MULT_R1 1.40
+#define ACC_EARLY_SPAWN_MULT 1.45
+#define ACC_EARLY_SPAWN_MULT_R1 1.50
 
 #namespace acc_early_round_pacing;
 

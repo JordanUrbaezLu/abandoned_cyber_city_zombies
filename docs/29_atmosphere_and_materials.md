@@ -225,6 +225,44 @@ low city haze; tune `halfway_dist` to the longest sightline so zombies/wallbuys
 stay visible, cap `max_opacity` ≤ 0.8, bias RGB cool blue-cyan. GSC-only →
 linker-only rebuild.
 
+**"City wakes up" removal (on POWER-ON — settles away, updated 2026-06-18):** the haze
+comes in once the intro blackscreen passes (the `initial_blackscreen_passed` flag — this
+is why it appears ~5s in alongside the round-start text; a global render state / 2D
+sound can't reach players before that — and this wait is MANDATORY, it's how the fog
+gets set at all), then **when power is turned on it SETTLES AWAY DOWNWARD** rather than
+vanishing instantly. Mechanism: `apply_fog` is the single `SetVolFog` authority; it
+applies the full haze each 0.1s tick and **polls the stock `power_on` flag** (exists-
+guarded). Once power is on it flips `level.acc_fog_cleared` and runs `settle_fog_step()`
+each tick. That lowers the fog's **base height** (the `SetVolFog` `baseHeight` arg — where
+the haze is densest) a slight step **once per second**; because vol-fog opacity halves
+every `acc_fog_halfway_height` units above the base, the dense layer sliding below the
+floor thins the haze to nothing at eye level — it looks like fog settling into the
+ground. Once the base has sunk `acc_fog_settle_depth` below the floor (invisible) **or**
+`acc_fog_settle_max_steps` nudges have run, it's locked off for good with `disable_fog()`
+(opacity still can't be faded directly — see the warning below — so the *sink* IS the
+fade). Gated by `acc_fog_clear_on_power` (default 1). **Timing note:** with the dev
+build's hardcoded auto-power (`acc_auto_power 1`, ~1.5s after blackscreen) the haze is
+brief; in a switch-gated ship build (`acc_auto_power 0`) it holds until the player
+flips the power switch. Live knobs:
+```
+set acc_fog_clear_on_power 0   // keep the haze for the whole match (no auto-removal)
+set acc_fog_settle_interval 1  // seconds between each downward nudge (default 1s)
+set acc_fog_settle_step 200    // units the base sinks per nudge; smaller = slower/smoother
+set acc_fog_settle_depth 7500  // how far down = invisible (then hard-disabled)
+set acc_fog_settle_max_steps 1200 // safety cap on nudges, then locked off
+set acc_fog_on 0               // freeze the current look (stops re-apply)
+```
+
+> ⚠️ **HARD-WON: you cannot disable volumetric fog by zeroing opacity.** `SetVolFog(
+> …, maxOpacity=0)` leaves the haze fully visible. Stock `_art.gsc:231` confirms it
+> verbatim: `setExpFog( 100000000, 100000001, 0, 0, 0, 0 ); // couldn't find discreet
+> fog disabling other than to never set it in the first place`. The ONLY reliable
+> disable is to push the fog **start plane** out to ~100,000,000 units so fog begins
+> beyond the world. `disable_fog()` does exactly that:
+> `SetVolFog( 100000000, 100000001, 0,0,0,0,0,0 )`. Every earlier fog-clear attempt
+> (power-on lift, opacity-fade-on-first-kill) failed for this reason — not the death
+> callback (it fired fine), the opacity lever itself.
+
 **Live-tune in-game (no rebuild):** the dev build launches with `+set developer 1`,
 so press **`~`** (tilde, top-left of the keyboard) for the console, then:
 ```
@@ -242,9 +280,105 @@ set acc_fog_livetune 0        // freeze at the current look when happy
 When the look is locked, bake the final numbers into the `#define` defaults in
 `_acc_atmosphere.gsc` (REQUIREMENTS.md "no silent tuning" rule) so they ship.
 
-**Grade (optional, Phase 3):** custom cool `.vision` via `SetVisionSet`, or reuse
-stock `zm_factory.vision`. Color-grade only; `rawfile,vision/...` `.zone` line if
-custom. Linker-only.
+**Grade (the colour-grade IS the atmosphere lever here — implemented):** a custom
+`.vision` applied globally via `VisionSetNaked` (not the optional polish it was
+planned as — with LED dead and materials blocked, the grade carries the ENTIRE
+look). `rawfile,vision/...` `.zone` line per file. Linker-only + live-swappable
+(`set acc_vision_set <name>`). See §7b.
+
+### 7b. Dark + vibrant grade (investigation + shipped fix, 2026-06-17)
+
+**Symptom:** map read dull / washed light-grey ("white"). **6-probe investigation
+root cause, ranked:**
+1. **The grade itself.** `vision/zm_abandoned_cyber_city.vision` had `vkTS 0`
+   (saturation OFF) and a 5-stop luminance→colour curve where every stop was a
+   near-equal `R≈G≈B` blue-grey, at `vkRM 0.8` — a hard DESATURATE + BRIGHTEN.
+2. **Fullbright base.** LED bake is permanently dead (`brush.cpp:1860` crash on
+   enclosed geometry); zero placed lights; `volume_sun global_fill_color "0 0 0"`.
+   So every surface sits at the TOP of the curve → the brightest/greyest stop
+   (old `vkRGB4 0.69/0.72/0.80`) → washed light blue-grey. Darkening the curve top
+   is therefore MANDATORY, not optional.
+3. **Flat greybox materials** (660 `script_wall` + 366 `script_floor_ceiling`,
+   `lightmap_gray`, no colour/emissive). Reskin BLOCKED (§14).
+4. `vkTC` near-neutral, no cyber cast.
+
+**`.vision` knob semantics:** `vkTT` = white-point temp (6500 neutral, lower =
+cooler/bluer). `vkTS` = saturation (0 = off; **the single biggest vibrancy lever**).
+`vkTC "r g b a"` = colour-filter multiply + strength alpha (negative alpha globally
+DARKENS — stock `zod_ritual_dim` uses ~ -1.3). `vkTO` = colour offset (lift in
+blacks). `vkRGB0..4 @ vkL0..4` = the luminance→colour curve; **per-stop saturation =
+how far apart R/G/B are**, brightness = the stop's magnitude. `vkRM` = curve mix.
+
+**Grade history — every tint tested worse than stock; grade now OFF by default
+(user, 2026-06-18):** passes went dark-teal (`vkTS 0.70`) → aggressive magenta
+(`vkTS 0.90`, `vkRM 1.0`) → light-cyan restore → near-neutral curve with a faint cyan
+bias (`R = 0.96·G`). The user judged each one to make the map look worse and asked to
+**remove all tint and ship BASE GAME COLOURS.** So the grade is now **OFF by default**:
+`ACC_VISION_ON = 0` in `_acc_atmosphere.gsc` → `apply_vision` applies the stock neutral
+`"default"` vision and adds no tint. **Key lesson stands:** on a flat fullbright scene a
+grade can only flatly tint a uniform field — it can't add contrast — so any custom hue
+tends to read as a muddy wash; stock-neutral is the honest baseline until real SCENE
+contrast exists (emissive props + placed colour FX). The custom grades are NOT deleted —
+they stay zoned and dormant, re-enable live with `set acc_vision_on 1`:
+```
+set acc_vision_on 1                        // re-enable the custom grade (OFF by default)
+set acc_vision_set zm_abandoned_cyber_city // neutral + very small cyan tint
+set acc_vision_set acc_grade_magenta       // vibrant magenta / pink (vkTS 0.98)
+set acc_vision_set acc_grade_orange        // amber-neon (warm vkTT 7400)
+set acc_vision_set acc_grade_dark          // deeper/darker magenta
+set acc_vision_set default                 // stock neutral (== grade OFF)
+set acc_vision_on 0                        // DEFAULT — grade off, base game colours
+```
+**Ceiling reached here:** a grade can only saturate a flat field — it cannot create
+contrast. If even bold magenta reads dull, that's the fullbright-flat scene talking,
+and the real neon punch needs SCENE contrast (emissive prop xmodels + placed colour
+FX, below), not more grade tuning.
+
+**Lever plan for MORE colour (highest impact-per-effort first):** ① the grade above
+(done — linker-only, live). ② alternate/per-zone `.vision` swaps (GSC-only). ③
+placed colour FX emitters at signage/machines (geometry rebuild, NOT LED; verify
+`.efx` on disk first — script `PlayFX` is unreliable in this build, place as Radiant
+emitters). ④ cooler worldspawn LUT swap (`luts_t7_default` → cooler stock LUT;
+cod2map64, no LED). ⑤ stock EMISSIVE PROP xmodels — their glow materials ship with
+the model, bypassing the blocked face-material shader compile (geometry rebuild).
+**AVOID:** baked light entities / LED relight (permanently dead), brush-face material
+reskin (§14). The grade + emissive props is the whole viable path to dark+vibrant.
+
+### 7c. Perk machine + PaP glow on power-on — CLIENT-side FX (implemented 2026-06-18)
+
+Base-zombies "machines light up when you restore power": dark before the Bus Station
+switch, coloured glow after. Implemented in `_acc_perk_lights.gsc` (server) + `.csc`
+(client). **THE KEY LESSON (root-caused via a multi-agent workflow):** *server-side*
+`PlayFX`/`PlayFXOnTag` (from a `.gsc`) does NOT render in this build — that is why the
+2026-06-17 attempt failed, why `_acc_lockdown`'s server glow is invisible, and why stock
+perk machines (server-side `perk_fx`, `_zm_perks.gsc:302`) are dark here. The path that
+DOES render is the **client VM**: stock power-ups glow via a `scriptmover` clientfield +
+client-side `PlayFXOnTag` (`_zm_powerups.csc`), and power-ups render fine. So the rule is:
+**to show an FX in this map, drive it from a `.csc` clientfield callback, not server
+`PlayFX`** — and the FX must be client-precached (`#precache("client_fx", …)`), which the
+2026-06-17 server-only attempt was missing.
+
+Mechanism: server polls the `power_on` flag (copying `_acc_atmosphere::apply_fog`), then
+sets a per-perk colour-index `accPerkGlow` clientfield on each `trigger.machine`
+(`GetEntArray("zombie_vending","targetname")`) + an invisible `script_model` host spawned
+at the PaP origin (the `pack_a_punch` ent is a *trigger*, not a model). The `.csc` mirror
+registers the field + a leak-safe callback (`waittill_dobj` → `StopFX` old → store
+`self.acc_glow_fx = PlayFXOnTag(...)`), replays on the initial snapshot so late joiners
+glow. **LED-safe: pure `.gsc/.csc/.zone/.fx`, no `.map` edit → `build_map.ps1 -GscOnly`,
+never touches the Radiant bake.** `set acc_perk_lights_on 0` disables it.
+
+**Per-perk colour (validated in-game 2026-06-18):** only the *green* power-up aura
+(`zombie/fx_powerup_on_green_zmb`) ships and there is no runtime FX tint, so per-perk colour =
+**one recoloured `.efx` clone per colour**. The green is pure `colorGraph` tint on white glow
+sprites (no green texture), so `tools/gen_perk_glow_fx.js` remaps the three tint triples
+(`0.25098 1 0.25098`, `0.501961 1 0.501961`, `0 0.458824 0`) + the `dynamicLight2 _color` to
+each target hue, preserving the brightness/alpha curves, and writes
+`<tools>\share\raw\fx\acc\light\fx_perk_glow_<colour>.efx` (packed via the `fx,acc/light/…`
+zone lines; **not in git — regenerate with the tool**, like the external asset packs). Colours:
+Jugg red, Speed Cola green, Double Tap yellow, Stamin-Up orange, Mule Kick amber, Quick Revive
+blue, Deadshot white, Widow's Wine purple, Electric Cherry/PhD cyan, PaP gold. To retune, edit
+the `COLORS` weights in the generator + rebuild (`-GscOnly`). General rule reaffirmed: a faint
+or one-shot FX reads as "not lit" — use the bright looping power-up aura as the glow base.
 
 ---
 

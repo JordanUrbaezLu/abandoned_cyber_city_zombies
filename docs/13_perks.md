@@ -15,25 +15,25 @@ Full roster, costs, **base + Mega** descriptions (table + prose), per-slot rando
 
 - **No perk:** **100 HP** → **3** hits to down.
 - **Jugger-Nog:** **250 HP** → **6** hits to down (**+1** vs stock BO3 Jug's 5).
-- **Ultimate Tank (Jug Mega):** **314 HP** → **7** hits to down.
+- **Ultimate Tank (Jug Mega):** **300 HP** → **7** hits to down.
 
-Hit counts assume ~**45** damage per regular zombie melee hit (HP ÷ ~45 → 100=3rd, 250=6th, 314=7th). Open-field melee damage is a baked GDT value, so confirm the **3 / 6 / 7** counts in-game and retune the HP adds if they drift.
+Hit counts assume ~**45** damage per regular zombie melee hit (HP ÷ ~45 → 100=3rd, 250=6th, 300=7th). Open-field melee damage is a baked GDT value, so confirm the **3 / 6 / 7** counts in-game and retune the HP adds if they drift.
 
 ## Roster (9 perks)
 
-Seven stock BO3 perks (retuned) + two custom (Deadshot, PhD Flopper). **No 4-perk cap in this map** — players can equip all 9 simultaneously if they can afford them (`level.perk_purchase_limit = 9`). This is a deliberate deviation from stock BO3 to match our "systems stack" design language. **All 9 perks are live today.**
+Seven stock BO3 perks (retuned) + two custom (Deadshot, PhD Flopper). Players **start with 4 perk slots** and **buy more (up to all 9) with Data Shards** at the underground Neural Expansion Bay — see [Perk-Slot Rule](#perk-slot-rule--start-at-4-buy-more-with-data-shards-user-2026-06-19). **All 9 perks are live today.**
 
 | # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
 |---:|---|---:|---|---|---|
-| 1 | **Jugger-Nog** | 4,000 | **250 HP** → down on the **6th** zombie melee hit (no perk = 100 HP / 3rd). | **Ultimate Tank** | **314 HP** → down on the **7th** hit; **immune to boss abilities** (Subroutine Core / scripted boss disables). |
-| 2 | **Quick Revive** | 2,500 | Revive teammates in **2.0 s**; HP regen starts **15% sooner** after damage; solo self-revive. | **Savior** | Revive in **1.0 s**; regen starts **30% sooner**; **+15% move speed** while any other player is downed. |
+| 1 | **Jugger-Nog** | 4,000 | **250 HP** → down on the **6th** zombie melee hit (no perk = 100 HP / 3rd). | **Ultimate Tank** | **300 HP** → down on the **7th** hit; **immune to boss abilities** (Subroutine Core / scripted boss disables). |
+| 2 | **Quick Revive** | 2,500 | Revive teammates in **2.0 s**; HP regen starts **20% sooner** after damage; solo self-revive. | **Savior** | Revive in **1.0 s**; regen starts **40% sooner**; **+15% move speed** while any other player is downed. |
 | 3 | **Speed Cola** | 3,500 | **+50%** reload; faster **barrier board / repair**. | **Sleight of Hand Expert** | **+75%** reload (replaces +50%). |
 | 4 | **Double Tap 2.0** | **5,000** | Fires **2 bullets per shot for 1 round of ammo** (≈**2× damage**; double pellets on shotguns) **plus +33%** rate of fire. Excludes Wonder Weapons / Ballistic Knife / explosives. | **Gun Slinger** | **+40%** fire rate; **weapon-swap time −50%** (≈2× faster swaps). |
 | 5 | **Stamin-Up** | 2,000 | Sprint lasts **~12 s** (vs ~4 s no perk); **~4 s** stamina recharge; **+7–8%** move speed (mobility caps ~109%). | **The Flash** | **+15% sprint speed** (×1.15, uniform move scalar). |
-| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. | **The Armory** | **+25%** ammo capacity per weapon; **all buys 10% cheaper**. |
+| 6 | **Mule Kick** | **2,500** | Third primary weapon slot. | **The Armory** | **+20%** reserve ammo refilled each round (per gun); **all buys 10% cheaper**. |
 | 7 | **Deadshot** | 3,500 | **+1.4** headshot bonus (additive); **−25%** recoil (off the 2.1× map base); **ADS snap-to-head** (not on bosses). | **American Sniper** | **+1.8** headshot (replaces +1.4); **−40%** recoil. |
-| 8 | **Widow's Wine** | 4,000 | Web grenades (web un-killed zombies ~20 s); self-defense webbing on hit; webbing melee; restock **2** web grenades/round. | **Spiderman** | Hold up to **6** web grenades; restock **4**/round (instead of 2). |
-| 9 | **PhD Flopper** | 2,500 | **Immune to fall damage and your own explosive / grenade / projectile splash**; **slide-to-explode** (starting a slide fires a purple nova that clears nearby zombies, on a cooldown — BO3 ZM has no dive); **explode when you go down** (PhD-flavoured last-stand). | **PhD Slider** | A **bigger / stronger slide + down explosion** — radius **300→500u**, ~**2× damage**, shorter cooldown. |
+| 8 | **Widow's Wine** | 4,000 | Web grenades (web un-killed zombies ~20 s); self-defense webbing on hit; webbing melee; restock **2** web grenades/round. | **Spiderman** | **6 usable web grenades** (GSC virtual pool — clip auto-refills; the stock grenade HUD shows the clamped ~2, so a custom **WEB GRENADES** counter shows the real count); restock **4**/round to the pool (vs base 2); **one-hit melee on regular zombies** (not bosses/elites; user 2026-06-18). |
+| 9 | **PhD Flopper** | 2,500 | **Immune to fall damage and your own explosive / grenade / projectile splash**; **slide-to-explode** (starting a slide fires a purple nova that clears nearby zombies, on a cooldown — BO3 ZM has no dive); **explode when you go down** (PhD-flavoured last-stand). | **PhD Slider** | A **bigger / stronger slide + down explosion** — radius **300→500u**, ~**2× damage**, shorter cooldown; **+20% move speed**; **+20% explosive damage** (user 2026-06-18). |
 
 **Sources (stock vs custom):** Perks **1–6 and 8** are stock BO3 machines (retuned — see table). **7** Deadshot and **9** PhD Flopper are **custom** (from-scratch abilities — not stock BO3 perks). PhD **hijacks the registered stock electric-cherry pipeline + its machine** (the underlying specialty is still `specialty_electriccherry`, exactly as the old Aura Blast placeholder did) — our module `_acc_perk_phd_flopper.gsc` overwrites the cherry cost/hint/give/take and installs a custom `level.perk_damage_override` immunity func; **the ability is entirely our code** (adapted from the shipped HarryBo21 / ColDog PhD Flopper), NOT the stock reload-shockwave. Widow's Wine (8) base is pure stock; its **Spiderman** Mega is custom.
 
@@ -43,18 +43,31 @@ Buying all 9 = **29,500 Points** (Double Tap **5,000**). Hitting that by round ~
 
 The table above is a **complete at-a-glance** summary (base + Mega). Below, **[Perk reference (base + Mega)](#perk-reference-base--mega)** gives **full paragraphs** you can read start-to-finish, then **Mechanics** for exact numbers. **How** to acquire Mega (bottles, Lab machine, persistence) is in **[Mega Bottles (system)](#mega-bottles-system)**.
 
-## No-Perk-Limit Rule
+## Perk-Slot Rule — start at 4, buy more with Data Shards (user, 2026-06-19)
 
-- The stock BO3 4-perk cap is explicitly **removed** in this map.
-- All 9 perks can stack on a single player (`level.perk_purchase_limit = 9`).
-- **Implementation**: override `_zm_perks` slot-limit check at init. See `_acc_perks.gsc` (Phase 3 module, planned).
-- **Co-op**: same rule; each player can hold all 9.
+- You **start with 4 perk slots** (`level.perk_purchase_limit = 4`, the stock base).
+- Extra slots (up to **9** = all perks) are **bought with Data Shards** at the underground **Neural
+  Expansion Bay** — the marquee trench-economy incentive (see [04_progression_and_skills.md](04_progression_and_skills.md), docs/45 §3).
+- **Implementation**: `acc_perks::acc_perk_slot_limit` is installed as the stock per-player hook
+  `level.get_player_perk_purchase_limit` (`_zm_utility.gsc:5874-5889`); it returns
+  `base + player.acc_perk_slot_bonus`, capped at `acc_perk_slot_max` (9). Each extra slot escalates in
+  cost (4/6/8/10/12 shards). See `_acc_perks.gsc`.
+- **"Max perks" feedback**: trying to buy a perk you don't own while at your slot limit shows
+  `"You've reached your max of <N> perks - raise the limit at the Neural Expansion in the Bus Station trenches"`
+  (+ the deny sound), instead
+  of the stock silent deny. Done in `_acc_perk_info.gsc::acc_perk_validate` (the `custom_perk_validation`
+  hook), gated on `zm_utility::can_player_purchase_perk()` so it matches the stock limit exactly.
+- **Co-op**: per-player — each player buys and owns their own slot bonus.
 
-### Why remove the cap
+### Why a buyable cap (changed from the old "no cap")
 
-- Stock BO3's 4-perk cap is a balance decision Treyarch made to force choice. We're deliberately making a different trade: with no cap, the *choice* becomes **what to buy first** rather than what to forego. A round-10 player can afford ~2-3 perks; a round-30 player can afford most. Order and prioritization matter, not a fixed ceiling.
-- Our other systems (Cyberware, Tier, Overclocks, Boss Items) already provide the decision tension. Another forced-choice layer from a perk cap would be redundant.
-- It supports the "systems stack" design — the map wants layered progression to be visible to players.
+- This map previously shipped **no cap** (`perk_purchase_limit = 9`, all 9 free to anyone who could afford the
+  points). That removed a decision rather than adding one. Making slots a **shard purchase** turns "how many
+  perks" into the headline reason to risk the trench: the cap is a *goal you grind toward*, not a freebie.
+- A round-10 player runs the base 4; reaching all 9 is a long-horizon investment (40 shards) that competes with
+  the Cyberware tree and weapon Overclocks for the same trench-earned shards — exactly the "tight Shard
+  decisions" tension the progression design wants.
+- Dev mode (`acc_dev` + `acc_dev_perks`) returns the max so every machine is buyable while testing.
 
 ## Perk reference (base + Mega)
 
@@ -64,23 +77,23 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 **Base.** Raises max health to **250 HP** (no-perk base is **100 HP**) — you survive **5** regular zombie melee hits and go **down on the 6th** (no perk: down on the 3rd). Buy Jug for survivability, training, and room for mistakes.
 
-**Mega: Ultimate Tank.** (1) Max health to **314 HP** → survive **6** hits, **down on the 7th**. (2) **Immune to boss abilities** — scripted Subroutine Core disables (power off, perks off, boss-phase stun fields) do not apply to you the way they do to the rest of the team. Scope: any non-wonder-weapon boss/mega "turn off player power" effect; see `11_enemies.md`.
+**Mega: Ultimate Tank.** (1) Max health to **300 HP** → survive **6** hits, **down on the 7th**. (2) **Immune to boss abilities** — scripted Subroutine Core disables (power off, perks off, boss-phase stun fields) do not apply to you the way they do to the rest of the team. Scope: any non-wonder-weapon boss/mega "turn off player power" effect; see `11_enemies.md`.
 
 **Mechanics**
 
-- **HP / hit counts** (at ~45 dmg per zombie melee): **100 HP → 3rd · 250 HP → 6th · 314 HP → 7th**. Open-field melee damage is a baked GDT value — confirm hit counts in-game.
+- **HP / hit counts** (at ~45 dmg per zombie melee): **100 HP → 3rd · 250 HP → 6th · 300 HP → 7th**. Open-field melee damage is a baked GDT value — confirm hit counts in-game.
 - **Stacking**: Cyberware Subroutine Caching; Ghost Shroud.
 
 ### 2. Quick Revive — 2,500 Points
 
-**Base.** **Revive teammates in 2.0 s** (vs 3.0 s with no perk). **HP regen starts 15% sooner** after you take damage — begins at **2.04 s** instead of the **2.4 s** baseline (an earlier *start*, not a faster heal rate). **Solo:** self-revive per stock BO3 where applicable.
+**Base.** **Revive teammates in 2.0 s** (vs 3.0 s with no perk). **HP regen starts 20% sooner** after you take damage — begins at **1.92 s** instead of the **2.4 s** baseline (an earlier *start*, not a faster heal rate). **Solo:** self-revive per stock BO3 where applicable.
 
-**Mega: Savior.** (1) **Revive in 1.0 s** — half of base QR's 2.0 s. (2) **HP regen starts 30% sooner** (begins at 1.68 s) — upgraded from base QR's 15%. (3) **+15% move speed** (×1.15) while any *other* player is downed / bleeding out; clears the moment nobody is down (your own down does not count).
+**Mega: Savior.** (1) **Revive in 1.0 s** — half of base QR's 2.0 s. (2) **HP regen starts 40% sooner** (begins at 1.44 s) — upgraded from base QR's 20%. (3) **+15% move speed** (×1.15) while any *other* player is downed / bleeding out; clears the moment nobody is down (your own down does not count).
 
 **Mechanics**
 
 - **Revive time:** no perk **3.0 s** → base QR **2.0 s** → Savior **1.0 s**.
-- **Regen delay:** baseline **2.4 s** → base QR **2.04 s** (15% sooner) → Savior **1.68 s** (30% sooner). Heal rate is unchanged; the % is the delay reduction.
+- **Regen delay:** baseline **2.4 s** → base QR **1.92 s** (20% sooner) → Savior **1.44 s** (40% sooner). Heal rate is unchanged; the % is the delay reduction.
 - **Move speed:** Savior **×1.15** while a teammate is in last-stand (multiplicative with other speed buffs).
 
 ### 3. Speed Cola — 3,500 Points
@@ -130,12 +143,12 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 **Base.** A **third primary weapon slot** so you can run close / mid / long without returning to the box.
 
-**Mega: The Armory.** **+25% ammo capacity** per weapon (reserves); **all buys 10% cheaper** — every point purchase (wallbuys, ammo, perks, Pack-a-Punch, Mystery Box) costs **10% less** (×0.9) while you hold The Armory.
+**Mega: The Armory.** **+20% reserve ammo refilled each round** per weapon (sustain refill, not a capacity boost; also instant on acquire); **all buys 10% cheaper** — every point purchase (wallbuys, ammo, perks, Pack-a-Punch, Mystery Box) costs **10% less** (×0.9) while you hold The Armory.
 
 **Mechanics**
 
 - **Base**: third primary; **2,500** pts.
-- **Mega — The Armory**: **+25%** reserve ammo per gun; **×0.9** cost on all point purchases.
+- **Mega — The Armory**: **+20%** reserve refill per gun each round; **×0.9** cost on all point purchases.
 
 ### 7. Deadshot — 3,500 Points (custom — not a stock BO3 perk)
 
@@ -152,24 +165,24 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 **Base (stock BO3 Widow's Wine).** Your lethal becomes **Widow's Wine grenades** (sticky / Semtex-like) — zombies caught in the blast but not killed are trapped in webs (~**16 s** frozen close in, ~**12 s** slowed further out — stock `WIDOWS_WINE_COCOON_DURATION`/`_SLOW_DURATION`). **Self-defense webbing:** when a zombie melees you, you release a web burst trapping nearby zombies. **Webbing melee:** meleeing a zombie webs/slows it. Web grenades **restock 2 at the start of each round** (also on Max Ammo and from blue spider-drop pickups).
 
-**Mega: Spiderman.** Hold up to **6** web grenades; **restock 4 each round** (instead of 2).
+**Mega: Spiderman.** **6 usable web grenades** — a GSC **virtual pool** of 6 throws that auto-refills the lethal clip on use (the engine clamps the clip to ~2 in a usermap, so the old clip-fill never held — the docs/30 GDT cap raise is **abandoned**; a custom **WEB GRENADES** HUD counter shows the true count); the pool **restocks 4 each round** (vs base 2); **one-hit melee on regular zombies** — a melee from a Mega-Widow's player instakills a normal zombie, but **not bosses/elites** (`is_boss_or_elite` gate in `_acc_damage::on_ai_damage`; user 2026-06-18, re-adds the melee OHK the 2026-06-14 overhaul had removed). The web-grenade OHK stays removed.
 
 **Mechanics**
 
 - **Base**: web grenades, self-defense webbing, webbing melee, **2**/round restock — all stock.
-- **Mega — Spiderman**: **6** max web grenades; **4**/round restock.
+- **Mega — Spiderman**: virtual pool of **6** usable web grenades (clip auto-refill; GDT cap raise abandoned) + custom **WEB GRENADES** HUD counter; **4**/round restock to the pool; **one-hit melee on regular zombies** (re-added 2026-06-18 — not bosses/elites).
 
 ### 9. PhD Flopper — 2,500 Points (custom ability — hijacks the stock cherry pipeline)
 
 **Base.** Three abilities: **(1) Immunity** — you take **no fall damage** and **no splash damage from your own explosives, grenades, or projectiles** (rockets, frags, the launcher, etc. can't hurt you). **(2) Slide-to-explode** — starting a **slide** fires a **nova** that clears the zombies around you (on a cooldown). BO3 ZM has the sprint-slide but **no dolphin-dive** (confirmed in-game 2026-06-15), so it triggers off the engine `isSliding()` directly — not the BO1/BO2 dive-to-prone. **(3) Explode when you go down** — entering last-stand fires a PhD-flavoured explosion, buying you space to be revived. The blast is a **purple/void Apothicon burst** (stock `dlc4/genesis/fx_apothicon_fury_spawn_in_exp`) + the **Nuke-powerup "whoomp"** sound (`evt_nuke_flash`) + a screen-shake.
 
-**Mega: PhD Slider.** A **bigger / stronger slide + down explosion** on a **shorter slide cooldown** (8s → 5s). Read live from the Mega flag: the explosion **radius grows 300→500u** and deals roughly **2× damage**. It is a **working Mega** — not a declarative tier; the Empty Mega Bottle sets the flag and the bigger nova fires immediately.
+**Mega: PhD Slider.** A **bigger / stronger slide + down explosion** on a **shorter slide cooldown** (8s → 5s). Read live from the Mega flag: the explosion **radius grows 300→500u** and deals roughly **2× damage**. **Plus (user 2026-06-18): +20% move speed** (uniform, like The Flash — stacks multiplicatively with the Rocket Shield's +25% slide bonus, so a slide with both = ×1.5) and **+20% explosive damage** (your grenades / projectiles / `MOD_EXPLOSIVE` deal +20% to zombies — a GSC damage scalar in `_acc_damage`, **no weapon twin**). It is a **working Mega** — not a declarative tier; the Empty Mega Bottle sets the flag and the bigger nova fires immediately.
 
 **Mechanics**
 
 - **Trigger**: passive — fall-damage / self-splash immunity is always on; the nova fires when you start a **slide** (cooldown-gated), and again when you enter last-stand. No input chord.
 - **Base**: custom fall-damage + self-splash immunity (via a `level.perk_damage_override` func), a slide-triggered nova, and a down-state explosion. Radius **300u**, base damage, **8s** slide cooldown.
-- **Mega — PhD Slider**: the same slide + down nova at radius **500u**, ~**2× damage**, and a **5s** slide cooldown (read live from the Mega flag — implemented, not a TODO).
+- **Mega — PhD Slider**: the same slide + down nova at radius **500u**, ~**2× damage**, and a **5s** slide cooldown (read live from the Mega flag — implemented, not a TODO). **Also +20% move speed** (`acc_mega_flopper_speed` → `acc_utility::recompute_move_speed`, re-applied on respawn) and **+20% explosive damage** (grenades / projectiles / `MOD_EXPLOSIVE` via `_acc_damage::on_ai_damage` `is_explosive_mod` + `has_active_mega_perk` — GSC scalar, no twin). **Speed stacks multiplicatively** with the Rocket Shield slide bonus (`recompute_move_speed` multiplies all active flags): sliding with both = `1.20 × 1.25 ≈ ×1.5` move scale, plus the shield's forward lunge. User 2026-06-18.
 - **Blast FX/sound**: the burst centres on the **zombie you slid into** (nearest in-radius zombie = the impact point, not the player) — a stock purple **Apothicon void-burst** (`dlc4/genesis/fx_apothicon_fury_spawn_in_exp` — source ships in the Mod Tools; `def_explosion` is the fallback), `evt_nuke_flash` (the Nuke powerup boom, guaranteed-loaded), and an `Earthquake`. The original `grenadeExplosionEffect` was just the tiny engine poof and `zmb_phdflop_explo` isn't in this map's soundbanks (silent). A *bespoke* purple FX would need the FX Editor / a custom import.
 - **Zombies explode**: every zombie the nova kills pops apart — **head-gib** (`zombie_utility::zombie_head_gib`, the Nuke powerup's own dismember, called on the live zombie pre-kill) + a **torso gore burst** (`level._effect["zombie_guts_explosion"]`) + a **capped corpse-fling** (`StartRagdoll`+`LaunchRagdoll`, the stock Thunder Wall pattern; cap 6 / Mega 8). Gated on `health <= damage` so a living **boss** is only chipped, never gibbed/ragdolled. All stock — no import.
 - **Implementation**: `_acc_perk_phd_flopper.gsc` **hijacks the registered stock `_zm_perk_electric_cherry` pipeline + machine** — it overwrites the cherry cost/hint/give/take and installs the `level.perk_damage_override` immunity func, then layers the slide / down explosion in our code (adapted from the shipped HarryBo21 / ColDog PhD Flopper). The underlying specialty stays `specialty_electriccherry` (HasPerk / rotation / HUD / Mega plumbing all key off it). The old `_acc_perk_electric_cherry.gsc` was **deleted**.
@@ -257,6 +270,13 @@ See [14_controls_and_hud.md](14_controls_and_hud.md) for HUD element spec.
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
 ## Perk Availability: Per-Round Door-Gated Lab Alcoves
+
+> **STATUS 2026-06-18 (user): the per-round rotation is CUT for now — ALL 9 alcove doors open
+> every round, so every perk is always buyable (and, because every Lab machine is always
+> reachable, every base perk is always Mega-able — the "wait for your perk to rotate in" texture
+> is paused while this is cut). The rotation code is kept intact-but-unused in `_acc_perk_doors.gsc`
+> (see the `CUT 2026-06-18` marker in `init()` for the one-line restore). The description below is
+> the rotation as it WILL behave once re-enabled.**
 
 **All 9 perks are consolidated to the Laboratory**, each in its **own door-gated alcove** on the Lab north wall (nowhere else on the map). **IMPLEMENTED 2026-06-16** (`tools/add_perk_alcoves.js` geometry + `_acc_perk_doors.gsc`): every round, a **random 3 of the 9 alcove doors open** (`acc_perk_door_<specialty>` `script_brushmodel` gates); the other 6 are walled off and **unbuyable that round**. The roll re-shuffles each round (`acc_round_start`). A closed door blocks *access to the machine* only — a perk you already own keeps working. **Dev: all 9 open** (follows `acc_open_map`; force with `acc_perk_doors_all_open 1`); a ship build launches `acc_open_map 0` to enable the rotation.
 
@@ -364,14 +384,14 @@ Missing a perk this round is OK. It'll cycle back. **Patience and route manageme
 
 A player with **all 9 live perks** + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
 
-- **HP**: **250 HP** → 6-hit survival with Jug; **314 HP** → 7 hits with Ultimate Tank.
-- **HP regen**: starts 15% sooner (Quick Revive) / 30% sooner (Savior).
+- **HP**: **250 HP** → 6-hit survival with Jug; **300 HP** → 7 hits with Ultimate Tank.
+- **HP regen**: starts 20% sooner (Quick Revive) / 40% sooner (Savior).
 - **Revive**: 2.0 s (Quick Revive) / 1.0 s (Savior).
 - **Reload**: +50% reload (Speed Cola) / +75% (Sleight of Hand Expert).
 - **Move / sprint**: ~12 s sprint + ~7–8% move (Stamin-Up); +15% sprint speed (The Flash); +15% move while a teammate is down (Savior); plus Cyberware / Boss-item speed terms (multiplicative).
 - **Fire rate**: +33% (Double Tap 2.0 base) / +40% (Gun Slinger); Gun Slinger also cuts weapon-swap time 50%. Base also fires an extra bullet per shot (≈2× dmg).
 - **Headshot damage**: +1.4 (Deadshot) / +1.8 (American Sniper) **added** to the map's +2 trash / +2 boss headshot bonus (additive stacking, 2026-06-14); recoil −25% / −40%.
-- **Weapon slots**: 3 primaries (Mule Kick); +25% ammo & all buys 10% cheaper (The Armory).
+- **Weapon slots**: 3 primaries (Mule Kick); +20% reserve refill each round & all buys 10% cheaper (The Armory).
 - **Crowd control**: Widow's Wine web grenades + self-defense webbing + webbing melee (6 grenades / 4-per-round restock with Spiderman); PhD Flopper slide-to-explode nova clears zombies (and explodes when you go down) — immune to fall + your own splash damage throughout.
 
 Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons = our peak power fantasy. Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
@@ -384,14 +404,14 @@ Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Over
 
 **Legend:** ✅ done in GSC (cited) · 🎨 GDT/APE only — no GSC lever, see [30](30_perk_gdt_radiant_spec.md)/[31](31_ape_perk_gdt_walkthrough.md) · 🧪 confirm number in-game.
 
-- **Jugger-Nog** — ✅ base 250 HP (`_acc_perks.gsc` `ACC_JUGG_HEALTH_ADD=150`); ✅ Ultimate Tank 314 HP (`_acc_mega_bottles.gsc:420` `n_player_health_boost=64`); ✅ boss immunity (`_acc_boss.gsc::protect_immune_players_during_debuff`). 🧪 confirm 6/7 hit counts.
-- **Quick Revive** — ✅ base revive 2.0s / Savior 1.0s (`_acc_perks.gsc::qr_revive_time` via `self.get_revive_time` hook; watcher `qr_revive_watcher`); ✅ base regen 15% / Savior 30% sooner (`qr_regen_booster`, `ACC_QR_REGEN_DELAY_BASE=0.85` / `_SAVIOR=0.70`); ✅ Savior +15% speed (`savior_speed_watcher` + `_acc_utility.gsc:155`).
+- **Jugger-Nog** — ✅ base 250 HP (`_acc_perks.gsc` `ACC_JUGG_HEALTH_ADD=150`); ✅ Ultimate Tank 300 HP (`_acc_mega_bottles.gsc` `n_player_health_boost=50`); ✅ boss immunity (`_acc_boss.gsc::protect_immune_players_during_debuff`). 🧪 confirm 6/7 hit counts.
+- **Quick Revive** — ✅ base revive 2.0s / Savior 1.0s (`_acc_perks.gsc::qr_revive_time` via `self.get_revive_time` hook; watcher `qr_revive_watcher`); ✅ base regen 20% / Savior 40% sooner (`qr_regen_booster`, `ACC_QR_REGEN_DELAY_BASE=0.80` / `_SAVIOR=0.60`); ✅ Savior +15% speed (`savior_speed_watcher` + `_acc_utility.gsc:155`).
 - **Speed Cola** — ✅ +50% reload + barrier (stock); ✅ Mega +75% reload via the `fastreload` weapon-variant twin (`reloadTime ×0.857` layered on the engine +50%; baked 2026-06-14, `_acc_weapon_variants.gsc::axis_reload`); ✂️ faster perk-drink **cut** (shared map-wide anim, no per-perk lever). Weapon-swap belongs to Double Tap's Gun Slinger.
 - **Double Tap 2.0** — ✅ **kept as stock Double Tap 2.0** (`specialty_doubletap2`, extra bullet ≈2× dmg) — the "convert to a rate-only 1.0" plan is **cancelled** (can't strip the extra bullet from a usermap); priced **5,000** (`set_perk_costs`) and balanced around it; ✅ **damage buff removed** (`_acc_damage.gsc` DT block + defines deleted); ✅ Gun Slinger **+40%** fire rate **and** −50% weapon-swap via the `fastfire` twin (`fireTime ×0.714` + raise/drop `×0.5`; retuned from +50%/−75% 2026-06-14, `axis_fire`). Card "Double Tap 2.0".
 - **Stamin-Up** — ✅ base stock sprint; ✅ The Flash ×1.15 move (`_acc_utility.gsc:151`); ✅ sprint-duration override removed (`_acc_mega_bottles.gsc`).
 - **Mule Kick** — ✅ base 3rd primary (stock); 🎨 Armory +25% ammo cap (GDT; GSC fills via `armory_apply`); ✅ Armory **all buys 10% cheaper at POINT OF SALE** (charge **and** displayed price) — done by **vendoring 5 stock files** and repurposing the dormant `pers_double_points` cost hook (gated on the Armory Mega flag, ×0.9): `_zm_pers_upgrades_functions` (perk + stock-PaP charge), `_zm_weapons` (wallbuy/ammo — inert now wall buys are removed), `_zm_magicbox` (box, per-player), `_zm_perks` (perk hint), plus `_acc_pap_levels` tier-up. The old spend-rebate (`armory_discount_watcher`) was **removed**. Co-op display reflects the toucher on shared triggers (perks); box/tier are per-player-exact. See docs/22 + CHANGELOG. ✅ +2 grenade fill removed.
 - **Deadshot** — ✅ base **+1.4** headshot (`_acc_damage.gsc` `ACC_DEADSHOT_MULT`) + ADS snap, no boss; ✅ American Sniper **+1.8** headshot (`ACC_DEADSHOT_MEGA_MULT=1.8`, replaces base — no double dip); both **add** into the headshot bonus sum (additive stacking, 2026-06-14), not multiply; ✅ base −25% / Mega −40% recoil via `recoil25`/`recoil40` twins (off the 2.1× map base; baked 2026-06-14, `axis_recoil`).
-- **Widow's Wine** — ✅ base webs / self-defense / webbing melee (stock); ✅ +50% frag damage removed; ✅ Spiderman melee + web OHK removed (`_acc_damage.gsc`); ✅ restock base 2 / Spiderman 4 per round (`_acc_mega_bottles.gsc::widow_round_restock_watcher`); 🎨 Spiderman hold 6 (GSC fills the clip; GDT clip cap — doc 30).
+- **Widow's Wine** — ✅ base webs / self-defense / webbing melee (stock); ✅ +50% frag damage removed; ✅ Spiderman **melee OHK re-added on regular zombies** (user 2026-06-18, `_acc_damage.gsc` — `has_active_mega_perk` + `is_boss_or_elite` gate; web-grenade OHK stays removed); ✅ restock base 2 / Spiderman 4 per round to the POOL (`_acc_mega_bottles.gsc::widow_round_restock_watcher`); ✅ Spiderman **6 usable web grenades via a GSC virtual pool** (`acc_web_pool` — `web_grenade_pool_watcher` spends it per throw on the stock `grenade_fire` notify + refills the clip; the GDT clip-cap raise of doc 30 is **ABANDONED**, infeasible in a usermap) + custom **WEB GRENADES** HUD counter (`sync_web_grenades_to_client`, hudelem under MEGA BOTTLES).
 - **PhD Flopper** — ✅ **live.** Custom ability hijacking the registered stock `_zm_perk_electric_cherry` pipeline + machine: `_acc_perk_phd_flopper.gsc` overwrites the cherry cost/hint/give/take (cost **2,500**) and installs a `level.perk_damage_override` immunity func, then layers our own ability (adapted from the shipped HarryBo21 / ColDog PhD Flopper): ✅ immunity to fall damage **and** your own explosive / grenade / projectile splash; ✅ dive-to-prone grenade-explosion nova (jump → slide with a real height drop); ✅ explode-on-down last-stand. The underlying specialty stays `specialty_electriccherry` (HasPerk / rotation / HUD / Mega plumbing key off it). The old `_acc_perk_electric_cherry.gsc` was **deleted**. ✅ **PhD Slider** Mega is a **working tier** (not a TODO) — read live from the Mega flag, the dive + down explosion grows to radius **500u** (from 300u) and ~**2× damage**. 🎨 machine = stock placeholder `p7_zm_vending_nuke` (fits PhD's explosion theme, avoids a game-rip vending import); icon = Ronan "exo_flopper" (`i_acc_perk_phd_base`/`_mega`); bottle = stock `zombie_perk_bottle_cherry`.
 
 ---
@@ -471,9 +491,11 @@ grenade-fill field bug was found and fixed — see the notes.
 
 ### Shared systems
 
-- **No-perk-cap removal — OK.** `level.perk_purchase_limit = 9`
-  (`zm_abandoned_cyber_city.gsc:193`), consumed by the live stock buy-gate
-  (`_zm_utility.gsc:5876`/`:5889`).
+- **Buyable perk slots — OK (changed 2026-06-19).** Base `level.perk_purchase_limit = 4`
+  (`zm_abandoned_cyber_city.gsc`); the per-player limit is lifted to as high as 9 by the stock
+  hook `level.get_player_perk_purchase_limit` = `acc_perks::acc_perk_slot_limit` (consumed by the
+  live buy-gate `_zm_utility.gsc:5876`/`:5889`). Extra slots are bought with Data Shards at the
+  Neural Expansion Bay (escalating cost). NOT the old "set the global to 9" no-cap design.
 - **Per-round rotation — brain OK, body STUB.** `roll_perk_rotation()` rolls/stores
   fine, but `apply_perk_rotation_to_machines` is a `TODO(acc-geom)` stub and **no
   `acc_lab_perk_*` entities exist in Radiant**, so the rolled array is never consumed —
@@ -526,9 +548,9 @@ The custom perks (Deadshot, PhD Flopper) follow the custom perk template workflo
 
 If perks feel broken after playtest:
 
-- **Jug**: the **3 / 6 / 7** hit model — retune the HP adds (250 base / 314 Mega) if hit counts drift.
+- **Jug**: the **3 / 6 / 7** hit model — retune the HP adds (250 base / 300 Mega) if hit counts drift.
 - **Deadshot**: +1.4 / +1.8 headshot bonus (additive) → lower if the headshot ceiling is too high.
-- **Mule Kick (Armory)**: 10% discount / +25% ammo → trim if economy or ammo trivializes late game.
+- **Mule Kick (Armory)**: 10% discount / +20% reserve refill each round → trim if economy or ammo trivializes late game.
 - **Stamin-Up (The Flash)**: +15% sprint speed → lower if speed-running trivializes late rounds.
 - **Quick Revive (Savior)**: 1.0 s revive / +15% speed → trim if too strong in co-op.
 - **PhD Flopper (PhD Slider)**: scale back the dive / down explosion radius (300u base / 500u Mega) or damage (~2× Mega) if it over-clears.

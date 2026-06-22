@@ -59,6 +59,7 @@ const GDTS = [
     "skye_s1_ae4.gdt", "skye_iw6_ripper.gdt", "skye_t8_paladin_hb50.gdt", "skye_s4_ppsh-41.gdt",
     "skye_t9_nail_gun.gdt", "skye_s1_pdw.gdt", "skye_s2_m1911.gdt", "skye_t5_ak74u.gdt",
     "skye_t6_olympia.gdt", "skye_t6_galil.gdt",                       // added 2026-06-16: were skipped at gun-add → never reduced
+    "skye_t6_m60.gdt", "skye_t6_rpd.gdt",                             // added 2026-06-19: LMGs - native clip 100 / reserve 400-1000 was wildly over (user); CLIP_FIX + MAXAMMO_FIX below
     "acc_weapon_variants.gdt",
 ];
 
@@ -75,7 +76,19 @@ function stemOf( w ) { return isdef( w ) ? w.split( "_acc" )[ 0 ] : w; }
 // Outlier data-error clamps (NOT a x FACTOR reduction): the Skye PDW akimbo-PaP port shipped
 // maxAmmo/startAmmo 920 (70-130x every peer; the m1911 akimbo PaP uses 10). Force a sane reserve
 // in line with the other PaP guns (~300 rounds = clipSize 17 x ~18 mags). Keyed by weapon entry name.
-const MAXAMMO_FIX = { "s1_pdw_rdw_up_zm": 18 };
+const MAXAMMO_FIX = {
+    "s1_pdw_rdw_up_zm": 18,
+    // LMGs: 4 magazines. With the CLIP_FIX below: M60 4x100=400 base / 4x120=480 PaP; RPD 4x60=240 / 4x100=400.
+    "t6_m60": 4, "t6_m60_up": 4, "t6_rpd": 4, "t6_rpd_up": 4,
+    // Five-Seven -> C (user 2026-06-21): drop the STARTER's reserve 6->4 mags (clip 14 -> reserve 84->56) to
+    // push its tier score under B. Keeps clip intact for the early game; you ditch it for a box gun soon anyway.
+    "t6_fiveseven": 4,
+    // Tac-19 nerf (user 2026-06-21): reserve -25% (12->9 mags: base 4x9=36, PaP 7x9=63). Paired with the -9%
+    // damage nerf in _acc_damage to bring it to the low-S floor WITHOUT cutting the clip (clip 4->3 would also
+    // crater the reserve and drop it to A+). NOTE: perk twins keep their cloned maxAmmo (minor, only when a
+    // Mega twin is active); the base/_up forms are the ones that matter for the rating.
+    "s1_tac19": 9, "s1_tac19_up": 9,
+};
 
 // Targeted per-gun clip/fire-rate tuning (user 2026-06-16) - EXACT values keyed by weapon entry
 // name, applied INSTEAD of the x FACTOR clip cut (CLIP_FIX) or on top (FIRETIME_FIX). Both these
@@ -86,16 +99,47 @@ const MAXAMMO_FIX = { "s1_pdw_rdw_up_zm": 18 };
 //     / 0.75: 0.118 -> 0.157 base, 0.10 -> 0.133 PaP). Its -15% AR damage is in _acc_damage.gsc.
 const CLIP_FIX = {
     "t5_ak74u": 20, "t5_ak74u_up_zm": 40,
-    "t9_nail_gun": 30, "t9_nail_gun_up": 40,
+    // Nail Gun clip 30->40 / PaP 40->50 (user 2026-06-21): a non-DPS lever to push it to S tier
+    // (with the reload buff below). Reserve rises with it (maxAmmo 7/8 unchanged): base ~280, PaP ~400.
+    "t9_nail_gun": 40, "t9_nail_gun_up": 50,
+    // PPSH-41 (user 2026-06-21): +5 rounds in clip on all in-play versions (base + PaP + their perk
+    // twins inherit via stemOf). Was the global x0.70 cut (25 base / 39 PaP); now 30 / 44. Reserve
+    // rises with it (reserve = maxAmmo mags x clipSize, maxAmmo 9 unchanged): base 225->270, PaP 351->396.
+    "s4_ppsh41_base": 30, "s4_ppsh41_base_up": 44,
+    // Tac-19 clip 4->3 / PaP 7->6 (user 2026-06-21): the final all-around nerf. Drops it out of S to A+
+    // (clip is part of what held it in S, and reserve follows: with MAXAMMO_FIX 9, base 3x9=27, PaP 6x9=54).
+    "s1_tac19": 3, "s1_tac19_up": 6,
+    // M60 clip 60->100 / PaP 100->120 (user 2026-06-21): traded for the DPS cut so M60 stays S on clip+reserve.
+    // With MAXAMMO_FIX 4: base 4x100=400, PaP 4x120=480 reserve. RPD stays the smaller/weaker LMG (60/100, C-tier).
+    "t6_m60": 100, "t6_m60_up": 120, "t6_rpd": 60, "t6_rpd_up": 100,
+    // Paladin clip 4->8 / PaP 7->11 (user 2026-06-21): bigger sniper mag to lift it to low S (with its
+    // single-target DPS). Reserve rises with it (maxAmmo 12 unchanged): base 8x12=96, PaP 11x12=132.
+    "t8_paladin_hb50": 8, "t8_paladin_hb50_up": 11,
 };
 const FIRETIME_FIX = {
-    "t9_nail_gun": "0.157", "t9_nail_gun_up": "0.133",
+    // Nail Gun: base -25% RoF (0.157). PaP _up MATCHED to base (user 2026-06-21, was 0.133) so PaP
+    // changes ONLY damage/clip/reserve, not fire rate - part of the "keep base behavior" de-explosive.
+    "t9_nail_gun": "0.157", "t9_nail_gun_up": "0.157",
 };
+
+// Reload-time overrides (seconds), keyed by weapon entry. Nail Gun 2.6 -> 2.0 (user 2026-06-21): a
+// non-DPS lever to lift it to S tier without buffing damage. Sets both reloadTime + reloadEmptyTime.
+const RELOAD_FIX = {
+    "t9_nail_gun": "2.0", "t9_nail_gun_up": "2.0",
+};
+
+// Weapons whose projectile EXPLOSION fields get zeroed (user 2026-06-21). The Nail Gun PaP (_up) shipped
+// an explosive transform (explosionInnerDamage 1300 / Outer 1000 / Radius 144) the user disliked: keep the
+// base NAIL behavior the whole time so PaP only upgrades damage/clip/reserve. Base already has 0. Durable
+// here (re-applied from the .acc-ammo-orig backup every run) instead of a hand-edit that a re-run would revert.
+const EXPLOSION_ZERO = { "t9_nail_gun_up": true };
 
 const HEADER   = /^\s*"([^"]+)"\s*\(\s*"([a-z]*weapon)\.gdf"\s*\)/;   // "name" ( "bulletweapon.gdf" )
 const CLIP     = /^(\s*"clipSize"\s+")(\d+)("\s*)$/;
 const MAXAMMO  = /^(\s*"(?:maxAmmo|startAmmo)"\s+")(\d+)("\s*)$/;      // reserve = maxAmmo x clipSize
 const FIRETIME = /^(\s*"fireTime"\s+")([\d.]+)("\s*)$/;               // seconds/shot; RPM = 60/fireTime
+const RELOAD   = /^(\s*"(?:reloadTime|reloadEmptyTime)"\s+")([\d.]+)("\s*)$/;  // seconds
+const EXPLODE  = /^(\s*"(?:explosionInnerDamage|explosionOuterDamage|explosionRadius)"\s+")([\d.]+)("\s*)$/;  // projectile AoE
 
 let totalChanged = 0;
 const report = [];
@@ -144,6 +188,21 @@ for ( const name of GDTS ) {
         if ( ft && FIRETIME_FIX[ weapon ] !== undefined ) {
             const val = FIRETIME_FIX[ weapon ];
             if ( val !== ft[ 2 ] ) { lines[ i ] = ft[ 1 ] + val + ft[ 3 ]; changed++; }
+            continue;
+        }
+
+        // reload override (e.g. Nail Gun 2.6 -> 2.0 to reach S without a DPS buff).
+        const rl = lines[ i ].match( RELOAD );
+        if ( rl && RELOAD_FIX[ weapon ] !== undefined ) {
+            const val = RELOAD_FIX[ weapon ];
+            if ( val !== rl[ 2 ] ) { lines[ i ] = rl[ 1 ] + val + rl[ 3 ]; changed++; }
+            continue;
+        }
+
+        // explosion zero: kill the projectile AoE for de-explosived weapons (Nail Gun PaP _up).
+        const ex = lines[ i ].match( EXPLODE );
+        if ( ex && EXPLOSION_ZERO[ weapon ] && ex[ 2 ] !== "0" ) {
+            lines[ i ] = ex[ 1 ] + "0" + ex[ 3 ]; changed++;
         }
     }
     fs.writeFileSync( gdt, lines.join( "\n" ) );

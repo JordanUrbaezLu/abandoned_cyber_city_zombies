@@ -37,6 +37,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 
 #insert scripts\shared\shared.gsh;
 
@@ -51,11 +52,11 @@
 #define ACC_GLITCH_BLINK_CD_MIN_DEF         1.0 // min seconds between blinks (2x more often, user 2026-06-15; now 6x the original 6.0s baseline)
 #define ACC_GLITCH_BLINK_CD_MAX_DEF         1.665 // max seconds between blinks (2x more often; now 6x the original 10.0s baseline)
 #define ACC_GLITCH_BLINK_DIST_DEF         300   // flank offset (units) from the target
-#define ACC_GLITCH_RECOVERY_SEC_DEF         1.5 // post-blink vulnerability window (s)
+#define ACC_GLITCH_RECOVERY_SEC_DEF         1.2 // post-blink vulnerability window (s) (was 1.5; the window now ALSO only fires on a real flank blink, never on a commit/pounce - see glitch_blink_loop)
 #define ACC_GLITCH_RECOVERY_DMG_MULT_DEF    2.0 // damage multiplier while vulnerable (damage IT takes - not the damage it deals)
-#define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.5 // melee damage DEALT to players vs a stock zombie (0.5 = -50%, user 2026-06-15)
+#define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.6 // melee damage DEALT to players vs a stock zombie (0.6 = -40%; was 0.5 - bumped now the boss actually reaches+holds melee, user 2026-06-18)
 #define ACC_GLITCH_SPEED_MULT_DEF           1.15 // move speed vs the round's normal zombies (1.15 = +15%, user 2026-06-15)
-#define ACC_GLITCH_COUNT_DEF                2   // bosses spawned per scheduled round (acc_glitch_count)
+#define ACC_GLITCH_COUNT_DEF                3   // bosses spawned per scheduled round (acc_glitch_count, user 2026-06-17)
 
 // Subroutine Core full-boss cadence (mirror of _acc_boss.gsc ACC_BOSS_FULL_* ) - the
 // Glitch Stalker yields on these rounds so it never piles onto the sealed Core fight.
@@ -98,6 +99,11 @@ function maybe_spawn_for_round( round_number )
 
     // Master gate: acc_glitch_enable 0 disables the boss ENTIRELY (real + test).
     if ( getdvarint( "acc_glitch_enable", ACC_GLITCH_ENABLE_DEF ) != 1 ) return;
+
+    // A lockdown CHALLENGE (set by _acc_lockdown_challenge) owns the shared actor budget for
+    // its sealed room. Suppress the scheduled glitch wave while one is active so the two
+    // glitch waves don't stack on the engine actor cap. Undefined in normal play -> no effect.
+    if ( isdefined( level.acc_ldc_active ) ) return;
 
     // Dev/test spawn: fires when acc_glitch_test 1 OR the dev sandbox is on. acc_dev is read
     // with default 1 to MATCH the entry script (zm_abandoned_cyber_city.gsc:157) - acc_dev is
@@ -219,6 +225,11 @@ function spawn_glitch( round_number )
     // _acc_damage.gsc:661/:668).
     host.acc_is_mini_boss = true;
 
+    // Mark as a GLITCH zombie so the Cyberware Weapon Overclock's Glitch Piercing effect does bonus
+    // damage here (read in _acc_damage). Covers the standalone Glitch Stalker AND the lockdown-challenge
+    // glitch zombies (they are Glitch Stalker hosts spawned through this same path).
+    host.acc_is_glitch_zombie = true;
+
     // HP = acc_glitch_hp_mult x the round's NORMAL zombie health (user 2026-06-15, default 3x).
     // level.zombie_health is the stock per-round normal-zombie HP (the actor's post-init maxhealth
     // equals it - fallback below). Written AFTER the init-gate so stock zombie_spawn_init can't
@@ -272,6 +283,13 @@ function spawn_glitch( round_number )
             host.gib_data.head = "c_zom_der_zombie_head1"; // keep gib metadata consistent (cosmetic; no_gib is true)
     }
 
+    // TEAL EYES (user 2026-06-17): mark the boss for the client-side eyeball recolour so its eyes
+    // read teal vs the charred horde's - NO FX asset (the eye COLOUR is set via mapshaderconstant
+    // on the client, see _acc_lui.csc eye_tint_cb). Colour + luminance are LIVE-tunable via
+    // acc_glitch_eye_color / acc_glitch_eye_lum. Gated by acc_glitch_teal_eyes (default on).
+    if ( getdvarint( "acc_glitch_teal_eyes", 1 ) == 1 )
+        acc_lui::set_actor_eye_tint( host, true );
+
     // NO health bar by design (user request 2026-06-15): we deliberately do NOT emit
     // "acc_boss_spawned", so the top-screen boss bar + nameplate never appear. There is no
     // over-head marker either - the stock zombie skin is the only indicator now.
@@ -280,11 +298,45 @@ function spawn_glitch( round_number )
     host thread glitch_blink_loop();      // self-endons on "death"
     host thread glitch_speed_think();     // ~25% faster than the round's normal zombies
     host thread glitch_death_watch();     // waits ON "death"
+    // Phase Serum cloak: hide acc_cloak_glitch players from this boss's CORE follow+melee
+    // AI (not just blink/charge). Stock get_closest_valid_player consults this per-AI
+    // override FIRST (_zm_utility.gsc:1472) to derive BOTH self.favoriteenemy (movement)
+    // and self.enemy (melee), so setting it scopes the cloak to the whole Stalker.
+    host.closest_player_override = &glitch_pick_uncloaked_target;
     // No over-head marker (user 2026-06-15): the STOCK zombie skin (vs the charred horde,
     // SetModel above) is the indicator now.
 
     gdebug( "^5Glitch Stalker^7 spawned - blinks to flank you" );
     acc_utility::log( "boss_glitch: spawned Glitch Stalker (" + host.maxhealth + " hp, round " + round_number + ")" );
+
+    // [acc] return the live host so _acc_lockdown_challenge can tag it (acc_ldc), teleport it
+    // into the sealed room, and count it on its own death watch (the scheduled cadence ignores
+    // this return value). docs/43.
+    return host;
+}
+
+// Per-AI target picker for the Glitch Stalker (set as host.closest_player_override).
+// Stock contract (_zm_utility.gsc:1474): invoked as [[ self.closest_player_override ]]( origin,
+// players ) with NO self prefix - ambient self is the zombie. We strip Phase-Serum-cloaked
+// players (self.acc_cloak_glitch) then DELEGATE to the map-wide level override (the private
+// factory_closest_player, reachable only via the pointer), so path-distance picking stays
+// identical to stock for every non-cloaked player. All players cloaked -> no target (idles).
+function glitch_pick_uncloaked_target( origin, players )
+{
+    if ( !isdefined( players ) || players.size == 0 )
+        return undefined;
+    uncloaked = [];
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( isdefined( p ) && !( isdefined( p.acc_cloak_glitch ) && p.acc_cloak_glitch ) )
+            uncloaked[ uncloaked.size ] = p;
+    }
+    if ( uncloaked.size == 0 )
+        return undefined;
+    if ( isdefined( level.closest_player_override ) )
+        return [[ level.closest_player_override ]]( origin, uncloaked );
+    return arraygetclosest( origin, uncloaked );
 }
 
 // Spawn a stock-template zombie from a random base spawner and INIT-GATE it. Returns
@@ -342,11 +394,45 @@ function glitch_blink_loop()
 
         if ( !isalive( self ) ) return;
 
-        target = acc_utility::get_closest_player_to( self.origin );
+        target = acc_utility::get_closest_uncloaked_player( self.origin ); // Li'l Arnie cloak honored
         if ( !isdefined( target ) ) continue;
 
-        flank_pos = GetClosestPointOnNavMesh( target.origin + blink_offset(), 100, 30 );
-        if ( !isdefined( flank_pos ) ) continue; // no valid navmesh point -> no blink
+        // [acc] ENGAGEMENT GATE (user 2026-06-18): if we are already ON the target, do NOT blink away -
+        // COMMIT to the melee swing. This kills the "it attacks me then teleports off, almost like a
+        // glitch" bug AND makes standing still dangerous (we stay and hit you instead of fleeing). It is
+        // re-checked every tick, so a target that flees past the range simply gets chased again (no stale
+        // pin). Distance-only: EnemyInMeleeRange is NOT a real builtin - a bare call would FATAL at load.
+        if ( Distance( self.origin, target.origin ) <= getdvarint( "acc_glitch_engage_dist", 160 ) )
+        {
+            gdebug( "commit (engaged - no blink)" );
+            continue;
+        }
+
+        // [acc] PUNISH STANDING STILL (user 2026-06-18): a target that barely moved since our last tick,
+        // is NOT downed (laststand), and isn't already being pounced by another Stalker (throttle) -> we
+        // POUNCE: blink to a point just short of them along OUR approach vector so we land in melee; the
+        // gate above then keeps us there. glitch_target_stationary runs FIRST (it must record lastpos
+        // every tick); claim_pounce (which stamps the throttle) only runs when actually camping.
+        camping = false;
+        if ( self glitch_target_stationary( target ) && !IS_TRUE( target.laststand ) )
+            camping = claim_pounce( target );
+
+        if ( isdefined( self.acc_ldc ) && self.acc_ldc )
+        {
+            // CHALLENGE: blink TOWARD the in-room player (SMALL offsets only, never the 300u flank) so the
+            // destination stays inside the sealed room - ldc_in_room-checked, random anchor as the safe
+            // fallback. This is the big "lockdown was super easy" fix: they press you instead of scattering.
+            flank_pos = self ldc_aggressive_blink( target );
+        }
+        else if ( camping )
+        {
+            flank_pos = GetClosestPointOnNavMesh( pounce_point( self.origin, target.origin ), 100, 30 );
+        }
+        else
+        {
+            flank_pos = GetClosestPointOnNavMesh( target.origin + blink_offset(), 100, 30 ); // 300u reposition flank
+        }
+        if ( !isdefined( flank_pos ) ) continue; // no valid navmesh point -> skip this blink
 
         self forceteleport( flank_pos );
         // [acc] teleport "warp" SFX EMITTED BY the zombie. `self PlaySound` attaches the sound to the
@@ -356,31 +442,103 @@ function glitch_blink_loop()
         // (DistMin/DistMaxDry/DistMaxWet in acc_audio.csv). Gated by acc_glitch_warp_snd (default on).
         if ( getdvarint( "acc_glitch_warp_snd", 1 ) != 0 )
             self PlaySound( "acc_glitch_warp" );
-        self thread glitch_blink_fx();
-        self thread glitch_vulnerable_window();
-        gdebug( "blink" );
+        self notify( "acc_glitch_phasein" ); // cancel any in-flight phase-in (blinks can fire faster than one finishes)
+        self thread glitch_phase_in();
+
+        // [acc] 2x-damage-taken window fires ONLY on a real repositioning flank - NOT on a pounce (else a
+        // camper steps back and free-shoots a stationary, currently-vulnerable boss = the cheese we are
+        // fixing). A committed/adjacent boss never reaches here (it `continue`d at the gate), so it is
+        // never marked vulnerable while pressing the attack.
+        if ( !camping )
+            self thread glitch_vulnerable_window();
+
+        gdebug( ( camping ? "pounce" : "blink" ) );
     }
 }
 
-// self = the boss. Asset-free "glitch" tell: a brief visibility FLICKER as it phases
-// in after a blink. Ghost()/Show() are the stock zombie spawn-in render builtins
-// (_zm_utility.gsc teleport-in path) - they toggle RENDERING ONLY, never collision or
-// damage, so the boss stays fully hittable through the flicker and there is no new FX
-// asset (fresh-clone safe) and no crash surface. Gated by `acc_glitch_fx` (default on).
-// A real glitch/teleport FX is the Phase 5 art upgrade (drop it in here).
-function glitch_blink_fx()
+// self = the boss. The OLD "just hide it" version still showed the standstill whenever the
+// AI's post-teleport re-path took longer than the reveal cap (it would un-hide a still-frozen
+// actor). This version is the EXAGGERATED fix (user 2026-06-17): it not only hides the boss,
+// it physically DRIVES it toward the nearest player while hidden - navmesh-clamped micro-
+// teleports at acc_glitch_charge_speed - so the boss actually CLOSES the gap during the
+// invisible window instead of standing where it blinked. Once it is within acc_glitch_reveal_dist
+// of a player we stop driving it and hand control back to the zombie AI, then reveal ONLY once
+// the AI has started moving on its own (origin drift) - so the player always sees it already
+// charging, never standing. The AI's re-path pause is spent entirely hidden. Ghost()/Show()
+// toggle RENDERING ONLY (still fully hittable, no FX asset, no crash surface). A hard cap
+// (acc_glitch_phasein_max) guarantees it can never stay invisible. Cancelled by the next blink
+// (endon below). Gated by `acc_glitch_fx` (default on).
+function glitch_phase_in()
 {
     self endon( "death" );
+    self endon( "acc_glitch_phasein" ); // a fresh blink cancels an in-flight phase-in
 
-    if ( getdvarint( "acc_glitch_fx", 1 ) != 1 ) return;
+    if ( getdvarint( "acc_glitch_fx", 1 ) != 1 ) return; // leave it visible the whole time
 
-    for ( i = 0; i < 3; i++ )
+    self Ghost(); // vanish the instant we blink in - the whole re-path standstill happens HIDDEN
+
+    cap        = getdvarfloat( "acc_glitch_phasein_max", 2.5 );  // hard invisibility failsafe (s)
+    charge_spd = getdvarint( "acc_glitch_charge_speed", 900 );   // units/sec the hidden charge closes the gap
+    reveal_d   = getdvarint( "acc_glitch_reveal_dist", 140 );    // reveal/hand back to the AI this close to a player. 140 (was 240) = INSIDE the engage range so it actually presses the attack instead of un-hiding far out and re-blinking before contact (user 2026-06-18). Live dvar.
+    if ( charge_spd < 0 ) charge_spd = 0;
+    step     = charge_spd * 0.05; // distance per 20Hz tick
+    moved_sq = 12 * 12;           // units^2 of self-driven AI travel that counts as "it's moving"
+
+    charging = true;
+    anchor   = self.origin;
+    t = 0;
+    while ( t < cap )
     {
-        self Ghost();
+        if ( !isalive( self ) ) return;
+
+        target = acc_utility::get_closest_uncloaked_player( self.origin ); // Li'l Arnie cloak honored
+        if ( isdefined( target ) )
+        {
+            dist = Distance( self.origin, target.origin );
+
+            if ( charging && dist > reveal_d )
+            {
+                // EXAGGERATED: physically pull the boss toward the player while hidden. Each step is
+                // navmesh-clamped (never lands in geometry / off-mesh) and faces the player.
+                dir  = VectorNormalize( target.origin - self.origin );
+                want = self.origin + dir * step;
+                nav  = GetClosestPointOnNavMesh( want, 60, 30 );
+                if ( isdefined( nav ) )
+                {
+                    // [acc] Challenge zombie: never charge-teleport OUT of the sealed room - skip
+                    // the step if the nav point left it (the AI walks the last bit instead).
+                    ldc_ok = true;
+                    if ( isdefined( self.acc_ldc ) && self.acc_ldc )
+                        ldc_ok = self ldc_in_room( nav );
+
+                    if ( ldc_ok )
+                    {
+                        face = VectorToAngles( target.origin - nav );
+                        self forceteleport( nav, ( 0, face[ 1 ], 0 ) );
+                    }
+                }
+            }
+            else
+            {
+                // Close enough - stop driving it and let the zombie AI take back over. Reveal only once
+                // it has actually MOVED on its own (origin drift from where we dropped it), so it appears
+                // already charging, never standing. The AI's re-path pause happens here, still hidden.
+                if ( charging )
+                {
+                    charging = false;
+                    anchor   = self.origin;
+                }
+                if ( DistanceSquared( self.origin, anchor ) > moved_sq )
+                    break; // AI is moving -> safe to reveal
+            }
+        }
+
         wait 0.05;
-        self Show();      // always end a cycle visible
-        wait 0.05;
+        t += 0.05;
     }
+
+    if ( isalive( self ) )
+        self Show(); // always end visible
 }
 
 // Random seconds until the next blink (min..max), guarded against an inverted slider.
@@ -402,6 +560,115 @@ function blink_offset()
     if ( r == 1 ) return ( dist * -1, 0, 0 );
     if ( r == 2 ) return ( 0, dist, 0 );
     return ( 0, dist * -1, 0 );
+}
+
+// ---------------------------------------------------------------------------
+// Aggression / anti-cheese helpers (user 2026-06-18). GSC has no "is the player moving" query, so
+// "stationary" = the SAME target's XY barely changed between two blink-loop ticks (~1.0-1.665s apart).
+// ---------------------------------------------------------------------------
+
+// self = the boss. Records the target's XY on self each tick; returns true if it moved <=
+// acc_glitch_still_thresh since our last reading of the SAME target. Resets on a target switch so a
+// coop target swap is never misread as "still".
+function glitch_target_stationary( target )
+{
+    thr  = getdvarint( "acc_glitch_still_thresh", 48 );
+    thr2 = thr * thr;
+    cur  = target.origin;
+
+    still = false;
+    if ( isdefined( self.acc_glitch_tgt ) && self.acc_glitch_tgt == target && isdefined( self.acc_glitch_tgt_lastpos ) )
+    {
+        dx = cur[ 0 ] - self.acc_glitch_tgt_lastpos[ 0 ];
+        dy = cur[ 1 ] - self.acc_glitch_tgt_lastpos[ 1 ];
+        still = ( ( dx * dx + dy * dy ) <= thr2 );
+    }
+    self.acc_glitch_tgt         = target;
+    self.acc_glitch_tgt_lastpos = cur;
+    return still;
+}
+
+// A point acc_glitch_pounce_dist short of `to`, along the from->to (boss->player) vector - i.e. on the
+// approacher's OWN reachable side, in melee range. NOT behind the player's facing (a corner camper faces
+// the wall, so a behind-facing offset would clamp the boss out of range). Caller nav-clamps it.
+function pounce_point( from, to )
+{
+    d   = getdvarint( "acc_glitch_pounce_dist", 56 );
+    dir = VectorNormalize( to - from );
+    return to - dir * d;
+}
+
+// Throttle so a whole PACK can't teleport-stack one camper: returns true (and stamps the target) only if
+// no Stalker has pounced THIS target within acc_glitch_pounce_cooldown ms. Time-based, so no release is
+// needed - a dead/teleported pouncer never holds the slot.
+function claim_pounce( target )
+{
+    cd = getdvarint( "acc_glitch_pounce_cooldown", 1200 );
+    if ( isdefined( target.acc_glitch_last_pounce ) && ( gettime() - target.acc_glitch_last_pounce ) < cd )
+        return false;
+    target.acc_glitch_last_pounce = gettime();
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lockdown-CHALLENGE containment helpers (no-op for normal glitch bosses). The challenge
+// (_acc_lockdown_challenge) tags its zombies self.acc_ldc + stocks self.acc_ldc_anchors with the
+// sealed room's interior spawn-anchor origins. These keep every blink/charge teleport in-room.
+// ---------------------------------------------------------------------------
+
+// True if XY point p is within acc_lockdown_challenge_bounds_margin of ANY of this actor's room
+// anchors (the anchors are interior risers, so "near an anchor" == "in the sealed room"). Defaults
+// true when no anchors are set (non-challenge actor) so normal play is never constrained.
+function ldc_in_room( p )
+{
+    if ( !( isdefined( self.acc_ldc_anchors ) && self.acc_ldc_anchors.size > 0 ) ) return true;
+
+    d  = getdvarint( "acc_lockdown_challenge_bounds_margin", 300 );
+    d2 = d * d;
+    for ( i = 0; i < self.acc_ldc_anchors.size; i++ )
+    {
+        a  = self.acc_ldc_anchors[ i ];
+        dx = p[ 0 ] - a[ 0 ];
+        dy = p[ 1 ] - a[ 1 ];
+        if ( ( dx * dx + dy * dy ) <= d2 ) return true;
+    }
+    return false;
+}
+
+// A navmesh point AT a random in-room anchor - the blink destination for a challenge zombie.
+function ldc_random_anchor_nav()
+{
+    if ( !( isdefined( self.acc_ldc_anchors ) && self.acc_ldc_anchors.size > 0 ) ) return undefined;
+
+    a   = self.acc_ldc_anchors[ acc_utility::acc_rand_int( self.acc_ldc_anchors.size ) ];
+    nav = GetClosestPointOnNavMesh( a, 100, 40 );
+    if ( isdefined( nav ) ) return nav;
+    return a;
+}
+
+// Aggressive-but-CONTAINED challenge blink: aim NEAR the (provably in-room) player using only SMALL
+// offsets - never the 300u flank, which could clamp past a sealed door and still pass the loose
+// ldc_in_room radius test (docs/43 §4.5). Every candidate is ldc_in_room-checked before it's accepted;
+// if none near the player is in-room we fall back to a guaranteed-in-room anchor, so containment holds.
+function ldc_aggressive_blink( target )
+{
+    // 1) just short of the player along our approach vector (lands in melee, on our side).
+    cand = GetClosestPointOnNavMesh( pounce_point( self.origin, target.origin ), 100, 30 );
+    if ( isdefined( cand ) && self ldc_in_room( cand ) ) return cand;
+
+    // 2) a couple of short side-flanks of the player, kept in-room.
+    d = getdvarint( "acc_glitch_ldc_blink_dist", 90 );
+    cand = GetClosestPointOnNavMesh( target.origin + ( d, 0, 0 ), 100, 30 );
+    if ( isdefined( cand ) && self ldc_in_room( cand ) ) return cand;
+    cand = GetClosestPointOnNavMesh( target.origin + ( d * -1, 0, 0 ), 100, 30 );
+    if ( isdefined( cand ) && self ldc_in_room( cand ) ) return cand;
+    cand = GetClosestPointOnNavMesh( target.origin + ( 0, d, 0 ), 100, 30 );
+    if ( isdefined( cand ) && self ldc_in_room( cand ) ) return cand;
+    cand = GetClosestPointOnNavMesh( target.origin + ( 0, d * -1, 0 ), 100, 30 );
+    if ( isdefined( cand ) && self ldc_in_room( cand ) ) return cand;
+
+    // 3) last resort: a guaranteed-in-room anchor (containment).
+    return self ldc_random_anchor_nav();
 }
 
 // self = the boss. Marks it vulnerable for the recovery window; _acc_damage reads
@@ -427,6 +694,22 @@ function glitch_death_watch()
 {
     self waittill( "death", attacker );
 
+    if ( !isdefined( self ) )
+        return;
+
+    // Clean up the corpse like a normal zombie (user 2026-06-19: "glitch bodies on the ground"). The
+    // Glitch Stalker is a RESKINNED zombie with NO death anim, but it carries acc_is_mini_boss (for the
+    // headshot mult), which makes _acc_corpse_cleanup SKIP it - so without this its body LINGERS, and the
+    // lockdown challenge spawns ~30 of them -> entity bloat (a crash suspect). Threaded BEFORE the reward
+    // so the reward below still captures self.origin first (the Delete is one frame later).
+    self thread cleanup_glitch_corpse();
+
+    // [acc] Lockdown CHALLENGE zombie (tagged by _acc_lockdown_challenge): it is counted by the
+    // challenge's OWN death watch and grants NO per-kill reward - else a 30-wave drops 30 items +
+    // 30 Mega Bottles. Skip the whole drop for tagged actors. docs/43 §4.6. (Corpse still cleaned above.)
+    if ( isdefined( self.acc_ldc ) && self.acc_ldc )
+        return;
+
     drop_origin = self.origin;
     self.acc_glitch_vulnerable = false; // belt-and-suspenders: no dangling bonus state
 
@@ -435,6 +718,19 @@ function glitch_death_watch()
 
     gdebug( "^2Glitch Stalker down^7 - Mega Bottle dropped" );
     acc_utility::log( "boss_glitch: Glitch Stalker killed" );
+}
+
+// Delete the Glitch Stalker corpse - it is SKIPPED by _acc_corpse_cleanup (acc_is_mini_boss) but has no
+// death anim, so it would otherwise linger as a "glitch body" (and pile up in the lockdown challenge).
+// Mirrors _acc_corpse_cleanup::corpse_linger_remove: de-collide + hide NOW, brief wait for the engine to
+// finish death processing (notetracks/drops), then Delete to free the actor slot.
+function cleanup_glitch_corpse()
+{
+    self NotSolid();
+    self Ghost();
+    wait( 0.05 );
+    if ( isdefined( self ) )
+        self Delete();
 }
 
 // ---------------------------------------------------------------------------

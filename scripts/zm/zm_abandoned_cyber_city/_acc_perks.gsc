@@ -4,7 +4,7 @@
 // Owns the map-specific BASE-perk tuning + custom Mega effects that have a real
 // GSC lever and don't belong to a more specific module. Current tenants:
 //   - Jug hit model (250 HP)       (tune_jugg_health)
-//   - QR regen: base 15% / Savior 30% sooner (qr_regen_booster + qr_damage_time_watcher)
+//   - QR regen: base 20% / Savior 40% sooner (qr_regen_booster + qr_damage_time_watcher)
 //   - QR revive: base 2.0s / Savior 1.0s     (qr_revive_time + qr_revive_watcher)
 //   - Savior (QR Mega) +15% speed  (savior_speed_watcher + recompute term in
 //                                   _acc_utility::recompute_move_speed)
@@ -20,6 +20,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
 #insert scripts\shared\shared.gsh;
 
@@ -30,9 +31,9 @@
 #define ACC_JUGG_HEALTH_ADD          150
 #define ACC_JUGG_HEALTH_ADD_UPGRADE  150  // stock persistent-upgrade var mirror
 
-// --- Quick Revive regen: base 15% sooner, Savior Mega 30% sooner (docs/13) ---
-#define ACC_QR_REGEN_DELAY_BASE   0.85   // base QR: regen delay x0.85 (=15% sooner -> ~2.04s)
-#define ACC_QR_REGEN_DELAY_SAVIOR 0.70   // Savior: regen delay x0.70 (=30% sooner -> ~1.68s)
+// --- Quick Revive regen: base 20% sooner, Savior Mega 40% sooner (docs/13; user 2026-06-21) ---
+#define ACC_QR_REGEN_DELAY_BASE   0.80   // base QR: regen delay x0.80 (=20% sooner -> ~1.92s; was 0.85/15%)
+#define ACC_QR_REGEN_DELAY_SAVIOR 0.60   // Savior: regen delay x0.60 (=40% sooner -> ~1.44s; was 0.70/30%)
 #define ACC_QR_REGEN_RATE         0.10   // ratio healed/server-frame (= stock local regenRate)
 
 // --- Revive time override (docs/13): base QR 2.0s, Savior Mega 1.0s ----------
@@ -41,22 +42,169 @@
 #define ACC_QR_BASE_REVIVE_TIME   2.0    // base QR reviver
 #define ACC_SAVIOR_REVIVE_TIME    1.0    // Savior Mega reviver (half of base QR)
 
+// --- Perk slots (the marquee shard incentive, user 2026-06-19) ---------------
+// Everyone STARTS at ACC_PERK_SLOT_BASE perks; extra slots are bought with Data Shards at the
+// underground Neural Expansion Bay (the trench-only economy's headline sink), up to ACC_PERK_SLOT_MAX
+// (all 9 perks). Per-player via the stock hook level.get_player_perk_purchase_limit (_zm_utility.gsc:
+// 5874-5889). Each extra slot costs more than the last (escalating sink): cost = base + bonus*step.
+#define ACC_PERK_SLOT_BASE        4
+#define ACC_PERK_SLOT_MAX         9
+#define ACC_PERK_SLOT_COST_BASE   4
+#define ACC_PERK_SLOT_COST_STEP   2
+
 #namespace acc_perks;
 
 function init()
 {
     acc_utility::log( "perks init" );
+
+    // Per-player perk-slot limit hook (the stock-sanctioned override, _zm_utility.gsc:5879). The base
+    // cap is level.perk_purchase_limit (4, set in the entry script); this hook adds each player's
+    // shard-bought bonus on top. Installed here so it is live before any perk machine is used.
+    level.get_player_perk_purchase_limit = &acc_perk_slot_limit;
+
     level thread tune_jugg_health();
+    level thread force_perk_machine_facing();
     // Perk machines start lit + buyable via level.vending_machines_powered_on_at_start
     // (set in the entry script before zm_usermap::main) - no power watcher needed.
+}
+
+// PERMANENT perk-machine facing fix (user 2026-06-19, after the facing reverted FOUR times). The .map
+// "angles" on the perk structs keep getting rolled back to the wrong "0 270 0" by concurrent .map restores;
+// re-fixing the (baked) .map keeps losing that race. So instead we FORCE the facing at RUNTIME, where it is
+// immune to whatever the .ff baked. Stock perk_machine_spawn_init (_zm_perks.gsc:1526-1560) spawns each
+// machine as a script_model and links it to its "zombie_vending" use-trigger via trigger.machine; we just
+// re-orient that model. (VERIFIED(acc): the "zombie_vending" targetname is the proven machine handle used by
+// _acc_perk_lights; trigger.machine is the spawned model, _zm_perks.gsc:1560.) Yaw 359.999 = the established
+// correct facing (these vending models face the player at ~0, not the alcove generator's 270).
+function force_perk_machine_facing()
+{
+    level endon( "end_game" );
+    yaw = getdvarfloat( "acc_perk_face_yaw", 359.999 );
+    // Machines spawn during stock perk init (normally within a couple seconds). Poll up to ~30s for them,
+    // then assert; bail after the window so we never spin forever if the handle ever changes.
+    set = 0;
+    for ( tries = 0; tries < 60 && set == 0; tries++ )
+    {
+        set = apply_perk_facing( yaw );
+        if ( set == 0 ) wait( 0.5 );
+    }
+    // Re-assert a few times in case stock finishes orienting a beat after the model spawns.
+    for ( i = 0; i < 3; i++ ) { wait( 1.0 ); apply_perk_facing( yaw ); }
+    acc_utility::log( "perk facing FORCED at runtime to yaw " + yaw + " on " + set + " machines" );
+}
+
+// Set every perk machine model to the given yaw. Returns the count set (0 = machines not spawned yet).
+function apply_perk_facing( yaw )
+{
+    triggers = GetEntArray( "zombie_vending", "targetname" );
+    n = 0;
+    for ( i = 0; i < triggers.size; i++ )
+    {
+        t = triggers[ i ];
+        if ( isdefined( t ) && isdefined( t.machine ) )
+        {
+            t.machine.angles = ( 0, yaw, 0 );
+            n++;
+        }
+    }
+    return n;
 }
 
 // self unused; called as acc_perks::on_player_connect( player ) from acc_main.
 function on_player_connect( player )
 {
+    // Per-player perk-slot bonus (extra slots above the base, bought with shards). Init here so the
+    // limit hook never reads it undefined.
+    if ( !isdefined( player.acc_perk_slot_bonus ) )
+        player.acc_perk_slot_bonus = 0;
+
     // Revive-time override lives for the whole connection (covers base QR and the
     // sticky Savior Mega flag), so it is started once per connect, NOT per spawn.
     player thread qr_revive_watcher();
+}
+
+// ---------------------------------------------------------------------------
+// Perk slots - the marquee shard sink (docs/45 §3; user 2026-06-19).
+// ---------------------------------------------------------------------------
+
+// Per-player perk capacity. Called BY the engine as self [[level.get_player_perk_purchase_limit]]()
+// with self = the player (_zm_utility.gsc:5881), so it returns THIS player's limit: base + bought
+// bonus, capped at the max. Dev (acc_dev + acc_dev_perks, both default-on) returns the max so every
+// machine is buyable while testing other systems; flip `acc_dev_perks 0` to test the real purchase.
+function acc_perk_slot_limit()   // self = player
+{
+    base = getdvarint( "acc_perk_slot_base", ACC_PERK_SLOT_BASE );
+    maxs = getdvarint( "acc_perk_slot_max", ACC_PERK_SLOT_MAX );
+
+    if ( getdvarint( "acc_dev", 0 ) && getdvarint( "acc_dev_perks", 1 ) )
+        return maxs;
+
+    bonus = ( isdefined( self.acc_perk_slot_bonus ) ? self.acc_perk_slot_bonus : 0 );
+    lim = base + bonus;
+    if ( lim > maxs ) lim = maxs;
+    if ( lim < 1 ) lim = 1;
+    return lim;
+}
+
+// Shard cost of the NEXT extra slot, given how many extras the player already owns (escalating).
+function perk_slot_cost( bonus )
+{
+    return getdvarint( "acc_perk_slot_cost_base", ACC_PERK_SLOT_COST_BASE ) +
+           ( bonus * getdvarint( "acc_perk_slot_cost_step", ACC_PERK_SLOT_COST_STEP ) );
+}
+
+// Spawn the Neural Expansion Bay (model + hold-USE trigger). Called by _acc_glitch_altar with the
+// underground origin. Pure GSC (deletable trigger_radius_use - no Radiant brush / zone line).
+function spawn_perk_slot_vendor_at( origin, yaw )
+{
+    m = spawn( "script_model", origin );
+    m setmodel( "p7_cai_sign_inteactive_kiosk" );   // verified-packing stock kiosk (same as the altar base)
+    if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
+    t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523). Without it you walk up and get no usable prompt.
+    t SetCursorHint( "HINT_NOICON" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5NEURAL EXPANSION^7 - buy +1 Perk Slot (Data Shards)" );
+    t.acc_vendor_model = m;
+    t thread perk_slot_vendor_loop();
+    acc_utility::log( "perk-slot vendor (Neural Expansion Bay) spawned at " + origin );
+}
+
+function perk_slot_vendor_loop()   // self = the vendor trigger
+{
+    self endon( "death" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        self waittill( "trigger", player );
+        if ( !acc_data_shards::is_player_alive( player ) ) continue;
+
+        base = getdvarint( "acc_perk_slot_base", ACC_PERK_SLOT_BASE );
+        maxs = getdvarint( "acc_perk_slot_max", ACC_PERK_SLOT_MAX );
+        if ( !isdefined( player.acc_perk_slot_bonus ) ) player.acc_perk_slot_bonus = 0;
+
+        if ( ( base + player.acc_perk_slot_bonus ) >= maxs )
+        {
+            player acc_utility::hud_msg( "^5NEURAL EXPANSION^7 - max perk capacity (" + maxs + " slots)" );
+            wait 0.4;
+            continue;
+        }
+
+        cost = perk_slot_cost( player.acc_perk_slot_bonus );
+        if ( !acc_data_shards::try_spend( player, cost ) )
+        {
+            player acc_utility::hud_msg( "^5NEURAL EXPANSION^7 - +1 Perk Slot costs ^5" + cost + " Data Shards" );
+            wait 0.4;
+            continue;
+        }
+
+        player.acc_perk_slot_bonus += 1;
+        player PlaySound( "acc_shard_pickup" );
+        player acc_utility::hud_msg( "^5NEURAL EXPANSION^7 - perk capacity now ^2" + ( base + player.acc_perk_slot_bonus ) + " ^7slots" );
+        wait 0.4;
+    }
 }
 
 // self unused; called as acc_perks::on_player_spawned( player ) from acc_main.
@@ -93,8 +241,8 @@ function tune_jugg_health()
 }
 
 // ---------------------------------------------------------------------------
-// Quick Revive: HP regen starts sooner after damage - base 15% sooner, Savior
-// Mega 30% sooner (docs/13).
+// Quick Revive: HP regen starts sooner after damage - base 20% sooner, Savior
+// Mega 40% sooner (docs/13).
 //
 // VERIFIED(acc): the ZM regen authority (_zm_playerhealth.gsc::playerHealthRegen)
 // honors NO per-player override field and uses a hardcoded local regenRate. So we
