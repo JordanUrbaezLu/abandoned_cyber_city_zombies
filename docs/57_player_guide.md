@@ -79,7 +79,7 @@ You spend them on the four upgrade systems below.
 |---|---|---|
 | **Data Caches** (×2) | The open pit | **+2 each**, once per round (first looter gets it; in co-op you can only loot **one of the two** — the other is for a teammate). A dim white glow means "not looted yet this round." |
 | **Trench Warden** (a Brutus boss) | Near the trench | **+3 to the whole team** on most kills. |
-| **Reactor Surge** | Pit (north) | Activate it, survive a short 3-wave onslaught → **+5 to everyone + a shared Insta-Kill.** Re-arms every few rounds. |
+| **Reactor Surge** | Pit (north) | Activate it, survive a tense **5-wave** onslaught (fast spawns + armored elites — think twice before starting it) → **+5 to everyone + a shared Insta-Kill.** Re-arms every few rounds. |
 | **Glitch Altar** | Foundry room | A gamble, not a faucet (see below). |
 
 ---
