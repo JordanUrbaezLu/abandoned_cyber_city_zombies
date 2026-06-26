@@ -37,6 +37,7 @@
 #define ACC_PAP_RANGE_SQ       12100   // 110u
 #define ACC_BOX_RANGE_SQ       10000   // 100u (players "at the box" for the group discount)
 #define ACC_OC_RANGE_SQ        14400   // 120u (overclock kiosk info card - kiosk use-trigger is r64, so the card leads it)
+#define ACC_EXO_RANGE_SQ       14400   // 120u (exo suit station report card - same lead as the overclock kiosk)
 
 #namespace acc_perk_info;
 
@@ -334,6 +335,21 @@ function update_for_player( machines, pap_org )
         }
     }
 
+    // Exo Suit station(s) compete too - walking up shows the EXO REPORT card (current tier + what it
+    // does + the next tier's cost/benefit), so the player knows what the upgrade buys. Origins from _acc_exo.
+    if ( isdefined( level.acc_exo_station_origins ) )
+    {
+        for ( k = 0; k < level.acc_exo_station_origins.size; k++ )
+        {
+            exo_sq = DistanceSquared( self.origin, level.acc_exo_station_origins[ k ] );
+            if ( exo_sq < ACC_EXO_RANGE_SQ && exo_sq < best_sq )
+            {
+                best_sq = exo_sq;
+                nearest_id = "exo";
+            }
+        }
+    }
+
     code = 0; // 0 = hide the card
     if ( isdefined( nearest_id ) )
     {
@@ -345,15 +361,28 @@ function update_for_player( machines, pap_org )
             // PaP + Overclock levels/benefits.
             code = 44 + gun_card_index( self GetCurrentWeapon() );
         }
+        else if ( nearest_id == "exo" )
+        {
+            // Exo report card: encode the player's EXO tier into the unused 108..127 code range (above
+            // the +64 discount range 64..107). acc_hud.lua reads exoTier = code-108 and renders the
+            // static cost/benefit table. No new clientfield - reuses accPerkCard like the overclock card.
+            exo_tier = ( isdefined( self.acc_exo_tier ) ? self.acc_exo_tier : 0 );
+            if ( exo_tier < 0 ) exo_tier = 0;
+            if ( exo_tier > 10 ) exo_tier = 10;   // ACC_EXO_MAX = 10; code 108+10=118 fits accPerkCard's 7 bits (user 2026-06-25, was clamped to 5)
+            code = 108 + exo_tier;
+        }
+        else if ( nearest_id == "pap" )
+        {
+            // PaP shows NO info card (user 2026-06-22): no display/indication - only the machine
+            // price prompt. Leave code 0 so the card stays hidden at the PaP machine.
+            code = 0;
+        }
         else
         {
             pidx = perk_card_index( nearest_id );
-            // Context: show only what buying NOW gives you - base(0) / Mega upgrade(1)
-            // / maxed(2) / PaP tier ladder(3). The Lua card renders the right bullets.
+            // Context: show only what buying NOW gives you - base(0) / Mega upgrade(1) / maxed(2).
             mode = 0;
-            if ( nearest_id == "pap" )
-                mode = 3;
-            else if ( self HasPerk( nearest_id ) )
+            if ( self HasPerk( nearest_id ) )
             {
                 if ( acc_mega_bottles::has_mega_perk( self, nearest_id ) )
                     mode = 2;
@@ -369,23 +398,14 @@ function update_for_player( machines, pap_org )
     // at point of sale (acc_perk_validate / _acc_pap_levels), so flag the card too (+64)
     // and the Lua shows the matching 10%-off price. The flag tracks the viewer's CURRENT
     // Armory status, so the card flips the instant they Mega Mule Kick / lose it.
-    // The overclock card costs Data Shards (not Points), so the Armory 10%-off discount bit
-    // does NOT apply to it - only perk/PaP (Point) cards get +64.
-    if ( code != 0 && nearest_id != "overclock" && acc_mega_bottles::has_active_mega_perk( self, "specialty_additionalprimaryweapon" ) )
+    // The overclock + exo cards cost Data Shards (not Points), so the Armory 10%-off discount bit
+    // does NOT apply to them - only perk/PaP (Point) cards get +64. (The exo code 108..127 would also
+    // overflow the 7-bit field if +64'd, so it MUST be excluded.)
+    if ( code != 0 && nearest_id != "overclock" && nearest_id != "exo" && acc_mega_bottles::has_active_mega_perk( self, "specialty_additionalprimaryweapon" ) )
         code += 64; // ACC_CARD_DISCOUNT_BIT (acc_hud.lua RenderCard decodes it)
 
-    // Pack-a-Punch: push the held weapon's CURRENT tier so the Lua card shows the
-    // NEXT tier only (not the whole T1-T5 ladder). The card CODE is constant 43 for
-    // PaP, so the tier is tracked + pushed separately from acc_pinfo_code.
-    if ( isdefined( nearest_id ) && nearest_id == "pap" )
-    {
-        tier = acc_pap_levels::get_card_tier( self, self GetCurrentWeapon() );
-        if ( !isdefined( self.acc_pap_card_tier ) || self.acc_pap_card_tier != tier )
-        {
-            self.acc_pap_card_tier = tier;
-            acc_lui::set_pap_tier( self, tier );
-        }
-    }
+    // PaP info card + tier-icon push REMOVED (user 2026-06-22): PaP has NO display/indication,
+    // only the machine price prompt. (The exo/overclock cards are unaffected.)
 
     if ( isdefined( self.acc_pinfo_code ) && self.acc_pinfo_code == code )
         return; // already pushed this exact card
@@ -409,7 +429,8 @@ function perk_card_index( id )
     case "specialty_deadshot":                return 7;  // Deadshot
     case "specialty_widowswine":              return 8;  // Widow's Wine
     case "specialty_electriccherry":          return 9;  // PhD Flopper (over the cherry slot)
-    case "pap":                               return 10; // Pack-a-Punch
+    case "specialty_combat_efficiency":       return 10; // Electric Cherry (real 10th perk) - was missing -> card never showed (fixed 2026-06-26)
+    case "pap":                               return 11; // Pack-a-Punch (shifted 10 -> 11 for Electric Cherry)
     }
     return 0;
 }
@@ -424,19 +445,17 @@ function gun_card_index( weapon )
     if ( IsSubStr( n, "t6_fiveseven" ) )    return 0;
     if ( IsSubStr( n, "s1_asm1" ) )         return 1;
     if ( IsSubStr( n, "s1_tac19" ) )        return 2;
-    if ( IsSubStr( n, "t6_ak47" ) )         return 3;
+    if ( IsSubStr( n, "t9_ak47" ) )         return 3;
     if ( IsSubStr( n, "s1_ae4" ) )          return 4;
-    if ( IsSubStr( n, "iw6_ripper" ) )      return 5;
+    if ( IsSubStr( n, "s1_rw1" ) )          return 5;   // RW1 (AW energy pistol; reuses the freed Ripper slot, 2026-06-23)
     if ( IsSubStr( n, "t8_paladin_hb50" ) ) return 6;
     if ( IsSubStr( n, "s4_ppsh41" ) )       return 7;
-    if ( IsSubStr( n, "t9_nail_gun" ) )     return 8;
-    if ( IsSubStr( n, "s1_pdw" ) )          return 9;
-    if ( IsSubStr( n, "s2_m1911" ) )        return 10;
-    if ( IsSubStr( n, "t5_ak74u" ) )        return 11;
+    if ( IsSubStr( n, "s1_mahem" ) )        return 8;   // Mahem launcher (reuses the freed Nail Gun slot, 2026-06-23)
+    if ( IsSubStr( n, "t9_ak74u" ) )        return 11;
     if ( IsSubStr( n, "t6_olympia" ) )      return 12;
     if ( IsSubStr( n, "t6_galil" ) )        return 13;
-    if ( IsSubStr( n, "t6_m60" ) )          return 14;
-    if ( IsSubStr( n, "t6_rpd" ) )          return 15;
-    if ( IsSubStr( n, "tesla_gun" ) )       return 16;
+    if ( IsSubStr( n, "t9_m60" ) )          return 14;
+    if ( IsSubStr( n, "t9_rpd" ) )          return 15;
+    if ( IsSubStr( n, "thundergun" ) )      return 16;
     return 17;
 }

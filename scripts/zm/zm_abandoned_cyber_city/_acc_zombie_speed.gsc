@@ -28,7 +28,8 @@
 //     ("they start sprinting now"); sprint@1.0 comfortably exceeds the topped-out
 //     jog, so the wave still steps UP (strictly monotonic).
 //   - Round > sprint_round: sprint gait, rate 1.0 + sprint_step % per round above
-//     (default +1%/round: R15 = 1.05, R20 = 1.10). rate > 1.0 = a faster sprint,
+//     (default +0.6%/round, user 2026-06-24: with sprint_round 15, R20 ≈ 1.03,
+//     R25 ≈ 1.06). rate > 1.0 = a faster sprint,
 //     which reads fine (no slow-mo). The engine takes unbounded float here (stock
 //     siegebot 1.429, apothicon 2.0), so there is NO upper clamp.
 //
@@ -38,9 +39,9 @@
 // Tunable dvars (read live per spawn, so a console set affects new zombies):
 //   acc_zspeed_sprint_round     (10)  first round the zombies use the SPRINT gait
 //   acc_zspeed_jog_start_pct    (100) round-1 jog playback rate, % (100 = natural)
-//   acc_zspeed_jog_step_pct     (2)   + jog playback % per round during the jog phase
+//   acc_zspeed_jog_step_pct     (2.5) + jog playback % per round during the jog phase
 //   acc_zspeed_sprint_start_pct (100) sprint playback rate at sprint_round (100 = natural)
-//   acc_zspeed_sprint_step_pct  (1)   + sprint playback % per round after sprint_round
+//   acc_zspeed_sprint_step_pct  (0.6) + sprint playback % per round after sprint_round (read as a FLOAT)
 // (All rates are floored at 1.0 in code - we never animate below natural cadence.)
 //
 // Modifier hook: the per-run "sprint" modifier (level.acc_mod_force_sprint, set by
@@ -55,11 +56,11 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
-#define ACC_ZSPEED_SPRINT_ROUND_DEF    10   // round zombies break from jog into full sprint
+#define ACC_ZSPEED_SPRINT_ROUND_DEF    15   // zombies switch to the SPRINT gait at round 15 (user 2026-06-23). With the gentle jog_step (0.5) the jog stays near natural pace (R1-14 = 100..106.5%) so it never outpaces the sprint; R15 is then a clean step UP.
 #define ACC_ZSPEED_JOG_START_PCT_DEF   100  // round-1 jog playback rate (100 = natural jog cadence)
-#define ACC_ZSPEED_JOG_STEP_PCT_DEF    2    // + jog playback % per round during the jog phase
+#define ACC_ZSPEED_JOG_STEP_PCT_DEF    0.5  // + jog playback % per round. CUT from 2.75 (user obs 2026-06-23: at 2.75 the jog reached 122% by R9 and FELT FASTER THAN A SPRINT). Root cause: the sprint gait is BARELY faster than the jog - NOT ~1.33x as estimated - so speeding the jog up past ~110% overshoots the REAL sprint. Kept low so the jog stays near natural pace (R1-12 = 100..105.5%) and below the sprint; R13 is then a real step UP. A precise even ramp needs the measured jog:sprint ratio.
 #define ACC_ZSPEED_SPRINT_START_PCT_DEF 100 // sprint playback rate at sprint_round (100 = natural full sprint)
-#define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 1    // + sprint playback % per round after sprint_round
+#define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 0.6  // + sprint playback % per round after sprint_round. CUT from 1 -> 0.7 -> 0.6 (user 2026-06-24: gentler post-sprint creep). MUST be read via getdvarfloat - getdvarint would truncate the fractional % -> 0 (mirrors the jog_step float handling).
 #define ACC_ZSPEED_KEEPALIVE_WAIT      1.5  // s between keep-alive re-assert sweeps
 
 // Regular-zombie melee damage to players (absolute, in HP). Stock zombie_spawn_init
@@ -68,6 +69,18 @@
 // (boss-guarded - bosses keep their own). User 2026-06-18: 45 baseline. The trench now SCALES it
 // per layer (+acc_trench_layer_dmg_add HP per layer, user 2026-06-21) instead of a flat in-trench value.
 #define ACC_ZOMBIE_MELEE_BASE_DEF      45   // baseline melee dmg (was stock 60)
+
+// PARADISE holistic HORDE BUFF (user 2026-06-26, reworked from the per-zombie ramp). Paradise (the open-air plaza
+// below the abyss) is EXCLUDED from acc_bus_trench::underground_layer (0 there), so trench_layer_for_zombie
+// substitutes a single WORLD-WIDE battle layer that _acc_paradise.gsc steps on the BATTLE CLOCK (not per-zombie
+// alive-time): L2 for minute 0-1, then +1 each minute (L3, L4) up to L5 for the final minute, in lockstep with the
+// Brutus escalation + the "horde is getting stronger" UI alert. The whole horde - including fresh spawns - shares the
+// current layer, which feeds the SAME per-layer SPEED (+acc_trench_layer_speed_pct%/layer) AND HEALTH
+// (apply_trench_health, +acc_trench_layer_hp_pct%/layer, one-way) as a real trench floor. So the ENTIRE onslaught
+// gets faster AND tankier every minute that passes. 0 (base) during the calm/dread entry (battle not started) and
+// anywhere outside the plaza. SINGLE SOURCE OF TRUTH: level.acc_paradise_horde_layer, owned + stepped by
+// _acc_paradise.gsc::escalation_loop (defines ACC_PARADISE_BUFF_START_DEF 2 / _MAX_DEF 5 there). Bosses/mini-bosses
+// never reach here (apply_speed_for_round returns early for them).
 
 #namespace acc_zombie_speed;
 
@@ -79,7 +92,7 @@ function init()
 {
     acc_utility::log( "zombie speed: init (natural-gait: jog -> sprint @ R" +
         getdvarint( "acc_zspeed_sprint_round", ACC_ZSPEED_SPRINT_ROUND_DEF ) + ", then +" +
-        getdvarint( "acc_zspeed_sprint_step_pct", ACC_ZSPEED_SPRINT_STEP_PCT_DEF ) + "%/round)" );
+        getdvarfloat( "acc_zspeed_sprint_step_pct", ACC_ZSPEED_SPRINT_STEP_PCT_DEF ) + "%/round)" );
 
     callback::on_ai_spawned( &on_zombie_spawned_speed );
     level thread speed_keepalive();
@@ -141,7 +154,7 @@ function rate_for_round( round )
     {
         // Jog phase: natural jog at round 1, creeping faster each round.
         pct = getdvarint( "acc_zspeed_jog_start_pct", ACC_ZSPEED_JOG_START_PCT_DEF ) +
-              ( round - 1 ) * getdvarint( "acc_zspeed_jog_step_pct", ACC_ZSPEED_JOG_STEP_PCT_DEF );
+              ( round - 1 ) * getdvarfloat( "acc_zspeed_jog_step_pct", ACC_ZSPEED_JOG_STEP_PCT_DEF );
     }
     else
     {
@@ -151,7 +164,7 @@ function rate_for_round( round )
         if ( rounds_into_sprint < 0 )
             rounds_into_sprint = 0;
         pct = getdvarint( "acc_zspeed_sprint_start_pct", ACC_ZSPEED_SPRINT_START_PCT_DEF ) +
-              rounds_into_sprint * getdvarint( "acc_zspeed_sprint_step_pct", ACC_ZSPEED_SPRINT_STEP_PCT_DEF );
+              rounds_into_sprint * getdvarfloat( "acc_zspeed_sprint_step_pct", ACC_ZSPEED_SPRINT_STEP_PCT_DEF );
     }
 
     rate = pct / 100.0;
@@ -191,7 +204,13 @@ function apply_speed_for_round( round )
     // HP melee. (The +melee is NOT here - open-field zombie melee ignores self.meleeDamage [engine Melee()
     // uses the melee WEAPON], so it's added to the player's INCOMING hit in _acc_elites::on_player_damaged
     // -> acc_bus_trench::trench_melee_scaled.)
+    // The trench LAYER drives BOTH speed (here) and health (apply_trench_health). For a real trench zombie it's
+    // its physical depth; in PARADISE (excluded from underground_layer) trench_layer_for_zombie substitutes the
+    // world-wide HORDE BUFF - L2 for the first battle minute, then +1 each minute up to L5 (user 2026-06-26),
+    // stepped by _acc_paradise.gsc on the battle clock so the ENTIRE onslaught gets faster AND tankier every minute.
+    // 0 during the calm/dread entry (battle not started) and on the surface, so nothing changes outside the finale.
     layer = trench_layer_for_zombie( self );
+
     if ( layer > 0 )
     {
         spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 5 ) / 100.0 ); // +5%/layer
@@ -237,9 +256,36 @@ function apply_speed_for_round( round )
 // gate acc_trench_aggro also forces 0.
 function trench_layer_for_zombie( zombie )
 {
+    if ( getdvarint( "acc_trench_vanilla", 0 ) == 1 )   // VANILLA TEST (default off): no per-layer speed/health on trench zombies
+        return 0;
     if ( getdvarint( "acc_trench_aggro", 1 ) != 1 )
         return 0;
-    return acc_bus_trench::underground_layer( zombie.origin );
+
+    l = acc_bus_trench::underground_layer( zombie.origin );
+    if ( l > 0 ) return l;                  // physically in a real trench layer
+
+    return paradise_buff_layer( zombie );   // in Paradise during the battle: the world-wide L2->L5 horde buff (0 otherwise)
+}
+
+// PARADISE holistic HORDE BUFF (user 2026-06-26). Returns the trench-equivalent layer for a zombie in the sealed
+// plaza during the BATTLE = the WORLD-WIDE level.acc_paradise_horde_layer, which _acc_paradise.gsc::escalation_loop
+// owns and steps on the battle clock (L2 minute 0-1 -> L3 -> L4 -> L5 final minute, +1 each minute, synced to the
+// Brutus spawn + the UI alert). EVERY live plaza zombie - including fresh spawns - reads the SAME current layer, so
+// the whole onslaught buffs up together (replaces the old per-zombie 30s-alive ramp). 0 = BASE while you first enter
+// (calm/dread, battle not started yet) and anywhere outside the plaza. Fed back through trench_layer_for_zombie so it
+// drives the SAME per-layer SPEED + HEALTH as a real trench floor. The vanilla/aggro master gates are already checked
+// by the caller. Bosses/specials never reach here (apply_speed_for_round returns early for them).
+function paradise_buff_layer( zombie )
+{
+    if ( !IS_TRUE( level.acc_paradise_onslaught ) ) return 0;        // BASE until the battle actually begins
+    if ( !acc_bus_trench::origin_in_second_part( zombie.origin ) ) return 0;
+
+    // The whole horde shares ONE layer, stepped by the Paradise battle clock. Fallback to the start layer for the
+    // brief window before escalation_loop has set it (start_battle sets it the same frame onslaught goes true, so
+    // this fallback is belt-and-suspenders).
+    if ( isdefined( level.acc_paradise_horde_layer ) )
+        return level.acc_paradise_horde_layer;
+    return getdvarint( "acc_paradise_buff_start", 2 );
 }
 
 // Assert this zombie's BASELINE melee damage (ABSOLUTE HP), re-asserted every keepalive sweep. NOTE:
@@ -263,7 +309,7 @@ function apply_baseline_melee()   // self = zombie
 function apply_trench_health( layer )   // self = zombie
 {
     if ( getdvarint( "acc_trench_aggro", 1 ) != 1 ) return;
-    pct = getdvarint( "acc_trench_layer_hp_pct", 25 );
+    pct = getdvarint( "acc_trench_layer_hp_pct", 50 );   // +50% max health per layer (user 2026-06-22, was 25)
     if ( pct <= 0 || layer <= 0 ) return;
 
     if ( !isdefined( self.acc_base_health ) ) self.acc_base_health = self.maxhealth;   // round-scaled base

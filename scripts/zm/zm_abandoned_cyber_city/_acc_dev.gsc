@@ -1,10 +1,13 @@
 // =============================================================================
-// _acc_dev.gsc - test/dev harness, gated entirely on the `acc_dev` dvar
+// _acc_dev.gsc - test/dev harness gated on the `acc_dev` dvar - EXCEPT the crosshair damage NUMBERS, which
+// are an ALWAYS-ON game FEATURE (set up at the top of init() before the dev gate, user 2026-06-22)
 //
 // `+set acc_dev 1` (run_game.ps1 sets it by default) turns on a sandbox so the
 // whole map can be exercised in one sitting:
 //   - Unlimited money: every player's points are topped back up to ~1,000,000
 //     whenever they drop below a floor (buy any wallbuy, spam the box, PaP).
+//   - Data Shards: each player STARTS with 200 (one-time grant in _acc_data_shards::on_player_connect;
+//     NOT a refill loop, so spending behaves normally). Test the Cyberware / Overclock / trench economy.
 //   - Perk cap raised to 18 so every machine in the test room is buyable.
 //   - Buyable-door markers: a through-walls waypoint over each closed buyable
 //     door (the doors stay closed - this just makes them findable). The marker
@@ -32,37 +35,37 @@
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
+#define ACC_DMGQ_MAX         16   // damage-number queue depth (caps lag/drop in heavy multi-hit bursts)
 
 #namespace acc_dev;
 
 function init()
 {
-    // DEV MODE DEFAULT-ON (pre-release) - default 1, matches the entry script. A plain
-    // launch IS the dev sandbox (the Steam launcher truncates +set args, so we can't
-    // rely on the flag arriving). Set `acc_dev 0` to disable for a clean consumer test.
-    // TODO(ship): flip the default back to 0 before a public build. docs/34_flags_reference.md.
-    if ( getdvarint( "acc_dev", 1 ) != 1 )
+    // [acc] Crosshair damage NUMBERS: ALWAYS ON (user 2026-06-22), NOT gated on acc_dev. The user tests
+    // balance in the NON-dev god/normal modes (PLAY_GOD_MODE / PLAY_NORMAL) and needs to see the damage
+    // dealt, so the feed hook is set BEFORE the dev gate. _acc_damage feeds this from INSIDE its own
+    // actor-damage callback (a separate callback does NOT work - stock dispatch short-circuits on the first
+    // non -1 return, _zm.gsc:5824, and _acc_damage runs first + returns the modified hit). The rest of the
+    // pipeline (acc_center_dmg_add -> acc_center_dmg_push_loop -> acc_lui::set_dmg_num -> acc_hud.lua) lives
+    // in always-active modules (proven by it working in dev), so nothing else is needed.
+    level.acc_dmg_num_feed = &acc_center_dmg_add;
+
+    // ONE dev switch: level.acc_dev (resolved once in the entry script's acc_resolve_dev_flags(),
+    // which runs in main() before this init). Off = normal play; the REST of this harness no-ops.
+    if ( !IS_TRUE( level.acc_dev ) )
         return;
 
-    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + door markers + all perk slots (acc_dev_perks)" );
+    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + 200 shards + door markers + all perk slots" );
 
-    // Perk cap is now owned per-player by acc_perks::acc_perk_slot_limit (the level.get_player_perk_purchase_limit
-    // hook), which returns the MAX while acc_dev + acc_dev_perks (both default-on) are set - so every machine is
-    // buyable in dev without raising the global. Flip `acc_dev_perks 0` to test the shard-bought perk-slot purchase.
-    // (Raising level.perk_purchase_limit here would be a no-op now: the hook's return overrides it.)
+    // Perk cap is owned per-player by acc_perks::acc_perk_slot_limit (the level.get_player_perk_purchase_limit
+    // hook), which returns the MAX while IS_TRUE(level.acc_dev) - so every machine is buyable in dev without
+    // raising the global. (Raising level.perk_purchase_limit here would be a no-op: the hook's return overrides it.)
 
     level thread dev_unlimited_money();
     level thread dev_door_markers();
 
-    // Damage numbers: expose the per-player accumulator as a hook that
-    // _acc_damage feeds from INSIDE its own actor-damage callback. A separate
-    // callback does NOT work - stock dispatch short-circuits on the first non -1
-    // return (_zm.gsc:5824), and _acc_damage runs first + returns the modified
-    // damage, so a later callback never sees a modified hit (every headshot,
-    // every gun hit once you own Double Tap, every PaP'd hit). Feeding from
-    // _acc_damage's record path catches EVERY hit. (Hook auto-clears when dev
-    // mode is off, so production never shows debug numbers.)
-    level.acc_dmg_num_feed = &acc_center_dmg_add;
+    // (Damage numbers are now set up ABOVE the dev gate - they are a permanent game FEATURE, always on
+    // for every player, not a dev tool. See the top of init().)
     level thread dev_player_hud_loop();
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
@@ -307,18 +310,46 @@ function dev_apply_jugg_state( v )
 // objective list). The reliable, correct path is a crosshair-anchored LUI number:
 // you aim at the zombie, so it reads on-target. See acc_hud.lua CoD.AccDmgNum.
 
-// self = player. Accumulate damage; a push loop batches it to the crosshair number
-// every ~0.12s so sustained automatic fire reads as one steadily-updating number
-// (instead of a flicker storm) and hides shortly after you stop firing.
+// self = player. PER-EVENT damage numbers (user 2026-06-22): every individual damage event - each
+// bullet, each shotgun PELLET, and each separate zombie a single bullet hits/penetrates - becomes its
+// OWN floating number. NO summing. We QUEUE events here because the accDmgNum value rides ONE networked
+// channel that carries only the LAST value per server snapshot, so we cannot deliver many numbers in the
+// same instant; the push loop drains ONE queued event per ~0.025s tick (~40/sec - 2x, user 2026-06-22).
+// So a spray shows one number per bullet (effectively instant), and a same-frame burst (shotgun pellets /
+// one bullet through 2 zombies) appears as a fast flurry of separate numbers over a few tenths of a second.
 function acc_center_dmg_add( amount, is_headshot )
 {
-    if ( !isdefined( self.acc_cdmg ) ) self.acc_cdmg = 0;
-    self.acc_cdmg += amount;
+    if ( !isdefined( amount ) || amount <= 0 ) return;
 
-    // Sticky within the batch: any headshot in the ~0.1s accumulation window tints the
-    // pushed number teal. Per-shot coloring is impossible (many shots batch into one
-    // number), so OR the flag in here; the push loop reads + clears it each tick.
-    if ( IS_TRUE( is_headshot ) ) self.acc_cdmg_hs = true;
+    if ( !isdefined( self.acc_dmgq ) )
+    {
+        self.acc_dmgq = [];
+        self.acc_dmgq_head = 0;
+        self.acc_dmgq_count = 0;
+    }
+    // PARITY MUST PERSIST ON THE PLAYER, not the push loop (bug fix, user 2026-06-26): the client
+    // only re-fires a number when accDmgNum CHANGES, so the parity bit flips each push to make an
+    // identical damage value differ. The push loop SELF-TERMINATES after ~1s idle and restarts on
+    // the next hit - if parity lived in the loop it reset to 0 every restart, so a player dealing
+    // the SAME damage with sporadic fire (loop idles between hits) pushed the IDENTICAL value every
+    // time -> no change -> damage numbers silently STOPPED (self-heals only when damage varies).
+    // Keeping it on `self` makes consecutive pushes always alternate across loop restarts.
+    if ( !isdefined( self.acc_dmg_parity ) ) self.acc_dmg_parity = 0;
+
+    d = int( amount );
+    if ( d > 65535 ) d = 65535;            // so dmg*4 + hs*2 + parity still fits the 18-bit field
+    ev = d * 2;                            // pack damage + headshot bit (unpacked in the push loop)
+    if ( IS_TRUE( is_headshot ) ) ev += 1;
+
+    // Ring buffer. If full, drop the OLDEST so a heavy multi-hit burst can never lag more than ~MAX ticks.
+    if ( self.acc_dmgq_count >= ACC_DMGQ_MAX )
+    {
+        self.acc_dmgq_head = ( self.acc_dmgq_head + 1 ) % ACC_DMGQ_MAX;
+        self.acc_dmgq_count--;
+    }
+    tail = ( self.acc_dmgq_head + self.acc_dmgq_count ) % ACC_DMGQ_MAX;
+    self.acc_dmgq[ tail ] = ev;
+    self.acc_dmgq_count++;
 
     if ( !IS_TRUE( self.acc_cdmg_loop_on ) )
     {
@@ -327,57 +358,46 @@ function acc_center_dmg_add( amount, is_headshot )
     }
 }
 
-// self = player.
+// self = player. Drain the queue one event per tick -> one floating number each (acc_hud.lua pools +
+// scatters + rise/fades each over 1s). DRAIN 0.025s = ~40/sec (2x, user 2026-06-22). A literal SECOND
+// clientfield channel would overflow the near-full clientuimodel pool and crash stock zmhud.swordEnergy
+// at LOAD (see _acc_lui.gsc:73-78), so we double the RATE on the one channel instead. If the local net
+// can't deliver 40 distinct values/sec, extras collapse within a snapshot (the prior 0.05s ceiling) -
+// dial back toward 0.033 / 0.05 if numbers drop. Queue stays 16 so a burst buffers + drains (now in ~0.4s).
 function acc_center_dmg_push_loop()
 {
     self endon( "disconnect" );
     level endon( "end_game" );
 
-    parity = 0;
-    idle_ticks = 0;
-    showing = false;
+    idle_ticks = 0;   // parity now lives on self.acc_dmg_parity (persists across loop restarts - see acc_center_dmg_add)
 
     for ( ;; )
     {
         if ( !isdefined( self ) ) return;
 
-        // Push at the TOP so the FIRST hit shows immediately (no startup lag - the
-        // loop is started from acc_center_dmg_add AFTER the hit is accumulated).
-        dmg = self.acc_cdmg;
-        hs  = IS_TRUE( self.acc_cdmg_hs );
-        self.acc_cdmg = 0;
-        self.acc_cdmg_hs = false;
-
-        if ( dmg > 0 )
+        if ( isdefined( self.acc_dmgq_count ) && self.acc_dmgq_count > 0 )
         {
-            // Encoding: dmg*4 + headshot_bit + parity, packed into the 18-bit accDmgNum
-            // clientfield (max 262143). Cap dmg at 65535 so 65535*4 + 2 + 1 = 262143 fits
-            // EXACTLY - do NOT widen the field (the clientuimodel pool is full, _acc_lui.gsc).
-            // parity flips each push so identical numbers re-pop; bit 1 = headshot (teal).
-            if ( dmg > 65535 ) dmg = 65535;
-            parity = 1 - parity;
-            hs_bit = 0;
-            if ( hs ) hs_bit = 2;
-            acc_lui::set_dmg_num( self, dmg * 4 + hs_bit + parity );
-            showing = true;
+            ev = self.acc_dmgq[ self.acc_dmgq_head ];   // pop oldest
+            self.acc_dmgq_head = ( self.acc_dmgq_head + 1 ) % ACC_DMGQ_MAX;
+            self.acc_dmgq_count--;
+
+            // ev = dmg*2 + headshot. Add parity (flips each push) so identical consecutive numbers still
+            // re-fire the client callback: final = dmg*4 + hs*2 + parity (acc_hud.lua decodes this).
+            self.acc_dmg_parity = 1 - self.acc_dmg_parity;
+            acc_lui::set_dmg_num( self, ev * 2 + self.acc_dmg_parity );
             idle_ticks = 0;
         }
         else
         {
             idle_ticks++;
-            if ( showing && idle_ticks >= 5 ) // keep it up ~0.5s after the last hit
-            {
-                acc_lui::set_dmg_num( self, 0 );
-                showing = false;
-            }
-            if ( idle_ticks >= 10 ) // idle ~1s -> stop until next damage
+            if ( idle_ticks >= 40 )   // ~2s with an empty queue -> sleep until the next damage event
             {
                 self.acc_cdmg_loop_on = false;
                 return;
             }
         }
 
-        wait 0.1;
+        wait 0.025;   // ~40/sec drain (2x the old 0.05s) - see the function header for the why/limits
     }
 }
 
@@ -439,7 +459,25 @@ function dev_update_zone( p )
         return;
     }
 
-    // 5s elapsed since the last change -> fade out (declutter).
+    // UNDERGROUND (trench/abyss): keep the layer title up the WHOLE time you're down there - it's
+    // pitch black, so a 5s fade gets missed (user 2026-06-22: "went down layers in the trench, didn't
+    // see the location title"). Gate on the DEPTH (underground_layer>0); it still RE-reveals (above)
+    // on each layer change. On the surface the 5s declutter fade is unchanged.
+    if ( acc_bus_trench::underground_layer( p.origin ) > 0 )
+    {
+        if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
+        {
+            // Title was hidden (e.g. faded on the surface before descending) - bring it back up.
+            p.acc_dev_zone_hud SetText( dev_area_name( area ) );
+            p.acc_dev_zone_hud FadeOverTime( 0.3 );
+            p.acc_dev_zone_hud.alpha = 0.85;
+            p.acc_dev_zone_shown = true;
+        }
+        p.acc_dev_zone_until = GetTime() + 5000;    // push the hold forward so it never fades while underground
+        return;
+    }
+
+    // 5s elapsed since the last change -> fade out (declutter). SURFACE only (underground returned above).
     if ( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown &&
          isdefined( p.acc_dev_zone_until ) && GetTime() >= p.acc_dev_zone_until )
     {

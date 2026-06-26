@@ -36,8 +36,10 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player (1 shard to the glitch killer)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // set_phantom_aura (magenta body glow, user 2026-06-24)
 
 #insert scripts\shared\shared.gsh;
 
@@ -45,16 +47,16 @@
 //     dvar (read at the point of use, not cached) - this is the whole "easy slider"
 //     contract. Mirror each row in docs/34_flags_reference.md. ---
 #define ACC_GLITCH_ENABLE_DEF            1      // master on/off (set 0 to disable the boss entirely - gates real cadence + test spawn)
-#define ACC_GLITCH_HP_MULT_DEF              3   // HP = this x the round's NORMAL zombie health (user 2026-06-15)
-#define ACC_GLITCH_FIRST_ROUND_DEF          3   // first round it can spawn (user 2026-06-15)
-#define ACC_GLITCH_INTERVAL_DEF            10   // then every N rounds (3, 13, 23, ...)
-#define ACC_GLITCH_TEST_ROUND_DEF           3   // dev/test path: first round it spawns (user 2026-06-15)
-#define ACC_GLITCH_BLINK_CD_MIN_DEF         1.0 // min seconds between blinks (2x more often, user 2026-06-15; now 6x the original 6.0s baseline)
-#define ACC_GLITCH_BLINK_CD_MAX_DEF         1.665 // max seconds between blinks (2x more often; now 6x the original 10.0s baseline)
+#define ACC_GLITCH_HP_MULT_DEF              1.5 // HP = this x the round's NORMAL zombie health (user 2026-06-23: 3 -> 1.5, 3x too tanky)
+#define ACC_GLITCH_FIRST_ROUND_DEF          4   // first round it spawns (user 2026-06-23: 2->8->4, difficulty cut)
+#define ACC_GLITCH_INTERVAL_DEF             2   // every 2nd round from first (user 2026-06-23: was EVERY round, 4, now 2) - count scales, see glitch_count_for_round
+#define ACC_GLITCH_TEST_ROUND_DEF           2   // dev/test path: first round it spawns (matches first_round, user 2026-06-22)
+#define ACC_GLITCH_BLINK_CD_MIN_DEF         1.33 // min seconds between blinks (user 2026-06-23: 1.0->1.33, 25% fewer blinks = 25% less aggressive)
+#define ACC_GLITCH_BLINK_CD_MAX_DEF         2.22 // max seconds between blinks (user 2026-06-23: 1.665->2.22, 25% fewer blinks)
 #define ACC_GLITCH_BLINK_DIST_DEF         300   // flank offset (units) from the target
 #define ACC_GLITCH_RECOVERY_SEC_DEF         1.2 // post-blink vulnerability window (s) (was 1.5; the window now ALSO only fires on a real flank blink, never on a commit/pounce - see glitch_blink_loop)
 #define ACC_GLITCH_RECOVERY_DMG_MULT_DEF    2.0 // damage multiplier while vulnerable (damage IT takes - not the damage it deals)
-#define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.6 // melee damage DEALT to players vs a stock zombie (0.6 = -40%; was 0.5 - bumped now the boss actually reaches+holds melee, user 2026-06-18)
+#define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.45 // melee damage DEALT to players vs a stock zombie (user 2026-06-22: 25% less than the prior 0.6 -> 0.45)
 #define ACC_GLITCH_SPEED_MULT_DEF           1.15 // move speed vs the round's normal zombies (1.15 = +15%, user 2026-06-15)
 #define ACC_GLITCH_COUNT_DEF                3   // bosses spawned per scheduled round (acc_glitch_count, user 2026-06-17)
 
@@ -105,12 +107,10 @@ function maybe_spawn_for_round( round_number )
     // glitch waves don't stack on the engine actor cap. Undefined in normal play -> no effect.
     if ( isdefined( level.acc_ldc_active ) ) return;
 
-    // Dev/test spawn: fires when acc_glitch_test 1 OR the dev sandbox is on. acc_dev is read
-    // with default 1 to MATCH the entry script (zm_abandoned_cyber_city.gsc:157) - acc_dev is
-    // never SetDvar'd, so a default-0 read would see 0 even in dev mode. Spawns from
-    // acc_glitch_test_round (default 1).
+    // Dev/test spawn: fires when acc_glitch_test 1 OR the dev sandbox is on (level.acc_dev, the
+    // one dev switch resolved in the entry script). Spawns from acc_glitch_test_round (default 1).
     test = getdvarint( "acc_glitch_test", 0 );
-    dev  = getdvarint( "acc_dev", 1 );
+    dev  = ( IS_TRUE( level.acc_dev ) ? 1 : 0 );
     if ( ( test == 1 || dev == 1 ) && round_number >= getdvarint( "acc_glitch_test_round", ACC_GLITCH_TEST_ROUND_DEF ) )
     {
         wait 5; // let the round get going
@@ -119,7 +119,7 @@ function maybe_spawn_for_round( round_number )
     }
 
     if ( !cadence_hits( round_number ) ) return;
-    if ( is_full_boss_round( round_number ) ) return; // never share a round with the Core
+    // (Subroutine Core removed 2026-06-22 - no full-boss round to yield to, so the Stalker spawns every round.)
 
     run_glitch_wave( round_number );
 }
@@ -154,35 +154,20 @@ function glitch_speed_think()
 }
 
 // Spawn `acc_glitch_count` Glitch Stalkers this round, staggered a beat apart for
-// co-op spawn safety (mirrors run_mini_boss in _acc_boss.gsc). One inbound announce
-// per wave (not per boss).
+// co-op spawn safety (mirrors run_mini_boss in _acc_boss.gsc). NO inbound banner
+// (user 2026-06-23: the "GLITCH STALKER inbound" IPrintLnBold was removed in BOTH normal
+// and dev - the Stalkers just arrive; the magenta aura + stock Giant skin are the only tells).
 function run_glitch_wave( round_number )
 {
     level endon( "end_game" );
     level endon( "acc_round_end" );
 
-    count = getdvarint( "acc_glitch_count", ACC_GLITCH_COUNT_DEF );
-    if ( count < 1 ) count = 1;
-
-    announce_inbound( count );
+    count = glitch_count_for_round( round_number );
 
     for ( i = 0; i < count; i++ )
     {
         spawn_glitch( round_number );
         wait 1.5;
-    }
-}
-
-// Always-on inbound announce to every player (a boss should be unmissable - this also
-// doubles as spawn proof in console_mp.log via the [ SCRIPTER] route).
-function announce_inbound( count )
-{
-    suffix = ( count > 1 ? " x" + count : "" );
-    for ( i = 0; i < level.players.size; i++ )
-    {
-        p = level.players[ i ];
-        if ( isdefined( p ) && isplayer( p ) )
-            p IPrintLnBold( "^5GLITCH STALKER ^7inbound" + suffix );
     }
 }
 
@@ -196,6 +181,17 @@ function cadence_hits( round_number )
 
     if ( round_number < first ) return false;
     return ( ( round_number - first ) % interval ) == 0;
+}
+
+// How many Glitch Stalkers spawn this round (user 2026-06-23): count = floor((round-2)/2), clamped >=1.
+// With first-spawn round 4 + interval 2 that's r4 -> 1, r6 -> 2, r8 -> 3, r10 -> 4, ... (+1 each spawn
+// round). Clamped >=1. acc_glitch_count is no longer used (superseded by this scaling).
+function glitch_count_for_round( round_number )
+{
+    if ( round_number < 2 ) return 1;
+    n = int( ( round_number - 2 ) / 2 );   // user 2026-06-23: dropped the +1 so it starts at 1 (r4=1, r6=2, r8=3, ...)
+    if ( n < 1 ) n = 1;
+    return n;
 }
 
 // Mirror of _acc_boss.gsc's full-boss cadence so the Glitch Stalker yields the round
@@ -230,12 +226,12 @@ function spawn_glitch( round_number )
     // glitch zombies (they are Glitch Stalker hosts spawned through this same path).
     host.acc_is_glitch_zombie = true;
 
-    // HP = acc_glitch_hp_mult x the round's NORMAL zombie health (user 2026-06-15, default 3x).
+    // HP = acc_glitch_hp_mult x the round's NORMAL zombie health (user 2026-06-23, default 1.5x; was 3x).
     // level.zombie_health is the stock per-round normal-zombie HP (the actor's post-init maxhealth
     // equals it - fallback below). Written AFTER the init-gate so stock zombie_spawn_init can't
     // clobber it. Live-tunable, no rebuild. Scales with the round automatically (no separate curve).
-    mult = getdvarint( "acc_glitch_hp_mult", ACC_GLITCH_HP_MULT_DEF );
-    if ( mult < 1 ) mult = 1;
+    mult = getdvarfloat( "acc_glitch_hp_mult", ACC_GLITCH_HP_MULT_DEF );  // float so fractional mults (1.5) work
+    if ( mult < 1.0 ) mult = 1.0;
     normal_hp = ( isdefined( level.zombie_health ) ? level.zombie_health : host.maxhealth );
     if ( !isdefined( normal_hp ) || normal_hp < 1 ) normal_hp = 100;
     host.maxhealth = int( normal_hp * mult );
@@ -290,6 +286,17 @@ function spawn_glitch( round_number )
     if ( getdvarint( "acc_glitch_teal_eyes", 1 ) == 1 )
         acc_lui::set_actor_eye_tint( host, true );
 
+    // MAGENTA AURA (user 2026-06-22; recoloured to MAGENTA 2026-06-24): teal eyes ALONE are washed out by
+    // the dark non-dev vision grade (eye-glow shaders fade in the dark - memory zombie-eye-color-mechanism /
+    // darkness-is-vision-not-lights), so the Stalker read as a normal horde zombie ("saw the inbound but never
+    // saw a glitch zombie"). The accPhantomAura body-glow is a client PlayFX glow (NOT a grade-washed shader),
+    // so it stays visible - the unmissable "this is the glitch" tell (docs/52). Gated by acc_glitch_aura.
+    if ( getdvarint( "acc_glitch_aura", 1 ) == 1 )
+    {
+        host.acc_aura_color = 2;   // 2 = dimmed MAGENTA (vs the Phantom's dark-purple 1) - shared accPhantomAura field; FX in _acc_boss_phantom.csc (user 2026-06-24)
+        acc_boss_phantom::set_phantom_aura( host, true );
+    }
+
     // NO health bar by design (user request 2026-06-15): we deliberately do NOT emit
     // "acc_boss_spawned", so the top-screen boss bar + nameplate never appear. There is no
     // over-head marker either - the stock zombie skin is the only indicator now.
@@ -342,6 +349,41 @@ function glitch_pick_uncloaked_target( origin, players )
 // Spawn a stock-template zombie from a random base spawner and INIT-GATE it. Returns
 // the live actor, or undefined on any failure (caller guards). Mirrors the proven
 // path in spawn_subroutine_core (_acc_boss.gsc:421-469) / spawn_elite (_acc_elites.gsc).
+// Active spawner NEAREST a random living player, so the Stalker spawns in a player's area (not a random
+// open zone). level.zombie_spawners is active-zone-only. Returns undefined if no living player (the caller
+// then falls back to a random active spawner).
+function nearest_spawner_to_player()
+{
+    players = GetPlayers();
+    living  = [];
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( isdefined( p ) && isplayer( p ) && isalive( p ) )
+            living[ living.size ] = p;
+    }
+    if ( living.size == 0 )
+        return undefined;
+
+    target = living[ acc_utility::acc_rand_int( living.size ) ];
+
+    best   = undefined;
+    best_d = undefined;
+    for ( i = 0; i < level.zombie_spawners.size; i++ )
+    {
+        sp = level.zombie_spawners[ i ];
+        if ( !isdefined( sp ) )
+            continue;
+        d = DistanceSquared( target.origin, sp.origin );
+        if ( !isdefined( best_d ) || d < best_d )
+        {
+            best_d = d;
+            best   = sp;
+        }
+    }
+    return best;
+}
+
 function spawn_promoted_zombie()
 {
     if ( !isdefined( level.zombie_spawners ) || level.zombie_spawners.size == 0 )
@@ -350,7 +392,15 @@ function spawn_promoted_zombie()
         return undefined;
     }
 
-    spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
+    // Spawn from the ACTIVE spawner NEAREST a living player, not a fully random one. level.zombie_spawners is
+    // already active-zone-only (the zonemgr adds/removes spawners as zones open - _zm.gsc:3885/3918), but a
+    // random pick scatters the boss across ALL currently-open zones, so a player often never saw it - esp.
+    // pre-power, when it kept landing in a different open zone than the one you're standing in (user
+    // 2026-06-23: "no glitch zombies in the Plaza"). Nearest-to-a-player puts it where the fight is; falls
+    // back to a random active spawner if there's no living player.
+    spawner = nearest_spawner_to_player();
+    if ( !isdefined( spawner ) )
+        spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
     core = zombie_utility::spawn_zombie( spawner );
     if ( !isdefined( core ) )
     {
@@ -478,7 +528,7 @@ function glitch_phase_in()
     self Ghost(); // vanish the instant we blink in - the whole re-path standstill happens HIDDEN
 
     cap        = getdvarfloat( "acc_glitch_phasein_max", 2.5 );  // hard invisibility failsafe (s)
-    charge_spd = getdvarint( "acc_glitch_charge_speed", 900 );   // units/sec the hidden charge closes the gap
+    charge_spd = getdvarint( "acc_glitch_charge_speed", 675 );   // units/sec the hidden charge closes the gap (user 2026-06-23: 900->675, -25% = closes 25% slower)
     reveal_d   = getdvarint( "acc_glitch_reveal_dist", 140 );    // reveal/hand back to the AI this close to a player. 140 (was 240) = INSIDE the engage range so it actually presses the attack instead of un-hiding far out and re-blinking before contact (user 2026-06-18). Live dvar.
     if ( charge_spd < 0 ) charge_spd = 0;
     step     = charge_spd * 0.05; // distance per 20Hz tick
@@ -603,7 +653,7 @@ function pounce_point( from, to )
 // needed - a dead/teleported pouncer never holds the slot.
 function claim_pounce( target )
 {
-    cd = getdvarint( "acc_glitch_pounce_cooldown", 1200 );
+    cd = getdvarint( "acc_glitch_pounce_cooldown", 1600 );   // ms (user 2026-06-23: 1200->1600, pounces a camper ~25% less often)
     if ( isdefined( target.acc_glitch_last_pounce ) && ( gettime() - target.acc_glitch_last_pounce ) < cd )
         return false;
     target.acc_glitch_last_pounce = gettime();
@@ -687,9 +737,9 @@ function glitch_vulnerable_window()
 // Death -> rewards
 // ---------------------------------------------------------------------------
 
-// self = the boss. NO `endon("death")` here (we wait ON death). Mini reward tier:
-// 50% boss-item drop + 1 Empty Mega Bottle to every player (_acc_boss_items /
-// _acc_mega_bottles). Capture the origin BEFORE the corpse is cleaned up.
+// self = the boss. NO `endon("death")` here (we wait ON death). Reward (user 2026-06-22): the KILLER gets
+// 1 Data Shard - NO boss-item drop, NO Mega Bottle. Those stay exclusive to the rare Brutus / Phantom; the
+// Glitch Stalker spawns every round (1-3x), so item/bottle drops would flood the player.
 function glitch_death_watch()
 {
     self waittill( "death", attacker );
@@ -704,19 +754,22 @@ function glitch_death_watch()
     // so the reward below still captures self.origin first (the Delete is one frame later).
     self thread cleanup_glitch_corpse();
 
-    // [acc] Lockdown CHALLENGE zombie (tagged by _acc_lockdown_challenge): it is counted by the
-    // challenge's OWN death watch and grants NO per-kill reward - else a 30-wave drops 30 items +
-    // 30 Mega Bottles. Skip the whole drop for tagged actors. docs/43 §4.6. (Corpse still cleaned above.)
-    if ( isdefined( self.acc_ldc ) && self.acc_ldc )
+    // [acc] NO per-kill shard for purge-spawned (acc_ldc) OR reactor-surge-spawned (acc_no_shard_reward)
+    // Stalkers - else a 30-wave purge drops 30 rewards, and the reactor surge would pay for its own threats
+    // (user 2026-06-24: reactor specials don't pay, same as the glitch purge). docs/43 §4.6. Corpse still cleaned above.
+    if ( ( isdefined( self.acc_ldc ) && self.acc_ldc ) ||
+         ( isdefined( self.acc_no_shard_reward ) && self.acc_no_shard_reward ) )
         return;
 
-    drop_origin = self.origin;
     self.acc_glitch_vulnerable = false; // belt-and-suspenders: no dangling bonus state
 
-    acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
-    acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
+    // Reward (user 2026-06-22): the Glitch Stalker is a FREQUENT mini-boss (every round, 1-3 of them), so it
+    // NO LONGER drops boss items or grants Mega Bottles - those stay exclusive to the RARE bosses (Brutus,
+    // Phantom). Instead the KILLER (the player who landed the kill) gets exactly 1 Data Shard.
+    if ( isdefined( attacker ) && isplayer( attacker ) )
+        acc_data_shards::grant_player( attacker, 1, "glitch_kill" );
 
-    gdebug( "^2Glitch Stalker down^7 - Mega Bottle dropped" );
+    gdebug( "^2Glitch Stalker down^7 - +1 Data Shard to killer" );
     acc_utility::log( "boss_glitch: Glitch Stalker killed" );
 }
 

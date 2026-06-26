@@ -50,32 +50,41 @@ Every player has their own copy of these:
 
 ## HP Scaling
 
-Stock BO3 scales HP per player count. Our rules:
+Stock BO3 does **NOT** scale zombie HP per player (HP is purely round-based); every multiplier below is our **custom** addition:
 
 | Target | Base HP | 2p mult | 3p mult | 4p mult |
 |---|---|---|---|---|
-| Regular zombie | 150 (round 1) | 2.00x | 3.00x | 4.00x |
+| Regular zombie | 150 (round 1) | 1.20x | 1.40x | 1.60x |
 | Elite (Shielded / Teleporter / EMP) | varies | 1.50x | 2.00x | 2.50x |
-| Mini-boss (Juggernaut Host) | 50,000 | 1.50x | 2.00x | 2.50x |
+| **Brutus (mini-boss)** | 40,000 | **1.50x** | **1.79x** | **2.00x** |
+| **Phantom (round boss)** | 80,000 | **1.50x** | **1.79x** | **2.00x** |
 | Full boss (Subroutine Core) | varies by round | 1.50x | 2.00x | 2.50x |
 
 **Key deltas from stock**:
-- Regular zombies scale **stock rate** (+100% per player).
+- Regular zombies scale **+20% per extra player** (user 2026-06-24: 1.2 / 1.4 / 1.6x; was +100% = 2/3/4x — too tanky). `ACC_COOP_REGULAR_HP_PER_EXTRA` (0.2). Stock itself adds **zero** per-player HP — this whole multiplier is ours.
 - Elites scale **flatter** (+50% per extra player, not +100%). Elites become harder but not impossible in 4p.
-- Bosses scale **flatter** (+50% per extra player). Prevents 4p boss fights from taking 20+ minutes.
+- **Brutus + Phantom scale LOGARITHMICALLY** (user 2026-06-24): `mult = 1 + 0.5·log₂(n)` — each *doubling* of players adds 50% HP, so 4p is 2.0x (not 4.0x). Implemented as `acc_coop_scaling::boss_hp_player_mult()` (live-tunable via `acc_boss_coop_hp_log_k`, default 0.5). Resulting HP — Brutus: 40k / 60k / 72k / 80k; Phantom: 80k / 120k / 143k / 160k. (Base HP also cut −20% on 2026-06-24; the log curve replaced a LINEAR ×N that hit 200k/400k at 4p — "scaling linearly is crazy".)
+- The Subroutine Core full boss still uses the flat `special_hp_mult` (1.5 / 2.0 / 2.5x).
 
-Rationale: in 4p, elite / boss *density* is higher (spawns scale too), so raw HP doesn't need to be 4x. Team total DPS scales faster than solo, so flatter HP keeps pacing consistent.
+Rationale: a single boss takes ~N× the team's fire in 4p, but **not** a clean 4× effective DPS (shared aggro, target overlap, downs), so a flat ×N HP made the fight an HP-sponge slog. A log curve keeps 4p time-to-kill close to solo while still rewarding more guns. In 4p, boss *density* / spawns scale too, so raw boss HP doesn't need to be 4×.
 
 ## Spawn Rate Scaling
 
-| Player count | Regular zombie spawn rate | Elite spawn rate |
-|---|---|---|
-| 1 | 100% | 100% (baseline = `elite_quota_for_round()` in `_acc_elites.gsc`) |
-| 2 | 130% | 130% (one extra elite per round past r11) |
-| 3 | 160% | 160% |
-| 4 | 190% | 190% |
+**Regular horde spawn count scales +30% per extra player, measured vs the SOLO count** (user 2026-06-24, re-added). Stock BO3 already scales count per player on its own curve, so `acc_coop_max_zombie_override` **inverts stock's per-player term back to the solo number**, then applies our flat per-player multiplier — making the per-player scaling exactly the table below regardless of stock's curve. The stock **early-round ramp** (R1 ×0.25 / R2 ×0.30 / R3 ×0.50 / R4 ×0.70 / R5 ×0.90 / R6+ full, `zombie_utility.gsc:1932`) still applies (run on the solo-equivalent input). Live-tunable: `ACC_COOP_SPAWN_PER_EXTRA` (0.3).
 
-Scales **flatter** than HP scaling - total zombies don't quadruple in 4p, which would be chaos. 4p players are expected to clear faster individually.
+| Player count | Regular zombie spawn count (vs solo) |
+|---|---|
+| 1 | 1.0× (solo baseline) |
+| 2 | 1.3× |
+| 3 | 1.6× |
+| 4 | 1.9× |
+
+The only enemies that spawn *on top of* the stock horde are our custom additions, each on its **own** spawn path (NOT a global multiplier on the horde count):
+- **Riot / Shielded elites** — round-based, **identical solo & co-op**: a shield round every 4th round from r4 (r4, r8, r12, …), count = `round / 2`. See `elite_quota_for_round()` in `_acc_elites.gsc`. (Their *HP* still scales per player via `special_hp_mult`; their *count* does not.)
+- **Glitch zombie rounds** — special-round system.
+- **Trench surges** — `_acc_bus_trench.gsc`.
+
+(History: briefly +30%, then +50%/extra player; **removed** 2026-06-24 to follow base game; **re-added the same day at +30%/extra vs solo** per user. The HP side was simultaneously cut from +100% to +20%/extra.)
 
 ## Downed / Revive Rules
 
@@ -195,5 +204,5 @@ Solo is the hardest configuration. **This is intentional.** Zombies is a co-op g
 
 - **Elite HP in 4p**: 2.5x may still be too much if bullet-sponge feeling kicks in. Lower to 2.0x in playtest.
 - **Boss HP in 4p**: 2.5x can feel either about right or too short depending on comp. Adjust per playtest.
-- **Spawn rate multipliers** (130/160/190%): the 190% in 4p may be chaos; consider 170%.
+- **Spawn rate multipliers** (150/200/250%, +50% per extra player — user 2026-06-24): the 250% in 4p is intentionally heavy; dial `ACC_COOP_SPAWN_PER_EXTRA` back toward 0.3 if it reads as chaos.
 - **Shard rewards in 4p**: if players feel they progress too fast in 4p, consider reducing boss per-player Shard award (4 → 3) in 4p specifically.

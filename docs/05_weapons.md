@@ -5,15 +5,51 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > **⚠️ ARSENAL = BOX ONLY (user; box list authoritative in `_acc_map_randomizer::register_mystery_box_pool`).**
 > No wall buys (all removed at load by `remove_all_wallbuys()`); every gun comes from the Mystery
 > Box, which clears `is_in_box` on the whole stock CSV roster and re-enables only the chosen set.
-> **Current box (17 guns):** Five-Seven `t6_fiveseven` (also the starting pistol), ASM1 `s1_asm1`,
-> Tac-19 `s1_tac19`, AK-47 `t6_ak47`, AE4 `s1_ae4`, Ripper `iw6_ripper_smg`, PPSH-41 `s4_ppsh41_base`,
-> AK-74u `t5_ak74u`, PDW-57 `s1_pdw`, Nail Gun `t9_nail_gun`, Paladin HB50 `t8_paladin_hb50`, M1911
-> `s2_m1911`, Olympia `t6_olympia`, Galil `t6_galil`, M60 `t6_m60`, RPD `t6_rpd`, and the Wunderwaffe
-> DG-2 `tesla_gun` (stock wonder weapon, `is_limited=1`). **See the [Gun Tier List](#gun-tier-list-design-intent)
+> **Current box (16 conventional guns + Mahem launcher + the Action Figure melee):** Five-Seven `t6_fiveseven`
+> (also the starting pistol), RW1 `s1_rw1`, ASM1 `s1_asm1`, Tac-19 `s1_tac19`, AK-47 `t9_ak47`, AE4 `s1_ae4`,
+> PPSH-41 `s4_ppsh41_base`, AK-74u `t9_ak74u`, **Chicom CQB `t6_chicom_cqb`** (BO2 3-round-burst SMG, **S+ #2**,
+> user 2026-06-25), Paladin HB50 `t8_paladin_hb50`, MORS `s1_mors`, Olympia `t6_olympia`, Galil `t6_galil`,
+> MK14 `s1_mk14`, M60 `t9_m60`, RPD `t9_rpd`, the Mahem `s1_mahem` (molten-metal launcher),
+> and the Thundergun `thundergun` (stock wonder weapon, wind-blast knockback, `is_limited=1`; SWAPPED
+> from the Wunderwaffe DG-2, user 2026-06-23). Plus the **Action Figure** `t8_melee_figure` — a fun
+> handheld MELEE (BO4 `t8` port by T0nic; swing it like a bat), **box weight S-tier** (user 2026-06-23).
+> It's a gitignored rip-port external asset (TEST-ONLY until IP review — CREDITS + `tools/external_assets_manifest.ps1`;
+> linker-patched by `tools/fix_actionfigure_port.js`). Class `special` (not Overclock-tiered). **QUIRK (user 2026-06-24):
+> it ALWAYS one-knifes a regular zombie, and its PaP tier adds CLEAVE — each PaP tier one-knifes one EXTRA nearby
+> regular zombie per swing, so a swing hits `1 + PaP_tier` at once: base 1 / PaP1 2 / PaP2 3 / PaP3 4. It PaPs IN
+> PLACE (no `_up` form, BOT-bucket price 3000/4500/6000); bosses/elites are exempt (normal melee, no one-knife/cleave).
+> Cleave radius `acc_af_cleave_radius` (140). Logic in `_acc_damage` (`actionfigure_cleave`) +
+> `_acc_pap_levels::acc_pap_actionfigure`.** **Overclock eligibility (user 2026-06-22):
+> EVERY gun overclocks — all box guns AND the starting Five-Seven — EXCEPT the Thundergun,
+> which keeps its intrinsic wonder-weapon power and is not terminal-tiered. (Classified in
+> `_acc_overclocks::weapon_name_to_family`; pistols return the `pistol` family, `thundergun` returns `none`.)**
+> **See the [Gun Tier List](#gun-tier-list-design-intent)
 > below for each gun's tier, stats, ability, and rationale — that's the canonical roster.** Per-gun
-> damage balance lives in `_acc_damage::acc_weapon_balance_mult` (tier-tagged return lines). PDW / M1911
-> (akimbo PaP), Nail Gun (projectile), the LMGs, and the convertible Ripper have NO perk twins. The
-> 16-weapon table further down is the older *aspirational design spec*, not the live box.
+> damage balance lives in `_acc_damage::acc_weapon_balance_mult` (tier-tagged return lines).
+> **EVERY conventional box gun is FULLY twinned (benefits from the Mega-perk recoil/fire/reload buffs);
+> only the Thundergun (WW) is exempt. REMOVED 2026-06-23 (user "remove any gun that can't be fully twinned"):
+> Ripper (convertible altWeapon), Nail Gun (projectile), PDW-57 + M1911 (akimbo PaP) — none could be twinned.**
+> The 16-weapon table + the tier tables further down still list the removed guns (historical, aspirational
+> spec); the live box is the 13 above.
+>
+> **Global gun buff (user 2026-06-23):** all player damage is lifted by a single across-the-board
+> scalar `acc_global_dmg_mult` (default **2.75 = +175%**; user 2026-06-23 bumped 1.20 → 1.32 → 1.50; user 2026-06-24 bumped 1.50 → 2.50; user 2026-06-25 bumped 2.50 → 3.0 → 2.75), applied in `on_ai_damage` OUTSIDE the per-gun
+> table — so it buffs every gun *uniformly* and the relative `acc_weapon_balance_mult` tiers above still
+> hold. To make guns stronger overall, raise this one dvar rather than re-touching every per-gun line.
+>
+> **Wall-buys (user 2026-06-23; chalk + placement fixed 2026-06-24):** the map is box-first but has **3 fixed
+> wall-buys** — **Five-Seven @ Lab** (500), **Olympia @ Bus Station** (500), **frag grenade @ Spawn** (100).
+> Each is the proven early recipe (commit `0044a16`): an inline worldspawn **chalk outline mesh** on the wall
+> face + a `weapon_upgrade` trigger + a model struct, all co-located ON the wall (2u proud) and angled into the
+> room. Costs in [zm_levelcommon_weapons.csv](../gamedata/weapons/zm/zm_levelcommon_weapons.csv). The hint text
+> and weapon/nade granted come from `zombie_weapon_upgrade` + the CSV (not the chalk), so the chalk shape is
+> cosmetic/generic. **Chalk only (user 2026-06-24):** the redundant server-spawned 3D gun/monkey-bomb model
+> (`spawn_acc_wallbuy_models()`) is **disabled**, so each spot shows just the chalk outline. Owning the gun
+> switches the prompt to **buy ammo** (PaP'd → 4500, else
+> ~half cost). Re-enabled past the box-only `remove_all_wallbuys()` by whitelisting those 3 weapon names — see
+> [07_replayability.md](07_replayability.md). _(The prior pass wrongly claimed the chalk material "won't
+> compile" and used floating 3D models instead — both fixed: the chalk tokens are plain colorMap `material.gdf`
+> assets, verified on disk.)_
 >
 > **Ammo economy (2026-06-16).** Every box gun runs a global **30% ammo cut** baked by
 > `tools/reduce_base_ammo.js` (FACTOR 0.70). In the Skye GDTs `maxAmmo`/`startAmmo` are reserve
@@ -23,6 +59,13 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > **PDW akimbo-PaP** shipped a broken `maxAmmo 920` (Skye data error, clamped to 18 ≈ 306 reserve).
 > Approx live reserves — autos ~130-225 base / ~280-420 PaP; shotguns/snipers/pistols ~26-84 (low
 > by design). Tune in that one tool; re-run + `gdtdb /update` + linker.
+>
+> **Mahem launcher (special) is hand-tuned on its own GDT — NOT in `reduce_base_ammo.js`'s list
+> (left uncut by design).** Base `s1_mahem`: `clipSize 1`, `maxAmmo/startAmmo 20` → 20 reserve.
+> PaP `s1_mahem_up`: `clipSize 10`, `maxAmmo/startAmmo 3` → **30 reserve** (user 2026-06-24, was
+> `4` = 40 reserve, "too much"). Edit `skye_s1_mahem.gdt` directly, then `gdtdb /update` + linker.
+> Because this GDT is install-side and untouched by either ammo tool, a fresh asset re-install
+> reverts it to the Skye default (40) — re-apply this value if you ever reinstall the pack.
 
 Enemies are in a separate doc: [11_enemies.md](11_enemies.md).
 
@@ -50,13 +93,47 @@ Composite (0–10) = Σ (factor score × weight). Re-weight here if priorities s
 **Thresholds:** S ≥ 7.7 · A 6.6–7.69 · B 5.6–6.59 · C < 5.6. Sub-tiers (+/−) split each band into thirds.
 
 **Two special rules** layered on top of the score:
-- **Snipers are scored on single-target DPS, not chaff** (a one-shot boss-killer's "DPS" is its single-target output). That's why Paladin can reach S despite a small clip — its single-target power is elite. Without this, the horde-weighted formula would bury all snipers in B.
+- **Snipers are scored on single-target DPS, not chaff** (a one-shot boss-killer's "DPS" is its single-target output). That's why MORS can reach S despite a 1-round charge clip — its single-target power is elite (and why a damage-only buff can't get it there: the clip-1 sustain floor means S also needs the reserve lift). Without single-target scoring, the horde-weighted formula would bury all snipers in B.
 - **Pellet shotguns (Tac-19, Olympia) take a separate BOSS-damage cut** (`ACC_SHOTGUN_BOSS_MULT` in `_acc_damage.gsc`, default ×0.25). Their 8 pellets all land on a boss's single hitbox → ~8× stacked damage. This cut only applies *vs bosses/mini-bosses* — it doesn't change their chaff tier (Tac-19 stays the chaff king) but stops the boss-nuke. **This is a damage rule, not a tier-score factor.**
+
+#### Boss-nuke audit (user 2026-06-24 — "one-shot / explosive guns nuking bosses")
+
+The "Thundergun does ~200k to a boss" report is a **systemic** issue: any **multi-hit / explosive** weapon that lands several damage events on a boss's single hitbox stacks into a nuke, amplified by the **×2.5 global player-damage buff** (`ACC_GLOBAL_DMG_MULT`). The only weapons currently protected against this are pellet shotguns (above). Audit of every acquirable damage weapon:
+
+| Weapon | balance mult | boss-damage cut? | verdict |
+|---|---|---|---|
+| **Thundergun** (WW) | was **1.0 (UNLISTED!)** → **0.70** (−30%, user 2026-06-24) | **none** | **Root cause.** No balance entry at all → zero cut, while every other gun is cut to 0.10–0.70. Wind-blast cone multi-traces a boss → ~200k. The −30% helps everywhere but it **still nukes** (~140k) — needs a boss cut. |
+| **Mahem** (launcher) | **0.35 → 0.315** (−10%, user 2026-06-24) | **none** | Explosive direct + splash both hit one boss hitbox. Ammo-limited so it self-balances somewhat, but no boss cut. |
+| **Paladin HB50** (sniper) | 0.49 | **yes ×0.50** (user 2026-06-24) | One-shot single-target boss-killer; bosses negate the headshot mult (`ACC_BOSS_HEADSHOT_MULT 1.0`) and it's RoF/ammo-limited → not a burst nuke, but reined in vs bosses on user request (`acc_paladin_boss_mult`). |
+| Tac-19 / Olympia | 0.68 / 0.9775 | **yes ×0.25** | Handled (pellet cut). |
+| All other guns | 0.10–0.31 | n/a | Single-trace, deeply cut → fine. |
+| Frag / Octobomb / Cymbal Monkey | 1.0 (no entry) | none | Explosive, no boss cut — but quantity-limited tacticals, minor. |
+
+**Systemic fix (IMPLEMENTED, user 2026-06-24):** the boss-damage cut is generalized beyond pellet shotguns. `_acc_damage.gsc::boss_nuke_mult()` applies a boss-only REDUCTION (gated on `acc_is_boss`/`acc_is_mini_boss`, stacks on top of `acc_weapon_balance_mult`):
+- **Thundergun** ×`acc_thundergun_boss_mult` (default **0.20**) → ~140k (post −30%) drops to **~28k/blast** vs a boss — a strong boss tool, not a one-shot. Chaff power on regular zombies is untouched.
+- **Mahem** ×`acc_launcher_boss_mult` (default **0.50**) → ~5,512 direct (post −10%) drops to **~2,756/rocket** + splash; gentler because it's ammo-limited.
+- **Paladin HB50** ×`acc_paladin_boss_mult` (default **0.50**, user 2026-06-24) → ~half its per-shot boss damage. It's a single-shot sniper (not a multi-hit nuke), but reined in vs bosses on request. NOTE: the Paladin's design niche IS single-target boss-killing (it's tier-scored on single-target DPS) — a strong boss cut eats into that niche, so dial `acc_paladin_boss_mult` up toward 1.0 if it feels too weak vs bosses.
+
+Both are live dvars — dial the exact boss damage without a rebuild. To protect a future multi-hit special, add its root name to `boss_nuke_mult()`.
+
+#### Deeper audit (2026-06-24, adversarial workflow) — the name-keyed cut is NOT enough; a hard cap is
+
+An adversarial 19-agent audit found the weapon-name boss cuts above are **structurally defeated** in several ways, so they were backstopped with a **final per-hit boss-damage cap** (`ACC_BOSS_PER_HIT_CAP_PCT`, dvar `acc_boss_per_hit_cap_pct`, default **0.10** = a single player hit deals at most 10 % of a boss's maxhealth → ≥10 hits to kill). It clamps `final_damage` **after every multiplier** (global ×2.5 **and** insta-kill ×6), so it survives every bypass below. Applies to the **heavyweight bosses only** (Brutus / Phantom / Subroutine Core) — the Glitch Stalker (`acc_is_glitch_zombie`) is excluded so it still dies fast.
+
+Why the name-keyed cut alone failed (all confirmed in code):
+1. **The Thundergun one-shot is a WEAPONLESS DoDamage.** The real ~200k is the stock `thundergun_fling_zombie` → `DoDamage(self.health + 666)` with **no weapon** — so `acc_weapon_balance_mult` (gated on `isdefined(weapon)`) and `boss_nuke_mult` (returns 1.0 for undefined weapon) **never fire**. `int(80666 × 2.5) = ~201,665` = the exact report. The −30% nerf + ×0.20 cut did nothing to it. The hard cap catches it.
+2. **Octobomb** (granted by the Li'l Arnie boss item) does `DoDamage(target.health)` (full-HP pull) — same weaponless bypass, one-shots any boss. Capped now.
+3. **Insta-Kill ×6** is applied *after* the boss cut + global, re-inflating a cut weapon past the one-shot line during the powerup window. Capped now.
+4. **Investment stacking** (PaP T3 + Cyberware Amplifier + Overclock T10) lives in the *bonus_sum* bucket, a different bucket than the cut's *reduction* — so a fully-kitted weapon multiplies right past the cut (~130k/blast even at ×0.20). The advertised "~28k/blast" only held for a zero-investment gun. Capped now.
+5. **Ability auto-crit** (Precision Mode +4.0 / Focus Fire / Slug +3.0) adds a flat bonus on bosses that the headshot-negation (`ACC_BOSS_HEADSHOT_MULT 1.0`) does **not** cover — biggest on the uncut snipers **MORS (`s1_mors`)** and **MK14 (`s1_mk14`)**. Capped now.
+6. **Melee** (Action Figure, Bowie) has no balance entry and scales with the Exo melee layer (now +30 %/tier to T10) → ~10k/swing maxed; single-target/point-blank, low severity, but also capped now.
+
+The `boss_nuke_mult` cuts (Thundergun/Mahem/Paladin) are **kept** — they shape the baseline feel *below* the cap. The cap only removes the one-shot ceiling-break. `acc_boss_per_hit_cap_pct 0` disables it.
 
 > **Model + curation history (user, 2026-06-21):** the formula is "v2 sustain" — clip is rewarded *through* reload
 > (a big clip = you reload rarely), reserve is log-scaled. On top, the user hand-set several sub-tiers and the stats
-> were tuned to match: M60 **S** (DPS↓, clip 100/reserve 400), Paladin **low S** (clip 4→8 + single-target scoring),
-> PPSH **A+**, Galil **B+**, Five-Seven **C**, AE4/AK-47 **A**, Olympia **C**. Tac-19 got the boss-damage cut.
+> were tuned to match: M60 **S** (DPS↓, clip 100/reserve 400), MORS **S** / Paladin **B** (sniper swap 2026-06-24: MORS DPS↑ + reserve 120/180, Paladin DPS↓ 0.70→0.49),
+> PPSH **S** (user 2026-06-24 all-around buff: +20% dmg + clip 30/44→40/54), Galil **B+**, Five-Seven **C**, AE4/AK-47 **A**, Olympia **C**. Tac-19 got the boss-damage cut.
 
 ### Tier ranking — BASE guns (out of the box, no PaP)
 
@@ -66,36 +143,60 @@ How good the gun is *when you roll it* — the box-roll quality.
 |---|--:|---|---|--:|--:|--:|--:|--:|---|---|
 | **S** | 7.9 | Nail Gun | AR (proj) | ~589 | 40 | 280 | 2.0s | 1.0 | none | Best sustain in the game (fast reload + 40 clip). |
 | **S** | 7.9 | M60 | LMG | ~580 | **100** | **400** | 9.7s | 0.8 | large | DPS traded down for a 100-clip + 400 reserve; the huge mag makes the 9.7s reload trivial. |
-| **low S** | 7.7 | Paladin HB50 | Sniper | ~700/shot | **8** | 96 | 4.1s | 1.0 | large | One-shot boss-killer (scored on single-target DPS) + clip 4→8 + pierce. |
+| **S** | 7.7 | MORS | Sniper | ~660/shot | 1 | **120** | 1.2s | 1.0 | large | **Moved B → S** (user 2026-06-24): the premier boss-killer — near-max single-target DPS (0.47→0.66) + reserve 60→120 (clip-1 charge caps sustain, so the reserve lift clears S). |
+| **B** | 6.1 | Paladin HB50 | Sniper | ~490/shot | 8 | 96 | 4.1s | 1.0 | large | **Moved low-S → B** (user 2026-06-24): DPS cut 700→490/shot (0.70→0.49); MORS is the S sniper now. One-shots early, then falls off. |
 | **S** | — | Wunderwaffe DG-2 | Wonder | chain lightning | — | recharge | — | — | — | Outside the formula; `is_limited=1`. |
 | **A+** | 7.5 | Tac-19 | Shotgun | crowd king | **3** | **27** | **0.47s** | 1.0 | large | **Nerfed** (user 2026-06-21): damage −9% + clip 4→3 + reserve →27 → dropped out of S to A+. Still chaff-strong; **boss damage also cut** (see below). |
-| **A+** | 7.4 | PPSH-41 | SMG | ~492 | 30 | 270 | 3.5s | 1.0 | med | DPS dropped from S; massive clip + RoF keep it top-A. |
+| **S** | ~7.9 | PPSH-41 | SMG | ~590 | 40 | 360 | 3.5s | 1.0 | med | All-around buff (user 2026-06-24): +20% dmg + clip 30→40; massive clip + RoF + DPS = back to S. |
 | **A** | 7.4 | AK-74u | SMG | ~518 | 20 | 160 | 2.8s | 1.0 | med | Fast, mobile, good sustain. |
 | **A** | 7.1 | Ripper | SMG⇄AR | ~AK band | 22 | 220 | ~2.5s | 1.0 | med | Convertible flexibility + good reserve. |
 | **A-** | 6.8 | AE4 | AR (energy) | ~413 | 25 | 200 | 2.0s | 1.0 | med | Mid DPS, but fast reload + pierce + clip + reserve = A-grade kit. |
 | **A-** | 6.7 | AK-47 | AR | ~465 | 21 | 168 | 3.25s | 0.95 | med | Solid DPS + decent sustain. |
 | **B+** | 6.5 | ASM1 | SMG | ~401 | 22 | 132 | 2.1s | 1.0 | med | Low DPS saved by fast reload + clip + pierce. |
 | **B+** | 6.5 | Galil | AR | ~412 | 25 | 225 | 2.9s | 0.95 | med | DPS cut from A to the top of B. |
-| **C** | 5.5 | RPD | LMG | ~337 | 60 | 240 | 7.5s | 0.8 | large | Big clip can't save low DPS + slow move. The "bad LMG". |
+| **B** | 5.9 | MK14 | DMR | ~90/shot | 14 | 168 | 2.0s | 0.95 | med | Semi-auto marksman (AW): hard per-shot, ~3× headshot, **curated** single-target DPS (semi-auto raw DPS overstates). |
+| **C** | 5.5 | RPD | LMG | ~421 | 60 | 240 | 7.5s | 0.8 | large | +25% damage buff (user 2026-06-25, mult 0.10→0.125, ~337→~421); tier/PaP-price/box-odds NOT recomputed. Big clip, slow move. |
 | **C** | 5.5 | Five-Seven | Pistol (start) | ~52/shot | 14 | **56** | 1.8s | 1.0 | small | Weak starter; reserve cut to land it at C. |
 | **C** | 5.2 | M1911 | Pistol | ~70/shot | 6 | 60 | 1.85s | 1.0 | small | Weak base — its value is the **PaP** (see the PaP list). |
 | **C** | 5.2 | PDW-57 | SMG | ~330 | 11 | 132 | 2.1s | 1.0 | small | Hard DPS cut + small clip/pierce. |
 | **C** | 4.8 | Olympia | Shotgun | 110×8 | 2 | 26 | 3.9s | 1.0 | small | 2-round clip = worst sustain in the game. Headshot-excluded. |
 
+### Mystery box roll odds — tier-weighted (user 2026-06-22)
+
+The box is **NOT uniform** — the better the tier, the rarer the roll. Per-gun **weights** in
+`_acc_map_randomizer::acc_box_weight`, applied via the `treasure_chest_ChooseWeightedRandomWeapon` hook
+(`acc_box_only_weapon_keys` does the weighted pick and returns it first; stock takes the first eligible key):
+
+Box weight is now driven by the **PaP price tier** (docs/54; ranked on PaP-form power) — the same ranking that
+sets PaP cost. Best packed guns are both the priciest to pack AND the rarest roll. Generated into
+`acc_box_weight` by `tools/compute_gun_tiers.js`; **canonical odds live in [docs/54_pap_pricing_tiers.md](54_pap_pricing_tiers.md).**
+
+| Price tier | Weight | ~Chance/gun | Guns (count) |
+|---|--:|--:|---|
+| **WW** | 3 | **~0.8%** | Thundergun (1) |
+| **TOP** | 12 | ~3.0% | Tac-19, M60, **MORS**, AK-74u, PPSH-41, + Action Figure (6) |
+| **MID** | 24 | ~6.1% | AE4, RW1, AK-47, ASM1, Galil, + Mahem (6) |
+| **BOT** | 35 | ~8.9% | **Paladin HB50**, Five-Seven, RPD, MK14, Olympia (5) |
+
+Box pool = **18 weapons, total weight 394** (MORS↔Paladin swapped tiers 2026-06-24), so the actual draw = weight ÷ 394 (Thundergun **~0.8%**, TOP ~3.0%,
+MID ~6.1%, BOT **~8.9%** — the worst gun is ~12× more likely than the wonder weapon). The box never repeats a
+gun you already own, so live odds re-normalize as you collect. To retune, edit the roster in
+`tools/compute_gun_tiers.js` and re-run (regenerates the doc + both GSC functions) — do not hand-edit `acc_box_weight`.
+
 ### Tier ranking — FULLY PACK-A-PUNCHED (T3)
 
-How good the gun is *at its ceiling*, after full PaP — which guns are worth maxing. PaP scales DPS ~×2.5
-uniformly (so the DPS order barely moves); the reshuffle vs base comes from **bigger PaP clips/reserves**
+How good the gun is *at its ceiling*, after full PaP — which guns are worth maxing. PaP scales DPS ~×2.0
+uniformly at T3 (so the DPS order barely moves); the reshuffle vs base comes from **bigger PaP clips/reserves**
 (better sustain) and the **transform guns leaping up** — M1911 → explosive akimbo, PDW / Five-Seven → akimbo.
 
 | Tier | Score | Gun | PaP clip | PaP reserve | What PaP does |
 |---|--:|---|--:|--:|---|
 | **S** | 8.1 | Tac-19 | **6** | **54** | Chaff ceiling (nerf dropped it S+→S; boss damage still cut). |
 | **S** | 8.1 | Nail Gun | 50 | 400 | Bigger nail + huge sustain. |
-| **S** | 8.0 | Paladin HB50 | 11 | 132 | 11-round one-shot sniper. |
+| **S** | 7.9 | MORS | 1 | **180** | **Moved B → S** (user 2026-06-24): charge railgun one-shot rail + DPS 0.47→0.66 + doubled reserve (90→180). |
 | **low S** | 8.0 | M60 | 120 | 480 | 120-clip belt — never stops firing. |
 | **low S** | 7.9 | AK-74u | 40 | 280 | — |
-| **low S** | 7.8 | PPSH-41 | 44 | 396 | — |
+| **S** | ~8.1 | PPSH-41 | 54 | 486 | All-around buff (user 2026-06-24): +20% dmg + PaP clip 44→54. |
 | **low S** | 7.7 | **PDW-57** | 17 | 306 | **→ akimbo + separate higher mult** (user 2026-06-21): base C → **bottom S** packed. |
 | **A+** | 7.5 | Ripper | 34 | 340 | Both modes packed. |
 | **A** | 7.2 | AE4 | 38 | 304 | — |
@@ -104,8 +205,10 @@ uniformly (so the DPS order barely moves); the reshuffle vs base comes from **bi
 | **A** | 7.0 | **Five-Seven** | 21 | 462 | **→ akimbo** (base C → A). |
 | **A** | 7.0 | ASM1 | 36 | 288 | — |
 | **A-** | 6.9 | Galil | 35 | 420 | — |
+| **B** | 6.4 | Paladin HB50 | 11 | 132 | **Moved S → B** (user 2026-06-24): DPS cut 0.70→0.49; 11-round one-shot but mid-tier now. |
 | **B** | 6.0 | RPD | 100 | 400 | Big belt, but low DPS ceiling. |
-| **C** | 5.0 | Olympia | 2 | 42 | 2-round clip — PaP can't fix the sustain. |
+| **B** | 6.0 | MK14 | 12 | 240 | Per-shot doubles (90→180 body) + more reserve; stays a precise marksman, not a sprayer. |
+| **C** | 5.2 | Olympia | 2 | 42 | 2-round clip — PaP can't fix the sustain. |
 
 > **Reading the two lists:** the base list is your *roll quality*; the PaP list is your *investment ceiling*.
 > The transform akimbo guns jump hardest when packed — **PDW C → bottom S**, **M1911 C → A** (explosive),
@@ -171,10 +274,12 @@ Shotgun fans always buy Haymaker 12 on wallbuy. They also *hope* the box rolls a
 v1.0 intentionally ships with only **shotgun, AR full-auto, semi-auto AR, sniper** primary categories. Skipped:
 
 - **SMG** - Reflex archetype leans on shotgun + Phase Step instead. Kuda-class SMGs are a post-1.0 add.
-- **LMG** - **ADDED 2026-06-19: M60 (`t6_m60`) + RPD (`t6_rpd`)**, both Skye BO2 ports (the only two Skye LMGs
-  with compiled models - Stoner63/HK21/etc. have uncompiled xmodels, see memory `skye-lmg-ports-uncompiled`).
-  Box-only, twin-less. Balanced **M60 0.20 (~580, S) / RPD 0.10 (~337, C)** in `_acc_damage` (per the 2026-06-21
-  tier-curation pass: M60 → S, RPD → C "the bad LMG"; see CHANGELOG and the tier table above). **Ammo cut hard** (user 2026-06-19, was wildly over): clip 60 / reserve
+- **LMG** - **M60 (`t9_m60`) + RPD (`t9_rpd`)** (added 2026-06-19 as Skye BO2 ports; **SWAPPED 2026-06-26 to
+  Cold War (BOCW, `t9`) models** — same gun, stats grafted from the BO2 originals via `graft_cw_weapon_stats.js`;
+  the old Skye-LMG uncompiled-model caveat no longer applies — the `t9` models compile clean).
+  Box-only, twin-less. Balanced **M60 0.20 (~580, S) / RPD 0.125 (~421, C)** in `_acc_damage` (per the 2026-06-21
+  tier-curation pass: M60 → S, RPD → C "the bad LMG"; RPD given a **+25% damage buff** user 2026-06-25, 0.10→0.125 — its
+  PaP-price/box-odds scoring in docs/54 still uses the pre-buff ~337 DPS and was deliberately not recomputed; see CHANGELOG and the tier table above). **Ammo cut hard** (user 2026-06-19, was wildly over): clip 60 / reserve
   **240** base, clip 100 / reserve **400** PaP (reserve bumped 2026-06-21 from 180/300 — user wanted ~25% more;
   reserve = `maxAmmo` mags × clipSize is quantized to whole mags, so 3→4 mags = +33%, the closest step) via
   `reduce_base_ammo.js` `MAXAMMO_FIX` 4 + CLIP_FIX → gdtdb → relink. Diverse: M60 heavy/slow (600 RPM), RPD faster (750 RPM). Sounds
@@ -261,24 +366,34 @@ flowchart LR
     Tier --> MaxTier[Max Tier 5<br/>5 Overclock slots active]
 ```
 
-Both tracks apply independently. A weapon at **PaP T3 + Tier 5** has +150% damage, the upgraded "_up" form, 5 active Overclocks, and its ability is available from round 1 on cooldown.
+Both tracks apply independently. A weapon at **PaP T3 + Tier 5** has +100% PaP damage (×2.0, double), the upgraded "_up" form, 5 active Overclocks, and its ability is available from round 1 on cooldown.
 
-### Pack-a-Punch Tiers (money) — 3-tier system (revamp 2026-06-16)
+### Pack-a-Punch Tiers (money) — 3-tier system (revamp 2026-06-16; per-gun pricing 2026-06-23)
 
-Three tiers, each a flat damage layer on top of the gun's normalized base damage. **The actual
-PaP transform (the upgraded "_up" form — explosive M1911, akimbo PDW, gold-camo'd upgrade, etc.)
-is DEFERRED to tier 2:** tier 1 is a "camo + damage" pack that keeps the base gun's
-appearance/behavior, so the transform is a deliberate second investment.
+Three tiers — **linear: each pack adds +33.33% of base** (×1.3333 / ×1.66666 / ×1.999999 = +33% / +67% / +100%
+over base; T3 MAX = double damage). **The actual
+PaP transform (the upgraded "_up" form — gold-camo'd upgrade, etc.) is DEFERRED to tier 2:** tier 1
+is a "camo + damage" pack that keeps the base gun's appearance/behavior, so the transform is a
+deliberate second investment.
 
-| Tier | Damage bonus | Asset | Cost | Cumulative |
-|---|---|---|---|---|
-| T1 | +50% | base gun + gold PaP camo (no transform) | 5,000 | 5,000 |
-| T2 | +100% | **transforms** to the upgraded "_up" form + camo | 7,500 | 12,500 |
-| T3 | +150% | upgraded form (MAX) | 10,000 | **22,500** |
+**Cost is PER-GUN by PRICE TIER (user 2026-06-23).** Each gun is ranked by how good it is *at its
+fully-packed ceiling* (the docs/05 score computed on its **PaP-form** stats), and the ranking is
+split into thirds — **TOP / MID / BOT** — so the better the packed gun, the more it costs to pack.
+The price tier per gun, the ranking, and the generator are in **[docs/54_pap_pricing_tiers.md](54_pap_pricing_tiers.md)**
+(regenerate with `node tools/compute_gun_tiers.js`; it emits the GSC `pap_price_bucket()` /
+`tier_cost()` pasted into `_acc_pap_levels.gsc`). The 10% Armory discount applies to every tier.
+
+| Price tier (rank third) | T1 (+33%) | T2 (+67%, transform) | T3 (+100%, MAX) | Cumulative |
+|---|--:|--:|--:|--:|
+| **TOP** (Tac-19, M60, MORS, AK-74u, PPSH-41, Thundergun) | 5,000 | 7,500 | 10,000 | **22,500** |
+| **MID** (AE4, RW1, AK-47, ASM1, Galil, Mahem) | 4,000 | 6,000 | 8,000 | **18,000** |
+| **BOT** (Paladin HB50, Five-Seven, RPD, MK14, Olympia) | 3,000 | 4,500 | 6,000 | **13,500** |
+
+> Action Figure (melee) has no `_up` form but **PaPs IN PLACE** at the BOT-bucket tier price (3000/4500/6000) — each tier adds a cleave target (1+tier zombies/swing).
 
 - **"% is the only damage lever":** `acc_weapon_balance_mult` (`_acc_damage.gsc`) normalizes every
   form (base / `_up` / perk-twin) per gun by substring match, so the `_up` form's own higher raw
-  damage doesn't double-count — the +50/100/150% ladder IS the PaP damage progression. The `_up`
+  damage doesn't double-count — the +33/67/100% ladder (linear, +1/3 base per pack) IS the PaP damage progression. The `_up`
   transform's *functional* identity (explosive splash, akimbo, etc.) still applies on top.
 - All tiers applied at the Pack-a-Punch machine in the Lab — one machine, three interactions.
 - Buying T2 requires T1, T3 requires T2. A weapon cannot skip tiers.
@@ -287,7 +402,7 @@ appearance/behavior, so the transform is a deliberate second investment.
   form, T3 bumps damage. Every tier replays the first-pack in-hand draw. The gun **only ever
   changes when you actually pack** — walking near the machine never swaps it.
 - **Perk weapon-variant twins + PaP (twins follow tiers):** if you're holding a perk twin
-  (Deadshot recoil, Gun Slinger fire, Speed Cola reload), tier 1 keeps you on the **base-form**
+  (Deadshot recoil, Gun Slinger fire+swap, Speed Cola reload), tier 1 keeps you on the **base-form**
   twin (camo'd); tier 2 transforms you to the matching **packed `_up` twin** in one step, keeping
   the perk effect. (`_acc_pap_levels::acc_do_first_pack` / `acc_do_transform` +
   `acc_weapon_variants::packed_form`.)
@@ -324,7 +439,7 @@ Every weapon **category** has one signature ability, hotkey-triggered with coold
 | SMG | ASM1, Ripper, PPSH-41, AK-74u, PDW-57 | **Whirlwind** | 20s | 360° AoE: insta-kill chaff within 96u (elites take 1000 flat; bosses excluded) |
 | Shotgun | Tac-19, Olympia | **Slug Round** | 20s | Next shot **3×** single-target (the 2×-range / tight-cone half is a Phase-4 GDT override) |
 | AR | AK-47, AE4, Galil, Nail Gun | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
-| Sniper | Paladin HB50 | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
+| Sniper | Paladin HB50, MORS, MK14 | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
 | LMG | M60, RPD | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
 | Wonder | Wunderwaffe DG-2 | *(built-in chain lightning)* | — | No ability slot |
 
@@ -381,7 +496,7 @@ M14 EBR, G3, and FAL classify as `"ar"` family for Overclock purposes. The AR Ov
 
 Full perk roster, costs, effects, and stacking rules live in **[13_perks.md](13_perks.md)**. Perks that are especially weapon-relevant:
 
-- **Deadshot** (3,500): +1.4 headshot damage bonus + auto-aim to head on ADS. **Added** (not multiplied) into the headshot bonus sum alongside our +2/+2 trash/boss headshot bonus (additive stacking, 2026-06-14). Keystone for precision builds (FAL, Intervention, Drakon, M14 EBR).
+- **Deadshot** (3,500): +1.3 headshot damage bonus (American Sniper Mega: +1.5) + auto-aim to head on ADS. **Added** (not multiplied) into the crit/headshot bonus pool, which is then scaled by the map headshot temper (`locHead × 0.5` trash / `× 0.6` boss = ×2.5/×3 on a locHead-5.0 gun). Keystone for precision builds (MORS, Paladin HB50, MK14).
 - **Speed Cola** (3,500): +50% reload, faster perk drinking, faster equipment swap. Best on Tac-19 / AK-47 / Haymaker 12.
 - **Double Tap 2.0** (2,000): +33% fire rate + 3% damage. Compounds with PaP L5 + Tier 5 on full-auto ARs.
 - **Widow's Wine** (4,000): +50% frag damage + radius, +50% EMP stun duration + radius. Grenade-heavy builds.

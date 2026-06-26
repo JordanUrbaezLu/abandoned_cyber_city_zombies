@@ -40,6 +40,10 @@
 #precache( "client_fx", "acc/light/fx_perk_glow_white" );
 #precache( "client_fx", "acc/light/fx_perk_glow_purple" );
 #precache( "client_fx", "acc/light/fx_perk_glow_teal" );
+// Extra indices beyond the 10 perk colours (user 2026-06-24): 11 = MAGENTA (lockdown "purge" room
+// lights, was red index 1), 12 = DIM WHITE (trench shard-bank "has shards" indicator).
+#precache( "client_fx", "acc/light/fx_perk_glow_magenta" );
+#precache( "client_fx", "acc/light/fx_perk_glow_white_dim" );
 
 #namespace acc_perk_lights;
 
@@ -59,6 +63,8 @@ function __init__()
     level._effect[ "acc_glow_8" ]  = "acc/light/fx_perk_glow_white";      // Widow's Wine - white
     level._effect[ "acc_glow_9" ]  = "acc/light/fx_perk_glow_purple";     // PhD Flopper - purple
     level._effect[ "acc_glow_10" ] = "acc/light/fx_perk_glow_teal";       // Pack-a-Punch - teal
+    level._effect[ "acc_glow_11" ] = "acc/light/fx_perk_glow_magenta";    // lockdown "purge" room lights (user 2026-06-24, was red)
+    level._effect[ "acc_glow_12" ] = "acc/light/fx_perk_glow_white_dim";  // trench shard-bank "has shards" indicator (dim white)
 
     // MUST match _acc_perk_lights.gsc EXACTLY. !CF_CALLBACK_ZERO_ON_NEW_ENT so the
     // latched value replays for clients that join AFTER power-on (the callback fires on

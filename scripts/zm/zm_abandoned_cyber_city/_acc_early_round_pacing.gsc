@@ -1,12 +1,17 @@
 // =============================================================================
-// _acc_early_round_pacing.gsc - higher zombie COUNTS in rounds 1-4
+// _acc_early_round_pacing.gsc - modifier-round spawn-count hook (boost NEUTRALIZED)
 //
 // Design reference: docs/06_mechanics.md ("Early round pressure"),
 // docs/04_progression_and_skills.md (Difficulty Curve).
 //
-// Rounds 1-4: +45% zombies vs stock max_zombie_func output (round 1 = +50%).
-// From round 5 onward, stock counts unchanged (aside from modifiers).
-// (Moderate spawn-intensity tune, 2026-06-18: bumped from +35%/+40%.)
+// Spawn COUNT now follows the BASE GAME (user 2026-06-24): the early-round
+// boost is NEUTRALIZED (ACC_EARLY_SPAWN_MULT* = 1.0). Stock
+// get_zombie_count_for_round + default_max_zombie_func own the per-round total
+// (including stock's OWN per-player scaling). This module is kept ONLY to carry
+// the modifier-round spawn multiplier (level.acc_mod_round_zombie_mult, set by
+// _acc_modifiers.gsc's "thin herd" modifier). Bump ACC_EARLY_SPAWN_MULT* above
+// 1.0 to re-enable an early-round boost.
+// (History: was +45%/+50% in rounds 1-4; removed to match base game.)
 //
 // Move SPEED is no longer handled here - it moved to the all-round speed curve in
 // _acc_zombie_speed.gsc (which replaced the Rampage Inducer, 2026-06-14). This
@@ -26,8 +31,8 @@
 // ---------------------------------------------------------------------------
 
 #define ACC_EARLY_ROUND_MAX 4
-#define ACC_EARLY_SPAWN_MULT 1.45
-#define ACC_EARLY_SPAWN_MULT_R1 1.50
+#define ACC_EARLY_SPAWN_MULT 1.0     // NEUTRALIZED (base-game counts); was 1.45
+#define ACC_EARLY_SPAWN_MULT_R1 1.0  // NEUTRALIZED (base-game counts); was 1.50
 
 #namespace acc_early_round_pacing;
 

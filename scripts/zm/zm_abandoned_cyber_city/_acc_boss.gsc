@@ -31,6 +31,9 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_music;   // single music channel (boss music routes through it)
 
 #insert scripts\shared\shared.gsh;
 
@@ -41,7 +44,9 @@
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
-#define ACC_BOSS_MINI_HP 250000      // 5x the 50k baseline (was 10x/500000, lowered 2026-06-16)
+#define ACC_BOSS_MINI_HP 40000       // Brutus BASE solo HP at his DEBUT round (ACC_BOSS_MINI_HP_ANCHOR). (user 2026-06-24: -20% from 50k; earlier cut from 250000=5x/500000=10x "took forever"). Scaled by the round (scale_mini_boss_hp) THEN x boss_hp_player_mult (LOGARITHMIC coop).
+#define ACC_BOSS_MINI_HP_ROUND_PCT 0.06 // Brutus scales with the round like a zombie does, but TAMER (user 2026-06-24 "not crazy"): SIMPLE (non-compounding) +6% of base per round past the anchor -> solo r5 40k / r10 52k / r15 64k / r20 76k / r30 100k / r40 124k. Live dvar acc_boss_mini_hp_round_pct.
+#define ACC_BOSS_MINI_HP_ANCHOR 5    // round his BASE HP applies; round-scaling starts PAST it (matches the first-Warden round acc_warden_first_round). Live dvar acc_boss_mini_hp_anchor.
 #define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
 #define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
 #define ACC_BRUTUS_RESPAWN_INTERVAL 3 // Trench Warden: rounds AFTER a kill before he respawns (user 2026-06-18)
@@ -74,10 +79,11 @@ function test_boss_loop()
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
-        // Spawn from round 2 when in the dev sandbox. Honors BOTH acc_test_boss and acc_dev
-        // (mirrors the Glitch Stalker, _acc_boss_glitch.gsc) so any dev launch spawns him even
-        // if the acc_test_boss launch arg didn't survive Steam. Set acc_dev 0 for a clean game.
-        if ( getdvarint( "acc_test_boss", 0 ) != 1 && getdvarint( "acc_dev", 0 ) != 1 ) continue;
+        // MANUAL opt-in ONLY (+set acc_test_boss 1): a low-HP test Brutus every round from round 2 for the
+        // fast Mega-Bottle/perk loop. NOT triggered by dev anymore - in the dev sandbox Brutus follows his
+        // REAL round-5 power cadence (brutus_power_watch), with NO early override, like normal play
+        // (user 2026-06-22: "Brutus spawns round 5, shouldn't be any override").
+        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
         if ( round_number < 2 ) continue;
 
         wait 10; // let the round get going
@@ -101,13 +107,9 @@ function round_hook_loop()
     {
         level waittill( "acc_round_start", round_number );
 
-        // Full boss "Subroutine Core": r30, 40, 50+ (every 10 from r30). Takes
-        // precedence so a full-boss round doesn't ALSO spawn Brutus.
-        if ( round_number >= ACC_BOSS_FULL_FIRST_ROUND && round_number % ACC_BOSS_INTERVAL == 0 )
-        {
-            level thread run_full_boss( round_number );
-            continue;
-        }
+        // Subroutine Core full boss REMOVED (user 2026-06-22): no r30/40/50 full-boss spawn anymore.
+        // (run_full_boss + spawn_subroutine_core remain defined but are now UNREACHABLE dead code - left
+        // in place so the module still compiles and the boss is trivially restorable; nothing calls them.)
 
         // Brutus mini-boss = the TRENCH WARDEN (user 2026-06-18). FIRST spawn = power-on
         // (brutus_power_watch). RESPAWN = kill-anchored: once he's KILLED (acc_brutus_kill_round
@@ -201,6 +203,25 @@ function suppress_normal_wave( round_number )
     level.zombie_total = 0;
 }
 
+// Brutus HP scales with the round the SAME WAY a regular zombie gets tougher each round - but
+// DELIBERATELY tamer than stock's ~10%/round COMPOUNDING curve so a high-round Trench Warden never gets
+// "crazy" (user 2026-06-24). SIMPLE (non-compounding) growth off the tuned base:
+//   hp = base * ( 1 + pct * rounds_past_anchor )
+// anchored at his debut round so the FIRST Warden stays exactly the base the user tuned (40k). All three
+// knobs are LIVE balance dvars (not a dev toggle): acc_boss_mini_hp / _round_pct / _anchor. The coop
+// player multiplier (boss_hp_player_mult) is applied SEPARATELY at the spawn site, on top of this.
+function scale_mini_boss_hp( round_number )
+{
+    base   = getdvarint( "acc_boss_mini_hp", ACC_BOSS_MINI_HP );
+    pct    = getdvarfloat( "acc_boss_mini_hp_round_pct", ACC_BOSS_MINI_HP_ROUND_PCT );
+    anchor = getdvarint( "acc_boss_mini_hp_anchor", ACC_BOSS_MINI_HP_ANCHOR );
+
+    past = round_number - anchor;
+    if ( past < 0 ) past = 0;   // before his debut round -> just the base (no negative scaling)
+
+    return int( base * ( 1 + ( pct * past ) ) );
+}
+
 function spawn_brutus_miniboss( n_health_override, n_bottle_count )
 {
     // Brutus (NSZ pack) IS our mini-boss. acc_boss_brutus::spawn_one() spawns one via the pack
@@ -220,7 +241,16 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
     if ( isdefined( n_bottle_count ) ) host.acc_bottle_drop = n_bottle_count;
     if ( isdefined( n_health_override ) ) host.maxhealth = n_health_override;
-    else host.maxhealth = int( ACC_BOSS_MINI_HP * acc_coop_scaling::special_hp_mult() );
+    // ROUND scaling (scale_mini_boss_hp - user 2026-06-24: he now gets tougher each round like a zombie,
+    // but tamer) THEN LOGARITHMIC coop scaling by player count (the old LINEAR xN -> 200k at 4p was
+    // "crazy"). boss_hp_player_mult() = 1 + 0.5*log2(n) -> x1 / 1.5 / 1.8 / 2.0 for 1-4p. So a round-5 solo
+    // Warden = 40k; a round-20 solo = 76k; a round-20 4p = 76k x2.0 = 152k. Tune live:
+    // acc_boss_mini_hp_round_pct / acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
+    else
+    {
+        rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
+        host.maxhealth = int( scale_mini_boss_hp( rn ) * acc_coop_scaling::boss_hp_player_mult() );
+    }
     host.health = host.maxhealth;
     host DisableAimAssist();
     host.disableAmmoDrop = true;
@@ -256,32 +286,37 @@ function boss_music( host )
     if ( getdvarint( "acc_boss_music_on", 1 ) != 1 )
         return;
 
+    // PARADISE FINALE (user 2026-06-25): the boss music is SUPPRESSED for the whole Paradise onslaught - the
+    // "115" anthem (_acc_paradise::start_finale_music, alias acc_paradise_music) owns the audio there, and a
+    // Phantom spawning every minute would otherwise restart this loop. level.acc_paradise_onslaught is the gate.
+    if ( IS_TRUE( level.acc_paradise_onslaught ) )
+        return;
+
     if ( !isdefined( level.acc_boss_music_count ) )
         level.acc_boss_music_count = 0;
 
     level.acc_boss_music_count++;
 
-    // First boss of the encounter -> start the looping track (reuse one emitter).
-    if ( level.acc_boss_music_count == 1 )
-    {
-        if ( !isdefined( level.acc_boss_music_ent ) )
-            level.acc_boss_music_ent = spawn( "script_origin", (0,0,0) );
-        level.acc_boss_music_ent PlayLoopSound( "acc_brutus_music" );
-        acc_utility::log( "boss music ON" );
-    }
+    // Start the boss loop on the SHARED music channel (user 2026-06-25). This OVERRIDES any song that was
+    // playing (e.g. the main theme). Only (re)start if boss music isn't already the channel, so a 2nd
+    // simultaneous boss doesn't restart the loop. A teddy-bear song triggered mid-fight overrides THIS in turn
+    // (acc_music::play) and we never fight it back - the keep-alive loop below only waits.
+    if ( !acc_music::is_playing( "acc_brutus_music" ) )
+        acc_music::play( "acc_brutus_music", true );
 
-    // Keep looping while THIS boss lives (poll covers death AND despawn/delete).
-    while ( isdefined( host ) && isalive( host ) )
+    // Hold this boss's refcount while it lives (poll covers death AND despawn/delete). Also releases the moment
+    // the Paradise onslaught begins, so the "115" anthem can take over the channel.
+    while ( isdefined( host ) && isalive( host ) && !IS_TRUE( level.acc_paradise_onslaught ) )
         wait( 0.5 );
 
-    // This boss is down - fade only when the LAST one dies.
+    // Last boss down -> stop boss music, but ONLY if it's still the channel: a teddy-bear song or Paradise
+    // track that overrode it mid-fight owns the channel now and must not be yanked.
     level.acc_boss_music_count--;
     if ( level.acc_boss_music_count <= 0 )
     {
         level.acc_boss_music_count = 0;
-        if ( isdefined( level.acc_boss_music_ent ) )
-            level.acc_boss_music_ent StopLoopSound( 4.0 );   // slow 4s fade-out
-        acc_utility::log( "boss music FADE (last boss dead)" );
+        acc_music::stop_if( "acc_brutus_music" );
+        acc_utility::log( "boss music OFF (last boss dead)" );
     }
 }
 
@@ -293,42 +328,47 @@ function watch_mini_boss_death()
     drop_origin = self.origin;
     n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
 
-    // Boss-item drop. The Trench Warden (= Brutus) GUARANTEES an item (user 2026-06-18:
-    // "killing him gives an item") - unlike the 50%-design mini roll. grant_challenge_reward
-    // is the guaranteed free-for-all drop (no chance roll; already-owned dupes convert to
-    // Data Shards at pickup via watch_pickup). acc_warden_item 0 = fall back to the chance roll
-    // (only the Glitch Stalker uses the chance roll now, via its own death watch).
-    if ( getdvarint( "acc_warden_item", 1 ) )
-        acc_boss_items::grant_challenge_reward( drop_origin );
-    else
-        acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
-
-    // Trench Warden = the trench's signature boss, so it PAYS Data Shards (the economy is trench-only:
-    // shards come from the pit caches + Warden + altar, user 2026-06-19). Flat grant to every player,
-    // "warden" source (skips the elite diminish). Skip the dev bulk-test boss (n_bottles>1) so it
-    // doesn't pollute the real economy. Tunable via acc_warden_shard_reward.
     if ( n_bottles <= 1 )
     {
-        warden_shards = getdvarint( "acc_warden_shard_reward", 2 );   // 3 -> 2 (scaled-back economy, user 2026-06-19)
-        if ( warden_shards > 0 )
+        // BRUTUS (Trench Warden) reward (user 2026-06-22): all 3 rewards GUARANTEED (100%, upgraded from the
+        // earlier 75%) - 1 item drop, 1 Mega Bottle to every player, 3 Data Shards to every player. (Phantom
+        // is the same set with 5 shards.) Per-reward chance tunable via acc_brutus_reward_chance (default 1.0
+        // = always; the roll <= 1.0 is always true).
+        chance = getdvarfloat( "acc_brutus_reward_chance", 1.0 );
+
+        // 1) Item: grant_challenge_reward = the guaranteed free-for-all pool drop (dupes convert to shards at
+        //    pickup). acc_warden_item 0 = use the "mini" chance pool instead (kept for tuning).
+        if ( acc_utility::acc_rand_float() <= chance )
         {
-            for ( wi = 0; wi < level.players.size; wi++ )
-                acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
-            acc_utility::log( "Trench Warden rewarded " + warden_shards + " shards to each player" );
+            if ( getdvarint( "acc_warden_item", 1 ) )
+                acc_boss_items::grant_challenge_reward( drop_origin );
+            else
+                acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
         }
-    }
 
-    if ( n_bottles <= 1 )
-    {
-        // Mega Bottle drop: 40% CHANCE now (user 2026-06-18; was a guaranteed grant). One roll -
-        // if it hits, every player gets +1 (the on_boss_death rule). acc_warden_bottle_chance tunable.
-        bottle_chance = getdvarfloat( "acc_warden_bottle_chance", 0.40 );
+        // 2) Mega Bottle: 50% chance (user 2026-06-25). When it hits, 1 to every player (the on_boss_death
+        //    rule). Rolled SEPARATELY from `chance` above so the item + shard drops stay guaranteed while only
+        //    the bottle is gated. Tunable via acc_brutus_bottle_chance (default 0.5).
+        bottle_chance = getdvarfloat( "acc_brutus_bottle_chance", 0.5 );
         if ( acc_utility::acc_rand_float() <= bottle_chance )
             acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
+
+        // 3) Data Shards: acc_warden_shard_reward (default 3) to every player ("warden" = no diminish).
+        if ( acc_utility::acc_rand_float() <= chance )
+        {
+            warden_shards = getdvarint( "acc_warden_shard_reward", 3 );
+            if ( warden_shards > 0 )
+            {
+                for ( wi = 0; wi < level.players.size; wi++ )
+                    acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
+                acc_utility::log( "Trench Warden: " + warden_shards + " shards to each player (75% roll hit)" );
+            }
+        }
     }
     else
     {
-        // Test boss: bulk drop so every perk can be Mega'd in one go.
+        // Test boss (n_bottles>1): GUARANTEED item + bulk Mega so every perk can be Mega'd in one go.
+        acc_boss_items::grant_challenge_reward( drop_origin );
         for ( i = 0; i < level.players.size; i++ )
         {
             p = level.players[ i ];
@@ -388,9 +428,9 @@ function run_full_boss( round_number )
 
 function spawn_subroutine_core( round_number )
 {
-    // TODO(acc-model): boss model/FX pass is Phase 4/5 - until then the Core
-    // is a promoted stock zombie pinned at the struct (real, damageable,
-    // full stock damage pipeline; scripted ranged attacks still TODO).
+    // The Core is a promoted stock zombie pinned at the struct (real, damageable, full stock
+    // damage pipeline; scripted ranged attacks still TODO). Its boss SKIN (stock "Giant" body +
+    // head + teal eyes + glow aura) is applied below, after the spawn-init gate (docs/52).
     spawn_struct = struct::get( "acc_boss_spawn", "targetname" );
     if ( !isdefined( spawn_struct ) )
     {
@@ -450,6 +490,17 @@ function spawn_subroutine_core( round_number )
 
     core.acc_is_boss = true; // boss headshot multiplier in _acc_damage
     core.phase = 1;
+
+    // boss reskin model dropped - c_zom_zod_* not packable in this Mod Tools install; aura+eyes carry the distinction (see docs/52)
+
+    // TEAL EYES + glow AURA (docs/52): mark the boss for the client-side eye recolour (accEyeTint,
+    // _acc_lui.csc, shared teal colour - NO FX asset) and the holographic body-glow aura
+    // (accPhantomAura, _acc_boss_phantom.csc PlayFX) so the Core is visually unmistakable. Both
+    // reuse already-registered actor clientfields (no new field; the clientuimodel pool is untouched).
+    if ( getdvarint( "acc_core_eyes", 1 ) == 1 )
+        acc_lui::set_actor_eye_tint( core, true );
+    if ( getdvarint( "acc_core_aura", 1 ) == 1 )
+        acc_boss_phantom::set_phantom_aura( core, true );
 
     // HP: docs/11 - 50k base at round 30, +15k per round past 30.
     core.maxhealth = int( scale_boss_hp( round_number ) * acc_coop_scaling::special_hp_mult() );
@@ -626,7 +677,7 @@ function disable_power_for( duration )
 
     acc_utility::log( "power disabled for " + duration + "s (boss debuff)" );
     level flag::clear( "power_on" );
-    // Ultimate Tank holders are immune: power-off routes through perk_power_off
+    // Mega Electric Cherry ("Power Surge") holders are immune (user 2026-06-25, moved from Mega Widow's): power-off routes through perk_power_off
     // -> perk_pause -> UnsetPerk on every owner (_zm_power.gsc:699/:718,
     // _zm_perks.gsc:1249). Re-grant the immune players' perks across the next
     // few network frames (powered items unset one network-frame apart,
@@ -645,14 +696,14 @@ function disable_perks_for( duration )
 {
     acc_utility::log( "perks disabled for " + duration + "s (boss debuff)" );
     level thread zm_perks::perk_pause_all_perks();
-    // Ultimate Tank holders are immune (same UnsetPerk path, _zm_perks.gsc:1249).
+    // Mega Electric Cherry ("Power Surge") holders are immune (user 2026-06-25; same UnsetPerk path, _zm_perks.gsc:1249).
     level thread protect_immune_players_during_debuff();
     wait( duration );
     level thread zm_perks::perk_unpause_all_perks();
     acc_utility::log( "perks restored" );
 }
 
-// Ultimate Tank (Jug Mega) boss-ability immunity (docs/13_perks.md). Re-assert
+// Mega Electric Cherry ("Power Surge") boss-special immunity (docs/13_perks.md; moved from Jug/Widow's, user 2026-06-25). Re-assert
 // immune players' perks for ~2s so the debuff's UnsetPerk cascade (one powered
 // item per network frame) can't stick on them. Clearing disabled_perks[perk]
 // makes the trailing global unpause/repower a no-op for these players.
@@ -666,10 +717,11 @@ function protect_immune_players_during_debuff()
         {
             p = level.players[ i ];
             if ( !isdefined( p ) || !isplayer( p ) ) continue;
-            // Ultimate-Tank EMP immunity is a LIVE Jug effect: require the player to
-            // currently HOLD Juggernog, not just the persistent Mega flag (it survives a
-            // down by design), so a player who lost Jug doesn't keep unearned immunity.
-            if ( acc_mega_bottles::has_active_mega_perk( p, "specialty_armorvest" ) )
+            // Boss-special immunity = Mega ELECTRIC CHERRY "Power Surge" (user 2026-06-25; moved off Mega
+            // Widow's Wine "Spiderman"). has_active_mega_perk requires the player to currently HOLD Electric
+            // Cherry AND have Mega'd it - the persistent Mega flag is the only ownership marker that survives
+            // THIS debuff's UnsetPerk cascade, which is exactly why the immunity must live on the Mega tier.
+            if ( acc_mega_bottles::has_active_mega_perk( p, "specialty_combat_efficiency" ) )
                 p restore_immune_player_perks();
         }
         util::wait_network_frame();

@@ -18,58 +18,15 @@
 
 param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug, [switch]$ClosedMap, [switch]$NoAmbient, [switch]$NoLockdown)
 
-# All flags below are OFF by default in the game -> a no-flag launch is a clean
-# consumer game. Full reference: docs/34_flags_reference.md.
-# acc_dev 1      = unlimited money + Data Shards + Mega Bottles, auto-power, perk cap 18,
-#                  dev HUDs + teleport/round-skip console cmds (the test sandbox).
-# acc_open_map 1 = open every door + both PaP blockers on spawn, disable decon hazard.
-# acc_test_boss 1 = test boss (Brutus) every round from round 2 (the real Brutus first spawns ROUND 4).
-# acc_glitch_test 1 = spawn the "Glitch Stalker" mini-boss (mobile teleport-blink boss, x2/round)
-#   from ROUND 3; it moves ~15% faster than normal zombies, blinks 2x more often (~1-1.67s),
-#   deals -50% melee damage (user 2026-06-15), uses the STOCK zombie body (vs the charred horde),
-#   and has NO health bar / NO over-head marker (the skin is the only tell).
-#   acc_glitch_debug 1 prints [glitch] lines. -NoBoss disables ALL test-boss spawns.
-#   (Glitch r3 / Brutus r4 are the in-code DEFAULTS now, so they apply even without these flags.)
-# acc_variants_debug 1 = print each weapon-variant SWAP on-screen ("[variants] X -> Y")
-#   so you can SEE Deadshot/Mega change the gun (recoil is otherwise invisible).
-#   (acc_weapon_variants itself is ON by default - no flag needed to enable it.)
-$boss = if ($NoBoss) { "" } else { " +set acc_test_boss 1 +set acc_glitch_test 1 +set acc_glitch_debug 1" }
-$dev  = if ($NoDev)  { "" } else { " +set acc_dev 1" }
-# Open map follows the dev sandbox, but -ClosedMap keeps the sandbox while leaving
-# the map closed + the decon hazard live (to test door buys / decontamination).
-$openmap = if ($NoDev -or $ClosedMap) { "" } else { " +set acc_open_map 1" }
-$vdbg = if ($NoVarDebug) { "" } else { " +set acc_variants_debug 1" }
-
-# Audio: the MAIN THEME "The Surreal Truth" plays once at game start and stock ZM
-# music is OFF by default (no flag); Brutus boss music "Juhani Junkala - Epic Boss
-# Battle" loops while Brutus is alive and slow-fades on death (automatic - acc_test_boss
-# makes Brutus spawn so it's exercised). acc_amb_on 1 additionally plays the looping
-# ambient city bed - ON for the play-test so all audio is exercised. -NoAmbient mutes
-# just the bed.
-$audio = if ($NoAmbient) { "" } else { " +set acc_amb_on 1" }
-
-# Per-round "DEFCON" room lockdown (docs/37 §11, _acc_lockdown.gsc): red flashing alarm
-# lights inside the room (+ optional door seal). ON for the play-test, pinned to the Server
-# Vault (acc_lockdown_force_zone vault_zone); -NoLockdown mutes it. Doors set to NOT seal
-# (acc_lockdown_lock_doors 0) so you can WALK IN and see the red light + the new vault ceiling;
-# type acc_lockdown_lock_doors 1 in the ~ console to test the door seal (locks players IN, no
-# escape window) next round. Tune live: acc_lockdown_use_glow 1 (softer glow), acc_lockdown_fx_z
-# 180 (height), acc_lockdown_emitters 6. REMOVE acc_lockdown_force_zone to resume rotation.
-$lockdown = if ($NoLockdown) { "" } else { " +set acc_lockdown_on 1 +set acc_lockdown_force_zone vault_zone +set acc_lockdown_lock_doors 0" }
-
-# -----------------------------------------------------------------------------
-# ZOMBIE SPEED CURVE knobs (docs/34 "D" + _acc_zombie_speed.gsc). Natural-gait
-# ramp: a jog that speeds up the early rounds, breaks into a full sprint at
-# $ZSpeedSprintRound, then a faster sprint after. EDIT THE NUMBERS to tune; the
-# values below are the in-code DEFAULTS (so leaving them as-is = no change).
-# 100 = the gait's natural speed, higher = faster; values can't go below 100
-# in-game (that would look like slow-motion, so the code floors them at 100).
-$ZSpeedSprintRound    = 10   # round zombies break from a jog into a full SPRINT (lower = sprint sooner)
-$ZSpeedJogStartPct    = 100  # round-1 jog playback %, 100 = natural jog
-$ZSpeedJogStepPct     = 2    # + jog speed % per round during the jog phase (higher = ramps up faster)
-$ZSpeedSprintStartPct = 100  # sprint playback % at the sprint round (100 = natural full sprint)
-$ZSpeedSprintStepPct  = 1    # + sprint speed % per round AFTER the sprint round (the post-10 creep)
-$zspeed = " +set acc_zspeed_sprint_round $ZSpeedSprintRound +set acc_zspeed_jog_start_pct $ZSpeedJogStartPct +set acc_zspeed_jog_step_pct $ZSpeedJogStepPct +set acc_zspeed_sprint_start_pct $ZSpeedSprintStartPct +set acc_zspeed_sprint_step_pct $ZSpeedSprintStepPct"
+# DEV: ONE flag (user 2026-06-22). +set acc_dev 1 turns on the WHOLE hardcoded dev sandbox - regular
+# gameplay damage (NO god mode, NO auto power-on - flip the switch yourself), unlimited money, 25 starting
+# Data Shards, Mega Bottles, OPEN MAP, ALL test bosses (Brutus/
+# Glitch/Phantom), all perk slots, the weapon-variant debug readout, and the dev HUDs. The entry script's
+# acc_resolve_dev_flags() drives every old sub-dvar off this one flag, so there are NO other dev flags to
+# pass. -NoDev = clean normal play. Gameplay (audio / DEFCON lockdown / zombie-speed curve) runs on its
+# in-code defaults now - not launch flags. (-NoBoss/-ClosedMap/-NoVarDebug/-NoAmbient/-NoLockdown remain in
+# the param block for call compatibility but no longer affect the launch - dev is all-or-nothing by design.)
+$dev = if ($NoDev) { "" } else { " +set acc_dev 1" }
 
 # THE GAMETYPE FIX (verified 2026-06-13): you MUST pass the engine command
 # `+set_gametype zclassic`, NOT `+set g_gametype zclassic`. The g_gametype dvar
@@ -87,7 +44,11 @@ $zspeed = " +set acc_zspeed_sprint_round $ZSpeedSprintRound +set acc_zspeed_jog_
 # "-unsafe-lua" arg is a BOIII-client flag, not a Steam BO3 one - on Steam it logs
 # "Unknown command" and does nothing, so it is intentionally NOT passed here.
 # (L3akMod is still required in the MOD TOOLS bin to BUILD the .lua. docs/28.)
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev$openmap$boss$vdbg$audio$lockdown$zspeed"
+# ONE dev flag: only $dev (+set acc_dev 1) is passed. acc_dev drives the whole sandbox (open map / bosses /
+# god / perks / power / variant-debug) via acc_resolve_dev_flags(); gameplay (audio / lockdown / zombie-speed)
+# runs on its in-code defaults. ($vdbg/$audio/$lockdown/$zspeed above are unused now - kept only so the
+# -NoAmbient/-NoLockdown/-NoVarDebug params don't error; they no longer affect the launch.)
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

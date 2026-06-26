@@ -26,8 +26,8 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_boss.gsc` | Mini-boss (r10/r20) and full boss Subroutine Core (r30+). | main, data_shards |
 | `_acc_points.gsc` | Kill-point awards (40 / 100 / 100) with co-op 70/30 damage split and anti-exploit rules. | main, damage |
 | `_acc_damage.gsc` | Global AI damage hook. Applies 2x/3x headshot multiplier, forwards each hit to `_acc_points::record_damage`. | main |
-| `_acc_decontamination.gsc` | Round 1-4 zone-seal hazard: per-run permutation, 20s evac window, kill-on-reentry, emits acc_decontamination_start/complete (perk rotation keys on complete). | main |
-| `_acc_coop_scaling.gsc` | Co-op scaling: regular HP +100%/player, elites/bosses +50% (special_hp_mult), spawn rate +30%/player (max_zombie_func chain). | entry script (post_zm_main), main, elites, boss |
+| `_acc_decontamination.gsc` | **Zone-seal hazard REMOVED (2026-06-22)** — no seal / no EVACUATE-SEALS-SEALED UI / no kill. Now only re-emits `acc_decontamination_complete` each round; keeps the zone helpers (`get_zone_volumes` / `enable+disable_zone_spawning` / `is_zone_sealed`) that `_acc_lockdown[_challenge]` reuse. | main |
+| `_acc_coop_scaling.gsc` | Co-op scaling: regular HP +20%/extra player, elites +50% (special_hp_mult), bosses log curve, spawn count +30%/extra player vs solo (max_zombie_func chain). | entry script (post_zm_main), main, elites, boss |
 | `_acc_perk_phd_flopper.gsc` | PhD Flopper perk (#9): hijacks the stock electric-cherry pipeline; fall/explosive immunity + dive-to-explode + explode-on-down (sets real cost/hint + fixes the machine-identity bug after `zm_usermap::main()`). | `zm_abandoned_cyber_city.gsc` (direct, NOT via `acc_main`) |
 | `_acc_atmosphere.gsc` | Cold city-haze volumetric fog (`SetVolFog`) applied after blackscreen; every param live-tunable via `acc_fog_*` dvars. Phase 1 of [docs/29](../../../docs/29_atmosphere_and_materials.md); the night sky + wet-ground re-skin + reflection probes are Radiant edits, not code. | main |
 
@@ -85,7 +85,8 @@ Per-player state lives as fields on `self` (the player), prefixed `acc_`:
 - `self.acc_cw_*` - individual cyberware effect flags (damage_mult, sprint_boost, etc.).
 - `self.acc_weapon_progress` (map of weapon_name -> { tier, overclocks[] }) - weapon tier state.
 - `self.acc_oc_active` (map of weapon_name -> struct of flags) - effect toggles per weapon.
-- `self.acc_equipped_items` (array of item_id) - equipped boss items (max 2).
+- `self.acc_equipped_items` (FIXED 2-element array; index 0 = bench Slot 1, index 1 = Slot 2; `""` = empty slot) - the single source of truth for the two active boss-item implants.
+- `self.acc_tactical_owner` (item id) - which grenade item (Li'l Arnie / Monkey Bomb) currently owns the single tactical slot (last-one-wins).
 - `self.acc_item_state` (map of item_id -> struct) - per-item runtime state (cooldowns, counters).
 - `self.acc_item_*` (various flags) - per-item effect toggles (e.g. `acc_item_neural_boots`, `acc_item_battery_charged`).
 - `self.acc_mega_bottles` (int) - empty Mega Bottle count in inventory.

@@ -58,18 +58,18 @@ Stock BO3 kill awards are **replaced** (not modified) by our own table:
 
 | Kill type | Points |
 |---|---|
-| Regular kill | 40 |
-| Headshot kill | 100 |
+| Regular kill | 70 |
+| Headshot kill | 110 |
 | Knife / melee kill | 100 |
 
 Stock BO3 per-hit points (10 per damaging hit) are kept unchanged.
 
 ### Why these numbers
 
-- Lower regular-kill points (40, down from stock 60) to slow pure spray gameplay.
-- Raised headshot/knife kills (100) as the payout for skill-expressing kills.
-- 2.5x multiplier from regular -> headshot means **aiming is worth it even when you're not stacking Overclocks**.
-- Combined with the 2x headshot damage multiplier (see "Headshot Multiplier" above), a skilled aim player earns both more points *and* more kills per minute.
+- Regular-kill points **70** (user 2026-06-23: raised 40 -> 70, above the stock 60 for a generous body-kill economy).
+- Headshot **110** / knife **100** (user 2026-06-23: headshot 100 -> 110) as the payout for skill-expressing kills.
+- ~1.57x multiplier from regular -> headshot still means **aiming is worth it even when you're not stacking Overclocks**.
+- Combined with the 2.5x headshot damage multiplier (see "Headshot Multiplier" above), a skilled aim player earns both more points *and* more kills per minute.
 
 ### Co-op Kill-Point Split (70 / 30)
 
@@ -86,6 +86,16 @@ so shares are computed in 10-pt chunks with leftover chunks going to the
 earliest contributors. Totals across players always equal the full base award
 exactly (no inflation; no rounding exploit). The killer's 70% rounds to the
 nearest 10.
+
+**Multipliers (Double Points, Payroll Ledger) are re-applied by us.** Because we
+**replace** the stock kill award (our `register_score_event` callback returns 0),
+the stock score path where Double Points applies its ×2 (`_zm_score::get_points_multiplier`)
+never sees our points. So `award_player` re-applies the same team-scoped
+`zombie_point_scalar` the powerup sets (×2 while active) **before** the Payroll
+Ledger's +10%, so the two stack multiplicatively (×2.2 with both). Any future
+points-affecting powerup that works through the stock score-event path will
+likewise need re-applying here. (Bug history: Double Points silently did nothing
+on kills until this was added, 2026-06-23.)
 
 Example payouts (regular kill = 40 pts base; killer share 28 → 30):
 
@@ -143,18 +153,17 @@ The module intends to **fully replace** stock kill awards. Stock BO3 awards 60/1
 
 ## Headshot Multiplier (skill lever)
 
-Stock BO3 applies a small per-weapon headshot damage multiplier baked into each weapon's GDT (roughly 1.5x for most guns). We **multiply on top of that** to sharpen the aim skill ceiling:
+Each gun's GDT carries a hit-location multiplier (`locHead`/`locHelmet`), **normalized across the whole roster to 5.0** (headshot-excluded shotguns = 1.0) by `tools/normalize_gun_loc.js`. The engine bakes that into the incoming damage; `_acc_damage.gsc` then applies our **headshot temper** as a SEPARATE multiplicative factor (`n_hs_temper`):
 
-- **Regular zombies + elites**: a **+2.0x** head-hit bonus, on top of stock.
-- **Bosses (mini-boss + full boss)**: **+2.0x** (lowered from 3.0x to match regular, 2026-06-14).
+- **Regular zombies + elites**: `ACC_HEADSHOT_MULT = 0.5` → `5.0 × 0.5` = **2.5× body** (user 2026-06-25).
+- **Bosses (mini-boss + full boss)**: `ACC_BOSS_HEADSHOT_MULT = 0.6` → `5.0 × 0.6` = **3× body** (user 2026-06-25).
 - **Limb / body hits**: untouched (stock).
+- **Headshot-excluded guns** (Tac-19 / Olympia, `locHead 1.0`): no map bonus → **1× (flat)**.
 
-Effective numbers (roughly, assuming stock weapon headshot mult ~1.5x):
-
-| Target | Body shot | Head shot (stock) | Head shot (ours) |
-|---|---|---|---|
-| Regular zombie / elite | 1.0x | ~1.5x | ~3.0x |
-| Boss | 1.0x | ~1.5x | ~3.0x |
+| Target | Body shot | Head shot (ours) |
+|---|---|---|
+| Regular zombie / elite | 1.0x | **2.5x** |
+| Boss / mini-boss | 1.0x | **3.0x** |
 
 ### Why it's a skill lever
 
@@ -164,37 +173,36 @@ Effective numbers (roughly, assuming stock weapon headshot mult ~1.5x):
 
 ### Stacking with Perks / Cyberware / Overclocks
 
-**Bonuses ADD, reductions multiply (2026-06-14).** Every damage *bonus* below is summed into one bonus factor — a literal sum, so a 3x and a 2x give **5x, not 6x**. Damage *reductions* (per-gun balance cuts, the shielded-elite frontal resist) stay multiplicative and apply after the sum: `final = damage × (sum of active bonuses, or 1 if none) × (reductions)`.
+**Bonuses ADD, reductions multiply.** Damage *bonuses* (Deadshot, Cyberware, PaP tier, abilities) are summed into one bonus factor — a literal sum, so a 1.3x and a 1.3x give **2.6x, not 1.69x**. The **headshot temper is NOT in that sum** — it's a separate multiplicative factor (×0.5 reg / ×0.6 boss, on top of the engine `locHead`), so it tempers ONLY the loc-inflation, not the PaP/Deadshot/Cyberware bonuses (that's what keeps a PaP headshot a clean 2.5x of the boosted body instead of ballooning). Damage *reductions* (per-gun balance cuts, shielded-elite frontal resist, boss per-hit cap) stay multiplicative and apply last: `final = damage × locHead × (bonus sum, or 1 if none) × headshot_temper × reductions`.
 
-Bonus layers summed on a single headshot:
+Bonus layers summed on a single headshot (each ADDS its value into the pool):
 
-- Our headshot bonus (2.0 regular / 2.0 boss)
-- **Deadshot perk** (1.4, or 1.8 with American Sniper Mega — no double dip; see [13_perks.md](13_perks.md))
+- **Deadshot perk** (1.3, or 1.5 with American Sniper Mega — no double dip; see [13_perks.md](13_perks.md))
 - Cyberware **Amplifier (OC Tier 1)** (`+15%` weapon damage) — 1.15
 - Cyberware **Overload (Tier 2 OC branch)** (`+30%` crit damage on headshots) — 1.30
-- **PaP custom tier** (1.5 / 2.0 / 2.5 for T1–T3, 3-tier revamp 2026-06-16; the `_up` transform is deferred to T2, and `acc_weapon_balance_mult` normalizes base/`_up`/twin so this ladder is the only PaP damage lever)
+- **PaP custom tier** (1.33 / 1.67 / 2.00 for T1–T3; the `_up` transform is deferred to T2, and `acc_weapon_balance_mult` normalizes base/`_up`/twin so this ladder is the only PaP damage lever)
 - Weapon **Overclock** if rolled (e.g. AR **Overpressure** at 1.5 ADS)
 - Weapon ability **Precision Mode** (auto-crit = 4.0) / **Slug Round** (3.0) / **Kinetic Battery** (3.0) when active
 
 (Base weapon damage and the stock ~1.5x weapon-GDT headshot mult are already baked into the incoming `damage` before any of this.)
 
-Because bonuses now ADD instead of multiply, big stacks no longer explode geometrically — headshot 2.0 + Deadshot 1.4 + Overload 1.30 + PaP 2.5 (T3) = **7.2x** (summed), and deeper stacks that used to reach ~100x collapse to roughly the sum of their layers. **Intended** — rewards the precision archetype without runaway multiplication.
+Because bonuses ADD instead of multiply, big stacks no longer explode geometrically — e.g. a regular-zombie headshot with Mega Deadshot (1.5) + Overload (1.30) + PaP T3 (2.0) sums the pool to 4.8, then `× locHead 5.0 × temper 0.5` = **12× the raw body shot** — strong, but not the ~100x a geometric stack would reach. **Intended** — rewards the precision archetype without runaway multiplication.
 
 ### Deadshot Effective Damage Table (with our multiplier)
 
-Stock weapon headshot GDT multiplier assumed ~1.5x for illustration. Our bonuses are **summed** (additive), then multiplied by the stock headshot factor:
+Effective head:body with Deadshot (no PaP/Cyberware in the pool). Deadshot ADDS into the bonus pool, which the headshot temper (×0.5 reg / ×0.6 boss) then scales on top of the engine `locHead 5.0`:
 
-| Target | Body | Headshot (no Deadshot) | Headshot + Deadshot |
-|---|---|---|---|
-| Regular zombie / elite | 1.0x | 1.5 × (2.0) = **3.0x** | 1.5 × (2.0 + 1.4) = **5.1x** |
-| Boss | 1.0x | 1.5 × (2.0) = **3.0x** | 1.5 × (2.0 + 1.4) = **5.1x** |
+| Target | Body | Headshot (no Deadshot) | + Deadshot (1.3) | + Mega Deadshot (1.5) |
+|---|---|---|---|---|
+| Regular zombie / elite | 1.0x | **2.5x** | 5.0 × 1.3 × 0.5 = **3.25x** | 5.0 × 1.5 × 0.5 = **3.75x** |
+| Boss / mini-boss | 1.0x | **3.0x** | 5.0 × 1.3 × 0.6 = **3.9x** | 5.0 × 1.5 × 0.6 = **4.5x** |
 
 Layer on the full Cyberware/Overclock/PaP stack (all summed into the bonus factor) and the precision-on-head build still scales hard, but additively rather than geometrically. Playtest will tell us if this is fun or broken; tuning levers in [13_perks.md](13_perks.md).
 
 ### Synergistic Overclocks
 
-- **Adaptive Aim (AR)**: headshots refund one round to the magazine. The 2x headshot damage + ammo refund makes clean aim functionally infinite at range.
-- **Thermal Lock (Sniper)**: 0.5s aim guarantees a headshot hitbox. Cashes in our 2x cleanly.
+- **Adaptive Aim (AR)**: headshots refund one round to the magazine. The 2.5x headshot damage + ammo refund makes clean aim functionally infinite at range.
+- **Thermal Lock (Sniper)**: 0.5s aim guarantees a headshot hitbox. Cashes in our 2.5x cleanly.
 - **Reactive Powder (Sniper)**: headshots deal 50% AoE damage - AoE is of the *buffed* headshot damage, so it scales with our multiplier too.
 
 ### Implementation
@@ -203,10 +211,10 @@ Hook is `scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc::on_ai_damage`. Mult
 
 ### Tuning backstop
 
-If the 2x headshot bonus feels broken in playtest (likely for snipers / FAL), we can:
+If the headshot bonus feels broken in playtest (likely for snipers / FAL), we can:
 
-- Knock regular and boss down to 1.5x (both are 2.0x now).
-- Or split by elite class: regular 2x, elites 1.5x (bullet sponges feel less silly).
+- Knock regular and boss down (regular is 2.5x, boss 3.0x now).
+- Or split by elite class: regular 2.5x, elites 1.5x (bullet sponges feel less silly).
 - Or flip the boss rule: bosses get NO extra headshot bonus, but they have an exposed "crit spot" that takes a larger one.
 
 Decision deferred to Phase 6 playtest.
@@ -345,13 +353,14 @@ Emergency drops are a **clutch button**. 3 Shards is meaningful (third of a full
 ## Glitch Altar System (the shard gamble)
 
 The dangerous Bus Station **trench** is also a **casino**. A **Glitch Altar** sits in the Plaza-facing trench
-room: **gamble Data Shards** (default **4**, dvar `acc_altar_cost`) for a **weighted jackpot** on a short
-cooldown (`acc_altar_cooldown`, 6 s). Roughly **72% boons / 28% glitch-curses**, odds telegraphed in the use
-hint. Curses **never instant-down** you. Implemented in `_acc_glitch_altar.gsc` — a script-spawned hold-USE
-trigger + glowing core, **pure GSC** (no geometry, ships `-GscOnly`).
+room: **gamble Data Shards** (default **2**, dvar `acc_altar_cost`) for a **weighted jackpot** on a short
+cooldown (`acc_altar_cooldown`, 6 s). Roughly **65% boons / 35% glitch-curses** (user 2026-06-24, riskier
+"spice it up" tune — was 72/28), odds telegraphed in the use hint. Curses **never instant-down** you.
+Implemented in `_acc_glitch_altar.gsc` — a script-spawned hold-USE trigger + glowing core, **pure GSC** (no
+geometry, ships `-GscOnly`).
 
-- **Boons:** Max Ammo · Insta-Kill · Double Points · a random free Perk · **Shard Jackpot** (+7 shards) · **Mega Win** (free Perk + Insta-Kill).
-- **Curses (never down you):** **Surge** (an immediate burst of trench zombies via `acc_bus_trench::spawn_corp_surge`) · **Corruption** (lose up to 6 banked shards) · **Dud** (nothing — you lose the spin).
+- **Boons (65%):** Max Ammo (15) · Insta-Kill (13) · Double Points (12) · a random free Perk (8) · **Shard Jackpot** (15, +4 shards) · **Mega Win** (2, free Perk + Insta-Kill — the marquee ~2% top prize).
+- **Curses (35%, never down you):** **Surge** (16 — an immediate burst of trench zombies via `acc_bus_trench::spawn_corp_surge`) · **Corruption** (11 — lose up to 2 banked shards) · **Dud** (8 — nothing, you lose the spin).
 
 Distinct from the Emergency Drop (the *guaranteed* 3-shard clutch button): the Altar is **higher variance**
 with a real downside, and its shard EV per spin is **negative** (the partial jackpot can't be farmed — the

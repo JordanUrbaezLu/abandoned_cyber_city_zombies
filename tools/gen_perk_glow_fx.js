@@ -40,7 +40,20 @@ const COLORS = {
   white:      [ 1.00, 1.00, 1.00 ],  // 8  Widow's Wine  - white
   purple:     [ 0.62, 0.08, 1.00 ],  // 9  PhD Flopper   - purple
   teal:       [ 0.00, 1.00, 0.90 ],  // 10 Pack-a-Punch  - brighter teal (user 2026-06-18)
+  teal_dim:   [ 0.00, 1.00, 0.90 ],  //    (legacy) old Glitch Stalker body aura - kept generated but no longer referenced.
+  // --- Glitch / Phantom re-theme (user 2026-06-24): glitch = MAGENTA glow, phantom = DARK PURPLE. ---
+  magenta:     [ 1.00, 0.05, 0.90 ],  // 11 Glitch theme + lockdown "purge" room lights - full-bright MAGENTA (was red, user 2026-06-24).
+  magenta_dim: [ 1.00, 0.05, 0.90 ],  //    Glitch Stalker BODY AURA - same magenta hue, DIMMED (BRIGHT below) = "50% less intense" than the old teal_dim (user 2026-06-24).
+  dark_purple: [ 0.42, 0.00, 0.72 ],  //    Phantom BODY AURA - deep DARK PURPLE (user 2026-06-24, was red). Low max channel (0.72) reads inherently dark.
+  white_dim:   [ 1.00, 1.00, 1.00 ],  // 12 Trench Data-Cache "has shards this round" indicator - DIM white (BRIGHT below). On while armed, off while looted.
 };
+
+// Per-colour brightness scale (default 1.0). Only the colour tint + cast light are scaled (not
+// size/density), so a value <1 reads as a dimmer glow of the same shape/hue.
+//   teal_dim 0.75    = legacy (unused now).
+//   magenta_dim 0.375 = the Glitch Stalker aura at HALF the old 0.75 teal_dim -> "make the glitch glow 50% less intense" (user 2026-06-24).
+//   white_dim 0.40   = a subtle indicator glow on the trench shard banks.
+const BRIGHT = { teal_dim: 0.75, magenta_dim: 0.375, white_dim: 0.40 };
 
 // Whole-machine coverage + intensity (user 2026-06-18). The source FX is a small spherical
 // aura at tag_origin (= machine base), so only the BOTTOM lit. We enlarge the glow sprites
@@ -81,17 +94,17 @@ function fmt( n ) {
   return s === '' ? '0' : s;
 }
 
-function mixTriple( rec, D, w ) {
-  return w.map( ( wc ) => fmt( rec + ( D - rec ) * wc ) ).join( ' ' );
+function mixTriple( rec, D, w, B ) {
+  return w.map( ( wc ) => fmt( ( rec + ( D - rec ) * wc ) * B ) ).join( ' ' );
 }
 
-function recolor( text, w ) {
+function recolor( text, w, B ) {
   return text
-    .split( '0.25098 1 0.25098' ).join( mixTriple( 0.25098, 1, w ) )
-    .split( '0.501961 1 0.501961' ).join( mixTriple( 0.501961, 1, w ) )
-    .split( '0 0.458824 0' ).join( mixTriple( 0, 0.458824, w ) )
-    // dynamic-light cast colour, over-brightened (LIGHT_BOOST) for a stronger coloured glow.
-    .split( '_color 1 1 1' ).join( '_color ' + w.map( ( c ) => fmt( c * LIGHT_BOOST ) ).join( ' ' ) );
+    .split( '0.25098 1 0.25098' ).join( mixTriple( 0.25098, 1, w, B ) )
+    .split( '0.501961 1 0.501961' ).join( mixTriple( 0.501961, 1, w, B ) )
+    .split( '0 0.458824 0' ).join( mixTriple( 0, 0.458824, w, B ) )
+    // dynamic-light cast colour, over-brightened (LIGHT_BOOST) for a stronger coloured glow; B dims it.
+    .split( '_color 1 1 1' ).join( '_color ' + w.map( ( c ) => fmt( c * LIGHT_BOOST * B ) ).join( ' ' ) );
 }
 
 const srcRaw = fs.readFileSync( SRC, 'utf8' );
@@ -100,10 +113,11 @@ fs.mkdirSync( OUT_DIR, { recursive: true } );
 
 let n = 0;
 for ( const [ name, w ] of Object.entries( COLORS ) ) {
-  const out = recolor( src, w );
+  const B = ( BRIGHT[ name ] !== undefined ) ? BRIGHT[ name ] : 1.0;
+  const out = recolor( src, w, B );
   const dst = path.join( OUT_DIR, 'fx_perk_glow_' + name + '.efx' );
   fs.writeFileSync( dst, out );
-  console.log( 'wrote ' + dst + '  [' + w.join( ', ' ) + ']' );
+  console.log( 'wrote ' + dst + '  [' + w.join( ', ' ) + ']' + ( B !== 1.0 ? '  @' + ( B * 100 ) + '%' : '' ) );
   n++;
 }
 console.log( '\ndone: ' + n + ' perk-glow .efx written to ' + OUT_DIR );

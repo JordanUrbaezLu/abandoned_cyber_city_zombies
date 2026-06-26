@@ -1,14 +1,17 @@
 # docs/49 — One hardcoded dev mode (research + change plan, NOT built)
 
-**Status:** research only (user 2026-06-21: "only investigate for now"). 9-agent investigation, failure modes
-adversarially verified. Build on the user's go.
+**Status:** ✅ **BUILT 2026-06-22** (`-GscOnly`, BUILD OK) — the §3 non-breaking plan was implemented:
+`acc_resolve_dev_flags()` + `level.acc_dev` + the 6 converged reads + one-shot 25 shards + the
+single-flag launch. Reviewed adversarially. (Originally 9-agent research, 2026-06-21.) Not yet playtested.
 
 **The user's goal:** ONE `acc_dev` flag. Off = normal play. On = a **fixed, hardcoded** dev config (god /
 unlimited / all-unlocked / open map / power on / test bosses). **Not** a runtime console you tweak — see
 CLAUDE.md "Dev/test mode" + memory `dev-mode-hardcoded-not-console`. Never "set dvar X in console".
 **Hard requirement (user 2026-06-21): do NOT break anything — build on the path that already works.**
 
-**Decisions locked:** Shards in dev = **start with 25** (a one-shot grant, NOT the current per-second 999 pin).
+**Decisions locked:** Shards in dev = a **one-shot start grant** (NOT the old per-second 999 pin). Current value
+(user 2026-06-25): **start with 1000** Data Shards (`ACC_DEV_SHARDS`, granted in `acc_data_shards::on_player_connect`),
+with the per-player cap raised to 1000 in dev (`shards_cap()`) so pickups don't clobber it back to the 500 ship cap.
 
 ## 1. Root cause of "some flags don't work" (CONFIRMED)
 
@@ -125,13 +128,14 @@ NORMAL default in code; leave them OUT of the dev driver. (This is why the `.bat
 - **Launch** — `PLAY_TEST_MAP.bat` / `run_game.ps1` / `tools/run_game.ps1`: can collapse to a single
   `+set acc_dev 1` (place it right after `logfile`). Safe to do incrementally — the driver makes the extra
   flags redundant, so removing them changes nothing.
-- **God mode** is still net-new (today's dev grants money/shards/bottles, no invulnerability). Add a
-  `level.acc_dev` god effect via the player-damage path only if the user wants it in the bundle (see §5).
-- **Docs** — `docs/34` (flag reference) + `docs/23` (launch) + the `.bat`/`.ps1` header comments updated; the
-  hardcoded wallhack (`_acc_health_bars.gsc:263`) folded under `level.acc_dev`.
+- **God mode** — was briefly added (`EnableInvulnerability` each tick) then **removed** (user 2026-06-22:
+  "I like to test with regular gameplay"). Dev does NOT grant invulnerability.
+- **Docs** — `docs/34` (flag reference) + the `.bat`/`.ps1` header comments updated; the hardcoded wallhack
+  (`_acc_health_bars.gsc`) folded under `level.acc_dev`.
 
-## 5. Remaining decisions (just two)
-1. **The dev bundle** (what `acc_dev 1` turns on): money + **25 shards** + mega bottles + all perks/slots + open
-   map + auto power-on + the test bosses + dev HUDs. **God mode** — include it (net-new invuln) or skip? Default
-   assumption: include a simple god toggle in the bundle unless you say otherwise.
-2. **Ship default** — `acc_dev` DEFAULT 0 for any Workshop build (one knob in the driver). Assumed yes.
+## 5. Decisions (resolved)
+1. **The dev bundle** (`acc_dev 1`): money + **25 shards (one-shot)** + mega bottles + all perks/slots + open
+   map + all 3 test bosses + dev HUDs. **No god mode and no auto power-on** — regular gameplay/damage, and
+   you flip the Bus Station power switch yourself.
+2. **Default** — `acc_dev` DEFAULT **1 during the pre-release** (dev on even if the launcher drops the arg);
+   one-line `TODO(ship)` to flip to 0 before a Workshop build.

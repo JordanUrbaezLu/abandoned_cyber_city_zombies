@@ -92,7 +92,9 @@ Key properties:
 - Lab (PaP + perks) has two approaches (Server or Roof). One approach may be **randomly blocked per run** (see Randomization) — independent of decontamination.
 - Total: **7 zones**. Eligible for **permanent seal**: **4** (Market, Alley, Vault, Roof). **Never sealed**: Plaza, Corp, Lab.
 
-## Decontamination zones (round hazard)
+## Decontamination zones (round hazard) — REMOVED 2026-06-22
+
+> **CUT (user 2026-06-22): this hazard is no longer in the game.** "Contamination zones" were never part of the final design — no zone is ever sealed, no `DECONTAMINATION – EVACUATE / SEALS / SEALED` warning is shown, and no player is killed (it had been firing in normal play too). `_acc_decontamination::run_decon_phase` now only re-emits `acc_decontamination_complete` each round; the seal chain is dead code. The module's zone helpers stay because `_acc_lockdown[_challenge]` reuse them. The original design below is retained for reference only — ignore the `xxx = sealed` markers and "Decontamination-eligible" notes elsewhere in this doc.
 
 **Purpose.** Kill the slow-start problem from the other direction: every round begins with **urgency** — you cannot treat the map as fully safe until you have **left the active contamination zone** and the **timer** has resolved. It also **shrinks** the playable space over the first four rounds so routing and training spots change mid-run.
 

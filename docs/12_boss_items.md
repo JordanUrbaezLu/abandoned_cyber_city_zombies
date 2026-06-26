@@ -4,22 +4,25 @@ Machin[a]-style randomized passive-buff items dropped on boss kills. Shape your 
 
 ## At a Glance
 
-- **7 items** in the drop pool.
-- **1 active item** per player (bench-gated; first enable FREE, each swap = 2500 pts).
+- **6 items** in the drop pool (the two tactical grenades, Li'l Arnie + Monkey Bomb, moved to mystery-box rolls 2026-06-24 — see the note under "The 6 items").
+- **2 active items** per player (two Plaza bench pads = Slot 1 / Slot 2; filling an empty slot is FREE, replacing a full slot = 2500 pts).
 - Drops from both **mini-boss** (50% chance) and **full boss** (guaranteed).
 - **Duplicates** convert to 3 Data Shards.
 - **No persistence across runs** - items are lost on death / run-end.
 
 ## Separate From Mega Bottles
 
-**This doc covers the 7-item implantable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take the active-item slot and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-system) for the Mega Bottle acquisition + persistence rules; per-perk Mega effects are under **Perk reference (base + Mega)** in the same doc.
+**This doc covers the 8-item implantable pool only.** Bosses also drop a separate **Empty Mega Bottle** resource (guaranteed per player per boss kill) used to upgrade perks to their Mega variants. Mega Bottles do not take the active-item slot and are not part of the pool described here. See [13_perks.md](13_perks.md#mega-bottles-system) for the Mega Bottle acquisition + persistence rules; per-perk Mega effects are under **Perk reference (base + Mega)** in the same doc.
 
 ## Drop Mechanics
 
-> **v2 (2026-06-17): bench-gated, single active item.** Picking an item up only
-> CARRIES it; you ENABLE its buff at the Plaza Implant Bench. First enable free,
-> swaps cost 2500. The legacy 2-slot auto-equip + the original 6 items are
-> superseded (kept under "The 6 Items (LEGACY)" below for design history).
+> **v3 (2026-06-23): bench-gated, TWO active slots.** Picking an item up only
+> CARRIES it; you ENABLE its buff at the Plaza Implant Bench, which is now **two
+> pads** (Slot 1 / Slot 2 — you pick which slot by which pad you use). Filling an
+> EMPTY slot is **free**; once both slots are full, implanting a third **replaces
+> that pad's slot for 2500 pts**. So any empty slot is always free ("first two
+> free"). A sound plays on each implant. The previous single-slot v2 and the
+> original 6 items are superseded (legacy section kept below for design history).
 
 ```mermaid
 flowchart LR
@@ -33,20 +36,26 @@ flowchart LR
 
 ### Acquisition flow
 1. **Bosses drop items.** A random pool item drops at the corpse (Brutus / Glitch Stalker **50%**, Subroutine Core **100%**). Hold **ⓕ Use** to **grab** it — this only **carries** it (HUD: `CARRYING <item>`); the buff is NOT active yet. Uncollected drops despawn after **60 s**. Grabbing an item you already carry/have → **+3 Data Shards**. Grabbing a NEW item while already carrying a different (un-enabled) one **drops the old one back to the ground** (re-grabbable) — it's never lost. (An already-implanted item stays implanted.)
-2. **Enable it at the Plaza Implant Bench** (beside the Plaza spawn). Hold **ⓕ Use** to **implant** the carried item → buff goes active (HUD: `IMPLANT <item>`).
-3. **One active item at a time.** Your **first** enable is **FREE**; each later **swap** (enabling a different carried item) costs **2500 points** and removes the previous item's buff. Just carrying a new item does nothing until you bench it.
+2. **Enable it at the Plaza Implant Bench** (beside the Plaza spawn — now **two pads**, Slot 1 and Slot 2). Hold **ⓕ Use** on a pad to **implant** the carried item into that slot → buff goes active (HUD: `IMPLANT 1 <item>` / `IMPLANT 2 <item>`). A confirmation sound plays. The implant is on the player; a sound plays each time.
+3. **Two active items at a time.** Implanting into an **empty** slot is **FREE** (so your first two are free). Once **both** slots are full, using a pad **replaces that pad's slot** for **2500 points** (removing that slot's previous buff) — you choose which to lose by which pad you use. Carrying a new item does nothing until you bench it.
+   - **Two grenade items (Li'l Arnie + Monkey Bomb)** both want the single tactical slot — the engine has only one. They're allowed in two slots, but the **last one implanted is the grenade you actually throw** ("last one wins"); removing it hands the tactical back to the other. The HUD shows both as implanted.
 
-### The 7 items
+### The 6 items
+
+> **The two tactical-grenade items moved OUT of this pool (user 2026-06-24).** Li'l Arnie (Octobomb) and
+> Monkey Bomb (Cymbal Monkey) are no longer boss drops — they are now rare **mystery-box** tactical pre-rolls
+> (Monkey Bomb **1%** / Li'l Arnie **0.5%**). See
+> [`_acc_map_randomizer.gsc::acc_box_tactical_preroll`](../scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc)
+> + `acc_boss_items::watch_box_tactical_grab`. The pool is back to **6** items (IDs renumbered).
+
 | ID | Item | Model | Buff | How to use |
 |----|------|-------|------|-----------|
 | 1 | **Gas Tank** | nitrous tank | **Nitro burst** — +100% move speed for 5 s | **Double-tap the Sprint button** to trigger. Runs the full 5 s (uncancellable), then a **60 s** lockout — can't re-trigger until fully recharged. A **NITRO bar** on the left HUD shows the charge: full **cyan** = ready; it drains to empty over the burst, then refills **orange** over the 60 s regen. |
-| 2 | **Li'l Arnie** | octobomb | **Grants the Octobomb tactical** (Li'l Arnie throwable) | Passive grant; throw it like a tactical (attracts + spores zombies). The only source in this map. |
-| 3 | **Loot Stash** | gold brick (`zombietron_gold_brick`) | **+10% Points** on every kill | Passive. (gold = money/points; was a teddy bear — user 2026-06-18) |
-| 4 | **Repair Kit** | carpenter icon | **+10 HP/sec** passive health regen | Passive (caps at max health; pauses while downed). |
-| 5 | **Rocket Shield** | rocket shield | **Mobility** — +35% speed while sliding, a forward lunge on slide-start, **2× jump height** | Passive — just slide and jump. |
-| 6 | **Monkey Bomb** | monkey bomb | **Grants the Cymbal Monkey tactical** | Passive grant; throw it to distract zombies. The only source in this map. |
-| 7 | **Phase Serum** | perk-bottle vial | **Cloak — Glitch Stalker ONLY** — the Glitch Stalker can't see/target you; the regular horde still attacks | Passive. (Glitch-only by design — a full horde cloak made you invulnerable.) |
-| 8 | **Boots** | boots prop (`p7_boots_safehouse_01`) | **Mobility** — **+8% move speed everywhere**. (No longer cancels the trench slow — user 2026-06-21; only the Exo Suit does that, docs/47.) | Passive. (user 2026-06-18) |
+| 2 | **Loot Stash** | gold brick (`zombietron_gold_brick`) | **+10 pts/kill, +20/headshot kill** (×2 with Double Points); a **Nuke pays the holder 500** (1000 w/ Double Points) | Passive, KILLER only. FLAT bonus (user 2026-06-23: the old +10% was swallowed by the points floor-to-10, so it "didn't work"). Logic in `_acc_points` (`distribute_points` + `ledger_nuke_watch`). |
+| 3 | **Repair Kit** | carpenter icon | **+10 HP/sec** passive health regen | Passive (caps at max health; pauses while downed). |
+| 4 | **Rocket Shield** | rocket shield | **Mobility** — +35% speed while sliding, a forward lunge on slide-start, **2× jump height** | Passive — just slide and jump. |
+| 5 | **Phase Serum** | perk-bottle vial | **Cloak — Glitch Stalker ONLY** — the Glitch Stalker can't see/target you (including the Glitch Purge glitches — they ignore a cloaked carrier; user 2026-06-24); the regular horde still attacks | Passive. (Glitch-only by design — a full horde cloak made you invulnerable.) |
+| 6 | **Boots** | boots prop (`p7_boots_safehouse_01`) | **Mobility** — **+8% move speed everywhere**. (No longer cancels the trench slow — user 2026-06-21; only the Exo Suit does that, docs/47.) | Passive. (user 2026-06-18) |
 
 All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. Models are link-verified (errorlog-clean) and per-item floor-lifted (`model_z`) so they don't sink in.
 
@@ -62,8 +71,12 @@ All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. 
 | `acc_boss_item_chance_mini` | **1.0 (TEMP)** | mini-boss (Brutus / Glitch Stalker) drop chance. **Design value is 0.5** — currently forced to 100% for testing (2026-06-18); set `0.5` to restore. |
 | `acc_boss_item_chance_full` | 1.0 | full-boss (Subroutine Core) drop chance |
 | `acc_drop_model_z` | 24 | global fallback floor-lift for drop models (per-item `model_z` overrides) |
-| `acc_bench_off_x` | 64 | bench X offset from the Plaza spawn struct |
+| `acc_bench_off_x` | 0 | bench X offset from the Plaza spawn struct (0 = centred on the spawn X, behind the spawns) |
+| `acc_bench_off_y` | -350 | bench Y offset from the spawn struct — pushes the pair SOUTH to ~59u in front of the south wall (against the back wall, out of the open middle; user 2026-06-24) |
 | `acc_bench_off_z` | -35 | bench Z offset from the Plaza spawn struct (it sat too high; 2026-06-18) |
+| `acc_bench_pad_sep` | 80 | half-distance between the two bench pads along **X** (they sit at ±this, 160 apart, a row parallel to the south wall) |
+| `acc_bench_pad_radius` | 40 | each bench pad's use-trigger radius (small so the two pad volumes don't overlap) |
+| `acc_move_scale_cap` | 2.2 | hard ceiling on the total move-speed multiplier (two mobility items can now stack) |
 | `acc_gas_dtap_ms` | 350 | Gas Tank double-tap-sprint window (ms) |
 | `acc_gas_burst_mult` | 1.50 | Gas Tank nitro burst move-speed multiplier (+50%) |
 | `acc_gas_regen_sec` | 60 | Gas Tank cooldown/regen seconds after the 5 s burst (= NITRO bar refill time) |
@@ -75,8 +88,11 @@ All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. 
 | `acc_rocket_jump_mult` | 1.42 | Rocket Shield jump velocity multiply (~2× apex height; height ∝ velocity²) |
 
 ### Implementation (all in `_acc_boss_items.gsc` unless noted)
-- **State:** `player.acc_carried_item` (picked up, no buff) + `player.acc_active_item` (implanted) + `player.acc_bench_first_done`. `ACC_ITEM_SLOTS_PER_PLAYER = 1`.
-- **Bench:** `spawn_bench()` (runtime `script_model` + `trigger_radius_use` at the `player_respawn_point` struct — no Radiant edit) → `bench_use_loop()` applies the carried item's `on_equip`, charges `ACC_BENCH_SWAP_COST` (2500) after the first via `zm_score::can_player_purchase`/`minus_to_player_score`, and `on_unequip`s the previous.
+- **State:** `player.acc_carried_item` (picked up, no buff) + `player.acc_equipped_items` (a **fixed 2-element array** = the single source of truth; index 0 = Slot 1 / Pad 1, index 1 = Slot 2 / Pad 2; `""` = empty slot) + `player.acc_tactical_owner` (which grenade item owns the single tactical slot — last-one-wins). `ACC_ITEM_SLOTS_PER_PLAYER = 2`. The old scalar `acc_active_item` and the `acc_bench_first_done` bool are **gone** — "is it implanted" scans both slots via `player_has_item()`, and "free" is simply `slot_is_empty(slot)`.
+- **Bench (two pads):** `spawn_bench()` polls the `player_respawn_point` struct then spawns **two** pads via `spawn_bench_pad(org, slot)` (each a `script_model` + `trigger_radius_use`, `acc_bench_slot` = fixed target index). The pair sits **against the Plaza south wall** (interior face y=-540), **behind the spawn points** and out of the open central training area (user 2026-06-24, was in the wide-open middle), laid **side by side along X** (`acc_bench_pad_sep` 80 → 160 apart, `acc_bench_pad_radius` 40) so their use-volumes don't overlap. `bench_use_loop()` reads its pad's slot: `equip_slot(player, slot, carried)` (which `unequip_slot`s the old occupant first), free into an empty slot or `ACC_BENCH_SWAP_COST` (2500) to replace a full one, plays `acc_item_implant`, and clears the carry.
+- **Tactical "last one wins":** `apply_arnie_octobomb`/`apply_monkey_bomb` set `acc_tactical_owner`; the `*_regrant_on_spawn` threads regrant only the owner; each `remove_*` hands the tactical to the surviving grenade item (or clears it). Prevents the two regrant threads from fighting and the unequip from disarming a co-resident grenade.
+- **Implant sound:** `acc_item_implant` alias (`sound/aliases/acc_audio.csv`), 2D wav at `sound_assets/acc/fx/item_implant.wav` (a UI-equip SFX converted to 48k/16-bit mono via `tools/convert_wav_48k_mono.ps1`). Played **once at the bench commit** (never in an `apply_*`, or it would re-fire on every respawn-regrant). A new wav needs a **game-closed build** so the `/MIR` sound sync can purge the (otherwise file-locked) `CachedBanks` and the linker rebuilds the `.sabs`/`.sabl` bank.
+- **Move-speed clamp:** two mobility items can now stack, so `_acc_utility::recompute_move_speed` caps the total at `acc_move_scale_cap` (2.2) to prevent clip-through-geometry / nav desync.
 - **Cloak (Phase Serum):** `apply_arnie_cloak` sets a custom `player.acc_cloak_glitch` flag — deliberately **NOT** `zm_utility::increment_ignoreme` (that hid you from the *entire* horde = invulnerable, the rejected bug). The Glitch Stalker honors it by setting **`host.closest_player_override = &glitch_pick_uncloaked_target`** on every spawn: stock `get_closest_valid_player` consults this per-AI picker FIRST (`_zm_utility.gsc:1472`) to derive BOTH the Stalker's movement target (`favoriteenemy`) and its melee target (`enemy`), so the cloak now hides you from its **whole behavior** — follow + melee + blink + charge — not just the two blink/charge calls (the old scope, which let it still walk up and hit you = the "Phase Serum doesn't work" bug). The picker strips cloaked players then delegates to the stock factory target picker (via the `level.closest_player_override` pointer) so everyone else is targeted exactly as stock; the regular horde always sees you. All players cloaked → the Stalker has no target and idles.
 - **Speed buffs** (nitro burst, slide +15%) ride `_acc_utility::recompute_move_speed`; regen + jump/slide impulses are self-contained polling threads.
 - **Gas Tank NITRO bar:** `gas_bar_loop` (threaded on equip, ended on `acc_gas_tank_removed`) reuses the verified `hud::createBar` widget (left HUD stack, y≈108/122). `gas_tank_burst` stamps `acc_gas_burst_start`; `gas_charge_frac` derives the 0..1 fill from elapsed time (drain over `ACC_GAS_BURST_SEC`, refill over `ACC_GAS_REGEN_SEC`), polled at 20 Hz so it glides. Created/destroyed with the item (single-active).

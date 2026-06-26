@@ -24,18 +24,22 @@
 //     MOD_FALLING / MOD_GRENADE(_SPLASH) / MOD_PROJECTILE(_SPLASH) / MOD_EXPLOSIVE(_SPLASH)
 //     when the player holds the perk. VERIFIED(acc): _zm.gsc:5231-5236 iterates
 //     level.perk_damage_override on player damage and a returned value REPLACES the damage.
-//   - Slide-to-explode: starting a slide fires a grenade-explosion nova that clears nearby
-//     trash (on a cooldown). BO3 zombies has the sprint-slide but NO dolphin-dive (confirmed
-//     in-game), so we trigger off the engine isSliding() directly - NOT the shipped countryside
-//     jump -> land-sliding -> Z-drop dive. The blast uses the stock def_explosion FX +
-//     evt_nuke_flash (Nuke powerup) sound + an Earthquake - all ship in every zm map (the FX is
-//     framework-precached, the sound loads with the Nuke powerup), so this needs NO new FX/sound
-//     asset, NO new clientfields and NO .csc. NOTE: def_explosion is orange/white, not purple -
-//     a true purple blast needs a custom/imported FX (FX Editor or game-rip); see the buildlog.
-//   - Explode-on-down: PhD-flavoured laststand (you flop down, you go boom) - also replaces
-//     the stock cherry electrocution-on-down (foreign element + pays stock points).
-//   - Mega "PhD Slider": a bigger/stronger slide + down explosion on a shorter slide cooldown
-//     (read live from the Mega flag).
+//   - Slide-to-explode (MEGA-ONLY since 2026-06-26): starting a slide fires a grenade-explosion
+//     nova that clears nearby trash (on a cooldown). BO3 zombies has the sprint-slide but NO
+//     dolphin-dive (confirmed in-game), so we trigger off the engine isSliding() directly - NOT the
+//     shipped countryside jump -> land-sliding -> Z-drop dive. BASE PhD does NOT slide-explode now;
+//     only the Mega ("PhD Slider") does (dvar acc_phd_base_slide_nova 1 re-enables it for base). The
+//     blast visual is the stock ORANGE def_explosion FX + an Earthquake. The BOOM differs by tier
+//     (user 2026-06-22): MEGA plays the Nuke-powerup "whoomp" (evt_nuke_flash = our shipped
+//     powerup_nuke.wav); the slide/down nova otherwise relies on def_explosion's own baked boom. All
+//     ship in every zm map (framework-precached / our wav), so this needs NO new FX/sound asset, no
+//     clientfields, no .csc. (The earlier purple Apothicon + electric spark FX were dropped - see the
+//     def_explosion note further down; user 2026-06-25 "why does PhD slide spark".)
+//   - Explode-on-down (BASE + Mega): PhD-flavoured laststand (you flop down, you go boom) - also
+//     replaces the stock cherry electrocution-on-down (foreign element + pays stock points). This is
+//     base PhD's nova trigger (the slide one is Mega-only).
+//   - Mega "PhD Slider": adds the slide-explode (above) + a bigger/stronger slide + down explosion
+//     on a shorter slide cooldown (read live from the Mega flag).
 //
 // No .csc: the stock _zm_perk_electric_cherry.csc (already #using'd by the entry .csc) owns
 // the cherry client clientfield/FX; we add none. Icon = Ronan Cyberpunk "exo_flopper"
@@ -62,23 +66,30 @@
 #define ACC_PHD_EXPLODE_RADIUS          300     // slide/down nova radius (base)
 #define ACC_PHD_MEGA_EXPLODE_RADIUS     500     // PhD Slider Mega radius
 #define ACC_PHD_EXPLODE_BASE_DAMAGE     2000    // floor damage (round-scaled up below)
-#define ACC_PHD_SLIDE_CD                8        // seconds between slide explosions (base)
-#define ACC_PHD_SLIDE_CD_MEGA           5        // PhD Slider Mega: shorter slide cooldown
+#define ACC_PHD_MEGA_DAMAGE_MULT        0.8     // PhD Slider (Mega) nova damage as a multiple of the BASE nova (= round zombie health). Was a flat 2.0; NERF -60% (user 2026-06-24: Mega read ~64k - absurd, the x2 compounding with the global x2.5 + Mega Flopper +15% explosive). 0.8 x base still one-shots trash via the global; the Mega keeps its radius/cooldown/fling/move-speed edge. Live dvar acc_phd_mega_dmg_mult.
+#define ACC_PHD_SLIDE_CD                10       // seconds between slide explosions (base, user 2026-06-22: 8 -> 10)
+#define ACC_PHD_SLIDE_CD_MEGA           8        // PhD Slider Mega slide cooldown (user 2026-06-22: 5 -> 8)
 
-// Corpse-fling (mirrors stock Thunder Wall _zm_aat_thunder_wall.gsh:16-18). Only zombies the nova
-// actually KILLS are gibbed + flung; the count is capped so a big crowd can't ragdoll-storm the
-// network. Force/up bias tunable.
-#define ACC_PHD_FLING_FORCE             125      // launch impulse (stock thunder wall = 100)
-#define ACC_PHD_FLING_UP                30       // upward bias added pre-normalize (stock = 30)
-#define ACC_PHD_FLING_MAX               6        // max corpses flung per blast (stock cap = 6)
-#define ACC_PHD_FLING_MAX_MEGA          8        // PhD Slider flings a few more
+// The nova's visible "pop" is a per-kill head-gib + guts burst (mirrors stock Nuke: gib the LIVE
+// zombie, THEN deal the lethal damage). The old corpse-FLING (StartRagdoll/LaunchRagdoll, modelled on
+// Thunder Wall) was REMOVED 2026-06-24 - it was the "invisible zombie still hitting me after a PhD
+// slide" bug: StartRagdoll fired in the SAME frame as the zombie's killing DoDamage, racing the
+// engine's death processing. That left the actor half-dead (model ragdolled/flung out of view while
+// its AI kept swinging), and the interrupted death sometimes skipped the zombie-death callback so
+// _acc_corpse_cleanup never ran and the body lingered. It was also INVISIBLE on this map regardless:
+// _acc_corpse_cleanup Ghost()s + Delete()s every body within ~0.05s of death (acc_corpse_linger_sec
+// default 0), so a launched ragdoll vanished before it could arc. The head-gib + guts FX play instantly
+// (before the body is hidden), so the kill still reads as an explosion. #defines retired (kept for history).
+#define ACC_PHD_FLING_FORCE             125      // RETIRED 2026-06-24 (corpse-fling removed - see note above)
+#define ACC_PHD_FLING_UP                30       // RETIRED 2026-06-24
+#define ACC_PHD_FLING_MAX               6        // RETIRED 2026-06-24
+#define ACC_PHD_FLING_MAX_MEGA          8        // RETIRED 2026-06-24
 
-// Purple/void blast FX: the Apothicon Fury "spawn-in" burst (stock dlc4/genesis .efx, source
-// present in the Mod Tools - verified 2026-06-15; also listed in the .zone). def_explosion
-// (orange, framework-precached) is the runtime fallback if this fails to load.
-#define ACC_PHD_EXPLODE_FX              "dlc4/genesis/fx_apothicon_fury_spawn_in_exp"
-
-#precache( "fx", ACC_PHD_EXPLODE_FX );
+// Slide/down NOVA visual = the framework stock ORANGE explosion (level._effect["def_explosion"] =
+// "_t6/explosions/fx_default_explosion", registered by stock _zm.gsc). It's framework-baked (NOT a loose
+// .efx), so we do NOT #precache it - phd_explode() just PlayFX's the handle. The earlier custom FX (a DLC4
+// apothicon burst, then a STOCK electric spark burst) were dropped: the apothicon never built here, and the
+// electric one read as "sparks" (user 2026-06-25 - "why does PhD slide spark"). def_explosion = proper boom.
 
 #namespace acc_perk_phd_flopper;
 
@@ -94,9 +105,6 @@ function init()
         acc_utility::log( "phd flopper: electric cherry pipeline missing, perk disabled" );
         return;
     }
-
-    // Register the purple blast FX handle (the #precache above made it loadable).
-    level._effect[ "acc_phd_purple" ] = ACC_PHD_EXPLODE_FX;
 
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].cost = ACC_PHD_COST;
     // Readable raw hint (no localized PhD token exists; &&1 = use button, engine-substituted).
@@ -170,7 +178,9 @@ function phd_laststand()
 // sprint-slide but NO dolphin-dive (confirmed in-game 2026-06-15), so we trigger off
 // isSliding() directly instead of the shipped countryside jump -> land-sliding -> Z-drop
 // dive (there is no airborne dive + no height drop to gate on here). A cooldown keeps it
-// from being a spammable free AOE; the Mega ("PhD Slider") shortens it.
+// from being a spammable free AOE; the Mega ("PhD Slider") shortens it. MEGA-ONLY since
+// 2026-06-26 (user): base PhD does NOT explode on a slide anymore - only the Mega does
+// (the explode-when-downed in phd_laststand stays on base). Dvar acc_phd_base_slide_nova.
 // ---------------------------------------------------------------------------
 
 function phd_slide_watcher()
@@ -186,14 +196,23 @@ function phd_slide_watcher()
             wait 0.05;
         }
 
-        acc_utility::crash_log( self, "phd_slide_watcher: slide ->phd_explode" );
-        self phd_explode();
-        acc_utility::crash_log( self, "phd_slide_watcher: phd_explode returned" );
+        // SLIDE NOVA IS MEGA-ONLY (user 2026-06-26): base PhD keeps explosive immunity + the
+        // explode-when-downed (phd_laststand), but NO LONGER explodes on a slide - only PhD Slider
+        // (the Mega) gets the slide boom. Live dvar acc_phd_base_slide_nova 1 re-enables it for base.
+        b_mega = acc_mega_bottles::has_mega_perk( self, PERK_ELECTRIC_CHERRY );
+        if ( IS_TRUE( b_mega ) || getdvarint( "acc_phd_base_slide_nova", 0 ) == 1 )
+        {
+            acc_utility::crash_log( self, "phd_slide_watcher: slide ->phd_explode" );
+            self phd_explode();
+            acc_utility::crash_log( self, "phd_slide_watcher: phd_explode returned" );
 
-        // Cooldown: ignore further slides for a beat (Mega shortens it)...
-        n_cd = ( acc_mega_bottles::has_mega_perk( self, PERK_ELECTRIC_CHERRY ) ? ACC_PHD_SLIDE_CD_MEGA : ACC_PHD_SLIDE_CD );
-        wait n_cd;
-        // ...then wait out the current slide so one long slide can't immediately re-trigger.
+            // Cooldown: ignore further slides for a beat (Mega shortens it).
+            n_cd = ( IS_TRUE( b_mega ) ? ACC_PHD_SLIDE_CD_MEGA : ACC_PHD_SLIDE_CD );
+            wait n_cd;
+        }
+
+        // Wait out the current slide so one long slide can't immediately re-trigger (and so a base
+        // player who now gets NO slide nova doesn't busy-loop on a held slide).
         while ( self isSliding() )
         {
             wait 0.05;
@@ -202,7 +221,7 @@ function phd_slide_watcher()
 }
 
 // self = player. An explosive nova that damages/clears nearby zombies AND makes the ones it kills
-// visibly explode (head-gib + torso gore burst + a capped corpse-fling). The burst CENTRES on the
+// visibly explode (head-gib + torso gore burst). The burst CENTRES on the
 // zombie you slid into (the nearest in-radius zombie = the impact point), not on the player.
 // MOD_GRENADE_SPLASH (explosive) so PhD holders are immune to their own boom via
 // phd_damage_override; kills route through DoDamage -> the zombie death callback -> our _acc_points
@@ -244,33 +263,36 @@ function phd_explode()
     }
     v_burst = ( isdefined( z_near ) ? z_near.origin : v_origin );
 
-    // VISIBLE blast at the impact point: PURPLE Apothicon void-burst (registered in init from
-    // ACC_PHD_EXPLODE_FX); fall back to the stock orange def_explosion only if it didn't load.
-    // Earthquake adds the screen-shake punch (engine builtin).
-    if ( isdefined( level._effect[ "acc_phd_purple" ] ) )
-    {
-        PlayFX( level._effect[ "acc_phd_purple" ], v_burst );
-    }
-    else if ( isdefined( level._effect[ "def_explosion" ] ) )
+    // VISIBLE blast at the impact point: the stock ORANGE explosion (def_explosion = the framework
+    // "_t6/explosions/fx_default_explosion", registered by stock _zm.gsc - guaranteed loaded, NOT a loose
+    // .efx so we don't #precache it). Was the electric spark burst (acc_phd_nova) - swapped out per user
+    // (2026-06-25: "why does PhD slide spark") for a proper PhD-style explosion. def_explosion's FX carries
+    // its own boom, so it doubles as the BASE tier's slide sound. Earthquake adds the screen-shake punch.
+    if ( isdefined( level._effect[ "def_explosion" ] ) )
     {
         PlayFX( level._effect[ "def_explosion" ], v_burst );
     }
     Earthquake( 0.45, 0.6, v_burst, n_radius + 200 );
 
-    // AUDIBLE boom: the Nuke powerup "WHOOMP" (evt_nuke_flash) - guaranteed loaded (the Nuke powerup
-    // ships in every zm map). 2D/owner-anchored, like the stock nuke_flash.
-    self PlaySound( "evt_nuke_flash" );
+    // AUDIBLE boom: MEGA ("PhD Slider") adds the Nuke-powerup "WHOOMP" (evt_nuke_flash = our shipped
+    // powerup_nuke.wav) over the explosion. Played 3D POSITIONALLY at the blast point v_burst via
+    // PlaySoundAtPosition - the evt_nuke_flash alias is now 3d/attenuated (was 2d = full-volume EVERYWHERE on
+    // the map for every player; user 2026-06-26 "I can hear the nuke across the map"). BASE relies on
+    // def_explosion's own baked boom (3D, played in the visual block above), so no extra cue.
+    if ( IS_TRUE( b_mega ) )
+    {
+        PlaySoundAtPosition( "evt_nuke_flash", v_burst );
+    }
 
-    // Per-zombie EXPLODE: every zombie the nova KILLS pops apart - head-gib + a torso gore burst,
-    // then a capped corpse-fling away from the blast. Ordering mirrors the studio patterns:
-    //   * Nuke (_zm_powerup_nuke.gsc:139/145): zombie_head_gib() on the LIVE zombie, THEN dodamage
-    //     (head_gib is non-blocking - it gibs the head + threads a DoT, then returns).
-    //   * Thunder Wall (_zm_aat_thunder_wall.gsc:122/136-137): DoDamage, THEN StartRagdoll+LaunchRagdoll.
-    // Gating on (health <= n_damage) restricts gib/fling to trash the nova actually kills, so a
-    // living BOSS (Brutus/Panzer/Glitch - all on level.zombie_team with huge HP) is only chipped,
-    // never head-gibbed or ragdolled mid-fight.
-    n_flung = 0;
-    n_cap   = ( IS_TRUE( b_mega ) ? ACC_PHD_FLING_MAX_MEGA : ACC_PHD_FLING_MAX );
+    // Per-zombie EXPLODE: every zombie the nova KILLS pops apart - head-gib + a torso gore burst.
+    // Mirrors stock Nuke (_zm_powerup_nuke.gsc:139/145): zombie_head_gib() on the LIVE zombie, THEN
+    // DoDamage (head_gib is non-blocking - it gibs the head + threads a DoT, then returns; it also
+    // self-guards no_gib and endon("death"), so a survivor or boss is never left headless). Gating on
+    // (health <= n_damage) restricts the gib to trash the nova actually kills, so a living BOSS
+    // (Brutus/Panzer/Glitch - all on level.zombie_team with huge HP) is only chipped, never gibbed.
+    // NO StartRagdoll/LaunchRagdoll here - the corpse-fling was removed 2026-06-24 (the invisible-zombie
+    // bug + it's invisible under instant corpse-cleanup anyway; see the #define note above). Zombies the
+    // nova kills die their normal death and are vanished by _acc_corpse_cleanup.
     for ( i = 0; i < a_zombies.size; i++ )
     {
         z = a_zombies[ i ];
@@ -287,7 +309,7 @@ function phd_explode()
 
         if ( b_lethal )
         {
-            z zombie_utility::zombie_head_gib(); // dismember while ALIVE (Nuke's own death; non-blocking)
+            z zombie_utility::zombie_head_gib(); // dismember while ALIVE (Nuke's own death; non-blocking, self-guarded)
             if ( isdefined( level._effect[ "zombie_guts_explosion" ] ) )
             {
                 PlayFX( level._effect[ "zombie_guts_explosion" ], z.origin ); // stock torso gore burst
@@ -295,16 +317,6 @@ function phd_explode()
         }
 
         z DoDamage( n_damage, v_origin, self, self, 0, "MOD_GRENADE_SPLASH" );
-
-        if ( b_lethal && n_flung < n_cap )
-        {
-            // Away from the blast + an upward bias (the (0,0,UP) term also guards a zero-length
-            // vector when the corpse sits exactly on v_origin). Stock Thunder Wall shape.
-            v_dir = ( z.origin - v_origin ) + ( 0, 0, ACC_PHD_FLING_UP );
-            z StartRagdoll( true );
-            z LaunchRagdoll( ACC_PHD_FLING_FORCE * VectorNormalize( v_dir ), "torso_lower" );
-            n_flung++;
-        }
     }
 }
 
@@ -318,7 +330,11 @@ function phd_explode_damage( b_mega )
     }
     if ( IS_TRUE( b_mega ) )
     {
-        return n_base * 2;
+        // PhD Slider Mega nova: was a flat x2 of the base nova, but the round-scaled base ALREADY one-shots
+        // trash, so the x2 just inflated the number (the ~64k the user saw, compounded by the x2.5 global +
+        // Mega Flopper +15% explosive). NERF -60% (user 2026-06-24): x0.8 of base. Still one-shots trash via
+        // the global; the Mega's real edge is its bigger radius / shorter cooldown / extra flings / +speed.
+        return int( n_base * getdvarfloat( "acc_phd_mega_dmg_mult", ACC_PHD_MEGA_DAMAGE_MULT ) );
     }
     return n_base;
 }
@@ -336,33 +352,36 @@ function fix_machine_identity()
 {
     level endon( "end_game" );
 
-    t_use = undefined;
+    // Fix EVERY PhD machine, not just the first (user 2026-06-26). There are now TWO PhD machines - the
+    // surface/Lab one AND the Paradise duplicate (gen_paradise_props .map struct). The old code stopped at the
+    // FIRST match, so the Paradise machine kept the stock cherry placeholder identity (vending_marathon =
+    // Stamin-Up's name) and read as STAMIN-UP. Re-point ALL of them to vending_electriccherry + force the PhD
+    // (p7_zm_vending_nuke) model so the duplicate can't be left on Stamin-Up's identity/model.
+    fixed = 0;
     for ( i = 0; i < 60; i++ )
     {
         a_triggers = GetEntArray( "zombie_vending", "targetname" );
         for ( j = 0; j < a_triggers.size; j++ )
         {
-            if ( isdefined( a_triggers[ j ].script_noteworthy )
-                 && a_triggers[ j ].script_noteworthy == PERK_ELECTRIC_CHERRY )
+            t_use = a_triggers[ j ];
+            if ( !isdefined( t_use.script_noteworthy ) || t_use.script_noteworthy != PERK_ELECTRIC_CHERRY )
+                continue;
+            t_use.target = "vending_electriccherry";
+            if ( isdefined( t_use.machine ) )
             {
-                t_use = a_triggers[ j ];
-                break;
+                t_use.machine.targetname = "vending_electriccherry";
+                t_use.machine setmodel( "p7_zm_vending_nuke" );   // force the PhD (nuke) model on EVERY PhD machine (Lab + Paradise)
             }
+            fixed++;
         }
-        if ( isdefined( t_use ) ) break;
+        if ( fixed > 0 ) break;
         wait 0.5;
     }
 
-    if ( !isdefined( t_use ) )
+    if ( fixed == 0 )
     {
         acc_utility::log( "phd flopper: no vending trigger found, machine identity unfixed" );
         return;
-    }
-
-    t_use.target = "vending_electriccherry";
-    if ( isdefined( t_use.machine ) )
-    {
-        t_use.machine.targetname = "vending_electriccherry";
     }
 
     level notify( "specialty_staminup" + PERK_END_POWER_THREAD );

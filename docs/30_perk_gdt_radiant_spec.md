@@ -82,7 +82,7 @@ recoil **reduction** off the 2.5× baseline (docs/perk_abilities §7): **−35% 
 Mega.** So it's **two twins per gun** via the **variant-swap** pattern:
 
 1. APE → duplicate each affected (IMPORTED) gun to **two** twins and **SCALE** the recoil
-   fields (do NOT zero): `<weapon>_acc_recoil25` = ×0.75, `<weapon>_acc_recoil50` = ×0.50.
+   fields (do NOT zero): `<weapon>_acc_recoil50` = ×0.50 (Mega Deadshot ONLY; the base `_acc_recoil25` tier was DROPPED 2026-06-16 — base Deadshot has no recoil twin).
    Fields: `hipGunKickPitch/Yaw Min/Max`, `hipGunKickAccel/SpeedMax/StaticDecay/SpeedDecay`,
    the `adsGunKick*` mirror, `hipViewKickPitch/Yaw Min/Max` + `adsViewKick*`. (Field names
    corrected 2026-06-14 — bare `gunKick*` was wrong; recoil keys carry `hip`/`ads` prefixes.
@@ -91,17 +91,17 @@ Mega.** So it's **two twins per gun** via the **variant-swap** pattern:
 2. Register the twin names in the `.zone` (`weaponfull,<name>`) + `build_available_twins()`;
    rebuild. Bake the `_up` PaP twins too.
 3. GSC — **DONE** (`_acc_weapon_variants.gsc`): the reconcile loop `GiveWeapon`s the
-   `_acc_recoil25` twin while base Deadshot is held and `_acc_recoil50` while Mega is held,
+   `_acc_recoil50` twin while Mega Deadshot is held (base Deadshot has NO recoil twin since 2026-06-16),
    restoring the base on loss, carrying clip/reserve across (PaP handled by keeping the `_up`
    stem). It's the same override-swap framework `_acc_weapon_abilities.gsc` Stabilizer now
    drives (`apply_timed_variant`).
-- **Lighter scope:** bake only the `_acc_recoil50` (Mega) twins — base Deadshot then keeps
-  just its +1.4 headshot bonus + ADS-snap (the framework no-ops the −25% with no `recoil25` twin).
+- **ADOPTED (2026-06-16):** only the `_acc_recoil50` (Mega) twins are baked — base Deadshot keeps
+  just its +1.3 headshot bonus + ADS-snap (no base recoil twin; base recoil reduction was dropped).
 
-### Double Tap 1.0 — Gun Slinger +50% fire rate + −75% swap (weapon-variant swap)
+### Double Tap 2.0 — Gun Slinger +45% fire rate + −50% swap (weapon-variant swap)
 
 > **✅ BUILT + AUTOMATED (2026-06-14).** Done via the `fastfire` weapon-variant twin —
-> `fireTime ×0.667` (+50% RoF) **and** raise/drop times `×0.25` (−75% swap), bundled since
+> `fireTime ×0.69` (+45% RoF) **and** raise/drop times `×0.5` (−50% swap), bundled since
 > both gate on the Double-Tap Mega flag. Generated headlessly by
 > `tools/apply_recoil_overhaul.js` into `source_data/acc_weapon_variants.gdt`, wired in the
 > zone (`weaponfull,*_acc_fastfire*`) + `build_available_twins()` +
@@ -139,7 +139,7 @@ Mega.** So it's **two twins per gun** via the **variant-swap** pattern:
 > - **Faster perk-drink — CUT.** Shared map-wide anim, played before you own the perk, so
 >   no per-perk lever exists. Removed from Speed Cola's card (docs/perk_abilities §3).
 > - **Faster weapon-swap — moved to Double Tap's Gun Slinger** (the `fastfire` twin's
->   raise/drop ×0.25); it is **not** a Speed Cola effect.
+>   raise/drop ×0.5, −50%); it is **not** a Speed Cola effect.
 >
 > Base **+50% reload** + faster barrier repair remain free from the stock specialty.
 > Remaining: a Launcher Compile + in-game confirm of the reload feel (tune the `RELOAD`

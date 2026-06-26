@@ -36,7 +36,10 @@ function init()
     acc_utility::log( "health_bars: init" );
     level thread player_bars_loop();
     level thread boss_bar_listener();
-    level thread zombie_wallhack_loop();
+    // Through-walls zombie waypoints are a DEV/QA aid only - gate on the one dev switch so a ship
+    // build never shows them (was hardcoded-on; user 2026-06-22, one-flag migration).
+    if ( IS_TRUE( level.acc_dev ) )
+        level thread zombie_wallhack_loop();
 }
 
 // ---------------------------------------------------------------------------
@@ -76,55 +79,84 @@ function ensure_player_bar( p )
     p.acc_hp_label.hidewheninmenu = true;
     p.acc_hp_label SetText( "^7HEALTH" );
 
-    p.acc_hp_bar = p hud::createBar( ( 0.2, 0.85, 0.25 ), ACC_PLAYER_BAR_W, ACC_PLAYER_BAR_H );
+    make_player_bar( p, bar_width_for_hp( player_maxhp( p ) ) );
+
+    // HP NUMERIC READOUT REMOVED (docs/50 D1, user 2026-06-22): the "current / max" text leaked the
+    // Juggernog magnitude as a NUMBER. The bar now conveys the same thing VISUALLY (user 2026-06-24): its
+    // WIDTH scales with max HP and its GREEN SHADE deepens with the Jug tier (see make_player_bar / hp_bar_color).
+}
+
+// Player max HP (Jug etc. update p.maxhealth; default 100 before it's set).
+function player_maxhp( p )
+{
+    if ( !isdefined( p.maxhealth ) || p.maxhealth <= 0 ) return 100;
+    return p.maxhealth;
+}
+
+// Bar WIDTH from max HP (user 2026-06-24): 1 px / HP by default -> no-Jug 100 / Jug 250 / Mega-Jug 300,
+// so buying Jug visibly WIDENS the bar. Floored at 60, capped (acc_hp_bar_max_w, default 360) so a stacked
+// max-health item can't run it off-screen. Live dvars acc_hp_bar_px_per_hp / acc_hp_bar_max_w.
+function bar_width_for_hp( maxhp )
+{
+    w = int( maxhp * getdvarfloat( "acc_hp_bar_px_per_hp", 1.0 ) );
+    if ( w < 60 ) w = 60;
+    cap = getdvarint( "acc_hp_bar_max_w", 360 );
+    if ( w > cap ) w = cap;
+    return w;
+}
+
+// (Re)create the player HP bar at width w. createBar BAKES the width into the bg + fill, so a max-HP change
+// = a rebuild (rare: only on a Jug/Mega buy, a max-health item, or perk loss on death - NOT every poll).
+function make_player_bar( p, w )
+{
+    if ( isdefined( p.acc_hp_bar ) )
+    {
+        if ( isdefined( p.acc_hp_bar.bar ) ) p.acc_hp_bar.bar Destroy();
+        p.acc_hp_bar Destroy();
+    }
+    p.acc_hp_bar = p hud::createBar( ( 0.25, 0.90, 0.30 ), w, ACC_PLAYER_BAR_H );
     p.acc_hp_bar hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 32 );
     p.acc_hp_bar.alpha = 0.85;
     p.acc_hp_bar.hidewheninmenu = true;
-
-    // Numeric "current / max" readout just right of the bar (recolored to match
-    // the bar in update_player_bar so a low value reads red at a glance).
-    p.acc_hp_num = p hud::createFontString( "default", 1.0 );
-    p.acc_hp_num hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16 + ACC_PLAYER_BAR_W + 8, 30 );
-    p.acc_hp_num.alignX = "left";
-    p.acc_hp_num.alignY = "top";
-    p.acc_hp_num.color = ( 1, 1, 1 );
-    p.acc_hp_num.alpha = 0.95;
-    p.acc_hp_num.hidewheninmenu = true;
+    p.acc_hp_bar_w = w;
 }
 
 function update_player_bar( p )
 {
     if ( !isdefined( p.acc_hp_bar ) ) return;
 
-    maxhp = p.maxhealth; // BO3 player max-HP field (Jug etc. update it)
-    if ( !isdefined( maxhp ) || maxhp <= 0 ) maxhp = 100;
+    maxhp = player_maxhp( p );
+
+    // WIDTH scales with MAX health (user 2026-06-24): a Jug / Mega-Jug buy (or a max-health item) visibly
+    // WIDENS the bar so the extra health is readable at a glance. createBar bakes the width, so REBUILD only
+    // when the target width changes (a perk/max-health change), never per poll.
+    want_w = bar_width_for_hp( maxhp );
+    if ( !isdefined( p.acc_hp_bar_w ) || p.acc_hp_bar_w != want_w )
+        make_player_bar( p, want_w );
+
     frac = p.health / maxhp;
     if ( frac < 0 ) frac = 0;
     if ( frac > 1 ) frac = 1;
 
     // Smooth: SLIDE the fill to the new health instead of snapping (was hud::updateBar).
     acc_set_bar_smooth( p.acc_hp_bar, frac, 0.25 );
-    // createBar returns the BG; the colored fill is .bar - recolor THAT.
+    // createBar returns the BG; the colored fill is .bar - recolor THAT (by Jug tier).
     if ( isdefined( p.acc_hp_bar.bar ) )
-        p.acc_hp_bar.bar.color = hp_color( frac );
-
-    // Numeric readout: clamp current to [0, max] so a downed/over-heal frame
-    // never shows a negative or > max value. SetText takes raw strings.
-    if ( isdefined( p.acc_hp_num ) )
-    {
-        hp = ( isdefined( p.health ) ? int( p.health ) : 0 );
-        if ( hp < 0 ) hp = 0;
-        if ( hp > int( maxhp ) ) hp = int( maxhp );
-        p.acc_hp_num SetText( hp + " / " + int( maxhp ) );
-        p.acc_hp_num.color = hp_color( frac );
-    }
+        p.acc_hp_bar.bar.color = hp_bar_color( p, frac );
 }
 
-function hp_color( frac )
+// Bar fill colour. GREEN SHADE by Juggernog tier (user 2026-06-24) so the bar SHOWS the perk benefit:
+// no Jug = bright green, Jug = darker green, Mega Jug = darkest green. A critical-HP RED override stays
+// (<=33% = one hit from down) so the death warning isn't lost. The Mega flag is read straight off the
+// player field (player.acc_mega_perks, owned by _acc_mega_bottles) to avoid a cross-module #using.
+function hp_bar_color( player, frac )
 {
-    if ( frac > 0.66 ) return ( 0.2, 0.85, 0.25 ); // green
-    if ( frac > 0.33 ) return ( 0.95, 0.8, 0.15 ); // amber
-    return ( 0.9, 0.12, 0.12 );                     // red - one hit from down
+    if ( frac <= 0.33 ) return ( 0.90, 0.12, 0.12 );                                 // critical - about to go down
+    if ( isdefined( player.acc_mega_perks ) && IS_TRUE( player.acc_mega_perks[ "specialty_armorvest" ] ) )
+        return ( 0.05, 0.30, 0.08 );                                                 // Mega Jug - darkest green
+    if ( player HasPerk( "specialty_armorvest" ) )
+        return ( 0.10, 0.52, 0.14 );                                                 // Jug - darker green
+    return ( 0.25, 0.90, 0.30 );                                                     // no Jug - bright green
 }
 
 // Smoothly SLIDE a stock createBar fill to `frac` over `dur` seconds instead of the instant
@@ -170,6 +202,11 @@ function boss_bar_listener()
     for ( ;; )
     {
         level waittill( "acc_boss_spawned", boss, name );
+        // PARADISE FINALE (user 2026-06-25): suppress the boss HUD for the whole onslaught - a Phantom spawns
+        // every minute and would spam boss bars/nameplates over the survival countdown. The gate is the level
+        // flag level.acc_paradise_onslaught (set by _acc_paradise::start_onslaught).
+        if ( IS_TRUE( level.acc_paradise_onslaught ) )
+            continue;
         if ( isdefined( boss ) )
             level thread boss_bar_track( boss, name );
     }
@@ -192,7 +229,10 @@ function boss_bar_track( boss, name )
     for ( i = 0; i < players.size; i++ )
         sets[ sets.size ] = make_boss_bar_set( players[ i ], boss, name );
 
-    while ( isdefined( boss ) && isalive( boss ) && isdefined( boss.health ) && boss.health > 0 )
+    // Also self-destroys the bar the instant the Paradise onslaught begins, so any boss bar already showing
+    // when the finale starts is cleared too (user 2026-06-25).
+    while ( isdefined( boss ) && isalive( boss ) && isdefined( boss.health ) && boss.health > 0
+            && !IS_TRUE( level.acc_paradise_onslaught ) )
     {
         frac = boss.health / boss.maxhealth;
         if ( frac < 0 ) frac = 0;

@@ -30,9 +30,16 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_cyberware;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
+#using scripts\zm\_zm_weapons;
+#using scripts\zm\_zm_score;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_map_randomizer;   // Paradise box: reuse the surface box pool/weights
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;       // Paradise PaP: standalone custom vendor (not a 2nd stock machine)
 
-// Altar base model (an interactive kiosk; stock t7 prop, xmodel-listed in the .zone).
+// Altar base model (a Cyber City interactive sign kiosk - corrupted-tech pedestal; stock t7_props, proven packable).
 #precache( "model", "p7_cai_sign_inteactive_kiosk" );
+#precache( "model", "p7_zm_der_magic_box" );   // Paradise Mystery Box mesh (stock; verified packed via the surface box, xmodel.csv)
 
 #namespace acc_glitch_altar;
 
@@ -62,23 +69,167 @@ function spawn_altars()
     // void/solid after Hall A + Chamber B were deleted today, so 4 of 5 interactables were
     // unreachable (see memory data-shard-trench-economy-audit). All 5 now sit on real floor.
 
-    // --- SOURCE: Data Caches in the EXPOSED PIT - FLAT 1 shard each, once per round, first-come
-    //     (user 2026-06-19: scaled-back economy where 1 shard matters). Re-arm each round. Spread
+    // --- SOURCE: Data Caches in the EXPOSED PIT - FLAT 3 shards each, once per round, first-come
+    //     (user 2026-06-23: 1->2; user 2026-06-25: 2->3, faster faucet). Re-arm each round. Spread
     //     across the open pit floor, clear of the side stairs.
-    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 1 ) ); // pit west
-    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 1 ) ); // pit east
+    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 3 ) ); // pit west (user 2026-06-25: 2->3)
+    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 3 ) ); // pit east (user 2026-06-25: 2->3)
 
-    // --- SINKS: the Foundry, inside the enclosed room. Cyberware tree REMOVED (user 2026-06-19) - the
-    //     weapon Overclock terminal is now THE upgrade ("Cyberware Weapon Overclock"). Altar matches its
-    //     docs/45 §3 anchor; the terminal moves to the §3 Stalls room when that geometry lands.
-    spawn_altar_at( ( 90, 1500, -240 ) );                           // gamble, room (right side; clears the terminal)
-    acc_overclocks::spawn_terminal_at( ( -120, 1450, -240 ), 0 );   // Cyberware Weapon Overclock, left (r64 fully inside the room; → Stalls -500,1500)
+    // --- DESCENT SINKS (user 2026-06-24): the two big shard sinks now REWARD descending the abyss - you
+    //     must go DEEPER to spend. The Exo Suit (the thing that lets you walk deeper) stays up top in the
+    //     Foundry (moved there - see _acc_exo.gsc), so the loop is: earn shards in the pit -> buy Exo up top
+    //     -> descend -> Overclock on L2 -> descend more -> gamble at the Altar on L3. Both sit on the WEST
+    //     floor chunk (x[-781,-112], a solid full-depth slab on EVERY layer per gen_abyss_layer.js) at the
+    //     layer mid (y=1948) - clear of the alternating center stairwells (wells are x[-112,112]) and of
+    //     where the stairs from above land (they step off east at x≈+112).
+    //       L2 (z=-480): Cyberware Weapon Overclock terminal.
+    //       L3 (z=-720): Glitch Altar gamble.
+    //     NOTE: L2..L5 bake PITCH BLACK (gen_abyss_layer.js lightsForLayer=0). The Altar self-glows (its
+    //     floating core orb) so it reads as a beacon in the dark; the OC kiosk does NOT - if it's too hard
+    //     to find in-game, add a bake-gated light near it (geometry change) rather than dimming the abyss.
+    spawn_altar_at( ( -400, 1948, -720 ) );                         // Glitch Altar -> abyss L3 (was Foundry 90,1500,-240)
+    acc_overclocks::spawn_terminal_at( ( -400, 1948, -480 ), 0 );   // Cyberware Weapon Overclock -> abyss L2 (was Foundry -120,1450,-240)
 
     // --- MARQUEE SINK: Neural Expansion Bay in the EXPOSED PIT (the most powerful upgrade demands the
     //     most danger). Buy +1 perk slot with shards (base 4, up to 9). Pit floor is guaranteed; placed
-    //     WEST of center (x=-250) so it can't pinch the Foundry-door exit path (door x[-96,96] at y~1723)
-    //     and clears the W cache (-360,1950)/riser/stairs. (Needs a docs/45 §3 anchor row - coordinate.)
+    //     WEST of center (x=-250); the Foundry door now exits on the EAST (x[112,192] at y~1723 - user
+    //     2026-06-24, moved off the abyss-L2 well door), so it can't pinch this vendor at all. Also clears
+    //     the W cache (-360,1950)/riser/stairs. (Needs a docs/45 §3 anchor row - coordinate.)
     acc_perks::spawn_perk_slot_vendor_at( ( -250, 1820, -240 ), 0 );
+
+    // PARADISE (the open-air plaza hub below the abyss - gen_descent_hub.js) gets its own FULL set of the
+    // script-spawned amenities (user 2026-06-25: "everything a player needs spread throughout"). Independent
+    // DUPLICATES of the abyss/Foundry stations (each helper is duplicable - research 2026-06-24).
+    spawn_paradise();
+}
+
+// Populate PARADISE with the GSC-spawned amenities. (Stock perks + a 2nd Pack-a-Punch live as .map entities,
+// added separately via tools/gen_paradise_props.js.) Plaza interior x[-1000,1000] y[-2200,-600], floor z=-1200;
+// entrance at north-center (y=-600). Spread the stations across the room. All sit deep in Paradise, reachable
+// only after the soul-box descent + the communal Paradise gate, so they just wait there until you arrive.
+function spawn_paradise()
+{
+    pz = -1200;   // Paradise floor top. Perk row is at y=-820 (north); 2nd PaP at (0,-1700). Spread the
+                  // kiosks to the mid/south SIDES and put the bench (left) + box (right) along the south.
+
+    spawn_altar_at( ( -850, -1350, pz ) );                           // Glitch Altar (west-mid)
+    acc_overclocks::spawn_terminal_at( ( 850, -1350, pz ), 0 );      // Cyberware Weapon Overclock (east-mid)
+    acc_exo::spawn_station_at( ( -850, -1950, pz ), 0 );             // Exo Suit station (west-south)
+    acc_perks::spawn_perk_slot_vendor_at( ( 850, -1950, pz ), 0 );   // Neural Expansion Bay / perk slots (east-south)
+
+    // Boss-item Implant Bench: 2 pads = the 2 implant slots, side by side along X, south-LEFT of center.
+    sep = getdvarint( "acc_bench_pad_sep", 80 );
+    acc_boss_items::spawn_bench_pad( ( -550 - sep, -2080, pz ), 0 );
+    acc_boss_items::spawn_bench_pad( ( -550 + sep, -2080, pz ), 1 );
+
+    spawn_paradise_box_at( ( 550, -2080, pz ) );   // permanent Mystery Box (south-right, balances the bench)
+
+    // 2nd Pack-a-Punch (center-south, the design's intended PaP spot). STANDALONE custom vendor -
+    // NOT a 2nd stock "zm_pack_a_punch" machine (that fatals stock's singleton GetEnt at load and was
+    // what broke the surface PaP before). Reuses the SAME player-scoped tier path, so tier never resets.
+    acc_pap_levels::spawn_paradise_pap_at( ( 0, -1700, pz ), 0 );
+
+    acc_utility::log( "paradise: GSC amenities spawned (altar/overclock/exo/perk-slot/bench/box/pap)" );
+}
+
+// ---------------------------------------------------------------------------
+// PARADISE MYSTERY BOX - a PERMANENT, STATIONARY, INDEPENDENT box (user 2026-06-25).
+// NOT a stock _zm_magicbox chest: a pure GSC interactable (same idiom as spawn_altar_at). It NEVER
+// touches _zm_magicbox / level.chests / chest nodes / start_chest_name, so the surface roaming box is
+// untouched and the "malformed chest pair hides ALL boxes" gotcha is structurally impossible. Draws from
+// the SAME box pool via acc_map_randomizer::acc_box_weighted_pick + the live is_in_box flags. Cost dvar
+// acc_paradise_box_cost (default 950 = stock box).
+// ---------------------------------------------------------------------------
+
+function paradise_box_cost() { return getdvarint( "acc_paradise_box_cost", 950 ); }
+
+function spawn_paradise_box_at( origin )
+{
+    box = spawn( "script_model", origin );
+    box setmodel( "p7_zm_der_magic_box" );   // the iconic magic-box mesh (stock, packed - verified vs the surface box)
+
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 72, 100 );
+    t TriggerIgnoreTeam();          // REQUIRED for a script-spawned use trigger (stock _zm_perks.gsc:1523)
+    t UseTriggerRequireLookAt();
+    t SetCursorHint( "HINT_NOICON" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5PARADISE BOX^7 - random weapon  ^2[" + paradise_box_cost() + "]" );
+    t.acc_box_model = box;
+    t thread paradise_box_loop();
+
+    acc_utility::log( "paradise_box: spawned at " + origin + " (cost " + paradise_box_cost() + ")" );
+}
+
+function paradise_box_loop()   // self = the box trigger
+{
+    self endon( "death" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        self waittill( "trigger", player );
+        if ( !isdefined( player ) || !zm_utility::is_player_valid( player ) ) continue;
+        if ( isdefined( self.acc_spinning ) && self.acc_spinning ) { wait 0.1; continue; }
+
+        cost = paradise_box_cost();
+        if ( !( player zm_score::can_player_purchase( cost ) ) )
+        {
+            player acc_utility::hud_msg( "^5PARADISE BOX^7 - needs " + cost + " points" );
+            wait 0.4;
+            continue;
+        }
+
+        wpn = paradise_box_pick_weapon( player );
+        if ( !isdefined( wpn ) )
+        {
+            player acc_utility::hud_msg( "^5PARADISE BOX^7 - no weapon available" );
+            wait 0.4;
+            continue;
+        }
+
+        player zm_score::minus_to_player_score( cost );
+        self.acc_spinning = true;
+        wait 0.75;   // brief "spin" beat so the charge + give don't feel instant
+
+        // GIVE like the box does. magic_box=false (3rd arg) so we do NOT fire the stock box VO /
+        // "user_grabbed_weapon" notify that _acc_pap_levels + _acc_boss_items listen on.
+        player zm_weapons::weapon_give( wpn, false, false );
+        player PlaySound( "zmb_cha_ching" );
+
+        acc_utility::log( "paradise_box: gave " + wpn.name + " to " + player.name );
+        self.acc_spinning = false;
+        wait 0.3;
+    }
+}
+
+// Random weapon from OUR box pool (is_in_box, not a fixed-odds tactical, not already owned), via the
+// surface box's weighted pick. Returns a weapon object or undefined (empty pool only).
+function paradise_box_pick_weapon( player )
+{
+    if ( !isdefined( level.zombie_weapons ) ) return undefined;
+
+    eligible = [];
+    keys = getarraykeys( level.zombie_weapons );
+    for ( i = 0; i < keys.size; i++ )
+    {
+        w = keys[ i ];
+        if ( ( isdefined( level.zombie_weapons[ w ].is_in_box ) && level.zombie_weapons[ w ].is_in_box )
+             && !acc_map_randomizer::is_box_tactical( w )
+             && !acc_map_randomizer::player_owns_box_weapon( player, w ) )
+            eligible[ eligible.size ] = w;
+    }
+    if ( eligible.size == 0 )   // owns every gun: fall back to the full box-flagged set (stock parity)
+    {
+        for ( i = 0; i < keys.size; i++ )
+        {
+            w = keys[ i ];
+            if ( ( isdefined( level.zombie_weapons[ w ].is_in_box ) && level.zombie_weapons[ w ].is_in_box )
+                 && !acc_map_randomizer::is_box_tactical( w ) )
+                eligible[ eligible.size ] = w;
+        }
+    }
+    if ( eligible.size == 0 ) return undefined;
+
+    return acc_map_randomizer::acc_box_weighted_pick( eligible );
 }
 
 function spawn_altar_at( origin )
@@ -155,26 +306,28 @@ function altar_loop()    // self = the altar trigger
     }
 }
 
-// Weighted: ~72% boon / ~28% curse. Curses NEVER instant-down. The shard_jackpot only
-// partially refunds (net shard EV is NEGATIVE per spin - the altar is a sink, the boons
-// are the value), so it can't be farmed for shards.
+// Weighted: ~65% boon / ~35% curse (user 2026-06-24, "spice it up" - was 72/28; spicier both ways).
+// Curses NEVER instant-down. The shard_jackpot only partially refunds (net shard EV is NEGATIVE per
+// spin - the altar is a sink, the boons are the value), so it can't be farmed for shards.
 function resolve_gamble( player )   // self = the altar trigger
 {
-    // Weights sum to 100, so each weight == its % chance. Mega Win (the top prize: free perk +
-    // insta-kill) is the rare ~1% jackpot (user 2026-06-19); the freed weight went to the common
-    // boons so the boon/curse split stays ~72/28.
+    // Weights sum to 100, so each weight == its % chance. Riskier 65/35 split (user 2026-06-24): the
+    // marquee Mega Win (top prize: free perk + insta-kill) doubled 1->2% for a juicier top end, and the
+    // curse share grew 28->35 (mostly Surge - the most ACTION-y downside) so a spin bites more often.
+    // Free Perk trimmed 12->8 and the 4% moved into Shard Jackpot (11->15) - the altar leans more into
+    // refunding shards than handing out perks (user 2026-06-24).
     roll = acc_utility::acc_weighted_pick( array(
-        // ---- BOONS (72) ----
-        weighted( 18, "max_ammo" ),
-        weighted( 14, "insta_kill" ),
-        weighted( 14, "double_points" ),
-        weighted( 12, "random_perk" ),
-        weighted( 13, "shard_jackpot" ),
-        weighted(  1, "mega_win" ),       // ~1% jackpot - the single big win
-        // ---- CURSES (28) - never instant-down ----
-        weighted( 12, "surge" ),
-        weighted( 10, "shard_drain" ),
-        weighted(  6, "dud" )
+        // ---- BOONS (65) ----
+        weighted( 15, "max_ammo" ),
+        weighted( 13, "insta_kill" ),
+        weighted( 12, "double_points" ),
+        weighted(  8, "random_perk" ),
+        weighted( 15, "shard_jackpot" ),
+        weighted(  2, "mega_win" ),       // ~2% jackpot - the single big win (was 1%)
+        // ---- CURSES (35) - never instant-down ----
+        weighted( 16, "surge" ),
+        weighted( 11, "shard_drain" ),
+        weighted(  8, "dud" )
     ) );
 
     deliver_outcome( player, roll );
@@ -204,7 +357,7 @@ function deliver_outcome( player, outcome )
         player zm_perks::give_random_perk();
         break;
     case "shard_jackpot":
-        n = getdvarint( "acc_altar_jackpot", 3 );   // 7 -> 3 (scaled-back economy; still net-negative EV at cost 2)
+        n = getdvarint( "acc_altar_jackpot", 4 );   // 7 -> 3 -> 4 (+4 shards, user 2026-06-24; still net-negative EV vs the 15% odds at cost 2)
         acc_data_shards::grant_player( player, n, "altar_jackpot" );
         altar_msg( player,"^2GLITCH ALTAR: ^6JACKPOT ^7+" + n + " Data Shards!" );
         break;

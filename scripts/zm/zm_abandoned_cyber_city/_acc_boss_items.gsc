@@ -22,7 +22,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
-#define ACC_ITEM_SLOTS_PER_PLAYER 1     // single active "implanted" item (bench-enabled)
+#define ACC_ITEM_SLOTS_PER_PLAYER 2     // TWO active "implanted" items, one per bench pad (Slot 1 / Slot 2)
 #define ACC_ITEM_PICKUP_RADIUS 64
 #define ACC_ITEM_DROP_LIFETIME_SEC 60
 #define ACC_ITEM_DUPLICATE_SHARD_CONVERT 3
@@ -52,8 +52,10 @@
 #precache( "model", "p7_zm_power_up_carpenter" );          // 4 Repair Kit (runtime-loaded icon)
 #precache( "model", "wpn_t7_zmb_zod_rocket_shield_world" );// 5 Rocket Shield
 #precache( "model", "wpn_t7_zmb_monkey_bomb_world" );      // 6 Monkey Bomb
-#precache( "model", "zombie_pickup_perk_bottle" );         // 7 Phase Serum (cloak; runtime-loaded)
-#precache( "model", "p7_cai_work_table_metal_03_white" );  // Plaza Implant Bench prop (stock t7_props; packed via .zone xmodel line)
+#precache( "model", "zombie_pickup_perk_bottle" );         // 7 Phase Serum (cloak; runtime-loaded perk bottle, proven packable)
+#precache( "model", "p7_cai_work_table_metal_03_white" );  // Plaza Implant Bench prop (Cyber City white metal workbench - high-tech bench; packed via .zone xmodel line)
+#precache( "model", "zombietron_gold_brick" );             // 3 Loot Stash (gold brick = treasure/points)
+#precache( "model", "p7_boots_safehouse_01" );             // 8 Boots (safehouse boots - proven packable)
 
 // VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
 // it terminates the directive preamble; a #using after it is a compile
@@ -75,21 +77,27 @@ function init()
     level thread scale_octobombs_watch();   // shrink Li'l Arnie (octobomb) visuals (user 2026-06-18)
 }
 
-// Payroll Ledger points bonus: the multiplier is owned by _acc_points.gsc as
-// ACC_POINTS_LEDGER_MULT (GSC #defines are file-local; #using does not share
-// macros - only a .gsh pulled in via #insert does). _acc_points.gsc applies
-// the bonus by calling acc_boss_items::player_has_ledger(). If the value ever
-// needs to be shared, move it into a common .gsh and #insert it from both files.
+// Loot Stash / Payroll Ledger points bonus is owned by _acc_points.gsc (user 2026-06-23): a FLAT per-kill
+// add to the KILLER - +10 normal / +20 headshot kill (ACC_LEDGER_KILL_BONUS / _HEADSHOT_BONUS), doubled by
+// Double Points, plus a Nuke top-up to 500 (ACC_LEDGER_NUKE). _acc_points reads this item via
+// acc_boss_items::player_has_ledger(); this module just owns the equip flag (apply/remove_payroll_ledger).
 
 function on_player_connect( player )
 {
-    // acc_equipped_items now holds 0 or 1 ENABLED item ids (single active slot).
-    player.acc_equipped_items = [];
+    // acc_equipped_items is a FIXED 2-element array = the SINGLE source of truth for active
+    // implants. Index 0 = bench Pad 1 (Slot 1), index 1 = Pad 2 (Slot 2). An empty slot holds
+    // the sentinel "" (a defined value that is never a valid item id - avoids the undefined-in-
+    // array footgun). The old scalar acc_active_item is GONE: every "is this implanted" test now
+    // scans both slots via player_has_item(). "First two free" needs NO counter - a pad's slot is
+    // FREE while "" and costs ACC_BENCH_SWAP_COST to replace once full (docs/12).
+    player.acc_equipped_items = empty_slots();
     player.acc_item_state = [];
-    player.acc_carried_item     = undefined;  // picked up, NOT yet enabled (no buff)
-    player.acc_active_item      = undefined;  // currently implanted/enabled id
-    player.acc_bench_first_done = false;       // false => next bench enable is FREE
+    player.acc_carried_item   = undefined;  // picked up, NOT yet enabled (no buff)
+    player.acc_tactical_owner = undefined;  // id of the LAST-implanted grenade item (Li'l Arnie /
+                                            // Monkey Bomb). Only the owner regrants its tactical on
+                                            // spawn -> "last one wins" the single tactical slot (docs/12).
     player thread reapply_move_speed_on_spawn();
+    player thread watch_box_tactical_grab();   // box-rolled Monkey Bomb / Li'l Arnie finalizer (user 2026-06-24)
 }
 
 // VERIFIED(acc): zm_usermap giveCustomCharacters() runs SetMoveSpeedScale(1)
@@ -130,22 +138,15 @@ function build_item_pool()
         &remove_gas_tank
     );
 
-    pool[ pool.size ] = item(
-        2,
-        "lil_arnie",
-        "Li'l Arnie",
-        "p7_fxanim_zm_zod_octobomb_mod",
-        -1,                             // floor lift (was +24, user: 25 lower)
-        "hands",
-        &apply_arnie_octobomb,          // grants the Octobomb (Li'l Arnie) tactical
-        &remove_arnie_octobomb
-    );
+    // Li'l Arnie (#2) + Monkey Bomb (#6) REMOVED from the boss-item pool (user 2026-06-24): they are now rare
+    // MYSTERY-BOX rolls (1% / 0.5%) instead - see _acc_map_randomizer + watch_box_tactical_grab below. Their
+    // give_octobomb / give_monkey_bomb (and apply_/remove_) helpers stay for the box path. Pool back to 6.
 
     pool[ pool.size ] = item(
-        3,
+        2,
         "teddy_bear",
         "Loot Stash",
-        "zombietron_gold_brick",        // GOLD = money/points (user 2026-06-18: wanted money, not teddy bear/double-points). TESTING packability + .zone line.
+        "zombietron_gold_brick",        // gold brick = treasure/points
         18,                             // floor lift (tune live)
         "implant",
         &apply_payroll_ledger,          // +10% Points on kills
@@ -153,7 +154,7 @@ function build_item_pool()
     );
 
     pool[ pool.size ] = item(
-        4,
+        3,
         "repair_kit",
         "Repair Kit",
         "p7_zm_power_up_carpenter",      // kept: no zm-packable medkit model exists (p7_medical_surgical_tools_syringe = campaign, "is missing" in zm). Carpenter (repair powerup) fits "Repair Kit" + is proven. (user 2026-06-18)
@@ -164,7 +165,7 @@ function build_item_pool()
     );
 
     pool[ pool.size ] = item(
-        5,
+        4,
         "rocket_shield",
         "Rocket Shield",
         "wpn_t7_zmb_zod_rocket_shield_world",
@@ -175,21 +176,10 @@ function build_item_pool()
     );
 
     pool[ pool.size ] = item(
-        6,
-        "monkey_bomb",
-        "Monkey Bomb",
-        "wpn_t7_zmb_monkey_bomb_world",
-        14,                             // floor lift (was -11; user 2026-06-18: +25, it was sunk in the ground)
-        "head",
-        &apply_monkey_bomb,             // grants the Cymbal Monkey tactical
-        &remove_monkey_bomb
-    );
-
-    pool[ pool.size ] = item(
-        7,
+        5,
         "phase_serum",
         "Phase Serum",
-        "zombie_pickup_perk_bottle",
+        "zombie_pickup_perk_bottle",    // perk bottle = "serum" read (runtime-loaded, proven packable)
         10,                             // floor lift (small vial; tune live)
         "implant",
         &apply_arnie_cloak,             // CLOAK: zombies + Glitch Stalker can't see/target you
@@ -197,10 +187,10 @@ function build_item_pool()
     );
 
     pool[ pool.size ] = item(
-        8,
+        6,
         "boots",
         "Boots",
-        "p7_boots_safehouse_01",        // real boots prop (TESTING - needs .zone line; reverts to perk bottle if the build can't pack it)
+        "p7_boots_safehouse_01",        // safehouse boots (proven packable)
         4,
         "feet",
         &apply_boots,                   // +8% move overall + IMMUNE to the Bus Station trench slow (walk normal in the pit)
@@ -363,8 +353,9 @@ function watch_pickup()   // self = the hold-use trigger
 
         acc_utility::drops_debug( "item PICKUP-TRY player=" + player.name + " id=" + self.acc_item_id );
 
-        // Duplicate (already CARRIED or already ENABLED) -> convert to shards.
-        if ( ( isdefined( player.acc_active_item )  && player.acc_active_item  == item_struct.id ) ||
+        // Duplicate (already CARRIED or implanted in EITHER slot) -> convert to shards.
+        // player_has_item scans both slots, so this catches a copy of a Slot-2 implant too.
+        if ( player_has_item( player, item_struct.id ) ||
              ( isdefined( player.acc_carried_item ) && player.acc_carried_item == item_struct.id ) )
         {
             acc_data_shards::grant_player( player, ACC_ITEM_DUPLICATE_SHARD_CONVERT, "boss_item_duplicate" );
@@ -379,7 +370,7 @@ function watch_pickup()   // self = the hold-use trigger
         // grab it again. (An ENABLED/implanted item is not a loose carry, so it stays.)
         if ( isdefined( player.acc_carried_item )
              && player.acc_carried_item != item_struct.id
-             && !( isdefined( player.acc_active_item ) && player.acc_active_item == player.acc_carried_item ) )
+             && !player_has_item( player, player.acc_carried_item ) )
         {
             old = find_item( player.acc_carried_item );
             if ( isdefined( old ) )
@@ -423,43 +414,61 @@ function watch_lifetime()   // self = the hold-use trigger
 // Equip / unequip
 // ---------------------------------------------------------------------------
 
+// A fresh 2-slot inventory: both slots empty ("" sentinel, .size == 2). Using a defined sentinel
+// instead of undefined keeps the slot indices STABLE (a plain compacting array would shift Slot 2
+// down to index 0 when Slot 1 is cleared, breaking the pad->slot mapping).
+function empty_slots()
+{
+    a = [];
+    a[ 0 ] = "";
+    a[ 1 ] = "";
+    return a;
+}
+
+function slot_is_empty( player, slot )
+{
+    if ( !isdefined( player.acc_equipped_items ) ) player.acc_equipped_items = empty_slots();
+    return player.acc_equipped_items[ slot ] == "";
+}
+
 function player_has_item( player, item_id )
 {
     if ( !isdefined( player.acc_equipped_items ) ) return false;
     for ( i = 0; i < player.acc_equipped_items.size; i++ )
     {
-        if ( player.acc_equipped_items[ i ] == item_id ) return true;
+        if ( player.acc_equipped_items[ i ] != "" && player.acc_equipped_items[ i ] == item_id ) return true;
     }
     return false;
 }
 
-function equip_item( player, item_id )
+// Put item_id into a SPECIFIC slot (the pad the player used). If the slot is occupied, the old
+// occupant's on_unequip runs first (which also performs the tactical-grenade hand-off, docs/12).
+function equip_slot( player, slot, item_id )
 {
-    if ( player_has_item( player, item_id ) ) return;
-
+    if ( !isdefined( player.acc_equipped_items ) ) player.acc_equipped_items = empty_slots();
     item_struct = find_item( item_id );
     if ( !isdefined( item_struct ) ) return;
+    if ( player_has_item( player, item_id ) ) return;   // never the same item in both slots
 
-    player.acc_equipped_items[ player.acc_equipped_items.size ] = item_id;
+    if ( player.acc_equipped_items[ slot ] != "" )
+        unequip_slot( player, slot );                   // evict the current occupant first
+
+    player.acc_equipped_items[ slot ] = item_id;
     player [[ item_struct.on_equip ]]();
     player sync_items_hud();
 }
 
-function unequip_item( player, item_id )
+// Clear a SPECIFIC slot, running the leaving item's on_unequip. Slot is set to "" BEFORE the
+// on_unequip so a tactical hand-off (which reads the OTHER item's acc_item_* flag) sees the
+// correct surviving state.
+function unequip_slot( player, slot )
 {
+    if ( !isdefined( player.acc_equipped_items ) ) return;
+    item_id = player.acc_equipped_items[ slot ];
+    if ( !isdefined( item_id ) || item_id == "" ) return;
     item_struct = find_item( item_id );
-    if ( !isdefined( item_struct ) ) return;
-
-    new_arr = [];
-    for ( i = 0; i < player.acc_equipped_items.size; i++ )
-    {
-        if ( player.acc_equipped_items[ i ] != item_id )
-        {
-            new_arr[ new_arr.size ] = player.acc_equipped_items[ i ];
-        }
-    }
-    player.acc_equipped_items = new_arr;
-    player [[ item_struct.on_unequip ]]();
+    player.acc_equipped_items[ slot ] = "";
+    if ( isdefined( item_struct ) ) player [[ item_struct.on_unequip ]]();
     player sync_items_hud();
 }
 
@@ -469,43 +478,59 @@ function unequip_item( player, item_id )
 // equip / unequip. Lazily created on first call (player is alive at equip time).
 function sync_items_hud()   // self = player
 {
-    if ( !isdefined( self.acc_equipped_items ) ) self.acc_equipped_items = [];
+    if ( !isdefined( self.acc_equipped_items ) ) self.acc_equipped_items = empty_slots();
 
-    if ( !isdefined( self.acc_items_hud ) )
+    // Stacked, ONE PER LINE (user 2026-06-25: the old single concatenated line ran off the left edge
+    // into the CENTER of the screen where gameplay happens). Left HUD stack: HEALTH 16 / bar 32 /
+    // DATA SHARDS 50 / EXO SUIT 74 / MEGA BOTTLES 98 sit ABOVE; below them, one element per implant slot
+    // then the carry line on its OWN line: IMPLANT 1 = 146 / IMPLANT 2 = 168 / CARRYING = 190. (The GAS
+    // label/bar were pushed down to 214/232 in ensure_gas_bar to clear these stacked lines.)
+    if ( !isdefined( self.acc_items_hud_lines ) )
     {
-        self.acc_items_hud = self hud::createFontString( "default", 1.1 );
-        // Left HUD stack, spaced so no 1.3-scale line's descender touches the next:
-        // HEALTH 16 / bar 32 / DATA SHARDS 50 / MEGA BOTTLES 74 / BOSS-ITEM 100 /
-        // NITRO label 124 / NITRO bar 142 (audit 2026-06-18, all gaps positive).
-        self.acc_items_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 100 );
-        self.acc_items_hud.alignX = "left";
-        self.acc_items_hud.alignY = "top";
-        self.acc_items_hud.color = ( 0.80, 0.65, 1.0 ); // cyber-purple (vs shards' cyan)
-        self.acc_items_hud.hidewheninmenu = true;
+        self.acc_items_hud_lines = [];
+        for ( i = 0; i < ACC_ITEM_SLOTS_PER_PLAYER; i++ )
+        {
+            e = self hud::createFontString( "default", 1.1 );
+            e hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 146 + ( i * 22 ) );
+            e.alignX = "left";
+            e.alignY = "top";
+            e.color = ( 0.80, 0.65, 1.0 ); // cyber-purple (vs shards' cyan)
+            e.hidewheninmenu = true;
+            e.alpha = 0;
+            self.acc_items_hud_lines[ i ] = e;
+        }
+        self.acc_carry_hud = self hud::createFontString( "default", 1.1 );
+        self.acc_carry_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 146 + ( ACC_ITEM_SLOTS_PER_PLAYER * 22 ) );
+        self.acc_carry_hud.alignX = "left";
+        self.acc_carry_hud.alignY = "top";
+        self.acc_carry_hud.color = ( 1.0, 0.82, 0.25 ); // amber - the "carried but not yet enabled" line
+        self.acc_carry_hud.hidewheninmenu = true;
+        self.acc_carry_hud.alpha = 0;
     }
 
-    // Single active "implant" + the carried (not-yet-enabled) item, shown distinctly.
-    // NO early-return on size==0 here (that was the bug that hid the CARRYING line
-    // until you enabled something) - the `label == ""` check below hides it only
-    // when there is genuinely nothing to show.
-    label = "";
-    if ( self.acc_equipped_items.size > 0 )
+    // One IMPLANT line per slot, each on its OWN line. Empty slot -> that line hidden.
+    for ( i = 0; i < self.acc_equipped_items.size && i < self.acc_items_hud_lines.size; i++ )
     {
-        label = "^5IMPLANT ^7" + display_for( find_item( self.acc_equipped_items[ 0 ] ) );
+        e = self.acc_items_hud_lines[ i ];
+        if ( self.acc_equipped_items[ i ] == "" )
+        {
+            e.alpha = 0;
+            continue;
+        }
+        e SetText( "^5IMPLANT " + ( i + 1 ) + " ^7" + display_for( find_item( self.acc_equipped_items[ i ] ) ) );
+        e.alpha = 0.9;
     }
-    if ( isdefined( self.acc_carried_item ) &&
-         !( isdefined( self.acc_active_item ) && self.acc_active_item == self.acc_carried_item ) )
+
+    // CARRYING on its OWN line - shown only when the carried item is NOT already implanted in either slot.
+    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
     {
-        if ( label != "" ) label += "   ";
-        label += "^3CARRYING ^7" + display_for( find_item( self.acc_carried_item ) ) + " ^3(enable at bench)";
+        self.acc_carry_hud SetText( "^3CARRYING ^7" + display_for( find_item( self.acc_carried_item ) ) + " ^3(enable at bench)" );
+        self.acc_carry_hud.alpha = 0.9;
     }
-    if ( label == "" )
+    else
     {
-        self.acc_items_hud.alpha = 0;
-        return;
+        self.acc_carry_hud.alpha = 0;
     }
-    self.acc_items_hud SetText( label );
-    self.acc_items_hud.alpha = 0.9;
 }
 
 // ---------------------------------------------------------------------------
@@ -760,7 +785,7 @@ function ensure_gas_bar()    // self = player
     // HEALTH. DO NOT use a sub-1.0 fontscale here: 0.9 rendered HUGELY oversized in-game
     // (2026-06-18) - keep this >= 1.0.
     self.acc_gas_label = self hud::createFontString( "default", 1.0 );
-    self.acc_gas_label hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 124 );
+    self.acc_gas_label hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 214 );   // below the stacked IMPLANT/CARRYING lines (user 2026-06-25)
     self.acc_gas_label.alignX = "left";
     self.acc_gas_label.alignY = "top";
     self.acc_gas_label.color  = ( 0.30, 0.90, 1.0 );
@@ -769,7 +794,7 @@ function ensure_gas_bar()    // self = player
     self.acc_gas_label SetText( "^7Double-tap Sprint to activate" );
 
     self.acc_gas_bar = self hud::createBar( ( 0.30, 0.90, 1.0 ), ACC_GAS_BAR_W, ACC_GAS_BAR_H );
-    self.acc_gas_bar hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 142 );
+    self.acc_gas_bar hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 232 );   // below the moved gas label (user 2026-06-25)
     self.acc_gas_bar.alpha = 0.85;
     self.acc_gas_bar.hidewheninmenu = true;
 }
@@ -838,17 +863,34 @@ function remove_arnie_cloak()
 function apply_arnie_octobomb()    // self = player
 {
     self.acc_item_arnie = true;
+    self.acc_tactical_owner = "lil_arnie";   // last-implanted grenade wins the single tactical slot (docs/12)
     self give_octobomb();
     self thread octobomb_regrant_on_spawn();
     acc_utility::log( "equip: lil_arnie (octobomb tactical)" );
 }
 function remove_arnie_octobomb()
 {
+    // Did WE own the single tactical slot? If the co-resident Monkey Bomb did, removing us must NOT
+    // touch the tactical at all - re-granting the survivor here would take+regive the player's held
+    // Cymbal Monkey and reset its ammo to 4 (two-slot churn bug, docs/12). Capture before clearing.
+    was_owner = ( isdefined( self.acc_tactical_owner ) && self.acc_tactical_owner == "lil_arnie" );
     self.acc_item_arnie = false;
     self notify( "acc_arnie_removed" );
     w = getweapon( "octobomb" );
     if ( self HasWeapon( w ) ) self TakeWeapon( w );
-    self zm_utility::set_player_tactical_grenade( level.weaponNone );
+    if ( !was_owner ) { acc_utility::log( "unequip: lil_arnie (not tactical owner; left as-is)" ); return; }
+    // We owned the tactical: hand it to the OTHER grenade item if still implanted (last-one-wins
+    // graceful fallback), else clear to weaponNone.
+    if ( isdefined( self.acc_item_monkey ) && self.acc_item_monkey )
+    {
+        self.acc_tactical_owner = "monkey_bomb";
+        self give_monkey_bomb();
+    }
+    else
+    {
+        self.acc_tactical_owner = undefined;
+        self zm_utility::set_player_tactical_grenade( level.weaponNone );
+    }
     acc_utility::log( "unequip: lil_arnie" );
 }
 function give_octobomb()    // self = player
@@ -880,7 +922,10 @@ function octobomb_regrant_on_spawn()    // self = player
     {
         self waittill( "spawned_player" );
         wait( 0.1 );
-        if ( isdefined( self.acc_item_arnie ) && self.acc_item_arnie )
+        // Only the CURRENT tactical owner regrants - if Monkey Bomb out-implanted us, it owns the
+        // slot and this no-ops (prevents the two regrant threads from fighting on every spawn).
+        if ( isdefined( self.acc_item_arnie ) && self.acc_item_arnie
+             && isdefined( self.acc_tactical_owner ) && self.acc_tactical_owner == "lil_arnie" )
         {
             self give_octobomb();
         }
@@ -906,7 +951,7 @@ function scale_octobombs_watch()
             if ( isdefined( ob ) && isdefined( ob.anim_model ) && !isdefined( ob.anim_model.acc_arnie_scaled ) )
             {
                 ob.anim_model.acc_arnie_scaled = true;
-                ob.anim_model SetScale( getdvarfloat( "acc_arnie_scale", 0.33 ) );
+                ob.anim_model SetScale( getdvarfloat( "acc_arnie_scale", 1.0 ) );   // user 2026-06-24: back to NORMAL size (was 0.33 minimized). 1.0 = default model size (shrink off).
             }
         }
     }
@@ -985,17 +1030,31 @@ function rocket_shield_watch()    // self = player
 function apply_monkey_bomb()    // self = player
 {
     self.acc_item_monkey = true;
+    self.acc_tactical_owner = "monkey_bomb";   // last-implanted grenade wins the single tactical slot (docs/12)
     self give_monkey_bomb();
     self thread monkey_regrant_on_spawn();
     acc_utility::log( "equip: monkey_bomb (cymbal monkey tactical)" );
 }
 function remove_monkey_bomb()
 {
+    // Mirror of remove_arnie_octobomb: only touch the tactical slot if WE owned it (else the
+    // co-resident Li'l Arnie owns it and must be left alone - no needless re-grant/ammo reset).
+    was_owner = ( isdefined( self.acc_tactical_owner ) && self.acc_tactical_owner == "monkey_bomb" );
     self.acc_item_monkey = false;
     self notify( "acc_monkey_removed" );
     w = getweapon( "cymbal_monkey" );
     if ( self HasWeapon( w ) ) self TakeWeapon( w );
-    self zm_utility::set_player_tactical_grenade( level.weaponNone );
+    if ( !was_owner ) { acc_utility::log( "unequip: monkey_bomb (not tactical owner; left as-is)" ); return; }
+    if ( isdefined( self.acc_item_arnie ) && self.acc_item_arnie )
+    {
+        self.acc_tactical_owner = "lil_arnie";
+        self give_octobomb();
+    }
+    else
+    {
+        self.acc_tactical_owner = undefined;
+        self zm_utility::set_player_tactical_grenade( level.weaponNone );
+    }
     acc_utility::log( "unequip: monkey_bomb" );
 }
 function give_monkey_bomb()    // self = player
@@ -1023,10 +1082,35 @@ function monkey_regrant_on_spawn()    // self = player
     {
         self waittill( "spawned_player" );
         wait( 0.1 );
-        if ( isdefined( self.acc_item_monkey ) && self.acc_item_monkey )
+        // Only the CURRENT tactical owner regrants (mirror of octobomb_regrant_on_spawn).
+        if ( isdefined( self.acc_item_monkey ) && self.acc_item_monkey
+             && isdefined( self.acc_tactical_owner ) && self.acc_tactical_owner == "monkey_bomb" )
         {
             self give_monkey_bomb();
         }
+    }
+}
+
+// Box-rolled tactical finalizer (user 2026-06-24): Monkey Bomb + Li'l Arnie are no longer boss-item implants -
+// they are rare MYSTERY-BOX rolls (1% / 0.5%; _acc_map_randomizer::acc_box_only_weapon_keys sets
+// self.acc_box_pending_tactical and floats the tactical when the pre-roll hits). The stock box give
+// (zm_weapons::weapon_give) already dispatches the thrown-grenade callback, but we re-assert via give_* to
+// guarantee the ACTIVE tactical slot + ammo (4) are set exactly like the old implant. Fires on the stock
+// "user_grabbed_weapon" player notify (_zm_magicbox.gsc:809). One-shot: the flag is consumed on grab and the
+// box pre-roll clears it whenever a GUN is rolled, so a normal gun grab never triggers this.
+function watch_box_tactical_grab()    // self = player
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        self waittill( "user_grabbed_weapon" );
+        pend = self.acc_box_pending_tactical;
+        self.acc_box_pending_tactical = undefined;   // consume
+        if ( !isdefined( pend ) ) continue;
+        wait( 0.05 );                                // let stock weapon_give settle, then assert our setup
+        if ( pend == "monkey_bomb" )    self give_monkey_bomb();
+        else if ( pend == "lil_arnie" ) self give_octobomb();
     }
 }
 
@@ -1052,21 +1136,42 @@ function spawn_bench()
         return;
     }
 
-    org = s.origin + ( getdvarint( "acc_bench_off_x", 64 ), 0, getdvarint( "acc_bench_off_z", -35 ) ); // -35z: bench sat too high (user 2026-06-18)
+    // Place the pair AGAINST THE SOUTH WALL of the Plaza, behind the spawn points, instead of in
+    // the wide-open middle (user 2026-06-24). The south wall's interior face is at y=-540 (full
+    // width, no exits, no props - verified vs the baked .map perimeter brushes), so off_y=-350 from
+    // the spawn struct (y=-130.67) puts the pads at y=-480.67 == ~59u in front of the wall: clearly
+    // "against the wall" with clearance for the table model + the use-trigger. off_x=0 centers the
+    // row on the spawn X (-227.5). off_z keeps the floor height that was tuned 2026-06-18. All live
+    // dvars for in-game nudging.
+    base = s.origin + ( getdvarint( "acc_bench_off_x", 0 ), getdvarint( "acc_bench_off_y", -350 ), getdvarint( "acc_bench_off_z", -35 ) );
+    // TWO bench pads = the two implant slots (user 2026-06-23, docs/12). The player picks WHICH slot
+    // to fill/replace by which pad they look at - no in-game menu needed (BO3 usermap GSC has none).
+    // Pads sit SIDE BY SIDE along X (a row parallel to the south wall) so both back up to the wall,
+    // far enough apart that their use-trigger volumes do NOT overlap (radius 40 each, 2*sep=160 apart
+    // > 80 diameter -> no ambiguous double-fire) and wide enough that the two table models can't
+    // overlap at any orientation. Live dvar for in-game tuning.
+    sep = getdvarint( "acc_bench_pad_sep", 80 );
+    spawn_bench_pad( base + ( -1 * sep, 0, 0 ), 0 );   // Slot 1 (left/west pad)
+    spawn_bench_pad( base + (      sep, 0, 0 ), 1 );   // Slot 2 (right/east pad)
+}
+function spawn_bench_pad( org, slot )   // slot = fixed target index (0 = Slot 1, 1 = Slot 2)
+{
     bench = spawn( "script_model", org );
-    bench setmodel( "p7_cai_work_table_metal_03_white" ); // Cyber City white metal workbench (stock t7_props; xmodel, line in .zone)
+    bench setmodel( "p7_cai_work_table_metal_03_white" ); // Implant Bench: Cyber City white metal workbench
 
-    t = spawn( "trigger_radius_use", org + ( 0, 0, 40 ), 0, 72, 80 );
+    t = spawn( "trigger_radius_use", org + ( 0, 0, 40 ), 0, getdvarint( "acc_bench_pad_radius", 40 ), 80 );
     t TriggerIgnoreTeam();
     t UseTriggerRequireLookAt();
     t SetCursorHint( "HINT_NOICON" );
-    t SetHintString( "Hold ^3[{+activate}]^7 to implant carried item ^7(first free, then " + ACC_BENCH_SWAP_COST + ")" );
-    acc_utility::log( "bench: spawned at " + org );
+    t SetHintString( "Hold ^3[{+activate}]^7 implant ^5Slot " + ( slot + 1 ) + "^7 (free if empty, else " + ACC_BENCH_SWAP_COST + ")" );
+    t.acc_bench_slot = slot;
+    acc_utility::log( "bench: pad Slot " + ( slot + 1 ) + " spawned at " + org );
     t thread bench_use_loop();
 }
-function bench_use_loop()    // self = the bench trigger
+function bench_use_loop()    // self = a bench pad trigger; self.acc_bench_slot = the slot it fills
 {
     level endon( "end_game" );
+    slot = self.acc_bench_slot;
     for ( ;; )
     {
         self waittill( "trigger", player );
@@ -1079,34 +1184,33 @@ function bench_use_loop()    // self = the bench trigger
             wait( 0.5 );
             continue;
         }
-        if ( isdefined( player.acc_active_item ) && player.acc_active_item == carried )
+        // Already implanted in EITHER slot -> nothing to do (don't let it re-charge / dup).
+        if ( player_has_item( player, carried ) )
         {
-            player iprintln( "Implant Bench: that item is already enabled" );
+            player iprintln( "Implant Bench: that item is already implanted" );
             wait( 0.5 );
             continue;
         }
 
-        is_first = !( isdefined( player.acc_bench_first_done ) && player.acc_bench_first_done );
-        if ( !is_first )
+        // FREE to fill an empty slot; ACC_BENCH_SWAP_COST to REPLACE this slot's current item.
+        // (So any empty slot is always free - the "first two free" rule, docs/12.)
+        is_free = slot_is_empty( player, slot );
+        if ( !is_free )
         {
             if ( !( player zm_score::can_player_purchase( ACC_BENCH_SWAP_COST ) ) )
             {
-                player iprintln( "Implant Bench: needs " + ACC_BENCH_SWAP_COST + " points to swap" );
+                player iprintln( "Implant Bench: needs " + ACC_BENCH_SWAP_COST + " points to replace Slot " + ( slot + 1 ) );
                 wait( 0.5 );
                 continue;
             }
             player zm_score::minus_to_player_score( ACC_BENCH_SWAP_COST );
         }
 
-        if ( isdefined( player.acc_active_item ) )
-        {
-            unequip_item( player, player.acc_active_item );   // runs the previous item's on_unequip
-        }
-        equip_item( player, carried );                        // runs the new item's on_equip
-        player.acc_active_item      = carried;
-        player.acc_bench_first_done = true;
-        player iprintln( ( is_first ? "^2Enabled (free): ^7" : "^2Implanted (-" + ACC_BENCH_SWAP_COST + "): ^7" ) + display_for( find_item( carried ) ) );
-        acc_utility::drops_debug( "bench ENABLE player=" + player.name + " id=" + carried + " first=" + is_first );
+        equip_slot( player, slot, carried );          // evicts the slot's old occupant (if any), then equips
+        player.acc_carried_item = undefined;          // carry consumed (no scalar acc_active_item anymore)
+        player PlaySound( "acc_item_implant" );        // implant stinger (docs/12; 48k wav at sound_assets\acc\fx\item_implant.wav)
+        player iprintln( ( is_free ? "^2Implanted (free): ^7" : "^2Replaced Slot " + ( slot + 1 ) + " (-" + ACC_BENCH_SWAP_COST + "): ^7" ) + display_for( find_item( carried ) ) );
+        acc_utility::drops_debug( "bench IMPLANT player=" + player.name + " slot=" + slot + " id=" + carried + " free=" + is_free );
         player sync_items_hud();
         wait( 0.5 );
     }

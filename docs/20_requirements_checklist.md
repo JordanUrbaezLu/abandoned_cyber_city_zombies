@@ -227,8 +227,8 @@ author in this repo today.
   - *Next:* Design + implement a r31+ spawn-pacing override (e.g., reduce stock spawn delay / raise concurrent AI limit).
 - [x] **coop-elite-hp-flat** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites scale +50% HP per extra player (flatter than regular zombies).
   - *Next:* Multiply elite promotion HP by (1 + 0.5 * (level.players.size - 1)) in promote_to_*.
-- [x] **coop-spawn-rate-30pct** `implemented` *(closed 2026-06-12 second ultracode pass)* — Zombie spawn rate scales +30% per extra player (not the stock +100%).
-  - *Next:* Rescale the stock per-player count inside acc_max_zombie_override to a 1 + 0.3*(players-1) factor (back out stock's player scaling first).
+- [x] **coop-spawn-rate-30pct** `base-game` *(reverted to stock 2026-06-24)* — Zombie spawn count now follows the **base game** (stock per-player scaling). The custom +30%/+50%-per-extra-player rescale was removed at the user's request ("follow how base game does it").
+  - *Done:* Removed acc_coop_max_zombie_override; coop_scaling no longer chains level.max_zombie_func.
 - [ ] **shards-hud** `phase4-blocked` — Shard count is visible to the player on the HUD.
   - *Next:* Author client-side .csc module + LUI widget bound to the 'acc_data_shards' toplayer clientfield (Phase 4).
 
@@ -567,7 +567,7 @@ author in this repo today.
   - *Next:* Add a weapon-vs-acc_is_boss x4 damage branch in _acc_damage, and in on_phase_transition check a 'charged pulse landed within the transition window' flag to skip the debuff call; staff weapon asset is a separate Phase 4 dependency.
 - [x] **coop-elite-hp-flat-50** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites scale at only +50% HP per extra player (flatter than the regular +100%).
   - *Next:* In each promote_* function, derive a solo baseline (divide out the stock per-player factor or compute from round formula) and apply (1 + 0.5*(level.players.size-1)) instead.
-- [x] **coop-spawn-rate-30** `implemented` *(closed 2026-06-12 second ultracode pass)* — Spawn rate increases +30% per extra player (instead of stock +100%).
+- [x] **coop-spawn-rate-30** `base-game` *(reverted to stock 2026-06-24)* — Spawn count follows the **base game** (stock per-player scaling); the custom per-extra-player rescale was removed.
   - *Next:* Extend acc_max_zombie_override (and/or the verified stock zombie_spawn_delay var) to replace stock per-player count scaling with a +30%/extra-player factor - requires verifying how stock max_zombie_func consumes player count in tmp/bo3_stock_ref/scripts/shared/ai/zombie_utility.gsc.
 - [ ] **shielded-visual-read** `phase4-blocked` — Shielded elite has a neon visor / riot-shield silhouette plus offscreen metallic clank audio.
   - *Next:* Phase 4/5: author or import shield prop model + visor material + clank alias, then attach in promote_to_shielded.
@@ -671,8 +671,7 @@ author in this repo today.
   - *Next:* Implement revive-time x0.6 (off base QR duration) and a laststand-watch thread granting +15% movescale to Savior owners in _acc_perks.gsc.
 - [ ] **mega-soh-expert** `stubbed` — Sleight of Hand Expert (Speed Cola Mega): reload becomes +65% (replacing +50%), plus +15% faster gun switch and +15% faster perk drink stacked on the map's base bonuses.
   - *Next:* After base Speed Cola QoL lands, add the Mega deltas (reload scalar 1.65, +15% switch, +15% drink) keyed on has_mega_perk('specialty_fastreload').
-- [ ] **mega-gun-slinger** `stubbed` — Gun Slinger (DT2 Mega): +50% fire rate and +6% total weapon damage (+3% over the map's base DT2 line).
-  - *Next:* Implement the Mega fire-rate scalar and bump the DT2 damage line to +6% total in _acc_damage when has_mega_perk('specialty_doubletap2').
+- [x] **mega-gun-slinger** `built` — Gun Slinger (DT2 Mega): **+45% fire rate AND −50% weapon-swap time** (≈2× faster swap) via the `fastfire` weapon-variant twin (`tools/apply_recoil_overhaul.js` TWIN_DIMS → `_acc_weapon_variants::axis_fire`; UI card `acc_hud.lua` [4]). The earlier +6% damage layer was **dropped** — DT 2.0 base = fire rate + extra-bullet (0.6× tempered) only.
 - [ ] **mega-the-flash** `stubbed` — The Flash (Stamin-Up Mega): longer sprint than base, +12% run speed, x2 walk speed, x4 crawl speed.
   - *Next:* Implement Mega Stamin movement layer (SetMoveSpeedScale variants per move mode) for has_mega_perk('specialty_staminup') owners in _acc_perks.gsc.
 - [ ] **mega-the-armory** `stubbed` — The Armory (Mule Kick Mega): +30% reserve ammo per weapon and flat +2 lethal / +2 tactical slots on top of stock counts.
@@ -697,7 +696,7 @@ author in this repo today.
   - *Next:* Implement drink-duration and weapon-swap-speed modifiers for specialty_fastreload owners in _acc_perks.gsc (resolve the TODO(acc-tune) stacking rule from docs/13_perks.md line 88).
 - [ ] **dt2-plus3-damage** `missing` — Base Double Tap 2.0 on this map = stock +33% fire rate plus a +3% flat weapon damage line applied in the single _acc_damage pipeline (design abstraction replacing stock double-bullet).
   - *Next:* Add a +3% (base) / +6% (Gun Slinger Mega) damage multiplier in _acc_damage::on_ai_damage when attacker HasPerk('specialty_doubletap2'), and verify against the stock perk's real damage hook on first Windows build.
-- [ ] **deadshot-x15-headshot** `missing` — Deadshot base adds +1.4 headshot bonus SUMMED with the map's global headshot bonus (regular & boss both +2.0, so headshot+Deadshot ≈ stock1.5 × (2.0+1.4) = ~5.1x; Mega replaces base with +1.8 → ~5.7x). Additive, not multiplicative (2026-06-14).
+- [ ] **deadshot-x15-headshot** `missing` — Deadshot base adds **+1.3** headshot bonus into the crit pool (American Sniper Mega replaces with **+1.5**); the map headshot temper (`locHead × 0.5` trash / `× 0.6` boss → ~×2.5/×3 on a locHead-5.0 gun) multiplies on top, the Deadshot bonus adds into the pool. Additive into the pool, not a separate multiplier (2026-06-14).
   - *Next:* Extend _acc_damage::on_ai_damage to add 1.4 (or 1.8 when acc_mega_bottles::has_mega_perk for Deadshot) into bonus_sum when attacker HasPerk('specialty_deadshot') and the hit is a headshot.
 - [ ] **widow-grenade-boosts** `missing` — Base Widow's Wine adds +50% frag damage / +25% frag radius and +50% EMP stun / +25% EMP radius on top of stock web behavior.
   - *Next:* Implement grenade damage/radius boosts for specialty_widowswine owners (hook grenade fire / actor damage MOD_GRENADE paths) in _acc_perks.gsc as listed in docs/13_perks.md Implementation Status.
@@ -841,10 +840,9 @@ author in this repo today.
   - *Next:* Add a player-count HP scaler (e.g. multiply z.health/z.maxhealth after zombie_init_done via callback::on_ai_spawned, or chain level.zombie_vars health calc) implementing 1/2/3/4x.
 - [x] **hp-scale-elite-flat** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites (Shielded/Teleporter/EMP) get flatter HP scaling: 1.50x/2.00x/2.50x in 2p/3p/4p.
   - *Next:* In each promote_* function multiply maxhealth by 1.0/1.5/2.0/2.5 based on level.players.size.
-- [ ] **spawn-rate-130-160-190** `missing` — Regular zombie spawn rate scales 100%/130%/160%/190% for 1/2/3/4 players.
-  - *Next:* Extend acc_max_zombie_override to apply 1.0/1.3/1.6/1.9 by level.players.size (normalizing against stock's own per-player count scaling inside default_max_zombie_func).
-- [ ] **elite-rate-130-160-190** `missing` — Elite spawn rate scales 130%/160%/190% in 2p/3p/4p over the elite_quota_for_round() baseline (one extra elite per round past r11 at 2p).
-  - *Next:* Scale quota by 1.3/1.6/1.9 (int-ceil) in round_pressure_loop before spawn_elites_over_round.
+- [x] **spawn-rate-130-160-190** `base-game` *(reverted to stock 2026-06-24)* — Regular zombie spawn count follows the **base game** (stock per-player scaling); the custom 1/1.5/2/2.5 rescale was removed at the user's request.
+  - *Done:* coop_scaling no longer overrides level.max_zombie_func.
+- [x] **elite-rate-130-160-190** `n/a` *(elites are round-based, 2026-06-24)* — The riot-shield elite **count** is NOT scaled per player; `elite_quota_for_round()` is round-based (shield round every 4th round, count = round/2), identical solo & co-op. Elite **HP** still scales per player via `special_hp_mult`.
 - [ ] **revive-5s-base-2s-qr** `missing` — Revive hold is 5 seconds base, reduced to 2 seconds by Quick Revive.
   - *Next:* Set self.get_revive_time on each player (on connect) returning 5, or 2 when the reviver has Quick Revive.
 - [ ] **solo-qr-one-selfrevive** `missing` — In solo, Quick Revive grants exactly 1 self-revive per run; self-revive unavailable in co-op without purchase.

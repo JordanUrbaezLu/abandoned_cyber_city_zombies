@@ -171,11 +171,11 @@ There is **no per-player recoil field** (grep-proven). Each tier is a cloned wea
   −25% (the framework no-ops base Deadshot's recoil when no `recoil25` twin exists). Halves the
   APE work; base Deadshot then keeps only its +1.4 headshot bonus + ADS-snap (still distinct from Mega).
 
-## 5. Double Tap "Gun Slinger" — +50% fire rate + −75% swap  (variant-swap)
+## 5. Double Tap "Gun Slinger" — +45% fire rate + −50% swap  (variant-swap)
 
 > **✅ BUILT + AUTOMATED (2026-06-14).** No manual APE — `tools/apply_recoil_overhaul.js`
-> generates the `fastfire` twin per gun (base + `_up`): `fireTime`/`holdFireTime` ×0.667
-> (+50% RoF) **and** raise/drop times ×0.25 (−75% swap, bundled — both gate on the DT Mega
+> generates the `fastfire` twin per gun (base + `_up`): `fireTime`/`holdFireTime` ×0.69
+> (+45% RoF) **and** raise/drop times ×0.5 (−50% swap, bundled — both gate on the DT Mega
 > flag). Wired in the zone + `build_available_twins()` + `_acc_weapon_variants.gsc::axis_fire`.
 > The +6% damage alternative below was **dropped** (Double Tap 1.0 is rate-only). Remaining:
 > Launcher Compile + in-game feel confirm. The text below is kept as background.

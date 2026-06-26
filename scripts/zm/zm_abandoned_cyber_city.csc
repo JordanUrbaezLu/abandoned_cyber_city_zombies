@@ -65,6 +65,10 @@
 // while the Phantom is materialized (see _acc_boss_phantom.csc / .gsc).
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
 
+// [acc] Client half of the Avogadro electric boss (its "avogadro_fx" scriptmover clientfield +
+// the linger/tesla FX). Must match the entry .gsc #using or the clientfield registration mismatches.
+#using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
+
 function main()
 {
 	// [acc] Register our custom LUI HUD overlay with the client LUI VM before the

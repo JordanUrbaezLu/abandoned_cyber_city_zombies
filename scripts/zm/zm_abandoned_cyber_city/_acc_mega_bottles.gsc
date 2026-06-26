@@ -12,6 +12,7 @@
 #using scripts\shared\array_shared;
 #using scripts\shared\hud_util_shared;
 #using scripts\shared\util_shared;
+#using scripts\shared\callbacks_shared;   // callback::on_ai_spawned (suppress stock ww_grenade drop -> we own it)
 
 #insert scripts\shared\shared.gsh;
 
@@ -19,15 +20,15 @@
 #using scripts\zm\_zm_score;
 #using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_weapons;
+#using scripts\zm\_zm_spawner;     // register_zombie_death_event_callback (Mega Widow's spider-drop boost)
+#using scripts\zm\_zm_powerups;    // specific_powerup_drop( "ww_grenade", ... )
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
-// Spiderman Mega (Widow's): hold up to 6 web grenades, restock 4 each round
-// (base Widow restocks 2). The Armory Mega (Mule): -10% on every point purchase.
-#define ACC_SPIDERMAN_WEB_GRENADES   6
-#define ACC_SPIDERMAN_ROUND_RESTOCK  4
-#define ACC_WIDOW_BASE_ROUND_RESTOCK 2
+// (Spiderman's custom web-grenade POOL + 6-cap + 4/round restock + WEB GRENADES HUD were REMOVED 2026-06-24
+//  per user - Mega Widow's now uses STOCK web-grenade behavior; its remaining Mega effects are the one-hit
+//  melee and the boss-special immunity.) The Armory Mega (Mule): -10% on buys + per-round reserve refill.
 #define ACC_ARMORY_ROUND_REFILL 0.20   // Armory (Mule Kick Mega): +20% of each gun's reserve cap, refilled at round start (was 0.35, user 2026-06-21)
 
 #namespace acc_mega_bottles;
@@ -52,8 +53,66 @@ function init()
     level.perk_lost_func = &on_perk_lost;
 
     level thread mega_machine_watcher();
-    level thread widow_round_restock_watcher();
     level thread armory_round_refill_watcher();
+
+    // Widow's Wine spider-drop economy, fully OWNED by us (user 2026-06-26). We RETUNE both base and Mega drop
+    // rates - base goes BELOW stock (web 10 / gun 15 / knife 20) and Mega = base +10pp (web 20 / gun 25 / knife
+    // 30). A usermap can't lower the stock #define chances, so the spawn hook SUPPRESSES the stock ww_grenade
+    // drop per-zombie (sets b_widows_wine_no_powerup) and the death hook does the single replacement roll.
+    callback::on_ai_spawned( &mww_suppress_stock_spider_drop );
+    zm_spawner::register_zombie_death_event_callback( &mww_spider_drop_roll );
+}
+
+// --- Widow's Wine spider-drop economy (we OWN it; user 2026-06-26) ----------------------------------------
+// Stock drops the blue ww_grenade refill at hard-coded #define chances (15% web / 20% gun / 25% knife on a
+// webbed zombie kill, in _zm_perk_widows_wine.gsc) and a usermap can't lower those. To retune BOTH base AND
+// Mega - and especially to bring BASE *below* stock - we suppress the stock drop and roll it ourselves:
+//   * mww_suppress_stock_spider_drop (callback::on_ai_spawned) sets b_widows_wine_no_powerup on every zombie.
+//     That field is READ-ONLY in all of stock (only _zm_perk_widows_wine.gsc:313 reads it; nothing assigns
+//     it), so once set at spawn it sticks and stock's drop is cleanly disabled. (It's specific to the Widow's
+//     drop - distinct from the broad `no_powerups` field, which we deliberately do NOT touch.)
+//   * mww_spider_drop_roll (death callback) does the single replacement roll -> exact rates, no double-drops.
+// New rates: base web 10 / gun 15 / knife 20; Mega = base + acc_widow_mega_spider_add_pct (default 10) ->
+// web 20 / gun 25 / knife 30. All five values are live dvars.
+
+// self = a freshly spawned AI. Disable the stock ww_grenade auto-drop so our death roll is the only source.
+function mww_suppress_stock_spider_drop()
+{
+    if ( getdvarint( "acc_widow_spider_custom", 1 ) != 1 ) return;   // 0 = fall back to stock drops entirely
+    self.b_widows_wine_no_powerup = true;   // stock skips its ww_grenade drop for this zombie...
+    self.acc_ww_custom_drop = true;         // ...and our death roll owns it instead (paired flag, so a mid-game
+                                            // dvar flip only affects future spawns - never a half-suppressed zombie)
+}
+
+// self = the killed zombie; attacker = the killer. Single roll that replaces the stock ww_grenade drop.
+function mww_spider_drop_roll( attacker )
+{
+    if ( !IS_TRUE( self.acc_ww_custom_drop ) ) return;   // only zombies we suppressed stock for (custom on at spawn)
+    // Stock precondition: only a webbed (cocooned) or slowed zombie can drop a ww_grenade at all.
+    if ( !IS_TRUE( self.b_widows_wine_cocoon ) && !IS_TRUE( self.b_widows_wine_slow ) ) return;
+    if ( !isdefined( attacker ) || !isplayer( attacker ) ) return;
+
+    // The killer must hold Widow's (base OR Mega - has_active_mega_perk also covers the EMP-paused Mega case).
+    is_mega = has_active_mega_perk( attacker, "specialty_widowswine" );
+    if ( !is_mega && !( attacker HasPerk( "specialty_widowswine" ) ) ) return;
+
+    // Kill-type tier, same comparison stock uses (web-grenade kill / Widow's knife kill / else = gun).
+    dw = self.damageweapon;
+    if ( isdefined( dw ) && isdefined( level.w_widows_wine_grenade ) && dw == level.w_widows_wine_grenade )
+        chance = getdvarint( "acc_widow_spider_web_pct", 10 );
+    else if ( isdefined( dw ) &&
+              ( ( isdefined( level.w_widows_wine_knife )        && dw == level.w_widows_wine_knife ) ||
+                ( isdefined( level.w_widows_wine_bowie_knife )  && dw == level.w_widows_wine_bowie_knife ) ||
+                ( isdefined( level.w_widows_wine_sickle_knife ) && dw == level.w_widows_wine_sickle_knife ) ) )
+        chance = getdvarint( "acc_widow_spider_knife_pct", 20 );
+    else
+        chance = getdvarint( "acc_widow_spider_gun_pct", 15 );
+
+    // Mega "Spiderman" adds a flat +10 percentage points on every tier (web 20 / gun 25 / knife 30).
+    if ( is_mega ) chance += getdvarint( "acc_widow_mega_spider_add_pct", 10 );
+
+    if ( RandomFloat( 1.0 ) <= ( chance / 100.0 ) )
+        level thread zm_powerups::specific_powerup_drop( "ww_grenade", self.origin, undefined, undefined, undefined, attacker );
 }
 
 function on_player_connect( player )
@@ -65,12 +124,8 @@ function on_player_connect( player )
     player sync_bottle_count_to_client();
     player thread flash_respawn_watcher();
 
-    // Spiderman web-grenade virtual pool (6 usable throws): one lifetime watcher pair per
-    // player (endon disconnect) - the throw-spender + the init/cap/HUD poll. NOT re-threaded
-    // per spawn (would stack duplicate spenders).
-    player.acc_web_pool = 0;
-    player thread web_grenade_pool_watcher();
-    player thread web_grenade_manage_watcher();
+    // Perk-buy jingle plays AT PURCHASE on the MACHINE - see perk_purchase_jingle_watch().
+    player thread perk_purchase_jingle_watch();
 }
 
 // The Flash move-speed bonus is wiped on every (re)spawn: zm_usermap's
@@ -86,6 +141,8 @@ function flash_respawn_watcher()
         self waittill( "spawned_player" );
         self.acc_flash_speed = false;
         self.acc_mega_flopper_speed = false;
+        self.acc_mww_stance_speed = 1.0;
+        self.acc_mww_down_owner = false;   // fresh spawn = no down-ownership snapshot until the watcher re-captures it
         wait 0.25; // after the spawn-path speed reset
         if ( self HasPerk( "specialty_staminup" )
              && has_mega_perk( self, "specialty_staminup" ) )
@@ -98,6 +155,13 @@ function flash_respawn_watcher()
         {
             self apply_mega_flopper_speed();
         }
+        // Mega Widow's Wine low-stance mobility (crouch 2.6x / prone 10x / down 15x) - same respawn re-apply
+        // (SetMoveSpeedScale was reset to 1 on the spawn path; restart the stance watcher with fresh state).
+        if ( self HasPerk( "specialty_widowswine" )
+             && has_mega_perk( self, "specialty_widowswine" ) )
+        {
+            self apply_mww_stance_speed();
+        }
     }
 }
 
@@ -108,36 +172,8 @@ function flash_respawn_watcher()
 // holder: PERKS in _acc_perk_info::armory_perk_pricing, PaP tier-up in
 // _acc_pap_levels::acc_do_tier_up. (Box display/charge + PaP first-pack: TODO.)
 
-// Widow's Wine grenade round-restock: tops the virtual WEB-GRENADE POOL (not the clamped
-// clip) - base 2, Spiderman Mega 4 (docs/13). Restock = "ensure at least N", never reduces
-// a higher count. The pool (player.acc_web_pool) is the real reserve; acc_web_refill_clip
-// pushes it into the GDT-clamped clip. Runs for every Widow owner each round.
-function widow_round_restock_watcher()
-{
-    level endon( "end_game" );
-
-    for ( ;; )
-    {
-        level waittill( "acc_round_start" );
-        if ( !isdefined( level.w_widows_wine_grenade ) ) continue;
-
-        players = GetPlayers();
-        for ( i = 0; i < players.size; i++ )
-        {
-            p = players[ i ];
-            if ( !isdefined( p ) || !isplayer( p ) ) continue;
-            if ( !( p HasPerk( "specialty_widowswine" ) ) ) continue;
-            if ( !( p HasWeapon( level.w_widows_wine_grenade ) ) ) continue;
-
-            target = ( has_mega_perk( p, "specialty_widowswine" ) ? ACC_SPIDERMAN_ROUND_RESTOCK : ACC_WIDOW_BASE_ROUND_RESTOCK );
-            if ( !isdefined( p.acc_web_pool ) ) p.acc_web_pool = 0;
-            if ( p.acc_web_pool < target )
-                p.acc_web_pool = target;   // regen the POOL (4 Mega / 2 base), never reduce
-            p acc_web_refill_clip();
-            p sync_web_grenades_to_client();
-        }
-    }
-}
+// (Widow's web-grenade round-restock + virtual pool REMOVED 2026-06-24 per user - Mega Widow's uses STOCK
+// web-grenade behavior now. See the comment by ACC_ARMORY_ROUND_REFILL.)
 
 // ---------------------------------------------------------------------------
 // Boss drop entry point. Called from _acc_boss.gsc on every boss kill,
@@ -174,8 +210,13 @@ function grant_bottle( amount, source_tag )
     self.acc_mega_bottles += amount;
     self sync_bottle_count_to_client();
 
-    self iprintln( "+" + amount + " Empty Mega Bottle" +
-                   ( amount > 1 ? "s" : "" ) );
+    // Pickup UI (user 2026-06-24): a DEDICATED gold toast on slot 1 (the Data Shard / generic
+    // toast is slot 0), so a boss kill granting a bottle WHILE a shard drop is grabbed shows BOTH
+    // stacked instead of one overwriting the other. Gold matches the MEGA BOTTLES HUD counter.
+    self acc_utility::hud_msg_slot( "^3+" + amount + " Empty Mega Bottle" + ( amount > 1 ? "s" : "" ) + "^7",
+                                    1, ( 0.95, 0.78, 0.2 ) );
+    // Pickup sound: the user's glass-cling SFX (acc_bottle_pickup -> acc\fx\glass_cling.wav).
+    self PlaySound( "acc_bottle_pickup" );
 }
 
 function try_consume_bottle( player, amount )
@@ -240,7 +281,20 @@ function set_mega_perk( player, specialty_string )
     player iprintln( "Mega unlocked: " + mega_name );
     level notify( "acc_mega_perk_applied", player, specialty_string );
 
-    // Re-play the perk drink animation (the bottle is the Mega upgrade).
+    // A Mega drink plays the perk's FULL (non-sting) jingle LOOP + the stock bottle gulp (user 2026-06-22).
+    // The loop now emits 3D FROM THE PERK MACHINE - the EXACT same way a normal buy does
+    // (perk_purchase_jingle_watch: acc_find_perk_machine -> machine PlaySound, static-origin fallback) - so a
+    // Mega jingle stays at the machine instead of following the player (user 2026-06-24: was 2D on the buyer).
+    // The old acc_mega_drink heartbeat stinger was REMOVED. Loop aliases = the sting alias + "_loop".
+    sting = acc_perk_jingle_alias( specialty_string );          // acc_jingle_<perk>, or "" if unmapped
+    if ( sting != "" )
+    {
+        machine = acc_find_perk_machine( player, specialty_string );
+        if ( isdefined( machine ) )
+            machine PlaySound( sting + "_loop" );   // 3D, emanates from the vending machine the player Mega'd at
+        else
+            acc_utility::play_sound_at_origin( player.origin, sting + "_loop" );   // fallback: STATIC at the buy spot (= the machine), never the moving player
+    }
     player thread replay_perk_drink( specialty_string );
     // NOTE: the lower-left "MEGA <perk>" banner was REMOVED (user: not wanted).
     // The real ask is to glow the actual perk ICON, which the engine perk bar
@@ -521,22 +575,11 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_widowswine":
-        // Spiderman: 6 USABLE web grenades via a GSC VIRTUAL POOL. The web grenade is carried
-        // in the LETHAL CLIP, which the engine clamps to the grenade GDT carry cap (~2) - and a
-        // usermap can't raise that cap, so the old SetWeaponAmmoClip(...,6) fill never held
-        // (the docs/30 GDT raise is ABANDONED). player.acc_web_pool is the real reserve;
-        // web_grenade_pool_watcher spends it per throw + refills the clip, so the player throws
-        // up to 6. Mega -> raise the pool to 6; the custom "WEB GRENADES" HUD counter shows the
-        // true count. The 4/round restock is widow_round_restock_watcher.
-        if ( isdefined( level.w_widows_wine_grenade )
-             && player HasWeapon( level.w_widows_wine_grenade ) )
-        {
-            if ( !isdefined( player.acc_web_pool ) ) player.acc_web_pool = 0;
-            if ( player.acc_web_pool < ACC_SPIDERMAN_WEB_GRENADES )
-                player.acc_web_pool = ACC_SPIDERMAN_WEB_GRENADES;   // 6
-            player acc_web_refill_clip();
-            player sync_web_grenades_to_client();
-        }
+        // Spiderman: one-hit melee on regular zombies (_acc_damage) + immunity to boss specials
+        // (_acc_boss / _acc_elites) are applied elsewhere off the mega flag. LOW-STANCE MOBILITY
+        // (user 2026-06-26): crouch 2.6x / prone 10x / last-stand (down) 15x the normal speed of that stance,
+        // via a per-player stance watcher -> player.acc_mww_stance_speed -> recompute_move_speed.
+        player apply_mww_stance_speed();
         break;
 
     case "specialty_additionalprimaryweapon":
@@ -557,10 +600,11 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_doubletap2":
-        // Gun Slinger: +50% fire rate AND -75% weapon-swap via the "fastfire"
-        // weapon-variant twin (baked 2026-06-14, docs/30 §5). Poke the swap engine;
-        // axis_fire reads the Mega flag live. (Double Tap 1.0 is rate-only - the old
-        // +6% damage layer was removed from _acc_damage.)
+        // Gun Slinger: +45% fire rate AND -50% weapon-swap (~2x faster swap) via the
+        // "fastfire" weapon-variant twin (fireTime x0.69 + raise/drop x0.5, baked by
+        // tools/apply_recoil_overhaul.js TWIN_DIMS = the single source of truth). Poke the
+        // swap engine; axis_fire reads the Mega flag live. (Double Tap 2.0 base = fire rate
+        // + extra-bullet only; the old +6% damage layer was removed from _acc_damage.)
         acc_weapon_variants::request_reconcile( player );
         break;
 
@@ -582,6 +626,13 @@ function apply_mega_effects( player, specialty_string )
         player apply_mega_flopper_speed();
         break;
 
+    case "specialty_combat_efficiency":
+        // Electric Cherry Mega ("Power Surge") has NO instant on-acquire effect: its nova deltas (radius/targets/
+        // damage/cooldown) are read LIVE off the Mega flag in _acc_perk_electric_cherry::ec_nova, and the boss-
+        // special immunity is gated live in _acc_boss / _acc_elites. Explicit no-op so EC does NOT fall through to
+        // the misleading "pending implementation" log below.
+        break;
+
     default:
         acc_utility::log( "mega effect pending implementation: " + specialty_string );
         break;
@@ -597,7 +648,7 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
-// Mega Flopper (PhD Slider) = 1.35x SLIDE speed (user 2026-06-18, matches the Rocket Shield
+// Mega Flopper (PhD Slider) = 1.5x SLIDE speed (user 2026-06-22, was 1.35x; matches/stacks with the Rocket Shield
 // slide boost). Slide-GATED, not always-on: a per-player watcher sets acc_mega_flopper_speed
 // only while you're actually sliding (IsSliding, mirrors _acc_boss_items::rocket_shield_watch),
 // recomputing through acc_utility's single owner. Single-instance via the stop notify (no
@@ -636,16 +687,108 @@ function mega_flopper_slide_watch()    // self = player
         if ( now_slide != sliding )
         {
             sliding = now_slide;
-            self.acc_mega_flopper_speed = now_slide;   // 1.35x via recompute_move_speed
+            self.acc_mega_flopper_speed = now_slide;   // 1.5x via recompute_move_speed
             acc_utility::crash_log( self, "mega_flopper_slide_watch: slide " + ( now_slide ? "ON" : "off" ) );
             acc_utility::recompute_move_speed( self );
             if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
             {
-                if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.35 ) + ")" );
+                if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.5 ) + ")" );
                 else self iprintln( "^7PhD Slider: slide boost off" );
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Mega Widow's Wine - LOW-STANCE mobility (user 2026-06-25)
+//
+// A Mega-Widow's holder moves dramatically faster WHILE LOW: crouch 2.6x / prone 10x / last-stand (down) 15x
+// the normal speed of THAT stance (crouch retuned 2.2->2.6 user 2026-06-26). "Baseline is the speed for each stance" - so two
+// players in the SAME stance, the Mega-Widow's one moves N times faster (it MULTIPLIES the shared move scale,
+// it doesn't just add a fixed bonus). Standing = no bonus.
+//
+// MECHANISM (the only player move lever is the single overall SetMoveSpeedScale, which scales the CURRENT
+// stance's speed): a per-player watcher reads GetStance() + .laststand and stores the factor in
+// player.acc_mww_stance_speed; acc_utility::recompute_move_speed multiplies it in (after the base cap, so the
+// 2.6x/10x/15x survive - the final clamp acc_mww_speed_cap was raised to 16 to fit the 15x down). Mirrors
+// apply_mega_flopper_speed / mega_flopper_slide_watch. Single-instance via the stop notify (no stacking on
+// re-acquire / respawn re-apply); started on acquire AND each respawn.
+//
+// DOWN-OWNERSHIP (the user's "they lost the perk when they went down" ask, user 2026-06-25): going into last
+// stand makes the engine report Mega Widow's as LOST, so a live HasPerk check would kill the crawl speed the
+// instant you go down. Fix: the watcher SNAPSHOTS legit ownership every tick while UP into player
+// .acc_mww_down_owner, and mww_stance_factor's last-stand branch gates the 15x on THAT snapshot - so a downed
+// holder keeps the crawl speed through the whole bleed-out, no matter what HasPerk reports.
+//
+// NOTE (verify in-game): SetMoveSpeedScale reliably scales crouch/prone. The DOWN (last-stand crawl) 15x is
+// the uncertain one - if the engine doesn't apply the move scale to the laststand crawl, that part is a no-op
+// (there's no other GSC crawl-speed lever); crouch/prone are unaffected by that caveat.
+// ---------------------------------------------------------------------------
+
+function apply_mww_stance_speed()   // self = player
+{
+    self notify( "acc_mww_stance_watch_stop" );
+    self.acc_mww_stance_speed = 1.0;
+    self thread mww_stance_speed_watch();
+}
+
+function mww_stance_speed_watch()   // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_mww_stance_watch_stop" );
+
+    last = 1.0;
+    self.acc_mww_stance_speed = 1.0;
+    for ( ;; )
+    {
+        // OWNERSHIP SNAPSHOT for the DOWN case (user 2026-06-25): while UP (HasPerk reliable), record whether
+        // we LEGITIMATELY hold active Mega Widow's. mww_stance_factor's last-stand branch reads THIS snapshot,
+        // NOT HasPerk - because going into last stand makes the engine report the perk as "lost" (and a real
+        // bleed-out clears it), which would drop the crawl speed exactly when we want it. Only updated while
+        // UP, so the moment you go down it FREEZES at the last up-state value (= did you own it going down).
+        if ( !IS_TRUE( self.laststand ) )
+            self.acc_mww_down_owner = has_active_mega_perk( self, "specialty_widowswine" );
+
+        // Stop (and clear) only when the perk is GENUINELY gone - NOT merely while downed (a downed holder
+        // must still get the crawl speed). The laststand bypass keeps the watcher alive through a down; it
+        // ends only on a real loss while UP (then the respawn re-apply gate restarts it if you re-own it).
+        if ( !has_active_mega_perk( self, "specialty_widowswine" ) && !IS_TRUE( self.laststand ) )
+        {
+            self.acc_mww_down_owner = false;
+            if ( last != 1.0 )
+            {
+                self.acc_mww_stance_speed = 1.0;
+                acc_utility::recompute_move_speed( self );
+            }
+            return;
+        }
+
+        want = mww_stance_factor( self );
+        if ( want != last )
+        {
+            last = want;
+            self.acc_mww_stance_speed = want;
+            acc_utility::recompute_move_speed( self );
+        }
+        wait( 0.05 );
+    }
+}
+
+// The per-stance move-speed factor for a Mega-Widow's holder. All live-tunable.
+function mww_stance_factor( player )
+{
+    // DOWN (last stand) FIRST: gate the crawl speed on the OWNERSHIP SNAPSHOT (acc_mww_down_owner, captured
+    // by the watcher every tick while UP), NOT on HasPerk - you lose the perk the instant you go down, so a
+    // live perk check would always read false here and the crawl speed would never apply. The snapshot is the
+    // "did I legitimately own Mega Widow's at the moment I went down" marker (user 2026-06-25).
+    if ( IS_TRUE( player.laststand ) )
+        return ( IS_TRUE( player.acc_mww_down_owner ) ? getdvarfloat( "acc_mww_down_speed", 15.0 ) : 1.0 );
+    if ( !has_active_mega_perk( player, "specialty_widowswine" ) )
+        return 1.0;
+    stance = player GetStance();
+    if ( stance == "prone" )  return getdvarfloat( "acc_mww_prone_speed", 10.0 );
+    if ( stance == "crouch" ) return getdvarfloat( "acc_mww_crouch_speed", 2.6 );
+    return 1.0;   // standing = no bonus
 }
 
 // The Armory Mega (Mule Kick), reworked 2026-06-16: a SUSTAIN refill, NOT a capacity boost.
@@ -690,8 +833,8 @@ function armory_refill()
     }
 }
 
-// Round-start +20% reserve refill for every Armory (Mule Kick Mega) holder. Mirrors
-// widow_round_restock_watcher: wakes on the map's "acc_round_start" event.
+// Round-start +20% reserve refill for every Armory (Mule Kick Mega) holder. Wakes on the
+// map's "acc_round_start" event.
 function armory_round_refill_watcher()
 {
     level endon( "end_game" );
@@ -716,6 +859,11 @@ function armory_round_refill_watcher()
 
 function on_perk_bought( perk )
 {
+    // NOTE: the perk-buy JINGLE is NOT played here. perk_bought_func fires AFTER the drink
+    // (post weapon_change_complete) and is player-2D, so it felt delayed + followed the buyer.
+    // It now plays the instant points are deducted, ON the vending machine (3D) - see
+    // perk_purchase_jingle_watch() driven by the stock "perk_purchased" notify.
+
     if ( has_mega_perk( self, perk ) )
     {
         apply_mega_effects( self, perk );
@@ -729,6 +877,71 @@ function on_perk_bought( perk )
     {
         acc_weapon_variants::request_reconcile( self );
     }
+    // NOTE: an earlier on-buy replay_perk_drink() was REVERTED (user 2026-06-22): giving/switching to the
+    // bottle weapon AFTER the stock buy's own drink caused a double weapon-swap that made perks need
+    // buying TWICE. The perk-drink SOUND is handled separately (a direct PlayLocalSound, not a re-drink).
+}
+
+// specialty -> per-perk jingle sting alias (the ZombiePerkJingles pack, converted to 48k WAV by
+// ffmpeg). "" = no jingle. Specialty keys VERIFIED(acc) vs _acc_perk_lights::perk_color_index
+// (Double Tap = specialty_doubletap2, Stamin-Up = specialty_staminup, PhD = specialty_electriccherry
+// on this map). Add a row in acc_audio.csv when a new perk is added.
+function acc_perk_jingle_alias( perk )
+{
+    switch ( perk )
+    {
+        case "specialty_armorvest":               return "acc_jingle_jugg";       // Juggernog
+        case "specialty_fastreload":              return "acc_jingle_speed";      // Speed Cola
+        case "specialty_doubletap2":              return "acc_jingle_doubletap";  // Double Tap
+        case "specialty_staminup":                return "acc_jingle_stamin";     // Stamin-Up
+        case "specialty_additionalprimaryweapon": return "acc_jingle_mulekick";   // Mule Kick
+        case "specialty_quickrevive":             return "acc_jingle_revive";     // Quick Revive
+        case "specialty_deadshot":                return "acc_jingle_deadshot";   // Deadshot
+        case "specialty_widowswine":              return "acc_jingle_widows";     // Widow's Wine
+        case "specialty_electriccherry":          return "acc_jingle_phd";        // PhD Flopper
+        case "specialty_combat_efficiency":       return "acc_jingle_cherry";     // Electric Cherry - REAL jingle (Elemental Pop Sting, our own; jingle_cherry.wav @48k, acc_audio.csv, game-closed sound build 2026-06-25)
+        default:                                  return "";
+    }
+}
+
+// Watches the stock "perk_purchased" notify - fired by vending_trigger_think the INSTANT points are
+// deducted, BEFORE the drink animation (verified vs stock _zm_perks.gsc:605) - and plays that perk's
+// jingle ON the vending machine (3D), not on the buyer. Threaded per player from on_player_connect.
+function perk_purchase_jingle_watch()
+{
+    self endon( "disconnect" );
+
+    for ( ;; )
+    {
+        self waittill( "perk_purchased", perk );
+
+        jingle = acc_perk_jingle_alias( perk );
+        if ( jingle == "" ) continue;
+
+        machine = acc_find_perk_machine( self, perk );
+        if ( isdefined( machine ) )
+            machine PlaySound( jingle );   // 3D, emanates from the vending machine the player bought at
+        else
+            acc_utility::play_sound_at_origin( self.origin, jingle );   // fallback: STATIC at the buy spot (= the machine), never the moving player (user 2026-06-24: 3D jingle was following the buyer)
+    }
+}
+
+// The zombie_vending machine of <perk> nearest the buyer = the one they just used. Returns its
+// renderable .machine ent (the 3D sound source). Same handles _acc_perk_lights uses: zombie_vending
+// triggers carry script_noteworthy = specialty + .machine = the vending model (perk_machine_spawn_init).
+function acc_find_perk_machine( player, perk )
+{
+    triggers = GetEntArray( "zombie_vending", "targetname" );
+    best = undefined;
+    best_d = 999999999;
+    foreach ( t in triggers )
+    {
+        if ( !isdefined( t.machine ) ) continue;
+        if ( isdefined( perk ) && isdefined( t.script_noteworthy ) && t.script_noteworthy != perk ) continue;
+        d = DistanceSquared( player.origin, t.machine.origin );
+        if ( d < best_d ) { best_d = d; best = t.machine; }
+    }
+    return best;
 }
 
 function on_perk_lost( perk )
@@ -787,114 +1000,18 @@ function mega_display_name( specialty_string )
     case "specialty_deadshot":               return "American Sniper";        // Deadshot
     case "specialty_widowswine":             return "Spiderman";              // Widow's Wine
     case "specialty_electriccherry":         return "PhD Slider";             // PhD Flopper
+    case "specialty_combat_efficiency":      return "Power Surge";            // Electric Cherry (real 10th perk) - was falling through to "Mega Perk" (fixed 2026-06-26)
     }
     return "Mega Perk";
 }
 
-// ---------------------------------------------------------------------------
-// Spiderman web-grenade virtual pool (user 2026-06-18)
-//
-// The web grenade is carried in the LETHAL CLIP, which the engine clamps to the grenade
-// GDT carry cap (~2) - and a usermap can't raise that cap (the docs/30 GDT edit is
-// ABANDONED). So the REAL reserve is player.acc_web_pool (0..6 Mega / 0..2 base):
-// web_grenade_pool_watcher decrements it on each throw (stock "grenade_fire" notify) and
-// refills the clip from it, so you throw up to 6; web_grenade_manage_watcher inits/caps the
-// pool + drives the custom "WEB GRENADES" HUD counter (sync_web_grenades_to_client). The
-// stock grenade-clip HUD stays clamped at ~2 and is NOT authoritative.
-// ---------------------------------------------------------------------------
-
-function acc_web_pool_max()    // self = player. Pool cap follows the Mega flag.
-{
-    if ( has_mega_perk( self, "specialty_widowswine" ) )
-        return ACC_SPIDERMAN_WEB_GRENADES;   // 6
-    return ACC_WIDOW_BASE_ROUND_RESTOCK;     // 2
-}
-
-// Push as much of the virtual pool into the lethal clip as the GDT cap allows. The engine
-// clamps SetWeaponAmmoClip down to the carry cap, and the readback is then min(cap, pool).
-function acc_web_refill_clip()    // self = player
-{
-    w = level.w_widows_wine_grenade;
-    if ( !isdefined( w ) || !( self HasWeapon( w ) ) ) return;
-    if ( !isdefined( self.acc_web_pool ) ) return;
-    want = self.acc_web_pool;
-    if ( want < 0 ) want = 0;
-    self SetWeaponAmmoClip( w, want );
-}
-
-// ONE per player for the run (endon disconnect). Spends the pool on each web-grenade throw,
-// then refills the clip - so the player keeps throwing until the pool empties. Modeled on
-// stock last_stand_take_thrown_grenade (_zm.gsc:3151): grenade_fire + weapon match.
-function web_grenade_pool_watcher()    // self = player
-{
-    self endon( "disconnect" );
-    level endon( "end_game" );
-
-    for ( ;; )
-    {
-        self waittill( "grenade_fire", grenade, weapon );
-
-        if ( !isdefined( level.w_widows_wine_grenade ) ) continue;
-        if ( weapon != level.w_widows_wine_grenade ) continue;   // ignore other lethals/tacticals
-        if ( !isdefined( self.acc_web_pool ) ) continue;
-
-        if ( self.acc_web_pool > 0 ) self.acc_web_pool--;
-        wait 0.05;   // let the engine's own clip decrement settle before we overwrite it
-        self acc_web_refill_clip();
-        self sync_web_grenades_to_client();
-    }
-}
-
-// ONE per player for the run. Inits the pool to the live clip on a stock grant (buy /
-// Max Ammo / pickup / revive raises the clip above the pool), caps it to the live max
-// (lost Mega -> 2), keeps the clip topped from the pool, and drives the HUD counter.
-function web_grenade_manage_watcher()    // self = player
-{
-    self endon( "disconnect" );
-    level endon( "end_game" );
-
-    for ( ;; )
-    {
-        w = level.w_widows_wine_grenade;
-        if ( self HasPerk( "specialty_widowswine" ) && isdefined( w ) && self HasWeapon( w ) )
-        {
-            if ( !isdefined( self.acc_web_pool ) ) self.acc_web_pool = 0;
-            cap  = self acc_web_pool_max();
-            clip = self GetWeaponAmmoClip( w );
-            if ( isdefined( clip ) && self.acc_web_pool < clip ) self.acc_web_pool = clip;  // stock grant raised the clip
-            if ( self.acc_web_pool > cap ) self.acc_web_pool = cap;                          // lost Mega -> cap the pool down
-            self acc_web_refill_clip();
-        }
-        else
-        {
-            self.acc_web_pool = 0;
-        }
-        self sync_web_grenades_to_client();
-        wait 0.25;
-    }
-}
+// (The entire Spiderman web-grenade VIRTUAL POOL was REMOVED 2026-06-24 per user: acc_web_pool_max,
+// acc_web_refill_clip, web_grenade_pool_watcher, web_grenade_manage_watcher, and the "WEB GRENADES" HUD
+// counter sync_web_grenades_to_client are all gone. Mega Widow's now uses STOCK web-grenade behavior.)
 
 // ---------------------------------------------------------------------------
 // HUD sync
 // ---------------------------------------------------------------------------
-
-// Custom "WEB GRENADES N" counter (hudelem - mirrors sync_bottle_count_to_client), top-left
-// under MEGA BOTTLES (y=74 -> y=98). Shows the REAL pool count (the stock grenade-clip HUD
-// stays clamped at ~2). Hidden unless the player holds the Widow's Wine web grenade.
-function sync_web_grenades_to_client()    // self = player
-{
-    if ( !isdefined( self.acc_web_pool ) ) self.acc_web_pool = 0;
-    if ( !isdefined( self.acc_web_hud ) )
-    {
-        self.acc_web_hud = self hud::createFontString( "default", 1.3 );
-        self.acc_web_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 98 );
-    }
-    show = ( self HasPerk( "specialty_widowswine" )
-             && isdefined( level.w_widows_wine_grenade )
-             && self HasWeapon( level.w_widows_wine_grenade ) );
-    self.acc_web_hud SetText( "^6WEB GRENADES ^7" + self.acc_web_pool );
-    self.acc_web_hud.alpha = ( show ? 0.9 : 0 );
-}
 
 function sync_bottle_count_to_client()
 {
@@ -902,9 +1019,9 @@ function sync_bottle_count_to_client()
     if ( !isdefined( self.acc_bottle_hud ) )
     {
         self.acc_bottle_hud = self hud::createFontString( "default", 1.3 );
-        // TOP-LEFT under the Data Shards line. Shards is a 1.3-scale line at y=50
-        // (spans to ~70.8), so sit at y=74 for a clear ~3px gap (no descender overlap).
-        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 74 );
+        // Left HUD stack: DATA SHARDS (y=50) + the always-on EXO SUIT line (y=74) sit above; this
+        // CONDITIONAL MEGA BOTTLES line sits below them at y=98 (was y=74 before the exo line landed).
+        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 98 );
         self.acc_bottle_hud.alignX = "left";
         self.acc_bottle_hud.alignY = "top";
         self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );

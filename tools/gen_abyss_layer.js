@@ -82,6 +82,14 @@ const WELL_HALF = WELL_RUN / 2;           // 112 = half the run (well centered o
 const WELL_YD = 128;                      // well depth in Y (against the south/north wall) = slim stair width
 const F = 'script_floor_ceiling', W = 'script_wall';
 
+// Bottom-layer (L5) SOUTH doorway -> the "second part" hallway/plaza (gen_descent_hub.js builds the
+// hallway + open-air plaza BEYOND this opening; _acc_abyss_doors.gsc spawns the communal
+// acc_abyss_hub_door slab that fills it). The L5 south wall is emitted with a centered gap (jambs +
+// lintel) instead of a solid slab. KEEP IN SYNC with gen_descent_hub.js HUB_DOOR_* + the hub door slab.
+const HUB_DOOR_HALF = 96;      // doorway half-width -> 192u opening, centered on x=0
+const HUB_DOOR_H = 200;        // doorway height above the L5 floor (opening z[fz, fz+200])
+const BOTTOM_LAYER = 5;        // the true bottom (z=-1200); ONLY this layer's south wall gets the doorway
+
 // floor z of layer n: F1=-240 (pit) .. F5=-1200
 function floorZ(n) { return PIT_FLOOR_TOP - (n - 1) * PITCH; }
 // descent k connects L[k]->L[k+1]; its well is cut into L[k]'s floor. ALL descents run the stairs along
@@ -202,7 +210,16 @@ function emitWalls(n) {
   const fz = floorZ(n), cz = floorZ(n - 1), tag = `L${n}`;
   badd(`${tag} wall west`,  box(PIT_X1 - WALL_TH, PIT_X1, PIT_Y1, PIT_Y2, fz, cz, W));
   badd(`${tag} wall east`,  box(PIT_X2, PIT_X2 + WALL_TH, PIT_Y1, PIT_Y2, fz, cz, W));
-  badd(`${tag} wall south`, box(PIT_X1 - WALL_TH, PIT_X2 + WALL_TH, PIT_Y1 - WALL_TH, PIT_Y1, fz, cz, W));
+  // SOUTH wall: the TRUE bottom (L5) gets a centered DOORWAY (west jamb + east jamb + lintel) = the
+  // exit to the "second part" hallway. Every other layer's south wall is a solid slab. The opening is
+  // x[-HUB_DOOR_HALF, HUB_DOOR_HALF] z[fz, fz+HUB_DOOR_H]; gen_descent_hub.js's acc_abyss_hub_door fills it.
+  if ( n === BOTTOM_LAYER ) {
+    badd(`${tag} south wall WEST jamb (bottom doorway)`, box(PIT_X1 - WALL_TH, -HUB_DOOR_HALF, PIT_Y1 - WALL_TH, PIT_Y1, fz, cz, W));
+    badd(`${tag} south wall EAST jamb (bottom doorway)`, box(HUB_DOOR_HALF, PIT_X2 + WALL_TH, PIT_Y1 - WALL_TH, PIT_Y1, fz, cz, W));
+    badd(`${tag} south wall LINTEL (bottom doorway)`,    box(-HUB_DOOR_HALF, HUB_DOOR_HALF, PIT_Y1 - WALL_TH, PIT_Y1, fz + HUB_DOOR_H, cz, W));
+  } else {
+    badd(`${tag} wall south`, box(PIT_X1 - WALL_TH, PIT_X2 + WALL_TH, PIT_Y1 - WALL_TH, PIT_Y1, fz, cz, W));
+  }
   badd(`${tag} wall north`, box(PIT_X1 - WALL_TH, PIT_X2 + WALL_TH, PIT_Y2, PIT_Y2 + WALL_TH, fz, cz, W));
 }
 
@@ -220,10 +237,47 @@ function emitStairs(k, w) {
   }
 }
 
+// Make descent k's well a fully ENCLOSED stairwell - a "door to go down levels" you can ONLY enter by
+// walking down the stairs, NEVER by jumping off a side ledge (user 2026-06-22). The FIRST pass only sealed
+// BELOW the floor, so the opening in the floor was still wide open to jump into (the screenshot bug). The
+// stairs run W->E inside the slim well; we wall the THREE non-entry sides both BELOW the floor (so a zombie
+// on the treads can't fall out the side) AND as a jump-proof RAILING ABOVE the floor (rail=128u > any
+// jump/mantle, so nothing on this layer's floor can drop in):
+//   - SOUTH + NORTH (the long sides): full wall fz .. (cz+rail). One of them is the perimeter side (already
+//     walled) -> redundant but harmless; doing both keeps XS/XN uniform.
+//   - EAST (the short EXIT side): railing ONLY above the floor (cz .. cz+rail). The stairs step off the
+//     BOTTOM eastward onto the next layer, so the east must stay OPEN below the floor (do NOT seal it).
+//   - WEST (x=w.x1) = the stair ENTRY (step down onto the top tread): left OPEN.
+// Bake-safe box() six-plane winding (DO NOT alter).
+function emitWellWalls(k, w) {
+  const fz = floorZ(k + 1), cz = floorZ(k), rail = cz + 128;   // next floor -> railing top above this floor
+  badd(`D${k} stairwell SOUTH wall (seal+rail)`, box(w.x1, w.x2, w.y1 - WALL_TH, w.y1, fz, rail, W));
+  badd(`D${k} stairwell NORTH wall (seal+rail)`, box(w.x1, w.x2, w.y2, w.y2 + WALL_TH, fz, rail, W));
+  badd(`D${k} stairwell EAST rail (top only; bottom exits east)`, box(w.x2, w.x2 + WALL_TH, w.y1, w.y2, cz, rail, W));
+}
+
+// Depth-dimming curve (user 2026-06-22): each layer DOWN is dimmer, to telegraph the rising risk of
+// descending. STEEPENED to GEOMETRIC (HALVING per layer, user "scale even more per trench level") so the
+// dark closes in fast: L2 0.40 -> L3 0.20 -> L4 0.10 -> L5 0.05 (deepest = 1/8 of the top, was 1/4 on the
+// old linear curve), floored at 0.03 (still above the room near-black so it stays barely navigable).
+// KEEP IN SYNC with tools/_grade_abyss_lights.js (the targeted .map editor that applies this).
+function abyssLayerIntensity(n) { return Math.max(0.03, +(0.40 * Math.pow(0.5, n - 2)).toFixed(3)); }
+
+// NO lights below the pit (user 2026-06-22 "remove the lights in the trenches completely, only from L2 and on -
+// Bus Station trench is fine with lights"). emitLights is only called for L2..L5 (the abyss descent), so
+// returning 0 makes the WHOLE abyss pitch black - lit only by what little spills down the wells. The Bus
+// Station trench itself = L1 (the pit), which gets no abyss lights here anyway, so its lighting is untouched.
+// (Restore the depth-descending pools with `return Math.max(0, 5 - n)` if you want them back.)
+function lightsForLayer(n) { return 0; }
+
 function emitLights(n) {
-  const lz = floorZ(n) + 100, LR = 320, LI = 0.4;
-  for (const lx of [-520, 0, 520]) for (const ly of [1850, 2046]) {
-    lights.push(lightEntity(`acc_abyss_l${n}_light_${nL}`, lx, ly, lz, LR, LI)); nL++;
+  const lz = floorZ(n) + 100, LR = 250, LI = abyssLayerIntensity(n);
+  const count = lightsForLayer(n);
+  // Spread `count` pools evenly across the centre (x[-350,350]) at the layer's y-mid, over the descent stairs,
+  // radius 250 so the wide x-edges stay dark. count 0 => emit nothing (pitch-black layer).
+  for ( let i = 0; i < count; i++ ) {
+    const x = ( count === 1 ) ? 0 : Math.round( -350 + ( 700 * i ) / ( count - 1 ) );
+    lights.push( lightEntity( `acc_abyss_l${n}_light_${nL}`, x, 1948, lz, LR, LI ) ); nL++;
   }
 }
 
@@ -231,6 +285,7 @@ function emitLights(n) {
 const d1 = wellRect(1);
 emitFloor(1, d1);
 emitStairs(1, d1);
+emitWellWalls(1, d1);
 // L2..MAX: floor (split around its own down-well unless deepest), walls, lights, + down-well stairs.
 for (let n = 2; n <= MAX_LAYER; n++) {
   const hasDown = (n <= MAX_LAYER - 1);
@@ -239,6 +294,7 @@ for (let n = 2; n <= MAX_LAYER; n++) {
   emitWalls(n);
   emitLights(n);
   if (hasDown) emitStairs(n, w);
+  if (hasDown) emitWellWalls(n, w);
 }
 
 // ---- assemble ---------------------------------------------------------------

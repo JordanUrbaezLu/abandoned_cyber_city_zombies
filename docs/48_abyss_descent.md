@@ -39,6 +39,19 @@ brushes/lights + `// ACC ABYSS` tag comments; re-carves the pit floor only if st
    **east chunk** (`x[112,819]`, full depth) + a **bridge** on the well's far long side, staying **one
    connected surface** (West–Bridge–East). On L1 (the pit) the west/east chunks also carry the existing
    trench stairs (far west `x[−761,−665]` / east `x[703,799]`), untouched; the center well is ~600u clear.
+   - **ANTI-CAMP DRAIN on the 2x-jump bridge (user 2026-06-25; RETARGETED 2026-06-26):** the camp spot is the
+     **elevated "2x-jump-only" corp trench BRIDGE** (the `.map` "corp trench BRIDGE" slab / `bridge_v2.js`) —
+     `x[−109,147]`, `y[1723,2173]`, **deck top `z=+58`** (the highest walkable point, **above** ground `z=0`),
+     reachable only with the **double-jump item** and carrying the two power levers. Zombies can't get up there →
+     a free safe-camp. `_acc_bus_trench::bridge_drain_watcher` bleeds **15% of max health / second** while a
+     player **camps** there (`MOD_UNKNOWN`, so **PhD Flopper does NOT negate it**), with a red "GET OFF THE
+     BRIDGE" prompt. **THE BUG (fixed 2026-06-26):** the box had been pointed at the **abyss connector**
+     (`gen_abyss_layer.js` chunk C, `z=−240`) — *down in the pit*, coplanar with the trench floor — so it bled
+     players **in the trench** and never the real bridge. **Fix = height:** the deck is `z=+58` (above ground)
+     and the whole trench/abyss is **negative z**, so the Z window now sits **above ground** (`z 50..178`) and
+     excludes the entire trench by elevation. A **dwell gate** (`acc_bridge_dwell_sec`, default **2s**, resets on
+     step-off) still spares brief lever-flip / crossing visits; only sustained camping bleeds. Dvars
+     `acc_bridge_drain_on/_pct/_sec` + `acc_bridge_dwell_sec`.
    - **Wells ALTERNATE S/N** (D1 XS, D2 XN, D3 XS, D4 XN) so a floor's down-well is never where the
      stairs from above land.
    - **Dead ends to NOT repeat (all user-caught 2026-06-21):** (a) a full-depth central well **bisected**
@@ -46,14 +59,25 @@ brushes/lights + `// ACC ABYSS` tag comments; re-carves the pit floor only if st
      (c) corner / short-axis (Y) wells ended the stairs **jammed against the next layer's wall** = zombies
      stuck; (d) the centered D1 well sat in front of the **centered overclock-room door** (south
      under-room) so zombies couldn't reach it = **player invincible** there. The wide-axis center well
-     fixes (a)–(c); (d) was fixed by moving the **south under-room door WEST** to `x[−192,−112]` (clear of
-     the well, on the solid west chunk) — see `acc_door_under_plaza` in the .map. **Keep the D1 well
-     centered/clear of both under-room doors.**
+     fixes (a)–(c); (d) was first fixed by moving the **south under-room door** off the centered well, then
+     (user 2026-06-24) moved again to the **EAST** doorway `x[112,192]` because the west position `x[−192,−112]`
+     sat right on the **abyss-L2 (D1) well buy trigger** at `(−136,1787)` — players kept mis-buying the wrong
+     one. East is clear of both the well AND the D1 trigger (slide flipped to `-80` west); see
+     `acc_door_under_plaza` in the .map. **Keep the D1 well centered/clear of both under-room doors.**
    - **T-junctions** are same-plane (cod2map fixes them), NOT the thin-lip *different-z* cull that caused
      the under-room fall-through (memory `single-slab-floor-over-room`); all floor pieces share one z-extent.
 3. **Stairs are SLIM** (~108u, like the ~96u trench stairs), **not the full trench length** — 14 treads.
 4. **Each generated layer's floor is ONE slab** split only around its own down-well; its ceiling is the
    floor above, open only at that well.
+5. **Each stairwell is a fully ENCLOSED "door down"** (`emitWellWalls`, user 2026-06-22). The stairs run W→E
+   inside an opening cut in the layer floor. Three non-entry sides are walled **both below the floor** (so a
+   zombie on the treads can't fall out the side) **and as a 128u jump-proof RAILING above the floor** (so
+   nothing can drop in from this layer's floor): **SOUTH + NORTH** = full wall `fz..(cz+128)`; **EAST** (the
+   exit side) = railing **above the floor only** (`cz..cz+128`) because the stairs step off the **bottom**
+   eastward onto the next layer (that must stay open). The **WEST stair entry stays open** — the only way down
+   is to walk the stairs from the west. ⚠ A first pass walled only *below* the floor (`fz..cz`) and you could
+   still **jump in from a side ledge** (it didn't stop the drop) — the **above-floor railing is the actual
+   fix**. Was the "zombies path over and get stuck / you can still jump off the ledge" bug. 12 walls (3×4).
 
 ## Wiring — FREE for every layer (no GSC change)
 
@@ -93,6 +117,101 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
 - **Revert/re-apply** stay in the generator: `node tools/gen_abyss_layer.js --revert` (strip all +
   restore the original pit floor), `node tools/gen_abyss_layer.js [--upto N]` (re-apply; `--upto` for
   incremental bake-gating). git can't be used — the .map had other uncommitted WIP.
-- **Not yet done (content, deferred):** floors are identical greybox shells for now (per the user
-  "identical for now"). Per-layer escalation, unique rooms, props, and the Exo-gated descent flavor come
-  later. The Exo Suit / layered-slow system (`_acc_exo.gsc`, docs/47) already reads these z-levels.
+- **First content placed — descent rewards (user, 2026-06-24):** the two big shard SINKS moved DOWN so the
+  abyss pays off, and the Exo Suit (what lets you walk deeper) moved UP to gate the descent:
+  - **L2 (z=-480):** Cyberware Weapon **Overclock** terminal — `(-400, 1948, -480)`.
+  - **L3 (z=-720):** **Glitch Altar** gamble — `(-400, 1948, -720)`.
+  - **Foundry under-room (L1, z=-240):** **Exo Suit** station — `(230, 1450, -240)` (room relocated EAST to
+    center x=350 on 2026-06-25 so the door clears the abyss well; was the freed Overclock spot at `(-120,1450,-240)`).
+    The room is a shallow niche whose front wall IS the trench's south wall (floors flush at z=-240) — opening its
+    buyable door (`enter_under_plaza`, doorway `x[462,542]`) fuses it with the full-width pit, so it reads as huge.
+
+  Both deep stations sit on the **WEST floor chunk** (`x[-781,-112]`, a solid full-depth slab on every layer)
+  at the layer mid (`y=1948`) — clear of the alternating center stairwells (`x[-112,112]`) and of where the
+  stairs from above land (they step off east at `x≈+112`). All three are **pure GSC script spawns**
+  (`_acc_glitch_altar.gsc` spawns the Altar + Overclock; `_acc_exo.gsc` spawns the Exo station) → no geometry,
+  **`-GscOnly` build, no LED-bake risk.** ⚠ **L2..L5 bake PITCH BLACK** (`lightsForLayer=0`): the Altar
+  self-glows (floating core orb = beacon), but the Overclock kiosk does **not** — if it's too hard to find
+  in-game, add a bake-gated light near it rather than re-lighting the whole abyss. **Depends on the abyss
+  floors being walk/zombie-path verified** (the open item above) — if a layer turns out unreachable, its
+  station is stranded.
+- **Not yet done (content, deferred):** L4/L5 are still identical greybox shells. Per-layer escalation,
+  unique rooms, and props come later. The Exo Suit / layered-slow system (`_acc_exo.gsc`, docs/47) already
+  reads these z-levels.
+
+## The bottom now EXITS to PARADISE (user 2026-06-25)
+
+L5's **south wall has a doorway** (`gen_abyss_layer.js`, only the bottom layer) into **"Paradise"** — the second
+part of the map. Beyond it: a **long dark hallway** runs south and opens into a large **OPEN-AIR plaza** (a deep
+~1000u pit, floor z=-1200, capped with the existing `sky` material so you look up at the night sky), placed south of
+the surface map so the sky cap has clear void above it. Geometry: **`tools/gen_descent_hub.js`** (hallway + plaza +
+the `acc_abyss_hub_door` slab). OOB-safe + trench-NEUTRAL via `acc_bus_trench::player_in_second_part` (footprint
+`ACC_SP_*`). Paradise is a full second hub: GSC-spawned duplicate Glitch Altar / Overclock / Exo / perk-slot vendor /
+boss-item bench + a **permanent mystery box** + a **2nd Pack-a-Punch** (`acc_glitch_altar::spawn_paradise`),
+plus **all 10 perks** as `.map` entities (`tools/gen_paradise_props.js`).
+
+**The 2nd Pack-a-Punch is a STANDALONE GSC vendor, NOT a 2nd stock machine** (`_acc_pap_levels::spawn_paradise_pap_at`,
+at `(0,-1700,-1200)`). Stock supports exactly one PaP: `spawn_init` renames every `zm_pack_a_punch` zbarrier to the
+shared `vending_packapunch`, then `vending_weapon_upgrade()` does a singular `GetEnt("vending_packapunch")` that
+**fatals the load** with two — which is what broke the surface PaP on the earlier attempt. The standalone vendor
+(`script_model` + `trigger_radius_use`, like the Paradise box) dispatches through the **same player-scoped tier path**
+(`acc_do_first_pack` / `acc_do_tier_up` / `acc_pap_actionfigure`) the surface PaP uses, so the tier lives on
+`player.acc_pap_tier[base]` and **never resets** between the two machines. It never carries the `zm_pack_a_punch`
+targetname, so stock's singleton is untouched and the surface PaP is safe. `gen_paradise_props.js` no longer injects a
+stock 2nd PaP; `acc_dedupe_pack_a_punch()` neutralizes any leftover from an older `.map`.
+
+### The descent gates are SOUL BOXES (user 2026-06-25)
+
+The 4 abyss descent doors (`acc_abyss_door_1..4`, `_acc_abyss_doors.gsc`) **no longer cost currency** — each opens
+when the team banks souls (one per kill on that door's layer). Costs are **per-layer AND scale with the live player
+count** (user 2026-06-25): the **first gate** (layer 1, the trench, where everyone roams early) needs **125 souls
+per player**; each **deeper gate** needs **50 per player** — i.e. 125/50 solo up to **500/200 at a full 4-player
+lobby**. `souls_needed(layer)` multiplies the per-player base by `GetPlayers().size`, evaluated **live** so the
+per-kill bank check auto-rescales on a dis/connect (the floating hint captures the count at door creation). Tuning
+dvars: `acc_soul_door_cost_first` (125/player) + `acc_soul_door_cost` (50/player); dev mode is a cheap flat 10.
+
+**The soul-box hint shows the fixed GOAL, not the live count (triggerstring-cap fix, 2026-06-25).** The first
+cut of `soul_update_hint` embedded the live `door.acc_souls` counter and re-set the hint on **every** soul-banking
+kill — minting a new unique `SetHintString` per soul (0..100 **per layer door**). The `triggerstring` BG-cache caps
+at **250 unique strings per match** (never freed), so grinding souls underground overflowed it → the round-~18-20
+CTD `BG_Cache_GetIndexInternal - Exceeded '250' items for type 'triggerstring'` (reproduced twice, both at the
+soul boxes). It now builds a **constant** hint from `souls_needed()` only and is set once at trigger creation; live
+progress is shown via the `IPrintLnBold` milestone every 25 souls (chat prints are not triggerstrings). General
+rule: never interpolate an unbounded/per-kill runtime value into a `SetHintString` literal. Only the **Paradise
+gate** (`acc_abyss_hub_door`) keeps currency: **100 Data Shards + 100,000 points**, two communal pools, contribute-all
++ all-survivors-gather to open. (Supersedes the old points-only `door_cost` 2k/3k/5k/8k.)
+
+**The gate hint shows the FIXED TOTAL, not live remaining (triggerstring-cap fix, 2026-06-25).** The engine caps the
+`triggerstring` BG-cache at **250 unique strings per match**, and every distinct string passed to `SetHintString` burns
+a slot permanently. The first cut of the gate hint embedded the *live remaining* points (an arbitrary "all you carry"
+number) and re-set on every deposit, minting a new unique string each time until the cache overflowed mid-match
+(`BG_Cache_GetIndexInternal - Exceeded '250' items for type 'triggerstring'`). It now builds from snapshotted totals
+(`level.acc_hub_shards_total` / `_points_total`) so it is a **constant** string; live progress is announced via
+`IPrintLnBold` (not a triggerstring). General rule: never interpolate an unbounded runtime value into a `SetHintString`
+literal.
+
+## Paradise = the FINAL ONSLAUGHT + the WIN condition (user 2026-06-25)
+
+Paradise is the **end of the map**: surviving a scripted timed finale **WINS the match**. Module
+`_acc_paradise.gsc` (orchestrated by `acc_main`); armed by `_acc_abyss_doors` setting `level.acc_paradise_open` when
+the gate opens, and it starts the instant the team drops into the plaza. The sequence (all `acc_paradise_*` live dvars):
+
+| Phase | Default | What happens |
+|---|---|---|
+| **1 — CALM** | `acc_paradise_calm_sec` 60 | One-shot **victory fanfare** (`acc_paradise_calm`, the Mario stage-win jingle), clear air, a **very light trickle** (`acc_paradise_trickle_sec` 12). A fakeout. |
+| **2 — OMEN** | instant | **Fog rolls back in** (`acc_atmosphere::paradise_fog_on` → re-runs the map's `set_fog_from_dvars` haze every tick, overriding the power-on settle) + the stock **dog-round announcer** `zmb_dog_round_start` ("fetch me their souls"). |
+| **3 — DREAD** | `acc_paradise_dread_sec` 15 | Fog closing in, trickle continues. |
+| **4 — BATTLE** | `acc_paradise_survive_sec` 240 (4 min) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume) plays; **2 Brutus + 1 Phantom** + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): **+1 Brutus + 1 Phantom** (caps `acc_paradise_brutus_max`/`_phantom_max` 4), the **world-wide horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final min; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer`), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the final L5 step). **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
+| **WIN** | — | Banner → replay the fanfare → **lift the fog** (`paradise_fog_off` = `disable_fog`, planes pushed off-map) → fade → purge horde → `level notify("end_game")` (docs/22 end-game recipe). **LOSE** = team wipe ends the match normally. |
+
+**Boss-HUD / music suppression**: `_acc_health_bars::boss_bar_listener`/`boss_bar_track` skip + self-destroy bars
+while `level.acc_paradise_onslaught`; `_acc_boss::boss_music` returns early on the same flag (the "115" anthem owns
+the audio). **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
+`_acc_boss_brutus::spawn_one_paradise` + `paradise_warden_think` (the trench-warden twin, paradise-tethered).
+
+**Engine guard rails (tune down if unstable in coop):** concurrent caps on Brutus/Phantom (`_brutus_max`/
+`_phantom_max` 4), shield+glitch specials (`acc_paradise_special_max` 8), and an extra AI-cap bump
+(`acc_paradise_ai_bonus` 12, stacks on the trench +14). **Audio**: needs `sound_assets/acc/music/115.wav` +
+`paradise_calm.wav` (48k/16-bit) + a **game-closed sound build**; both tracks are **copyrighted — test-only, NOT for
+the public Workshop** (CREDITS.md IP review). **To verify in-game:** fog actually renders at the paradise depth
+(z≈−1200, below the haze base height); the multi-Brutus stability; the win→`end_game` flow.

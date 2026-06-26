@@ -60,6 +60,9 @@ const GDTS = [
     "skye_t9_nail_gun.gdt", "skye_s1_pdw.gdt", "skye_s2_m1911.gdt", "skye_t5_ak74u.gdt",
     "skye_t6_olympia.gdt", "skye_t6_galil.gdt",                       // added 2026-06-16: were skipped at gun-add → never reduced
     "skye_t6_m60.gdt", "skye_t6_rpd.gdt",                             // added 2026-06-19: LMGs - native clip 100 / reserve 400-1000 was wildly over (user); CLIP_FIX + MAXAMMO_FIX below
+    "skye_s1_rw1.gdt",                                                // added 2026-06-23: RW1 energy pistol (twinned). CLIP_FIX/MAXAMMO_FIX below hand-tune it to 8/12 (A-tier, docs/54) - NOT the x0.7 cut (the clip-1 single-shot original would floor to 1). Mahem launcher left uncut.
+    "skye_s1_mk14.gdt",                                               // added 2026-06-24: MK14 AW DMR (twinned, B-tier). Plain x0.70 clip cut: base 20->14, PaP 17->12; reserve = maxAmmo x clip = 168 / 240. No CLIP_FIX needed.
+    "skye_s1_mors.gdt",                                               // added 2026-06-24: MORS -> S tier. NOT cut before; now MAXAMMO_FIX lifts reserve 60/90 -> 120/180 (clip 1 stays 1). Twins live in acc_weapon_variants.gdt (below) and are fixed there.
     "acc_weapon_variants.gdt",
 ];
 
@@ -88,6 +91,21 @@ const MAXAMMO_FIX = {
     // crater the reserve and drop it to A+). NOTE: perk twins keep their cloned maxAmmo (minor, only when a
     // Mega twin is active); the base/_up forms are the ones that matter for the rating.
     "s1_tac19": 9, "s1_tac19_up": 9,
+    // RW1 reserve (user 2026-06-23): with CLIP_FIX 8/12 -> 7x8 = 56 base / 8x12 = 96 PaP. Hand-tuned A-tier.
+    "s1_rw1": 7, "s1_rw1_up": 8,
+    // MORS reserve CUT 50% (user 2026-06-25): 120/180 -> 60/90 (back to the native pre-lift values). clip 1, so
+    // maxAmmo == reserve rounds (60 base / 90 PaP). Applied to base + _up + ALL 14 perk twins so EVERY form carries
+    // the same reserve (else a Deadshot/Mega twin swap would clamp it). The twins live in acc_weapon_variants.gdt;
+    // clip stays 1 everywhere. NOTE: this lowers the MORS reserve score, so compute_gun_tiers.js now FORCEs MORS to
+    // TOP/S to keep its premium PaP price + 3% box rarity (the user's established "MORS is the S sniper" intent).
+    // MORS reserve NERF -20% (user 2026-06-26): 60/90 -> 48/72 (clip stays 1). Exact-match so EVERY twin is listed.
+    "s1_mors": 48, "s1_mors_up": 72,
+    "s1_mors_acc_fastreload": 48, "s1_mors_acc_fastfire": 48, "s1_mors_acc_fastfire_fastreload": 48,
+    "s1_mors_acc_recoil50": 48, "s1_mors_acc_recoil50_fastreload": 48, "s1_mors_acc_recoil50_fastfire": 48,
+    "s1_mors_acc_recoil50_fastfire_fastreload": 48,
+    "s1_mors_up_acc_fastreload": 72, "s1_mors_up_acc_fastfire": 72, "s1_mors_up_acc_fastfire_fastreload": 72,
+    "s1_mors_up_acc_recoil50": 72, "s1_mors_up_acc_recoil50_fastreload": 72, "s1_mors_up_acc_recoil50_fastfire": 72,
+    "s1_mors_up_acc_recoil50_fastfire_fastreload": 72,
 };
 
 // Targeted per-gun clip/fire-rate tuning (user 2026-06-16) - EXACT values keyed by weapon entry
@@ -102,19 +120,38 @@ const CLIP_FIX = {
     // Nail Gun clip 30->40 / PaP 40->50 (user 2026-06-21): a non-DPS lever to push it to S tier
     // (with the reload buff below). Reserve rises with it (maxAmmo 7/8 unchanged): base ~280, PaP ~400.
     "t9_nail_gun": 40, "t9_nail_gun_up": 50,
-    // PPSH-41 (user 2026-06-21): +5 rounds in clip on all in-play versions (base + PaP + their perk
-    // twins inherit via stemOf). Was the global x0.70 cut (25 base / 39 PaP); now 30 / 44. Reserve
-    // rises with it (reserve = maxAmmo mags x clipSize, maxAmmo 9 unchanged): base 225->270, PaP 351->396.
-    "s4_ppsh41_base": 30, "s4_ppsh41_base_up": 44,
+    // PPSH-41 (user 2026-06-21: +5 clip; user 2026-06-24: +10 MORE = all-around buff paired with the +20%
+    // damage in _acc_damage). Base + PaP + their perk twins inherit via stemOf. Was the global x0.70 cut
+    // (25/39), then 30/44; now 40 / 54. Reserve rises with it (reserve = maxAmmo mags x clipSize, maxAmmo 9
+    // unchanged): base 9x40=360, PaP 9x54=486.
+    "s4_ppsh41_base": 40, "s4_ppsh41_base_up": 54,
     // Tac-19 clip 4->3 / PaP 7->6 (user 2026-06-21): the final all-around nerf. Drops it out of S to A+
     // (clip is part of what held it in S, and reserve follows: with MAXAMMO_FIX 9, base 3x9=27, PaP 6x9=54).
     "s1_tac19": 3, "s1_tac19_up": 6,
     // M60 clip 60->100 / PaP 100->120 (user 2026-06-21): traded for the DPS cut so M60 stays S on clip+reserve.
-    // With MAXAMMO_FIX 4: base 4x100=400, PaP 4x120=480 reserve. RPD stays the smaller/weaker LMG (60/100, C-tier).
-    "t6_m60": 100, "t6_m60_up": 120, "t6_rpd": 60, "t6_rpd_up": 100,
+    // RPD clip+reserve BUFF +25% (user 2026-06-26): 60/100 -> 75/125. Stem-matched -> base + _up + ALL twins;
+    // with MAXAMMO_FIX 4 mags (also on the twins, all native 4), reserve scales too: 4x75=300 base, 4x125=500 PaP
+    // (was 240/400). M60: base 4x100=400, PaP 4x120=480 reserve, unchanged.
+    "t6_m60": 100, "t6_m60_up": 120, "t6_rpd": 75, "t6_rpd_up": 125,
+    // CW (t9) ports (user 2026-06-26): keep the SAME grafted ammo as the BO1/BO2 originals they replaced.
+    // PIN their twins so the global x0.70 cut does NOT re-cut the already-correct grafted clips (the base forms
+    // live in the t9 GDTs which are NOT scanned; these stem-matched entries cover the t9_*_acc_* twins in the
+    // variants GDT). Values == the grafted base clips: ak47 21/31, ak74u 20/40, m60 100/120, rpd 75/125.
+    "t9_ak47": 21, "t9_ak47_up": 31, "t9_ak74u": 20, "t9_ak74u_up": 40,
+    "t9_m60": 100, "t9_m60_up": 120, "t9_rpd": 75, "t9_rpd_up": 125,
     // Paladin clip 4->8 / PaP 7->11 (user 2026-06-21): bigger sniper mag to lift it to low S (with its
     // single-target DPS). Reserve rises with it (maxAmmo 12 unchanged): base 8x12=96, PaP 11x12=132.
     "t8_paladin_hb50": 8, "t8_paladin_hb50_up": 11,
+    // RW1 (user 2026-06-23): a REAL magazine - 8 base / 12 PaP - so the directed-energy pistol earns A-tier
+    // (docs/54). ABSOLUTE (not the x0.7 cut: the clip-1 single-shot original would floor to 1). Covers base +
+    // _up + twins via stemOf. Replaces the standalone tools/buff_rw1_stats.js (removed). Reserve via MAXAMMO_FIX.
+    "s1_rw1": 8, "s1_rw1_up": 12,
+    // Chicom CQB (user 2026-06-25): NOT cut - pin clip to its native 36 / 56 so the TWINS (in
+    // acc_weapon_variants.gdt) match the uncut base. skye_t6_chicom_cqb.gdt is deliberately NOT in GDTS above
+    // (base/up stay 36/56), but the twins live in the variants GDT which IS scanned - without this pin they
+    // default-cut to 25/39 and a perk twin would SHRINK the mag. Generous ammo is part of why it's the S+
+    // top-3 gun (docs/54). maxAmmo 5/8 unchanged -> reserve 180/448 everywhere.
+    "t6_chicom_cqb": 36, "t6_chicom_cqb_up": 56,
 };
 const FIRETIME_FIX = {
     // Nail Gun: base -25% RoF (0.157). PaP _up MATCHED to base (user 2026-06-21, was 0.133) so PaP

@@ -30,13 +30,16 @@ Re-rolled at map load. Documented so players can learn the *space* of randomizat
 
 ### Wallbuy Pool Per Slot
 
-**ARSENAL RESTRICTED (user, 2026-06-14): there are NO wall buys on the current map.**
-Per the 2-gun arsenal directive (ICR-1 + Man-O-War only, both Mystery-Box-only), every wall
-buy is removed at load by `_acc_map_randomizer::remove_all_wallbuys()` — it unregisters the
-stub of each placed wall struct (the 5 gun/grenade walls *and* the Bowie melee wall) so no
-purchase trigger is ever built. The per-run wallbuy randomization machinery
-(`roll_wallbuy_pool`, `apply_wallbuy_pool`, etc.) was deleted with it. The historical
-single-candidate slot plan below is kept only for when a future version re-expands the roster.
+**MOSTLY box-only, with 3 fixed wall-buys (user, 2026-06-23; was "no wall buys" 2026-06-14).**
+The map is still box-first, but the user added **three fixed wall-buys**: **Five-Seven @ Lab**
+(`t6_fiveseven`, 500), **Olympia @ Bus Station** (`t6_olympia`, 500), and a **frag grenade @ Spawn**
+(`frag_grenade`, 100). They're placed as stock `weapon_upgrade` struct pairs in the `.map`, and
+`_acc_map_randomizer::remove_all_wallbuys()` now **whitelists** those three weapon names (skips
+removing their stubs) while still stripping every other wall-buy at load — so the box-only intent
+holds for everything else. The stock system gives buy-gun → buy-ammo (price keyed to PaP level)
+for free. The per-run wallbuy randomization machinery (`roll_wallbuy_pool`, etc.) is still gone;
+the three are FIXED, not randomized. The historical single-candidate slot plan below is kept only
+for when a future version re-expands the roster.
 
 Historical slots (no longer wired — kept for reference):
 

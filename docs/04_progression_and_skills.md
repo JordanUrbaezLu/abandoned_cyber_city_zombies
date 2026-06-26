@@ -21,6 +21,7 @@ Points are fast and plentiful. Data Shards are **slow and precious** - a well-pl
 - **Vault Overload success** (Vault): 3 Shards. One per run.
 - **Side objectives**: 1-2 Shards each, 3-5 available per run (pool, see `07_replayability.md`).
 - **Max Shard drop from a round**: soft-capped so you can't grind low rounds. Exceeding 2 Shards-per-round from elites triggers diminishing returns on that round only.
+- **Total Shard cap**: 500 (`ACC_SHARDS_MAX`, raised from 50 on 2026-06-22). Finite to block infinite hoarding, but high enough to bank toward the deep multi-tier sinks (Exo Suit + per-gun Overclocks). Dev mode (`acc_dev 1`) starts each player with 200 for testing (one-time grant, not a refill).
 
 **Expected Shard budget by round for a clean run (solo):**
 
@@ -143,7 +144,7 @@ Details:
 
 - **HP scales per player** for regular zombies (stock): +100% per extra player.
 - **Elites scale flatter**: +50% per extra player (so duos don't blender them).
-- **Spawn rate scales**: +30% per extra player (not +100%, to avoid chaos).
+- **Spawn rate**: follows the **base game** (stock per-player scaling + stock early-round ramp). No custom multiplier. Riot-shield elites and glitch rounds add enemies on their own paths.
 - **Data Shard drops in co-op**: drop goes to the killing player. Side objective Shards are shared.
 - **Boss Shard drops**: every player gets the full boss Shard amount independently.
 

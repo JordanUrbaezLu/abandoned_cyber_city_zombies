@@ -92,7 +92,7 @@ function build_ability_table()
     // M60 / RPD had NO ability. Reuse the proven LIVE effects - sniper -> Precision Mode
     // (3 auto-crit, fits aimed shots), LMG -> Focus Fire (6 auto-crit burst, fits sustained
     // full-auto). No new gameplay code; distinct ids so cooldowns don't share with pistol/ar.
-    t[ "sniper" ]  = ability( "precision_mode_sniper", 30, &effect_precision_mode ); // Paladin HB50
+    t[ "sniper" ]  = ability( "precision_mode_sniper", 30, &effect_precision_mode ); // Paladin HB50 + MK14 DMR + MORS railgun
     t[ "lmg" ]     = ability( "focus_fire_lmg",        25, &effect_focus_fire );     // M60 + RPD
 
     return t;
@@ -114,11 +114,11 @@ function ability( id, cooldown_sec, on_activate )
 //
 // CATEGORIES -> guns (every box gun is mapped; user 2026-06-21):
 //   pistol  : t6_fiveseven, s2_m1911                         -> Precision Mode
-//   smg     : s1_asm1, iw6_ripper_*, s4_ppsh41_base, t5_ak74u, s1_pdw -> Whirlwind
+//   smg     : s1_asm1, iw6_ripper_*, s4_ppsh41_base, t9_ak74u, s1_pdw -> Whirlwind
 //   shotgun : s1_tac19, t6_olympia                           -> Slug Round
-//   ar      : t6_ak47, s1_ae4, t6_galil, t9_nail_gun         -> Focus Fire
-//   sniper  : t8_paladin_hb50                                -> Precision Mode
-//   lmg     : t6_m60, t6_rpd                                 -> Focus Fire
+//   ar      : t9_ak47, s1_ae4, t6_galil, t9_nail_gun         -> Focus Fire
+//   sniper  : t8_paladin_hb50, s1_mk14, s1_mors              -> Precision Mode
+//   lmg     : t9_m60, t9_rpd                                 -> Focus Fire
 // Offhand framework weapons (knife melee, frag_grenade lethal) + laststand
 // pistol_standard stay for the framework but have NO ability (never the HELD
 // weapon, so getcurrentweapon never returns them). Everything else
@@ -131,17 +131,14 @@ function weapon_name_to_ability_category( weapon_name )
     // Only the 5 HELD guns map to a category. getcurrentweapon() drives this
     // (try_activate_ability) - the offhand knife + grenades are never the
     // "current weapon", so they have no reachable ability and are absent.
-    pistol_list  = array( "pistol_standard", "t6_fiveseven",    // Five-Seven (+ laststand)
-                          "s2_m1911" );                          // M1911 (2026-06-21) -> Precision Mode
+    pistol_list  = array( "pistol_standard", "t6_fiveseven", "s1_rw1" );  // Five-Seven + RW1 (+ laststand) -> Precision Mode
     smg_list     = array( "s1_asm1",                            // ASM1
-                          "iw6_ripper_smg", "iw6_ripper_smg_zm",
-                          "iw6_ripper_ar", "iw6_ripper_ar_zm",   // Ripper (both modes -> Whirlwind)
-                          "s4_ppsh41_base", "t5_ak74u", "s1_pdw" ); // PPSH-41, AK-74u, PDW (2026-06-21)
+                          "s4_ppsh41_base", "t9_ak74u",          // PPSH-41, AK-74u -> Whirlwind
+                          "t6_chicom_cqb" );                     // Chicom CQB (BO2 burst SMG)
     shotgun_list = array( "s1_tac19", "t6_olympia" );           // Tac-19, Olympia (BO2) -> Slug Round
-    ar_list      = array( "t6_ak47", "s1_ae4", "t6_galil",      // AK-47, AE4, Galil
-                          "t9_nail_gun" );                       // Nail Gun (2026-06-21) -> Focus Fire
-    sniper_list  = array( "t8_paladin_hb50" );                  // Paladin HB50 (2026-06-21) -> Precision Mode
-    lmg_list     = array( "t6_m60", "t6_rpd" );                 // M60, RPD (2026-06-21) -> Focus Fire
+    ar_list      = array( "t9_ak47", "s1_ae4", "t6_galil" );    // AK-47, AE4, Galil -> Focus Fire
+    sniper_list  = array( "t8_paladin_hb50", "s1_mk14", "s1_mors" );  // Paladin HB50 + MK14 DMR + MORS railgun (2026-06-24) -> Precision Mode
+    lmg_list     = array( "t9_m60", "t9_rpd" );                 // M60, RPD (Cold War, 2026-06-26) -> Focus Fire
 
     if ( array::contains( pistol_list, weapon_name ) ) return "pistol";
     if ( array::contains( smg_list, weapon_name ) ) return "smg";
@@ -286,7 +283,7 @@ function effect_stabilizer()
     // Inert until the twins are baked + allow-listed (docs/31 §4-5); the cooldown
     // is still consumed so the input loop stays testable end-to-end.
     self acc_weapon_variants::apply_timed_variant( array( "recoil40", "fastfire" ), 5 );
-    self iprintln( "Stabilizer: 5s recoil/fire-rate boost" );
+    self iprintln( "Stabilizer: recoil/fire-rate boost" );   // vague (docs/50): duration/% hidden, exact in docs/05
     acc_utility::log( "ability: stabilizer -> timed weapon-variant (inert until twins baked)" );
 }
 

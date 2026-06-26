@@ -28,10 +28,10 @@ recoil/fire/reload/ammo *handling* layer that today only 5 guns get.
     to a runtime-legal effect (ammo regen / on-kill ammo / flat top-up). PENDING USER CHOICE.
 
 - **Lever 2 — recoil → ONE Mega-only tier + Mega Deadshot retune.** Drop the recoil axis from 3
-  levels to **2** = `{none, recoil50}`, where `recoil50` (twin recoil scale **×0.50** off the 2.1×
-  base ≈ vanilla feel) is gated on **Mega Deadshot ONLY**. Base Deadshot gets **no recoil twin** —
-  it's purely a damage perk now. And retune Mega Deadshot headshot **1.8 → 1.6**. Final:
-  - **Base Deadshot:** 1.4× headshot, **no recoil change** (was -25% — removed; this is the dropped layer).
+  levels to **2** = `{none, recoil50}`, where `recoil50` (twin recoil scale **×0.50** off the 1.75×
+  base → ~0.875× vanilla) is gated on **Mega Deadshot ONLY**. Base Deadshot gets **no recoil twin** —
+  it's purely a damage perk now. Mega Deadshot headshot is now **+1.5** (was +1.8). Final:
+  - **Base Deadshot:** +1.3 headshot, **no recoil change** (was -25% — removed; this is the dropped layer).
   - **Mega Deadshot (American Sniper):** **1.6×** headshot (was 1.8) + **-50% recoil** (was -40%).
   - **CASCADE TASKS (do together in the build):** `ACC_DEADSHOT_MEGA_MULT` 1.8→1.6 in
     `_acc_damage.gsc` (leave `ACC_DEADSHOT_MULT` = 1.4); recoil axis → single `recoil50` (`×0.50`)
@@ -76,8 +76,8 @@ forms = 14/gun` = **140 twins**. Fits with margin (cap ≈230). The 4 structural
   `SetWeaponAmmoClip`, `SetWeaponAmmoOverall` all exist in stock. → the Armory axis can leave the
   twin system entirely (§1).
 - **Base perk effects are already universal** (engine specialties, all 14 guns): Double Tap base
-  +33% RoF, Speed Cola base +50% reload, Deadshot +1.8 headshot dmg + ADS auto-aim. Twins only add
-  the **Mega EXTRAS** on top (Gun Slinger +40% RoF, Sleight +75% reload, Armory +25% ammo) plus the
+  +33% RoF, Speed Cola base +50% reload, Deadshot +1.3 headshot dmg + ADS auto-aim. Twins only add
+  the **Mega EXTRAS** on top (Gun Slinger +45% RoF + −50% weapon-swap, Sleight +75% reload, Armory +20% ammo) plus the
   **recoil reduction** (the only effect with NO engine fallback).
 - **The recoil axis is the budget killer.** Twin combos = recoil(3: none/-25/-40) × fastfire(2) ×
   fastreload(2) × ammo(2) − 1 = **23 combos/form × 2 forms = 46/gun**. The ×3 recoil factor is the

@@ -22,7 +22,7 @@ climbs to ~4.7 GB over ~40 s.
 | **Map fully open** | Every door is opened + every zone activated at spawn — walk the whole map immediately, no buying, never stuck in the start room. |
 | **Unlimited money** | Points top back up to ~1,000,000 whenever they drop. |
 | **Unlimited Data Shards** | Topped to the cap — for Cyberware / Overclocks. |
-| **Auto-power** | Power is ON at spawn (perks, Pack-a-Punch, traps all work immediately). |
+| **Power** | NOT auto-on — flip the Bus Station power switch yourself (perks/PaP/traps gate on it), same as normal play. |
 | **Test boss** | A Juggernaut Host spawns ~10 s into **round 2** (and each round after), dropping **10 Mega Bottles** on death. |
 | **Status banner** | First ~15 s: `[ACC] DEV BUILD LIVE - map open, power on, systems: COMPLETE`. `COMPLETE` confirms the full `_acc_` init chain ran. |
 | **Zombie speed curve** | Zombies ramp 50% → 100% speed over rounds 1–10, then +1%/round. Live-tune: `set acc_zspeed_start_pct <n>` / `set acc_zspeed_max_round <n>` (read per spawn). |

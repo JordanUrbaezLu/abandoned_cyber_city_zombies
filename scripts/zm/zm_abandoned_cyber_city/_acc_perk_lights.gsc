@@ -166,16 +166,18 @@ function perk_color_index( specialty )
         case "specialty_deadshot":                return 7;   // Deadshot      - blacklight/UV
         case "specialty_widowswine":              return 8;   // Widow's Wine  - white
         case "specialty_electriccherry":          return 9;   // PhD Flopper   - purple
+        case "specialty_combat_efficiency":       return 10;  // Electric Cherry - teal (INTENTIONAL: no spare perk-colour glow FX, and teal/cyan reads as "electric" + matches EC's teal Mega icon; explicit so it's not a silent fall-through. user 2026-06-26)
         default:                                  return 10;  // generic / PaP - teal
     }
 }
 
-// Public: drive the coloured-glow FX on ANY scriptmover ent (the per-round red room alarm
-// in _acc_lockdown reuses this exact client-side pipeline, not just perk machines). The
-// client _acc_perk_lights.csc renders it. color_index 0 = off; 1..10 = the colours in
-// perk_color_index / the .csc level._effect map (1 red, 2 green, ... 7 blacklight, 8 white,
-// 9 purple, 10 teal). Centralises
-// the "accPerkGlow" field name so callers do not hardcode it.
+// Public: drive the coloured-glow FX on ANY scriptmover ent (the per-round lockdown "purge" room
+// alarm in _acc_lockdown + the trench shard-bank indicator in _acc_data_shards reuse this exact
+// client-side pipeline, not just perk machines). The client _acc_perk_lights.csc renders it.
+// color_index 0 = off; 1..12 = the colours in the .csc level._effect map (1 red, 2 green, ...
+// 7 blacklight, 8 white, 9 purple, 10 teal, 11 MAGENTA [purge lights], 12 DIM WHITE [shard banks]).
+// accPerkGlow is a 4-bit field (0..15), so indices 11/12 fit with no width change. Centralises the
+// "accPerkGlow" field name so callers do not hardcode it.
 function set_glow( ent, color_index )
 {
     if ( !isdefined( ent ) ) return;

@@ -1,5 +1,10 @@
 # 18 - First Build Checklist (starting-room build → Steam Workshop)
 
+> **Publishing/release?** The authoritative procedure now lives in the
+> [Release Runbook (docs/55)](55_release_runbook.md), driven by
+> `tools/prep_release.ps1`. Steps 5–6 below are the original first-publish notes
+> kept for history.
+
 The repo now ships a **complete starting-room build kit**. This checklist takes
 it from a fresh sync to a playable, Workshop-published build. Expected time on
 a machine that already has Mod Tools installed: **~1 hour**, most of it compile

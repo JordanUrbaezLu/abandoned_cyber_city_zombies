@@ -322,7 +322,7 @@ contrast exists (emissive props + placed colour FX). The custom grades are NOT d
 they stay zoned and dormant, re-enable live with `set acc_vision_on 1`:
 ```
 set acc_vision_on 1                        // re-enable the custom grade (OFF by default)
-set acc_vision_set zm_abandoned_cyber_city // neutral + very small cyan tint
+set acc_vision_set zm_abandoned_cyber_city // == stock neutral (the map-name file is now stock default, see §7c)
 set acc_vision_set acc_grade_magenta       // vibrant magenta / pink (vkTS 0.98)
 set acc_vision_set acc_grade_orange        // amber-neon (warm vkTT 7400)
 set acc_vision_set acc_grade_dark          // deeper/darker magenta
@@ -333,6 +333,38 @@ set acc_vision_on 0                        // DEFAULT — grade off, base game c
 contrast. If even bold magenta reads dull, that's the fullbright-flat scene talking,
 and the real neon punch needs SCENE contrast (emissive prop xmodels + placed colour
 FX, below), not more grade tuning.
+
+### 7c. The map-name `.vision` MUST stay neutral — "gray screen on revive" (2026-06-24)
+
+**Symptom (user, testing):** after going DOWN and being REVIVED, the screen stays a washed
+GRAY, the crosshair damage numbers seem to vanish (washed out under the gray), and the HUD
+reads "buggy" — but only after a death/revive, never on a fresh spawn.
+
+**Root cause (verified vs the stock mirror, multi-agent audit):** the engine's per-client
+visionset manager uses the **map name** as each client's "default" visionset
+(`visionset_mgr_shared.csc:225` → `"zm_abandoned_cyber_city"`). On a DOWN it activates the
+per-client laststand/death visionsets; on REVIVE it deactivates them and **force-stamps
+`VisionSetNaked(localClient, "zm_abandoned_cyber_city")` per client** (`_zm_laststand.gsc`,
+`visionset_mgr_shared.csc:1007`). That per-client restore **bypasses our server-side global
+`VisionSetNaked("default")`** — and our `apply_vision()` is **change-gated** (it only re-fires
+when `want != applied`, `_acc_atmosphere.gsc`), so once `applied == "default"` the loop never
+re-asserts and the engine's per-client grade wins. Our shipped
+`vision/zm_abandoned_cyber_city.vision` was a **desaturated cool grade** (`vkRM 1.0`, ramp
+`0.24/0.25/0.25`) — so the revive restore looked gray. The damage numbers were never unbound
+(the LUI overlay/feed/watchers all survive revive — per-controller models, no `CloseLUIMenu`
+anywhere); they just lost contrast under the wash.
+
+**Fix (shipped):** make `vision/zm_abandoned_cyber_city.vision` **byte-identical to stock
+`default.vision`** (`vkRM 0.000000`, pure `R=G=B` ramp, `r_reviveFX_Enable 0`). Now the
+engine's per-client revive restore lands on **neutral stock colours** — harmless by
+construction, coop-correct, zero GSC, and consistent with the "ship base colours" decision in
+§7b (the map-name grade was a vestige that contradicted it and only ever surfaced on revive).
+Linker-only (`.vision` is a rawfile — no LED bake). **RULE: never put a tint in the map-name
+`.vision`.** A custom global grade goes through `apply_vision`/`acc_vision_set` (the alternate
+`acc_grade_*` files) — NOT the map-name file, which the engine will force back per-client on
+every revive regardless of the server slot. (If a deliberately distinct global grade is ever
+wanted, also add a force-reapply escape so `apply_vision` re-wins the slot on a `player_revived`
+edge — but with the map-name file neutral that is unnecessary.)
 
 **Lever plan for MORE colour (highest impact-per-effort first):** ① the grade above
 (done — linker-only, live). ② alternate/per-zone `.vision` swaps (GSC-only). ③

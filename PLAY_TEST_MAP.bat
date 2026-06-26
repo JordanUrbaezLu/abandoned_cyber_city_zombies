@@ -12,11 +12,13 @@ REM  this. Steam must be running and logged in. Loading takes ~40-60 seconds.
 REM
 REM  Flags (ALL off by default -> a no-flag launch is a clean consumer game;
 REM  full reference: docs\34_flags_reference.md):
-REM         acc_dev 1       = unlimited money + Data Shards + Mega Bottles, auto-power,
-REM                           perk cap 18, dev HUDs + teleport/round-skip console cmds.
-REM         acc_open_map 1  = open every door + both PaP blockers on spawn, disable decon.
-REM         acc_test_boss 1 = test boss (Brutus) every round from round 2; the real Brutus first
-REM           spawns ROUND 4.
+REM         acc_dev 1       = THE SINGLE DEV SWITCH (user 2026-06-22). Turns on the WHOLE hardcoded
+REM           dev sandbox: unlimited money, 25 starting Data Shards, Mega Bottles, OPEN MAP (every door +
+REM           PaP blockers, decon off), ALL test bosses (Brutus/Glitch/Phantom), all perk slots, and the
+REM           dev HUDs + teleport/round-skip console cmds. NO god mode and NO auto power-on - you take
+REM           regular damage and flip the Bus Station power switch yourself. No other dev flag is needed -
+REM           the entry script's acc_resolve_dev_flags() drives the rest off this one flag.
+REM           acc_dev 0 (or omit it) = clean normal play.
 REM         acc_glitch_test 1 = spawn the "Glitch Stalker" mini-boss (mobile teleport-blink boss,
 REM           x2/round) from ROUND 3. It moves ~15%% faster than normal zombies, blinks 2x more
 REM           often (~1-1.67s), deals -50%% melee damage (user 2026-06-15), uses the STOCK zombie
@@ -52,15 +54,13 @@ REM  Custom LUI (acc_hud.lua) runs on Steam BO3 with NO special flag (verified
 REM  2026-06-13). "-unsafe-lua" is a BOIII-client arg, not Steam BO3 - on Steam it
 REM  is "Unknown command", so it is intentionally NOT passed. (L3akMod is still
 REM  needed in the MOD TOOLS bin to BUILD the .lua - docs/28_lui_pipeline.md.)
-REM --- ZOMBIE SPEED CURVE knobs (EDIT THESE NUMBERS to tune; see docs\34_flags_reference.md) ---
-REM  Natural-gait ramp: a jog that speeds up the early rounds, breaks into a full
-REM  sprint at ZSPEED_SPRINT_ROUND, then a faster sprint after. Values below are the
-REM  in-code DEFAULTS (so leaving them as-is = no change). 100 = the gait's natural
-REM  speed, higher = faster; values can't go below 100 in-game (that floors to a
-REM  natural cadence so it never looks like slow-motion).
-set ZSPEED_SPRINT_ROUND=10
-set ZSPEED_JOG_START=100
-set ZSPEED_JOG_STEP=2
-set ZSPEED_SPRINT_START=100
-set ZSPEED_SPRINT_STEP=1
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1 +set acc_open_map 1 +set acc_test_boss 1 +set acc_glitch_test 1 +set acc_glitch_debug 1 +set acc_variants_debug 1 +set acc_amb_on 1 +set acc_lockdown_on 1 +set acc_lockdown_force_zone vault_zone +set acc_lockdown_lock_doors 0 +set acc_zspeed_sprint_round %ZSPEED_SPRINT_ROUND% +set acc_zspeed_jog_start_pct %ZSPEED_JOG_START% +set acc_zspeed_jog_step_pct %ZSPEED_JOG_STEP% +set acc_zspeed_sprint_start_pct %ZSPEED_SPRINT_START% +set acc_zspeed_sprint_step_pct %ZSPEED_SPRINT_STEP%"
+REM  ===========================================================================
+REM  ONE DEV FLAG (user 2026-06-22). `+set acc_dev 1` is the ENTIRE dev switch -
+REM  it turns on unlimited money, 25 starting Data Shards, open map, all test
+REM  bosses, all perk slots, power, and the dev HUDs (regular gameplay damage -
+REM  NO god mode). The entry script's
+REM  acc_resolve_dev_flags() drives everything else off this one flag. (The engine
+REM  args before it - fs_game / set_gametype / devmap / developer / logfile - are
+REM  required to load the map, not dev toggles.) For a clean normal game: acc_dev 0.
+REM  ===========================================================================
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1"

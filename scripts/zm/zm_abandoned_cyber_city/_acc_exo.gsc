@@ -1,25 +1,31 @@
 // =============================================================================
 // _acc_exo.gsc - the Exo Suit Upgrade Station (docs/47).
 //
-// The BODY counterpart to the per-gun Weapon Overclock: per-PLAYER, and its sole job is to gate trench
-// DEPTH. The trench descends in 5 layers, each slower (the per-layer slow lives in
-// acc_utility::recompute_move_speed, which reads player.acc_trench_layer [set by the bus_trench watcher]
-// + player.acc_exo_tier [owned here]). Each exo tier cancels the slow ONE layer deeper:
-//   tier T -> normal speed in layers 1..T ; below that, -20% at the first uncovered layer, -10% per
-//   layer deeper. So you buy exo tiers to reach (and fight in) the deeper, richer layers.
+// The BODY counterpart to the per-gun Weapon Overclock: per-PLAYER, with THREE augments that scale with the
+// exo tier (mirroring the gun Overclock's 3 effects). This module owns ONLY the tier STATE + the buy station
+// + the HUD; the EFFECTS live at their natural chokepoints:
+//   1. DEPTH-SPEED gate - acc_utility::recompute_move_speed reads player.acc_trench_layer [bus_trench watcher]
+//      + player.acc_exo_tier. Tier T -> normal speed in layers 1..T; below that -20% first uncovered layer,
+//      -10%/layer deeper. (So you buy tiers to reach + fight in the deeper, richer layers.)
+//   2. DAMAGE RESISTANCE - _acc_elites::on_player_damaged cuts ALL incoming damage by acc_exo_resist_per_tier
+//      (default 5%/tier -> -25% at T5).
+//   3. KNIFE/MELEE damage - _acc_damage::on_ai_damage adds +acc_exo_melee_per_tier per tier to the player's
+//      melee hits (default +30%/tier -> +150% at T5).
 //
-// This module owns ONLY the tier STATE + the buy station. Tiers 0-5, costs 5/10/15/20/25 (Data Shards).
+// Tiers 0-5, costs 5/10/15/20/25 (Data Shards). resistance + melee re-added 2026-06-22 (were dropped 06-21).
 // =============================================================================
+
+#using scripts\shared\hud_util_shared;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
-// Station model: a freestanding metal bench (stock t7 prop; the old Cyberware kiosk model, now free).
+// Station model: a Cyber City white metal workbench as a body-augment chamber (stock t7_props, proven packable).
 #precache( "model", "p7_cai_work_table_metal_03_white" );
 
-#namespace acc_exo;
+#define ACC_EXO_MAX 10   // user 2026-06-24: 5 -> 10 tiers. Resist (+5%/t, clamped -80%) + melee (+30%/t) keep scaling; the DEPTH gate past L5 is inert until the abyss has layers 6-10 (geometry, not GSC).
 
-#define ACC_EXO_MAX 5
+#namespace acc_exo;
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -28,6 +34,7 @@
 function init()
 {
     acc_utility::log( "exo init" );
+    level.acc_exo_station_origins = [];   // [acc] proximity origins for the LUI report card (read by _acc_perk_info)
     level thread spawn_station();
 }
 
@@ -43,6 +50,7 @@ function on_player_spawned( player )
     // trench-slow cancellation (and the trench slow itself) must be recomputed or it's lost after
     // death/revive. recompute reads acc_trench_layer (0 at a surface spawn) + acc_exo_tier.
     acc_utility::recompute_move_speed( player );
+    sync_exo_hud( player );   // [acc] (re)create + refresh the always-on EXO tier readout
 }
 
 // ---------------------------------------------------------------------------
@@ -53,11 +61,17 @@ function exo_cost( target_tier )
 {
     switch ( target_tier )
     {
-    case 1: return getdvarint( "acc_exo_cost_t1", 5 );
-    case 2: return getdvarint( "acc_exo_cost_t2", 10 );
-    case 3: return getdvarint( "acc_exo_cost_t3", 15 );
-    case 4: return getdvarint( "acc_exo_cost_t4", 20 );
-    case 5: return getdvarint( "acc_exo_cost_t5", 25 );
+    // Cost ladder (SHARED with the gun Overclock, user 2026-06-24): LINEAR +4/tier = 4 x tier.
+    case 1:  return getdvarint( "acc_exo_cost_t1",  4 );
+    case 2:  return getdvarint( "acc_exo_cost_t2",  8 );
+    case 3:  return getdvarint( "acc_exo_cost_t3",  12 );
+    case 4:  return getdvarint( "acc_exo_cost_t4",  16 );
+    case 5:  return getdvarint( "acc_exo_cost_t5",  20 );
+    case 6:  return getdvarint( "acc_exo_cost_t6",  24 );
+    case 7:  return getdvarint( "acc_exo_cost_t7",  28 );
+    case 8:  return getdvarint( "acc_exo_cost_t8",  32 );
+    case 9:  return getdvarint( "acc_exo_cost_t9",  36 );
+    case 10: return getdvarint( "acc_exo_cost_t10", 40 );
     }
     return 0;
 }
@@ -73,10 +87,12 @@ function spawn_station()
     if ( getdvarint( "acc_exo_on", 1 ) != 1 )
         return;
 
-    // In the trench pit (guaranteed floor, layer 1), east side - clear of the perk vendor (-250,1820),
-    // caches (+/-360,1950) and reactor (0,2120). docs/47: ideally the surface entrance; move to a
-    // docs/45 anchor when the geometry agent provides a landing above the pit.
-    spawn_station_at( ( 250, 1800, -240 ), 180 );
+    // Exo station INSIDE the Foundry under-room (user 2026-06-25): room interior x[-192,192] y[1379,1723],
+    // floor z=-240; the buyable door is the WEST front gap x[-192,-112]. Placed center-back, clear of the
+    // doorway, facing the entry (yaw 90 = +y, toward the door). The room/door geometry was reverted to HEAD
+    // a18c3ac after the prior relocate broke the door; this just puts the table back INSIDE that room. The
+    // station is a GSC-spawned prop (not map geometry), so this is a -GscOnly change - no LED bake needed.
+    spawn_station_at( ( 0, 1450, -240 ), 90 );
 }
 
 function spawn_station_at( origin, yaw )
@@ -91,6 +107,11 @@ function spawn_station_at( origin, yaw )
     t SetHintString( "Hold ^3[{+activate}]^7  ^5EXO SUIT^7 - upgrade to walk deeper (Data Shards)" );
     t.acc_station_model = m;
     t thread station_loop();
+
+    // Record the station origin so _acc_perk_info's proximity card lights up the EXO REPORT card here.
+    if ( !isdefined( level.acc_exo_station_origins ) ) level.acc_exo_station_origins = [];
+    level.acc_exo_station_origins[ level.acc_exo_station_origins.size ] = origin;
+
     acc_utility::log( "exo: station spawned at " + origin );
 }
 
@@ -124,8 +145,39 @@ function station_loop()   // self = the station trigger
         player.acc_exo_tier = next_tier;
         player PlaySound( "acc_shard_pickup" );
         acc_utility::recompute_move_speed( player );   // the slow cancellation takes effect now
+        sync_exo_hud( player );                        // refresh the always-on EXO readout
+        // Vague (docs/50): the "Tier N/5" shows progress; effects stay qualitative. Exact %s are in docs/47.
         player acc_utility::hud_msg( "^5EXO SUIT^7 - Tier " + next_tier + "/" + ACC_EXO_MAX +
-                                     " ^7- walk normal down to layer " + next_tier );
+                                     " ^7- faster, tougher, stronger melee" );
         wait 0.4;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Always-on HUD readout (server-side font string, mirrors _acc_data_shards' DATA SHARDS
+// line). Used INSTEAD of a LUI clientfield because the clientuimodel pool is full
+// (the always-on overclock "vN" took the last dead field). Sits one line under the
+// DATA SHARDS count; dim at tier 0 so it's discoverable, bright once augmented. The
+// DETAILED "what it does" report is the proximity card at the station (_acc_perk_info
+// + acc_hud.lua), not this compact readout.
+// ---------------------------------------------------------------------------
+function sync_exo_hud( player )
+{
+    if ( !isdefined( player ) || !isplayer( player ) ) return;
+    if ( !isdefined( player.acc_exo_tier ) ) player.acc_exo_tier = 0;
+
+    if ( !isdefined( player.acc_exo_hud ) )
+    {
+        player.acc_exo_hud = player hud::createFontString( "default", 1.3 );
+        // Left HUD stack (always-on items grouped at the top): DATA SHARDS y=50, EXO SUIT y=74, then the
+        // CONDITIONAL MEGA BOTTLES (y=98) + WEB GRENADES (y=122) below (pushed down in _acc_mega_bottles).
+        player.acc_exo_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 74 );
+        player.acc_exo_hud.alignX = "left";
+        player.acc_exo_hud.alignY = "top";
+        player.acc_exo_hud.color = ( 0.55, 0.85, 1.0 );
+        player.acc_exo_hud.hidewheninmenu = true;
+    }
+
+    player.acc_exo_hud SetText( "^5EXO SUIT ^7" + player.acc_exo_tier + "/" + ACC_EXO_MAX );
+    player.acc_exo_hud.alpha = ( player.acc_exo_tier > 0 ? 0.9 : 0.4 );
 }

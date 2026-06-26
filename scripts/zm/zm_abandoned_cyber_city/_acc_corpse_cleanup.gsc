@@ -25,20 +25,69 @@
 // Dvar: acc_corpse_linger_sec (default 0 = vanish on death). Set > 0 to instead keep
 // the body VISIBLE on the ground that many seconds before it is deleted (the old
 // "bodies pile" behavior, now slot-freeing too since it ends in a Delete).
+//
+// -----------------------------------------------------------------------------
+// FLYING-GIB SUPPRESSION (user 2026-06-24): "bodies vanish on death but the GIBS
+// (severed limbs/chunks) lie around the map - will they crash it?"
+//
+// First, the crash fear: those loose limbs are CLIENT-SIDE dynents - the engine
+// spawns them via CreateDynEntAndLaunch on the client when a gib clientfield flips
+// (scripts\shared\ai\systems\gib.csc::_GibPiece). They are NOT server entities, do
+// NOT count toward level.zombie_actor_limit, and live in a FIXED engine pool that
+// auto-recycles the oldest when it fills - so they cannot overflow / crash anything.
+// The real crash vector (corpse ACTOR count) is the body-delete above.
+//
+// Still, to match this map's instant-vanish look and de-clutter the ground, we stop
+// the loose limbs from spawning in the first place. The lever: set a zombie's gib
+// "don't spawn flying pieces" bit (GIB_TOGGLE_GIB_MODEL_FLAG, gib.gsh:21) at spawn via
+// gibserverutils::ToggleSpawnGibs(z,false). That bit PERSISTS through every later gib
+// (SET_GIBBED OR-preserves it, gib.gsh:51), and the client reads it as SHOULD_SPAWN_GIBS
+// == false (gib.gsh:53) - so when a limb/head is gibbed the client still swaps in the
+// stump model + plays the blood-burst FX, but SKIPS the CreateDynEntAndLaunch loose-limb
+// (gib.csc:280-283). Net: kills still dismember + spray, but nothing physical is left on
+// the floor. Stock uses the same call on death-anim clones (gib.gsc CopyGibState), so this
+// is a verified-safe use of the lever, not an invented one. Live toggle: acc_suppress_flying_gibs.
 // =============================================================================
+
+#using scripts\shared\ai\systems\gib;
+#using scripts\shared\ai\zombie_utility;
+#using scripts\shared\callbacks_shared;
 
 #using scripts\zm\_zm_spawner;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
-#define ACC_CORPSE_LINGER_DEFAULT 0   // 0 = disappear + free the actor slot on death
+#define ACC_CORPSE_LINGER_DEFAULT 0       // 0 = disappear + free the actor slot on death
+#define ACC_SUPPRESS_FLYING_GIBS_DEFAULT 1 // 1 = no loose severed-limb chunks left on the ground
 
 #namespace acc_corpse_cleanup;
 
 function init()
 {
-    acc_utility::log( "corpse_cleanup: init (delete on death; linger default " + ACC_CORPSE_LINGER_DEFAULT + "s)" );
+    acc_utility::log( "corpse_cleanup: init (delete on death; linger default " + ACC_CORPSE_LINGER_DEFAULT +
+                      "s; suppress flying gibs " + ACC_SUPPRESS_FLYING_GIBS_DEFAULT + ")" );
     zm_spawner::register_zombie_death_event_callback( &on_zombie_death_cleanup );
+
+    // Stop loose severed-limb chunks from spawning in the first place (see header). Per spawn.
+    callback::on_ai_spawned( &on_zombie_spawned_suppress_gibs );
+}
+
+// self = a freshly spawned actor. Pre-set the gib "don't spawn flying pieces" bit so a later
+// dismemberment swaps the stump model + sprays blood but leaves NO loose limb on the ground.
+// VERIFIED(acc): callback::on_ai_spawned dispatches with NO args ON the spawned actor
+// (callbacks_shared.gsc); is_zombie() gates out dogs/bosses/specials (mirrors _acc_zombie_speed).
+function on_zombie_spawned_suppress_gibs()
+{
+    if ( !isdefined( self ) ) return;
+    if ( getdvarint( "acc_suppress_flying_gibs", ACC_SUPPRESS_FLYING_GIBS_DEFAULT ) != 1 ) return;
+
+    // Regular zombies only. Bosses/specials already set self.no_gib (they never gib at all).
+    if ( !( self zombie_utility::is_zombie() ) ) return;
+
+    // Setting the toggle bit at spawn triggers NOTHING visible (the client gib loop starts above
+    // this flag's value, gib.csc:272), so it's a pure no-op until the first real gib - which then
+    // dismembers WITHOUT the loose limb. See header for the full mechanism.
+    gibserverutils::ToggleSpawnGibs( self, false );
 }
 
 // self = the killed zombie. Runs once per zombie death.
