@@ -33,7 +33,15 @@ Wired audio = **5 `PlaySound` calls, all stock aliases, zero custom assets**:
 | Call | Alias | Status |
 |---|---|---|
 | [_acc_pap_levels.gsc:211,242,269,279](../scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc#L211) | `zmb_perks_packa_deny` / `zmb_perks_packa_ready` | ✅ stock, valid |
-| [_acc_mega_bottles.gsc:420](../scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc#L420) | `evt_bottle_dispense` | 🚫 **defined nowhere → plays silent** (the one real bug) |
+| [_acc_mega_bottles.gsc](../scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc) | `evt_bottle_dispense` (bottle drink at machine) + `acc_bottle_pickup` (bottle acquired) | ✅ both → `acc/fx/glass_cling.wav` (user SFX, 2026-06-24) |
+
+> **NOTE (2026-06-24): section 1 below is STALE** — the map now ships many authored `acc_*`
+> aliases (perk jingles, shard/bottle pickups, etc.) in `sound/aliases/acc_audio.csv`, not "5
+> stock calls / zero custom assets". Pickup audio: **Data Shards** = `acc_shard_pickup` →
+> `diamond_found.wav`; **Mega Bottle** = `acc_bottle_pickup` → `glass_cling.wav` (+ matching
+> on-screen toasts on separate slots, see CHANGELOG). The soundbank rebuilds on every linker
+> pass (even `-GscOnly`) — the old "GsC-only relink reuses STALE soundbanks" caveat in §4 is
+> WRONG (verified 2026-06-24: the `.sabs`/`.alias.sz` mtime advances on a `-GscOnly` build).
 
 The sound-zone config [sound/zoneconfig/zm_abandoned_cyber_city.szc](../sound/zoneconfig/zm_abandoned_cyber_city.szc)
 declares **4 Sources**:
@@ -274,9 +282,14 @@ mirror of the [docs/20](20_requirements_checklist.md) `phase4-blocked` audio ite
   build reuses the stale bank (sync can't delete the locked `CachedBanks`), so a new/changed
   sound **does not compile until a GAME-CLOSED build**. Symptom: alias is valid, no linker
   error, yet the cue is silent. Close BlackOps3, then `build_map.ps1`.
+- `acc_main_theme` = "Suspense Dark Thriller" (lnplusmusic, Pixabay #392762; user 2026-06-24, full ~1:45 STREAMED stereo track, resampled 44.1→48k via `tools/convert_wav_48k_stereo.ps1`). Replaced StockTune "Ethereal Neon Odyssey". Swapping it = drop the new 48k wav in as `sound_assets/acc/music/main_theme.wav` (same filename → alias unchanged) + a GAME-CLOSED build.
+- `acc_brutus_music` = the **boss-battle track** (the Phantom's theme; the alias keeps the historical "brutus" name but Brutus is music-less now). User 2026-06-24 swapped it to **"The Final Boss Battle"** (alperomeresin, Pixabay #158700), full ~4:01 STREAMED stereo, resampled 44.1→48k via `convert_wav_48k_stereo.ps1` (44 MB — large; trim with `-TrimSeconds` if the package size matters). Same swap recipe: drop the new 48k wav in as `sound_assets/acc/music/brutus_music.wav` (same filename → alias unchanged) + a GAME-CLOSED build.
 - Live aliases: `acc_amb_city_bed`, `acc_main_theme`, `acc_brutus_music`, `acc_glitch_warp`,
-  `acc_overclock_zap` (overclock kiosk zap, 2026-06-21). Others `PlaySound`'d in GSC
-  (`acc_shard_pickup`, `evt_bottle_dispense`, …) have **no alias row yet** → silent.
+  `acc_overclock_zap` (overclock kiosk zap), `acc_mega_drink` (Mega perk-drink heartbeat sting, layered over the
+  stock gulp; ~34 s clip), `acc_headshot_ding` (headshot ding, `acc_headshot_ding` dvar). All CC0/self-authored,
+  48 kHz. Others `PlaySound`'d in GSC (`acc_shard_pickup`, `evt_bottle_dispense`, …) have **no alias row yet** → silent.
+  ⚠️ A malformed `FileSpec` (e.g. a lost `\` → `accxheadshot_ding.wav`) is a `Parse error … Illegal characters` that
+  **aborts the WHOLE sound build** (no bank regenerates) — keep FileSpecs `acc\<dir>\<file>.wav`.
 - Reverb (B2) requires the heavier geometry build, not a linker-only pass.
 - Decon LUI widget + any client `forceambientroom` are `.csc`-only (need L3akMod;
   can't call `.gsc`).

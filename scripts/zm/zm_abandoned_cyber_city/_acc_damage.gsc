@@ -35,18 +35,19 @@
 // "if we have 3x and 2x that's 5x not 6x"). Two buckets, one int() truncation at
 // the end. final_damage = int( damage * bonus_factor * reduction ) where:
 //   - bonus_factor = the LITERAL SUM of every applied BONUS value (>1), or 1.0 if
-//     none fired. So a 2x headshot + 1.4x Deadshot = 3.4x, NOT 2.8x.
+//     none fired. So a 1.3x Deadshot + 1.3x Cyberware Overload = 2.6x, NOT 1.69x.
 //   - reduction = the PRODUCT of every REDUCTION factor (<1), applied AFTER the
 //     bonus sum (a 0.25x resist must cut, never add). ORDER NOW MATTERS.
 //   0. incoming `damage` (already includes stock GDT headshot mult + PaP)
 //   BONUSES (summed):
+//     - REAL headshot loc-temper: NOT summed here - applied SEPARATELY as n_hs_temper
+//         (multiplicative) = locHead x 0.5 reg / 0.6 boss = net 2.5x reg / 3x boss (user 2026-06-25).
 //     - crit chain (crit hits only - real headshot, Precision Mode, Overload proc):
-//         map headshot mult (2.0 regular / 2.0 boss)
-//       + Deadshot (1.4, or 1.8 with American Sniper Mega - no double dip)
+//       + Deadshot (1.3, or 1.5 with American Sniper Mega - no double dip)
 //       + Cyberware Overload crit damage (acc_cw_crit_damage_mult, 1.30)
 //     - PaP custom tier (1.25/1.55/1.90/2.30)
 //     - Cyberware Amplifier (acc_cw_damage_mult, 1.15) - NOT on melee (Bowie excl.)
-//     - Cyberware Weapon Overclock flat-damage layer (1 + tier*acc_oc_dmg_per_tier; +5%/tier, +25% at T5)
+//     - Cyberware Weapon Overclock flat-damage layer (1 + tier*acc_oc_dmg_per_tier; +10%/tier, +50% at T5)
 //     - one-shot consumables (reset their flag when applied): Precision Mode (4),
 //       Slug Round (3), Kinetic Battery (3)
 //   REDUCTIONS (multiplied, after the sum):
@@ -74,25 +75,39 @@
 //
 // Bonus multipliers apply AFTER the weapon-GDT hit-location mult is baked into the
 // incoming `damage`, so effective head:body ratio = (gun locHead) x (our headshot bonus).
-// Most box guns are locHead 5.0, so the 0.5 reg / 1.0 boss bonus = 2.5x reg / 5x boss head;
-// Paladin (locHead 1.0) = 0.5x / 1.0x. (Was 2.0/2.0 = 10x/10x reg+boss; nerfed 2026-06-16.)
+// Most box guns are locHead 5.0, so the 0.5 reg / 0.6 boss bonus = 2.5x reg / 3x boss head;
+// Paladin (locHead 1.0) = 0.5x / 0.6x. (Was 0.4/0.5 = 2x/2.5x; user 2026-06-25.)
 //
 // GSC #defines are file-local (#using does not share macros - see the note at
 // _acc_boss_items.gsc:41-45), so damage-side constants for other systems'
 // effects live HERE because this is the file that applies them.
 // ---------------------------------------------------------------------------
 
-#define ACC_HEADSHOT_MULT      0.5    // map headshot BONUS, regular/elite (was 2.0, lowered 2026-06-16).
-#define ACC_BOSS_HEADSHOT_MULT 1.0    // bosses/mini-bosses (was 2.0). Effective head:body = gun locHead x this
-                                      // (most guns locHead 5.0 -> 2.5x reg / 5x boss; Paladin locHead 1.0 -> 0.5x/1x).
+#define ACC_HEADSHOT_MULT      0.5    // map headshot BONUS, regular/elite. locHead 5.0 x 0.5 = 2.5x body (user 2026-06-25; 0.4=2x -> 0.5=2.5x).
+#define ACC_BOSS_HEADSHOT_MULT 0.6    // bosses/mini-bosses. Effective head:body = gun locHead x this
+                                      // (most guns locHead 5.0 -> 2.5x reg / 3x boss; Paladin locHead 1.0 -> 0.5x/0.6x). (user 2026-06-25; 0.5=2.5x -> 0.6=3x boss.)
 
-// Deadshot layer (docs/13_perks.md): base perk +1.4 headshot, American Sniper Mega
-// replaces it with +1.6 (no double dip; retuned 1.8->1.6 2026-06-16). These ADD into
+// GLOBAL player-damage buff (user 2026-06-23): a single across-the-board scalar that lifts EVERY
+// gun's output uniformly while PRESERVING the per-gun balance tiers in acc_weapon_balance_mult.
+// Applied as a flat FINAL multiply on ALL player damage in on_ai_damage (body, headshot, melee,
+// explosive alike) - it sits OUTSIDE the bonus-sum and reduction buckets, after the chain. Live
+// dvar acc_global_dmg_mult; 2.75 = +175%, 1.0 = off. This is the intended "buff all guns" knob.
+// (user 2026-06-23: 1.20 -> 1.32 -> 1.50; user 2026-06-24: 1.50 -> 2.50, +67% over 1.50; user 2026-06-25: 2.50 -> 3.0 -> 2.75.)
+#define ACC_GLOBAL_DMG_MULT    2.75
+
+// Deadshot layer (docs/13_perks.md): base perk +1.3 headshot, American Sniper Mega
+// replaces it with +1.5 (no double dip; retuned 1.4->1.3 / 1.6->1.5 2026-06-25). These ADD into
 // the bonus sum (not multiply) - see the stacking header. Recoil: base Deadshot now has
 // NONE; Mega = -50% (single weapon-GDT twin tier, MEGA-gated, off the 2.1x base) - see
 // docs/30/31 + docs/39. The recoil half is weapon-GDT (twin), not GSC.
-#define ACC_DEADSHOT_MULT      1.4
-#define ACC_DEADSHOT_MEGA_MULT 1.6
+#define ACC_DEADSHOT_MULT      1.3
+#define ACC_DEADSHOT_MEGA_MULT 1.5
+
+// Double Tap 2.0 damage temper (user 2026-06-25): base DT fires an engine-level EXTRA bullet (~2x dmg) we
+// CANNOT remove in a usermap, so we cut the per-hit DAMAGE to net it down (the fire rate is left intact).
+// 0.6 -> base DT lands ~1.6x DPS (2 bullets x 0.6 x 1.33 RoF). Live dvar acc_doubletap_dmg_mult. Applied
+// ONLY to weapon_gets_dt_bullet() guns (an explicit ALLOW-LIST - never to a weapon that lacks the extra bullet).
+#define ACC_DOUBLETAP_DMG_MULT 0.6
 
 // Mega Flopper (PhD Slider): +15% explosive damage (user 2026-06-18, nerfed from +20%). ADDS
 // into the bonus sum like every other layer (so +0.15 on the effective multiplier). GSC-only -
@@ -114,20 +129,47 @@
 // REDUCTION (multiplicative). Dvar-tunable: acc_shotgun_boss_mult.
 #define ACC_SHOTGUN_BOSS_MULT  0.25
 
+// Boss-nuke audit (user 2026-06-24, docs/05): the multi-hit "specials" that bypass the pellet cut and stack
+// on a boss's single hitbox - the Thundergun CONE (multi-trace) and the Mahem rocket (direct + splash). Like
+// the shotgun cut above, these REDUCE damage vs bosses/mini-bosses ONLY, so they stop nuking bosses (the
+// ~200k Thundergun report) while keeping full chaff/clear power on regular zombies. Stacks on top of each
+// gun's acc_weapon_balance_mult. Separate dvars: the Thundergun is the worst offender (no per-shot ammo
+// cost), the launcher is ammo-limited so it gets a gentler cut, the Paladin is a single-shot sniper.
+// Live: acc_thundergun_boss_mult / acc_launcher_boss_mult / acc_paladin_boss_mult.
+#define ACC_THUNDERGUN_BOSS_MULT 0.20   // Thundergun vs bosses: ~140k (post -30%) x 0.20 -> ~28k/blast (a strong boss tool, not a one-shot).
+#define ACC_LAUNCHER_BOSS_MULT   0.50   // Mahem vs bosses: ~5,512 direct (post -10%) x 0.50 -> ~2,756/rocket + splash; ammo-limited.
+#define ACC_PALADIN_BOSS_MULT    0.50   // Paladin HB50 sniper vs bosses (user 2026-06-24): one-shot single-target boss-killer; ammo/RoF-limited (not a burst nuke) but reined in vs bosses too. On top of its 0.49 balance mult (B tier, user 2026-06-24) -> ~half its boss damage. Live dvar acc_paladin_boss_mult.
+
+// BOSS-DAMAGE HARD CAP (user 2026-06-24, boss-nuke audit): the catch-all backstop. The weapon-name boss cuts
+// above CANNOT see weaponless scripted DoDamage (the stock Thundergun fling does DoDamage(self.health+666) -
+// the REAL ~200k one-shot - and the octobomb pull does DoDamage(target.health)), and even for weapon hits a
+// multiplicative cut is defeated by PaP/Cyberware/Overclock investment + the insta-kill x6. So a FINAL clamp:
+// a single player hit on a boss/mini-boss caps at this fraction of its maxhealth, AFTER every multiplier.
+#define ACC_BOSS_PER_HIT_CAP_PCT 0.10   // 10% of boss maxhealth/hit -> >=10 hits to kill any boss. Live dvar acc_boss_per_hit_cap_pct (0 = off).
+// INSTA-KILL vs bosses = exactly THIS multiple of a normal hit (user 2026-06-25: "2x not 6x"). Applied BOTH as
+// the damage multiplier AND as a cap scale (x2 cap), so a high-damage gun (Mahem/sniper) that's already at the
+// 10% cap deals 2x10%=20% during insta-kill = a true 2x, not the 6x that the 10% cap was silently clamping to 4k.
+// Live dvar acc_instakill_boss_mult.
+#define ACC_INSTAKILL_BOSS_MULT 2
+
 // Kinetic Battery next-shot multiplier (docs/12_boss_items.md; tuning lever:
 // drop to 2x if Battery feels runaway). Charge ACCRUAL is not this file's
 // job - see docs/20 battery-charge-per-10-kills.
 #define ACC_ITEM_BATTERY_DAMAGE_MULT 3.0
 
-// Cyberware Weapon Overclock (user 2026-06-19; T5 2026-06-21): each TIER (1..5) gives a SMALL boost to ALL
-// THREE effects at once - magnitudes scale with the gun's tier (minimal at T1, full at T5). PER-GUN. The
-// tier multiplies the live oc_tier directly (NO clamp), so adding tiers just extends these automatically.
-//   1 Flat damage    : +acc_oc_dmg_per_tier per tier     (default 0.05 -> +25% at T5, ALWAYS on, gun hits)
-//   2 Glitch Piercing : +acc_oc_glitch_per_tier per tier  (default 0.25 -> +125% at T5 vs GLITCH zombies)
-//   3 Ammo refund    : +acc_oc_adaptive_per_tier per tier (default 0.10 -> 50% refund chance at T5) on a HEADSHOT KILL (not just a headshot hit, user 2026-06-21)
-#define ACC_OC_DMG_PER_TIER            0.05
+// Cyberware Weapon Overclock (user 2026-06-19; T10 2026-06-24): each TIER (1..10) gives a SMALL boost to ALL
+// FOUR effects at once - magnitudes scale with the gun's tier. PER-GUN. The tier multiplies the live oc_tier
+// directly (NO clamp), so the 10-tier extension scales these automatically:
+//   1 Flat damage    : +acc_oc_dmg_per_tier per tier     (default 0.10 -> +100% at T10, ALWAYS on, gun hits)
+//   2 Glitch Piercing : +acc_oc_glitch_per_tier per tier  (default 0.25 -> +250% at T10 vs GLITCH zombies)
+//   3 Ammo refund    : +acc_oc_adaptive_per_tier per tier (default 0.10 -> 100% refund chance at T10) on a HEADSHOT KILL
+//   4 Shield Piercing : +acc_oc_pierce_per_tier per tier  (default 0.05 -> pierce 0.50 at T10; PARTIALLY restores the
+//                       Riot's blocked frontal damage - front takes 25% at T0 .. 43.75% at T5 .. 62.5% at T10, NEVER a
+//                       full bypass, user 2026-06-25).
+#define ACC_OC_DMG_PER_TIER            0.10
 #define ACC_OC_GLITCH_PER_TIER         0.25
 #define ACC_OC_ADAPTIVE_PER_TIER       0.10
+#define ACC_OC_PIERCE_PER_TIER         0.05
 #define ACC_OC_REACTIVE_AOE_RADIUS     128   // legacy: reactive_powder_aoe kept but no longer wired
 
 // Shielded elite: "front quarter" = front 90-degree arc = within 45 degrees
@@ -153,6 +195,12 @@ function init()
     // (_zm.gsc:5835), invoked ON the damaged AI with the return value fed to
     // finishActorDamage (_zm.gsc:5824-5861).
     zm::register_actor_damage_callback( &on_ai_damage );
+
+    // Insta-Kill on NON-REGULAR enemies (bosses/elites/Glitch Stalker/Brutus) = 6x gun damage, NOT an
+    // instant kill (user 2026-06-23). This stock global hook (zm_powerups::check_for_instakill) returns
+    // FALSE for them so the gib+lethal is skipped (on_ai_damage applies the 6x instead); regular zombies
+    // are still one-shot. See acc_instakill_override + is_non_regular below.
+    level.check_for_instakill_override = &acc_instakill_override;
 
     // VERIFIED(acc): dispatch runs callbacks in registration order and the
     // FIRST non -1 return short-circuits the rest (_zm.gsc:5825-5829). The
@@ -238,7 +286,33 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
          && acc_mega_bottles::has_active_mega_perk( attacker, "specialty_widowswine" )
          && !is_boss_or_elite( self ) )
     {
+        // Show a damage number on the one-knife (this path RETURNs before the feed at the
+        // function end, so without this a Widow's-Mega knife shows nothing). user 2026-06-23.
+        if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
         return self.health + 1000;
+    }
+
+    // ACTION FIGURE melee (user 2026-06-24): ALWAYS one-knifes a REGULAR zombie (was a 50%+ chance). Its PaP
+    // tier adds PROBABILISTIC CLEAVE - extra nearby regular zombies one-knifed per swing, the count ROLLED per
+    // swing from the PaP tier (user 2026-06-26 nerf; "hit N" = 1 primary + N-1 cleaved):
+    //   base (un-PaP'd): hit 1 always.    T1: 50% hit 1 / 50% hit 2.
+    //   T2: 25% hit 1 / 50% hit 2 / 25% hit 3.    T3: 50% hit 2 / 50% hit 3.
+    // Bosses/elites are EXEMPT (the gate skips them) -> they take the AF's normal melee damage, never a
+    // one-knife or cleave. Gated on the WEAPON NAME (not b_melee) so it fires whatever MOD the melee swing makes.
+    if ( b_player_attacker && isdefined( weapon ) && isdefined( weapon.name )
+         && ( weapon.name == "t8_melee_figure" || weapon.name == "t8_actionfigure_melee" )
+         && !is_boss_or_elite( self ) )
+    {
+        // CLEAVE: roll the extra-target count from the PaP tier (0..3). Threaded so it runs OUTSIDE this damage
+        // callback (no re-entrancy); it one-knifes up to `extra` OTHER regular zombies nearest the primary victim.
+        extra = actionfigure_cleave_count( acc_pap_levels::get_tier( attacker, weapon ) );
+        if ( extra > 0 )
+            attacker thread actionfigure_cleave( self.origin, self, extra );
+
+        // This path RETURNs before the damage-number feed at the function end, so feed it here or the AF
+        // shows NO damage on a swing (user 2026-06-23: "knife a zombie and not see the damage").
+        if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
+        return self.health + 1000;                              // ALWAYS one-knife the primary
     }
 
     oc_flags = undefined;
@@ -288,13 +362,54 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     }
 
     // -----------------------------------------------------------------------
+    // 0c) Wonder-weapon / launcher / sniper vs BOSS cut (user 2026-06-24 boss-nuke audit, docs/05): the SAME
+    //     boss-damage trap as pellet shotguns, for the high-burst weapons that bypass it - the Thundergun cone
+    //     (multi-trace) + the Mahem rocket (direct + splash) pile onto a boss's single hitbox, and the Paladin
+    //     sniper is reined in vs bosses on user request. Cut vs bosses/mini-bosses ONLY so chaff power is kept.
+    //     REDUCTION; stacks on the gun's acc_weapon_balance_mult. boss_nuke_mult() returns 1.0 for everything else.
+    // -----------------------------------------------------------------------
+    if ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) )
+    {
+        n_bnuke = boss_nuke_mult( weapon );
+        if ( n_bnuke != 1.0 )
+        {
+            reduction = reduction * n_bnuke;
+            b_modified = true;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 0d) DOUBLE TAP damage temper (user 2026-06-25). Base Double Tap 2.0 = the stock specialty_doubletap2:
+    //     it fires an EXTRA bullet per shot (~2x dmg) + faster RoF, and the extra bullet is ENGINE-level - it
+    //     CANNOT be stripped in a usermap (docs/13). So we tame the doubled DAMAGE here; the fire rate stays.
+    //     **100%-SAFE ALLOW-LIST (user 2026-06-25: "cannot be wrong about the gun"):** the engine fires the
+    //     extra bullet ONLY on standard bullet guns - NOT Wonder Weapons / launchers / explosives / melee.
+    //     Cutting a gun that does NOT double-fire would make Double Tap a pure NERF on it. So we reduce ONLY
+    //     guns on the explicit weapon_gets_dt_bullet() allow-list AND only on bullet hits; every other weapon
+    //     is left at full damage. REDUCTION (<1). Applies to base AND Mega (both carry the extra bullet; Mega
+    //     stays stronger via its Gun Slinger fire-rate twin). Live dvar acc_doubletap_dmg_mult.
+    // -----------------------------------------------------------------------
+    if ( b_player_attacker && b_bullet && !b_melee
+         && isdefined( attacker ) && attacker HasPerk( "specialty_doubletap2" )
+         && weapon_gets_dt_bullet( weapon ) )
+    {
+        reduction = reduction * getdvarfloat( "acc_doubletap_dmg_mult", ACC_DOUBLETAP_DMG_MULT );
+        b_modified = true;
+    }
+
+    // -----------------------------------------------------------------------
     // 1) Crit determination + crit chain. "Crit" == headshot-equivalent:
     //    a real head hit, a Precision Mode ability shot (auto-crit, ignores
     //    hit-loc per docs/05), or a Cyberware Overload chance proc that
     //    promotes a non-head bullet hit. Tac-19 stays excluded from the
     //    whole crit chain (docs/05 flat-damage rule).
     // -----------------------------------------------------------------------
-    b_headshot = is_headshot( sHitLoc ) && !is_weapon_headshot_excluded( weapon );
+    // MELEE NEVER HEADSHOTS (user 2026-06-23). The crit chain assumes the incoming `damage`
+    // already carries the gun's GDT locHead (~x5 for bullets, so the +0.5 ACC_HEADSHOT_MULT
+    // BONUS nets ~2.5x). MELEE has NO locHead, so a knife head/neck hit would take bonus_factor
+    // = 0.5 ALONE = HALF damage (and a blue/teal "headshot" number). Gate melee out: no crit,
+    // no tint, full melee damage wherever you hit. (b_melee from is_melee_mod, set above.)
+    b_headshot = is_headshot( sHitLoc ) && !b_melee && !is_weapon_headshot_excluded( weapon );
 
     b_ability_crit = false;
     if ( b_player_attacker && b_bullet
@@ -321,15 +436,22 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 
     if ( b_headshot || b_ability_crit || b_cw_crit_proc )
     {
-        // Crit chain, now ADDITIVE: each layer ADDS its value into bonus_sum
-        // (was an internal product folded in by one multiply). Base layer = the
-        // map headshot mult (2.0 regular / 2.0 boss).
-        bonus_sum += resolve_headshot_multiplier( self );
-        n_applied++;
+        // Crit chain (ADDITIVE): each layer ADDS its value into bonus_sum. BUT for a REAL HEADSHOT the
+        // loc-temper (resolve_headshot_multiplier, 0.5 reg / 0.6 boss) is applied SEPARATELY as a
+        // multiplicative factor (n_hs_temper, in the application below) instead of being summed here -
+        // otherwise it sits inside bonus_sum and the engine's locHead (~5.0) multiplies the OTHER bonuses
+        // (PaP ladder, Deadshot, Cyberware) too, ballooning headshots instead of a clean 2.5x reg / 3x boss
+        // (user 2026-06-25: "2.5x reg / 3x boss"). BODY crits (Precision Mode / Cyberware proc -
+        // no locHead inflation) KEEP the additive base layer here; there's nothing to double-temper.
+        if ( !b_headshot )
+        {
+            bonus_sum += resolve_headshot_multiplier( self );
+            n_applied++;
+        }
 
         if ( isdefined( attacker ) && isplayer( attacker ) )
         {
-            // Deadshot: base +1.4, American Sniper Mega replaces it with +1.8
+            // Deadshot: base +1.3, American Sniper Mega replaces it with +1.5
             // (no double dip - one or the other).
             if ( attacker HasPerk( "specialty_deadshot" ) )
             {
@@ -357,8 +479,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     // -----------------------------------------------------------------------
     if ( b_player_attacker )
     {
-        // Pack-a-Punch custom tier (T1..T3, 3-tier revamp 2026-06-16): flat damage layer
-        // (+50% / +100% / +150% = 1.5 / 2.0 / 2.5) added to bonus_sum. The "_up" transform's
+        // Pack-a-Punch custom tier (T1..T3): flat damage layer = LINEAR +33.33%/pack
+        // (+33% / +67% / +100% = 1.3333 / 1.66666 / 1.999999, double dmg at MAX) added to bonus_sum. The "_up" transform's
         // own raw damage is normalized per-gun by acc_weapon_balance_mult (substring match on
         // base/_up/twin alike), so this ladder is the ONLY PaP damage lever - no double-count.
         // CONSOLIDATED here
@@ -387,8 +509,8 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         }
 
         // Cyberware Weapon Overclock - effect 1/3: FLAT per-tier weapon damage, ALWAYS on (hip + ADS;
-        // gun hits only, oc_tier is 0 for melee). +acc_oc_dmg_per_tier per tier (default +5%/tier ->
-        // +25% at T5). Adds 1 + tier*per_tier (>=1) into the additive bonus sum.
+        // gun hits only, oc_tier is 0 for melee). +acc_oc_dmg_per_tier per tier (default +10%/tier ->
+        // +50% at T5). Adds 1 + tier*per_tier (>=1) into the additive bonus sum.
         if ( oc_tier > 0 )
         {
             bonus_sum += 1.0 + ( oc_tier * getdvarfloat( "acc_oc_dmg_per_tier", ACC_OC_DMG_PER_TIER ) );
@@ -402,6 +524,18 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         if ( oc_tier > 0 && IS_TRUE( self.acc_is_glitch_zombie ) )
         {
             bonus_sum += 1.0 + ( oc_tier * getdvarfloat( "acc_oc_glitch_per_tier", ACC_OC_GLITCH_PER_TIER ) );
+            n_applied++;
+            b_modified = true;
+        }
+
+        // EXO SUIT - melee augment (user 2026-06-22): the player's KNIFE/melee hits scale with the player's
+        // Exo Suit tier - +acc_exo_melee_per_tier per tier (default +30%/tier -> +150% at T5). This is
+        // the exo's "body" counterpart to the gun Overclock's flat damage (effect 1): guns get oc_tier (0 on
+        // melee), melee gets exo_tier. Melee-ONLY (b_melee), so guns are untouched. Additive layer like the
+        // rest. The Cyberware Amplifier deliberately skips melee (above); the Exo Suit IS the melee scaler.
+        if ( b_melee && isdefined( attacker.acc_exo_tier ) && attacker.acc_exo_tier > 0 )
+        {
+            bonus_sum += 1.0 + ( attacker.acc_exo_tier * getdvarfloat( "acc_exo_melee_per_tier", 0.30 ) );
             n_applied++;
             b_modified = true;
         }
@@ -482,22 +616,39 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     }
 
     // -----------------------------------------------------------------------
-    // 4) Target-side reduction: Shielded elite frontal resist.
+    // 4) Target-side reduction: Shielded ("Riot") elite frontal resist, with the
+    //    Overclock SHIELD-PIERCE counter (effect 4/4).
     //    self.acc_elite_front_damage_resist (0.25 = "take 25% from front",
-    //    _acc_elites.gsc:172). Applies to bullets and melee only - grenades /
-    //    explosives bypass per docs/11 counter-play, and so do the pierce
-    //    Overclocks (AR Piercing Rounds, Sniper Penetration Round, Shotgun
-    //    Breach - the docs/11:31 designed counters).
+    //    _acc_elites.gsc). Bullets/melee only - grenades / explosives bypass per
+    //    docs/11 counter-play.
     // -----------------------------------------------------------------------
     if ( isdefined( self.acc_elite_front_damage_resist )
          && ( b_bullet || b_melee )
          && hit_is_frontal( self, attacker, vdir ) )
     {
-        // Shielded elite frontal armor: take 25% from the front. Countered by explosives / grenades
-        // (not b_bullet/b_melee) and by flanking. The overclock no longer interacts with this - its
-        // anti-armor role was replaced by Glitch Piercing (effect 2/3 above, vs glitch zombies).
-        reduction = reduction * self.acc_elite_front_damage_resist; // REDUCTION
-        b_modified = true;
+        front_frac = self.acc_elite_front_damage_resist; // damage fraction that gets THROUGH the front armor (0.25)
+
+        // OC effect 4/4 - SHIELD PIERCING (user 2026-06-25). The gun's Overclock tier PARTIALLY restores the
+        // Riot's BLOCKED frontal damage: each tier lerps front_frac from 0.25 toward 1.0 by `pierce`
+        // (= oc_tier x 0.05). So front_frac = 0.25 + 0.75*pierce -> the front takes 25% at T0, 43.75% at T5,
+        // 62.5% at T10. pierce maxes at ~0.50 (<< 1.0), so it is ALWAYS a partial reduction - NEVER a full
+        // bypass or weak point (the user cut this from the old 0.20/tier that fully bypassed at T5 and
+        // over-pierced into a weak point). Flanking / explosives / side-melee stay the real counters.
+        // oc_tier is 0 for melee, so this is guns only (the Exo scales melee).
+        if ( oc_tier > 0 )
+        {
+            pierce = oc_tier * getdvarfloat( "acc_oc_pierce_per_tier", ACC_OC_PIERCE_PER_TIER ); // partial restore; maxes ~0.50 at T10
+            front_frac = front_frac + ( ( 1.0 - front_frac ) * pierce );
+        }
+
+        // Apply unless it's an exact no-op (front_frac == 1.0). < 1.0 REDUCES (armor); > 1.0 AMPLIFIES
+        // (over-pierced front = weak point). The reduction bucket is multiplicative, so a >1.0 factor here
+        // correctly scales the final frontal damage up.
+        if ( front_frac != 1.0 )
+        {
+            reduction = reduction * front_frac;
+            b_modified = true;
+        }
     }
 
     // Single truncation at the end of the multiplicative chain; never let a
@@ -510,11 +661,94 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         bonus_factor = 1.0;
         if ( n_applied > 0 ) bonus_factor = bonus_sum;
 
-        final_damage = int( damage * bonus_factor * reduction );
+        // Headshot loc-temper: a SEPARATE multiplicative factor (NOT summed into bonus_factor) so the
+        // headshot's locHead reduction tempers ONLY the base loc-inflation, not the PaP/Deadshot/Cyberware
+        // bonuses (user 2026-06-25 - stops PaP headshots ballooning; a clean 2.5x reg / 3x boss of body).
+        // Body crits (no locHead) -> 1.0. Regular zombie = 0.5, boss = 0.6 (resolve_headshot_multiplier).
+        n_hs_temper = ( b_headshot ? resolve_headshot_multiplier( self ) : 1.0 );
+
+        final_damage = int( damage * bonus_factor * n_hs_temper * reduction );
         if ( final_damage < 1 ) final_damage = 1;
 
         /# acc_utility::log( "damage: " + damage + " -> " + final_damage +
                              " (bonus x" + bonus_factor + ", red x" + reduction + ")" ); #/
+    }
+
+    // -----------------------------------------------------------------------
+    // 4b) GLOBAL player-damage buff (user 2026-06-23): one across-the-board scalar
+    //     that lifts EVERY gun uniformly, preserving the per-gun tiers above. Flat
+    //     FINAL multiply on all PLAYER damage, OUTSIDE the bonus/reduction buckets.
+    //     Applied BEFORE the headshot-KILL test below so a buffed killing blow is
+    //     still detected as a kill, and BEFORE record_damage/feed_dmg_number so the
+    //     point split + crosshair number reflect the real applied damage. Even when
+    //     no other layer fired (b_modified false), final_damage == raw `damage` here,
+    //     so the buff applies to plain body shots too. Live dvar acc_global_dmg_mult.
+    // -----------------------------------------------------------------------
+    if ( b_player_attacker )
+    {
+        gmult = getdvarfloat( "acc_global_dmg_mult", ACC_GLOBAL_DMG_MULT );
+        if ( gmult != 1.0 )
+        {
+            final_damage = int( final_damage * gmult );
+            if ( final_damage < 1 ) final_damage = 1;
+            b_modified = true;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 4c) INSTA-KILL vs NON-REGULAR enemies = 6x gun damage (user 2026-06-23). The stock insta-kill
+    //     one-shot is SKIPPED for bosses/elites/Glitch Stalker/Brutus (acc_instakill_override returns
+    //     false for them), so it would otherwise do NOTHING to them. Here the gun's hit is multiplied
+    //     x6 so the powerup has real impact without one-shotting. Regular zombies are excluded
+    //     (is_non_regular) - they're still one-shot by the stock/override path. Applied AFTER the global
+    //     buff so it is "6x the gun's actual hit", and BEFORE record_damage/feed so points + the
+    //     crosshair number reflect it.
+    // -----------------------------------------------------------------------
+    b_instakill_boss = ( b_player_attacker && is_non_regular( self ) && acc_insta_kill_active_for( attacker ) );
+    n_insta_mult = getdvarint( "acc_instakill_boss_mult", ACC_INSTAKILL_BOSS_MULT );   // 2x (was 6x), user 2026-06-25
+    if ( b_instakill_boss )
+    {
+        final_damage = int( final_damage * n_insta_mult );
+        if ( final_damage < 1 ) final_damage = 1;
+        b_modified = true;
+    }
+
+    // -----------------------------------------------------------------------
+    // 4d) BOSS-DAMAGE HARD CAP (user 2026-06-24, boss-nuke audit - the robust catch-all). No SINGLE hit may
+    //     delete a boss. The name-keyed boss cuts (0b/0c) are structurally BLIND to weaponless scripted
+    //     DoDamage - the stock Thundergun FLING does DoDamage(self.health+666) with NO weapon (the real
+    //     ~200k one-shot, int(80666*2.5)=~201k), and the Li'l Arnie octobomb pull does DoDamage(target.health)
+    //     - so balance_mult (gated on isdefined(weapon)) and boss_nuke_mult (1.0 when weapon undefined) never
+    //     fire. And for WEAPON hits the 0c cut is a multiplicative REDUCTION that PaP/Cyberware/Overclock
+    //     investment + the insta-kill x6 re-inflate right past. A FINAL clamp - AFTER the global x2.5 AND the
+    //     insta-kill x6 - is the only fix that survives all of them: a single player hit on a boss/mini-boss
+    //     deals at most acc_boss_per_hit_cap_pct of its maxhealth (default 0.10 -> >=10 hits to kill any boss,
+    //     regardless of weapon/weaponless/insta-kill/investment). Dvar 0 = off (uncapped). The 0b/0c cuts stay
+    //     - they shape the baseline feel BELOW the cap; this just removes the one-shot ceiling-break.
+    // -----------------------------------------------------------------------
+    // EXCLUDES the Glitch Stalker: it carries acc_is_mini_boss but is a LIGHTWEIGHT fast-dying mini-boss
+    // (1.5x zombie HP, killed by punishing its post-blink window) - a 10%/hit cap would wrongly sponge it.
+    // So cap only the HEAVYWEIGHT bosses (Brutus / Phantom / Subroutine Core), never acc_is_glitch_zombie.
+    if ( b_player_attacker
+         && ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) )
+         && !IS_TRUE( self.acc_is_glitch_zombie )
+         && isdefined( self.maxhealth ) && self.maxhealth > 0 )
+    {
+        cap_pct = getdvarfloat( "acc_boss_per_hit_cap_pct", ACC_BOSS_PER_HIT_CAP_PCT );
+        // INSTA-KILL scales the cap by the SAME multiple as the damage (user 2026-06-25), so a gun already at
+        // the 10% cap deals exactly n_insta_mult x its normal capped hit (2x -> 20%), not the old 6x that the
+        // flat 10% cap clamped right back to 4k. Still bounded (no one-shot).
+        if ( b_instakill_boss )
+            cap_pct = cap_pct * n_insta_mult;
+        if ( cap_pct > 0 )
+        {
+            n_cap = int( self.maxhealth * cap_pct );
+            if ( n_cap >= 1 && final_damage > n_cap )
+            {
+                final_damage = n_cap;
+                b_modified = true;
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -526,6 +760,13 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     // -----------------------------------------------------------------------
     if ( b_player_attacker && b_headshot && b_bullet && isdefined( self.health ) && final_damage >= self.health )
     {
+        // Headshot-KILL DING (user 2026-06-22): custom 2D ding to the SHOOTER only (PlayLocalSound is
+        // per-client = full volume, no world reverb/falloff). Gated to KILLS like the ammo refund below.
+        // Stock plays NO headshot "ding" to remove (verified: only the client-side head-gib pop, which lives
+        // in stock _zm.csc and we don't own) - so this is purely additive. Live toggle: acc_headshot_ding 0.
+        if ( isdefined( attacker ) && getdvarint( "acc_headshot_ding", 1 ) == 1 )
+            attacker PlayLocalSound( "acc_headshot_ding" );
+
         // Cyberware Weapon Overclock - effect 3/3: per-tier ammo refund on a HEADSHOT KILL (user 2026-06-21:
         // gated to KILLS, not every headshot hit). CHANCE scales with the gun's tier (acc_oc_adaptive_per_tier;
         // default +10%/tier -> 50% at T5).
@@ -571,28 +812,15 @@ function acc_weapon_balance_mult( weapon_name )
 {
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.26;    // [C-] Five-Seven (start pistol): ~52 eff/shot. v2 tier model -> C- (5.5): mobile starter, fast reload + 14 clip = decent sustain, but weak damage + reserve cut to 56 lands it on the 5.6 B/C line (user 2026-06-21).
     if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // [B] ASM1 (AW smg): ~401 DPS. v2 -> B (6.5): low DPS but fast reload + 22 clip + medium pierce = serviceable sustain (nerf clip/reload if you want it back to C).
-    if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.68;    // [A+] Tac-19 (AW energy SG): NERF -9% damage (was 0.75) + clip 4->3 / PaP 7->6 + reserve 48->27 (reduce_base_ammo). User 2026-06-21 cut the clip too -> dropped from low-S to A+ (~7.45). Still crowd-control king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/05.
-    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.9775;  // [C] Olympia (BO2 double-barrel SG): 110/pellet x ~8, 2 in mag + 3.9s reload. v2 -> C (4.8): worst sustain in the game (2-round clip). Headshot-excluded.
-    if ( IsSubStr( weapon_name, "t6_ak47" ) )      return 0.186;   // [A] AK-47 (200@0.08 = 2500 raw): ~465 DPS. v2 -> A (6.7): solid DPS + decent effective reload. Focus Fire ability.
+    if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.612;   // [A] Tac-19 (AW energy SG): -10% damage nerf (0.68 -> 0.612, user 2026-06-25 max-scale shotgun trim) on top of the earlier -9% + clip 4->3 / PaP 7->6 / reserve 27. 12-pellet stack x PaP/OC ballooned it at the ceiling (~19k/shot); flat scalar pulls it back. Crowd-control king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/05.
+    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.489;   // [C] Olympia (BO2 double-barrel SG): -50% damage nerf (0.9775 -> 0.489, user 2026-06-25 max-scale OUTLIER fix - the near-uncut 0.9775 x 12 pellets x PaP/OC = ~33k/shot, 100k/head, 6-18x every other gun). 110/pellet x ~8, 2-round clip + 3.9s reload = worst sustain. Headshot-excluded.
+    if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.186;   // [A] AK-47 (200@0.08 = 2500 raw): ~465 DPS. v2 -> A (6.7): solid DPS + decent effective reload. Focus Fire ability.
     if ( IsSubStr( weapon_name, "t6_galil" ) )     return 0.15;    // [B+] Galil (BO2 full-auto AR, 220@0.08 = 2750 raw): ~412 DPS (user 2026-06-21 -> B+, was 0.198/~545). DPS cut to land it at the top of B.
-    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;    // [B] AE4 (AW energy AR, 160@0.12 = 1333 raw): ~413 DPS. Formula reads A- (6.8) but user-curated to B 2026-06-21 (mid DPS; fast reload + pierce + 25 clip + 200 reserve keep it top-B).
-    if ( IsSubStr( weapon_name, "iw6_ripper" ) )   return 0.25;  // [A] Ripper (Ghosts convertible SMG<->AR); covers smg/ar x base/_up. Unique mechanic.
-    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
+    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;    // [B] AE4 (AW energy AR, 160@0.12 = 1333 raw): ~413 DPS. Formula reads A- (6.8) but user-curated to B 2026-06-21 (mid DPS; fast reload + pierce + 25 clip + 200 reserve keep it top-B).    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
     // (raw DPS = damage/fireTime from the Skye GDTs). IsSubStr covers base + PaP + twins.
-    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.20;   // [A+] PPSH-41 (VG smg, 155@0.063 = 2460 raw): ~492 DPS (user 2026-06-21 -> A+, was 0.27/~664). DPS cut from S to the top of A. Massive clip (30/44) + high RoF keep its sustain.
-    if ( IsSubStr( weapon_name, "t5_ak74u" ) )     return 0.23;   // [A] AK-74u (BO1 smg, 180@0.08 = 2250 raw): ~518 DPS. v2 -> A (7.4): fast, mobile, good sustain. Clip 20/reserve 160.
-    if ( IsSubStr( weapon_name, "s1_pdw_rdw" ) || IsSubStr( weapon_name, "s1_pdw_ldw" ) ) return 0.33;  // [PaP bottom S] PDW akimbo PaP: SEPARATE higher mult (+50% over base) so the PACKED PDW jumps to bottom-S (akimbo double-fire + PaP ladder on top), like the M1911 split. Base stays C. user 2026-06-21; tune in playtest (akimbo damage stacks).
-    if ( IsSubStr( weapon_name, "s1_pdw" ) )       return 0.22;   // [C base] PDW-57 (AW smg, 120@0.08 = 1500 raw): ~330 DPS (user 2026-06-21 -> C, was 0.33/~495). Hard DPS cut so the BASE roll is C; its value is the akimbo PaP (line above).
-    if ( IsSubStr( weapon_name, "t9_nail_gun" ) )  return 0.37;    // [S] Nail Gun (CW projectile AR): ~589 DPS (UNCHANGED - user 2026-06-21 wanted S WITHOUT touching DPS). Reached S via non-DPS buffs: clip 30->40 + reload 2.6->2.0s (reduce_base_ammo.js CLIP_FIX/RELOAD_FIX), reserve ~280. PaP de-explosived. No twins.
-    // M1911 PaPs to AKIMBO EXPLOSIVE (Mustang-and-Sally pattern): the _rdw/_ldw upgrade
-    // forms are projectileweapons at 7000 direct dmg + splash. acc_weapon_balance_mult
-    // scales ALL damage through on_ai_damage (incl. explosive), so the broad s2_m1911 x3.5
-    // base buff would make the PaP ~24,500/shot. Give the explosive forms their own scale
-    // ABOVE the base match: 7000 x 0.40 = 2800 direct (one-shots ~r20) + scaled splash - a
-    // strong PaP nuke, not trivializing. First-pass; tune in playtest. (docs/33 Failure modes)
-    if ( IsSubStr( weapon_name, "s2_m1911_rdw" ) || IsSubStr( weapon_name, "s2_m1911_ldw" ) ) return 0.35;  // [A packed] M1911 akimbo-explosive PaP: 7000 x 0.35 = 2450 direct (+ splash). NERF (user 2026-06-21, was 0.50). The gun's whole value is this PaP nuke.
-    if ( IsSubStr( weapon_name, "s2_m1911" ) )     return 3.50;   // [C base] M1911 base (WWII semi-auto pistol): NERF (user 2026-06-21, was 4.375). MP-tuned at dmg 20 -> ~70 eff/shot. Weak until packed (see akimbo line above).
-    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.24;   // [S] PPSH-41 (VG smg, 155@0.063 = 2460 raw): ~590 DPS (user 2026-06-24 ALL-AROUND BUFF: +20% dmg 0.20 -> 0.24; history 0.27/~664 -> 0.20/~492 -> 0.24/~590). Paired with clip 30/44 -> 40/54 (reduce_base_ammo CLIP_FIX) -> back to S. IsSubStr covers base + _up + all perk twins.
+    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) ) return 0.25;   // [S+] Chicom CQB (BO2 3-round-burst SMG, 130@0.048 within burst; base ~497 sustained eff w/ the 0.1s burst delay, PaP 250/shot 4-round auto-burst): the box's TOP-3 gun (user 2026-06-25). papScore ~8.05 (#2, just under Tac-19) via strong burst DPS + generous uncut ammo (clip 36/56, reserve 180/448). cu-curated (burst raw overstates). IsSubStr covers base + _up + twins.
+    if ( IsSubStr( weapon_name, "t9_ak74u" ) )     return 0.23;   // [A] AK-74u (BO1 smg, 180@0.08 = 2250 raw): ~518 DPS. v2 -> A (7.4): fast, mobile, good sustain. Clip 20/reserve 160.    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
     // cause (user, 2026-06-15) was the Skye rip's MP-inflated hit-location mults: locTorso 5.0
     // (PaP 9.0), limbs 4.0 (8.0), locHead 7.5 (10.0) - so at x1.0 even a BODY/limb shot one-shot
     // to ~r23 and a headshot to ~r33. FIX: the GDT's loc* mults were normalized to 1.0 install-side
@@ -601,9 +829,25 @@ function acc_weapon_balance_mult( weapon_name )
     // every other gun (body = base, headshot = our 2.0 map mult only), so x0.80 -> body r7 /
     // headshot r14 / HS+Deadshot r20, PaP+Cyberware push higher. A real sniper that FALLS OFF
     // without PaP. Tune the mult here (not the GDT) for further feel changes. Balance audit docs/33.
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.70;  // [low S] Paladin HB50 (BO4 sniper): 700/shot, one-shots to ~r14. v2 -> low S (7.7, user 2026-06-21): clip 4->8 + scored on SINGLE-TARGET DPS (a one-shot boss-killer, not chaff) + large pierce. Has Precision Mode.
-    if ( IsSubStr( weapon_name, "t6_m60" ) )       return 0.20;     // [S] M60 (Skye BO2 LMG, 290@0.1 = 2900 raw): ~580 DPS (user 2026-06-21: DPS DOWN from 0.24/~696, traded for clip/reserve). v2 -> S (7.9): clip 100 + reserve 400 + large pierce carry it; the 60->100 clip makes the 9.7s reload trivial per-round. Slow 0.8 move is its only weakness.
-    if ( IsSubStr( weapon_name, "t6_rpd" ) )       return 0.10;     // [C] RPD (Skye BO2 LMG, 270@0.08 = 3375 raw): ~337 DPS (user 2026-06-21 -> C, was 0.13/~439). The "bad LMG" - low DPS on top of the 7.5s reload + 0.8 move. Clip 60/100, reserve 240/400.
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.49;  // [B] Paladin HB50 (BO4 sniper): MOVED low-S -> B (user 2026-06-24). DPS cut 0.70->0.49 (700->490/shot, curated e 624->437); clip 8 / reserve 96/132 / reload 4.1 unchanged -> base 6.14 / PaP 6.42 (B). MORS is the S sniper now; Paladin = cheaper mid one-shot. ACC_PALADIN_BOSS_MULT boss cut separate. IsSubStr covers base+_up+twins. Has Precision Mode. docs/05/54.
+    if ( IsSubStr( weapon_name, "t9_m60" ) )       return 0.20;     // [S] M60 (Skye BO2 LMG, 290@0.1 = 2900 raw): ~580 DPS (user 2026-06-21: DPS DOWN from 0.24/~696, traded for clip/reserve). v2 -> S (7.9): clip 100 + reserve 400 + large pierce carry it; the 60->100 clip makes the 9.7s reload trivial per-round. Slow 0.8 move is its only weakness.
+    if ( IsSubStr( weapon_name, "t9_rpd" ) )       return 0.125;    // [C] RPD (Skye BO2 LMG, 270@0.08 = 3375 raw): ~421 DPS (user 2026-06-25 +25% buff, 0.10 -> 0.125; was 0.13/~439 then 0.10/~337). The "bad LMG" - low DPS on top of the 7.5s reload + 0.8 move. Clip 60/100, reserve 240/400.
+    if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.11;     // [A] RW1 (AW directed-energy pistol, 800@0.15 = 5333 raw): ~590 eff. Energy sidearm; covers base+PaP+twins. Tune in playtest. (user 2026-06-23)
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )      return 0.30;     // [B] MK14 (AW semi-auto DMR): base body 90/shot (300x0.30), PaP 180 (600x0.30). Scored as curated single-target DPS (e=400, cu) -> B base AND PaP. clip 14/12, reserve 168/240 (reduce_base_ammo). Clean body loc (head 6.0 = ~3x HS, not excluded). docs/05/54. (user 2026-06-24)
+    if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.66;     // [S] MORS (AW charge railgun sniper): MOVED B -> S (user 2026-06-24). loc NORMALIZED install-side (tools/normalize_mors_loc.js: body 1.0 / head 5.0; PaP damage re-encoded 1000->2000), so body = damage x mult: base 660/shot, PaP 1320. DPS cut 0.47->0.66 (e 470->660, near-max single-target = premier boss-killer) PLUS reserve 60/90->120/180 (clip-1 charge caps SUSTAIN, so DPS alone tops at ~A 7.46; reserve clears S). clip 1 / reload 1.2 unchanged -> base 7.73 / PaP 7.90 (S). Reserve via reduce_base_ammo MAXAMMO_FIX (base+_up+14 twins); IsSubStr covers all for damage. docs/05/54.
+    // Mahem (s1_mahem): EXPLOSIVE rocket launcher - 7000 direct + 2750/1500 splash (PaP 5500/3000), same trap as
+    // the old M1911 explosive. acc_weapon_balance_mult scales ALL damage through on_ai_damage INCLUDING explosive,
+    // so WITHOUT this line the default 1.0 x the global 2.5x = ~17,500/rocket (trivializes). 7000 x 0.315 x 2.5 =
+    // ~5,512 direct + scaled splash = a strong but not game-breaking launcher; ammo-limited self-balances. NOTE:
+    // explosive splash + direct both land on a single boss hitbox and there is NO boss-damage cut here (only pellet
+    // shotguns get ACC_SHOTGUN_BOSS_MULT) - see the boss-nuke audit (docs/05). (user 2026-06-23)
+    if ( IsSubStr( weapon_name, "s1_mahem" ) )     return 0.40;     // [A] Mahem explosive rocket launcher: 0.40 (user 2026-06-25, was 0.315 - a small BUFF +27%, bringing it closer to the now-harder-nerfed Thundergun). Covers base + PaP.
+    // Thundergun (wonder weapon): wind-blast CONE that multi-traces a single boss hitbox. It had NO balance entry
+    // at all -> the default 1.0 (zero cut) x the global 2.5x x ~8 cone traces = the ~200k-to-bosses nuke the user
+    // hit. NERF -30% (user 2026-06-24, implicit 1.0 -> 0.70). Covers base + thundergun_upgraded (IsSubStr). NOTE:
+    // 0.70 cuts ALL targets (incl. its intended chaff clear) but at global 2.5 + multi-hit it STILL nukes bosses
+    // (~140k) - the surgical fix for the boss case is a boss-damage cut like is_pellet_shotgun's (see docs/05 audit).
+    if ( IsSubStr( weapon_name, "thundergun" ) )   return 0.45;     // [S+] Thundergun (wonder weapon): NERF to 0.45 (user 2026-06-25, was 0.70 = -55% from raw; "so good when I played"). Covers base + thundergun_upgraded.
     return 1.0;
 }
 
@@ -798,12 +1042,65 @@ function resolve_headshot_multiplier( target )
     return ACC_HEADSHOT_MULT;
 }
 
+// Double Tap (specialty_doubletap2) extra-bullet eligibility for the damage temper (user 2026-06-25:
+// "all guns EXCEPT thundergun + mahem"). The temper (acc_doubletap_dmg_mult) is ALREADY gated to bullet
+// hits (b_bullet && !b_melee), so melee (knife / Action Figure) and thrown/explosive equipment (frag /
+// Monkey Bomb / octobomb) are auto-excluded and need NOT be listed here. We only DENY the remaining
+// bullet/weapon-MOD weapons that still do NOT fire the engine extra bullet: the Thundergun (wonder-weapon
+// wind cone) and the Mahem (rocket launcher). IsSubStr covers base + _up + twins.
+// VERIFY-IN-GAME (user "must be 100% correct"): s1_mors (charge railgun) + t8_paladin_hb50 (bolt sniper)
+// have non-standard fire - if the double-damage-number check shows they do NOT fire 2 rounds with Double
+// Tap, add them here too (else Double Tap would NERF them). Currently INCLUDED per user directive.
+function weapon_gets_dt_bullet( w_weapon )
+{
+    if ( !isdefined( w_weapon ) || !isdefined( w_weapon.name ) ) return false;
+    n = w_weapon.name;
+    if ( IsSubStr( n, "thundergun" ) ) return false;   // wonder weapon: wind cone, no per-bullet doubling
+    if ( IsSubStr( n, "s1_mahem" ) )   return false;   // rocket launcher: explosive, no extra bullet
+    return true;                                        // every other bullet gun gets the extra bullet -> tempered
+}
+
 function is_boss_or_elite( actor )
 {
     if ( isdefined( actor.acc_is_boss )      && actor.acc_is_boss )      return true;
     if ( isdefined( actor.acc_is_mini_boss ) && actor.acc_is_mini_boss ) return true;
     if ( isdefined( actor.acc_is_elite )     && actor.acc_is_elite )     return true;
     return false;
+}
+
+// ---------------------------------------------------------------------------
+// Insta-Kill handling (user 2026-06-23): NON-REGULAR enemies take 6x gun damage during Insta-Kill
+// (applied in on_ai_damage) instead of the stock instant-kill (which glitched the Glitch Stalker and
+// had no impact on Brutus). Regular zombies are still one-shot. NON-REGULAR = our bosses/elites/mini-
+// bosses (acc_is_*), stock-boss-flagged enemies (Brutus sets self.is_boss), and glitch zombies.
+// ---------------------------------------------------------------------------
+
+function is_non_regular( actor )
+{
+    if ( !isdefined( actor ) ) return false;
+    return is_boss_or_elite( actor ) || IS_TRUE( actor.is_boss ) || IS_TRUE( actor.acc_is_glitch_zombie );
+}
+
+// True if `player`'s team has Insta-Kill active (or a personal BGB insta-kill). Team-scoped flag set by
+// the stock insta-kill powerup (level.zombie_vars[team]["zombie_insta_kill"], _acc_lui.gsc:388).
+function acc_insta_kill_active_for( player )
+{
+    if ( !isdefined( player ) || !isplayer( player ) ) return false;
+    if ( IS_TRUE( player.personal_instakill ) ) return true;
+    if ( !isdefined( player.team ) || !isdefined( level.zombie_vars ) ) return false;
+    if ( !isdefined( level.zombie_vars[ player.team ] ) ) return false;
+    return IS_TRUE( level.zombie_vars[ player.team ][ "zombie_insta_kill" ] );
+}
+
+// Stock zm_powerups::check_for_instakill hook (self = the damaged zombie; runs on EVERY zombie hit when
+// set). Return FALSE -> check_for_instakill returns without insta-killing; TRUE -> it performs its normal
+// one-shot. We skip the instant kill for non-regular enemies (on_ai_damage 6x's them instead); regular
+// zombies one-shot as stock. Returns false when no insta-kill is active (a cheap no-op for every hit).
+function acc_instakill_override( player )
+{
+    if ( !acc_insta_kill_active_for( player ) ) return false;   // not an insta-kill hit: no-op
+    if ( is_non_regular( self ) )               return false;   // boss/elite/glitch/Brutus: NO instant kill -> 6x in on_ai_damage
+    return true;                                                 // regular zombie: stock one-shots it
 }
 
 // VERIFIED(acc): melee meansofdeath strings are "MOD_MELEE" /
@@ -813,6 +1110,54 @@ function is_melee_mod( meansofdeath )
 {
     if ( !isdefined( meansofdeath ) ) return false;
     return IsSubStr( meansofdeath, "MELEE" );
+}
+
+// Roll the Action Figure cleave target count from its PaP tier (user 2026-06-26 nerf). Returns the EXTRA
+// regular zombies one-knifed beyond the primary (total hit = 1 + this). "hit N" = 1 primary + (N-1) cleaved:
+//   T1: 50% 0 / 50% 1   (hit 1 / 2)        T2: 25% 0 / 50% 1 / 25% 2   (hit 1 / 2 / 3)
+//   T3: 50% 1 / 50% 2   (hit 2 / 3)        tier 0 (un-PaP'd) = 0 extra (the always-one-knife). Rolled per swing.
+function actionfigure_cleave_count( tier )
+{
+    r = acc_utility::acc_rand_int( 100 );
+    switch ( tier )
+    {
+        case 1: return ( r < 50 ? 0 : 1 );
+        case 2: return ( r < 25 ? 0 : ( r < 75 ? 1 : 2 ) );
+        case 3: return ( r < 50 ? 1 : 2 );
+    }
+    return 0;
+}
+
+// Action Figure CLEAVE (user 2026-06-24). self = the attacking player. One-knifes up to `count` OTHER regular
+// zombies nearest `center` (the primary victim's origin), within acc_af_cleave_radius. `count` = the rolled
+// cleave count (actionfigure_cleave_count, 0..2), so a swing hits 1 (primary, in on_ai_damage) + count cleaved.
+// Threaded from the AF block so it runs OUTSIDE the damage callback. The cleave DoDamage passes NO weapon, so
+// re-entering on_ai_damage skips the AF block (no recursive cleave). Bosses/elites + the primary are excluded.
+function actionfigure_cleave( center, primary, count )   // self = player (attacker)
+{
+    self endon( "disconnect" );
+    if ( count <= 0 ) return;
+    radius = getdvarint( "acc_af_cleave_radius", 140 );
+
+    all  = GetAITeamArray( "axis" );
+    cand = [];
+    for ( i = 0; i < all.size; i++ )
+    {
+        z = all[ i ];
+        if ( !isdefined( z ) || !isalive( z ) ) continue;
+        if ( z == primary ) continue;
+        if ( is_boss_or_elite( z ) ) continue;
+        cand[ cand.size ] = z;
+    }
+    if ( cand.size == 0 ) return;
+
+    chosen = util::get_array_of_closest( center, cand, undefined, count, radius );
+    for ( i = 0; i < chosen.size; i++ )
+    {
+        z = chosen[ i ];
+        if ( isdefined( z ) && isalive( z ) && isdefined( z.health ) )
+            z DoDamage( z.health + 1000, center, self, self, 0, "MOD_MELEE" );
+    }
 }
 
 // VERIFIED(acc): bullet damage MODs are "MOD_PISTOL_BULLET" /
@@ -898,6 +1243,23 @@ function is_pellet_shotgun( w_weapon )
     if ( name == "s1_tac19" )  return true;
     if ( name == "t6_olympia" ) return true;
     return false;
+}
+
+// Boss-only damage cut for the high-burst / multi-hit weapons that bypass the pellet-shotgun cut (user
+// 2026-06-24 boss-nuke audit, docs/05): the Thundergun cone, the Mahem rocket (direct + splash), and the
+// Paladin HB50 sniper (one-shot single-target boss-killer - reined in vs bosses on user request). Returns a
+// REDUCTION (<1) applied ONLY vs bosses/mini-bosses (the caller gates on acc_is_boss/_mini_boss), or 1.0 if
+// the weapon isn't one of them. Root-name match so it covers base + PaP (_upgraded / _up). Per-weapon dvars
+// so each can be dialled independently.
+function boss_nuke_mult( w_weapon )
+{
+    if ( !isdefined( w_weapon ) ) return 1.0;
+    name = weapon_root_name( w_weapon );
+    if ( !isdefined( name ) ) return 1.0;
+    if ( name == "thundergun" )      return getdvarfloat( "acc_thundergun_boss_mult", ACC_THUNDERGUN_BOSS_MULT );
+    if ( name == "s1_mahem" )        return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );
+    if ( name == "t8_paladin_hb50" ) return getdvarfloat( "acc_paladin_boss_mult",    ACC_PALADIN_BOSS_MULT );
+    return 1.0;
 }
 
 function weapon_root_name( w_weapon )

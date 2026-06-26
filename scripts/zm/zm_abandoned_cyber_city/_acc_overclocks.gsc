@@ -26,20 +26,28 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
-// Tier costs per level. ACC_TIER_MAX 4 -> 5 (user 2026-06-21): both the gun Overclock and the Exo Suit
-// go to 5 tiers (parity with the 5 trench layers, docs/47). The 3 effects scale off the tier in
-// _acc_damage (get_oc_tier), so they extend to T5 automatically: flat dmg +25%, glitch +125%, ammo 50%.
-// Cost ladder 2 / 4 / 8 / 16 / 24 = 54 to max one gun (T5=24 fits the 50 cap).
-#define ACC_TIER_MAX 5
-#define ACC_TIER_COST_T1 2
-#define ACC_TIER_COST_T2 4
-#define ACC_TIER_COST_T3 8
+// Tier costs per level. ACC_TIER_MAX 5 -> 10 (user 2026-06-24): both the gun Overclock and the Exo Suit
+// now go to 10 tiers. The 4 effects scale off the tier in _acc_damage (get_oc_tier, no internal clamp),
+// so they extend to T10 automatically: flat dmg +100%, glitch +250%, ammo 100%, shield-pierce 0.05/tier
+// (the Riot's front takes 25% dmg at T0 -> 62.5% at T10; a PARTIAL restore, never a full bypass, user 2026-06-25).
+// Cost ladder (SHARED with the Exo Suit, user 2026-06-24): LINEAR +4/tier = 4 x tier ->
+// 4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 36 / 40 (220 to max one gun; all fit the 500 shard cap).
+#define ACC_TIER_MAX 10
+#define ACC_TIER_COST_T1 4
+#define ACC_TIER_COST_T2 8
+#define ACC_TIER_COST_T3 12
 #define ACC_TIER_COST_T4 16
-#define ACC_TIER_COST_T5 24
+#define ACC_TIER_COST_T5 20
+#define ACC_TIER_COST_T6 24
+#define ACC_TIER_COST_T7 28
+#define ACC_TIER_COST_T8 32
+#define ACC_TIER_COST_T9 36
+#define ACC_TIER_COST_T10 40
 #define ACC_OC_REROLL_COST_SHARDS 1
 
-// Overclock terminal world model (a freestanding kiosk; stock t7 prop, xmodel-listed in the .zone).
+// Overclock terminal world model (a theatre ticket kiosk - on-theme tech read; xmodel-listed in the .zone).
 #precache( "model", "p7_cai_ticket_kiosk_theatre" );
 
 #namespace acc_overclocks;
@@ -133,6 +141,11 @@ function tier_cost( target_tier )
     case 3: return ACC_TIER_COST_T3;
     case 4: return ACC_TIER_COST_T4;
     case 5: return ACC_TIER_COST_T5;
+    case 6: return ACC_TIER_COST_T6;
+    case 7: return ACC_TIER_COST_T7;
+    case 8: return ACC_TIER_COST_T8;
+    case 9: return ACC_TIER_COST_T9;
+    case 10: return ACC_TIER_COST_T10;
     }
     return 0;
 }
@@ -216,6 +229,18 @@ function watch_terminal_trigger()
     if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
     for ( i = 0; i < triggers.size; i++ )
     {
+        // TRENCH-ONLY OVERCLOCK GUARD (user 2026-06-25): overclocking is meant to be an underground RISK,
+        // so ignore any map-placed acc_overclock_terminal that is NOT underground. This kills the "invisible
+        // overclock machine in the Lab" exploit (a stray model-less trigger). The intended terminals are
+        // script-spawned underground via spawn_terminal_at (which calls terminal_loop directly, bypassing this
+        // loop), so they are unaffected. We guard in GSC because the .map deletion only lands on a FULL build
+        // and the LED bake is currently broken by unrelated WIP geometry - this makes the fix effective on a
+        // GSC-only build even while the old BSP still carries the Lab trigger.
+        if ( acc_bus_trench::underground_layer( triggers[ i ].origin ) <= 0 )
+        {
+            acc_utility::log( "overclocks: ignoring above-ground terminal at " + triggers[ i ].origin + " (trench-only)" );
+            continue;
+        }
         triggers[ i ] thread terminal_loop();
         level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = triggers[ i ].origin;
     }
@@ -345,43 +370,49 @@ function weapon_name_to_family( weapon_name )
     // TODO(acc-data): replace this giant switch with a GDT-driven table.
     // Weapon names are class-based + unsuffixed for stock; Skye imports are
     // engine-prefixed (s1_=AW, t6_=BO2 - docs/21).
-    // The map ships 5 guns: Five-Seven (pistol), ASM1 (smg), Tac-19 (shotgun),
-    // AK-47 + AE4 (ar). Tac-19, ASM1, AK-47 and AE4 map to an Overclock-able
-    // family; there are no sniper / lmg guns on the map.
-    ar_list = array( "t6_ak47", "s1_ae4",           // AK-47 (BO2), AE4 (AW energy)
-                     "t9_nail_gun",                 // Nail Gun (CW projectile AR, 2026-06-15)
+    // EVERY weapon Overclocks EXCEPT the Action Figure (user 2026-06-23): the box guns, the start pistol,
+    // the Mahem launcher + Thundergun WW (special_list) all map to a real family below; only the Action
+    // Figure melee (+ the non-box laststand pistol, knife, grenades) return "none". A gun not listed falls
+    // through to "unknown" (blocked) - add any NEW gun to a family list.
+    ar_list = array( "t9_ak47", "s1_ae4",           // AK-47 (BO2), AE4 (AW energy)
                      "t6_galil" );                  // Galil (BO2, 2026-06-15)
     smg_list = array( "s1_asm1",                    // ASM1
-                      "iw6_ripper_smg", "iw6_ripper_smg_zm",
-                      "iw6_ripper_ar", "iw6_ripper_ar_zm",  // Ripper (both convertible modes -> smg family)
-                      "s4_ppsh41_base", "t5_ak74u", "s1_pdw" );  // PPSH-41, AK-74u, PDW (2026-06-15)
+                      "s4_ppsh41_base", "t9_ak74u",  // PPSH-41, AK-74u
+                      "t6_chicom_cqb" );             // Chicom CQB (BO2 burst SMG, 2026-06-25)
     sg_list = array( "s1_tac19", "t6_olympia" );    // Tac-19, Olympia (BO2, 2026-06-15)
-    sr_list = array( "t8_paladin_hb50" );           // Paladin HB50 (BO4 sniper, 2026-06-15)
-    lmg_list = array( "t6_m60", "t6_rpd" );         // M60 + RPD (Skye BO2 LMGs, 2026-06-19) - activate the dormant LMG Overclock family
+    sr_list = array( "t8_paladin_hb50", "s1_mk14", "s1_mors" ); // Paladin HB50 (BO4 sniper) + MK14 (AW DMR) + MORS (AW railgun sniper, 2026-06-24)
+    lmg_list = array( "t9_m60", "t9_rpd" );         // M60 + RPD (Cold War LMGs, 2026-06-26)
 
-    // Families that CANNOT be Overclocked (return distinct sentinel "none" so
-    // the terminal prints a useful message instead of "unknown"). Real weapons
-    // reachable on the map only:
-    pistol_list = array( "pistol_standard",         // laststand pistol
-                         "t6_fiveseven",            // Five-Seven (start pistol)
-                         "s2_m1911" );              // M1911 (WWII pistol, 2026-06-15)
-    melee_list = array( "knife" );                  // basic melee
-    grenade_list = array( "frag_grenade" );         // starting lethal
-    // Wonder weapons (none placed yet) have intrinsic Overclocks, not
-    // terminal-applied; route any future ones to "none".
-    wonder_list = array();
+    // Pistols are NOW Overclock-able (user 2026-06-22: "every gun except wunderwaffe").
+    pistol_list = array( "t6_fiveseven", "s1_rw1" ); // Five-Seven (start pistol) + RW1 (AW energy pistol, 2026-06-23)
 
-    base = strip_pap_suffix( weapon_name );
+    // SPECIAL weapons that DO Overclock (user 2026-06-23: "every weapon except the Action Figure"). The Mahem
+    // launcher + Thundergun WW gain the damage + vs-glitch tiers (the headshot->ammo effect is inert on them -
+    // explosions / wind-blast don't headshot - but harmless). "special" is just the overclockable gate; the OC
+    // effects are tier-based and family-agnostic, so the value string beyond none/unknown doesn't change them.
+    special_list = array( "s1_mahem", "thundergun" );
+
+    // The ONLY weapon that CANNOT Overclock is the Action Figure melee (the Exo Suit scales melee instead),
+    // plus the non-box held things that were never tier-able (laststand pistol, knife, grenade) -> "none"
+    // (a useful terminal message, not "unknown").
+    none_list = array( "pistol_standard", "knife", "frag_grenade", "t8_melee_figure" );
+
+    // Resolve to the TRUE base NAME: strips BOTH the PaP "_up" AND the "_acc" perk-twin suffix, so a held
+    // PaP'd OR perk-twin form (e.g. t9_rpd_acc_fastreload while Speed Cola is active) still classifies into its
+    // family. strip_pap_suffix (get_base_weapon) alone does NOT strip the _acc twin suffix, so a twin fell
+    // through to "unknown" = "weapon not supported" (user 2026-06-26: couldn't Overclock the CW guns while a
+    // perk twin was the held form). true_base mirrors the tier key at line ~297 so eligibility + tracking agree.
+    base_obj = acc_weapon_variants::true_base( weapon_name );
+    base = base_obj.name;
 
     if ( array::contains( ar_list, base ) ) return "ar";
     if ( array::contains( smg_list, base ) ) return "smg";
     if ( array::contains( sg_list, base ) ) return "shotgun";
     if ( array::contains( sr_list, base ) ) return "sniper";
     if ( array::contains( lmg_list, base ) ) return "lmg";
-    if ( array::contains( pistol_list, base ) ) return "none";
-    if ( array::contains( melee_list, base ) ) return "none";
-    if ( array::contains( grenade_list, base ) ) return "none";
-    if ( array::contains( wonder_list, base ) ) return "none";
+    if ( array::contains( pistol_list, base ) ) return "pistol";
+    if ( array::contains( special_list, base ) ) return "special";
+    if ( array::contains( none_list, base ) ) return "none";
     return "unknown";
 }
 

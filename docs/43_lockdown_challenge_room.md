@@ -46,8 +46,12 @@ later phase that is **gated on a passing LED bake** (see §8). Everything else i
 IDLE
  └─ acc_lockdown lights a room red  ──(new "acc_lockdown_room_lit" notify)──►  ARMED
 ARMED  (after a short grace, a TRAP watcher polls the room volume; disarms next round if unsprung)
- └─ a valid player IsTouching the lit room  ──►  COMMIT  (the trap SPRINGS)
-COMMIT (snapshot the party = ALL valid players IsTouching the room volume this frame)
+ └─ a valid player IsTouching the lit room  ──►  JOIN WINDOW (the trap is TRIPPED, not yet sealed)
+JOIN WINDOW (user 2026-06-25; acc_lockdown_challenge_join_window, default 2.0s): the FIRST entry trips the
+ trap but holds the doors OPEN for 2s + announces "LOCKDOWN SEALING - get in!" to everyone, so teammates can
+ pile in. Before this, one entry sealed instantly + locked the rest of the team out. After the hold, the
+ ARMED guards are re-checked (room-rotation / commit-elsewhere bails; an empty room re-arms), THEN ──► COMMIT.
+COMMIT (snapshot the party = ALL valid players IsTouching the room volume AT SEAL TIME, i.e. after the window)
  ├─ seal the room (script-confine in Phase A; disconnectpaths brush in Phase B)
  ├─ disable_zone_spawning(zone)         ◄── CRITICAL: stops the outside horde rising INSIDE
  ├─ create X/30 HUD for inside players, klaxon, (Phase C) dark-red tint
@@ -137,6 +141,18 @@ These are the bugs the adversarial pass caught. The plan is only correct **with 
    stock `round_spawning`, which these direct spawns never use) — keep as belt-and-suspenders, but
    don't rely on the "would be culled otherwise" reasoning.
 
+11. **Co-op: the OUTSIDE horde freezes on a sealed-in player (user 2026-06-24).** When one player seals in,
+    they stay `am_i_valid` but the seal's `DisconnectPaths()` cuts the navmesh to them. Stock
+    `factory_closest_player` (zm_usermap_ai.gsc) caches each zombie's target and **only re-picks when the
+    cached player goes INVALID, never when it just becomes UNREACHABLE** (`factory_validate_last_closest_player`
+    keeps `self.last_closest_player` while `am_i_valid`). So every zombie locked onto the sealed player idles
+    forever instead of switching to the teammates still reachable outside — the whole outside horde froze for
+    the other players. **Not the Phase Serum** (that only froze the in-room glitches; see _acc_boss_glitch).
+    **Fix:** `ldc_release_outside_horde` (threaded in `commit_challenge`, endon `acc_ldc_done`) re-picks, each
+    second, any **non-purge** zombie (`!self.acc_ldc`) whose `last_closest_player` is a sealed-in party member
+    — set it to a reachable outside player + `need_closest_player=true` so the stock factory refines to the
+    closest reachable. Purge glitches skipped; true-solo / whole-team-sealed no-ops (no reachable target).
+
 10. **Four helpers are net-new code (not "reuse verbatim").** `acc_boss_glitch::apply_glitch_buffs`
     (the buffs are currently inline in `spawn_glitch:210-301`, interwoven with the behaviour threads —
     extracting a clean buff helper that **excludes** `glitch_death_watch` is the single biggest piece of
@@ -155,8 +171,9 @@ These are the bugs the adversarial pass caught. The plan is only correct **with 
 | **`challenge_producer`** | loop while `spawned < total`: if `ldc_alive() >= concurrent` or `GetFreeActorCount()<1` wait; else `spawn_challenge_glitch`, `spawned++`, thread `ldc_death_watch`; `wait stagger`. Endon `end_game`+`acc_ldc_done`. |
 | **`spawn_challenge_glitch`** | `host = acc_boss_glitch::spawn_promoted_zombie()`; apply the glitch buffs **inline (copied)** minus `glitch_death_watch`; `host.acc_ldc=true; ignore_nuke=true`; `forceteleport` to an in-room nav point from `<zone>_spawners`; `SetGoal(centroid)`. |
 | **`ldc_death_watch`** | `self waittill("death", attacker)`; guard `acc_ldc`/`teardown`; `killed++`; refresh HUD; if `killed >= total` → `challenge_clear(zone, attacker, in-room origin)`. Endon `acc_ldc_done`. |
-| **`watch_fail`** | poll ~0.5s: live party = connected non-removed members; if empty → fail; else if **every** live member `player_is_in_laststand()` AND an **outside** player `is_player_valid` → `acc_ldc_fail`. Never fail while anyone is up/self-reviving (keeps the stock solo-wipe→end_game path authoritative). Re-arm on revive. |
+| **`watch_fail`** | poll ~0.5s over party members **inside** the room volume. Someone **up + inside** → keep going. Nobody up-inside but someone is **in laststand inside** AND **no outside teammate** exists → KEEP alive (self-revive / inside-revive grace — the 2026-06-25 fix for "died in purge, premature abort"; uses `is_player_valid(p, false, true)` = ignore-laststand). Otherwise (real wipe, everyone respawned OUTSIDE, or a downed-inside player WITH an outside rescuer) → `challenge_fail`, **debounced 2 polls** so a sub-second doorway-clip during the seal can't false-abort. A member who bled out then respawned OUTSIDE still doesn't keep it sealed (load-bearing 2024-06-24 invariant, preserved). |
 | **`challenge_clear` / `challenge_fail`** | one-shot guard; `level.acc_ldc_teardown=true`; notify `acc_ldc_done`; unseal (`unlock_doors` in Phase B) **+ re-enable the room's spawning**; teardown HUD/tint/party; cull tagged stragglers; CLEAR → `acc_boss_items::grant_challenge_reward(killer, in-room origin)`; `acc_ldc_active=undefined`. Always unseal+re-enable on `end_game`. |
+| **`ldc_round_cap_watch` / `challenge_timeout`** (user 2026-06-25; progress-aware per the 2026-06-25 audit) | Round-cap backstop: `commit_challenge` captures `level.acc_ldc_start_round`. **SOFT cap** (`acc_lockdown_challenge_max_rounds`, default **2**): fires `challenge_timeout` once the purge has lasted ≥ cap rounds AND made **no kill in the round that just ended** (genuinely stalled — won't rob a still-winning fight). **HARD cap** (soft + `acc_lockdown_challenge_hard_grace`, default 2+4=**6**): fires UNCONDITIONALLY as the absolute anti-softlock backstop. `challenge_timeout` = the same one-shot-guarded clean teardown as clear/fail (unseal, re-enable spawning, cull, `acc_ldc_active=undefined`) with **no reward**, gating the next DEFCON to +cooldown so the timed-out room doesn't immediately re-trap. Guaranteed escape valve for every stuck-purge bug; no purge holds the room sealed past the hard cap. |
 | **`grant_challenge_reward`** (in `_acc_boss_items`) | guaranteed **free-for-all world drop** (decision #3): pick random from `level.acc_item_pool` → existing `spawn_pickup(picked, origin)` at the room centroid. **No killer-tie / no killer dedup** — a loose drop ANYONE can grab (or leave for a teammate). The per-grabber dedupe in `watch_pickup` already converts "already owns it" → Data Shards at pickup. |
 
 ## 6. Round isolation ("separate game") — verified
@@ -188,6 +205,15 @@ round. The shared cost is only the **engine actor pool** — managed by the conc
 > `acc_door_alley` + `acc_door_corp_e`; market = `acc_door_market` + `acc_door_corp_w`. The seal
 > **re-closes those existing doors** and restores them on teardown (only doors whose `enter_*` flag is
 > set — an un-bought door is already a wall). Pure GSC, `-GscOnly`, zero `.map` edit → zero LED risk.
+>
+> **ESCAPE-BUG FIX — un-bought border doors stayed buyable (user, 2026-06-25).** "An un-bought door is
+> already a wall" is true for the *slab*, but its **buy trigger is still live**. So a player sealed inside
+> the purge could walk to an un-bought border door, **buy it, and walk straight out** — escaping the
+> lockdown. Fix: `acc_lockdown_challenge::is_door_sealed( flag )` returns true while a door is one of the 2
+> border doors of the room currently sealed by an active purge (`level.acc_ldc_active`); the buyable-door
+> loop (`zm_abandoned_cyber_city::zone_door_trigger_wait`) refuses that purchase (no-purchase deny) until
+> the purge resolves — also stops an OUTSIDE player buying *into* the sealed room. Pure query, no state to
+> restore: it auto-lifts the instant `acc_ldc_active` clears. Respects `acc_lockdown_lock_doors 0`.
 >
 > **HOW THE SEAL WORKS — and a regression-and-fix saga (settled 2026-06-18).** The load-bearing fact is
 > *how this map OPENS its doors*: the entry script `acc_hardcoded_open_map` (and `_acc_dev::dev_open_all_
@@ -247,9 +273,16 @@ confinement is the real v1.**
   LOS) or solo Quick Revive (`auto_revive`, no LOS) can revive. Outsiders **cannot** revive through a
   Phase-B solid seal (stock revive needs sight+bullet trace, blocked by the brush — verified). Do **not**
   auto-kill downed players (no decon `kill_players_in_zone`).
-- **Fail** only when every live member is simultaneously in laststand **and** an outside player is alive
-  (so it doesn't pre-empt the stock solo-wipe→`end_game`). On fail: cull tagged zombies, unseal, re-enable
-  spawning, no reward — so a revived/bled-out player is never permanently walled.
+- **Fail** the instant the purge is **unwinnable** = no party member is **both up (`is_player_valid`) AND
+  still inside the room volume** (`acc_decontamination::player_in_zone_volumes`). The **inside** half is
+  load-bearing: in co-op a member who bleeds out **inside** the seal **respawns OUTSIDE** at the next round,
+  so `is_player_valid` flips back to `true` while they are locked *out* and can never reach the fight —
+  counting that respawned-outside survivor as "still up" is exactly what once left the room **sealed for the
+  rest of the game** (kills frozen → `challenge_clear` never fires; an "up" member exists → `challenge_fail`
+  never fires). Gating on valid-AND-inside fixes it (user, 2026-06-24). On fail: cull tagged zombies, unseal,
+  re-enable spawning, no reward — so a downed/bled-out player is never permanently walled. (Solo Quick-Revive
+  self-rez and the all-down wipe are the same code path; the stock solo-wipe→`end_game` is unaffected because
+  a fully wiped solo run ends before `watch_fail` matters.)
 - **Always unseal + re-enable spawning on `end_game`** (mandatory solo soft-lock safety valve).
 
 ## 10. Reward (decision #3 — free-for-all loose drop)

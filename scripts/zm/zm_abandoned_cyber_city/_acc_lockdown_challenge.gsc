@@ -23,6 +23,9 @@
 //    crush-safe close (door_activate open=false -> slides the door back DOWN, solid only when the
 //    doorway is player-clear). No acc_seal_<zone> brushes were ever authored (the move-door reuse
 //    sidesteps the Radiant/LED-bake risk entirely). See the seal section for the move-door detail.
+//    UN-BOUGHT border doors (seal_room leaves them - they're already solid walls) keep their BUY
+//    trigger live, so a sealed-in player could buy one and walk out (escape bug, user 2026-06-25);
+//    is_door_sealed() lets the buyable-door loop refuse those purchases while the purge is active.
 //
 // Live knobs: acc_lockdown_challenge_on (1) / _total (50) / _concurrent (10) / _stagger (0.6) /
 // _stagger_initial (0.3, fast fill at start) / _grace (1.5) / _confine (0) / acc_lockdown_reward (1) /
@@ -33,6 +36,7 @@
 #using scripts\shared\flag_shared;
 #using scripts\shared\util_shared;
 #using scripts\shared\hud_util_shared;
+#using scripts\shared\ai\zombie_utility;
 
 #using scripts\zm\_zm_utility;
 
@@ -43,12 +47,33 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 
-#define ACC_LDC_TOTAL_DEF       40    // glitch zombies to purge to clear the room (user 2026-06-18, was 50)
+#insert scripts\shared\shared.gsh;   // IS_TRUE macro (used below; was missing -> xref lint fail 2026-06-24)
+
+#define ACC_LDC_TOTAL_DEF       0     // FIXED purge-count override; 0 = AUTO = current round x ACC_LDC_ROUND_MULT (user 2026-06-23, was 15/40/50)
+#define ACC_LDC_ROUND_MULT_DEF  2.0   // AUTO purge count = current round x this (acc_lockdown_challenge_mult); 2x round (user 2026-06-23, was 2.5); e.g. r10 -> 20, r20 -> 40
 #define ACC_LDC_CONCURRENT_DEF  10    // on-screen at once (was 8) - denser sealed room; coop self-limits via the producer's GetFreeActorCount gate
 #define ACC_LDC_STAGGER_DEF     0.6   // seconds between spawns (was 1.3) - much faster trickle so the room fills quickly at the start (user 2026-06-18)
 #define ACC_LDC_GRACE_DEF       1.5
+// JOIN WINDOW (user 2026-06-25): seconds the trap stays OPEN after the FIRST player trips it, so teammates can
+// pile in before the doors seal. Was instant (one entry sealed everyone else out). Dvar acc_lockdown_challenge_join_window.
+#define ACC_LDC_JOIN_WINDOW_DEF 2.0
 #define ACC_LDC_BAR_W           170
 #define ACC_LDC_BAR_H           11
+// ANTI-SOFTLOCK (user 2026-06-24): seconds of ZERO progress (no kill AND no spawn) before the
+// stall-watchdog force-resolves a stuck purge. A stuck purge leaves level.acc_ldc_active set, which
+// PERMANENTLY blocks every boss spawn (phantom/glitch gate on it) - the "Phantom never came in coop"
+// bug. 60s of total silence inside a sealed room is a genuine stall, never a live fight (kills/spawns
+// reset the timer). Dvar: acc_lockdown_challenge_stall_sec.
+#define ACC_LDC_STALL_SEC       60
+// ROUND CAP (user 2026-06-25): force-shut-down a purge that lingers too many ROUNDS, the guaranteed escape
+// valve for EVERY stuck-purge bug ("went in, died, the door never opened back up"). TWO tiers so it never robs a
+// LEGIT winning fight (audit 2026-06-25): the SOFT cap fires at acc_lockdown_challenge_max_rounds (default 2)
+// rounds ONLY IF the purge made no kill in the round that just ended (genuinely stalled - the user's "2 rounds"
+// intent applied to stuck purges); the HARD cap fires UNCONDITIONALLY at soft+grace rounds (default 2+4=6) as the
+// absolute anti-softlock backstop no fight can ever legitimately exceed. Dvars: acc_lockdown_challenge_max_rounds
+// / acc_lockdown_challenge_hard_grace.
+#define ACC_LDC_MAX_ROUNDS      2
+#define ACC_LDC_HARD_GRACE      4
 
 #namespace acc_lockdown_challenge;
 
@@ -107,6 +132,22 @@ function arm_trap( zone )
         party = inside_party( volumes );
         if ( party.size > 0 )
         {
+            // JOIN WINDOW (user 2026-06-25): the FIRST player to step in trips the trap, but the doors do NOT
+            // seal instantly - hold for acc_lockdown_challenge_join_window seconds so teammates can pile in,
+            // THEN re-capture everyone inside and seal that FULL party. Before this, one entry sealed the room
+            // immediately and locked the rest of the team out. Guards are re-checked after the wait so a
+            // room-rotation / commit-elsewhere mid-window bails cleanly, and an empty room (everyone bolted
+            // back out during the window) just re-arms instead of sealing nobody in.
+            jw = getdvarfloat( "acc_lockdown_challenge_join_window", ACC_LDC_JOIN_WINDOW_DEF );
+            if ( jw > 0 )
+            {
+                ldc_announce( GetPlayers(), "^1LOCKDOWN SEALING^7 - get in! (" + int( jw ) + "s)" );
+                wait( jw );
+                if ( !isdefined( level.acc_lockdown_active ) || level.acc_lockdown_active != zone ) return;
+                if ( isdefined( level.acc_ldc_active ) ) return;
+                party = inside_party( volumes );   // re-capture: whoever is inside NOW is the sealed party
+                if ( party.size == 0 ) continue;   // everyone left during the window -> re-arm, don't seal empty
+            }
             commit_challenge( zone, party );
             return;
         }
@@ -139,13 +180,15 @@ function commit_challenge( zone, party )
 {
     level endon( "end_game" );
 
-    level.acc_ldc_active   = zone;
-    level.acc_ldc_killed   = 0;
-    level.acc_ldc_spawned  = 0;
-    level.acc_ldc_party    = party;
-    level.acc_ldc_teardown = false;
-    level.acc_ldc_resolved = false;
-    level.acc_ldc_zombies  = [];
+    level.acc_ldc_active      = zone;
+    level.acc_ldc_killed      = 0;
+    level.acc_ldc_spawned     = 0;
+    level.acc_ldc_party       = party;
+    level.acc_ldc_teardown    = false;
+    level.acc_ldc_resolved    = false;
+    level.acc_ldc_zombies     = [];
+    level.acc_ldc_start_round = ( isdefined( level.round_number ) ? level.round_number : 1 );   // for the hard round-cap watchdog
+    level.acc_ldc_total       = ldc_compute_total();   // round x 2 (or fixed override), captured once - can't drift mid-fight
 
     // CRITICAL (docs/43 §4.1): stop the OUTSIDE horde from RISING inside the sealed room.
     acc_decontamination::disable_zone_spawning( zone );
@@ -168,17 +211,215 @@ function commit_challenge( zone, party )
 
     ldc_debug( "COMMIT zone=" + zone + " party=" + party.size );
 
-    // Per-inside-player "GLITCH PURGE X/30" HUD (server-side hud::, NOT a clientuimodel field -
+    // Per-inside-player "GLITCH PURGE X/N" HUD (server-side hud::, NOT a clientuimodel field -
     // that pool is full at 64 bits and overflow crashes at load; docs/43 §4.8).
     for ( i = 0; i < party.size; i++ )
     {
         p = party[ i ];
         if ( isdefined( p ) && isplayer( p ) ) p create_challenge_hud();
     }
-    ldc_announce( party, "^1LOCKDOWN ENGAGED^7 - defeat 30 Glitch Stalkers to escape" );
+    // Announce the LIVE total (was hardcoded "30" while the real count was 40 - stale; now always in sync).
+    ldc_announce( party, "^1LOCKDOWN ENGAGED^7 - defeat " + ldc_total() + " Glitch Stalkers to escape" );
 
     level thread challenge_producer( zone );
     level thread watch_fail( zone );
+    level thread ldc_stall_watch( zone );   // anti-softlock: resolve a stuck purge so it can't block bosses forever
+    level thread ldc_round_cap_watch( zone );   // round-cap backstop: force-shutdown a STALLED purge (user 2026-06-25)
+    level thread ldc_release_outside_horde( zone );   // coop: keep the OUTSIDE horde chasing reachable players, not frozen on the sealed-in player
+}
+
+// ROUND-CAP WATCHDOG (user 2026-06-25; progress-aware per the 2026-06-25 audit). The guaranteed escape valve for
+// any stuck purge, in two tiers so it can NEVER rob a legitimate, still-winning fight:
+//   SOFT cap (acc_lockdown_challenge_max_rounds, default 2): once the purge has lasted this many rounds AND it
+//     made NO kill during the round that just ended, it is genuinely stalled -> force shutdown. (This is the
+//     user's "shut down after ~2 rounds" intent, scoped to STUCK purges - a fight that keeps killing glitches
+//     keeps going.) Rounds advance during a purge because the glitches are ignore_enemy_count, so the OUTSIDE
+//     wave still ends rounds and level.round_number climbs while we wait.
+//   HARD cap (soft + acc_lockdown_challenge_hard_grace, default 2+4=6): fires UNCONDITIONALLY, the absolute
+//     anti-softlock backstop no legitimate fight can exceed even at very high rounds.
+// challenge_timeout is one-shot guarded (acc_ldc_resolved), so it races the real resolvers harmlessly. Ends with
+// the purge (acc_ldc_done).
+function ldc_round_cap_watch( zone )
+{
+    level endon( "end_game" );
+    level endon( "acc_ldc_done" );
+
+    start = ( isdefined( level.acc_ldc_start_round ) ? level.acc_ldc_start_round
+                                                     : ( isdefined( level.round_number ) ? level.round_number : 1 ) );
+    cap = getdvarint( "acc_lockdown_challenge_max_rounds", ACC_LDC_MAX_ROUNDS );
+    if ( cap < 1 ) cap = 1;
+    hard = cap + getdvarint( "acc_lockdown_challenge_hard_grace", ACC_LDC_HARD_GRACE );
+
+    // Per-round kill-progress tracking: remember the kill count at the last round boundary so we can tell whether
+    // the purge actually killed anything during the round that just ended.
+    last_round         = ( isdefined( level.round_number ) ? level.round_number : start );
+    killed_at_boundary = level.acc_ldc_killed;
+    killed_last_round  = true;   // assume progress until a full round proves otherwise (don't soft-cap instantly)
+
+    for ( ;; )
+    {
+        wait( 1 );
+        cur = ( isdefined( level.round_number ) ? level.round_number : start );
+
+        if ( cur != last_round )
+        {
+            killed_last_round  = ( level.acc_ldc_killed != killed_at_boundary );   // did we kill during the round that just ended?
+            killed_at_boundary = level.acc_ldc_killed;
+            last_round         = cur;
+        }
+
+        elapsed = cur - start;
+
+        // HARD backstop: no purge may EVER outlive this, progress or not (the absolute anti-softlock guarantee).
+        if ( elapsed >= hard )
+        {
+            ldc_debug( "round-cap: HARD backstop (" + elapsed + " >= " + hard + " rounds) -> force shutdown" );
+            challenge_timeout( zone );
+            return;
+        }
+
+        // SOFT cap: past the cap AND no kill in the last full round AND none so far this round = genuinely stalled.
+        if ( elapsed >= cap && !killed_last_round && level.acc_ldc_killed == killed_at_boundary )
+        {
+            ldc_debug( "round-cap: SOFT cap (" + elapsed + " >= " + cap + " rounds, no kill last round) -> force shutdown" );
+            challenge_timeout( zone );
+            return;
+        }
+    }
+}
+
+// COOP FREEZE FIX (user 2026-06-24). When ONE player seals into the purge, they stay am_i_valid but the
+// seal's DisconnectPaths cuts the navmesh to them - and stock factory_closest_player (zm_usermap_ai.gsc)
+// only re-picks a zombie's target when the cached one goes INVALID, NEVER when it merely becomes UNREACHABLE
+// (factory_validate_last_closest_player keeps self.last_closest_player as long as am_i_valid). So every
+// regular zombie already locked onto the sealed-in player idles forever instead of switching to the
+// teammates still reachable OUTSIDE - the reported "all zombies froze for the other two players" bug (NOT
+// the serum; the serum only froze the in-room glitches). Each second we force any NON-purge zombie whose
+// cached target is a sealed-in party member to re-pick: point it at a reachable outside player + raise
+// need_closest_player so the stock factory refines to the true-closest reachable one next tick. Purge
+// glitches (acc_ldc) are skipped - they MUST keep hunting the in-room player. Ends with the purge.
+function ldc_release_outside_horde( zone )
+{
+    level endon( "end_game" );
+    level endon( "acc_ldc_done" );
+
+    for ( ;; )
+    {
+        wait( 1 );
+        if ( !isdefined( level.acc_ldc_party ) || level.acc_ldc_party.size == 0 ) continue;
+
+        outside = ldc_first_outside_player();
+        if ( !isdefined( outside ) ) continue;   // nobody reachable outside (true solo / whole team sealed) - can't retarget; they idle until clear
+
+        zombies = zombie_utility::get_round_enemy_array();
+        for ( i = 0; i < zombies.size; i++ )
+        {
+            z = zombies[ i ];
+            if ( !isdefined( z ) || !isalive( z ) ) continue;
+            if ( IS_TRUE( z.acc_ldc ) ) continue;                    // purge glitch - keep it on the in-room player
+            if ( !isdefined( z.last_closest_player ) ) continue;
+            if ( !is_in_party( z.last_closest_player ) ) continue;   // only the ones stuck on a sealed-in player
+
+            z.last_closest_player = outside;   // immediate reachable target (no sealed-player flicker)
+            z.need_closest_player = true;      // let stock factory refine to the closest reachable next tick
+        }
+    }
+}
+
+// First valid player NOT in the sealed purge party (still out in the normal round). undefined when everyone
+// valid is sealed in (true solo, or the whole team entered) - then there's no reachable target to hand the
+// outside horde, so it can only idle until the purge clears (unavoidable from a hard seal).
+function ldc_first_outside_player()
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( !zm_utility::is_player_valid( p ) ) continue;
+        if ( is_in_party( p ) ) continue;
+        return p;
+    }
+    return undefined;
+}
+
+// ANTI-SOFTLOCK WATCHDOG (user 2026-06-24). The win condition (challenge_clear) only fires on
+// acc_ldc_killed >= total, and watch_fail only fires when nobody is up-and-inside. Between them is a
+// dead zone: a challenge zombie that DIES/VANISHES without being counted (lost), the producer unable to
+// spawn the full count (coop actor-budget starvation), or a stuck-alive zombie - any of these freezes
+// `killed` below `total` while a player sits up-and-inside, so NEITHER resolver fires and the purge stays
+// sealed forever. Because every boss gates on level.acc_ldc_active, that stuck purge silently blocks the
+// Phantom + Glitch Stalker for the rest of the match (THE coop "boss never spawned" report). This watchdog
+// closes the gap two ways:
+//   (1) ROOM CLEAR but count short: all spawned + none alive + killed < total = the players cleared
+//       everything killable (the rest were lost) -> CLEAR (earned reward).
+//   (2) HARD STALL: no kill AND no spawn for ACC_LDC_STALL_SEC -> something is genuinely stuck -> CLEAR
+//       (kinder than trapping; gates the next DEFCON to +cooldown so it can't immediately re-trap).
+// Both routes clear acc_ldc_active, so the bosses come back. challenge_clear is one-shot guarded
+// (acc_ldc_resolved), so racing the real resolvers is safe.
+function ldc_stall_watch( zone )
+{
+    level endon( "end_game" );
+    level endon( "acc_ldc_done" );
+
+    timeout_ms     = getdvarint( "acc_lockdown_challenge_stall_sec", ACC_LDC_STALL_SEC ) * 1000;
+    last_killed    = level.acc_ldc_killed;
+    last_spawned   = level.acc_ldc_spawned;
+    last_progress  = GetTime();
+
+    for ( ;; )
+    {
+        wait( 2 );
+
+        // Any kill or spawn since the last tick = the fight is live; reset the stall timer.
+        if ( level.acc_ldc_killed != last_killed || level.acc_ldc_spawned != last_spawned )
+        {
+            last_killed   = level.acc_ldc_killed;
+            last_spawned  = level.acc_ldc_spawned;
+            last_progress = GetTime();
+            continue;
+        }
+
+        total = ldc_total();
+
+        // (1) Room is clear of live challenge zombies but the count fell short -> lost zombies. Win.
+        if ( level.acc_ldc_spawned >= total && ldc_alive() == 0 && level.acc_ldc_killed < total )
+        {
+            ldc_debug( "stall-watch: room clear, killed " + level.acc_ldc_killed + "/" + total + " (lost zombies) -> force CLEAR" );
+            challenge_clear( zone );
+            return;
+        }
+
+        // (2) Hard stall: no progress for the timeout window -> force-resolve (anti-softlock backstop).
+        if ( GetTime() - last_progress >= timeout_ms )
+        {
+            ldc_debug( "stall-watch: no progress for " + ( timeout_ms / 1000 ) + "s (killed " + level.acc_ldc_killed + "/" + total + ", alive " + ldc_alive() + ") -> force CLEAR (anti-softlock)" );
+            challenge_clear( zone );
+            return;
+        }
+    }
+}
+
+// The kill target for the active challenge = current round x acc_lockdown_challenge_mult (2.0 default),
+// CAPTURED ONCE at commit (level.acc_ldc_total) so it never drifts if the fight spans rounds. A fixed
+// acc_lockdown_challenge_total > 0 overrides it (testing). Min 1.
+function ldc_compute_total()
+{
+    fixed = getdvarint( "acc_lockdown_challenge_total", ACC_LDC_TOTAL_DEF );   // >0 = fixed override; 0 = auto
+    if ( fixed > 0 )
+        return fixed;
+    rnd   = ( isdefined( level.round_number ) ? level.round_number : 1 );
+    mult  = getdvarfloat( "acc_lockdown_challenge_mult", ACC_LDC_ROUND_MULT_DEF );
+    total = int( rnd * mult );
+    if ( total < 1 ) total = 1;
+    return total;
+}
+
+// Live read of the captured target (falls back to a fresh compute if somehow read before commit).
+function ldc_total()
+{
+    if ( isdefined( level.acc_ldc_total ) ) return level.acc_ldc_total;
+    return ldc_compute_total();
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +431,7 @@ function challenge_producer( zone )
     level endon( "end_game" );
     level endon( "acc_ldc_done" );
 
-    total        = getdvarint( "acc_lockdown_challenge_total", ACC_LDC_TOTAL_DEF );
+    total        = ldc_total();
     cap          = getdvarint( "acc_lockdown_challenge_concurrent", ACC_LDC_CONCURRENT_DEF );
     stagger      = getdvarfloat( "acc_lockdown_challenge_stagger", ACC_LDC_STAGGER_DEF );
     stagger_init = getdvarfloat( "acc_lockdown_challenge_stagger_initial", 0.3 );  // fast fill at the start
@@ -268,7 +509,7 @@ function ldc_death_watch( zone )
     ldc_update_hud();
     level notify( "acc_ldc_kill" );
 
-    total = getdvarint( "acc_lockdown_challenge_total", ACC_LDC_TOTAL_DEF );
+    total = ldc_total();
     if ( level.acc_ldc_killed >= total )
         level thread challenge_clear( zone );
 }
@@ -354,6 +595,11 @@ function challenge_clear( zone )
 
 function challenge_fail( zone )
 {
+    // OUTCOME PRIORITY (audit 2026-06-25): if the kill count is already met, this is a WIN regardless of who
+    // raced here first - redirect to challenge_clear (itself one-shot guarded) so the final-kill reward is never
+    // forfeited by a same-frame down/timeout that grabbed the resolver first.
+    if ( isdefined( level.acc_ldc_total ) && level.acc_ldc_killed >= ldc_total() ) { challenge_clear( zone ); return; }
+
     if ( isdefined( level.acc_ldc_resolved ) && level.acc_ldc_resolved ) return;
     level.acc_ldc_resolved = true;
     level.acc_ldc_teardown = true;
@@ -366,8 +612,36 @@ function challenge_fail( zone )
 
     level.acc_ldc_active = undefined;
 
-    // Failed (party wiped): lights off; the uncleared DEFCON re-arms next round.
-    acc_lockdown::on_defcon_failed();
+    // Failed (party wiped): lights off; gate the next DEFCON to a short fail cooldown so the recovering party
+    // gets at least one DEFCON-free round (audit 2026-06-25 - fail used to re-light a DEFCON the very next round
+    // with zero breather, unlike clear/timeout which rest acc_lockdown_cooldown).
+    acc_lockdown::on_defcon_failed( ( isdefined( level.round_number ) ? level.round_number : 1 ) );
+}
+
+// TIMEOUT resolver (user 2026-06-25) - fired by ldc_round_cap_watch when a purge has been active >= the round
+// cap. Same one-shot-guarded clean shutdown as clear/fail (unseal the doors, restore the room's spawns, cull the
+// purge glitches, clear level.acc_ldc_active) but with NO reward (this is an abnormal/abandoned shutdown, not an
+// earned clear). Gates the next DEFCON to +cooldown (like a clear, NOT like a fail) so the stuck room does NOT
+// immediately re-light and re-trap the same players next round - that would just re-stick.
+function challenge_timeout( zone )
+{
+    // OUTCOME PRIORITY (audit 2026-06-25): a met kill count is a WIN even if the round cap fired the same tick.
+    if ( isdefined( level.acc_ldc_total ) && level.acc_ldc_killed >= ldc_total() ) { challenge_clear( zone ); return; }
+
+    if ( isdefined( level.acc_ldc_resolved ) && level.acc_ldc_resolved ) return;
+    level.acc_ldc_resolved = true;
+    level.acc_ldc_teardown = true;
+    level notify( "acc_ldc_done" );
+
+    ldc_debug( "TIMEOUT zone=" + zone + " (active >= round cap) -> force shutdown, no reward" );
+    teardown_common( zone );   // unseal doors + restore spawns + cull glitches + destroy HUD
+
+    ldc_announce( level.acc_ldc_party, "^3LOCKDOWN RESET^7 - purge timed out" );
+
+    level.acc_ldc_active = undefined;
+
+    // Cooldown gate (like on_defcon_cleared) so the timed-out room does not immediately re-light/re-trap.
+    acc_lockdown::on_defcon_cleared( ( isdefined( level.round_number ) ? level.round_number : 1 ) );
 }
 
 // Unseal (Phase B) + RESTORE the room's outside spawns (mandatory, or that room stays dead) +
@@ -398,13 +672,18 @@ function teardown_common( zone )
     level.acc_ldc_zombies = [];
 }
 
-// Always-unseal safety: if the game ends mid-challenge, restore the active room's spawns so a
-// future run/round is never left with a permanently dead room.
+// Always-unseal safety: if the game ends mid-challenge, restore the active room's spawns AND re-open the sealed
+// doors (audit 2026-06-25 - it previously restored spawning but not the seal, contradicting its own comment) so
+// a future run/round is never left with a permanently dead or sealed room.
 function on_end_game_safety()
 {
     level waittill( "end_game" );
     if ( isdefined( level.acc_ldc_active ) )
+    {
+        unseal_room( level.acc_ldc_active );                              // re-open the re-closed border doors (idempotent, null-safe)
         acc_decontamination::enable_zone_spawning( level.acc_ldc_active );
+        level.acc_ldc_active = undefined;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +724,26 @@ function make_door( tn, flag )
     s.tn = tn;
     s.flag = flag;
     return s;
+}
+
+// Public query for the buyable-door system (zm_abandoned_cyber_city::zone_door_trigger_wait). Returns true
+// while this door (keyed by its enter_* script_flag) is one of the 2 border doors of the room that is RIGHT
+// NOW sealed by an active purge. THE ESCAPE-BUG FIX (user 2026-06-25): seal_room only re-CLOSES border doors
+// that were ALREADY OPEN; an UN-BOUGHT border door is a solid wall it leaves alone - but its BUY TRIGGER is
+// still live, so a player sealed inside the Glitch Purge could just buy that door and walk straight out. The
+// door loop gates its purchase on this so an un-bought border door refuses to open for the duration of the
+// purge (and an outside player can't buy INTO the sealed room either). Auto-clears the instant the purge
+// resolves (level.acc_ldc_active -> undefined), so the door buys normally again afterwards. Respects the
+// acc_lockdown_lock_doors test knob (0 = sealing off -> don't block buys either, stay consistent).
+function is_door_sealed( flag )
+{
+    if ( !isdefined( level.acc_ldc_active ) ) return false;
+    if ( getdvarint( "acc_lockdown_lock_doors", 1 ) != 1 ) return false;
+
+    doors = room_doors( level.acc_ldc_active );
+    for ( i = 0; i < doors.size; i++ )
+        if ( isdefined( doors[ i ].flag ) && doors[ i ].flag == flag ) return true;
+    return false;
 }
 
 function seal_room( zone )
@@ -584,13 +883,29 @@ function confine_players( zone )
     }
 }
 
-// Fail only when EVERY live party member is down AND an outside player is alive (so we never
-// pre-empt the stock solo/all-wipe -> end_game). (Increment 3 refines this with self-revive
-// handling per docs/43 §9.)
+// Fail (unseal + tear down) when the purge becomes UNWINNABLE. The hard part is distinguishing a RECOVERABLE
+// down (a player in laststand who can still self-revive or be revived) from a real wipe - the headline bug
+// (user 2026-06-25) was that this aborted the WHOLE purge the instant the only inside player hit laststand,
+// even with Quick Revive about to self-rez 2.5s later, culling every glitch and leaving them in a dead room.
+//
+// Decision tree, per poll, over the party members still INSIDE the room volume (the "inside" gate is
+// load-bearing - a coop member who bled out then respawned OUTSIDE the seal is valid again but locked out of
+// the fight, and must NOT keep the purge alive; that was the 2026-06-24 "sealed forever" bug):
+//   - someone UP and inside        -> still fighting, keep going.
+//   - someone DOWN (laststand) inside, and NO outside teammate exists to rescue them (solo, or the whole team
+//     is sealed in) -> KEEP the purge alive so they can self-revive / be revived from inside (the headline fix:
+//     do not abort a self-revivable down). is_player_valid(p, false, true) = valid IGNORING laststand.
+//   - otherwise (a real wipe, everyone respawned outside, OR a downed-inside player WITH an outside teammate
+//     who could come rescue them) -> FAIL: unseal the doors (rescue/escape valve) + cull glitches + no reward.
+// The fail is DEBOUNCED (2 consecutive polls) so a sub-second transient - e.g. the sole standing player
+// clipping the doorway during the ~1s the seal is still solidifying - can never false-abort a live fight.
 function watch_fail( zone )
 {
     level endon( "end_game" );
     level endon( "acc_ldc_done" );
+
+    volumes      = acc_decontamination::get_zone_volumes( zone );
+    fail_strikes = 0;
 
     for ( ;; )
     {
@@ -605,24 +920,39 @@ function watch_fail( zone )
         }
         if ( live.size == 0 )
         {
-            challenge_fail( zone );   // everyone disconnected
+            challenge_fail( zone );   // everyone disconnected - definitive, no debounce
             return;
         }
 
-        any_up = false;
+        any_fighting           = false;   // someone UP and inside
+        any_recoverable_inside = false;   // someone in laststand but still inside (could be saved)
         for ( i = 0; i < live.size; i++ )
         {
-            if ( zm_utility::is_player_valid( live[ i ] ) ) { any_up = true; break; }
+            p = live[ i ];
+            if ( !acc_decontamination::player_in_zone_volumes( p, volumes ) ) continue;   // must be inside the seal
+            if ( zm_utility::is_player_valid( p ) )                                        // UP and inside
+            {
+                any_fighting = true;
+                break;
+            }
+            if ( zm_utility::is_player_valid( p, false, true ) )                           // valid except for laststand
+                any_recoverable_inside = true;
         }
-        if ( any_up ) continue;   // someone inside is still fighting
 
-        // All inside are down. Fail (unseal) only if the round genuinely continues outside.
-        if ( outside_player_alive() )
+        if ( any_fighting ) { fail_strikes = 0; continue; }   // someone up AND inside, still clearing it
+
+        // A downed-inside player with NO outside rescuer (solo / whole team sealed): keep it alive for the
+        // self-revive / inside-revive. With an outside rescuer available, fall through and unseal so they
+        // can come in (the door opening IS the rescue path in coop, where you can't self-revive).
+        if ( any_recoverable_inside && !outside_player_alive() ) { fail_strikes = 0; continue; }
+
+        // Unwinnable-or-rescuable-from-outside -> FAIL, debounced.
+        fail_strikes++;
+        if ( fail_strikes >= 2 )
         {
             challenge_fail( zone );
             return;
         }
-        // else: solo / whole-team wipe -> stock end_game owns it; do NOT fail-unseal.
     }
 }
 
@@ -674,7 +1004,7 @@ function create_challenge_hud()
 {
     if ( isdefined( self.acc_ldc_label ) ) return;   // already built
 
-    total = getdvarint( "acc_lockdown_challenge_total", ACC_LDC_TOTAL_DEF );
+    total = ldc_total();
 
     self.acc_ldc_label = self hud::createFontString( "objective", 1.3 );
     self.acc_ldc_label hud::setPoint( "TOP", "TOP", 0, 62 );
@@ -717,7 +1047,7 @@ function ldc_update_hud()
 {
     if ( !isdefined( level.acc_ldc_party ) ) return;
 
-    total  = getdvarint( "acc_lockdown_challenge_total", ACC_LDC_TOTAL_DEF );
+    total  = ldc_total();
     killed = level.acc_ldc_killed;
     frac   = ( total > 0 ? ( killed / total ) : 1 );   // bar fills as you clear toward 30
 

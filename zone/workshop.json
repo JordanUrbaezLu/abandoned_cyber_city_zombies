@@ -1,0 +1,9 @@
+{
+    "Title": "Abandoned Cyber City",
+    "Description": "[b]Abandoned Cyber City[/b] — a systems-depth custom Zombies map for Black Ops III.\n\n[b]Systems[/b]\n[list]\n[*]Data Shards — a risk/reward currency you gamble at the Glitch Altar\n[*]Cyberware — permanent per-run upgrades\n[*]Overclocks — per-gun stat tiers (speed / precision / impact / efficiency)\n[*]Elite enemies + a mini-boss, with per-round boss encounters\n[*]Seven interconnected zones, buyable doors, a trench, and an underground vault\n[*]Per-run randomization for replayability\n[/list]\n\n[b]Credits[/b]\nMap & systems by the Abandoned Cyber City project.\nCustom LUI HUD compiled with L3akMod (D3V Team).\nThird-party assets credited per their authors — see the full credits in the Workshop description before public release.\n\n[b]Feedback[/b]\nReport bugs and balance notes in the comments.",
+    "FolderName": "zm_abandoned_cyber_city",
+    "PublisherID": "3751124295",
+    "Tags": "Map,Zombies",
+    "Thumbnail": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Call of Duty Black Ops III 455130\\usermaps\\zm_abandoned_cyber_city\\zone\\previewimage.png",
+    "Type": "map"
+}

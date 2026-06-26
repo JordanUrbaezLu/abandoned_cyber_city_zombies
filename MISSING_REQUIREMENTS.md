@@ -83,7 +83,7 @@ grenade fuses. These need authored override-GDT weapon variants swapped at
 activation (Phase 4, needs APE):
 
 - Triple Tap (B23R burst cluster), Stabilizer (zero recoil + RoF),
-  American Sniper's no-recoil half, Gun Slinger's +50% RoF,
+  American Sniper's no-recoil half, Gun Slinger's +45% RoF + −50% swap (BUILT — fastfire twin),
   Sleight-of-Hand Expert's +65% reload, Extended Fuse airburst,
   Savior's revive-speed (engine revive anim timing).
 - The EMP Grenade itself (custom weapon `emp_grenade_zm` GDT) and both

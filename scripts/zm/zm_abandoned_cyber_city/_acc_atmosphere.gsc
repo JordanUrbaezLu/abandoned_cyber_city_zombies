@@ -31,6 +31,8 @@
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_music;        // single music channel (main theme routes through it)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer() for the depth-gated abyss dark vision
 
 // Defaults = cold low city haze. TODO(acc-tune): lock these in a playtest, then
 // mirror the numbers in docs/29_atmosphere_and_materials.md.
@@ -71,8 +73,10 @@
 // alias never errors a build), so this ships build-safe before the WAV exists.
 #define ACC_AMB_ALIAS           "acc_amb_city_bed"
 
-// Main theme = a CC0 cyberpunk track (Joth, "Cyberpunk Moonlight Sonata"),
-// played ONCE at game start. 2D/IsMusic alias in sound/aliases/acc_audio.csv.
+// Main theme = "Suspense Dark Thriller" (lnplusmusic, Pixabay #392762; user
+// 2026-06-24, replaced the Joth "Cyberpunk Moonlight Sonata" CC0 track). Full
+// ~1:45 track, played ONCE at game start. 2D/IsMusic STREAMED alias in
+// sound/aliases/acc_audio.csv (source wav sound_assets/acc/music/main_theme.wav).
 #define ACC_MUSIC_ALIAS         "acc_main_theme"
 
 // Cyber-night COLOUR GRADE = an optional global VisionSetNaked colour grade applied
@@ -142,7 +146,14 @@ function apply_fog()
     // acc_fog_* tuning dvars take effect live.
     for ( ;; )
     {
-        if ( getdvarint( "acc_fog_on", 1 ) == 1 )
+        // PARADISE FINALE OVERRIDE (user 2026-06-25): once the finale rolls the fog back in (paradise_fog_on),
+        // THIS single SetVolFog authority re-asserts a thick paradise haze every tick - overriding the power-on
+        // settle/disable below so nothing fights it. The fog had been settled away at power-on; this brings it back.
+        if ( isdefined( level.acc_paradise_fog ) && level.acc_paradise_fog )
+        {
+            paradise_fog_apply();
+        }
+        else if ( getdvarint( "acc_fog_on", 1 ) == 1 )
         {
             // TRIGGER (user 2026-06-18): start the settle once POWER is on. Poll the stock
             // "power_on" flag (exists-guarded; it's created early, surely by now post-blackscreen)
@@ -162,6 +173,36 @@ function apply_fog()
         }
         wait( 0.1 );
     }
+}
+
+// PARADISE FINALE fog (user 2026-06-25). The finale "rolls the fog back in" after the calm first minute, as the
+// omen ("fetch me their souls") hits. paradise_fog_on() flips the flag the SINGLE fog authority (apply_fog) reads;
+// from then on it re-asserts a THICK haze every tick (overriding the power-on settle), densest at the PARADISE
+// floor (z~-1200, below ACC_SP_Z=-1000) so the whole sealed arena is fogged in. All acc_paradise_fog_* live-tunable.
+function paradise_fog_on()
+{
+    level.acc_paradise_fog = true;
+    acc_utility::log( "atmosphere fog: PARADISE finale - fog rolled back in" );
+}
+
+// "Lift the fog" on the Paradise WIN (user 2026-06-25). Vol fog can't be deleted, so lifting = MOVING it off
+// the map: clear the finale flag (so apply_fog stops re-asserting the haze) AND push the fog start plane out to
+// ~100,000,000 units NOW (disable_fog) so it's gone instantly for the victory cut, not on the next poll tick.
+function paradise_fog_off()
+{
+    level.acc_paradise_fog = false;
+    disable_fog();   // move the fog off the map immediately (planes pushed out - the only true "off")
+}
+
+function paradise_fog_apply()
+{
+    // Bring the fog back the SAME way the map applies its haze (user 2026-06-25): re-run the STANDARD
+    // set_fog_from_dvars() - the exact pre-power cyber-night haze, with its real fog planes pushed back ONTO
+    // the map (the inverse of disable_fog's push-out). Paradise sits far below the haze base height (z=0), and
+    // vol fog is max-density BELOW the base (it's ground fog), so the whole sealed arena fogs up. The override
+    // flag in apply_fog re-asserts this every tick, so it beats the power-on settle that had cleared it. Reusing
+    // the proven map haze (NOT a custom fog) is exactly what "do it correctly, the way the map already does" means.
+    set_fog_from_dvars();
 }
 
 // Power-on "fade": instead of teleporting the fog away instantly, SINK it (user 2026-06-18).
@@ -242,6 +283,15 @@ function disable_fog()
 // Cyber-night colour grade - global VisionSetNaked, no lightmap bake (docs/40).
 // Watches acc_vision_on / acc_vision_set so the look can be toggled + hot-swapped
 // live. Applies only on CHANGE so it does not spam the renderer every half second.
+//
+// REVIVE GOTCHA (docs/29 §7c, fixed 2026-06-24): this CHANGE-GATE is per-this-loop
+// (the local `applied`), but the engine FORCE-RESTORES the MAP-NAME vision
+// ("zm_abandoned_cyber_city") PER-CLIENT on every revive (visionset_mgr / _zm_laststand),
+// which BYPASSES this global slot - so after a down/revive a player keeps whatever
+// vision/zm_abandoned_cyber_city.vision is, regardless of `applied`. That file is kept
+// == stock default.vision (neutral) so the restore is harmless; NEVER tint the map-name
+// .vision (it caused the "gray screen on revive" bug). Custom global grades go through
+// acc_vision_set (the acc_grade_* files), not the map-name file.
 // ---------------------------------------------------------------------------
 
 function apply_vision()
@@ -251,13 +301,56 @@ function apply_vision()
     // Same flag the fog waits on - players are in once the blackscreen passes.
     level flag::wait_till( "initial_blackscreen_passed" );
 
-    applied = "";
+    applied      = "";
+    power_was_on = false;
+
     for ( ;; )
     {
+        // POWER-ON LIGHT WARM-UP (user 2026-06-22): the baked lights map-wide flip on INSTANTLY when power
+        // comes on (a binary lighting-state swap - can't be faded at the bake), so we fake a SLOW swell.
+        // CheckForPower masks the lightmap to the CURRENT pre-power darkness (acc_power_light_start, NOT pitch
+        // black) BEFORE the bright flip - so there's neither a flash NOR a dip-to-black (user: "stay the same
+        // darkness, don't go darker"). Here we just re-assert that start and SLOW-LERP it up to default over
+        // `ramp` seconds - a uniform, gentle ramp ("slow slow slow"), no fast surge at the end. The block runs
+        // synchronously and OWNS the vision for the duration. acc_power_light_ramp_on toggles; acc_power_light_ramp
+        // is the seconds (15); acc_power_light_start is the starting grade (default warm1 ~18% - dial it to match
+        // your pre-power dark: blackout=darker, warm2=~45%, default=no dim).
+        pwr = ( level flag::exists( "power_on" ) && level flag::get( "power_on" ) );
+        if ( pwr && !power_was_on )
+        {
+            power_was_on = true;
+            ramp = getdvarfloat( "acc_power_light_ramp", 15.0 );
+            if ( getdvarint( "acc_power_light_ramp_on", 1 ) == 1 && ramp > 0.1 )
+            {
+                start = getdvarstring( "acc_power_light_start", "acc_grade_warm1" );
+                acc_utility::log( "atmosphere: power-on warm-up " + start + " -> default over " + ramp + "s" );
+                VisionSetNaked( start, 0 );        // hold AT the pre-power darkness (CheckForPower set the same)
+                wait 0.1;                           // let it land as the current vision so the lerp starts from it
+                VisionSetNaked( "default", ramp );  // SLOW uniform lerp: pre-power dark -> full over `ramp` seconds
+                wait( ramp );
+                applied = "default";
+                continue;
+            }
+        }
+
         on   = ( getdvarint( "acc_vision_on", ACC_VISION_ON ) == 1 );
         vset = getdvarstring( "acc_vision_set", ACC_VISION_SET );
         // OFF -> revert to the stock neutral "default" vision (not "", which no-ops).
         want = ( on ? vset : "default" );
+
+        // ABYSS DARKNESS (user 2026-06-22): the trench/abyss "won't get dark" because the baseline
+        // brightness is the VISION TONEMAP CURVE TOP + sky/IBL ambient - NOT the point lights, so dimming
+        // bake_intensity_scale can never reach it (confirmed: all 7 reflection probes are surface-only, so
+        // the abyss uses the bright default cubemap; volume_sun fill is already 0 0 0). The vision tonemap is
+        // the LAST stage before the frame, so a NEUTRAL near-black grade (acc_grade_abyss_dark.vision, vkRM
+        // 0.08, R=G=B = no hue) crushes the IBL/curve floor to black. Apply it whenever a player is below the
+        // trench lip. This is the GLOBAL slot (solo-correct; a per-player clientfield->.csc upgrade is the
+        // coop follow-up). Gate: acc_abyss_dark_on; vision name: acc_abyss_dark_vision (swap live to retune).
+        // Default OFF (user 2026-06-22): the abyss darkness now comes from FEWER baked lights (gen_abyss_layer.js
+        // emitLights = 1 small central pool/layer), so the vision crush is a separate optional lever - flip
+        // `acc_abyss_dark_on 1` to ALSO post-process-darken if the light reduction alone isn't enough.
+        if ( getdvarint( "acc_abyss_dark_on", 0 ) == 1 && any_player_underground() )
+            want = getdvarstring( "acc_abyss_dark_vision", "acc_grade_abyss_dark" );
 
         if ( want != applied && want != "" )
         {
@@ -269,8 +362,24 @@ function apply_vision()
             acc_utility::log( "atmosphere vision: " + want );
         }
 
-        wait( 0.5 );
+        wait( 0.25 );   // snappier poll so the dark settles in quickly when you drop into the trench
     }
+}
+
+// True if ANY player is below the trench lip (underground_layer>0). The naked vision is ONE global slot, so
+// in solo this is exactly the local player; in coop it darkens everyone while anyone is down the trench (the
+// approximation the per-player clientfield upgrade fixes). Cheap: a handful of players, polled every 0.25s.
+function any_player_underground()
+{
+    players = GetPlayers();
+    if ( !isdefined( players ) )
+        return false;
+    for ( i = 0; i < players.size; i++ )
+    {
+        if ( isdefined( players[ i ] ) && acc_bus_trench::underground_layer( players[ i ].origin ) > 0 )
+            return true;
+    }
+    return false;
 }
 
 function set_fog_from_dvars()
@@ -368,6 +477,8 @@ function apply_music()
 
     if ( getdvarint( "acc_music_on", 1 ) == 1 )
     {
-        zm_utility::play_sound_2D( ACC_MUSIC_ALIAS );
+        // Route through the single music channel so a boss spawn / teddy-bear song cleanly takes over (and
+        // this one-shot theme stops the moment it does). Reaches the whole lobby, same as play_sound_2D.
+        acc_music::play( ACC_MUSIC_ALIAS, false );
     }
 }

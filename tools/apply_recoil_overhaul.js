@@ -8,7 +8,7 @@
 //
 // DIMENSIONS (independent perk effects that can stack on one held gun):
 //   recoil  : none / recoil25 / recoil40   (Deadshot base -25% / Mega -40%, off the 2.1x base)
-//   fastfire: Gun Slinger (Double Tap Mega) = fireTime x0.714 (+40% RoF) AND swap x0.5 (-50%)
+//   fastfire: Gun Slinger (Double Tap Mega) = fireTime x0.69 (+45% RoF) AND swap x0.5 (-50%)
 //   reload  : Sleight of Hand Expert (Speed Cola Mega) = reloadTime x0.882 (+70% net, see below)
 //
 // The cross-product (minus the all-base combo) = 11 twins per gun form:
@@ -24,13 +24,15 @@
 // range x1.5 + FMJ penetrateType large + wider spread x1.25, traded against -15% damage (x0.85).
 // See GUNS below + gen_weapon_variant_gdt.js (--range / --damage / --spread / --penetrate).
 //
-//   base GDT (in place):  recoil x2.1  -> 2.1x vanilla (no Deadshot)
+//   base GDT (in place):  recoil x1.75 -> 1.75x vanilla (no Deadshot; was 2.1, lowered 2026-06-16)
 //
 // TUNING (single source; confirm magnitudes in-game, they compose with engine perk bonuses):
-//   RECOIL25/40 - off the 2.1x base: 0.75 -> 1.575x vanilla (-25%), 0.60 -> 1.26x vanilla (-40%).
-//   FIRE 0.714  - +40% RoF (1/1.40; was 0.667 = +50%, retuned down 2026-06-14). The base perk
-//                 KEEPS the stock Double Tap 2.0 extra-BULLET (~2x damage) - the twin only adds
-//                 fire rate on top, so the Mega is "+40% RoF + faster swap" over the 2.0 base.
+//   RECOIL50   - Mega Deadshot ONLY: recoil x0.50 off the 1.75x base -> ~0.875x vanilla (-50%). Base
+//                 Deadshot has NO recoil twin (the old recoil25/recoil40 tiers were collapsed 2026-06-16).
+//   FIRE 0.69   - +45% RoF (1/1.45; was 0.714 = +40%, raised 2026-06-25 per user). The base perk
+//                 KEEPS the stock Double Tap 2.0 extra-BULLET (~2x damage, now tempered by
+//                 acc_doubletap_dmg_mult in _acc_damage) - the twin only adds fire rate + swap on top,
+//                 so the Mega is "+45% RoF + faster swap" over the base.
 //                 If an in-game check shows doubletap2 also lowers fireTime, raise toward ~0.9.
 //   SWAP 0.5    - -50% weapon-swap (raise/drop times); bundled with fastfire (same Mega flag).
 //   RELOAD 0.857- net +75% reload. Speed Cola owners ALSO get the engine +50% (x0.667),
@@ -66,7 +68,7 @@ const TWIN_DIMS = [
     // 2026-06-16 cap-savings rework: recoil collapsed 3->2 tiers, gated on Deadshot MEGA only
     // (base Deadshot now has NO recoil twin). One -50% tier (×0.50 off the 2.1x base ≈ vanilla).
     [ [ "", {} ], [ "recoil50", { recoil: 0.50 } ] ],
-    [ [ "", {} ], [ "fastfire", { fire: 0.714, swap: 0.5 } ] ],
+    [ [ "", {} ], [ "fastfire", { fire: 0.69, swap: 0.5 } ] ],
     [ [ "", {} ], [ "fastreload", { reload: 0.857 } ] ],
     // ammo axis REMOVED 2026-06-16: Armory is now a runtime round-start +35% reserve refill
     // (_acc_mega_bottles::armory_refill), NOT a maxAmmo twin. Frees the axis (46->14/gun).
@@ -87,7 +89,7 @@ const GUNS = [
     { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up",    baseline: { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 } },
     { gdt: "skye_s1_asm1.gdt",      base: "s1_asm1",      up: "s1_asm1_up" },
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
-    { gdt: "skye_t6_ak47.gdt",      base: "t6_ak47",      up: "t6_ak47_up" },
+    { gdt: "t9_weapons/wpn_t9_ar_ak47.gdt", base: "t9_ak47", up: "t9_ak47_up" },   // CW port (user 2026-06-25): swapped from BO2 skye_t6_ak47; stats grafted via graft_cw_weapon_stats.js
     { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
     // STAGE 2 (2026-06-16): with the slimmed 14-twin/gun layout (ammo→runtime, recoil 2-tier),
     // 9 guns x 14 = 126 twins fit under the ~230 cap. +4 clean single-wield guns:
@@ -95,10 +97,27 @@ const GUNS = [
     { gdt: "skye_t6_galil.gdt",      base: "t6_galil",       up: "t6_galil_up" },
     { gdt: "skye_t6_olympia.gdt",    base: "t6_olympia",     up: "t6_olympia_up" },
     { gdt: "skye_t8_paladin_hb50.gdt", base: "t8_paladin_hb50", up: "t8_paladin_hb50_up" },
-    // AK-74u (2026-06-16): its PaP GDT asset is the irregular `t5_ak74u_up_zm` (the zone loads that
-    // name; CSV says `t5_ak74u_up`). Use the real asset name as `up`; the GSC variant_up_name()
-    // helper mirrors it. -> 10 guns x 14 = 140 twins. Ripper/Nail/PDW/M1911 = structural (no twins).
-    { gdt: "skye_t5_ak74u.gdt",      base: "t5_ak74u",       up: "t5_ak74u_up_zm" },
+    // AK-74u: CW port (user 2026-06-26) - swapped from BO1 skye_t5_ak74u to the Cold War model. The t9 PaP
+    // form is the REGULAR t9_ak74u_up (the old _up_zm irregularity is gone). Stats grafted via graft_cw_weapon_stats.js.
+    { gdt: "t9_weapons/wpn_t9_smg_ak74u.gdt", base: "t9_ak74u", up: "t9_ak74u_up" },
+    // M60 + RPD: CW ports (user 2026-06-26) - both LMGs swapped from Skye BO2 to the Cold War models. Single-wield
+    // bulletweapon, regular _up, empty altWeapon. Stats grafted via graft_cw_weapon_stats.js; twin count unchanged.
+    { gdt: "t9_weapons/wpn_t9_lmg_m60.gdt", base: "t9_m60", up: "t9_m60_up" },
+    { gdt: "t9_weapons/wpn_t9_lmg_rpd.gdt", base: "t9_rpd", up: "t9_rpd_up" },
+    // RW1 (user 2026-06-23): AW directed-energy PISTOL, fully twinnable (bulletweapon, single-wield,
+    // regular _up). -> 13 guns x 14 = 182 twins. (The Mahem launcher is a projectile EXEMPT special - NOT here.)
+    { gdt: "skye_s1_rw1.gdt",        base: "s1_rw1",         up: "s1_rw1_up" },
+    // MK14 (user 2026-06-24): AW semi-auto DMR, fully twinnable (bulletweapon, single-wield, regular _up,
+    // empty altWeapon). -> 14 guns x 14 = 196 twins (still under the ~230 cap). B-tier (docs/54).
+    { gdt: "skye_s1_mk14.gdt",       base: "s1_mk14",        up: "s1_mk14_up" },
+    // MORS (user 2026-06-24): AW charge railgun SNIPER, fully twinnable (bulletweapon, single-wield, regular
+    // _up, empty altWeapon). Loc mults pre-normalized by tools/normalize_mors_loc.js (run BEFORE this) so the
+    // .acc-orig backup captures the fix. -> 15 guns x 14 = 210 twins (under the ~230 cap). B-tier (docs/54).
+    { gdt: "skye_s1_mors.gdt",       base: "s1_mors",        up: "s1_mors_up" },
+    // Chicom CQB (user 2026-06-25): BO2 3-round-burst SMG, fully twinnable (bulletweapon, single-wield, regular
+    // _up, empty altWeapon). -> 16 guns x 14 = 224 twins (only ~6 under the ~230 cap - boot-test, no 17th gun).
+    // Strong burst DPS + uncut ammo (NOT in reduce_base_ammo) make it the box's S+ top-3 gun (docs/54).
+    { gdt: "skye_t6_chicom_cqb.gdt", base: "t6_chicom_cqb",   up: "t6_chicom_cqb_up" },
 ];
 
 // CLI args for a gun's always-on baseline buff (numeric factors are scaled, literals set).
@@ -235,6 +254,15 @@ function main() {
     fs.copyFileSync( OUT_REPO, outDeployed );
     console.log( `\ndeployed twins -> ${outDeployed}` );
     console.log( "base GDTs scaled x2.1 in place (backups at *.acc-orig). Re-run any time; idempotent." );
+
+    // SELF-HEAL the reduce_base_ammo footgun (memory recoil-tool-reverts-ammo-cut): that tool keeps a
+    // .acc-ammo-orig snapshot of THIS file and always re-derives the 30% clip cut FROM it. But we just
+    // REGENERATED the twin set (e.g. a gun was added), so a snapshot from a previous roster is now STALE -
+    // re-running reduce_base_ammo would restore the OLD twin GDT and WIPE the new guns' twins. Delete the
+    // stale snapshot(s) here so reduce_base_ammo re-snapshots from this fresh full-ammo deploy. (user 2026-06-24)
+    for ( const stale of [ outDeployed + ".acc-ammo-orig", OUT_REPO + ".acc-ammo-orig" ] ) {
+        if ( fs.existsSync( stale ) ) { fs.rmSync( stale ); console.log( `cleared stale ammo backup -> ${stale}` ); }
+    }
 
     // Keep the zone's twin weaponfull manifest in lock-step with the GDT (same enumeration).
     rewriteZoneTwinLines();

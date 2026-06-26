@@ -26,7 +26,7 @@ room. You don't farm the underground; you **raid** it.
    │   [HUB] THE PIT      │  exists — keeps every trench effect (drip/surge/-25%/HUD)
    │   caches ±360,1950   │
    └──────────┬──────────┘
-              │  enter_under_plaza door (zombie_door, 1500, sideways slide "192 0 0") — EXISTS
+              │  enter_under_plaza door (zombie_door, EAST doorway x[112,192], sideways slide "-80 0 0") — EXISTS
         [1] THE FOUNDRY  (south under-room — EXISTS)
         ╱ open arch (free)        open arch (free) ╲
    [2] THE STALLS                              [3] THE CAGES

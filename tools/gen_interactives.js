@@ -141,7 +141,9 @@ function useTrigger(targetname, x1, x2, y1, y2) {
   );
 }
 ents.push(useTrigger('acc_cyberware_kiosk', -740, -676, 3520, 3584));   // Lab west
-ents.push(useTrigger('acc_overclock_terminal', 676, 740, 3520, 3584)); // Lab east
+// REMOVED (user 2026-06-25): no Lab overclock terminal. Overclocking is a TRENCH-ONLY risk; the real
+// terminals are script-spawned underground by _acc_glitch_altar (acc_overclocks::spawn_terminal_at).
+// ents.push(useTrigger('acc_overclock_terminal', 676, 740, 3520, 3584)); // Lab east
 ents.push(useTrigger('acc_hack_terminal', 319, 383, 1980, 2044));      // Corp
 ents.push(useTrigger('acc_overload_terminal', 1680, 1744, 2780, 2844));// Vault
 ents.push(useTrigger('acc_power_corp', 735, 799, 1950, 2014));         // beside corp switch

@@ -19,7 +19,7 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 - **PaP damage ladder:** PaP adds **+20% → +100%** over tiers L1–L5 *on top of* the `_up` form's
   stats below. Note most guns bump raw `damage` in the `_up` GDT (e.g. AK-47 200→300) **and** get
   the ladder; **Paladin's `_up` raw is unchanged (1000)** so its PaP damage comes only from the ladder.
-- **Perks:** Mega Deadshot −50% recoil; Gun Slinger +40% RoF; Sleight +75% reload; Double Tap
+- **Perks:** Mega Deadshot −50% recoil; Gun Slinger +45% RoF & −50% weapon-swap; Sleight +75% reload; Double Tap
   +33% RoF (base) + 2 bullets/shot; etc.
 - **Base recoil:** the 10 twin guns sit at **1.75× vanilla** baseline (skill theme); Mega Deadshot
   brings that to **0.875×**.
@@ -45,6 +45,12 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 | AK-74u — PaP | Auto | 40 | 280 | 750 | 2.1 / 2.8 | medium | 260→250 | ×0.225 | 58.5 | ~731 |
 | **PPSH-41** | Auto | 25 | 225 | 952 | 2.5 / 3.5 | medium | 155→140 | ×0.17 | 26.4 | **~418** |
 | PPSH-41 — PaP | Auto | 39 | 351 | 1250 | 2.5 / 3.5 | medium | 280→240 | ×0.17 | 47.6 | ~992 |
+| **Chicom CQB** *(3-rd burst)* | Burst | 36 | 180 | 1250¹ | 2.1 / 2.7 | medium | 130→110 | ×0.25 | 32.5 | **~497** |
+| Chicom CQB — PaP *(4-rd auto-burst)* | Burst | 56 | 448 | 1250¹ | 2.1 / 2.7 | medium | 250→225 | ×0.25 | 62.5 | ~1025 |
+
+> ¹ Chicom RPM is the **within-burst** rate (`60 / 0.048s`). Real sustained fire is lower — the 0.1s inter-burst
+> delay is already folded into the **~DPS** (3 rds / 0.196s base, 4 rds / 0.244s PaP). It's the box's **S+ #2 gun**
+> (PaP score 8.05, docs/54): strong burst damage + generous **uncut** ammo (clip 36/56), TOP price, ~2.4% rare roll.
 | **PDW-57** | Auto | 11 | 132 | 750 | 2.0 / 2.1 | small | 120→90 | ×0.33 | 39.6 | **~495** |
 | PDW-57 — PaP *(akimbo)* | Auto | 17 | 306 | 923 | 2.86 | small | 340→290 | ×0.33 | 112.2 | ~1726 *(dual)* |
 
@@ -67,23 +73,33 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 
 | Gun / form | Fire | Clip | Reserve | RPM | Reload (t/e) | Pellets | Pen | Full / Min range (u) | Raw | ×Mult | Eff/pellet |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| **Tac-19** | Single | 4 | 48 | 200 | 0.467 (auto-charge) | 8 | large | 825 / 1350 | 149 | ×0.75 | **112** (~894/shot) |
-| Tac-19 — PaP | Single | 7 | 84 | 200 | 0.467 | 12 | large | 825 / 1650 | 217 | ×0.75 | **163** (~1953/shot) |
-| **Olympia** | Single | 2 | 26 | 212 | 3.3 / 3.9 | 8 | small | 550 / 900 | 110 | ×0.9775 | **108** (~860/shot) |
-| Olympia — PaP | Single | 2 | 42 | 212 | 2.0 / 2.5 | 12 | small | 650 / 1000 | 260 | ×0.9775 | **254** (~3050/shot) |
+| **Tac-19** | Single | 4 | 48 | 200 | 0.467 (auto-charge) | 8 | large | 825 / 1350 | 149 | ×0.612 | **91** (~730/shot) |
+| Tac-19 — PaP | Single | 7 | 84 | 200 | 0.467 | 12 | large | 825 / 1650 | 217 | ×0.612 | **133** (~1595/shot) |
+| **Olympia** | Single | 2 | 26 | 212 | 3.3 / 3.9 | 8 | small | 550 / 900 | 110 | ×0.489 | **54** (~430/shot) |
+| Olympia — PaP | Single | 2 | 42 | 212 | 2.0 / 2.5 | 12 | small | 650 / 1000 | 260 | ×0.489 | **127** (~1526/shot) |
+
+> **Shotgun damage nerf (user 2026-06-25, max-scale outlier fix):** Tac-19 ×0.68→**0.612** (−10%), Olympia
+> ×0.9775→**0.489** (−50%). At full PaP+Overclock the 12-pellet stack × ×4 bonus had ballooned Olympia to
+> ~33k/shot / 100k/head (6–18× every other gun). `node tools/gun_maxscale_table.js` to re-check the ceiling.
 
 ## Sniper
 
 | Gun / form | Fire | Clip | Reserve | RPM | Reload (t/e) | Pen | Full / Min range (u) | Raw | ×Mult | Eff/shot |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Paladin HB50** | Single | 4 | 48 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 | ×0.70 | **700** |
-| Paladin HB50 — PaP | Single | 7 | 84 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 *(ladder only)* | ×0.70 | **700** + PaP ladder |
+| **MORS** | Single (charge) | 1 | 120 | — | 1.2 / 1.2 | large | — | 1000 | ×0.66 | **660** |
+| MORS — PaP | Single (charge) | 1 | 180 | — | 1.2 / 1.2 | large | — | 2000 | ×0.66 | **1320** + PaP ladder |
+| **Paladin HB50** | Single | 8 | 96 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 | ×0.49 | **490** |
+| Paladin HB50 — PaP | Single | 11 | 132 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 *(ladder only)* | ×0.49 | **490** + PaP ladder |
+
+> *Sniper swap 2026-06-24:* MORS **B → S** (`×0.49 → 0.66`, reserve 60/90 → 120/180); Paladin HB50 **low-S → B** (`×0.70 → 0.49`, clip/reserve unchanged). MORS RPM/range cells left `—` (not re-captured from the GDT). Canonical tiers/odds: docs/05 + docs/54.
+>
+> *Paladin headshot fix 2026-06-26:* the BO4-port GDT shipped `locHead 1.0`, so headshots dealt **0.5× body** (backwards). Set to `locHead 5.0` (base + `_up` + 14 twins, `tools/fix_paladin_loc.js`) → proper **2.5× body** headshot, matching every other non-shotgun. At full PaP+OC: **13,475/head vs 5,390 body** (was 2,695/head).
 
 ---
 
 ## Notes
 - **Twin guns (perk handling):** all 10 above except Ripper/Nail/PDW/M1911 carry recoil(Mega
-  Deadshot)/fire(Gun Slinger)/reload(Sleight) twins. The 4 exceptions use runtime Armory + base
+  Deadshot)/fire+swap(Gun Slinger)/reload(Sleight) twins. The 4 exceptions use runtime Armory + base
   perks only (structural: altWeapon/projectile/akimbo).
 - **M1911 / PDW PaP are akimbo** (two weapons fired together) — their effective output is roughly
   double the single-gun number; M1911's PaP is an explosive (Mustang-&-Sally style).

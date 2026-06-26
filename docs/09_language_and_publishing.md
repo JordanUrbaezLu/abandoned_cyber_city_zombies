@@ -2,6 +2,10 @@
 
 Quick reference doc. Skim-read for context, don't memorize.
 
+> **For the actual step-by-step release procedure, use the
+> [Release Runbook (docs/55)](55_release_runbook.md)** + the one-command gate
+> `tools/prep_release.ps1`. This doc is background/theory only.
+
 ## What Language Is the Map Written In?
 
 BO3 custom maps are **not written in one language**. You touch three:

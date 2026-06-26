@@ -97,5 +97,9 @@ most of the premium jump first.
 suppress the stock one (verify the round-up roll still plays). No new field.
 
 ## Status
-Plan only — nothing built. Recommended start: **Phase 0 + Phase 1** (safe, `-GscOnly`, ~80% of the
-visible jump). Phases 2-3 begin with a **clientfield bit-budget audit** (the gating unknown).
+**Phase 1 batch 1 BUILT 2026-06-22** (`-GscOnly`, BUILD OK, awaiting in-game verify): shared `ACC_PAL`
+palette; perk-icon overlap fix (PITCH 48); damage-number rise+fade; ~~Overclock glass chip~~ (REVERTED
+2026-06-22 — user wanted plain `vN` text; the glass plate + cyan keyline were removed, bare teal text
+kept); info-card bottom accent strip. All in `acc_hud.lua`, proven primitives only, self-contained per widget.
+**Next (Phase 1 remainder):** info-card slide-in (edge-gated), perk gain-pop / Mega flash, round-ring
+danger glitch. **Phases 2-3** still begin with a **clientfield bit-budget audit** (the gating unknown).

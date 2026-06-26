@@ -316,26 +316,52 @@ Olympia = shotgun (Slug Round ability, sg Overclock, ×0.85 + headshot-excluded)
 xmodel-processing warnings (`N warnings … vm_t6_galil`), never a `^1 ERROR` — those warnings
 are normal for ports and harmless.
 
+**Added 2026-06-24 — MK14 (AW `s1_mk14`), the first DMR — FULLY TWINNED, B tier.** Pre-screened clean: single-wield
+`bulletweapon`, empty `altWeapon`, all three legs installed (GDT + model + 17 sound wavs). Added with the full twin
+treatment via this runbook end-to-end (14 twins → 196 total). Two things specific to a **semi-auto DMR**:
+(1) scored as **curated single-target DPS** (`cu:true`, `e=400`) in `compute_gun_tiers.js` — a semi-auto's raw
+`damage/fireTime` (300/0.095 ≈ 3158) overstates real DPS, so it's curated like the Five-Seven/Paladin, NOT treated
+as full-auto (which would read S); (2) `locHead 6.0` but **body loc clean (1.0)** → **no** Paladin-style loc
+normalization (the head mult just yields a ~3× headshot, fitting a marksman). Balance ×0.30 lands it at **B base
+AND PaP** (5.90 / 5.99). Sniper ability (Precision Mode) + sniper Overclock family. The screening that caught the
+two REJECTED candidates the user first picked: **War Machine** = `projectileweapon` (can't twin, like the Nail Gun)
+and **XMG** = permanently-akimbo `dualwieldweapon` (can't twin, like PDW/M1911) — always screen gdf type + akimbo
+forms before promising "fully twinned."
+
 ### A. Twin weapon-count cap (engine access-violation at boot)
 
 Every recoil/perk **twin** is a full weapon-table registration, so a twinned gun
-costs `combos × 2 forms` weapon slots (currently 11 combos = **22 slots/gun**; with
-the ammo dimension on it was 23 combos = **46 slots/gun**). The engine has a hard
-ceiling on registered weapons and **silently access-violates past it at load** — it
-is not a linker error, the `.ff` builds fine.
+costs `combos × 2 forms` weapon slots. **Live matrix (slimmed 2026-06-16):** 7 combos
+(`recoil50 × fastfire × fastreload`, ammo axis removed) = **14 slots/gun** on **10
+guns = 140 twins** (`_acc_weapon_variants.gsc::variant_guns`/`variant_dims`). Pre-slim
+it was 23 combos = **46 slots/gun** on 5 guns = 230. The engine has a hard ceiling on
+registered weapons and **silently access-violates past it at load** — not a linker
+error, the `.ff` builds fine.
 
-- **Live data points (at 46 slots/gun):** 5 twinned guns = **230** twins → boots;
-  8 twinned guns = **368** twins → crashes. So the wall sits between 230 and 368.
+- **Live data points (at the old 46 slots/gun):** 5 twinned guns = **230** twins →
+  boots; 8 twinned guns = **368** twins → crashes; 9 = 414 → crashes. So the
+  twin-layer wall sits between **230 (known-good)** and **368 (known-bad)**; we treat
+  **~230 as the safe budget**.
 - **Crash signature:** black screen on load → minidump faulting module
   `blackops3.exe`, exception `0xC0000005` (ACCESS_VIOLATION) at
   `blackops3.exe+0x25DF24E`, inside `BG_Cache_RegisterWeapon` during weapon
   registration. **No `console_mp.log` error and no errorlog entry** — the build is
   clean, the engine dies registering the table.
+- **CURRENT HEADROOM (2026-06-23) — how many more guns fit:** we are at **140 twins,
+  NOT 230** (the slim freed ~90 twins of budget that an old comment hid). So:
+  - **Twin-less guns** (the shipped default — base + `_up` = ~2 slots, akimbo = 3, a
+    stock-cooked WW like `tesla_gun` = ~0 of *our* budget): cheap, do **not** touch
+    the twin budget. Effectively **~10+ more** fit; the only ceiling is the unmeasured
+    *total*-table size, so **add ONE at a time and boot-test** — you cannot bisect this
+    crash after the fact.
+  - **Twinned guns** (full recoil/fire/reload handling): **~90 twins free ÷ 14/gun ≈
+    6 more** before the 230 safe line. Hard-stop well before 368.
 - **Mitigation we shipped:** new box guns are added with **NO twins** — just the
-  base + `_up` (2 slots), which the box GiveWeapon-swaps as-is. The twin matrix
-  stays at the original 5 guns (110 twins). To twin a *new* gun you must first buy
-  back budget (drop the ammo dimension, cut combos, or retire a gun's twins) so the
-  total stays under ~230. `apply_recoil_overhaul.js` line ~91 tracks the budget math.
+  base + `_up`, which the box GiveWeapon-swaps as-is. To twin a *new* gun beyond the
+  ~6-gun headroom you must first buy back budget (drop another axis — e.g. reload→base
+  engine, or the recoil→attachment probe in docs/39 — or retire a gun's twins) so the
+  total stays under ~230. `apply_recoil_overhaul.js` tracks the budget math; docs/39
+  §0 has the per-axis budget table.
 - **Why twin-less is fine:** twins are a polish layer (per-perk recoil/fire-rate
   feel). A twin-less gun still fires, PaPs, sounds, and takes its ability/overclock —
   it just uses one recoil profile across all perk states. Acceptable; ship it.

@@ -20,14 +20,23 @@ const [, , inPath, outArg] = process.argv;
 if (!inPath || !outArg) { console.error('usage: add_prop_clips.js <in> <out>'); process.exit(1); }
 
 // props: x,y on the z=-240 floor + half-extents (snug to the model silhouette). label for comments.
-// SYNCED to spawn_altars() 2026-06-19: altar (90,1500), terminal (-150,1440), cyberware kiosk REMOVED,
-// pit caches + perk vendor unchanged. Both Foundry machines lack a collision LOD => both need a clip.
+// RE-SYNCED to the LIVE z=-240 spawn origins (user 2026-06-25 "make hitboxes match the models - no invisible walls"):
+//   - exo_station    (230,1450) Foundry  - p7_cai_work_table_metal_03_white       (_acc_exo::spawn_station_at)
+//        (room RELOCATED east to center x=350 on 2026-06-25 so its door clears the abyss well; clip +350 too)
+//   - reactor_plinth   (0,2120)  pit     - p7_cai_sign_inteactive_kiosk (no LOD)  (_acc_reactor::spawn_plinth_at)
+//   - pit_cache_w/e (-/+360,1950) pit    - p7_cai_stacking_cargo_crate            (_acc_glitch_altar::spawn_altars)
+//   - perk_slot_vendor (-250,1820) pit                                            (_acc_glitch_altar::spawn_altars)
+// REMOVED orphans: glitch_altar_base (altar -> abyss L3) + overclock_terminal (terminal -> abyss L2). Those props
+// left the z=-240 floor, so their old clips were INVISIBLE WALLS in the empty Foundry. NOTE: this generator only
+// clips the z=-240 level (CLIP_BOT/TOP below) - the altar (L3 z-720) + terminal (L2 z-480) are now UNCLIPPED
+// (walk-through) at their deep homes; clipping those would need a per-prop z (not done - they're not invisible
+// walls). Half-extents are SNUG estimates; if a box still over/under-reaches in playtest, just nudge hx/hy + re-run.
 const PROPS = [
-  { x:   90, y: 1500, hx: 30, hy: 30, label: 'glitch_altar_base' },   // p7_cai_sign_inteactive_kiosk (no collision LOD)
-  { x: -150, y: 1440, hx: 30, hy: 34, label: 'overclock_terminal' },  // p7_cai_ticket_kiosk_theatre (no collision LOD)
-  { x: -360, y: 1950, hx: 30, hy: 30, label: 'pit_cache_w' },         // cache crate
-  { x:  360, y: 1950, hx: 30, hy: 30, label: 'pit_cache_e' },         // cache crate
-  { x: -250, y: 1820, hx: 30, hy: 30, label: 'perk_slot_vendor' },    // pit
+  { x:  230, y: 1450, hx: 30, hy: 18, label: 'exo_station' },         // p7_cai_work_table_metal_03_white (work table) - room moved east 2026-06-25
+  { x:    0, y: 2120, hx: 24, hy: 24, label: 'reactor_plinth' },      // p7_cai_sign_inteactive_kiosk (no collision LOD)
+  { x: -360, y: 1950, hx: 28, hy: 28, label: 'pit_cache_w' },         // p7_cai_stacking_cargo_crate
+  { x:  360, y: 1950, hx: 28, hy: 28, label: 'pit_cache_e' },         // p7_cai_stacking_cargo_crate
+  { x: -250, y: 1820, hx: 28, hy: 28, label: 'perk_slot_vendor' },    // pit
 ];
 const CLIP_BOT = -240, CLIP_TOP = -160;   // sits on the z=-240 floor, 80 tall (covers player body height)
 const MAT = 'clip';                       // invisible solid (player+AI+bullets); stock tools material, ships free, no zone line

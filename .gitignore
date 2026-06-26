@@ -8,6 +8,7 @@ zone_out/
 *.xpak
 *.bak
 *-bak
+*.preamp-orig
 *.gscbin
 *.cscbin
 *.log
@@ -29,6 +30,12 @@ source_data/acc_perk_shaders/
 # under sound_assets/ here.
 /sound_assets/skye_ports/
 /sound_assets/_NSZ/
+
+# COPYRIGHTED test-only music — DO NOT COMMIT and DO NOT SHIP PUBLIC (CREDITS.md IP
+# gate). "115" = Treyarch/Kevin Sherwood; paradise_calm = Nintendo Mario "Stage Win".
+# These are placeholder finale tracks; swap for CC0 before any Public Workshop release.
+/sound_assets/acc/music/115.wav
+/sound_assets/acc/music/paradise_calm.wav
 
 .idea/
 .vscode/*

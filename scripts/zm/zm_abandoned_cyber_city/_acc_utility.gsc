@@ -16,39 +16,62 @@
 // ---------------------------------------------------------------------------
 // On-screen feedback message (shared). Use INSTEAD of iprintln for trench / machine
 // feedback: iprintln dumps into the bottom notification area where the round counter and
-// points cover it (user 2026-06-19). This is a single per-player hudelem at upper-center,
+// points cover it (user 2026-06-19). This is a per-player hudelem at upper-center,
 // dvar-tunable (acc_msg_y; SMALLER = higher) and (acc_msg_sec = hold seconds); a new message
-// refreshes the same elem in place instead of stacking. Call ON the player: `player acc_utility::hud_msg( txt )`.
+// on the SAME slot refreshes the elem in place instead of stacking. Call ON the player:
+// `player acc_utility::hud_msg( txt )` (= slot 0, the shared cyan toast every system uses).
+//
+// SLOTS (user 2026-06-24): two pickups can fire on the same frame (a boss kill grants a Mega
+// Bottle while a Data Shard drop is grabbed) - on one slot the second SetText overwrites the
+// first. `hud_msg_slot( txt, slot, color )` gives each independent line its own elem + own
+// fade at its own y (slot N sits acc_msg_slot_h px below slot N-1), so they never overlap. The
+// Mega Bottle pickup uses slot 1 (gold); slot 0 stays the generic/shard toast.
 // ---------------------------------------------------------------------------
 
+// Back-compat API: the generic upper-center toast = slot 0 (cyan). Every existing
+// caller (cyberware/exo/overclocks/reactor/shards/...) routes here unchanged.
 function hud_msg( text )   // self = player
 {
-    if ( !isdefined( self ) ) return;
-    if ( !isdefined( self.acc_hud_msg ) )
-    {
-        self.acc_hud_msg = self hud::createFontString( "default", 1.5 );
-        self.acc_hud_msg.alignX = "center";
-        self.acc_hud_msg.alignY = "middle";
-        self.acc_hud_msg.color  = ( 0.6, 0.9, 1.0 );
-        self.acc_hud_msg.hidewheninmenu = true;
-    }
-    // Re-apply the anchor each show so a live acc_msg_y tweak takes effect without a relog.
-    self.acc_hud_msg hud::setPoint( "TOP", "TOP", 0, getdvarint( "acc_msg_y", 190 ) );
-    self.acc_hud_msg SetText( text );
-    self.acc_hud_msg.alpha = 1;
-    self thread hud_msg_fade();
+    self hud_msg_slot( text, 0, ( 0.6, 0.9, 1.0 ) );
 }
 
-function hud_msg_fade()   // self = player
+// One INDEPENDENT toast line per `slot`, each at its own y (slot 0 = acc_msg_y; each higher
+// slot acc_msg_slot_h px lower) with its own elem + its own fade, so two simultaneous pickups
+// never overwrite each other. `color` optional (defaults cyan). See the header note.
+function hud_msg_slot( text, slot, color )   // self = player
 {
-    self notify( "acc_hud_msg_refresh" );   // cancel any in-flight fade so messages don't stack/flicker
-    self endon( "acc_hud_msg_refresh" );
+    if ( !isdefined( self ) ) return;
+    if ( !isdefined( slot ) ) slot = 0;
+    if ( !isdefined( color ) ) color = ( 0.6, 0.9, 1.0 );
+    if ( !isdefined( self.acc_hud_msg_slots ) ) self.acc_hud_msg_slots = [];
+    if ( !isdefined( self.acc_hud_msg_slots[ slot ] ) )
+    {
+        e = self hud::createFontString( "default", 1.5 );
+        e.alignX = "center";
+        e.alignY = "middle";
+        e.hidewheninmenu = true;
+        self.acc_hud_msg_slots[ slot ] = e;
+    }
+    e = self.acc_hud_msg_slots[ slot ];
+    // Re-apply the anchor each show so a live acc_msg_y tweak takes effect without a relog.
+    e hud::setPoint( "TOP", "TOP", 0, getdvarint( "acc_msg_y", 190 ) + slot * getdvarint( "acc_msg_slot_h", 26 ) );
+    e.color = color;
+    e SetText( text );
+    e.alpha = 1;
+    self thread hud_msg_fade( slot );
+}
+
+function hud_msg_fade( slot )   // self = player
+{
+    if ( !isdefined( slot ) ) slot = 0;
+    self notify( "acc_hud_msg_refresh_" + slot );   // cancel only THIS slot's in-flight fade (per-slot, so slots don't cancel each other)
+    self endon( "acc_hud_msg_refresh_" + slot );
     self endon( "disconnect" );
     wait( getdvarfloat( "acc_msg_sec", 3.0 ) );
-    if ( isdefined( self.acc_hud_msg ) )
+    if ( isdefined( self.acc_hud_msg_slots ) && isdefined( self.acc_hud_msg_slots[ slot ] ) )
     {
-        self.acc_hud_msg fadeovertime( 0.5 );
-        self.acc_hud_msg.alpha = 0;
+        self.acc_hud_msg_slots[ slot ] fadeovertime( 0.5 );
+        self.acc_hud_msg_slots[ slot ].alpha = 0;
     }
 }
 
@@ -127,6 +150,7 @@ function active_speed_flags( player )
     if ( isdefined( player.acc_savior_speed ) && player.acc_savior_speed )             f += "savior ";
     if ( isdefined( player.acc_cw_rx1_speed ) && player.acc_cw_rx1_speed )             f += "cwrx1 ";
     if ( isdefined( player.acc_trench_slow ) && player.acc_trench_slow )               f += "trench ";
+    if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )         f += "phantomslow ";
     return f;
 }
 
@@ -279,7 +303,7 @@ function recompute_move_speed( player )
     }
     if ( isdefined( player.acc_mega_flopper_speed ) && player.acc_mega_flopper_speed )
     {
-        n_scale = n_scale * getdvarfloat( "acc_mega_flopper_slide_mult", 1.35 ); // Mega Flopper (PhD Slider): 1.35x WHILE SLIDING (user 2026-06-18, docs/13)
+        n_scale = n_scale * getdvarfloat( "acc_mega_flopper_slide_mult", 1.5 ); // Mega Flopper (PhD Slider): 1.5x WHILE SLIDING (user 2026-06-22, docs/13)
     }
     if ( isdefined( player.acc_gas_burst ) && player.acc_gas_burst )
     {
@@ -288,6 +312,10 @@ function recompute_move_speed( player )
     if ( isdefined( player.acc_rocket_slide_speed ) && player.acc_rocket_slide_speed )
     {
         n_scale = n_scale * getdvarfloat( "acc_rocket_slide_mult", 1.35 ); // Rocket Shield: 1.35x while sliding (live dvar, docs/12)
+    }
+    if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )
+    {
+        n_scale = n_scale * getdvarfloat( "acc_phantom_slow_mult", 0.75 ); // Phantom chain-special: -25% slow (Mega Electric Cherry "Power Surge" is immune; _acc_elites)
     }
     // Layered trench slow (docs/47): depends on how many layers you are BELOW your Exo Suit's coverage.
     // Exo tier T -> normal in layers 1..T; below that, -20% at the first uncovered layer, then -10% per
@@ -301,10 +329,55 @@ function recompute_move_speed( player )
         if ( exo_red > 0.90 ) exo_red = 0.90;   // never let speed hit 0
         n_scale = n_scale * ( 1.0 - exo_red );
     }
+    // TWO active boss-item slots (docs/12) let two MOBILITY items stack (Boots x Gas burst / Rocket
+    // slide) ON TOP of Cyberware + Mega speed - all multiplicative with no natural ceiling, and a
+    // very high SetMoveSpeedScale clips you through geometry / desyncs nav. Clamp the TOTAL (live
+    // dvar). Applied AFTER the trench slow so the clamp (a max) never masks the slow (which only
+    // lowers the scale). Default 2.2 leaves a Gas-burst (x2.0) intact while capping pathological stacks.
+    move_cap = getdvarfloat( "acc_move_scale_cap", 2.2 );
+    if ( n_scale > move_cap ) n_scale = move_cap;
+
+    // [acc] Mega Widow's Wine LOW-STANCE mobility (user 2026-06-25): a Mega-Widow's holder moves N times
+    // faster than another player in the SAME stance - crouch 2.6x / prone 10x / last-stand (down) 15x. The
+    // factor lives in player.acc_mww_stance_speed (1.0 normally; set by _acc_mega_bottles::mww_stance_speed_watch
+    // off GetStance() + .laststand). Applied AFTER the base cap on purpose: the base cap guards STANDING stacks,
+    // but these factors must survive (2.6x/10x/15x > the 2.2 cap). The effective ABSOLUTE speed stays sane
+    // because the crouch/prone/down stance RATIOS are < 1 (a 15x crawl is still slow). A separate, higher final
+    // clamp (acc_mww_speed_cap, raised to 16 to fit the 15x down) bounds a pathological item x stance stack.
+    if ( isdefined( player.acc_mww_stance_speed ) && player.acc_mww_stance_speed > 1.0 )
+    {
+        n_scale = n_scale * player.acc_mww_stance_speed;
+        mww_cap = getdvarfloat( "acc_mww_speed_cap", 16.0 );
+        if ( n_scale > mww_cap ) n_scale = mww_cap;
+    }
+
     // Crash breadcrumb (boots+slide CTD diag, user 2026-06-19): log the scale + active flags
     // immediately BEFORE the engine call, then AFTER. If the CTD is SetMoveSpeedScale, the log
     // shows "->SetMoveSpeedScale" (with the value) but never "OK".
     crash_log( player, "recompute_move_speed scale=" + n_scale + " flags=[ " + active_speed_flags( player ) + "] ->SetMoveSpeedScale" );
     player SetMoveSpeedScale( n_scale );
     crash_log( player, "recompute_move_speed SetMoveSpeedScale OK (scale=" + n_scale + ")" );
+}
+
+// ---------------------------------------------------------------------------
+// Play a one-shot sound at a FIXED world position via a short-lived emitter, so a 3D alias does
+// NOT attach to (and follow) a moving entity. Use for "comes from the machine" sounds (perk-buy
+// jingle / Pack-a-Punch cook) when the machine ent can't be resolved: pass the BUYER's origin
+// (they stand AT the machine when buying), so the sound stays put instead of trailing the player
+// (user 2026-06-24: perk/PaP sounds followed the buyer because the on-player fallback plays a 3D
+// alias on the moving player ent). The emitter self-deletes after the longest sound.
+// ---------------------------------------------------------------------------
+function play_sound_at_origin( origin, alias )
+{
+    if ( !isdefined( origin ) || !isdefined( alias ) || alias == "" ) return;
+    e = spawn( "script_origin", origin );
+    e PlaySound( alias );
+    e thread acc_emitter_cleanup();
+}
+
+function acc_emitter_cleanup()   // self = the temp emitter
+{
+    level endon( "end_game" );
+    wait 12;   // longer than any jingle / PaP cook sound
+    if ( isdefined( self ) ) self Delete();
 }

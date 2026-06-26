@@ -16,21 +16,36 @@
 // =============================================================================
 
 xmodel,skybox_default_night
+xmodel,p7_lab_bio_machinery_01
 material,luts_t7_default
 
-// Custom cyber-night colour grade (cool/dark). Applied globally by
-// _acc_atmosphere::apply_vision via VisionSetNaked("zm_abandoned_cyber_city").
-// Source: vision/zm_abandoned_cyber_city.vision (synced to the usermap by
-// tools/sync_to_modtools.ps1). LED-free runtime atmosphere (no bake).
+// Map-name vision grade = NEUTRAL stock default (NOT a custom tint). MUST stay neutral:
+// the engine treats the MAP-NAME vision as each client's "default" visionset and
+// FORCE-RESTORES it per-client on every revive (visionset_mgr / _zm_laststand), which
+// BYPASSES our server-side change-gated VisionSetNaked("default") — so a tinted file here
+// shows up as a stuck grade ONLY after a down/revive (the 2026-06-24 "gray screen on
+// revive" bug). Ship base colours = grade OFF (ACC_VISION_ON 0); this file == stock
+// default.vision. _acc_atmosphere::apply_vision still drives the GLOBAL slot. docs/29 §7b.
+// Source: vision/zm_abandoned_cyber_city.vision (synced by tools/sync_to_modtools.ps1).
 rawfile,vision/zm_abandoned_cyber_city.vision
 
 // Live-swappable alternate grades for in-game A/B (no rebuild to choose): set
-// acc_vision_set acc_grade_magenta | acc_grade_orange | acc_grade_dark. The default
-// (zm_abandoned_cyber_city) is now a VIBRANT MAGENTA; these are hotter-magenta,
-// orange-neon, and darker-magenta casts (docs/29 §7b). LED-free.
+// acc_vision_set acc_grade_magenta | acc_grade_orange | acc_grade_dark (hotter-magenta,
+// orange-neon, darker-magenta casts; docs/29 §7b). These are DORMANT — the default ships
+// grade-OFF (base colours). LED-free.
 rawfile,vision/acc_grade_magenta.vision
 rawfile,vision/acc_grade_orange.vision
 rawfile,vision/acc_grade_dark.vision
+// NEUTRAL near-black crush (vkRM 0.08, R=G=B, no hue) applied per trench depth to defeat the abyss
+// IBL/tonemap baseline that point-light dimming can't reach (_acc_atmosphere::apply_vision, 2026-06-22).
+rawfile,vision/acc_grade_abyss_dark.vision
+// Even darker neutral (~5%) used as the START of the power-on light WARM-UP: applied instantly when power
+// comes on, then lerped to "default" over ~10s so the baked lights swell up instead of snapping on (2026-06-22).
+rawfile,vision/acc_grade_blackout.vision
+// Intermediate neutral brightness stages (~18%, ~45%) for the EXPONENTIAL power-on warm-up: after holding
+// blackout super-dark, the ramp accelerates blackout -> warm1 -> warm2 -> default (2026-06-22).
+rawfile,vision/acc_grade_warm1.vision
+rawfile,vision/acc_grade_warm2.vision
 
 // NOTE: stock t7_* wall/floor materials are painted on faces in the .map, but they
 // are NOT listed here yet. Listing them makes the linker try to COMPILE their
@@ -63,8 +78,13 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_exo.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_abyss_doors.gsc
+// Paradise FINAL ONSLAUGHT: timed 5-min survival fight (x4 spawns + Brutus/Phantom every minute) -> WIN. docs/48.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_modifiers.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_brutus.gsc
@@ -82,6 +102,8 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
 // machine + stock nuke model) and presents it as PhD Flopper - fall/explosive immunity +
 // slide-to-explode nova (purple Apothicon FX). No .csc - the stock cherry .csc owns the client side. docs/13_perks.md.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc
+// [acc] Electric Cherry - the real 10th perk (specialty_combat_efficiency, own alcove + p6_zm_vending_electric_cherry model). docs/13_perks.md.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_electric_cherry.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 // Per-round DEFCON room lockdown (stage 1: red alarm-light half). docs/37.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc
@@ -120,10 +142,23 @@ fx,_NSZ/Brutus/spawn_fx
 fx,_NSZ/Brutus/chest_fx
 fx,_NSZ/Brutus/helmet_smoke
 fx,fire/fx_fire_ground_rubble_50x50
-// PhD Flopper slide/down explosion = the Apothicon Fury purple/void spawn-burst FX
-// (stock dlc4/genesis .efx, source present in the Mod Tools - verified 2026-06-15).
-// _acc_perk_phd_flopper.gsc #precaches + PlayFXs it; def_explosion is the fallback.
-fx,dlc4/genesis/fx_apothicon_fury_spawn_in_exp
+
+// [acc] Avogadro electric boss (BO2 port, Dick_Nixon pack — user 2026-06-25). Custom aitype
+// archetype_zm_avogadro (model/anims/behaviors/materials in model_export\gwm_avogadro at the Mod
+// Tools root, gitignored via tools/external_assets_manifest.ps1). The aitype line pulls the model +
+// xanims + behavior tree transitively (like Brutus's archetype_charred_zombie). docs/56.
+aitype,archetype_zm_avogadro
+fx,zombie/fx_avogadro_linger
+fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
+// Vendored control + driver scripts (REGISTER_SYSTEM registers the AI; _acc_boss_avogadro drives spawns).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.csc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_avogadro.gsc
+// PhD Flopper slide/down NOVA = a STOCK, installed one-shot electric spark burst (user 2026-06-24,
+// SWAPPED off dlc4/genesis/fx_apothicon_fury_spawn_in_exp - that DLC4 FX + its anim materials aren't
+// built in this install, so it errored + never rendered). _acc_perk_phd_flopper.gsc #precaches + PlayFXs
+// it; def_explosion is the fallback.
+fx,electric/fx_elec_sparks_burst_xlg_os
 
 // Per-round DEFCON room lockdown red alarm lights (_acc_lockdown.gsc). Stock ZM
 // .efx, source present in <tools>\share\raw\fx\light\ (verified 2026-06-15):
@@ -147,6 +182,14 @@ fx,acc/light/fx_perk_glow_white
 fx,acc/light/fx_perk_glow_purple
 fx,acc/light/fx_perk_glow_blacklight
 fx,acc/light/fx_perk_glow_teal
+fx,acc/light/fx_perk_glow_teal_dim
+// Glitch/Phantom re-theme + trench shard-bank indicator (user 2026-06-24): glitch glow + lockdown
+// "purge" room lights = MAGENTA (was red); phantom body aura = DARK PURPLE; shard banks = DIM WHITE.
+// Generated by tools/gen_perk_glow_fx.js. magenta_dim/white_dim are dimmed variants (see BRIGHT).
+fx,acc/light/fx_perk_glow_magenta
+fx,acc/light/fx_perk_glow_magenta_dim
+fx,acc/light/fx_perk_glow_dark_purple
+fx,acc/light/fx_perk_glow_white_dim
 
 // Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
 // aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
@@ -196,6 +239,14 @@ xmodel,p7_boots_safehouse_01
 xmodel,zombietron_gold_brick
 xmodel,wpn_t7_zmb_zod_rocket_shield_world
 xmodel,wpn_t7_zmb_monkey_bomb_world
+xmodel,wm_t6_five_seven
+xmodel,wm_t6_olympia
+// Wall-buy CHALK outlines (restored 2026-06-24): inline worldspawn meshes tokened
+// mtl_t6_wpn_pistol_kard_wall_chalk / mtl_t6_wpn_shotty_olympia_wall_chalk / t7_zm_chalk_buy_frag.
+// NO zone line needed - a mesh material is a FACE material, discovered from the brush token at
+// cod2map time (same as the early t7_zm_chalk_buy_icr1 wall-buy that built fine, commit 0044a16).
+// (The earlier "lit_emissive_transparent shader won't compile" claim was wrong: these are plain
+// colorMap material.gdf assets, sources verified on disk in skye_t6_olympia / skye_t6_kap-40 GDTs.)
 // Plaza Implant Bench prop: Cyber City white metal workbench (stock t7_props, on
 // disk at model_export/t7_props/p7_cai_work_table_metal_set/). NOT in zm_levelcommon,
 // so the linker compiles it from its GDT and packs it here (needs gdtdb-registered).
@@ -207,7 +258,6 @@ xmodel,p7_cai_work_table_metal_03_white
 xmodel,p7_cai_sign_inteactive_kiosk
 xmodel,p7_cai_stacking_cargo_crate
 xmodel,p7_cai_ticket_kiosk_theatre
-
 // Cymbal Monkey (cymbal_monkey_zm) + Octobomb / Li'l Arnie (octobomb_zm) are
 // granted by boss items. Both weapon DEFS already ship in zm_levelcommon (every
 // usermap loads it at runtime - assetlist lines 6175 + 6225), so we do NOT add a
@@ -255,6 +305,16 @@ image,i_acc_perk_widows_mega
 // CoD.AccPerkBar bit 8. Credit Ronan + Treyarch per the pack readme.
 image,i_acc_perk_phd_base
 image,i_acc_perk_phd_mega
+// Electric Cherry (perk #10) - Ronan's Cyberpunk "exo_cherry" icon (base=Red, mega=root). Drives
+// acc_hud.lua CoD.AccPerkBar bit 9 (ACC_PERK_ICONS[9]="cherry"). GDT = source_data/acc_perk_shaders.gdt.
+image,i_acc_perk_cherry_base
+image,i_acc_perk_cherry_mega
+
+// Data Shards HUD icon (user 2026-06-25): the player's shard PNG replaces the "DATA SHARDS" text label.
+// Drawn in LUI (acc_hud.lua CoD.AccShardIcon) - the proven image path (perk bar / PaP tiers); a usermap can't
+// build a 2D HUD *material* for the legacy hudelem ("No techsetdef for material type 2d"), but the IMAGE links
+// fine. GDT = source_data/acc_perk_shaders.gdt (deploy: tools/deploy_perk_shaders.ps1).
+image,i_acc_data_shard
 
 // Power-up HUD icons (Ronan's Cyberpunk Shaders): Insta-Kill / Double Points / Fire Sale.
 // Drawn by acc_hud.lua CoD.AccPowerupBar while each power-up is active (accPowerupMask bits
@@ -288,9 +348,8 @@ image,i_acc_pap_tier3
 // the stock 50-weapon table + the 3 Skye box imports below.
 stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv
 
-// Box guns (user, 2026-06-14): 6 - Tac-19, Five-Seven, ASM1, AK-47, AE4, Ripper
-// (all Skye imports; see docs/32 + docs/33). One pair per gun (base + PaP), except
-// the Ripper = 4 convertible assets (smg/ar x base/_up). GDT converted by gdtdb.
+// Box guns (Skye imports; see docs/32 + docs/33). One pair per gun (base + PaP).
+// (Original Ripper convertible REMOVED 2026-06-23 - couldn't be fully twinned.)
 weapon,s1_tac19
 weapon,s1_tac19_up
 
@@ -305,42 +364,32 @@ weapon,t6_fiveseven_ldw_up_zm
 weapon,s1_asm1
 weapon,s1_asm1_up
 
-// AK-47 (BO2 t6_ak47) = full-auto AR box gun (user, 2026-06-14). See docs/33.
-weapon,t6_ak47
-weapon,t6_ak47_up
+// AK-47 (BO2 t9_ak47) = full-auto AR box gun (user, 2026-06-14). See docs/33.
+weapon,t9_ak47
+weapon,t9_ak47_up
 
 // AE4 (AW s1_ae4) = directed-energy AR box gun (user, 2026-06-14). See docs/33.
 weapon,s1_ae4
 weapon,s1_ae4_up
 
-// Ripper (Ghosts iw6_ripper) = convertible SMG<->AR box gun (user, 2026-06-14).
-// 4 assets (smg/ar x base/_up) linked by altWeapon; box gives the SMG-mode
-// primary (CSV name iw6_ripper_smg, no _zm - per the pack's ADD-TO files). NO perk
-// twins (convertible altWeapon conflicts with the twin-swap engine). See docs/33.
-weapon,iw6_ripper_smg_zm
-weapon,iw6_ripper_ar_zm
-weapon,iw6_ripper_smg_up_zm
-weapon,iw6_ripper_ar_up_zm
+// RW1 (AW s1_rw1) = directed-energy PISTOL (user 2026-06-23). FULLY TWINNED (bulletweapon,
+// single-wield, regular _up) - twin weaponfull lines are auto-generated in the twin block below.
+weapon,s1_rw1
+weapon,s1_rw1_up
+// Mahem (AW s1_mahem) = molten-metal ROCKET LAUNCHER (user 2026-06-23). EXEMPT explosive special
+// (projectileweapon, NO twins, like the Thundergun WW); empty altWeapon so no _zm_zm Com_ERROR.
+weapon,s1_mahem
+weapon,s1_mahem_up
 
-// Box guns re-added (2026-06-15). NO twins (BO3 weapon-count cap). All cleared by the
-// per-gun anomaly scan + adversarial GDT verify (docs/33 "Failure modes").
-// AKIMBO PaP guns (PDW, M1911) must zone BOTH _rdw_up_zm AND _ldw_up_zm or the left-hand
-// partner dangles when the engine spawns the akimbo pair at PaP. AK-74u PaP altWeapon was
-// blanked install-side (skye_t5_ak74u.gdt L10416) to kill the launcher _zm_zm Com_ERROR.
+// Box guns. AK-74u/M60/RPD are Cold War (t9) ports (user 2026-06-26): regular _up, empty altWeapon, models
+// compiled. (PDW-57 / M1911 / Nail Gun / Ripper REMOVED 2026-06-23 - none could be fully twinned for the
+// Mega-perk handling buffs; see CHANGELOG + docs/33.)
 weapon,t8_paladin_hb50
 weapon,t8_paladin_hb50_up
 weapon,s4_ppsh41_base
 weapon,s4_ppsh41_base_up
-weapon,t9_nail_gun
-weapon,t9_nail_gun_up
-weapon,s1_pdw
-weapon,s1_pdw_rdw_up_zm
-weapon,s1_pdw_ldw_up_zm
-weapon,s2_m1911
-weapon,s2_m1911_rdw_up_zm
-weapon,s2_m1911_ldw_up_zm
-weapon,t5_ak74u
-weapon,t5_ak74u_up_zm
+weapon,t9_ak74u
+weapon,t9_ak74u_up
 
 // Olympia (BO2 t6_olympia) = double-barrel shotgun box gun (user, 2026-06-15). BO1 rip
 // only had GDTs installed, so the BO2 port is used (same gun). Twin-less (weapon-count cap).
@@ -352,14 +401,41 @@ weapon,t6_olympia_up
 weapon,t6_galil
 weapon,t6_galil_up
 
-// LMGs (user, 2026-06-19): M60 + RPD (Skye BO2, COMPILED models). Diverse (M60 heavy/slow, RPD fast/drum).
-// Twin-less (weapon-count cap). (Stoner63/HK21 BO1 ports wanted first but their xmodels aren't compiled.)
-weapon,t6_m60
-weapon,t6_m60_up
-weapon,t6_rpd
-weapon,t6_rpd_up
+// LMGs: M60 + RPD - Cold War (t9) ports (user 2026-06-26, swapped from Skye BO2). Diverse (M60 heavy/slow,
+// RPD fast/drum), FULLY TWINNED. Models compiled (.xmodel_bin sources verified install-side).
+weapon,t9_m60
+weapon,t9_m60_up
+weapon,t9_rpd
+weapon,t9_rpd_up
 
-// Perk weapon-variant TWIN matrix (110 = 11 combos x 5 guns x base/_up): recoil
+// MK14 (AW s1_mk14) = semi-auto battle-rifle / DMR box gun, B tier (user 2026-06-24). Single-wield
+// bulletweapon -> FULLY TWINNED (twin block below). Clean body loc mults (head 6.0 = ~3x headshot).
+// Sniper ability category + sniper Overclock family (precision marksman). PaP = s1_mk14_up.
+weapon,s1_mk14
+weapon,s1_mk14_up
+
+// MORS (AW s1_mors) = charge-up railgun SNIPER box gun, B tier (user 2026-06-24). Single-wield bulletweapon
+// -> FULLY TWINNED (twin block auto-generated below by apply_recoil_overhaul.js). Inflated MP loc mults
+// NORMALIZED install-side (tools/normalize_mors_loc.js: body 1.0 / head 5.0; PaP damage re-encoded 1000->2000).
+// Sniper ability category + sniper Overclock family. PaP = s1_mors_up.
+weapon,s1_mors
+weapon,s1_mors_up
+
+// Chicom CQB (BO2 t6_chicom_cqb) = 3-round-burst SMG box gun, S+ tier (user 2026-06-25). Single-wield
+// bulletweapon -> FULLY TWINNED (twin block auto-generated below by apply_recoil_overhaul.js). PaP = "Auto Burst"
+// 4-round. Strong burst DPS (balance mult 0.25 = ~500 eff) + generous ammo (clip 36/56) -> top-3 PaP score.
+// SMG ability (Whirlwind) + SMG Overclock family. PaP = t6_chicom_cqb_up.
+weapon,t6_chicom_cqb
+weapon,t6_chicom_cqb_up
+
+// Action Figure melee (BO4 t8 port by T0nic; free w/ credit - TEST-ONLY rip, see CREDITS). Handheld swing
+// weapon + its offhand melee component, both packed here. Source installed into the Mod Tools as a gitignored
+// external asset; GDT = source_data/t8_weapons/wpn_t8_melee_actionfigure.gdt; CSV row in
+// zm_levelcommon_weapons.csv. user 2026-06-23.
+weapon,t8_melee_figure
+weapon,t8_actionfigure_melee
+
+// Perk weapon-variant TWIN matrix (224 = 7 combos x base/_up x 16 guns): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =
 // source_data/acc_weapon_variants.gdt, generated by tools/apply_recoil_overhaul.js
 // (also runs gdtdb /update). Must stay in sync with build_available_twins(). Consumed
@@ -392,6 +468,48 @@ weaponfull,s1_asm1_up_acc_recoil50
 weaponfull,s1_asm1_up_acc_recoil50_fastfire
 weaponfull,s1_asm1_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_asm1_up_acc_recoil50_fastreload
+weaponfull,s1_mk14_acc_fastfire
+weaponfull,s1_mk14_acc_fastfire_fastreload
+weaponfull,s1_mk14_acc_fastreload
+weaponfull,s1_mk14_acc_recoil50
+weaponfull,s1_mk14_acc_recoil50_fastfire
+weaponfull,s1_mk14_acc_recoil50_fastfire_fastreload
+weaponfull,s1_mk14_acc_recoil50_fastreload
+weaponfull,s1_mk14_up_acc_fastfire
+weaponfull,s1_mk14_up_acc_fastfire_fastreload
+weaponfull,s1_mk14_up_acc_fastreload
+weaponfull,s1_mk14_up_acc_recoil50
+weaponfull,s1_mk14_up_acc_recoil50_fastfire
+weaponfull,s1_mk14_up_acc_recoil50_fastfire_fastreload
+weaponfull,s1_mk14_up_acc_recoil50_fastreload
+weaponfull,s1_mors_acc_fastfire
+weaponfull,s1_mors_acc_fastfire_fastreload
+weaponfull,s1_mors_acc_fastreload
+weaponfull,s1_mors_acc_recoil50
+weaponfull,s1_mors_acc_recoil50_fastfire
+weaponfull,s1_mors_acc_recoil50_fastfire_fastreload
+weaponfull,s1_mors_acc_recoil50_fastreload
+weaponfull,s1_mors_up_acc_fastfire
+weaponfull,s1_mors_up_acc_fastfire_fastreload
+weaponfull,s1_mors_up_acc_fastreload
+weaponfull,s1_mors_up_acc_recoil50
+weaponfull,s1_mors_up_acc_recoil50_fastfire
+weaponfull,s1_mors_up_acc_recoil50_fastfire_fastreload
+weaponfull,s1_mors_up_acc_recoil50_fastreload
+weaponfull,s1_rw1_acc_fastfire
+weaponfull,s1_rw1_acc_fastfire_fastreload
+weaponfull,s1_rw1_acc_fastreload
+weaponfull,s1_rw1_acc_recoil50
+weaponfull,s1_rw1_acc_recoil50_fastfire
+weaponfull,s1_rw1_acc_recoil50_fastfire_fastreload
+weaponfull,s1_rw1_acc_recoil50_fastreload
+weaponfull,s1_rw1_up_acc_fastfire
+weaponfull,s1_rw1_up_acc_fastfire_fastreload
+weaponfull,s1_rw1_up_acc_fastreload
+weaponfull,s1_rw1_up_acc_recoil50
+weaponfull,s1_rw1_up_acc_recoil50_fastfire
+weaponfull,s1_rw1_up_acc_recoil50_fastfire_fastreload
+weaponfull,s1_rw1_up_acc_recoil50_fastreload
 weaponfull,s1_tac19_acc_fastfire
 weaponfull,s1_tac19_acc_fastfire_fastreload
 weaponfull,s1_tac19_acc_fastreload
@@ -420,34 +538,20 @@ weaponfull,s4_ppsh41_base_up_acc_recoil50
 weaponfull,s4_ppsh41_base_up_acc_recoil50_fastfire
 weaponfull,s4_ppsh41_base_up_acc_recoil50_fastfire_fastreload
 weaponfull,s4_ppsh41_base_up_acc_recoil50_fastreload
-weaponfull,t5_ak74u_acc_fastfire
-weaponfull,t5_ak74u_acc_fastfire_fastreload
-weaponfull,t5_ak74u_acc_fastreload
-weaponfull,t5_ak74u_acc_recoil50
-weaponfull,t5_ak74u_acc_recoil50_fastfire
-weaponfull,t5_ak74u_acc_recoil50_fastfire_fastreload
-weaponfull,t5_ak74u_acc_recoil50_fastreload
-weaponfull,t5_ak74u_up_zm_acc_fastfire
-weaponfull,t5_ak74u_up_zm_acc_fastfire_fastreload
-weaponfull,t5_ak74u_up_zm_acc_fastreload
-weaponfull,t5_ak74u_up_zm_acc_recoil50
-weaponfull,t5_ak74u_up_zm_acc_recoil50_fastfire
-weaponfull,t5_ak74u_up_zm_acc_recoil50_fastfire_fastreload
-weaponfull,t5_ak74u_up_zm_acc_recoil50_fastreload
-weaponfull,t6_ak47_acc_fastfire
-weaponfull,t6_ak47_acc_fastfire_fastreload
-weaponfull,t6_ak47_acc_fastreload
-weaponfull,t6_ak47_acc_recoil50
-weaponfull,t6_ak47_acc_recoil50_fastfire
-weaponfull,t6_ak47_acc_recoil50_fastfire_fastreload
-weaponfull,t6_ak47_acc_recoil50_fastreload
-weaponfull,t6_ak47_up_acc_fastfire
-weaponfull,t6_ak47_up_acc_fastfire_fastreload
-weaponfull,t6_ak47_up_acc_fastreload
-weaponfull,t6_ak47_up_acc_recoil50
-weaponfull,t6_ak47_up_acc_recoil50_fastfire
-weaponfull,t6_ak47_up_acc_recoil50_fastfire_fastreload
-weaponfull,t6_ak47_up_acc_recoil50_fastreload
+weaponfull,t6_chicom_cqb_acc_fastfire
+weaponfull,t6_chicom_cqb_acc_fastfire_fastreload
+weaponfull,t6_chicom_cqb_acc_fastreload
+weaponfull,t6_chicom_cqb_acc_recoil50
+weaponfull,t6_chicom_cqb_acc_recoil50_fastfire
+weaponfull,t6_chicom_cqb_acc_recoil50_fastfire_fastreload
+weaponfull,t6_chicom_cqb_acc_recoil50_fastreload
+weaponfull,t6_chicom_cqb_up_acc_fastfire
+weaponfull,t6_chicom_cqb_up_acc_fastfire_fastreload
+weaponfull,t6_chicom_cqb_up_acc_fastreload
+weaponfull,t6_chicom_cqb_up_acc_recoil50
+weaponfull,t6_chicom_cqb_up_acc_recoil50_fastfire
+weaponfull,t6_chicom_cqb_up_acc_recoil50_fastfire_fastreload
+weaponfull,t6_chicom_cqb_up_acc_recoil50_fastreload
 weaponfull,t6_fiveseven_acc_fastfire
 weaponfull,t6_fiveseven_acc_fastfire_fastreload
 weaponfull,t6_fiveseven_acc_fastreload
@@ -504,6 +608,62 @@ weaponfull,t8_paladin_hb50_up_acc_recoil50
 weaponfull,t8_paladin_hb50_up_acc_recoil50_fastfire
 weaponfull,t8_paladin_hb50_up_acc_recoil50_fastfire_fastreload
 weaponfull,t8_paladin_hb50_up_acc_recoil50_fastreload
+weaponfull,t9_ak47_acc_fastfire
+weaponfull,t9_ak47_acc_fastfire_fastreload
+weaponfull,t9_ak47_acc_fastreload
+weaponfull,t9_ak47_acc_recoil50
+weaponfull,t9_ak47_acc_recoil50_fastfire
+weaponfull,t9_ak47_acc_recoil50_fastfire_fastreload
+weaponfull,t9_ak47_acc_recoil50_fastreload
+weaponfull,t9_ak47_up_acc_fastfire
+weaponfull,t9_ak47_up_acc_fastfire_fastreload
+weaponfull,t9_ak47_up_acc_fastreload
+weaponfull,t9_ak47_up_acc_recoil50
+weaponfull,t9_ak47_up_acc_recoil50_fastfire
+weaponfull,t9_ak47_up_acc_recoil50_fastfire_fastreload
+weaponfull,t9_ak47_up_acc_recoil50_fastreload
+weaponfull,t9_ak74u_acc_fastfire
+weaponfull,t9_ak74u_acc_fastfire_fastreload
+weaponfull,t9_ak74u_acc_fastreload
+weaponfull,t9_ak74u_acc_recoil50
+weaponfull,t9_ak74u_acc_recoil50_fastfire
+weaponfull,t9_ak74u_acc_recoil50_fastfire_fastreload
+weaponfull,t9_ak74u_acc_recoil50_fastreload
+weaponfull,t9_ak74u_up_acc_fastfire
+weaponfull,t9_ak74u_up_acc_fastfire_fastreload
+weaponfull,t9_ak74u_up_acc_fastreload
+weaponfull,t9_ak74u_up_acc_recoil50
+weaponfull,t9_ak74u_up_acc_recoil50_fastfire
+weaponfull,t9_ak74u_up_acc_recoil50_fastfire_fastreload
+weaponfull,t9_ak74u_up_acc_recoil50_fastreload
+weaponfull,t9_m60_acc_fastfire
+weaponfull,t9_m60_acc_fastfire_fastreload
+weaponfull,t9_m60_acc_fastreload
+weaponfull,t9_m60_acc_recoil50
+weaponfull,t9_m60_acc_recoil50_fastfire
+weaponfull,t9_m60_acc_recoil50_fastfire_fastreload
+weaponfull,t9_m60_acc_recoil50_fastreload
+weaponfull,t9_m60_up_acc_fastfire
+weaponfull,t9_m60_up_acc_fastfire_fastreload
+weaponfull,t9_m60_up_acc_fastreload
+weaponfull,t9_m60_up_acc_recoil50
+weaponfull,t9_m60_up_acc_recoil50_fastfire
+weaponfull,t9_m60_up_acc_recoil50_fastfire_fastreload
+weaponfull,t9_m60_up_acc_recoil50_fastreload
+weaponfull,t9_rpd_acc_fastfire
+weaponfull,t9_rpd_acc_fastfire_fastreload
+weaponfull,t9_rpd_acc_fastreload
+weaponfull,t9_rpd_acc_recoil50
+weaponfull,t9_rpd_acc_recoil50_fastfire
+weaponfull,t9_rpd_acc_recoil50_fastfire_fastreload
+weaponfull,t9_rpd_acc_recoil50_fastreload
+weaponfull,t9_rpd_up_acc_fastfire
+weaponfull,t9_rpd_up_acc_fastfire_fastreload
+weaponfull,t9_rpd_up_acc_fastreload
+weaponfull,t9_rpd_up_acc_recoil50
+weaponfull,t9_rpd_up_acc_recoil50_fastfire
+weaponfull,t9_rpd_up_acc_recoil50_fastfire_fastreload
+weaponfull,t9_rpd_up_acc_recoil50_fastreload
 
 // -----------------------------------------------------------------------------
 // Phase 4+ (uncomment as they come online):

@@ -24,15 +24,22 @@ the hack + *why* (code comment + the relevant doc + a memory) so the next agent 
 it instead of re-hitting the wall. Verify hacks against stock/shipped precedent where
 possible (docs/19, docs/22), but absence of precedent is not a blocker — invent it.
 
-## Dev/test mode — ONE flag, HARDCODED (user, 2026-06-21)
+## Dev/test mode — ONE flag, HARDCODED (user, 2026-06-21; built 2026-06-22)
 
 The user wants a single `acc_dev` flag that, when enabled, **hardcodes everything the way they want for
-testing** (god / unlimited shards / all perks + slots / open map / fast rounds / test boss spawns / etc.) —
+testing** (god / unlimited shards / all perks + slots / open map / power on / test boss spawns / etc.) —
 a binary **normal play vs dev mode**, baked in GSC. They do **NOT** want a runtime-tweakable dev console.
-**Never tell the user to "set dvar X in the console"** to test something, and never make a new tunable dvar
-the dev path — gate it on the single dev flag and hardcode the value, **even though a runtime dvar is the
-"normal" practice.** (Live-balance tuning dvars for the user's own experiments are still fine — this rule is
-specifically about the DEV/TEST-mode UX.) Pass this to any subagent. Memory: `dev-mode-hardcoded-not-console`.
+**Never tell the user to "set dvar X in the console"** to test something, and **never add a new dev dvar** —
+**even though a runtime dvar is the "normal" practice.** (Live-balance tuning dvars for the user's own
+experiments are still fine — this rule is specifically about the DEV/TEST-mode UX.) Pass this to any subagent.
+
+**THE MECHANISM (use it — do not add flags):** `acc_dev` is resolved ONCE in
+`zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` (first thing in `main()`) into the global bool
+**`level.acc_dev`** — the canonical gate every module reads via `IS_TRUE( level.acc_dev )` — which also
+`SetDvar`s the legacy sub-dvars off that one flag. Default 0 = ship-safe normal play; the launch scripts pass
+just `+set acc_dev 1`. **To add a dev behavior: branch on `IS_TRUE( level.acc_dev )` and hardcode the value (or
+add a `SetDvar` line in `acc_resolve_dev_flags()`) — NEVER introduce a new `acc_dev_*` / `acc_*` toggle.** Full
+design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
 
 ## Hard constraints
 

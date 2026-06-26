@@ -1,5 +1,14 @@
 // =============================================================================
-// _acc_decontamination.gsc - per-round decontamination zone hazard
+// _acc_decontamination.gsc - per-round round tick (zone-seal hazard REMOVED)
+//
+// *** REMOVED 2026-06-22 (user): the "decontamination / contamination zone" hazard is GONE - it was
+// never part of the final design. No zone is sealed, no "DECONTAMINATION - EVACUATE / SEALS / SEALED"
+// warning is shown, and no player is killed (it previously fired even in NON-dev = the bug removed).
+// run_decon_phase now ONLY re-emits acc_decontamination_complete each round; the seal chain
+// (run_seal_phase / seal_zone / kill_players_in_zone / reentry_kill_monitor / roll_decon_order) is dead
+// code. The MODULE stays because _acc_lockdown[_challenge] reuse its zone helpers (get_zone_volumes /
+// player_in_zone_volumes / enable+disable_zone_spawning) and _acc_lockdown reads is_zone_sealed (always
+// false now). The original design below is retained for reference. ***
 //
 // Design reference: docs/03_layout.md "Decontamination zones (round hazard)",
 // docs/13_perks.md "Per-Round Rotating Lab Machines" (timing contract).
@@ -68,21 +77,17 @@
 
 function init()
 {
-    acc_utility::log( "decontamination: init" );
+    acc_utility::log( "decontamination: init (zone-seal hazard REMOVED - per-round notify only)" );
 
+    // Kept because other modules call the shared helpers: is_zone_sealed reads acc_decon_sealed (now
+    // ALWAYS empty -> nothing is ever sealed); get_zone_volumes caches into acc_decon_volume_cache;
+    // _acc_lockdown[_challenge] reuse get_zone_volumes / enable+disable_zone_spawning. No order roll
+    // anymore (run_decon_phase never seals), so roll_decon_order is now dead code.
     level.acc_decon_sealed = [];
     level.acc_decon_volume_cache = [];
 
-    // Rolled ONCE at map load (docs/03_layout.md "Order"). Round 1 seals
-    // slot 1, ..., round 4 seals slot 4. Round 5+ adds no new seal.
-    level.acc_decon_order = roll_decon_order();
-
-    for ( i = 0; i < level.acc_decon_order.size; i++ )
-    {
-        acc_utility::log( "decon order slot " + ( i + 1 ) + ": " +
-                           level.acc_decon_order[ i ] );
-    }
-
+    // Per-round tick ONLY. The seal + EVACUATE/SEALS UI are gone - run_decon_phase just re-emits
+    // acc_decontamination_complete, which the legacy Lab perk re-roll listens for.
     level thread watch_rounds();
 }
 
@@ -189,27 +194,14 @@ function run_decon_phase( round_number )
 {
     level endon( "end_game" );
 
-    // HARDCODED dev/test: the seal kills players caught in the zone - disabled
-    // (entry script sets this) so the force-open map is safe to roam. Still emit
-    // the complete notify so the Lab perk re-roll keeps working.
-    if ( IS_TRUE( level.acc_disable_decon ) )
-    {
-        level notify( "acc_decontamination_complete", round_number );
-        return;
-    }
-
-    if ( isdefined( round_number ) && round_number >= 1 &&
-         round_number <= ACC_DECON_SEAL_ROUNDS )
-    {
-        zone_name = level.acc_decon_order[ round_number - 1 ];
-        run_seal_phase( round_number, zone_name );
-    }
-
-    // ALWAYS emitted, every round (docs/03_layout.md Implementation notes):
-    // rounds 1-4 after the 20s window + seal logic above; rounds 5+
-    // immediately at round start ("nominal 0s decontamination tick").
-    // _acc_map_randomizer::watch_round_for_perk_rotation keys its 4-of-9 Lab
-    // perk re-roll on this notify (docs/13_perks.md "Implementation").
+    // DECONTAMINATION / zone-seal hazard REMOVED (user 2026-06-22): "contamination zones" were never part
+    // of the final design, so NO zone is ever sealed, NO "DECONTAMINATION - EVACUATE / SEALS / SEALED" UI
+    // is shown, and NO player is ever killed - in BOTH normal play AND dev. (The old level.acc_disable_decon
+    // gate only covered the dev sandbox, so the warning still fired in NON-dev = exactly the bug removed.)
+    // We ONLY re-emit acc_decontamination_complete each round so the legacy Lab perk re-roll
+    // (_acc_map_randomizer) that keys on it keeps ticking. run_seal_phase / seal_zone / kill_players_in_zone
+    // / reentry_kill_monitor are now DEAD (never called); the zone-volume + enable/disable-spawning helpers
+    // stay live because _acc_lockdown[_challenge] reuse them.
     level notify( "acc_decontamination_complete", round_number );
 }
 

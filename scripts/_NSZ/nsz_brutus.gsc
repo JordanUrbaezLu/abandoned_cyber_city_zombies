@@ -687,7 +687,10 @@ function new_death()
 	level.current_brutuses--;
 	PlayFx( SPAWN_FX, self.origin ); 
 	
-	if( level.current_brutuses < 1 )
+	// [acc] NO drops during the Paradise final battle (user 2026-06-26): the paradise Brutus is a THREAT, not a
+	// loot pinata - suppress the last-Brutus power-up drop while the onslaught is running (the generic horde drops
+	// are blocked by acc_paradise::block_powerup_drop; this forced drop bypasses that hook, so gate it here too).
+	if( level.current_brutuses < 1 && !IS_TRUE( level.acc_paradise_onslaught ) )
 		thread zm_powerups::specific_powerup_drop( undefined, self.origin);
 	
 	self PlaySound( "brutus_helmet" ); 

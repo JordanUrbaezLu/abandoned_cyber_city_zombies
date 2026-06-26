@@ -28,6 +28,7 @@
 
 #using scripts\zm\_zm_weapons;
 #using scripts\zm\_zm_unitrigger;
+#using scripts\codescripts\struct;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
@@ -67,6 +68,12 @@ function pre_init()
     //     proximity builds a purchase trigger from them.
     apply_power_switch_side( state.power_switch_side );
     remove_all_wallbuys();
+    // CHALK-ONLY wall-buys (user 2026-06-24): the chalk outline mesh now lives in
+    // the .map, so the server-spawned 3D gun/monkey-bomb model is redundant clutter
+    // sitting ON TOP of the chalk. Disabled so each spot shows ONLY the chalk outline.
+    // (spawn_acc_wallbuy_models stays defined but uncalled — re-enable if a future
+    // wall-buy wants a 3D prop instead of chalk.)
+    // spawn_acc_wallbuy_models();
 
     // Apply the remaining state to the world (PaP blocker brushes, dead-side
     // emergency-drop trigger disable, box pool registration) after _zm has
@@ -106,7 +113,7 @@ function roll_pap_approach()
 // BOX ARSENAL (user, 2026-06-14): the box is being switched to Tac-19, Locus,
 // FN FAL, AK-47 (docs/05_weapons.md tiers; import staging in docs/32). Of those
 // only Locus is stock BO3 (sniper_fastbolt); Tac-19 (s1_tac19), FN FAL (t6_fal)
-// and AK-47 (s1_ak47 / t6_ak47) are Skye weapon-pack imports that must be
+// and AK-47 (s1_ak47 / t9_ak47) are Skye weapon-pack imports that must be
 // installed on the Windows box before they can be enabled. A weapon that is not
 // in the live table just degrades to "not in box" (never a crash), so naming an
 // uninstalled import here is harmless.
@@ -128,42 +135,53 @@ function register_mystery_box_pool()
 
     // BOX pool (all Skye imports). Five-Seven is ALSO the starting pistol
     // (_acc_main::init). A weapon missing from the live table degrades to "not in
-    // box" (never a crash). +6 guns added 2026-06-15 (user): PPSH-41, AK-74u, PDW,
-    // Nail Gun, Paladin HB50, M1911. Use the exact weapon asset ids (PPSH = the
-    // _base mag variant; PDW/M1911 PaP to akimbo). See docs/05 + 33.
+    // box" (never a crash). EVERY conventional gun here is FULLY twinned (benefits from
+    // the Mega-perk handling buffs); only the Thundergun (wonder weapon) is exempt.
+    // REMOVED 2026-06-23 (user: "remove any gun that can't be fully twinned"): Ripper
+    // (convertible altWeapon), Nail Gun (projectile), PDW-57 + M1911 (akimbo PaP) - none
+    // can take the recoil/fire/reload twins, so they were cut. See CHANGELOG + docs/33.
     box_weapons = array(
         "t6_fiveseven",     // Five-Seven (Skye BO2 - also the starting pistol)
         "s1_asm1",          // ASM1       (Skye AW)
         "s1_tac19",         // Tac-19     (Skye AW)
-        "t6_ak47",          // AK-47      (Skye BO2)
+        "t9_ak47",          // AK-47      (Skye BO2)
         "s1_ae4",           // AE4        (Skye AW - directed-energy AR)
-        "iw6_ripper_smg",   // Ripper     (Skye Ghosts - convertible SMG/AR; CSV name, box gives SMG mode)
-        // Box guns re-added (2026-06-15). NO twins on any (BO3 weapon-count cap, docs/33).
-        // All 4 below cleared by the per-gun anomaly scan + adversarial GDT verify (docs/33
-        // "Failure modes"): altWeapon chains, akimbo PaP forms, projectile type all checked.
-        "t8_paladin_hb50",       // Paladin HB50 (BO4 sniper) - confirmed working
-        "s4_ppsh41_base",        // PPSH-41 (Vanguard SMG; altWeapon clean)
-        "t9_nail_gun",           // Nail Gun (CW projectile AR; altWeapon empty, twin-less by type)
-        "s1_pdw",                // PDW-57 (AW; base single-wield, PaPs to akimbo rdw+ldw; altWeapon empty)
-        "s2_m1911",              // M1911 (WWII pistol; PaPs to akimbo EXPLOSIVE - balance split in _acc_damage)
-        "t5_ak74u",              // AK-74u (BO1 SMG; PaP altWeapon BLANKED install-side, skye_t5_ak74u.gdt L10416)
-        // +2 box guns (user, 2026-06-15): Olympia + Galil. BO1 rips had GDTs only, so the
-        // fully-installed BO2 ports are used. Both pre-screened clean (empty altWeapon, single-
-        // wield bulletweapon, std loc mults) and shipped TWIN-LESS (weapon-count cap). docs/33.
+        "t8_paladin_hb50",       // Paladin HB50 (BO4 sniper)
+        "s4_ppsh41_base",        // PPSH-41 (Vanguard SMG)
+        "t9_ak74u",              // AK-74u (Cold War SMG, swapped 2026-06-26; regular _up, empty altWeapon)
+        "t6_chicom_cqb",         // Chicom CQB (BO2 3-round-burst SMG; S+ box gun, user 2026-06-25)
         "t6_olympia",            // Olympia (BO2 double-barrel shotgun)
         "t6_galil",              // Galil   (BO2 full-auto AR)
-        // First LMGs (user 2026-06-19): M60 + RPD (Skye BO2). COMPILED models verified (the Stoner63/HK21
-        // BO1 ports the user wanted first have UNCOMPILED xmodels -> "Unable to load"; M60/RPD are complete).
-        // Diverse: M60 = heavy slow belt (600 RPM), RPD = faster drum (750 RPM). Twin-less (weapon-count cap).
-        // Native ammo for now; clip/reserve tuning is a follow-up via reduce_base_ammo. Balanced in _acc_damage.
-        "t6_m60",                // M60  (BO2 heavy belt-fed LMG)
-        "t6_rpd",                // RPD  (BO2 drum-fed LMG)
-        // WONDER WEAPON (user 2026-06-19): Wunderwaffe DG-2. STOCK common weapon (def cooked in
-        // zm_levelcommon -> NO `weapon,` .zone line; just a row in our slim weapon table CSV, the
-        // octobomb/cymbal_monkey precedent). Chain-lightning; is_limited=1 (one in the world at a time =
-        // stock WW behavior). UNIFORM box odds - the BO3 box has no rarity weighting, so is_wonder_weapon
-        // does NOT make it rarer; it rolls ~1/N like any box gun (a true rare-roll would need custom code).
-        "tesla_gun"              // Wunderwaffe DG-2 (chain lightning - the map's wonder weapon)
+        // LMGs (user 2026-06-19): M60 + RPD (Skye BO2). NOW FULLY TWINNED (user 2026-06-23) - their
+        // long reloads (9.7s / 7.5s) make the Speed Cola Mega twin especially valuable.
+        "t9_m60",                // M60  (Cold War heavy belt-fed LMG)
+        "t9_rpd",                // RPD  (Cold War drum-fed LMG)
+        // MK14 (AW s1_mk14): semi-auto battle-rifle / DMR, B tier, FULLY TWINNED (user 2026-06-24). Sniper category + family.
+        "s1_mk14",               // MK14 (AW marksman DMR - B tier, twinned)
+        // MORS (AW s1_mors): charge-up railgun SNIPER, S tier, FULLY TWINNED (user 2026-06-24). Loc normalized
+        // install-side (tools/normalize_mors_loc.js). Sniper category + family.
+        "s1_mors",               // MORS (AW railgun sniper - S tier, twinned)
+        // NEW AW guns (user 2026-06-23): RW1 directed-energy pistol (FULLY TWINNED) + Mahem sci-fi launcher
+        // (EXEMPT explosive special - projectile, no twins, like the Thundergun). Both A-tier box odds.
+        "s1_rw1",                // RW1   (AW directed-energy pistol - twinned)
+        "s1_mahem",              // Mahem (AW molten-metal rocket launcher - exempt explosive special)
+        // WONDER WEAPON (user 2026-06-23, SWAPPED from the Wunderwaffe DG-2): Thundergun. STOCK common weapon
+        // (def cooked in zm_levelcommon -> NO `weapon,` .zone line; just a row in our slim weapon table CSV, the
+        // octobomb/cymbal_monkey precedent). Wind-blast knockback; is_limited=1 (one in the world at a time =
+        // stock WW behavior). PaP -> thundergun_upgraded (cooked); stock cooked SFX. TIER-WEIGHTED box odds
+        // (acc_box_weight): it's S+ (its own tier, above S), the RAREST roll of all at ~1% (acc_box_weight).
+        "thundergun",            // Thundergun (wind-blast knockback - the map's wonder weapon)
+        // Action Figure (BO4 t8 melee port by T0nic; TEST-ONLY rip, see CREDITS). A fun handheld swing weapon.
+        // Source installed in the Mod Tools (gitignored); .zone + CSV + GDT wired 2026-06-23. Melee = "special"
+        // class like the Thundergun, so it rides the same is_in_box flip below (degrades to "not in box" if the
+        // weapon table lacks the row - never a crash).
+        "t8_melee_figure",       // Action Figure melee (fun swing weapon)
+        // TACTICAL grenades as RARE box rolls (user 2026-06-24): Monkey Bomb (cymbal_monkey, 1%) + Li'l Arnie
+        // (octobomb, 0.5%). FIXED odds via acc_box_tactical_preroll() - NOT tier-weighted (excluded from the
+        // gun pick by is_box_tactical()). is_in_box here lets the box float+give them; the grant is finalized
+        // by acc_boss_items::watch_box_tactical_grab() on "user_grabbed_weapon". (Removed from the boss-item pool.)
+        "cymbal_monkey",         // Monkey Bomb tactical (box pre-roll 1%)
+        "octobomb"               // Li'l Arnie tactical (box pre-roll 0.5%)
     );
 
     // 1) Clear is_in_box across the ENTIRE live weapon table so none of the
@@ -220,7 +238,8 @@ function acc_box_only_weapon_keys( keys )
     {
         w = keys[ i ];
         if ( isdefined( level.zombie_weapons[ w ] ) &&
-             IS_TRUE( level.zombie_weapons[ w ].is_in_box ) )
+             IS_TRUE( level.zombie_weapons[ w ].is_in_box ) &&
+             !is_box_tactical( w ) )   // tacticals (Monkey/Arnie) are FIXED-odds pre-roll, not tier-weighted
         {
             box_only[ box_only.size ] = w;
         }
@@ -245,15 +264,100 @@ function acc_box_only_weapon_keys( keys )
             not_held[ not_held.size ] = box_only[ i ];
     }
 
-    // If the player owns EVERY available box gun there is nothing new to give - fall
-    // back to the full box list (stock then hands a duplicate w/ max ammo, an
-    // unavoidable edge case). Otherwise restrict the draw to guns they lack.
-    if ( not_held.size == 0 )
+    // If the player owns EVERY available box gun there is nothing new to give - fall back to the full
+    // box list (stock then hands a duplicate w/ max ammo, an unavoidable edge). Otherwise the draw is
+    // restricted to guns they lack.
+    eligible = ( not_held.size == 0 ? box_only : not_held );
+
+    // FIXED-ODDS TACTICAL pre-roll (user 2026-06-24): Monkey Bomb (1%) + Li'l Arnie (0.5%) are rare box
+    // outcomes OUTSIDE the tier weighting. Flag the grab so acc_boss_items::watch_box_tactical_grab() finalizes
+    // the tactical (active slot + ammo + thrown callback) on "user_grabbed_weapon", and float that tactical at
+    // the FRONT. The gun list stays behind it as a non-empty fallback if the tactical can't be floated (then a
+    // gun shows + the finalizer still grants the tactical on grab). Cleared every roll so a gun roll never grants.
+    self.acc_box_pending_tactical = undefined;
+    tac = acc_box_tactical_preroll();
+    if ( isdefined( tac ) )
     {
-        return box_only;
+        self.acc_box_pending_tactical = tac;
+        tac_wpn = GetWeapon( ( tac == "monkey_bomb" ? "cymbal_monkey" : "octobomb" ) );
+        out = [];
+        if ( isdefined( tac_wpn ) ) out[ 0 ] = tac_wpn;
+        for ( i = 0; i < eligible.size; i++ ) out[ out.size ] = eligible[ i ];
+        if ( out.size > 0 ) return out;
     }
-    return not_held;
+
+    // TIER-WEIGHTED ROLL (user 2026-06-22): best guns rarer, worst guns commoner. Stock's
+    // treasure_chest_ChooseWeightedRandomWeapon returns the FIRST eligible key (_zm_magicbox.gsc:1279-1284),
+    // so we do our OWN weighted pick by tier and return it at the FRONT; the rest follow as fallback so the
+    // stock loop still has a non-empty list. Per-gun weights (~percent on the fresh 17-gun pool, sum 100):
+    // S 4 / A 5 / B 7 / C 8 (acc_box_weight; docs/05 Gun Tier List).
+    picked = acc_box_weighted_pick( eligible );
+    if ( !isdefined( picked ) ) return eligible;   // safety - never hand the box an empty list
+    out = [];
+    out[ 0 ] = picked;
+    for ( i = 0; i < eligible.size; i++ )
+        if ( eligible[ i ] != picked ) out[ out.size ] = eligible[ i ];
+    return out;
 }
+
+// Weighted random pick from a list of weapon OBJECTS, by per-gun tier weight (acc_box_weight). Higher
+// weight = more likely. Returns one weapon object (undefined only on an empty list).
+function acc_box_weighted_pick( list )
+{
+    if ( !isdefined( list ) || list.size == 0 ) return undefined;
+    if ( list.size == 1 ) return list[ 0 ];
+
+    total = 0;
+    for ( i = 0; i < list.size; i++ )
+        total += acc_box_weight( list[ i ] );
+    if ( total <= 0 ) return list[ acc_utility::acc_rand_int( list.size ) ];
+
+    r = acc_utility::acc_rand_int( total );   // 0 .. total-1
+    accum = 0;
+    for ( i = 0; i < list.size; i++ )
+    {
+        accum += acc_box_weight( list[ i ] );
+        if ( r < accum ) return list[ i ];
+    }
+    return list[ list.size - 1 ];   // float-safety fallback (never expected with int weights)
+}
+
+// Fixed-odds tactical pre-roll for the box (user 2026-06-24): Monkey Bomb 1% (cymbal_monkey) + Li'l Arnie
+// 0.5% (octobomb), OUTSIDE the gun tier-weighting. Returns the item id or undefined (-> normal gun pick).
+function acc_box_tactical_preroll()
+{
+    r = acc_utility::acc_rand_int( 1000 );   // 0..999
+    if ( r < 5 )  return "lil_arnie";        // 0.5%  -> r 0..4   (octobomb)
+    if ( r < 15 ) return "monkey_bomb";      // 1.0%  -> r 5..14  (cymbal monkey)
+    return undefined;                        // 98.5% -> normal tier-weighted gun pick
+}
+
+// True if a box weapon OBJECT is one of the fixed-odds tacticals (kept OUT of the tier-weighted gun pick).
+function is_box_tactical( wpn )
+{
+    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return false;
+    return ( wpn.name == "cymbal_monkey" || wpn.name == "octobomb" );
+}
+
+// Per-gun mystery-box weight by PaP PRICE TIER (docs/54; ranked on PaP-form power, split into thirds).
+// HIGHER weight = COMMONER roll, so the best packed guns (TOP) are the rarest finds; the WW (Thundergun)
+// is rarest of all. GENERATED by tools/compute_gun_tiers.js - do NOT hand-edit between the markers; edit
+// that script's roster + re-run (regenerates docs/54 + this block, GSC #2). Matched by EXACT box-pool name;
+// pool total weight 482, re-normalizes live as you collect (the box never repeats a gun you own). 2026-06-25.
+// <<< BEGIN GENERATED (tools/compute_gun_tiers.js) >>>
+function acc_box_weight( wpn )
+{
+    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 5;
+    n = wpn.name;
+    if ( n == "thundergun" ) return 3;   // ~0.6% each - Thundergun
+    if ( n == "t8_melee_figure" ) return 5;   // ~1.0% each - Action Figure
+    if ( n == "t9_m60" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 10;   // ~2.0% each - M60, PPSH-41, Tac-19
+    if ( n == "t6_chicom_cqb" || n == "s1_mors" ) return 12;   // ~2.4% each - Chicom CQB, MORS
+    if ( n == "t9_ak74u" || n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak47" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~5.9% each - AK-74u, AE4, RW1, AK-47, ASM1, Galil, MK14, Mahem
+    if ( n == "t8_paladin_hb50" || n == "t6_fiveseven" || n == "t9_rpd" || n == "t6_olympia" ) return 50;   // ~10.1% each - Paladin HB50, Five-Seven, RPD, Olympia
+    return 5;   // unknown -> mid
+}
+// <<< END GENERATED >>>
 
 // True if `player` already carries `candidate` in ANY form - base, Pack-a-Punch (_up),
 // or a perk-variant twin - compared by TRUE BASE weapon object. acc_weapon_variants::true_base
@@ -494,47 +598,29 @@ function disable_dead_side_emergency_triggers( side )
 
 function apply_pap_approach( blocked_side )
 {
-    // Radiant contract: two script_brushmodels named acc_pap_block_server /
-    // acc_pap_block_roof, authored VISIBLE + SOLID in the two lab corridors.
-    // Per run: the rolled side stays blocked, the other side opens.
-    open_side = ( blocked_side == "server" ? "roof" : "server" );
+    // REMOVED (user 2026-06-22): the per-run RANDOM path-blocking wall is no longer in the design. It used
+    // to leave one of the two lab corridors walled off by a tall, floor-to-ceiling, un-buyable brush
+    // (acc_pap_block_roof / acc_pap_block_server) - which read in-game as a "broken door" on the Helipad->Lab
+    // path. Now we OPEN BOTH walls every run so neither corridor is ever blocked. The brushes stay in the .map
+    // (authored visible+solid) but are always hidden / non-solid / path-connected here. blocked_side is ignored.
+    names = [];
+    names[ 0 ] = "acc_pap_block_server";
+    names[ 1 ] = "acc_pap_block_roof";
 
-    // Blocked side: re-assert visible+solid (already authored that way) and
-    // cut the AI navgrid.
-    // VERIFIED(acc): DisconnectPaths is called directly on solid
-    // script_brushmodel door pieces at stock door init
-    // (_zm_blockers.gsc:272-275 "if (self.classname == \"script_brushmodel\")
-    // self DisconnectPaths();").
-    to_block = getentarray( "acc_pap_block_" + blocked_side, "targetname" );
-    for ( i = 0; i < to_block.size; i++ )
+    opened = 0;
+    for ( n = 0; n < names.size; n++ )
     {
-        to_block[ i ] show();
-        to_block[ i ] solid();
-        to_block[ i ] disconnectpaths();
+        walls = getentarray( names[ n ], "targetname" );
+        for ( i = 0; i < walls.size; i++ )
+        {
+            walls[ i ] hide();
+            walls[ i ] notsolid();
+            walls[ i ] connectpaths();
+            opened++;
+        }
     }
 
-    // Unblocked side: hide, drop collision, reconnect the navgrid - same
-    // order stock uses when a door opens.
-    // VERIFIED(acc): stock door_buy open path runs NotSolid()
-    // (_zm_blockers.gsc:507) and then ConnectPaths() on script_brushmodel /
-    // script_model door pieces (_zm_blockers.gsc:511-517).
-    to_open = getentarray( "acc_pap_block_" + open_side, "targetname" );
-    for ( i = 0; i < to_open.size; i++ )
-    {
-        to_open[ i ] hide();
-        to_open[ i ] notsolid();
-        to_open[ i ] connectpaths();
-    }
-
-    if ( to_block.size == 0 && to_open.size == 0 )
-    {
-        acc_utility::log( "pap: no acc_pap_block_* brushes in map yet" );
-        return;
-    }
-
-    acc_utility::log( "pap: blocked=" + blocked_side + " (" + to_block.size +
-                      " brush(es)), open=" + open_side + " (" + to_open.size +
-                      " brush(es))" );
+    acc_utility::log( "pap: random approach wall REMOVED - both corridors open (" + opened + " brush(es))" );
 }
 
 function remove_all_wallbuys()
@@ -587,6 +673,19 @@ function remove_all_wallbuys()
     {
         s = level._spawned_wallbuys[ i ];
 
+        // KEEP the 3 player-requested wall-buys (user 2026-06-23): Five-Seven (Lab),
+        // Olympia (Bus Station), frag grenade (Spawn). Everything else stays box-only.
+        // s.zombie_weapon_upgrade is the raw .map KVP string (see the log at the bottom
+        // of this loop). Stock buy->ammo->PaP-ammo handling does the rest.
+        if ( isdefined( s.zombie_weapon_upgrade ) &&
+             ( s.zombie_weapon_upgrade == "t6_fiveseven"
+               || s.zombie_weapon_upgrade == "t6_olympia"
+               || s.zombie_weapon_upgrade == "frag_grenade" ) )
+        {
+            acc_utility::log( "wallbuy KEPT (player-requested): " + s.zombie_weapon_upgrade );
+            continue;
+        }
+
         stub = s.trigger_stub;
         if ( !isdefined( stub ) )
         {
@@ -602,6 +701,32 @@ function remove_all_wallbuys()
     }
 
     acc_utility::log( "wallbuy: removed " + removed + " wall buy trigger(s)" );
+}
+// DISABLED 2026-06-24 (user: "I only want the chalk in each spot, not two things"). This spawns a
+// VISIBLE 3D gun/monkey-bomb model per wall-buy; we now have a real CHALK outline mesh on each wall
+// (in the .map), so the 3D model is redundant clutter sitting on top of the chalk. The call in init()
+// is commented out — each spot shows ONLY the chalk now. Kept defined (uncalled) in case a future
+// wall-buy wants a 3D prop instead. (Earlier note "chalk shaders won't compile" was FALSE — the chalk
+// builds + packs fine; see memory wallbuy-chalk-inline-mesh-recipe + CHANGELOG 2026-06-24.)
+// Spawns a SERVER-side script_model at each model-struct origin (wm_t6_five_seven / wm_t6_olympia /
+// wpn_t7_zmb_monkey_bomb_world — zone-packed). Stock buildkit renders nothing for Skye ports + grenades.
+function spawn_acc_wallbuy_models()
+{
+    names = array( "acc_fiveseven_wallbuy_model", "acc_olympia_wallbuy_model", "acc_grenade_wallbuy_model" );
+    for ( i = 0; i < names.size; i++ )
+    {
+        s = struct::get( names[ i ], "targetname" );
+        if ( !isdefined( s ) || !isdefined( s.model ) )
+        {
+            acc_utility::log( "acc wallbuy model MISSING struct: " + names[ i ] );
+            continue;
+        }
+        m = spawn( "script_model", s.origin );
+        if ( isdefined( s.angles ) )
+            m.angles = s.angles;
+        m setmodel( s.model );
+        acc_utility::log( "acc wallbuy model spawned: " + s.model + " @ " + s.origin );
+    }
 }
 
 function apply_mystery_box_initial( node_name )

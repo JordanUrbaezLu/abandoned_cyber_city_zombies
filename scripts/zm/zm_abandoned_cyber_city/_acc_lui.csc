@@ -33,9 +33,9 @@ function __init__()
     clientfield::register( "clientuimodel", "accOcTier", VERSION_SHIP, 4, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );  // [acc] OC tier (repurposed from dead accLuiTest; same 4-bit slot/order)
     clientfield::register( "clientuimodel", "accPerkCard", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accPapTier", VERSION_SHIP, 3, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-    clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 9, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+    clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 10, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );   // 9->10 for Electric Cherry (lockstep w/ .gsc)
     clientfield::register( "clientuimodel", "accDmgNum", VERSION_SHIP, 18, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-    clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 9, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+    clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 10, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );  // 9->10 for Electric Cherry (lockstep w/ .gsc)
     clientfield::register( "clientuimodel", "accPowerupMask", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 

@@ -28,8 +28,12 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_overload;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_emergency_drop;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_music;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_ee_song;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_doors;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_paradise;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_modifiers;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
@@ -153,6 +157,11 @@ function init()
     // trench forces a crossing between them. Auto-power stays off (acc_auto_power=0).
     acc_power::init();
 
+    // Single MUSIC CHANNEL - one song at a time; every song source (main theme, boss music, teddy-bear
+    // jukebox, Paradise) routes through acc_music::play() so a new song stops the previous (user 2026-06-25).
+    // Init BEFORE any of those sources can start (all are deferred to blackscreen/round/trigger anyway).
+    acc_music::init();
+
     // Decontamination must arm its acc_round_start listener before
     // watch_round_transitions below can fire the first one; it also rolls
     // the per-run seal permutation.
@@ -179,8 +188,10 @@ function init()
     acc_events_overload::init();
     acc_emergency_drop::init();
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
+    acc_ee_song::init();        // hidden Easter Egg SONG teddy bear in the NORTH trench room (the non-Overclock one)
     acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/45)
     acc_exo::init();            // Exo Suit station: per-player depth-gate (cancels the per-layer trench slow; docs/47)
+    acc_abyss_doors::init();    // Abyss descent = SOUL BOXES (100 kills/layer) + the communal Paradise gate (shards+points)
     acc_boss::init();
     // NSZ Brutus boss pack (stage 1: native spawn, for the asset-import go/no-go).
     acc_boss_brutus::init();
@@ -188,6 +199,10 @@ function init()
     acc_boss_glitch::init();
     // Phantom mini-boss (script-only holographic cloaker; the ~round-10 rotation-boss slot).
     acc_boss_phantom::init();
+    // Paradise FINAL ONSLAUGHT: a timed 5-min survival fight (x4 spawns + Brutus/Phantom every minute +
+    // shield/glitch gauntlet) that ENDS THE GAME on a win. After the boss modules it drives (brutus/glitch/
+    // phantom) + abyss_doors (which arms it on Paradise open). docs/48.
+    acc_paradise::init();
     acc_boss_items::init();
     // Lockdown CHALLENGE room (Phase A): the lit DEFCON room becomes a TRAP -> 30 confined
     // glitch zombies -> free-for-all reward. After lockdown/glitch/items so its reuse targets

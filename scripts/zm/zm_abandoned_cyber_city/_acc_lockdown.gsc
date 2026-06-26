@@ -1,5 +1,5 @@
 // =============================================================================
-// _acc_lockdown.gsc - per-round "DEFCON" room lockdown (red alarm lighting)
+// _acc_lockdown.gsc - per-round "DEFCON" room lockdown (MAGENTA "purge" alarm lighting; was red, user 2026-06-24)
 //
 // Design reference: docs/37_punishing_middle_design.md (lockdown concept) and
 // the per-round rotation contract shared with _acc_decontamination.gsc.
@@ -21,13 +21,14 @@
 // server PlayFXOnTag and the red light never showed - same wall the 2026-06-17 perk-glow
 // attempt hit). The fix: spawn invisible script_model hosts at the room's anchor points and
 // drive the proven client-side glow pipeline on them via acc_perk_lights::set_glow (the
-// `accPerkGlow` clientfield + _acc_perk_lights.csc PlayFX). Index 1 = the red glow clone.
-// This is PURE GSC/CSC + the already-packed acc/light/fx_perk_glow_red.efx => LED-safe,
+// `accPerkGlow` clientfield + _acc_perk_lights.csc PlayFX). Index 11 = the MAGENTA glow clone
+// (user 2026-06-24, was 1=red - now the "purge" lights match the Glitch Stalker's magenta glow).
+// This is PURE GSC/CSC + the already-packed acc/light/fx_perk_glow_magenta.efx => LED-safe,
 // linker-only build (no cod2map64/LED, no .map edit).
 //
 // Live knobs:
 //   set acc_lockdown_on 0          disable the whole feature (takes effect next round)
-//   set acc_lockdown_color 1       glow colour index (1 red .. 10 gold; see perk_color_index)
+//   set acc_lockdown_color 11      glow colour index (11 = magenta default; 1 red .. 12 dim-white; see _acc_perk_lights.csc)
 //   set acc_lockdown_fx_z 140      emitter height above each spawner anchor
 //   set acc_lockdown_emitters 6    max red emitters per room
 //   set acc_lockdown_force_zone vault_zone   pin ONE room every round (test); "" = rotate
@@ -46,7 +47,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_decontamination;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;
 
-#define ACC_LOCKDOWN_GLOW_INDEX     1     // accPerkGlow colour index for the alarm (1 = red)
+#define ACC_LOCKDOWN_GLOW_INDEX     11    // accPerkGlow colour index for the "purge" alarm: 11 = MAGENTA (user 2026-06-24, was 1=red - now matches the Glitch Stalker glow)
 #define ACC_LOCKDOWN_MAX_EMITTERS   6     // red emitters per room (dvar-overridable)
 #define ACC_LOCKDOWN_FX_Z           180   // height above each spawner anchor (dvar-overridable)
 #define ACC_LOCKDOWN_FIRST_ROUND    7     // DEFCON stays OFF before this round (user 2026-06-18:
@@ -215,19 +216,28 @@ function on_defcon_cleared( round_number )
     ld_debug( "DEFCON cleared at round " + round_number + " - lights off, next DEFCON round " + level.acc_lockdown_next_round );
 }
 
-// Called on a FAILED challenge (party wiped): clear the lights; the uncleared DEFCON re-arms next
-// round (next_round is left alone, so the next run_lockdown re-lights a room).
-function on_defcon_failed()
+// Called on a FAILED challenge (party wiped / timed out): clear the lights and gate the next DEFCON to a SHORT
+// fail cooldown (audit 2026-06-25). Was: left next_round untouched, so a DEFCON re-lit the VERY NEXT round with
+// zero breather for the recovering party (clear/timeout both rest acc_lockdown_cooldown). Now a fail rests
+// acc_lockdown_fail_cooldown (default 1) - it still returns sooner than a clear, but guarantees >= 1 DEFCON-free
+// round. round_number is optional (back-compat): if omitted, falls back to the current round.
+function on_defcon_failed( round_number )
 {
+    if ( !isdefined( round_number ) )
+        round_number = ( isdefined( level.round_number ) ? level.round_number : 1 );
+
+    fail_cd = getdvarint( "acc_lockdown_fail_cooldown", 1 );
+    if ( fail_cd < 1 ) fail_cd = 1;
+    level.acc_lockdown_next_round = round_number + fail_cd;
     lockdown_clear();
-    ld_debug( "DEFCON failed - lights off, will re-arm next round" );
+    ld_debug( "DEFCON failed at round " + round_number + " - lights off, next DEFCON round " + level.acc_lockdown_next_round );
 }
 
-// On-screen debug (acc_lockdown_debug 1, ON during bring-up) + the [acc] dev log, so the
-// owner can watch the rotation pick a room each round. Set acc_lockdown_debug 0 to silence.
+// On-screen debug (acc_lockdown_debug 1) + the [acc] dev log, so the owner can watch the rotation pick
+// a room each round. DEFAULT OFF for release (user 2026-06-25); set acc_lockdown_debug 1 to show it.
 function ld_debug( msg )
 {
-    if ( getdvarint( "acc_lockdown_debug", 1 ) == 1 )
+    if ( getdvarint( "acc_lockdown_debug", 0 ) == 1 )
     {
         iprintlnbold( "[lockdown] " + msg );
     }

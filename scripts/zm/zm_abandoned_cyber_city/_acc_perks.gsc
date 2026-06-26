@@ -24,6 +24,9 @@
 
 #insert scripts\shared\shared.gsh;
 
+// Neural Expansion Bay world model (a Cyber City interactive sign kiosk - DNI/neural read; stock t7_props, proven packable).
+#precache( "model", "p7_cai_sign_inteactive_kiosk" );
+
 // --- Jug hit model (melee ~45 dmg/hit, stock GDT, unchangeable) ---------------
 // player_base_health = 100 (stock _zm.gsc:1229) -> no-Jug downs on the 3rd melee.
 // with-Jug HP = 100 + jugg add; docs/13: base Jug = 250 HP -> down on the 6th.
@@ -48,7 +51,7 @@
 // (all 9 perks). Per-player via the stock hook level.get_player_perk_purchase_limit (_zm_utility.gsc:
 // 5874-5889). Each extra slot costs more than the last (escalating sink): cost = base + bonus*step.
 #define ACC_PERK_SLOT_BASE        4
-#define ACC_PERK_SLOT_MAX         9
+#define ACC_PERK_SLOT_MAX         10   // 10 perks now (Electric Cherry added as the real 10th, _acc_perk_electric_cherry)
 #define ACC_PERK_SLOT_COST_BASE   4
 #define ACC_PERK_SLOT_COST_STEP   2
 
@@ -130,14 +133,14 @@ function on_player_connect( player )
 
 // Per-player perk capacity. Called BY the engine as self [[level.get_player_perk_purchase_limit]]()
 // with self = the player (_zm_utility.gsc:5881), so it returns THIS player's limit: base + bought
-// bonus, capped at the max. Dev (acc_dev + acc_dev_perks, both default-on) returns the max so every
-// machine is buyable while testing other systems; flip `acc_dev_perks 0` to test the real purchase.
+// bonus, capped at the max. Dev (IS_TRUE(level.acc_dev), the one dev switch) returns the max so every
+// machine is buyable while testing; play normal (acc_dev 0) to test the real shard-bought purchase.
 function acc_perk_slot_limit()   // self = player
 {
     base = getdvarint( "acc_perk_slot_base", ACC_PERK_SLOT_BASE );
     maxs = getdvarint( "acc_perk_slot_max", ACC_PERK_SLOT_MAX );
 
-    if ( getdvarint( "acc_dev", 0 ) && getdvarint( "acc_dev_perks", 1 ) )
+    if ( IS_TRUE( level.acc_dev ) )   // dev = every machine buyable (one-flag, user 2026-06-22)
         return maxs;
 
     bonus = ( isdefined( self.acc_perk_slot_bonus ) ? self.acc_perk_slot_bonus : 0 );
@@ -159,7 +162,7 @@ function perk_slot_cost( bonus )
 function spawn_perk_slot_vendor_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_sign_inteactive_kiosk" );   // verified-packing stock kiosk (same as the altar base)
+    m setmodel( "p7_cai_sign_inteactive_kiosk" );   // Cyber City interactive sign kiosk (DNI/neural read)
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );

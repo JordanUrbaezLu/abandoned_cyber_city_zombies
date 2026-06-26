@@ -271,3 +271,142 @@ function warden_debug()   // self = Brutus
             p IPrintLnBold( "^1[warden] ^7tgt=" + tgt + " inTrench=" + intr + " hasPath=" + hp );
     }
 }
+
+// =============================================================================
+// PARADISE WARDEN (user 2026-06-25). The Paradise death-zone (_acc_paradise.gsc) spawns MULTIPLE Brutus down in
+// PARADISE (the open-air plaza below the abyss). This is the PARADISE TWIN of the trench-warden path: it (1)
+// points the pack's spawn locations onto the PARADISE floor so Brutus erupts down there, then (2) tethers him
+// to Paradise (retry-teleport in, chase Paradise players / patrol the Paradise risers) reusing the EXACT proven
+// mechanism as trench_warden_think. The trench warden above is left 100% untouched (no regression risk on the
+// shipped boss). Same crash-safety contract: NO SetScale, NO speed/anim-rate writes on him (the _acc_zombie_speed
+// boss guard must keep skipping this actor), navmesh-clamped, goal never left undefined.
+// =============================================================================
+
+// Spawn ONE Brutus IN PARADISE and return the live actor (mirror of spawn_one). Callers MUST serialize these
+// (the pack uses a SHARED level.brutus_spawn_points + the "acc_brutus_spawned" notify / level.acc_brutus_last).
+function spawn_one_paradise()
+{
+    level endon( "end_game" );
+
+    relocate_spawn_points_to_paradise();
+
+    level.acc_brutus_last = undefined;
+    level thread brutus::spawn_brutus();
+    level util::waittill_any_timeout( 15, "acc_brutus_spawned" );
+
+    return level.acc_brutus_last;
+}
+
+// Point the pack's spawn locations (level.brutus_spawn_points) onto the PARADISE floor risers so Brutus spawns
+// IN paradise. Mirror of relocate_spawn_points_to_trench (which targets the L1 pit). Each spawn re-points right
+// before brutus::spawn_brutus reads them, so the trench and paradise paths never permanently corrupt each other.
+function relocate_spawn_points_to_paradise()
+{
+    if ( !isdefined( level.brutus_spawn_points ) || level.brutus_spawn_points.size < 1 ) return;
+    risers = acc_bus_trench::get_paradise_risers();
+    if ( !isdefined( risers ) || risers.size < 1 ) return;
+    for ( i = 0; i < level.brutus_spawn_points.size; i++ )
+        level.brutus_spawn_points[ i ].origin = risers[ i % risers.size ].origin;
+    acc_utility::log( "boss_brutus: relocated " + level.brutus_spawn_points.size +
+                      " brutus spawn point(s) onto the PARADISE floor" );
+}
+
+// self = a live Brutus spawned for Paradise. PARADISE twin of trench_warden_think: retry-teleport him into
+// Paradise (the spawn anim locks position, so a single teleport can be overridden - retry until he is actually
+// down there), make him failsafe-immune (he roams, often with no Paradise player), then become the SOLE writer
+// of his goal (chase the closest Paradise player; patrol the Paradise risers when none). Reuses warden_patrol_step
+// (it takes any riser array). Gated by acc_warden_trench (0 = pack-native charge). NO speed/scale writes.
+function paradise_warden_think()
+{
+    self endon( "death" );
+    level endon( "end_game" );
+
+    if ( getdvarint( "acc_warden_trench", 1 ) != 1 ) return; // off -> pack-native charge (he just chases globally)
+    if ( !isalive( self ) ) return;
+
+    risers = acc_bus_trench::get_paradise_risers();
+
+    // Drop-in: retry until he is actually IN paradise. The pack fires "acc_brutus_spawned" (so spawn_one_paradise
+    // returns) BEFORE it ForceTeleports him + plays the locking %brutus_spawn anim, which can override a single
+    // early teleport - same reason the trench warden retries. Teleport to the RAW riser origin (z=-1200); the
+    // pack's own GetClosestPointOnNavMesh clamp lands him on the paradise navmesh.
+    if ( isdefined( risers ) && risers.size > 0 )
+    {
+        tries = 0;
+        while ( tries < 50 && !acc_bus_trench::origin_in_second_part( self.origin ) )
+        {
+            if ( !isalive( self ) ) return;
+            r0 = risers[ acc_utility::acc_rand_int( risers.size ) ];
+            self ForceTeleport( r0.origin, self.angles, 1 );
+            self.v_zombie_custom_goal_pos = r0.origin; // seed an immediate valid in-paradise goal
+            wait( 0.2 );
+            tries++;
+        }
+        acc_utility::log( "boss_brutus: PARADISE warden drop-in " +
+            ( acc_bus_trench::origin_in_second_part( self.origin ) ? "OK (in paradise)" : "FAILED (still out)" ) +
+            " after " + tries + " tries" );
+    }
+
+    // Only a player physically down here can hurt him (no snipe from above). player_in_trench INCLUDES paradise,
+    // so the same _acc_damage gate (self.acc_warden_active) already covers a paradise player correctly.
+    self.acc_warden_active = true;
+    // Don't let the stock spawn failsafe cull a roaming boss that often has no nearby player (same as the trench
+    // warden + Subroutine Core); below_world_check is -1000 < z=-1200... NOTE paradise floor z=-1200 is BELOW the
+    // -1000 below-world threshold, so the failsafe immunity is REQUIRED or the engine could treat him as fallen.
+    self.ignore_round_spawn_failsafe = true;
+
+    self.acc_warden_patrol_goal  = undefined;
+    self.acc_warden_patrol_ticks = 0;
+    self.acc_warden_dbg_tick     = 0;
+
+    // Kill the pack's global-closest chase loop (it self-endons "locking_target") so WE are the sole writer of
+    // v_zombie_custom_goal_pos -> clean chase-in-paradise / patrol, no contention. Re-asserted each tick below.
+    self notify( "locking_target" );
+
+    for ( ;; )
+    {
+        if ( !isalive( self ) ) return;
+
+        if ( getdvarint( "acc_warden_trench", 1 ) != 1 )   // live rollback -> hand back to the pack's native charge
+        {
+            self.brutus_enemy = undefined;
+            self thread brutus::custom_find_flesh();
+            return;
+        }
+
+        self notify( "locking_target" );
+
+        // Players IN PARADISE right now.
+        cand = [];
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( isdefined( p ) && isplayer( p ) && zm_utility::is_player_valid( p )
+                 && acc_bus_trench::player_in_second_part( p ) )
+                cand[ cand.size ] = p;
+        }
+
+        if ( cand.size > 0 )
+        {
+            closest = arraygetclosest( self.origin, cand );
+            if ( isdefined( closest ) )
+            {
+                self.brutus_enemy = closest;
+                closest.brutus_track_countdown = 2;
+                self.v_zombie_custom_goal_pos = closest.origin;
+                self.acc_warden_patrol_goal = undefined;
+            }
+        }
+        else
+        {
+            // Nobody in paradise -> patrol between the paradise risers (no melee target), uncontested goal.
+            self.brutus_enemy = undefined;
+            warden_patrol_step( risers );
+        }
+
+        warden_debug();
+
+        wait 0.05;
+    }
+}

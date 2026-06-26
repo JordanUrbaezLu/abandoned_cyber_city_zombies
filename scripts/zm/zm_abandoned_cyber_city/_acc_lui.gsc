@@ -50,9 +50,11 @@ function __init__()
     // the card shows only the NEXT tier (not the whole ladder). 3 bits (0..7).
     clientfield::register( "clientuimodel", "accPapTier", VERSION_SHIP, 3, "int" );
     // Mega-perk bitmask: bit i set => the perk at bar-bit i is Mega'd (perk_state_watch
-    // order). 9 bits (9 perks; PhD Flopper bit 8). acc_hud.lua tints the matching
-    // perk-bar icon teal.
-    clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 9, "int" );
+    // order). 10 bits (10 perks; PhD Flopper bit 8, Electric Cherry bit 9). acc_hud.lua
+    // tints the matching perk-bar icon teal. (Widened 9->10 for Electric Cherry, user
+    // 2026-06-25 - testing whether the near-full clientuimodel pool has room; revert to 9
+    // + a bit-reclaim if the load Com_ERRORs on zmhud.swordEnergy.)
+    clientfield::register( "clientuimodel", "accMegaMask", VERSION_SHIP, 10, "int" );
     // Damage number: value = min(dmg,99999)*2 + parity. acc_hud.lua shows it near
     // the crosshair (you aim at the zombie, so it reads on-target). The parity bit
     // flips every push so an identical number still re-triggers the popup. 18 bits.
@@ -60,9 +62,9 @@ function __init__()
     // Owned-perk bitmask: bit i set => the player OWNS the perk at bar-bit i
     // (perk_state_watch order), regardless of Mega. Pairs with accMegaMask so the LUI
     // overlay can pick the icon: owned+mega => teal (Mega), owned+!mega => red (base),
-    // !owned => hide. 9 bits (9 perks). Driven by perk_state_watch(). Appended LAST so
-    // the existing fields' bit layout is untouched (must match _acc_lui.csc order).
-    clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 9, "int" );
+    // !owned => hide. 10 bits (10 perks; Electric Cherry bit 9). Driven by perk_state_watch().
+    // Appended LAST so the existing fields' bit layout is untouched (must match _acc_lui.csc order).
+    clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 10, "int" );
     // Power-up active bitmask: bit 0 = Insta-Kill, bit 1 = Double Points, bit 2 = Fire Sale
     // (TIMED, shown while active), bit 3 = Nuke, bit 4 = Max Ammo, bit 5 = Carpenter, bit 6 =
     // Random Perk / free_perk (INSTANT, flashed 3s on pickup). Driven by powerup_state_watch() off
@@ -107,11 +109,12 @@ function set_pap_tier( player, tier )
     player clientfield::set_player_uimodel( "accPapTier", tier );
 }
 
-// Push the held weapon's Cyberware Overclock tier (0..5) -> acc_hud.lua "vN" indicator (0 = hidden).
+// Push the held weapon's Cyberware Overclock tier (0..10) -> acc_hud.lua "vN" indicator (0 = hidden).
+// accOcTier is a 4-bit clientfield (max 15) so 10 fits. (user 2026-06-25: was clamped to 5, froze the HUD at v5/10.)
 function set_oc_tier( player, tier )
 {
     if ( !isdefined( tier ) || tier < 0 ) tier = 0;
-    if ( tier > 5 ) tier = 5;
+    if ( tier > 10 ) tier = 10;
     player clientfield::set_player_uimodel( "accOcTier", tier );
 }
 
@@ -170,6 +173,7 @@ function set_actor_eye_tint( actor, on )
 function round_ring_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
 
     last_round = -1;
@@ -214,32 +218,46 @@ function on_player_connect()
     self thread player_lui_init();
 }
 
-// Open the always-on overlay for this player and light the foundation banner so
-// we can confirm in-game that the whole LUI pipeline loaded.
+// Open the always-on overlay for this player and (RE)BUILD it on every (re)spawn.
+//
+// RESPAWN FIX (user 2026-06-24: "drops + perks don't show after a player dies and respawns").
+// The whole HUD - the perk bar AND the power-up drop icons (Nuke/Max Ammo flash, Insta-Kill/
+// Double Points/Fire Sale) AND the round ring - is ONE LUI overlay (the acc_hud menu). The
+// engine CLOSES a player's LUI menu on the death->spectate transition, and the old code opened
+// it only ONCE on connect, so a respawned player lost the entire overlay for the rest of the
+// game. Now we re-open the menu and RE-THREAD the watch loops once per life: fresh change-
+// trackers => an immediate full re-push to the just-opened menu. The previous life's watchers
+// are killed by the "acc_lui_life" notify so they never stack. "spawned_player" fires on the
+// initial spawn AND every co-op respawn (notify site _zm.gsc:3337), the same per-life hook
+// _acc_boss_items uses for its respawn reapplies.
 function player_lui_init()
 {
     self endon( "disconnect" );
     level flag::wait_till( "initial_blackscreen_passed" );
-    wait 0.5; // let the client HUD settle before opening our overlay
 
-    self.acc_lui_menu = self OpenLUIMenu( "acc_hud" );
-    wait 0.1; // menu must instantiate client-side before we push model data
+    for ( ;; )
+    {
+        wait 0.5; // let the (re)spawned client HUD settle before (re)opening our overlay
 
-    // Drive the perk-icon overlay (owned/mega bitmasks -> acc_hud.lua CoD.AccPerkBar) and
-    // suppress the stock perk bar (instant zero-flash hide on perk gain + 0.25s re-assert).
-    self thread perk_state_watch();
-    self thread stock_perk_hud_suppressor();
+        if ( isdefined( self.acc_lui_menu ) )
+            self CloseLUIMenu( self.acc_lui_menu );
+        self.acc_lui_menu = self OpenLUIMenu( "acc_hud" );
+        wait 0.1; // menu must instantiate client-side before we push model data
 
-    // Drive the power-up icon overlay (Ronan Insta-Kill / Double Points / Fire Sale).
-    self thread powerup_state_watch();
-    // Flash the INSTANT power-ups (Nuke / Max Ammo) for 3s on pickup (no timed window).
-    self thread pickup_flash_watch();
+        // End the prior life's watchers, then (re)start all five with FRESH change-trackers so
+        // they immediately re-push the current state to the just-opened menu (a perk bar that
+        // hasn't changed since the last push would otherwise never repaint into the new menu).
+        self notify( "acc_lui_life" );
+        self thread perk_state_watch();          // owned/mega perk bar (CoD.AccPerkBar) + stock-bar hide re-assert
+        self thread stock_perk_hud_suppressor();  // instant zero-flash hide of the stock perk bar
+        self thread powerup_state_watch();        // Insta-Kill / Double Points / Fire Sale icons
+        self thread pickup_flash_watch();         // Nuke / Max Ammo 3s pickup flash (the "drops")
+        self thread round_ring_watch();           // upper-right round-progress bar
 
-    // Round-progress bar (upper-right). Per-player watcher; always-visible bar, drains as
-    // the round's zombies die.
-    self thread round_ring_watch();
+        acc_utility::log( "lui: overlay (re)opened for a player (per-life)" );
 
-    acc_utility::log( "lui: overlay opened + banner set for a player" );
+        self waittill( "spawned_player" );        // next death->respawn -> rebuild the overlay
+    }
 }
 
 // Per-player loop: track which perks the player OWNS and which are Mega'd and push BOTH
@@ -251,6 +269,7 @@ function player_lui_init()
 function perk_state_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
 
     // BAR-BIT order: array index i -> mask bit i -> acc_hud.lua ACC_PERK_ICONS[i].
@@ -266,7 +285,8 @@ function perk_state_watch()
         "specialty_additionalprimaryweapon", // bit 5  Mule Kick
         "specialty_deadshot",                // bit 6  Deadshot
         "specialty_widowswine",              // bit 7  Widow's Wine
-        "specialty_electriccherry"           // bit 8  PhD Flopper
+        "specialty_electriccherry",          // bit 8  PhD Flopper (over the cherry pipeline)
+        "specialty_combat_efficiency"        // bit 9  Electric Cherry (real 10th perk)
     );
 
     last_owned = -1;
@@ -341,6 +361,7 @@ function clear_stock_perk_hud()
 function stock_perk_hud_suppressor()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
     for ( ;; )
     {
@@ -354,17 +375,18 @@ function stock_perk_hud_suppressor()
 // each power-up is active. Insta-Kill + Double Points are TEAM-scoped
 // (level.zombie_vars[team][...]); Fire Sale is GLOBAL (no team key). Var names verified vs
 // stock _zm_powerups.gsc set_zombie_var + the per-powerup modules (zombie_powerup_*_on).
-// 0.25s poll, push only on change. If the (opt-in) stock powerup vars are absent the mask
-// stays 0 (icons hidden) - safe.
+// 0.1s poll, push only on change (0.1s keeps the last-4s blink smooth). If the (opt-in) stock
+// powerup vars are absent the mask stays 0 (icons hidden) - safe.
 function powerup_state_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
 
     last_mask = -1;
     for ( ;; )
     {
-        wait 0.25;
+        wait 0.1;
 
         // Double Points drives its own stock HUD indicator via this uimodel (set 1 by its
         // grab, _zm_powerup_double_points.gsc:86 - NOT via the monitor we disable in
@@ -375,30 +397,30 @@ function powerup_state_watch()
         mask = 0;
         team = self.team;
 
+        // TIMED power-ups (Insta-Kill / Double Points / Fire Sale): show the custom icon while active,
+        // then BLINK it during the last ~4s like base zombies. pu_show_bit self-clocks each one's 30s
+        // lifetime off its activation edge and returns false on the blink-OFF frames. (We clock it
+        // ourselves because insta-kill runs its own stock wait with NO countdown var to read, so there
+        // is no uniform "time left" var - one 30s rule covers all three.)
         if ( isdefined( level.zombie_vars ) )
         {
-            // Insta-Kill (team-scoped) -> bit 0. NOTE the inconsistent stock naming: the
-            // insta-kill grab sets "zombie_insta_kill" = 1 directly (_zm_powerup_insta_kill.gsc:68)
-            // and stock's own is_insta_kill_active() reads THAT (_zm_powerups.gsc:1432) - the
-            // registered "zombie_powerup_insta_kill_on" is NOT reliably set. (Double Points /
-            // Fire Sale below DO use the "_on" flag - those grabs set it true directly.)
-            if ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
-                 && IS_TRUE( level.zombie_vars[ team ][ "zombie_insta_kill" ] ) )
-                mask = mask | 1;
+            // Insta-Kill grab sets "zombie_insta_kill"=1 directly (the registered "..._on" is NOT
+            // reliably set - _zm_powerups.gsc:1432); Double Points / Fire Sale use their "_on" flag.
+            ik_on = ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
+                      && IS_TRUE( level.zombie_vars[ team ][ "zombie_insta_kill" ] ) );
+            dp_on = ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
+                      && IS_TRUE( level.zombie_vars[ team ][ "zombie_powerup_double_points_on" ] ) );
+            fs_on = IS_TRUE( level.zombie_vars[ "zombie_powerup_fire_sale_on" ] );   // GLOBAL, no team key
 
-            // Double Points (team-scoped) -> bit 1
-            if ( isdefined( team ) && isdefined( level.zombie_vars[ team ] )
-                 && IS_TRUE( level.zombie_vars[ team ][ "zombie_powerup_double_points_on" ] ) )
-                mask = mask | 2;
-
-            // Fire Sale (GLOBAL, no team key) -> bit 2
-            if ( IS_TRUE( level.zombie_vars[ "zombie_powerup_fire_sale_on" ] ) )
-                mask = mask | 4;
+            if ( self pu_show_bit( 0, ik_on ) ) mask = mask | 1;
+            if ( self pu_show_bit( 1, dp_on ) ) mask = mask | 2;
+            if ( self pu_show_bit( 2, fs_on ) ) mask = mask | 4;
         }
 
         // INSTANT power-ups have no "active" var; pickup_flash_watch stamps an expiry GetTime() on
-        // the player, and we OR the bit in until it lapses (~3s). The on-change push + 0.25s poll
-        // turns the icon on within a tick of pickup and off within a tick of expiry.
+        // the player, and we OR the bit in until it lapses (~3s). The on-change push + 0.1s poll
+        // turns the icon on within a tick of pickup and off within a tick of expiry. (Instant icons
+        // do NOT blink - they have no countdown to "run out".)
         if ( isdefined( self.acc_flash_nuke_until ) && GetTime() < self.acc_flash_nuke_until )
             mask = mask | 8;      // bit 3 = Nuke
         if ( isdefined( self.acc_flash_maxammo_until ) && GetTime() < self.acc_flash_maxammo_until )
@@ -416,6 +438,35 @@ function powerup_state_watch()
     }
 }
 
+// self = player. Decide whether a TIMED power-up's mask bit (0=Insta-Kill, 1=Double Points, 2=Fire Sale)
+// shows THIS frame. Steady-on while active until the last 4s, then BLINK (and blink faster under 2s) so
+// CoD.AccPowerupBar flashes the custom icon like base zombies. We clock the 30s lifetime ourselves off
+// the activation edge - insta-kill runs its own stock wait with no countdown var to read. A re-grab that
+// extends the real timer past our 30s estimate just stops blinking (remaining<=0 -> steady) until the
+// stock expiry flips the flag off and clears us. Blink periods (400/200ms) are even multiples of the
+// 0.1s poll so the on/off halves sample cleanly.
+function pu_show_bit( bit, active )
+{
+    if ( !isdefined( self.acc_pu_expiry ) )
+        self.acc_pu_expiry = [];
+
+    if ( !active )
+    {
+        self.acc_pu_expiry[ bit ] = undefined;   // arm a fresh 30s clock for the next pickup
+        return false;
+    }
+
+    if ( !isdefined( self.acc_pu_expiry[ bit ] ) )       // activation edge -> start the clock
+        self.acc_pu_expiry[ bit ] = GetTime() + 30000;   // N_POWERUP_DEFAULT_TIME = 30s
+
+    remaining_ms = self.acc_pu_expiry[ bit ] - GetTime();
+    if ( remaining_ms >= 4000 || remaining_ms <= 0 )
+        return true;   // steady on (outside the blink window, or extended past our estimate)
+
+    period = ( ( remaining_ms < 2000 ) ? 200 : 400 );    // 2.5Hz, speeding to 5Hz in the final 2s
+    return ( ( GetTime() % period ) < ( period / 2 ) );
+}
+
 // ---------------------------------------------------------------------------
 // Instant power-up pickup flash (Nuke / Max Ammo) - 3s, no timed window
 // ---------------------------------------------------------------------------
@@ -430,6 +481,7 @@ function powerup_state_watch()
 function pickup_flash_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
 
     self thread maxammo_flash_watch();

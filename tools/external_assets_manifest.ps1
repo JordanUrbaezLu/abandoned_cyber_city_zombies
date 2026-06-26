@@ -40,6 +40,25 @@ function Resolve-ModToolsRoot([string]$Override) {
 
 $ExternalAssetPacks = @(
     @{
+        Name     = 'Avogadro (electric boss)'
+        Author   = 'Dick_Nixon (BO2 port) / Treyarch (orig)'
+        Provides = 'archetype_zm_avogadro aitype (model, 11 xanims, behavior tree, FX, sounds, GDT) + vendored control script'
+        Required = $false
+        Marker   = 'model_export\gwm_avogadro'
+        Link     = 'Avogadro.rar - modme thread 2402 "Mike''s repertoire" (MediaFire). docs/56.'
+        Paths    = @(
+            'model_export\gwm_avogadro',
+            'xanim_export\ai\avogadro',
+            'sound_assets\avogadro',
+            'share\raw\fx\zombie\fx_avogadro_linger.efx',
+            'share\raw\fx\zombie\fxt\fx_tesla_bolt_secondary_zmb.efx',
+            'share\raw\behavior\zm_avogadro.ai_bt',
+            'share\raw\animstatemachines\zm_avogadro.ai_asm',
+            'share\raw\animtables\zm_avogadro.*',
+            'share\raw\sound\aliases\avogadro.csv'
+        )
+    },
+    @{
         Name     = 'NSZ Brutus (mini-boss)'
         Author   = 'NateSmithZombies'
         Provides = 'r3/r10/r20 mini-boss aitype (model, anims, FX, sounds, GDT, GSC)'
@@ -94,6 +113,19 @@ $ExternalAssetPacks = @(
         Paths    = @(
             'source_data\acc_perk_shaders.gdt',
             'source_data\acc_perk_shaders'
+        )
+    },
+    @{
+        Name     = 'Action Figure melee (BO4 t8 port)'
+        Author   = 'T0nic (port); base model BO4 / Treyarch'
+        Provides = 'Action Figure handheld melee (t8_melee_figure + t8_actionfigure_melee offhand) - box S-tier + dev give'
+        Required = $true   # the .zone references weapon,t8_melee_figure -> a fresh clone link-errors without it
+        Marker   = 'source_data\t8_weapons\wpn_t8_melee_actionfigure.gdt'
+        Link     = 'ZGC finder https://icegrenade.co.uk/assets/ (Melee) | direct https://drive.google.com/uc?export=download&id=1cVUc6ZaY17meLyT_LNlelXm5BcnSFwQ8 | AFTER install run: node tools/fix_actionfigure_port.js (patches 2 port bugs), then gdtdb /update'
+        Paths    = @(
+            'model_export\t8_weapons\wpn_t8_melee_actionfigure',
+            'xanim_export\t8_weapons\t8_melee_actionfigure',
+            'source_data\t8_weapons\wpn_t8_melee_actionfigure.gdt'
         )
     },
     @{

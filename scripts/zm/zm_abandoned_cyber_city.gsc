@@ -93,7 +93,22 @@
 // fall/explosive immunity + dive-to-explode nova. (The real machine model needs a
 // game-rip import, which the stock nuke placeholder avoids.)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_phd_flopper;
+// [acc] Electric Cherry - the REAL 10th perk (user 2026-06-25). A from-scratch perk on the
+// unused specialty_combat_efficiency (its OWN Lab alcove + real p6_zm_vending_electric_cherry
+// model), so it coexists with PhD (which keeps specialty_electriccherry). REGISTER_SYSTEM
+// autoexec registers it at load - this #using is what pulls it into the compile so that runs.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_electric_cherry;
+// [acc] Avogadro electric boss (BO2 port, Dick_Nixon pack). Custom AITYPE archetype_zm_avogadro
+// (model+anims+behaviors+FX+sounds installed at the Mod Tools root, gitignored via the manifest).
+// REGISTER_SYSTEM autoexec registers the AI; spawns are driven by _acc_boss_avogadro (native cadence
+// disabled in the vendored copy). Matching #using in the entry .csc.
+#using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_avogadro;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
+// [acc] Lockdown/Glitch-Purge seal query: the buyable-door loop below (zone_door_trigger_wait) consults
+// acc_lockdown_challenge::is_door_sealed so a door bordering an ACTIVE sealed purge room refuses to open
+// (else a sealed-in player just buys an un-bought border door and escapes - user 2026-06-25).
+#using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown_challenge;
 
 // Fix Power Lag
 #precache("triggerstring", "ZOMBIE_NEED_POWER");
@@ -126,6 +141,16 @@
 
 function main()
 {
+	// [acc] DE-DUPE Pack-a-Punch (user 2026-06-25). A SECOND PaP machine was added deep in the abyss hub
+	// (z=-1200) reusing the SAME "zm_pack_a_punch" zbarrier targetname as the surface PaP. Stock PaP
+	// spawn_init (_zm_pack_a_punch.gsc:84) collects BOTH via GetEntArray("zm_pack_a_punch"), renames BOTH to
+	// "vending_packapunch" (:131), and its later GetEnt("vending_packapunch") FATALS ("getent used with more
+	// than one entity") -> the map won't LOAD. We strip the targetname off the DEEP duplicate(s) HERE, before
+	// zm_usermap::main() runs PaP init, so stock sees exactly one. RUNS FIRST so it can never be too late; it
+	// only touches the surplus PaP (the abyss PERK machines are left intact - they coexist fine, only PaP is
+	// name-unique in stock). Self-heals every load, so it survives the .map being re-duplicated.
+	acc_dedupe_pack_a_punch();
+
 	// VERIFIED(acc): must be set BEFORE zm_usermap::main() - the hook is
 	// consumed synchronously inside the bootstrap (zm_usermap.gsc:135 DEFAULT()
 	// -> load::main() -> zm::init() -> zm_weapons::init() -> _zm_weapons.gsc:678
@@ -150,6 +175,13 @@ function main()
 	// trigger instead. (level.aat_in_use is the stock gate - _zm_weapons.gsc.)
 	level.aat_in_use = false;
 
+	// [acc] Remove the Death Machine (minigun powerup) from the game (user 2026-06-22). The stock minigun
+	// powerup registers during the bootstrap (zm_powerup_weapon_minigun __init__ -> add_zombie_powerup).
+	// We override its per-powerup drop gate to never fire, so get_valid_powerup() always skips it
+	// (_zm_powerups.gsc:379 reads level.zombie_powerups[name].func_should_drop_with_regular_powerups). A
+	// poll covers the case it registers a beat after main(); it applies long before round 1's first drop.
+	level thread acc_disable_minigun_powerup();
+
 	// [acc] Optional dev/test sandbox - ALL OFF by default, so a launch with no
 	// dvars is a clean consumer game (closed map, earn your own money, decon hazard
 	// live). The launch scripts (PLAY_TEST_MAP.bat / tools/run_game.ps1) set these
@@ -162,18 +194,28 @@ function main()
 	//                          the whole map is walkable, AND disable the decontamination
 	//                          zone-seal hazard (lethal to a player roaming a fully-open
 	//                          map). Decon flag read by _acc_decontamination.
-	// DEV MODE DEFAULT-ON (pre-release): both default to 1 so a plain launch IS the
-	// dev sandbox even when the Steam launcher drops the +set args (it truncates the
-	// command line after `logfile`, dropping acc_dev). Set `acc_dev 0` / `acc_open_map 0`
-	// for a clean consumer test. TODO(ship): flip these defaults back to 0 before a
-	// public/Workshop build, or a shipped build runs in god mode.
-	if ( getdvarint( "acc_dev", 1 ) == 1 )
-		level thread acc_hardcoded_dev();
-	if ( getdvarint( "acc_open_map", 1 ) == 1 )
+	// DEV MODE - ONE FLAG (user 2026-06-22). `acc_dev` is the ONLY dev switch: 1 = the full hardcoded
+	// dev sandbox, 0 (the SHIP DEFAULT) = normal play. acc_resolve_dev_flags() resolves it ONCE here
+	// (before any module reads it) into level.acc_dev and drives the legacy sub-dvars off that one flag,
+	// so there are no per-feature dev flags to set or forget. To add a dev behavior, read level.acc_dev
+	// and HARDCODE the value - do NOT add a new dvar (docs/49, CLAUDE.md "Dev/test mode - ONE flag").
+	acc_resolve_dev_flags();
+	if ( level.acc_dev )
 	{
-		level thread acc_hardcoded_open_map();
+		level thread acc_hardcoded_dev();
 		level.acc_disable_decon = true;
 	}
+	// [acc] BUYABLE DOORS IN BOTH MODES, NEVER AUTO-OPENED (user 2026-06-22). Doors must always be bought;
+	// dev simply has unlimited money so buying is trivial there. acc_fix_zone_doors forces every
+	// GENERATOR-written zombie_door trigger player-usable (TriggerIgnoreTeam - stock door_init has that
+	// commented out, so our .map-written triggers otherwise show NO "Open Door" prompt and you're stuck in
+	// the start zone). This REPLACES the old dev "open the whole map" auto-unlock (acc_hardcoded_open_map),
+	// which is no longer called.
+	level thread acc_fix_zone_doors();
+
+	// [acc] GOD MODE (user 2026-06-22) - independent of acc_dev; only the PLAY_GOD_MODE script sets acc_god 1.
+	if ( level.acc_god )
+		level thread acc_god_watch();
 
 	// [acc] Register our callbacks + roll per-run map state. Runs after the
 	// stock bootstrap but still inside main(), i.e. before the first game
@@ -224,9 +266,10 @@ function main()
 	level thread CheckForPower();
 	level thread better_max_ammo();
 
-	// [acc] Chain level.max_zombie_func BEFORE round 1 computes spawn totals.
-	// ORDER IS LOAD-BEARING: coop_scaling chains AFTER early pacing so stock
-	// invokes coop first (normalizes n_max to solo) before delegating down.
+	// [acc] Spawn COUNT chain (user 2026-06-24: coop +30%/extra-player re-added). early_round_pacing
+	// chains level.max_zombie_func first (carries the modifier-round multiplier), THEN coop_scaling
+	// wraps it with acc_coop_max_zombie_override (per-player count vs solo). Order IS load-bearing -
+	// coop must install last so it wraps early_round_pacing -> stock default_max_zombie_func.
 	acc_early_round_pacing::post_zm_main();
 	acc_coop_scaling::post_zm_main();
 	// [acc] Zombie speed curve has no spawn-lever chaining - it applies per zombie
@@ -236,12 +279,83 @@ function main()
 	// module no-ops gracefully when its Radiant geometry doesn't exist yet,
 	// so this is safe in the starting-room-only build.
 	level thread acc_main::init();
+
+	// [acc] Avogadro electric boss DISABLED for release (user 2026-06-25): not shipping him yet.
+	// The AI stays registered (the _zm_ai_avogadro #using above) but NOTHING spawns him - this is the
+	// only spawn path. To bring him back, uncomment the thread below and give _acc_boss_avogadro::init()
+	// a real cadence (its old acc_avo_test round-1 default is now 0, so re-enabling won't surprise-spawn
+	// one on round 1).
+	// level thread acc_boss_avogadro::init();
 }
 
-// [acc] Dev sandbox, gated on `acc_dev` at the call site in main(). Lives in the
-// entry script so it runs independently of every _acc_ module init. Banner +
-// permanent unlimited money + unlimited Data Shards + auto-power (so perks/PaP/
-// traps are testable immediately). No-op in normal play (flag unset).
+// [acc] DEV MODE - the SINGLE switch (user 2026-06-22). Reads `acc_dev` ONCE, caches it in level.acc_dev
+// (the canonical gate every module reads), then DRIVES the legacy sub-dvars off that one flag so modules
+// that still read their own dvar (perk doors / boss-test / auto-power / variant-debug) follow dev with no
+// per-feature flag to set. THIS is the place to hardcode dev values: add a SetDvar
+// here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
+// in main(), before any consumer reads them. docs/49.
+//
+// TESTING (user 2026-06-25): dev + god are HARD-CODED ON below (literal true) for local testing - the full
+// dev sandbox + invulnerability, ALWAYS on regardless of any launch flag. *** SHIP-UNSAFE: both MUST be set
+// back to `false` before any Workshop publish (see the inline revert notes). ***
+function acc_resolve_dev_flags()
+{
+	// TESTING (user 2026-06-25): DEV MODE HARD-CODED ON. Literal true so the full hardcoded dev sandbox
+	// (unlimited money + Data Shards, all perks/slots, dev test spawns, etc.) is ALWAYS active, regardless of
+	// launch flags. *** SHIP-UNSAFE: revert to `false` before any Workshop publish. *** Ship-safe / dvar-gated
+	// form: level.acc_dev = false;  (or = ( getdvarint( "acc_dev", 0 ) == 1 ); then +set acc_dev 1 enables it).
+	level.acc_dev = true;   // HARD-CODED ON for testing (user 2026-06-25) - REVERT before publish
+
+	v = ( level.acc_dev ? "1" : "0" );
+	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
+	SetDvar( "acc_glitch_test",   v );   // _acc_boss_glitch (Glitch Stalker dev test spawn)
+	SetDvar( "acc_variants_debug",v );   // on-screen weapon-variant swap readout (dev aid)
+	// NOT driven by dev, so dev plays like the real game for these (user 2026-06-22):
+	//   acc_auto_power   - flip the Bus Station power switch yourself
+	//   acc_test_boss    - Brutus follows his real round-5 power cadence (brutus_power_watch), no early spawn
+	//   acc_phantom_test - the Phantom ("Reaper") follows its real round-10 cadence (its master gate is
+	//                      dev-bypassed in _acc_boss_phantom so the cadence still runs in dev)
+	// All three stay default-off; pass them manually if you want the early test spawns.
+
+	acc_utility::log( "DEV MODE = " + ( level.acc_dev ? "ON (acc_dev 1)" : "off - normal play" ) );
+
+	// [acc] GOD MODE - a SEPARATE test flag from acc_dev (which deliberately has NO god, so it plays with
+	// real damage). `+set acc_god 1` (the standalone PLAY_GOD_MODE launch script) makes every player
+	// invulnerable so the user can test NORMAL gameplay - real perks/economy/progression, closed map -
+	// without dying. Default 0; INDEPENDENT of acc_dev; changes NO existing dev/normal behavior. See
+	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
+	// TESTING (user 2026-06-25): GOD MODE HARD-CODED ON. Literal true so every player is invulnerable
+	// (acc_god_watch re-applies EnableInvulnerability each second). INDEPENDENT of acc_dev. *** SHIP-UNSAFE:
+	// revert to `false` before any Workshop publish. *** Ship-safe form: level.acc_god = false;
+	level.acc_god = true;   // HARD-CODED ON for testing (user 2026-06-25) - REVERT before publish
+	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
+}
+
+// [acc] God watcher - threaded from main() ONLY when level.acc_god. Keeps every player invulnerable
+// (re-applied each second so late joins + any engine reset are covered). EnableInvulnerability is the
+// stock engine-level invincibility (no damage -> no down -> no death). No-op unless acc_god is set.
+function acc_god_watch()
+{
+	level endon( "end_game" );
+	level flag::wait_till( "initial_blackscreen_passed" );
+	for ( ;; )
+	{
+		players = GetPlayers();
+		for ( i = 0; i < players.size; i++ )
+		{
+			p = players[ i ];
+			if ( isdefined( p ) && isplayer( p ) )
+				p EnableInvulnerability();
+		}
+		wait 1;
+	}
+}
+
+// [acc] Dev sandbox, threaded from main() only when level.acc_dev. Lives in the entry script so it runs
+// independently of every _acc_ module init. Unlimited money + 25 starting Data Shards + Mega Bottles +
+// banner. NO god mode and NO auto power-on - the user tests with regular gameplay/damage and flips the
+// power switch themselves (user 2026-06-22). No-op in normal play. (The auto-power block below stays as a
+// dormant manual shortcut: it only fires if someone explicitly sets acc_auto_power 1; dev no longer does.)
 function acc_hardcoded_dev()
 {
 	level endon( "end_game" );
@@ -275,6 +389,8 @@ function acc_hardcoded_dev()
 			if ( !isdefined( p ) || !isplayer( p ) )
 				continue;
 
+			// (No god mode - the user tests with regular gameplay/damage, user 2026-06-22.)
+
 			// Unlimited money (reading .score is fine; write via the API).
 			cur = 0;
 			if ( isdefined( p.score ) )
@@ -282,16 +398,15 @@ function acc_hardcoded_dev()
 			if ( cur < 100000 )
 				p zm_score::add_to_player_score( 1000000 - cur );
 
-			// Unlimited Data Shards (Cyberware / Overclock currency). grant_player clamps to the
-			// cap + syncs the HUD; "dev" source skips diminishing. Gated by acc_dev_shards (default
-			// 1) so you can flip `acc_dev_shards 0` to PLAYTEST the real trench shard economy while
-			// the rest of dev mode (god money / open map) stays on (user 2026-06-19).
-			if ( getdvarint( "acc_dev_shards", 1 ) )
+			// Data Shards: START dev with 25 (ONE-SHOT), then let the real trench economy run - NOT the
+			// old per-second 999 pin, which made testing a shard SPEND impossible (user 2026-06-22).
+			// grant_player clamps to the cap + syncs the HUD; "dev" source skips diminishing.
+			if ( !isdefined( p.acc_data_shards ) )
+				p.acc_data_shards = 0;
+			if ( !IS_TRUE( p.acc_dev_shards_granted ) )
 			{
-				if ( !isdefined( p.acc_data_shards ) )
-					p.acc_data_shards = 0;
-				if ( p.acc_data_shards < 200 )
-					acc_data_shards::grant_player( p, 999, "dev" );
+				p.acc_dev_shards_granted = true;
+				acc_data_shards::grant_player( p, 25, "dev" );
 			}
 
 			// Mega Bottles topped up so perk Mega-upgrades are testable WITHOUT
@@ -311,6 +426,232 @@ function acc_hardcoded_dev()
 		}
 		count++;
 		wait 1;
+	}
+}
+
+// [acc] CUSTOM buyable zone doors (user 2026-06-22, FIXED). The stock map-placed zombie_door triggers show
+// NO buy prompt on this map (generator-written triggers - their usability/team filter never gets set, and a
+// map trigger_use can't simply be re-enabled because the zone system keeps re-disabling it). FIX = the SAME
+// thing the working trench/abyss doors do: disable each dead stock trigger and SPAWN our own
+// trigger_radius_use at the door's real world center (hardcoded per door in zone_door_trigger_origin, since a
+// map brush's .origin is (0,0,0) - no origin brush). Runs in BOTH modes - doors are never auto-opened; dev
+// just has unlimited money.
+// DEV-ONLY on-screen door log. No-op in normal play (gated on level.acc_dev), so nothing prints for a
+// shipping/real game; flip dev on to see the door diagnostics again.
+function acc_door_dbg( msg )
+{
+	if ( !IS_TRUE( level.acc_dev ) )
+		return;
+	players = GetPlayers();
+	if ( players.size > 0 )
+		players[ 0 ] IPrintLnBold( msg );
+}
+
+function acc_fix_zone_doors()
+{
+	level endon( "end_game" );
+	level flag::wait_till( "initial_blackscreen_passed" );
+	wait 1;   // let stock door_init finish (it flag::init's the script_flags we set on purchase)
+	doors = GetEntArray( "zombie_door", "targetname" );
+	level.acc_door_dbg = [];   // DEBUG: each spawned trigger's {flag, org} for the live distance readout
+	n = 0;
+	flags = "";
+	for ( i = 0; i < doors.size; i++ )
+	{
+		d = doors[ i ];
+		if ( !isdefined( d ) )
+			continue;
+		level thread zone_door_buy_loop( d );
+		n++;
+		flags = flags + " " + ( isdefined( d.script_flag ) ? d.script_flag : "?noflag?" );
+	}
+	if ( IS_TRUE( level.acc_dev ) )   // door debug = DEV ONLY (no on-screen text in normal play)
+		level thread zone_door_debug();
+	acc_door_dbg( "[accdoor] " + n + " doors found:" + flags );
+	acc_utility::log( "zone doors: " + n + " ->" + flags );
+}
+
+// One buyable zone door - EXACT copy of the working _acc_abyss_doors pattern (user 2026-06-22): DISABLE the
+// dead stock map trigger and SPAWN our own trigger_radius_use at the door's real world center. We cannot read
+// that center from d.origin (a map brush with no origin brush reports (0,0,0) = the map center - that was the
+// bug), and a map trigger_use can't just be "made usable" because the zone system re-disables it. So the
+// position is HARDCODED per door from the .map brush geometry (zone_door_trigger_origin, via
+// tools/door_centers.js). On buy: charge points, set the script_flag (activates the zone adjacency), and clear
+// the door slab (hide/notsolid/connectpaths so players pass + zombies path through).
+function zone_door_buy_loop( d )
+{
+	level endon( "end_game" );
+
+	cost = ( isdefined( d.zombie_cost ) ? int( d.zombie_cost ) : 1000 );
+	clip = ( isdefined( d.target ) ? GetEnt( d.target, "targetname" ) : undefined );
+	org  = zone_door_trigger_origin( d );
+	flag = ( isdefined( d.script_flag ) ? d.script_flag : "?noflag?" );
+
+	if ( !isdefined( org ) )   // unknown door (no hardcoded center) - leave it to the stock path, don't break it
+	{
+		acc_door_dbg( "[accdoor] " + flag + " - NO HARDCODED ORG, skipped" );
+		return;
+	}
+
+	if ( isdefined( clip ) )   // ensure CLOSED (barrier solid + nav cut) until bought
+	{
+		clip solid();
+		clip disconnectpaths();
+	}
+
+	d TriggerEnable( false );   // the dead stock trigger; our spawned ones drive the buy
+	d.acc_bought = false;
+	d.acc_trigs  = [];
+
+	// Spawn a buy-trigger on BOTH sides of the doorway's thin axis. The door SLAB sits between the two zones;
+	// a single trigger at the door CENTER is occluded by the slab from the approach side -> no prompt (the bug,
+	// confirmed by logs: player 24u away, inside radius, trigger never fired). One of the two offset triggers
+	// is always on the player's side with a clear path. Whichever fires opens the door + retires both.
+	off = zone_door_thin_offset( d );
+	spawn_zone_door_trigger( d, org + off, cost, clip, flag, "+" );
+	spawn_zone_door_trigger( d, org - off, cost, clip, flag, "-" );
+
+	acc_door_dbg( "[accdoor] " + flag + " 2 trigs @ " + int( org[0] ) + "," + int( org[1] ) + "," + int( org[2] ) );
+}
+
+// Offset OUT past the slab along the doorway's THIN axis. Most doors are thin in X; the 2 under-room doors
+// are thin in Y. 60u clears the ~64u-wide doorway brush so each trigger sits in open space on its side.
+function zone_door_thin_offset( d )
+{
+	if ( isdefined( d.script_flag ) && ( d.script_flag == "enter_under_lab" || d.script_flag == "enter_under_plaza" ) )
+		return ( 0, 60, 0 );
+	return ( 60, 0, 0 );
+}
+
+function spawn_zone_door_trigger( d, pos, cost, clip, flag, side )
+{
+	t = spawn( "trigger_radius_use", pos, 0, 96, 100 );
+	t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger (memory script-trigger-needs-ignoreteam)
+	t SetCursorHint( "HINT_NOICON" );
+	t SetHintString( "Hold ^3[{+activate}]^7  Open Door  ^2[Cost: " + cost + "]" );
+
+	d.acc_trigs[ d.acc_trigs.size ] = t;
+
+	dbg = spawnstruct();   // DEBUG: register for the live distance readout
+	dbg.flag = flag + side;
+	dbg.org  = pos;
+	level.acc_door_dbg[ level.acc_door_dbg.size ] = dbg;
+
+	t thread zone_door_trigger_wait( d, cost, clip, flag );
+}
+
+function zone_door_trigger_wait( d, cost, clip, flag )
+{
+	level endon( "end_game" );
+	for ( ;; )
+	{
+		self waittill( "trigger", player );
+		if ( !isdefined( player ) || !isplayer( player ) )
+			continue;
+		acc_door_dbg( "[accdoor] " + flag + " USED (cost " + cost + ")" );
+		if ( IS_TRUE( d.acc_bought ) )
+			return;
+		// [acc] GLITCH-PURGE SEAL (user 2026-06-25): a door bordering the room that is currently sealed by
+		// an active lockdown purge must NOT open - else a player sealed inside just buys an un-bought border
+		// door and walks straight out (the reported escape bug). Refuse with the no-purchase deny; the gate
+		// auto-lifts the moment the purge resolves, so the door buys normally afterwards.
+		if ( acc_lockdown_challenge::is_door_sealed( flag ) )
+		{
+			player PlaySound( "zmb_no_purchase" );
+			continue;
+		}
+		if ( !( player zm_score::can_player_purchase( cost ) ) )
+		{
+			player PlaySound( "zmb_no_purchase" );
+			continue;
+		}
+		player zm_score::minus_to_player_score( cost );
+		player PlaySound( "zmb_cha_ching" );
+		d.acc_bought = true;
+
+		if ( isdefined( d.script_flag ) && level flag::exists( d.script_flag ) )
+			level flag::set( d.script_flag );
+		if ( isdefined( clip ) )
+		{
+			clip hide();
+			clip notsolid();
+			clip connectpaths();
+		}
+		// retire BOTH triggers (clear the prompt on the now-open door)
+		for ( i = 0; i < d.acc_trigs.size; i++ )
+		{
+			if ( isdefined( d.acc_trigs[ i ] ) )
+			{
+				d.acc_trigs[ i ] SetHintString( "" );
+				d.acc_trigs[ i ] TriggerEnable( false );
+			}
+		}
+		acc_door_dbg( "[accdoor] " + flag + " OPENED" );
+		return;
+	}
+}
+
+// Hardcoded buy-trigger origin per door (the door brush's own world center + 40z), because a map brush's
+// .origin is (0,0,0) - no origin brush. Extracted from the .map brush geometry by tools/door_centers.js;
+// re-run that if any door brush moves. Keyed by the door's script_flag.
+function zone_door_trigger_origin( d )
+{
+	if ( !isdefined( d.script_flag ) )
+		return undefined;
+	switch ( d.script_flag )
+	{
+	case "enter_under_lab":   return ( 0, 2161, -200 );
+	case "enter_under_plaza": return ( -160, 1735, -200 );
+	case "enter_market":      return ( -1168, 528, 40 );
+	case "enter_alley":       return ( 1207, 528, 40 );
+	case "enter_corp_w":      return ( -1031, 1328, 40 );
+	case "enter_corp_e":      return ( 1069, 1328, 40 );
+	case "enter_vault":       return ( 969, 2428, 40 );
+	case "enter_roof":        return ( -950, 2428, 40 );
+	case "enter_lab_e":       return ( 969, 3228, 40 );
+	case "enter_lab_w":       return ( -950, 3228, 40 );
+	}
+	return undefined;
+}
+
+// DEBUG (user 2026-06-22): live nearest-buy-trigger readout. Every 2s prints on the local player's screen:
+// how many triggers spawned, the nearest one's flag + distance, and the player's own XYZ. Walk to a door:
+//   - dist drops near 0 but NO prompt  -> the trigger is there but not usable (different bug)
+//   - dist stays large at the door     -> the hardcoded coord is wrong / trigger spawned elsewhere
+//   - "0 buy-triggers spawned"         -> acc_fix_zone_doors found no doors / all skipped (no org)
+// Toggle off with `acc_door_debug 0`. REMOVE this once the doors are confirmed working.
+function zone_door_debug()
+{
+	level endon( "end_game" );
+	for ( ;; )
+	{
+		wait 2;
+		if ( getdvarint( "acc_door_debug", 1 ) != 1 )
+			continue;
+		players = GetPlayers();
+		if ( players.size == 0 )
+			continue;
+		p = players[ 0 ];
+		if ( !isdefined( p ) )
+			continue;
+		if ( !isdefined( level.acc_door_dbg ) || level.acc_door_dbg.size == 0 )
+		{
+			p IPrintLnBold( "[doordbg] 0 buy-triggers spawned!" );
+			continue;
+		}
+		pos = p.origin;
+		bestd = 9999999;
+		bestf = "?";
+		for ( i = 0; i < level.acc_door_dbg.size; i++ )
+		{
+			dd = Distance( pos, level.acc_door_dbg[ i ].org );
+			if ( dd < bestd )
+			{
+				bestd = dd;
+				bestf = level.acc_door_dbg[ i ].flag;
+			}
+		}
+		p IPrintLnBold( "[doordbg] " + level.acc_door_dbg.size + " trigs | nearest " + bestf + " " + int( bestd ) + "u" + ( bestd < 96 ? " <<IN-RANGE - prompt should show" : "" ) + " | you " + int( pos[0] ) + "," + int( pos[1] ) + "," + int( pos[2] ) );
 	}
 }
 
@@ -387,8 +728,8 @@ function acc_hardcoded_open_map()
 
 // [acc] Custom per-perk costs (docs/13_perks.md). The perk cost is read from
 // level._custom_perks[specialty].cost (the same field the PhD Flopper module
-// sets); set it before the first purchase. Buying all 9 = 29,500 by design
-// (Double Tap 5,000).
+// sets); set it before the first purchase. Buying all 9 = 27,500 by design
+// (Double Tap 3,000).
 function set_perk_costs()
 {
 	if ( !isdefined( level._custom_perks ) )
@@ -398,11 +739,12 @@ function set_perk_costs()
 	costs[ "specialty_armorvest" ]               = 4000; // Jugger-Nog
 	costs[ "specialty_quickrevive" ]             = 2500; // Quick Revive
 	costs[ "specialty_fastreload" ]              = 3500; // Speed Cola
-	costs[ "specialty_doubletap2" ]              = 5000; // Double Tap 2.0 (extra bullet = ~2x dmg, priced up 2026-06-14)
+	costs[ "specialty_doubletap2" ]              = 3000; // Double Tap 2.0 (extra bullet = ~2x dmg; 5000 -> 3000 user 2026-06-25)
 	costs[ "specialty_staminup" ]                = 2000; // Stamin-Up
 	costs[ "specialty_additionalprimaryweapon" ] = 2500; // Mule Kick
 	costs[ "specialty_deadshot" ]                = 3500; // Deadshot
 	costs[ "specialty_widowswine" ]              = 4000; // Widow's Wine
+	costs[ "specialty_combat_efficiency" ]       = 3000; // Electric Cherry (real 10th perk, _acc_perk_electric_cherry); also set in register_perk_basic_info
 	// PhD Flopper (over specialty_electriccherry) = 2500, set in _acc_perk_phd_flopper.
 
 	keys = GetArrayKeys( costs );
@@ -421,6 +763,15 @@ function CheckForPower()
 	// set) - a bare waittill misses an already-set flag. Stock waiters use the
 	// flag API (zm_giant.gsc:427, _zm_traps.gsc:273).
 	level flag::wait_till( "power_on" );
+	// Mask to the CURRENT pre-power darkness BEFORE flipping the lightmap to bright, so there is neither a
+	// FLASH of full brightness NOR a dip to pitch-black (user 2026-06-22: "stay the same darkness, don't go
+	// darker"). NOT pure black - acc_power_light_start matches the dark you already have (default warm1 ~18%;
+	// swap live to dial it in). _acc_atmosphere::apply_vision then SLOW-ramps that start -> default.
+	if ( getdvarint( "acc_power_light_ramp_on", 1 ) == 1 )
+	{
+		VisionSetNaked( getdvarstring( "acc_power_light_start", "acc_grade_warm1" ), 0 );
+		wait 0.05;
+	}
 	level util::set_lighting_state(1);
 }
 
@@ -465,4 +816,64 @@ function usermap_test_zone_init()
 function custom_add_weapons()
 {
 	zm_weapons::load_weapon_spec_from_table("gamedata/weapons/zm/zm_levelcommon_weapons.csv", 1);
+}
+
+// [acc] Disable the Death Machine (minigun) powerup so it never drops (user 2026-06-22). The stock
+// minigun powerup is registered during the load bootstrap; once level.zombie_powerups["minigun"] exists
+// we swap its drop gate to acc_minigun_never_drop (returns false), so get_valid_powerup() skips it on
+// every roll (_zm_powerups.gsc:379). Poll briefly in case registration lands a frame after main().
+function acc_disable_minigun_powerup()
+{
+	level endon( "end_game" );
+	for ( i = 0; i < 60; i++ )
+	{
+		if ( isdefined( level.zombie_powerups ) && isdefined( level.zombie_powerups[ "minigun" ] ) )
+		{
+			level.zombie_powerups[ "minigun" ].func_should_drop_with_regular_powerups = &acc_minigun_never_drop;
+			return;
+		}
+		wait 0.5;
+	}
+}
+
+// Drop gate that always refuses - installed on the minigun powerup so the Death Machine never spawns.
+function acc_minigun_never_drop()
+{
+	return false;
+}
+
+// [acc] De-dupe Pack-a-Punch so the map can LOAD (user 2026-06-25). Stock supports exactly ONE PaP - it
+// hardcodes the targetname "vending_packapunch" (_zm_pack_a_punch.gsc:131) and later GetEnt()s it (single),
+// which FATALS if two PaP zbarriers exist. A 2nd PaP got added in the abyss hub (z=-1200) with the same
+// "zm_pack_a_punch" targetname as the surface PaP. We keep the HIGHEST-z PaP (the surface machine) and strip
+// the targetname off the rest so stock's GetEntArray("zm_pack_a_punch") (spawn_init, :84) sees exactly one.
+// Called FIRST in main(), before zm_usermap::main() runs PaP init. The zbarrier is a static map/prefab entity
+// (baked into the BSP), so it is queryable here. Idempotent + self-healing: re-runs every load, so it keeps
+// working even if the .map is re-duplicated by concurrent edits. Only touches PaP (perk machines coexist fine).
+function acc_dedupe_pack_a_punch()
+{
+	paps = GetEntArray( "zm_pack_a_punch", "targetname" );
+	if ( !isdefined( paps ) || paps.size <= 1 )
+		return;
+
+	// Keep the surface PaP = the one with the GREATEST z (the abyss duplicate sits at z=-1200).
+	keep = paps[ 0 ];
+	for ( i = 1; i < paps.size; i++ )
+	{
+		if ( isdefined( paps[ i ] ) && isdefined( paps[ i ].origin ) && paps[ i ].origin[ 2 ] > keep.origin[ 2 ] )
+			keep = paps[ i ];
+	}
+
+	n = 0;
+	for ( i = 0; i < paps.size; i++ )
+	{
+		if ( isdefined( paps[ i ] ) && paps[ i ] != keep )
+		{
+			paps[ i ].targetname = "acc_dup_pap_disabled";   // stock GetEntArray("zm_pack_a_punch") no longer finds it
+			paps[ i ] Hide();        // user 2026-06-25: REMOVE the Paradise PaP visually too (not just disable) - back to one working Lab PaP
+			paps[ i ] NotSolid();
+			n++;
+		}
+	}
+	/# println( "[acc] de-duped PaP: kept surface machine (z=" + keep.origin[ 2 ] + "), disabled " + n + " duplicate(s)" ); #/
 }

@@ -20,15 +20,23 @@
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;   // set_glow() for the shard-bank "has shards" indicator glow
 
 // ---------------------------------------------------------------------------
 // Constants - tune freely; documented in docs/04_progression_and_skills.md.
 // ---------------------------------------------------------------------------
 
-// Cap 99 -> 30 -> 50 (user 2026-06-19/21): scaled-down economy so 1 shard matters, then raised to 50
-// so the deepest single purchase fits (Exo Suit T5 = 25, gun Overclock T5 = 24; see docs/47). Tight but
-// affordable per-tier; total to max everything is a long-haul grind, the cap just blocks hoarding.
-#define ACC_SHARDS_MAX 50
+// Trench shard-bank ("Data Cache") indicator glow (user 2026-06-24): a DIM WHITE glow on each cache
+// crate that means "shards available THIS round". ON while armed; removed the instant a player loots
+// it that round; restored when it re-arms at the next round start. Index 12 in the accPerkGlow palette
+// (acc/light/fx_perk_glow_white_dim; _acc_perk_lights.csc). Client-side FX (server PlayFX doesn't render).
+#define ACC_CACHE_GLOW_INDEX 12
+
+// Cap 99 -> 30 -> 50 -> 500 (user 2026-06-19/21/22): the 50 cap was too tight ("we dont really need a
+// 50 cap"); raised to 500 so players can bank toward the deep multi-tier sinks (Exo Suit + per-gun
+// Overclocks; see docs/47) without constantly hitting the ceiling. Still finite (blocks infinite hoarding).
+#define ACC_SHARDS_MAX 500
+#define ACC_DEV_SHARDS 1000   // dev sandbox (acc_dev 1) starting count + raised cap (user 2026-06-25); normal play keeps ACC_SHARDS_MAX
 #define ACC_SHARD_DROP_LIFETIME_SEC 30
 #define ACC_SHARD_PICKUP_RADIUS 48
 #define ACC_SHARD_LOW_ROUND_THRESHOLD 10
@@ -44,6 +52,10 @@
 // #precache is a DIRECTIVE in BO3 - must sit after all #using/#define, before #namespace.
 #precache( "model", "p7_fxanim_zm_stal_ray_gun_ball_mod" );
 #precache( "model", "p7_cai_stacking_cargo_crate" );   // underground Data Cache (loot-for-shards) model
+// Data Shards HUD icon (user 2026-06-25): the player's PNG replaces the "DATA SHARDS" text label. The server
+// hudelem path is a DEAD END - a usermap cannot build a 2D HUD material ("No techsetdef for material type '2d'");
+// the image i_acc_data_shard packs fine though, so the icon is drawn in LUI (acc_hud.lua, CoD.AccShardIcon),
+// the same proven path as the perk bar / PaP-tier icons. This hudelem keeps ONLY the count (the LUI icon is the label).
 
 // (Phase 4: the LUI widget gets a "clientuimodel" clientfield named
 // "hudItems.accDataShards" - the only pool that is provably safe to register
@@ -69,7 +81,9 @@ function init()
 
     level.acc_shards_pickup_model = "p7_fxanim_zm_stal_ray_gun_ball_mod"; // glowing energy ball = data-shard look (stock, verified); #precache'd above + xmodel line in .zone.
     level.acc_shards_cache_model = "p7_cai_stacking_cargo_crate";         // underground Data Cache crate (stock t7 prop, xmodel line in .zone).
-    level.acc_shards_pool = []; // tracks live drops for cleanup.
+    // (No tracking array: a former level.acc_shards_pool was WRITE-ONLY - appended per drop, never read
+    // or trimmed - an unbounded dead-reference leak over a long match. Each pickup self-cleans via
+    // watch_lifetime (timeout) or cleanup_pickup (on grab), so no pool is needed. Removed 2026-06-25.)
 
     // Subroutine Tier 1 passive regen tick. Driven by cyberware module, which
     // just calls grant() on a timer. Nothing to do here.
@@ -83,7 +97,10 @@ function client_init()
 
 function on_player_connect( player )
 {
-    player.acc_data_shards = 0;
+    // Dev mode (acc_dev 1) starts each player with ACC_DEV_SHARDS (1000) Data Shards to test the Cyberware /
+    // Overclock / trench economy; normal play starts at 0. ONE-TIME grant (not a refill loop),
+    // so spending then behaves normally. (GSC ternary must be fully paren-wrapped.)
+    player.acc_data_shards = ( ( isdefined( level.acc_dev ) && level.acc_dev ) ? ACC_DEV_SHARDS : 0 );
     player sync_shards_to_client();
 }
 
@@ -100,6 +117,13 @@ function on_player_disconnect( player )
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+// Per-player shard ceiling. Dev mode raises it to ACC_DEV_SHARDS so the dev sandbox can hold (and re-earn
+// up to) its 1000-shard testing stash; normal play keeps ACC_SHARDS_MAX. (GSC ternary fully paren-wrapped.)
+function shards_cap()
+{
+    return ( ( isdefined( level.acc_dev ) && level.acc_dev ) ? ACC_DEV_SHARDS : ACC_SHARDS_MAX );
+}
 
 // Grant shards to a player. Returns actual grant amount (may be clamped or
 // diminished based on round).
@@ -130,7 +154,7 @@ function grant_player( player, amount, source_tag )
         }
     }
 
-    new_total = acc_utility::clamp_int( player.acc_data_shards + effective, 0, ACC_SHARDS_MAX );
+    new_total = acc_utility::clamp_int( player.acc_data_shards + effective, 0, shards_cap() );
     granted = new_total - player.acc_data_shards;
     player.acc_data_shards = new_total;
     player sync_shards_to_client();
@@ -185,7 +209,6 @@ function spawn_pickup_at( origin, count )
     t_use.acc_shard_count = count;
     t_use.acc_created_at = shard.acc_created_at;
 
-    level.acc_shards_pool[ level.acc_shards_pool.size ] = shard;
     acc_utility::drops_debug( "shard SPAWN count=" + count + " at=" + origin + " lifetime=" + ACC_SHARD_DROP_LIFETIME_SEC + "s" );
 
     // Watchers run ON THE TRIGGER (self = trigger); the model is reached via
@@ -215,7 +238,9 @@ function spawn_cache_at( origin, count )
     t SetCursorHint( "HINT_NOICON" );
     t.acc_cache_count = count;
     t.acc_depleted = false;
+    t.acc_cache_crate = crate;   // the renderable model the indicator glow rides (the trigger has no tag_origin)
     t cache_set_hint();
+    t cache_set_glow( true );    // armed at spawn -> dim white glow ON ("shards available")
     t thread cache_loop();
     t thread cache_round_rearm();
     acc_utility::drops_debug( "cache SPAWN count=" + count + " at=" + origin );
@@ -230,6 +255,15 @@ function cache_set_hint()   // self = the cache trigger
         y = cache_yield( self.acc_cache_count );
         self SetHintString( "Hold ^3[{+activate}]^7  ^5DATA CACHE^7 - extract " + y + " Data Shard" + ( y > 1 ? "s" : "" ) );
     }
+}
+
+// Indicator glow on the cache crate (user 2026-06-24): dim white glow = "shards available this round".
+// on=true -> glow; on=false -> off (looted). Client-side FX via the perk-light pipeline (set_glow);
+// the glow rides the CRATE model (the trigger has no tag_origin). self = the cache trigger.
+function cache_set_glow( on )
+{
+    if ( !isdefined( self.acc_cache_crate ) ) return;
+    acc_perk_lights::set_glow( self.acc_cache_crate, ( on ? ACC_CACHE_GLOW_INDEX : 0 ) );
 }
 
 // Per-cache yield scales with the round so the trench faucet keeps pace as costs/needs grow:
@@ -261,10 +295,28 @@ function cache_loop()   // self = the cache trigger
             wait 0.3;
             continue;
         }
+
+        // ONE cache per player per round (user 2026-06-25): in CO-OP, a player who already grabbed a cache
+        // this round can't take the OTHER one - it must go to a teammate (anti-hog: stops one player looting
+        // both every round). Per-player round-NUMBER gate = self-healing (no reset thread; a new round
+        // re-enables them automatically, like the reactor cooldown). SOLO is EXEMPT (level.players.size <= 1)
+        // - with no teammate to "leave it for", blocking the 2nd cache would just waste its shards forever.
+        // Toggle: acc_cache_one_per_player 0 disables the restriction (then it's first-come per cache again).
+        cur = ( isdefined( level.round_number ) ? level.round_number : 1 );
+        if ( getdvarint( "acc_cache_one_per_player", 1 ) == 1 && level.players.size > 1
+             && isdefined( player.acc_cache_looted_round ) && player.acc_cache_looted_round == cur )
+        {
+            player acc_utility::hud_msg( "^5DATA CACHE^7 - you already grabbed one this round (leave the other for a teammate)" );
+            wait 0.3;
+            continue;
+        }
+
         grant_player( player, cache_yield( self.acc_cache_count ), "vault_cache" );
+        player.acc_cache_looted_round = cur;   // mark: this player has taken a cache THIS round (the per-player gate above)
         player PlaySound( "acc_shard_pickup" );
         self.acc_depleted = true;
         self cache_set_hint();
+        self cache_set_glow( false );   // looted this round -> glow OFF (indicator: nothing left to take)
         wait 0.3;
     }
 }
@@ -279,6 +331,7 @@ function cache_round_rearm()   // self = the cache trigger
         level waittill( "acc_round_start" );
         self.acc_depleted = false;
         self cache_set_hint();
+        self cache_set_glow( true );    // refilled at round start -> glow back ON (indicator: shards available)
     }
 }
 
@@ -292,16 +345,19 @@ function sync_shards_to_client()
     if ( !isdefined( self.acc_shards_hud ) )
     {
         self.acc_shards_hud = self hud::createFontString( "default", 1.3 );
-        // TOP-LEFT under the health bar (was BOTTOM_LEFT, where the stock points
-        // display blocked it). Health label y=16, bar y=32 -> shards at y=50.
-        self.acc_shards_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 50 );
+        // COUNT ONLY now - the "DATA SHARDS" text label was REPLACED by the player's PNG, drawn in LUI
+        // (acc_hud.lua CoD.AccShardIcon) at top-left; the count sits just to its RIGHT (user 2026-06-25). The
+        // server hudelem can't show the PNG itself (a usermap can't build a 2D HUD material - "No techsetdef
+        // for material type 2d"), so icon=LUI + count=hudelem. Health label y=16, bar y=32 -> shard row y=50;
+        // x=44 clears the ~x14-40 LUI icon. TUNE x with the LUI icon's LEFT/SIZE if they don't line up.
+        self.acc_shards_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 44, 50 );
         self.acc_shards_hud.alignX = "left";
         self.acc_shards_hud.alignY = "top";
         self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
         self.acc_shards_hud.hidewheninmenu = true;
     }
-    // Labeled inline (SetText accepts raw strings, stock _zm.gsc:4679).
-    self.acc_shards_hud SetText( "^5DATA SHARDS ^7" + self.acc_data_shards );
+    // The LUI icon is the label now - this is just the count number.
+    self.acc_shards_hud SetText( "^7" + self.acc_data_shards );
     // Always visible (dim at 0) so the currency is discoverable - the whole trench loop keys off it
     // (user 2026-06-19). Was alpha 0 at 0 shards, i.e. HUD invisible until your first shard = read as
     // a missing HUD / "what currency?" to a fresh player.
