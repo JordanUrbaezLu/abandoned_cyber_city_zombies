@@ -36,6 +36,7 @@
 #using scripts\zm\_zm_spawner;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player() for passive trench shard income
 
 #insert scripts\shared\shared.gsh;
 
@@ -78,6 +79,18 @@
 #define ACC_SP_Y1                   -2300
 #define ACC_SP_Y2                   1723
 #define ACC_SP_Z                    -1000
+
+// "The Exchange" transfer-vault footprint (tools/gen_plaza_basement.js): the stairwell + room carved
+// DOWN from the Implant Lab, floor z=-240, directly UNDER the spawn Plaza. Like the second part it sits
+// below every player_volume (needs the OOB-kill veto) but is NOT a trench layer - so it is EXCLUDED from
+// underground_layer (no -20% slow / surge / danger HUD; a safe utility room) AND vetoed in acc_trench_oob_allow.
+// Z-bounded (-260,0) so it never overlaps the second part (z<-1000) which shares this XY band.
+#define ACC_VAULT_X1                -740
+#define ACC_VAULT_X2                320
+#define ACC_VAULT_Y1                -460
+#define ACC_VAULT_Y2                380
+#define ACC_VAULT_Z_TOP             0
+#define ACC_VAULT_Z_BOT             -260
 
 // Count a player as "in the trench" once their feet drop this far below the lip
 // (z=0). Past the first couple of stairs - so a stair-walker also flags "in",
@@ -154,6 +167,10 @@ function init()
     level thread trench_melee_window_logger(); // TEMP diag: dense per-zombie melee-window trace
 }
 
+// The Exchange Bank vault swarm (force-spawn risers) was REMOVED 2026-06-27 (user: "just remove the
+// spawns in the exchange room, they just cause issues"). The bank is now a safe-ish utility room; the
+// only zombies down there are the normal horde that follows a player down the stairs.
+
 // self = player. Stock OOB monitor kills only when this returns true (_zm.gsc:2066). Return
 // false while the player is in the trench so being legitimately below the corp_zone volume
 // is not treated as "left the map." Everyone/everywhere else keeps the normal OOB guard.
@@ -166,6 +183,10 @@ function acc_trench_oob_allow()
         return false;
     // Same veto for the "second part" hallway/plaza below the abyss (it is below every player_volume too).
     if ( player_in_second_part( self ) )
+        return false;
+    // Same veto for "The Exchange" transfer vault under the Plaza (below the start_zone volume; excluded from
+    // underground_layer above, so player_in_underground is FALSE there - it needs its OWN explicit veto).
+    if ( player_in_vault( self ) )
         return false;
     return true;
 }
@@ -196,10 +217,66 @@ function watch_connections()
         // _acc_weapon_abilities uses.
         level waittill( "connected", player );
         player thread trench_fall_watcher();
+        player thread trench_shard_income();    // passive Data Shard income while standing in a trench layer (deeper = faster)
         player thread bridge_drain_watcher();   // anti-camp: bleed health on the zombie-unreachable bridge
         player thread trench_damage_logger();   // TEMP: name the exact cause of any trench death
         player thread trench_player_navlog();   // TEMP diag: log player nav state while underground
     }
+}
+
+// PASSIVE TRENCH SHARD INCOME (user 2026-06-26: "reward players for staying in the trenches"). While a player
+// STANDS in a trench layer, they passively earn 1 Data Shard every N seconds, where N SHRINKS with depth -
+// deeper = more reward for the greater risk: L1 (Bus Station pit) 50s / L2 34s / L3 22s / L4 14s / L5 10s.
+// Per-player (own thread, own grant - matches the trench-only, per-player economy). The timer counts only
+// while underground (underground_layer >= 1, which already excludes the surface AND Paradise) and RESETS the
+// moment the player leaves the trench, so "every X seconds you are in the trench" is literal. It carries
+// ACROSS layer changes (paid at the CURRENT layer's rate), so sliding between floors never loses progress.
+// grant_player shows the "+1 Data Shard" HUD floater and is cap-clamped (income stops at the shard cap,
+// resumes after spending). Master/interval dvars for live tuning (acc_trench_income*). 1s tick (the income
+// needs no finer granularity than the 10-50s intervals).
+function trench_shard_income()   // self = player
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    elapsed = 0;
+    for ( ;; )
+    {
+        wait 1;
+        // is_player_valid (NOT isalive) so a DOWNED player earns nothing - isalive() is TRUE in laststand;
+        // this skips the tick while downed/spectating/not-yet-spawned and resumes on revive (same gate the
+        // sibling bridge_drain_watcher uses). Reset the clock so the post-revive grant takes a full interval.
+        if ( getdvarint( "acc_trench_income", 1 ) != 1 || !zm_utility::is_player_valid( self ) )
+        {
+            elapsed = 0;
+            continue;
+        }
+        layer = underground_layer( self.origin );   // 0 = surface / Paradise / out-of-bounds; 1..5 = trench depth
+        if ( layer < 1 )                             // not in a trench layer -> no income, reset the clock
+        {
+            elapsed = 0;
+            continue;
+        }
+        elapsed += 1;
+        interval = trench_income_interval( layer );
+        if ( interval > 0 && elapsed >= interval )
+        {
+            acc_data_shards::grant_player( self, getdvarint( "acc_trench_income_amount", 1 ), "trench_income" );
+            elapsed = 0;   // reset whether or not the grant landed (at the shard cap it's a no-op) so we retry once per interval, not per second
+        }
+    }
+}
+
+// Seconds between passive shard grants for a given trench layer (1..5). Deeper = shorter = more reward for the
+// risk. Live dvar-tunable. (user 2026-06-27: L1 50 / L2 34 / L3 22 / L4 14 / L5 10; was 45/35/28/22/18.)
+function trench_income_interval( layer )
+{
+    if ( layer == 1 ) return getdvarint( "acc_trench_income_l1", 50 );
+    if ( layer == 2 ) return getdvarint( "acc_trench_income_l2", 34 );
+    if ( layer == 3 ) return getdvarint( "acc_trench_income_l3", 22 );
+    if ( layer == 4 ) return getdvarint( "acc_trench_income_l4", 14 );
+    if ( layer == 5 ) return getdvarint( "acc_trench_income_l5", 10 );
+    return 0;
 }
 
 // TEMP DIAGNOSTIC (acc_trench_dbg, default 0 - set 1 to re-enable) - log the EXACT damage that hits a player
@@ -387,6 +464,24 @@ function player_in_second_part( player )
     return origin_in_second_part( player.origin );
 }
 
+// "The Exchange" transfer vault (gen_plaza_basement.js) - the room + stairwell carved DOWN from the
+// Implant Lab, under the Plaza. Below every player_volume (so it needs the OOB-kill veto, like the second
+// part) but a SAFE utility room: excluded from underground_layer so NO trench slow/surge/danger applies.
+// z-bounded so it never collides with the second part (z<-1000) which shares this XY band. Raw origin =>
+// works for any entity.
+function origin_in_vault( origin )
+{
+    if ( origin[ 2 ] >= ACC_VAULT_Z_TOP || origin[ 2 ] <= ACC_VAULT_Z_BOT ) return false;
+    if ( origin[ 0 ] < ACC_VAULT_X1 || origin[ 0 ] > ACC_VAULT_X2 ) return false;
+    if ( origin[ 1 ] < ACC_VAULT_Y1 || origin[ 1 ] > ACC_VAULT_Y2 ) return false;
+    return true;
+}
+
+function player_in_vault( player )
+{
+    return origin_in_vault( player.origin );
+}
+
 // Which trench LAYER a world position is in: 0 = surface (not underground), 1 = the top trench
 // (lip -36 .. floor -240), 2..5 = the deeper Abyss floors (docs/48). The trench goes DEEP in layers
 // (user 2026-06-21), each one deadlier - the per-layer zombie scaling (+move / +melee) in
@@ -402,6 +497,9 @@ function underground_layer( origin )
     // The "second part" (hallway + open-air plaza, gen_descent_hub.js) is NOT a trench layer - exclude it
     // so no per-layer amping/slow applies there (it has its own rules; structure-first, user 2026-06-24).
     if ( origin_in_second_part( origin ) ) return 0;
+    // "The Exchange" transfer vault under the Plaza is a SAFE utility room - exclude it from the trench amping
+    // (no -20% slow / surge / danger HUD) even though it sits in the ACC_UNDER box. OOB-protected separately.
+    if ( origin_in_vault( origin ) ) return 0;
     if ( origin[ 0 ] < ACC_UNDER_X1 || origin[ 0 ] > ACC_UNDER_X2 ) return 0;
     if ( origin[ 1 ] < ACC_UNDER_Y1 || origin[ 1 ] > ACC_UNDER_Y2 ) return 0;
 
@@ -427,7 +525,7 @@ function trench_melee_scaled( player, n_damage )
     if ( getdvarint( "acc_trench_aggro_melee", 1 ) != 1 ) return n_damage;
     layer = underground_layer( player.origin );
     if ( layer <= 0 ) return n_damage;
-    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 10 ) ); // +10 HP/layer (flat)
+    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 6 ) ); // +6 HP/layer (flat) (user 2026-06-27, was 10 -> 8 -> 6)
 }
 
 function apply_fall_tax( player )

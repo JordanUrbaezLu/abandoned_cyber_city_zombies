@@ -42,6 +42,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_transfer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
@@ -213,6 +214,10 @@ function init()
     // Inert until twins baked + `acc_weapon_variants 1` (docs/30-31).
     acc_weapon_variants::init();
     acc_mega_bottles::init();
+    // "The Exchange" shared team vault (player-to-player transfers of points/shards/bottles/items).
+    // After data_shards + mega_bottles + boss_items so their accessors are live; stations spawn in the
+    // under-Plaza room (tools/gen_plaza_basement.js), gated by the enter_exchange door. docs/58.
+    acc_transfer::init();
     // Base-perk retuning (Jug 3/6, QR regen, Savior). After mega_bottles so its
     // has_mega_perk / move-speed hooks are live.
     acc_perks::init();
@@ -242,8 +247,9 @@ function init()
     // 5-tier Pack-a-Punch (tier damage ladder + HUD + benefit text).
     acc_pap_levels::init();
 
-    // Dev/test harness LAST so it can override caps (perk limit) set earlier.
-    // Self-gates on the `acc_dev` dvar; no-ops entirely in normal play.
+    // Dev/test harness LAST so it can override caps (perk limit) set earlier. Self-gates on the `acc_dev`
+    // dvar - the DEV tools no-op in normal play, but two FEATURES set up above that gate ship to everyone:
+    // the floating damage numbers and the top-center ROOM-NAME banner (user 2026-06-27).
     acc_dev::init();
 
     level thread watch_round_transitions();
@@ -312,6 +318,7 @@ function on_player_connect()
     acc_perks::on_player_connect( self );
     acc_weapon_abilities::on_player_connect( self );
     acc_exo::on_player_connect( self );
+    acc_points::on_player_connect( self );   // arm the bleed-out watcher for the comeback bonus
 }
 
 // Fires on every respawn (round start, revive, map load).
@@ -330,6 +337,7 @@ function on_player_spawned()
     acc_cyberware::on_player_spawned( self );
     acc_perks::on_player_spawned( self );
     acc_exo::on_player_spawned( self );   // re-apply move speed (exo slow) after spawn
+    acc_points::on_player_spawned( self );   // comeback bonus: set money to 500 * round on a full-death respawn
 }
 
 function on_player_disconnect()

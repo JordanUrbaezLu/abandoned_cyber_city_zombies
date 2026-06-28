@@ -151,6 +151,13 @@ function main()
 	// name-unique in stock). Self-heals every load, so it survives the .map being re-duplicated.
 	acc_dedupe_pack_a_punch();
 
+	// [acc] DE-DUPE The Exchange transfer-vault door (user 2026-06-27). The .map ships the enter_exchange door
+	// DUPLICATED - TWO zombie_door trigger_use + TWO "acc_door_exchange" slabs (identical GUID, a gen_plaza_basement
+	// copy-paste). zone_door_buy_loop does GetEnt(d.target="acc_door_exchange") which FATALS ("getent used with more
+	// than one entity" - seen in console_mp.log SCRIPTERROR) and kills the door thread. Strip the surplus copies HERE,
+	// before acc_fix_zone_doors runs, so exactly one of each survives. Self-heals every load (same idiom as PaP).
+	acc_dedupe_exchange_door();
+
 	// VERIFIED(acc): must be set BEFORE zm_usermap::main() - the hook is
 	// consumed synchronously inside the bootstrap (zm_usermap.gsc:135 DEFAULT()
 	// -> load::main() -> zm::init() -> zm_weapons::init() -> _zm_weapons.gsc:678
@@ -212,10 +219,14 @@ function main()
 	// the start zone). This REPLACES the old dev "open the whole map" auto-unlock (acc_hardcoded_open_map),
 	// which is no longer called.
 	level thread acc_fix_zone_doors();
+	level thread acc_spawn_plaza_props();
 
-	// [acc] GOD MODE (user 2026-06-22) - independent of acc_dev; only the PLAY_GOD_MODE script sets acc_god 1.
-	if ( level.acc_god )
-		level thread acc_god_watch();
+	// [acc] GOD MODE (user 2026-06-22; reworked 2026-06-27) - independent of acc_dev. NO LONGER an
+	// EnableInvulnerability loop (that blocked the entire player-damage callback, so the per-hit EFFECTS - EMP
+	// debuff, trench melee scaling, the Phantom chain slow - never fired in god). It is now enforced inside
+	// _acc_elites::on_player_damaged, which returns 0 damage when level.acc_god (the EFFECTS still run, the HP loss
+	// is zeroed). The callback reads level.acc_god on every hit, so no per-player thread is needed here. "Only
+	// damage should be impossible" - user 2026-06-27. Normal play (acc_god 0) is unaffected.
 
 	// [acc] Register our callbacks + roll per-run map state. Runs after the
 	// stock bootstrap but still inside main(), i.e. before the first game
@@ -295,21 +306,26 @@ function main()
 // here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
 // in main(), before any consumer reads them. docs/49.
 //
-// TESTING (user 2026-06-25): dev + god are HARD-CODED ON below (literal true) for local testing - the full
-// dev sandbox + invulnerability, ALWAYS on regardless of any launch flag. *** SHIP-UNSAFE: both MUST be set
-// back to `false` before any Workshop publish (see the inline revert notes). ***
+// TESTING (user 2026-06-28): dev is HARD-CODED OFF (normal play - real economy/damage/closed map), god is HARD-CODED
+// ON (player invulnerability) - a GOD-ONLY test build, to test real progression without dying. !! STILL NOT
+// PUBLISH-SAFE while god is ON !! Set acc_god back to `false` (the ship default) before any Workshop build.
 function acc_resolve_dev_flags()
 {
-	// TESTING (user 2026-06-25): DEV MODE HARD-CODED ON. Literal true so the full hardcoded dev sandbox
-	// (unlimited money + Data Shards, all perks/slots, dev test spawns, etc.) is ALWAYS active, regardless of
-	// launch flags. *** SHIP-UNSAFE: revert to `false` before any Workshop publish. *** Ship-safe / dvar-gated
-	// form: level.acc_dev = false;  (or = ( getdvarint( "acc_dev", 0 ) == 1 ); then +set acc_dev 1 enables it).
-	level.acc_dev = true;   // HARD-CODED ON for testing (user 2026-06-25) - REVERT before publish
+	// HARDCODED OFF (user 2026-06-28: god-only test - dev sandbox off = real economy + Data Shards, all perks via
+	// normal buys, CLOSED map, real test spawns off, no dev HUDs). Set back to `true` to re-enable the dev sandbox,
+	// or restore the dvar gate `( getdvarint( "acc_dev", 0 ) == 1 )`. (Matches the ship-safe default.)
+	level.acc_dev = false;   // HARDCODED OFF (user 2026-06-28) - set true for the dev sandbox
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
 	SetDvar( "acc_glitch_test",   v );   // _acc_boss_glitch (Glitch Stalker dev test spawn)
 	SetDvar( "acc_variants_debug",v );   // on-screen weapon-variant swap readout (dev aid)
+	// All 10 Lab perk alcoves OPEN in dev mode (user 2026-06-26). _acc_perk_doors::dev_all_open() reads this
+	// dvar; forcing it on under dev bypasses the per-round 4-of-10 rotation so every perk is buyable while
+	// testing. Normal play (acc_dev 0) leaves it at the ship default 0 -> the rotation runs as designed.
+	// (Reverses the 2026-06-18 "walls close in dev too" choice; the manual `set acc_perk_doors_all_open 1`
+	// override still works independently in normal play.)
+	SetDvar( "acc_perk_doors_all_open", v );
 	// NOT driven by dev, so dev plays like the real game for these (user 2026-06-22):
 	//   acc_auto_power   - flip the Bus Station power switch yourself
 	//   acc_test_boss    - Brutus follows his real round-5 power cadence (brutus_power_watch), no early spawn
@@ -324,32 +340,17 @@ function acc_resolve_dev_flags()
 	// invulnerable so the user can test NORMAL gameplay - real perks/economy/progression, closed map -
 	// without dying. Default 0; INDEPENDENT of acc_dev; changes NO existing dev/normal behavior. See
 	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
-	// TESTING (user 2026-06-25): GOD MODE HARD-CODED ON. Literal true so every player is invulnerable
-	// (acc_god_watch re-applies EnableInvulnerability each second). INDEPENDENT of acc_dev. *** SHIP-UNSAFE:
-	// revert to `false` before any Workshop publish. *** Ship-safe form: level.acc_god = false;
-	level.acc_god = true;   // HARD-CODED ON for testing (user 2026-06-25) - REVERT before publish
+	// HARDCODED ON (user 2026-06-28: god-only test build - test real progression/economy/closed map WITHOUT dying).
+	// Every player INVULNERABLE (damage zeroed in _acc_elites::on_player_damaged; effects still fire). INDEPENDENT of
+	// acc_dev (which is OFF above). !! NOT PUBLISH-SAFE while this is ON !! Set back to `false` before a Workshop build,
+	// or use the dvar gate `( getdvarint( "acc_god", 0 ) == 1 )`.
+	level.acc_god = true;    // HARDCODED ON (user 2026-06-28 god-only test) - set false for ship / normal play
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
 
-// [acc] God watcher - threaded from main() ONLY when level.acc_god. Keeps every player invulnerable
-// (re-applied each second so late joins + any engine reset are covered). EnableInvulnerability is the
-// stock engine-level invincibility (no damage -> no down -> no death). No-op unless acc_god is set.
-function acc_god_watch()
-{
-	level endon( "end_game" );
-	level flag::wait_till( "initial_blackscreen_passed" );
-	for ( ;; )
-	{
-		players = GetPlayers();
-		for ( i = 0; i < players.size; i++ )
-		{
-			p = players[ i ];
-			if ( isdefined( p ) && isplayer( p ) )
-				p EnableInvulnerability();
-		}
-		wait 1;
-	}
-}
+// [acc] God mode no longer uses a per-player EnableInvulnerability loop (removed 2026-06-27). It is enforced by a
+// damage-zeroing branch in _acc_elites::on_player_damaged so the per-hit EFFECTS (EMP debuff, trench melee scaling,
+// the Phantom chain slow) STILL fire under god - EnableInvulnerability suppressed the whole callback. See main().
 
 // [acc] Dev sandbox, threaded from main() only when level.acc_dev. Lives in the entry script so it runs
 // independently of every _acc_ module init. Unlimited money + 25 starting Data Shards + Mega Bottles +
@@ -438,13 +439,12 @@ function acc_hardcoded_dev()
 // just has unlimited money.
 // DEV-ONLY on-screen door log. No-op in normal play (gated on level.acc_dev), so nothing prints for a
 // shipping/real game; flip dev on to see the door diagnostics again.
+// Door setup tracing. ROUTED TO THE LOG (user 2026-06-27): was IPrintLnBold (on-screen "[accdoor]" spam in
+// dev); now goes to acc_utility::log so the info is kept but the screen stays clean. Doors are confirmed
+// working, so the on-screen readout is no longer needed.
 function acc_door_dbg( msg )
 {
-	if ( !IS_TRUE( level.acc_dev ) )
-		return;
-	players = GetPlayers();
-	if ( players.size > 0 )
-		players[ 0 ] IPrintLnBold( msg );
+	acc_utility::log( msg );
 }
 
 function acc_fix_zone_doors()
@@ -465,10 +465,39 @@ function acc_fix_zone_doors()
 		n++;
 		flags = flags + " " + ( isdefined( d.script_flag ) ? d.script_flag : "?noflag?" );
 	}
-	if ( IS_TRUE( level.acc_dev ) )   // door debug = DEV ONLY (no on-screen text in normal play)
-		level thread zone_door_debug();
+	// DISABLED (user 2026-06-27): the periodic on-screen "[doordbg]" readout was dev clutter. The doors are
+	// confirmed working, so the readout is retired (zone_door_debug stays in the file, just not threaded).
+	// Re-enable by restoring this line if door triggers ever need live distance debugging again.
+	// if ( IS_TRUE( level.acc_dev ) )   // door debug = DEV ONLY (no on-screen text in normal play)
+	// 	level thread zone_door_debug();
 	acc_door_dbg( "[accdoor] " + n + " doors found:" + flags );
 	acc_utility::log( "zone doors: " + n + " ->" + flags );
+}
+
+// [acc] Creative Plaza obstacles (user 2026-06-26: "only the little bunker/crate things, no kiosk"). Cargo
+// crates as low cover, placed in the open bands + maze legs (the MAZE WALLS in the .map are the main tight-
+// space mechanic now). p7_cai_stacking_cargo_crate is already in the .zone (confirmed-packing). COLLISION is
+// the matching 'clip' brushes in the .map (tools/gen_plaza_shrink.js CLIPS) - KEEP THESE COORDS IN SYNC with
+// that list (prop-clip drift footgun, memory prop-clips-drift-invisible-walls). Spawned via SetModel (proven
+// render path - same as the boss-item bench). NOTE(acc-verify): confirm crate height + pivot in-game; nudge z /
+// clip top if a crate floats or sinks.
+function acc_spawn_plaza_props()
+{
+	level endon( "end_game" );
+	// CRATES ONLY, in the OPEN exit band (NEVER in a maze leg - a crate there blocks the ~120u
+	// corridor = "stuck on one side"). Coords MUST match tools/gen_plaza_shrink.js CLIPS.
+	// SPREAD across the open plaza (user 2026-06-26 "spread them out"). ANGLE 0 (axis-aligned) so each
+	// crate matches its axis-aligned 56x56 clip. Coords MUST match gen_plaza_shrink CLIPS.
+	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( -320, 30, 0 ), 0 );
+	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( 80, 230, 0 ), 0 );
+	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( -80, 560, 0 ), 0 );
+	acc_utility::log( "plaza props: 3 crate obstacles spawned" );
+}
+function acc_spawn_prop( model, org, yaw )
+{
+	m = spawn( "script_model", org );
+	m.angles = ( 0, yaw, 0 );
+	m setmodel( model );
 }
 
 // One buyable zone door - EXACT copy of the working _acc_abyss_doors pattern (user 2026-06-22): DISABLE the
@@ -518,8 +547,8 @@ function zone_door_buy_loop( d )
 // are thin in Y. 60u clears the ~64u-wide doorway brush so each trigger sits in open space on its side.
 function zone_door_thin_offset( d )
 {
-	if ( isdefined( d.script_flag ) && ( d.script_flag == "enter_under_lab" || d.script_flag == "enter_under_plaza" ) )
-		return ( 0, 60, 0 );
+	if ( isdefined( d.script_flag ) && ( d.script_flag == "enter_under_lab" || d.script_flag == "enter_under_plaza" || d.script_flag == "enter_implant" ) )
+		return ( 0, 60, 0 );   // doorways thin in Y (the door slab spans X) -> offset the buy triggers along Y
 	return ( 60, 0, 0 );
 }
 
@@ -602,6 +631,8 @@ function zone_door_trigger_origin( d )
 	{
 	case "enter_under_lab":   return ( 0, 2161, -200 );
 	case "enter_under_plaza": return ( -160, 1735, -200 );
+	case "enter_implant":     return ( -220, -240, 50 );   // Plaza Implant Lab door (doorway x[-260,-180] in the plaza south wall)
+	case "enter_exchange":    return ( -380, -376, 50 );   // The Exchange staircase-room EAST doorway, SW corner of the enlarged Implant Lab (tools/gen_plaza_basement.js); X-thin -> default (60,0,0) offset
 	case "enter_market":      return ( -1168, 528, 40 );
 	case "enter_alley":       return ( 1207, 528, 40 );
 	case "enter_corp_w":      return ( -1031, 1328, 40 );
@@ -876,4 +907,31 @@ function acc_dedupe_pack_a_punch()
 		}
 	}
 	/# println( "[acc] de-duped PaP: kept surface machine (z=" + keep.origin[ 2 ] + "), disabled " + n + " duplicate(s)" ); #/
+}
+
+// De-dupe The Exchange transfer-vault door (see the call site in main()). Two fixes: (1) rename surplus
+// "acc_door_exchange" SLABS off the GetEnt key so GetEnt("acc_door_exchange") resolves to exactly one (kills the
+// fatal); (2) rename+disable surplus zombie_door buy TRIGGERS so acc_fix_zone_doors threads ONE buy loop for the
+// door (no double prompt / double charge). Self-heals every load.
+function acc_dedupe_exchange_door()
+{
+	slabs = GetEntArray( "acc_door_exchange", "targetname" );
+	for ( i = 1; i < slabs.size; i++ )
+		if ( isdefined( slabs[ i ] ) )
+			slabs[ i ].targetname = "acc_door_exchange_dupe";
+
+	trigs = GetEntArray( "zombie_door", "targetname" );
+	seen = false;
+	for ( i = 0; i < trigs.size; i++ )
+	{
+		if ( !isdefined( trigs[ i ] ) ) continue;
+		if ( !isdefined( trigs[ i ].target ) || trigs[ i ].target != "acc_door_exchange" ) continue;
+		if ( seen )
+		{
+			trigs[ i ].targetname = "zombie_door_dupe";   // hidden from acc_fix_zone_doors' GetEntArray("zombie_door")
+			trigs[ i ] TriggerEnable( false );
+		}
+		else
+			seen = true;
+	}
 }

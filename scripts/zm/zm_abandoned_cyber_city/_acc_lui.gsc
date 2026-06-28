@@ -253,6 +253,7 @@ function player_lui_init()
         self thread powerup_state_watch();        // Insta-Kill / Double Points / Fire Sale icons
         self thread pickup_flash_watch();         // Nuke / Max Ammo 3s pickup flash (the "drops")
         self thread round_ring_watch();           // upper-right round-progress bar
+        self thread suppress_stock_weapon_hud();  // hide the stock ammo/weapon HUD (we draw our own: acc_hud.lua AccAmmoBlock/AccEquip)
 
         acc_utility::log( "lui: overlay (re)opened for a player (per-life)" );
 
@@ -350,6 +351,34 @@ function clear_stock_perk_hud()
     );
     for ( i = 0; i < fields.size; i++ )
         self clientfield::set_player_uimodel( fields[ i ], 0 );
+}
+
+// PHASE 0 - hide the STOCK bottom-right ammo/weapon HUD block so only OUR custom combat HUD
+// (acc_hud.lua CoD.AccAmmoBlock / CoD.AccEquip) shows. The ENTIRE stock ZmAmmo suite (mag,
+// reserve, weapon name, weapon icon, lethal, tactical, d-pad) is gated by the engine visibility
+// bit BIT_WEAPON_HUD_VISIBLE (the stock HUD checks it at t7hud_zm_custom.lua:166). Clearing that
+// bit server-side with the stock call `SetClientUIVisibilityFlag( "weapon_hud_visible", 0 )` (a
+// real ZM call - stock uses it at _zm.gsc:6149/1761/536, e.g. for the siegebot) hides the whole
+// block in ONE call: no LUI edit, no stock-menu override (which would brick the .ff -
+// lui-menu-can-break-map-load), and NO new clientfield (ammo has no writable uimodel, so the
+// perk-style clear_stock_perk_hud trick does NOT transfer here).
+//
+// RE-ASSERT every 0.25s (not one-shot): stock re-SETS weapon_hud_visible to 1 on spawn/revive/etc
+// (_zm.gsc:536/1761/1882), so a single call would let the stock block flicker back. Cheap poll,
+// mirrors clear_stock_perk_hud's re-assert cadence. Per-life (re-threaded by player_lui_init).
+// NOTE (verify in-game, docs/49 Phase 0 gate): confirm this cleanly hides the block AND does not
+// also hide a d-pad/GobbleGum prompt we want to keep; if it over-hides, scope down before Phase 2.
+function suppress_stock_weapon_hud()
+{
+    self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        self SetClientUIVisibilityFlag( "weapon_hud_visible", 0 );
+        wait 0.25;
+    }
 }
 
 // ZERO-FLASH stock perk-bar hide. Stock give_perk sets the perk's HUD clientfield to OWNED
@@ -491,6 +520,7 @@ function pickup_flash_watch()
 function maxammo_flash_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by pickup_flash_watch - die with it (was leaking 1/respawn)
     level endon( "end_game" );
     for ( ;; )
     {
@@ -502,6 +532,7 @@ function maxammo_flash_watch()
 function nuke_flash_watch()
 {
     self endon( "disconnect" );
+    self endon( "acc_lui_life" );   // re-threaded per life by pickup_flash_watch - die with it (was leaking 1/respawn)
     level endon( "end_game" );
     for ( ;; )
     {

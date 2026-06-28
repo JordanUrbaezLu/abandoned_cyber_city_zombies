@@ -3,8 +3,13 @@
 //
 // *** STATUS 2026-06-22 (user): the per-round random-N-of-10 ROTATION IS ON (restored). Each round a
 // RANDOM 4 of the 10 Lab perk alcove doors open and the others stay walled off; the 4 re-roll every
-// round (and never immediately repeat the prior round's set). Runs in BOTH normal play and the dev
-// sandbox; force all open only with `set acc_perk_doors_all_open 1`. ***
+// round (and never immediately repeat the prior round's set). Runs in NORMAL play; force all open with
+// `set acc_perk_doors_all_open 1`. ***
+//
+// *** DEV MODE 2026-06-26 (user): in the dev sandbox ALL 10 alcoves are OPEN (no rotation), so every perk
+// is buyable for testing. This is driven off the single dev flag: acc_resolve_dev_flags() SetDvar's
+// acc_perk_doors_all_open to 1 when level.acc_dev, which dev_all_open() reads here. (Reverses the
+// 2026-06-18 "walls close in dev too" choice.) Normal play is unchanged - the per-round rotation runs. ***
 //
 // *** NO-TRAP FIX 2026-06-25 (user): a player standing in an alcove at the round flip used to get SEALED
 // IN when close_all() ran (the door went solid around them). Fixed: we no longer blanket-close every door.
@@ -24,9 +29,10 @@
 // Door state = the _acc_lockdown seal idiom (VERIFIED there): OPEN =
 // hide()/notsolid()/connectpaths(); CLOSED = show()/solid()/disconnectpaths().
 //
-// ALL-OPEN OVERRIDE: gated ONLY by `acc_perk_doors_all_open` (default 0) - NOT by level.acc_dev or
-// acc_open_map. So the per-round rotation is the DEFAULT in BOTH normal play AND the dev sandbox (the walls
-// close in dev too, by design - user 2026-06-18). Force all open with:  set acc_perk_doors_all_open 1
+// ALL-OPEN OVERRIDE: gated by the `acc_perk_doors_all_open` dvar (default 0). Dev mode forces it to 1
+// (acc_resolve_dev_flags() drives it off level.acc_dev - user 2026-06-26), so ALL alcoves are open in the
+// dev sandbox. In NORMAL play it stays 0 and the per-round 4-of-10 rotation is the default; force all open
+// manually with:  set acc_perk_doors_all_open 1
 //
 // Public API:
 //   init()  - set initial gate state + start the round watcher + the no-trap enforce loop. Call ONCE from
@@ -96,8 +102,9 @@ function init()
     // ===================================================================================================
 }
 
-// The per-round rotation is the DEFAULT now (user 2026-06-18: the walls MUST close). Force ALL open ONLY by
-// explicitly setting acc_perk_doors_all_open 1 (dev/testing).
+// All-open when acc_perk_doors_all_open == 1. Dev mode sets that dvar to 1 (acc_resolve_dev_flags), so this
+// returns true in the dev sandbox; in normal play it stays 0 and the per-round rotation runs (user 2026-06-18:
+// the walls MUST close in normal play). Set the dvar manually to force all open without dev.
 function dev_all_open()
 {
     return ( getdvarint( "acc_perk_doors_all_open", 0 ) == 1 );

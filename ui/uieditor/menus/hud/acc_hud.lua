@@ -41,9 +41,9 @@ end
 
 -- Pack-a-Punch tier text (MUST mirror _acc_pap_levels.gsc tier_benefit / tier_repack_cost +
 -- ACC_PAP_FIRST_PACK_COST). 3-tier revamp 2026-06-16: the transform ("_up" form) is DEFERRED
--- to tier 2; tier 1 is camo + damage only.
+-- to tier 2; tier 1 is damage only. (Gold PaP camo removed 2026-06-27.)
 local function pap_tier_benefit(tier)
-    if tier == 1 then return "more damage + camo" end
+    if tier == 1 then return "more damage" end
     if tier == 2 then return "much more + new form" end
     if tier == 3 then return "max damage" end
     return ""
@@ -65,13 +65,13 @@ local AccPerkCards = {
     -- Bullets MUST be SHORT (<= ~28 chars) or they WRAP and break the card layout (user 2026-06-22,
     -- esp. Double Tap). Vague by design (docs/50): magnitudes hidden, base<Mega via the word ladder.
     [1] = { title = "JUGGER-NOG", price = "4000", megaName = "Ultimate Tank",
-            base = { "Take more hits", "(no perk: dies fast)" },
+            base = { "Take more hits" },
             mega = { "Take even more hits" },
             megaFull = { "Take even more hits" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
-            base = { "Revive allies faster", "Heal up sooner", "Revive yourself solo" },
-            mega = { "Revive even faster", "Heal even sooner", "Faster near allies" },
-            megaFull = { "Revive even faster", "Heal even sooner", "Revive yourself solo", "Faster near allies" } },
+            base = { "Revive allies faster", "Health regen starts sooner", "Revive yourself solo" },
+            mega = { "Revive even faster", "Regen starts even sooner", "Faster near allies", "Shielded while reviving" },
+            megaFull = { "Revive even faster", "Regen starts even sooner", "Revive yourself solo", "Faster near allies", "Shielded while reviving" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
             base = { "Reload faster", "Fix barriers faster" },
             mega = { "Reload even faster" },
@@ -691,9 +691,12 @@ function CoD.AccPapTierIcon.new(HudRef, InstanceRef)
     -- (false,true + NEGATIVE offsets) - same as the perk/powerup bars. (NOTE: setLeftRight(true,true,..)
     -- is STRETCH/fill mode, which is what made this span the whole screen before - do NOT use it for a
     -- fixed box.) TUNE RIGHT/BOTTOM in-game to center it on the gadget.
-    local SIZE = 40       -- icon width/height (virtual px)
-    local RIGHT = 67      -- gap from the right edge (final position, user 2026-06-17)
-    local BOTTOM = 82     -- gap from the bottom edge (final position, user 2026-06-17)
+    -- Relocated 2026-06-26 to sit as a STATUS CHIP in the new combat device's header row (top-left of
+    -- the AccAmmoBlock plate at RIGHT 44 / BOTTOM 50 / W 216 / H 100), next to the Overclock vN chip.
+    -- Registered AFTER the ammo block (see createMenu) so it draws ON TOP of the translucent plate.
+    local SIZE = 30       -- icon width/height (virtual px)
+    local RIGHT = 248     -- mid-left of the device, below the gun name
+    local BOTTOM = 60     -- between the name header and the big ammo numbers
 
     local icons = {}
     for t = 1, ACC_PAP_TIER_MAX do
@@ -737,10 +740,13 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
 
     -- Fixed box anchored BOTTOM-RIGHT (far-edge idiom: false,true + negative offsets), just above the
     -- PaP tier icon (RIGHT 67 / BOTTOM 82). Tune RIGHT/BOTTOM in-game to sit it by the weapon name.
-    local W = 90
-    local H = 26
-    local RIGHT = 42
-    local BOTTOM = 124
+    -- Relocated 2026-06-26: the "vN" Overclock chip sits in the combat device's header row, just to the
+    -- RIGHT of the PaP chip (RIGHT 228) and LEFT of the weapon name. Registered after the ammo block so
+    -- it draws on top of the plate.
+    local W = 60
+    local H = 24
+    local RIGHT = 178    -- to the RIGHT of the PaP shield (not overlapping)
+    local BOTTOM = 64
     self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
     self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
 
@@ -748,8 +754,8 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
     local Txt = LUI.UIText.new()
     Txt:setLeftRight(true, true, 0, 0)
     Txt:setTopBottom(true, true, 0, 0)
-    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
-    Txt:setScale(1.15)
+    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+    Txt:setScale(0.78)   -- OC chip (user 2026-06-26)
     Txt:setRGB(ACC_OC_COLOR[1], ACC_OC_COLOR[2], ACC_OC_COLOR[3])
     Txt:setText("")
     self:addElement(Txt)
@@ -928,6 +934,235 @@ function CoD.AccShardIcon.new(HudRef, InstanceRef)
     return self
 end
 
+-- TOUCHPOINT 7 - Custom COMBAT HUD (user 2026-06-26): the bottom-right ammo/weapon/equipment block,
+-- drawn by US in this safe additive overlay (Track A) instead of the stock ZM ammo widget. The data is
+-- read CLIENT-SIDE from the engine's own weapon UIModels - the SAME models the stock zmammo widgets read
+-- (zm_building zmammo_*_abbey.lua) - which live in a SEPARATE namespace from our (full) clientuimodel
+-- clientfield pool, so this costs ZERO new clientfields. The matching stock block is hidden server-side
+-- (_acc_lui.gsc::suppress_stock_weapon_hud -> SetClientUIVisibilityFlag "weapon_hud_visible" 0) so only
+-- ours shows. Bindings lifted VERBATIM from the stock widgets (model names are stock-engine, not ours):
+--   mag      = globalModel CurrentWeapon.ammoInClip          (zmammo_clipinfo_abbey.lua:24)
+--   reserve  = globalModel CurrentWeapon.ammoStock           (zmammo_total_abbey.lua:91)
+--   name     = globalModel CurrentWeapon.weaponName          (zmammo_textattachmentinfo_abbey.lua:79)
+--   lethal   = globalModel CurrentPrimaryOffhand.primaryOffhand (icon name -> RegisterImage)
+--              + per-ctrl currentPrimaryOffhand.primaryOffhandCount   (zmammo_equipcontainer_abbey.lua:181,57)
+--   tactical = globalModel CurrentSecondaryOffhand.secondaryOffhand + currentSecondaryOffhand.secondaryOffhandCount
+-- NO custom font (stock UI font), NO custom material (plain UIText/UIImage + the CoD.TextWithBg.Bg rect
+-- kit), recolored to ACC_PAL teal. subscribeToGlobalModel is proven in a shipped ADDITIVE overlay menu
+-- (alien_isolation alien_objective_ui.lua) - same menu class as ours - so it is safe here. docs/49.
+
+-- (Mag colour is computed per-instance inside AccAmmoBlock now - it's RESERVE-driven, not a raw clip count,
+--  so a small-clip gun like the MORS doesn't read its full 1/1 clip as "low". See refreshMagColor below.)
+CoD.AccAmmoBlock = InheritFrom(LUI.UIElement)
+
+function CoD.AccAmmoBlock.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccAmmoBlock)
+    self.id = "AccAmmoBlock"
+
+    -- Bottom-right positioned box (far-edge fixed-box idiom: false,true + negative offsets, same as
+    -- AccPapTierIcon). TUNE these 4 in-game to sit it where the stock ammo was. (NOTE: the existing
+    -- PaP-tier icon / Overclock vN text are also bottom-right - they may overlap this block until we
+    -- reposition them in a follow-up; they still render.)
+    local RIGHT  = 40
+    local BOTTOM = 46
+    local W      = 252
+    local H      = 96    -- name header + PaP/OC chips + ammo (user 2026-06-26: tightened from 132->116->96 to kill empty space)
+    self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
+    self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
+
+    -- Background plate, accent strip, AND the corner targeting brackets ALL REMOVED (user 2026-06-27: "remove the
+    -- whole background rectangle" + "remove those brackets"). The gun name + ammo now float over the scene with no
+    -- frame at all. (The Rect/Bracket helpers were deleted too - nothing else in this block used them.)
+
+    -- Weapon NAME (top-RIGHT of the header row, right-aligned, dim cyan). Left of it the header holds
+    -- the PaP/OC status chips (AccPapTierIcon / AccOcTierText, repositioned to land here), so the name
+    -- box starts well right (112) to avoid colliding with them.
+    local NameTxt = LUI.UIText.new()
+    NameTxt:setLeftRight(true, true, 12, -4)   -- right pad ->4 (user 2026-06-27: gun name hugs the card's right border; -4 still clears the 2px corner bracket)
+    NameTxt:setTopBottom(true, false, 5, 40)
+    NameTxt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+    NameTxt:setScale(0.58)   -- gun-name header (user 2026-06-27: 0.78 still too big - "1.5x not 2x"; dropped ~25%)
+    NameTxt:setRGB(0.78, 0.92, 1.0)
+    NameTxt:setText("")
+    self:addElement(NameTxt)
+
+    -- MAG (hero number, lower-LEFT of the plate, right-aligned, teal->amber->danger by count). Scale
+    -- dropped 1.5->1.1 (it was swallowing the reserve + spilling below the plate, user 2026-06-26).
+    local MagTxt = LUI.UIText.new()
+    MagTxt:setLeftRight(false, true, -162, -62)   -- pulled further right (user 2026-06-27: still deadspace; "56" right edge -62, just left of the reserve)
+    MagTxt:setTopBottom(false, true, -46, -4)
+    MagTxt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+    MagTxt:setScale(1.1)
+    MagTxt:setRGB(ACC_PAL.teal[1], ACC_PAL.teal[2], ACC_PAL.teal[3])
+    MagTxt:setText("")
+    self:addElement(MagTxt)
+
+    -- RESERVE "/ N" (to the RIGHT of the mag, smaller, baseline slightly raised, dim). Pulled further right
+    -- (user 2026-06-27: still deadspace at -72). Box LEFT at -60: a 3-digit reserve ("/ 999", the realistic max
+    -- in this map ~900) ends ~flush at the border; a hypothetical 4-digit reserve (no such gun) would clip its
+    -- last digit. Don't pull -60 further right unless you've confirmed no gun shows a 4-digit reserve.
+    local ReserveTxt = LUI.UIText.new()
+    ReserveTxt:setLeftRight(false, true, -60, -2)
+    ReserveTxt:setTopBottom(false, true, -34, -10)
+    ReserveTxt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+    ReserveTxt:setScale(0.7)
+    ReserveTxt:setRGB(0.66, 0.85, 0.9)
+    ReserveTxt:setText("")
+    self:addElement(ReserveTxt)
+
+    -- Mag-number colour by RESERVE, not raw clip count (user 2026-06-26): TEAL normally, AMBER in the last
+    -- ~20% of your reserve (running low on TOTAL ammo), DANGER (magenta) when fully out. So a small-clip gun
+    -- like the MORS reads its full 1/1 clip as TEAL, not "always low". maxReserve = the highest reserve seen
+    -- for the current weapon (re-baselined on weapon switch) so "20%" is relative to THAT weapon's stockpile.
+    local curClip    = 0
+    local curReserve = 0
+    local maxReserve = 0
+
+    local function refreshMagColor()
+        local c = ACC_PAL.teal
+        if curClip <= 0 and curReserve <= 0 then
+            c = ACC_PAL.danger
+        elseif maxReserve > 0 and curReserve <= maxReserve * 0.2 then
+            c = ACC_PAL.amber
+        end
+        MagTxt:setRGB(c[1], c[2], c[3])
+    end
+
+    -- Ammo text: a no-magazine weapon (melee like the Action Figure) reports 0 clip + 0 reserve - show "-/-"
+    -- instead of a meaningless "0 / 0" (user 2026-06-27). A normal gun only hits this when TRULY out of all ammo,
+    -- where "-/-" still reads correctly. Otherwise show the live clip + reserve.
+    local function refreshAmmoText()
+        if curClip <= 0 and curReserve <= 0 then
+            MagTxt:setText("-")
+            ReserveTxt:setText("/ -")
+        else
+            MagTxt:setText(tostring(curClip))
+            ReserveTxt:setText("/ " .. tostring(curReserve))
+        end
+    end
+
+    self:subscribeToGlobalModel(InstanceRef, "CurrentWeapon", "ammoInClip", function(model)
+        local v = Engine.GetModelValue(model)
+        if v then
+            curClip = tonumber(v) or 0
+            refreshAmmoText()
+            refreshMagColor()
+        end
+    end)
+    self:subscribeToGlobalModel(InstanceRef, "CurrentWeapon", "ammoStock", function(model)
+        local v = Engine.GetModelValue(model)
+        if v then
+            curReserve = tonumber(v) or 0
+            if curReserve > maxReserve then maxReserve = curReserve end
+            refreshAmmoText()
+            refreshMagColor()
+        end
+    end)
+    -- Weapon switch: re-baseline maxReserve so the 20% threshold tracks the NEW weapon, not the old one.
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "currentWeapon.weapon"), function(model)
+        maxReserve = 0
+        refreshAmmoText()
+        refreshMagColor()
+    end)
+    self:subscribeToGlobalModel(InstanceRef, "CurrentWeapon", "weaponName", function(model)
+        local v = Engine.GetModelValue(model)
+        if v then NameTxt:setText(Engine.Localize(v)) end
+    end)
+
+    return self
+end
+
+-- Equipment: lethal + tactical icon (engine-supplied image name) + count, just ABOVE the ammo block.
+-- Each slot hides when its count is 0 or it has no icon. Icons come free from the offhand models -
+-- no authored art.
+CoD.AccEquip = InheritFrom(LUI.UIElement)
+
+function CoD.AccEquip.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccEquip)
+    self.id = "AccEquip"
+
+    -- Row sitting RIGHT ABOVE the ammo device card (the card's top edge is at BOTTOM 46 + H 96 = 142 from the
+    -- screen bottom; this row's BOTTOM=144 leaves it flush against that top, no dead space - user 2026-06-27:
+    -- was 168 = a 26-unit gap of padding for no reason). TUNE in-game.
+    local RIGHT  = 44
+    local BOTTOM = 144
+    local W      = 170
+    local H      = 38
+    self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
+    self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
+
+    -- One slot = count (UIText, left) + icon (UIImage, right) anchored from the row's RIGHT edge, `rightOff` in.
+    local function Slot(rightOff)
+        local SIZE = 32
+        local icon = LUI.UIImage.new()
+        icon:setLeftRight(false, true, -(rightOff + SIZE), -rightOff)
+        icon:setTopBottom(false, true, -SIZE, 0)
+        icon:setRGB(ACC_PAL.teal[1], ACC_PAL.teal[2], ACC_PAL.teal[3])
+        icon:hide()
+        self:addElement(icon)
+
+        local cnt = LUI.UIText.new()
+        cnt:setLeftRight(false, true, -(rightOff + SIZE + 24), -(rightOff + SIZE + 2))
+        cnt:setTopBottom(false, true, -30, -2)
+        cnt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+        cnt:setScale(0.78)
+        cnt:setRGB(0.78, 0.92, 1.0)
+        cnt:setText("")
+        self:addElement(cnt)
+
+        return { icon = icon, cnt = cnt, count = 0, img = "" }
+    end
+
+    local lethal   = Slot(6)    -- rightmost
+    local tactical = Slot(86)   -- left of lethal
+
+    local function refresh(slot)
+        if slot.count > 0 and slot.img ~= "" then
+            slot.icon:show()
+            slot.cnt:setText(tostring(slot.count))
+        else
+            slot.icon:hide()
+            slot.cnt:setText("")
+        end
+    end
+
+    -- Lethal: icon name (CurrentPrimaryOffhand.primaryOffhand) + count (per-ctrl primaryOffhandCount).
+    self:subscribeToGlobalModel(InstanceRef, "CurrentPrimaryOffhand", "primaryOffhand", function(model)
+        local v = Engine.GetModelValue(model)
+        if v and v ~= "" then
+            lethal.img = v
+            lethal.icon:setImage(RegisterImage(v))
+        else
+            lethal.img = ""
+        end
+        refresh(lethal)
+    end)
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "currentPrimaryOffhand.primaryOffhandCount"), function(model)
+        lethal.count = Engine.GetModelValue(model) or 0
+        refresh(lethal)
+    end)
+
+    -- Tactical: secondaryOffhand icon + secondaryOffhandCount.
+    self:subscribeToGlobalModel(InstanceRef, "CurrentSecondaryOffhand", "secondaryOffhand", function(model)
+        local v = Engine.GetModelValue(model)
+        if v and v ~= "" then
+            tactical.img = v
+            tactical.icon:setImage(RegisterImage(v))
+        else
+            tactical.img = ""
+        end
+        refresh(tactical)
+    end)
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "currentSecondaryOffhand.secondaryOffhandCount"), function(model)
+        tactical.count = Engine.GetModelValue(model) or 0
+        refresh(tactical)
+    end)
+
+    return self
+end
+
 function LUI.createMenu.acc_hud(Instance)
     local Hud = CoD.Menu.NewForUIEditor("acc_hud")
 
@@ -956,17 +1191,8 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(PowerupBar)
     Hud.accPowerupBar = PowerupBar
 
-    -- Pack-a-Punch tier icon: one roman-numeral cyber shield (I/II/III) over the gadget circle
-    -- (bottom-right), shown for the held weapon's current PaP tier. Driven by accPapTier. (Re-added
-    -- per user 2026-06-22 - "just the icon" - after the HUD rework had dropped it.)
-    local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
-    Hud:addElement(PapTier)
-    Hud.accPapTierIcon = PapTier
-
-    -- Overclock tier "vN" text near the gun name (bottom-right), driven by accOcTier.
-    local OcTier = CoD.AccOcTierText.new(Hud, Instance)
-    Hud:addElement(OcTier)
-    Hud.accOcTierText = OcTier
+    -- PaP-tier icon + Overclock "vN" chip are registered LATER (after the ammo block) so they draw ON
+    -- TOP of the translucent device plate as header status chips - see below.
 
     -- Round-progress bar: a teal cyber health-bar (upper-right) that drains as the round's
     -- zombies are killed, with a "pct%" readout. Driven by accRoundRing (fill percent 0..100).
@@ -974,11 +1200,31 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(RoundRing)
     Hud.accRoundRing = RoundRing
 
-    -- Data Shards icon: the player's PNG, top-left, replacing the "DATA SHARDS" text label (the shard count
-    -- stays in the server hudelem, just to the right of this icon). Always visible; no clientfield.
-    local ShardIcon = CoD.AccShardIcon.new(Hud, Instance)
-    Hud:addElement(ShardIcon)
-    Hud.accShardIcon = ShardIcon
+    -- (Top-left Data Shards icon REMOVED 2026-06-26: the SQUAD roster shows shards per player now.)
+
+    -- Custom COMBAT HUD (bottom-right): our own ammo/weapon block reading the engine's client-side
+    -- weapon models (mag/reserve/name); the stock block is hidden server-side (suppress_stock_weapon_hud).
+    -- If a UI Error box appears in-game, bisect by commenting ONE of these two out.
+    local AmmoBlock = CoD.AccAmmoBlock.new(Hud, Instance)
+    Hud:addElement(AmmoBlock)
+    Hud.accAmmoBlock = AmmoBlock
+
+    -- Lethal + tactical icon/count from the engine offhand models.
+    local Equip = CoD.AccEquip.new(Hud, Instance)
+    Hud:addElement(Equip)
+    Hud.accEquip = Equip
+
+    -- PaP-tier shield (I/II/III) + Overclock "vN" chip: the held weapon's status, drawn in the combat
+    -- device's HEADER row (top-left of the ammo plate). Registered HERE - after the ammo block - so they
+    -- render on TOP of the translucent plate (driven by accPapTier / accOcTier, repositioned in their
+    -- widget defs above). This makes the bottom-right read as ONE weapon device: [PaP][OC] Name / mag / reserve.
+    local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
+    Hud:addElement(PapTier)
+    Hud.accPapTierIcon = PapTier
+
+    local OcTier = CoD.AccOcTierText.new(Hud, Instance)
+    Hud:addElement(OcTier)
+    Hud.accOcTierText = OcTier
 
     local function OnHudClose(Sender)
         Sender.accCard:close()

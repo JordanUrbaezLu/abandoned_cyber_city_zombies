@@ -39,34 +39,35 @@ even though they pack into something strong).
 
 | Gun | Class | Base | Packed | PaP cost (I / II / III) | Box roll |
 |---|---|:--:|:--:|---|--:|
-| **Chicom CQB** (3-round burst) | SMG | S+ | **S** | 5000 / 7500 / 10000 | ~2.4% |
-| **M60** | LMG | S | **S** | 5000 / 7500 / 10000 | ~2.0% |
-| **AK-74u** | SMG | A | **S** | 5000 / 7500 / 10000 | ~5.9% |
-| **PPSh-41** | SMG | S | **S** | 5000 / 7500 / 10000 | ~2.0% |
-| **Tac-19** (energy shotgun) | Shotgun | A | **A** | 5000 / 7500 / 10000 | ~2.0% |
-| **MORS** (railgun sniper) | Sniper | S | **A** | 5000 / 7500 / 10000 | ~2.4% |
-| **AE4** | AR | B | **A** | 4000 / 6000 / 8000 | ~5.9% |
-| **RW1** (energy pistol) | Pistol | A | **A** | 4000 / 6000 / 8000 | ~5.9% |
-| **AK-47** | AR | A | **A** | 4000 / 6000 / 8000 | ~5.9% |
-| **ASM1** | SMG | B | **A** | 4000 / 6000 / 8000 | ~5.9% |
-| **Galil** | AR | B+ | **A** | 4000 / 6000 / 8000 | ~5.9% |
-| **Paladin HB50** | Sniper | B | **B** | 3000 / 4500 / 6000 | ~10.1% |
-| **RPD** | LMG | C | **B** | 3000 / 4500 / 6000 | ~10.1% |
-| **Five-Seven** (start pistol) | Pistol | C- | **B** | 3000 / 4500 / 6000 | ~10.1% |
-| **MK14** | DMR | B | **B** | 3000 / 4500 / 6000 | ~5.9% |
-| **Olympia** | Shotgun | C | **C** | 3000 / 4500 / 6000 | ~10.1% |
+| **Chicom CQB** (3-round burst) | SMG | S+ | **S** | 5000 / 7500 / 10000 | ~1.7% |
+| **M60** | LMG | S | **S** | 5000 / 7500 / 10000 | ~1.7% |
+| **AK-47** | AR | A | **S** | 5000 / 7500 / 10000 | ~1.7% |
+| **PPSh-41** | SMG | S | **S** | 5000 / 7500 / 10000 | ~1.7% |
+| **Tac-19** (energy shotgun) | Shotgun | A | **S** | 5000 / 7500 / 10000 | ~1.7% |
+| **MORS** (railgun sniper) | Sniper | S | **A** | 5000 / 7500 / 10000 | ~2.6% |
+| **AE4** | AR | B | **A** | 4000 / 6000 / 8000 | ~6.3% |
+| **RW1** (energy pistol) | Pistol | A | **A** | 4000 / 6000 / 8000 | ~6.3% |
+| **AK-74u** | SMG | B | **A** | 4000 / 6000 / 8000 | ~6.3% |
+| **ASM1** | SMG | B | **A** | 4000 / 6000 / 8000 | ~6.3% |
+| **Galil** | AR | B+ | **A** | 4000 / 6000 / 8000 | ~6.3% |
+| **Paladin HB50** | Sniper | B | **B** | 3000 / 4500 / 6000 | ~10.8% |
+| **RPD** | LMG | C | **B** | 3000 / 4500 / 6000 | ~10.8% |
+| **Five-Seven** (start pistol) | Pistol | C- | **B** | 3000 / 4500 / 6000 | ~10.8% |
+| **MK14** | DMR | B | **B** | 3000 / 4500 / 6000 | ~6.3% |
+| **Olympia** | Shotgun | C | **C** | 3000 / 4500 / 6000 | ~10.8% |
 
-> **Two guns break the "good = rare" rule on purpose:** **AK-74u** packs all the way to S
-> but still rolls common (~5.9%), and **MK14** is a cheap BOT-priced gun that also rolls
-> common — so don't be surprised when they show up a lot.
+> **MK14 breaks the "cheap = common" rule on purpose:** it's a cheap BOT-priced gun but is
+> pinned to a rarer ~6.3% roll (vs ~10.8% for the other cheap guns) — so it shows up a bit
+> less often than its price implies. And the **5 S-tier guns are the rarest of all (~1.7%)** —
+> the best guns are deliberately hard to roll.
 
 ### Special weapons (box only)
 
 | Weapon | What it is | PaP cost (I / II / III) | Box roll |
 |---|---|---|--:|
 | **Thundergun** | Wonder weapon — wind blast clears a room. One per game, the rarest pull of all. | 5000 / 7500 / 10000 | ~0.6% |
-| **Action Figure** | Melee special — Pack-a-Punches **in place** (no swap); each level adds a chance to **cleave extra zombies** per swing. | 5000 / 7500 / 10000 | ~1.0% |
-| **Mahem** | Explosive rocket launcher. | 4000 / 6000 / 8000 | ~5.9% |
+| **Action Figure** | Melee special — Pack-a-Punches **in place** (no swap); each level adds a chance to **cleave extra zombies** per swing. | 5000 / 7500 / 10000 | ~1.1% |
+| **Mahem** | Explosive rocket launcher. | 4000 / 6000 / 8000 | ~6.3% |
 
 > **Reading the odds:** percentages are the gun's share of the box pool (19 weapons). The box
 > **never hands you a gun you're already holding**, so as you collect, the remaining guns come
@@ -94,7 +95,7 @@ multi-tier sinks, finite so you can't hoard forever.
 | **Data Caches** (×2) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
 | **Trench Warden** (a Brutus) | Spawns in the pit on the boss rounds | **+3 to every player**, guaranteed. (He also drops a boss item.) |
 | **Phantom** (boss) | Boss event | **+5 to every player**, guaranteed — same idea as the Warden, bigger payout. |
-| **Reactor Surge** | The arm plinth in the pit (free to arm) | Survive the **5-wave** surge → **everyone gets +5 plus a shared Insta-Kill.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
+| **Reactor Surge** | The arm plinth in the pit (free to arm) | Survive the **5-wave** surge → **everyone gets +5 plus a shared Fire Sale.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
 | **Glitch Altar** | Deep underground | A **2-Shard gamble**, not a faucet — see below. |
 
 ### The Glitch Altar (gamble — net-negative on shards)
@@ -133,6 +134,12 @@ scale up:
 So a zombie on Layer 3 is roughly +15% speed, +150% health, and hits for +30 over a surface
 zombie — and entering or descending a layer also bursts a **surge** of extra zombies right
 where you're standing. Going deeper is pure risk-for-reward.
+
+> **Two S-tier wall-buys down the abyss.** An **S-tier AK-47** is chalked on the south wall of the **4th
+> Abyss floor**, and an **S-tier M60** on the south wall of the **5th (bottom) floor** — both **1500**.
+> They're among the strongest guns in the game off the wall, but you have to fight four/five floors down
+> to reach them. A real reason to commit to the descent, not just box-roll up top. (The M60 sits right by
+> the bottom Ammo Crate, before the Paradise door — gear up before the finale.)
 
 **The slow.** Being below your gear's coverage slows you down: you move full speed through any
 layer your **Exo Suit** tier covers, then **−20%** on the first uncovered layer and **−10% per
@@ -231,6 +238,6 @@ and still have change.
 4. Spend your first Shards on **perk slots** (Neural Expansion Bay) and an early **Exo Suit**
    tier so the trench stops slowing you.
 5. Find a gun you like, **Pack-a-Punch** it, then **Overclock** it as Shards come in.
-6. Arm the **Reactor** for a big Shard + Insta-Kill payout, push a layer deeper, repeat.
+6. Arm the **Reactor** for a big Shard + Fire Sale payout, push a layer deeper, repeat.
 
 *Good luck out there.*

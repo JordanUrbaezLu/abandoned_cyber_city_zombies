@@ -135,6 +135,26 @@ The split system is a natural target for cheese. Every rule below is enforced in
 - **Coordinated kill-stealing.** Player A softens a zombie to 20 HP with an AK-47, Player B knifes it for a 100-point knife kill. Player B gets 70. Player A only contributed damage, so they get 30. **This is intended as a coordinated play**, not an exploit. If you and a teammate want to split roles (suppressor + finisher), the math supports it.
 - **Headshot-hunt coordination.** Similar to above: one player tickles the zombie down, the other headshots for 100. Intended.
 
+### Comeback Bonus (full-death respawn) — user 2026-06-26
+
+To support players who have a bad start, a player who **fully bleeds out and respawns** the next round comes
+back with their money **set to exactly `500 × round_number`** (round 20 → **$10,000**). It is a **set, not an
+add**: whatever they kept through the death is wiped and replaced with the floor.
+
+- **Why a set, not a top-up:** stock BO3 `penalty_died` is **0.0**, so players actually *keep* their money on a
+  bleed-out respawn (this map does not override that). A pure add would make intentionally dying *profitable*
+  (a death-farm). Setting to exactly `500 × round` means dying can never net more than the floor, and a rich
+  player who dies drops to it — so death finally carries a real cost while broke players get their comeback.
+- **Trigger = full death only.** A teammate reviving you from last stand does **not** qualify — a revive happens
+  before you bleed out, so it never fires the stock `bled_out` notify the watcher keys on. The very first spawn
+  of a match never bleeds out either. So only a genuine die-and-respawn pays out. (Practically co-op-only:
+  in solo, a down either auto-revives via Quick Revive — money kept — or ends the game.)
+- **Implementation:** `watch_comeback_death()` flags `acc_comeback_pending` on `bled_out`;
+  `acc_points::on_player_spawned()` (registered in `acc_main`'s spawn dispatch) consumes the flag on the next
+  spawn and calls `comeback_set_score()` (`zm_score::player_reduce_points("take_all")` then
+  `add_to_player_score(500 × round)`). Tuning lever: `ACC_COMEBACK_PER_ROUND` (default **500**) in
+  [`_acc_points.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc).
+
 ### Stock-Award Override Status
 
 The module intends to **fully replace** stock kill awards. Stock BO3 awards 60/100/130 per kill via `_zm_score::player_killed_event` (or similar). At first compile the override is not yet wired - players may receive stock + our awards (double). First-playtest fix; TODO marker in [`_acc_points.gsc::init()`](../scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc).
@@ -244,6 +264,13 @@ flowchart LR
 - **SOURCE — Trench Warden:** the recurring trench boss grants `acc_warden_shard_reward` shards to every
   player on death.
 - **SOURCE — Glitch Altar:** the jackpot boon (net-negative EV — see below).
+- **SOURCE — Passive trench income (user, 2026-06-26):** simply *standing in a trench layer* pays **1 Data
+  Shard every N seconds**, where N shrinks with depth — **L1 (Bus Station pit) 50s, L2 34s, L3 22s, L4 14s,
+  L5 10s** — so deeper = more reward for the greater risk. **Per-player** (each player who braves the pit
+  earns their own; no shared pool). The clock counts only while underground (it does NOT tick on the surface
+  or in Paradise) and resets the instant you leave the trench; it carries across layer changes (paid at the
+  current layer's rate). Cap-clamped by the shard cap, so it stops at the cap and resumes after spending.
+  Tunable via `acc_trench_income*` (docs/34). Implemented in `_acc_bus_trench.gsc::trench_shard_income`.
 - The **topside elite drop is OFF by default** (`acc_elite_shard_drop` 0); flip it on to restore the old
   1-shard corpse pickup if you want a surface trickle.
 

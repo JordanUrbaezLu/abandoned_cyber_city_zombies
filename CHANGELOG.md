@@ -6,6 +6,1326 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Fixed — Jukebox "NOW PLAYING" banner didn't show on purchase (user, 2026-06-28)
+
+Buying a teddy-bear song in the north trench room played the song but showed **no UI**. The banner used
+`acc_utility::hud_msg` — a lazily-created **server hudelem** that silently fails to appear when the hudelem pool
+is exhausted (the user hit it in **dev mode**, where the extra dev HUDs pressure that shared pool). Switched the
+all-player "NOW PLAYING <title>" banner in [_acc_ee_song.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc)
+`bear_watch` to **`IPrintLnBold`** — the engine built-in, pool-FREE, all-client announcement this map already uses
+for the Paradise gate / soul milestones — so it shows reliably regardless of pool pressure or dev mode. The
+per-player deny toasts ("Need N points" / "Jukebox busy") stay as `hud_msg` (minor, and they also play a sound).
+GSC-only.
+
+### Added — 2nd Cyberware Overclock station on abyss L5 (user, 2026-06-28)
+
+Placed an extra Overclock terminal on the **bottom abyss floor (L5, z=-1200)** at `(400, 1948, -1200)` EAST — opposite the
+existing L5 ammo crate (WEST), mirroring the L2 "OC + crate on opposite chunks" layout. One line in
+[_acc_glitch_altar.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc) `spawn_altars`
+(`acc_overclocks::spawn_terminal_at`), so it's a **pure GSC spawn** — `-GscOnly`, **no `.map` edit** (deliberately avoids the
+in-flight geometry work). The proximity info card works automatically (`spawn_terminal_at` appends `level.acc_oc_kiosk_origins`).
+
+**Collision is QUEUED, not yet baked:** a deep clip (`add_prop_clips.js` `overclock_l5`, brushmodel/LED-exempt) was added to the
+clip data but NOT emitted — making it solid needs an `add_prop_clips.js` run + a full LED bake (a `.map` change). So the terminal
+is **functional now but its kiosk model is walk-through** until the next geometry/bake pass folds the clip in. docs/48 synced.
+
+### Added — Crouch drop-in shortcut beside each trench staircase (user, 2026-06-28)
+
+A **crouch-height window** in the **rim parapet** right beside each staircase (the "wall with the bridge" = this rim parapet, which the bridge column plugs into), so a player can crouch through and **drop straight into the trench** (~240u fall → fall damage, a deliberate PhD-Flopper play) instead of taking the stairs. [tools/gen_trench_walls.js](tools/gen_trench_walls.js) splits the parapet around an opening (`OPEN_W 56` wide × **64u tall**, open z[0,64] with a header z[64,128] above so it still reads as a wall) — sized so a standing hull (~72u) won't fit, forcing a crouch. West: south parapet beside the W stair (x[−665,−609]); East: north parapet beside the E stair (x[647,703]). Layout is now `Stairs → [crouch drop-in] → Wall → Bridge → Wall` on both sides. (First attempt put it in the stair's *pit-side* wall and too small at 48u — moved to the parapet + enlarged, user 2026-06-28.) World-brush geometry → fast-bake-gated (BAKED) + FULL cod2map/LED/navmesh rebuild.
+
+### Changed — Perk-card UI text: Quick Revive regen wording + dropped the obvious Jug no-perk line (user, 2026-06-28)
+
+Clarity pass on two perk cards ([acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua)):
+- **Quick Revive** base `Heal up sooner` → **`Health regen starts sooner`**; Mega `Heal even sooner` → **`Regen starts even sooner`** (the latter also re-syncs the card to docs/50, which the `.lua` had drifted from).
+- **Jugger-Nog** base: dropped the **`(no perk: dies fast)`** line — redundant ("it's obvious", user). docs/50 synced. LUI rawfile (linker build).
+
+### Reverted — Under-room resize abandoned; teddy room restored to original (user, 2026-06-28)
+
+A resize of the teddy/song (NORTH) + exo/Foundry (SOUTH) under-rooms was attempted (384×344 → 320×200 → 352×272 → "back to original") via two new regenerator tools, then **abandoned** — the tools were wrong and the user caught it. **Root cause:** these under-rooms are NOT self-contained; their `UNDER ROOM <SIDE>` block is just the **floor slab + room floor** (NORTH = 2 brushes, SOUTH = 3) — the room's actual **walls come from the surrounding corp-trench geometry**. My regenerators emitted the full add_under_room-style **7-brush** structure (slab + side/back fills + front walls), which **duplicated/conflicted** with the corp walls and reshaped the room ("removed part of the room").
+- **Fix:** the NORTH teddy room is restored to its true **original 2-brush block**, spliced from a pre-change `.map` backup (not regenerated). The SOUTH/exo room was left as-is (user: "the exo room is fine"). The two flawed tools (`gen_shrink_north/south_room.js`) were **deleted**. Memory `under-room-shrink-regenerator-bake-safe` rewritten as the cautionary lesson.
+- **Also:** the reactor plinth (`p7_cai_sign_inteactive_kiosk`) is too **deep** to sit dead-center behind the center bear without overlapping it even at the back wall (reported "on the bear" twice — "back" never cleared it). The user wanted it **kept centered**, so instead of touching the corp geometry the **3 jukebox bears were nudged forward** y2430 → **y2350** ([`_acc_ee_song.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc)), giving ~143u clearance so the plinth stays **dead-center** at (0,2493) and clear. [`_acc_reactor.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc) + `add_prop_clips.js`. FULL LED-baked build.
+
+### Fixed — Area/room banner moved up off the boss + Paradise UI (user, 2026-06-28)
+
+The on-entry area-name banner (`acc_dev_zone_hud`, shown in **both** modes — only the "DEV MODE ACTIVE" print is dev-gated) sat at TOP+20 scale 2.0; its tall line grew downward into the top-center dynamic cluster (Phantom/boss nameplate y22 + bar y46, Paradise timer y24) and overlapped them. [`_acc_dev.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc): pinned to the top edge (TOP+20 → **TOP+2**) and trimmed scale (**2.0 → 1.3**) so the ~16px line sits cleanly **above** the y[22,60] cluster. (A scale-2.0 line can't fit above y22 by moving the anchor alone — hence the trim; the alternative was moving it *below* the boss bar.) GSC-only.
+
+### Changed — Brutus + Phantom HP now compound at 1.1/round like zombies (user, 2026-06-27)
+
+Both bosses now scale HP at the **same 1.1 per-round exponent as the regular horde** (were 1.08 / 1.06):
+- **Brutus** [`_acc_boss.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) `ACC_BOSS_MINI_HP_EXP` `1.08 → 1.1`. Base 48k @ anchor r5 → solo **r10 77k / r20 200k / r30 520k / r40 1.35M**.
+- **Phantom** [`_acc_boss_phantom.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc) `ACC_PHANTOM_HP_EXP` `1.06 → 1.1`. Base 56k @ anchor r10 → solo **r10 56k / r20 145k / r30 377k / r40 977k**.
+- Brutus **stays the tankier of the two** despite the equal exponent — it anchors 5 rounds earlier (r5 vs r10), so it accrues more compounding. Base HP + anchors + the logarithmic co-op mult unchanged. Live dvars `acc_boss_mini_hp_exp` / `acc_phantom_hp_exp`. Docs 11/34 synced. GSC-only.
+
+### Changed — Sniper reserve nerf: MORS −15%, Paladin −15% (user, 2026-06-27)
+
+Reserve-only (clip/damage path untouched), applied **evenly across all 16 forms each** (base + `_up` + 14 perk twins):
+- **MORS** (clip 1, so maxAmmo == reserve rounds): `48/72 → 41/61` rounds (−14.6% / −15.3%).
+- **Paladin** maxAmmo `12 → 10` mags → reserve `96/132 → 80/110` (−16.7%; closest even integer-mag cut to −15%, since reserve = maxAmmo × clip 8/11).
+- Durable record in [`tools/reduce_base_ammo.js`](tools/reduce_base_ammo.js) `MAXAMMO_FIX` (MORS values + a new Paladin block).
+- **Applied SURGICALLY to the live GDT `maxAmmo`/`startAmmo`, NOT via a tool re-run** — a full-diff (`live` vs `.acc-ammo-orig`) found the reduce backups are **stale**: Paladin `locHead`/`locHelmet` 5.0 (fix_paladin_loc) and MORS `_up` damage 1500/minDamage 750 (PaP-form tuning) ran *after* reduce last snapshotted, so a blind `reduce_base_ammo.js` re-run would silently REVERT those fixes. A `WARN` block in the tool documents this — refresh those backup fields (or re-apply the loc/PaP tools after) before any future re-run. Built via `gdtdb /update` + linker.
+
+### Changed — Gun damage retune: Paladin −25%, MORS −35%, RW1 +20%, MK14 −10% (user, 2026-06-27)
+
+Pure damage tweaks via [`_acc_damage.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc) `acc_weapon_balance_mult` (`IsSubStr` match → covers **base + `_up` + every twin** in one value; scales body AND headshot proportionally):
+- **Paladin HB50** ×`0.4753 → 0.3565` (−25%); full PaP+OC ~5,228 → ~3,921/shot, ~13.1k → ~9.8k/head.
+- **MORS** ×`0.66 → 0.429` (−35%); ~10,890 → ~7,079/shot.
+- **RW1** ×`0.11 → 0.132` (+20% **buff**); ~1,210 → ~1,452/shot.
+- **MK14** ×`0.291 → 0.2619` (−10%); ~1,921 → ~1,729/shot.
+- **PaP price tiers + box odds DELIBERATELY UNCHANGED** (user: "don't touch anything else… only a damage change") — `compute_gun_tiers.js` / docs/54 NOT regenerated; the runtime pricing (`pap_price_bucket`) and box weight (`acc_box_weight`) are independent hardcoded functions and stay as-is. Paladin's separate `acc_paladin_boss_mult` boss cut stacks, so its boss damage also drops 25%. Docs 05/41 synced (tiers/scores kept). GSC-only.
+
+### Changed — PhD Slider (Mega PhD Flopper) nerf: frozen damage + half radius + 10-hit cap (user, 2026-06-27)
+
+The Mega slide nova used to track **live** `level.zombie_health` and ran through the global ×2.75 buff + the
++15% Mega Flopper bonus, so it one-shot trash at **every** round ("a single slide" forever) and read ~64k vs
+bosses. It now deals a **frozen** damage = a **round-16 normal-zombie's health** (solo **1851** = 950 × 1.1⁷;
+scaled by the co-op regular-HP mult so it holds in any lobby), dealt **raw**:
+
+- **One slide one-shots trash through round 16**, then takes **2 slides** (~r17–23), then **3** (~r24–27), as
+  zombies outscale the frozen value — exactly the requested "single slide until 16, then 2, then 3".
+- The nova now **bypasses** the `on_ai_damage` global ×2.75 + the whole bonus chain (new `attacker.acc_phd_nova_hit`
+  tag set around the `phd_explode` damage loop), so the frozen number is *exactly* what lands and can't balloon
+  past the breakpoint. Without this, the multipliers pushed the one-shot ceiling out to ~round 30.
+- **Half radius:** Mega slide/down nova `ACC_PHD_MEGA_EXPLODE_RADIUS` **500 → 250u** (base on-down stays 300u).
+- **10-zombie hit cap:** the Mega nova now damages at most **10 targets per slide** (`ACC_PHD_MAX_HITS` / dvar
+  `acc_phd_max_hits`, 0 = uncapped); the base on-down nova stays uncapped (it's a panic clear).
+- **Boss-safe:** the frozen value doesn't scale with round (~1851 solo on a 48k+ boss = chip), and the existing
+  **10% boss per-hit cap is still applied** on the bypass path. So PhD can't go crazy on bosses.
+
+Base PhD (on-down panic nova) is unchanged — still live round-scaled. New helper `phd_round_zombie_health()`
+mirrors stock `ai_calculate_health` (150 start, +100/round to r9=950, then ×1.1). Breakpoint is the live dvar
+`acc_phd_freeze_round` (16); the old `acc_phd_mega_dmg_mult` is retired. GSC-only (`-GscOnly`, no `.map` edit).
+Synced: [_acc_perk_phd_flopper.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc),
+[_acc_damage.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc), docs/13, docs/perk_abilities. xref lint
+clean. **Not yet built** — staged while the user is mid-playtest (building with BO3 open corrupts the zone).
+
+### Changed — Trench passive-income curve retuned (user, 2026-06-27)
+
+The seconds-between-passive-shard-grants per trench layer changed from **45 / 35 / 28 / 22 / 18** to
+**50 / 34 / 22 / 14 / 10** (L1→L5). L1 (Bus Station pit) is slightly slower (45→50s); every deeper layer is
+faster, with a steeper drop — L5 now pays 1 shard every 10s (was 18s). Net effect: shallow loitering is nudged
+down, deep diving is rewarded harder. Defaults + comments in
+[_acc_bus_trench.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc) `trench_income_interval`
+(dvars `acc_trench_income_l1`…`_l5`); docs/34 + docs/06 synced. GSC-only (`-GscOnly`, no `.map` edit).
+**Not yet built** — staged while the user is mid-playtest (building with BO3 open corrupts the zone).
+
+### Changed — Trench per-layer zombie scaling retuned down (user, 2026-06-27)
+
+Softened all three trench/abyss per-layer levers (each applies per depth layer 1–5, on top of normal round scaling):
+- **Speed** `+5% → +4%`/layer (`acc_trench_layer_speed_pct`, [_acc_zombie_speed.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_zombie_speed.gsc) `apply_speed_for_round`) → L5 +20% (was +25%).
+- **Health** `+50% → +30%`/layer, one-way (`acc_trench_layer_hp_pct`, `apply_trench_health`) → L5 +150% (was +250%).
+- **Melee** `+10 → +6` HP/layer, flat (`acc_trench_layer_dmg_add`, [_acc_bus_trench.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc) `trench_melee_scaled`) → base 45 now ≈51/57/63/69/75 per hit (was ≈55…95).
+- **Paradise inherits automatically** — its onslaught reads the same `paradise_buff_layer` / `apply_trench_health` / `trench_melee_scaled` path, no separate change. Docs [11](docs/11_enemies.md)/[34](docs/34_flags_reference.md)/[46](docs/46_trench_systems_guide.md) synced (also fixed docs 11/34 still showing the old +25% health). GSC-only.
+
+### Changed — Paradise gate cost now scales by player count (user, 2026-06-27)
+
+The communal Paradise door (`acc_abyss_hub_door`, the L5 gate into the final-onslaught hub) was a flat **100 Data
+Shards + 100,000 points**. Now it **scales with the live player count**: **solo = 50 shards + 50,000 points**, and
+**+25 shards + +25,000 points per extra player** — so 2p = 75/75k, 3p = 100/100k, 4p = 125/125k. Both pools stay
+communal (the team contributes-all; each pool draws down separately).
+
+Implemented like the abyss soul-box gates' `souls_needed` (same file): new `hub_cost_shards()` / `hub_cost_points()`
+helpers (dvars `acc_hub_door_shards_solo` 50 / `_per` 25 / `acc_hub_door_points_solo` 50000 / `_per` 25000; dev mode
+keeps the cheap 10 / 10k testable override). A new `hub_cost_watcher` (mirrors `soul_hint_watcher`) keeps the price —
+and the constant gate hint — aligned to the live count, then **locks it at the first contribution** so a
+partially-paid pool is never rescaled if someone dis/connects. Constant-hint / triggerstring-cap design preserved
+(re-sync only on count change = ≤4 strings). GSC-only (`-GscOnly`, no `.map` edit). Synced:
+[_acc_abyss_doors.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_abyss_doors.gsc) header + defines, docs/48.
+**Not yet built** — staged while the user is mid-playtest (building with BO3 open corrupts the zone).
+
+### Changed — Glitch Purge −20% aggressiveness (user, 2026-06-27)
+
+The sealed-room Glitch Purge (lockdown challenge) was nerfed **20% less aggressive**. The purge's aggression =
+how many Glitch Stalkers are **simultaneously hunting you at once** in the sealed room — the concurrent cap.
+`ACC_LDC_CONCURRENT_DEF` / `acc_lockdown_challenge_concurrent` **10 → 8** (−20% on-screen hunter density). At
+steady state the room sits at the cap, so 8-vs-10 is the felt pressure; this is the same lever the "super easy"
+fix raised `6 → 8 → 10` to make the purge *more* aggressive.
+
+Deliberately a **single lever, no compounding**: the kill **count** stays `round × 2` (that's objective *length*,
+not aggression) and the glitch **blink cadence / melee** stay put (they're shared with the regular Glitch Stalker —
+touching them would nerf the normal boss too). GSC-only, live-dvar-tunable (`-GscOnly`, no `.map` edit). Synced:
+[_acc_lockdown_challenge.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lockdown_challenge.gsc) #define + live-knobs
+header, docs/43. **Not yet built** — staged while the user is mid-playtest (building with BO3 open corrupts the zone).
+
+### Fixed — deep abyss stations are solid again (Glitch Altar + Overclock + both Ammo Crates) (user, 2026-06-27)
+
+The **Glitch Altar** (and the Overclock terminal + both Ammo Crates) were **walk-through**: GSC-spawned props get no
+collision unless a clip brush is added, but a deep worldspawn `clip` brush (below z−240) crashes the LED bake
+(`brush.cpp:1860`), so `add_prop_clips.js` had been *skipping* every abyss clip. (Pre-existing — at the last commit
+the altar already sat at deep L3 with no clip; not introduced by recent work.)
+
+Fix via the documented LED-exempt lever (memory `brushmodel-wall-led-exempt`): `add_prop_clips.js` now emits a deep
+clip as a **`script_brushmodel` entity** (which the lightmapper *ignores*) instead of skipping it, when its PROPS
+entry sets `brushmodel: true`. The 4 **abyss** stations are now clipped this way — Glitch Altar (L3 z−720), Overclock
+terminal (L2 z−480), Ammo Crate L2 (z−480), Ammo Crate L5 (z−1200) — snug to each model silhouette, solid to
+player/AI/bullets. The 4 **Paradise** stations stay walk-through for now (flip them by adding the flag).
+**FULL build + LED bake passed** (no `brush.cpp:1860`; fresh `.ff`) — the brushmodel entities bake clean.
+
+### Fixed — Crash-hunt pass: co-op thread leaks, disconnect-window CTD, boss soft-lock (user, 2026-06-27)
+
+A two-pass multi-agent crash audit of all 59 GSC/CSC modules (every finding adversarially verified) surfaced
+five runtime faults; all five fixed. GSC-only — `-GscOnly` build.
+- **Per-life thread leak (THE co-op slow-burn)** — [_acc_perks.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc)
+  `on_player_spawned` re-threaded `qr_regen_booster` (+ child `qr_damage_time_watcher`) and `savior_speed_watcher`
+  every respawn, relying on `self endon("death")` to kill the prior life's copies — but a BO3 **ZM player never
+  notifies `"death"`** (bleed-out routes to spectator; `"death"` only fires on disconnect). So every full-death
+  respawn permanently STACKED 3 loops per player — duplicate per-frame `setnormalhealth` + duplicate
+  `waittill("damage")` subscribers — growing for the whole run until the script VM degrades/exhausts (matches
+  "the longer we play the worse it gets, then it dies"). Fix: `player notify("acc_perk_life")` before re-threading
+  + `self endon("acc_perk_life")` on all three loops (the `acc_lui_life` per-life idiom).
+- **Same leak class in the HUD** — [_acc_lui.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc)
+  `maxammo_flash_watch` / `nuke_flash_watch` were missing `endon("acc_lui_life")` (their parent had it), leaking
+  one thread each per revive. Added the endon to both.
+- **Paradise Box disconnect-window CTD** — [_acc_glitch_altar.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc)
+  `paradise_box_loop` runs on the box trigger (so its `endon("death")` doesn't fire on a player leaving); after the
+  0.75s spin `wait` it derefed `player` (`weapon_give`/`PlaySound`/`.name`) with no re-check — a player disconnecting
+  mid-spin → method call on a freed entity → whole-session co-op fatal. Added an `isdefined/is_player_valid`
+  re-check across the yield (same fix as `_acc_overclocks::terminal_loop`).
+- **Electric Cherry froze bosses (boss-round soft-lock)** — [_acc_perk_electric_cherry.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perk_electric_cherry.gsc)
+  `ec_nova` dropped the stock `is_brutus` guard, so the ~4s `ignoreall` stun applied to bosses (always non-lethal
+  vs the nova) — reloading near a boss froze it most of the round. Now skips the stun for any `acc_is_boss`/
+  `acc_is_mini_boss` (bosses still take the shock FX + nova damage).
+- **Brutus respawn gate stuck-guard** — [_acc_boss.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc)
+  `watch_mini_boss_death` cleared `acc_brutus_active` only on the `"death"` notify; if the host were ever removed
+  without one, the Trench Warden could never respawn. Added `brutus_guard_failsafe` to release the gate if the
+  host is freed silently. (Latent hardening — no known live trigger today.)
+
+### Added — M60 S-tier wall-buy on Abyss Layer 5 (user, 2026-06-27)
+
+A second deep-abyss S-tier wall-buy, mirroring the AK-47 on L4 exactly. On the **L5 (bottom) south wall west
+jamb** (x=−400, y1725, z−1200): an **M60** wall-buy (1500), next to the bottom Ammo Crate before the Paradise
+door. Built the stock-pattern way (same as Five-Seven/Olympia/AK-47):
+- **`.map`**: a worldspawn chalk quad (`mtl_t6_wpn_lmg_m60_wall_chalk` — same bake-safe material.gdf class as
+  the AK-47/Five-Seven chalks) + a `weapon_upgrade` trigger struct (`zombie_weapon_upgrade t9_m60`) + a model
+  struct (`wpn_t9_m60_world`). The chalk is the AK-47 brush **translated −240u to L5** (t-coords are
+  decal-relative — verified identical between the Five-Seven and AK-47 chalks — so the winding is preserved =
+  bake-safe). Placed in the west jamb, clear of the centered doorway (x[−96,96]) and the far-west stairs.
+- **`_acc_map_randomizer.gsc`**: added `t9_m60` to the `remove_all_wallbuys` keep-list (else it'd be stripped).
+- Cost **1500** comes from the M60's existing `zm_levelcommon_weapons.csv` row (no CSV change). Docs/57 updated.
+- **FULL build + LED bake passed** (no `brush.cpp:1860` crash; fresh `.ff`), per the geometry-change gate — the
+  AK-47 deep wall-buy was the precedent that this would bake.
+
+### Changed — Co-op roster HUD: tiered health bar + one-row stats + gun-HUD cleanup (user, 2026-06-27)
+
+[_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc) + [acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua):
+- **Tiered health bar** — each roster row's bar is now THREE proportional segments (`make_hp_seg`/`update_hp_seg`,
+  0.4 px/HP): base 0–100 **green**, Jug 100–250 **darker green**, Mega 250–300 **dark green**, so you can see who
+  has Jug/Mega at a glance. Segments fill left-to-right and deplete right-to-left; base flips amber when ≤30 HP.
+  Tier bounds = `ACC_HP_TIER_BASE/JUG/MEGA` (100/250/300, a 5th Jug-numbers sync site).
+- **Player state by bar/name colour** — alive = green tiers, **downed = red**, **dead = gray** (dead players stay
+  on the roster, gray, until they respawn); the old "DOWNED" text was dropped.
+- **One-row stats line** — `$points  SH {shards}  EXO {e}  MB {m}` on a single row (was split across the stats +
+  perks lines). Each field can't share a `SetText` (unbounded score → `SetValue`; exact shards × EXO × MB would
+  overflow the 2048 'string' cache), so they're 4 hudelems flowed by a char-count estimate (`ACC_ROSTER_STAT_CHARW`).
+  The 3 hidden top-left shards/EXO/MB readouts were reclaimed to fund the extra elements.
+- **Gun HUD** — removed the background plate + accent strip + corner brackets (floats now); melee weapons (Action
+  Figure) show `-/-` instead of `0/0`.
+- **Pool note:** the roster is now 9 hudelems/row — heavy in full 4-player co-op; the Jug/Mega tier segments are
+  the first thing to trim if boss/event HUD ever fails to allocate. GSC + LUI only (`-GscOnly`).
+
+### Added — Lucky Clover boss item (drop-luck doubler + bonus power-ups) (user, 2026-06-27)
+
+- New **7th boss-pool item, "Lucky Clover"** [`_acc_boss_items.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc).
+  Drops like any other item (boss kills + the 0.4% zombie roll); implant it at the Plaza Implant Bench. Mirrors the
+  Loot Stash pattern: `apply_lucky_clover` sets a per-player flag, `player_has_clover()` is read at drop time.
+- **While implanted, the carrier's KILLS are luckier** (per-killer, so co-op players each run their own):
+  - Zombie **random-item** drop **0.4% → 0.8%** (×`acc_clover_mult`)
+  - Zombie **Mega-Bottle** drop **0.4% → 0.8%** (×`acc_clover_mult`)
+  - **+0.5%/kill** to force-drop a random power-up (full_ammo / insta_kill / double_points / nuke) at the corpse,
+    bypassing the stock per-round cap (`drop_clover_powerup_at`, mirrors `_acc_elites::drop_recursion_powerup_at`).
+- **Works during the Paradise finale** too (NOT gated out, per user). Bosses/mini-bosses still excluded from the
+  base zombie rolls. Live dvars: `acc_clover_mult` (2.0), `acc_clover_powerup_chance` (0.005).
+- **Placeholder model** = the **X2 power-up orb** (`p7_zm_power_up_double_points`, user "use the X2 for now") —
+  stock-runtime-loaded (no zone line, same path as the carpenter model the Repair Kit uses); the X2 reads as the
+  Clover's double-luck. Pickup hint still says "7 - Lucky Clover". Swap to a real clover model later.
+  Doc: [docs/12](docs/12_boss_items.md).
+
+### Changed — Abyss station layout finalized; ammo crates bookend the descent (user, 2026-06-27)
+
+Final abyss-floor layout in [_acc_glitch_altar.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc)
+`spawn_altars`: **L2 (−480)** Cyberware Overclock (west) **+ Ammo Crate (east)**, **L3 (−720)** Glitch Altar,
+**L4 (−960)** = the AK-47 wall-buy (no GSC station), **L5 (−1200)** **Ammo Crate** (bottom, before Paradise).
+So ammo refills **bookend** the dive — top up on entry (L2) and before the finale (L5). `spawn_crate_at` is just
+called twice (one model+trigger each). GSC-only (deep clips stay skipped/walk-through; no orphan walls). Synced
+docs/46, the clip bookkeeping in `add_prop_clips.js`, and the memory.
+
+### Changed — Area-name banner now shows in BOTH dev and normal play (was dev-only) (user, 2026-06-27)
+
+The top-center **area-name title** (e.g. `PLAZA`, `BUS STATION (TRENCHES LV2)`, `EXCHANGE BANK`) that reveals
+when you cross from one area to another was **gated behind dev mode** — `dev_player_hud_loop()` was threaded
+*below* the `acc_dev` gate in [_acc_dev.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc) `init()`, so
+normal-play sessions never saw it. **Fix:** the loop is now threaded **above** the gate (alongside the
+already-always-on crosshair damage numbers), so the banner is a permanent feature for **every player in both
+modes**. The only remaining dev-only piece is the "DEV MODE ACTIVE" confirmation line — its `IS_TRUE( level.acc_dev )`
+guard inside `ensure_dev_huds` is now load-bearing (keeps just that line dev-only). Behavior unchanged otherwise:
+5s reveal + fade on the surface, held the whole time you're underground (it's pitch-black down there). No new
+HUD element (the same single per-player `acc_dev_zone_hud` font string, now created for everyone). Docs/49 synced.
+GSC-only build. Follow-up done same day (user "yes I want it"): added a **`PARADISE`** title — `dev_get_player_area`
+now returns `"paradise"` via the existing `acc_bus_trench::player_in_second_part()` detector, `dev_area_name`
+renders it, and `dev_update_zone` holds it **persistently** (like the trench) since Paradise is the dark/foggy
+finale where a 5s fade gets missed. So every area a player can reach — surface zones, Exchange, trench/abyss
+L1–5, and Paradise — now titles correctly for both modes.
+
+### Changed — Abyss stations: one per floor (Ammo Crate → L3, Glitch Altar → L4) (user, 2026-06-27)
+
+Spread the descendable abyss stations so **every floor has a reason to go deeper** (was: L2 doubled, L4 empty).
+In [_acc_glitch_altar.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc) `spawn_altars`:
+- **Cyberware Overclock** stays on **L2** (z=−480, west).
+- **Ammo Crate** L2 east → **L3** (z=−720, west).
+- **Glitch Altar** L3 → **L4** (z=−960, west; above the −1000 below-world cull, so no failsafe needed).
+
+All three sit on the guaranteed-solid west slab (x[−781,−112], y=1948) per `gen_abyss_layer.js`. GSC-only (the
+abyss floors are already baked). Descent loop: earn in the pit → Exo up top → OC L2 → Ammo L3 → Altar L4.
+Docs/46 station table synced.
+
+### Fixed — Ammo Crate no longer services the Action Figure (user, 2026-06-27)
+
+The Action Figure (melee special, no ammo) could slip past the crate's "no PaP form" gate because
+`make_actionfigure_packable` points its `level.zombie_weapons[w].upgrade` at **itself** (so the PaP machine
+shows). Added an explicit name-based exclude in [_acc_ammo_crate.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_ammo_crate.gsc)
+`crate_cost` (`t8_melee_figure` / `t8_actionfigure_melee` → 0), so the crate says "this weapon can't be
+refilled here" and charges nothing. GSC-only.
+
+### Changed — Action Figure: removed the cleave; PaP will scale SWING SPEED instead (user, 2026-06-27)
+
+The Action Figure's per-PaP-tier **cleave / multi-hit** (extra nearby zombies one-knifed per swing) is **removed** —
+it now **always one-knifes a single regular zombie**, every swing. The new direction (user): **PaP scales SWING
+SPEED**, not targets — **+100% / +200% / +300%** swing rate at tiers 1/2/3 (`fireTime ×0.5 / ×0.33 / ×0.25`).
+Code: deleted `actionfigure_cleave` + `actionfigure_cleave_count` (and the `acc_af_cleave_radius` dvar) from
+[`_acc_damage.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc); the one-knife gate now uses a
+`is_action_figure_weapon()` helper (covers the base figure, its off-hand sibling, and the coming `_fast1/2/3` speed
+twins). **Speed twins are WIP** (they require cloned weapon GDTs — an external-asset build that gambles our last ~6
+twin slots vs the ~230 boot cap), so for **feel-testing right now the base figure is set to the max test speed**
+(`fireTime 0.2125` = 4× / +300%) — swing it cleave-free to judge whether faster `fireTime` reads as a faster knife
+on this port before the per-tier twins are built. Dev now starts you with the Action Figure (was a packed Chicom) and
+dev mode is hardcoded ON. GSC + figure-GDT only.
+
+### Fixed — EE jukebox: swapped the two edge bears' titles (user, 2026-06-27)
+
+The LEFT and RIGHT teddy-bear "NOW PLAYING" banners were on the wrong songs. Swapped the two title strings in
+[_acc_ee_song.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc) `init`: LEFT (`acc_ee_song_2`) now
+shows **"Night Groove"**, RIGHT (`acc_ee_song_3`) now shows **"I Want To Stay At Your House"** (center
+unchanged — "Cyber Dreams"). Audio aliases are untouched; only the displayed titles moved. Docs/46 synced.
+GSC-only build.
+
+### Added — Regular zombies can drop items / Mega Bottles (0.4% each) (user, 2026-06-27)
+
+- Every **regular (non-boss) zombie death** now independently rolls two small drops in a new zombie death-event
+  callback [`_acc_boss_items.gsc::on_zombie_death_drop`](scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc):
+  - **0.4%** → a random pool **item** drops at the corpse as a **free-for-all** world pickup (same pickup/grab/
+    duplicate handling as a boss item).
+  - **0.4%** → ONE Empty **Mega Bottle** granted **directly to the killer only** (not a shared/world drop), via
+    `acc_mega_bottles::grant_bottle`.
+- **Bosses + mini-bosses are excluded** (they keep their own guaranteed drops via `on_boss_death`), so a boss kill
+  never double-dips. Elites + the regular horde are eligible.
+- Both rates are **live dvars** (no rebuild): `acc_zombie_item_drop_chance` / `acc_zombie_bottle_drop_chance`
+  (defaults `0.004` = 0.4%). Raise to make drops more common. Doc: [docs/12](docs/12_boss_items.md).
+
+### Fixed — LED bake crash from DEEP prop clips (fullbright `.ff`) (user, 2026-06-27)
+
+**Bug:** the full build's **Radiant LED bake CRASHED** (`exit 0xC0000005` / `brush.cpp:1860`), leaving a
+**stale lightmap on a fresh BSP = fullbright** — the gate-failing state the LED bake exists to catch. Root
+cause: **7 deep worldspawn `clip` brushes** that had accumulated in [tools/add_prop_clips.js](tools/add_prop_clips.js)
+for abyss/Paradise props (`ammo_crate`, `overclock_terminal` at `z=-480`; `glitch_altar_l3` at `z=-720`;
+`paradise_altar`/`_overclock`/`_exo`/`_perk_vendor` at `z=-1200`). Every other prop clip is **shallow**
+(`z[-240,-160]`, the trench floor) and bakes clean; a deep world-brush `clip` **inside the enclosed,
+sealed abyss layers** is the known lightmapper killer (memory `led-relight-dead-end-enclosed-geometry`).
+
+**Fix:** `add_prop_clips.js` now **skips any clip whose bottom is below the `-240` floor** at emit time
+(robust against the entries being re-added — the skip is in the emit loop, not the data), with a console
+warning pointing to the real fix. The `.map` was regenerated (12 shallow clips kept, 7 deep skipped) and a
+**full build with LED bake now passes**: `.led` (14:25:55, 70.4 MB) newer than `.d3dbsp` (14:25:33),
+no crash, `.ff` 46.07 MB.
+
+**Trade-off / follow-up:** the 7 deep props are **walk-through** until their collision is re-authored as a
+**`script_brushmodel`** (LED-**exempt**) + a GSC `solid()` pass — the exact pattern the mystery-box clips use
+(`acc_box_clip_*` + `_acc_map_randomizer::solidify_all_box_clips`, which notes *"script_brushmodel clips are
+solid by author-default"*). A `script_brushmodel` can't be a pure-tool fix (worldspawn-brush emitter), so the
+deep-floor collision is flagged for the agent who owns the abyss/Paradise props. Build: full cod2map+LED+linker.
+
+**Verification + cleanup (same pass):** a 13-agent audit cross-checked every clip against its **live** GSC spawn
+origin (decoding the actual `.map` brush planes) — all 12 props **ALIGNED**, no drift (the stale `(230,1450)`
+header comment was just text; code uses `(-120,1550)`), `.map` braces balanced, 5 shallow present / 7 deep absent.
+Two small fixes fell out: (1) the tool's summary log printed `PROPS.length` (`"12 … injected"`) when only 5 are
+actually injected — now prints the true count (`"5 of 12 … 7 deep skipped"`). (2) **`exo_station` clip extents
+swapped `hx30/hy18` → `hx18/hy30`**: that work table spawns at yaw 90, so its ~60-long axis runs along Y; the old
+footprint was the un-rotated one (90° off, poked out the long sides). The yaw-0 Paradise twin keeps `30/18`.
+Re-baked clean. (Flip back if the table reads wrong in-game — the model's native facing is the one unknown.)
+
+### Fixed — Boss HP now compounds with the round (Brutus + Phantom died too easy late) (user, 2026-06-27)
+
+**Bug:** late-game bosses melted because their HP didn't keep up with the zombie curve. Zombies compound
+**×1.1/round** (from round 10); the **Phantom didn't scale at all** (flat `ACC_PHANTOM_HP` × coop, same HP
+at round 10 and 40), and **Brutus** only grew **+6%/round simple** — so their lead over trash collapsed
+(by round 50 the Phantom was barely tougher than one zombie).
+
+**Fix:** both bosses now **compound per round** at a tamer exponent than zombies, pegged to their tuned debut
+HP so early game is unchanged:
+- **Brutus** ([_acc_boss.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc) `scale_mini_boss_hp`):
+  `48,000 × 1.08^(round−5)` → solo r10 **70.5k** / r20 **152k** / r30 **329k** / r40 **710k**.
+- **Phantom** ([_acc_boss_phantom.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc) new
+  `scale_phantom_hp`): `56,000 × 1.06^(round−10)` → solo r10 **56k** / r20 **100k** / r30 **180k** / r40 **322k**.
+- Brutus uses the **higher exponent (1.08 vs 1.06)** so it's always tankier than the Phantom and the gap
+  widens each round (r10 +26% → r40 +121%), per user intent. The logarithmic co-op multiplier
+  (`boss_hp_player_mult`: 1p ×1.0 / 2p ×1.5 / 3p ×1.79 / 4p ×2.0) still applies on top, unchanged.
+
+New live dvars: `acc_boss_mini_hp_exp` (replaced `acc_boss_mini_hp_round_pct`), `acc_phantom_hp` /
+`acc_phantom_hp_exp` / `acc_phantom_hp_anchor`. GSC has no `pow` builtin, so each uses a small
+integer-exponent loop (same as stock `ai_calculate_health`). The 10%-of-maxHP per-hit boss cap still applies.
+Docs synced: docs/11, docs/34. GSC-only build.
+
+### Changed — Reactor Surge reward: Insta-Kill → Fire Sale (user, 2026-06-27)
+
+The shared power-up dropped on a successful Reactor Surge is now a **Fire Sale** instead of an Insta-Kill (the +5 Data
+Shards per player is unchanged). One-line functional swap in
+[`_acc_reactor.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc) `reactor_succeed` —
+`specific_powerup_drop("insta_kill", …)` → `("fire_sale", …)` (`fire_sale` is a registered stock power-up, the entry
+script already `#using`s `_zm_powerup_fire_sale`; no new import). UI updated to match: the plinth **hint** ("…+ Fire
+Sale") and the **REACTOR STABILIZED** success message. Docs synced: 34 (`acc_reactor_reward`), 46 (trench guide), 57
+(player guide ×2). GSC-only.
+
+### Fixed — Roster shard count showed floored-to-10 (looked like a shard drain) (user, 2026-06-27)
+
+The squad-roster shard readout floored to the nearest 10 (`shards - shards % 10`) — so 13 showed "10", 19
+showed "10", and it jumped to "20" at 20, dropping the ones digit. A Glitch-Altar "Double Points" win made it
+look like the altar drained shards, but shards were never touched (the altar correctly charges 2/spin). The
+floor was a string-cache hack (exact shards × EXO in one SetText = ~5,500 unique strings > the 2048 cap). **Fix**
+([_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc)): show shards **exact** and move
+EXO (and MB) to the perks line, so the shard string is just `"Sh N"` (≤501 unique) — cache-safe, **no new
+hudelem** (the roster pool is at its limit). GSC-only.
+
+### Changed — God mode: damage = 0 but per-hit effects still fire (user, 2026-06-27)
+
+God mode used `EnableInvulnerability`, which blocks the **entire** player-damage event — so the EMP debuff,
+trench melee scaling, and Phantom interactions never ran while godded. Reworked: removed the `acc_god_watch`
+invuln loop; god is now enforced in [_acc_elites.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc)
+`on_player_damaged`, which **returns 0 damage** after the per-hit effects have already fired. Zombie melee, boss
+hits, and `DoDamage` all route through that callback, so it stays death-proof, while the Phantom chain slow and
+melee effects now apply. Normal play (`acc_god` off) is unchanged. GSC-only.
+
+### Added — Trench ammo crate (abyss L2, opposite the Overclock terminal) (user, 2026-06-27)
+
+A buyable ammo refill in the trench Lv2 room. The Cyberware Overclock terminal sits **west** at `(-400,1948,-480)`;
+the new **ammo crate sits east** at `(400,1948,-480)`, mirrored across the central stairwell (right where the L1 stairs
+land). Walk up, hold `[activate]`, and your **held** weapon's reserve is topped off (personal Max Ammo). **Pricing by
+PaP state** (user): **1000** for a base gun, **5000** if it's Pack-a-Punched. A weapon with **no PaP version**
+(melee / equipment / no-pack specials) **can't be serviced** — the crate says so and charges nothing. Detection uses the
+same gates as the rest of the PaP pipeline: stock `zm_weapons::is_weapon_upgraded` for "is it PaP'd", and
+`level.zombie_weapons[base].upgrade` for "does it have a PaP version" (the `_acc_weapon_variants` test). Refill =
+`GiveMaxAmmo` (reserve; magazine tops off on reload, like the stock Max Ammo powerup). New module
+[`_acc_ammo_crate.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_ammo_crate.gsc) (script-spawned model +
+`trigger_radius_use`, mirroring `acc_overclocks::spawn_terminal_at`), spawned by `_acc_glitch_altar::spawn_altars`.
+Live dvars `acc_ammo_crate_base` / `acc_ammo_crate_pap`. Uses the **same model `p7_cai_stacking_cargo_crate` as the
+underground Data Cache shards crate**, and is **solid** with the **same 56×56×48 clip** (user: "same model clip as the
+shards crate") — added via `tools/add_prop_clips.js`, which gained a per-prop `bot` (z-base) override so the clip sits on
+the **deep L2 floor (z=-480)** rather than the hardcoded z=-240 pit. The **Overclock terminal opposite it was also
+re-clipped** (user follow-up: "the overclock kiosk should have a clip too") — it had been a walk-through orphan since it
+moved off the z=-240 Foundry floor (its old clip was stripped to avoid an invisible wall); re-homed to L2 with the same
+60×68×80 `ticket_kiosk_theatre` dims via the new `bot`. Then the **last walk-through interactables were clipped too**
+(user follow-up: "add clips to those") — the **L3 Glitch Altar** (z=-720) and the **four Paradise kiosks** (Altar /
+Overclock / Exo / perk vendor, z=-1200), each reusing its model's snug dims (ticket-kiosk 60×68×80, work-table 60×36×80,
+sign-kiosk 48×18×64 thin slab; the sign kiosks spawn yaw 0 → thin in Y, matching the reactor/perk-vendor clips; floating
+core orbs stay decorative/no-clip). 12 prop clips total now. **Full build with LED bake passed every time** (`.led`
+recomputed fresh, between BSP and `.ff`; no `brush.cpp:1860`). Docs: 48, 34. ⚠ L2..L5 bake pitch-black, so like the
+Overclock kiosk the crate doesn't self-glow — if it's hard to find in-game we'd add a bake-gated light.
+
+### Changed — Room-name banner back to DEV-ONLY + two safe audit hardening fixes (user, 2026-06-27)
+
+- **Top-center area-name banner reverted to dev-only** (user: "all 6 clips UI showing in non dev mode … shows
+  right when you spawn in"). `dev_player_hud_loop` (the PLAZA / MARKET / LAB / … room title at top-center) was
+  threaded ABOVE the dev gate so it showed for every player in normal play; it read as leftover dev/log clutter.
+  Moved the thread BELOW the `if (!IS_TRUE(level.acc_dev)) return;` gate in
+  [`_acc_dev.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc) `init()`, so normal play shows no top-center
+  banner; dev still shows it. The always-on crosshair damage-number feed (line 53) is unaffected. To re-ship the
+  room banner to all players, move the thread back above the gate.
+- **`spawn_elite` init-wait cap (F20).** Added the `n < 100` iteration cap + post-loop bail that the four sibling
+  spawn-init loops already use (`_acc_boss_glitch`/`_acc_reactor`/`_acc_paradise`/`_acc_boss_phantom`), so a
+  culled/never-init elite spawn can't tie up the spawn thread for the rest of a round.
+  [`_acc_elites.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc). (Already bounded by
+  `endon("acc_round_end")`; this just bails cleanly. Established pattern, no behavior change in the normal case.)
+- **Paradise `gather_stragglers` deterministic fan-out (F39).** Stragglers pulled into the finale were teleported
+  onto a RANDOM ring angle, which could stack two players inside each other's capsule → engine ejection → a
+  teammate punted OOB and killed by decontamination. Now collected first and fanned onto an evenly-spaced ring
+  (`ang = i*360/n`), same dest + 48u radius. [`_acc_paradise.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc).
+  Matches the project's `coop-teleport-fan-out` rule.
+
+### Fixed — 3rd EE song cost 15000 → 1500 (typo, user 2026-06-27)
+
+The trench teddy-bear jukebox's 3rd song charged **15,000** points (an extra zero); intended **1,500**.
+`ACC_EE_COST_3` 15000 → 1500 in [_acc_ee_song.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc)
+(dvar `acc_ee_song_cost_3` default; no override elsewhere). Order-based jukebox price is now **500 / 1000 /
+1500**. Synced the two in-file comments, docs/46, and memory `music-channel-and-jukebox`. GSC-only build.
+
+### Fixed — Soul-box hint now matches the live cost (UI ↔ code alignment) (user, 2026-06-27)
+
+The abyss soul-box floating hint ("[bank N souls]") could disagree with the actual bank requirement. `souls_needed(layer)`
+scales by `GetPlayers().size` (first gate 125/player, deeper gates 50/player → deeper = **50 solo, 200 at 4p**), and the
+**per-kill check evaluates it live**, but the **hint was set once at door creation** — so in co-op (or after a dis/connect)
+the displayed goal could read e.g. 50 while the code actually required 200. Added `soul_hint_watcher` in
+[`_acc_abyss_doors.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_abyss_doors.gsc) that re-runs `soul_update_hint` for the
+open doors **only when the player count changes** — a tiny bounded set of strings (≤16), so it stays far under the
+250-`triggerstring` cap that forced the original snapshot (never re-set per kill — that was the overflow). The values
+themselves were already correct/as-designed; this just keeps the **UI showing exactly what the code requires**. GSC-only build.
+
+### Fixed — Perk-twin ammo drift: handling perks silently changed clip/reserve (user, 2026-06-27)
+
+**Bug (reported live):** getting a handling perk (Mega Deadshot=recoil, Gun Slinger=fast-fire, Speed
+Cola=fast-reload) swaps the held gun to a perk-**twin**, and the twins carried the **wrong ammo** — usually
+the pristine **uncut** clip/reserve, sometimes lower. E.g. Tac-19 jumped clip 3→6 / reserve 27→72; ASM1 clip
+22→32; RW1 was badly broken (clip 8→**1**, reserve 7→**40**). **Root cause:** `apply_recoil_overhaul.js`
+generates the twins from the **pristine** base GDT, but `reduce_base_ammo.js` (+ RW1 CLIP_FIX / Olympia
+MAXAMMO_FIX) only cut the **install** base/`_up` blocks — never the twins in `acc_weapon_variants.gdt`.
+
+**Audited all 32 twin forms** (`scratchpad` audit) → 10 guns drifted on ammo: Tac-19, ASM1, AE4, MK14,
+Galil, MORS, Olympia, RW1, PPSH-41, Paladin (+ a residual Five-Seven `startAmmo`). New tool
+[tools/fix_twin_ammo_drift.js](tools/fix_twin_ammo_drift.js) SETs every twin's `clipSize`/`maxAmmo`/`startAmmo`
+to its canonical install form (231 fields across 147 twin blocks). Re-audit = **0 ammo drift** (only the
+intentional Gun-Slinger fast-fire `fireTime` diffs remain). Damage was already consistent.
+
+- GDT-only → `gdtdb /update` (done by the tool) + `-GscOnly` linker. Clean `.ff`.
+- **PIPELINE FIX (prevents recurrence):** the canonical post-port order is now
+  `apply_recoil_overhaul.js → reduce_base_ammo.js → fix_twin_ammo_drift.js → remove_ppsh_pap_optic.js →
+  rebalance_pap_forms.js → gdtdb/build`. The first two reset base + regenerate twins, so the last three
+  must always re-run after them (documented in each tool header + memory `pap-per-form-stat-tuning`).
+
+### Changed — Workshop thumbnail = real gameplay screenshot (user, 2026-06-27)
+
+Replaced the `zone/previewimage.png` placeholder (was 600×340) with a **512×512** thumbnail cropped from an
+in-game screenshot (the perk-machine lineup + Chicom, HUD roster cropped out). Centered square crop →
+HighQualityBicubic downscale via System.Drawing; written to the repo **and** the deployed
+`usermaps\zm_abandoned_cyber_city\zone\previewimage.png` (the absolute path `workshop.json` already points at).
+Satisfies docs/55 §B3 (512×512). No code/build change — publish picks it up via the Launcher (re-publishing
+updates the same item, PublisherID 3751124295).
+
+### Fixed — Co-op crash/lag-out audit: PaP/Overclock disconnect CTDs, PaP pre-power CTD, string-cache feeders (user, 2026-06-27)
+
+Multi-agent crash audit (78 agents over all ~28.9k lines, every finding adversarially verified) targeting the
+reported "almost every co-op session crashes or someone lags out." Applied the confirmed, reachable crash fixes
+(the user-selected scope). GSC-only build OK, fresh 46 MB `.ff`.
+
+- **Overclock terminal: disconnect-during-redraw CTD.** `terminal_loop` calls `player replay_pack_draw()`
+  **inline** on the shared trigger thread (whose only `endon` is the TRIGGER's `"death"`), then reuses `player`
+  on the next line. A disconnect/timeout during the multi-frame empty-handed redraw window made that a method
+  call on a freed entity → fatal script error → whole-session CTD. Added an `isdefined(player)` re-validation
+  after the redraw. [`_acc_overclocks.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_overclocks.gsc) (~L325).
+- **Pack-a-Punch: same disconnect window (higher frequency than the terminal).** `acc_do_first_pack` /
+  `acc_do_tier_up` run as `player thread` but lacked `self endon("disconnect")`, so a disconnect mid-pack
+  resumed on a freed player (`minus_to_player_score` / `fill_full_ammo`) → CTD. Added `self endon("disconnect")`
+  to both (player-threaded, so the endon only aborts that player's own pack).
+  [`_acc_pap_levels.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc).
+- **Pack-a-Punch before power: undefined-cost CTD.** Stock sets the PaP trigger `.cost` only after
+  `Pack_A_Punch_on`, but power ships OFF behind the manual dual-switch and everyone spawns with a packable
+  tier-0 gun, so the price keeper compared `t.acc_saved_cost` (= undefined `t.cost`) `< ACC_PAP_STOCK_FIRST_COST`
+  — a relational compare on undefined = fatal — the moment anyone walked within 130u of PaP pre-power. Guarded
+  with `isdefined(t.acc_saved_cost)` (falls through to the per-gun first-pack price). `_acc_pap_levels.gsc` (~L233).
+- **String-cache (2048 'string' BG-cache) feeders → gradual CTD in long games.** Two `SetText` paths embedded
+  unbounded/high-cardinality numbers (each distinct string permanently burns a never-freed cache slot — the
+  `Exceeded 2048 items for type string` class this map hit before): The Exchange deposit/withdraw toasts baked
+  the ever-climbing `vault: <total>` into the text (dropped → bounded per-press amount only,
+  [`_acc_transfer.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc)); the co-op squad roster baked the
+  live shard count `[0..500]` × EXO tier into 4 simultaneously-rendered rows (~5.5k possible strings) — floored
+  the displayed shards to the nearest 10 (~561 strings) rather than adding a SetValue elem (the hudelem pool is
+  already near-exhausted). [`_acc_health_bars.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc) (~L470).
+- **Audit backlog (not yet applied, user-deferred):** dev+god mode is HARD-CODED on (masks the down/revive
+  crash family + ship-unsafe); Reactor-surge actor-pool stall (round-freeze/lag-out, 6-actor headroom); Paradise
+  `gather_stragglers` random-ring teleport stacking; and 5 latent FATALs in the disabled Avogadro module
+  (gate before re-enabling). See the audit summary in conversation.
+
+### Changed — Exchange Bank: 1000/10 deposit increments (clean 10% tax) + swarm removed (user, 2026-06-27)
+
+- **Deposit increments → 1000 Points / 10 Shards** so the 10% tax is **exact**: `acc_vault_points_inc` 250→**1000**
+  (tax = 100), `acc_vault_shards_inc` 25→**10** (tax = 1). No more whole-tens rounding wobble. Both deposit +
+  withdraw use the same per-press chunk. [`_acc_transfer.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc).
+- **The vault swarm was REMOVED** (user: "just remove the spawns in the exchange room, they just cause issues").
+  Deleted `vault_swarm_loop`/`vault_surge`/`count_vault_zombies`/`get_vault_risers` + the init thread from
+  [`_acc_bus_trench.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc). The bank is a safe-ish utility
+  room again — the only zombies down there are the normal horde that follows you down. GSC-only build OK, 46 MB `.ff`.
+
+### Changed — The Exchange Bank: gentle stairs, step-off landing, room name + a vault swarm (user, 2026-06-27)
+
+Four in-game fixes after a playtest of The Exchange.
+
+- **Gentler stairs (no more sliding).** The 16/16 (45°) stairwell made you slide; re-pitched to **10-rise / 16-run**
+  (~32°, the trench's pitch) over 15 treads, drop reduced 240→**160** so the gentle run fits + leaves ~144u
+  headroom. [`gen_plaza_basement.js`](tools/gen_plaza_basement.js) (`STEP_RISE`/`STEP_RUN`; vault `z=-160`).
+- **Bottom now steps off into open floor (zombies can leave).** The stairs no longer dead-end at the west wall —
+  the well stops ~100u short (x1=-620), leaving an open vault **LANDING** (x[-720,-620]) so the bottom tread
+  steps off WEST into open floor (the abyss "never end at a wall" rule), with a lab-level west wall above it so
+  nobody falls in from the lab. Door doorway moved to x=-380; GSC origin `(-380,-376,50)`; station heights → z=-160.
+- **Room name "EXCHANGE BANK"** + **the room-name banner now SHIPS in normal play** (user 2026-06-27). The
+  top-center area banner ([`_acc_dev.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc) `dev_player_hud_loop`)
+  was gated behind `acc_dev` only because it used to share a loop with a removed dev damage panel. Moved the
+  `level thread dev_player_hud_loop()` **above** the dev gate in `acc_dev::init` so **every player** sees room
+  names (PLAZA / MARKET / LAB / … / **EXCHANGE BANK** / trench levels) on entry in normal play; only the "DEV MODE
+  ACTIVE" confirmation stays dev-gated. Added the `player_in_vault` → `"exchange"` → "EXCHANGE BANK" case. (There
+  is no *separate* shipped room-UI — the only other non-dev area text is the decon "EVACUATE" warning + "Welcome to PARADISE".)
+- **It swarms now.** New `vault_swarm_loop`/`vault_surge`/`get_vault_risers` in
+  [`_acc_bus_trench.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc): while any player is in the vault,
+  force-spawns zombies from 9 nav-snapped vault-floor risers (`riser_location`/`find_flesh` + `tag_trench_zombie`'s
+  below-volume melee fix — the trench pit-eruption recipe, since the vault is below every player_volume + excluded
+  from `underground_layer`). Not a wave system — a steady eruption up to a cap. Live dvars `acc_vault_swarm_on` (1),
+  `_interval` (2.0), `_count` (5), `_cap` (28). **LED bake BAKED (23s); full build OK, fresh 46 MB `.ff`.** Needs
+  walk-test: no slide, zombies disperse off the bottom, the bank actually swarms.
+
+### Changed — Tier-2 (PaP) form rebalance: 6 guns retuned (user, 2026-06-27)
+
+Per-gun **packed-form** rebalance using the Tier-2 transform as the lever — bad guns get a bigger T2 jump,
+strong guns get reined in. All edits are on the weapon's own `_up` (or base) GDT stats, so they hit ONLY
+the targeted form (the shared `acc_weapon_balance_mult` can't isolate a form). New re-runnable tool
+[tools/rebalance_pap_forms.js](tools/rebalance_pap_forms.js) applies them to the install base/`_up` blocks
+**and** all 7 perk-twin blocks per gun (so the change holds with/without Deadshot/Gun Slinger/Speed Cola),
+then deploys the twin GDT + runs `gdtdb /update`. Verified live via `dump`/`distinct` GDT reads.
+
+| Gun | Form | Change |
+|---|---|---|
+| **RPD** | `_up` | **+20% damage** 390→468 (min 375→450) + **~15% fire rate** (fireTime 0.08→0.0696 / fast-fire twin 0.0552→0.048; RPM 750→862, 1087→1250). "Bad gun → strong once packed." |
+| **Tac-19** | `_up` | **−20% damage** (per-pellet 217→174); pellets/clip/reserve unchanged |
+| **Five-Seven** | `_up` | **+30% damage** 350→455 (min 320→416); **+30% clip & reserve** (21→27 / 147→189) |
+| **Five-Seven** | base | **+30% clip & reserve** (14→18 / 56→72) — also buffs the starting pistol + Lab wall-buy |
+| **MORS** | `_up` | damage **2000→1500** (min 1000→750, keeps 50% falloff ratio) |
+| **AK-74u** | `_up` | **+20% damage** 260→312 (min 250→300) |
+| **Chicom CQB** | `_up` | **−20% reserve** (maxAmmo 8→6 ⇒ 448→336; closest whole-magazine to −20%, user-chosen over 392/−12.5%) |
+
+- **PaP prices + mystery-box rarity deliberately UNCHANGED** (user choice): `compute_gun_tiers.js` was NOT
+  re-run, so `pap_price_bucket`/`acc_box_weight` stay exactly as-is (RPD stays cheap **3k/4.5k/6k** + common
+  **~10.6%** but is now S-tier once packed; Tac-19 stays TOP-price + rare but 20% softer). The `GUNS` table in
+  `compute_gun_tiers.js` is now intentionally **stale on power** for these 6 — do not regenerate docs/54 unless
+  you mean to re-rank the economy.
+- **Incidentally fixed:** Five-Seven's perk-twins had **uncut ammo** (clip 30/20 vs the base form's 21/14) —
+  now uniform at the new 27/18. The same pre-existing twin ammo-drift still exists on **Tac-19** (twin clip 10
+  vs base 6) and **MORS** (twin reserve 90 vs base 72) in fields this pass didn't touch — flagged for a future
+  cleanup, not changed here.
+- GDT-only → `gdtdb /update` (done by the tool) + `-GscOnly` linker. No geometry/LED. Clean `.ff`. **RE-RUN
+  `rebalance_pap_forms.js` after `apply_recoil_overhaul.js` / `reduce_base_ammo.js`** (they reset the base GDT +
+  regenerate twins, reverting this), same as the optic/ammo tools.
+
+### Fixed — Zombies wouldn't path to the player + duplicate-Exchange-door crash (user, 2026-06-27)
+
+Two bugs surfaced after the 08:02 plaza-shrink/Exchange `.map` rewrite. **(1) Duplicate Exchange door
+crash:** the `.map` shipped the `enter_exchange` door DUPLICATED — two `zombie_door` trigger_use + two
+`acc_door_exchange` slabs (identical GUID, a `gen_plaza_basement` copy-paste). `zone_door_buy_loop`'s
+`GetEnt("acc_door_exchange")` FATAL'd ("getent used with more than one entity", confirmed in
+`console_mp.log`) and killed the door thread. Added `acc_dedupe_exchange_door()`
+([zm_abandoned_cyber_city.gsc](scripts/zm/zm_abandoned_cyber_city.gsc), runs first in `main()` next to the PaP
+dedupe) — renames surplus slabs off the GetEnt key and disables surplus triggers, self-heals every load.
+**(2) Zombies stood still / wouldn't target the player:** the navmesh deployed at 08:03 (built right after the
+geometry edit) was **bad** — zombies acquired the player as enemy (`e=1 fav=1`) but had **no path** to them, so
+they froze ~220u away; opening the implant→Exchange doors gave the navmesh its only working bridge. Root cause:
+that build regenerated a botched `_navmesh.hkt`, and subsequent `-GscOnly` builds **reuse** the navmesh so they
+couldn't fix it. A clean **full** `build_map.ps1` (cod2map64 with cwd=`bin` → fresh BSP + navmesh + LED bake)
+regenerated a correct navmesh and zombies path normally again. Diagnosed with a temporary dev `[targdbg]`
+readout (player + nearest-zombie coords to `console_mp.log`), since removed. Ruled out (multi-agent + log):
+god mode, Cyberware Ghost Protocol (kiosk gated off by `acc_cyberware_on`, unreachable in dev), and all
+this-session script changes — none touch targeting. GSC + full geometry build.
+
+### Fixed — The Exchange v2: enclosed staircase + enlarged lab + the dead door (user, 2026-06-27)
+
+The first Exchange was broken on two counts the user hit in-game: "a big square block in the middle of
+the room" and "I can open a door but it doesn't do anything." Both fixed.
+
+- **Root-cause: the door was dead from a generator bug.** [`gen_plaza_basement.js`](tools/gen_plaza_basement.js)
+  emitted the buyable-door entities **top-level**, but its old `strip()` only removed single-level **leaf**
+  brushes — so re-running it (which I did, twice) left the door **entities duplicated** and stripped their
+  inner brush, leaving an **empty shell**. `acc_dedupe_exchange_door` then kept the empty shell as the live
+  `acc_door_exchange`, so buying hid a brushless phantom (a no-op) while the real slab stayed **solid
+  forever**. `strip()` v2 now removes **every** block carrying this generator's `7A2BAE0` GUID — leaf world
+  brushes inside worldspawn, top-level door/light entities, **and** orphaned shells — keeping worldspawn and
+  re-emitting exactly **one** trigger + **one** slab (verified: 1 / 1, no `_dupe`). The de-dupe is now a no-op.
+- **Redesign: enclosed staircase, not a railed pit.** The "big block" was the well's 128u opaque railing
+  ring around an open pit dropped into a 360×300 room. v2 **enlarges the Implant Lab WEST** to x[-720,-40]
+  ([`gen_plaza_shrink.js`](tools/gen_plaza_shrink.js): west wall -400→-720, north wall extended; benches +
+  doorway unchanged, self-check clean) and rebuilds the descent as an **enclosed staircase room** in the new
+  SW corner: the stairwell well (now x[-720,-496], flush against the west wall) is wrapped in **full-height
+  (z[0,256]) N/S walls + a doorway on the EAST face** so it reads as a basement stairwell. The vault extends
+  west (x[-720,300]) to meet the stair bottom; stations unchanged. Door origin → `(-496,-376,50)`; OOB
+  `origin_in_vault` box widened to x[-740,320]. **LED bake: BAKED (17.8s); full build OK, fresh 46 MB `.ff`.**
+- **NEEDS WALK-TEST**: buy the door, confirm the slab vanishes and you descend; benches reachable in the
+  bigger room; zombies path the stairs.
+
+### Changed — PaP PPSH-41 no longer has the MK8 reflex sight (user, 2026-06-27)
+
+The Pack-a-Punch PPSH ("The Pale Rider") shipped an **mk8 reflector reflex sight** baked into the Skye
+Vanguard port's `_up` GDT — 9 fields: the reflex view/world models (`vm_s4_reflex_mk8_reflector_*` /
+`wm_s4_reflex_mk8_reflector`), their `tag_reflex` mount tags, the reflector ADS anims
+(`am_s4_ppsh41_mk8reflector_ads_*`), and a `hideTags "tag_irons_hide…"` that hid the irons. New tool
+[tools/remove_ppsh_pap_optic.js](tools/remove_ppsh_pap_optic.js) reverts **exactly those 9 fields** to the
+base gun's values (no optic, iron-sight ADS restored) on **every** PPSH `_up` form — the install base
+`s4_ppsh41_base_up` **and** all 7 perk-twin `_up` blocks in `source_data/acc_weapon_variants.gdt` (so the
+sight is gone with *and* without Deadshot/Gun Slinger/Speed Cola). Every other PaP upgrade is untouched
+(clip 54, damage 280, special stock, drum mag, upgraded muzzle FX, "The Pale Rider" name).
+
+- **Re-runnable + idempotent**, deploys the twin GDT to install `source_data`, and runs `gdtdb /update`
+  itself. **RE-RUN after `apply_recoil_overhaul.js`** — that tool restores the pristine base GDT + regenerates
+  twins, both of which re-add the sight (same footgun as `reduce_base_ammo.js`).
+- GDT-only change → `gdtdb /update` (done by the tool) + `-GscOnly` linker repack. No geometry, no LED bake.
+  Fresh `.ff` written. Memory: `pap-ppsh-reflex-optic-removal`. Recipe added to docs/33.
+
+### Fixed — Deep audit: all 7 confirmed co-op bugs (user, 2026-06-27)
+
+A 10-cluster adversarial code/doc audit (52 modules, 22 agents) surfaced 7 confirmed bugs (5 plausible findings
+were refuted as unreachable). **All 7 are now fixed** — the 4 clean ones first, then the 3 balance/scope ones:
+
+- **Glitch Purge HUD hudelem leak (high)** — `hud::createBar` allocates 3 hudelems (bar, **frame**, bg) but
+  `_acc_lockdown_challenge::destroy_challenge_hud` only freed `.bar` + the handle, leaking the **`barFrame`** per
+  inside-player **per purge**, permanently starving the shared co-op HUD pool (the documented ~96-elem ceiling).
+  **Fix:** the purge bar is now a single `hud::createIcon("white",…)` width-scaled by progress (the squad-roster
+  idiom) — 1 hudelem instead of 3, and no `barFrame` to leak. Also freed the same leaked `barFrame` in
+  [_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc) `make_player_bar` (rare rebuild path).
+- **Trench Warden permanently suppressed (high/softlock)** — `_acc_boss.gsc::run_mini_boss` carried
+  `level endon("acc_round_end")` and set `level.acc_brutus_active = true` before the spawn telegraph; a fast co-op
+  round ending mid-telegraph tore the thread down before the flag was cleared / death-watch attached → Brutus
+  **never respawned all match**. **Fix:** dropped the round-scoped endon (Brutus roams across rounds via
+  `ignore_enemy_count`), so the cleanup + death-watch always run.
+- **Paradise gate could open for free (economy)** — `_acc_abyss_doors.gsc::hub_door_loop` debited the shared
+  Points pool by `give_p` unconditionally, but stock `minus_to_player_score` charges nothing under **Shopping
+  Free Gobblegum** / `intermission`. **Fix:** debit the pool by the **actual** `score` delta (mirrors the shards
+  branch). Now you can't drain the communal gate cost without spending.
+- **Paradise Phantom reward farm (balance)** — `_acc_boss_phantom::phantom_death_watch` granted the full
+  guaranteed reward set (item + Mega Bottle + shards to every player) on **every** kill, ungated — so the
+  survive-don't-farm finale (up to 4 Phantoms cycling) became a loot piñata. **Fix:** the reward block is now
+  gated on `!level.acc_paradise_onslaught` (the corpse-cleanup + host-clear still always run), mirroring the
+  reward-free Paradise Brutus path and `block_powerup_drop`.
+- **Boss-item drop denied to teammates (co-op)** — `_acc_boss_items::on_boss_death` converted the roll to shards
+  and `return`ed when the **killer** already owned the item, spawning **no** pickup — so a teammate who lacked it
+  got nothing. **Fix:** always `spawn_pickup` (like `grant_challenge_reward`); `watch_pickup`'s per-grabber dedupe
+  still converts the killer's own duplicate to shards if they grab it.
+- **Late-join boss bar (cosmetic)** — `_acc_health_bars::boss_bar_track` snapshotted the player set once at boss
+  spawn, so a mid-fight joiner never saw the bar. **Fix:** reconcile against `GetPlayers()` each tick and lazily
+  add a set for any untracked player (dedup by `s.player`, so existing players are never re-created = no HUD spam).
+
+GSC-only; lint-clean; build OK.
+
+### Changed — Final boss battle (Paradise Onslaught) → 3:45 with a 45s final wave (user, 2026-06-27)
+
+The PHASE 4 survival fight is now **3:45** (was 4:00): `ACC_PARADISE_SURVIVE_SEC_DEF` 240 → **225**
+([_acc_paradise.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc)). The 60s escalation is
+unchanged, so the horde steps **L2 (0–60) → L3 (60–120) → L4 (120–180) → L5 (180–225)** — making the
+**final L5 wave exactly 45s** (3:00 → 3:45), while the first three waves stay 60s each. The escalation +
+survival timer are both purely time-driven (no hardcoded tick count), so only the one constant moved.
+In-game banner "SURVIVE 4 MINUTES!" → "SURVIVE 3:45!"; header + docs/48 phase table synced. GSC-only
+(`-GscOnly` linker build).
+
+### Fixed — Reactor Surge plinth pushed off the center teddy bear (user, 2026-06-27)
+
+The Reactor Surge arm plinth in the teddy-bear north under-room was still sitting on the center bear. Moved
+it back to the rear wall: `y` **2465 → 2473** in both the spawn ([_acc_reactor.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc) `spawn_plinth_at`) and its collision clip ([add_prop_clips.js](tools/add_prop_clips.js) `reactor_plinth`, re-run). The clip is 48 deep (±24), so 2473 puts its north edge on the 2497 wall and its south edge at 2449 — ~9u clear of the center bear (y=2430). Geometry change → full build + LED bake (passed: fresh BSP/navmesh/lightmap, no crash).
+
+### Removed — Gold Pack-a-Punch camo is no longer a feature (user, 2026-06-27)
+
+Stripped the runtime **gold PaP camo** that every pack applied on top of the held gun. It was a stock
+BO3 camo *option* (`zm_weapons::get_pack_a_punch_camo_index` → `CalcWeaponOptions(camo,0,0)`) layered on
+at pack time; the PaP **tier** (damage) and the **`_up` transform** are untouched — only the gold skin is
+gone. Tier 1 is now a pure **damage** pack with no visual change (the in-hand "gun comes out" draw still
+plays); T2 still swaps to the `_up` form, just given **without** the camo option.
+
+- [_acc_pap_levels.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc): deleted `apply_pap_camo()`;
+  removed the `CalcWeaponOptions` camo from `acc_do_transform`, `replay_pack_draw` (both the held-gun re-give
+  and the restore loop now `GiveWeapon` with no options), and the tier-1 first-pack path; `tier_benefit(1)`
+  now reads `"more damage."` (was `"more damage + camo."`).
+- [_acc_weapon_variants.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc): the perk-twin
+  `swap_weapon` no longer re-gives a camo option to preserve it across a Deadshot/Gun Slinger/Speed Cola swap
+  — plain `GiveWeapon( w_to )`. The PaP tier still rides `player.acc_pap_tier[ true_base ]`, asset-independent.
+- [_acc_overclocks.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_overclocks.gsc): comment fix only.
+- [acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua): `pap_tier_benefit(1)` → `"more damage"`.
+- Docs: [05_weapons.md](docs/05_weapons.md), [27_ui_plan.md](docs/27_ui_plan.md),
+  [50_vague_ui_language.md](docs/50_vague_ui_language.md), [24_test_session.md](docs/24_test_session.md).
+
+**Note (not yet done):** the ported Skye `_up` weapon forms carry their own `"camo" "skye_up_camo"` baked
+into their GDT (in `acc_weapon_variants.gdt` for our twins, and in the external/gitignored Skye GDTs for the
+real box guns), so those packed guns may still show an upgraded skin independent of this runtime removal.
+Stripping that is a separate GDT change + full asset rebuild — pending a user call. `-GscOnly` build.
+
+### Fixed — Removed the stray "big teal box" in dev mode (user, 2026-06-27)
+
+A large cyan square floated in the Lab in dev mode and read as "a teal box on the zombies." Root cause: the
+dev buyable-door waypoints (`_acc_dev::create_door_marker`, a cyan `SetShader("white",14,14)` +
+`SetWaypoint` HUD square) target the `zombie_door` brush entities, which report origin `(0,0,0)` (no origin
+brush — the known map-brush-origin quirk). So every door marker stacked at the map center and rendered as one
+big cyan square hovering in open space near the horde — NOT actually on any zombie (it's a flat 2D HUD shader,
+not a model). Fix: stopped threading `dev_door_markers()` in [_acc_dev.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc)
+— the door-finder was redundant in dev anyway (`acc_open_map` already opens every door). The red zombie
+wallhack markers are untouched. `create_door_marker`/`dev_door_markers` stay in the file as the referenced
+HUD-waypoint recipe but are no longer invoked. Also retired the related dev door-debug **on-screen text**
+([zm_abandoned_cyber_city.gsc](scripts/zm/zm_abandoned_cyber_city.gsc)): the periodic `[doordbg]` readout
+(`zone_door_debug`) is no longer threaded, and the one-time `[accdoor]` lines (`acc_door_dbg`) now route to
+`acc_utility::log` instead of `IPrintLnBold` — so the door debug info is kept in the log but off the screen.
+GSC-only — `-GscOnly` build.
+
+### Changed — Squad roster restacked + round counter to one line (user, 2026-06-27)
+
+Follow-up layout pass on the co-op squad roster ([_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc),
+same file as the 2026-06-26 `BG_Cache 2048` fix). Each player is now a **2-line block** — LINE 1 = name + health
+bar (the bars form a fixed column at x=150, right of the names), LINE 2 = the stats — with a gap between players,
+stacked bottom-up (you at the bottom). Previously the stats were crammed onto the same line as the bar. **Mega
+Bottles dropped from the roster** (still shown on its own top HUD element); the stats line is now
+`Sh {shards}   EXO {e}   $<points>`. The crash-safety is unchanged: `points` (the only unbounded field) stays a
+right-flushed `SetValue` number (zero `string`-cache cost), shards/EXO stay bounded `SetText` — so this **cannot**
+reintroduce the `Exceeded '2048' items for type 'string'` CTD. Still 4 hudelems/row (16 in 4-player).
+
+Also: the **top-left round counter** is now `"Round N"` on **one line, inset from the corner** (`x=40,y=30`,
+scale 1.6), replacing the stacked `"ROUND"` label over a big number jammed in the corner. It's one `SetText`
+element — safe because the round number is **bounded** (≤~255 distinct, change-guarded), unlike the unbounded
+score. Pure GSC — linker (`-GscOnly`) build. Docs: [49_hud_modernization.md](docs/49_hud_modernization.md).
+Memory: `string-cache-setvalue-not-settext`.
+
+**HUD polish pass (same day):** roster shifted **up** so it clears the perks rail (`base` 50→90) and the
+health-bar column pulled **left** to sit close to the names (bar `x` 150→92, was a huge gap). On the bottom-right
+combat card ([acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua)): the **gun-name** text dropped 0.78→0.58
+("1.5×, not 2×"), and the **grenade/equipment row** moved down to sit flush above the card (`BOTTOM` 168→144,
+killing a 26-unit dead gap). Pure cosmetic offsets/scales — `-GscOnly` (GSC + LUI rawfile) build.
+
+**HUD polish pass 2 (same day):** roster row is now a **3-line block** — name / health bar / stats — with the
+**bar on its own line at `x=12`** (so it shares the left column with name + stats; this *removes the name-width
+guessing* the 2-line layout needed). On the combat card, the **gun name and ammo were pulled right toward the
+card's border** to kill the dead space on their right (`NameTxt` right pad 14→6; the mag+reserve shifted ~38
+right — reserve's left edge held at `-72` so a 4-digit `/ 9999` still fits without clipping at the border). Pure
+cosmetic offsets — `-GscOnly` build. (A transient "UNRECOVERABLE ERROR" the wrapper flagged during one build was
+a file-lock false alarm — a clean re-link confirmed no Lua/asset error; the t9 shell-eject FX warnings are
+pre-existing Cold-War-gun asset noise.)
+
+**HUD polish pass 3 + per-player perks (same day):** roster row is now a **4-line block** — name / health bar /
+stats / **perks** — with the stats line **left-aligned at `x=12`** (was right-aligned/indented) and the
+inter-player gap made bigger than the within-block line spacing so each player's lines read as one group. The new
+**LINE 4 shows each player's owned perks** as colour-coded abbreviations: **`^1` red = base, `^5` teal = mega**
+(`JUG QR SPD DT STM MULE DEAD WW PHD EC`). Reads `HasPerk` + the `q.acc_mega_perks` field directly (no
+cross-module `#using`); the perk set is **bounded + change-guarded**, so `SetText` is BG-cache-safe. The Ronan
+perk *icons* can't be reused here — they're LUI `image,` assets and a server hudelem needs a material this usermap
+can't build (memory `hud-custom-image-lui-not-material`), so abbreviations are the server-side path. Costs **+1
+hudelem/row (5/row, 20 in 4-player)** — fine solo, but approaching the co-op pool ceiling (would slim by
+rendering the perk line only when a player has perks, if 4-player UI ever vanishes). Dev mocks show a red/teal mix
+(one mock = all 10 perks) to exercise the layout. Pure GSC — `-GscOnly` build.
+
+### Added — "The Exchange": a player-to-player transfer vault under the Plaza (user, 2026-06-27)
+
+A new room where players **transfer resources to each other** — Points, Data Shards, Mega Bottles, and
+Boss Items. Reached by a **stairwell carved DOWN from the Implant Lab** into an enclosed vault at **z=-240
+directly under the spawn Plaza**, gated by a buyable slide-up door (`enter_exchange`, 1500 pts). Full design:
+[docs/58_transfer_vault.md](docs/58_transfer_vault.md).
+
+- **Model = SHARED TEAM VAULT** (user's choice over directed-give / two-pad): deposit into a level-side team
+  pool, **any teammate withdraws** — no player-targeting (sidesteps the `closest_player_override` co-op
+  hazards). Co-op redistribution of the strictly per-player economy (docs/15); a personal stash in solo.
+- **Module** [`_acc_transfer.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc) (new, orchestrated
+  by `_acc_main` after data_shards/mega_bottles/boss_items; `scriptparsetree` added to the `.zone`). Four
+  script-spawned terminals (no LED-bake cost), each with a **DEPOSIT** + **WITHDRAW** pad (one trigger per
+  action — the Implant-Bench multi-pad idiom). Each press moves one fixed increment (`acc_vault_points_inc`
+  250 / `acc_vault_shards_inc` 25 / 1 bottle / 1 item; locker caps at `acc_vault_items_max` 8). **A 10%
+  deposit tax** (`acc_vault_tax_pct`, user 2026-06-27) applies to **Points + Data Shards** only — the pool
+  receives ~90% of a deposit (the cut is destroyed); **Bottles + Items are untaxed** — so a team can't
+  trivially funnel the whole economy onto one player. Currency
+  uses the documented APIs (`zm_score::minus_/add_to_player_score` — never writes `player.score`;
+  `acc_data_shards::try_spend`/`grant_player(…,"transfer")` so withdraw deducts by what actually landed under
+  the cap; `try_consume_bottle`/`grant_bottle`). Boss-item deposit can **un-implant** a slot (runs
+  `on_unequip` → buff off, speed recomputed); withdraw drops it into the carry slot (enable at a bench).
+  Hints are constant (250-hint cap); amounts + pool show via `hud_msg`. Both ends gate on `is_player_valid`.
+- **Geometry** [`tools/gen_plaza_basement.js`](tools/gen_plaza_basement.js) (new, re-runnable + `--revert`):
+  **carves** the single stock arena-floor slab (`{219830C1…}`) into a connected 4-chunk frame around a
+  stairwell well (the abyss strip-and-re-emit pattern — the only way to hole a solid slab), + a 14-tread
+  16/16 stairwell, the enclosed vault room (carved floor = its ceiling), a jump-proof railing ring, and the
+  door slab. Bake-safe `box()` filler-winding + a **unique `7A2BAE0*` GUID prefix** (NOT the `-ACE0-` middle
+  group — the abyss family already uses `{7A2BAB0E-ACE0-…}`, so stripping on `-ACE0-` would have deleted 23
+  abyss brushes; bug caught + fixed during the build). **LED bake: BAKED** (`tools/_bake_test.ps1`); full
+  `build_map.ps1` OK, fresh 46 MB `.ff`, navmesh regenerated over the stairs.
+- **Fix (user 2026-06-27): the well was walling off the Implant Bench room.** First placement put the well
+  (and its north railing) right behind the plaza→lab doorway, so buying the implant door led straight into a
+  wall and the benches were unreachable. The well was shifted **south** (y −252→−300) so a ~60u landing sits
+  at the doorway and the open west/east side-corridors let a player walk **around** the railed well to the
+  bench pads; the vault room extends south to match. **Needs a rebuild (game must be closed).**
+- **Safe utility room**: at z=-240 inside the trench OOB box, so it's **excluded from the trench amping**
+  (no −20% slow / surge / danger HUD) via new `origin_in_vault()`/`player_in_vault()` in
+  [`_acc_bus_trench.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc) — but still **OOB-kill-vetoed**
+  there (the second-part pattern: excluded from `underground_layer`, vetoed in `acc_trench_oob_allow`).
+- Door wiring: `enter_exchange` case in `zm_abandoned_cyber_city.gsc::zone_door_trigger_origin` (X-thin →
+  default buy-trigger offset). NB **`enter_vault` was already taken** (the corp/lab Vault) — hence `enter_exchange`.
+- **NEEDS WALK-TEST** (build OK ≠ proven): stairwell collision survived cod2map (single-slab T-junction trap is
+  invisible to the bake); zombies path down; the door buys; co-op deposit-A/withdraw-B + item bench round-trip.
+
+### Added — Mega Quick Revive (Savior): −50% damage while reviving (user, 2026-06-26)
+
+Savior (Mega Quick Revive) gains a 4th effect: while you are **actively reviving a teammate** you take
+**50% less incoming damage** (×0.50) for the whole revive channel — you can no longer be punished as easily
+for stopping to pick someone up in a horde. New `acc_perks::savior_revive_damage_mult()`
+([_acc_perks.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc), `ACC_SAVIOR_REVIVE_DMG_TAKEN=0.50`)
+returns the live multiplier, gated on owning Mega QR **and** the stock reviver-side counter
+`self.is_reviving_any > 0` (held for the entire channel, `_zm_laststand.gsc:1208`→`:1285`, verified in the
+stock mirror). It's read **live, per hit** in the player-damage chokepoint
+[_acc_elites.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc)`::on_player_damaged` (no poll lag),
+applied **after** the Exo Suit resist so the two stack multiplicatively, floored at 1 (always killable).
+Self-revive doesn't qualify (the downed player is rejected as invalid earlier in the callback). **Display UI:**
+the Savior perk-info card ([acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua), index `[2]`) gains a qualitative
+"Shielded while reviving" bullet (mega + megaFull) — magnitude stays in the docs per the no-numbers-in-game
+rule. Docs synced: docs/13 (table, full Mega description, mechanics, at-a-glance, impl-status, verification
+table, tuning lever) + docs/perk_abilities.md. GSC + LUI — linker (`-GscOnly`) build.
+
+### Added — Jukebox "NOW PLAYING" banner shows the song title, to all players (user, 2026-06-26)
+
+When a Teddy-Bear jukebox song starts, the UI now shows the **song title** (e.g. "Cyber Dreams") and shows
+it to **every player**, not just the one who fed the jukebox ([_acc_ee_song.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc)).
+Each bear carries a `b.title` (set in `make_bear`); on trigger, the old single-player `"^5MUSIC PLAYING^7"`
+toast is replaced by a `"^5NOW PLAYING^7  <title>"` banner broadcast over `GetPlayers()` (the song already
+plays 2D for the whole lobby, so the banner should too). Titles (user): center = **"Cyber Dreams" (Lilex)**,
+left = **"I Want To Stay At Your House"**, right = **"Night Groove"**. The two flanking songs' wavs
+(`acc_ee_song_2` / `_3`) still need banking — until then those bears show the banner but play silently.
+GSC-only. Doc: [46_trench_systems_guide.md](docs/46_trench_systems_guide.md).
+
+### Added — Comeback bonus: full-death respawn sets money to 500 × round (user, 2026-06-26)
+
+To support players who have a bad start, a player who **fully bleeds out and respawns** the next round now
+comes back with their money **set to exactly `500 × round_number`** (round 20 → **$10,000**). New code in
+[_acc_points.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc): a per-player `watch_comeback_death()`
+watcher flags `acc_comeback_pending` on the stock `bled_out` notify; `on_player_spawned()` (newly registered
+in [_acc_main.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc)'s connect + spawn dispatch) consumes the
+flag on the next spawn and `comeback_set_score()`s the player to the floor via
+`player_reduce_points("take_all")` + `add_to_player_score(500 × round)`. **Set, not add** (user's choice): I
+verified against the stock mirror that BO3's `penalty_died` defaults to **0.0** and this map never overrides it
+— players actually *keep* their money on a bleed-out respawn — so a pure add would make dying profitable (a
+death-farm); setting to exactly the floor means dying never nets more than `500 × round` and a rich player who
+dies drops to it. **Trigger = full death only** — uses the same `bled_out` signal as the implant-wipe change
+below, so a last-stand revive never qualifies (no revive-farming) and the first spawn never bleeds out.
+Practically co-op-only (solo downs either auto-revive with money kept, or end the game). Tuning lever
+`ACC_COMEBACK_PER_ROUND` (default 500). docs/06 Point Economy synced. GSC-only — linker (`-GscOnly`) build,
+fresh `.ff` (no geometry change).
+
+### Added — Dying out wipes your implants (user, 2026-06-26)
+
+Boss-item **implants no longer survive a real death.** Previously the equipped-item buffs re-applied on
+every respawn, so a player who bled out kept their implants — the doc even *claimed* "items are lost on
+death," but nothing implemented it. Now `_acc_boss_items::lose_implants_on_bleed_out` (threaded per player
+from `on_player_connect`) hooks the stock per-player **`"bled_out"`** notify — the canonical real-death
+signal (`_zm_laststand.gsc` fires it at bleed-out `:523/:580`; stock waits on it `:1311`) that does **not**
+fire on a down that gets revived — and `unequip_slot`s **both** slots, so each item's `on_unequip` strips its
+buff + does the tactical hand-off + re-syncs the HUD. Result: a revived player keeps their implants, but a
+player who **dies out** respawns implant-less and must find + re-implant new boss items ("^1IMPLANTS LOST^7"
+on screen). Carried-but-not-yet-implanted items are unaffected. Solo bleed-out is game-over, so it's a no-op
+there. GSC-only. Doc: [12_boss_items.md](docs/12_boss_items.md).
+
+### Changed — Paradise DREAD phase 15s → 10s (user, 2026-06-26)
+
+`ACC_PARADISE_DREAD_SEC_DEF` 15 → **10** ([_acc_paradise.gsc:61](scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc#L61)):
+shorter lead-in between the fog rolling back in (PHASE 2 Omen) and the bosses storming the arena (PHASE 4
+Battle) — Brutus now spawns **10s** after the fog instead of 15s. Live dvar `acc_paradise_dread_sec`. Header
+comment + [docs/48](docs/48_abyss_descent.md) phase table synced. GSC-only.
+
+### Changed — Dev mode opens all Lab perk alcoves (user, 2026-06-26)
+
+In the **dev sandbox** all 10 Lab perk alcoves are now **OPEN** (no per-round rotation), so every perk is
+buyable while testing. Driven off the single dev flag: `acc_resolve_dev_flags()`
+([zm_abandoned_cyber_city.gsc](scripts/zm/zm_abandoned_cyber_city.gsc)) now `SetDvar`s
+`acc_perk_doors_all_open` to 1 when `level.acc_dev`, exactly like the other dev sub-dvars
+(`acc_open_map`/`acc_glitch_test`/`acc_variants_debug`). `_acc_perk_doors::dev_all_open()` already reads that
+dvar, so **no module logic changed** — only the wiring. **Normal play is unchanged**: `acc_dev 0` leaves the
+dvar at the ship default 0 and the per-round random **4-of-10** rotation runs as designed; the manual
+`set acc_perk_doors_all_open 1` override still works on its own. This **reverses the 2026-06-18 "walls close
+in dev too" choice**; it also corrects a stale doc that claimed dev followed `acc_open_map` (the code only ever
+read `acc_perk_doors_all_open`, which dev never set — which is why the walls actually closed in dev).
+Comments in [_acc_perk_doors.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perk_doors.gsc) + docs/13 synced.
+GSC-only — linker (`-GscOnly`) build (no geometry change).
+
+### Changed — Dev starting loadout: maxed Chicom CQB instead of AK-47 (user, 2026-06-26)
+
+Dev mode now spawns every player holding a **fully-packed (PaP III) + max-Overclock Chicom CQB**
+(`t6_chicom_cqb_up`) instead of the AK-47 ([_acc_dev.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc),
+`dev_give_packed_chicom`). Two changes: (1) weapon swapped `t9_ak47_up` → `t6_chicom_cqb_up` (true-base
+`t6_chicom_cqb`), so PaP-tier and Overclock progress key correctly; (2) **Overclock bumped tier 5 → 10** —
+the cap went `ACC_TIER_MAX` 5 → 10 on 2026-06-24, so the old `tier=5` was only *half* max. Effects scale
+off the tier in `_acc_damage::get_oc_tier` (no clamp) and `oc_hud_loop` pushes "v10" to the chip. Dev-only,
+hardcoded (no console dvar). GSC-only.
+
+### Changed — Loot Stash bonus: +10/+15, additive Double-Points boost, banked (user, 2026-06-26)
+
+The Loot Stash / Payroll Ledger per-kill Points bonus is now **+10 regular / +15 headshot**, rising to
+**+15 / +25 with Double Points** (the DP boost is **additive** +5 / +10, not the base's ×2). Since 15/25 aren't
+multiples of 10 and the stock money currency rounds every award **up** to 10 (`_zm_score.gsc:528`), the new
+`award_killer_with_ledger` ([_acc_points.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc)) **banks**
+the sub-10 remainder on the killer and flushes it on a later kill, so the net payout is exact (the floater
+alternates +10/+20). Folds base + bonus into one payout (single floater). Replaces the flat +10/+20-doubled
+scheme. docs/12 + boss-item comments synced. GSC-only — linker build.
+
+### Fixed — Bus-Station → trench stairs re-pitched (too steep, glitched the player) (user, 2026-06-26)
+
+Players reported the stairs descending from the Bus Station into the corp trench were "so steep the
+player glitches." They were **14 steps of 16 tall × 16 deep = a 45° pitch**; the player collision hull
+catches on the step nosings at 45° and stutters. **Fix** (per the user's request — keep the top, extend
+the length so each step is shorter): `tools/regen_trench_stairs.js` (new, re-runnable) rebuilds both
+stairs at **10 tall / 16 deep = ~32°, 23 steps, 368u long** (was 224u). The top lip is unchanged (W stair
+south lip `y=1723`, E stair north lip `y=2173`); each extends further toward the middle (W `y[1723,2091]`,
+E `y[1805,2173]`). The two stairs sit on **opposite x-walls** (W `x[-761,-665]`, E `x[703,799]`) so growing
+them toward the centre can't collide, and 368u fits the 450u trench with ~82u to spare. Both **pit-side
+walls** re-sized to match. Lower 10u risers (well under the ~18u stock step tolerance) link the navmesh
+even more easily than the old 16u, so zombies still path the crossing. Geometry change → **full LED bake
+(passed: fresh BSP + navmesh + lightmap, no `brush.cpp:1860`)**. Doc: [03_layout.md](docs/03_layout.md).
+
+### Added — Passive trench shard income (reward for staying in the trenches) (user, 2026-06-26)
+
+Standing in a trench layer now passively earns Data Shards — **1 shard every N seconds, N shrinking with
+depth**: **L1 (Bus Station pit) 45s · L2 35s · L3 28s · L4 22s · L5 18s** (deeper = more reward for the risk).
+A new trench-only shard source on top of the caches / Warden / altar / reactor.
+
+- **Impl:** [_acc_bus_trench.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_bus_trench.gsc) `trench_shard_income`
+  — an isolated **per-player** 1s thread (threaded in `watch_connections` alongside the fall/bridge watchers),
+  using the existing `underground_layer()` (which already returns 0 for surface AND Paradise, so income only
+  ticks in real trench layers 1-5) + `acc_data_shards::grant_player(self, 1, "trench_income")` (shows the
+  "+1 Data Shard" floater; cap-clamped). `trench_income_interval(layer)` is the per-layer table.
+- **Behavior:** per-player (each player earns their own); clock resets when you leave the trench; carries
+  across layer changes (paid at the current layer's rate, so descending never loses progress); stops at the
+  shard cap and resumes after spending.
+- **Tunable:** `acc_trench_income` (master, default 1), `acc_trench_income_amount` (1),
+  `acc_trench_income_l1..l5` (45/35/28/22/18). docs/34 + docs/06 synced. GSC-only — linker build, `.ff` 46 MB.
+
+Recurring hard crash, reproduced **during normal play** (not at an interaction). This is a **DIFFERENT BG-cache
+pool** from the 2026-06-25 soul-box fix: that one was `triggerstring` (cap **250**, fed by `SetHintString`); this
+one is the general **`string` cache (cap 2048**, fed by every DISTINCT string passed to a server hudelem
+`SetText`). Like the triggerstring cache, every distinct string **permanently burns a slot for the whole match**
+(never freed). A live number rendered via **`SetValue` costs ZERO slots** (stock `_zm.gsc` `countdown_hud SetValue`)
+— that is the cache-free path the old code never used (it only mentioned `SetValue` in a comment).
+
+**THE crash — co-op squad roster** ([_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc)):
+`update_roster` ran **10×/sec per player** and `SetText`'d one merged line `"Sh "+shards+...+"$"+points` with
+**no change-guard**. `points` (= live `.score`) takes **thousands of distinct values** over a match → thousands
+of permanent `string`-cache slots → overflow at 2048. Because the roster is *always running*, it crashed during
+normal play rather than at a specific interaction (unlike the soul boxes). Fix = **two elements that render as
+one flush string** `"Sh {shards}  MB {b}  EXO {e}  $<points>"`: the text part (`Sh`/shards/`MB`/`EXO`/`$`, or
+`"DOWNED  $"`) is a **`SetText` element RIGHT-aligned to end exactly at the `$`** (change-guarded), and the only
+truly-unbounded field, **`points`** (= live `.score`), is a **`SetValue` element LEFT-aligned 2px after it** —
+so the `$` sits flush against the score every frame. A number via `SetValue` costs **zero** cache slots, so the
+climbing score can never overflow the 2048 cap again. shards/MB/EXO remain in `SetText` because they're a small
+**bounded** set (shards is a spend-capped currency — it was the stable pre-roster top-left readout), not a runaway
+like the score. Cost: **+1 hudelem/row** (3→4; lazy, so 4-player = 16, still well under the old 24 that blew the
+pool). *(Two earlier attempts were reverted: a 3-column `SetValue` layout — user rejected it for dropping the
+`Sh`/`$` labels and widening gaps; then `.label` + `SetValue` — **`.label` does NOT draw on `createFontString`
+server hudelems** (verified in-game: only the bare number rendered, all prefix text vanished). The right-aligned
+`SetText` is the reliable way to keep a text prefix on a flush, crash-safe number.)*
+
+**Two more `SetText` offenders hardened** (both → `SetValue`): the hidden top-left **Data-Shards counter**
+([_acc_data_shards.gsc:360](scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc#L360), high-cardinality), and
+the **round counter** ([_acc_health_bars.gsc:106](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc#L106),
+bounded ≤255 but the correct cache-free path). **Key correction:** `alpha = 0` (hidden) does **NOT** stop `SetText`
+registering a string — registration happens on the *call*, regardless of visibility — so the hidden shard counter
+was still leaking.
+
+A full-repo audit (6-tool sweep) confirmed **no other unbounded** feeder: the Paradise finale timer (~240 distinct
+`M:SS` strings, **one-shot** end-game) and lockdown `killed/total` counter (≤~30/challenge, totals reused) are
+**bounded-small** and left as-is; all `SetHintString` callers are bounded or already change-guarded; **no**
+`PrecacheString` anywhere; LUI `setText` uses a separate pool. Rule (extends the soul-box rule to this cache):
+**never `SetText` a live/unbounded number — use `SetValue`; a hidden element still burns the slot.** Built clean
+(GSC-only, fresh `.ff` 46 MB). Docs: [49_hud_modernization.md](docs/49_hud_modernization.md). Memory:
+`string-cache-setvalue-not-settext`.
+
+### Changed — Phantom boss cadence → round 10, every 10 (user, 2026-06-26)
+
+The Phantom ("Reaper") now first spawns at **round 10** and recurs **every 10 rounds** (10, 20, 30, …) in
+normal play, up from round 8 / every 8 ([_acc_boss_phantom.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc)
+`ACC_PHANTOM_FIRST_ROUND_DEF`/`ACC_PHANTOM_INTERVAL_DEF` 8→10; dvars `acc_phantom_first_round`/`acc_phantom_interval`).
+Dev mode stays every-4 for fast testing. No collision risk: the `is_full_boss_round` yield is dead code and
+`_acc_boss.gsc`'s round-10 slot is the kill-anchored Trench Warden, not a fixed full boss. docs/34 synced.
+GSC-only — linker build.
+
+### Glitch-purge co-op spawn-stacking fixed + dev/god ship-safe + HUD pool fix (user, 2026-06-26)
+
+Lockdown/"Glitch Purge" `relocate_party_safe` was `SetOrigin`-ing every player to one centre point, stacking
+their capsules so the engine ejected them through the unsealed doorway → OOB death in co-op. Now fans each
+player onto a distinct ring slot ([_acc_lockdown_challenge.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lockdown_challenge.gsc)).
+Also: `acc_dev`/`acc_god` reverted from hard-coded ON to dvar-gated ship-safe defaults; the co-op squad-roster
+HUD rewritten lazy (24→12 hudelems/player) to stop server-hudelem pool exhaustion that silently hid the trench
+warning / glitch-purge / boss bars in 4-player; roster now shows player names + points + red bar when down.
+
+### Changed — Trench-zombie kill payout 20 → 30 (user, 2026-06-26)
+
+Surge/drip-spawned trench zombies (tagged `acc_trench_zombie`) now pay **30** points per kill, up from 20
+([_acc_points.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc) `on_zombie_death`, dvar
+`acc_trench_zombie_points` default 20→30). Still a flat award (no damage-share split / headshot / Kinetic
+Battery / round count). docs/34 synced. GSC-only — linker build.
+
+### Fixed — Paladin HB50 headshots did LESS than body shots (user, 2026-06-26)
+
+Paladin headshots were doing **half a body shot**. Root cause: the damage code applies a universal headshot
+"temper" (×0.5 reg / ×0.6 boss) that assumes every gun's GDT `locHead` is ~5.0 (→ 5.0 × 0.5 = **2.5× body**),
+but the Paladin's `skye_t8_paladin_hb50.gdt` had `locHead`/`locHelmet` flattened to **1.0** (1.0 × 0.5 = **0.5×
+body**) — an old "all-1.0" Paladin pass had been re-applied on this box. (Both loc tools, `normalize_gun_loc.js`
+and the older `normalize_sniper_loc.js`, actually set snipers to head 5.0; the MORS was already correct at 5.0 —
+only the Paladin had regressed. It's a known recurring regression, see the memory.)
+
+- **Fix:** restored `locHead`/`locHelmet` to **5.0** on both Paladin blocks (base `t8_paladin_hb50` + PaP
+  `t8_paladin_hb50_up`) in the install GDT, then `gdtdb /update` + relink. Headshots now do **2.5× body** like
+  every other gun. Variants inherit (no own loc); MORS untouched (already correct).
+- Updated the stale `_acc_damage.gsc` comments that described the Paladin as locHead 1.0 / 0.5× as if intended.
+- GDT is install-side (not repo-tracked); a fresh box gets the right value from `normalize_gun_loc.js` (sets the
+  Paladin → 5.0). If "headshot < body" recurs, the Paladin GDT loc is the first thing to check. Memory:
+  `sniper-gdt-loc-headshot-convention`.
+
+### Fixed — Phantom only damaged one player in co-op + HP −30% (user, 2026-06-26)
+
+The Phantom **sapped (slowed) every player on its chain but only ever damaged one** in co-op. Two separate damage
+paths were both broken; both fixed:
+
+- **Normal melee — stale AI enemy** ([_acc_boss_phantom.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc)):
+  the Phantom deals normal damage via the **stock zombie AI melee** (`host.meleeDamage`), but it never told the AI
+  who to hit — so the AI held one acquired `self.enemy` and the blinks onto other players never connected a swing.
+  **Fix:** `host.closest_player_override = &phantom_pick_target_override`, which returns the Phantom's **current
+  blink target** (updated every blink in `phantom_blink_to`). Stock `get_closest_valid_player` consults this per-AI
+  override (`_zm_utility.gsc:1474`) to set **both** `self.favoriteenemy` (movement) and `self.enemy` (melee), so the
+  AI now chases + swings at whoever the Phantom just warped onto, rotating across the team. Same mechanism the
+  Glitch Stalker uses.
+- **Chain special — sapped but didn't damage** (the exact symptom): the chain applies its **slow directly** to each
+  hop player, but relied on the AI for *damage* — and the 0.7–1.1s rapid hops never give the AI a swing, so only its
+  one enemy took damage. **Fix:** the chain now also deals the per-hop hit **directly** via
+  `target DoDamage(meleeDmg, …, "MOD_MELEE")` — the same means-of-death as a stock zombie melee, so Jugg / Exo /
+  trench scaling / downing all apply (`_acc_elites::on_player_damaged`). Now the chain damages **each** player it
+  saps.
+- **Chain reaches all 4**: `ACC_PHANTOM_CHAIN_HOPS_DEF` 3 → **4** (still capped to the live player count), so a
+  4-player chain hits everyone, not 3 of 4.
+- **HP −30%, scaling preserved**: `ACC_PHANTOM_HP` 80000 → **56000** (solo) × the unchanged logarithmic
+  `boss_hp_player_mult()` → solo 56k / 2p 84k / 3p ~100k / 4p 112k (was 80k/120k/143k/160k). Pure GSC — linker-only.
+
+### Fixed — Phantom override could hang the server in co-op (audit, 2026-06-26)
+
+Follow-up from a 6-dimension adversarial audit of the Phantom (19 raw findings → 1 confirmed, 18 refuted). The
+`closest_player_override` melee fix above had a **reachable co-op server-hang**: `phantom_pick_target_override`
+returned `self.acc_phantom_target` gated only on `acc_data_shards::is_player_alive` (no `.ignoreme` check), but
+stock `get_closest_valid_player` (`_zm_utility.gsc`) pre-culls its `players` array to `am_i_valid` entries
+(**which includes `.ignoreme`**) and then re-checks the returned player in a **wait-less** loop,
+`ArrayRemoveValue`-ing invalid ones. If the Phantom's target was a teammate cloaked by **Cyberware Ghost
+Protocol** (`rx2b` → `zm_utility::increment_ignoreme`, who stays alive + standing so `is_player_alive` passes),
+stock's `ArrayRemoveValue` was a no-op, `players.size` never hit 0, and the override handed back the same player
+every iteration → **infinite loop on the AI targeting frame** (server hang). Needs ≥2 players (the cloaked target
++ one still-valid teammate). **Fix** ([_acc_boss_phantom.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc)):
+membership-check `acc_phantom_target` against the passed-in `players` array before returning it (mirrors the
+Glitch Stalker's `glitch_pick_uncloaked_target`, which only ever returns a member of the validated set);
+otherwise fall through to the path-distance / closest fallback. Pure GSC — linker-only.
+
+### Fixed — Trench prop clips: snug to the models (user, 2026-06-26)
+
+[add_prop_clips.js](tools/add_prop_clips.js) clips were over-reaching = invisible walls. Added a per-prop `top`
+override and re-tuned the underground props:
+- **Flat-screen panel model** (`p7_cai_sign_inteactive_kiosk`, used several places): its square clips were big
+  invisible walls → now **thin slabs** matching the panel, oriented by spawn yaw. **Reactor Surge plinth** (yaw
+  270, faces E/W): 48×48×80 → **18(X)×48(Y)×64** (thin in X). **Perk-slot vendor / Neural Bay** (yaw 0, faces
+  +Y): 56×56×80 → **48(X)×18(Y)×64** (thin in Y). The 3 deeper uses (Glitch Altar at abyss L3, + altar/vendor in
+  Paradise) are walk-through (no clip = no invisible wall) — left as-is.
+- **Data-cache crates** (`p7_cai_stacking_cargo_crate`, ±360,1950): kept the snug 56×56 footprint but dropped the
+  height 80→**48** (`top:-192`) to match the model + the plaza crates.
+- Other props (work table / perk-slot kiosk) unchanged. Re-ran the generator; full LED-baked build.
+
+### Fixed — Mystery Boxes: solid collision at every node + each box flush against a wall (user, 2026-06-26)
+
+You could walk straight through every Mystery Box, and they floated in open floor. **Two root causes:** (1) the
+MagicBox xmodel has no player clip, and the `acc_box_clip_*` collision brushmodels the code expected **were never
+authored into the `.map`** — `manage_box_collision` no-oped with nothing to solidify; (2) even the code only
+solidified the *active* node, but every node always shows a box model (the moving box, or the idle "fake" box when
+it's elsewhere), so all 6 should be solid.
+
+- **Collision at all 6 nodes** ([tools/place_boxes_against_walls.js](tools/place_boxes_against_walls.js)): authored a
+  `script_brushmodel` `clip` (60×60×48) at each box, and changed
+  [_acc_map_randomizer.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc) `manage_box_collision` to keep
+  **every** node's clip permanently solid (replaced the old active-only toggle with `solidify_all_box_clips`). No more
+  walk-through anywhere. `script_brushmodel` is LED-exempt, so the lightmap bake is unaffected.
+- **Against a wall** — repositioned all 6 boxes ~40u off a verified-solid interior wall face, facing into the room,
+  clear of door gaps/spawns/wallbuys/machines/PaP/boss spawn/Overload point/trench/power switch (per the room-feature
+  map + `source_data/rooms.json`): Plaza (173,250 E-wall), Market (−1891,928 W), Corp (400,2708 N), Roof (−1684,2830 W),
+  Vault (1684,2830 E), Lab (759,3650 E). zbarrier + struct share origin/angles so the buy prompt stays attached.
+- Full build (cod2map + navmesh + LED bake) — **bake passed**. The `clip` blocks AI too, so a zombie won't walk through
+  a box either; against a wall the navmesh impact is minimal. Plaza (shrunk spawn room) is the one to eyeball in-game.
+
+### Fixed — Mahem "only packs twice" — the REAL cause: AAT exemption hides the machine (user, 2026-06-26)
+
+The Mahem could PaP only **twice** despite several prior fixes. **Those fixes were all wrong** — they patched
+`level.zombie_weapons_upgraded` (the upgrade table), but that was never broken. Full trace through stock
+`_zm_pack_a_punch.gsc` + `aat_shared.gsc` + `_zm_weapons.gsc`:
+
+- After the tier-2 transform you hold `s1_mahem_up`. For pack 3 the machine must stay **visible**.
+  `player_use_can_pack_now()` shows it only if `can_pack_weapon(held) || weapon_supports_aat(held)`.
+- `can_pack_weapon(_up)` is **false for every gun** — `is_weapon_included(_up)` fails because stock
+  `add_zombie_weapon` registers only the BASE in `level.zombie_weapons`, never the `_up`. So **all** guns rely on
+  **`weapon_supports_aat(_up)`** for the tier-2→3 visibility: `is_weapon_upgraded(root) && !aat::is_exempt_weapon`.
+- `is_weapon_upgraded(s1_mahem_up)` was **already true** (stock `add_zombie_weapon:554` maps every CSV upgrade) —
+  so the upgrade-table patches were no-ops. **The real blocker:** the Mahem's CSV row has **`AAT_EXEMPT` (col 17)
+  = `TRUE`** (it's a launcher) → `register_aat_exemption(s1_mahem_up)` → `weapon_supports_aat` returns false →
+  **machine hides the instant pack 2 finishes.** Conventional guns leave that column blank, so they pack 3×.
+- **Fix** ([_acc_pap_levels.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc)
+  `make_mahem_pap_visible_to_tier3()`, called from `pap_tier_machine_watcher`): drop `s1_mahem_up` from
+  `level.aat_exemptions`. AAT is globally OFF (`level.aat_in_use=false`), so this grants **no** alt-ammo — it only
+  restores machine visibility so `acc_pap_validate` (which `vending_weapon_upgrade` calls first, before any AAT
+  branch) runs the in-place tier-3 pack, exactly like every conventional `_up` gun.
+- The earlier `register_special_upgrades()` is kept (harmless defensive net) but its comment is corrected — it was
+  never the Mahem fix. Dev log prints `was_aat_exempt=1 is_weapon_upgraded=1`; `+set acc_dev 1` then shows the 3rd
+  pack reach `tier 3/3`. Pure GSC — linker-only. docs/05 + memory updated.
+- **Belt-and-suspenders (this build):** pack 3 has TWO independent gates — machine **visibility** (above) AND the
+  **tier key** resolving `s1_mahem_up`→`s1_mahem` (so `get_tier` reads the tier stored on packs 1‑2). Hardened the
+  latter too: `_acc_weapon_variants::true_base()` now strips a trailing `_up` by NAME if the stock upgrade table
+  didn't, so the tier key is always the true base regardless of stock-table state (no-op for conventional guns).
+  Added an `acc_dev` ground-truth readout `dev_mahem_pap_watch()` that prints, whenever you hold a Mahem,
+  `upg= base= tier= exempt= machine_visible=` — so any remaining issue is diagnosable at a glance instead of guessed.
+
+### Added — AK-47 wall-buy on Abyss Layer 4 ("4th floor" trench) (user, 2026-06-26)
+
+Planted a **4th fixed wall-buy** — the **S-tier AK-47** (`t9_ak47`, **1500**, from
+[zm_levelcommon_weapons.csv](gamedata/weapons/zm/zm_levelcommon_weapons.csv)) — on the **south wall of Abyss
+Layer 4** (`z=-960`, the "4th floor" of the trench). Goal: a real reason to commit to the deep descent, not
+just box-roll up top. Followed the existing 3-part wall-buy recipe exactly (`wallbuy-chalk-inline-mesh-recipe`):
+
+- **Geometry** ([map_source/zm/zm_abandoned_cyber_city.map](map_source/zm/zm_abandoned_cyber_city.map)): an
+  inline worldspawn **chalk mesh** (entity `ACCC0004`, the real AK-47 chalk `mtl_t6_wpn_ar_ak47_wall_chalk`
+  from the installed `skye_t6_ak47.gdt`) on the L4 south wall face (y=1723, room to the north, +y normal),
+  centered x=-400, z=-927.5..-885.5 — same winding as the Five-Seven chalk. Plus the **trigger struct**
+  (`ACCB0007`, `weapon_upgrade` / `zombie_weapon_upgrade t9_ak47`) + **model struct** (`ACCB0008`,
+  `wpn_t9_ak47_world`), 2u proud, facing +y. All clear of the L4 down-well (north) and the L3→L4 stair landing.
+- **LED-bake trap caught + fixed:** the first material tried, stock `t7_zm_chalk_buy_m8a4`, is in the runtime
+  asset list but **crashes the Radiant lightmapper** (0xC0000005) — proven by `_bake_test` bisection (baseline
+  bakes; +m8a4 chalk crashes; +frag and +skye-AK chalk bake). Lesson: a chalk being a valid *runtime* asset ≠
+  bake-safe; use a skye `*_wall_chalk` `material.gdf` (same class as the kard/olympia chalks already shipping).
+- **Whitelist** ([_acc_map_randomizer.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc)
+  `remove_all_wallbuys()`): added `t9_ak47` so the box-only stripper KEEPS it (the other 3 stay whitelisted).
+- **Idempotency:** the new entities use non-`-ACA2-` GUIDs, so `gen_abyss_layer.js` re-runs won't strip them
+  (same as the existing `ACCC000x`/`ACCB000x` wall-buys).
+- Docs synced: [05_weapons.md](docs/05_weapons.md), [07_replayability.md](docs/07_replayability.md),
+  [57_player_guide.md](docs/57_player_guide.md). **Geometry change → full LED-baked build.**
+
+### Changed — Widen gun spread ±3% (best 5 buff / worst 5 nerf) + S-tier box rarity ~1.7% (user, 2026-06-26)
+
+Pushed the best-vs-worst gun gap a notch wider and made the S-tier guns the rarest box rolls.
+
+- **±3% damage spread** ([_acc_damage.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc) `acc_weapon_balance_mult`,
+  `IsSubStr` → base + `_up` + all twins): **best 5 ×1.03** — Chicom CQB (0.25→0.2575), M60 (0.20→0.206),
+  AK-47 (0.227→0.2338), PPSH-41 (0.24→0.2472), Tac-19 (0.612→0.6304); **worst 5 ×0.97** — Paladin HB50
+  (0.49→0.4753), RPD (0.125→0.1213), Five-Seven (0.26→0.2522), MK14 (0.30→0.291), Olympia (0.489→0.4743).
+  Specials (Thundergun / Mahem / Action Figure) left untouched.
+- **No tier/price churn** (verified via `tools/compute_gun_tiers.js`): the buff only lifted already-TOP guns and the
+  nerf only lowered already-BOT guns, so every PaP **price tier is unchanged**. The only label change: **Tac-19's
+  formula tier ticks A→S** (papScore 7.60→7.74), so the S-tier set is now exactly the buffed best 5 (Chicom, M60,
+  AK-47, PPSH-41, Tac-19).
+- **S-tier box rarity ~1.7%** ([_acc_map_randomizer.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc)
+  `acc_box_weight`): those 5 S guns pinned to `boxForce: 8` (was 10–12) → ~1.7% each (pool weight 477→463). MORS
+  (A-tier, TOP price) stays wt 12 ~2.6%; everything else ticks up slightly (MID ~6.3%, BOT ~10.8%) from the smaller pool.
+- Roster `e` mirrored in `compute_gun_tiers.js`; regenerated docs/54 + pasted `acc_box_weight`; `pap_price_bucket`
+  comments + docs/57 (player guide) + docs/05 (box-odds table) synced. Pure GSC — linker-only.
+  (Note: docs/41 stats table + the docs/05 base/PaP **tier tables** carry pre-existing drift — removed guns, mults that
+  never matched code — and were NOT reconciled here; regenerate separately if needed. docs/54 is authoritative.)
+
+### Changed — Brutus (Trench Warden) HP +20% (user, 2026-06-26)
+
+Bumped Brutus's base HP **+20%** (`ACC_BOSS_MINI_HP` / `acc_boss_mini_hp` default **40000 → 48000**) in
+[_acc_boss.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss.gsc). The base is the only lever needed — round
+scaling (`scale_mini_boss_hp` = `base × (1 + pct·rounds_past_anchor)`) and the logarithmic co-op multiplier
+(`boss_hp_player_mult`) both **multiply** this base, so a 20% bigger base lifts the entire curve by exactly 20%
+at every round and player count, out of the box. New solo curve: **r5 48k → r10 62.4k → r20 91.2k → r30 120k →
+r40 148.8k**; co-op (round 5) 1–4p: **48k / 72k / 86k / 96k**. Comments + docs (11, 15, 34) synced. GSC-only.
+
+### Changed — Shrink the Spawn Plaza ~75% + Implant Lab side-room + scattered crate cover (user, 2026-06-26)
+
+The **Spawn Plaza (`start_zone`)** was a huge, near-empty arena (interior ~2110×1260) you could run giant
+circles in. Tightened it to a compact, chaotic space, carved the blocked-off south into a gated **Implant Lab**
+room, and replaced plain blocks with themed props. All via [tools/gen_plaza_shrink.js](tools/gen_plaza_shrink.js)
+(re-runnable) + GSC door/prop wiring. Built clean (LED passed, `.ff` 45.99 MB). **NEXT: user playtest.**
+
+- **~75% smaller** — new plaza interior **x[-470,213] y[-240,720]** (683×960 ≈ 25% of the original ~2.66M). West/
+  south/north walls are fixed by spawns + the window-barricade entry + the corridor mouths, so the squeeze is
+  taken from the **east** (wall pulled 580→213). Both corner exits still connect via connector corridors to the
+  original Market(NW)/Alley(NE) mouths at y[400,656]; the buyable doors out there are untouched.
+- **Mechanism — additive inner walls, NOT a perimeter value-remap** (the template arena is too irregular; value-
+  remapping crashed the LED bake in the tightening overhaul). New world-brush walls (proven `gen_room_cover`
+  winding → baked light + correct compile-time navmesh) seal the dead space; the big template floor is untouched.
+- **Implant Lab room (fixes a bug this work introduced):** the boss-item **Implant Bench** (its 2 pads, at
+  y≈−480, anchored to the spawn struct) was getting **sealed behind the new plaza south wall** — that's the
+  "benches disappeared" the user saw. Now the sealed south strip is a real room (interior **x[-400,-40]
+  y[-540,-240]**, both pads inside), entered from the plaza by a **tight 80u doorway** (x[-260,-180]) gated by a
+  **buyable slide-up door** (`enter_implant`, **1500**). Wired in
+  [zm_abandoned_cyber_city.gsc](scripts/zm/zm_abandoned_cyber_city.gsc) `zone_door_trigger_origin` (center
+  (-220,-240,50)) + `zone_door_thin_offset` (thin-in-Y). Room is inside `start_zone`'s volume → no separate zone.
+- **Interior maze — tried, then removed (user, 2026-06-26).** Built a full-height serpentine of partition walls +
+  "teeth" to force tight winding paths, iterated tighter, but the user decided against it ("remove the whole
+  maze"). The plaza is now **open-but-shrunk** — difficulty comes from the ~75% shrink + scattered crate cover,
+  not interior walls. (Lesson logged in memory: a wall ran through the plaza mystery box / a crate blocked a leg —
+  always audit existing entities + flood-fill traversability before adding interior geometry.)
+- **Obstacles — crates only, scattered (user: "only the little bunker things… spread them out"):** **3 cargo
+  crates** (`p7_cai_stacking_cargo_crate`, already packed) scattered across the open plaza (SW / center-E / N) as
+  low cover, spawned via `acc_spawn_plaza_props` (proven SetModel path) at **angle 0**; collision = matching `clip`
+  brushes (gen_plaza_shrink `CLIPS`, coords in sync), **snug 56×56×48** (hx=hy=28 — the value tuned for this exact
+  model in `add_prop_clips.js`; the earlier 80×80 axis-aligned clip around a rotated crate read as a "too-big/weird
+  hitbox"). The plaza mystery box (`acc_box_plaza`) sits at (100,-150) in the SE spawn band.
+- **Player spawns (user, 2026-06-26):** all 8 `initial_spawn_points` + `info_player_start` clustered into the open
+  **SE back band beside the mystery box** (4×2 grid x{-200..40} y{-90,-130}); self-check + a box-collision check
+  confirm none land in a wall or the box. `player_respawn_point` is left in place (the Implant Bench is anchored
+  to it). The 5 start_zone risers outside the footprint + the box were relocated too (all idempotent by GUID).
+- **Bake/build:** baseline BAKED 20.2s → tighter+room geometry BAKED 16s → **full build OK, LED passed.**
+  Backup: `map_source/zm/zm_abandoned_cyber_city.map.pre-plaza-shrink-bak`. Lab/Alley/Market are the follow-up
+  zones (harder: perk machines, etc.). Memory: `plaza-shrink-inner-walls`.
+
+### Changed — Swap AK-47 ↔ AK-74u tiers (user, 2026-06-26)
+
+Swapped the two AKs so the **AK-47 is now the TOP-tier gun and the AK-74u the MID-tier gun** — done by
+adjusting their damage so the PaP-form scores genuinely trade places (not a cosmetic relabel), per the
+`tools/compute_gun_tiers.js` recalc.
+
+- **Damage lever** ([_acc_damage.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc) `acc_weapon_balance_mult`):
+  AK-47 `0.186 → 0.227` (effDPS ~465 → ~568), AK-74u `0.23 → 0.184` (effDPS ~518 → ~414). That moves AK-47's
+  PaP score ~7.04 → **7.90** and AK-74u's ~7.90 → **7.03**.
+- **Recalc + regen** ([tools/compute_gun_tiers.js](tools/compute_gun_tiers.js) `GUNS` roster mirrored: AK-47 `e 568`,
+  AK-74u `e 414`; AK-74u's `boxForce: 29` **removed** so its box rarity follows price). Re-ran the scorer →
+  AK-47 lands **TOP** (rank 3), AK-74u **MID** (rank 9). Pasted the regenerated `pap_price_bucket` into
+  `_acc_pap_levels.gsc` and `acc_box_weight` into `_acc_map_randomizer.gsc`.
+- **Net effect:** AK-47 → PaP cost 5000/7500/10000, box roll ~2.5% (rare); AK-74u → PaP cost 4000/6000/8000,
+  box roll ~6.1% (common). Box rarity now follows price for both (per user).
+- **Docs synced:** docs/54 (auto-generated), docs/05 (base + PaP tier tables, price/box tables), docs/41 (stat
+  table mults/DPS), docs/57 (player guide rows + the "breaks the rule" note → now MK14-only). Pure GSC — linker-only.
+
+### Added — Custom combat HUD, phase 0+1: hide the stock ammo/weapon block, draw our own teal ammo/weapon/equip (user, 2026-06-26)
+
+Replaced the stock BO3 ZM bottom-right ammo/weapon HUD with our own cyber-styled block, the **safe additive way** (Track A —
+no stock-menu override, which would brick the `.ff`). The data is read **client-side from the engine's own weapon UIModels**
+(the same models the stock `zmammo` widgets read, on a namespace **separate from our full clientuimodel clientfield pool**),
+so this costs **ZERO new clientfields**. Bindings lifted verbatim from the on-disk `zm_building` `zmammo_*_abbey.lua`
+widgets, recolored to `ACC_PAL` teal (no custom font, no custom material). Memory: `hud-combat-reskin-client-models`. docs/49.
+
+- **Phase 0 — suppression** ([_acc_lui.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc) `suppress_stock_weapon_hud`,
+  threaded per-life from `player_lui_init`): clears the engine bit `BIT_WEAPON_HUD_VISIBLE` via the stock call
+  `self SetClientUIVisibilityFlag( "weapon_hud_visible", 0 )` (verified real — stock `_zm.gsc:6149/1761/536`), re-asserted
+  every 0.25s because stock re-sets it to 1 on spawn/revive. One call, no LUI edit, no clientfield. **IN-GAME VERIFY GATE
+  (docs/49 Phase 0):** confirm it hides the whole stock block AND doesn't kill a wanted d-pad/GobbleGum prompt.
+- **Phase 1 — our widgets** ([acc_hud.lua](ui/uieditor/menus/hud/acc_hud.lua) TOUCHPOINT 7): `CoD.AccAmmoBlock` (big mag +
+  `/reserve` + weapon name, low-ammo color via `acc_mag_color`, dark-glass plate + teal accent + corner brackets) bound to
+  `CurrentWeapon.ammoInClip/ammoStock/weaponName`; `CoD.AccEquip` (lethal + tactical icon+count, icon free from the engine
+  offhand models) bound to `CurrentPrimaryOffhand`/`CurrentSecondaryOffhand`. Build: `-GscOnly`, BUILD OK (fresh `.ff`).
+- **Layout pass 2 (2026-06-26):** fixed the mag/reserve overlap (mag big lower-right, `/reserve` to its right, weapon name
+  clearly above); tightened the plate (W 216) to read as one device; **folded the PaP-tier shield + Overclock `vN` into the
+  device HEADER row** (top-left status chips) and re-registered them AFTER the ammo block so they draw on top of the plate
+  (no more overlap); tightened the equip row above the plate. Build `-GscOnly`, BUILD OK (`.ff` 45.99 MB).
+- **Co-op SQUAD roster (2026-06-26):** the bottom-left "player HUD with all 4 players" the user asked for — every player's
+  **health bar + Data Shards + Mega Bottles + Exo tier**, small text, your row highlighted teal. Built as SERVER-SIDE GSC
+  hudelems ([_acc_health_bars.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc) `ensure_roster`/`update_roster`),
+  so it reads EVERY player's fields with **zero clientfields** (the no-budget path; memory `hud-combat-reskin-client-models`).
+  The single solo health bar is now dormant (roster supersedes it); shared `hp_bar_color` recolored green→**teal** (Jug-tier
+  shading kept, critical = magenta). Build `-GscOnly`, BUILD OK (`.ff` 45.99 MB).
+- **Known follow-ups:** positions still first-pass (iterating from screenshots); per-gun weapon *silhouette* icon = later art
+  pass; top-left Shards/Exo/Bottles readouts now DUPLICATE the roster (fold/remove once verified); roster could show NAMES
+  instead of P#; PaP'd guns show the variant name ("Ultra").
+
+### Fixed — Mahem "only packs twice": register the AW launcher's `_up` as a real engine upgrade, key-mismatch-hardened (user, 2026-06-26)
+
+The Mahem (AW launcher, `s1_mahem` → `s1_mahem_up`) could PaP only **twice** — the 3rd pack silently no-oped and the
+machine prompt vanished after the tier-2 transform. **Root cause** (traced through the real stock
+[_zm_weapons.gsc](Call of Duty Black Ops III 455130/share/raw/scripts/zm/_zm_weapons.gsc)): the held packed form
+`s1_mahem_up` was **not recognized as an engine upgrade** — `zm_weapons::is_weapon_upgraded(s1_mahem_up)` returned
+`false`. That single fact breaks **both** PaP gates at once: (1) stock `can_upgrade_weapon` hides the machine while you
+hold a weapon it thinks is un-upgradeable, and (2) our [_acc_pap_levels.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc)
+`get_tier` (keyed by `true_base` → `get_base_weapon`) returns 0, so the 3rd Use-hold reroutes to `acc_do_first_pack`,
+finds no upgrade to apply, and no-ops.
+
+- **Fix** ([_acc_weapon_variants.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc)
+  `register_special_upgrades`, called from `init()` after the stock CSV weapons register): map every base box weapon's
+  `_up` form back to its base in `level.zombie_weapons_upgraded` for any port the engine left unmapped (idempotent —
+  conventional/stock guns that already resolve are skipped, so only the Mahem is patched). Now
+  `is_weapon_upgraded(s1_mahem_up)` is `true` → the machine stays visible AND `get_tier` reads tier 2 → the 3rd pack
+  routes to `acc_do_tier_up` and reaches tier 3 (MAX), like every other gun.
+- **Key-mismatch hardening** (this build): stock `add_zombie_weapon` keys `zombie_weapons_upgraded` by the **raw**
+  upgrade object (`:554`), but the lookups (`is_weapon_upgraded` `:1736` / `get_base_weapon` `:1630`) normalize the held
+  weapon via `get_nonalternate_weapon(w).rootWeapon` first. For an AW launcher those can differ, so registering the raw
+  object alone (the first cut of the fix) could still miss. `register_upgrade_key` now registers the raw upgrade, its
+  `rootWeapon`, and the non-alternate form + its `rootWeapon` — every key a held copy can normalize to. Strictly safe
+  (extra keys only make more `_up` copies resolve to their base). Pure GSC — linker-only.
+- **Verify in-game** with `+set acc_dev 1`: the `^5[dev] PaP s1_mahem… -> tier N/3` prints (added 2026-06-25 in
+  `_acc_pap_levels.gsc`) should now reach **tier 3/3** on the third pack. (The previously-deployed `.ff` was built
+  ~12:04 on 2026-06-26, **before** the first cut of this fix landed at ~13:48 — so the running build never had it; this
+  rebuild is what actually ships it.)
+
 ### Changed — Paradise: holistic horde buff (L2→L5 per minute) + UI alerts + NO power-up drops (user, 2026-06-26)
 
 **Reworked** the Paradise anti-camp from a *per-zombie* alive-time ramp into a **world-wide horde buff stepped on the

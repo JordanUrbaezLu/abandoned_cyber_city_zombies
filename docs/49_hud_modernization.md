@@ -57,6 +57,26 @@ uimodel, standalone additive overlay (`OpenLUIMenu('acc_hud')` — **safe**, can
    else the info card re-slides every time PaP/OC ticks while it's up.
 5. **Dark backing pills/plates aid contrast** against our intentionally dark map (color grade is OFF) —
    a real readability win, not just decoration.
+6. **NEVER `SetText` a live/unbounded number on a server hudelem — use `SetValue`.** A second scarce
+   resource (separate from the clientfield pool): the engine **`string` BG-cache, cap 2048 per match**,
+   fed by every DISTINCT string passed to a hudelem `SetText`; each one **permanently burns a slot**
+   (never freed) → `BG_Cache_GetIndexInternal - Exceeded '2048' items for type 'string'` CTD. A number
+   via **`SetValue` costs ZERO slots** (stock `_zm.gsc` `countdown_hud SetValue`). So: numbers that vary
+   widely over a match (score/points, shard count, accumulating kill counters) **must** be `SetValue`;
+   `SetText` is only for **constant** or **small bounded** strings (and change-guard those too). Gotchas:
+   `alpha = 0` (hidden) does **NOT** prevent registration — it happens on the `SetText` *call*; the merged
+   "label + N numbers" line is a trap (its distinct-string count is the *product* of the numbers' ranges).
+   **To keep a text PREFIX on a crash-safe number and render flush, use two elements:** a `SetText` element
+   holding the bounded text + the literal prefix char (e.g. `"… EXO 6  $"`), **right-aligned** so its right
+   edge is fixed, and a `SetValue` number element **left-aligned 2px after** it → `…$12500` renders flush
+   every frame regardless of digit count, and the unbounded number stays out of the string cache. **Do NOT
+   use the hudelem `.label` field** — verified in-game 2026-06-26 it does **not draw** on
+   `hud::createFontString` server hudelems (only the bare `SetValue` number rendered, the whole `.label`
+   prefix vanished); it likely needs a localized istring, which you can't build from a live value. Keep the
+   small *bounded* numbers (shards 0-~hundreds, tier 0-10, count 0-25) in the `SetText` half — only the
+   *runaway* field (score, accumulating timer) needs `SetValue`. (SERVER-side twin of the `triggerstring`
+   250-cap `SetHintString` rule — memories `string-cache-setvalue-not-settext` + `triggerstring-cap-hint-strings`.
+   Fixed the co-op roster `$points` overflow, 2026-06-26.)
 
 ## Phased roadmap
 
@@ -95,6 +115,25 @@ most of the premium jump first.
 **Phase 4 — risky, last:** the teal round counter. Do NOT override stock `RoundStatus.lua`. Read
 `level.round_number` client-side and either layer a teal numeral OVER the stock one or cosmetically
 suppress the stock one (verify the round-up roll still plays). No new field.
+
+## Custom combat HUD (the stock ammo/weapon reskin) — addendum 2026-06-26
+
+Separate from the Phase roadmap above, the user asked to replace the **stock bottom-right ammo/weapon/grenade block** (which
+the original plan left as stock). Feasibility study (6-agent workflow) + build landed the same day. Key facts (full detail in
+memory `hud-combat-reskin-client-models`):
+- **Track A wins:** draw our own widgets in the safe `acc_hud` overlay + suppress the stock block. Track B (override
+  `T7Hud_zm_factory`) is the non-loadable-`.ff` trap (`lui-menu-can-break-map-load`) — rejected.
+- **Zero new clientfields:** ammo/reserve/name/lethal/tactical are engine client-side UIModels (`CurrentWeapon.*`,
+  `CurrentPrimaryOffhand/SecondaryOffhand.*`), a *separate* namespace from the full clientuimodel pool. Bindings copied from
+  on-disk `zm_building` `zmammo_*_abbey.lua`, recolored to `ACC_PAL` (no custom font, no custom material).
+- **Suppression:** `SetClientUIVisibilityFlag("weapon_hud_visible", 0)` clears `BIT_WEAPON_HUD_VISIBLE` (gates the whole stock
+  block), re-asserted 0.25s. **Phase 0 in-game gate:** prove the hide before trusting the reskin (may also hide d-pad/GobbleGum).
+- **BLOCKED — bottom-left team health:** there is NO player-health LUI model anywhere in stock; own-health needs a new field
+  (pool full) — workaround = restyle the GSC health bar (`_acc_health_bars.gsc:73-118`); live teammate health is multi-field,
+  deferred behind a bit-budget audit; teammate avatars are engine-owned (omit).
+- **BUILT 2026-06-26** (`-GscOnly`, BUILD OK, awaiting in-game verify): `suppress_stock_weapon_hud` (Phase 0) +
+  `CoD.AccAmmoBlock`/`CoD.AccEquip` (Phase 1, TOUCHPOINT 7 in acc_hud.lua). Next: in-game verify hide + positions; then
+  per-gun silhouette art + own-health bottom-left restyle.
 
 ## Status
 **Phase 1 batch 1 BUILT 2026-06-22** (`-GscOnly`, BUILD OK, awaiting in-game verify): shared `ACC_PAL`

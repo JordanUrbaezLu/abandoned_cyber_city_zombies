@@ -152,10 +152,29 @@ flowchart TD
 
 ## Per-Zone Gameplay Notes
 
-### Plaza
+### Plaza (Spawn Plaza, `start_zone`)
 - **Purpose**: first 3-4 rounds. Establish economy.
 - **Features**: 2x pistol wallbuy, SMG wallbuy, starting pistol upgrade terminal.
-- **Training**: one small loop around a central debris pile. Usable through round ~8.
+- **Size (tightened 2026-06-26)**: was a huge near-empty arena; **shrunk ~75%** to a compact space
+  (interior **x[-470,213] y[-240,720]** ≈ 683×960) via [tools/gen_plaza_shrink.js](../tools/gen_plaza_shrink.js).
+  It ADDS a tighter inner wall ring inside the old footprint and seals the dead space (the stock template arena
+  is too irregular to safely value-remap the perimeter — that crashes the LED bake). The squeeze is taken from
+  the **east** (spawns + window-barricade + corridor mouths fix the W/S/N sides). The two corner exits (NW→Market,
+  NE→Alley) stay connected by connector corridors to the original wall mouths; the buyable doors (further out)
+  are untouched. See CHANGELOG 2026-06-26.
+- **Implant Lab (side-room)**: the sealed strip south of the plaza is a small **gated room** (interior
+  x[-400,-40] y[-540,-240]) holding the boss-item **Implant Bench** pads. Entered by a **tight 80u doorway**
+  with a **buyable slide-up door** (`enter_implant`, 1500). See [12_boss_items.md](12_boss_items.md).
+- **The Exchange (transfer vault, under the Plaza)**: a stairwell carved **down from the Implant Lab floor**
+  leads to an enclosed **transfer vault** at **z=-240 directly under the Plaza** (room x[-360,300] y[-420,360]).
+  A **SHARED TEAM VAULT** for player-to-player transfers of Points / Data Shards / Mega Bottles / Boss Items —
+  deposit/withdraw pads, no targeting. Gated by a **buyable slide-up door** (`enter_exchange`, 1500). Built by
+  [tools/gen_plaza_basement.js](../tools/gen_plaza_basement.js) (carves the stock arena-floor slab around the
+  stairwell well; LED-bake-gated). A **safe** room (excluded from the trench amping, OOB-vetoed). Full design:
+  [58_transfer_vault.md](58_transfer_vault.md).
+- **Layout**: open-but-shrunk (an interior maze was tried then removed per user). Difficulty comes from the ~75%
+  shrink + **3 scattered cargo-crate props** as low cover, with zombie risers spread across the floor. Players
+  spawn in the back band beside the mystery box. No more giant circles.
 - **No perks.** Forces movement.
 - **Decontamination**: **never** the sealed zone.
 
@@ -183,7 +202,7 @@ flowchart TD
     - **Native engine fall damage is disabled map-wide** (`disable_native_fall_damage`), so the drop never kills; the only fall cost is the scripted, velocity-gated **~25 tax** (`ACC_TRENCH_FALL_DMG`, PhD-negated — the stair walk is free). 
   - **Two trench rooms (user, 2026-06-18):** two greybox rooms open off the pit at the **trench-floor level** — a **Plaza-facing** room behind the south wall (`y=TRENCH_Y1`) and a **Lab-facing** room behind the north wall (`y=TRENCH_Y2`), each ~**512w × 384d × 160h**, carved into the ground slabs (the slab above each stays solid = the walkable floor). Each is gated by a **buyable stock `zombie_door`** (1500 pts, `enter_trench_plaza` / `enter_trench_lab` → `acc_door_trench_plaza` / `acc_door_trench_lab`) that slides **sideways** into the wall pocket (so the room height isn't limited by a slide-up). **The whole underground (rooms + Hall/Chamber floor) counts as "the trench"** (user 2026-06-18): `player_in_trench` aliases the broad `player_in_underground` footprint, so the −25% slow, spawn surge, AI-cap raise, zombie aggro, and the danger warning all apply down here, not just the open pit (the fall-tax still only fires on a real fall into the pit). NOT a respite. Brushes: `tools/add_trench_rooms.js` (post-processor — reads the **live** slab z, so it tracks the parallel depth retunes; **re-run after any `gen_corp_trench` regen**). Navmesh regenerates through the doorways → zombies follow once a door is bought.
   - **Underground floor (in progress, user 2026-06-18):** the rooms are the entrance to a sub-level **gauntlet** (workflow "Data Vault"). **Segment 1 built** — a tight 192u **Hall A** + a wider **Chamber B** extend **south** out of the Plaza-facing room (carved through its back wall), same z-band as the rooms (floor −240, ceiling −80). Built as **enclosed sealed boxes** by `tools/add_trench_floor.js` (post-processor after `add_trench_rooms.js`). **Validated:** the south extension below the corp slab **does not leak** (the map hull seals it) and the LED bake holds, so the floor is built **segment-by-segment, bake-gating each** (`tools/_bake_test.ps1`). **Content wired (2026-06-18):** the shard **Glitch Altar** (kiosk + orb) is in the Plaza-facing room (docs/06); **Data Caches** (cargo crates, grant shards once/round) sit in Hall A + Chamber B = the underground shard **SOURCE**; and **The Foundry** in Chamber B holds the **Cyberware kiosk** (workbench) + **Overclock terminal** (kiosk) — the first reachable Cyberware/Overclock shard sinks. All models are stock `p7_cai_*` props (docs/44), verified-packing. Next: Hall C → a proper Vault, flesh out the Overclock effects. The OOB-kill veto covers the whole sub-level (`_acc_bus_trench::player_in_underground`).
-  - Geometry SoT: `source_data/rooms.json` "trenches".corp; brushes `tools/gen_corp_trench.js`. Navmesh links the 16/16 stairs so zombies funnel through.
+  - Geometry SoT: `source_data/rooms.json` "trenches".corp; brushes `tools/gen_corp_trench.js`. Navmesh links the stairs so zombies funnel through. **Stairs re-pitched 2026-06-26** (players reported the original 16-tall/16-deep 45° steps glitched the player hull): `tools/regen_trench_stairs.js` rebuilt both stairs at **10-tall / 16-deep (≈32°), 23 steps, 368u long** — same top lip (south W / north E), extended toward the middle (W `y[1723,2091]`, E `y[1805,2173]`; opposite x-walls so no collision), pit-side walls re-sized to match. Lower 10u risers link the navmesh more easily than 16u. Geometry change → full LED bake (passed).
 - **Hack terminal**: optional intrusion event (see `06_mechanics.md`). Success rewards 2 Data Shards + a random Overclock. Failure locks it for the run and spawns a penalty wave.
 - **Decontamination**: **never** sealed (connectivity).
 

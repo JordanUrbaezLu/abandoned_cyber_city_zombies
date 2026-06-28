@@ -234,6 +234,19 @@ node tools/apply_recoil_overhaul.js              # twins + gdtdb (step 8)
 - **PaP camo errors are non-fatal and waived** (the Five-Seven's). A new gun whose PaP
   camo table is self-contained in its GDT (the AK's `t6_camo_ak47_table`) resolves
   fine and adds no error. Don't chase camo (user call).
+- **Removing a baked PaP optic/attachment** (a ported `_up` form that ships a reflex/scope
+  you don't want): the optic lives as ~9 fields on the `_up` *bulletweapon* block —
+  `attachViewModel1/2` (`vm_*_hip_scope`/`*_ads_scope`), `attachWorldModel1`,
+  `attachViewModelTag1/2`+`attachWorldModelTag1` (`tag_reflex`/etc.), the optic ADS anims
+  (`adsDownAnim`/`adsUpAnim` → the `*_<optic>_ads_*` set), and `hideTags` (the `_up` hides
+  the irons via `tag_irons_hide`; the base hides `tag_optic_mount`). Revert all of them to the
+  **base** block's values to restore iron sights — leave clip/damage/stock/mag/FX (the real
+  PaP upgrades) alone. Do it in a **re-runnable tool** keyed by block name (the install base
+  GDT block **and** every `<gun>_up_acc_*` twin in `acc_weapon_variants.gdt`, or the perk twins
+  keep the optic), then `gdtdb /update` + `-GscOnly`. Worked example:
+  [tools/remove_ppsh_pap_optic.js](../tools/remove_ppsh_pap_optic.js) (PPSH "Pale Rider" mk8
+  reflector). **RE-RUN it after `apply_recoil_overhaul.js`** (that restores pristine base +
+  regenerates twins → re-adds the optic).
 - **Ported energy/sci-fi guns can reference FX from a DIFFERENT game's pack.** The AW
   AE4's muzzle flash chains to `iw7_efx_plasma_muz_flash` (an *Infinite Warfare* material).
   With the IW pack absent, the linker logs `Material <fx> not found in gdtDB` — **non-fatal,

@@ -7,8 +7,9 @@ Machin[a]-style randomized passive-buff items dropped on boss kills. Shape your 
 - **6 items** in the drop pool (the two tactical grenades, Li'l Arnie + Monkey Bomb, moved to mystery-box rolls 2026-06-24 — see the note under "The 6 items").
 - **2 active items** per player (two Plaza bench pads = Slot 1 / Slot 2; filling an empty slot is FREE, replacing a full slot = 2500 pts).
 - Drops from both **mini-boss** (50% chance) and **full boss** (guaranteed).
+- **Regular zombies** also have a tiny drop chance (user 2026-06-27): every non-boss zombie death independently rolls **0.4%** to drop a random pool item (free-for-all world pickup) **and** **0.4%** to grant **one Empty Mega Bottle to the killer only** (direct grant, not shared). Bosses/mini-bosses are excluded (they keep their guaranteed drops). Live dvars: `acc_zombie_item_drop_chance` / `acc_zombie_bottle_drop_chance` (default `0.004`). Code: `_acc_boss_items::on_zombie_death_drop`.
 - **Duplicates** convert to 3 Data Shards.
-- **No persistence across runs** - items are lost on death / run-end.
+- **Lost when you DIE OUT** (user 2026-06-26): bleeding out (a real death, not a revived down) wipes **both** implant slots — their buffs go with them, and you respawn implant-less and must find + re-implant new ones. A revived down keeps your implants. Implemented in `_acc_boss_items::lose_implants_on_bleed_out` (per-player stock `"bled_out"` notify). Also no persistence across runs (run-end resets everything).
 
 ## Separate From Mega Bottles
 
@@ -36,7 +37,7 @@ flowchart LR
 
 ### Acquisition flow
 1. **Bosses drop items.** A random pool item drops at the corpse (Brutus / Glitch Stalker **50%**, Subroutine Core **100%**). Hold **ⓕ Use** to **grab** it — this only **carries** it (HUD: `CARRYING <item>`); the buff is NOT active yet. Uncollected drops despawn after **60 s**. Grabbing an item you already carry/have → **+3 Data Shards**. Grabbing a NEW item while already carrying a different (un-enabled) one **drops the old one back to the ground** (re-grabbable) — it's never lost. (An already-implanted item stays implanted.)
-2. **Enable it at the Plaza Implant Bench** (beside the Plaza spawn — now **two pads**, Slot 1 and Slot 2). Hold **ⓕ Use** on a pad to **implant** the carried item into that slot → buff goes active (HUD: `IMPLANT 1 <item>` / `IMPLANT 2 <item>`). A confirmation sound plays. The implant is on the player; a sound plays each time.
+2. **Enable it at the Plaza Implant Bench** — now in the gated **Implant Lab** side-room off the Plaza spawn (buy the tight-entrance door, `enter_implant`, **1500**, to reach it; 2026-06-26). **Two pads**, Slot 1 and Slot 2. Hold **ⓕ Use** on a pad to **implant** the carried item into that slot → buff goes active (HUD: `IMPLANT 1 <item>` / `IMPLANT 2 <item>`). A confirmation sound plays. The implant is on the player; a sound plays each time.
 3. **Two active items at a time.** Implanting into an **empty** slot is **FREE** (so your first two are free). Once **both** slots are full, using a pad **replaces that pad's slot** for **2500 points** (removing that slot's previous buff) — you choose which to lose by which pad you use. Carrying a new item does nothing until you bench it.
    - **Two grenade items (Li'l Arnie + Monkey Bomb)** both want the single tactical slot — the engine has only one. They're allowed in two slots, but the **last one implanted is the grenade you actually throw** ("last one wins"); removing it hands the tactical back to the other. The HUD shows both as implanted.
 
@@ -51,11 +52,12 @@ flowchart LR
 | ID | Item | Model | Buff | How to use |
 |----|------|-------|------|-----------|
 | 1 | **Gas Tank** | nitrous tank | **Nitro burst** — +100% move speed for 5 s | **Double-tap the Sprint button** to trigger. Runs the full 5 s (uncancellable), then a **60 s** lockout — can't re-trigger until fully recharged. A **NITRO bar** on the left HUD shows the charge: full **cyan** = ready; it drains to empty over the burst, then refills **orange** over the 60 s regen. |
-| 2 | **Loot Stash** | gold brick (`zombietron_gold_brick`) | **+10 pts/kill, +20/headshot kill** (×2 with Double Points); a **Nuke pays the holder 500** (1000 w/ Double Points) | Passive, KILLER only. FLAT bonus (user 2026-06-23: the old +10% was swallowed by the points floor-to-10, so it "didn't work"). Logic in `_acc_points` (`distribute_points` + `ledger_nuke_watch`). |
+| 2 | **Loot Stash** | gold brick (`zombietron_gold_brick`) | **+10 pts/kill, +15/headshot** — rising to **+15 / +25 with Double Points** (additive DP boost, not ×2); a **Nuke pays the holder 500** (1000 w/ Double Points) | Passive, KILLER only. FLAT bonus; 15/25 aren't multiples of 10 so they're **banked** to net exact (user 2026-06-26). Logic in `_acc_points` (`award_killer_with_ledger` + `ledger_nuke_watch`). |
 | 3 | **Repair Kit** | carpenter icon | **+10 HP/sec** passive health regen | Passive (caps at max health; pauses while downed). |
 | 4 | **Rocket Shield** | rocket shield | **Mobility** — +35% speed while sliding, a forward lunge on slide-start, **2× jump height** | Passive — just slide and jump. |
 | 5 | **Phase Serum** | perk-bottle vial | **Cloak — Glitch Stalker ONLY** — the Glitch Stalker can't see/target you (including the Glitch Purge glitches — they ignore a cloaked carrier; user 2026-06-24); the regular horde still attacks | Passive. (Glitch-only by design — a full horde cloak made you invulnerable.) |
 | 6 | **Boots** | boots prop (`p7_boots_safehouse_01`) | **Mobility** — **+8% move speed everywhere**. (No longer cancels the trench slow — user 2026-06-21; only the Exo Suit does that, docs/47.) | Passive. (user 2026-06-18) |
+| 7 | **Lucky Clover** | X2 orb (`p7_zm_power_up_double_points` — placeholder; the X2 reads as "double luck") | **Drop luck** — while implanted, YOUR kills double the zombie random-item + Mega-Bottle drop chance (0.4%→0.8%) **and** add a **0.5%/kill** chance to drop a random power-up (full_ammo / insta_kill / double_points / nuke), bypassing the per-round cap. Works in Paradise. | Passive, KILLER only. Per-player (each co-op player runs their own). Live dvars `acc_clover_mult` / `acc_clover_powerup_chance`. (user 2026-06-27) |
 
 All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. Models are link-verified (errorlog-clean) and per-item floor-lifted (`model_z`) so they don't sink in.
 
@@ -144,17 +146,17 @@ All IDs/names show `id - name` in the pickup prompt, the messages, and the HUD. 
 
 ### 6. Payroll Ledger (implant archetype)
 
-- **Effect**: **+10% Points** earned on any kill you contribute to. Applied after the 70/30 co-op split so the boost affects *your personal share*, not the base award everyone's sharing from.
-- **Build fit**: long runs of any build. Pumps Points so you can afford multiple PaP L5 maxes + all 4 perks + Mule Kick + emergency Box rolls. Pairs especially well with Kinetic Battery (big kill streaks = big Ledger multiplier accumulation).
+- **Effect**: a **flat Points bonus to the KILLER per kill — +10 regular / +15 headshot**, rising to **+15 / +25 while Double Points is active** (the Double-Points boost is an *additive* +5 / +10, NOT the base's ×2). Killer only (not split to assists). *(History: started as +10%, but the stock round-to-10 swallowed it; flat since 2026-06-23, DP-additive + banked since 2026-06-26.)*
+- **Build fit**: long runs of any build. Pumps Points so you can afford multiple PaP L5 maxes + all 4 perks + Mule Kick + emergency Box rolls. Pairs especially well with Kinetic Battery (big kill streaks = more flat bonuses banked).
 - **Counter-synergy**: none - it's universally applicable. Short runs (<round 15) won't see much difference.
 - **Stacking rules**:
-  - With **Double Points powerup**: *multiplicative*. Double Points doubles the base, Ledger adds +10% on top. Effective +120% during the powerup window.
-  - With **Double Tap perk**: kills faster due to fire rate + damage, Ledger multiplies on more kills per minute. Compounds effectively.
-  - With **Widow's Wine perk**: grenade kills still award base kill Points; Ledger applies +10% to those too. Grenade-heavy builds benefit.
-  - With **another player's Ledger**: nope. Each player gets the +10% only on THEIR share.
-- **Anti-exploit**:
-  - +10% is applied to each player's **computed share**, not to the base award. Prevents the exploit of "tag for 1 damage, claim 30% * 1.10 of what the killer earned".
-  - Floor-to-10 rounding on the bonus. Shares are multiples of 10 (verified BO3 engine constraint - the stock score API rounds awards UP to multiples of 10, so we pre-quantize; see [06_mechanics.md](06_mechanics.md#point-economy) and [19_stock_api_verification.md](19_stock_api_verification.md)). Effective behavior: **no Ledger bonus on shares below 100** (e.g. 30 × 1.10 = 33 → 30), full +10% on round-number shares of 100+ (100 → 110). Prevents the "let my teammate kill it to share-farm me" abuse.
+  - With **Double Points powerup**: the per-kill bonus rises to **+15 (regular) / +25 (headshot)** — an additive bump, on top of the base that Double Points separately doubles.
+  - With **Double Tap perk**: kills faster due to fire rate + damage, so more per-kill bonuses banked per minute. Compounds effectively.
+  - With **Widow's Wine perk**: grenade kills still award base kill Points; the flat Ledger bonus applies to those too. Grenade-heavy builds benefit.
+  - With **another player's Ledger**: nope. Each Ledger pays only its own holder's kills.
+- **Money granularity (banking)**:
+  - The bonus is added to the killer's **own** award only (not the co-op share pool), so a "tag for 1 damage" assist never earns it.
+  - Zombies money only moves in multiples of 10 (the stock score API rounds every award UP to 10 - see [19_stock_api_verification.md](19_stock_api_verification.md)). Because +15 / +25 aren't multiples of 10, `award_killer_with_ledger` **banks** the sub-10 remainder on the killer and flushes it on a later kill, so the **net** payout is exactly +15 / +25 even though the on-screen floater alternates +10 / +20.
 - **Thematic note**: the ledger is a small neural implant that logs every bounty your brain registers. Corporate black-ops used them for payroll tracking. You scavenged one off a pre-collapse executive.
 
 ## Design Logic
@@ -217,7 +219,7 @@ If items feel broken:
 - Knock Kinetic Battery's multiplier from 3x to 2x (or raise kill-cost from 10 to 15).
 - Make Ghost Shroud cooldown 120s instead of 90s.
 - Reduce Neural Boots to +15%.
-- Reduce Payroll Ledger to +5% (or cap its benefit at body-shot Points only, letting headshot Points bypass).
+- Lower the Loot Stash / Payroll Ledger per-kill bonus (`ACC_LEDGER_KILL`/`_DP`, `ACC_LEDGER_HEADSHOT`/`_DP` in `_acc_points.gsc`).
 
 If items feel underwhelming:
 

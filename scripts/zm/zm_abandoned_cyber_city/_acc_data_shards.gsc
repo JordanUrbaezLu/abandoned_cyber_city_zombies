@@ -342,26 +342,12 @@ function cache_round_rearm()   // self = the cache trigger
 function sync_shards_to_client()
 {
     if ( !isdefined( self.acc_data_shards ) ) self.acc_data_shards = 0;
-    if ( !isdefined( self.acc_shards_hud ) )
-    {
-        self.acc_shards_hud = self hud::createFontString( "default", 1.3 );
-        // COUNT ONLY now - the "DATA SHARDS" text label was REPLACED by the player's PNG, drawn in LUI
-        // (acc_hud.lua CoD.AccShardIcon) at top-left; the count sits just to its RIGHT (user 2026-06-25). The
-        // server hudelem can't show the PNG itself (a usermap can't build a 2D HUD material - "No techsetdef
-        // for material type 2d"), so icon=LUI + count=hudelem. Health label y=16, bar y=32 -> shard row y=50;
-        // x=44 clears the ~x14-40 LUI icon. TUNE x with the LUI icon's LEFT/SIZE if they don't line up.
-        self.acc_shards_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 44, 50 );
-        self.acc_shards_hud.alignX = "left";
-        self.acc_shards_hud.alignY = "top";
-        self.acc_shards_hud.color = ( 0.3, 0.85, 1.0 );
-        self.acc_shards_hud.hidewheninmenu = true;
-    }
-    // The LUI icon is the label now - this is just the count number.
-    self.acc_shards_hud SetText( "^7" + self.acc_data_shards );
-    // Always visible (dim at 0) so the currency is discoverable - the whole trench loop keys off it
-    // (user 2026-06-19). Was alpha 0 at 0 shards, i.e. HUD invisible until your first shard = read as
-    // a missing HUD / "what currency?" to a fresh player.
-    self.acc_shards_hud.alpha = ( self.acc_data_shards > 0 ? 0.9 : 0.35 );
+    // Top-left shards readout RECLAIMED (user 2026-06-27): it was hidden (alpha 0) - the SQUAD roster shows the
+    // count now - but a HIDDEN server hudelem STILL occupies a slot in the SHARED, fixed per-client pool (alpha 0
+    // != freed). Freeing it makes room for the roster's one-row "points SH EXO MB" stats line without overflowing
+    // the ~31/client pool in 4-player co-op (memory server-hudelem-pool-exhaustion-coop). The count lives in
+    // self.acc_data_shards; the roster (_acc_health_bars::update_roster) reads it directly, so nothing visible is
+    // lost. (Re-add a visible readout = createFontString + SetValue, NOT SetText - the count is unbounded-ish.)
     level notify( "acc_shards_changed", self );
 }
 

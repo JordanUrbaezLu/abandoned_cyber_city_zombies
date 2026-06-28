@@ -10,18 +10,19 @@
 //             plays, the air is clear, only a VERY light trickle of zombies wanders in. A fakeout.
 //   PHASE 2 - OMEN (instant, at the end of the calm): the FOG rolls back in (acc_atmosphere::paradise_fog_on)
 //             and the dog-round announcer ("fetch me their souls" = stock zmb_dog_round_start) howls.
-//   PHASE 3 - DREAD (acc_paradise_dread_sec, 15s): just the fog closing in, the trickle continuing. Tension.
-//   PHASE 4 - BATTLE (acc_paradise_survive_sec, 240s = 4 min): the arena SEALS, the "115" anthem
+//   PHASE 3 - DREAD (acc_paradise_dread_sec, 10s): just the fog closing in, the trickle continuing. Tension.
+//   PHASE 4 - BATTLE (acc_paradise_survive_sec, 225s = 3:45): the arena SEALS, the "115" anthem
 //             (acc_paradise_music) drops, and 2 Brutus + 1 Phantom storm in ALONGSIDE the horde (x4 spawn rate +
 //             shield/glitch gauntlet). EVERY MINUTE the whole battle escalates IN LOCKSTEP: +1 Brutus + 1 Phantom
 //             join (up to the caps), the WORLD-WIDE horde trench-buff steps up a layer (L2 minute 0-1 -> L3 -> L4 ->
-//             L5 final minute), and a UI alert fires ("The horde is getting stronger", or "You will never escape!"
-//             on the final L5 step) - so the alert lands exactly when a Brutus spawns. NO power-up drops the whole
+//             L5 final wave), and a UI alert fires ("The horde is getting stronger", or "You will never escape!"
+//             on the final L5 step) - so the alert lands exactly when a Brutus spawns. Four waves: L2/L3/L4 are
+//             60s each, the FINAL L5 wave is 45s (3:00 -> 3:45). NO power-up drops the whole
 //             battle (no insta-kill / max-ammo / double-points - block_powerup_drop). A countdown TIMER HUD shows
 //             the time left; the BOSS HUD + boss music are SUPPRESSED for the whole battle (level.acc_paradise_
 //             onslaught - read by _acc_health_bars and _acc_boss::boss_music).
 //
-// WIN: survive the 4-minute battle (team not wiped) -> the documented BO3 end-game sequence (docs/22): victory
+// WIN: survive the 3:45 battle (team not wiped) -> the documented BO3 end-game sequence (docs/22): victory
 // banner -> freeze controls -> fade to black -> purge the horde (DoDamage health+666) -> level notify("end_game")
 // (the single stock signal that ends the zombies match to the post-game scoreboard; there is no separate
 // "victory" screen, so the banner is what tells the player they WON vs died).
@@ -58,8 +59,8 @@
 
 // --- Tunable defaults. Every one a live acc_paradise_* dvar (mirror docs/34). ---
 #define ACC_PARADISE_CALM_SEC_DEF         60    // PHASE 1: calm/victory-fakeout seconds before the fog hits
-#define ACC_PARADISE_DREAD_SEC_DEF        15    // PHASE 3: fog-closing-in seconds before the battle
-#define ACC_PARADISE_SURVIVE_SEC_DEF      240   // PHASE 4: battle survival time to WIN (seconds) = 4 minutes
+#define ACC_PARADISE_DREAD_SEC_DEF        10    // PHASE 3: fog-closing-in seconds before the battle (user 2026-06-26: 15 -> 10)
+#define ACC_PARADISE_SURVIVE_SEC_DEF      225   // PHASE 4: battle survival time to WIN (seconds) = 3:45 (user 2026-06-27). 60s escalation => waves L2/L3/L4 @ 60s each + the final L5 wave @ 45s (180->225).
 #define ACC_PARADISE_TRICKLE_SEC_DEF      12.0  // seconds between the "very light" calm/dread trickle spawns
 #define ACC_PARADISE_AI_BONUS_DEF         12    // EXTRA global AI-cap headroom for the battle horde (stacks on the trench +14)
 #define ACC_PARADISE_SPAWN_MULT_DEF       4     // the "x4" battle spawn-rate multiplier (user 2026-06-25)
@@ -73,7 +74,7 @@
 #define ACC_PARADISE_PHANTOM_MAX_DEF      4     // concurrent paradise Phantom cap
 #define ACC_PARADISE_BOSS_INTERVAL_DEF    60.0  // seconds between escalation ticks (+1 Brutus +1 Phantom + buff step + alert each "minute")
 #define ACC_PARADISE_BUFF_START_DEF       2     // world-wide horde trench-buff layer for the FIRST battle minute (0-1 min)
-#define ACC_PARADISE_BUFF_MAX_DEF         5     // deepest horde layer (reached at the 3:00 step, held for the final minute)
+#define ACC_PARADISE_BUFF_MAX_DEF         5     // deepest horde layer (reached at the 3:00 step, held for the final 45s wave)
 // (The Paradise holistic HORDE BUFF anti-camp - the WHOLE battle horde shares ONE trench-equivalent layer that steps
 // L2 -> L3 -> L4 -> L5 on the BATTLE CLOCK, +1 each minute, in lockstep with the Brutus escalation + the UI alert
 // below. The per-layer SPEED + HEALTH treatment lives in _acc_zombie_speed.gsc::paradise_buff_layer (it just READS
@@ -88,7 +89,7 @@
 
 function init()
 {
-    acc_utility::log( "paradise: init (calm -> fog/omen -> 4-min battle -> WIN; arms on Paradise open)" );
+    acc_utility::log( "paradise: init (calm -> fog/omen -> 3:45 battle -> WIN; arms on Paradise open)" );
     level.acc_paradise_open       = false;
     level.acc_paradise_started    = false;
     level.acc_paradise_onslaught  = false;   // true ONLY during PHASE 4 (battle): suppresses the boss HUD + boss music + power-up drops
@@ -188,7 +189,7 @@ function start_battle()
         level flag::clear( "spawn_zombies" );
 
     foreach ( p in GetPlayers() )
-        if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^1THE PARADISE ONSLAUGHT^7 - SURVIVE 4 MINUTES!" );
+        if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^1THE PARADISE ONSLAUGHT^7 - SURVIVE 3:45!" );
 
     // Initial bosses: 2 Brutus + 1 Phantom storm in with the horde.
     level thread spawn_n_brutus( 2 );
@@ -288,14 +289,24 @@ function gather_stragglers()
     dest = paradise_gather_point();
     if ( !isdefined( dest ) ) return;
 
+    // Collect the stragglers first, then fan them onto a DETERMINISTIC evenly-spaced ring (ang = i*360/n)
+    // instead of a random angle per player. Two random angles can land two stragglers inside each other's
+    // ~16u capsule -> the engine EJECTS the stack -> a teammate is punted OOB and killed by the second_part
+    // decontamination (project rule: memory coop-teleport-fan-out-not-one-point). Same dest + 48u radius as
+    // before, so no new OOB risk - just guaranteed non-overlap (co-op audit 2026-06-27).
+    stragglers = [];
     foreach ( p in GetPlayers() )
     {
         if ( !isdefined( p ) || !isplayer( p ) || !isalive( p ) ) continue;
         if ( acc_bus_trench::player_in_second_part( p ) ) continue;   // already in the arena - leave them
-        ang = acc_utility::acc_rand_int( 360 );
+        stragglers[ stragglers.size ] = p;
+    }
+    for ( i = 0; i < stragglers.size; i++ )
+    {
+        ang = i * 360 / stragglers.size;
         off = ( cos( ang ) * 48, sin( ang ) * 48, 0 );   // 48u ring so multiple stragglers don't stack
-        p SetOrigin( dest + off );
-        p IPrintLnBold( "^5The gate seals^7 - pulled into PARADISE for the final stand" );
+        stragglers[ i ] SetOrigin( dest + off );
+        stragglers[ i ] IPrintLnBold( "^5The gate seals^7 - pulled into PARADISE for the final stand" );
     }
 }
 
@@ -571,7 +582,7 @@ function horde_buff_alert( msg, col )
 
 // Stock powerup_drop() override hook (set on level.custom_zombie_powerup_drop in init). Returns TRUE to SUPPRESS
 // the drop - true ONLY during the Paradise battle, so EVERY regular zombie-death power-up (random + score: insta-
-// kill, max-ammo, double-points, nuke, ...) is blocked for the 4-minute finale and the rest of the match is stock.
+// kill, max-ammo, double-points, nuke, ...) is blocked for the 3:45 finale and the rest of the match is stock.
 // Reads only level state (no self dependency - powerup_drop invokes it as [[ ]]( drop_point )). user 2026-06-26.
 function block_powerup_drop( drop_point )
 {

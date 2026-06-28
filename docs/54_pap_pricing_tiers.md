@@ -24,34 +24,34 @@ Relative split -> add/remove a gun and the tercile boundaries reshuffle automati
 | **MID** | 4000 / 6000 / 8000 | 18,000 | 29 |
 | **BOT** | 3000 / 4500 / 6000 | 13,500 | 50 (common) |
 
-## Current ranking (16 scoreable + 3 special + 0 excluded; box pool 19, total weight 494)
+## Current ranking (16 scoreable + 3 special + 0 excluded; box pool 19, total weight 463)
 
 | Rank | Gun | Class | PaP score | Price tier | PaP cost T1/T2/T3 | Box weight (~roll) |
 |--:|---|---|--:|:--:|---|---|
-| 1 | **Chicom CQB** | SMG | 8.05 | **TOP** | 5000 / 7500 / 10000 | 12 (~2.4%) |
-| 2 | **M60** | LMG | 7.97 | **TOP** | 5000 / 7500 / 10000 | 10 (~2.0%) |
-| 3 | **AK-74u** | SMG | 7.90 | **TOP** | 5000 / 7500 / 10000 | 29 (~5.9%) |
-| 4 | **PPSH-41** | SMG | 7.87 | **TOP** | 5000 / 7500 / 10000 | 10 (~2.0%) |
-| 5 | **Tac-19** | Shotgun | 7.60 | **TOP** | 5000 / 7500 / 10000 | 10 (~2.0%) |
-| 6 | **MORS** | Sniper | 7.50 | **TOP** | 5000 / 7500 / 10000 | 12 (~2.4%) |
-| 7 | **AE4** | AR | 7.19 | **MID** | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| 8 | **RW1** | Pistol | 7.15 | **MID** | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| 9 | **AK-47** | AR | 7.04 | **MID** | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| 10 | **ASM1** | SMG | 7.02 | **MID** | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| 11 | **Galil** | AR | 6.85 | **MID** | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| 12 | **Paladin HB50** | Sniper | 6.42 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.1%) |
-| 13 | **RPD** | LMG | 6.10 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.1%) |
-| 14 | **Five-Seven** | Pistol | 6.10 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.1%) |
-| 15 | **MK14** | DMR | 5.99 | **BOT** | 3000 / 4500 / 6000 | 29 (~5.9%) |
-| 16 | **Olympia** | Shotgun | 3.67 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.1%) |
+| 1 | **Chicom CQB** | SMG | 8.18 | **TOP** | 5000 / 7500 / 10000 | 8 (~1.7%) |
+| 2 | **M60** | LMG | 8.11 | **TOP** | 5000 / 7500 / 10000 | 8 (~1.7%) |
+| 3 | **AK-47** | AR | 8.04 | **TOP** | 5000 / 7500 / 10000 | 8 (~1.7%) |
+| 4 | **PPSH-41** | SMG | 8.00 | **TOP** | 5000 / 7500 / 10000 | 8 (~1.7%) |
+| 5 | **Tac-19** | Shotgun | 7.74 | **TOP** | 5000 / 7500 / 10000 | 8 (~1.7%) |
+| 6 | **MORS** | Sniper | 7.50 | **TOP** | 5000 / 7500 / 10000 | 12 (~2.6%) |
+| 7 | **AE4** | AR | 7.19 | **MID** | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| 8 | **RW1** | Pistol | 7.15 | **MID** | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| 9 | **AK-74u** | SMG | 7.03 | **MID** | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| 10 | **ASM1** | SMG | 7.02 | **MID** | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| 11 | **Galil** | AR | 6.85 | **MID** | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| 12 | **Paladin HB50** | Sniper | 6.31 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.8%) |
+| 13 | **RPD** | LMG | 6.10 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.8%) |
+| 14 | **Five-Seven** | Pistol | 5.99 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.8%) |
+| 15 | **MK14** | DMR | 5.89 | **BOT** | 3000 / 4500 / 6000 | 29 (~6.3%) |
+| 16 | **Olympia** | Shotgun | 3.67 | **BOT** | 3000 / 4500 / 6000 | 50 (~10.8%) |
 | — | **Thundergun** | special | — | **TOP** ² | 5000 / 7500 / 10000 | 3 (~0.6%) |
-| — | **Mahem** | special | — | **MID** ² | 4000 / 6000 / 8000 | 29 (~5.9%) |
-| — | **Action Figure** | special | — | **TOP** ² | 5000 / 7500 / 10000 | 5 (~1.0%) |
+| — | **Mahem** | special | — | **MID** ² | 4000 / 6000 / 8000 | 29 (~6.3%) |
+| — | **Action Figure** | special | — | **TOP** ² | 5000 / 7500 / 10000 | 5 (~1.1%) |
 
 ¹ hand override (pinned despite rank tercile). ² special (outside the formula, tier set by hand).
 ³ no `_up` form -> can't be Pack-a-Punched; still rolls from the box at the listed weight.
 
-**Price tiers:** TOP = Chicom CQB, M60, AK-74u, PPSH-41, Tac-19, MORS, Thundergun (special), Action Figure (special) · MID = AE4, RW1, AK-47, ASM1, Galil, Mahem (special) · BOT = Paladin HB50, RPD, Five-Seven, MK14, Olympia
+**Price tiers:** TOP = Chicom CQB, M60, AK-47, PPSH-41, Tac-19, MORS, Thundergun (special), Action Figure (special) · MID = AE4, RW1, AK-74u, ASM1, Galil, Mahem (special) · BOT = Paladin HB50, RPD, Five-Seven, MK14, Olympia
 
 
 ## GSC #1 - paste into `_acc_pap_levels.gsc` (between the BEGIN/END GENERATED markers)
@@ -64,26 +64,26 @@ function pap_price_bucket( weapon_name )
     // TOP  (5000 / 7500 / 10000)
     if ( IsSubStr( weapon_name, "thundergun" ) )        return "TOP";   // Thundergun (special)
     if ( IsSubStr( weapon_name, "t8_melee_figure" ) )   return "TOP";   // Action Figure (special)
-    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) )     return "TOP";   // Chicom CQB (PaP 8.05)
-    if ( IsSubStr( weapon_name, "t9_m60" ) )            return "TOP";   // M60 (PaP 7.97)
-    if ( IsSubStr( weapon_name, "t9_ak74u" ) )          return "TOP";   // AK-74u (PaP 7.90)
-    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )         return "TOP";   // PPSH-41 (PaP 7.87)
-    if ( IsSubStr( weapon_name, "s1_tac19" ) )          return "TOP";   // Tac-19 (PaP 7.60)
+    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) )     return "TOP";   // Chicom CQB (PaP 8.18)
+    if ( IsSubStr( weapon_name, "t9_m60" ) )            return "TOP";   // M60 (PaP 8.11)
+    if ( IsSubStr( weapon_name, "t9_ak47" ) )           return "TOP";   // AK-47 (PaP 8.04)
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )         return "TOP";   // PPSH-41 (PaP 8.00)
+    if ( IsSubStr( weapon_name, "s1_tac19" ) )          return "TOP";   // Tac-19 (PaP 7.74)
     if ( IsSubStr( weapon_name, "s1_mors" ) )           return "TOP";   // MORS (PaP 7.50)
 
     // MID  (4000 / 6000 / 8000)
     if ( IsSubStr( weapon_name, "s1_mahem" ) )          return "MID";   // Mahem (special)
     if ( IsSubStr( weapon_name, "s1_ae4" ) )            return "MID";   // AE4 (PaP 7.19)
     if ( IsSubStr( weapon_name, "s1_rw1" ) )            return "MID";   // RW1 (PaP 7.15)
-    if ( IsSubStr( weapon_name, "t9_ak47" ) )           return "MID";   // AK-47 (PaP 7.04)
+    if ( IsSubStr( weapon_name, "t9_ak74u" ) )          return "MID";   // AK-74u (PaP 7.03)
     if ( IsSubStr( weapon_name, "s1_asm1" ) )           return "MID";   // ASM1 (PaP 7.02)
     if ( IsSubStr( weapon_name, "t6_galil" ) )          return "MID";   // Galil (PaP 6.85)
 
     // BOT  (3000 / 4500 / 6000)
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) )   return "BOT";   // Paladin HB50 (PaP 6.42)
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) )   return "BOT";   // Paladin HB50 (PaP 6.31)
     if ( IsSubStr( weapon_name, "t9_rpd" ) )            return "BOT";   // RPD (PaP 6.10)
-    if ( IsSubStr( weapon_name, "t6_fiveseven" ) )      return "BOT";   // Five-Seven (PaP 6.10)
-    if ( IsSubStr( weapon_name, "s1_mk14" ) )           return "BOT";   // MK14 (PaP 5.99)
+    if ( IsSubStr( weapon_name, "t6_fiveseven" ) )      return "BOT";   // Five-Seven (PaP 5.99)
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )           return "BOT";   // MK14 (PaP 5.89)
     if ( IsSubStr( weapon_name, "t6_olympia" ) )        return "BOT";   // Olympia (PaP 3.67)
 
     return "BOT";   // default: cheapest tier (also covers the no-PaP Action Figure)
@@ -119,11 +119,11 @@ function acc_box_weight( wpn )
     if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 5;
     n = wpn.name;
     if ( n == "thundergun" ) return 3;   // ~0.6% each - Thundergun
-    if ( n == "t8_melee_figure" ) return 5;   // ~1.0% each - Action Figure
-    if ( n == "t9_m60" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 10;   // ~2.0% each - M60, PPSH-41, Tac-19
-    if ( n == "t6_chicom_cqb" || n == "s1_mors" ) return 12;   // ~2.4% each - Chicom CQB, MORS
-    if ( n == "t9_ak74u" || n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak47" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~5.9% each - AK-74u, AE4, RW1, AK-47, ASM1, Galil, MK14, Mahem
-    if ( n == "t8_paladin_hb50" || n == "t9_rpd" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~10.1% each - Paladin HB50, RPD, Five-Seven, Olympia
+    if ( n == "t8_melee_figure" ) return 5;   // ~1.1% each - Action Figure
+    if ( n == "t6_chicom_cqb" || n == "t9_m60" || n == "t9_ak47" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 8;   // ~1.7% each - Chicom CQB, M60, AK-47, PPSH-41, Tac-19
+    if ( n == "s1_mors" ) return 12;   // ~2.6% each - MORS
+    if ( n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak74u" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~6.3% each - AE4, RW1, AK-74u, ASM1, Galil, MK14, Mahem
+    if ( n == "t8_paladin_hb50" || n == "t9_rpd" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~10.8% each - Paladin HB50, RPD, Five-Seven, Olympia
     return 5;   // unknown -> mid
 }
 ```

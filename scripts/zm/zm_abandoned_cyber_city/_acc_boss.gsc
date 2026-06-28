@@ -44,8 +44,8 @@
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
-#define ACC_BOSS_MINI_HP 40000       // Brutus BASE solo HP at his DEBUT round (ACC_BOSS_MINI_HP_ANCHOR). (user 2026-06-24: -20% from 50k; earlier cut from 250000=5x/500000=10x "took forever"). Scaled by the round (scale_mini_boss_hp) THEN x boss_hp_player_mult (LOGARITHMIC coop).
-#define ACC_BOSS_MINI_HP_ROUND_PCT 0.06 // Brutus scales with the round like a zombie does, but TAMER (user 2026-06-24 "not crazy"): SIMPLE (non-compounding) +6% of base per round past the anchor -> solo r5 40k / r10 52k / r15 64k / r20 76k / r30 100k / r40 124k. Live dvar acc_boss_mini_hp_round_pct.
+#define ACC_BOSS_MINI_HP 48000       // Brutus BASE solo HP at his DEBUT round (ACC_BOSS_MINI_HP_ANCHOR). (user 2026-06-26: +20% from 40k; before: 2026-06-24 -20% from 50k; earlier cut from 250000=5x/500000=10x "took forever"). Scaled by the round (scale_mini_boss_hp) THEN x boss_hp_player_mult (LOGARITHMIC coop). +20% here lifts the WHOLE curve (round + coop multiply this base), so it scales out of the box.
+#define ACC_BOSS_MINI_HP_EXP 1.1     // Brutus COMPOUNDS per round (user 2026-06-27) at the SAME 1.1 rate as a zombie (was 1.08): base x 1.1^(round-anchor) -> solo r10 77k / r20 200k / r30 520k / r40 1.35M. Anchored at r5 (5 rounds before Phantom's r10), so Brutus still outscales the Phantom even at the same exponent. Live dvar acc_boss_mini_hp_exp.
 #define ACC_BOSS_MINI_HP_ANCHOR 5    // round his BASE HP applies; round-scaling starts PAST it (matches the first-Warden round acc_warden_first_round). Live dvar acc_boss_mini_hp_anchor.
 #define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
 #define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
@@ -157,7 +157,11 @@ function brutus_power_watch()
 function run_mini_boss( round_number )
 {
     level endon( "end_game" );
-    level endon( "acc_round_end" );
+    // NO acc_round_end endon (user 2026-06-27 audit): a fast co-op round ending DURING the ~3.5s spawn telegraph
+    // would tear this thread down while it's blocked inside spawn_brutus_miniboss's waittill_any_timeout - BEFORE
+    // the host==undefined cleanup below or watch_mini_boss_death (which clears acc_brutus_active on his death) ever
+    // ran - leaving acc_brutus_active stuck TRUE so the Trench Warden NEVER respawns for the rest of the match.
+    // Brutus roams across rounds anyway (ignore_enemy_count), so this spawn must NOT be round-scoped.
 
     // The Trench Warden is a SINGLE roaming boss (user 2026-06-18): exactly ONE at a time. He
     // charges/roams ALONGSIDE the normal wave (native ignore_enemy_count - does NOT gate round
@@ -203,23 +207,28 @@ function suppress_normal_wave( round_number )
     level.zombie_total = 0;
 }
 
-// Brutus HP scales with the round the SAME WAY a regular zombie gets tougher each round - but
-// DELIBERATELY tamer than stock's ~10%/round COMPOUNDING curve so a high-round Trench Warden never gets
-// "crazy" (user 2026-06-24). SIMPLE (non-compounding) growth off the tuned base:
-//   hp = base * ( 1 + pct * rounds_past_anchor )
-// anchored at his debut round so the FIRST Warden stays exactly the base the user tuned (40k). All three
-// knobs are LIVE balance dvars (not a dev toggle): acc_boss_mini_hp / _round_pct / _anchor. The coop
-// player multiplier (boss_hp_player_mult) is applied SEPARATELY at the spawn site, on top of this.
+// Brutus HP COMPOUNDS each round (user 2026-06-27) like a zombie, at the SAME 1.1/round rate as the horde
+// so a high-round Trench Warden keeps pace:
+//   hp = base * exp^( rounds_past_anchor )      (exp 1.1; the Phantom also uses 1.1, but Brutus anchors
+//                                                5 rounds earlier (r5 vs r10) so it stays the tankier of the two)
+// anchored at his debut round so the FIRST Warden stays exactly the base the user tuned (48k). Knobs are
+// LIVE balance dvars: acc_boss_mini_hp / _exp / _anchor. The coop player multiplier (boss_hp_player_mult)
+// is applied SEPARATELY at the spawn site, on top of this. (Was 1.08; user 2026-06-27 -> 1.1 to match zombies.)
 function scale_mini_boss_hp( round_number )
 {
     base   = getdvarint( "acc_boss_mini_hp", ACC_BOSS_MINI_HP );
-    pct    = getdvarfloat( "acc_boss_mini_hp_round_pct", ACC_BOSS_MINI_HP_ROUND_PCT );
+    exp    = getdvarfloat( "acc_boss_mini_hp_exp", ACC_BOSS_MINI_HP_EXP );
     anchor = getdvarint( "acc_boss_mini_hp_anchor", ACC_BOSS_MINI_HP_ANCHOR );
 
     past = round_number - anchor;
     if ( past < 0 ) past = 0;   // before his debut round -> just the base (no negative scaling)
 
-    return int( base * ( 1 + ( pct * past ) ) );
+    // base * exp^past. GSC has no pow builtin (stock ai_calculate_health loops x1.1 the same way);
+    // past = round - anchor is always a small non-negative int, so the loop is cheap.
+    mult = 1.0;
+    for ( i = 0; i < past; i++ )
+        mult = mult * exp;
+    return int( base * mult );
 }
 
 function spawn_brutus_miniboss( n_health_override, n_bottle_count )
@@ -241,11 +250,11 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
     if ( isdefined( n_bottle_count ) ) host.acc_bottle_drop = n_bottle_count;
     if ( isdefined( n_health_override ) ) host.maxhealth = n_health_override;
-    // ROUND scaling (scale_mini_boss_hp - user 2026-06-24: he now gets tougher each round like a zombie,
-    // but tamer) THEN LOGARITHMIC coop scaling by player count (the old LINEAR xN -> 200k at 4p was
-    // "crazy"). boss_hp_player_mult() = 1 + 0.5*log2(n) -> x1 / 1.5 / 1.8 / 2.0 for 1-4p. So a round-5 solo
-    // Warden = 40k; a round-20 solo = 76k; a round-20 4p = 76k x2.0 = 152k. Tune live:
-    // acc_boss_mini_hp_round_pct / acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
+    // ROUND scaling (scale_mini_boss_hp - user 2026-06-27: COMPOUNDS x1.1/round, matching the zombie horde)
+    // THEN LOGARITHMIC coop scaling by player count (the old LINEAR xN -> 200k at 4p was "crazy").
+    // boss_hp_player_mult() = 1 + 0.5*log2(n) -> x1 / 1.5 / 1.79 / 2.0 for 1-4p. So a round-10 solo Warden
+    // = 77k; a round-30 solo = 520k; a round-30 4p = 520k x2.0 = 1.04M. Tune live: acc_boss_mini_hp_exp /
+    // acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
     else
     {
         rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
@@ -322,6 +331,12 @@ function boss_music( host )
 
 function watch_mini_boss_death()
 {
+    // STUCK-GUARD FAILSAFE (user 2026-06-27 crash-hunt): acc_brutus_active is a one-at-a-time gate that is
+    // cleared ONLY on this "death" notify (below). If the live host were ever removed without firing "death"
+    // (forced Delete / cull), the gate would stick true and the Trench Warden could never respawn (round
+    // soft-lock). brutus_guard_failsafe clears it if self is freed without a death. Cheap belt-and-suspenders.
+    self thread brutus_guard_failsafe();
+
     self waittill( "death", attacker );
 
     // Capture origin now - the corpse can be cleaned up moments after death.
@@ -384,6 +399,25 @@ function watch_mini_boss_death()
     {
         level.acc_brutus_kill_round = level.round_number;
         level.acc_brutus_active = false;
+    }
+}
+
+// Releases the one-at-a-time Brutus gate if the host is removed WITHOUT a "death" notify (forced Delete /
+// engine cull). On a normal kill, self endon("death") ends this thread and watch_mini_boss_death clears the
+// gate; this only fires if self is freed silently. Polls because a Delete() raises no notify of its own.
+function brutus_guard_failsafe()
+{
+    level endon( "end_game" );
+    self endon( "death" );
+
+    while ( isdefined( self ) )
+        wait 1;
+
+    // self was freed without firing "death" -> release the gate so the Warden can be rescheduled.
+    if ( IS_TRUE( level.acc_brutus_active ) )
+    {
+        level.acc_brutus_active = false;
+        acc_utility::log( "Trench Warden: host removed without a death notify - released acc_brutus_active gate" );
     }
 }
 

@@ -52,6 +52,17 @@ const SW_TH = 16;                   // wall thickness (sits in the pit, just off
 const END = X1 + WALL_TH;           // -761 : inside the west end wall
 const ENDE = X2 - WALL_TH;          // 799  : inside the east end wall
 
+// CROUCH DROP-IN openings (user 2026-06-28): a crouch-height WINDOW in the rim parapet right BESIDE each stair
+// (the "wall with the bridge" = this rim parapet, which the bridge column plugs into), so a player can crouch
+// through it and DROP into the trench (~240u fall = PhD-Flopper play) instead of taking the stairs. The window is
+// open z[0,OPEN_TOP]; a header z[OPEN_TOP,PARAPET_TOP] above it keeps the parapet reading as a wall. OPEN_TOP 64
+// < the ~72u standing hull -> must crouch (the earlier 48u in the stair wall was too short to pass - user); 56u
+// wide so the ~30u hull clears it.
+const OPEN_TOP = 64;
+const OPEN_W = 56;
+const S_CROUCH = [ WEST_STAIR[1], WEST_STAIR[1] + OPEN_W ];   // [-665,-609] in the SOUTH rim, beside the WEST stair
+const N_CROUCH = [ EAST_STAIR[0] - OPEN_W, EAST_STAIR[0] ];   // [647,703]  in the NORTH rim, beside the EAST stair
+
 let guidCounter = 0xA00;
 function guid() {
   guidCounter++;
@@ -95,14 +106,18 @@ function spans(a, b, gaps) {
   return segs.filter(([s, e]) => e - s > 1);
 }
 
-// South rim parapet (room-floor side y[Y1-PAR_TH, Y1]); gaps at west stair + slab column.
-for (const [s, e] of spans(END, ENDE, [WEST_STAIR, [BRIDGE_X1, BRIDGE_X2]])) {
+// South rim parapet (room-floor side y[Y1-PAR_TH, Y1]); gaps at west stair + slab column + the crouch drop-in.
+for (const [s, e] of spans(END, ENDE, [WEST_STAIR, [BRIDGE_X1, BRIDGE_X2], S_CROUCH])) {
   emit(`trench S rim parapet x[${s},${e}]`, box(s, e, TRENCH_Y1 - PAR_TH, TRENCH_Y1, 0, PARAPET_TOP, 'script_wall'));
 }
-// North rim parapet (room-floor side y[Y2, Y2+PAR_TH]); gaps at east stair + slab column.
-for (const [s, e] of spans(END, ENDE, [EAST_STAIR, [BRIDGE_X1, BRIDGE_X2]])) {
+emit(`trench S rim crouch drop-in header x[${S_CROUCH[0]},${S_CROUCH[1]}] (open z[0,${OPEN_TOP}], beside the W stair)`,
+  box(S_CROUCH[0], S_CROUCH[1], TRENCH_Y1 - PAR_TH, TRENCH_Y1, OPEN_TOP, PARAPET_TOP, 'script_wall'));
+// North rim parapet (room-floor side y[Y2, Y2+PAR_TH]); gaps at east stair + slab column + the crouch drop-in.
+for (const [s, e] of spans(END, ENDE, [EAST_STAIR, [BRIDGE_X1, BRIDGE_X2], N_CROUCH])) {
   emit(`trench N rim parapet x[${s},${e}]`, box(s, e, TRENCH_Y2, TRENCH_Y2 + PAR_TH, 0, PARAPET_TOP, 'script_wall'));
 }
+emit(`trench N rim crouch drop-in header x[${N_CROUCH[0]},${N_CROUCH[1]}] (open z[0,${OPEN_TOP}], beside the E stair)`,
+  box(N_CROUCH[0], N_CROUCH[1], TRENCH_Y2, TRENCH_Y2 + PAR_TH, OPEN_TOP, PARAPET_TOP, 'script_wall'));
 // Under-slab fill at the slab column (both rims) z[0,BRIDGE_BOT] - blocks shooting UNDER the floating slab.
 emit('trench S rim under-slab fill', box(BRIDGE_X1, BRIDGE_X2, TRENCH_Y1 - PAR_TH, TRENCH_Y1, 0, BRIDGE_BOT, 'script_wall'));
 emit('trench N rim under-slab fill', box(BRIDGE_X1, BRIDGE_X2, TRENCH_Y2, TRENCH_Y2 + PAR_TH, 0, BRIDGE_BOT, 'script_wall'));

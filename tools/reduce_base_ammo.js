@@ -93,19 +93,32 @@ const MAXAMMO_FIX = {
     "s1_tac19": 9, "s1_tac19_up": 9,
     // RW1 reserve (user 2026-06-23): with CLIP_FIX 8/12 -> 7x8 = 56 base / 8x12 = 96 PaP. Hand-tuned A-tier.
     "s1_rw1": 7, "s1_rw1_up": 8,
-    // MORS reserve CUT 50% (user 2026-06-25): 120/180 -> 60/90 (back to the native pre-lift values). clip 1, so
-    // maxAmmo == reserve rounds (60 base / 90 PaP). Applied to base + _up + ALL 14 perk twins so EVERY form carries
-    // the same reserve (else a Deadshot/Mega twin swap would clamp it). The twins live in acc_weapon_variants.gdt;
-    // clip stays 1 everywhere. NOTE: this lowers the MORS reserve score, so compute_gun_tiers.js now FORCEs MORS to
-    // TOP/S to keep its premium PaP price + 3% box rarity (the user's established "MORS is the S sniper" intent).
-    // MORS reserve NERF -20% (user 2026-06-26): 60/90 -> 48/72 (clip stays 1). Exact-match so EVERY twin is listed.
-    "s1_mors": 48, "s1_mors_up": 72,
-    "s1_mors_acc_fastreload": 48, "s1_mors_acc_fastfire": 48, "s1_mors_acc_fastfire_fastreload": 48,
-    "s1_mors_acc_recoil50": 48, "s1_mors_acc_recoil50_fastreload": 48, "s1_mors_acc_recoil50_fastfire": 48,
-    "s1_mors_acc_recoil50_fastfire_fastreload": 48,
-    "s1_mors_up_acc_fastreload": 72, "s1_mors_up_acc_fastfire": 72, "s1_mors_up_acc_fastfire_fastreload": 72,
-    "s1_mors_up_acc_recoil50": 72, "s1_mors_up_acc_recoil50_fastreload": 72, "s1_mors_up_acc_recoil50_fastfire": 72,
-    "s1_mors_up_acc_recoil50_fastfire_fastreload": 72,
+    // MORS reserve: CUT 50% (2026-06-25) 120/180->60/90; NERF -20% (2026-06-26) ->48/72;
+    // NERF -15% (user 2026-06-27) -> 41/61 (clip 1, so maxAmmo == reserve rounds). Applied to base + _up + ALL 14
+    // perk twins so EVERY form carries the same reserve (else a Deadshot/Mega twin swap would clamp it). Twins live
+    // in acc_weapon_variants.gdt. NOTE: compute_gun_tiers.js FORCEs MORS to TOP/S (premium PaP price + 3% box rarity).
+    "s1_mors": 41, "s1_mors_up": 61,
+    "s1_mors_acc_fastreload": 41, "s1_mors_acc_fastfire": 41, "s1_mors_acc_fastfire_fastreload": 41,
+    "s1_mors_acc_recoil50": 41, "s1_mors_acc_recoil50_fastreload": 41, "s1_mors_acc_recoil50_fastfire": 41,
+    "s1_mors_acc_recoil50_fastfire_fastreload": 41,
+    "s1_mors_up_acc_fastreload": 61, "s1_mors_up_acc_fastfire": 61, "s1_mors_up_acc_fastfire_fastreload": 61,
+    "s1_mors_up_acc_recoil50": 61, "s1_mors_up_acc_recoil50_fastreload": 61, "s1_mors_up_acc_recoil50_fastfire": 61,
+    "s1_mors_up_acc_recoil50_fastfire_fastreload": 61,
+    // Paladin reserve NERF -15% (user 2026-06-27): maxAmmo 12 -> 10 (reserve = maxAmmo x clip: base 10x8=80, PaP
+    // 10x11=110; was 96/132). clip stays 8/11 (CLIP_FIX above). Closest even integer-mag cut to -15% (10.2 -> 10 =
+    // -16.7%). Exact-match so EVERY form is listed (twins in acc_weapon_variants.gdt, all native maxAmmo 12).
+    "t8_paladin_hb50": 10, "t8_paladin_hb50_up": 10,
+    "t8_paladin_hb50_acc_fastreload": 10, "t8_paladin_hb50_acc_fastfire": 10, "t8_paladin_hb50_acc_fastfire_fastreload": 10,
+    "t8_paladin_hb50_acc_recoil50": 10, "t8_paladin_hb50_acc_recoil50_fastreload": 10, "t8_paladin_hb50_acc_recoil50_fastfire": 10,
+    "t8_paladin_hb50_acc_recoil50_fastfire_fastreload": 10,
+    "t8_paladin_hb50_up_acc_fastreload": 10, "t8_paladin_hb50_up_acc_fastfire": 10, "t8_paladin_hb50_up_acc_fastfire_fastreload": 10,
+    "t8_paladin_hb50_up_acc_recoil50": 10, "t8_paladin_hb50_up_acc_recoil50_fastreload": 10, "t8_paladin_hb50_up_acc_recoil50_fastfire": 10,
+    "t8_paladin_hb50_up_acc_recoil50_fastfire_fastreload": 10,
+    // WARN (2026-06-27): the .acc-ammo-orig backups are STALE re: Paladin locHead/locHelmet 5.0 (fix_paladin_loc.js)
+    // and MORS _up damage 1500 / minDamage 750 (PaP-form tuning) - both tools ran AFTER reduce last snapshotted. A
+    // blind re-run REVERTS them (whole-file rewrite from backup). This -15% reserve nerf was therefore applied
+    // SURGICALLY to the live maxAmmo/startAmmo (not via a re-run). Before re-running reduce: refresh those backup
+    // fields (or re-apply fix_paladin_loc.js + the MORS PaP tuning AFTER). See CHANGELOG 2026-06-27.
 };
 
 // Targeted per-gun clip/fire-rate tuning (user 2026-06-16) - EXACT values keyed by weapon entry

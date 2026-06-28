@@ -45,6 +45,10 @@
 #define ACC_QR_BASE_REVIVE_TIME   2.0    // base QR reviver
 #define ACC_SAVIOR_REVIVE_TIME    1.0    // Savior Mega reviver (half of base QR)
 
+// --- Savior (Mega QR) revive damage reduction (docs/13; user 2026-06-26): take 50% damage while you are
+//     actively reviving a teammate. Applied in _acc_elites::on_player_damaged via savior_revive_damage_mult. ---
+#define ACC_SAVIOR_REVIVE_DMG_TAKEN  0.50    // fraction of incoming damage taken while a Savior is reviving (50% off)
+
 // --- Perk slots (the marquee shard incentive, user 2026-06-19) ---------------
 // Everyone STARTS at ACC_PERK_SLOT_BASE perks; extra slots are bought with Data Shards at the
 // underground Neural Expansion Bay (the trench-only economy's headline sink), up to ACC_PERK_SLOT_MAX
@@ -213,7 +217,14 @@ function perk_slot_vendor_loop()   // self = the vendor trigger
 // self unused; called as acc_perks::on_player_spawned( player ) from acc_main.
 function on_player_spawned( player )
 {
-    // Both threads endon( "death" ) and are restarted on the next spawn.
+    // PER-LIFE THREAD KILL (user 2026-06-27 crash-hunt): a BO3 ZM player NEVER notifies "death" during play
+    // (a bleed-out routes to spectator; "death" only fires on disconnect). So the loops' self endon("death")
+    // does NOT terminate the prior life's instances - re-threading them per respawn LEAKED one qr_regen_booster
+    // (+ its qr_damage_time_watcher) and one savior_speed_watcher per full-death respawn, stacking duplicate
+    // per-frame setnormalhealth loops + duplicate waittill("damage") subscribers for the rest of a co-op run
+    // (slow-burn VM/notify exhaustion). Fire "acc_perk_life" to kill the previous life's copies first, then
+    // re-thread - the same per-life idiom _acc_lui uses ("acc_lui_life"). Both loops re-check ownership live.
+    player notify( "acc_perk_life" );
     player thread qr_regen_booster();
     player thread savior_speed_watcher();
 }
@@ -259,6 +270,7 @@ function qr_regen_booster()
 {
     self endon( "disconnect" );
     self endon( "death" );
+    self endon( "acc_perk_life" );   // killed + re-threaded each respawn (death never fires on a ZM player)
 
     self.acc_qr_last_hit_time = 0;
     self thread qr_damage_time_watcher();
@@ -290,6 +302,7 @@ function qr_damage_time_watcher()
 {
     self endon( "disconnect" );
     self endon( "death" );
+    self endon( "acc_perk_life" );   // child of qr_regen_booster - die with it on respawn (no duplicate damage subs)
 
     for ( ;; )
     {
@@ -358,6 +371,7 @@ function savior_speed_watcher()
 {
     self endon( "disconnect" );
     self endon( "death" );
+    self endon( "acc_perk_life" );   // killed + re-threaded each respawn (death never fires on a ZM player)
 
     self.acc_savior_speed = false;
     wait 0.25; // let the spawn-path SetMoveSpeedScale(1) reset land first
@@ -392,4 +406,25 @@ function any_other_player_down( me )
         if ( p laststand::player_is_in_laststand() ) return true;
     }
     return false;
+}
+
+// ---------------------------------------------------------------------------
+// Savior (Mega QR): 50% damage reduction while actively reviving a teammate (user 2026-06-26).
+//
+// Returns the incoming-damage multiplier for `player` RIGHT NOW: ACC_SAVIOR_REVIVE_DMG_TAKEN (0.5) while they
+// own Mega Quick Revive AND are mid-revive, else 1.0. Called LIVE from the player-damage callback
+// (_acc_elites::on_player_damaged) - no poll lag. VERIFIED(acc): self.is_reviving_any is the stock
+// reviver-side counter, held > 0 for the WHOLE revive channel (incremented _zm_laststand.gsc:1208 just before
+// the channel loop, decremented :1285 after it ends) - so it is true exactly while you are standing on a
+// downed teammate channeling the revive. A last-stand revive that never completes still counts (you were
+// channeling); self-revive does not (the downed player is is_player_valid==false, rejected earlier in the cb).
+// ---------------------------------------------------------------------------
+
+function savior_revive_damage_mult( player )
+{
+    if ( !isdefined( player ) ) return 1.0;
+    if ( !( player HasPerk( "specialty_quickrevive" ) ) ) return 1.0;
+    if ( !acc_mega_bottles::has_mega_perk( player, "specialty_quickrevive" ) ) return 1.0;
+    if ( !( isdefined( player.is_reviving_any ) && player.is_reviving_any > 0 ) ) return 1.0;
+    return ACC_SAVIOR_REVIVE_DMG_TAKEN;
 }

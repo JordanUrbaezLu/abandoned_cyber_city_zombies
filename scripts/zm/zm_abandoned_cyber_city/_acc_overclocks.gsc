@@ -320,9 +320,18 @@ function terminal_loop()
 
         // Feedback (user 2026-06-21): a zap SFX + the SAME PaP "gun comes out" re-draw animation, so
         // overclocking FEELS like you just enhanced the weapon. replay_pack_draw re-gives the held gun
-        // (preserving its PaP camo/tier) and plays the first-raise; gated by the acc_pap_tier_anim dvar.
+        // (preserving its PaP tier) and plays the first-raise; gated by the acc_pap_tier_anim dvar.
         player PlaySound( "acc_overclock_zap" );
         player acc_pap_levels::replay_pack_draw( current );
+
+        // CRASH GUARD (co-op disconnect audit 2026-06-27): replay_pack_draw runs INLINE on this SHARED trigger
+        // thread (whose only endon is self=TRIGGER "death", NOT the player) and has a multi-frame empty-handed
+        // window. If the player disconnects/times out during it, the `player ...` calls below would be method
+        // calls on a freed entity -> fatal server-script error -> whole-session CTD for everyone. Re-validate
+        // before reusing `player`. (Cannot fix this inside replay_pack_draw with `self endon("disconnect")`:
+        // it's inline, so that endon would terminate this shared trigger loop for ALL players.)
+        if ( !isdefined( player ) )
+            continue;
 
         player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + "/" + ACC_TIER_MAX +
                                      " ^7(damage / glitch-pierce / ammo all +)" );

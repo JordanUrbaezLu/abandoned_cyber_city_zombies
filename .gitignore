@@ -9,6 +9,7 @@ zone_out/
 *.bak
 *-bak
 *.preamp-orig
+*.acc-*-orig
 *.gscbin
 *.cscbin
 *.log
@@ -32,10 +33,14 @@ source_data/acc_perk_shaders/
 /sound_assets/_NSZ/
 
 # COPYRIGHTED test-only music — DO NOT COMMIT and DO NOT SHIP PUBLIC (CREDITS.md IP
-# gate). "115" = Treyarch/Kevin Sherwood; paradise_calm = Nintendo Mario "Stage Win".
-# These are placeholder finale tracks; swap for CC0 before any Public Workshop release.
+# gate). "115" = Treyarch/Kevin Sherwood; paradise_calm = Nintendo Mario "Stage Win";
+# ee_song* = the 3 teddy-bear jukebox tracks (incl. "I Want To Stay At Your House",
+# Rosa Walton). Placeholder tracks; swap for CC0/licensed before any Public release.
 /sound_assets/acc/music/115.wav
 /sound_assets/acc/music/paradise_calm.wav
+/sound_assets/acc/music/ee_song.wav
+/sound_assets/acc/music/ee_song_2.wav
+/sound_assets/acc/music/ee_song_3.wav
 
 .idea/
 .vscode/*

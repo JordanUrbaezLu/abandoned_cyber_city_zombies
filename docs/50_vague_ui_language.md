@@ -44,7 +44,7 @@ Keep = a **price**, a **tier/progress indicator**, a **currency/inventory count*
 - **Currency / inventory counts** — `DATA SHARDS N`, `MEGA BOTTLES N`, `WEB GRENADES N`, `+N` grants, Neural `+1 slot`.
 - **Reaction timers** — Decon `SEALS IN 10/5 SECONDS`, ability cooldown `Ns left`, cache `refills next round`.
 - **Pure mechanics** — carry 3rd weapon, solo self-revive, one-hit melee, PhD immunities, "Immune to boss abilities",
-  "upgraded form / explosive / akimbo", "new camo", powerup names, node/boss names.
+  "upgraded form / explosive / akimbo", powerup names, node/boss names.
 - **Progress bars with no drawn number** — round/HOSTILES bar, boss HP bar, NITRO charge, the HP color bar itself.
 - **Dev-only** — crosshair floating damage number (gated on `level.acc_dev`, never ships → no edit; see D2).
 
@@ -57,10 +57,10 @@ Every row: in-game gets the **Vague** text; the **Exact** column is the real val
 | Perk / tier | line | Exact (current) | Vague |
 |---|---|---|---|
 | JUGG base | 66 | `250 HP - down on the 6th hit` | `Much tougher - takes more hits to go down` |
-| JUGG base (no-perk ref) | 66 | `(no perk: 100 HP / 3rd hit)` | `(no perk: goes down fast)` |
+| ~~JUGG base (no-perk ref)~~ | — | (removed) | **Removed** (user 2026-06-28: redundant — "it's obvious") |
 | JUGG Mega (mega+megaFull) | 67-68 | `300 HP - down on the 7th hit` | `Even tougher - survives even more hits` |
 | QUICK REVIVE base | 70 | `Revive teammates in 2.0s` | `Revive teammates faster` |
-| QR base | 70 | `Regen starts 20% sooner` | `Regen starts sooner` |
+| QR base | 70 | `Regen starts 20% sooner` | `Health regen starts sooner` |
 | QR Mega revive | 71/72 | `Revive in 1.0s` | `Revive even faster` |
 | QR Mega regen | 71/72 | `Regen starts 40% sooner` | `Regen starts even sooner` |
 | QR Mega speed | 71/72 | `+15% speed near a downed ally` | `Move faster near a downed ally` |
@@ -88,10 +88,10 @@ Every row: in-game gets the **Vague** text; the **Exact** column is the real val
 
 | Surface | line | Exact | Vague |
 |---|---|---|---|
-| idx-10 T1 | 102 | `T1: +50% damage + camo (5000)` | `T1: more damage + camo (5000)` |
+| idx-10 T1 | 102 | `T1: +33% damage (5000)` | `T1: more damage (5000)` |
 | idx-10 T2 | 103 | `T2: +100% damage + UPGRADE (7500)` | `T2: much more damage + UPGRADE (7500)` |
 | idx-10 T3 | 103 | `T3: +150% damage MAX (10000)` | `T3: greatly increased damage MAX (10000)` |
-| `pap_tier_benefit(1)` | 46 | `+50% damage + new camo` | `more damage + new camo` |
+| `pap_tier_benefit(1)` | 46 | `+33% damage` | `more damage` |
 | `pap_tier_benefit(2)` | 47 | `+100% damage + upgraded form` | `much more damage + upgraded form` |
 | `pap_tier_benefit(3)` + MAX branch | 48, 298 | `+150% weapon damage (MAX)` | `greatly increased weapon damage (MAX)` |
 | PaP GSC toast T1/T2/T3 | `_acc_pap_levels.gsc:721-723` | `+50/+100/+150pct` | `more / much more / greatly increased` |

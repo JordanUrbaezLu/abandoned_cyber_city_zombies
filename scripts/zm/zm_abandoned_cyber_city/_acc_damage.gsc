@@ -75,8 +75,10 @@
 //
 // Bonus multipliers apply AFTER the weapon-GDT hit-location mult is baked into the
 // incoming `damage`, so effective head:body ratio = (gun locHead) x (our headshot bonus).
-// Most box guns are locHead 5.0, so the 0.5 reg / 0.6 boss bonus = 2.5x reg / 3x boss head;
-// Paladin (locHead 1.0) = 0.5x / 0.6x. (Was 0.4/0.5 = 2x/2.5x; user 2026-06-25.)
+// ALL roster guns are locHead 5.0 (normalize_gun_loc convention), so the 0.5 reg / 0.6 boss bonus
+// = 2.5x reg / 3x boss head. (FIXED 2026-06-26: the Paladin HB50 had been flattened to locHead 1.0
+// by the OLD normalize_sniper_loc tool -> its headshot was 1.0 x 0.5 = 0.5x body = LESS than a body
+// shot. Restored its GDT locHead/locHelmet to 5.0 in skye_t8_paladin_hb50.gdt so it's 2.5x like the rest.)
 //
 // GSC #defines are file-local (#using does not share macros - see the note at
 // _acc_boss_items.gsc:41-45), so damage-side constants for other systems'
@@ -85,7 +87,7 @@
 
 #define ACC_HEADSHOT_MULT      0.5    // map headshot BONUS, regular/elite. locHead 5.0 x 0.5 = 2.5x body (user 2026-06-25; 0.4=2x -> 0.5=2.5x).
 #define ACC_BOSS_HEADSHOT_MULT 0.6    // bosses/mini-bosses. Effective head:body = gun locHead x this
-                                      // (most guns locHead 5.0 -> 2.5x reg / 3x boss; Paladin locHead 1.0 -> 0.5x/0.6x). (user 2026-06-25; 0.5=2.5x -> 0.6=3x boss.)
+                                      // (ALL roster guns locHead 5.0 -> 2.5x reg / 3x boss; Paladin restored to 5.0 on 2026-06-26). (user 2026-06-25; 0.5=2.5x -> 0.6=3x boss.)
 
 // GLOBAL player-damage buff (user 2026-06-23): a single across-the-board scalar that lifts EVERY
 // gun's output uniformly while PRESERVING the per-gun balance tiers in acc_weapon_balance_mult.
@@ -278,6 +280,50 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     b_bullet = is_bullet_mod( meansofdeath );
     b_fire   = is_weapon_fire_mod( meansofdeath );
 
+    // -----------------------------------------------------------------------
+    // PhD SLIDER nova bypass (user 2026-06-27). _acc_perk_phd_flopper::phd_explode deals self-dealt
+    // MOD_GRENADE_SPLASH hits tagged attacker.acc_phd_nova_hit, with the incoming `damage` already FROZEN at a
+    // round-18 normal-zombie's health (so one slide one-shots trash through r18, then 2/3 slides past it).
+    // Deal it RAW - skip the global x2.75 AND the whole bonus chain: those would re-inflate the frozen value
+    // ~3x (+ Mega Flopper's own +15% explosive) and one-shot far past the freeze round, re-creating the boss
+    // nuke this nerf removes. Still honour the boss per-hit cap (defensive; the frozen value is normally well
+    // under it) and feed the crosshair number / 70-30 point split, matching the end-of-function path. The
+    // value-return short-circuits the rest of the chain (_zm.gsc:5825-5829).
+    // -----------------------------------------------------------------------
+    if ( b_player_attacker && IS_TRUE( attacker.acc_phd_nova_hit ) )
+    {
+        n_phd = damage;
+        if ( ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) )
+             && !IS_TRUE( self.acc_is_glitch_zombie )
+             && isdefined( self.maxhealth ) && self.maxhealth > 0 )
+        {
+            cap_pct = getdvarfloat( "acc_boss_per_hit_cap_pct", ACC_BOSS_PER_HIT_CAP_PCT );
+            if ( cap_pct > 0 )
+            {
+                n_cap = int( self.maxhealth * cap_pct );
+                if ( n_cap >= 1 && n_phd > n_cap ) n_phd = n_cap;
+            }
+        }
+        self acc_points::record_damage( attacker, n_phd );
+        feed_dmg_number( attacker, n_phd, false );
+        return n_phd;
+    }
+
+    // RIOT (Shielded) elites are IMMUNE to melee/knife - the bowie, the bash, AND the Action Figure (user
+    // 2026-06-27). Knife one and it just DEFLECTS off the shield (0 damage); you must shoot or explode them.
+    // SFX = zmb_rocketshield_imp (the impact sound of the rocket-shield plate the Shielded elite wears),
+    // debounced so a fast figure swing can't spam it. Bullets/explosives still hurt them (b_melee only).
+    if ( b_player_attacker && IS_TRUE( self.acc_is_shielded )
+         && ( b_melee || is_action_figure_weapon( weapon ) ) )
+    {
+        if ( !isdefined( self.acc_riot_knife_cd ) || GetTime() >= self.acc_riot_knife_cd )
+        {
+            self.acc_riot_knife_cd = GetTime() + 250;
+            PlaySoundAtPosition( "zmb_rocketshield_imp", self.origin );
+        }
+        return 0;
+    }
+
     // Spiderman (Widow's Wine Mega, user 2026-06-18): ONE-KNIFE on REGULAR zombies.
     // A melee hit from a player holding Mega'd Widow's instakills a normal zombie - but
     // NOT bosses/elites (is_boss_or_elite gate). Short-circuit return (lethal damage), so
@@ -292,27 +338,35 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         return self.health + 1000;
     }
 
-    // ACTION FIGURE melee (user 2026-06-24): ALWAYS one-knifes a REGULAR zombie (was a 50%+ chance). Its PaP
-    // tier adds PROBABILISTIC CLEAVE - extra nearby regular zombies one-knifed per swing, the count ROLLED per
-    // swing from the PaP tier (user 2026-06-26 nerf; "hit N" = 1 primary + N-1 cleaved):
-    //   base (un-PaP'd): hit 1 always.    T1: 50% hit 1 / 50% hit 2.
-    //   T2: 25% hit 1 / 50% hit 2 / 25% hit 3.    T3: 50% hit 2 / 50% hit 3.
-    // Bosses/elites are EXEMPT (the gate skips them) -> they take the AF's normal melee damage, never a
-    // one-knife or cleave. Gated on the WEAPON NAME (not b_melee) so it fires whatever MOD the melee swing makes.
-    if ( b_player_attacker && isdefined( weapon ) && isdefined( weapon.name )
-         && ( weapon.name == "t8_melee_figure" || weapon.name == "t8_actionfigure_melee" )
-         && !is_boss_or_elite( self ) )
+    // ACTION FIGURE melee (covers the base figure + its faster PaP "speed twins" - is_action_figure_weapon):
+    //   - REGULAR zombies: ALWAYS one-knife (every swing, any round; returns health+1000).
+    //   - BOSSES + mini-bosses (NOT the lightweight Glitch Stalker): a FLAT 1/30 of MAX health per hit, so it
+    //     takes a CONSISTENT ~30 swings to kill ANY boss regardless of HP (user 2026-06-27). Bypasses the tiny
+    //     baked melee + the global x2.5 + the 10% per-hit cap (1/30 = 3.3% is well under it). Dvar
+    //     acc_af_boss_hits (30 = hits-to-kill). Glitch Stalker excluded (same as the boss cap below) -> normal melee.
+    //   - ELITES (Riot shields): fall through to normal melee (no one-knife, no 1/30).
+    // (The old per-PaP-tier CLEAVE / multi-hit was REMOVED 2026-06-27; PaP scales SWING SPEED via faster twins.)
+    if ( b_player_attacker && is_action_figure_weapon( weapon ) )
     {
-        // CLEAVE: roll the extra-target count from the PaP tier (0..3). Threaded so it runs OUTSIDE this damage
-        // callback (no re-entrancy); it one-knifes up to `extra` OTHER regular zombies nearest the primary victim.
-        extra = actionfigure_cleave_count( acc_pap_levels::get_tier( attacker, weapon ) );
-        if ( extra > 0 )
-            attacker thread actionfigure_cleave( self.origin, self, extra );
-
-        // This path RETURNs before the damage-number feed at the function end, so feed it here or the AF
-        // shows NO damage on a swing (user 2026-06-23: "knife a zombie and not see the damage").
-        if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
-        return self.health + 1000;                              // ALWAYS one-knife the primary
+        if ( ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) )
+             && !IS_TRUE( self.acc_is_glitch_zombie )
+             && isdefined( self.maxhealth ) && self.maxhealth > 0 )
+        {
+            n = getdvarint( "acc_af_boss_hits", 30 );
+            if ( n < 1 ) n = 1;
+            dmg = int( self.maxhealth / n );                    // 1/30 of MAX health -> 30 hits to kill, any boss
+            if ( dmg < 1 ) dmg = 1;
+            feed_dmg_number( attacker, dmg, false );
+            return dmg;
+        }
+        if ( !is_boss_or_elite( self ) )                        // regular zombie -> always one-knife
+        {
+            // RETURN before the function-end damage-number feed, so feed it here (user 2026-06-23: "knife a
+            // zombie and not see the damage").
+            if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
+            return self.health + 1000;
+        }
+        // else: an ELITE -> fall through to normal melee handling below.
     }
 
     oc_flags = undefined;
@@ -810,17 +864,17 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 // line is tagged [S]/[A]/[B]/[C] to match the doc table; recompute the formula after a change.
 function acc_weapon_balance_mult( weapon_name )
 {
-    if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.26;    // [C-] Five-Seven (start pistol): ~52 eff/shot. v2 tier model -> C- (5.5): mobile starter, fast reload + 14 clip = decent sustain, but weak damage + reserve cut to 56 lands it on the 5.6 B/C line (user 2026-06-21).
+    if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.2522;   // [C-] Five-Seven (start pistol): ~50 eff/shot. SPREAD -3% worst-gun nerf (0.26 -> 0.2522, user 2026-06-26). Mobile starter, fast reload + 14 clip = decent sustain, but weak dmg + 56 reserve = C- (user 2026-06-21).
     if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // [B] ASM1 (AW smg): ~401 DPS. v2 -> B (6.5): low DPS but fast reload + 22 clip + medium pierce = serviceable sustain (nerf clip/reload if you want it back to C).
-    if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.612;   // [A] Tac-19 (AW energy SG): -10% damage nerf (0.68 -> 0.612, user 2026-06-25 max-scale shotgun trim) on top of the earlier -9% + clip 4->3 / PaP 7->6 / reserve 27. 12-pellet stack x PaP/OC ballooned it at the ceiling (~19k/shot); flat scalar pulls it back. Crowd-control king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/05.
-    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.489;   // [C] Olympia (BO2 double-barrel SG): -50% damage nerf (0.9775 -> 0.489, user 2026-06-25 max-scale OUTLIER fix - the near-uncut 0.9775 x 12 pellets x PaP/OC = ~33k/shot, 100k/head, 6-18x every other gun). 110/pellet x ~8, 2-round clip + 3.9s reload = worst sustain. Headshot-excluded.
-    if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.186;   // [A] AK-47 (200@0.08 = 2500 raw): ~465 DPS. v2 -> A (6.7): solid DPS + decent effective reload. Focus Fire ability.
+    if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.6304;  // [S] Tac-19 (AW energy SG): SPREAD +3% best-gun buff (0.612 -> 0.6304, user 2026-06-26 -> papScore ~7.74 = now S) on the -10% max-scale trim (0.68 -> 0.612, 2026-06-25). 12-pellet crowd king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/05.
+    if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.4743;  // [C] Olympia (BO2 double-barrel SG): SPREAD -3% worst-gun nerf (0.489 -> 0.4743, user 2026-06-26) on the -50% max-scale fix (0.9775 -> 0.489, 2026-06-25). 110/pellet x ~8, 2-round clip + 3.9s reload = worst sustain. Headshot-excluded.
+    if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.2338;  // [S] AK-47 (200@0.08 = 2500 raw): ~585 DPS. SPREAD +3% best-gun buff (0.227 -> 0.2338, user 2026-06-26, papScore ~8.04) on the AK swap (0.186 -> 0.227 -> TOP/S). Solid DPS + decent reload. Focus Fire ability.
     if ( IsSubStr( weapon_name, "t6_galil" ) )     return 0.15;    // [B+] Galil (BO2 full-auto AR, 220@0.08 = 2750 raw): ~412 DPS (user 2026-06-21 -> B+, was 0.198/~545). DPS cut to land it at the top of B.
     if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.31;    // [B] AE4 (AW energy AR, 160@0.12 = 1333 raw): ~413 DPS. Formula reads A- (6.8) but user-curated to B 2026-06-21 (mid DPS; fast reload + pierce + 25 clip + 200 reserve keep it top-B).    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
     // (raw DPS = damage/fireTime from the Skye GDTs). IsSubStr covers base + PaP + twins.
-    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.24;   // [S] PPSH-41 (VG smg, 155@0.063 = 2460 raw): ~590 DPS (user 2026-06-24 ALL-AROUND BUFF: +20% dmg 0.20 -> 0.24; history 0.27/~664 -> 0.20/~492 -> 0.24/~590). Paired with clip 30/44 -> 40/54 (reduce_base_ammo CLIP_FIX) -> back to S. IsSubStr covers base + _up + all perk twins.
-    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) ) return 0.25;   // [S+] Chicom CQB (BO2 3-round-burst SMG, 130@0.048 within burst; base ~497 sustained eff w/ the 0.1s burst delay, PaP 250/shot 4-round auto-burst): the box's TOP-3 gun (user 2026-06-25). papScore ~8.05 (#2, just under Tac-19) via strong burst DPS + generous uncut ammo (clip 36/56, reserve 180/448). cu-curated (burst raw overstates). IsSubStr covers base + _up + twins.
-    if ( IsSubStr( weapon_name, "t9_ak74u" ) )     return 0.23;   // [A] AK-74u (BO1 smg, 180@0.08 = 2250 raw): ~518 DPS. v2 -> A (7.4): fast, mobile, good sustain. Clip 20/reserve 160.    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.2472;  // [S] PPSH-41 (VG smg, 155@0.063 = 2460 raw): ~608 DPS. SPREAD +3% best-gun buff (0.24 -> 0.2472, user 2026-06-26, papScore ~8.00) on the 2026-06-24 +20% all-around buff. Clip 40/54. IsSubStr covers base + _up + all perk twins.
+    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) ) return 0.2575;  // [S+] Chicom CQB (BO2 3-round-burst SMG, 130@0.048 within burst; ~512 sustained eff w/ the 0.1s burst delay): box's #1 gun. SPREAD +3% best-gun buff (0.25 -> 0.2575, user 2026-06-26, papScore ~8.18). clip 36/56, reserve 180/448 uncut. cu-curated. IsSubStr covers base + _up + twins.
+    if ( IsSubStr( weapon_name, "t9_ak74u" ) )     return 0.184;  // [A] AK-74u (BO1 smg, 180@0.08 = 2250 raw): ~414 DPS. SWAPPED with AK-47 (user 2026-06-26): mult 0.23 -> 0.184 drops papScore ~7.90 -> ~7.04 = MID tier. Still fast/mobile, just less DPS. Clip 20/reserve 160.    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
     // cause (user, 2026-06-15) was the Skye rip's MP-inflated hit-location mults: locTorso 5.0
     // (PaP 9.0), limbs 4.0 (8.0), locHead 7.5 (10.0) - so at x1.0 even a BODY/limb shot one-shot
     // to ~r23 and a headshot to ~r33. FIX: the GDT's loc* mults were normalized to 1.0 install-side
@@ -829,12 +883,12 @@ function acc_weapon_balance_mult( weapon_name )
     // every other gun (body = base, headshot = our 2.0 map mult only), so x0.80 -> body r7 /
     // headshot r14 / HS+Deadshot r20, PaP+Cyberware push higher. A real sniper that FALLS OFF
     // without PaP. Tune the mult here (not the GDT) for further feel changes. Balance audit docs/33.
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.49;  // [B] Paladin HB50 (BO4 sniper): MOVED low-S -> B (user 2026-06-24). DPS cut 0.70->0.49 (700->490/shot, curated e 624->437); clip 8 / reserve 96/132 / reload 4.1 unchanged -> base 6.14 / PaP 6.42 (B). MORS is the S sniper now; Paladin = cheaper mid one-shot. ACC_PALADIN_BOSS_MULT boss cut separate. IsSubStr covers base+_up+twins. Has Precision Mode. docs/05/54.
-    if ( IsSubStr( weapon_name, "t9_m60" ) )       return 0.20;     // [S] M60 (Skye BO2 LMG, 290@0.1 = 2900 raw): ~580 DPS (user 2026-06-21: DPS DOWN from 0.24/~696, traded for clip/reserve). v2 -> S (7.9): clip 100 + reserve 400 + large pierce carry it; the 60->100 clip makes the 9.7s reload trivial per-round. Slow 0.8 move is its only weakness.
-    if ( IsSubStr( weapon_name, "t9_rpd" ) )       return 0.125;    // [C] RPD (Skye BO2 LMG, 270@0.08 = 3375 raw): ~421 DPS (user 2026-06-25 +25% buff, 0.10 -> 0.125; was 0.13/~439 then 0.10/~337). The "bad LMG" - low DPS on top of the 7.5s reload + 0.8 move. Clip 60/100, reserve 240/400.
-    if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.11;     // [A] RW1 (AW directed-energy pistol, 800@0.15 = 5333 raw): ~590 eff. Energy sidearm; covers base+PaP+twins. Tune in playtest. (user 2026-06-23)
-    if ( IsSubStr( weapon_name, "s1_mk14" ) )      return 0.30;     // [B] MK14 (AW semi-auto DMR): base body 90/shot (300x0.30), PaP 180 (600x0.30). Scored as curated single-target DPS (e=400, cu) -> B base AND PaP. clip 14/12, reserve 168/240 (reduce_base_ammo). Clean body loc (head 6.0 = ~3x HS, not excluded). docs/05/54. (user 2026-06-24)
-    if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.66;     // [S] MORS (AW charge railgun sniper): MOVED B -> S (user 2026-06-24). loc NORMALIZED install-side (tools/normalize_mors_loc.js: body 1.0 / head 5.0; PaP damage re-encoded 1000->2000), so body = damage x mult: base 660/shot, PaP 1320. DPS cut 0.47->0.66 (e 470->660, near-max single-target = premier boss-killer) PLUS reserve 60/90->120/180 (clip-1 charge caps SUSTAIN, so DPS alone tops at ~A 7.46; reserve clears S). clip 1 / reload 1.2 unchanged -> base 7.73 / PaP 7.90 (S). Reserve via reduce_base_ammo MAXAMMO_FIX (base+_up+14 twins); IsSubStr covers all for damage. docs/05/54.
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.3565;  // [B-] Paladin HB50 (BO4 sniper): USER 2026-06-27 -25% damage nerf, ALL versions+twins (0.4753 -> 0.3565; full PaP+OC ~5228->3921/shot). Prior: SPREAD -3% (0.49 -> 0.4753, 2026-06-26); MOVED low-S -> B (2026-06-24). clip 8 / reserve 96/132 / reload 4.1 unchanged. ACC_PALADIN_BOSS_MULT boss cut is SEPARATE (stacks, so boss dmg also -25%). IsSubStr covers base+_up+twins. Has Precision Mode. docs/05/54.
+    if ( IsSubStr( weapon_name, "t9_m60" ) )       return 0.206;    // [S] M60 (Skye BO2 LMG, 290@0.1 = 2900 raw): ~597 DPS. SPREAD +3% best-gun buff (0.20 -> 0.206, user 2026-06-26, papScore ~8.11). clip 100 + reserve 400 + large pierce; 100-clip makes the 9.7s reload trivial. Slow 0.8 move is its only weakness.
+    if ( IsSubStr( weapon_name, "t9_rpd" ) )       return 0.1213;   // [C] RPD (Skye BO2 LMG, 270@0.08 = 3375 raw): ~409 DPS. SPREAD -3% worst-gun nerf (0.125 -> 0.1213, user 2026-06-26) on the 2026-06-25 +25% (0.10 -> 0.125). The "bad LMG" - low DPS + 7.5s reload + 0.8 move. Clip 60/100, reserve 240/400.
+    if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.132;    // [A+] RW1 (AW directed-energy pistol, 800@0.15 = 5333 raw): USER 2026-06-27 +20% damage BUFF, ALL versions+twins (0.11 -> 0.132; full PaP+OC ~1210->1452/shot). Energy sidearm; covers base+PaP+twins. Price tier/box odds UNCHANGED (docs/54 not regenerated). (user 2026-06-23)
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )      return 0.2619;   // [B-] MK14 (AW semi-auto DMR): USER 2026-06-27 -10% damage nerf, ALL versions+twins (0.291 -> 0.2619: body 87->79/shot, PaP 175->157; full PaP+OC ~1921->1729). Prior SPREAD -3% (0.30 -> 0.291, 2026-06-26). Curated single-target DPS. clip 14/12, reserve 168/240. Clean body loc. Price tier/box odds UNCHANGED (docs/54 not regenerated). docs/05/54.
+    if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.429;    // [A] MORS (AW charge railgun sniper): USER 2026-06-27 -35% damage nerf, ALL versions+twins (0.66 -> 0.429: base 660->429/shot, PaP 1320->858; full PaP+OC ~10890->7079). loc NORMALIZED install-side (body 1.0 / head 5.0; PaP dmg re-encoded 1000->2000). reserve 120/180, clip 1 / reload 1.2 unchanged. Reserve via reduce_base_ammo MAXAMMO_FIX (base+_up+14 twins); IsSubStr covers all for damage. Price tier/box odds UNCHANGED (docs/54 not regenerated). docs/05/54.
     // Mahem (s1_mahem): EXPLOSIVE rocket launcher - 7000 direct + 2750/1500 splash (PaP 5500/3000), same trap as
     // the old M1911 explosive. acc_weapon_balance_mult scales ALL damage through on_ai_damage INCLUDING explosive,
     // so WITHOUT this line the default 1.0 x the global 2.5x = ~17,500/rocket (trivializes). 7000 x 0.315 x 2.5 =
@@ -1112,52 +1166,15 @@ function is_melee_mod( meansofdeath )
     return IsSubStr( meansofdeath, "MELEE" );
 }
 
-// Roll the Action Figure cleave target count from its PaP tier (user 2026-06-26 nerf). Returns the EXTRA
-// regular zombies one-knifed beyond the primary (total hit = 1 + this). "hit N" = 1 primary + (N-1) cleaved:
-//   T1: 50% 0 / 50% 1   (hit 1 / 2)        T2: 25% 0 / 50% 1 / 25% 2   (hit 1 / 2 / 3)
-//   T3: 50% 1 / 50% 2   (hit 2 / 3)        tier 0 (un-PaP'd) = 0 extra (the always-one-knife). Rolled per swing.
-function actionfigure_cleave_count( tier )
+// True for the Action Figure base weapon, its off-hand sibling, and its faster PaP "speed twins" - so they ALL
+// one-knife in the AF block above. Add a twin name here when a new speed tier is registered. Replaces the old
+// actionfigure_cleave / _cleave_count multi-hit (removed 2026-06-27, user) - PaP scales swing SPEED now, not targets.
+function is_action_figure_weapon( weapon )
 {
-    r = acc_utility::acc_rand_int( 100 );
-    switch ( tier )
-    {
-        case 1: return ( r < 50 ? 0 : 1 );
-        case 2: return ( r < 25 ? 0 : ( r < 75 ? 1 : 2 ) );
-        case 3: return ( r < 50 ? 1 : 2 );
-    }
-    return 0;
-}
-
-// Action Figure CLEAVE (user 2026-06-24). self = the attacking player. One-knifes up to `count` OTHER regular
-// zombies nearest `center` (the primary victim's origin), within acc_af_cleave_radius. `count` = the rolled
-// cleave count (actionfigure_cleave_count, 0..2), so a swing hits 1 (primary, in on_ai_damage) + count cleaved.
-// Threaded from the AF block so it runs OUTSIDE the damage callback. The cleave DoDamage passes NO weapon, so
-// re-entering on_ai_damage skips the AF block (no recursive cleave). Bosses/elites + the primary are excluded.
-function actionfigure_cleave( center, primary, count )   // self = player (attacker)
-{
-    self endon( "disconnect" );
-    if ( count <= 0 ) return;
-    radius = getdvarint( "acc_af_cleave_radius", 140 );
-
-    all  = GetAITeamArray( "axis" );
-    cand = [];
-    for ( i = 0; i < all.size; i++ )
-    {
-        z = all[ i ];
-        if ( !isdefined( z ) || !isalive( z ) ) continue;
-        if ( z == primary ) continue;
-        if ( is_boss_or_elite( z ) ) continue;
-        cand[ cand.size ] = z;
-    }
-    if ( cand.size == 0 ) return;
-
-    chosen = util::get_array_of_closest( center, cand, undefined, count, radius );
-    for ( i = 0; i < chosen.size; i++ )
-    {
-        z = chosen[ i ];
-        if ( isdefined( z ) && isalive( z ) && isdefined( z.health ) )
-            z DoDamage( z.health + 1000, center, self, self, 0, "MOD_MELEE" );
-    }
+    if ( !isdefined( weapon ) || !isdefined( weapon.name ) ) return false;
+    n = weapon.name;
+    return ( n == "t8_melee_figure"       || n == "t8_actionfigure_melee"
+          || n == "t8_melee_figure_fast1" || n == "t8_melee_figure_fast2" || n == "t8_melee_figure_fast3" );
 }
 
 // VERIFIED(acc): bullet damage MODs are "MOD_PISTOL_BULLET" /

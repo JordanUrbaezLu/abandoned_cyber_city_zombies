@@ -1016,18 +1016,9 @@ function mega_display_name( specialty_string )
 function sync_bottle_count_to_client()
 {
     if ( !isdefined( self.acc_mega_bottles ) ) self.acc_mega_bottles = 0;
-    if ( !isdefined( self.acc_bottle_hud ) )
-    {
-        self.acc_bottle_hud = self hud::createFontString( "default", 1.3 );
-        // Left HUD stack: DATA SHARDS (y=50) + the always-on EXO SUIT line (y=74) sit above; this
-        // CONDITIONAL MEGA BOTTLES line sits below them at y=98 (was y=74 before the exo line landed).
-        self.acc_bottle_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 98 );
-        self.acc_bottle_hud.alignX = "left";
-        self.acc_bottle_hud.alignY = "top";
-        self.acc_bottle_hud.color = ( 0.95, 0.78, 0.2 );
-        self.acc_bottle_hud.hidewheninmenu = true;
-    }
-    // Labeled inline (SetText accepts raw strings). Hidden until first bottle.
-    self.acc_bottle_hud SetText( "^3MEGA BOTTLES ^7" + self.acc_mega_bottles );
-    self.acc_bottle_hud.alpha = ( self.acc_mega_bottles > 0 ? 0.9 : 0 );
+    // Top-left MEGA BOTTLES readout RECLAIMED (user 2026-06-27): it was hidden (alpha 0) - the SQUAD roster shows
+    // the count now - but a HIDDEN server hudelem STILL occupies a slot in the SHARED, fixed per-client pool.
+    // Freeing it makes room for the roster's one-row "points SH EXO MB" stats line without overflowing the
+    // ~31/client pool in 4-player co-op (memory server-hudelem-pool-exhaustion-coop). The count lives in
+    // self.acc_mega_bottles; the roster (_acc_health_bars::update_roster) reads it directly - nothing visible lost.
 }

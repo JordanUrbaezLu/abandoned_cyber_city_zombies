@@ -20,7 +20,7 @@ While anywhere underground you get **amped zombies** (faster + hit harder + tank
 **spawn surge that erupts at YOUR current layer** (on entry, on descending to a new layer, and a continuous drip while you stay down — so the deeper layers populate as you reach them, not just the pit), and a small **fall tax** if you dive in. The reward has to be worth it —
 that's everything below.
 
-> Per-layer numbers (N = layer 1–5): move **+5%·N**, health **+50%·N** (on top of round HP), melee **+10·N flat HP** (base 45 → 55/65/75/85/95). Dvars: `acc_trench_layer_speed_pct` (5), `acc_trench_layer_hp_pct` (50), `acc_trench_layer_dmg_add` (10). Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
+> Per-layer numbers (N = layer 1–5): move **+4%·N**, health **+30%·N** (on top of round HP), melee **+6·N flat HP** (base 45 → 51/57/63/69/75). Dvars: `acc_trench_layer_speed_pct` (4), `acc_trench_layer_hp_pct` (30), `acc_trench_layer_dmg_add` (6). Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
 
 ## The things in the trench
 
@@ -32,16 +32,21 @@ All numbers are tight and even.
 |---|---|---|---|
 | **Data Caches** ×2 | Exposed pit | Main shard **source** — **+3 each** (user 2026-06-25: 2→3), once per round, to whoever loots it first (re-arms each round). **CO-OP anti-hog (user 2026-06-25): a player can loot only ONE of the two per round — grab one and the other must be taken by a teammate** (`acc_cache_one_per_player`; **solo is exempt** so the 2nd cache isn't wasted). A **dim white glow** on each crate = "shards available this round"; it **switches off the instant the cache is looted** and **comes back when it re-arms at round start** — an at-a-glance indicator (user 2026-06-24). | **+3** each |
 | **Trench Warden** (Brutus) | Near the trench | The signature boss; killing him gives **everyone +2 shards**. | **+2** all |
-| **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Insta-Kill**. The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
+| **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Fire Sale** (user 2026-06-27, was an Insta-Kill). The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
 | **Neural Expansion Bay** | Pit (west) | The marquee buy: **+1 perk slot** (start at 4, up to 9). | spend (4/6/8/10/12) |
-| **Glitch Altar** | Foundry room | **Gamble 2 shards/spin** for a weighted result: usually a boon (free perk / Insta-Kill / Max Ammo / Double Points / +3 jackpot / rare ~1% Mega Win), sometimes a curse (surge / −2 drain / dud). Net-negative, can't be farmed. | spend (2/spin) |
-| **Cyberware Weapon Overclock** | Foundry room | **Upgrade the gun you're holding** (per-gun) across 5 tiers. Each tier gives a **small boost to 3 effects at once** — flat damage, glitch piercing (vs glitch zombies), headshot ammo-refund — minimal at T1, full at T5. *(Replaced the old Cyberware tree.)* | spend (2/4/8/16/24) |
+| **Glitch Altar** | Abyss **floor 3** (west) | **Gamble 2 shards/spin** for a weighted result: usually a boon (free perk / Insta-Kill / Max Ammo / Double Points / +3 jackpot / rare ~1% Mega Win), sometimes a curse (surge / −2 drain / dud). Net-negative, can't be farmed. | spend (2/spin) |
+| **Cyberware Weapon Overclock** | Abyss **floor 2** (west) | **Upgrade the gun you're holding** (per-gun) across 5 tiers. Each tier gives a **small boost to 3 effects at once** — flat damage, glitch piercing (vs glitch zombies), headshot ammo-refund — minimal at T1, full at T5. *(Replaced the old Cyberware tree.)* | spend (2/4/8/16/24) |
+| **Ammo Crate** ×2 | Abyss **floor 2** (east, by the OC) & **floor 5** (bottom, before Paradise) | Refills the **held weapon's reserve** (personal Max Ammo). Costs **points** by PaP state: **1000** base / **5000** Pack-a-Punched. Melee / no-PaP specials (incl. the **Action Figure**) can't be refilled here — charges nothing. | **points** (1000/5000) |
 | **Exo Suit** | Pit (east) | **Per-player**, 5 tiers. Each tier lets you walk **normal speed one trench layer deeper** (the trench slows you more each layer down — the Exo Suit is the only thing that cancels it). The key to reaching the deep layers. | spend (5/10/15/20/25) |
 
 > **Hidden easter egg (dev note — spoiler):** the **NORTH** under-room (opposite the SOUTH "Foundry" room
-> that holds the Overclock + Altar) hides a **teddy bear** at `(0, 2430, -240)`. Holding [activate] on it
-> plays the easter-egg song **"Cyber Dreams" (Lilex)** 2D for the whole lobby, once per game. Code:
-> `_acc_ee_song.gsc` (disable live with `acc_ee_song_on 0`); audio alias `acc_ee_song`. The two under-rooms
+> that holds the Overclock + Altar) hides a **3-bear jukebox** at `y=2430` (center `x=0` = the original
+> **"Cyber Dreams" (Lilex)**, flanked by two more bears with their own songs). Holding [activate] charges an
+> order-based price (500/1000/1500), plays that bear's song 2D for the whole lobby, and runs a **5-min
+> cooldown**. A **`NOW PLAYING <title>`** banner shows the song's name to **all players** when a bear is
+> triggered (titles set per bear in `make_bear` — center "Cyber Dreams", left "Night Groove",
+> right "I Want To Stay At Your House"; the two flanking songs' wavs still need banking, so those bears show the banner but
+> play silently for now). Code: `_acc_ee_song.gsc` (disable live with `acc_ee_song_on 0`); audio alias `acc_ee_song`. The two under-rooms
 > are baked by `add_under_room.js` (SOUTH = Foundry, NORTH = the easter-egg room).
 
 ## Cyberware Weapon Overclock — exact effects

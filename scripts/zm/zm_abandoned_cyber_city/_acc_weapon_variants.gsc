@@ -99,9 +99,13 @@ function init()
     // Pack-a-Punch option at all"). Must run AFTER the stock CSV weapons are registered.
     register_twin_box_weapons();
 
-    // Same engine-upgrade registration, but for NON-twinned box guns whose ported _up form
-    // the engine didn't natively map (the Mahem - user 2026-06-26 "only packs twice"). Must run
-    // AFTER the stock CSV weapons are registered (same precondition as the twin pass above).
+    // Same engine-upgrade registration, but for NON-twinned box guns whose ported _up form the engine
+    // left unmapped. DEFENSIVE NET ONLY - NOT the Mahem fix. (We long thought this fixed the Mahem "only
+    // packs twice"; it did NOT - stock add_zombie_weapon line 554 ALREADY maps every CSV upgrade, so
+    // is_weapon_upgraded(s1_mahem_up) was always true and this loop SKIPS the Mahem. The real blocker was
+    // the Mahem's AAT exemption hiding the PaP machine after pack 2 - fixed in
+    // _acc_pap_levels::make_mahem_pap_visible_to_tier3.) Kept for any future port stock genuinely doesn't
+    // map. Must run AFTER the stock CSV weapons are registered (same precondition as the twin pass above).
     register_special_upgrades();
 }
 
@@ -111,7 +115,7 @@ function init()
 // NATIVELY, so _acc_pap_levels + the stock PaP machine read a held _up twin correctly.
 //
 // ONLY the _up twins are registered - the un-PaP'd base twins (recoil25/recoil40 with NO
-// _up) must stay un-upgraded, or the FIRST pack would skip tier 1 + camo. We never add
+// _up) must stay un-upgraded, or the FIRST pack would skip tier 1. We never add
 // twins to level.zombie_weapons / zombie_include_weapons, so the Mystery Box can't roll them.
 function register_twin_upgrades()
 {
@@ -146,6 +150,19 @@ function register_twin_upgrades()
 // "only packs twice" (user 2026-06-26). Register the _up of every base box weapon whose upgrade the
 // engine left unmapped. Idempotent: skips any _up that already maps back to its base natively (every
 // stock gun + the twins handled above), so we only patch the broken ports.
+//
+// KEY-MISMATCH HARDENING (user 2026-06-26, "must be 100% correct"): verified vs the real stock
+// _zm_weapons.gsc - stock add_zombie_weapon keys level.zombie_weapons_upgraded by the RAW upgrade
+// OBJECT (:554 `level.zombie_weapons_upgraded[upgrade] = weapon`), but the LOOKUPS that gate the PaP
+// (is_weapon_upgraded :1736 / get_base_weapon :1630 / can_upgrade_weapon - machine visibility) normalize
+// the held weapon FIRST: `get_nonalternate_weapon(w).rootWeapon`. For a conventional gun those coincide;
+// for an AW launcher port like the Mahem the held s1_mahem_up can normalize to a DIFFERENT object (alt-fire
+// form / a non-identity rootWeapon) than the raw upgrade object stock keyed by - so the raw-keyed mapping is
+// never hit. Registering the raw object ALONE (what stock already did, and the first cut of this fix) would
+// therefore still miss. So we register under EVERY key a held copy can normalize to: the raw upgrade, its
+// rootWeapon, and the non-alternate form + its rootWeapon. Setting extra keys is harmless - an _up form's
+// root/alt is itself or its alt-fire twin, never a real base gun - so this can only ever make MORE held
+// _up copies resolve to their base, which is exactly correct.
 function register_special_upgrades()
 {
     if ( !isdefined( level.zombie_weapons ) ) return;
@@ -162,13 +179,32 @@ function register_special_upgrades()
         up = level.zombie_weapons[ base ].upgrade;
         if ( !isdefined( up ) || up == level.weaponNone || up == base ) continue;   // no real upgrade form
 
-        // Already mapped correctly (stock guns + register_twin_upgrades)? leave it alone.
+        // Already mapped correctly (stock guns + register_twin_upgrades)? leave it alone. is_weapon_upgraded
+        // here uses the SAME normalized lookup the in-game gate will - so a TRUE here means a held copy
+        // already resolves, and only the genuinely-broken ports (the Mahem) fall through to the register.
         if ( zm_weapons::is_weapon_upgraded( up ) && zm_weapons::get_base_weapon( up ) == base ) continue;
 
-        level.zombie_weapons_upgraded[ up ] = base;
+        register_upgrade_key( up, base );                         // raw upgrade object + its rootWeapon
+        nonalt = zm_weapons::get_nonalternate_weapon( up );       // alt-fire -> primary form (identity for non-alt)
+        if ( isdefined( nonalt ) && nonalt != up )
+            register_upgrade_key( nonalt, base );                 // + the non-alt form + its rootWeapon
         n++;
     }
     acc_utility::log( "weapon_variants: registered " + n + " non-twin _up form(s) as engine upgrades (Mahem fix)" );
+}
+
+// Map a weapon AND its rootWeapon -> base in level.zombie_weapons_upgraded. The stock PaP lookups
+// normalize a held weapon to `get_nonalternate_weapon(w).rootWeapon` before the table read, so the
+// rootWeapon key is the one that actually gets hit for a no-attachment _up form; the raw key is kept too
+// for any path that reads the object directly. Both point at the same base. Field access is via a temp var
+// (no chained `.a.b` / no `( call ).field`, per the BO3 GSC primitive-field rule in CLAUDE.md).
+function register_upgrade_key( w, base )
+{
+    if ( !isdefined( w ) || w == level.weaponNone ) return;
+    level.zombie_weapons_upgraded[ w ] = base;
+    root = w.rootWeapon;
+    if ( isdefined( root ) && root != level.weaponNone )
+        level.zombie_weapons_upgraded[ root ] = base;
 }
 
 // Make the UN-upgraded ("base") variant twins PACKABLE by the STOCK Pack-a-Punch machine.
@@ -465,24 +501,10 @@ function swap_weapon( w_from, w_to, equipped )
     stock = self GetWeaponAmmoStock( w_from );
     was_equipped = ( w_from == equipped );
 
-    // Preserve the gold PaP camo across the perk-twin swap. With the 3-tier PaP revamp
-    // (2026-06-16) a tier-1 gun is a camo'd BASE form (is_weapon_upgraded false), so we read the
-    // PaP tier off player.acc_pap_tier directly (keyed by true_base; raw read avoids a #using
-    // cycle, like has_mega): tier >= 1 -> re-give WITH the camo option so a Deadshot / Gun
-    // Slinger / Speed Cola swap doesn't strip the camo off a packed gun.
-    pap_base = true_base( w_to );
-    pap_tier = 0;
-    if ( isdefined( self.acc_pap_tier ) && isdefined( self.acc_pap_tier[ pap_base ] ) )
-        pap_tier = self.acc_pap_tier[ pap_base ];
-
-    if ( pap_tier >= 1 )
-    {
-        camo = zm_weapons::get_pack_a_punch_camo_index( undefined );
-        if ( !isdefined( camo ) ) camo = 0;
-        self GiveWeapon( w_to, self CalcWeaponOptions( camo, 0, 0 ) );
-    }
-    else
-        self GiveWeapon( w_to );
+    // Re-give the twin with no options. (Gold PaP camo removed 2026-06-27 - there is no longer a
+    // camo option to preserve across a Deadshot / Gun Slinger / Speed Cola perk-twin swap; the PaP
+    // tier itself rides player.acc_pap_tier[ true_base ], independent of the held asset.)
+    self GiveWeapon( w_to );
     // IMMEDIATE switch = no raise/lower animation, so the swap is invisible AND
     // GetCurrentWeapon never returns a transitional value during a ~0.5s raise -
     // that transitional window was the flip-flop / "random swap out" source.
@@ -713,7 +735,23 @@ function true_base( weapon )
     stem = logical_stem_name( weapon.name );
     w = GetWeapon( stem );
     if ( !isdefined( w ) || w == level.weaponNone ) w = weapon;
-    return zm_weapons::get_base_weapon( w );
+    base = zm_weapons::get_base_weapon( w );
+
+    // NAME-BASED FALLBACK (Mahem-class robustness, user 2026-06-26). get_base_weapon strips an _up via the
+    // stock zombie_weapons_upgraded table; if a ported gun's _up isn't resolved there (or normalizes to a
+    // different object), get_base_weapon RETURNS THE _up FORM UNCHANGED - so the PaP tier would be keyed by
+    // "<gun>_up" while packs 1-2 keyed it by "<gun>", and pack 3 reads tier 0. Belt-and-suspenders: if the
+    // resolved base STILL ends in "_up", strip it by name and re-resolve, so the tier key is ALWAYS the true
+    // base for every gun regardless of stock-table state. No-op for conventional guns (their base never ends
+    // in _up). This is independent of the AAT-visibility fix in _acc_pap_levels and the upgrade-table net.
+    if ( isdefined( base ) && base != level.weaponNone && isdefined( base.name ) && ends_with( base.name, "_up" ) )
+    {
+        stripped_name = GetSubStr( base.name, 0, base.name.size - 3 );   // drop trailing "_up"
+        stripped = GetWeapon( stripped_name );
+        if ( isdefined( stripped ) && stripped != level.weaponNone )
+            base = stripped;
+    }
+    return base;
 }
 
 // Poke a player's reconcile loop after their perk / Mega / loadout state changes.
