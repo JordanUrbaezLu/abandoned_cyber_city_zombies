@@ -350,11 +350,11 @@ function acc_box_weight( wpn )
     if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 5;
     n = wpn.name;
     if ( n == "thundergun" ) return 3;   // ~0.6% each - Thundergun
-    if ( n == "t8_melee_figure" ) return 5;   // ~1.0% each - Action Figure
-    if ( n == "t9_m60" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 10;   // ~2.0% each - M60, PPSH-41, Tac-19
-    if ( n == "t6_chicom_cqb" || n == "s1_mors" ) return 12;   // ~2.4% each - Chicom CQB, MORS
-    if ( n == "t9_ak74u" || n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak47" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~5.9% each - AK-74u, AE4, RW1, AK-47, ASM1, Galil, MK14, Mahem
-    if ( n == "t8_paladin_hb50" || n == "t6_fiveseven" || n == "t9_rpd" || n == "t6_olympia" ) return 50;   // ~10.1% each - Paladin HB50, Five-Seven, RPD, Olympia
+    if ( n == "t8_melee_figure" ) return 5;   // ~1.1% each - Action Figure
+    if ( n == "t6_chicom_cqb" || n == "t9_m60" || n == "t9_ak47" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 8;   // ~1.7% each - Chicom CQB, M60, AK-47, PPSH-41, Tac-19 (S-tier, rarest; user 2026-06-26)
+    if ( n == "s1_mors" ) return 12;   // ~2.6% each - MORS
+    if ( n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak74u" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~6.3% each - AE4, RW1, AK-74u, ASM1, Galil, MK14, Mahem
+    if ( n == "t8_paladin_hb50" || n == "t9_rpd" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~10.8% each - Paladin HB50, RPD, Five-Seven, Olympia
     return 5;   // unknown -> mid
 }
 // <<< END GENERATED >>>
@@ -521,6 +521,9 @@ function apply_state_when_ready()
     // Keep ONLY the active box's collision clip solid (the MagicBox model has no
     // player clip; acc_box_clip_<node> brushmodels added by tools/add_room_boxes.js).
     level thread manage_box_collision();
+    // Deep abyss-station prop clips (acc_clip_* script_brushmodels from add_prop_clips.js) - solidify them the
+    // same deterministic way (user 2026-06-27: the Glitch Altar / Overclock / Ammo Crates were walk-through).
+    level thread manage_deep_prop_clips();
     // Perk rotation is NOT applied at map-load; it rolls per-round.
     // See watch_round_for_perk_rotation().
 
@@ -673,14 +676,18 @@ function remove_all_wallbuys()
     {
         s = level._spawned_wallbuys[ i ];
 
-        // KEEP the 3 player-requested wall-buys (user 2026-06-23): Five-Seven (Lab),
-        // Olympia (Bus Station), frag grenade (Spawn). Everything else stays box-only.
-        // s.zombie_weapon_upgrade is the raw .map KVP string (see the log at the bottom
-        // of this loop). Stock buy->ammo->PaP-ammo handling does the rest.
+        // KEEP the 5 player-requested wall-buys: Five-Seven (Lab), Olympia (Bus Station),
+        // frag grenade (Spawn) (user 2026-06-23), the AK-47 (Abyss Layer 4 / "4th floor" trench -
+        // user 2026-06-26), and the M60 (Abyss Layer 5 / "bottom floor", before Paradise - user
+        // 2026-06-27, the second S-tier abyss wall-buy). Everything else stays box-only.
+        // s.zombie_weapon_upgrade is the raw .map KVP string (see the log at the bottom of this loop).
+        // Stock buy->ammo->PaP-ammo handling does the rest.
         if ( isdefined( s.zombie_weapon_upgrade ) &&
              ( s.zombie_weapon_upgrade == "t6_fiveseven"
                || s.zombie_weapon_upgrade == "t6_olympia"
-               || s.zombie_weapon_upgrade == "frag_grenade" ) )
+               || s.zombie_weapon_upgrade == "frag_grenade"
+               || s.zombie_weapon_upgrade == "t9_ak47"
+               || s.zombie_weapon_upgrade == "t9_m60" ) )
         {
             acc_utility::log( "wallbuy KEPT (player-requested): " + s.zombie_weapon_upgrade );
             continue;
@@ -754,26 +761,23 @@ function box_clip_nodes()
     return array( "market", "corp", "roof", "plaza", "lab", "vault" );
 }
 
-function set_active_box_clip( active_noteworthy )
+// Make EVERY box node's clip solid (user 2026-06-26). Every node ALWAYS shows a box model - the
+// active moving box, OR the idle "fake" box (p6_anim_zm_magic_box_fake) when the box is elsewhere -
+// so each location gets a PERMANENT solid clip; there is no per-node toggling. (The OLD behavior
+// solidified only the ACTIVE node, leaving the other 5 walk-through; and the acc_box_clip_* brushmodels
+// were never authored into the .map at all until tools/place_boxes_against_walls.js.)
+function solidify_all_box_clips()
 {
     nodes = box_clip_nodes();
     solid_count = 0;
     for ( i = 0; i < nodes.size; i++ )
     {
-        is_active = ( active_noteworthy == "acc_box_" + nodes[ i ] );
         clips = getentarray( "acc_box_clip_" + nodes[ i ], "targetname" );
         for ( c = 0; c < clips.size; c++ )
         {
-            if ( is_active )
-            {
-                clips[ c ] solid();
-                clips[ c ] show();
-                solid_count++;
-            }
-            else
-            {
-                clips[ c ] notsolid();
-            }
+            clips[ c ] solid();
+            clips[ c ] show();
+            solid_count++;
         }
     }
     return solid_count;
@@ -783,42 +787,74 @@ function manage_box_collision()
 {
     level endon( "end_game" );
 
-    // Wait for the stock magicbox system to build level.chests / chest_index.
-    while ( !isdefined( level.chests ) || !isdefined( level.chest_index ) )
+    // script_brushmodel clips are solid by author-default; make it explicit + deterministic once the
+    // entities have spawned. ALL nodes stay solid permanently, so no teddy-bear retracking is needed
+    // and there is no walk-through anywhere. Poll a few seconds for the brushmodels to exist.
+    for ( i = 0; i < 40; i++ )
     {
+        n = solidify_all_box_clips();
+        if ( n > 0 ) { box_clip_dbg( "all box clips solid=" + n ); return; }
         wait 0.1;
     }
+    box_clip_dbg( "no acc_box_clip_* brushmodels found in .map" );
+}
 
-    box_clip_dbg( "chests ready=" + level.chests.size + " idx=" + level.chest_index );
+// --- DEEP abyss-station prop clips (user 2026-06-27) ---------------------------------------------------------
+// The Glitch Altar, Overclock terminal, and both Ammo Crates sit on the deep abyss floors (z -480..-1200). Their
+// collision is a script_brushmodel `clip` (acc_clip_<label>) emitted by tools/add_prop_clips.js - a script_brushmodel
+// is LED-EXEMPT so it bakes at abyss depth where a worldspawn clip would crash the lightmapper (memory
+// deep-prop-clips-crash-led-bake / brushmodel-wall-led-exempt). Clip-material brushmodels are solid by author-
+// default, but make it explicit + deterministic exactly like the box clips. KEEP THIS LABEL LIST IN SYNC with the
+// `brushmodel: true` entries in tools/add_prop_clips.js.
+function deep_prop_clip_targetnames()
+{
+    names = [];
+    names[ names.size ] = "acc_clip_glitch_altar_l3";
+    names[ names.size ] = "acc_clip_overclock_terminal";
+    names[ names.size ] = "acc_clip_ammo_crate_l2";
+    names[ names.size ] = "acc_clip_ammo_crate_l5";
+    return names;
+}
 
-    // Author-default brushmodels are solid; clear them all first, then light up
-    // the active one (and re-track it whenever the teddy bear moves the box).
-    set_active_box_clip( "" );
-
-    last_idx = -1;
-    for ( ;; )
+function solidify_deep_prop_clips()
+{
+    names = deep_prop_clip_targetnames();
+    solid_count = 0;
+    for ( i = 0; i < names.size; i++ )
     {
-        idx = level.chest_index;
-        if ( idx != last_idx && isdefined( level.chests[ idx ] ) )
+        clips = getentarray( names[ i ], "targetname" );
+        for ( c = 0; c < clips.size; c++ )
         {
-            last_idx = idx;
-            nw = level.chests[ idx ].script_noteworthy;
-            n = set_active_box_clip( nw );
-            box_clip_dbg( "active=" + nw + " clipsSolid=" + n );
+            clips[ c ] solid();
+            clips[ c ] show();
+            solid_count++;
         }
-        wait 0.5;
     }
+    return solid_count;
+}
+
+function manage_deep_prop_clips()
+{
+    level endon( "end_game" );
+
+    // The clips are .map entities (present at load), but mirror manage_box_collision's defensive poll. All stay
+    // solid permanently - no toggling.
+    for ( i = 0; i < 40; i++ )
+    {
+        n = solidify_deep_prop_clips();
+        if ( n > 0 ) { box_clip_dbg( "deep prop clips solid=" + n ); return; }
+        wait 0.1;
+    }
+    box_clip_dbg( "no acc_clip_* deep prop brushmodels found in .map" );
 }
 
 // Temporary diagnostic: route a box-collision message to console_mp.log via the
 // reliable IPrintLnBold-on-a-player channel ([ SCRIPTER] lines).
 function box_clip_dbg( msg )
 {
-    players = GetPlayers();
-    if ( players.size > 0 && isdefined( players[ 0 ] ) )
-    {
-        players[ 0 ] IPrintLnBold( "^3[acc-box] " + msg );
-    }
+    // On-screen IPrintLnBold REMOVED (user 2026-06-27: it printed "[acc-box] ..." in normal play - it was never
+    // dev-gated). The diagnostic stays in console_mp.log via acc_utility::log. If you need it on-screen again while
+    // debugging the box clips, re-add an IPrintLnBold here gated on IS_TRUE( level.acc_dev ).
     acc_utility::log( "box_collision: " + msg );
 }
 

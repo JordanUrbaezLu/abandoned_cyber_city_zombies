@@ -29,6 +29,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_cyberware;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_ammo_crate;      // trench L2 ammo crate (spawned opposite the OC terminal)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
@@ -78,24 +79,31 @@ function spawn_altars()
     // --- DESCENT SINKS (user 2026-06-24): the two big shard sinks now REWARD descending the abyss - you
     //     must go DEEPER to spend. The Exo Suit (the thing that lets you walk deeper) stays up top in the
     //     Foundry (moved there - see _acc_exo.gsc), so the loop is: earn shards in the pit -> buy Exo up top
-    //     -> descend -> Overclock on L2 -> descend more -> gamble at the Altar on L3. Both sit on the WEST
-    //     floor chunk (x[-781,-112], a solid full-depth slab on EVERY layer per gen_abyss_layer.js) at the
-    //     layer mid (y=1948) - clear of the alternating center stairwells (wells are x[-112,112]) and of
-    //     where the stairs from above land (they step off east at x≈+112).
-    //       L2 (z=-480): Cyberware Weapon Overclock terminal.
-    //       L3 (z=-720): Glitch Altar gamble.
+    //     -> descend -> Overclock + Ammo Crate on L2 -> gamble at the Altar on L3 -> (L4 = AK-47 wall-buy) ->
+    //     Ammo Crate AGAIN at the bottom (L5) before the Paradise door. AMMO BOOKENDS the descent (user
+    //     2026-06-27): top up on entry AND before the finale; L4's content is its wall-buy. On the solid floor
+    //     (west slab x[-781,-112] guaranteed on EVERY layer; the L2 ammo crate sits on the proven-solid EAST
+    //     opposite the OC) at the layer mid (y=1948) - clear of the center stairwells (wells are x[-112,112]).
+    //       L2 (z=-480):  Cyberware Weapon Overclock (WEST) + Ammo Crate (EAST).
+    //       L3 (z=-720):  Glitch Altar gamble.
+    //       L4 (z=-960):  no GSC station - the AK-47 wall-buy lives here.
+    //       L5 (z=-1200): Ammo Crate (WEST) + Cyberware Weapon Overclock (EAST, user 2026-06-28). z=-1200 is below the -1000 cull, but the abyss
+    //                     shaft is inside the trench OOB box and Paradise stations sit at this z fine.
     //     NOTE: L2..L5 bake PITCH BLACK (gen_abyss_layer.js lightsForLayer=0). The Altar self-glows (its
-    //     floating core orb) so it reads as a beacon in the dark; the OC kiosk does NOT - if it's too hard
-    //     to find in-game, add a bake-gated light near it (geometry change) rather than dimming the abyss.
-    spawn_altar_at( ( -400, 1948, -720 ) );                         // Glitch Altar -> abyss L3 (was Foundry 90,1500,-240)
-    acc_overclocks::spawn_terminal_at( ( -400, 1948, -480 ), 0 );   // Cyberware Weapon Overclock -> abyss L2 (was Foundry -120,1450,-240)
+    //     floating core orb) so it reads as a beacon in the dark; the OC kiosk + crates do NOT - if too hard
+    //     to find in-game, add a bake-gated light near them (geometry change) rather than dimming the abyss.
+    spawn_altar_at( ( -400, 1948, -720 ) );                          // Glitch Altar -> abyss L3 WEST
+    acc_overclocks::spawn_terminal_at( ( -400, 1948, -480 ), 0 );    // Cyberware Weapon Overclock -> abyss L2 WEST
+    acc_ammo_crate::spawn_crate_at( (  400, 1948,  -480 ), 0 );      // AMMO CRATE #1 -> abyss L2 EAST, opposite the OC (user 2026-06-27: entry refill)
+    acc_ammo_crate::spawn_crate_at( ( -400, 1948, -1200 ), 0 );      // AMMO CRATE #2 -> abyss L5 WEST, the bottom before Paradise (user 2026-06-27)
+    acc_overclocks::spawn_terminal_at( ( 400, 1948, -1200 ), 0 );    // Cyberware Weapon Overclock #2 -> abyss L5 EAST, opposite the L5 crate (user 2026-06-28). GSC spawn works immediately; collision clip QUEUED in add_prop_clips.js (overclock_l5) -> SOLID after the next .map + LED-bake pass (walk-through model until then).
 
-    // --- MARQUEE SINK: Neural Expansion Bay in the EXPOSED PIT (the most powerful upgrade demands the
-    //     most danger). Buy +1 perk slot with shards (base 4, up to 9). Pit floor is guaranteed; placed
-    //     WEST of center (x=-250); the Foundry door now exits on the EAST (x[112,192] at y~1723 - user
-    //     2026-06-24, moved off the abyss-L2 well door), so it can't pinch this vendor at all. Also clears
-    //     the W cache (-360,1950)/riser/stairs. (Needs a docs/45 §3 anchor row - coordinate.)
-    acc_perks::spawn_perk_slot_vendor_at( ( -250, 1820, -240 ), 0 );
+    // --- MARQUEE SINK: Neural Expansion Bay - buy +1 perk slot with shards (base 4, up to 9). In the Foundry /
+    //     Exo-Suit under-room (ORIGINAL size, user 2026-06-28 reverted a brief shrink): interior x[-192,192]
+    //     y[1379,1723] z=-240. Sits on the EAST side at (120,1550); the Exo station is on the WEST (-120,1550), so
+    //     the two sit on OPPOSITE sides the long way (user 2026-06-26 placement tweak). Its .map collision clip
+    //     moves to match (tools/add_prop_clips.js perk_slot_vendor).
+    acc_perks::spawn_perk_slot_vendor_at( ( 120, 1550, -240 ), 0 );
 
     // PARADISE (the open-air plaza hub below the abyss - gen_descent_hub.js) gets its own FULL set of the
     // script-spawned amenities (user 2026-06-25: "everything a player needs spread throughout"). Independent
@@ -189,6 +197,13 @@ function paradise_box_loop()   // self = the box trigger
         player zm_score::minus_to_player_score( cost );
         self.acc_spinning = true;
         wait 0.75;   // brief "spin" beat so the charge + give don't feel instant
+
+        // DISCONNECT-WINDOW GUARD (user 2026-06-27 crash-hunt): this loop runs on the box TRIGGER, so its
+        // self endon("death") does NOT fire when the buying PLAYER leaves. If that player disconnected during
+        // the wait above, the player derefs below (weapon_give / PlaySound / player.name) would be method
+        // calls on a freed entity -> whole-session co-op fatal. Re-validate across the yield (same fix as
+        // _acc_overclocks::terminal_loop). Clear acc_spinning so the box isn't left stuck spinning.
+        if ( !isdefined( player ) || !zm_utility::is_player_valid( player ) ) { self.acc_spinning = false; continue; }
 
         // GIVE like the box does. magic_box=false (3rd arg) so we do NOT fire the stock box VO /
         // "user_grabbed_weapon" notify that _acc_pap_levels + _acc_boss_items listen on.

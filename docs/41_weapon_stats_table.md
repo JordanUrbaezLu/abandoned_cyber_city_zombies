@@ -41,8 +41,8 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 |---|---|---|---|---|---|---|---|---|---|---|
 | **ASM1** | Auto | 22 | 132 | 674 | 1.8 / 2.1 | medium | 170→140 | ×0.21 | 35.7 | **~401** |
 | ASM1 — PaP | Auto | 36 | 288 | 870 | 1.8 / 2.1 | medium | 270→240 | ×0.21 | 56.7 | ~822 |
-| **AK-74u** | Auto | 20 | 160 | 750 | 2.1 / 2.8 | medium | 180→170 | ×0.225 | 40.5 | **~506** |
-| AK-74u — PaP | Auto | 40 | 280 | 750 | 2.1 / 2.8 | medium | 260→250 | ×0.225 | 58.5 | ~731 |
+| **AK-74u** | Auto | 20 | 160 | 750 | 2.1 / 2.8 | medium | 180→170 | ×0.184 | 33.1 | **~414** |
+| AK-74u — PaP | Auto | 40 | 280 | 750 | 2.1 / 2.8 | medium | 260→250 | ×0.184 | 47.8 | ~598 |
 | **PPSH-41** | Auto | 25 | 225 | 952 | 2.5 / 3.5 | medium | 155→140 | ×0.17 | 26.4 | **~418** |
 | PPSH-41 — PaP | Auto | 39 | 351 | 1250 | 2.5 / 3.5 | medium | 280→240 | ×0.17 | 47.6 | ~992 |
 | **Chicom CQB** *(3-rd burst)* | Burst | 36 | 180 | 1250¹ | 2.1 / 2.7 | medium | 130→110 | ×0.25 | 32.5 | **~497** |
@@ -60,8 +60,8 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 |---|---|---|---|---|---|---|---|---|---|---|
 | **Ripper** *(SMG mode)* | Auto | 22 | 220 | 968 | 3.1 / 3.33 | medium | 140→120 | ×0.25 | 35 | **~565** |
 | Ripper — PaP | Auto | 34 | 340 | 968 | 3.1 / 3.33 | medium | 250→240 | ×0.25 | 62.5 | ~1008 |
-| **AK-47** | Auto | 21 | 168 | 750 | 2.5 / 3.25 | medium | 200→175 | ×0.184 | 36.8 | **~460** |
-| AK-47 — PaP | Auto | 31 | 279 | 750 | 2.5 / 3.25 | medium | 300→275 | ×0.184 | 55.2 | ~690 |
+| **AK-47** | Auto | 21 | 168 | 750 | 2.5 / 3.25 | medium | 200→175 | ×0.227 | 45.4 | **~568** |
+| AK-47 — PaP | Auto | 31 | 279 | 750 | 2.5 / 3.25 | medium | 300→275 | ×0.227 | 68.1 | ~851 |
 | **AE4** | Auto | 25 | 200 | 500 | 2.0 / 2.0 | medium | 160→130 | ×0.38 | 60.8 | **~507** |
 | AE4 — PaP | Auto | 38 | 304 | 500 | 2.0 / 2.0 | medium | 290→260 | ×0.38 | 110.2 | ~918 |
 | **Galil** | Auto | 25 | 225 | 750 | 2.25 / 2.93 | medium | 220→200 | ×0.1785 | 39.3 | **~491** |
@@ -86,14 +86,16 @@ Live stats for every box gun, **base and PaP (`_up`) form**, generated from the 
 
 | Gun / form | Fire | Clip | Reserve | RPM | Reload (t/e) | Pen | Full / Min range (u) | Raw | ×Mult | Eff/shot |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **MORS** | Single (charge) | 1 | 120 | — | 1.2 / 1.2 | large | — | 1000 | ×0.66 | **660** |
-| MORS — PaP | Single (charge) | 1 | 180 | — | 1.2 / 1.2 | large | — | 2000 | ×0.66 | **1320** + PaP ladder |
-| **Paladin HB50** | Single | 8 | 96 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 | ×0.49 | **490** |
-| Paladin HB50 — PaP | Single | 11 | 132 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 *(ladder only)* | ×0.49 | **490** + PaP ladder |
+| **MORS** | Single (charge) | 1 | 41 | — | 1.2 / 1.2 | large | — | 1000 | ×0.429 | **429** |
+| MORS — PaP | Single (charge) | 1 | 61 | — | 1.2 / 1.2 | large | — | 1500 | ×0.429 | **644** + PaP ladder |
+| **Paladin HB50** | Single | 8 | 80 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 | ×0.3565 | **357** |
+| Paladin HB50 — PaP | Single | 11 | 110 | 200 | 3.56 / 4.13 | large | 9000 / 16000 | 1000 *(ladder only)* | ×0.3565 | **357** + PaP ladder |
 
 > *Sniper swap 2026-06-24:* MORS **B → S** (`×0.49 → 0.66`, reserve 60/90 → 120/180); Paladin HB50 **low-S → B** (`×0.70 → 0.49`, clip/reserve unchanged). MORS RPM/range cells left `—` (not re-captured from the GDT). Canonical tiers/odds: docs/05 + docs/54.
 >
-> *Paladin headshot fix 2026-06-26:* the BO4-port GDT shipped `locHead 1.0`, so headshots dealt **0.5× body** (backwards). Set to `locHead 5.0` (base + `_up` + 14 twins, `tools/fix_paladin_loc.js`) → proper **2.5× body** headshot, matching every other non-shotgun. At full PaP+OC: **13,475/head vs 5,390 body** (was 2,695/head).
+> *Paladin headshot fix 2026-06-26:* the BO4-port GDT shipped `locHead 1.0`, so headshots dealt **0.5× body** (backwards). Set to `locHead 5.0` (base + `_up` + 14 twins, `tools/fix_paladin_loc.js`) → proper **2.5× body** headshot, matching every other non-shotgun.
+>
+> *Damage + reserve retune 2026-06-27 (user):* pure damage/reserve tweaks — **PaP price tiers & box odds deliberately UNCHANGED** (docs/54 not regenerated). Damage via `acc_weapon_balance_mult` (`IsSubStr` → all forms+twins): **Paladin −25%** (×0.4753 → 0.3565), **MORS −35%** (×0.66 → 0.429), **RW1 +20%** (×0.11 → 0.132), **MK14 −10%** (×0.291 → 0.2619). Reserve via `reduce_base_ammo.js` `MAXAMMO_FIX` (all 16 forms each, applied surgically — backups stale, see CHANGELOG): **MORS −15%** (48/72 → 41/61 rounds), **Paladin −15%** (maxAmmo 12 → 10 → reserve 96/132 → 80/110). Paladin at full PaP+OC now ~**9,800/head vs ~3,900 body** (was 13.1k/5.2k); MORS ~**7,079/shot** (was 10,890).
 
 ---
 

@@ -61,12 +61,20 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;   // regular_hp_mult() - co-op scales the frozen Mega nova damage
 
 #define ACC_PHD_COST                    2500
-#define ACC_PHD_EXPLODE_RADIUS          300     // slide/down nova radius (base)
-#define ACC_PHD_MEGA_EXPLODE_RADIUS     500     // PhD Slider Mega radius
-#define ACC_PHD_EXPLODE_BASE_DAMAGE     2000    // floor damage (round-scaled up below)
-#define ACC_PHD_MEGA_DAMAGE_MULT        0.8     // PhD Slider (Mega) nova damage as a multiple of the BASE nova (= round zombie health). Was a flat 2.0; NERF -60% (user 2026-06-24: Mega read ~64k - absurd, the x2 compounding with the global x2.5 + Mega Flopper +15% explosive). 0.8 x base still one-shots trash via the global; the Mega keeps its radius/cooldown/fling/move-speed edge. Live dvar acc_phd_mega_dmg_mult.
+#define ACC_PHD_EXPLODE_RADIUS          300     // base on-down nova radius (unchanged)
+#define ACC_PHD_MEGA_EXPLODE_RADIUS     250     // PhD Slider Mega slide/down nova radius (user 2026-06-27: 500 -> 250, HALVED)
+#define ACC_PHD_MAX_HITS                10      // PhD Slider Mega nova: MAX zombies damaged per slide (user 2026-06-27). 0 = uncapped; the BASE on-down nova stays uncapped. Live dvar acc_phd_max_hits.
+#define ACC_PHD_EXPLODE_BASE_DAMAGE     2000    // BASE on-down nova floor damage (round-scaled up below)
+// MEGA ("PhD Slider") slide/down nova damage is FROZEN at this round's normal-zombie health (user 2026-06-27):
+// one slide one-shots trash THROUGH round 16, then takes 2 slides (~r17-23), then 3 (~r24-27), as zombies
+// outscale the frozen value. Replaces the old "x0.8 of LIVE level.zombie_health x the global x2.75" which
+// one-shot at EVERY round ("a single slide" forever) and read ~64k vs bosses. The Mega nova now BYPASSES the
+// on_ai_damage global/bonus chain (acc_phd_nova_hit tag) so the frozen number is exactly what lands. Live
+// dvar acc_phd_freeze_round. (Old acc_phd_mega_dmg_mult is retired.)
+#define ACC_PHD_FREEZE_ROUND            16    // (user 2026-06-27: 18 -> 16)
 #define ACC_PHD_SLIDE_CD                10       // seconds between slide explosions (base, user 2026-06-22: 8 -> 10)
 #define ACC_PHD_SLIDE_CD_MEGA           8        // PhD Slider Mega slide cooldown (user 2026-06-22: 5 -> 8)
 
@@ -284,6 +292,17 @@ function phd_explode()
         PlaySoundAtPosition( "evt_nuke_flash", v_burst );
     }
 
+    // The MEGA nova deals its FROZEN damage RAW: tag the player so on_ai_damage bypasses the global x2.75 +
+    // the whole bonus chain for these self-dealt MOD_GRENADE_SPLASH hits (user 2026-06-27). Without the
+    // bypass the frozen value would be re-inflated x3+ and one-shot far past the freeze round (and re-create
+    // the boss-nuke). Set only for Mega; the BASE on-down nova keeps the normal chain (panic-clear, unchanged).
+    // The whole damage loop below is synchronous (no waits), so the flag can't leak to another hit; cleared
+    // right after.
+    if ( IS_TRUE( b_mega ) )
+    {
+        self.acc_phd_nova_hit = true;
+    }
+
     // Per-zombie EXPLODE: every zombie the nova KILLS pops apart - head-gib + a torso gore burst.
     // Mirrors stock Nuke (_zm_powerup_nuke.gsc:139/145): zombie_head_gib() on the LIVE zombie, THEN
     // DoDamage (head_gib is non-blocking - it gibs the head + threads a DoT, then returns; it also
@@ -293,6 +312,12 @@ function phd_explode()
     // NO StartRagdoll/LaunchRagdoll here - the corpse-fling was removed 2026-06-24 (the invisible-zombie
     // bug + it's invisible under instant corpse-cleanup anyway; see the #define note above). Zombies the
     // nova kills die their normal death and are vanished by _acc_corpse_cleanup.
+    //
+    // HIT CAP (user 2026-06-27): the MEGA slide caps at acc_phd_max_hits targets damaged per slide (default 10)
+    // so it can't clear an entire dense pile in one slide. The BASE on-down nova stays uncapped (n_max_hits 0)
+    // - it's a panic clear when you're surrounded, not the thing being nerfed.
+    n_max_hits = ( IS_TRUE( b_mega ) ? getdvarint( "acc_phd_max_hits", ACC_PHD_MAX_HITS ) : 0 );
+    n_hits     = 0;
     for ( i = 0; i < a_zombies.size; i++ )
     {
         z = a_zombies[ i ];
@@ -317,26 +342,54 @@ function phd_explode()
         }
 
         z DoDamage( n_damage, v_origin, self, self, 0, "MOD_GRENADE_SPLASH" );
+
+        n_hits++;
+        if ( n_max_hits > 0 && n_hits >= n_max_hits )   // Mega slide cap: stop after acc_phd_max_hits targets
+        {
+            break;
+        }
     }
+
+    self.acc_phd_nova_hit = undefined;   // clear the bypass tag (harmless if base / never set)
 }
 
-// Round-scaled so the nova one-shots a trash zombie at any round; Mega hits much harder.
+// Nova damage. BASE (on-down panic clear) = LIVE round-scaled so it one-shots trash at any round (unchanged).
+// MEGA ("PhD Slider") = FROZEN at a round-16 normal-zombie's health (user 2026-06-27), so one slide one-shots
+// trash THROUGH round 16, then 2 slides (~r17-23), then 3 (~r24-27), as zombies outscale the frozen value.
+// The Mega path is dealt RAW (acc_phd_nova_hit bypass in on_ai_damage), so this number is exactly what lands.
 function phd_explode_damage( b_mega )
 {
+    if ( IS_TRUE( b_mega ) )
+    {
+        // Frozen at the freeze round's normal-zombie health, scaled by the co-op regular-HP mult so "one
+        // slide until the freeze round" holds in any lobby (a co-op round-16 zombie has 2-4x the solo HP).
+        rnd = getdvarint( "acc_phd_freeze_round", ACC_PHD_FREEZE_ROUND );
+        if ( rnd < 1 ) rnd = 1;
+        return int( phd_round_zombie_health( rnd ) * acc_coop_scaling::regular_hp_mult() );
+    }
+
     n_base = ACC_PHD_EXPLODE_BASE_DAMAGE;
     if ( isdefined( level.zombie_health ) && level.zombie_health > n_base )
     {
         n_base = level.zombie_health;
     }
-    if ( IS_TRUE( b_mega ) )
-    {
-        // PhD Slider Mega nova: was a flat x2 of the base nova, but the round-scaled base ALREADY one-shots
-        // trash, so the x2 just inflated the number (the ~64k the user saw, compounded by the x2.5 global +
-        // Mega Flopper +15% explosive). NERF -60% (user 2026-06-24): x0.8 of base. Still one-shots trash via
-        // the global; the Mega's real edge is its bigger radius / shorter cooldown / extra flings / +speed.
-        return int( n_base * getdvarfloat( "acc_phd_mega_dmg_mult", ACC_PHD_MEGA_DAMAGE_MULT ) );
-    }
     return n_base;
+}
+
+// Solo per-round normal-zombie health, mirroring stock ai_calculate_health (150 start, +100/round through
+// r9 = 950, then x1.1 compounding from round 10; zombie_utility.gsc:1906-1929, documented in _acc_coop_scaling).
+// float-accumulate (no per-step int) so the result is >= stock's int-per-step value, guaranteeing the nova
+// still one-SHOTS trash AT the freeze round. GSC has no pow builtin - same x1.1 loop idiom as
+// _acc_boss::scale_mini_boss_hp. r16 -> int(950 x 1.1^7) = 1851.
+function phd_round_zombie_health( rnd )
+{
+    if ( rnd <= 1 ) return 150;
+    if ( rnd <= 9 ) return 150 + ( ( rnd - 1 ) * 100 );
+
+    hp = 950.0;   // round 9
+    for ( i = 0; i < ( rnd - 9 ); i++ )
+        hp = hp * 1.1;
+    return int( hp );
 }
 
 // ---------------------------------------------------------------------------

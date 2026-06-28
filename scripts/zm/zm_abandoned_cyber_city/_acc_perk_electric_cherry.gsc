@@ -265,7 +265,15 @@ function ec_nova()
         }
         else
         {
-            z thread zm_perk_electric_cherry::electric_cherry_stun();        // real ~4s freeze (ignoreall)
+            // BOSS STUN GUARD (user 2026-06-27 crash-hunt): the stock reload-attack guards the stun with
+            // `if(!IsDefined(...is_brutus)) electric_cherry_stun();` so a boss is never frozen; this port
+            // dropped that guard. electric_cherry_stun sets self.ignoreall for ~4s, and a boss is ALWAYS
+            // non-lethal here (HP >> nova dmg) -> a player reloading near a boss froze it ~4s every cooldown,
+            // soft-locking the boss round. Skip the freeze for any boss / mini-boss (covers Brutus/Warden,
+            // Phantom, Subroutine Core, Glitch Stalker - all carry acc_is_boss or acc_is_mini_boss). They
+            // still get the shock FX + the nova DoDamage below, just not the ignoreall stun.
+            if ( !IS_TRUE( z.acc_is_boss ) && !IS_TRUE( z.acc_is_mini_boss ) )
+                z thread zm_perk_electric_cherry::electric_cherry_stun();    // real ~4s freeze (ignoreall)
             z thread zm_perk_electric_cherry::electric_cherry_shock_fx();    // real shock-eyes FX
         }
 

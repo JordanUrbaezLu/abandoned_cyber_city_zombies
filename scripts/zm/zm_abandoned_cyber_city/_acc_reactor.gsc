@@ -12,7 +12,7 @@
 // LOOP: pay shards at the Plinth -> a timed, escalating zombie SURGE erupts from
 // the pit floor (reusing acc_bus_trench::spawn_corp_surge - tagged low-payout /
 // ignore_enemy_count, so it never disturbs the round count) -> survive it -> a
-// TIER-DIALED payout (shards + Insta-Kill + a Mega Bottle). Each completion raises
+// TIER-DIALED payout (shards + Fire Sale + a Mega Bottle). Each completion raises
 // the tier: the next Surge costs more and pays more. You don't farm it - you raid it.
 //
 // All GSC, no geometry. Dvar acc_reactor_on (default 1) gates the whole feature.
@@ -109,9 +109,12 @@ function spawn_reactor()
     if ( getdvarint( "acc_reactor_on", 1 ) != 1 )
         return;
 
-    // §3 anchor: the Arm Plinth at the Core entrance off the pit. (0,2120,-240) is on the EXISTING
-    // pit floor (y < 2173 pit edge); the Core ROOM + seal door land later (parallel geometry, docs/45).
-    spawn_plinth_at( ( 0, 2120, -240 ), 270 );
+    // Arm Plinth - in the teddy-bear NORTH under-room (user 2026-06-26: declutter the trench + reward opening that
+    // door). Room is ORIGINAL: interior x[-192,192], walkable y[2189,2517], floor z=-240. Plinth is CENTERED (x=0)
+    // at the back wall (0,2493) - clip north flush at 2517. The plinth model (p7_cai_sign_inteactive_kiosk) is deep,
+    // so it overlapped the center bear back when the bears were at y2430; the bears were NUDGED FORWARD to y2350
+    // (user 2026-06-28, _acc_ee_song) -> ~143u clearance behind them, so the plinth sits dead-center + clear. yaw 270.
+    spawn_plinth_at( ( 0, 2493, -240 ), 270 );
 }
 
 function spawn_plinth_at( origin, yaw )
@@ -162,7 +165,7 @@ function reactor_set_hint()   // self = the plinth trigger
         self SetHintString( "^1REACTOR^7 - recharging (" + reactor_rounds_left() + " round(s))" );
     else
         self SetHintString( "Hold ^3[{+activate}]^7  ^1REACTOR SURGE^7 - survive for ^5" + reactor_reward() +
-                            " Data Shards^7 each + Insta-Kill" );
+                            " Data Shards^7 each + Fire Sale" );
 }
 
 // ---------------------------------------------------------------------------
@@ -252,14 +255,14 @@ function run_surge( player )   // self = the plinth trigger
         return;
     }
 
-    // Success: EVERYONE gets reactor_reward() shards + a shared Insta-Kill (user 2026-06-19).
+    // Success: EVERYONE gets reactor_reward() shards + a shared FIRE SALE (user 2026-06-27: was a shared Insta-Kill).
     reward = reactor_reward();
     players = level.players;
     for ( i = 0; i < players.size; i++ )
         acc_data_shards::grant_player( players[ i ], reward, "reactor" );
-    level thread zm_powerups::specific_powerup_drop( "insta_kill", player.origin );
+    level thread zm_powerups::specific_powerup_drop( "fire_sale", player.origin );
     player PlaySound( "acc_shard_pickup" );
-    player acc_utility::hud_msg( "^2REACTOR STABILIZED^7 - everyone +" + reward + " Data Shards + Insta-Kill!" );
+    player acc_utility::hud_msg( "^2REACTOR STABILIZED^7 - everyone +" + reward + " Data Shards + Fire Sale!" );
 }
 
 // ---------------------------------------------------------------------------

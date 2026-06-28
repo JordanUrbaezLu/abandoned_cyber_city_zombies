@@ -36,7 +36,7 @@ climbs to ~4.7 GB over ~40 s.
    Alley, Corp, Vault, Roof, Lab). Note any spot where geometry still blocks you.
 3. **Perks (all 9)** — buy every perk machine; confirm each effect (power is on).
 4. **Guns** — buy the wall weapons; spam the **Mystery Box**; confirm they fire.
-5. **Pack-a-Punch** — PaP a gun (start room, power on); confirm upgrade + camo.
+5. **Pack-a-Punch** — PaP a gun (start room, power on); confirm T1 damage, T2 `_up` transform, T3 max.
 6. **Boss + Mega Bottles** — reach round 2, kill the Juggernaut Host, confirm
    **10 bottles** (counter, bottom-left).
 7. **Perk upgrades** — with bottles, at a perk machine you own, the "Hold ✋ for

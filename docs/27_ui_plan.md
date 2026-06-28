@@ -81,7 +81,7 @@ Once `_acc_ui` exists, each touchpoint becomes a few lines of data + one call.
   it landed early.
 - **PaP 3-tier revamp (2026-06-16):** the card now lists **3 tiers** with the
   scaling cost (T1 5000 / T2 7500 / T3 10000) and the deferred transform (T1 =
-  +50% dmg + camo only; T2 = +100% dmg + the `_up` transform; T3 = +150% MAX).
+  +33% dmg only; T2 = +67% dmg + the `_up` transform; T3 = +100% MAX, double).
   Backing mechanic in `_acc_pap_levels`: stock **AAT disabled**
   (`level.aat_in_use = false`, no turned/fireworks rerolls), stock re-pack
   blocked for upgraded guns (`level.pack_a_punch.custom_validation`), and a

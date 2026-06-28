@@ -30,16 +30,17 @@ Re-rolled at map load. Documented so players can learn the *space* of randomizat
 
 ### Wallbuy Pool Per Slot
 
-**MOSTLY box-only, with 3 fixed wall-buys (user, 2026-06-23; was "no wall buys" 2026-06-14).**
-The map is still box-first, but the user added **three fixed wall-buys**: **Five-Seven @ Lab**
-(`t6_fiveseven`, 500), **Olympia @ Bus Station** (`t6_olympia`, 500), and a **frag grenade @ Spawn**
-(`frag_grenade`, 100). They're placed as stock `weapon_upgrade` struct pairs in the `.map`, and
-`_acc_map_randomizer::remove_all_wallbuys()` now **whitelists** those three weapon names (skips
-removing their stubs) while still stripping every other wall-buy at load — so the box-only intent
-holds for everything else. The stock system gives buy-gun → buy-ammo (price keyed to PaP level)
-for free. The per-run wallbuy randomization machinery (`roll_wallbuy_pool`, etc.) is still gone;
-the three are FIXED, not randomized. The historical single-candidate slot plan below is kept only
-for when a future version re-expands the roster.
+**MOSTLY box-only, with 4 fixed wall-buys (user, 2026-06-23; AK-47 added 2026-06-26; was "no wall buys" 2026-06-14).**
+The map is still box-first, but the user added **four fixed wall-buys**: **Five-Seven @ Lab**
+(`t6_fiveseven`, 500), **Olympia @ Bus Station** (`t6_olympia`, 500), a **frag grenade @ Spawn**
+(`frag_grenade`, 100), and the **AK-47 @ Abyss Layer 4 / "4th floor" trench** (`t9_ak47`, 1500 — an
+S-tier wall-buy planted deep in the pit, z=-960, to pull players down). They're placed as stock
+`weapon_upgrade` struct pairs in the `.map`, and `_acc_map_randomizer::remove_all_wallbuys()` now
+**whitelists** those four weapon names (skips removing their stubs) while still stripping every other
+wall-buy at load — so the box-only intent holds for everything else. The stock system gives buy-gun →
+buy-ammo (price keyed to PaP level) for free. The per-run wallbuy randomization machinery
+(`roll_wallbuy_pool`, etc.) is still gone; the four are FIXED, not randomized. The historical
+single-candidate slot plan below is kept only for when a future version re-expands the roster.
 
 Historical slots (no longer wired — kept for reference):
 

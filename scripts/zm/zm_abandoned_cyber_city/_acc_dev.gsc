@@ -32,6 +32,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer() for trench/abyss location titles
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;   // true_base() for the dev packed-AK loadout
+#using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;        // get_or_init_progress() for the dev OC tier
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
@@ -50,23 +52,38 @@ function init()
     // in always-active modules (proven by it working in dev), so nothing else is needed.
     level.acc_dmg_num_feed = &acc_center_dmg_add;
 
+    // [acc] Top-center AREA-NAME banner (dev_player_hud_loop - historical name; it once shared this loop with a
+    // now-removed dev DAMAGE/LOG panel, hence the "dev_" prefix on it + its helpers). ALWAYS ON for EVERY player
+    // in BOTH dev and normal play (user 2026-06-27: "the area display when you go from one area to another should
+    // be there for both dev and non-dev modes"). It is a permanent game FEATURE - a clean area title that reveals
+    // on each area change (5s + fade on the surface, held the whole time you're underground), NOT a dev tool - so
+    // it is threaded ABOVE the dev gate. The ONLY dev-only piece is the "DEV MODE ACTIVE" confirmation line inside
+    // ensure_dev_huds, which stays gated on level.acc_dev there.
+    level thread dev_player_hud_loop();
+
     // ONE dev switch: level.acc_dev (resolved once in the entry script's acc_resolve_dev_flags(),
     // which runs in main() before this init). Off = normal play; the REST of this harness no-ops.
     if ( !IS_TRUE( level.acc_dev ) )
         return;
 
-    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + 200 shards + door markers + all perk slots" );
+    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + 200 shards + all perk slots" );
 
     // Perk cap is owned per-player by acc_perks::acc_perk_slot_limit (the level.get_player_perk_purchase_limit
     // hook), which returns the MAX while IS_TRUE(level.acc_dev) - so every machine is buyable in dev without
     // raising the global. (Raising level.perk_purchase_limit here would be a no-op: the hook's return overrides it.)
 
     level thread dev_unlimited_money();
-    level thread dev_door_markers();
+    // DISABLED (user 2026-06-27): the cyan buyable-door waypoints rendered as a big TEAL SQUARE floating in
+    // open space (a door whose brush origin resolves to the map center (0,0,0) -> the marker tracks there, not
+    // over a door), which read as "a teal box on the zombies." They were redundant in dev anyway (acc_open_map
+    // already opens every door), so the door-finder is just removed. create_door_marker/dev_door_markers stay
+    // in the file as the referenced HUD-waypoint recipe (see _acc_health_bars wallhack markers) but are no
+    // longer threaded. Re-enable by restoring this line if a future build needs to locate unbought doors.
+    // level thread dev_door_markers();
+    level thread dev_starting_loadout();   // start with the Action Figure (fast-swing test) - user 2026-06-27 (was a packed Chicom CQB)
 
-    // (Damage numbers are now set up ABOVE the dev gate - they are a permanent game FEATURE, always on
-    // for every player, not a dev tool. See the top of init().)
-    level thread dev_player_hud_loop();
+    // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
+    // FEATURES, always on for every player, not dev tools. See the top of init().)
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
     level thread dev_round_skip_watcher();
@@ -292,6 +309,47 @@ function dev_apply_jugg_state( v )
     acc_utility::log( "dev: jugg state v=" + v + " mega=" + ( mega ? "1" : "0" ) );
 }
 
+// DEV starting loadout (user 2026-06-26): every player spawns holding a fully-packed (PaP III) +
+// fully-tiered (max Overclock = tier 10) Chicom CQB so the combat-HUD device (gun name / PaP shield /
+// OC chip) is testable immediately. Hardcoded in dev (no console dvar). Re-given each life.
+function dev_starting_loadout()
+{
+    level endon( "end_game" );
+    callback::on_connect( &dev_loadout_on_connect );
+}
+
+function dev_loadout_on_connect()
+{
+    self thread dev_loadout_per_life();
+}
+
+function dev_loadout_per_life()
+{
+    self endon( "disconnect" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+    for ( ;; )
+    {
+        wait 1.5;                          // let the stock starting pistol settle, then hand over the Action Figure
+        self dev_give_action_figure();
+        self waittill( "spawned_player" ); // re-give on respawn
+    }
+}
+
+function dev_give_action_figure()
+{
+    if ( !isdefined( self ) || !isplayer( self ) ) return;
+
+    // Action Figure handheld MELEE (t8_melee_figure) - the fast-swing test (user 2026-06-27). The base figure's
+    // fireTime is the cadence-proof value (0.425 = ~2x swing speed) right now, so dev starts you swinging it fast.
+    w = GetWeapon( "t8_melee_figure" );
+    if ( !isdefined( w ) ) return;
+
+    self GiveWeapon( w );
+    self SwitchToWeapon( w );
+
+    self IPrintLnBold( "^2>> DEV: Action Figure (fast-swing test)" );
+}
+
 // ---------------------------------------------------------------------------
 // Damage indicators + zone signage HUD
 // ---------------------------------------------------------------------------
@@ -426,17 +484,22 @@ function ensure_dev_huds( p )
 {
     if ( !isdefined( p.acc_dev_zone_hud ) )
     {
-        p.acc_dev_zone_hud = p hud::createFontString( "default", 2.0 );
-        // y=20 (raised 50 from 70, user 2026-06-18): sits above the top-center boss
-        // nameplate+bar (y[22,60]) near the top edge.
-        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 20 );
+        p.acc_dev_zone_hud = p hud::createFontString( "default", 1.3 );
+        // y=2 + scale 1.3 (user 2026-06-27): moved UP to the top edge and trimmed from 2.0.
+        // The area banner grows DOWNWARD from its anchor, so at scale 2.0/y20 its tall line bled
+        // into the top-center boss nameplate (y22) + bar (y46) + Paradise timer (y24) and overlapped
+        // them. A ~16px line pinned at y2 now sits cleanly ABOVE that y[22,60] dynamic cluster.
+        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 2 );
         p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
         p.acc_dev_zone_hud.alpha = 0;   // hidden until you enter a new area (then 5s reveal, then fade)
         p.acc_dev_zone_hud.hidewheninmenu = true;
 
         // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active
         // (also logs as [ SCRIPTER] in console_mp.log). Absent = NOT in dev mode.
-        p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
+        // (The hud loop is now threaded ABOVE the dev gate in init() so the area banner shows for EVERY player in
+        // both modes; this IS_TRUE check is therefore LOAD-BEARING - it keeps ONLY this "DEV MODE ACTIVE" line dev-only.)
+        if ( IS_TRUE( level.acc_dev ) )
+            p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
     }
 }
 
@@ -459,11 +522,11 @@ function dev_update_zone( p )
         return;
     }
 
-    // UNDERGROUND (trench/abyss): keep the layer title up the WHOLE time you're down there - it's
-    // pitch black, so a 5s fade gets missed (user 2026-06-22: "went down layers in the trench, didn't
-    // see the location title"). Gate on the DEPTH (underground_layer>0); it still RE-reveals (above)
-    // on each layer change. On the surface the 5s declutter fade is unchanged.
-    if ( acc_bus_trench::underground_layer( p.origin ) > 0 )
+    // UNDERGROUND (trench/abyss) + PARADISE: keep the title up the WHOLE time you're down there - it's pitch
+    // black (and Paradise is the dark/foggy finale arena), so a 5s fade gets missed (user 2026-06-22: "went
+    // down layers in the trench, didn't see the location title"). Gate on the DEPTH (underground_layer>0) OR
+    // Paradise; it still RE-reveals (above) on each area change. On the surface the 5s declutter fade is unchanged.
+    if ( acc_bus_trench::underground_layer( p.origin ) > 0 || acc_bus_trench::player_in_second_part( p ) )
     {
         if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
         {
@@ -494,6 +557,14 @@ function dev_get_player_area( p )
     layer = acc_bus_trench::underground_layer( p.origin );
     if ( layer > 0 )
         return "trench" + layer;          // trench1 = the pit/Lv1 .. trench5 = the deepest floor
+    // The Exchange Bank vault is excluded from underground_layer AND sits below every zone player_volume,
+    // so it would read undefined (blank banner). Give it its own key (user 2026-06-27).
+    if ( acc_bus_trench::player_in_vault( p ) )
+        return "exchange";
+    // Paradise (the open-air hub below the abyss, z=-1200) is ALSO excluded from underground_layer and sits below
+    // every zone player_volume, so it would read undefined (blank banner). Give it its own key (user 2026-06-27).
+    if ( acc_bus_trench::player_in_second_part( p ) )
+        return "paradise";
     return dev_get_player_zone( p );       // surface zone key (undefined while between zone volumes)
 }
 
@@ -538,6 +609,8 @@ function dev_area_name( area )
 {
     switch ( area )
     {
+    case "exchange": return "EXCHANGE BANK";
+    case "paradise": return "PARADISE";
     case "trench1": return "BUS STATION (TRENCHES LV1)";
     case "trench2": return "BUS STATION (TRENCHES LV2)";
     case "trench3": return "BUS STATION (TRENCHES LV3)";

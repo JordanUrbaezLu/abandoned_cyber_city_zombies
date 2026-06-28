@@ -9,7 +9,7 @@
 //
 // RULES (user 2026-06-25):
 //   - ORDER-BASED PRICE, charged to the triggering player and keyed to HOW MANY songs you've played
-//     this game (NOT which bear): 1st = 500, 2nd = 1000, 3rd = 15000 points. Play in ANY order; the
+//     this game (NOT which bear): 1st = 500, 2nd = 1000, 3rd = 1500 points. Play in ANY order; the
 //     price always follows the trigger order. (Was free.) Tunable: acc_ee_song_cost_1/_2/_3.
 //   - 5-MINUTE COOLDOWN between triggers (global): once you play one, you must wait ~5 min before any
 //     other bear can be triggered - that lets the song play out. Tunable: acc_ee_song_cooldown (sec).
@@ -19,9 +19,10 @@
 // used by _acc_boss_items). ZERO new geometry (the room is already baked - map_source UNDER ROOM NORTH /
 // add_under_room.js): all three bears are spawned in GSC, so this is a -GscOnly change, no LED bake.
 //
-// PLACEMENT: NORTH under-room interior x[-172,172] y[2193,2497] floor z=-240. The three bears sit along
-// the back wall at y=2430: LEFT (-140), CENTER (0, the original), RIGHT (+140), facing the door (south).
-// 140u apart so the 48u use-triggers never overlap. If that room ever moves, update the origins below.
+// PLACEMENT: NORTH under-room (ORIGINAL): interior x[-192,192], walkable y[2189,2517] floor z=-240. The three bears
+// sit at y=2350: LEFT (-140), CENTER (0, the original), RIGHT (+140), facing the door (south); nudged forward from
+// y2430 (user 2026-06-28) so the deep reactor plinth at the back wall (0,2493) sits CENTERED and clear behind them.
+// 140u apart so the 48u use-triggers never overlap. If that room ever moves/resizes, update the origins below.
 //
 // AUDIO: each bear plays a STREAMED 2D NONLOOPING music alias (sound/aliases/acc_audio.csv):
 //   center = acc_ee_song   -> acc\music\ee_song.wav    ("Cyber Dreams" - already present)
@@ -47,7 +48,7 @@
 #define ACC_EE_COOLDOWN_SEC  300     // seconds between ANY two song triggers (lets the song play out) - dvar acc_ee_song_cooldown
 #define ACC_EE_COST_1        500     // points for the 1st song you trigger this game (any bear) - dvar acc_ee_song_cost_1
 #define ACC_EE_COST_2        1000    // 2nd song                                                  - dvar acc_ee_song_cost_2
-#define ACC_EE_COST_3        15000   // 3rd song                                                  - dvar acc_ee_song_cost_3
+#define ACC_EE_COST_3        1500    // 3rd song                                                  - dvar acc_ee_song_cost_3
 
 #namespace acc_ee_song;
 
@@ -67,10 +68,13 @@ function spawn_jukebox_bears()
 {
     level endon( "end_game" );
 
+    // 3rd arg = the SONG TITLE shown on the "NOW PLAYING" banner (user 2026-06-26, names 2026-06-27). All three
+    // titles are the user's final names; the LEFT/RIGHT wavs (acc_ee_song_2 / _3) still need banking (see the
+    // AUDIO note up top) - until then those two bears charge + show the banner but play silently.
     bears = [];
-    bears[ bears.size ] = make_bear( ( -140, 2430, -240 ), "acc_ee_song_2" );  // LEFT
-    bears[ bears.size ] = make_bear( (    0, 2430, -240 ), "acc_ee_song"   );  // CENTER (original "Cyber Dreams")
-    bears[ bears.size ] = make_bear( (  140, 2430, -240 ), "acc_ee_song_3" );  // RIGHT
+    bears[ bears.size ] = make_bear( ( -140, 2350, -240 ), "acc_ee_song_2", "Night Groove"                 );  // LEFT  (titles swapped w/ RIGHT, user 2026-06-27: were on the wrong songs)
+    bears[ bears.size ] = make_bear( (    0, 2350, -240 ), "acc_ee_song",   "Cyber Dreams"                 );  // CENTER (by Lilex)
+    bears[ bears.size ] = make_bear( (  140, 2350, -240 ), "acc_ee_song_3", "I Want To Stay At Your House" );  // RIGHT (titles swapped w/ LEFT, user 2026-06-27)
 
     refresh_hints( bears );              // show the current (1st-trigger) price on every bear
     level thread hint_ticker( bears );   // flip hints between price / "busy" as the cooldown comes and goes
@@ -83,7 +87,7 @@ function spawn_jukebox_bears()
 
 // Spawn one bear (script_model) + its hold-USE trigger; return a struct describing it. The trigger MUST be made
 // usable via TriggerIgnoreTeam (stock _zm_perks.gsc:1523) - a script-spawned use-trigger has no team otherwise.
-function make_bear( origin, song_alias )
+function make_bear( origin, song_alias, title )
 {
     bear = spawn( "script_model", origin + ( 0, 0, 2 ) );
     bear setmodel( "p7_zm_teddybear" );
@@ -97,6 +101,7 @@ function make_bear( origin, song_alias )
     b.bear = bear;
     b.trig = t;
     b.song = song_alias;
+    b.title = title;       // shown on the all-players "NOW PLAYING" banner when this bear is triggered
     b.used = false;
     return b;
 }
@@ -123,7 +128,7 @@ function bear_watch( b, all )
             continue;
         }
 
-        // ORDER-BASED PRICE (1st=500, 2nd=1000, 3rd=15000) - keyed to how many you've played, not which bear.
+        // ORDER-BASED PRICE (1st=500, 2nd=1000, 3rd=1500) - keyed to how many you've played, not which bear.
         cost = ee_cost_for_play( level.acc_ee_play_count );
         if ( !( player zm_score::can_player_purchase( cost ) ) )
         {
@@ -147,10 +152,17 @@ function bear_watch( b, all )
         refresh_hints( all );   // remaining bears now show the NEXT (higher) price + the busy state
 
         play_ee_song( b.song );
-        acc_utility::log( "ee_song: play #" + level.acc_ee_play_count + " (" + b.song + ") cost " + cost );
+        acc_utility::log( "ee_song: play #" + level.acc_ee_play_count + " (" + b.song + " / " + b.title + ") cost " + cost );
 
-        if ( isdefined( player ) && isplayer( player ) )
-            player acc_utility::hud_msg( "^5MUSIC PLAYING^7" );
+        // NOW-PLAYING banner with the SONG TITLE, shown to EVERY player (user 2026-06-26): the song plays 2D
+        // for the whole lobby, so the whole lobby sees what's on - not just the player who fed the jukebox.
+        // Uses IPrintLnBold (engine built-in, all-clients, pool-FREE) - NOT acc_utility::hud_msg, whose
+        // lazily-created server hudelem can silently fail to appear when the hudelem pool is exhausted (esp. in
+        // dev mode with the extra dev HUDs - user 2026-06-28 "song UI didn't show when I bought a song"). This
+        // is the same reliable all-player announcement the Paradise gate / soul milestones use.
+        foreach ( p in GetPlayers() )
+            if ( isdefined( p ) && isplayer( p ) )
+                p IPrintLnBold( "^5NOW PLAYING^7  " + b.title );
 
         return;   // this bear is done for the game
     }

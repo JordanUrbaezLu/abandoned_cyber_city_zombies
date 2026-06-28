@@ -33,6 +33,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;   // shielded 50%-slower gait (mirror of the glitch speed think)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perks;          // Savior (Mega QR) revive damage-reduction predicate
 
 // ---------------------------------------------------------------------------
 // Tuning (tuned against docs/04_progression_and_skills.md difficulty table)
@@ -227,11 +228,19 @@ function spawn_elite( class_name )
     // frame-end spawn func ('waittillframeend', spawner_shared.gsc:581) and
     // resets health/maxhealth - promoting before it completes gets clobbered.
     // Wait pattern from _zm_ai_faller.gsc:168-171.
-    while ( isdefined( zombie ) && !isdefined( zombie.zombie_init_done ) )
+    // Capped iteration (n<100) so a culled-but-defined / never-init actor can't tie this spawn thread up
+    // for the rest of the round - matches the cap EVERY other spawn_zombie init-wait already uses
+    // (_acc_boss_glitch:415, _acc_reactor:328, _acc_paradise:511, _acc_boss_phantom:442). The caller's
+    // endon("acc_round_end") already prevents a cross-round hang; this just bails a stuck spawn cleanly so
+    // the round's remaining elite quota still spawns. ~100 network frames >> a normal 1-frame init, so a
+    // valid zombie is never skipped (co-op audit 2026-06-27).
+    n = 0;
+    while ( isdefined( zombie ) && !isdefined( zombie.zombie_init_done ) && n < 100 )
     {
         util::wait_network_frame();
+        n++;
     }
-    if ( !isdefined( zombie ) || !isalive( zombie ) ) return;
+    if ( !isdefined( zombie ) || !isalive( zombie ) || !isdefined( zombie.zombie_init_done ) ) return;
 
     zombie.acc_is_elite = true;
     zombie.acc_elite_class = class_name;
@@ -455,6 +464,25 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         final = int( final * ( 1.0 - resist ) );
         if ( final < 1 ) final = 1;
     }
+
+    // SAVIOR (Mega Quick Revive) - take 50% damage while you are reviving a teammate (user 2026-06-26). Read
+    // live (no poll lag) from the stock reviving state; applied AFTER exo so the two resistances stack
+    // multiplicatively. Floored at 1 (always killable). See acc_perks::savior_revive_damage_mult + docs/13.
+    savior_dr = acc_perks::savior_revive_damage_mult( self );
+    if ( savior_dr < 1.0 )
+    {
+        final = int( final * savior_dr );
+        if ( final < 1 ) final = 1;
+    }
+
+    // GOD MODE (user 2026-06-27): every per-hit EFFECT above has ALREADY fired (EMP debuff, trench melee scaling;
+    // the Phantom chain slow runs Phantom-side) - but a godded player takes ZERO damage. Returning 0 zeros the hit
+    // on the stock player-damage path (zombie melee, boss hits, and DoDamage all route through this
+    // register_player_damage_callback), so there is no down/death. REPLACES the old EnableInvulnerability god mode,
+    // which blocked this whole callback so no effect could land while invulnerable. "Only damage is impossible."
+    // level.acc_god is the entry-script flag (default OFF in normal play, so this is a no-op there).
+    if ( IS_TRUE( level.acc_god ) )
+        return 0;
 
     // Return the modified damage (check_player_damage_callbacks uses the first != -1 return,
     // _zm.gsc:5512); -1 = leave unchanged (no exo, non-melee = identical to before).

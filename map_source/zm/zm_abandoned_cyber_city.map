@@ -27,15 +27,6 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 // brush 0
 // brush 1
 // brush 2
-{
- guid "{219830C1-7D6C-46BB-A802-BEBF577A3379}"
- ( -1763.5 -1820.5 -16 ) ( 540.5 -1820.5 -16 ) ( 540.5 739.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -2018 -560 -256 ) ( -2018 -560 0 ) ( 286 -560 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 -64 0 0
- ( 1094.5 665 -256 ) ( 1094.5 -1895 -256 ) ( 1094.5 -1895 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 -64 0 0
- ( 704 740 -256 ) ( 704 740 0 ) ( -1600 740 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 -64 0 0
- ( -1056 767 0 ) ( -1056 -1793 0 ) ( -1056 -1793 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 -64 0 0
- ( -1763.5 739.5 0 ) ( 540.5 739.5 0 ) ( 540.5 -1820.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
 // brush 3
 // brush 4
 {
@@ -914,284 +905,464 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 2173 88 ) ( 90.5 2173 88 ) ( 90.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 459.5 88 ) ( 799 419.5 88 ) ( 799 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S1 (tread z=-16)
+// corp trench W stair S1 (tread z=-10)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000306}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000001}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -10 ) ( 94.5 459.5 -10 ) ( 142.5 459.5 -10 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1723 88 ) ( 134.5 1723 88 ) ( 134.5 1723 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1739 88 ) ( 90.5 1739 88 ) ( 90.5 1739 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S2 (tread z=-32)
+// corp trench W stair S2 (tread z=-20)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000307}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000002}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -32 ) ( 94.5 459.5 -32 ) ( 142.5 459.5 -32 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -20 ) ( 94.5 459.5 -20 ) ( 142.5 459.5 -20 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1739 88 ) ( 134.5 1739 88 ) ( 134.5 1739 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1755 88 ) ( 90.5 1755 88 ) ( 90.5 1755 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S3 (tread z=-48)
+// corp trench W stair S3 (tread z=-30)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000308}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000003}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -48 ) ( 94.5 459.5 -48 ) ( 142.5 459.5 -48 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -30 ) ( 94.5 459.5 -30 ) ( 142.5 459.5 -30 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1755 88 ) ( 134.5 1755 88 ) ( 134.5 1755 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1771 88 ) ( 90.5 1771 88 ) ( 90.5 1771 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S4 (tread z=-64)
+// corp trench W stair S4 (tread z=-40)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000309}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000004}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -64 ) ( 94.5 459.5 -64 ) ( 142.5 459.5 -64 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -40 ) ( 94.5 459.5 -40 ) ( 142.5 459.5 -40 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1771 88 ) ( 134.5 1771 88 ) ( 134.5 1771 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1787 88 ) ( 90.5 1787 88 ) ( 90.5 1787 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S5 (tread z=-80)
+// corp trench W stair S5 (tread z=-50)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030A}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000005}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -80 ) ( 94.5 459.5 -80 ) ( 142.5 459.5 -80 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -50 ) ( 94.5 459.5 -50 ) ( 142.5 459.5 -50 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1787 88 ) ( 134.5 1787 88 ) ( 134.5 1787 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1803 88 ) ( 90.5 1803 88 ) ( 90.5 1803 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S6 (tread z=-96)
+// corp trench W stair S6 (tread z=-60)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030B}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000006}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -60 ) ( 94.5 459.5 -60 ) ( 142.5 459.5 -60 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1803 88 ) ( 134.5 1803 88 ) ( 134.5 1803 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1819 88 ) ( 90.5 1819 88 ) ( 90.5 1819 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S7 (tread z=-112)
+// corp trench W stair S7 (tread z=-70)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030C}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000007}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -112 ) ( 94.5 459.5 -112 ) ( 142.5 459.5 -112 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -70 ) ( 94.5 459.5 -70 ) ( 142.5 459.5 -70 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1819 88 ) ( 134.5 1819 88 ) ( 134.5 1819 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1835 88 ) ( 90.5 1835 88 ) ( 90.5 1835 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S8 (tread z=-128)
+// corp trench W stair S8 (tread z=-80)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030D}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000008}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -128 ) ( 94.5 459.5 -128 ) ( 142.5 459.5 -128 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -80 ) ( 94.5 459.5 -80 ) ( 142.5 459.5 -80 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1835 88 ) ( 134.5 1835 88 ) ( 134.5 1835 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1851 88 ) ( 90.5 1851 88 ) ( 90.5 1851 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S9 (tread z=-144)
+// corp trench W stair S9 (tread z=-90)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030E}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000009}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -144 ) ( 94.5 459.5 -144 ) ( 142.5 459.5 -144 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -90 ) ( 94.5 459.5 -90 ) ( 142.5 459.5 -90 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1851 88 ) ( 134.5 1851 88 ) ( 134.5 1851 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1867 88 ) ( 90.5 1867 88 ) ( 90.5 1867 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S10 (tread z=-160)
+// corp trench W stair S10 (tread z=-100)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000030F}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000A}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -100 ) ( 94.5 459.5 -100 ) ( 142.5 459.5 -100 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1867 88 ) ( 134.5 1867 88 ) ( 134.5 1867 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1883 88 ) ( 90.5 1883 88 ) ( 90.5 1883 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S11 (tread z=-176)
+// corp trench W stair S11 (tread z=-110)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000310}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000B}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -176 ) ( 94.5 459.5 -176 ) ( 142.5 459.5 -176 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -110 ) ( 94.5 459.5 -110 ) ( 142.5 459.5 -110 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1883 88 ) ( 134.5 1883 88 ) ( 134.5 1883 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1899 88 ) ( 90.5 1899 88 ) ( 90.5 1899 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S12 (tread z=-192)
+// corp trench W stair S12 (tread z=-120)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000311}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000C}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -120 ) ( 94.5 459.5 -120 ) ( 142.5 459.5 -120 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1899 88 ) ( 134.5 1899 88 ) ( 134.5 1899 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1915 88 ) ( 90.5 1915 88 ) ( 90.5 1915 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S13 (tread z=-208)
+// corp trench W stair S13 (tread z=-130)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000312}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000D}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -208 ) ( 94.5 459.5 -208 ) ( 142.5 459.5 -208 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -130 ) ( 94.5 459.5 -130 ) ( 142.5 459.5 -130 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1915 88 ) ( 134.5 1915 88 ) ( 134.5 1915 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1931 88 ) ( 90.5 1931 88 ) ( 90.5 1931 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench W stair S14 (tread z=-224)
+// corp trench W stair S14 (tread z=-140)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000313}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000E}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -224 ) ( 94.5 459.5 -224 ) ( 142.5 459.5 -224 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -140 ) ( 94.5 459.5 -140 ) ( 142.5 459.5 -140 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1931 88 ) ( 134.5 1931 88 ) ( 134.5 1931 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1947 88 ) ( 90.5 1947 88 ) ( 90.5 1947 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N1 (tread z=-16)
+// corp trench W stair S15 (tread z=-150)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000314}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000000F}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -150 ) ( 94.5 459.5 -150 ) ( 142.5 459.5 -150 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1947 88 ) ( 134.5 1947 88 ) ( 134.5 1947 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1963 88 ) ( 90.5 1963 88 ) ( 90.5 1963 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S16 (tread z=-160)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000010}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1963 88 ) ( 134.5 1963 88 ) ( 134.5 1963 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1979 88 ) ( 90.5 1979 88 ) ( 90.5 1979 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S17 (tread z=-170)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000011}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -170 ) ( 94.5 459.5 -170 ) ( 142.5 459.5 -170 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1979 88 ) ( 134.5 1979 88 ) ( 134.5 1979 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1995 88 ) ( 90.5 1995 88 ) ( 90.5 1995 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S18 (tread z=-180)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000012}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -180 ) ( 94.5 459.5 -180 ) ( 142.5 459.5 -180 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1995 88 ) ( 134.5 1995 88 ) ( 134.5 1995 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2011 88 ) ( 90.5 2011 88 ) ( 90.5 2011 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S19 (tread z=-190)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000013}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -190 ) ( 94.5 459.5 -190 ) ( 142.5 459.5 -190 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2011 88 ) ( 134.5 2011 88 ) ( 134.5 2011 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2027 88 ) ( 90.5 2027 88 ) ( 90.5 2027 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S20 (tread z=-200)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000014}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -200 ) ( 94.5 459.5 -200 ) ( 142.5 459.5 -200 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2027 88 ) ( 134.5 2027 88 ) ( 134.5 2027 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2043 88 ) ( 90.5 2043 88 ) ( 90.5 2043 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S21 (tread z=-210)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000015}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -210 ) ( 94.5 459.5 -210 ) ( 142.5 459.5 -210 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2043 88 ) ( 134.5 2043 88 ) ( 134.5 2043 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2059 88 ) ( 90.5 2059 88 ) ( 90.5 2059 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S22 (tread z=-220)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000016}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -220 ) ( 94.5 459.5 -220 ) ( 142.5 459.5 -220 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2059 88 ) ( 134.5 2059 88 ) ( 134.5 2059 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2075 88 ) ( 90.5 2075 88 ) ( 90.5 2075 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench W stair S23 (tread z=-230)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000017}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -230 ) ( 94.5 459.5 -230 ) ( 142.5 459.5 -230 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2075 88 ) ( 134.5 2075 88 ) ( 134.5 2075 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 415.5 88 ) ( -665 455.5 88 ) ( -665 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2091 88 ) ( 90.5 2091 88 ) ( 90.5 2091 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N1 (tread z=-10)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000018}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -10 ) ( 94.5 459.5 -10 ) ( 142.5 459.5 -10 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2157 88 ) ( 134.5 2157 88 ) ( 134.5 2157 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2173 88 ) ( 90.5 2173 88 ) ( 90.5 2173 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N2 (tread z=-32)
+// corp trench E stair N2 (tread z=-20)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000315}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000019}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -32 ) ( 94.5 459.5 -32 ) ( 142.5 459.5 -32 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -20 ) ( 94.5 459.5 -20 ) ( 142.5 459.5 -20 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2141 88 ) ( 134.5 2141 88 ) ( 134.5 2141 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2157 88 ) ( 90.5 2157 88 ) ( 90.5 2157 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N3 (tread z=-48)
+// corp trench E stair N3 (tread z=-30)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000316}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001A}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -48 ) ( 94.5 459.5 -48 ) ( 142.5 459.5 -48 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -30 ) ( 94.5 459.5 -30 ) ( 142.5 459.5 -30 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2125 88 ) ( 134.5 2125 88 ) ( 134.5 2125 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2141 88 ) ( 90.5 2141 88 ) ( 90.5 2141 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N4 (tread z=-64)
+// corp trench E stair N4 (tread z=-40)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000317}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001B}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -64 ) ( 94.5 459.5 -64 ) ( 142.5 459.5 -64 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -40 ) ( 94.5 459.5 -40 ) ( 142.5 459.5 -40 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2109 88 ) ( 134.5 2109 88 ) ( 134.5 2109 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2125 88 ) ( 90.5 2125 88 ) ( 90.5 2125 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N5 (tread z=-80)
+// corp trench E stair N5 (tread z=-50)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000318}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001C}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -80 ) ( 94.5 459.5 -80 ) ( 142.5 459.5 -80 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -50 ) ( 94.5 459.5 -50 ) ( 142.5 459.5 -50 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2093 88 ) ( 134.5 2093 88 ) ( 134.5 2093 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2109 88 ) ( 90.5 2109 88 ) ( 90.5 2109 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N6 (tread z=-96)
+// corp trench E stair N6 (tread z=-60)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000319}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001D}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -60 ) ( 94.5 459.5 -60 ) ( 142.5 459.5 -60 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2077 88 ) ( 134.5 2077 88 ) ( 134.5 2077 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2093 88 ) ( 90.5 2093 88 ) ( 90.5 2093 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N7 (tread z=-112)
+// corp trench E stair N7 (tread z=-70)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031A}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001E}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -112 ) ( 94.5 459.5 -112 ) ( 142.5 459.5 -112 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -70 ) ( 94.5 459.5 -70 ) ( 142.5 459.5 -70 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2061 88 ) ( 134.5 2061 88 ) ( 134.5 2061 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2077 88 ) ( 90.5 2077 88 ) ( 90.5 2077 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N8 (tread z=-128)
+// corp trench E stair N8 (tread z=-80)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031B}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000001F}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -128 ) ( 94.5 459.5 -128 ) ( 142.5 459.5 -128 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -80 ) ( 94.5 459.5 -80 ) ( 142.5 459.5 -80 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2045 88 ) ( 134.5 2045 88 ) ( 134.5 2045 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2061 88 ) ( 90.5 2061 88 ) ( 90.5 2061 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N9 (tread z=-144)
+// corp trench E stair N9 (tread z=-90)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031C}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000020}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -144 ) ( 94.5 459.5 -144 ) ( 142.5 459.5 -144 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -90 ) ( 94.5 459.5 -90 ) ( 142.5 459.5 -90 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2029 88 ) ( 134.5 2029 88 ) ( 134.5 2029 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2045 88 ) ( 90.5 2045 88 ) ( 90.5 2045 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N10 (tread z=-160)
+// corp trench E stair N10 (tread z=-100)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031D}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000021}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -100 ) ( 94.5 459.5 -100 ) ( 142.5 459.5 -100 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2013 88 ) ( 134.5 2013 88 ) ( 134.5 2013 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2029 88 ) ( 90.5 2029 88 ) ( 90.5 2029 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N11 (tread z=-176)
+// corp trench E stair N11 (tread z=-110)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031E}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000022}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -176 ) ( 94.5 459.5 -176 ) ( 142.5 459.5 -176 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -110 ) ( 94.5 459.5 -110 ) ( 142.5 459.5 -110 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1997 88 ) ( 134.5 1997 88 ) ( 134.5 1997 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2013 88 ) ( 90.5 2013 88 ) ( 90.5 2013 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N12 (tread z=-192)
+// corp trench E stair N12 (tread z=-120)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-00000000031F}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000023}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -120 ) ( 94.5 459.5 -120 ) ( 142.5 459.5 -120 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1981 88 ) ( 134.5 1981 88 ) ( 134.5 1981 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1997 88 ) ( 90.5 1997 88 ) ( 90.5 1997 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N13 (tread z=-208)
+// corp trench E stair N13 (tread z=-130)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000320}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000024}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -208 ) ( 94.5 459.5 -208 ) ( 142.5 459.5 -208 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -130 ) ( 94.5 459.5 -130 ) ( 142.5 459.5 -130 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1965 88 ) ( 134.5 1965 88 ) ( 134.5 1965 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1981 88 ) ( 90.5 1981 88 ) ( 90.5 1981 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// corp trench E stair N14 (tread z=-224)
+// corp trench E stair N14 (tread z=-140)
 {
- guid "{7A2B9F00-ACC3-4E0C-8A3F-000000000321}"
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000025}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -224 ) ( 94.5 459.5 -224 ) ( 142.5 459.5 -224 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -140 ) ( 94.5 459.5 -140 ) ( 142.5 459.5 -140 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1949 88 ) ( 134.5 1949 88 ) ( 134.5 1949 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1965 88 ) ( 90.5 1965 88 ) ( 90.5 1965 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N15 (tread z=-150)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000026}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -150 ) ( 94.5 459.5 -150 ) ( 142.5 459.5 -150 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1933 88 ) ( 134.5 1933 88 ) ( 134.5 1933 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1949 88 ) ( 90.5 1949 88 ) ( 90.5 1949 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N16 (tread z=-160)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000027}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1917 88 ) ( 134.5 1917 88 ) ( 134.5 1917 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1933 88 ) ( 90.5 1933 88 ) ( 90.5 1933 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N17 (tread z=-170)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000028}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -170 ) ( 94.5 459.5 -170 ) ( 142.5 459.5 -170 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1901 88 ) ( 134.5 1901 88 ) ( 134.5 1901 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1917 88 ) ( 90.5 1917 88 ) ( 90.5 1917 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N18 (tread z=-180)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-000000000029}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -180 ) ( 94.5 459.5 -180 ) ( 142.5 459.5 -180 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1885 88 ) ( 134.5 1885 88 ) ( 134.5 1885 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1901 88 ) ( 90.5 1901 88 ) ( 90.5 1901 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N19 (tread z=-190)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000002A}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -190 ) ( 94.5 459.5 -190 ) ( 142.5 459.5 -190 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1869 88 ) ( 134.5 1869 88 ) ( 134.5 1869 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1885 88 ) ( 90.5 1885 88 ) ( 90.5 1885 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N20 (tread z=-200)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000002B}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -200 ) ( 94.5 459.5 -200 ) ( 142.5 459.5 -200 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1853 88 ) ( 134.5 1853 88 ) ( 134.5 1853 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1869 88 ) ( 90.5 1869 88 ) ( 90.5 1869 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N21 (tread z=-210)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000002C}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -210 ) ( 94.5 459.5 -210 ) ( 142.5 459.5 -210 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1837 88 ) ( 134.5 1837 88 ) ( 134.5 1837 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1853 88 ) ( 90.5 1853 88 ) ( 90.5 1853 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N22 (tread z=-220)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000002D}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -220 ) ( 94.5 459.5 -220 ) ( 142.5 459.5 -220 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1821 88 ) ( 134.5 1821 88 ) ( 134.5 1821 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1837 88 ) ( 90.5 1837 88 ) ( 90.5 1837 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// corp trench E stair N23 (tread z=-230)
+{
+ guid "{7A2B9F01-ACC3-4E0C-8A3F-00000000002E}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -230 ) ( 94.5 459.5 -230 ) ( 142.5 459.5 -230 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1805 88 ) ( 134.5 1805 88 ) ( 134.5 1805 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 799 415.5 88 ) ( 799 455.5 88 ) ( 799 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1821 88 ) ( 90.5 1821 88 ) ( 90.5 1821 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 459.5 88 ) ( 703 419.5 88 ) ( 703 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ===== end trench =====
@@ -1206,7 +1377,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -109 459.5 88 ) ( -109 419.5 88 ) ( -109 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ===== ACC trench boss-arena walls (gen_trench_walls.js) =====
-// trench S rim parapet x[-665,-109]
+// trench S rim parapet x[-609,-109]
 {
  guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A01}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1214,7 +1385,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 86.5 1703 88 ) ( 134.5 1703 88 ) ( 134.5 1703 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -109 415.5 88 ) ( -109 455.5 88 ) ( -109 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -665 459.5 88 ) ( -665 419.5 88 ) ( -665 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -609 459.5 88 ) ( -609 419.5 88 ) ( -609 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // trench S rim parapet x[147,799]
 {
@@ -1226,9 +1397,19 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 147 459.5 88 ) ( 147 419.5 88 ) ( 147 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// trench N rim parapet x[-761,-109]
+// trench S rim crouch drop-in header x[-665,-609] (open z[0,64], beside the W stair)
 {
  guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A03}"
+ ( 134.5 459.5 64 ) ( 86.5 459.5 64 ) ( 86.5 419.5 64 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1703 88 ) ( 134.5 1703 88 ) ( 134.5 1703 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -609 415.5 88 ) ( -609 455.5 88 ) ( -609 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -665 459.5 88 ) ( -665 419.5 88 ) ( -665 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// trench N rim parapet x[-761,-109]
+{
+ guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A04}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1236,19 +1417,29 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 2193 88 ) ( 90.5 2193 88 ) ( 90.5 2193 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -761 459.5 88 ) ( -761 419.5 88 ) ( -761 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// trench N rim parapet x[147,703]
+// trench N rim parapet x[147,647]
 {
- guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A04}"
+ guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A05}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 647 415.5 88 ) ( 647 455.5 88 ) ( 647 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2193 88 ) ( 90.5 2193 88 ) ( 90.5 2193 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 147 459.5 88 ) ( 147 419.5 88 ) ( 147 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// trench N rim crouch drop-in header x[647,703] (open z[0,64], beside the E stair)
+{
+ guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A06}"
+ ( 134.5 459.5 64 ) ( 86.5 459.5 64 ) ( 86.5 419.5 64 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 415.5 88 ) ( 703 455.5 88 ) ( 703 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2193 88 ) ( 90.5 2193 88 ) ( 90.5 2193 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 147 459.5 88 ) ( 147 419.5 88 ) ( 147 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 647 459.5 88 ) ( 647 419.5 88 ) ( 647 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // trench S rim under-slab fill
 {
- guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A05}"
+ guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A07}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 42 ) ( 94.5 459.5 42 ) ( 142.5 459.5 42 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1703 88 ) ( 134.5 1703 88 ) ( 134.5 1703 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1258,7 +1449,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // trench N rim under-slab fill
 {
- guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A06}"
+ guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A08}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 42 ) ( 94.5 459.5 42 ) ( 142.5 459.5 42 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1268,20 +1459,20 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // trench W stair pit-side wall
 {
- guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A07}"
+ guid "{7A2BAA01-ACCA-4E0D-8A3F-000000000001}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1723 88 ) ( 134.5 1723 88 ) ( 134.5 1723 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -649 415.5 88 ) ( -649 455.5 88 ) ( -649 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 1947 88 ) ( 90.5 1947 88 ) ( 90.5 1947 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2091 88 ) ( 90.5 2091 88 ) ( 90.5 2091 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -665 459.5 88 ) ( -665 419.5 88 ) ( -665 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // trench E stair pit-side wall
 {
- guid "{7A2BAA00-ACCA-4E0D-8A3F-000000000A08}"
+ guid "{7A2BAA01-ACCA-4E0D-8A3F-000000000002}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 1949 88 ) ( 134.5 1949 88 ) ( 134.5 1949 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1805 88 ) ( 134.5 1805 88 ) ( 134.5 1805 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 703 415.5 88 ) ( 703 455.5 88 ) ( 703 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 2173 88 ) ( 90.5 2173 88 ) ( 90.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 687 459.5 88 ) ( 687 419.5 88 ) ( 687 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1375,33 +1566,6 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 // corp south ground slab (solid)
 // corp north ground slab (solid)
 // ===== end solid corp floor =====
-// ===== UNDER ROOM NORTH (add_under_room.js) =====
-// under room north - SINGLE walkable floor slab z[-96,0]
-{
- guid "{DED00000-DED0-4ED0-8ED0-000000000001}"
- ( 134.5 459.5 -96 ) ( 86.5 459.5 -96 ) ( 86.5 419.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 819 415.5 88 ) ( 819 455.5 88 ) ( 819 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 2748 88 ) ( 90.5 2748 88 ) ( 90.5 2748 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -781 459.5 88 ) ( -781 419.5 88 ) ( -781 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
-// under room north - west fill
-// under room north - east fill
-// under room north - back fill
-// under room north - room floor
-{
- guid "{DED00000-DED0-4ED0-8ED0-000000000002}"
- ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -240 ) ( 94.5 459.5 -240 ) ( 142.5 459.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 192 415.5 88 ) ( 192 455.5 88 ) ( 192 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 2517 88 ) ( 90.5 2517 88 ) ( 90.5 2517 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
-// under room north - front wall L
-// under room north - front wall R
-// ===== end under room north =====
 // ===== STALLS WING (carve_wing.js west) =====
 // STALLS - bottom slab (always kept)
 {
@@ -1806,7 +1970,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 // installed GDTs skye_t6_olympia / skye_t6_kap-40, + stock t7_zm_chalk_buy_frag). A flat
 // 42x42u quad on the wall face, 2u proud, contents nonColliding. Mesh winding sets the
 // visible normal: rows Xmin->Xmax = -y normal (room at -y); rows Xmax->Xmin = +y normal.
-// Paired 1:1 with the weapon_upgrade/model struct PAIRS below (entities 9001-9006).
+// Paired 1:1 with the weapon_upgrade/model struct PAIRS below (entities 9001-9008).
 // FIVE-SEVEN chalk — Lab south wall face y3068, room to the NORTH (+y normal)
  {
   guid "{ACCC0001-0000-4DE1-8A3F-1F00ACCC0001}"
@@ -1864,6 +2028,58 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
    (
 	v -229 718 32.5 t 1024 -0 0.87485725 -6.7084455
 	v -229 718 74.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// AK-47 chalk (user 2026-06-26) — Abyss Layer 4 ("4th floor" trench, floor z=-960) SOUTH wall face
+// y1723, room to the NORTH (+y normal). Same recipe/winding as the Five-Seven chalk above (Xmax->Xmin
+// = +y normal), centered x=-400, z = floor+32.5..floor+74.5 = -927.5..-885.5. Material =
+// mtl_t6_wpn_ar_ak47_wall_chalk (the REAL AK-47 chalk from the installed skye_t6_ak47.gdt — same
+// material.gdf class as the Five-Seven kard chalk, so it BAKES). !! LED-BAKE TRAP (verified 2026-06-26
+// via _bake_test): the stock t7_zm_chalk_buy_m8a4 chalk is in the runtime asset list BUT crashes the
+// Radiant lightmapper (0xC0000005) — it is NOT bake-safe. Use a skye *_wall_chalk material.gdf here.
+ {
+  guid "{ACCC0004-0000-4DE1-8A3F-1F00ACCC0004}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   mtl_t6_wpn_ar_ak47_wall_chalk
+   lightmap_gray
+   2 2 0 8
+   (
+	v -379 1725 -927.5 t 0 -0 -1.0001428 -6.7082205
+	v -379 1725 -885.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v -421 1725 -927.5 t 1024 -0 0.87485725 -6.7084455
+	v -421 1725 -885.5 t 1024 -1024 0.87514287 -9.0417786
+   )
+  }
+ }
+// M60 chalk (user 2026-06-27) — Abyss Layer 5 ("bottom floor", floor z=-1200) SOUTH wall WEST jamb, face
+// y1725, room to the NORTH (+y normal). Same recipe/winding as the AK-47 chalk above (Xmax->Xmin = +y
+// normal); ONLY z is translated -240 to L5 (the t-coords are decal-relative - verified identical to the
+// Five-Seven chalk at a totally different z, so a pure z-translation preserves the winding = bake-safe).
+// Centered x=-400, clear of the centered doorway x[-96,96] AND the far-west stairs. z = floor+32.5..+74.5
+// = -1167.5..-1125.5. Material mtl_t6_wpn_lmg_m60_wall_chalk (same material.gdf class as the bake-safe
+// AK-47/Five-Seven chalks). S-tier L5 wall-buy (user pick 2026-06-27).
+ {
+  guid "{ACCC0005-0000-4DE1-8A3F-1F00ACCC0005}"
+  mesh
+  {
+  contents nonColliding;
+  toolFlags;
+   mtl_t6_wpn_lmg_m60_wall_chalk
+   lightmap_gray
+   2 2 0 8
+   (
+	v -379 1725 -1167.5 t 0 -0 -1.0001428 -6.7082205
+	v -379 1725 -1125.5 t 0 -1024 -0.99985725 -9.0415535
+   )
+   (
+	v -421 1725 -1167.5 t 1024 -0 0.87485725 -6.7084455
+	v -421 1725 -1125.5 t 1024 -1024 0.87514287 -9.0417786
    )
   }
  }
@@ -2991,10 +3207,479 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -801 459.5 88 ) ( -801 419.5 88 ) ( -801 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ACC ABYSS ===== END brushes =====
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #0 [-740,-260,-260,-240,0,256]
+{
+ guid "{14FA660E-ACC6-4E0D-8A3F-000000000001}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -260 88 ) ( 134.5 -260 88 ) ( 134.5 -260 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -260 415.5 88 ) ( -260 455.5 88 ) ( -260 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #1 [-180,233,-260,-240,0,256]
+{
+ guid "{14FA660F-ACC6-4E0D-8A3F-000000000002}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -260 88 ) ( 134.5 -260 88 ) ( 134.5 -260 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 233 415.5 88 ) ( 233 455.5 88 ) ( 233 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -180 459.5 88 ) ( -180 419.5 88 ) ( -180 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #2 [-260,-180,-260,-240,128,256]
+{
+ guid "{14FA6610-ACC6-4E0D-8A3F-000000000003}"
+ ( 134.5 459.5 128 ) ( 86.5 459.5 128 ) ( 86.5 419.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -260 88 ) ( 134.5 -260 88 ) ( 134.5 -260 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -180 415.5 88 ) ( -180 455.5 88 ) ( -180 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -260 459.5 88 ) ( -260 419.5 88 ) ( -260 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #3 [-490,-470,-260,400,0,256]
+{
+ guid "{14FA6611-ACC6-4E0D-8A3F-000000000004}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -260 88 ) ( 134.5 -260 88 ) ( 134.5 -260 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -470 415.5 88 ) ( -470 455.5 88 ) ( -470 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 400 88 ) ( 90.5 400 88 ) ( 90.5 400 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -490 459.5 88 ) ( -490 419.5 88 ) ( -490 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #4 [-490,-470,656,740,0,256]
+{
+ guid "{14FA6612-ACC6-4E0D-8A3F-000000000005}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 656 88 ) ( 134.5 656 88 ) ( 134.5 656 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -470 415.5 88 ) ( -470 455.5 88 ) ( -470 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 740 88 ) ( 90.5 740 88 ) ( 90.5 740 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -490 459.5 88 ) ( -490 419.5 88 ) ( -490 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #5 [213,233,-260,400,0,256]
+{
+ guid "{14FA6613-ACC6-4E0D-8A3F-000000000006}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -260 88 ) ( 134.5 -260 88 ) ( 134.5 -260 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 233 415.5 88 ) ( 233 455.5 88 ) ( 233 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 400 88 ) ( 90.5 400 88 ) ( 90.5 400 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 213 459.5 88 ) ( 213 419.5 88 ) ( 213 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #6 [213,233,656,740,0,256]
+{
+ guid "{14FA6614-ACC6-4E0D-8A3F-000000000007}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 656 88 ) ( 134.5 656 88 ) ( 134.5 656 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 233 415.5 88 ) ( 233 455.5 88 ) ( 233 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 740 88 ) ( 90.5 740 88 ) ( 90.5 740 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 213 459.5 88 ) ( 213 419.5 88 ) ( 213 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #7 [-1036,-490,380,400,0,256]
+{
+ guid "{14FA6615-ACC6-4E0D-8A3F-000000000008}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 380 88 ) ( 134.5 380 88 ) ( 134.5 380 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -490 415.5 88 ) ( -490 455.5 88 ) ( -490 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 400 88 ) ( 90.5 400 88 ) ( 90.5 400 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1036 459.5 88 ) ( -1036 419.5 88 ) ( -1036 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #8 [-1036,-490,656,676,0,256]
+{
+ guid "{14FA6616-ACC6-4E0D-8A3F-000000000009}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 656 88 ) ( 134.5 656 88 ) ( 134.5 656 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -490 415.5 88 ) ( -490 455.5 88 ) ( -490 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 676 88 ) ( 90.5 676 88 ) ( 90.5 676 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1036 459.5 88 ) ( -1036 419.5 88 ) ( -1036 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #9 [233,1074.5,380,400,0,256]
+{
+ guid "{B44727FE-ACC6-4E0D-8A3F-000000000010}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 380 88 ) ( 134.5 380 88 ) ( 134.5 380 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1074.5 415.5 88 ) ( 1074.5 455.5 88 ) ( 1074.5 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 400 88 ) ( 90.5 400 88 ) ( 90.5 400 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 233 459.5 88 ) ( 233 419.5 88 ) ( 233 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #10 [233,1074.5,656,676,0,256]
+{
+ guid "{B44727FF-ACC6-4E0D-8A3F-000000000011}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 656 88 ) ( 134.5 656 88 ) ( 134.5 656 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1074.5 415.5 88 ) ( 1074.5 455.5 88 ) ( 1074.5 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 676 88 ) ( 90.5 676 88 ) ( 90.5 676 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 233 459.5 88 ) ( 233 419.5 88 ) ( 233 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #11 [-740,-720,-540,-240,0,256]
+{
+ guid "{B4472800-ACC6-4E0D-8A3F-000000000012}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -540 88 ) ( 134.5 -540 88 ) ( 134.5 -540 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -720 415.5 88 ) ( -720 455.5 88 ) ( -720 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #12 [-40,-20,-540,-240,0,256]
+{
+ guid "{B4472801-ACC6-4E0D-8A3F-000000000013}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -540 88 ) ( 134.5 -540 88 ) ( 134.5 -540 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -20 415.5 88 ) ( -20 455.5 88 ) ( -20 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -40 459.5 88 ) ( -40 419.5 88 ) ( -40 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #0 [-348,-292,2,58,0,48]
+{
+ guid "{B4472802-ACC6-4E0D-8A3F-000000000014}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2 88 ) ( 134.5 2 88 ) ( 134.5 2 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -292 415.5 88 ) ( -292 455.5 88 ) ( -292 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 58 88 ) ( 90.5 58 88 ) ( 90.5 58 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -348 459.5 88 ) ( -348 419.5 88 ) ( -348 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #1 [52,108,202,258,0,48]
+{
+ guid "{B4472803-ACC6-4E0D-8A3F-000000000015}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 202 88 ) ( 134.5 202 88 ) ( 134.5 202 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 108 415.5 88 ) ( 108 455.5 88 ) ( 108 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 258 88 ) ( 90.5 258 88 ) ( 90.5 258 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 52 459.5 88 ) ( 52 419.5 88 ) ( 52 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #2 [-108,-52,532,588,0,48]
+{
+ guid "{B4472804-ACC6-4E0D-8A3F-000000000016}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 532 88 ) ( 134.5 532 88 ) ( 134.5 532 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -52 415.5 88 ) ( -52 455.5 88 ) ( -52 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 588 88 ) ( 90.5 588 88 ) ( 90.5 588 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -108 459.5 88 ) ( -108 419.5 88 ) ( -108 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) ===== BEGIN world brushes (carved floor + stairwell + vault) =====
+// ACC plaza basement (tools/gen_plaza_basement.js) arena floor WEST of well
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000011}"
+ ( 134.5 459.5 -16 ) ( 86.5 459.5 -16 ) ( 86.5 419.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -560 88 ) ( 134.5 -560 88 ) ( 134.5 -560 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -620 415.5 88 ) ( -620 455.5 88 ) ( -620 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 740 88 ) ( 90.5 740 88 ) ( 90.5 740 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1056 459.5 88 ) ( -1056 419.5 88 ) ( -1056 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) arena floor EAST of well
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000012}"
+ ( 134.5 459.5 -16 ) ( 86.5 459.5 -16 ) ( 86.5 419.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -560 88 ) ( 134.5 -560 88 ) ( 134.5 -560 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1094.5 415.5 88 ) ( 1094.5 455.5 88 ) ( 1094.5 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 740 88 ) ( 90.5 740 88 ) ( 90.5 740 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -380 459.5 88 ) ( -380 419.5 88 ) ( -380 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) arena floor NORTH of well
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000013}"
+ ( 134.5 459.5 -16 ) ( 86.5 459.5 -16 ) ( 86.5 419.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -312 88 ) ( 134.5 -312 88 ) ( 134.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -380 415.5 88 ) ( -380 455.5 88 ) ( -380 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 740 88 ) ( 90.5 740 88 ) ( 90.5 740 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -620 459.5 88 ) ( -620 419.5 88 ) ( -620 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) arena floor SOUTH of well
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000014}"
+ ( 134.5 459.5 -16 ) ( 86.5 459.5 -16 ) ( 86.5 419.5 -16 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -560 88 ) ( 134.5 -560 88 ) ( 134.5 -560 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -380 415.5 88 ) ( -380 455.5 88 ) ( -380 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -440 88 ) ( 90.5 -440 88 ) ( 90.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -620 459.5 88 ) ( -620 419.5 88 ) ( -620 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) vault floor slab
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000015}"
+ ( 134.5 459.5 -176 ) ( 86.5 459.5 -176 ) ( 86.5 419.5 -176 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -448 88 ) ( 134.5 -448 88 ) ( 134.5 -448 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 300 415.5 88 ) ( 300 455.5 88 ) ( 300 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 360 88 ) ( 90.5 360 88 ) ( 90.5 360 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -720 459.5 88 ) ( -720 419.5 88 ) ( -720 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) vault wall west
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000016}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -468 88 ) ( 134.5 -468 88 ) ( 134.5 -468 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -720 415.5 88 ) ( -720 455.5 88 ) ( -720 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 380 88 ) ( 90.5 380 88 ) ( 90.5 380 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) vault wall east
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000017}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -468 88 ) ( 134.5 -468 88 ) ( 134.5 -468 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 320 415.5 88 ) ( 320 455.5 88 ) ( 320 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 380 88 ) ( 90.5 380 88 ) ( 90.5 380 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 300 459.5 88 ) ( 300 419.5 88 ) ( 300 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) vault wall south
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000018}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -468 88 ) ( 134.5 -468 88 ) ( 134.5 -468 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 320 415.5 88 ) ( 320 455.5 88 ) ( 320 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -448 88 ) ( 90.5 -448 88 ) ( 90.5 -448 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) vault wall north
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000019}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -16 ) ( 94.5 459.5 -16 ) ( 142.5 459.5 -16 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 360 88 ) ( 134.5 360 88 ) ( 134.5 360 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 320 415.5 88 ) ( 320 455.5 88 ) ( 320 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 380 88 ) ( 90.5 380 88 ) ( 90.5 380 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 1 (top z=-10)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001A}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -10 ) ( 94.5 459.5 -10 ) ( 142.5 459.5 -10 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -380 415.5 88 ) ( -380 455.5 88 ) ( -380 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -396 459.5 88 ) ( -396 419.5 88 ) ( -396 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 2 (top z=-20)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001B}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -20 ) ( 94.5 459.5 -20 ) ( 142.5 459.5 -20 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -396 415.5 88 ) ( -396 455.5 88 ) ( -396 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -412 459.5 88 ) ( -412 419.5 88 ) ( -412 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 3 (top z=-30)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001C}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -30 ) ( 94.5 459.5 -30 ) ( 142.5 459.5 -30 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -412 415.5 88 ) ( -412 455.5 88 ) ( -412 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -428 459.5 88 ) ( -428 419.5 88 ) ( -428 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 4 (top z=-40)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001D}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -40 ) ( 94.5 459.5 -40 ) ( 142.5 459.5 -40 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -428 415.5 88 ) ( -428 455.5 88 ) ( -428 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -444 459.5 88 ) ( -444 419.5 88 ) ( -444 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 5 (top z=-50)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001E}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -50 ) ( 94.5 459.5 -50 ) ( 142.5 459.5 -50 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -444 415.5 88 ) ( -444 455.5 88 ) ( -444 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -460 459.5 88 ) ( -460 419.5 88 ) ( -460 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 6 (top z=-60)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000001F}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -60 ) ( 94.5 459.5 -60 ) ( 142.5 459.5 -60 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -460 415.5 88 ) ( -460 455.5 88 ) ( -460 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -476 459.5 88 ) ( -476 419.5 88 ) ( -476 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 7 (top z=-70)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000020}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -70 ) ( 94.5 459.5 -70 ) ( 142.5 459.5 -70 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -476 415.5 88 ) ( -476 455.5 88 ) ( -476 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -492 459.5 88 ) ( -492 419.5 88 ) ( -492 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 8 (top z=-80)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000021}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -80 ) ( 94.5 459.5 -80 ) ( 142.5 459.5 -80 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -492 415.5 88 ) ( -492 455.5 88 ) ( -492 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -508 459.5 88 ) ( -508 419.5 88 ) ( -508 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 9 (top z=-90)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000022}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -90 ) ( 94.5 459.5 -90 ) ( 142.5 459.5 -90 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -508 415.5 88 ) ( -508 455.5 88 ) ( -508 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -524 459.5 88 ) ( -524 419.5 88 ) ( -524 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 10 (top z=-100)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000023}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -100 ) ( 94.5 459.5 -100 ) ( 142.5 459.5 -100 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -524 415.5 88 ) ( -524 455.5 88 ) ( -524 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -540 459.5 88 ) ( -540 419.5 88 ) ( -540 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 11 (top z=-110)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000024}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -110 ) ( 94.5 459.5 -110 ) ( 142.5 459.5 -110 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -540 415.5 88 ) ( -540 455.5 88 ) ( -540 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -556 459.5 88 ) ( -556 419.5 88 ) ( -556 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 12 (top z=-120)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000025}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -120 ) ( 94.5 459.5 -120 ) ( 142.5 459.5 -120 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -556 415.5 88 ) ( -556 455.5 88 ) ( -556 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -572 459.5 88 ) ( -572 419.5 88 ) ( -572 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 13 (top z=-130)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000026}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -130 ) ( 94.5 459.5 -130 ) ( 142.5 459.5 -130 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -572 415.5 88 ) ( -572 455.5 88 ) ( -572 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -588 459.5 88 ) ( -588 419.5 88 ) ( -588 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 14 (top z=-140)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000027}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -140 ) ( 94.5 459.5 -140 ) ( 142.5 459.5 -140 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -588 415.5 88 ) ( -588 455.5 88 ) ( -588 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -604 459.5 88 ) ( -604 419.5 88 ) ( -604 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) stair tread 15 (top z=-150)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000028}"
+ ( 134.5 459.5 -160 ) ( 86.5 459.5 -160 ) ( 86.5 419.5 -160 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -150 ) ( 94.5 459.5 -150 ) ( 142.5 459.5 -150 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -604 415.5 88 ) ( -604 455.5 88 ) ( -604 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -620 459.5 88 ) ( -620 419.5 88 ) ( -620 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) staircase room NORTH wall
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000029}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -312 88 ) ( 134.5 -312 88 ) ( 134.5 -312 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -360 415.5 88 ) ( -360 455.5 88 ) ( -360 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -292 88 ) ( 90.5 -292 88 ) ( 90.5 -292 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -640 459.5 88 ) ( -640 419.5 88 ) ( -640 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) staircase room SOUTH wall
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002A}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -460 88 ) ( 134.5 -460 88 ) ( 134.5 -460 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -360 415.5 88 ) ( -360 455.5 88 ) ( -360 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -440 88 ) ( 90.5 -440 88 ) ( 90.5 -440 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -640 459.5 88 ) ( -640 419.5 88 ) ( -640 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) staircase room WEST wall (lab-level; bottom opens west BELOW it)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002B}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -460 88 ) ( 134.5 -460 88 ) ( 134.5 -460 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -620 415.5 88 ) ( -620 455.5 88 ) ( -620 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -292 88 ) ( 90.5 -292 88 ) ( 90.5 -292 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -640 459.5 88 ) ( -640 419.5 88 ) ( -640 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) staircase room EAST lintel (above the doorway)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002C}"
+ ( 134.5 459.5 128 ) ( 86.5 459.5 128 ) ( 86.5 419.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -440 88 ) ( 134.5 -440 88 ) ( 134.5 -440 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -360 415.5 88 ) ( -360 455.5 88 ) ( -360 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -312 88 ) ( 90.5 -312 88 ) ( 90.5 -312 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -380 459.5 88 ) ( -380 419.5 88 ) ( -380 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) ===== END world brushes =====
+// ===== UNDER ROOM NORTH (add_under_room.js) =====
+// under room north - SINGLE walkable floor slab z[-96,0]
+{
+ guid "{DED00000-DED0-4ED0-8ED0-000000000001}"
+ ( 134.5 459.5 -96 ) ( 86.5 459.5 -96 ) ( 86.5 419.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 819 415.5 88 ) ( 819 455.5 88 ) ( 819 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2748 88 ) ( 90.5 2748 88 ) ( 90.5 2748 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -781 459.5 88 ) ( -781 419.5 88 ) ( -781 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// under room north - west fill
+// under room north - east fill
+// under room north - back fill
+// under room north - room floor
+{
+ guid "{DED00000-DED0-4ED0-8ED0-000000000002}"
+ ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -240 ) ( 94.5 459.5 -240 ) ( 142.5 459.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 192 415.5 88 ) ( 192 455.5 88 ) ( 192 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2517 88 ) ( 90.5 2517 88 ) ( 90.5 2517 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// under room north - front wall L
+// under room north - front wall R
+// ===== end under room north =====
 // ===== UNDER ROOM SOUTH (add_under_room.js) =====
 // under room south - SINGLE walkable floor slab z[-96,0]
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B01}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F01}"
  ( 134.5 459.5 -96 ) ( 86.5 459.5 -96 ) ( 86.5 419.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 0 ) ( 94.5 459.5 0 ) ( 142.5 459.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1148 88 ) ( 134.5 1148 88 ) ( 134.5 1148 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3003,11 +3688,38 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -781 459.5 88 ) ( -781 419.5 88 ) ( -781 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // under room south - west fill
+{
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F02}"
+ ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1148 88 ) ( 134.5 1148 88 ) ( 134.5 1148 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -192 415.5 88 ) ( -192 455.5 88 ) ( -192 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -781 459.5 88 ) ( -781 419.5 88 ) ( -781 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
 // under room south - east fill
-// under room south - back fill
+{
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F03}"
+ ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1148 88 ) ( 134.5 1148 88 ) ( 134.5 1148 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 819 415.5 88 ) ( 819 455.5 88 ) ( 819 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 192 459.5 88 ) ( 192 419.5 88 ) ( 192 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+// under room south - back fill (shrunk: back wall y1379)
+{
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F04}"
+ ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1148 88 ) ( 134.5 1148 88 ) ( 134.5 1148 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 192 415.5 88 ) ( 192 455.5 88 ) ( 192 455.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1379 88 ) ( 90.5 1379 88 ) ( 90.5 1379 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
 // under room south - room floor
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B05}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F05}"
  ( 134.5 459.5 -256 ) ( 86.5 459.5 -256 ) ( 86.5 419.5 -256 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -240 ) ( 94.5 459.5 -240 ) ( 142.5 459.5 -240 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1379 88 ) ( 134.5 1379 88 ) ( 134.5 1379 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3015,9 +3727,9 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 1723 88 ) ( 90.5 1723 88 ) ( 90.5 1723 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) script_floor_ceiling 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// under room south - front wall (SOLID x[-112,192]; doorway moved WEST to x[-192,-112], off the central descent well)
+// under room south - front wall (SOLID x[-112,192]; doorway WEST x[-192,-112], off the central descent well)
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B06}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F06}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1707 88 ) ( 134.5 1707 88 ) ( 134.5 1707 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3027,31 +3739,31 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // ===== end under room south =====
 // ===== PROP CLIPS (add_prop_clips.js) - invisible collision around underground interactables =====
-// clip: exo_station @ (230,1450)
+// clip: exo_station @ (-120,1550)
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D01}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 1432 88 ) ( 134.5 1432 88 ) ( 134.5 1432 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 260 415.5 88 ) ( 260 455.5 88 ) ( 260 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 1468 88 ) ( 90.5 1468 88 ) ( 90.5 1468 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 200 459.5 88 ) ( 200 419.5 88 ) ( 200 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1520 88 ) ( 134.5 1520 88 ) ( 134.5 1520 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -102 415.5 88 ) ( -102 455.5 88 ) ( -102 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1580 88 ) ( 90.5 1580 88 ) ( 90.5 1580 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -138 459.5 88 ) ( -138 419.5 88 ) ( -138 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// clip: reactor_plinth @ (0,2120)
+// clip: reactor_plinth @ (0,2493)
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D02}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 2096 88 ) ( 134.5 2096 88 ) ( 134.5 2096 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 24 415.5 88 ) ( 24 455.5 88 ) ( 24 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 2144 88 ) ( 90.5 2144 88 ) ( 90.5 2144 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -24 459.5 88 ) ( -24 419.5 88 ) ( -24 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -176 ) ( 94.5 459.5 -176 ) ( 142.5 459.5 -176 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2469 88 ) ( 134.5 2469 88 ) ( 134.5 2469 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 9 415.5 88 ) ( 9 455.5 88 ) ( 9 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2517 88 ) ( 90.5 2517 88 ) ( 90.5 2517 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -9 459.5 88 ) ( -9 419.5 88 ) ( -9 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // clip: pit_cache_w @ (-360,1950)
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D03}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1922 88 ) ( 134.5 1922 88 ) ( 134.5 1922 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -332 415.5 88 ) ( -332 455.5 88 ) ( -332 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1978 88 ) ( 90.5 1978 88 ) ( 90.5 1978 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3061,27 +3773,104 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D04}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1922 88 ) ( 134.5 1922 88 ) ( 134.5 1922 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 388 415.5 88 ) ( 388 455.5 88 ) ( 388 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1978 88 ) ( 90.5 1978 88 ) ( 90.5 1978 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 332 459.5 88 ) ( 332 419.5 88 ) ( 332 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// clip: perk_slot_vendor @ (-250,1820)
+// clip: perk_slot_vendor @ (120,1550)
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D05}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -160 ) ( 94.5 459.5 -160 ) ( 142.5 459.5 -160 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 1792 88 ) ( 134.5 1792 88 ) ( 134.5 1792 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -222 415.5 88 ) ( -222 455.5 88 ) ( -222 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 1848 88 ) ( 90.5 1848 88 ) ( 90.5 1848 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -278 459.5 88 ) ( -278 419.5 88 ) ( -278 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -176 ) ( 94.5 459.5 -176 ) ( 142.5 459.5 -176 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1541 88 ) ( 134.5 1541 88 ) ( 134.5 1541 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 144 415.5 88 ) ( 144 455.5 88 ) ( 144 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1559 88 ) ( 90.5 1559 88 ) ( 90.5 1559 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 96 459.5 88 ) ( 96 419.5 88 ) ( 96 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ===== end prop clips =====
 }
-// ===== UNDER ROOM DOOR (south) =====
+// ===== PROP CLIPS (brushmodel) - deep abyss-depth clips as LED-exempt script_brushmodels =====
+// clip(brushmodel): ammo_crate_l2 @ (400,1948) z[-480,-432]
 {
- guid "{DED00000-DED0-4ED0-8ED0-000000000009}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D07}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_ammo_crate_l2"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D06}"
+ ( 134.5 459.5 -480 ) ( 86.5 459.5 -480 ) ( 86.5 419.5 -480 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -432 ) ( 94.5 459.5 -432 ) ( 142.5 459.5 -432 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1920 88 ) ( 134.5 1920 88 ) ( 134.5 1920 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 428 415.5 88 ) ( 428 455.5 88 ) ( 428 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1976 88 ) ( 90.5 1976 88 ) ( 90.5 1976 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 372 459.5 88 ) ( 372 419.5 88 ) ( 372 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): ammo_crate_l5 @ (-400,1948) z[-1200,-1152]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D09}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_ammo_crate_l5"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D08}"
+ ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -1152 ) ( 94.5 459.5 -1152 ) ( 142.5 459.5 -1152 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1920 88 ) ( 134.5 1920 88 ) ( 134.5 1920 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -372 415.5 88 ) ( -372 455.5 88 ) ( -372 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1976 88 ) ( 90.5 1976 88 ) ( 90.5 1976 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -428 459.5 88 ) ( -428 419.5 88 ) ( -428 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): overclock_terminal @ (-400,1948) z[-480,-400]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0B}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_overclock_terminal"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0A}"
+ ( 134.5 459.5 -480 ) ( 86.5 459.5 -480 ) ( 86.5 419.5 -480 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -400 ) ( 94.5 459.5 -400 ) ( 142.5 459.5 -400 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1914 88 ) ( 134.5 1914 88 ) ( 134.5 1914 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -370 415.5 88 ) ( -370 455.5 88 ) ( -370 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1982 88 ) ( 90.5 1982 88 ) ( 90.5 1982 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -430 459.5 88 ) ( -430 419.5 88 ) ( -430 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): overclock_l5 @ (400,1948) z[-1200,-1120]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0D}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_overclock_l5"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0C}"
+ ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -1120 ) ( 94.5 459.5 -1120 ) ( 142.5 459.5 -1120 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1914 88 ) ( 134.5 1914 88 ) ( 134.5 1914 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 430 415.5 88 ) ( 430 455.5 88 ) ( 430 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1982 88 ) ( 90.5 1982 88 ) ( 90.5 1982 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 370 459.5 88 ) ( 370 419.5 88 ) ( 370 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): glitch_altar_l3 @ (-400,1948) z[-720,-656]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0F}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_glitch_altar_l3"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0E}"
+ ( 134.5 459.5 -720 ) ( 86.5 459.5 -720 ) ( 86.5 419.5 -720 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -656 ) ( 94.5 459.5 -656 ) ( 142.5 459.5 -656 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1939 88 ) ( 134.5 1939 88 ) ( 134.5 1939 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -376 415.5 88 ) ( -376 455.5 88 ) ( -376 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1957 88 ) ( 90.5 1957 88 ) ( 90.5 1957 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -424 459.5 88 ) ( -424 419.5 88 ) ( -424 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// ===== end prop clips (brushmodel) =====
+// ===== UNDER ROOM DOOR (south) =====  (WEST doorway, off the abyss well; room SHRUNK 2026-06-28)
+{
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F09}"
  "classname" "trigger_use"
  "targetname" "zombie_door"
  "target" "acc_door_under_plaza"
@@ -3089,24 +3878,24 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  "script_flag" "enter_under_plaza"
  // brush 0
 {
- guid "{DED00000-DED0-4ED0-8ED0-00000000000A}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F08}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -76 ) ( 94.5 459.5 -76 ) ( 142.5 459.5 -76 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1707 88 ) ( 134.5 1707 88 ) ( 134.5 1707 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -112 415.5 88 ) ( -112 455.5 88 ) ( -112 455.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 1763 88 ) ( 90.5 1763 88 ) ( 90.5 1763 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -208 459.5 88 ) ( -208 419.5 88 ) ( -208 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
 {
- guid "{DED00000-DED0-4ED0-8ED0-00000000000B}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F0A}"
  "classname" "script_brushmodel"
  "targetname" "acc_door_under_plaza"
  "script_vector" "80 0 0"
  "script_transition_time" "1.5"
- // brush 0  (door now fills the WEST doorway x[-192,-112]; slides +80 east behind the solid wall)
+ // brush 0  (door fills the WEST doorway; slides +80 EAST behind the solid wall)
 {
- guid "{DED00000-DED0-4ED0-8ED0-00000000000C}"
+ guid "{7A2B9F0F-ACCF-4E11-8A3F-000000000F07}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1707 88 ) ( 134.5 1707 88 ) ( 134.5 1707 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3115,13 +3904,9 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -192 459.5 88 ) ( -192 419.5 88 ) ( -192 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// [acc] Avogadro spawn entities REMOVED from the .map (user 2026-06-25): the custom
-// actor_spawner_zm_avogadro classname CRASHES the Radiant LED lightmapper (bake hung/killed,
-// vs a clean 18s bake without it). So the spawner + spawn-locs are created at RUNTIME by
-// _acc_boss_avogadro instead - keeps the .map bakeable. tools/add_avogadro_spawn.js retired.
 // ===== UNDER ROOM DOOR (north) =====
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B08}"
+ guid "{7A2B9F0E-ACCE-4E11-8A3F-000000000E0A}"
  "classname" "trigger_use"
  "targetname" "zombie_door"
  "target" "acc_door_under_lab"
@@ -3129,7 +3914,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  "script_flag" "enter_under_lab"
  // brush 0
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B0B}"
+ guid "{7A2B9F0E-ACCE-4E11-8A3F-000000000E09}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -76 ) ( 94.5 459.5 -76 ) ( 142.5 459.5 -76 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2133 88 ) ( 134.5 2133 88 ) ( 134.5 2133 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3139,14 +3924,14 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 }
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B09}"
+ guid "{7A2B9F0E-ACCE-4E11-8A3F-000000000E0B}"
  "classname" "script_brushmodel"
  "targetname" "acc_door_under_lab"
  "script_vector" "192 0 0"
  "script_transition_time" "1.5"
  // brush 0
 {
- guid "{7A2B9F0B-ACCB-4E11-8A3F-000000000B0A}"
+ guid "{7A2B9F0E-ACCE-4E11-8A3F-000000000E08}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -96 ) ( 94.5 459.5 -96 ) ( 142.5 459.5 -96 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 2173 88 ) ( 134.5 2173 88 ) ( 134.5 2173 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -3155,13 +3940,52 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -96 459.5 88 ) ( -96 419.5 88 ) ( -96 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
+// ACC plaza shrink (tools/gen_plaza_shrink.js) implant-door trigger (enter_implant, 1500)
+{
+ guid "{B4472805-ACC6-4E0D-8A3F-000000000017}"
+ "classname" "trigger_use"
+ "targetname" "zombie_door"
+ "target" "acc_door_implant"
+ "zombie_cost" "1500"
+ "script_flag" "enter_implant"
+{
+ guid "{B4472806-ACC6-4E0D-8A3F-000000000018}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -250 88 ) ( 134.5 -250 88 ) ( 134.5 -250 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -180 415.5 88 ) ( -180 455.5 88 ) ( -180 455.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -230 88 ) ( 90.5 -230 88 ) ( 90.5 -230 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -260 459.5 88 ) ( -260 419.5 88 ) ( -260 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// ACC plaza shrink (tools/gen_plaza_shrink.js) implant-door slab (acc_door_implant)
+{
+ guid "{B4472807-ACC6-4E0D-8A3F-000000000019}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_door_implant"
+ "script_vector" "0 0 130"
+ "script_transition_time" "1.5"
+{
+ guid "{B447281F-ACC6-4E0D-8A3F-000000000020}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -248 88 ) ( 134.5 -248 88 ) ( 134.5 -248 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -182 415.5 88 ) ( -182 455.5 88 ) ( -182 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -232 88 ) ( 90.5 -232 88 ) ( 90.5 -232 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -258 459.5 88 ) ( -258 419.5 88 ) ( -258 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// [acc] Avogadro spawn entities REMOVED from the .map (user 2026-06-25): the custom
+// actor_spawner_zm_avogadro classname CRASHES the Radiant LED lightmapper (bake hung/killed,
+// vs a clean 18s bake without it). So the spawner + spawn-locs are created at RUNTIME by
+// _acc_boss_avogadro instead - keeps the .map bakeable. tools/add_avogadro_spawn.js retired.
 // ===== TRENCH ROOM DOORS =====
 // entity 1
 {
 guid "{B43026FE-2259-4E8D-9065-BD9E52403291}"
 "classname" "script_struct"
 "angles" "0 180 0"
-"origin" "348.5 243.45 0"
+"origin" "150 110 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3181,7 +4005,7 @@ guid "{687F95D4-2F5A-409D-ACB4-3789CB2C55D8}"
 guid "{81023168-4386-4D63-A2D3-745C88A3E3F0}"
 "classname" "script_struct"
 "angles" "0 360 0"
-"origin" "-803.5 243.45 0"
+"origin" "-350 110 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3216,7 +4040,7 @@ guid "{776D48F4-AD4A-48F6-8A6E-52EBCAEC018E}"
 guid "{ACC5A000-0000-4000-8000-000000000301}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "200 243.45 0"
+"origin" "130 420 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3226,7 +4050,7 @@ guid "{ACC5A000-0000-4000-8000-000000000301}"
 guid "{ACC5A000-0000-4000-8000-000000000302}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "0 243.45 0"
+"origin" "-250 185 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3236,7 +4060,7 @@ guid "{ACC5A000-0000-4000-8000-000000000302}"
 guid "{ACC5A000-0000-4000-8000-000000000303}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-250 243.45 0"
+"origin" "150 185 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3246,7 +4070,7 @@ guid "{ACC5A000-0000-4000-8000-000000000303}"
 guid "{ACC5A000-0000-4000-8000-000000000304}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-500 243.45 0"
+"origin" "-250 295 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3256,7 +4080,7 @@ guid "{ACC5A000-0000-4000-8000-000000000304}"
 guid "{ACC5A000-0000-4000-8000-000000000305}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-650 243.45 0"
+"origin" "150 295 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3276,7 +4100,7 @@ guid "{ACC5A000-0000-4000-8000-000000000306}"
 guid "{ACC5A000-0000-4000-8000-000000000307}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-450 492.86 0"
+"origin" "-400 420 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3286,7 +4110,7 @@ guid "{ACC5A000-0000-4000-8000-000000000307}"
 guid "{ACC5A000-0000-4000-8000-000000000308}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-650 492.86 0"
+"origin" "40 440 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3296,7 +4120,7 @@ guid "{ACC5A000-0000-4000-8000-000000000308}"
 guid "{ACC5A000-0000-4000-8000-000000000309}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "-227.5 350 0"
+"origin" "-150 420 0"
 "script_noteworthy" "riser_location"
 "script_string" "find_flesh"
 "targetname" "start_zone_spawners"
@@ -3350,7 +4174,7 @@ guid "{36177214-3462-4443-9885-9CCEE0B39836}"
 guid "{1FD69AA1-137D-45D8-B426-838B706C3B3D}"
 "classname" "info_player_start"
 "angles" "0 90 0"
-"origin" "-227.5 -172.24 40"
+"origin" "-120 -110 40"
 }
 // entity 10
 {
@@ -3412,7 +4236,7 @@ guid "{DF2CCC54-B1CF-4B59-A45F-0E01DCA8E9EF}"
 "classname" "script_struct"
 "_color" "1 1 0"
 "angles" "0 90 0"
-"origin" "-291.5 -47.53 28"
+"origin" "-120 -90 28"
 "radius" "32"
 "script_int" "2"
 "script_noteworthy" "initial_spawn"
@@ -3425,7 +4249,7 @@ guid "{1F3CBEB9-1C12-4E00-B939-6D725AC8607F}"
 "classname" "script_struct"
 "_color" "1 0 1"
 "angles" "0 90 0"
-"origin" "-291.5 -89.1 28"
+"origin" "-120 -130 28"
 "radius" "32"
 "script_int" "1"
 "script_noteworthy" "initial_spawn"
@@ -3438,7 +4262,7 @@ guid "{849F90F0-3A19-4074-B7A0-80CAB88DFC83}"
 "classname" "script_struct"
 "_color" "1 1 0"
 "angles" "0 90 0"
-"origin" "-163.5 -47.53 28"
+"origin" "-40 -90 28"
 "radius" "32"
 "script_int" "2"
 "script_noteworthy" "initial_spawn"
@@ -3451,7 +4275,7 @@ guid "{2A47AF4D-1BCA-4F2C-B5C1-B4E15A6B4365}"
 "classname" "script_struct"
 "_color" "1 0 1"
 "angles" "0 90 0"
-"origin" "-163.5 -89.1 28"
+"origin" "-40 -130 28"
 "radius" "32"
 "script_int" "1"
 "script_noteworthy" "initial_spawn"
@@ -3464,7 +4288,7 @@ guid "{EFF876B5-75DF-4EE6-B13B-CFEF7DDD55C7}"
 "classname" "script_struct"
 "_color" "1 1 0"
 "angles" "0 90 0"
-"origin" "-35.5 -47.53 28"
+"origin" "40 -90 28"
 "radius" "32"
 "script_int" "2"
 "script_noteworthy" "initial_spawn"
@@ -3477,7 +4301,7 @@ guid "{26CF8A92-3069-4735-90F2-0C9615793968}"
 "classname" "script_struct"
 "_color" "1 0 1"
 "angles" "0 90 0"
-"origin" "-35.5 -89.1 28"
+"origin" "40 -130 28"
 "radius" "32"
 "script_int" "1"
 "script_noteworthy" "initial_spawn"
@@ -3490,7 +4314,7 @@ guid "{09566C95-1DB4-41D5-A33B-F30C53F9858B}"
 "classname" "script_struct"
 "_color" "1 1 0"
 "angles" "0 90 0"
-"origin" "-419.5 -47.53 28"
+"origin" "-200 -90 28"
 "radius" "32"
 "script_int" "2"
 "script_noteworthy" "initial_spawn"
@@ -3503,7 +4327,7 @@ guid "{D648A348-5F37-499F-9C3D-99819DE2A74E}"
 "classname" "script_struct"
 "_color" "1 0 1"
 "angles" "0 90 0"
-"origin" "-419.5 -89.1 28"
+"origin" "-200 -130 28"
 "radius" "32"
 "script_int" "1"
 "script_noteworthy" "initial_spawn"
@@ -3538,9 +4362,9 @@ guid "{122366A5-BD0F-46AD-B3E5-59AF52D4A611}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000201}"
 "classname" "zbarrier_zmcore_MagicBox"
-"angles" "0 270 0"
+"angles" "0 0 0"
 "barrieranimtime" "0"
-"origin" "-1721 1340 13.75"
+"origin" "-1891 928 13.75"
 "script_noteworthy" "acc_box_market_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -3566,8 +4390,8 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000201}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000202}"
 "classname" "script_struct"
-"angles" "0 270 0"
-"origin" "-1721 1340 13.75"
+"angles" "0 0 0"
+"origin" "-1891 928 13.75"
 "script_noteworthy" "acc_box_market"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -3731,8 +4555,8 @@ guid "{47003C9D-AC10-4E0D-8A3F-000000000021}"
 // wall face (2u proud) facing the room. Facing convention (verified vs the early ICR/Bowie wall-
 // buys AND the stock t6_olympia prefab): model angles "0 0 0" => faces +y (room north);
 // "0 180 0" => faces -y (room south). The HINT TEXT shown + the weapon/nade GIVEN come from
-// "zombie_weapon_upgrade" (t6_fiveseven / t6_olympia / frag_grenade) + the weapons CSV
-// (500/500/100) — NOT the chalk material, so a generic chalk outline is fine (user 2026-06-24).
+// "zombie_weapon_upgrade" (t6_fiveseven / t6_olympia / frag_grenade / t9_ak47) + the weapons CSV
+// (500/500/100/1500) — NOT the chalk material, so a generic chalk outline is fine (user 2026-06-24).
 // CHALK ONLY (user 2026-06-24): the model struct below is kept (it's the trigger's target for the
 // stock pipeline) but NOTHING renders it — script_structs don't draw their model KVP, and the
 // redundant 3D-gun spawn (spawn_acc_wallbuy_models) is DISABLED, so each spot shows only the chalk.
@@ -3798,6 +4622,54 @@ guid "{ACCB0006-0000-4DE1-8A3F-1F00ACCB0006}"
 "model" "wpn_t7_zmb_monkey_bomb_world"
 "origin" "-250 718 53"
 "targetname" "acc_grenade_wallbuy_model"
+"_color" "1 1 0"
+}
+// entity 9007  (AK-47 wall-buy trigger - Abyss Layer 4 / "4th floor" trench SOUTH wall face y1723,
+//               room NORTH +y, floor z=-960. user 2026-06-26: S-tier wall-buy down the pit to pull
+//               players down. zombie_weapon_upgrade t9_ak47 -> cost 1500 from zm_levelcommon_weapons.csv.
+//               KEPT past remove_all_wallbuys() by its t9_ak47 whitelist entry.)
+{
+guid "{ACCB0007-0000-4DE1-8A3F-1F00ACCB0007}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "-400 1725 -904"
+"target" "acc_ak47_wallbuy_model"
+"zombie_weapon_upgrade" "t9_ak47"
+"targetname" "weapon_upgrade"
+"_color" "1 1 0"
+}
+// entity 9008  (AK-47 wall-buy model)
+{
+guid "{ACCB0008-0000-4DE1-8A3F-1F00ACCB0008}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t9_ak47_world"
+"origin" "-400 1725 -907"
+"targetname" "acc_ak47_wallbuy_model"
+"_color" "1 1 0"
+}
+// entity 9009  (M60 wall-buy trigger - Abyss Layer 5 ("bottom floor") SOUTH wall WEST jamb, face y1725,
+//               room NORTH +y, floor z=-1200. user 2026-06-27: S-tier L5 wall-buy at the bottom before the
+//               Paradise door. zombie_weapon_upgrade t9_m60 -> cost 1500 from zm_levelcommon_weapons.csv.
+//               KEPT past remove_all_wallbuys() by its t9_m60 whitelist entry.)
+{
+guid "{ACCB0009-0000-4DE1-8A3F-1F00ACCB0009}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"origin" "-400 1725 -1144"
+"target" "acc_m60_wallbuy_model"
+"zombie_weapon_upgrade" "t9_m60"
+"targetname" "weapon_upgrade"
+"_color" "1 1 0"
+}
+// entity 9010  (M60 wall-buy model)
+{
+guid "{ACCB0010-0000-4DE1-8A3F-1F00ACCB0010}"
+"classname" "script_struct"
+"angles" "0 0 0"
+"model" "wpn_t9_m60_world"
+"origin" "-400 1725 -1147"
+"targetname" "acc_m60_wallbuy_model"
 "_color" "1 1 0"
 }
 // entity 48
@@ -4710,7 +5582,7 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000203}"
 "classname" "zbarrier_zmcore_MagicBox"
 "angles" "0 270 0"
 "barrieranimtime" "0"
-"origin" "640 2690 13.75"
+"origin" "400 2708 13.75"
 "script_noteworthy" "acc_box_corp_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -4737,7 +5609,7 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000203}"
 guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000204}"
 "classname" "script_struct"
 "angles" "0 270 0"
-"origin" "640 2690 13.75"
+"origin" "400 2708 13.75"
 "script_noteworthy" "acc_box_corp"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -4747,9 +5619,9 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000204}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000205}"
 "classname" "zbarrier_zmcore_MagicBox"
-"angles" "0 270 0"
+"angles" "0 0 0"
 "barrieranimtime" "0"
-"origin" "-1324 3284 13.75"
+"origin" "-1684 2830 13.75"
 "script_noteworthy" "acc_box_roof_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -4775,8 +5647,8 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000205}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000206}"
 "classname" "script_struct"
-"angles" "0 270 0"
-"origin" "-1324 3340 13.75"
+"angles" "0 0 0"
+"origin" "-1684 2830 13.75"
 "script_noteworthy" "acc_box_roof"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -4786,9 +5658,9 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-000000000206}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A0}"
 "classname" "zbarrier_zmcore_MagicBox"
-"angles" "0 270 0"
+"angles" "0 180 0"
 "barrieranimtime" "0"
-"origin" "0 350 13.75"
+"origin" "100 -150 13.75"
 "script_noteworthy" "acc_box_plaza_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -4814,8 +5686,8 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A0}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A1}"
 "classname" "script_struct"
-"angles" "0 270 0"
-"origin" "0 350 13.75"
+"angles" "0 180 0"
+"origin" "100 -150 13.75"
 "script_noteworthy" "acc_box_plaza"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -4825,9 +5697,9 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A1}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A2}"
 "classname" "zbarrier_zmcore_MagicBox"
-"angles" "0 270 0"
+"angles" "0 180 0"
 "barrieranimtime" "0"
-"origin" "400 3400 13.75"
+"origin" "759 3650 13.75"
 "script_noteworthy" "acc_box_lab_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -4853,8 +5725,8 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A2}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A3}"
 "classname" "script_struct"
-"angles" "0 270 0"
-"origin" "400 3400 13.75"
+"angles" "0 180 0"
+"origin" "759 3650 13.75"
 "script_noteworthy" "acc_box_lab"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -4864,9 +5736,9 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A3}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A4}"
 "classname" "zbarrier_zmcore_MagicBox"
-"angles" "0 270 0"
+"angles" "0 180 0"
 "barrieranimtime" "0"
-"origin" "1400 2560 13.75"
+"origin" "1684 2830 13.75"
 "script_noteworthy" "acc_box_vault_zbarrier"
 "showalternatemodel" "0"
 "showupgradedmodel" "0"
@@ -4892,8 +5764,8 @@ guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A4}"
 {
 guid "{7A2B9E00-ACC2-4E0B-8A3F-0000000002A5}"
 "classname" "script_struct"
-"angles" "0 270 0"
-"origin" "1400 2560 13.75"
+"angles" "0 180 0"
+"origin" "1684 2830 13.75"
 "script_noteworthy" "acc_box_vault"
 "targetname" "treasure_chest_use"
 "zombie_cost" "950"
@@ -9863,3 +10735,257 @@ guid "{7A2BAB0F-ACE0-4E14-8A3F-000000000008}"
 
 // <<< ACC HUB ENTITIES
 // ACC ABYSS lights (gen_abyss_layer.js) - always dim
+// ACC mystery-box collision clips, against-wall (tools/place_boxes_against_walls.js)
+// ACC mystery-box collision clips, against-wall (tools/place_boxes_against_walls.js)
+// ACC mystery-box clips, snapped to live box origins (tools/align_box_clips.js)
+// ACC mystery-box clips, snapped to live box origins + box-shaped (tools/align_box_clips.js)
+{
+guid "{76AA1F90-ACBC-4E12-8A3F-000000000001}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_market"
+// brush 0
+{
+ guid "{76AA1F91-ACBC-4E12-8A3F-000000000002}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 909 88 ) ( 134.5 909 88 ) ( 134.5 909 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1839 415.5 88 ) ( -1839 455.5 88 ) ( -1839 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 947 88 ) ( 90.5 947 88 ) ( 90.5 947 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1943 459.5 88 ) ( -1943 419.5 88 ) ( -1943 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+{
+guid "{76AA1F92-ACBC-4E12-8A3F-000000000003}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_corp"
+// brush 0
+{
+ guid "{76AA1F93-ACBC-4E12-8A3F-000000000004}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2656 88 ) ( 134.5 2656 88 ) ( 134.5 2656 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 419 415.5 88 ) ( 419 455.5 88 ) ( 419 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2760 88 ) ( 90.5 2760 88 ) ( 90.5 2760 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 381 459.5 88 ) ( 381 419.5 88 ) ( 381 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+{
+guid "{76AA1F94-ACBC-4E12-8A3F-000000000005}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_roof"
+// brush 0
+{
+ guid "{76AA1F95-ACBC-4E12-8A3F-000000000006}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2811 88 ) ( 134.5 2811 88 ) ( 134.5 2811 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1632 415.5 88 ) ( -1632 455.5 88 ) ( -1632 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2849 88 ) ( 90.5 2849 88 ) ( 90.5 2849 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -1736 459.5 88 ) ( -1736 419.5 88 ) ( -1736 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+{
+guid "{76AA1F96-ACBC-4E12-8A3F-000000000007}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_plaza"
+// brush 0
+{
+ guid "{76AA1F97-ACBC-4E12-8A3F-000000000008}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -169 88 ) ( 134.5 -169 88 ) ( 134.5 -169 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 152 415.5 88 ) ( 152 455.5 88 ) ( 152 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -131 88 ) ( 90.5 -131 88 ) ( 90.5 -131 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 48 459.5 88 ) ( 48 419.5 88 ) ( 48 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+{
+guid "{76AA1F98-ACBC-4E12-8A3F-000000000009}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_lab"
+// brush 0
+{
+ guid "{4BEE11C0-ACBC-4E12-8A3F-000000000010}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 3631 88 ) ( 134.5 3631 88 ) ( 134.5 3631 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 811 415.5 88 ) ( 811 455.5 88 ) ( 811 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 3669 88 ) ( 90.5 3669 88 ) ( 90.5 3669 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 707 459.5 88 ) ( 707 419.5 88 ) ( 707 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+{
+guid "{4BEE11C1-ACBC-4E12-8A3F-000000000011}"
+"classname" "script_brushmodel"
+"targetname" "acc_box_clip_vault"
+// brush 0
+{
+ guid "{4BEE11C2-ACBC-4E12-8A3F-000000000012}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 64 ) ( 94.5 459.5 64 ) ( 142.5 459.5 64 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2811 88 ) ( 134.5 2811 88 ) ( 134.5 2811 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1736 415.5 88 ) ( 1736 455.5 88 ) ( 1736 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2849 88 ) ( 90.5 2849 88 ) ( 90.5 2849 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 1632 459.5 88 ) ( 1632 419.5 88 ) ( 1632 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) exchange-door trigger (enter_exchange, 1500)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002D}"
+ "classname" "trigger_use"
+ "targetname" "zombie_door"
+ "target" "acc_door_exchange"
+ "zombie_cost" "1500"
+ "script_flag" "enter_exchange"
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002E}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -444 88 ) ( 134.5 -444 88 ) ( 134.5 -444 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -376 415.5 88 ) ( -376 455.5 88 ) ( -376 455.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -308 88 ) ( 90.5 -308 88 ) ( 90.5 -308 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -384 459.5 88 ) ( -384 419.5 88 ) ( -384 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// ACC plaza basement (tools/gen_plaza_basement.js) exchange-door slab (acc_door_exchange)
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-00000000002F}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_door_exchange"
+ "script_vector" "0 0 130"
+ "script_transition_time" "1.5"
+{
+ guid "{7A2BAE00-AE0C-4E0C-8A3F-000000000030}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 128 ) ( 94.5 459.5 128 ) ( 142.5 459.5 128 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -444 88 ) ( 134.5 -444 88 ) ( 134.5 -444 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -378 415.5 88 ) ( -378 455.5 88 ) ( -378 455.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -308 88 ) ( 90.5 -308 88 ) ( 90.5 -308 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -382 459.5 88 ) ( -382 419.5 88 ) ( -382 419.5 0 ) script_wall 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// ACC plaza basement lights (gen_plaza_basement.js) - always on
+{
+guid "{7A2BAE01-AE14-4E14-8A3F-000000000001}"
+"classname" "light"
+"targetname" "acc_exchange_light_stair"
+"origin" "-660 -376 -70"
+"PRIMARY_TYPE" "PRIMARY_OMNI"
+"PRIMARY_NOSHADOWMAP" "1"
+"ENABLE_FALLOFF" "1"
+"_color" "1 1 1"
+"radius" "380"
+"stops" "6"
+"falloffdistance" "12"
+"bake_intensity_scale" "1.4"
+"client_server" "ClientSide"
+"def_tile" "1 1"
+"excludeDedicated" "Off"
+"far_edge" "0.949999988079071"
+"fov_outer" "90"
+"lightingstate1" "1"
+"lightingstate2" "1"
+"lightingstate3" "1"
+"lightingstate4" "1"
+"penumbraRadius" "1.5"
+"roundness" "0.5"
+"shadowUpdate" "Never"
+"shadowmapScale" "1"
+"superellipse" "0.75 1 0.75 1"
+"volumetricSampleCount" "8"
+"name" "light"
+"spawnflags" "82"
+}
+{
+guid "{7A2BAE01-AE14-4E14-8A3F-000000000002}"
+"classname" "light"
+"targetname" "acc_exchange_light_w"
+"origin" "-320 -120 -80"
+"PRIMARY_TYPE" "PRIMARY_OMNI"
+"PRIMARY_NOSHADOWMAP" "1"
+"ENABLE_FALLOFF" "1"
+"_color" "1 1 1"
+"radius" "540"
+"stops" "6"
+"falloffdistance" "12"
+"bake_intensity_scale" "1.5"
+"client_server" "ClientSide"
+"def_tile" "1 1"
+"excludeDedicated" "Off"
+"far_edge" "0.949999988079071"
+"fov_outer" "90"
+"lightingstate1" "1"
+"lightingstate2" "1"
+"lightingstate3" "1"
+"lightingstate4" "1"
+"penumbraRadius" "1.5"
+"roundness" "0.5"
+"shadowUpdate" "Never"
+"shadowmapScale" "1"
+"superellipse" "0.75 1 0.75 1"
+"volumetricSampleCount" "8"
+"name" "light"
+"spawnflags" "82"
+}
+{
+guid "{7A2BAE01-AE14-4E14-8A3F-000000000003}"
+"classname" "light"
+"targetname" "acc_exchange_light_c"
+"origin" "60 -200 -80"
+"PRIMARY_TYPE" "PRIMARY_OMNI"
+"PRIMARY_NOSHADOWMAP" "1"
+"ENABLE_FALLOFF" "1"
+"_color" "1 1 1"
+"radius" "540"
+"stops" "6"
+"falloffdistance" "12"
+"bake_intensity_scale" "1.5"
+"client_server" "ClientSide"
+"def_tile" "1 1"
+"excludeDedicated" "Off"
+"far_edge" "0.949999988079071"
+"fov_outer" "90"
+"lightingstate1" "1"
+"lightingstate2" "1"
+"lightingstate3" "1"
+"lightingstate4" "1"
+"penumbraRadius" "1.5"
+"roundness" "0.5"
+"shadowUpdate" "Never"
+"shadowmapScale" "1"
+"superellipse" "0.75 1 0.75 1"
+"volumetricSampleCount" "8"
+"name" "light"
+"spawnflags" "82"
+}
+{
+guid "{7A2BAE01-AE14-4E14-8A3F-000000000004}"
+"classname" "light"
+"targetname" "acc_exchange_light_e"
+"origin" "90 200 -80"
+"PRIMARY_TYPE" "PRIMARY_OMNI"
+"PRIMARY_NOSHADOWMAP" "1"
+"ENABLE_FALLOFF" "1"
+"_color" "1 1 1"
+"radius" "540"
+"stops" "6"
+"falloffdistance" "12"
+"bake_intensity_scale" "1.5"
+"client_server" "ClientSide"
+"def_tile" "1 1"
+"excludeDedicated" "Off"
+"far_edge" "0.949999988079071"
+"fov_outer" "90"
+"lightingstate1" "1"
+"lightingstate2" "1"
+"lightingstate3" "1"
+"lightingstate4" "1"
+"penumbraRadius" "1.5"
+"roundness" "0.5"
+"shadowUpdate" "Never"
+"shadowmapScale" "1"
+"superellipse" "0.75 1 0.75 1"
+"volumetricSampleCount" "8"
+"name" "light"
+"spawnflags" "82"
+}

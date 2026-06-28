@@ -69,13 +69,15 @@
 
 // --- Tunable defaults (every one a live acc_phantom_* dvar; mirror docs/34). ---
 // ENABLED (user 2026-06-22): Phantom is a live boss in BOTH normal play and dev, first appearing at
-// round 8 (then every 8 rounds - ACC_PHANTOM_INTERVAL 8 - with a one-at-a-time guard). Disable live with
+// round 10 (then every 10 rounds - ACC_PHANTOM_INTERVAL 10 - with a one-at-a-time guard). Disable live with
 // `acc_phantom_enable 0`. (RED holographic glow + cyan eyes; shares the phase theme with the Glitch
 // Stalker - re-theme later if they read too similar.)
 #define ACC_PHANTOM_ENABLE_DEF        1     // master on/off (1 = on in normal play; dev also runs it)
-#define ACC_PHANTOM_HP                80000  // solo HP (user 2026-06-24: -20% from 100k). x boss_hp_player_mult (LOGARITHMIC): solo 80k / 2p 120k / 3p 143k / 4p 160k
-#define ACC_PHANTOM_FIRST_ROUND_DEF   8     // BASE-GAME first round (round 8), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-25). DEV mode = 4 (cadence_hits branches on level.acc_dev).
-#define ACC_PHANTOM_INTERVAL_DEF      8     // BASE-GAME EVERY 8 rounds (8, 16, 24, ...). DEV mode = EVERY 4 (4, 8, 12, ...) for testing - user 2026-06-25. One-at-a-time guard (run_round_boss) still prevents stacking.
+#define ACC_PHANTOM_HP                56000  // BASE solo HP at debut (round 10). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
+#define ACC_PHANTOM_HP_EXP            1.1    // per-round COMPOUNDING exponent (user 2026-06-27): SAME 1.1 rate as a zombie (was 1.06). Brutus also uses 1.1 but anchors 5 rounds earlier (r5 vs r10), so it still outranks the Phantom. solo r10 56k / r20 145k / r30 377k / r40 977k. Live dvar acc_phantom_hp_exp.
+#define ACC_PHANTOM_HP_ANCHOR         10     // round the BASE HP applies (Phantom's debut); compounding starts past it. Live dvar acc_phantom_hp_anchor.
+#define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). DEV mode = 4 (cadence_hits branches on level.acc_dev).
+#define ACC_PHANTOM_INTERVAL_DEF      10    // BASE-GAME EVERY 10 rounds (10, 20, 30, ...). DEV mode = EVERY 4 (4, 8, 12, ...) for testing - user 2026-06-26. One-at-a-time guard (run_round_boss) still prevents stacking.
 #define ACC_PHANTOM_TEST_ROUND_DEF    8     // dev/test first round
 // AGGRESSION MODEL (user 2026-06-24): jumpscary TELEPORTING HARASSER, not a camper and not a murderer. The
 // cloaked arrival + screech is the SCARE; the LOW melee keeps it survivable. He still EARNS his guaranteed Mega
@@ -101,7 +103,7 @@
 #define ACC_PHANTOM_RETREAT_DEF         1    // hit-and-run: warp away after a normal strike so it never camps a player
 #define ACC_PHANTOM_RETREAT_DIST_DEF    420  // how far the back-off warp jumps from the struck player
 #define ACC_PHANTOM_CHAIN_CHANCE_DEF    25   // % of teleport actions that fire the player->player CHAIN special (1+ players; one hit each)
-#define ACC_PHANTOM_CHAIN_HOPS_DEF      3    // MAX hops per chain (one hit per player, warp to the next) - CAPPED to the live player count, so solo = 1 hop
+#define ACC_PHANTOM_CHAIN_HOPS_DEF      4    // MAX hops per chain = one hit per player up to a full 4-player team (CAPPED to the live player count; solo = 1 hop). user 2026-06-26: 3 -> 4 so a 4-player chain reaches everyone.
 #define ACC_PHANTOM_CHAIN_DWELL_MIN_DEF 0.7  // min seconds on each chain hop (the rapid combo) - time for one swing
 #define ACC_PHANTOM_CHAIN_DWELL_MAX_DEF 1.1  // max seconds on each chain hop
 
@@ -248,7 +250,7 @@ function run_round_boss( round_number )
 function cadence_hits( round_number )
 {
     // DEV mode (level.acc_dev) spawns the Phantom every 4 rounds (4, 8, 12, ...) for faster testing; base game
-    // every 8 (8, 16, 24, ...) - user 2026-06-25. Hardcoded off the one dev flag (no new dvar - dev-mode rule);
+    // every 10 (10, 20, 30, ...) - user 2026-06-26. Hardcoded off the one dev flag (no new dvar - dev-mode rule);
     // the acc_phantom_first_round / acc_phantom_interval dvars still override either default for live tuning.
     dev          = IS_TRUE( level.acc_dev );
     def_first    = ( dev ? 4 : ACC_PHANTOM_FIRST_ROUND_DEF );
@@ -281,6 +283,25 @@ function announce_inbound()
 // Spawn + promote
 // ---------------------------------------------------------------------------
 
+// Phantom HP COMPOUNDS per round (user 2026-06-27): base * exp^(round-anchor). SAME 1.1 exponent as the
+// zombie horde (was 1.06); Brutus also uses 1.1 but anchors 5 rounds earlier (r5 vs r10), so Brutus stays the tankier. Anchored at the
+// Phantom's debut round (10) so the FIRST one is exactly the tuned base. GSC has no pow builtin - small
+// integer-exponent loop (past = round - anchor). The coop player mult is applied SEPARATELY at the caller.
+function scale_phantom_hp( round_number )
+{
+    base   = getdvarint( "acc_phantom_hp", ACC_PHANTOM_HP );
+    exp    = getdvarfloat( "acc_phantom_hp_exp", ACC_PHANTOM_HP_EXP );
+    anchor = getdvarint( "acc_phantom_hp_anchor", ACC_PHANTOM_HP_ANCHOR );
+
+    past = round_number - anchor;
+    if ( past < 0 ) past = 0;   // before debut -> just the base
+
+    mult = 1.0;
+    for ( i = 0; i < past; i++ )
+        mult = mult * exp;
+    return int( base * mult );
+}
+
 function spawn_phantom( round_number )
 {
     host = spawn_promoted_zombie();
@@ -294,10 +315,12 @@ function spawn_phantom( round_number )
     host.acc_is_phantom = true;     // tag for the chain-special slow detection in _acc_elites::on_player_damaged
     level.acc_phantom_host = host;  // one-at-a-time guard ref (every-round cadence; run_round_boss checks isalive)
 
-    // LOGARITHMIC HP scaling by player count (user 2026-06-24: the old LINEAR 100k*pc -> 400k at 4p was
-    // "crazy"). boss_hp_player_mult() = 1 + 0.5*log2(n) -> solo 80k / 2p 120k / 3p 143k / 4p 160k (base
-    // ACC_PHANTOM_HP is -20%). Tune live: acc_boss_coop_hp_log_k. Written AFTER the init-gate (stock clobbers HP).
-    host.maxhealth = int( ACC_PHANTOM_HP * acc_coop_scaling::boss_hp_player_mult() );
+    // ROUND scaling (scale_phantom_hp - user 2026-06-27: the Phantom did NOT scale at all before, fixed
+    // 56k every round = "dies easy late"; now COMPOUNDS x1.1/round, matching zombies) THEN the
+    // LOGARITHMIC player mult (boss_hp_player_mult() = 1 + 0.5*log2(n) -> 1p 1.0 / 2p 1.5 / 3p 1.79 / 4p
+    // 2.0; the old LINEAR 100k*pc -> 400k at 4p was "crazy"). Tune live: acc_phantom_hp_exp /
+    // acc_boss_coop_hp_log_k. Written AFTER the init-gate (stock clobbers HP).
+    host.maxhealth = int( scale_phantom_hp( round_number ) * acc_coop_scaling::boss_hp_player_mult() );
     host.health = host.maxhealth;
 
     // LOW melee (user 2026-06-24): jumpscary, not a murderer - per-hit is ~30% UNDER a Glitch Stalker (default
@@ -313,6 +336,14 @@ function spawn_phantom( round_number )
     host.ignore_nuke = true;
     host.ignore_enemy_count = true;
     host.acc_boss_custom_speed = true; // _acc_zombie_speed keep-alive skips us (we drive gait)
+
+    // MULTI-PLAYER MELEE FIX (user 2026-06-26): force the stock AI to target whoever the Phantom LAST warped
+    // onto, so its melee lands on EACH player it strikes - not just one acquired enemy. Without this the stock
+    // AI held a single self.enemy and the blinks to other players never connected a swing -> "Phantom only
+    // damages one player even with 4". Stock get_closest_valid_player consults this per-AI override
+    // (_zm_utility.gsc:1474) to derive BOTH self.favoriteenemy (movement) and self.enemy (melee). Same proven
+    // mechanism the Glitch Stalker uses; the target is updated every blink in phantom_blink_to.
+    host.closest_player_override = &phantom_pick_target_override;
 
     // Canvas: stock Giant body (distinct from the charred horde). The Phantom is cloaked most
     // of the time, so the body is just the brief-materialize silhouette. Same proven reskin idiom
@@ -668,7 +699,15 @@ function phantom_chain( last_target )
         // acc_phantom_chain_zap. acc_phantom_slow_sec / acc_phantom_speed_mult tune the feel.
         if ( isdefined( target ) && isalive( target ) &&
              DistanceSquared( self.origin, target.origin ) <= ( 160 * 160 ) )
+        {
             target acc_elites::acc_phantom_chain_zap();
+            // CHAIN HIT, dealt DIRECTLY (user 2026-06-26 "saps everyone, only damages one"): the rapid hops
+            // never let the stock AI swing, so the chain SAPPED each player but only the AI's one enemy took
+            // damage. Apply the per-hop melee hit ourselves as MOD_MELEE - the SAME means-of-death the stock
+            // zombie melee uses, so Jugg / Exo resist / trench melee scaling / downing all apply normally
+            // (_acc_elites::on_player_damaged handles it). Now the chain damages EACH player it warps onto.
+            target DoDamage( getdvarint( "acc_phantom_melee_dmg", ACC_PHANTOM_MELEE_DMG_DEF ), self.origin, self, self, 0, "MOD_MELEE" );
+        }
 
         wait phantom_rand_range( getdvarfloat( "acc_phantom_chain_dwell_min", ACC_PHANTOM_CHAIN_DWELL_MIN_DEF ),
                                  getdvarfloat( "acc_phantom_chain_dwell_max", ACC_PHANTOM_CHAIN_DWELL_MAX_DEF ) );
@@ -697,6 +736,7 @@ function players_not_yet_hit( live, hit )
 function phantom_blink_to( target )
 {
     if ( !isdefined( target ) ) return;
+    self.acc_phantom_target = target;   // lock the stock AI's melee/movement onto whoever we warp onto (multi-player fix; read by phantom_pick_target_override)
     strike = GetClosestPointOnNavMesh( phantom_strike_point( self.origin, target.origin ), 100, 30 );
     if ( !isdefined( strike ) )
         strike = GetClosestPointOnNavMesh( target.origin, 140, 50 );
@@ -729,6 +769,36 @@ function valid_target_players()
             out[ out.size ] = p;
     }
     return out;
+}
+
+// Per-AI melee/movement target override (host.closest_player_override). Stock contract
+// (_zm_utility.gsc:1474): called as [[ self.closest_player_override ]]( origin, players ) with NO self prefix
+// (ambient self = the Phantom); stock uses the return to set BOTH self.favoriteenemy (movement) and
+// self.enemy (melee). We return the CURRENT blink target (set every blink in phantom_blink_to) so the AI
+// chases + swings at whoever the Phantom just warped onto, rotating across the whole team instead of meleeing
+// one stale enemy. THE fix for "Phantom only damages one player" (user 2026-06-26). Before the first blink /
+// if the target invalidates (downed/disconnected), fall back to the map-wide path-distance picker, then closest.
+function phantom_pick_target_override( origin, players )
+{
+    if ( !isdefined( players ) || players.size == 0 )
+        return undefined;
+    // CRITICAL: only ever return a player ALREADY in the passed-in `players` array. Stock get_closest_valid_player
+    // pre-culls `players` to am_i_valid entries (which INCLUDES the .ignoreme flag), then loops re-checking the
+    // returned player WITH NO WAIT, ArrayRemoveValue-ing it if invalid. Returning a player stock had culled (e.g. a
+    // teammate cloaked via Cyberware Ghost Protocol -> zm_utility::increment_ignoreme, still alive+standing so
+    // is_player_alive() passes) makes that ArrayRemoveValue a no-op, players.size never reaches 0, and we'd hand
+    // back the same player forever => infinite loop = SERVER HANG in co-op. Membership-check t against `players`
+    // (mirrors the Glitch Stalker override) so the return is always a valid, in-set player.
+    t = self.acc_phantom_target;
+    if ( isdefined( t ) )
+    {
+        for ( i = 0; i < players.size; i++ )
+            if ( players[ i ] == t )
+                return t;
+    }
+    if ( isdefined( level.closest_player_override ) )
+        return [[ level.closest_player_override ]]( origin, players );
+    return arraygetclosest( origin, players );
 }
 
 // Pick a random player from `valid`, dropping `avoid` (the last one struck) when 2+ remain so coop play
@@ -800,13 +870,19 @@ function phantom_death_watch()
 
     // Phantom reward (user 2026-06-22): GUARANTEED full set - 1 item drop + 1 Mega Bottle to every player +
     // 5 Data Shards to every player. (Brutus gets the SAME set but with 3 shards, also 100%; see _acc_boss.gsc.)
-    acc_boss_items::grant_challenge_reward( drop_origin );            // 1 item, guaranteed (free-for-all pool drop)
-    acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin ); // 1 Mega Bottle to every player
-    phantom_shards = getdvarint( "acc_phantom_shard_reward", 5 );
-    if ( phantom_shards > 0 )
+    // SUPPRESSED during the Paradise onslaught (user 2026-06-27 audit): the finale is a SURVIVE-don't-farm
+    // gauntlet with up to 4 Phantoms cycling, so showering the team with items/bottles/shards per kill broke it.
+    // Mirrors the onslaught's block_powerup_drop + the reward-free Paradise Brutus path (host.acc_no_shard_reward).
+    if ( !IS_TRUE( level.acc_paradise_onslaught ) )
     {
-        for ( pi = 0; pi < level.players.size; pi++ )
-            acc_data_shards::grant_player( level.players[ pi ], phantom_shards, "phantom" );
+        acc_boss_items::grant_challenge_reward( drop_origin );            // 1 item, guaranteed (free-for-all pool drop)
+        acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin ); // 1 Mega Bottle to every player
+        phantom_shards = getdvarint( "acc_phantom_shard_reward", 5 );
+        if ( phantom_shards > 0 )
+        {
+            for ( pi = 0; pi < level.players.size; pi++ )
+                acc_data_shards::grant_player( level.players[ pi ], phantom_shards, "phantom" );
+        }
     }
 
     pdebug( "^2Phantom down^7" );

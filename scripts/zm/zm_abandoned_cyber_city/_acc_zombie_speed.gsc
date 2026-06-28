@@ -213,7 +213,7 @@ function apply_speed_for_round( round )
 
     if ( layer > 0 )
     {
-        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 5 ) / 100.0 ); // +5%/layer
+        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 4 ) / 100.0 ); // +4%/layer (user 2026-06-27, was 5)
         rate = rate * spd;
     }
     self apply_baseline_melee();
@@ -243,9 +243,9 @@ function apply_speed_for_round( round )
 // Trench per-layer scaling (user 2026-06-21). A zombie standing IN the trench is deadlier, scaling with
 // how deep it is (the layer, via acc_bus_trench::underground_layer). Master gate acc_trench_aggro
 // (default 1). THREE per-layer levers:
-//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 5) - here, in apply_speed_for_round.
-//   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 25) - apply_trench_health (one-way).
-//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 10, flat) - added to the player's INCOMING
+//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 4) - here, in apply_speed_for_round.
+//   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 30) - apply_trench_health (one-way).
+//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 6, flat) - added to the player's INCOMING
 //     damage in acc_bus_trench::trench_melee_scaled, because open-field zombie melee uses the engine
 //     Melee() weapon, NOT self.meleeDamage (a per-zombie meleeDamage write never lands).
 // NO forced sprint, NO beeline. Gated on the ZOMBIE'S OWN position, NOT its target - surface = stock.
@@ -309,7 +309,7 @@ function apply_baseline_melee()   // self = zombie
 function apply_trench_health( layer )   // self = zombie
 {
     if ( getdvarint( "acc_trench_aggro", 1 ) != 1 ) return;
-    pct = getdvarint( "acc_trench_layer_hp_pct", 50 );   // +50% max health per layer (user 2026-06-22, was 25)
+    pct = getdvarint( "acc_trench_layer_hp_pct", 30 );   // +30% max health per layer (user 2026-06-27, was 50)
     if ( pct <= 0 || layer <= 0 ) return;
 
     if ( !isdefined( self.acc_base_health ) ) self.acc_base_health = self.maxhealth;   // round-scaled base

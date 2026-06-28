@@ -45,12 +45,24 @@
 // a share of the 30% pool. 5% = anti tag-and-run.
 #define ACC_POINTS_MIN_CONTRIB_FRAC 0.05
 
-// Loot Stash / Payroll Ledger (boss-drop item): a FLAT bonus to the KILLER per kill (user 2026-06-23, the
-// old +10% multiplier was swallowed by the points floor-to-10 - see distribute_points / award_player). The
-// bonus rides the killer's award so Double Points DOUBLES it (+20/+40). Nuke payout for a holder = ACC_LEDGER_NUKE.
-#define ACC_LEDGER_KILL_BONUS     10   // +10 points per regular kill
-#define ACC_LEDGER_HEADSHOT_BONUS 20   // +20 points per headshot kill
+// Loot Stash / Payroll Ledger (boss-drop item): a FLAT bonus to the KILLER per kill (user 2026-06-23; the
+// old +10% multiplier was swallowed by the points round-to-10). Double Points adds a FLAT extra (user
+// 2026-06-26: +5 regular / +10 headshot - NOT the base's x2). 15/25 aren't multiples of 10, so the award
+// path BANKS the sub-10 remainder (money rounds UP to 10s, _zm_score.gsc:528) and flushes it on a later kill
+// -> exact net (award_killer_with_ledger). Nuke payout for a holder = ACC_LEDGER_NUKE.
+#define ACC_LEDGER_KILL          10   // regular kill, no Double Points
+#define ACC_LEDGER_KILL_DP       15   // regular kill WITH Double Points (additive +5)
+#define ACC_LEDGER_HEADSHOT      15   // headshot kill, no Double Points
+#define ACC_LEDGER_HEADSHOT_DP   25   // headshot kill WITH Double Points (additive +10)
 #define ACC_LEDGER_NUKE          500   // a Nuke gives the holder 500 (vs the stock ~400)
+
+// COMEBACK BONUS (user 2026-06-26): a player who fully bleeds out and respawns the next round comes back with
+// their money SET to exactly ACC_COMEBACK_PER_ROUND * round_number (e.g. round 20 -> $10,000). Supports players
+// who have a bad start. SET, not added: whatever they kept through the death (stock penalty_died is 0.0, so they
+// DO keep it) is wiped and replaced with the target - so a rich player who dies drops to the floor and a broke
+// player is lifted to it (user picked "set to exactly", full-death respawns only - NOT last-stand revives,
+// which never bleed_out so they don't qualify). See on_player_spawned / watch_comeback_death + docs/06.
+#define ACC_COMEBACK_PER_ROUND   500
 
 #namespace acc_points;
 
@@ -119,6 +131,59 @@ function ledger_nuke_watch()
     }
 }
 
+// ---------------------------------------------------------------------------
+// Comeback bonus (user 2026-06-26): a full-death respawn sets money to 500 * round.
+// Registered in acc_main::on_player_connect / ::on_player_spawned.
+// ---------------------------------------------------------------------------
+
+function on_player_connect( player )
+{
+    // One watcher per player: a FULL bleed-out (not a last-stand revive) arms the comeback for the next spawn.
+    player thread watch_comeback_death();
+}
+
+// Mark a pending comeback the instant the player fully bleeds out. A last-stand revive happens BEFORE bleed_out
+// (so it never sets this) and the first spawn never bleeds out - so only a genuine death-and-respawn qualifies.
+// bled_out is the stock notify fired at _zm_laststand.gsc:523/580 (VERIFIED in the stock mirror).
+function watch_comeback_death()
+{
+    self endon( "disconnect" );
+    for ( ;; )
+    {
+        self waittill( "bled_out" );
+        self.acc_comeback_pending = true;
+    }
+}
+
+// Fires on EVERY spawn (acc_main dispatch). Only acts when a death armed the comeback. Runs during the stock
+// spectator-respawn callback (_zm.gsc:3340, before the no-op "died" penalty), so self.score here still holds
+// whatever they kept - we overwrite it.
+function on_player_spawned( player )
+{
+    if ( !( isdefined( player.acc_comeback_pending ) && player.acc_comeback_pending ) )
+        return;
+    player.acc_comeback_pending = false;
+
+    rn = 1;
+    if ( isdefined( level.round_number ) && level.round_number > 1 )
+        rn = level.round_number;
+
+    target = ACC_COMEBACK_PER_ROUND * rn;
+    player comeback_set_score( target );
+    player iprintln( "^2Comeback bonus: respawned with $" + target );
+}
+
+// SET the player's money to exactly `target` (user chose "set to exactly", not a top-up). take_all is the
+// canonical "remove all money" (zeroes self.score); add_to_player_score then awards the target and re-syncs both
+// self.score and self.pers["score"] (+ the HUD). target is always a multiple of 10 (500 * round), so
+// add_to_player_score's round-up-to-10 is a no-op. Net result is exactly `target` whether they came back rich
+// (dropped to the floor) or broke (lifted to it).
+function comeback_set_score( target )
+{
+    self zm_score::player_reduce_points( "take_all" );
+    self zm_score::add_to_player_score( target );
+}
+
 // Signature must match the dispatch at _zm_score.gsc:147; self = player.
 function suppress_stock_kill_score( event, mod, hit_location, zombie_team, damage_weapon )
 {
@@ -150,14 +215,16 @@ function score_per_hit( event, mod, hit_location, zombie_team, damage_weapon )
 
 function on_zombie_death( attacker ) // self = the killed zombie
 {
-    // Trench surge/drip zombies (tagged in _acc_bus_trench::tag_trench_zombie) are a THREAT,
-    // not a payout: a flat tiny award (default 20, dvar acc_trench_zombie_points - set 0 for
-    // none), with NO damage-share split, headshot/knife bonus, or Kinetic Battery accrual.
-    // (They're also excluded from the round count via ignore_enemy_count.)
+    // Trench surge/drip zombies (tagged in _acc_bus_trench::tag_trench_zombie) are a THREAT, not a payout: a
+    // flat tiny BASE award (default 30, dvar acc_trench_zombie_points - set 0 for none), with NO damage-share
+    // split or Kinetic Battery accrual, and excluded from the round count (ignore_enemy_count). (user 2026-06-26:
+    // 20 -> 30.) The Loot Stash / Payroll Ledger bonus DOES apply, though (user 2026-06-26: "Loot stash doesnt
+    // work on trench zombies") - award_killer_with_ledger adds it (incl. the headshot tier) on top of the flat
+    // base, exactly like a normal kill, instead of the plain award_player that skipped it.
     if ( isdefined( self.acc_trench_zombie ) && self.acc_trench_zombie )
     {
         if ( isdefined( attacker ) && isplayer( attacker ) )
-            award_player( attacker, getdvarint( "acc_trench_zombie_points", 20 ) );
+            award_killer_with_ledger( attacker, getdvarint( "acc_trench_zombie_points", 30 ), self.damagelocation );
         return;
     }
 
@@ -252,17 +319,12 @@ function distribute_points( zombie, killer, mod, hit_loc )
         return;
     }
 
-    // Loot Stash / Payroll Ledger: a FLAT bonus to the KILLER on each kill (user 2026-06-23) - +10 normal,
-    // +20 on a headshot kill. Added to the killer's award only (not split, not to assists), so it rides
-    // award_player's Double-Points scalar (= +20/+40 with Double Points) and survives the floor-to-10.
-    ledger_bonus = 0;
-    if ( acc_boss_items::player_has_ledger( killer ) )
-        ledger_bonus = ( is_headshot( hit_loc ) ? ACC_LEDGER_HEADSHOT_BONUS : ACC_LEDGER_KILL_BONUS );
-
+    // Loot Stash / Payroll Ledger bonus is folded into the killer's award by award_killer_with_ledger (flat
+    // +10/+15 regular, +15/+25 headshot keyed to Double-Points state; banked so the non-10 values net exact).
     if ( contributors.size == 0 )
     {
         // Solo / no other qualifiers - killer gets 100%.
-        award_player( killer, base + ledger_bonus );
+        award_killer_with_ledger( killer, base, hit_loc );
         return;
     }
 
@@ -272,7 +334,7 @@ function distribute_points( zombie, killer, mod, hit_loc )
     // total equals base exactly; leftover chunks go to the first contributors.
     killer_pts = int( base * ACC_POINTS_KILLER_SHARE / 10 + 0.5 ) * 10; // nearest 10
     if ( killer_pts > base ) killer_pts = base;
-    award_player( killer, killer_pts + ledger_bonus );
+    award_killer_with_ledger( killer, killer_pts, hit_loc );
 
     pool_units = int( ( base - killer_pts ) / 10 );
     per_units  = int( pool_units / contributors.size );
@@ -357,32 +419,53 @@ function double_points_scalar( player )
     return level.zombie_vars[ player.team ][ "zombie_point_scalar" ];
 }
 
+// Double-Points scale + floor to the money currency's 10-unit granularity (stock add_to_player_score then
+// round_up_score's a no-op). The map suppresses the stock kill award and pays here, so the stock x2 (applied
+// in _zm_score::get_points_multiplier to the callback return we zeroed) never reaches our points - we re-apply
+// the SAME team scalar the powerup sets (level.zombie_vars[team]["zombie_point_scalar"]=2).
+function dp_scaled_floored( player, pts )
+{
+    return int( pts * double_points_scalar( player ) / 10 ) * 10;
+}
+
 function award_player( player, pts )
 {
     if ( !isdefined( player ) || !isplayer( player ) ) return;
     if ( pts <= 0 ) return;
 
-    // DOUBLE POINTS powerup. CRITICAL: the map suppresses the stock kill award (suppress_stock_kill_score
-    // returns 0) and awards here instead, so the stock x2 - applied in _zm_score::get_points_multiplier
-    // (_zm_score.gsc:339) to the score-event callback's return, which we zeroed - NEVER reaches our
-    // points. Without this, Double Points does NOTHING on kills (the bug, 2026-06-23). Apply the SAME
-    // team-scoped scalar the powerup sets (level.zombie_vars[team]["zombie_point_scalar"] = 2,
-    // _zm_powerup_double_points.gsc:79). Applied to the BASE before the Ledger so the two stack
-    // multiplicatively (docs/12: "Double Points doubles the base, Ledger +10% on top" = x2.2).
-    pts = pts * double_points_scalar( player );
-
-    // (Loot Stash / Payroll Ledger bonus is now a FLAT per-kill amount (user 2026-06-23: +10/kill, +20/headshot
-    // kill) applied to the KILLER in distribute_points - NOT a % here, which the floor-to-10 below silently
-    // swallowed (60 * 1.10 = 66 -> floored back to 60 = no bonus; "the Loot Stash didn't seem to work"). The
-    // flat bonus rides the killer's award, so the double_points_scalar above already DOUBLES it with Double
-    // Points, and being a multiple of 10 it survives the floor.)
-
-    // VERIFIED(acc): stock add_to_player_score rounds UP to a multiple of 10
-    // (_zm_score.gsc:528); floor here so the Ledger bonus never rounds a +10
-    // share into +20.
-    pts = int( pts / 10 ) * 10;
+    pts = dp_scaled_floored( player, pts );
     if ( pts <= 0 ) return;
 
-    // Use stock _zm_score helper so HUD floater ("+40") and VO cues play.
-    player zm_score::add_to_player_score( pts );
+    player zm_score::add_to_player_score( pts );   // stock helper so the HUD floater ("+40") + VO cues play
+}
+
+// Award the KILLER their Double-Points-scaled base PLUS the Loot Stash / Payroll Ledger flat bonus, in ONE
+// payout (single HUD floater). The Ledger bonus is a FLAT amount keyed to Double-Points STATE (user 2026-06-26):
+// regular +10 / DP +15, headshot +15 / DP +25 - the DP boost is ADDITIVE (+5 / +10), NOT the base's x2. 15/25
+// aren't multiples of 10, and money only moves in 10s (round_up_score), so we BANK the sub-10 remainder on the
+// killer and flush it on a later kill: paying whole-tens + carrying the leftover nets EXACTLY the intended
+// per-kill amount (the on-screen number alternates 10/20, the banked total is exact).
+function award_killer_with_ledger( killer, base_pts, hit_loc )
+{
+    if ( !isdefined( killer ) || !isplayer( killer ) ) return;
+
+    award = dp_scaled_floored( killer, base_pts );
+
+    if ( acc_boss_items::player_has_ledger( killer ) )
+    {
+        dp = ( double_points_scalar( killer ) > 1 );
+        if ( is_headshot( hit_loc ) )
+            amount = ( dp ? ACC_LEDGER_HEADSHOT_DP : ACC_LEDGER_HEADSHOT );
+        else
+            amount = ( dp ? ACC_LEDGER_KILL_DP : ACC_LEDGER_KILL );
+
+        if ( !isdefined( killer.acc_ledger_bank ) ) killer.acc_ledger_bank = 0;
+        killer.acc_ledger_bank += amount;
+        pay = int( killer.acc_ledger_bank / 10 ) * 10;   // whole-tens payable now
+        killer.acc_ledger_bank -= pay;                   // carry the <10 remainder to the next kill
+        award += pay;
+    }
+
+    if ( award <= 0 ) return;
+    killer zm_score::add_to_player_score( award );
 }

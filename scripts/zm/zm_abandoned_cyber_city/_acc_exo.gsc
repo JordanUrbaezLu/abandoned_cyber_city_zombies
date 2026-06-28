@@ -87,12 +87,12 @@ function spawn_station()
     if ( getdvarint( "acc_exo_on", 1 ) != 1 )
         return;
 
-    // Exo station INSIDE the Foundry under-room (user 2026-06-25): room interior x[-192,192] y[1379,1723],
-    // floor z=-240; the buyable door is the WEST front gap x[-192,-112]. Placed center-back, clear of the
-    // doorway, facing the entry (yaw 90 = +y, toward the door). The room/door geometry was reverted to HEAD
-    // a18c3ac after the prior relocate broke the door; this just puts the table back INSIDE that room. The
-    // station is a GSC-spawned prop (not map geometry), so this is a -GscOnly change - no LED bake needed.
-    spawn_station_at( ( 0, 1450, -240 ), 90 );
+    // Exo station INSIDE the Foundry under-room (ORIGINAL size, user 2026-06-28 reverted a brief shrink): interior
+    // x[-192,192] y[1379,1723], floor z=-240; the buyable door is the WEST front gap x[-192,-112]. Placed on the WEST
+    // side at (-120,1550) (user 2026-06-26: the Exo station + the Neural Expansion Bay vendor sit on OPPOSITE sides
+    // the long way - Exo WEST, vendor EAST at (120,1550)). Its .map collision clip moves to match
+    // (tools/add_prop_clips.js exo_station) - a GEOMETRY change, so this build needs a FULL LED bake.
+    spawn_station_at( ( -120, 1550, -240 ), 90 );
 }
 
 function spawn_station_at( origin, yaw )
@@ -166,18 +166,9 @@ function sync_exo_hud( player )
     if ( !isdefined( player ) || !isplayer( player ) ) return;
     if ( !isdefined( player.acc_exo_tier ) ) player.acc_exo_tier = 0;
 
-    if ( !isdefined( player.acc_exo_hud ) )
-    {
-        player.acc_exo_hud = player hud::createFontString( "default", 1.3 );
-        // Left HUD stack (always-on items grouped at the top): DATA SHARDS y=50, EXO SUIT y=74, then the
-        // CONDITIONAL MEGA BOTTLES (y=98) + WEB GRENADES (y=122) below (pushed down in _acc_mega_bottles).
-        player.acc_exo_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 74 );
-        player.acc_exo_hud.alignX = "left";
-        player.acc_exo_hud.alignY = "top";
-        player.acc_exo_hud.color = ( 0.55, 0.85, 1.0 );
-        player.acc_exo_hud.hidewheninmenu = true;
-    }
-
-    player.acc_exo_hud SetText( "^5EXO SUIT ^7" + player.acc_exo_tier + "/" + ACC_EXO_MAX );
-    player.acc_exo_hud.alpha = ( player.acc_exo_tier > 0 ? 0.9 : 0.4 );
+    // Top-left EXO readout RECLAIMED (user 2026-06-27): it was hidden (alpha 0) - the SQUAD roster shows the tier
+    // now - but a HIDDEN server hudelem STILL occupies a slot in the SHARED, fixed per-client pool. Freeing it
+    // makes room for the roster's one-row "points SH EXO MB" stats line without overflowing the ~31/client pool in
+    // 4-player co-op (memory server-hudelem-pool-exhaustion-coop). The tier lives in player.acc_exo_tier; the
+    // roster (_acc_health_bars::update_roster) reads it directly, so nothing visible is lost.
 }

@@ -32,37 +32,39 @@
 <text x="577.6" y="58.04" fill="#3a5468" font-size="9" text-anchor="middle">lab_zone</text>
 <rect x="799.98" y="240.44" width="8" height="24" fill="#ff8c4a" opacity="0.9"/>
 <rect x="338.86" y="240.44" width="8" height="24" fill="#ff8c4a" opacity="0.9"/>
-<rect x="425.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="425.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="458.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="458.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="491.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="491.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="524.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="524.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="557.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="557.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="590.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="590.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="623.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="623.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="656.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="656.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
-<rect x="689.8" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
-<rect x="689.8" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="409.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="409.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="442.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="442.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="475.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="475.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="508.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="508.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="541.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="541.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="574.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="574.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="607.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="607.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="640.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="640.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="673.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="673.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
+<rect x="706.3" y="32.44" width="31.24" height="16.28" fill="#2a1d33" stroke="#6a4a7a" stroke-width="0.75"/>
+<rect x="706.3" y="47.22" width="31.24" height="3" fill="#e64a9c" opacity="0.95"/>
 <text x="573.42" y="28.439999999999998" fill="#b07ac8" font-size="8" text-anchor="middle">9 perk alcoves — random 3 doors open / round</text>
-<circle cx="650.09" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="396.65" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="602.02" cy="934" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="489.82" cy="934" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="523.37" cy="854.1708" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="617.42" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="602.02" cy="870.2" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="573.42" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="518.4200000000001" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="463.42" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="430.42" cy="909.041" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="489.82" cy="903.2" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="602.02" cy="903.2" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="595.42" cy="854.1708" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="474.42" cy="854.1708" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="430.42" cy="854.1708" r="2.5" fill="#8a5a44" opacity="0.8"/>
-<circle cx="523.37" cy="885.6" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="485.42" cy="870.2" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="547.02" cy="901" r="2.5" fill="#8a5a44" opacity="0.8"/>
+<circle cx="540.42" cy="870.2" r="2.5" fill="#8a5a44" opacity="0.8"/>
 <circle cx="509.29" cy="973.0566" r="3" fill="#ffffff" opacity="0.8"/>
 <circle cx="509.29" cy="982.2020000000001" r="3" fill="#ffffff" opacity="0.8"/>
 <circle cx="537.45" cy="973.0566" r="3" fill="#ffffff" opacity="0.8"/>
@@ -133,24 +135,32 @@
 <text x="419.42" y="151.6" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">PaP</text>
 <circle cx="194.8" cy="667.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
 <text x="194.8" y="670.8" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
-<circle cx="474.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="474.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="507.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="507.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="540.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="540.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="573.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="573.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="606.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="606.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="441.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="441.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="639.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="639.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="672.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="672.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
-<circle cx="705.42" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
-<text x="705.42" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="457.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="457.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="490.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="490.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="523.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="523.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="556.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="556.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="589.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="589.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="424.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="424.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="622.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="622.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="655.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="655.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="688.92" cy="39.7" r="8" fill="#e64a9c" stroke="#000" stroke-width="1"/>
+<text x="688.92" y="42.7" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">P</text>
+<circle cx="573.42" cy="287.2" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
+<text x="573.42" y="290.2" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
+<circle cx="485.42" cy="588.38" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
+<text x="485.42" y="591.38" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
+<circle cx="518.4200000000001" cy="804.64" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
+<text x="518.4200000000001" y="807.64" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
+<circle cx="485.42" cy="583.1" r="8" fill="#3fa7ff" stroke="#000" stroke-width="1"/>
+<text x="485.42" y="586.1" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">W</text>
 <circle cx="714.22" cy="370.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
 <text x="714.22" y="373.8" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">B</text>
 <circle cx="282.14" cy="227.8" r="8" fill="#ffb02e" stroke="#000" stroke-width="1"/>
@@ -177,8 +187,6 @@
 <text x="786.6" y="255.44" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">D</text>
 <circle cx="364.42" cy="252.44" r="8" fill="#7dd84a" stroke="#000" stroke-width="1"/>
 <text x="364.42" y="255.44" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">D</text>
-<circle cx="729.18" cy="181.16" r="8" fill="#4ae6c8" stroke="#000" stroke-width="1"/>
-<text x="729.18" y="184.16" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">OC</text>
 <circle cx="650.64" cy="519.96" r="8" fill="#4ae6c8" stroke="#000" stroke-width="1"/>
 <text x="650.64" y="522.96" fill="#000" font-size="7" text-anchor="middle" font-weight="bold">HK</text>
 <circle cx="908.7484000000001" cy="337.49199999999996" r="8" fill="#4ae6c8" stroke="#000" stroke-width="1"/>
@@ -193,15 +201,19 @@
 <text x="396.98" y="470.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Power Switch corp</text>
 <text x="408.42" y="151.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Pack-a-Punch</text>
 <text x="183.8" y="670.8" fill="#cfd8e0" font-size="8.5" text-anchor="end">Mystery Box (market)</text>
-<text x="474.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">JUG</text>
-<text x="507.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">SPD</text>
-<text x="540.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">DT2</text>
-<text x="573.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">STM</text>
-<text x="606.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">MULE</text>
-<text x="441.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">QR</text>
-<text x="639.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">DSHOT</text>
-<text x="672.42" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">WIDOW</text>
-<text x="705.42" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">PHD</text>
+<text x="457.92" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">JUG</text>
+<text x="490.92" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">SPD</text>
+<text x="523.92" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">DT2</text>
+<text x="556.92" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">STM</text>
+<text x="589.92" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">MULE</text>
+<text x="424.92" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">QR</text>
+<text x="622.92" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">DSHOT</text>
+<text x="655.92" y="55.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">WIDOW</text>
+<text x="688.92" y="66.7" fill="#cfd8e0" font-size="8.5" text-anchor="middle">PHD</text>
+<text x="562.42" y="290.2" fill="#cfd8e0" font-size="8.5" text-anchor="end">t6_fiveseven</text>
+<text x="474.42" y="591.38" fill="#cfd8e0" font-size="8.5" text-anchor="end">t6_olympia</text>
+<text x="507.4200000000001" y="807.64" fill="#cfd8e0" font-size="8.5" text-anchor="end">Frag (EMP slot)</text>
+<text x="474.42" y="586.1" fill="#cfd8e0" font-size="8.5" text-anchor="end">t9_ak47</text>
 <text x="725.22" y="373.8" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (corp)</text>
 <text x="293.14" y="230.8" fill="#cfd8e0" font-size="8.5" text-anchor="start">Mystery Box (roof)</text>
 <text x="562.42" y="888.6" fill="#cfd8e0" font-size="8.5" text-anchor="end">Mystery Box (plaza)</text>
@@ -215,7 +227,6 @@
 <text x="353.42" y="431.44" fill="#cfd8e0" font-size="8.5" text-anchor="end">Door [1000] enter_roof</text>
 <text x="797.6" y="255.44" fill="#cfd8e0" font-size="8.5" text-anchor="start">Door [1000] enter_lab_e</text>
 <text x="353.42" y="255.44" fill="#cfd8e0" font-size="8.5" text-anchor="end">Door [1000] enter_lab_w</text>
-<text x="740.18" y="184.16" fill="#cfd8e0" font-size="8.5" text-anchor="start">Overclock Terminal</text>
 <text x="661.64" y="522.96" fill="#cfd8e0" font-size="8.5" text-anchor="start">Hack Terminal</text>
 <text x="919.7484000000001" y="340.49199999999996" fill="#cfd8e0" font-size="8.5" text-anchor="start">Vault Overload</text>
 <text x="753.16" y="529.5600000000001" fill="#cfd8e0" font-size="8.5" text-anchor="start">Emergency Drop (corp)</text>

@@ -13,7 +13,9 @@
 //
 // (2) PARADISE DOOR (acc_abyss_hub_door) - the COMMUNAL gate at the bottom (L5) into PARADISE (the
 //     open-air plaza hub; geometry: gen_descent_hub.js). This one KEEPS currency (user 2026-06-25):
-//     100 Data Shards + 100,000 points, paid into two SEPARATE shared pools - any player holds [activate]
+//     cost SCALES BY LIVE PLAYER COUNT (user 2026-06-27) - solo = 50 Data Shards + 50,000 points, +25 shards
+//     + 25,000 points per EXTRA player (2p 75/75k, 3p 100/100k, 4p 125/125k; hub_cost_watcher keeps it live
+//     until the first payment locks it). Paid into two SEPARATE shared pools - any player holds [activate]
 //     to dump ALL they carry of both (each capped to its pool), so the pools draw down separately. Once
 //     BOTH hit 0, ALL living players must GATHER within a generous radius, then it opens for everyone.
 //
@@ -52,8 +54,13 @@
 
 // PARADISE door costs (two independent pools) + the gather geometry. The slab fills the L5 south doorway
 // band y[1703,1723] at z[-1200,-1000]; players approach + gather from the L5 floor (north).
-#define ACC_HUB_DOOR_SHARDS   100
-#define ACC_HUB_DOOR_POINTS   100000
+// Cost SCALES BY LIVE PLAYER COUNT (user 2026-06-27): solo = the SOLO base, +PER per EXTRA player.
+// 1p = 50sh/50k, 2p = 75/75k, 3p = 100/100k, 4p = 125/125k. Computed by hub_cost_shards/hub_cost_points;
+// kept aligned to the live count by hub_cost_watcher until the first contribution LOCKS the price in.
+#define ACC_HUB_DOOR_SHARDS_SOLO   50      // Data Shards: solo base
+#define ACC_HUB_DOOR_SHARDS_PER    25      // Data Shards: + per extra player
+#define ACC_HUB_DOOR_POINTS_SOLO   50000   // points: solo base
+#define ACC_HUB_DOOR_POINTS_PER    25000   // points: + per extra player
 #define ACC_HUB_APPROACH_Y    1745     // contribute trigger sits just NORTH of the door, on the L5 floor
 #define ACC_HUB_GATHER_Y      1740     // gather centre (door front, L5 side)
 #define ACC_HUB_FLOOR_Z       -1200    // L5 floor
@@ -65,9 +72,9 @@
 // costs more per player (everyone roams there early); deeper gates cost less. The per-player base (dvars
 // below) is multiplied by GetPlayers().size, so a gate needs e.g. 125 souls solo and 500 at a full 4-player
 // lobby (first gate); 50 / 200 (deeper). Evaluated LIVE: the per-kill bank check always uses the CURRENT
-// count, so the gate auto-rescales if a player dis/connects mid-grind. (The floating hint is set once at
-// door creation - after all players have loaded - so it reads the starting count; the live check is the
-// source of truth if that later drifts.) Dev = a cheap flat value (no scaling) so the mechanic is quick to test.
+// count, so the gate auto-rescales if a player dis/connects mid-grind. The floating hint is RE-SYNCED to this
+// live value whenever the player count changes (soul_hint_watcher), so the displayed goal always matches what
+// the per-kill check requires. Dev = a cheap flat value (no scaling) so the mechanic is quick to test.
 function souls_needed( layer )
 {
     if ( IS_TRUE( level.acc_dev ) ) return getdvarint( "acc_soul_door_cost", 10 );
@@ -139,6 +146,33 @@ function setup_doors()
 
         level.acc_soul_doors[ level.acc_soul_doors.size ] = door;
     }
+
+    // Keep the floating goal ALIGNED with the LIVE souls_needed (which scales by player count).
+    level thread soul_hint_watcher();
+}
+
+// souls_needed() scales by GetPlayers().size, but the soul-box hint is otherwise only set once at door
+// creation - so in co-op (or after a dis/connect) the DISPLAYED goal could drift from the actual live bank
+// requirement the per-kill check uses (user 2026-06-27: "make sure the UI matches the code"). Re-set the
+// hints ONLY when the player count CHANGES: that is a tiny fixed set of strings (<=4 counts x 4 doors = 16),
+// so it stays far under the 250-triggerstring cap (the per-KILL re-set is what overflowed it - never do THAT).
+function soul_hint_watcher()
+{
+    level endon( "end_game" );
+    last_n = -1;
+    for ( ;; )
+    {
+        n = GetPlayers().size;
+        if ( n != last_n )
+        {
+            last_n = n;
+            if ( isdefined( level.acc_soul_doors ) )
+                foreach ( door in level.acc_soul_doors )
+                    if ( isdefined( door ) && !IS_TRUE( door.acc_open ) )
+                        soul_update_hint( door );
+        }
+        wait 1;
+    }
 }
 
 // CONSTANT hint - shows the FIXED goal, NEVER the live door.acc_souls counter. THE round-~18 crash:
@@ -149,9 +183,10 @@ function setup_doors()
 // (BG_Cache_GetIndexInternal - Exceeded '250' items for type 'triggerstring'). This is structurally the
 // same bug as the Paradise-gate hint (hub_set_hint) but PER-KILL, so it burns slots far faster - exactly
 // what surfaced while grinding souls underground to test the descent. Live progress is shown cache-free
-// via the IPrintLnBold milestone in on_zombie_death_souls (chat prints are NOT triggerstrings). Set ONCE
-// at trigger creation; do NOT re-call per kill. Rule: never interpolate an unbounded runtime value into a
-// SetHintString literal. Memory: triggerstring-cap-hint-strings.
+// via the IPrintLnBold milestone in on_zombie_death_souls (chat prints are NOT triggerstrings). Set at trigger
+// creation + re-synced ONLY when the player count changes (soul_hint_watcher = a tiny fixed set of strings);
+// NEVER re-call per kill (that minted a string per soul = the overflow). Rule: never interpolate an UNBOUNDED
+// runtime value into a SetHintString literal (a BOUNDED one - player count 1..4 - is fine). Memory: triggerstring-cap-hint-strings.
 function soul_update_hint( door )
 {
     if ( !isdefined( door.acc_soul_trigger ) ) return;
@@ -264,6 +299,28 @@ function open_soul_door( door )
 // PARADISE door - the communal money+shards gate into the plaza hub.
 // ---------------------------------------------------------------------------
 
+// PARADISE-gate cost, SCALED BY LIVE PLAYER COUNT (user 2026-06-27): solo = the SOLO base, +PER per EXTRA
+// player. So 50/50k solo, then +25 shards + 25k points each additional player (2p 75/75k .. 4p 125/125k).
+// Mirrors souls_needed() above (which also scales by GetPlayers().size). Dev keeps the cheap fixed override
+// (acc_hub_door_shards / _points, 10 / 10k) so the gate stays a REAL testable currency gate, not auto-open.
+function hub_cost_shards()
+{
+    if ( IS_TRUE( level.acc_dev ) ) return getdvarint( "acc_hub_door_shards", 10 );
+    n = GetPlayers().size;
+    if ( n < 1 ) n = 1;
+    return getdvarint( "acc_hub_door_shards_solo", ACC_HUB_DOOR_SHARDS_SOLO ) +
+           getdvarint( "acc_hub_door_shards_per",  ACC_HUB_DOOR_SHARDS_PER ) * ( n - 1 );
+}
+
+function hub_cost_points()
+{
+    if ( IS_TRUE( level.acc_dev ) ) return getdvarint( "acc_hub_door_points", 10000 );
+    n = GetPlayers().size;
+    if ( n < 1 ) n = 1;
+    return getdvarint( "acc_hub_door_points_solo", ACC_HUB_DOOR_POINTS_SOLO ) +
+           getdvarint( "acc_hub_door_points_per",  ACC_HUB_DOOR_POINTS_PER ) * ( n - 1 );
+}
+
 function setup_hub_door()
 {
     level endon( "end_game" );
@@ -281,11 +338,11 @@ function setup_hub_door()
     door disconnectpaths();
     door.acc_open = false;
 
-    // Two SEPARATE shared pools (dvar-tunable). The door opens (after the gather) only when BOTH reach 0.
-    // Dev keeps the gate a REAL currency gate (NOT auto-open) so it is testable - just cheaper: 10 shards +
-    // 10k points instead of 100 + 100k (user 2026-06-25).
-    level.acc_hub_shards_rem = getdvarint( "acc_hub_door_shards", ( IS_TRUE( level.acc_dev ) ? 10 : ACC_HUB_DOOR_SHARDS ) );
-    level.acc_hub_points_rem = getdvarint( "acc_hub_door_points", ( IS_TRUE( level.acc_dev ) ? 10000 : ACC_HUB_DOOR_POINTS ) );
+    // Two SEPARATE shared pools, cost SCALED BY LIVE PLAYER COUNT (hub_cost_*). The door opens (after the
+    // gather) only when BOTH reach 0. Dev keeps the gate a REAL currency gate (NOT auto-open) so it is
+    // testable - just cheaper (10 shards + 10k points, handled inside the hub_cost_* helpers).
+    level.acc_hub_shards_rem = hub_cost_shards();
+    level.acc_hub_points_rem = hub_cost_points();
 
     // Snapshot the FIXED totals so the gate hint can be a CONSTANT string. The engine caps the
     // "triggerstring" BG-cache at 250 UNIQUE strings (BG_Cache_GetIndexInternal); every distinct
@@ -300,6 +357,7 @@ function setup_hub_door()
     level.acc_hub_points_total = level.acc_hub_points_rem;
 
     level thread hub_door_loop( door );
+    level thread hub_cost_watcher();   // keep the price aligned to the live player count until the first payment
 }
 
 function hub_paid()
@@ -321,6 +379,38 @@ function hub_set_hint( t )
                      " Shards ^7+ ^2" + level.acc_hub_points_total + " Points total^7]  ^3(adds all you carry)" );
 }
 
+// Keep the PARADISE-gate price ALIGNED with the LIVE player count (hub_cost_*) until the first contribution
+// LOCKS it in. Re-sets totals+remaining+hint ONLY when the count changes AND nobody has paid yet (both pools
+// still sit at their snapshot total) - a tiny fixed string set (<=4 player counts), far under the 250-
+// triggerstring cap (mirrors soul_hint_watcher; the per-DEPOSIT re-set is what overflowed it - never do THAT).
+// Once a pool has been drawn down (rem < total) the price is COMMITTED, so we STOP - a partially-paid communal
+// gate is never rescaled, even if a player then dis/connects.
+function hub_cost_watcher()
+{
+    level endon( "end_game" );
+    last_n = -1;
+    for ( ;; )
+    {
+        // Committed the instant either pool drops below its snapshot total -> lock the price, stop watching.
+        if ( level.acc_hub_shards_rem != level.acc_hub_shards_total ||
+             level.acc_hub_points_rem != level.acc_hub_points_total )
+            return;
+
+        n = GetPlayers().size;
+        if ( n != last_n )
+        {
+            last_n = n;
+            level.acc_hub_shards_total = hub_cost_shards();
+            level.acc_hub_points_total = hub_cost_points();
+            level.acc_hub_shards_rem   = level.acc_hub_shards_total;
+            level.acc_hub_points_rem   = level.acc_hub_points_total;
+            if ( isdefined( level.acc_hub_trigger ) )
+                hub_set_hint( level.acc_hub_trigger );
+        }
+        wait 1;
+    }
+}
+
 function hub_door_loop( door )
 {
     level endon( "end_game" );
@@ -329,6 +419,7 @@ function hub_door_loop( door )
     t = spawn( "trigger_radius_use", org, 0, 110, 90 );
     t TriggerIgnoreTeam();
     t SetCursorHint( "HINT_NOICON" );
+    level.acc_hub_trigger = t;   // hub_cost_watcher re-sets this hint when the live player count changes the price
     hub_set_hint( t );
 
     for ( ;; )
@@ -359,9 +450,18 @@ function hub_door_loop( door )
         give_p = ( have_p < level.acc_hub_points_rem ? have_p : level.acc_hub_points_rem );
         if ( give_p > 0 )
         {
+            // Debit the shared pool by the points ACTUALLY removed, not give_p (user 2026-06-27 audit): stock
+            // minus_to_player_score deducts NOTHING under Shopping Free Gobblegum or level.intermission, so
+            // trusting give_p let a player drain the communal gate cost for FREE. Measure the real score delta -
+            // mirrors the shards branch above, which only debits its pool on a successful try_spend.
+            before_p = player.score;
             player zm_score::minus_to_player_score( give_p );
-            level.acc_hub_points_rem -= give_p;
-            contributed = true;
+            spent_p = before_p - player.score;
+            if ( spent_p > 0 )
+            {
+                level.acc_hub_points_rem -= spent_p;
+                contributed = true;
+            }
         }
 
         if ( !contributed )

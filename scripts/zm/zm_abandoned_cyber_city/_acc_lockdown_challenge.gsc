@@ -27,7 +27,7 @@
 //    trigger live, so a sealed-in player could buy one and walk out (escape bug, user 2026-06-25);
 //    is_door_sealed() lets the buyable-door loop refuse those purchases while the purge is active.
 //
-// Live knobs: acc_lockdown_challenge_on (1) / _total (50) / _concurrent (10) / _stagger (0.6) /
+// Live knobs: acc_lockdown_challenge_on (1) / _total (50) / _concurrent (8) / _stagger (0.6) /
 // _stagger_initial (0.3, fast fill at start) / _grace (1.5) / _confine (0) / acc_lockdown_reward (1) /
 // _challenge_debug (0) / _challenge_force "<zone>" (dev start without the trap). Seal: acc_lockdown_lock_doors (1).
 // =============================================================================
@@ -51,7 +51,7 @@
 
 #define ACC_LDC_TOTAL_DEF       0     // FIXED purge-count override; 0 = AUTO = current round x ACC_LDC_ROUND_MULT (user 2026-06-23, was 15/40/50)
 #define ACC_LDC_ROUND_MULT_DEF  2.0   // AUTO purge count = current round x this (acc_lockdown_challenge_mult); 2x round (user 2026-06-23, was 2.5); e.g. r10 -> 20, r20 -> 40
-#define ACC_LDC_CONCURRENT_DEF  10    // on-screen at once (was 8) - denser sealed room; coop self-limits via the producer's GetFreeActorCount gate
+#define ACC_LDC_CONCURRENT_DEF  8     // glitches on-screen at once = the purge's aggression lever (user 2026-06-27: 10->8 = -20% simultaneous-hunter density = -20% purge aggressiveness; history 6->8 "super easy fix", 8->10 denser). Coop self-limits via the producer's GetFreeActorCount gate
 #define ACC_LDC_STAGGER_DEF     0.6   // seconds between spawns (was 1.3) - much faster trickle so the room fills quickly at the start (user 2026-06-18)
 #define ACC_LDC_GRACE_DEF       1.5
 // JOIN WINDOW (user 2026-06-25): seconds the trap stays OPEN after the FIRST player trips it, so teammates can
@@ -845,13 +845,33 @@ function relocate_party_safe( zone, party )
     nav = GetClosestPointOnNavMesh( center, 200, 60 );
     if ( !isdefined( nav ) ) return;                                          // no proven floor point -> leave players put
 
-    dest = nav + ( 0, 0, 16 );                                               // feet-above-floor, never embedded
+    // FAN OUT in co-op (user 2026-06-26): SetOrigin'ing EVERY player to the SAME point stacks their capsules
+    // on one spot; the engine's overlap-ejection then shoves them through the (not-yet-sealed) doorway/wall ->
+    // OOB kill ("teleported into the surge, spawn on each other, die"). Give each a DISTINCT slot on a ring
+    // around the proven-safe centre floor point. Ring spacing (80u for 2 players, ~57u for 4) clears the ~16u
+    // player capsules; offsets are small + horizontal so everyone stays on the room's flat floor.
+    base   = nav + ( 0, 0, 16 );                                             // feet-above-floor, never embedded
+    radius = 40;
+
+    movers = [];
     for ( i = 0; i < party.size; i++ )
     {
         p = party[ i ];
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
         if ( !zm_utility::is_player_valid( p ) ) continue;                   // skip spectators / laststand
-        p SetOrigin( dest );
+        movers[ movers.size ] = p;
+    }
+
+    for ( i = 0; i < movers.size; i++ )
+    {
+        if ( movers.size <= 1 )
+            dest = base;                                                     // solo: the centre point is fine
+        else
+        {
+            ang  = i * ( 360.0 / movers.size );                             // even ring slots, one per player
+            dest = base + ( radius * cos( ang ), radius * sin( ang ), 0 );
+        }
+        movers[ i ] SetOrigin( dest );
     }
 }
 
@@ -998,8 +1018,8 @@ function watch_force_dvar()
 }
 
 // Per-inside-player objective HUD: "GLITCH PURGE" label + a bar that FILLS as you progress + a
-// "killed / total" number. Top-centre, under the zone-name banner. Reuses the proven _acc_health_bars
-// hud::createBar idiom (the colored fill is .bar; acc_set_bar_smooth glides it). self = player.
+// "killed / total" number. Top-centre, under the zone-name banner. The bar is a single "white" icon
+// (the squad-roster idiom), NOT hud::createBar - pool-frugal + leak-free in co-op. self = player.
 function create_challenge_hud()
 {
     if ( isdefined( self.acc_ldc_label ) ) return;   // already built
@@ -1015,10 +1035,19 @@ function create_challenge_hud()
     self.acc_ldc_label.hidewheninmenu = true;
     self.acc_ldc_label SetText( "^1GLITCH PURGE" );
 
-    self.acc_ldc_bar = self hud::createBar( ( 0.9, 0.15, 0.15 ), ACC_LDC_BAR_W, ACC_LDC_BAR_H );
-    self.acc_ldc_bar hud::setPoint( "TOP", "TOP", 0, 84 );
+    // Bar = ONE "white" icon (NOT hud::createBar = 3 hudelems), left-anchored from the centered x so it fills
+    // rightward; width = barw * frac each update (user 2026-06-27 audit: matches the squad roster's pool-frugal
+    // pattern - frees 2 hudelems/player AND removes the createBar barFrame child that destroy_challenge_hud never
+    // freed = a per-player-per-purge hudelem leak that progressively starved the shared co-op HUD pool).
+    self.acc_ldc_bar = self hud::createIcon( "white", 1, ACC_LDC_BAR_H );   // start empty (killed=0); first update fills it
+    self.acc_ldc_bar hud::setPoint( "TOP", "TOP", -( ACC_LDC_BAR_W / 2 ), 84 );   // left edge of the centered bar
+    self.acc_ldc_bar.alignX = "left";
+    self.acc_ldc_bar.alignY = "top";
+    self.acc_ldc_bar.color = ( 0.9, 0.15, 0.15 );
     self.acc_ldc_bar.alpha = 0.9;
     self.acc_ldc_bar.hidewheninmenu = true;
+    self.acc_ldc_bar.acc_barw = ACC_LDC_BAR_W;   // full width; ldc_update_hud sets the live shader width = barw * frac
+    self.acc_ldc_bar.acc_w = 1;
 
     self.acc_ldc_num = self hud::createFontString( "default", 1.0 );
     self.acc_ldc_num hud::setPoint( "TOP", "TOP", 0, 98 );
@@ -1033,12 +1062,7 @@ function create_challenge_hud()
 function destroy_challenge_hud()
 {
     if ( isdefined( self.acc_ldc_label ) ) { self.acc_ldc_label Destroy(); self.acc_ldc_label = undefined; }
-    if ( isdefined( self.acc_ldc_bar ) )
-    {
-        if ( isdefined( self.acc_ldc_bar.bar ) ) self.acc_ldc_bar.bar Destroy();   // the colored fill child
-        self.acc_ldc_bar Destroy();
-        self.acc_ldc_bar = undefined;
-    }
+    if ( isdefined( self.acc_ldc_bar ) ) { self.acc_ldc_bar Destroy(); self.acc_ldc_bar = undefined; }   // single icon now - no .bar/.barFrame children to leak
     if ( isdefined( self.acc_ldc_num ) ) { self.acc_ldc_num Destroy(); self.acc_ldc_num = undefined; }
 }
 
@@ -1057,7 +1081,14 @@ function ldc_update_hud()
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
         if ( !isdefined( p.acc_ldc_bar ) ) continue;
 
-        acc_health_bars::acc_set_bar_smooth( p.acc_ldc_bar, frac, 0.25 );
+        // Icon-bar fill: width = barw * frac, re-shadered only when it changes (same idiom as the squad roster).
+        bw = int( p.acc_ldc_bar.acc_barw * frac + 0.5 );
+        if ( bw < 1 ) bw = 1;
+        if ( !isdefined( p.acc_ldc_bar.acc_w ) || p.acc_ldc_bar.acc_w != bw )
+        {
+            p.acc_ldc_bar setShader( "white", bw, ACC_LDC_BAR_H );
+            p.acc_ldc_bar.acc_w = bw;
+        }
         if ( isdefined( p.acc_ldc_num ) )
             p.acc_ldc_num SetText( killed + " / " + total );
     }

@@ -56,14 +56,14 @@ Stock BO3 does **NOT** scale zombie HP per player (HP is purely round-based); ev
 |---|---|---|---|---|
 | Regular zombie | 150 (round 1) | 1.20x | 1.40x | 1.60x |
 | Elite (Shielded / Teleporter / EMP) | varies | 1.50x | 2.00x | 2.50x |
-| **Brutus (mini-boss)** | 40,000 | **1.50x** | **1.79x** | **2.00x** |
+| **Brutus (mini-boss)** | 48,000 | **1.50x** | **1.79x** | **2.00x** |
 | **Phantom (round boss)** | 80,000 | **1.50x** | **1.79x** | **2.00x** |
 | Full boss (Subroutine Core) | varies by round | 1.50x | 2.00x | 2.50x |
 
 **Key deltas from stock**:
 - Regular zombies scale **+20% per extra player** (user 2026-06-24: 1.2 / 1.4 / 1.6x; was +100% = 2/3/4x — too tanky). `ACC_COOP_REGULAR_HP_PER_EXTRA` (0.2). Stock itself adds **zero** per-player HP — this whole multiplier is ours.
 - Elites scale **flatter** (+50% per extra player, not +100%). Elites become harder but not impossible in 4p.
-- **Brutus + Phantom scale LOGARITHMICALLY** (user 2026-06-24): `mult = 1 + 0.5·log₂(n)` — each *doubling* of players adds 50% HP, so 4p is 2.0x (not 4.0x). Implemented as `acc_coop_scaling::boss_hp_player_mult()` (live-tunable via `acc_boss_coop_hp_log_k`, default 0.5). Resulting HP — Brutus: 40k / 60k / 72k / 80k; Phantom: 80k / 120k / 143k / 160k. (Base HP also cut −20% on 2026-06-24; the log curve replaced a LINEAR ×N that hit 200k/400k at 4p — "scaling linearly is crazy".)
+- **Brutus + Phantom scale LOGARITHMICALLY** (user 2026-06-24): `mult = 1 + 0.5·log₂(n)` — each *doubling* of players adds 50% HP, so 4p is 2.0x (not 4.0x). Implemented as `acc_coop_scaling::boss_hp_player_mult()` (live-tunable via `acc_boss_coop_hp_log_k`, default 0.5). Resulting HP — Brutus: 48k / 72k / 86k / 96k; Phantom: 80k / 120k / 143k / 160k. (Brutus base HP +20% on 2026-06-26 — 40k→48k; before that it was cut −20% on 2026-06-24; the log curve replaced a LINEAR ×N that hit 200k/400k at 4p — "scaling linearly is crazy".)
 - The Subroutine Core full boss still uses the flat `special_hp_mult` (1.5 / 2.0 / 2.5x).
 
 Rationale: a single boss takes ~N× the team's fire in 4p, but **not** a clean 4× effective DPS (shared aggro, target overlap, downs), so a flat ×N HP made the fight an HP-sponge slog. A log curve keeps 4p time-to-kill close to solo while still rewarding more guns. In 4p, boss *density* / spawns scale too, so raw boss HP doesn't need to be 4×.

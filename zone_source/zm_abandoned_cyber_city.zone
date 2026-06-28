@@ -72,6 +72,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_utility.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_cyberware.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_overclocks.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ammo_crate.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
@@ -92,6 +93,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
@@ -434,6 +436,11 @@ weapon,t6_chicom_cqb_up
 // zm_levelcommon_weapons.csv. user 2026-06-23.
 weapon,t8_melee_figure
 weapon,t8_actionfigure_melee
+// Action Figure per-PaP-tier SPEED TWINS (faster meleeTime; GDT clones via tools/gen_actionfigure_speed_twins.js).
+// Swapped in on each pack by _acc_pap_levels::acc_pap_actionfigure. user 2026-06-27.
+weaponfull,t8_melee_figure_fast1
+weaponfull,t8_melee_figure_fast2
+weaponfull,t8_melee_figure_fast3
 
 // Perk weapon-variant TWIN matrix (224 = 7 combos x base/_up x 16 guns): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =

@@ -119,20 +119,36 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
   incremental bake-gating). git can't be used — the .map had other uncommitted WIP.
 - **First content placed — descent rewards (user, 2026-06-24):** the two big shard SINKS moved DOWN so the
   abyss pays off, and the Exo Suit (what lets you walk deeper) moved UP to gate the descent:
-  - **L2 (z=-480):** Cyberware Weapon **Overclock** terminal — `(-400, 1948, -480)`.
-  - **L3 (z=-720):** **Glitch Altar** gamble — `(-400, 1948, -720)`.
+  - **L2 (z=-480):** Cyberware Weapon **Overclock** terminal — `(-400, 1948, -480)` (WEST; now **solid** — `add_prop_clips.js`
+    `overclock_terminal`, re-clipped 2026-06-27 at the L2 depth after the move off the Foundry dropped its old clip) — and,
+    **opposite it across the well, an AMMO CRATE** — `(400, 1948, -480)` (EAST, user 2026-06-27). Refills your **held** weapon's reserve:
+    **1000** for a base gun, **5000** if it's Pack-a-Punched (`acc_ammo_crate_base` / `acc_ammo_crate_pap`). A weapon with
+    **no PaP version** (melee/equipment/no-pack specials) **can't be serviced** — the crate says so and charges nothing.
+    The "is it PaP'd" gate is stock `is_weapon_upgraded`; "does it have a PaP version" is `level.zombie_weapons[base].upgrade`
+    (same test as `_acc_weapon_variants`). `_acc_ammo_crate.gsc`, spawned by `_acc_glitch_altar::spawn_altars`. **Solid** —
+    same model + **56×56×48 clip** as the Data Cache shards crate, via `tools/add_prop_clips.js` `ammo_crate` (which gained
+    a per-prop `bot` so the clip sits on the L2 floor z=-480, not the hardcoded z=-240 pit; **needs a full LED bake**, not `-GscOnly`).
+  - **L3 (z=-720):** **Glitch Altar** gamble — `(-400, 1948, -720)` (now **solid** — `add_prop_clips.js` `glitch_altar_l3`,
+    48×18×64 thin slab matching the reactor/perk-vendor sign kiosk; the floating core orb stays decorative/no-clip).
+  - **L5 (z=-1200, the bottom):** **Ammo Crate** — `(-400, 1948, -1200)` (WEST, the refill before the Paradise gate; `ammo_crate_l5`
+    clip) — and **opposite it, a 2nd Cyberware Weapon Overclock** — `(400, 1948, -1200)` (EAST, user 2026-06-28). GSC-spawned and
+    **functional immediately**; its clip (`add_prop_clips.js` `overclock_l5`, brushmodel/LED-exempt) is **QUEUED** and turns solid on
+    the next full LED bake — the kiosk model is **walk-through until then** (the OC upgrade itself works regardless).
   - **Foundry under-room (L1, z=-240):** **Exo Suit** station — `(230, 1450, -240)` (room relocated EAST to
     center x=350 on 2026-06-25 so the door clears the abyss well; was the freed Overclock spot at `(-120,1450,-240)`).
     The room is a shallow niche whose front wall IS the trench's south wall (floors flush at z=-240) — opening its
     buyable door (`enter_under_plaza`, doorway `x[462,542]`) fuses it with the full-width pit, so it reads as huge.
 
-  Both deep stations sit on the **WEST floor chunk** (`x[-781,-112]`, a solid full-depth slab on every layer)
-  at the layer mid (`y=1948`) — clear of the alternating center stairwells (`x[-112,112]`) and of where the
-  stairs from above land (they step off east at `x≈+112`). All three are **pure GSC script spawns**
-  (`_acc_glitch_altar.gsc` spawns the Altar + Overclock; `_acc_exo.gsc` spawns the Exo station) → no geometry,
-  **`-GscOnly` build, no LED-bake risk.** ⚠ **L2..L5 bake PITCH BLACK** (`lightsForLayer=0`): the Altar
-  self-glows (floating core orb = beacon), but the Overclock kiosk does **not** — if it's too hard to find
-  in-game, add a bake-gated light near it rather than re-lighting the whole abyss. **Depends on the abyss
+  The L2 Overclock + L3 Altar sit on the **WEST floor chunk** (`x[-781,-112]`, a solid full-depth slab on every layer)
+  at the layer mid (`y=1948`); the **EAST chunk** (`x=+400`, same `y=1948`) carries the **L2 ammo crate**, the **L5 Overclock**,
+  while the L5 ammo crate takes the L5 WEST — both sides
+  clear of the alternating center stairwells (`x[-112,112]`) and of where the stairs from above land (they step off
+  east at `x≈+112`, right by the crate). The **models + use-triggers are pure GSC script spawns**
+  (`_acc_glitch_altar.gsc` spawns the Altar + Overclock + ammo crate; `_acc_exo.gsc` spawns the Exo station), but their
+  **collision clips are `.map` brushes** (`add_prop_clips.js`, deep props via per-prop `bot` — user 2026-06-27 "add clips
+  to those"), so a clip change **needs a full LED bake**, not `-GscOnly`. ⚠ **L2..L5 bake PITCH BLACK** (`lightsForLayer=0`):
+  the Altar self-glows (floating core orb = beacon), but the Overclock kiosk **and the ammo crate** do **not** — if either
+  is too hard to find in-game, add a bake-gated light near it rather than re-lighting the whole abyss. **Depends on the abyss
   floors being walk/zombie-path verified** (the open item above) — if a layer turns out unreachable, its
   station is stranded.
 - **Not yet done (content, deferred):** L4/L5 are still identical greybox shells. Per-layer escalation,
@@ -148,7 +164,9 @@ the surface map so the sky cap has clear void above it. Geometry: **`tools/gen_d
 the `acc_abyss_hub_door` slab). OOB-safe + trench-NEUTRAL via `acc_bus_trench::player_in_second_part` (footprint
 `ACC_SP_*`). Paradise is a full second hub: GSC-spawned duplicate Glitch Altar / Overclock / Exo / perk-slot vendor /
 boss-item bench + a **permanent mystery box** + a **2nd Pack-a-Punch** (`acc_glitch_altar::spawn_paradise`),
-plus **all 10 perks** as `.map` entities (`tools/gen_paradise_props.js`).
+plus **all 10 perks** as `.map` entities (`tools/gen_paradise_props.js`). The four Paradise kiosks (Altar / Overclock /
+Exo / perk vendor, all at z=-1200) are **solid** — `add_prop_clips.js` `paradise_*`, clipped at the Paradise floor via
+per-prop `bot` (user 2026-06-27), reusing each model's snug dims (ticket-kiosk 60×68×80, work-table 60×36×80, sign-kiosk 48×18×64).
 
 **The 2nd Pack-a-Punch is a STANDALONE GSC vendor, NOT a 2nd stock machine** (`_acc_pap_levels::spawn_paradise_pap_at`,
 at `(0,-1700,-1200)`). Stock supports exactly one PaP: `spawn_init` renames every `zm_pack_a_punch` zbarrier to the
@@ -167,7 +185,8 @@ when the team banks souls (one per kill on that door's layer). Costs are **per-l
 count** (user 2026-06-25): the **first gate** (layer 1, the trench, where everyone roams early) needs **125 souls
 per player**; each **deeper gate** needs **50 per player** — i.e. 125/50 solo up to **500/200 at a full 4-player
 lobby**. `souls_needed(layer)` multiplies the per-player base by `GetPlayers().size`, evaluated **live** so the
-per-kill bank check auto-rescales on a dis/connect (the floating hint captures the count at door creation). Tuning
+per-kill bank check auto-rescales on a dis/connect, and the floating hint **re-syncs to that live value whenever the
+player count changes** (`soul_hint_watcher`, user 2026-06-27) so the displayed goal always matches the requirement. Tuning
 dvars: `acc_soul_door_cost_first` (125/player) + `acc_soul_door_cost` (50/player); dev mode is a cheap flat 10.
 
 **The soul-box hint shows the fixed GOAL, not the live count (triggerstring-cap fix, 2026-06-25).** The first
@@ -177,9 +196,15 @@ at **250 unique strings per match** (never freed), so grinding souls underground
 CTD `BG_Cache_GetIndexInternal - Exceeded '250' items for type 'triggerstring'` (reproduced twice, both at the
 soul boxes). It now builds a **constant** hint from `souls_needed()` only and is set once at trigger creation; live
 progress is shown via the `IPrintLnBold` milestone every 25 souls (chat prints are not triggerstrings). General
-rule: never interpolate an unbounded/per-kill runtime value into a `SetHintString` literal. Only the **Paradise
-gate** (`acc_abyss_hub_door`) keeps currency: **100 Data Shards + 100,000 points**, two communal pools, contribute-all
-+ all-survivors-gather to open. (Supersedes the old points-only `door_cost` 2k/3k/5k/8k.)
+rule: never interpolate an *unbounded*/per-kill runtime value into a `SetHintString` literal — but a **bounded** one
+(player count 1–4) is fine, so the hint is re-synced **only on a player-count change** (`soul_hint_watcher`, ≤16
+distinct strings total) to keep what's shown aligned with `souls_needed()` (user 2026-06-27). Only the **Paradise
+gate** (`acc_abyss_hub_door`) keeps currency, **scaled by live player count** (user 2026-06-27): **solo = 50 Data
+Shards + 50,000 points**, **+25 shards + 25,000 points per extra player** (2p 75/75k, 3p 100/100k, 4p 125/125k) — two
+communal pools, contribute-all + all-survivors-gather to open. `hub_cost_watcher` keeps the price aligned to the live
+count until the first payment locks it in (a partially-paid pool is never rescaled). Dvars `acc_hub_door_shards_solo`
+(50) / `_per` (25) / `acc_hub_door_points_solo` (50000) / `_per` (25000). (Supersedes the old flat 100 / 100k, and the
+even older points-only `door_cost` 2k/3k/5k/8k.)
 
 **The gate hint shows the FIXED TOTAL, not live remaining (triggerstring-cap fix, 2026-06-25).** The engine caps the
 `triggerstring` BG-cache at **250 unique strings per match**, and every distinct string passed to `SetHintString` burns
@@ -200,8 +225,8 @@ the gate opens, and it starts the instant the team drops into the plaza. The seq
 |---|---|---|
 | **1 — CALM** | `acc_paradise_calm_sec` 60 | One-shot **victory fanfare** (`acc_paradise_calm`, the Mario stage-win jingle), clear air, a **very light trickle** (`acc_paradise_trickle_sec` 12). A fakeout. |
 | **2 — OMEN** | instant | **Fog rolls back in** (`acc_atmosphere::paradise_fog_on` → re-runs the map's `set_fog_from_dvars` haze every tick, overriding the power-on settle) + the stock **dog-round announcer** `zmb_dog_round_start` ("fetch me their souls"). |
-| **3 — DREAD** | `acc_paradise_dread_sec` 15 | Fog closing in, trickle continues. |
-| **4 — BATTLE** | `acc_paradise_survive_sec` 240 (4 min) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume) plays; **2 Brutus + 1 Phantom** + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): **+1 Brutus + 1 Phantom** (caps `acc_paradise_brutus_max`/`_phantom_max` 4), the **world-wide horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final min; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer`), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the final L5 step). **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
+| **3 — DREAD** | `acc_paradise_dread_sec` 10 | Fog closing in, trickle continues. |
+| **4 — BATTLE** | `acc_paradise_survive_sec` 225 (**3:45**, user 2026-06-27) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume) plays; **2 Brutus + 1 Phantom** + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): **+1 Brutus + 1 Phantom** (caps `acc_paradise_brutus_max`/`_phantom_max` 4), the **world-wide horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final wave; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer`), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the L5 step at 3:00). **Four waves**: L2/L3/L4 are **60s** each, the **final L5 wave is 45s** (3:00 → 3:45). **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
 | **WIN** | — | Banner → replay the fanfare → **lift the fog** (`paradise_fog_off` = `disable_fog`, planes pushed off-map) → fade → purge horde → `level notify("end_game")` (docs/22 end-game recipe). **LOSE** = team wipe ends the match normally. |
 
 **Boss-HUD / music suppression**: `_acc_health_bars::boss_bar_listener`/`boss_bar_track` skip + self-destroy bars

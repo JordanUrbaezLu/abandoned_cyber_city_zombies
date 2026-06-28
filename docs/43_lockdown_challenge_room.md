@@ -91,7 +91,7 @@ These are the bugs the adversarial pass caught. The plan is only correct **with 
    `GetFreeActorCount()<1` (`zombie_utility.gsc:1462`), so the producer's pre-check isn't sufficient —
    it can block *inside* the spawn under a dense outside horde. That's acceptable (it stalls the
    challenge, never the round) **only if** the producer thread carries the teardown endons so it's
-   killed cleanly. Keep concurrent low (`default 6`, gated on `GetFreeActorCount()>=1`); live-test at
+   killed cleanly. Keep concurrent low (`default 8`, gated on `GetFreeActorCount()>=1`); live-test at
    r20+ before raising `ACC_ACTOR_LIMIT` past 35 (don't approach the ~32 co-op netcode zone).
 
 4. **Scheduled-glitch stacking.** On a round that is *both* a challenge and a glitch-cadence round
@@ -326,7 +326,7 @@ per-grabber dedupe already solved — already-owns → 3 Data Shards). Gate on `
 
 ## 13. Dvars (all live)
 
-`acc_lockdown_challenge_on` (1) · `_total` (30) · `_concurrent` (6, the AI-budget safety) · `_stagger`
+`acc_lockdown_challenge_on` (1) · `_total` (30) · `_concurrent` (8, the AI-budget safety + the purge's aggression lever; user 2026-06-27 10→8 = −20% aggressiveness) · `_stagger`
 (1.5) · `_grace` (1.5, the flee-window before the trap arms — decision #2) · `acc_lockdown_reward` (1)
 · `_challenge_debug` (0) · `_challenge_force "<zone>"` (dev start without springing the trap) ·
 `_challenge_tint` (1, Phase C) · `_challenge_drop_lifetime` (60). Reuses `acc_lockdown_lock_doors`

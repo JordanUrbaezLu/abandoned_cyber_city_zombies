@@ -57,8 +57,10 @@ stop letting each site invent a default: **resolve `acc_dev` once and share it.*
 `PLAY_TEST_MAP.bat:66` / `run_game.ps1:90`). With every flag named, the two dev engines run and the whole
 sandbox lights up. The engines are:
 - `acc_hardcoded_dev()` (`zm_abandoned_cyber_city.gsc:245-315`) — money / shards / mega bottles / banner / auto-power.
-- `acc_dev::init()` (`_acc_dev.gsc:37-79`) — perk-slot max, dev HUDs (damage numbers, door markers, zone label),
-  console teleports / round-skip / power-on watchers.
+- `acc_dev::init()` (`_acc_dev.gsc`) — sets up TWO ALWAYS-ON features ABOVE the dev gate, for every player in
+  dev AND normal play (NOT dev tools): the crosshair **damage numbers** and the top-center **area-name banner**
+  (`dev_player_hud_loop`, user 2026-06-27). Everything BELOW the gate is dev-only: perk-slot max, the "DEV MODE
+  ACTIVE" line, console teleports / round-skip / power-on watchers. (The door-marker HUD was removed.)
 
 **The real reason your past "single flag" attempts failed:** `acc_dev 1` **by itself does NOT turn the others
 on.** Each dev behavior gates on its **OWN** flag, read at its own site (verified):

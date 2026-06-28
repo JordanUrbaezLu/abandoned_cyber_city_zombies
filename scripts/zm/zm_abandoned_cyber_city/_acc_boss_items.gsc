@@ -18,9 +18,12 @@
 
 #using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_score;
+#using scripts\zm\_zm_spawner;     // register_zombie_death_event_callback (per-zombie drop rolls)
+#using scripts\zm\_zm_powerups;    // specific_powerup_drop (Lucky Clover bonus power-up)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;   // grant_bottle (killer-only zombie Mega Bottle drop)
 
 #define ACC_ITEM_SLOTS_PER_PLAYER 2     // TWO active "implanted" items, one per bench pad (Slot 1 / Slot 2)
 #define ACC_ITEM_PICKUP_RADIUS 64
@@ -29,6 +32,20 @@
 
 #define ACC_BOSS_ITEM_DROP_CHANCE_MINI 1.00    // TEMP(testing 2026-06-18): 100% mini drops (Brutus + Glitch Stalker) so items are guaranteed for testing. DESIGN VALUE = 0.50 - restore it (or set dvar `acc_boss_item_chance_mini 0.5`) when tuning is done.
 #define ACC_BOSS_ITEM_DROP_CHANCE_FULL 1.00    // 100% from Subroutine Core (full boss)
+
+// Per-ZOMBIE (regular horde) drop rolls (user 2026-06-27): every NON-boss zombie death INDEPENDENTLY rolls a
+// small chance to (a) drop a random pool ITEM as a free-for-all world pickup and (b) grant ONE Empty Mega
+// Bottle to the KILLER ONLY. Defaults 0.004 = 0.4% EACH (NOT 40%); live dvars acc_zombie_item_drop_chance /
+// acc_zombie_bottle_drop_chance let you tune both with no rebuild.
+#define ACC_ZOMBIE_ITEM_DROP_CHANCE   0.004
+#define ACC_ZOMBIE_BOTTLE_DROP_CHANCE 0.004
+
+// Lucky Clover (item 7, user 2026-06-27): while IMPLANTED, the carrier's KILLS are luckier - the zombie item +
+// Mega Bottle drop chances are MULTIPLIED by ACC_CLOVER_MULT, and each of the carrier's kills additionally rolls
+// ACC_CLOVER_POWERUP_CHANCE to FORCE-DROP a random stock power-up (bypassing the per-round cap). Works everywhere
+// incl. the Paradise finale (user 2026-06-27). Live dvars: acc_clover_mult / acc_clover_powerup_chance.
+#define ACC_CLOVER_MULT             2.0    // item + bottle drop multiplier while the killer has the Clover (0.4% -> 0.8%)
+#define ACC_CLOVER_POWERUP_CHANCE   0.005  // per-kill chance for a Clover carrier to drop a random power-up
 
 // Item buff tuning.
 #define ACC_OVERCHARGE_REGEN     10    // Repair Kit: HP regenerated per second
@@ -56,6 +73,7 @@
 #precache( "model", "p7_cai_work_table_metal_03_white" );  // Plaza Implant Bench prop (Cyber City white metal workbench - high-tech bench; packed via .zone xmodel line)
 #precache( "model", "zombietron_gold_brick" );             // 3 Loot Stash (gold brick = treasure/points)
 #precache( "model", "p7_boots_safehouse_01" );             // 8 Boots (safehouse boots - proven packable)
+#precache( "model", "p7_zm_power_up_double_points" );      // 7 Lucky Clover (X2 power-up orb, user 2026-06-27 "use the X2 for now"; stock-runtime-loaded like carpenter. The X2 reads as the Clover's DOUBLE-luck effect)
 
 // VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
 // it terminates the directive preamble; a #using after it is a compile
@@ -75,12 +93,18 @@ function init()
     level.acc_item_pool = build_item_pool();
     level thread spawn_bench();
     level thread scale_octobombs_watch();   // shrink Li'l Arnie (octobomb) visuals (user 2026-06-18)
+
+    // Per-zombie drop rolls: every regular (non-boss) zombie death has a small chance to drop a random item
+    // and/or grant the KILLER a Mega Bottle (user 2026-06-27). See on_zombie_death_drop. This stock hook
+    // supports multiple registrants (also used by _acc_elites + _acc_mega_bottles).
+    zm_spawner::register_zombie_death_event_callback( &on_zombie_death_drop );
 }
 
-// Loot Stash / Payroll Ledger points bonus is owned by _acc_points.gsc (user 2026-06-23): a FLAT per-kill
-// add to the KILLER - +10 normal / +20 headshot kill (ACC_LEDGER_KILL_BONUS / _HEADSHOT_BONUS), doubled by
-// Double Points, plus a Nuke top-up to 500 (ACC_LEDGER_NUKE). _acc_points reads this item via
-// acc_boss_items::player_has_ledger(); this module just owns the equip flag (apply/remove_payroll_ledger).
+// Loot Stash / Payroll Ledger points bonus is owned by _acc_points.gsc: a FLAT per-kill add to the KILLER -
+// +10 regular / +15 headshot, and WITH Double Points +15 / +25 (additive DP boost, not the base's x2; user
+// 2026-06-26). The non-10 values are banked so they net exact. Plus a Nuke top-up to 500 (ACC_LEDGER_NUKE).
+// _acc_points reads this item via acc_boss_items::player_has_ledger() (award_killer_with_ledger); this module
+// just owns the equip flag (apply/remove_payroll_ledger).
 
 function on_player_connect( player )
 {
@@ -98,6 +122,40 @@ function on_player_connect( player )
                                             // spawn -> "last one wins" the single tactical slot (docs/12).
     player thread reapply_move_speed_on_spawn();
     player thread watch_box_tactical_grab();   // box-rolled Monkey Bomb / Li'l Arnie finalizer (user 2026-06-24)
+    player thread lose_implants_on_bleed_out(); // die out -> lose BOTH implants (user 2026-06-26)
+}
+
+// DIE OUT -> LOSE YOUR IMPLANTS (user 2026-06-26): a real death is a setback. Bleeding out wipes BOTH implant
+// slots - their buffs go with them (unequip_slot runs each item's on_unequip -> strips the buff + does the
+// tactical hand-off + re-syncs the HUD) - so a revived player keeps their implants but a player who DIES OUT
+// must find + re-implant new boss items. Hooks the stock per-player "bled_out" notify, which is the canonical
+// REAL-death signal (_zm_laststand.gsc notifies it at bleed-out, :523/:580, and stock itself waits on it at
+// :1311); it does NOT fire on a down that gets revived. Co-op: you respawn next round implant-less. Solo
+// bleed-out is game over anyway, so this is a harmless no-op there.
+function lose_implants_on_bleed_out()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        self waittill( "bled_out" );
+        if ( !isdefined( self ) || !isdefined( self.acc_equipped_items ) )
+            continue;
+
+        had_any = false;
+        for ( slot = 0; slot < self.acc_equipped_items.size; slot++ )
+        {
+            if ( self.acc_equipped_items[ slot ] != "" )
+            {
+                had_any = true;
+                unequip_slot( self, slot );   // clears the slot + runs on_unequip (buff off, tactical hand-off, HUD)
+            }
+        }
+
+        if ( had_any )
+            self IPrintLnBold( "^1IMPLANTS LOST^7 - you bled out" );
+    }
 }
 
 // VERIFIED(acc): zm_usermap giveCustomCharacters() runs SetMoveSpeedScale(1)
@@ -149,7 +207,7 @@ function build_item_pool()
         "zombietron_gold_brick",        // gold brick = treasure/points
         18,                             // floor lift (tune live)
         "implant",
-        &apply_payroll_ledger,          // +10% Points on kills
+        &apply_payroll_ledger,          // flat points/kill: +10 reg / +15 HS (+15 / +25 on Double Points)
         &remove_payroll_ledger
     );
 
@@ -195,6 +253,17 @@ function build_item_pool()
         "feet",
         &apply_boots,                   // +8% move overall + IMMUNE to the Bus Station trench slow (walk normal in the pit)
         &remove_boots
+    );
+
+    pool[ pool.size ] = item(
+        7,
+        "lucky_clover",
+        "Lucky Clover",
+        "p7_zm_power_up_double_points", // X2 power-up orb (user 2026-06-27 "use the X2 for now"). Stock-runtime-loaded (no zone line needed, same as the carpenter model the Repair Kit uses). The X2 nicely reads as the Clover's DOUBLE-luck effect; pickup hint still says "7 - Lucky Clover". Swap to a real clover model later.
+        18,                             // floor lift (power-up orb pivot; ~carpenter's 19. tune in build_item_pool)
+        "implant",
+        &apply_lucky_clover,            // luck: 2x zombie item + Mega Bottle drop chance + 0.5%/kill bonus power-up
+        &remove_lucky_clover
     );
 
     return pool;
@@ -261,20 +330,11 @@ function on_boss_death( tier, killer, origin )
     // Pick a random item from the pool.
     picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
 
-    // If killer already has this item, auto-convert to Shards right here.
-    if ( isdefined( killer ) && isplayer( killer ) &&
-         player_has_item( killer, picked.id ) )
-    {
-        acc_data_shards::grant_player( killer, ACC_ITEM_DUPLICATE_SHARD_CONVERT,
-                                        "boss_item_duplicate" );
-        acc_utility::log( "boss_items: " + picked.id +
-                           " was duplicate for " + killer.name +
-                           " -> +" + ACC_ITEM_DUPLICATE_SHARD_CONVERT + " shards" );
-        acc_utility::drops_debug( "item DUPE-AT-DEATH id=" + picked.id + " killer=" + killer.name + " -> +" + ACC_ITEM_DUPLICATE_SHARD_CONVERT + " shards" );
-        return;
-    }
-
-    // Otherwise spawn a pickup entity at boss corpse.
+    // Spawn a free-for-all pickup at the corpse - ALWAYS, even if the KILLER already owns the rolled item
+    // (user 2026-06-27 audit). watch_pickup does PER-GRABBER duplicate handling (an owner who grabs it gets
+    // Data Shards instead of the item), so a TEAMMATE who LACKS the item is no longer denied it just because
+    // the killer happens to have it. Mirrors grant_challenge_reward, which already drops unconditionally for
+    // this exact reason. (Was: a killer-duplicate converted to shards + returned WITHOUT spawning any pickup.)
     spawn_pickup( picked, origin );
 }
 
@@ -294,6 +354,72 @@ function grant_challenge_reward( origin )
     picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
     spawn_pickup( picked, origin );
     acc_utility::log( "boss_items: challenge reward drop id=" + picked.id + " at " + origin );
+}
+
+// ---------------------------------------------------------------------------
+// Per-ZOMBIE drop rolls (user 2026-06-27). Registered as a zombie death-event callback, so it runs ON the
+// dying zombie (self) with the killer as `attacker`. Every REGULAR zombie death independently rolls:
+//   (a) acc_zombie_item_drop_chance  (default 0.004 = 0.4%) -> a random pool item drops at the corpse as a
+//       FREE-FOR-ALL world pickup (any player can grab; per-grabber duplicate handling already in watch_pickup).
+//   (b) acc_zombie_bottle_drop_chance (default 0.004 = 0.4%) -> ONE Empty Mega Bottle granted DIRECTLY to the
+//       KILLER ONLY (no shared / world drop) - exactly the player who got the kill.
+// Bosses + mini-bosses are EXCLUDED (they have their own guaranteed drops via on_boss_death) so a boss kill
+// never double-dips. Both chances are LIVE dvars (no rebuild); 0.3% is rare by design - raise to taste.
+// ---------------------------------------------------------------------------
+function on_zombie_death_drop( attacker )
+{
+    // self = the dying actor. Regular horde + elites are eligible; skip bosses/mini-bosses (own drop pipeline).
+    // (IS_TRUE is not #insert'd in this file, so guard the boss-marker fields explicitly.)
+    if ( ( isdefined( self.acc_is_boss ) && self.acc_is_boss ) ||
+         ( isdefined( self.acc_is_mini_boss ) && self.acc_is_mini_boss ) )
+        return;
+
+    // LUCKY CLOVER (item 7, user 2026-06-27): if the KILLER has the Clover implanted, this kill is luckier -
+    // the item + bottle chances are MULTIPLIED by acc_clover_mult, and a bonus power-up roll fires below.
+    killer_has_clover = ( isdefined( attacker ) && isplayer( attacker ) && player_has_clover( attacker ) );
+    clover_mult = ( killer_has_clover ? getdvarfloat( "acc_clover_mult", ACC_CLOVER_MULT ) : 1.0 );
+
+    // (a) Random ITEM -> free-for-all world pickup at the corpse (same pickup as a boss item).
+    item_chance = getdvarfloat( "acc_zombie_item_drop_chance", ACC_ZOMBIE_ITEM_DROP_CHANCE ) * clover_mult;
+    if ( isdefined( level.acc_item_pool ) && level.acc_item_pool.size > 0 &&
+         acc_utility::acc_rand_float() <= item_chance )
+    {
+        picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
+        spawn_pickup( picked, self.origin );
+        acc_utility::drops_debug( "zombie ITEM drop id=" + picked.id + " at " + self.origin );
+    }
+
+    // (b) MEGA BOTTLE -> granted to the KILLER ONLY (direct grant; NOT a shared/world drop).
+    if ( isdefined( attacker ) && isplayer( attacker ) )
+    {
+        bottle_chance = getdvarfloat( "acc_zombie_bottle_drop_chance", ACC_ZOMBIE_BOTTLE_DROP_CHANCE ) * clover_mult;
+        if ( acc_utility::acc_rand_float() <= bottle_chance )
+        {
+            attacker acc_mega_bottles::grant_bottle( 1, "zombie_drop" );
+            acc_utility::drops_debug( "zombie BOTTLE drop -> killer" );
+        }
+
+        // (c) LUCKY CLOVER bonus: a per-kill chance to FORCE-DROP a random power-up at the corpse (bypasses the
+        // stock per-round cap - that bypass IS the "luck"). Works everywhere incl. the Paradise finale.
+        if ( killer_has_clover && acc_utility::acc_rand_float() <= getdvarfloat( "acc_clover_powerup_chance", ACC_CLOVER_POWERUP_CHANCE ) )
+            drop_clover_powerup_at( self.origin );
+    }
+}
+
+// Force-drop ONE random registered power-up (the Lucky Clover bonus). Mirrors _acc_elites::drop_recursion_powerup_at
+// but is deliberately NOT Paradise-gated (the Clover is meant to keep working during the finale, user 2026-06-27).
+// The four names are VERIFIED registered powerups (their modules are #using'd by the entry script).
+function drop_clover_powerup_at( origin )
+{
+    options = [];
+    options[ options.size ] = "full_ammo";
+    options[ options.size ] = "insta_kill";
+    options[ options.size ] = "double_points";
+    options[ options.size ] = "nuke";
+
+    name = options[ acc_utility::acc_rand_int( options.size ) ];
+    level thread zm_powerups::specific_powerup_drop( name, origin );
+    acc_utility::drops_debug( "clover POWER-UP drop " + name + " at " + origin );
 }
 
 // ---------------------------------------------------------------------------
@@ -573,8 +699,13 @@ function apply_ghost_shroud()
 }
 function remove_ghost_shroud()       { self.acc_item_shroud = false; acc_utility::log( "unequip: ghost_shroud" ); }
 
-function apply_payroll_ledger()      { self.acc_item_ledger = true; acc_utility::log( "equip: payroll_ledger (+10% Points on kills)" ); }
+function apply_payroll_ledger()      { self.acc_item_ledger = true; acc_utility::log( "equip: payroll_ledger (flat +10/+15 pts/kill, incl. trench)" ); }
 function remove_payroll_ledger()     { self.acc_item_ledger = false; acc_utility::log( "unequip: payroll_ledger" ); }
+
+// Lucky Clover (item 7): a passive flag read at drop time by on_zombie_death_drop (mirrors the payroll_ledger
+// pattern). While set, the carrier's kills get 2x zombie item/bottle drop chance + a 0.5%/kill bonus power-up.
+function apply_lucky_clover()        { self.acc_lucky_clover = true; acc_utility::log( "equip: lucky_clover (2x zombie item/bottle luck + 0.5%/kill power-up)" ); }
+function remove_lucky_clover()       { self.acc_lucky_clover = false; acc_utility::log( "unequip: lucky_clover" ); }
 
 // ---------------------------------------------------------------------------
 // NEW self-contained buffs (Power Lever / Rocket Shield / Monkey Bomb). These
@@ -1223,6 +1354,15 @@ function player_has_ledger( player )
     if ( !isdefined( player ) ) return false;
     if ( !isdefined( player.acc_item_ledger ) ) return false;
     return player.acc_item_ledger == true;
+}
+
+// Lucky Clover (item 7): true while the player has the Clover IMPLANTED. Read by on_zombie_death_drop to boost
+// that killer's drop luck. (No IS_TRUE macro in this file, so test the flag explicitly like player_has_ledger.)
+function player_has_clover( player )
+{
+    if ( !isdefined( player ) ) return false;
+    if ( !isdefined( player.acc_lucky_clover ) ) return false;
+    return player.acc_lucky_clover == true;
 }
 
 // Movement speed hook - applies +20% when Neural Boots equipped AND holding a primary.
