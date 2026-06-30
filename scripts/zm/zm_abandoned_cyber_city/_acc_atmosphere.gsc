@@ -92,6 +92,19 @@
 #define ACC_VISION_ON           0
 #define ACC_VISION_SET          "zm_abandoned_cyber_city"
 
+// --- Atmosphere FX (Phase 3+4, user 2026-06-28): neon HERO-GLOWS + ambient dust/steam. Server PlayFX of
+//     LOOPING efx (one shot at init persists). Paths verified on disk (share/raw/fx). Gated by acc_atmo_fx.
+//     The glow efx are our own perk-machine glows (also client-precached in _acc_perk_lights.csc) reused as
+//     the visible neon "sources" the Phase-1 baked light pools spill from. If server FX don't render in-game
+//     (see memory power-on-lights-perks-mechanism), promote to a client _acc_atmosphere_fx.csc.
+#precache( "fx", "acc/light/fx_perk_glow_teal" );
+#precache( "fx", "acc/light/fx_perk_glow_magenta" );
+#precache( "fx", "acc/light/fx_perk_glow_amber" );
+#precache( "fx", "acc/light/fx_perk_glow_blue" );
+#precache( "fx", "acc/light/fx_perk_glow_red" );
+#precache( "fx", "dirt/fx_dust_linger_int_sector" );
+#precache( "fx", "steam/fx_steam_leak_md_factory_zmb" );
+
 #namespace acc_atmosphere;
 
 // ---------------------------------------------------------------------------
@@ -125,6 +138,7 @@ function init()
     level thread apply_vision();
     level thread apply_ambient_bed();
     level thread apply_music();
+    level thread apply_fx();          // Phase 3+4: neon hero-glows + ambient dust/steam (acc_atmo_fx)
 }
 
 function apply_fog()
@@ -481,4 +495,49 @@ function apply_music()
         // this one-shot theme stops the moment it does). Reaches the whole lobby, same as play_sound_2D.
         acc_music::play( ACC_MUSIC_ALIAS, false );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Atmosphere FX (Phase 3+4) - neon HERO-GLOWS + ambient dust/steam, placed with server PlayFX at fixed
+// world points after the blackscreen. The glow efx loop, so one PlayFX persists; they are the visible neon
+// "sources" the Phase-1 baked light pools spill from. Gated by acc_atmo_fx (default 1). Revert: acc_atmo_fx 0.
+// ---------------------------------------------------------------------------
+
+function apply_fx()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+    if ( getdvarint( "acc_atmo_fx", 1 ) != 1 )
+        return;
+
+    level._effect[ "acc_glow_teal" ]    = "acc/light/fx_perk_glow_teal";
+    level._effect[ "acc_glow_magenta" ] = "acc/light/fx_perk_glow_magenta";
+    level._effect[ "acc_glow_amber" ]   = "acc/light/fx_perk_glow_amber";
+    level._effect[ "acc_glow_blue" ]    = "acc/light/fx_perk_glow_blue";
+    level._effect[ "acc_glow_red" ]     = "acc/light/fx_perk_glow_red";
+    level._effect[ "acc_haze" ]         = "dirt/fx_dust_linger_int_sector";
+    level._effect[ "acc_steam" ]        = "steam/fx_steam_leak_md_factory_zmb";
+
+    // HERO glow SPRITES were removed (user 2026-06-28: "put them in spots where they don't show... move it above
+    // the ceiling"). The orbs showed as bright floating sprites in mid-room. The colored glow now comes purely from
+    // the Phase-1 BAKED neon lights (gen_neon_lights.js) - a light entity casts the colored pool with NO visible
+    // on-map source - which also carry each zone's UNIQUE color. (To re-add a recessed neon accent later, place a
+    // glow just inside a wall/ceiling so only its halo spills.) Steam + haze below are plumes/drift, not orbs - kept.
+    // AMBIENT drifting interior dust/haze (subtle life):
+    fx_at( "acc_haze", (     0, 1950, 120 ) );  // Corp
+    fx_at( "acc_haze", ( -1596,  928, 110 ) );  // Market
+    fx_at( "acc_haze", (  1634,  928, 110 ) );  // Alley
+    fx_at( "acc_haze", (     0, 1950,-180 ) );  // Trench
+    // STEAM vents (placed low so the plume rises):
+    fx_at( "acc_steam", (  1700, 1000,  20 ) );  // Alley vent
+    fx_at( "acc_steam", (  1300, 2600,  20 ) );  // Vault
+    fx_at( "acc_steam", (  -200, 1948,-230 ) );  // Trench
+
+    acc_utility::log( "atmosphere FX placed (neon glows + drifting haze + steam vents)" );
+}
+
+function fx_at( key, origin )
+{
+    if ( isdefined( level._effect[ key ] ) )
+        PlayFX( level._effect[ key ], origin );
 }

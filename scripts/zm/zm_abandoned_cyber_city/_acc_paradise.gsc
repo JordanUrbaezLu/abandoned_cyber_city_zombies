@@ -731,14 +731,15 @@ function update_timer_hud( remaining )
         p = players[ i ];
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
         ensure_timer_hud( p );
-        p.acc_paradise_timer SetText( txt );
+        if ( isdefined( p.acc_paradise_timer ) ) p.acc_paradise_timer SetText( txt );
     }
 }
 
 function ensure_timer_hud( p )
 {
     if ( isdefined( p.acc_paradise_timer ) ) return;
-    p.acc_paradise_timer = p hud::createFontString( "objective", 1.6 );
+    p.acc_paradise_timer = acc_utility::he_check( p hud::createFontString( "objective", 1.6 ), "paradise.timer" );
+    if ( !isdefined( p.acc_paradise_timer ) ) return;   // pool full (he_check logged it) - degrade, don't touch undefined
     p.acc_paradise_timer hud::setPoint( "TOP", "TOP", 0, 24 );
     p.acc_paradise_timer.alignX = "center";
     p.acc_paradise_timer.alignY = "top";
@@ -770,7 +771,7 @@ function win()
     foreach ( p in GetPlayers() )
     {
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
-        if ( isdefined( p.acc_paradise_timer ) ) { p.acc_paradise_timer hud::destroyElem(); p.acc_paradise_timer = undefined; }
+        if ( isdefined( p.acc_paradise_timer ) ) { p.acc_paradise_timer hud::destroyElem(); acc_utility::he_free( 1 ); p.acc_paradise_timer = undefined; }
         p FreezeControls( true );
         p show_win_banner();
         p PlayLocalSound( "acc_paradise_calm" );   // the victory fanfare again

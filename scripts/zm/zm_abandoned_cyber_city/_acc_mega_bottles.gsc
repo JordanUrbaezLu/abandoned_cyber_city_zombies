@@ -27,8 +27,9 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
 // (Spiderman's custom web-grenade POOL + 6-cap + 4/round restock + WEB GRENADES HUD were REMOVED 2026-06-24
-//  per user - Mega Widow's now uses STOCK web-grenade behavior; its remaining Mega effects are the one-hit
-//  melee and the boss-special immunity.) The Armory Mega (Mule): -10% on buys + per-round reserve refill.
+//  per user - Mega Widow's now uses STOCK web-grenade behavior; the one-hit melee was REMOVED 2026-06-29 and the
+//  boss-special immunity MOVED to Mega Electric Cherry 2026-06-25, so its remaining Mega effects are the
+//  low-stance spider-mobility + the boosted spider-drop rate.) Armory Mega (Mule): -10% buys + reserve refill.
 #define ACC_ARMORY_ROUND_REFILL 0.20   // Armory (Mule Kick Mega): +20% of each gun's reserve cap, refilled at round start (was 0.35, user 2026-06-21)
 
 #namespace acc_mega_bottles;
@@ -382,7 +383,7 @@ function add_mega_glow_icon( perk )
     // with the Mega name over it. One per Mega'd perk, stacked at the lower-left.
     s = SpawnStruct();
 
-    s.badge = self hud::createIcon( "white", 162, 22 );
+    s.badge = acc_utility::he_check( self hud::createIcon( "white", 162, 22 ), "mega.badge" );
     s.badge hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 12, y );
     s.badge.alignX = "left";
     s.badge.alignY = "middle";
@@ -392,7 +393,7 @@ function add_mega_glow_icon( perk )
     s.badge.hidewheninmenu = true;
     s.badge setPulseFX( 55, 700, 700 ); // the pulse = the "glow"
 
-    s.label = self hud::createFontString( "default", 1.05 );
+    s.label = acc_utility::he_check( self hud::createFontString( "default", 1.05 ), "mega.label" );
     s.label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 20, y );
     s.label.alignX = "left";
     s.label.alignY = "middle";
@@ -950,8 +951,8 @@ function on_perk_lost( perk )
     if ( isdefined( self.acc_mega_glow ) && isdefined( self.acc_mega_glow[ perk ] ) )
     {
         g = self.acc_mega_glow[ perk ];
-        if ( isdefined( g.badge ) ) g.badge hud::destroyElem();
-        if ( isdefined( g.label ) ) g.label hud::destroyElem();
+        if ( isdefined( g.badge ) ) { g.badge hud::destroyElem(); acc_utility::he_free( 1 ); }
+        if ( isdefined( g.label ) ) { g.label hud::destroyElem(); acc_utility::he_free( 1 ); }
         self.acc_mega_glow[ perk ] = undefined;
     }
 

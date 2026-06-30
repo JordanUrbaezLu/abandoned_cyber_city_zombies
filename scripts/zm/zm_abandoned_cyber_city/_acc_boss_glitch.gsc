@@ -146,11 +146,31 @@ function glitch_speed_think()
         mult = getdvarfloat( "acc_glitch_speed_mult", ACC_GLITCH_SPEED_MULT_DEF );
         rate = acc_zombie_speed::rate_for_round( r ) * mult;
         if ( rate < 0.1 ) rate = 0.1;
+        if ( self acc_serum_suppressed() )   // Phase Serum aura: 1/5 speed (user 2026-06-29 nerf)
+            rate = rate * getdvarfloat( "acc_phase_serum_slow", 0.2 );
 
         self zombie_utility::set_zombie_run_cycle_override_value( acc_zombie_speed::tier_for_round( r ) );
         self ASMSetAnimationRate( rate );
         wait 1;
     }
+}
+
+// PHASE SERUM suppression (user 2026-06-29): true if any alive player within acc_phase_serum_radius holds the
+// Phase Serum. A Glitch Stalker in that aura is slowed to 1/5 speed (glitch_speed_think) AND skips its blink /
+// glitch ability (glitch_blink_loop) - "nullified" but still able to see + chase. self = the Stalker.
+function acc_serum_suppressed()
+{
+    radius = getdvarint( "acc_phase_serum_radius", 350 );
+    if ( radius <= 0 ) return false;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( !IS_TRUE( p.acc_phase_serum ) ) continue;
+        if ( Distance( self.origin, p.origin ) <= radius ) return true;
+    }
+    return false;
 }
 
 // Spawn `acc_glitch_count` Glitch Stalkers this round, staggered a beat apart for
@@ -443,6 +463,14 @@ function glitch_blink_loop()
         wait blink_cooldown();
 
         if ( !isalive( self ) ) return;
+
+        // PHASE SERUM (user 2026-06-29): a Stalker inside a serum-holder's aura LOSES its blink (glitch ability) -
+        // it can still chase + melee, just at 1/5 speed (glitch_speed_think) with no teleport. Skip the blink.
+        if ( self acc_serum_suppressed() )
+        {
+            gdebug( "blink suppressed (Phase Serum aura)" );
+            continue;
+        }
 
         target = acc_utility::get_closest_uncloaked_player( self.origin ); // Li'l Arnie cloak honored
         if ( !isdefined( target ) ) continue;

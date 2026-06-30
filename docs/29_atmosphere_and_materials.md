@@ -183,10 +183,22 @@ Fog is **lighter** in the Corp hub, Vault Overload point, and Lab (readability),
    blackscreen with a cold low haze (`0, 1600, 600, 0, 0.02, 0.03, 0.06, 0.70`),
    every value live-tunable via `acc_fog_*` dvars (`acc_fog_livetune 1` to dial in
    from the console with no rebuild). *(GSC-only → linker-only rebuild.)*
-3. **Wet ground:** bulk-swap the 90 `script_floor_ceiling` tokens to a verified
-   wet stock material (e.g. `t7_concrete_floor_garage_cracked_wet_nw`); the 546
-   `script_wall` tokens to a dark wall (e.g. `t7_concrete_bare_weathered_01`).
-   No `.zone` edit.
+3. **Walls + floors + ceilings:** ✅ **all painted near-black** —
+   `t7_asphalt_damaged_dark_wet` (#0E1115) via `tools/paint_walls.js` (2026-06-28;
+   `script_wall` 1152 + `script_floor_ceiling` 1092 = 2244 faces, LED-bake-clean,
+   ships with no `.zone` line, no missing-material warning). **No greybox checker
+   remains.** The **Lab** room + **Paradise** hallway/plaza are then repainted clean
+   light **`t7_zm_der_tile_hexagon`** (Der Eisendrache hex tile — verified to ship)
+   via `tools/paint_region.js` (bounds-aware; +the Lab perk-door brushmodels via
+   `--entities`; 2026-06-28; LED-bake-clean). The **Plaza WALLS** are
+   **`t7_metal_panel_floor_cables_01`** (cyber cable panel; walls-only via the
+   painter's `walls:true` orientation filter; 23 brushes; ships). Region AABBs scoped
+   with `tools/find_region.js`. No `.zone` edit either way. The **12 buyable zone
+   doors** (`acc_door_*` brushmodels) are repainted to **`t7_metal_diamond_plate_worn_wet`**
+   (diamond tread-plate) via `tools/paint_doors.js` so a door reads distinct from the wall
+   (user 2026-06-29; buyable doors ONLY — perk-alcove + abyss doors keep their own skins;
+   LED-bake-clean, stock, no `.zone` line). The doors had been a hodgepodge of 8 materials,
+   several of them the same asphalt/concrete tokens as the walls — which is why they vanished.
 4. **Reflection probes:** place ~6–8 `reflection_probe` entities (we have 0;
    shipped industrial map has 23) so neon mirrors in the wet ground. *(Baked → LED.)*
 5. **One neon motif:** author 2–3 emissive "dead sign" materials and place the

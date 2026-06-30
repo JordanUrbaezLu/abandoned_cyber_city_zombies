@@ -36,6 +36,11 @@
 function card_show( title, title_color, price_text, lines )
 {
     card_ensure( self );
+    // Pool-full guard (user 2026-06-29): the card is now CONDITIONAL (destroyed on hide to free the pool), so a
+    // create can fail when the per-client hudelem pool is full -> skip drawing rather than touch an undefined elem
+    // (degrade, never crash). Shows again next time you approach a buyable with room free.
+    if ( !isdefined( self.acc_card_bg ) || !isdefined( self.acc_card_strip ) ||
+         !isdefined( self.acc_card_title ) || !isdefined( self.acc_card_price ) ) return;
 
     self.acc_card_title SetText( title );
     if ( isdefined( title_color ) )
@@ -52,6 +57,7 @@ function card_show( title, title_color, price_text, lines )
     body_y0 = ACC_UI_PAD + ACC_UI_TITLE_H + ( has_price ? ACC_UI_PRICE_H : 0 );
     for ( i = 0; i < self.acc_card_lines.size; i++ )
     {
+        if ( !isdefined( self.acc_card_lines[ i ] ) ) continue;   // pool-full: this line didn't allocate
         if ( i < n )
         {
             self.acc_card_lines[ i ] SetText( lines[ i ] );
@@ -80,18 +86,23 @@ function card_show( title, title_color, price_text, lines )
 function card_hide()
 {
     if ( !isdefined( self.acc_card_bg ) ) return;
-    if ( !IS_TRUE( self.acc_card_shown ) ) return;
 
+    // CONDITIONAL (user 2026-06-29): DESTROY the card hudelems to FREE their pool slots (was: alpha 0, which kept
+    // ~4 + N line slots held for the whole match - the biggest persistent per-client consumer). Recreated by
+    // card_ensure / card_lines on the next card_show. Children (strip/title/price/lines) are destroyed BEFORE the
+    // bg parent. The bg-undefined guard above makes repeated hides idempotent (no churn).
     self.acc_card_shown = false;
-    self.acc_card_bg.alpha = 0;
-    self.acc_card_strip.alpha = 0;
-    self.acc_card_title.alpha = 0;
-    self.acc_card_price.alpha = 0;
     if ( isdefined( self.acc_card_lines ) )
     {
         for ( i = 0; i < self.acc_card_lines.size; i++ )
-            self.acc_card_lines[ i ].alpha = 0;
+            if ( isdefined( self.acc_card_lines[ i ] ) ) self.acc_card_lines[ i ] Destroy();
     }
+    self.acc_card_lines = [];
+    if ( isdefined( self.acc_card_price ) ) { self.acc_card_price Destroy(); self.acc_card_price = undefined; }
+    if ( isdefined( self.acc_card_title ) ) { self.acc_card_title Destroy(); self.acc_card_title = undefined; }
+    if ( isdefined( self.acc_card_strip ) ) { self.acc_card_strip Destroy(); self.acc_card_strip = undefined; }
+    self.acc_card_bg Destroy();
+    self.acc_card_bg = undefined;
 }
 
 function card_ensure( p )
@@ -151,6 +162,7 @@ function card_lines( p, count )
     {
         idx = p.acc_card_lines.size;
         ln = p hud::createFontString( "default", 1.15 );
+        if ( !isdefined( ln ) ) return;   // pool full - stop adding lines (card_show skips undefined entries)
         ln hud::setParent( p.acc_card_bg );
         ln hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, 0 ); // y assigned in card_show
         ln.alpha = 0;

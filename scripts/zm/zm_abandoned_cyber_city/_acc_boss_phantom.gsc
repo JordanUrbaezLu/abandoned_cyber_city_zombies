@@ -50,12 +50,13 @@
 
 #using scripts\shared\util_shared;
 #using scripts\shared\ai\zombie_utility;
+#using scripts\zm\_zm_score;                                  // add_to_player_score (round-scaled Phantom kill points)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player (2 shards/player on Phantom kill)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player (round-scaled shards/player on Phantom kill)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;   // boss_hp_player_mult (log coop HP)
@@ -869,19 +870,23 @@ function phantom_death_watch()
     drop_origin = self.origin;
 
     // Phantom reward (user 2026-06-22): GUARANTEED full set - 1 item drop + 1 Mega Bottle to every player +
-    // 5 Data Shards to every player. (Brutus gets the SAME set but with 3 shards, also 100%; see _acc_boss.gsc.)
-    // SUPPRESSED during the Paradise onslaught (user 2026-06-27 audit): the finale is a SURVIVE-don't-farm
-    // gauntlet with up to 4 Phantoms cycling, so showering the team with items/bottles/shards per kill broke it.
+    // a ROUND-SCALED payout to EVERY player (user 2026-06-29): round x 500 points + round x 1 Data Shards
+    // (round 10 = 5,000 points + 10 shards; round 20 = 10,000 + 20; scales with the round the Phantom is killed on).
+    // SUPPRESSED during the Paradise onslaught (user 2026-06-27 + 2026-06-29 audit): the finale is a SURVIVE-
+    // don't-farm gauntlet with up to 4 Phantoms cycling, so a per-kill payout would break it. The WHOLE block
+    // sits behind the !acc_paradise_onslaught gate -> Paradise-fight Phantoms grant NONE of this (points/shards/item).
     // Mirrors the onslaught's block_powerup_drop + the reward-free Paradise Brutus path (host.acc_no_shard_reward).
     if ( !IS_TRUE( level.acc_paradise_onslaught ) )
     {
         acc_boss_items::grant_challenge_reward( drop_origin );            // 1 item, guaranteed (free-for-all pool drop)
         acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin ); // 1 Mega Bottle to every player
-        phantom_shards = getdvarint( "acc_phantom_shard_reward", 5 );
-        if ( phantom_shards > 0 )
+        kill_round     = level.round_number;                                            // the round the Phantom died on
+        phantom_score  = kill_round * getdvarint( "acc_phantom_score_per_round", 500 ); // round x 500 points (round 10 = 5,000)
+        phantom_shards = kill_round * getdvarint( "acc_phantom_shards_per_round", 1 );  // round x 1 shards  (round 10 = 10)
+        for ( pi = 0; pi < level.players.size; pi++ )
         {
-            for ( pi = 0; pi < level.players.size; pi++ )
-                acc_data_shards::grant_player( level.players[ pi ], phantom_shards, "phantom" );
+            if ( phantom_score  > 0 ) level.players[ pi ] zm_score::add_to_player_score( phantom_score );      // rounds UP to a multiple of 10
+            if ( phantom_shards > 0 ) acc_data_shards::grant_player( level.players[ pi ], phantom_shards, "phantom" );
         }
     }
 

@@ -93,9 +93,9 @@
 // gun's output uniformly while PRESERVING the per-gun balance tiers in acc_weapon_balance_mult.
 // Applied as a flat FINAL multiply on ALL player damage in on_ai_damage (body, headshot, melee,
 // explosive alike) - it sits OUTSIDE the bonus-sum and reduction buckets, after the chain. Live
-// dvar acc_global_dmg_mult; 2.75 = +175%, 1.0 = off. This is the intended "buff all guns" knob.
-// (user 2026-06-23: 1.20 -> 1.32 -> 1.50; user 2026-06-24: 1.50 -> 2.50, +67% over 1.50; user 2026-06-25: 2.50 -> 3.0 -> 2.75.)
-#define ACC_GLOBAL_DMG_MULT    2.75
+// dvar acc_global_dmg_mult; 3.25 = +225%, 1.0 = off. This is the intended "buff all guns" knob.
+// (user 2026-06-23: 1.20 -> 1.32 -> 1.50; user 2026-06-24: 1.50 -> 2.50, +67% over 1.50; user 2026-06-25: 2.50 -> 3.0 -> 2.75; user 2026-06-29: 2.75 -> 3.25.)
+#define ACC_GLOBAL_DMG_MULT    3.25
 
 // Deadshot layer (docs/13_perks.md): base perk +1.3 headshot, American Sniper Mega
 // replaces it with +1.5 (no double dip; retuned 1.4->1.3 / 1.6->1.5 2026-06-25). These ADD into
@@ -324,19 +324,11 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         return 0;
     }
 
-    // Spiderman (Widow's Wine Mega, user 2026-06-18): ONE-KNIFE on REGULAR zombies.
-    // A melee hit from a player holding Mega'd Widow's instakills a normal zombie - but
-    // NOT bosses/elites (is_boss_or_elite gate). Short-circuit return (lethal damage), so
-    // it skips the bonus chain below. Re-adds the melee OHK the 2026-06-14 overhaul removed.
-    if ( b_player_attacker && b_melee
-         && acc_mega_bottles::has_active_mega_perk( attacker, "specialty_widowswine" )
-         && !is_boss_or_elite( self ) )
-    {
-        // Show a damage number on the one-knife (this path RETURNs before the feed at the
-        // function end, so without this a Widow's-Mega knife shows nothing). user 2026-06-23.
-        if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
-        return self.health + 1000;
-    }
+    // Mega Widow's Wine NO LONGER grants a one-knife (user 2026-06-29: "Remove the 1 hit knife from Mega Widow's
+    // Wine"). A Mega Widow's holder's melee now falls through to the normal melee damage chain below - its
+    // remaining Mega effects are the boosted web-grenade behavior + the higher spider-drop rate (_acc_mega_bottles).
+    // (Was: ONE-KNIFE on regular zombies via has_active_mega_perk("specialty_widowswine"), gated off bosses/elites;
+    //  added 2026-06-18, removed 2026-06-29.)
 
     // ACTION FIGURE melee (covers the base figure + its faster PaP "speed twins" - is_action_figure_weapon):
     //   - REGULAR zombies: ALWAYS one-knife (every swing, any round; returns health+1000).
@@ -895,7 +887,7 @@ function acc_weapon_balance_mult( weapon_name )
     // ~5,512 direct + scaled splash = a strong but not game-breaking launcher; ammo-limited self-balances. NOTE:
     // explosive splash + direct both land on a single boss hitbox and there is NO boss-damage cut here (only pellet
     // shotguns get ACC_SHOTGUN_BOSS_MULT) - see the boss-nuke audit (docs/05). (user 2026-06-23)
-    if ( IsSubStr( weapon_name, "s1_mahem" ) )     return 0.40;     // [A] Mahem explosive rocket launcher: 0.40 (user 2026-06-25, was 0.315 - a small BUFF +27%, bringing it closer to the now-harder-nerfed Thundergun). Covers base + PaP.
+    if ( IsSubStr( weapon_name, "s1_mahem" ) )     return 0.29;     // [A] Mahem explosive rocket launcher: USER 2026-06-29 damage nerf (0.40 -> 0.29, -27.5%) - too OP after the global 2.75 -> 3.25 bump. IsSubStr matches BASE s1_mahem + PaP s1_mahem_up (both get this), direct + splash. (Was 0.315 -> 0.40 buff 2026-06-25.)
     // Thundergun (wonder weapon): wind-blast CONE that multi-traces a single boss hitbox. It had NO balance entry
     // at all -> the default 1.0 (zero cut) x the global 2.5x x ~8 cone traces = the ~200k-to-bosses nuke the user
     // hit. NERF -30% (user 2026-06-24, implicit 1.0 -> 0.70). Covers base + thundergun_upgraded (IsSubStr). NOTE:

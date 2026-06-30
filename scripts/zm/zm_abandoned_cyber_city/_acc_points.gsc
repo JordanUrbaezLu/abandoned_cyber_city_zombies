@@ -45,15 +45,11 @@
 // a share of the 30% pool. 5% = anti tag-and-run.
 #define ACC_POINTS_MIN_CONTRIB_FRAC 0.05
 
-// Loot Stash / Payroll Ledger (boss-drop item): a FLAT bonus to the KILLER per kill (user 2026-06-23; the
-// old +10% multiplier was swallowed by the points round-to-10). Double Points adds a FLAT extra (user
-// 2026-06-26: +5 regular / +10 headshot - NOT the base's x2). 15/25 aren't multiples of 10, so the award
-// path BANKS the sub-10 remainder (money rounds UP to 10s, _zm_score.gsc:528) and flushes it on a later kill
-// -> exact net (award_killer_with_ledger). Nuke payout for a holder = ACC_LEDGER_NUKE.
-#define ACC_LEDGER_KILL          10   // regular kill, no Double Points
-#define ACC_LEDGER_KILL_DP       15   // regular kill WITH Double Points (additive +5)
-#define ACC_LEDGER_HEADSHOT      15   // headshot kill, no Double Points
-#define ACC_LEDGER_HEADSHOT_DP   25   // headshot kill WITH Double Points (additive +10)
+// Loot Stash / Payroll Ledger (boss-drop item): a FLAT +10 bonus to the KILLER per kill (user 2026-06-23 origin).
+// NERFED to a flat +10 (user 2026-06-29): NO headshot tier, and Double Points does NOT boost it (DP still x2's the
+// BASE kill points, just not this bonus) - trench AND surface alike. The old tiered 10/15/15/25 (+DP) made it too
+// strong. 10 is a multiple of 10, so no banking is needed. Nuke payout for a holder = ACC_LEDGER_NUKE.
+#define ACC_LEDGER_KILL          10   // flat per-kill bonus (body/headshot, DP or not, trench or surface)
 #define ACC_LEDGER_NUKE          500   // a Nuke gives the holder 500 (vs the stock ~400)
 
 // COMEBACK BONUS (user 2026-06-26): a player who fully bleeds out and respawns the next round comes back with
@@ -453,17 +449,9 @@ function award_killer_with_ledger( killer, base_pts, hit_loc )
 
     if ( acc_boss_items::player_has_ledger( killer ) )
     {
-        dp = ( double_points_scalar( killer ) > 1 );
-        if ( is_headshot( hit_loc ) )
-            amount = ( dp ? ACC_LEDGER_HEADSHOT_DP : ACC_LEDGER_HEADSHOT );
-        else
-            amount = ( dp ? ACC_LEDGER_KILL_DP : ACC_LEDGER_KILL );
-
-        if ( !isdefined( killer.acc_ledger_bank ) ) killer.acc_ledger_bank = 0;
-        killer.acc_ledger_bank += amount;
-        pay = int( killer.acc_ledger_bank / 10 ) * 10;   // whole-tens payable now
-        killer.acc_ledger_bank -= pay;                   // carry the <10 remainder to the next kill
-        award += pay;
+        // FLAT +10 always (user 2026-06-29 nerf): no headshot tier, and Double Points does NOT boost the ledger
+        // bonus (DP still x2's the BASE kill points above, just not this). 10 is a multiple of 10 -> no banking.
+        award += ACC_LEDGER_KILL;   // = 10, trench and surface alike
     }
 
     if ( award <= 0 ) return;

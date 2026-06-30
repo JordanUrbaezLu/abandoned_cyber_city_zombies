@@ -34,7 +34,7 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > spec); the live box is the 13 above.
 >
 > **Global gun buff (user 2026-06-23):** all player damage is lifted by a single across-the-board
-> scalar `acc_global_dmg_mult` (default **2.75 = +175%**; user 2026-06-23 bumped 1.20 → 1.32 → 1.50; user 2026-06-24 bumped 1.50 → 2.50; user 2026-06-25 bumped 2.50 → 3.0 → 2.75), applied in `on_ai_damage` OUTSIDE the per-gun
+> scalar `acc_global_dmg_mult` (default **3.25 = +225%**; user 2026-06-23 bumped 1.20 → 1.32 → 1.50; user 2026-06-24 bumped 1.50 → 2.50; user 2026-06-25 bumped 2.50 → 3.0 → 2.75; user 2026-06-29 → 3.25), applied in `on_ai_damage` OUTSIDE the per-gun
 > table — so it buffs every gun *uniformly* and the relative `acc_weapon_balance_mult` tiers above still
 > hold. To make guns stronger overall, raise this one dvar rather than re-touching every per-gun line.
 >
@@ -116,12 +116,12 @@ Composite (0–10) = Σ (factor score × weight). Re-weight here if priorities s
 
 #### Boss-nuke audit (user 2026-06-24 — "one-shot / explosive guns nuking bosses")
 
-The "Thundergun does ~200k to a boss" report is a **systemic** issue: any **multi-hit / explosive** weapon that lands several damage events on a boss's single hitbox stacks into a nuke, amplified by the **×2.5 global player-damage buff** (`ACC_GLOBAL_DMG_MULT`). The only weapons currently protected against this are pellet shotguns (above). Audit of every acquirable damage weapon:
+The "Thundergun does ~200k to a boss" report is a **systemic** issue: any **multi-hit / explosive** weapon that lands several damage events on a boss's single hitbox stacks into a nuke, amplified by the **×3.25 global player-damage buff** (`ACC_GLOBAL_DMG_MULT`). The only weapons currently protected against this are pellet shotguns (above). Audit of every acquirable damage weapon:
 
 | Weapon | balance mult | boss-damage cut? | verdict |
 |---|---|---|---|
 | **Thundergun** (WW) | was **1.0 (UNLISTED!)** → **0.70** (−30%, user 2026-06-24) | **none** | **Root cause.** No balance entry at all → zero cut, while every other gun is cut to 0.10–0.70. Wind-blast cone multi-traces a boss → ~200k. The −30% helps everywhere but it **still nukes** (~140k) — needs a boss cut. |
-| **Mahem** (launcher) | **0.35 → 0.315** (−10%, user 2026-06-24) | **none** | Explosive direct + splash both hit one boss hitbox. Ammo-limited so it self-balances somewhat, but no boss cut. |
+| **Mahem** (launcher) | **0.29** (0.315 → 0.40 buff → **0.29** −27.5% nerf, user 2026-06-29 vs the 3.25 global) | **none** | Explosive direct + splash both hit one boss hitbox. Ammo-limited so it self-balances somewhat, but no boss cut. |
 | **Paladin HB50** (sniper) | 0.3565 | **yes ×0.50** (user 2026-06-24) | One-shot single-target boss-killer; bosses negate the headshot mult (`ACC_BOSS_HEADSHOT_MULT 1.0`) and it's RoF/ammo-limited → not a burst nuke, but reined in vs bosses on user request (`acc_paladin_boss_mult`). |
 | Tac-19 / Olympia | 0.68 / 0.9775 | **yes ×0.25** | Handled (pellet cut). |
 | All other guns | 0.10–0.31 | n/a | Single-trace, deeply cut → fine. |
@@ -129,7 +129,7 @@ The "Thundergun does ~200k to a boss" report is a **systemic** issue: any **mult
 
 **Systemic fix (IMPLEMENTED, user 2026-06-24):** the boss-damage cut is generalized beyond pellet shotguns. `_acc_damage.gsc::boss_nuke_mult()` applies a boss-only REDUCTION (gated on `acc_is_boss`/`acc_is_mini_boss`, stacks on top of `acc_weapon_balance_mult`):
 - **Thundergun** ×`acc_thundergun_boss_mult` (default **0.20**) → ~140k (post −30%) drops to **~28k/blast** vs a boss — a strong boss tool, not a one-shot. Chaff power on regular zombies is untouched.
-- **Mahem** ×`acc_launcher_boss_mult` (default **0.50**) → ~5,512 direct (post −10%) drops to **~2,756/rocket** + splash; gentler because it's ammo-limited.
+- **Mahem** ×`acc_launcher_boss_mult` (default **0.50**) → ~6,600 direct (0.29 balance × 3.25 global) drops to **~3,300/rocket** + splash; gentler because it's ammo-limited.
 - **Paladin HB50** ×`acc_paladin_boss_mult` (default **0.50**, user 2026-06-24) → ~half its per-shot boss damage. It's a single-shot sniper (not a multi-hit nuke), but reined in vs bosses on request. NOTE: the Paladin's design niche IS single-target boss-killing (it's tier-scored on single-target DPS) — a strong boss cut eats into that niche, so dial `acc_paladin_boss_mult` up toward 1.0 if it feels too weak vs bosses.
 
 Both are live dvars — dial the exact boss damage without a rebuild. To protect a future multi-hit special, add its root name to `boss_nuke_mult()`.
@@ -286,6 +286,10 @@ Four categories x three tiers + four utility slots = **16 weapons** in v1.0.
 ### Pattern rationale
 
 Shotgun fans always buy Haymaker 12 on wallbuy. They also *hope* the box rolls a Tac-19. They *groan* if it rolls a Brecci. That emotional range across a single category is what a good box does. Three tiers execute that cleanly.
+
+### Hip-fire spread by class (skill gate, user 2026-06-29)
+
+Hip-fire accuracy is class-gated so every gun rewards ADS. `tools/scale_hipspread_by_class.js` (the single source of truth) scales the 8 `hipSpread` **pattern** fields (Stand/Ducked/Prone/Slide Min+Max — the cone size only; **ADS is untouched**, and the `*Add` per-shot bloom / `*Decay` recovery are left at stock) across **base + PaP + all 14 twins + the `.acc-orig` recoil baselines**, from a pristine `.acc-hipspread-orig` backup (idempotent; `--revert` resets to vanilla). Per class: **Sniper ×2.5** (MORS, Paladin), **Marksman ×1.50** (MK14), **AR ×1.25** (AE4, Galil, AK-47), **LMG ×1.20** (M60, RPD), **SMG ×1.10** (ASM1, PPSh-41, Chicom, AK-74u). **Pistols + shotguns stay ×1** (`weaponClass` `pistol`/`spread`). Buckets come from the GDT `weaponClass`, with the `"rifle"` class hand-split into AR vs MK14 vs sniper. Re-run it after any `reduce_base_ammo.js` / balance-tool pass (those rewrite from their own `.acc-*-orig` baselines, which don't carry the spread change).
 
 ### Category coverage: no SMG, no LMG
 

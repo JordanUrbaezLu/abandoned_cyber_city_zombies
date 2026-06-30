@@ -24,6 +24,7 @@
 #using scripts\shared\ai\zombie_utility;
 
 #using scripts\zm\_zm_perks;
+#using scripts\zm\_zm_score;                                  // add_to_player_score (3k trench-Brutus kill points)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
@@ -345,38 +346,56 @@ function watch_mini_boss_death()
 
     if ( n_bottles <= 1 )
     {
-        // BRUTUS (Trench Warden) reward (user 2026-06-22): all 3 rewards GUARANTEED (100%, upgraded from the
-        // earlier 75%) - 1 item drop, 1 Mega Bottle to every player, 3 Data Shards to every player. (Phantom
-        // is the same set with 5 shards.) Per-reward chance tunable via acc_brutus_reward_chance (default 1.0
-        // = always; the roll <= 1.0 is always true).
-        chance = getdvarfloat( "acc_brutus_reward_chance", 1.0 );
-
-        // 1) Item: grant_challenge_reward = the guaranteed free-for-all pool drop (dupes convert to shards at
-        //    pickup). acc_warden_item 0 = use the "mini" chance pool instead (kept for tuning).
-        if ( acc_utility::acc_rand_float() <= chance )
+        // A Brutus flagged acc_no_shard_reward (the PARADISE-fight Brutus, _acc_paradise::maybe_spawn_brutus) is a
+        // survive-the-threat, NOT a farm: it grants NOTHING here - no points, no shards, no item, no bottle. The
+        // Paradise Brutus already spawns on a SEPARATE path (spawn_one_paradise) + runs its OWN death watcher
+        // (brutus_death_watch, count-only) and never threads THIS handler, so this guard is belt-and-suspenders
+        // that also documents the intent (user 2026-06-29: "Paradise Brutus should not give any of this").
+        if ( !IS_TRUE( self.acc_no_shard_reward ) )
         {
-            if ( getdvarint( "acc_warden_item", 1 ) )
-                acc_boss_items::grant_challenge_reward( drop_origin );
-            else
-                acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
-        }
+            // TRENCH WARDEN (Brutus) reward (user 2026-06-22): item + shards + points GUARANTEED (100%, upgraded
+            // from the earlier 75%); the Mega Bottle is a 50% roll (user 2026-06-25). 1 item drop + 3 FLAT Data
+            // Shards + 3,000 points to every player, plus a 50%-chance Mega Bottle. (The Phantom shares the
+            // item+bottle set, but its shards AND points are ROUND-SCALED, not flat - see phantom_death_watch.)
+            // Per-reward chance tunable via acc_brutus_reward_chance (default 1.0 = always; roll <= 1.0 always true).
+            chance = getdvarfloat( "acc_brutus_reward_chance", 1.0 );
 
-        // 2) Mega Bottle: 50% chance (user 2026-06-25). When it hits, 1 to every player (the on_boss_death
-        //    rule). Rolled SEPARATELY from `chance` above so the item + shard drops stay guaranteed while only
-        //    the bottle is gated. Tunable via acc_brutus_bottle_chance (default 0.5).
-        bottle_chance = getdvarfloat( "acc_brutus_bottle_chance", 0.5 );
-        if ( acc_utility::acc_rand_float() <= bottle_chance )
-            acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
-
-        // 3) Data Shards: acc_warden_shard_reward (default 3) to every player ("warden" = no diminish).
-        if ( acc_utility::acc_rand_float() <= chance )
-        {
-            warden_shards = getdvarint( "acc_warden_shard_reward", 3 );
-            if ( warden_shards > 0 )
+            // 1) Item: grant_challenge_reward = the guaranteed free-for-all pool drop (dupes convert to shards at
+            //    pickup). acc_warden_item 0 = use the "mini" chance pool instead (kept for tuning).
+            if ( acc_utility::acc_rand_float() <= chance )
             {
-                for ( wi = 0; wi < level.players.size; wi++ )
-                    acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
-                acc_utility::log( "Trench Warden: " + warden_shards + " shards to each player (75% roll hit)" );
+                if ( getdvarint( "acc_warden_item", 1 ) )
+                    acc_boss_items::grant_challenge_reward( drop_origin );
+                else
+                    acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
+            }
+
+            // 2) Mega Bottle: 50% chance (user 2026-06-25). When it hits, 1 to every player (the on_boss_death
+            //    rule). Rolled SEPARATELY from `chance` above so the item + shard drops stay guaranteed while only
+            //    the bottle is gated. Tunable via acc_brutus_bottle_chance (default 0.5).
+            bottle_chance = getdvarfloat( "acc_brutus_bottle_chance", 0.5 );
+            if ( acc_utility::acc_rand_float() <= bottle_chance )
+                acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
+
+            // 3) Data Shards: acc_warden_shard_reward (default 3) to every player ("warden" = no diminish).
+            if ( acc_utility::acc_rand_float() <= chance )
+            {
+                warden_shards = getdvarint( "acc_warden_shard_reward", 3 );
+                if ( warden_shards > 0 )
+                {
+                    for ( wi = 0; wi < level.players.size; wi++ )
+                        acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
+                    acc_utility::log( "Trench Warden: " + warden_shards + " shards to each player" );
+                }
+            }
+
+            // 4) Points: 3,000 to every player (user 2026-06-29: "3k points every time the trench Brutus dies").
+            //    FLAT - the Phantom's points are round-scaled instead. Tunable via acc_warden_score_reward.
+            brutus_score = getdvarint( "acc_warden_score_reward", 3000 );
+            if ( brutus_score > 0 )
+            {
+                for ( si = 0; si < level.players.size; si++ )
+                    level.players[ si ] zm_score::add_to_player_score( brutus_score );  // rounds UP to a multiple of 10
             }
         }
     }

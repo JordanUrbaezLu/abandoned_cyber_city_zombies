@@ -482,25 +482,30 @@ function dev_player_hud_loop()
 
 function ensure_dev_huds( p )
 {
-    if ( !isdefined( p.acc_dev_zone_hud ) )
-    {
-        p.acc_dev_zone_hud = p hud::createFontString( "default", 1.3 );
-        // y=2 + scale 1.3 (user 2026-06-27): moved UP to the top edge and trimmed from 2.0.
-        // The area banner grows DOWNWARD from its anchor, so at scale 2.0/y20 its tall line bled
-        // into the top-center boss nameplate (y22) + bar (y46) + Paradise timer (y24) and overlapped
-        // them. A ~16px line pinned at y2 now sits cleanly ABOVE that y[22,60] dynamic cluster.
-        p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 2 );
-        p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
-        p.acc_dev_zone_hud.alpha = 0;   // hidden until you enter a new area (then 5s reveal, then fade)
-        p.acc_dev_zone_hud.hidewheninmenu = true;
+    // The area banner is now created ON-DEMAND in dev_update_zone and DESTROYED after its 5s hold (user 2026-06-28),
+    // so it only holds a per-client hudelem slot while actually visible (frees the pool in co-op). This function now
+    // just fires the one-time dev-mode confirmation print.
+    if ( IS_TRUE( p.acc_dev_huds_init ) ) return;
+    p.acc_dev_huds_init = true;
 
-        // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active
-        // (also logs as [ SCRIPTER] in console_mp.log). Absent = NOT in dev mode.
-        // (The hud loop is now threaded ABOVE the dev gate in init() so the area banner shows for EVERY player in
-        // both modes; this IS_TRUE check is therefore LOAD-BEARING - it keeps ONLY this "DEV MODE ACTIVE" line dev-only.)
-        if ( IS_TRUE( level.acc_dev ) )
-            p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
-    }
+    // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active (also logs as [ SCRIPTER] in
+    // console_mp.log). Absent = NOT in dev mode. The zone-banner hud loop runs in BOTH modes; only this print is dev.
+    if ( IS_TRUE( level.acc_dev ) )
+        p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
+}
+
+// Create the area-name banner hudelem on demand (TOP, y2). CONDITIONAL/pooled (user 2026-06-28): dev_update_zone
+// destroys it after the 5s hold and recreates it here on the next area change, so it only costs a slot while shown.
+// y=2 + scale 1.3 (user 2026-06-27): the banner grows DOWNWARD, so a tall line at y20 bled into the top-center boss
+// nameplate (y22) + bar (y46) + Paradise timer (y24); pinned at y2 it sits cleanly ABOVE that y[22,60] cluster.
+function ensure_zone_banner( p )
+{
+    if ( isdefined( p.acc_dev_zone_hud ) ) return;
+    p.acc_dev_zone_hud = p hud::createFontString( "default", 1.3 );
+    p.acc_dev_zone_hud hud::setPoint( "TOP", "TOP", 0, 2 );
+    p.acc_dev_zone_hud.color = ( 0.3, 0.85, 1.0 );
+    p.acc_dev_zone_hud.alpha = 0;
+    p.acc_dev_zone_hud.hidewheninmenu = true;
 }
 
 // Location title: show the current AREA's name (top of screen) ONLY when it CHANGES,
@@ -514,6 +519,8 @@ function dev_update_zone( p )
     if ( isdefined( area ) && ( !isdefined( p.acc_dev_cur_zone ) || p.acc_dev_cur_zone != area ) )
     {
         p.acc_dev_cur_zone = area;
+        ensure_zone_banner( p );                    // (re)create the banner elem for this reveal
+        if ( !isdefined( p.acc_dev_zone_hud ) ) return;   // pool full -> skip; shows on a later change
         p.acc_dev_zone_hud SetText( dev_area_name( area ) );
         p.acc_dev_zone_hud FadeOverTime( 0.3 );
         p.acc_dev_zone_hud.alpha = 0.85;            // fade in
@@ -528,9 +535,11 @@ function dev_update_zone( p )
     // Paradise; it still RE-reveals (above) on each area change. On the surface the 5s declutter fade is unchanged.
     if ( acc_bus_trench::underground_layer( p.origin ) > 0 || acc_bus_trench::player_in_second_part( p ) )
     {
+        ensure_zone_banner( p );                    // recreate if it was destroyed on the surface before descending
+        if ( !isdefined( p.acc_dev_zone_hud ) ) return;
         if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
         {
-            // Title was hidden (e.g. faded on the surface before descending) - bring it back up.
+            // Title was hidden (e.g. destroyed on the surface before descending) - bring it back up.
             p.acc_dev_zone_hud SetText( dev_area_name( area ) );
             p.acc_dev_zone_hud FadeOverTime( 0.3 );
             p.acc_dev_zone_hud.alpha = 0.85;
@@ -544,8 +553,10 @@ function dev_update_zone( p )
     if ( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown &&
          isdefined( p.acc_dev_zone_until ) && GetTime() >= p.acc_dev_zone_until )
     {
-        p.acc_dev_zone_hud FadeOverTime( 0.5 );
-        p.acc_dev_zone_hud.alpha = 0;               // fade out
+        // 5s hold elapsed -> DESTROY the banner to FREE its pool slot (was: fade to alpha 0, which kept the slot).
+        // Recreated by ensure_zone_banner on the next area change. SURFACE only (underground returned above). 2026-06-28.
+        if ( isdefined( p.acc_dev_zone_hud ) ) p.acc_dev_zone_hud Destroy();
+        p.acc_dev_zone_hud = undefined;
         p.acc_dev_zone_shown = false;
     }
 }
