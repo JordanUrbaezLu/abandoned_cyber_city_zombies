@@ -13,14 +13,15 @@ listed dvars. Audited from the code; verify amounts in-game.
 |---|---|---|---|
 | **Shard orb pickups** (glowing orbs) | per-orb (`acc_shard_count`) | the grabber | `_acc_data_shards.gsc:330` (`pickup`) |
 | **Pit / vault caches** (crates) | `cache_yield` (scales w/ cache count) | the opener | `_acc_data_shards.gsc:267` (`vault_cache`) |
+| **Plaza spawn caches** (3 crates) | 1 shard each, re-arms every round | the opener | `zm_abandoned_cyber_city.gsc` `acc_spawn_plaza_props` (`vault_cache`) — early-game faucet at spawn (user 2026-06-28) |
 
 **Enemy kills:**
 | Source | Amount | Who | File |
 |---|---|---|---|
 | **Riot (Shielded) elite** | **2** | the killer | `_acc_elites.gsc` (`riot_elite`) — NEW 2026-06-22 |
 | **Glitch Stalker** | 1 | the killer | `_acc_boss_glitch.gsc:737` (`glitch_kill`) |
-| **Brutus** / Trench Warden | **3** | every player | `_acc_boss.gsc:324` (`warden`) — **100%** |
-| **Phantom** | **5** | every player | `_acc_boss_phantom.gsc:420` (`phantom`) — 100% |
+| **Brutus** / Trench Warden | **3 shards + 3,000 points** | every player | `_acc_boss.gsc` (`watch_mini_boss_death`, `warden`) — **100%**, +50% Mega Bottle; user 2026-06-29 added 3k points. NOT the Paradise Brutus (`acc_no_shard_reward`) |
+| **Phantom** | **round × 1** (10 @ r10, 20 @ r20) + **round × 500 points** | every player | `_acc_boss_phantom.gsc` (`phantom_death_watch`) — 100%, **NOT in the Paradise fight** (gated on `!acc_paradise_onslaught`); user 2026-06-29 round-scaled, was flat 5 |
 
 **Events / interactables:**
 | Source | Amount | Who | File |
@@ -81,6 +82,6 @@ One random item drops (free-for-all world pickup; a duplicate auto-converts to 3
 ## Summary — the intended hierarchy (2026-06-22)
 
 - **Shards** = the broad currency: orbs + caches (primary), small per-kill trickles (Glitch 1 / Riot 2), event
-  payouts, and big boss payouts (Brutus 3 / Phantom 5 to-everyone). Spent on Cyberware / Overclocks / the Altar.
+  payouts, and big boss payouts (Brutus **3 shards + 3,000 points** flat / Phantom **round × 1 shards + round × 500 points** to-everyone — NOT the Paradise-fight versions of either). Spent on Cyberware / Overclocks / the Altar.
 - **Mega Bottles** = rare, boss-only (Brutus + Phantom 100%), 1 to everyone. Spent to Mega-upgrade perks.
 - **Boss Items** = rare, boss-only (Brutus + Phantom 100%), 1 drop. The frequent Glitch Stalker gives neither.

@@ -23,13 +23,13 @@
 //     starting at 1.0 and creeping up jog_step % per round (a faster jog, never
 //     slow-mo). The jog's intrinsic ground speed is the "slow start" (~70-80% of
 //     sprint - the real value is baked into the xanim, hence approximate).
-//   - Round sprint_round (default 10): the zombies break into the SPRINT gait at
+//   - Round sprint_round (default 17): the zombies break into the SPRINT gait at
 //     rate 1.0 = base-game max speed. This is a deliberate, natural escalation
 //     ("they start sprinting now"); sprint@1.0 comfortably exceeds the topped-out
 //     jog, so the wave still steps UP (strictly monotonic).
 //   - Round > sprint_round: sprint gait, rate 1.0 + sprint_step % per round above
-//     (default +0.6%/round, user 2026-06-24: with sprint_round 15, R20 ≈ 1.03,
-//     R25 ≈ 1.06). rate > 1.0 = a faster sprint,
+//     (default +0.5%/round, user 2026-06-29: with sprint_round 17, R20 ≈ 1.015,
+//     R25 ≈ 1.04, R30 ≈ 1.065). rate > 1.0 = a faster sprint,
 //     which reads fine (no slow-mo). The engine takes unbounded float here (stock
 //     siegebot 1.429, apothicon 2.0), so there is NO upper clamp.
 //
@@ -37,11 +37,11 @@
 // sprint creeps up) and never plays below natural cadence.
 //
 // Tunable dvars (read live per spawn, so a console set affects new zombies):
-//   acc_zspeed_sprint_round     (10)  first round the zombies use the SPRINT gait
+//   acc_zspeed_sprint_round     (17)  first round the zombies use the SPRINT gait
 //   acc_zspeed_jog_start_pct    (100) round-1 jog playback rate, % (100 = natural)
-//   acc_zspeed_jog_step_pct     (2.5) + jog playback % per round during the jog phase
+//   acc_zspeed_jog_step_pct     (0.65) + jog playback % per round (R1-16 ramps UP toward sprint speed)
 //   acc_zspeed_sprint_start_pct (100) sprint playback rate at sprint_round (100 = natural)
-//   acc_zspeed_sprint_step_pct  (0.6) + sprint playback % per round after sprint_round (read as a FLOAT)
+//   acc_zspeed_sprint_step_pct  (0.5) + sprint playback % per round after sprint_round (read as a FLOAT)
 // (All rates are floored at 1.0 in code - we never animate below natural cadence.)
 //
 // Modifier hook: the per-run "sprint" modifier (level.acc_mod_force_sprint, set by
@@ -56,11 +56,11 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
-#define ACC_ZSPEED_SPRINT_ROUND_DEF    15   // zombies switch to the SPRINT gait at round 15 (user 2026-06-23). With the gentle jog_step (0.5) the jog stays near natural pace (R1-14 = 100..106.5%) so it never outpaces the sprint; R15 is then a clean step UP.
+#define ACC_ZSPEED_SPRINT_ROUND_DEF    17   // zombies switch to the SPRINT gait at round 17 (user 2026-06-29: 15 -> 17 to spread the jog ramp over more rounds = easier early game). Jog phase = R1-16, sprint @ R17, creep R18+.
 #define ACC_ZSPEED_JOG_START_PCT_DEF   100  // round-1 jog playback rate (100 = natural jog cadence)
-#define ACC_ZSPEED_JOG_STEP_PCT_DEF    0.5  // + jog playback % per round. CUT from 2.75 (user obs 2026-06-23: at 2.75 the jog reached 122% by R9 and FELT FASTER THAN A SPRINT). Root cause: the sprint gait is BARELY faster than the jog - NOT ~1.33x as estimated - so speeding the jog up past ~110% overshoots the REAL sprint. Kept low so the jog stays near natural pace (R1-12 = 100..105.5%) and below the sprint; R13 is then a real step UP. A precise even ramp needs the measured jog:sprint ratio.
+#define ACC_ZSPEED_JOG_STEP_PCT_DEF    0.65 // + jog playback % per round (user 2026-06-29: spread the even ramp over R1-16 - R16 = 100 + 15*0.65 = ~109.75% = sprint-equivalent at the last jog round, then R17 switches near-continuously; easier early game). The sprint gait is BARELY faster than the jog (user obs 2026-06-23: NOT ~1.33x), so it hits sprint-equiv around ~108-110% - R16 is TARGETED there. Going much higher overshoots (at 2.75 the jog hit 122% by R9 and FELT FASTER THAN A SPRINT, making the switch a step DOWN). Live dvar acc_zspeed_jog_step_pct - dial in-game; the exact jog:sprint ratio is baked/unknown.
 #define ACC_ZSPEED_SPRINT_START_PCT_DEF 100 // sprint playback rate at sprint_round (100 = natural full sprint)
-#define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 0.6  // + sprint playback % per round after sprint_round. CUT from 1 -> 0.7 -> 0.6 (user 2026-06-24: gentler post-sprint creep). MUST be read via getdvarfloat - getdvarint would truncate the fractional % -> 0 (mirrors the jog_step float handling).
+#define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 0.5  // + sprint playback % per round after sprint_round (user 2026-06-29: 0.6 -> 0.5, a slightly GENTLER late creep - R20 = 1.025x, R25 = 1.05x, R30 = 1.075x; unbounded, no clamp). MUST be read via getdvarfloat - getdvarint would truncate the fractional % -> 0 (mirrors the jog_step float handling).
 #define ACC_ZSPEED_KEEPALIVE_WAIT      1.5  // s between keep-alive re-assert sweeps
 
 // Regular-zombie melee damage to players (absolute, in HP). Stock zombie_spawn_init

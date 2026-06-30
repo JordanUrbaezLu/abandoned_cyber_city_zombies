@@ -37,14 +37,14 @@
 // small chance to (a) drop a random pool ITEM as a free-for-all world pickup and (b) grant ONE Empty Mega
 // Bottle to the KILLER ONLY. Defaults 0.004 = 0.4% EACH (NOT 40%); live dvars acc_zombie_item_drop_chance /
 // acc_zombie_bottle_drop_chance let you tune both with no rebuild.
-#define ACC_ZOMBIE_ITEM_DROP_CHANCE   0.004
-#define ACC_ZOMBIE_BOTTLE_DROP_CHANCE 0.004
+#define ACC_ZOMBIE_ITEM_DROP_CHANCE   0.002
+#define ACC_ZOMBIE_BOTTLE_DROP_CHANCE 0.002
 
 // Lucky Clover (item 7, user 2026-06-27): while IMPLANTED, the carrier's KILLS are luckier - the zombie item +
 // Mega Bottle drop chances are MULTIPLIED by ACC_CLOVER_MULT, and each of the carrier's kills additionally rolls
 // ACC_CLOVER_POWERUP_CHANCE to FORCE-DROP a random stock power-up (bypassing the per-round cap). Works everywhere
 // incl. the Paradise finale (user 2026-06-27). Live dvars: acc_clover_mult / acc_clover_powerup_chance.
-#define ACC_CLOVER_MULT             2.0    // item + bottle drop multiplier while the killer has the Clover (0.4% -> 0.8%)
+#define ACC_CLOVER_MULT             1.5    // item + bottle drop multiplier while the killer has the Clover (0.2% -> 0.3%)
 #define ACC_CLOVER_POWERUP_CHANCE   0.005  // per-kill chance for a Clover carrier to drop a random power-up
 
 // Item buff tuning.
@@ -229,7 +229,7 @@ function build_item_pool()
         "wpn_t7_zmb_zod_rocket_shield_world",
         24,                             // floor lift (user: shield is good as-is)
         "chest",
-        &apply_rocket_shield,           // +15% slide speed + slide distance + ~1.5x jump
+        &apply_rocket_shield,           // 1.5x slide speed + slide distance + 2x jump height (user 2026-06-29 buff)
         &remove_rocket_shield
     );
 
@@ -240,7 +240,7 @@ function build_item_pool()
         "zombie_pickup_perk_bottle",    // perk bottle = "serum" read (runtime-loaded, proven packable)
         10,                             // floor lift (small vial; tune live)
         "implant",
-        &apply_arnie_cloak,             // CLOAK: zombies + Glitch Stalker can't see/target you
+        &apply_arnie_cloak,             // Glitch-suppression aura: Stalkers in range = 1/5 speed + no blink (user 2026-06-29 nerf, was a cloak)
         &remove_arnie_cloak
     );
 
@@ -262,7 +262,7 @@ function build_item_pool()
         "p7_zm_power_up_double_points", // X2 power-up orb (user 2026-06-27 "use the X2 for now"). Stock-runtime-loaded (no zone line needed, same as the carpenter model the Repair Kit uses). The X2 nicely reads as the Clover's DOUBLE-luck effect; pickup hint still says "7 - Lucky Clover". Swap to a real clover model later.
         18,                             // floor lift (power-up orb pivot; ~carpenter's 19. tune in build_item_pool)
         "implant",
-        &apply_lucky_clover,            // luck: 2x zombie item + Mega Bottle drop chance + 0.5%/kill bonus power-up
+        &apply_lucky_clover,            // luck: zombie item + Mega Bottle drops 0.2% -> 0.3% (x1.5) + 0.5%/kill bonus power-up + box top-tier odds
         &remove_lucky_clover
     );
 
@@ -359,12 +359,12 @@ function grant_challenge_reward( origin )
 // ---------------------------------------------------------------------------
 // Per-ZOMBIE drop rolls (user 2026-06-27). Registered as a zombie death-event callback, so it runs ON the
 // dying zombie (self) with the killer as `attacker`. Every REGULAR zombie death independently rolls:
-//   (a) acc_zombie_item_drop_chance  (default 0.004 = 0.4%) -> a random pool item drops at the corpse as a
+//   (a) acc_zombie_item_drop_chance  (default 0.002 = 0.2%) -> a random pool item drops at the corpse as a
 //       FREE-FOR-ALL world pickup (any player can grab; per-grabber duplicate handling already in watch_pickup).
-//   (b) acc_zombie_bottle_drop_chance (default 0.004 = 0.4%) -> ONE Empty Mega Bottle granted DIRECTLY to the
+//   (b) acc_zombie_bottle_drop_chance (default 0.002 = 0.2%) -> ONE Empty Mega Bottle granted DIRECTLY to the
 //       KILLER ONLY (no shared / world drop) - exactly the player who got the kill.
 // Bosses + mini-bosses are EXCLUDED (they have their own guaranteed drops via on_boss_death) so a boss kill
-// never double-dips. Both chances are LIVE dvars (no rebuild); 0.3% is rare by design - raise to taste.
+// never double-dips. Both chances are LIVE dvars (no rebuild); 0.2% is rare by design - raise to taste.
 // ---------------------------------------------------------------------------
 function on_zombie_death_drop( attacker )
 {
@@ -606,6 +606,21 @@ function sync_items_hud()   // self = player
 {
     if ( !isdefined( self.acc_equipped_items ) ) self.acc_equipped_items = empty_slots();
 
+    // CONDITIONAL (user 2026-06-29): only hold the IMPLANT/CARRYING hudelems (~3 per client) while you actually have
+    // something to show. Nothing equipped + nothing carried -> DESTROY them to free the pool; recreated by the
+    // lazy-create block below on the next equip/carry (sync_items_hud is called on every item change). Same
+    // destroy-on-idle pattern as the buy card + area banner.
+    show_any = false;
+    for ( si = 0; si < self.acc_equipped_items.size; si++ )
+        if ( self.acc_equipped_items[ si ] != "" ) { show_any = true; break; }
+    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
+        show_any = true;
+    if ( !show_any )
+    {
+        destroy_items_hud( self );
+        return;
+    }
+
     // Stacked, ONE PER LINE (user 2026-06-25: the old single concatenated line ran off the left edge
     // into the CENTER of the screen where gameplay happens). Left HUD stack: HEALTH 16 / bar 32 /
     // DATA SHARDS 50 / EXO SUIT 74 / MEGA BOTTLES 98 sit ABOVE; below them, one element per implant slot
@@ -638,6 +653,7 @@ function sync_items_hud()   // self = player
     for ( i = 0; i < self.acc_equipped_items.size && i < self.acc_items_hud_lines.size; i++ )
     {
         e = self.acc_items_hud_lines[ i ];
+        if ( !isdefined( e ) ) continue;   // pool-full: this line didn't allocate
         if ( self.acc_equipped_items[ i ] == "" )
         {
             e.alpha = 0;
@@ -648,15 +664,31 @@ function sync_items_hud()   // self = player
     }
 
     // CARRYING on its OWN line - shown only when the carried item is NOT already implanted in either slot.
-    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
+    if ( isdefined( self.acc_carry_hud ) )
     {
-        self.acc_carry_hud SetText( "^3CARRYING ^7" + display_for( find_item( self.acc_carried_item ) ) + " ^3(enable at bench)" );
-        self.acc_carry_hud.alpha = 0.9;
+        if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
+        {
+            self.acc_carry_hud SetText( "^3CARRYING ^7" + display_for( find_item( self.acc_carried_item ) ) + " ^3(enable at bench)" );
+            self.acc_carry_hud.alpha = 0.9;
+        }
+        else
+        {
+            self.acc_carry_hud.alpha = 0;
+        }
     }
-    else
+}
+
+// Free the IMPLANT/CARRYING hudelems (user 2026-06-29) - called from sync_items_hud when the player holds no items;
+// recreated by sync_items_hud's lazy-create block on the next equip/carry. Frees ~3 per-client slots while item-less.
+function destroy_items_hud( p )
+{
+    if ( isdefined( p.acc_items_hud_lines ) )
     {
-        self.acc_carry_hud.alpha = 0;
+        for ( i = 0; i < p.acc_items_hud_lines.size; i++ )
+            if ( isdefined( p.acc_items_hud_lines[ i ] ) ) p.acc_items_hud_lines[ i ] Destroy();
+        p.acc_items_hud_lines = undefined;
     }
+    if ( isdefined( p.acc_carry_hud ) ) { p.acc_carry_hud Destroy(); p.acc_carry_hud = undefined; }
 }
 
 // ---------------------------------------------------------------------------
@@ -704,7 +736,7 @@ function remove_payroll_ledger()     { self.acc_item_ledger = false; acc_utility
 
 // Lucky Clover (item 7): a passive flag read at drop time by on_zombie_death_drop (mirrors the payroll_ledger
 // pattern). While set, the carrier's kills get 2x zombie item/bottle drop chance + a 0.5%/kill bonus power-up.
-function apply_lucky_clover()        { self.acc_lucky_clover = true; acc_utility::log( "equip: lucky_clover (2x zombie item/bottle luck + 0.5%/kill power-up)" ); }
+function apply_lucky_clover()        { self.acc_lucky_clover = true; acc_utility::log( "equip: lucky_clover (item/bottle drops 0.2%->0.3% x1.5 + 0.5%/kill power-up + box top-tier odds)" ); }
 function remove_lucky_clover()       { self.acc_lucky_clover = false; acc_utility::log( "unequip: lucky_clover" ); }
 
 // ---------------------------------------------------------------------------
@@ -824,7 +856,9 @@ function apply_gas_tank()    // self = player
 {
     self.acc_item_gas_tank = true;
     self thread gas_tank_watch();
-    self thread gas_bar_loop();           // on-screen NITRO charge bar (the player's indication)
+    // NITRO charge bar REMOVED (user 2026-06-28): no HUD allocation/display - it cost 4 per-client hudelems
+    // (label + createBar x3) and was eating the co-op pool. The nitro burst still works (gas_tank_watch above,
+    // double-tap sprint); you just don't get the on-screen bar/caption. Re-add: `self thread gas_bar_loop();`.
     acc_utility::log( "equip: gas_tank (nitro burst)" );
 }
 function remove_gas_tank()
@@ -911,23 +945,9 @@ function gas_bar_loop()    // self = player
 }
 function ensure_gas_bar()    // self = player
 {
-    if ( isdefined( self.acc_gas_bar ) ) return;
-    // Small caption for the NITRO bar (tells you how to fire it). fontscale 1.0 to match
-    // HEALTH. DO NOT use a sub-1.0 fontscale here: 0.9 rendered HUGELY oversized in-game
-    // (2026-06-18) - keep this >= 1.0.
-    self.acc_gas_label = self hud::createFontString( "default", 1.0 );
-    self.acc_gas_label hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 214 );   // below the stacked IMPLANT/CARRYING lines (user 2026-06-25)
-    self.acc_gas_label.alignX = "left";
-    self.acc_gas_label.alignY = "top";
-    self.acc_gas_label.color  = ( 0.30, 0.90, 1.0 );
-    self.acc_gas_label.alpha  = 0.85;
-    self.acc_gas_label.hidewheninmenu = true;
-    self.acc_gas_label SetText( "^7Double-tap Sprint to activate" );
-
-    self.acc_gas_bar = self hud::createBar( ( 0.30, 0.90, 1.0 ), ACC_GAS_BAR_W, ACC_GAS_BAR_H );
-    self.acc_gas_bar hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 232 );   // below the moved gas label (user 2026-06-25)
-    self.acc_gas_bar.alpha = 0.85;
-    self.acc_gas_bar.hidewheninmenu = true;
+    // DISABLED (user 2026-06-28): the NITRO bar + caption (label + createBar x3 = 4 per-client hudelems) were
+    // removed to free the co-op hudelem pool. No-op now so NOTHING allocates even if a stray caller hits it;
+    // gas_bar_loop is also no longer threaded (see apply_gas_tank). Restore from git history to bring the bar back.
 }
 function destroy_gas_bar()    // self = player; torn down on unequip, recreated on re-equip
 {
@@ -970,17 +990,20 @@ function set_gas_bar_fill( frac )    // self = bar BG elem
 //     ignoreme flag; the Glitch Stalker is covered in _acc_boss_glitch
 //     (get_closest_uncloaked_player). NEVER write .ignoreme directly - laststand
 //     shares the same counter; use the increment/decrement pair.
-// Phase Serum -> CLOAK vs the GLITCH STALKER ONLY (not the regular horde). We set a
-// custom flag that only the Stalker's targeting (acc_utility::get_closest_uncloaked_player)
-// honors - we deliberately do NOT use zm_utility::increment_ignoreme (that hid you
-// from EVERY zombie, which was the "works on all zombies" bug).
+// Phase Serum -> GLITCH-SUPPRESSION AURA (user 2026-06-29 NERF, was a glitch-only cloak). It NO LONGER hides you.
+// While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 1/5 speed AND loses its blink (its
+// glitch ability) - it can still SEE + chase you, it's just nullified. Read by _acc_boss_glitch
+// (glitch_speed_think slow + glitch_blink_loop skip, via acc_serum_suppressed). The old acc_cloak_glitch flag is
+// cleared so the Stalker targets a serum-holder normally again.
 function apply_arnie_cloak()    // self = player
 {
-    self.acc_cloak_glitch = true;
-    acc_utility::log( "equip: phase_serum (glitch-only cloak)" );
+    self.acc_phase_serum = true;
+    self.acc_cloak_glitch = false;   // drop the old cloak - the Stalker CAN target a serum-holder now
+    acc_utility::log( "equip: phase_serum (glitch-suppression aura: 1/5 speed + no blink in range)" );
 }
 function remove_arnie_cloak()
 {
+    self.acc_phase_serum = false;
     self.acc_cloak_glitch = false;
     acc_utility::log( "unequip: phase_serum" );
 }

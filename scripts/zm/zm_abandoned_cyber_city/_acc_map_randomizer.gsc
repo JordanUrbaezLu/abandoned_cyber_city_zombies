@@ -291,7 +291,7 @@ function acc_box_only_weapon_keys( keys )
     // so we do our OWN weighted pick by tier and return it at the FRONT; the rest follow as fallback so the
     // stock loop still has a non-empty list. Per-gun weights (~percent on the fresh 17-gun pool, sum 100):
     // S 4 / A 5 / B 7 / C 8 (acc_box_weight; docs/05 Gun Tier List).
-    picked = acc_box_weighted_pick( eligible );
+    picked = acc_box_weighted_pick( eligible, IS_TRUE( self.acc_lucky_clover ) );   // Lucky Clover (user 2026-06-29): boost top-tier odds for a Clover-carrying spinner
     if ( !isdefined( picked ) ) return eligible;   // safety - never hand the box an empty list
     out = [];
     out[ 0 ] = picked;
@@ -301,25 +301,57 @@ function acc_box_only_weapon_keys( keys )
 }
 
 // Weighted random pick from a list of weapon OBJECTS, by per-gun tier weight (acc_box_weight). Higher
-// weight = more likely. Returns one weapon object (undefined only on an empty list).
-function acc_box_weighted_pick( list )
+// weight = more likely. Returns one weapon object (undefined only on an empty list). `clover` (optional,
+// default false): when true the LUCKY CLOVER reweight is applied (top-tier guns commoner, funded from the
+// common tier) - only the mystery box passes it; the glitch altar leaves it off.
+function acc_box_weighted_pick( list, clover )
 {
     if ( !isdefined( list ) || list.size == 0 ) return undefined;
     if ( list.size == 1 ) return list[ 0 ];
+    if ( !isdefined( clover ) ) clover = false;
 
     total = 0;
     for ( i = 0; i < list.size; i++ )
-        total += acc_box_weight( list[ i ] );
+        total += box_pick_weight( list[ i ], clover );
     if ( total <= 0 ) return list[ acc_utility::acc_rand_int( list.size ) ];
 
     r = acc_utility::acc_rand_int( total );   // 0 .. total-1
     accum = 0;
     for ( i = 0; i < list.size; i++ )
     {
-        accum += acc_box_weight( list[ i ] );
+        accum += box_pick_weight( list[ i ], clover );
         if ( r < accum ) return list[ i ];
     }
     return list[ list.size - 1 ];   // float-safety fallback (never expected with int weights)
+}
+
+// Per-gun box weight used by the pick: the generated tier weight (acc_box_weight), optionally Clover-adjusted.
+function box_pick_weight( wpn, clover )
+{
+    w = acc_box_weight( wpn );
+    if ( clover ) w = acc_box_clover_weight( wpn, w );
+    return w;
+}
+
+// LUCKY CLOVER box luck (user 2026-06-29): applied ONLY when the spinner has the Clover. Shifts roll probability
+// from the COMMON tier into the TOP tier, classified by the base tier weight (higher weight = commoner, so the
+// S+/S rares have the LOWEST weights):
+//   top tier  (w <= acc_clover_box_top_maxw 12, the S+/S rares) -> + acc_clover_box_top_add (5)   ~= +1% each on the full pool
+//   common    (w >= acc_clover_box_common_minw 50)              -> - acc_clover_box_common_sub (10), funding the boost
+//   mid (A-tier, w 13..49)                                      -> unchanged
+// On the full 482-weight pool that's ~+1% per top gun, pulled ~-2% from each common gun (net total ~unchanged);
+// it drifts as the pool shrinks (collected guns drop out) but always favours the rares more. Layered OVER the
+// generated acc_box_weight so the auto-generated table is never hand-edited. All live dvars.
+function acc_box_clover_weight( wpn, base_w )
+{
+    if ( base_w <= getdvarint( "acc_clover_box_top_maxw", 12 ) )
+        return base_w + getdvarint( "acc_clover_box_top_add", 5 );
+    if ( base_w >= getdvarint( "acc_clover_box_common_minw", 50 ) )
+    {
+        adj = base_w - getdvarint( "acc_clover_box_common_sub", 10 );
+        return ( adj < 1 ? 1 : adj );
+    }
+    return base_w;
 }
 
 // Fixed-odds tactical pre-roll for the box (user 2026-06-24): Monkey Bomb 1% (cymbal_monkey) + Li'l Arnie

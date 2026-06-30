@@ -165,6 +165,27 @@ function init()
     level thread trench_ai_pressure();   // raise the zombie cap while ANY player is in the pit
     level thread trench_zombie_census(); // TEMP diag: census of zombies near a player in the pit
     level thread trench_melee_window_logger(); // TEMP diag: dense per-zombie melee-window trace
+    level thread solidify_corp_bridge();       // corp-trench bridge is a script_brushmodel now - show+solid it (it baked transparent as a thin floating world slab)
+}
+
+// The corp-trench bridge (the 2x-jump-only crossing @ z+58) was a thin FLOATING world slab that baked
+// TRANSPARENT (the LED lightmapper makes a broken/empty lightmap for a thin floating surface, so it drew
+// see-through - user 2026-06-28). It was moved out of worldspawn into a script_brushmodel "acc_corp_bridge"
+// (convert_bridge_to_brushmodel.js): brushmodels are LED-EXEMPT, so it renders with runtime/dynamic lighting and
+// skips the broken bake. script_brushmodels start hidden+notsolid (_acc_decontamination.gsc:39), so show + solid
+// it once at load (visible AND walkable). Players cross by jumping up; zombies never pathed the elevated slab,
+// so dropping it from the world navmesh is harmless.
+function solidify_corp_bridge()
+{
+    bridge = getent( "acc_corp_bridge", "targetname" );
+    if ( !isdefined( bridge ) )
+    {
+        acc_utility::log( "bus trench: WARN acc_corp_bridge brushmodel not found" );
+        return;
+    }
+    bridge show();
+    bridge solid();
+    acc_utility::log( "bus trench: corp bridge shown + solid (LED-exempt brushmodel)" );
 }
 
 // The Exchange Bank vault swarm (force-spawn risers) was REMOVED 2026-06-27 (user: "just remove the
@@ -226,7 +247,7 @@ function watch_connections()
 
 // PASSIVE TRENCH SHARD INCOME (user 2026-06-26: "reward players for staying in the trenches"). While a player
 // STANDS in a trench layer, they passively earn 1 Data Shard every N seconds, where N SHRINKS with depth -
-// deeper = more reward for the greater risk: L1 (Bus Station pit) 50s / L2 34s / L3 22s / L4 14s / L5 10s.
+// deeper = more reward for the greater risk: L1 (Bus Station pit) 45s / L2 31s / L3 20s / L4 12s / L5 7s.
 // Per-player (own thread, own grant - matches the trench-only, per-player economy). The timer counts only
 // while underground (underground_layer >= 1, which already excludes the surface AND Paradise) and RESETS the
 // moment the player leaves the trench, so "every X seconds you are in the trench" is literal. It carries
@@ -268,14 +289,14 @@ function trench_shard_income()   // self = player
 }
 
 // Seconds between passive shard grants for a given trench layer (1..5). Deeper = shorter = more reward for the
-// risk. Live dvar-tunable. (user 2026-06-27: L1 50 / L2 34 / L3 22 / L4 14 / L5 10; was 45/35/28/22/18.)
+// risk. Live dvar-tunable. (user 2026-06-29: L1 45 / L2 31 / L3 20 / L4 12 / L5 7; was 50/34/22/14/10.)
 function trench_income_interval( layer )
 {
-    if ( layer == 1 ) return getdvarint( "acc_trench_income_l1", 50 );
-    if ( layer == 2 ) return getdvarint( "acc_trench_income_l2", 34 );
-    if ( layer == 3 ) return getdvarint( "acc_trench_income_l3", 22 );
-    if ( layer == 4 ) return getdvarint( "acc_trench_income_l4", 14 );
-    if ( layer == 5 ) return getdvarint( "acc_trench_income_l5", 10 );
+    if ( layer == 1 ) return getdvarint( "acc_trench_income_l1", 45 );
+    if ( layer == 2 ) return getdvarint( "acc_trench_income_l2", 31 );
+    if ( layer == 3 ) return getdvarint( "acc_trench_income_l3", 20 );
+    if ( layer == 4 ) return getdvarint( "acc_trench_income_l4", 12 );
+    if ( layer == 5 ) return getdvarint( "acc_trench_income_l5", 7 );
     return 0;
 }
 

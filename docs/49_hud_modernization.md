@@ -38,10 +38,19 @@ uimodel, standalone additive overlay (`OpenLUIMenu('acc_hud')` — **safe**, can
 - **Custom fonts** — no proven shipped path; unverified/high-risk. Treat as not-feasible without R&D.
 - **Overriding stock HUD menus** (`t7hud_zm_custom`, `RoundStatus.lua`, `Intermission_Main`) — can BUILD
   OK yet make a **non-loadable `.ff`** (memory `lui-menu-can-break-map-load`). Overlays safe; menus risky.
-- **★ THE CLIENTFIELD POOL IS NEARLY FULL** (`_acc_lui.gsc:73-78`): ~73 bits across 9 fields; adding a
-  wider field overflows the shared zombies pool and breaks a STOCK field (`zmhud.swordEnergy`) →
-  `Com_ERROR` at load. **Any "just append one field" plan is budget-BLOCKED until a real bit-budget
-  audit proves headroom.** Most "new field" needs can be avoided (see principles).
+- **★ THE CLIENTFIELD POOL IS FULL — EMPIRICALLY CONFIRMED 2026-06-28** (`_acc_lui.gsc:44-80`): **66 bits
+  across 8 clientuimodel fields** (the older "~73 bits / 9 fields" figure was stale — recounted 2026-06-28).
+  Adding a wider field overflows the shared zombies pool and breaks a STOCK field (`zmhud.swordEnergy`) →
+  `Com_ERROR` at load. **PROVEN by a throwaway probe:** a registered-but-unused **24-bit** `accProbe24`
+  clientuimodel field **failed to load (Com_ERROR)** → **headroom is < 24 bits.** Consequences for HUD work:
+  - **The full LUI HUD migration is BLOCKED** — it needs ~50 new bits (audit 2026-06-28); they do not exist.
+  - **Even a 24-bit packed co-op-roster field does NOT fit.** A ~11-bit health-only roster field is **untested
+    and right at the cliff edge** (fragile — one stock update or field add re-breaks it); not recommended.
+  - **The co-op SERVER-HUDELEM pool fix must be GSC-side** (roster trim / flash-on-buy announcements /
+    destroy-on-hide), NOT a clientfield→LUI roster. See the 2026-06-28 hudelem-budget audit.
+  - Only **~4 bits are reclaimable in code** (narrow `accDmgNum` 18→14 by capping the displayed damage number);
+    not enough for a roster field on its own.
+  **Any "just append one field" plan is budget-BLOCKED.** Most "new field" needs can be avoided (see principles).
 
 ## Principles to bake in (from the adversarial review)
 1. **Measure before adding clientfields.** Audit remaining pool bits first; treat them as one shared

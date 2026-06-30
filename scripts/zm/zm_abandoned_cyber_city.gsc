@@ -306,15 +306,14 @@ function main()
 // here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
 // in main(), before any consumer reads them. docs/49.
 //
-// TESTING (user 2026-06-28): dev is HARD-CODED OFF (normal play - real economy/damage/closed map), god is HARD-CODED
-// ON (player invulnerability) - a GOD-ONLY test build, to test real progression without dying. !! STILL NOT
-// PUBLISH-SAFE while god is ON !! Set acc_god back to `false` (the ship default) before any Workshop build.
+// PUBLISH-SAFE (user 2026-06-29): both flags restored to their dvar GATES (default 0 = normal play). The shipped .ff
+// plays normally; the launch scripts can still flip them on for testing (+set acc_dev 1 / the PLAY_GOD_MODE script's
+// +set acc_god 1). Mocks are dev-gated (force_mocks = IS_TRUE(level.acc_dev)) so they're off in ship too.
 function acc_resolve_dev_flags()
 {
-	// HARDCODED OFF (user 2026-06-28: god-only test - dev sandbox off = real economy + Data Shards, all perks via
-	// normal buys, CLOSED map, real test spawns off, no dev HUDs). Set back to `true` to re-enable the dev sandbox,
-	// or restore the dvar gate `( getdvarint( "acc_dev", 0 ) == 1 )`. (Matches the ship-safe default.)
-	level.acc_dev = false;   // HARDCODED OFF (user 2026-06-28) - set true for the dev sandbox
+	// Resolved from the acc_dev dvar (default 0 = ship-safe normal play; the dev launch scripts pass +set acc_dev 1).
+	// This is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/49.
+	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
@@ -326,6 +325,10 @@ function acc_resolve_dev_flags()
 	// (Reverses the 2026-06-18 "walls close in dev too" choice; the manual `set acc_perk_doors_all_open 1`
 	// override still works independently in normal play.)
 	SetDvar( "acc_perk_doors_all_open", v );
+	// HUDELEM POOL DIAGNOSTIC (user 2026-06-28): dev auto-enables the on-screen hudelem-pool logger
+	// (acc_utility::he_check / he_log) so the 4-player mock roster surfaces "<widget> did NOT allocate -
+	// POOL FULL" + the live high-water count. Normal play (acc_dev 0) leaves it off; `set acc_hudelem_debug 1` also works.
+	SetDvar( "acc_hudelem_debug", v );
 	// NOT driven by dev, so dev plays like the real game for these (user 2026-06-22):
 	//   acc_auto_power   - flip the Bus Station power switch yourself
 	//   acc_test_boss    - Brutus follows his real round-5 power cadence (brutus_power_watch), no early spawn
@@ -340,11 +343,9 @@ function acc_resolve_dev_flags()
 	// invulnerable so the user can test NORMAL gameplay - real perks/economy/progression, closed map -
 	// without dying. Default 0; INDEPENDENT of acc_dev; changes NO existing dev/normal behavior. See
 	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
-	// HARDCODED ON (user 2026-06-28: god-only test build - test real progression/economy/closed map WITHOUT dying).
-	// Every player INVULNERABLE (damage zeroed in _acc_elites::on_player_damaged; effects still fire). INDEPENDENT of
-	// acc_dev (which is OFF above). !! NOT PUBLISH-SAFE while this is ON !! Set back to `false` before a Workshop build,
-	// or use the dvar gate `( getdvarint( "acc_god", 0 ) == 1 )`.
-	level.acc_god = true;    // HARDCODED ON (user 2026-06-28 god-only test) - set false for ship / normal play
+	// Resolved from the acc_god dvar (default 0 = off; the standalone PLAY_GOD_MODE launch script passes +set acc_god 1).
+	// Every player INVULNERABLE when on (damage zeroed in _acc_elites::on_player_damaged; effects still fire). Ship-safe.
+	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
 
@@ -474,24 +475,31 @@ function acc_fix_zone_doors()
 	acc_utility::log( "zone doors: " + n + " ->" + flags );
 }
 
-// [acc] Creative Plaza obstacles (user 2026-06-26: "only the little bunker/crate things, no kiosk"). Cargo
-// crates as low cover, placed in the open bands + maze legs (the MAZE WALLS in the .map are the main tight-
-// space mechanic now). p7_cai_stacking_cargo_crate is already in the .zone (confirmed-packing). COLLISION is
-// the matching 'clip' brushes in the .map (tools/gen_plaza_shrink.js CLIPS) - KEEP THESE COORDS IN SYNC with
-// that list (prop-clip drift footgun, memory prop-clips-drift-invisible-walls). Spawned via SetModel (proven
-// render path - same as the boss-item bench). NOTE(acc-verify): confirm crate height + pivot in-game; nudge z /
-// clip top if a crate floats or sinks.
+// [acc] Plaza crates = cover obstacles AND Data Caches (user 2026-06-28: "make them give shards, 1 each, refill
+// every round"). Same p7_cai_stacking_cargo_crate prop as the trench caches, but spawned via
+// acc_data_shards::spawn_cache_at so each is now a hold-USE shard source: grants 1 Data Shard, depletes when
+// looted, re-arms at the next round start (with the dim-white "armed" glow). COLLISION is STILL the matching
+// 'clip' brushes in the .map (tools/gen_plaza_shrink.js CLIPS) - KEEP THESE COORDS IN SYNC (prop-clip drift
+// footgun, memory prop-clips-drift-invisible-walls). spawn_cache_at re-uses the same SetModel path + same origin
+// + default angle 0, so the crates look/collide identically to the old decorative props (user 2026-06-26 "only
+// the little bunker/crate things" design preserved) - they just grant shards now. NOTE: in CO-OP the shared
+// "one cache per player per round" anti-hog cap (acc_cache_one_per_player) spans these + the 2 trench caches;
+// SOLO is exempt, so all 3 are grabbable each round there.
 function acc_spawn_plaza_props()
 {
 	level endon( "end_game" );
-	// CRATES ONLY, in the OPEN exit band (NEVER in a maze leg - a crate there blocks the ~120u
-	// corridor = "stuck on one side"). Coords MUST match tools/gen_plaza_shrink.js CLIPS.
-	// SPREAD across the open plaza (user 2026-06-26 "spread them out"). ANGLE 0 (axis-aligned) so each
-	// crate matches its axis-aligned 56x56 clip. Coords MUST match gen_plaza_shrink CLIPS.
-	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( -320, 30, 0 ), 0 );
-	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( 80, 230, 0 ), 0 );
-	acc_spawn_prop( "p7_cai_stacking_cargo_crate", ( -80, 560, 0 ), 0 );
-	acc_utility::log( "plaza props: 3 crate obstacles spawned" );
+	// spawn_cache_at needs level.acc_shards_cache_model (set in acc_data_shards::init); poll so this is
+	// independent of module init order (data_shards::init always runs via acc_main, so this clears fast).
+	while ( !isdefined( level.acc_shards_cache_model ) )
+		wait 0.05;
+	// CRATES ONLY, in the OPEN exit band (NEVER in a maze leg - a crate there blocks the ~120u corridor =
+	// "stuck on one side"). SPREAD across the open plaza. ANGLE 0 (axis-aligned, spawn_cache_at's default) so
+	// each crate matches its axis-aligned 56x56 clip. Coords MUST match tools/gen_plaza_shrink.js CLIPS.
+	// count = 1 -> 1 Data Shard each (cache_yield clamps; no round scaling at the default acc_cache_scale_rounds).
+	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1 );
+	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1 );
+	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1 );
+	acc_utility::log( "plaza props: 3 crate Data Caches spawned (1 shard each, refill/round)" );
 }
 function acc_spawn_prop( model, org, yaw )
 {

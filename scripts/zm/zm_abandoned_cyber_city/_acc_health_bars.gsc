@@ -94,8 +94,8 @@ function ensure_round_counter( p )
     // "ROUND" label over a big number tight in the corner). The round number is BOUNDED (<=~255 distinct over a
     // match), so SetText "Round " + N is BG-cache-safe (change-guarded in update_round_counter) - no need to
     // split a label + SetValue. ACC_ROUND_HUD_X/Y/SCALE are the inset + size; flashes on round change.
-    p.acc_round_hud = p hud::createFontString( "default", 1.6 );
-    p.acc_round_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 40, 30 );
+    p.acc_round_hud = acc_utility::he_check( p hud::createFontString( "default", 1.6 ), "round_counter" );
+    if ( isdefined( p.acc_round_hud ) ) p.acc_round_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 40, 30 );
     p.acc_round_hud.alignX = "left";
     p.acc_round_hud.alignY = "top";
     p.acc_round_hud.color = ( 0.3, 0.85, 1.0 );
@@ -308,15 +308,15 @@ function update_hp_seg( seg, w, col, a )
     seg.alpha = a;
 }
 
-// True only if ALL 7 of a row's hudelems allocated. In deep 4-player co-op the per-client hudelem pool can fill
-// mid-creation (7/row x 4 = 28, near the ~31-ish engine cap), leaving a row with some undefined elems. update_roster
-// skips (hides) any incomplete row rather than touch an undefined elem - so a full pool DEGRADES (a row may not show)
-// but never CRASHES. memory server-hudelem-pool-exhaustion-coop.
+// True only if ALL 5 of a row's hudelems allocated (EXO/MB + perks removed 2026-06-28 to free the pool). In deep
+// 4-player co-op the per-client hudelem pool can still fill mid-creation (5/row x 4 = 20, under the ~31-ish engine
+// cap), leaving a row with some undefined elems. update_roster skips (hides) any incomplete row rather than touch an
+// undefined elem - so a full pool DEGRADES (a row may not show) but never CRASHES. memory server-hudelem-pool-exhaustion-coop.
 function row_complete( row )
 {
     if ( !isdefined( row ) ) return false;
     return ( isdefined( row.name )  && isdefined( row.bar_base ) && isdefined( row.dollar ) && isdefined( row.points ) &&
-             isdefined( row.stats ) && isdefined( row.exomb )    && isdefined( row.perks ) );
+             isdefined( row.stats ) );
 }
 
 // Lazily allocate ONE player row's hudelems (7 total: name, single health bar, "$", points-number, SH-text,
@@ -389,25 +389,40 @@ function ensure_roster_row( p, i )
     row.stats.alpha = 0;
     row.stats.hidewheninmenu = true;
 
-    row.exomb = p hud::createFontString( "default", 1.0 );   // "EXO {e}  MB {m}" - repositioned after the shards text
-    row.exomb hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 120, stats_y );   // PLACEHOLDER x (set in update_roster)
-    row.exomb.alignX = "left";
-    row.exomb.alignY = "bottom";
-    row.exomb.alpha = 0;
-    row.exomb.hidewheninmenu = true;
-    row.acc_stats_y = stats_y;   // stored so update_roster can re-setPoint the text elems at the correct y
+    // perks elem REMOVED (user 2026-06-28). EXO/MB kept ONLY on YOUR OWN row (i==0) per user 2026-06-29: each client
+    // sees its own EXO/MB but not teammates' (-1 elem x 3 teammate rows). So a row is 5 elems for teammates, 6 for you.
+    // (perks_y is left computed above but unused now.)
+    row.acc_stats_y = stats_y;   // stored so update_roster can re-setPoint the SH (+ EXO/MB on row 0) text elems
 
-    // LINE 4 (perks_y, bottom): owned-perk abbreviations, left-aligned at x=12 under the currency line (user
-    // 2026-06-27). Each abbrev is colour-coded inline: ^1=red (base) / ^5=teal (mega). BG-cache-safe: the perk
-    // set is BOUNDED (a player accumulates perks; ~tens of distinct strings over a match) and change-guarded.
-    // (Icons aren't possible here - the Ronan perk art is LUI `image,` assets, and a server hudelem needs a
-    // material this usermap can't build; abbreviations are the server-side path - memory hud-custom-image-lui-not-material.)
-    row.perks = p hud::createFontString( "small", 1.0 );   // "small" font = smaller than the other lines (user 2026-06-27; scale <1.0 can't shrink it - it floors at ~1.0 and renders HUGE below, so use a smaller font instead)
-    row.perks hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 12, perks_y );
-    row.perks.alignX = "left";
-    row.perks.alignY = "bottom";
-    row.perks.alpha = 0;
-    row.perks.hidewheninmenu = true;
+    if ( i == 0 )   // YOUR row only: the EXO/MB line. Teammate rows omit it to save the per-client pool.
+    {
+        row.exomb = p hud::createFontString( "default", 1.0 );   // "EXO {e}  MB {m}" - repositioned after the SH text
+        row.exomb hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 120, stats_y );   // PLACEHOLDER x (set in update_roster)
+        row.exomb.alignX = "left";
+        row.exomb.alignY = "bottom";
+        row.exomb.alpha = 0;
+        row.exomb.hidewheninmenu = true;
+    }
+
+    // HUDELEM POOL DIAGNOSTIC (user 2026-06-28): the roster is the #1 pool consumer (now 5 elems x N rows x N clients,
+    // down from 7 - EXO/MB + perks cut). In a full 4-player lobby the per-client pool can still fill mid-row, so some
+    // of these 5 come back UNDEFINED and the row silently won't show. Count what allocated, track the live high-water,
+    // and log if THIS row came up short. Gated on-screen by acc_hudelem_debug. Logs once per row (rows are lazy).
+    n_ok = 0;
+    if ( isdefined( row.name ) )     n_ok++;
+    if ( isdefined( row.bar_base ) ) n_ok++;
+    if ( isdefined( row.dollar ) )   n_ok++;
+    if ( isdefined( row.points ) )   n_ok++;
+    if ( isdefined( row.stats ) )    n_ok++;
+    if ( isdefined( row.exomb ) )    n_ok++;   // YOUR row only (i==0) carries the bonus EXO/MB line
+    expected = ( i == 0 ? 6 : 5 );
+    if ( !isdefined( level.acc_he_n ) ) { level.acc_he_n = 0; level.acc_he_hi = 0; level.acc_he_fail = 0; }
+    level.acc_he_n += n_ok;
+    if ( level.acc_he_n > level.acc_he_hi ) level.acc_he_hi = level.acc_he_n;
+    if ( n_ok < expected )
+        acc_utility::he_log( "^1[hudelem] roster row for '" + p.name + "' got only " + n_ok + "/" + expected + " elems - POOL FULL (live=" + level.acc_he_n + ")" );
+    else
+        acc_utility::he_log( "^3[hudelem] roster row " + i + " ok " + n_ok + "/" + expected + " (live=" + level.acc_he_n + ")" );
 
     p.acc_roster[ i ] = row;
     return row;
@@ -422,7 +437,6 @@ function hide_roster_row( row )
     if ( isdefined( row.stats ) )  row.stats.alpha  = 0;
     if ( isdefined( row.exomb ) )  row.exomb.alpha  = 0;
     if ( isdefined( row.points ) ) row.points.alpha = 0;
-    if ( isdefined( row.perks ) )  row.perks.alpha  = 0;
 }
 
 // Owned-perk abbreviations for the roster's LINE 4. Each owned perk -> "^1ABBR" (base, red) or "^5ABBR"
@@ -487,10 +501,12 @@ function update_roster( p )
         }
     }
 
-    // DEV mock squad (gated on level.acc_dev) so the 4-row layout is testable solo: rows 1..3 reuse YOUR name
-    // with fixed mock stats. Normal play shows ONLY connected players (lazy rows -> pool-frugal).
-    dev   = IS_TRUE( level.acc_dev );
-    shown = ( dev ? 4 : ordered.size );
+    // CO-OP-MOCK roster: rows 1..3 are fake teammates so the 4-row co-op HUD is testable solo (rows reuse fixed
+    // mock stats; row 0 = the real YOU). Mocks are DEV-ONLY again (user 2026-06-29: reverted the non-dev force so a
+    // clean solo game - dev off, no mocks - can isolate the implant-UI display). Normal play shows ONLY connected
+    // players (lazy rows -> pool-frugal). To re-force mocks in non-dev for a co-op-HUD test, set this back to `true`.
+    force_mocks = IS_TRUE( level.acc_dev );
+    shown = ( force_mocks ? 4 : ordered.size );
     if ( shown > 4 ) shown = 4;
 
     for ( i = 0; i < 4; i++ )
@@ -525,30 +541,24 @@ function update_roster( p )
             if ( frac < 0 ) frac = 0;
             if ( frac > 1 ) frac = 1;
             shards  = ( isdefined( q.acc_data_shards ) ? q.acc_data_shards : 0 );
-            bottles = ( isdefined( q.acc_mega_bottles ) ? q.acc_mega_bottles : 0 );
+            bottles = ( isdefined( q.acc_mega_bottles ) ? q.acc_mega_bottles : 0 );   // EXO/MB line (your row only)
             exo     = ( isdefined( q.acc_exo_tier ) ? q.acc_exo_tier : 0 );
-            points    = ( isdefined( q.score ) ? q.score : 0 );   // reading .score is fine (writes use zm_score)
-            perks_str = roster_perk_string( q );
+            points  = ( isdefined( q.score ) ? q.score : 0 );   // reading .score is fine (writes use zm_score)
         }
         else
         {
             // DEV mock teammate: a RANDOM fake gamertag (picked ONCE, then stable) + fixed stats, varied health.
             if ( !isdefined( row.acc_mock_tag ) ) row.acc_mock_tag = mock_gamertag();
-            // DEV mock states so all three bar colours are visible solo: rows 0/1 = alive, row 2 = DOWNED (red),
-            // row 3 = DEAD (gray). (user 2026-06-27)
-            state   = ( i == 2 ? 1 : ( i == 3 ? 2 : 0 ) );
-            frac    = 1.0 - ( i * 0.25 );
+            // CO-OP-MOCK states: ALL mocks ALIVE (state 0) - user 2026-06-28 wants a fully-alive squad for the
+            // non-dev co-op UI test ("make sure each player mock is alive"). No downed/dead mock now - every
+            // teammate reads as a healthy live player (green/teal bar scaled by HP).
+            state   = 0;   // all mocks alive
+            frac    = 1.0 - ( i * 0.20 );   // you=full, row 2 ~0.60, row 3 ~0.40 - all alive, varied health so the bars differ
             if ( frac < 0.10 ) frac = 0.10;
             maxhp   = ( i == 2 ? ACC_HP_TIER_JUG : ACC_HP_TIER_MEGA );   // mock max HP: row 2 = Jug capacity, others = Mega
             if ( i == 1 ) frac = 0.95 - 0.80 * ( ( GetTime() % 5000 ) / 5000.0 );   // DEV demo: the alive mock drains/refills over 5s so you can SEE a teammate bar SLIDE (not snap)
             shards  = 100 + i * 75;
-            bottles = i * 3;
-            exo     = i * 2;
             points  = 5000 + i * 2500;
-            // DEV mock perks: row 1 = ALL 10 perks (alternating red base / teal mega - tests the full line +
-            // both colours); rows 2/3 = shorter mixes. (user 2026-06-27)
-            perks_str = ( i == 1 ? "^1JUG ^5QR ^1SPD ^5DT ^1STM ^5MULE ^1DEAD ^5WW ^1PHD ^5EC"
-                        : ( i == 2 ? "^5JUG ^5QR ^1STM ^1WW" : "^1JUG ^1QR" ) );
         }
 
         // NAME: a REAL player resolves its live gamertag via SetPlayerNameString; a DEV MOCK shows a random
@@ -589,59 +599,52 @@ function update_roster( p )
         else                                  bar_col = ( 0.30, 0.85, 0.35 );   // no Jug - bright green
         update_hp_seg( row.bar_base, bar_w, bar_col, bar_a );
 
-        // LINE 3 = ALL stats on ONE row: POINTS  SH {shards}  EXO {e}  MB {m} (user 2026-06-27). THREE hudelems
-        // (see ensure_roster_row for why they can't share a SetText - unbounded score must be SetValue; exact
-        // shards x EXO x MB would overflow the 2048 'string' cache). POINTS is SetValue at the fixed left x=12
-        // (zero cache cost). The two TEXT elems (SH, EXO/MB) are bounded SetText, change-guarded. All three render
-        // dimmed for teammates via the alpha block below.
+        // LINE 3 = currency on ONE row: $POINTS  SH {shards} (user 2026-06-27; EXO/MB removed 2026-06-28 to free the
+        // pool). POINTS is SetValue at the fixed left (unbounded score MUST be SetValue or it floods the 2048 'string'
+        // cache -> CTD). SH is a bounded SetText (<=501 distinct), change-guarded. Both dim for teammates (alpha below).
         row.points SetValue( points );
 
         sh_txt = "SH " + shards;                                             // shards EXACT (<=501 distinct, safe alone)
-        em_txt = "EXO " + exo + "   MB " + bottles;                           // EXO x MB = 286 distinct, safe
         if ( !isdefined( row.acc_stats_txt ) || row.acc_stats_txt != sh_txt )
         {
             row.stats SetText( sh_txt );
             row.acc_stats_txt = sh_txt;
         }
-        if ( !isdefined( row.acc_exomb_txt ) || row.acc_exomb_txt != em_txt )
+        if ( isdefined( row.exomb ) )   // YOUR row only - EXO x MB = 286 distinct, bounded SetText
         {
-            row.exomb SetText( em_txt );
-            row.acc_exomb_txt = em_txt;
+            em_txt = "EXO " + exo + "   MB " + bottles;
+            if ( !isdefined( row.acc_exomb_txt ) || row.acc_exomb_txt != em_txt )
+            {
+                row.exomb SetText( em_txt );
+                row.acc_exomb_txt = em_txt;
+            }
         }
 
-        // Re-flow the two TEXT elems to sit just after the variable-width POINTS / SH numbers. GSC has no
-        // text-width API, so x is estimated from the digit counts (see ACC_ROSTER_STAT_CHARW). Guard on the digit
-        // COUNTS (packed in sig), not the values: points changes every kill but its digit count rarely, so this
-        // re-setPoint is rare - not every tick.
+        // Re-flow the SH text to sit just after the variable-width POINTS number. GSC has no text-width API, so x is
+        // estimated from the points digit count (see ACC_ROSTER_STAT_CHARW). Guard on the digit COUNT (in sig), not the
+        // value: points changes every kill but its digit count rarely, so this re-setPoint is rare - not every tick.
         pts_d = num_digits( points );
-        sh_d  = 3 + num_digits( shards );                                     // rendered len of "SH " + shards
+        sh_d  = 3 + num_digits( shards );                                    // rendered len of "SH " + shards (for the EXO/MB x on your row)
         sig   = pts_d * 100 + sh_d;
         if ( !isdefined( row.acc_line3_sig ) || row.acc_line3_sig != sig )
         {
             row.acc_line3_sig = sig;
             sh_x = ACC_ROSTER_POINTS_X + int( pts_d * ACC_ROSTER_STAT_CHARW ) + ACC_ROSTER_FIELD_GAP;   // after the "$<points>"
-            em_x = sh_x + int( sh_d  * ACC_ROSTER_STAT_CHARW ) + ( ACC_ROSTER_FIELD_GAP - 2 );             // after "SH {shards}" - SH->EXO gap trimmed a touch tighter than the $->SH gap (user 2026-06-27)
             row.stats hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", sh_x, row.acc_stats_y );
-            row.exomb hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", em_x, row.acc_stats_y );
+            if ( isdefined( row.exomb ) )   // YOUR row only
+            {
+                em_x = sh_x + int( sh_d * ACC_ROSTER_STAT_CHARW ) + ( ACC_ROSTER_FIELD_GAP - 2 );   // after "SH {shards}"
+                row.exomb hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", em_x, row.acc_stats_y );
+            }
         }
 
-        // LINE 4 = perks only now (EXO/MB moved up to the one-row stats line above). perks_str is the abbreviation
-        // string built in the real/mock branch; left as-is here.
-
-        // LINE 4 perks: change-guarded SetText (bounded set -> BG-cache-safe). Colours are inline ^1/^5 codes,
-        // so .color isn't needed; alpha dims teammates like the other lines.
-        if ( !isdefined( row.acc_perks_str ) || row.acc_perks_str != perks_str )
-        {
-            row.perks SetText( perks_str );
-            row.acc_perks_str = perks_str;
-        }
+        // (EXO/MB + perks lines removed 2026-06-28 to free the per-client hudelem pool in co-op.)
 
         a = ( is_you ? 1.0 : 0.85 );
         row.dollar.color = ( 0.55, 0.95, 0.70 ); row.dollar.alpha = a;   // soft green "$" so it reads as money
         row.stats.color  = ( 0.78, 0.92, 1.0 ); row.stats.alpha  = a;
-        row.exomb.color  = ( 0.78, 0.92, 1.0 ); row.exomb.alpha  = a;
         row.points.color = ( 0.78, 0.92, 1.0 ); row.points.alpha = a;
-        row.perks.alpha  = a;
+        if ( isdefined( row.exomb ) ) { row.exomb.color = ( 0.78, 0.92, 1.0 ); row.exomb.alpha = a; }   // your row only
     }
 }
 
@@ -737,7 +740,7 @@ function make_boss_bar_set( player, boss, name )
     s = SpawnStruct();
 
     // (1) Name label, top-center.
-    s.label = player hud::createFontString( "objective", 1.5 );
+    s.label = acc_utility::he_check( player hud::createFontString( "objective", 1.5 ), "bossbar.label" );
     s.label hud::setPoint( "TOP", "TOP", 0, 22 );
     s.label.alignX = "center"; s.label.alignY = "top";
     s.label.color = ( 1, 0.85, 0.2 ); s.label.alpha = 0.95;
@@ -745,7 +748,7 @@ function make_boss_bar_set( player, boss, name )
     s.label SetText( "^1" + name );
 
     // (1) Depleting bar, top-center, just under the name (proven createBar path).
-    s.screen_bar = player hud::createBar( boss_hp_color( 1.0 ), ACC_BOSS_BAR_W, ACC_BOSS_BAR_H );
+    s.screen_bar = acc_utility::he_check( player hud::createBar( boss_hp_color( 1.0 ), ACC_BOSS_BAR_W, ACC_BOSS_BAR_H ), "bossbar.bar(x3)", 3 );
     s.screen_bar hud::setPoint( "TOP", "TOP", 0, 46 );
     s.screen_bar.alpha = 0.9;
     s.screen_bar.hidewheninmenu = true;
@@ -765,8 +768,8 @@ function boss_hp_color( frac )
 function destroy_boss_bar_set( s )
 {
     if ( !isdefined( s ) ) return;
-    if ( isdefined( s.label ) ) s.label hud::destroyElem();
-    if ( isdefined( s.screen_bar ) ) s.screen_bar hud::destroyElem();
+    if ( isdefined( s.label ) ) { s.label hud::destroyElem(); acc_utility::he_free( 1 ); }
+    if ( isdefined( s.screen_bar ) ) { s.screen_bar hud::destroyElem(); acc_utility::he_free( 3 ); }
 }
 
 // ---------------------------------------------------------------------------

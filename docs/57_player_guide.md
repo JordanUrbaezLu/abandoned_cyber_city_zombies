@@ -93,8 +93,8 @@ multi-tier sinks, finite so you can't hoard forever.
 | Source | Where | Reward |
 |---|---|---|
 | **Data Caches** (×2) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
-| **Trench Warden** (a Brutus) | Spawns in the pit on the boss rounds | **+3 to every player**, guaranteed. (He also drops a boss item.) |
-| **Phantom** (boss) | Boss event | **+5 to every player**, guaranteed — same idea as the Warden, bigger payout. |
+| **Trench Warden** (a Brutus) | Spawns in the pit on the boss rounds | **+3 shards AND +3,000 points to every player**, guaranteed. (He also drops a boss item + a 50%-chance Mega Bottle.) |
+| **Phantom** (boss) | Boss event | **Round-scaled to every player**, guaranteed — **points = round × 500 and shards = round** (round 10 = 5,000 points + 10 shards; round 20 = 10,000 + 20). Plus a boss item + Mega Bottle. *(The Phantoms in the Paradise finale pay nothing — that fight is survive-don't-farm.)* |
 | **Reactor Surge** | The arm plinth in the pit (free to arm) | Survive the **5-wave** surge → **everyone gets +5 plus a shared Fire Sale.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
 | **Glitch Altar** | Deep underground | A **2-Shard gamble**, not a faucet — see below. |
 

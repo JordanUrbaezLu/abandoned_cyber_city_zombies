@@ -305,6 +305,10 @@ function promote_to_shielded( z )
     z Attach( "wpn_t7_zmb_zod_rocket_shield_world", "j_spine4" );
 
     // Heavy half-pace WALK gait (user 2026-06-22) - ~half the round's jog, natural (no slow-mo). See think.
+    // Set the keep-alive skip-flag SYNCHRONOUSLY here (not only inside the threaded think) so the frame-N+1
+    // on-spawn speed hook reliably sees it and never writes a "sprint" override onto this actor before the
+    // think's first re-pin runs - closes the spawn-order race at the source (user 2026-06-28).
+    z.acc_boss_custom_speed = true;
     z thread shielded_speed_think();
 
     // Reward (user 2026-06-22): killing the "Riot" (Shielded) elite gives the KILLER 2 Data Shards.
@@ -352,7 +356,20 @@ function shielded_speed_think()
         rate = acc_zombie_speed::rate_for_round( r ) * getdvarfloat( "acc_shielded_walk_rate", 1.2 );  // 1.0 -> 1.2: a BIT faster walk (user 2026-06-24)
         if ( rate < 1.0 ) rate = 1.0;   // never below natural cadence => never slow-mo
 
-        self zombie_utility::set_zombie_run_cycle_override_value( "walk" );   // slow heavy gait (was run/sprint @ 0.5x = slow-mo)
+        // Re-pin to WALK only on drift. CRITICAL: clear the stock override-LOCK first. set_zombie_run_cycle()
+        // early-returns if self.zombie_move_speed_override is already defined (zombie_utility.gsc), so once the
+        // frame-N+1 on-spawn speed hook (or any round re-eval) writes the horde tier ("sprint" at round >=15)
+        // onto this actor, our "walk" call is SILENTLY DROPPED and the elite keeps the sprint gait FOREVER - it
+        // spawns fast and never slows (user 2026-06-28: "shield zombie ran faster than a normal zombie + never
+        // changed speed"). Mirror _acc_zombie_speed::apply_speed_for_round (line 227-233: clear, then set) so
+        // the downgrade always lands.
+        if ( self.zombie_move_speed != "walk" ||
+             !isdefined( self.zombie_move_speed_override ) ||
+             self.zombie_move_speed_override != "walk" )
+        {
+            self.zombie_move_speed_override = undefined;
+            self zombie_utility::set_zombie_run_cycle_override_value( "walk" );   // slow heavy gait (was run/sprint @ 0.5x = slow-mo)
+        }
         self ASMSetAnimationRate( rate );
         wait 1;
     }

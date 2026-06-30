@@ -46,10 +46,13 @@ function hud_msg_slot( text, slot, color )   // self = player
     if ( !isdefined( self.acc_hud_msg_slots ) ) self.acc_hud_msg_slots = [];
     if ( !isdefined( self.acc_hud_msg_slots[ slot ] ) )
     {
-        e = self hud::createFontString( "default", 1.5 );
-        e.alignX = "center";
-        e.alignY = "middle";
-        e.hidewheninmenu = true;
+        e = he_check( self hud::createFontString( "default", 1.5 ), "toast.slot" + slot );
+        if ( isdefined( e ) )
+        {
+            e.alignX = "center";
+            e.alignY = "middle";
+            e.hidewheninmenu = true;
+        }
         self.acc_hud_msg_slots[ slot ] = e;
     }
     e = self.acc_hud_msg_slots[ slot ];
@@ -73,6 +76,50 @@ function hud_msg_fade( slot )   // self = player
         self.acc_hud_msg_slots[ slot ] fadeovertime( 0.5 );
         self.acc_hud_msg_slots[ slot ].alpha = 0;
     }
+}
+
+// ---------------------------------------------------------------------------
+// HUDELEM POOL DIAGNOSTIC (user 2026-06-28). The server hudelem pool is SHARED + FIXED; when it fills,
+// hud::create* returns UNDEFINED and the widget silently does NOT draw (no crash - row_complete relies on this).
+// he_check(elem,label): call right after a hud::create* - counts live allocations AND logs the exact site the
+// moment one FAILS (pool full). Returns elem (pass-through): x = he_check( self createFontString(...), "label" ).
+// he_free(): call on Destroy() to keep the count honest. he_log(): the on-screen channel (IPrintLnBold = pool-
+// FREE, so the logger itself can't fail), gated by acc_hudelem_debug (dev mode SetDvars it on). acc_he_hi = the
+// live high-water mark so you watch the count climb to the break. memory server-hudelem-pool-exhaustion-coop.
+// ---------------------------------------------------------------------------
+function he_check( elem, label, n )   // n = raw hudelems this create represents (createBar = 3); default 1
+{
+    if ( !isdefined( n ) ) n = 1;
+    if ( !isdefined( level.acc_he_n ) ) { level.acc_he_n = 0; level.acc_he_hi = 0; level.acc_he_fail = 0; }
+    if ( isdefined( elem ) )
+    {
+        level.acc_he_n += n;
+        if ( level.acc_he_n > level.acc_he_hi )
+        {
+            level.acc_he_hi = level.acc_he_n;
+            if ( ( level.acc_he_hi % 5 ) == 0 ) he_log( "^3[hudelem] live peak " + level.acc_he_hi + " (+" + label + ")" );
+        }
+    }
+    else
+    {
+        level.acc_he_fail++;
+        he_log( "^1[hudelem] '" + label + "' did NOT allocate - POOL FULL (live=" + level.acc_he_n + ", fails=" + level.acc_he_fail + ")" );
+    }
+    return elem;
+}
+
+function he_free( n )
+{
+    if ( !isdefined( n ) ) n = 1;
+    if ( isdefined( level.acc_he_n ) ) { level.acc_he_n -= n; if ( level.acc_he_n < 0 ) level.acc_he_n = 0; }
+}
+
+function he_log( msg )
+{
+    if ( getdvarint( "acc_hudelem_debug", 0 ) != 1 ) return;
+    players = get_all_players();
+    for ( i = 0; i < players.size; i++ )
+        if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( msg );
 }
 
 // ---------------------------------------------------------------------------
@@ -311,7 +358,7 @@ function recompute_move_speed( player )
     }
     if ( isdefined( player.acc_rocket_slide_speed ) && player.acc_rocket_slide_speed )
     {
-        n_scale = n_scale * getdvarfloat( "acc_rocket_slide_mult", 1.35 ); // Rocket Shield: 1.35x while sliding (live dvar, docs/12)
+        n_scale = n_scale * getdvarfloat( "acc_rocket_slide_mult", 1.5 ); // Rocket Shield: 1.5x while sliding (user 2026-06-29 buff, was 1.35; live dvar, docs/12)
     }
     if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )
     {
