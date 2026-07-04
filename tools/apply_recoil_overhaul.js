@@ -89,7 +89,7 @@ const GUNS = [
     { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up",    baseline: { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 } },
     { gdt: "skye_s1_asm1.gdt",      base: "s1_asm1",      up: "s1_asm1_up" },
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
-    { gdt: "t9_weapons/wpn_t9_ar_ak47.gdt", base: "t9_ak47", up: "t9_ak47_up" },   // CW port (user 2026-06-25): swapped from BO2 skye_t6_ak47; stats grafted via graft_cw_weapon_stats.js
+    { gdt: "skye_t9_ak-47.gdt", base: "t9_ak47", up: "t9_ak47_up" },   // CW port. 2026-07-02: repointed from the old t9_wpn_ports pack (t9_weapons/wpn_t9_ar_ak47.gdt, never transferred to the new box) to the fresh Skye CW pack - same asset ids, Skye's own models/anims/stats (graft_cw_weapon_stats no longer applies).
     { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
     // STAGE 2 (2026-06-16): with the slimmed 14-twin/gun layout (ammo→runtime, recoil 2-tier),
     // 9 guns x 14 = 126 twins fit under the ~230 cap. +4 clean single-wield guns:
@@ -99,11 +99,11 @@ const GUNS = [
     { gdt: "skye_t8_paladin_hb50.gdt", base: "t8_paladin_hb50", up: "t8_paladin_hb50_up" },
     // AK-74u: CW port (user 2026-06-26) - swapped from BO1 skye_t5_ak74u to the Cold War model. The t9 PaP
     // form is the REGULAR t9_ak74u_up (the old _up_zm irregularity is gone). Stats grafted via graft_cw_weapon_stats.js.
-    { gdt: "t9_weapons/wpn_t9_smg_ak74u.gdt", base: "t9_ak74u", up: "t9_ak74u_up" },
+    { gdt: "skye_t9_ak-74u.gdt", base: "t9_ak74u", up: "t9_ak74u_up" },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note).
     // M60 + RPD: CW ports (user 2026-06-26) - both LMGs swapped from Skye BO2 to the Cold War models. Single-wield
     // bulletweapon, regular _up, empty altWeapon. Stats grafted via graft_cw_weapon_stats.js; twin count unchanged.
-    { gdt: "t9_weapons/wpn_t9_lmg_m60.gdt", base: "t9_m60", up: "t9_m60_up" },
-    { gdt: "t9_weapons/wpn_t9_lmg_rpd.gdt", base: "t9_rpd", up: "t9_rpd_up" },
+    { gdt: "skye_t9_m60.gdt", base: "t9_m60", up: "t9_m60_up" },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note).
+    { gdt: "skye_t9_rpd.gdt", base: "t9_rpd", up: "t9_rpd_up" },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note). NOTE: Skye's t9_rpd_up ships its OWN kobra reflex PaP optic (attach slots 1/2, tag_reflex) - add_rpd_pap_sight.js is superseded for this pack.
     // RW1 (user 2026-06-23): AW directed-energy PISTOL, fully twinnable (bulletweapon, single-wield,
     // regular _up). -> 13 guns x 14 = 182 twins. (The Mahem launcher is a projectile EXEMPT special - NOT here.)
     { gdt: "skye_s1_rw1.gdt",        base: "s1_rw1",         up: "s1_rw1_up" },
@@ -226,7 +226,12 @@ function main() {
 
     for ( const g of GUNS ) {
         const file = path.join( SD, g.gdt );
-        if ( !fs.existsSync( file ) ) throw new Error( `missing ${file}` );
+        // Skip-if-missing (2026-07-02): a missing pack must NOT abort the run - the old throw fired
+        // AFTER the output GDT was rmSync'd above, destroying every other gun's twins (hit on the
+        // fresh box with the un-installed Vanguard PPSH). WARNING: a skipped gun's twins are ABSENT
+        // from the regenerated GDT while the zone still lists them (rewriteZoneTwinLines enumerates
+        // GUNS, not processed guns) -> link errors until the pack is installed and this tool re-run.
+        if ( !fs.existsSync( file ) ) { console.log( `WARN: missing ${file} - SKIPPING ${g.base} (its twins are absent from the output; the zone still lists them)` ); continue; }
         const orig = file + ".acc-orig";
 
         // idempotency: snapshot once, then always start from the pristine copy.

@@ -55,7 +55,9 @@ local function pap_tier_cost(tier)
     return 0
 end
 
--- Perk card content. Index MUST match _acc_perk_info::perk_card_index.
+-- Perk card content. Index MUST match _acc_perk_info::perk_card_index, and titles/prices MUST
+-- stay in sync with ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua (name/cost) - the
+-- Aetherium buy prompt displays THAT table for the same machines (PromptPerks.lua).
 --   base     = benefits of the BASE perk (shown on the buy card + as the Mega preview's
 --              "before"); mega = what the Mega bottle ADDS/UPGRADES (shown when you own
 --              base but haven't Mega'd - mode 1). megaFull = the single merged list shown
@@ -694,9 +696,13 @@ function CoD.AccPapTierIcon.new(HudRef, InstanceRef)
     -- Relocated 2026-06-26 to sit as a STATUS CHIP in the new combat device's header row (top-left of
     -- the AccAmmoBlock plate at RIGHT 44 / BOTTOM 50 / W 216 / H 100), next to the Overclock vN chip.
     -- Registered AFTER the ammo block (see createMenu) so it draws ON TOP of the translucent plate.
-    local SIZE = 30       -- icon width/height (virtual px)
-    local RIGHT = 248     -- mid-left of the device, below the gun name
-    local BOTTOM = 60     -- between the name header and the big ammo numbers
+    -- Screenshot tune #2 2026-07-03 (user: "I don't want pap label - just the icon, level;
+    -- it was going out of bounds of the section"): NO text label - the tier shield alone,
+    -- pulled LEFT into the loadout section where the old label sat, with the "OC vN" row
+    -- (AccOcTierText) stacked directly below and right-aligned to the same edge. TUNE IN-GAME.
+    local SIZE = 26       -- icon width/height (virtual px)
+    local RIGHT = 46      -- tune #5 (user: "pap tier icon over 6 points") - icon x 1208..1234
+    local BOTTOM = 100    -- icon y 594..620
 
     local icons = {}
     for t = 1, ACC_PAP_TIER_MAX do
@@ -743,19 +749,21 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
     -- Relocated 2026-06-26: the "vN" Overclock chip sits in the combat device's header row, just to the
     -- RIGHT of the PaP chip (RIGHT 228) and LEFT of the weapon name. Registered after the ammo block so
     -- it draws on top of the plate.
-    local W = 60
-    local H = 24
-    local RIGHT = 178    -- to the RIGHT of the PaP shield (not overlapping)
-    local BOTTOM = 64
+    -- Screenshot tune #2 2026-07-03 (user: "do OC v3, don't put OVERCLOCK - the long text went
+    -- out of bounds"): short "OC vN", right-aligned under the PaP shield, same right edge.
+    local W = 80
+    local H = 22
+    local RIGHT = 43     -- tune #5 (user: "overclock text over 3 points") - text right edge x 1237
+    local BOTTOM = 74    -- y 624..646, just under the PaP row (its BOTTOM = 100)
     self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
     self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
 
-    -- Bare teal "vN" text only (user 2026-06-22: removed the glass plate + cyan keyline box - just text).
+    -- Label + value on one line ("OVERCLOCK" dim label baked into the string; the vN stays teal).
     local Txt = LUI.UIText.new()
     Txt:setLeftRight(true, true, 0, 0)
     Txt:setTopBottom(true, true, 0, 0)
-    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
-    Txt:setScale(0.78)   -- OC chip (user 2026-06-26)
+    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+    Txt:setScale(0.62)
     Txt:setRGB(ACC_OC_COLOR[1], ACC_OC_COLOR[2], ACC_OC_COLOR[3])
     Txt:setText("")
     self:addElement(Txt)
@@ -764,7 +772,7 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
     self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "accOcTier"), function(m)
         local t = Engine.GetModelValue(m) or 0
         if t > 0 then
-            self.Txt:setText("v" .. t)
+            self.Txt:setText("OC v" .. t)
         else
             self.Txt:setText("")
         end
@@ -788,7 +796,11 @@ CoD.AccRoundRing = InheritFrom(LUI.UIElement)
 local ACC_BAR_W     = 240   -- bar width
 local ACC_BAR_H     = 22    -- bar height
 local ACC_BAR_RIGHT = 10    -- gap from the right edge (user 2026-06-17: moved right 30, 40->10)
-local ACC_BAR_TOPC  = -300  -- vertical offset from screen CENTER (negative = up; user 2026-06-17: up 100, -200->-300)
+local ACC_BAR_TOPC  = -300  -- vertical offset from screen CENTER (negative = up; user 2026-06-17:
+                            -- up 100, -200->-300). Briefly -230 during the Aetherium adoption to
+                            -- clear the kit's top-right round digits; those are DISABLED again
+                            -- (round counter back to our top-left elem, user 2026-07-03), so the
+                            -- bar's original corner spot is restored.
 local ACC_BAR_HOTW  = 5     -- width of the bright "drain front" sliver
 local ACC_BAR_SEGS  = 8     -- number of segment divisions (draws SEGS-1 notches)
 local ACC_BAR_BR_TH = 2     -- corner-bracket arm thickness
@@ -919,12 +931,14 @@ function CoD.AccShardIcon.new(HudRef, InstanceRef)
     self:setTopBottom(true, true, 0, 0)
 
     -- LUI canvas is ~1280x720; the server hudelem is 640x480 -> LUI x ~= hudelem*2, LUI y ~= hudelem*1.5
-    -- (confirmed in-game: LUI 14,46 landed on the health bar = hudelem ~7,31). Land this on the Data Shards
-    -- count row (hudelem x16 y50, same left edge as EXO SUIT / MEGA BOTTLES): LUI (32, 75). The count hudelem
-    -- sits just to the right at hudelem x44. TUNE these three if it's still off.
-    local SIZE = 36    -- LUI px (renders square on a 16:9 screen); ~= the 1.3-scale count text height
-    local LEFT = 32    -- LUI x  (= hudelem x16)
-    local TOP  = 65    -- LUI y  (nudged up from 75 to vertically CENTER the icon on the "225" count, user 2026-06-25)
+    -- (confirmed in-game: LUI 14,46 landed on the health bar = hudelem ~7,31).
+    -- MOVED 2026-07-03 (user: "place shards, mb, and exo under the players player HUD"): the icon now
+    -- leads the own-stats row along the BOTTOM edge of the Aetherium PlayerInfo plate (LUI 16..360 x
+    -- 595..710). The count/EXO/MB hudelems follow at hudelem x27/x62, BOTTOM_LEFT -16
+    -- (_acc_health_bars::ensure_own_stats). TUNE these three + those anchors together in-game.
+    local SIZE = 26    -- LUI px (renders square on a 16:9 screen); ~= the 1.05-scale count text height
+    local LEFT = 24    -- LUI x  (plate left padding)
+    local TOP  = 682   -- LUI y  (bottom strip of the PlayerInfo plate; plate bottom edge = 710)
     local img = LUI.UIImage.new()
     img:setLeftRight(true, false, LEFT, LEFT + SIZE)
     img:setTopBottom(true, false, TOP, TOP + SIZE)
@@ -1171,25 +1185,32 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:setLeftRight(true, true, 0, 0)
     Hud:setTopBottom(true, true, 0, 0)
 
-    local Card = CoD.AccPerkCard.new(Hud, Instance)
-    Hud:addElement(Card)
-    Hud.accCard = Card
+    -- RETIRED (user 2026-07-03: "remove our old UI - the new UI is better when buying"):
+    -- CoD.AccPerkCard, the right-side perk/PaP info card. The Aetherium cursor-hint prompt
+    -- (PromptPerks, now MEGA-AWARE with bottle-cost display) owns the buy UX. NOTE: this card
+    -- also carried the Overclock (codes 44-63) + Exo Suit (108-127) walk-up REPORT cards -
+    -- those displays are gone with it (the kiosk/station hint strings still show the basics).
+    -- Class kept above; to restore:
+    --     local Card = CoD.AccPerkCard.new(Hud, Instance)
+    --     Hud:addElement(Card); Hud.accCard = Card
+    -- (and re-add the OnHudClose accCard:close() call at the bottom of createMenu).
 
     local DmgNum = CoD.AccDmgNum.new(Hud, Instance)
     Hud:addElement(DmgNum)
     Hud.accDmgNum = DmgNum
 
-    -- Mega perk-icon row: one cyberpunk icon per owned perk (red=base / teal=Mega),
-    -- packed left-to-right at the bottom. Driven by accOwnedMask + accMegaMask.
-    local PerkBar = CoD.AccPerkBar.new(Hud, Instance)
-    Hud:addElement(PerkBar)
-    Hud.accPerkBar = PerkBar
+    -- RETIRED (Aetherium HUD adoption, 2026-07-03): CoD.AccPerkBar - the Aetherium perk row
+    -- (AetheriumPerksContainer, REWIRED to the same accOwnedMask/accMegaMask masks + the same
+    -- Ronan base/mega icons) draws the perks now. Class kept above; to restore, re-add:
+    --     local PerkBar = CoD.AccPerkBar.new(Hud, Instance)
+    --     Hud:addElement(PerkBar)
+    --     Hud.accPerkBar = PerkBar
 
-    -- Power-up active icons: Insta-Kill / Double Points / Fire Sale (Ronan art), top-center,
-    -- shown only while each power-up is active. Driven by accPowerupMask.
-    local PowerupBar = CoD.AccPowerupBar.new(Hud, Instance)
-    Hud:addElement(PowerupBar)
-    Hud.accPowerupBar = PowerupBar
+    -- RETIRED (Aetherium HUD adoption, 2026-07-03): CoD.AccPowerupBar - Aetherium's
+    -- PowerupsContainer draws power-ups from the STOCK powerup clientfields (the server-side
+    -- suppressor that used to null them is retired in _acc_lui.gsc behind the same flag).
+    -- Class kept above; to restore, re-add the 3 lines (PowerupBar mirror of the PerkBar recipe)
+    -- AND re-enable the _acc_lui.gsc powerup threads (level.acc_aetherium_hud = false does both).
 
     -- PaP-tier icon + Overclock "vN" chip are registered LATER (after the ammo block) so they draw ON
     -- TOP of the translucent device plate as header status chips - see below.
@@ -1200,19 +1221,21 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(RoundRing)
     Hud.accRoundRing = RoundRing
 
-    -- (Top-left Data Shards icon REMOVED 2026-06-26: the SQUAD roster shows shards per player now.)
+    -- RETIRED again (user 2026-07-03, currencies-in-panel pass): CoD.AccShardIcon + the
+    -- _acc_health_bars own-stats hudelem row are superseded - shards/MB/EXO now render INSIDE
+    -- the Aetherium PlayerInfo panel (toplayer clientfields acc_shards/acc_mb/acc_exo ->
+    -- AetheriumPlayerInfo.lua currency row). To restore the standalone icon:
+    --     local ShardIcon = CoD.AccShardIcon.new(Hud, Instance)
+    --     Hud:addElement(ShardIcon); Hud.accShardIcon = ShardIcon
 
-    -- Custom COMBAT HUD (bottom-right): our own ammo/weapon block reading the engine's client-side
-    -- weapon models (mag/reserve/name); the stock block is hidden server-side (suppress_stock_weapon_hud).
-    -- If a UI Error box appears in-game, bisect by commenting ONE of these two out.
-    local AmmoBlock = CoD.AccAmmoBlock.new(Hud, Instance)
-    Hud:addElement(AmmoBlock)
-    Hud.accAmmoBlock = AmmoBlock
-
-    -- Lethal + tactical icon/count from the engine offhand models.
-    local Equip = CoD.AccEquip.new(Hud, Instance)
-    Hud:addElement(Equip)
-    Hud.accEquip = Equip
+    -- RETIRED (Aetherium HUD adoption, 2026-07-03): CoD.AccAmmoBlock + CoD.AccEquip - the
+    -- Aetherium Loadout widget (bottom-right plate, LR 885-1312 / TB 512-720) draws weapon name/
+    -- ammo/equipment from the same engine client models. Classes kept above; to restore, re-add:
+    --     local AmmoBlock = CoD.AccAmmoBlock.new(Hud, Instance)
+    --     Hud:addElement(AmmoBlock); Hud.accAmmoBlock = AmmoBlock
+    --     local Equip = CoD.AccEquip.new(Hud, Instance)
+    --     Hud:addElement(Equip); Hud.accEquip = Equip
+    -- AND flip level.acc_aetherium_hud = false in _acc_lui.gsc (re-arms suppress_stock_weapon_hud).
 
     -- PaP-tier shield (I/II/III) + Overclock "vN" chip: the held weapon's status, drawn in the combat
     -- device's HEADER row (top-left of the ammo plate). Registered HERE - after the ammo block - so they
@@ -1226,10 +1249,7 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(OcTier)
     Hud.accOcTierText = OcTier
 
-    local function OnHudClose(Sender)
-        Sender.accCard:close()
-    end
-    LUI.OverrideFunction_CallOriginalSecond(Hud, "close", OnHudClose)
+    -- (AccPerkCard retired 2026-07-03 -> no accCard:close() override needed; re-add with it.)
 
     return Hud
 end

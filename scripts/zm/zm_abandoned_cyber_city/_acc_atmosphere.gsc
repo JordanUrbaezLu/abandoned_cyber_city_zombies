@@ -34,6 +34,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;        // single music channel (main theme routes through it)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer() for the depth-gated abyss dark vision
 
+#insert scripts\shared\shared.gsh;   // IS_TRUE (dev-gated prop report, 2026-07-02)
+
 // Defaults = cold low city haze. TODO(acc-tune): lock these in a playtest, then
 // mirror the numbers in docs/29_atmosphere_and_materials.md.
 #define ACC_FOG_START_DIST     0      // units from camera where fog begins
@@ -139,6 +141,59 @@ function init()
     level thread apply_ambient_bed();
     level thread apply_music();
     level thread apply_fx();          // Phase 3+4: neon hero-glows + ambient dust/steam (acc_atmo_fx)
+    // TEMP-DISABLED (user 2026-07-02 "game won't start" bisect): the T7 pilot props are one of
+    // two native-crash suspects (holo screen has 5 unresolved display materials; log dies silently
+    // right after init in the 22:48/23:49 builds). Re-enable to bisect once the game boots again.
+    // level thread spawn_exchange_props(); // T7 prop-pack pilot decor (user 2026-07-02)
+}
+
+// =============================================================================
+// T7 prop-pack PILOT decor (user 2026-07-02: "place a thing or two in... the exchange
+// room actually since that's pretty open"). The Exchange = the transfer-vault room
+// UNDER the spawn Plaza (gen_plaza_basement.js: floor z=-240, x[-720,300], y[-448,360],
+// docs/58). Two static script_models from the MidgetBlaster "T7 Assets" pack (Zombies
+// Chronicles Moon server rack + Awakening/crucible holo monitor - fits the cyber read):
+// install-side slice source_data\acc_t7_props_pilot.gdt + model_export\_midgetblaster\
+// (PNG baseImages - same pipeline as the ALXS PaP/actionfigure images). Zone:
+// xmodel,p7_zm_moo_server_comm_02 + xmodel,p7_cru_monitor_holo_screen_01.
+// Pure decor: no collision clips added (props sit against walls, out of the lane);
+// this module is the visual-dressing home (coordinator may re-home later).
+// =============================================================================
+// NOTE (compile trap, 2026-07-02): BO3 GSC has NO non-empty array-literal syntax -
+// `props[0] = [ a, b, c ]` fails the whole file with "No generated data" (only the
+// empty `arr = [];` literal is legal, and the repo lint does NOT catch this).
+// Hence plain per-prop calls below.
+function spawn_exchange_props()
+{
+    // Repositioned to CLEARLY-OPEN mid-room floor (2026-07-02 round 3: props did not appear;
+    // the old spots hugged the walls - a wall-embedded origin, wrong z, or a dead spawn could
+    // all hide silently). Vault interior: x[-720,300] y[-448,360], floor top z=-240.
+    n = 0;
+    n += spawn_exchange_prop( "p7_zm_moo_server_comm_02", ( -400, 200, -240 ), ( 0, 270, 0 ) );  // rack, open floor N half, faces south
+    n += spawn_exchange_prop( "p7_cru_monitor_holo_screen_01", ( 100, -300, -240 ), ( 0, 90, 0 ) ); // holo, open floor S half, faces north
+
+    acc_utility::log( "atmosphere: exchange pilot props spawned (" + n + ")" );
+    if ( IS_TRUE( level.acc_dev ) )
+        level thread dev_report_exchange_props( n );
+}
+
+// Returns 1 on success, 0 on a dead spawn (guarded - spawn() CAN return undefined).
+function spawn_exchange_prop( model, origin, angles )
+{
+    m = spawn( "script_model", origin );
+    if ( !isdefined( m ) ) return 0;
+    m SetModel( model );
+    m.angles = angles;
+    return 1;
+}
+
+// acc_dev: prove the pilot props in-game either way (round-3 instrumentation).
+function dev_report_exchange_props( n )
+{
+    level flag::wait_till( "initial_blackscreen_passed" );
+    wait 6;
+    foreach ( p in GetPlayers() )
+        p IPrintLnBold( "^3[ACC] exchange props: " + n + " spawned @ (-400,200,-240) + (100,-300,-240)" );
 }
 
 function apply_fog()
@@ -281,7 +336,7 @@ function settle_fog_step()
     b              = getdvarfloat( "acc_fog_b", ACC_FOG_B );
     max_opacity    = getdvarfloat( "acc_fog_max_opacity",    ACC_FOG_MAX_OPACITY );
 
-    SetVolFog( start_dist, halfway_dist, halfway_height, level.acc_fog_settle_base, r, g, b, max_opacity );
+    acc_set_vol_fog( start_dist, halfway_dist, halfway_height, level.acc_fog_settle_base, r, g, b, max_opacity );
 }
 
 // Remove volumetric fog for good. VERIFIED(acc): opacity 0 does NOT clear vol fog (stock
@@ -290,7 +345,25 @@ function settle_fog_step()
 // far beyond the world and never reaches the camera (stock uses the same trick via setExpFog).
 function disable_fog()
 {
-    SetVolFog( 100000000, 100000001, 0, 0, 0, 0, 0, 0 );
+    acc_set_vol_fog( 100000000, 100000001, 0, 0, 0, 0, 0, 0 );
+}
+
+// CHANGE-GATED SetVolFog (user 2026-07-04): the apply_fog loop re-asserted IDENTICAL fog params
+// every 0.1s for the whole match (~10 engine calls + 10 "setVolFog: Old syntax used" console lines
+// per second = tens of thousands of log lines burying the real fatal in console_mp.log). SetVolFog
+// only overwrites the single GLOBAL fog state, so re-issuing unchanged values does nothing - call
+// the engine ONLY when a parameter actually changed (the same want!=applied pattern the vision
+// loop uses). The single-authority design is unchanged: everything still routes through the one
+// apply_fog loop; this wrapper just skips the redundant engine calls. Verified NOT the state-pool
+// leak (no allocation), purely log/CPU hygiene.
+function acc_set_vol_fog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, opacity )
+{
+    key = start_dist + "," + halfway_dist + "," + halfway_height + "," + base_height + ","
+          + r + "," + g + "," + b + "," + opacity;
+    if ( isdefined( level.acc_fog_last_applied ) && level.acc_fog_last_applied == key )
+        return;
+    level.acc_fog_last_applied = key;
+    SetVolFog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, opacity );
 }
 
 // ---------------------------------------------------------------------------
@@ -409,10 +482,9 @@ function set_fog_from_dvars()
 
     // VERIFIED(acc): see header - stock 8-arg signature, 0..1 RGB + opacity. Full haze at
     // max_opacity; the power-on removal is a downward sink ending in disable_fog() (planes out),
-    // NOT an opacity ramp, because opacity 0 does not clear vol fog.
-    SetVolFog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, max_opacity );
-
-    acc_utility::log( "atmosphere fog applied (halfway=" + halfway_dist + " opacity=" + max_opacity + ")" );
+    // NOT an opacity ramp, because opacity 0 does not clear vol fog. Change-gated (acc_set_vol_fog)
+    // so the 0.1s authority loop no longer re-issues identical values 10x/sec.
+    acc_set_vol_fog( start_dist, halfway_dist, halfway_height, base_height, r, g, b, max_opacity );
 }
 
 // (Fog clear history: lift-on-power -> opacity-fade-on-first-kill -> instant disable-on-first-kill

@@ -63,4 +63,6 @@ REM  acc_resolve_dev_flags() drives everything else off this one flag. (The engi
 REM  args before it - fs_game / set_gametype / devmap / developer / logfile - are
 REM  required to load the map, not dev toggles.) For a clean normal game: acc_dev 0.
 REM  ===========================================================================
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 1"
+REM  g_log/g_logSync: engine GAME log (games_mp.log) - the [ACCDIAG] 30s diagnostics census
+REM  (_acc_diag.gsc LogPrint, file-only) lands there; logfile 1 covers console_mp.log separately.
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1 +set acc_dev 1"

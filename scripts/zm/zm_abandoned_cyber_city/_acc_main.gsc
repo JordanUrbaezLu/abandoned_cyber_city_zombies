@@ -23,6 +23,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_cyberware;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_elites;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_trench_skins;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_fury;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_map_randomizer;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_hack;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_overload;
@@ -63,6 +65,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_power;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_dev;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_diag;
 
 // ---------------------------------------------------------------------------
 // Spawn-intensity tune (2026-06-18). Stock knobs we override. Hardcoded - retune here.
@@ -185,6 +188,10 @@ function init()
     acc_cyberware::init();
     acc_overclocks::init();
     acc_elites::init();
+    // Underground 54i reskin - MUST init after elites (both chain level.zombie_init_done;
+    // this order makes the skin roll run after the depth-Shielded promo, docs in the module).
+    acc_trench_skins::init();
+    acc_fury::init();           // Apothicon Fury trench elite (5x hp; PER-PLAYER 30s cadence at trench layer 2+; HB21 pack)
     acc_events_hack::init();
     acc_events_overload::init();
     acc_emergency_drop::init();
@@ -251,6 +258,11 @@ function init()
     // dvar - the DEV tools no-op in normal play, but two FEATURES set up above that gate ship to everyone:
     // the floating damage numbers and the top-center ROOM-NAME banner (user 2026-06-27).
     acc_dev::init();
+
+    // FILE-ONLY diagnostics heartbeat (user 2026-07-04, state-pool crash forensics): a 30s
+    // [ACCDIAG] census line (entities/AI/corpses/furies/octobombs/boss debts) via LogPrint -
+    // no on-screen output. Always on; acc_diag_interval 0 disables live.
+    acc_diag::init();
 
     level thread watch_round_transitions();
 

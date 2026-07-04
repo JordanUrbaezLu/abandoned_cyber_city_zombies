@@ -31,8 +31,9 @@
 #insert scripts\shared\version.gsh;
 
 // Already packed via the `fx,acc/light/fx_perk_glow_*` zone lines.
-#precache( "client_fx", "acc/light/fx_perk_glow_dark_purple" );   // clientfield 1 = Phantom (dark purple, user 2026-06-24)
-#precache( "client_fx", "acc/light/fx_perk_glow_magenta_dim" );   // clientfield 2 = Glitch Stalker (dimmed magenta, user 2026-06-24)
+#precache( "client_fx", "acc/light/fx_perk_glow_dark_purple" );   // clientfield 1 = Subroutine Core (dark purple; was the Phantom until 2026-07-02)
+#precache( "client_fx", "acc/light/fx_perk_glow_magenta_dim" );   // clientfield 2 = ex-Glitch Stalker (aura removed 2026-07-02; mapping kept for A/B re-enables)
+#precache( "client_fx", "acc/light/fx_perk_glow_neon_yellow" );   // clientfield 3 = Phantom (NEON YELLOW, user 2026-07-02 toxic-skin re-theme)
 
 #namespace acc_boss_phantom;
 
@@ -40,10 +41,12 @@ REGISTER_SYSTEM( "acc_phantom_aura", &__init__, undefined )
 
 function __init__()
 {
-    // Shared body-aura field, COLOUR-CODED (user 2026-06-24 re-theme): 0 off / 1 DARK PURPLE (Phantom) /
-    // 2 dimmed MAGENTA (Glitch Stalker). Two FX off the SAME field so the two bosses read as different colours.
-    level._effect[ "acc_phantom_aura_purple" ]  = "acc/light/fx_perk_glow_dark_purple";  // Phantom (deep dark purple)
-    level._effect[ "acc_phantom_aura_magenta" ] = "acc/light/fx_perk_glow_magenta_dim";  // Glitch Stalker (magenta @37.5%)
+    // Shared body-aura field, COLOUR-CODED (re-themed 2026-07-02 with the toxic skins): 0 off /
+    // 1 DARK PURPLE (Subroutine Core - it defaults to colour 1) / 2 dimmed MAGENTA (unused - the
+    // Glitch's aura was removed; kept for A/B re-enables) / 3 NEON YELLOW (Phantom).
+    level._effect[ "acc_phantom_aura_purple" ]  = "acc/light/fx_perk_glow_dark_purple";  // Core (deep dark purple)
+    level._effect[ "acc_phantom_aura_magenta" ] = "acc/light/fx_perk_glow_magenta_dim";  // unused (ex-Glitch, magenta @37.5%)
+    level._effect[ "acc_phantom_aura_yellow" ]  = "acc/light/fx_perk_glow_neon_yellow";  // Phantom (neon yellow, user 2026-07-02)
 
     // actor scope (mirror accEyeTint). 2 bits = 0..2. !CF_CALLBACK_ZERO_ON_NEW_ENT so a late joiner whose
     // snapshot already has the boss materialized still draws the aura.
@@ -65,8 +68,9 @@ function aura_cb( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldNa
     }
 
     fx = undefined;
-    if ( newVal == 1 )      fx = level._effect[ "acc_phantom_aura_purple" ];   // Phantom (dark purple)
-    else if ( newVal == 2 ) fx = level._effect[ "acc_phantom_aura_magenta" ];  // Glitch Stalker (dimmed magenta)
+    if ( newVal == 1 )      fx = level._effect[ "acc_phantom_aura_purple" ];   // Subroutine Core (dark purple)
+    else if ( newVal == 2 ) fx = level._effect[ "acc_phantom_aura_magenta" ];  // unused (ex-Glitch dimmed magenta)
+    else if ( newVal == 3 ) fx = level._effect[ "acc_phantom_aura_yellow" ];   // Phantom (neon yellow, 2026-07-02)
     if ( !isdefined( fx ) ) return;
 
     // The model dobj must exist before PlayFXOnTag can resolve "tag_origin".

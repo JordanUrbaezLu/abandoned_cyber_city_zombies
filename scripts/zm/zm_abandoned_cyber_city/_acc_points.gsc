@@ -30,6 +30,24 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 
+#insert scripts\shared\shared.gsh;
+
+// Aetherium kill-feed strings (bug fix 2026-07-03, user: "+130 Elimination ... doesn't align
+// with how many points you actually get"): the kit's own kill feed computed STOCK point values,
+// but THIS module owns kill scoring (70/110/100 + co-op split + DP + ledger) - so the feed is
+// now sent from HERE, at the payout sites, with the amount actually paid. The kit's own
+// zombie-damage kill-feed callback is disarmed in _zm_aetherium_hud.gsc __main__.
+#precache( "string", "ZM_AETHERIUM_KF_ELIMINATION" );
+#precache( "string", "ZM_AETHERIUM_KF_CRITICAL" );
+#precache( "string", "ZM_AETHERIUM_KF_MELEE" );
+#precache( "string", "ZM_AETHERIUM_KF_BURNED" );
+#precache( "string", "ZM_AETHERIUM_KF_GRENADE" );
+#precache( "string", "ZM_AETHERIUM_KF_MONKEY_BOMB" );
+#precache( "string", "ZM_AETHERIUM_KF_LIL_ARNIE" );
+#precache( "string", "ZM_AETHERIUM_KF_ROCKET_SHIELD" );
+#precache( "string", "ZM_AETHERIUM_KF_RAGNAROK_DG4" );
+#precache( "string", "ZM_AETHERIUM_KF_ZOMBIE_DOG" );
+
 // ---------------------------------------------------------------------------
 // Tuning constants. See docs/06_mechanics.md.
 // ---------------------------------------------------------------------------
@@ -220,7 +238,10 @@ function on_zombie_death( attacker ) // self = the killed zombie
     if ( isdefined( self.acc_trench_zombie ) && self.acc_trench_zombie )
     {
         if ( isdefined( attacker ) && isplayer( attacker ) )
-            award_killer_with_ledger( attacker, getdvarint( "acc_trench_zombie_points", 30 ), self.damagelocation );
+        {
+            paid = award_killer_with_ledger( attacker, getdvarint( "acc_trench_zombie_points", 30 ), self.damagelocation );
+            send_kill_feed( attacker, paid, kill_feed_text( self, self.damagemod, self.damagelocation ) );
+        }
         return;
     }
 
@@ -302,6 +323,10 @@ function distribute_points( zombie, killer, mod, hit_loc )
     // Partition contributors into killer vs others.
     contributors = qualifying_non_killer_contributors( zombie, killer );
 
+    // Kill-type text for the Aetherium feed, resolved ONCE per kill (the killer gets the
+    // typed text; contributor shares always read ELIMINATION - they're assists).
+    feed_text = kill_feed_text( zombie, mod, hit_loc );
+
     if ( !isdefined( killer ) || !isplayer( killer ) )
     {
         // Killer gone / invalid (e.g. AI friendly fire not applicable here,
@@ -310,7 +335,8 @@ function distribute_points( zombie, killer, mod, hit_loc )
         per = int( base / contributors.size / 10 ) * 10;
         for ( i = 0; i < contributors.size; i++ )
         {
-            award_player( contributors[ i ], per );
+            paid = award_player( contributors[ i ], per );
+            send_kill_feed( contributors[ i ], paid, &"ZM_AETHERIUM_KF_ELIMINATION" );
         }
         return;
     }
@@ -320,7 +346,8 @@ function distribute_points( zombie, killer, mod, hit_loc )
     if ( contributors.size == 0 )
     {
         // Solo / no other qualifiers - killer gets 100%.
-        award_killer_with_ledger( killer, base, hit_loc );
+        paid = award_killer_with_ledger( killer, base, hit_loc );
+        send_kill_feed( killer, paid, feed_text );
         return;
     }
 
@@ -330,7 +357,8 @@ function distribute_points( zombie, killer, mod, hit_loc )
     // total equals base exactly; leftover chunks go to the first contributors.
     killer_pts = int( base * ACC_POINTS_KILLER_SHARE / 10 + 0.5 ) * 10; // nearest 10
     if ( killer_pts > base ) killer_pts = base;
-    award_killer_with_ledger( killer, killer_pts, hit_loc );
+    paid = award_killer_with_ledger( killer, killer_pts, hit_loc );
+    send_kill_feed( killer, paid, feed_text );
 
     pool_units = int( ( base - killer_pts ) / 10 );
     per_units  = int( pool_units / contributors.size );
@@ -339,7 +367,8 @@ function distribute_points( zombie, killer, mod, hit_loc )
     {
         share = per_units * 10;
         if ( i < extra ) share += 10;
-        award_player( contributors[ i ], share );
+        paid = award_player( contributors[ i ], share );
+        send_kill_feed( contributors[ i ], paid, &"ZM_AETHERIUM_KF_ELIMINATION" );
     }
 }
 
@@ -424,15 +453,16 @@ function dp_scaled_floored( player, pts )
     return int( pts * double_points_scalar( player ) / 10 ) * 10;
 }
 
-function award_player( player, pts )
+function award_player( player, pts )   // returns the amount actually paid (feeds the kill feed)
 {
-    if ( !isdefined( player ) || !isplayer( player ) ) return;
-    if ( pts <= 0 ) return;
+    if ( !isdefined( player ) || !isplayer( player ) ) return 0;
+    if ( pts <= 0 ) return 0;
 
     pts = dp_scaled_floored( player, pts );
-    if ( pts <= 0 ) return;
+    if ( pts <= 0 ) return 0;
 
     player zm_score::add_to_player_score( pts );   // stock helper so the HUD floater ("+40") + VO cues play
+    return pts;
 }
 
 // Award the KILLER their Double-Points-scaled base PLUS the Loot Stash / Payroll Ledger flat bonus, in ONE
@@ -441,9 +471,9 @@ function award_player( player, pts )
 // aren't multiples of 10, and money only moves in 10s (round_up_score), so we BANK the sub-10 remainder on the
 // killer and flush it on a later kill: paying whole-tens + carrying the leftover nets EXACTLY the intended
 // per-kill amount (the on-screen number alternates 10/20, the banked total is exact).
-function award_killer_with_ledger( killer, base_pts, hit_loc )
+function award_killer_with_ledger( killer, base_pts, hit_loc )   // returns the amount actually paid
 {
-    if ( !isdefined( killer ) || !isplayer( killer ) ) return;
+    if ( !isdefined( killer ) || !isplayer( killer ) ) return 0;
 
     award = dp_scaled_floored( killer, base_pts );
 
@@ -454,6 +484,47 @@ function award_killer_with_ledger( killer, base_pts, hit_loc )
         award += ACC_LEDGER_KILL;   // = 10, trench and surface alike
     }
 
-    if ( award <= 0 ) return;
+    if ( award <= 0 ) return 0;
     killer zm_score::add_to_player_score( award );
+    return award;
+}
+
+// ---------------------------------------------------------------------------
+// Aetherium kill feed (2026-07-03): sent from HERE - the scoring authority - so
+// the popup number IS the money paid (DP-scaled, split-adjusted, ledger folded
+// in). Light port of the kit classifier's flavor texts; AAT-specific texts are
+// NOT ported (those kills read ELIMINATION, with correct points).
+// ---------------------------------------------------------------------------
+
+function kill_feed_text( zombie, mod, hit_loc )
+{
+    w = undefined;
+    if ( isdefined( zombie ) && isdefined( zombie.damageweapon ) )
+        w = zombie.damageweapon;
+    if ( isdefined( w ) && isdefined( w.name ) )
+    {
+        if ( w.name == "frag_grenade" )                                          return &"ZM_AETHERIUM_KF_GRENADE";
+        if ( w.name == "cymbal_monkey" )                                         return &"ZM_AETHERIUM_KF_MONKEY_BOMB";
+        if ( w.name == "octobomb" || w.name == "octobomb_upgraded" )             return &"ZM_AETHERIUM_KF_LIL_ARNIE";
+        if ( w.name == "zod_riotshield" || w.name == "zod_riotshield_upgraded" ) return &"ZM_AETHERIUM_KF_ROCKET_SHIELD";
+        if ( w.name == "hero_gravityspikes_melee" )                              return &"ZM_AETHERIUM_KF_RAGNAROK_DG4";
+    }
+    if ( isdefined( zombie ) && isdefined( zombie.model ) && issubstr( zombie.model, "hellhound" ) )
+        return &"ZM_AETHERIUM_KF_ZOMBIE_DOG";
+    if ( isdefined( mod ) && mod == "MOD_BURNED" )
+        return &"ZM_AETHERIUM_KF_BURNED";
+    if ( is_knife_kill( mod ) )
+        return &"ZM_AETHERIUM_KF_MELEE";
+    if ( is_headshot( hit_loc ) )
+        return &"ZM_AETHERIUM_KF_CRITICAL";
+    return &"ZM_AETHERIUM_KF_ELIMINATION";
+}
+
+function send_kill_feed( player, amount, text )
+{
+    if ( !IS_TRUE( level.acc_aetherium_hud ) ) return;   // feed widget is Aetherium-only
+    if ( !isdefined( player ) || !isplayer( player ) ) return;
+    if ( !isdefined( amount ) || amount <= 0 ) return;
+
+    player LuiNotifyEvent( &"score_event", 2, text, amount );
 }

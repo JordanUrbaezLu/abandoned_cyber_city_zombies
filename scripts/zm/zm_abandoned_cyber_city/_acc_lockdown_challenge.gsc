@@ -27,7 +27,8 @@
 //    trigger live, so a sealed-in player could buy one and walk out (escape bug, user 2026-06-25);
 //    is_door_sealed() lets the buyable-door loop refuse those purchases while the purge is active.
 //
-// Live knobs: acc_lockdown_challenge_on (1) / _total (50) / _concurrent (8) / _stagger (0.6) /
+// Live knobs: acc_lockdown_challenge_on (0 = HARDCODE-DISABLED default, user 2026-07-04 - the whole Glitch
+//   Purge is OFF in every version until you `+set acc_lockdown_challenge_on 1`) / _total (50) / _concurrent (8) / _stagger (0.6) /
 // _stagger_initial (0.3, fast fill at start) / _grace (1.5) / _confine (0) / acc_lockdown_reward (1) /
 // _challenge_debug (0) / _challenge_force "<zone>" (dev start without the trap). Seal: acc_lockdown_lock_doors (1).
 // =============================================================================
@@ -84,10 +85,26 @@
 // Threaded from acc_main::init() AFTER acc_lockdown / acc_boss_glitch / acc_boss_items.
 function init()
 {
-    level.acc_ldc_active   = undefined;   // the committed challenge zone (guards in _acc_lockdown / _acc_boss_glitch read this)
+    // Guard vars set FIRST (safe defaults) so every downstream reader of level.acc_ldc_active
+    // (_acc_lockdown / _acc_boss_glitch / _acc_boss_phantom / _acc_health_bars / _acc_reactor /
+    // _acc_paradise) sees "no purge active" whether or not this system is enabled below.
+    level.acc_ldc_active   = undefined;   // the committed challenge zone (guards elsewhere read this)
     level.acc_ldc_teardown = false;
     level.acc_ldc_resolved = false;
     level.acc_ldc_zombies  = [];
+
+    // HARDCODE DISABLED (user 2026-07-04): the Glitch Purge / lockdown challenge is OFF in ALL
+    // versions (normal AND dev - this gate is UNCONDITIONAL, not behind level.acc_dev) because it
+    // caused too many bugs and needs more testing. Nothing arms: we return BEFORE threading
+    // watch_challenge (ambient trap) / watch_force_dvar (dev force) / on_end_game_safety, so no
+    // red room ever becomes a trap and no confined Glitch wave ever spawns. The DEFCON room LIGHTS
+    // (_acc_lockdown rotation) still rotate as ambient flavor - only the PURGE is dead.
+    // RE-ENABLE (explicit opt-in only): launch with `+set acc_lockdown_challenge_on 1`.
+    if ( getdvarint( "acc_lockdown_challenge_on", 0 ) != 1 )
+    {
+        acc_utility::log( "lockdown challenge (GLITCH PURGE): HARDCODE DISABLED - not armed in any version (set acc_lockdown_challenge_on 1 to re-enable)" );
+        return;
+    }
 
     level thread watch_challenge();
     level thread on_end_game_safety();
@@ -103,7 +120,7 @@ function watch_challenge()
     for ( ;; )
     {
         level waittill( "acc_lockdown_room_lit", zone );
-        if ( getdvarint( "acc_lockdown_challenge_on", 1 ) != 1 ) continue;
+        if ( getdvarint( "acc_lockdown_challenge_on", 0 ) != 1 ) continue;   // default OFF (hardcode-disabled, user 2026-07-04); re-enable = acc_lockdown_challenge_on 1
         if ( isdefined( level.acc_ldc_active ) ) continue;
         level thread arm_trap( zone );
     }

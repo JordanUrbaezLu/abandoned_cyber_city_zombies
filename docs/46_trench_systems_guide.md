@@ -20,7 +20,7 @@ While anywhere underground you get **amped zombies** (faster + hit harder + tank
 **spawn surge that erupts at YOUR current layer** (on entry, on descending to a new layer, and a continuous drip while you stay down — so the deeper layers populate as you reach them, not just the pit), and a small **fall tax** if you dive in. The reward has to be worth it —
 that's everything below.
 
-> Per-layer numbers (N = layer 1–5): move **+4%·N**, health **+30%·N** (on top of round HP), melee **+6·N flat HP** (base 45 → 51/57/63/69/75). Dvars: `acc_trench_layer_speed_pct` (4), `acc_trench_layer_hp_pct` (30), `acc_trench_layer_dmg_add` (6). Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
+> Per-layer numbers (N = layer 1–5): move **+4%·N**, health **+30%·N** (**stacks on top of** round + co-op HP, so final = (round curve × player-count mult) × (1 + 0.30·N) — both scale, user 2026-07-04), melee **+6·N flat HP** (base 45 → 51/57/63/69/75). Dvars: `acc_trench_layer_speed_pct` (4), `acc_trench_layer_hp_pct` (30), `acc_trench_layer_dmg_add` (6). Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
 
 ## The things in the trench
 

@@ -132,8 +132,8 @@ function weapon_name_to_ability_category( weapon_name )
     // (try_activate_ability) - the offhand knife + grenades are never the
     // "current weapon", so they have no reachable ability and are absent.
     pistol_list  = array( "pistol_standard", "t6_fiveseven", "s1_rw1" );  // Five-Seven + RW1 (+ laststand) -> Precision Mode
-    smg_list     = array( "s1_asm1",                            // ASM1
-                          "s4_ppsh41_base", "t9_ak74u",          // PPSH-41, AK-74u -> Whirlwind
+    // ASM1 RETIRED 2026-07-03 (user) - re-add "s1_asm1" first in this array to restore.
+    smg_list     = array( "s4_ppsh41_base", "t9_ak74u",          // PPSH-41, AK-74u -> Whirlwind
                           "t6_chicom_cqb" );                     // Chicom CQB (BO2 burst SMG)
     shotgun_list = array( "s1_tac19", "t6_olympia" );           // Tac-19, Olympia (BO2) -> Slug Round
     ar_list      = array( "t9_ak47", "s1_ae4", "t6_galil" );    // AK-47, AE4, Galil -> Focus Fire

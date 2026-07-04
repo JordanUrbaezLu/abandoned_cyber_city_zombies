@@ -39,7 +39,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player (1 shard to the glitch killer)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // set_phantom_aura (magenta body glow, user 2026-06-24)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // (aura call removed 2026-07-02 - kept for shared phantom helpers/history)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;   // 3D over-head name + health bar (user 2026-07-02)
 
 #insert scripts\shared\shared.gsh;
 
@@ -280,23 +281,20 @@ function spawn_glitch( round_number )
     // bugged fight can't soft-lock the round (the deliberate-safe choice, like Brutus).
     host.ignore_enemy_count = true;
 
-    // STOCK base-zombie SKIN (BODY + HEAD, user 2026-06-15): the horde is the charred reskin, so
-    // giving the boss the STOCK "Giant" zombie BODY + HEAD makes it visually distinct. On the live
-    // actor (past the init-gate) this is the established idiom (nsz_brutus.gsc:668; the head
-    // Detach/Attach mirrors archetype_clone.gsc / archetype_thrasher.gsc). SetModel swaps ONLY the
-    // base BODY model (it leaves attachments), so we ALSO Detach the engine-attached charred HEAD
-    // and Attach the stock head. Detaching by the KNOWN charred-head literal (the charred GDT head
-    // field) - NOT host.head, which is undefined on a plain promoted zombie (verified); Detach of a
-    // not-attached model is a safe no-op. c_zom_der_* share the SAME 'base' skeleton + gib rig as
-    // charred (anims/gibs intact, verified); both models packed via xmodel lines in the .zone.
+    // TOXIC SKIN (user 2026-07-02; was the stock Giant body 2026-06-15): the Glitch now wears
+    // WetEgg's SAT toxic zombie body (c_sat_zmb_zombie_toxic_1 - EC-style machine-only lift, see
+    // tools/external_assets_manifest.ps1 "SAT Toxic Zombies"; the pack's AI system is NOT installed).
+    // Same live-actor SetModel idiom as before (nsz_brutus.gsc:668). The toxic body INCLUDES its
+    // head ("head" is empty in its character GDT entry), so we Detach the engine-attached charred
+    // head and attach NOTHING (attaching a stock head would double-head it). Detach of a
+    // not-attached model is a safe no-op. Toxic bodies ride the shared 'base' zombie skeleton
+    // (WetEgg port, stock zombie xanims drive it - docs/56 lane). Zone: xmodel,c_sat_zmb_zombie_toxic_1.
     // Toggle with acc_glitch_stock_skin 0. NO SetScale (the confirmed live-AI 0xC0000005 crasher).
     if ( getdvarint( "acc_glitch_stock_skin", 1 ) == 1 )
     {
-        host SetModel( "c_zom_der_zombie_body1" );        // stock Giant body
+        host SetModel( "c_sat_zmb_zombie_toxic_1" );      // WetEgg toxic body (head included)
         host Detach( "c_zom_dlc4_zombie_charred_head" );  // remove the charred head the archetype attached
-        host Attach( "c_zom_der_zombie_head1" );          // attach the stock Giant head (heads self-align, no tag)
-        if ( isdefined( host.gib_data ) )
-            host.gib_data.head = "c_zom_der_zombie_head1"; // keep gib metadata consistent (cosmetic; no_gib is true)
+        // gib_data.head left as-is: the toxic head is part of the body model and no_gib is true.
     }
 
     // TEAL EYES (user 2026-06-17): mark the boss for the client-side eyeball recolour so its eyes
@@ -306,20 +304,18 @@ function spawn_glitch( round_number )
     if ( getdvarint( "acc_glitch_teal_eyes", 1 ) == 1 )
         acc_lui::set_actor_eye_tint( host, true );
 
-    // MAGENTA AURA (user 2026-06-22; recoloured to MAGENTA 2026-06-24): teal eyes ALONE are washed out by
-    // the dark non-dev vision grade (eye-glow shaders fade in the dark - memory zombie-eye-color-mechanism /
-    // darkness-is-vision-not-lights), so the Stalker read as a normal horde zombie ("saw the inbound but never
-    // saw a glitch zombie"). The accPhantomAura body-glow is a client PlayFX glow (NOT a grade-washed shader),
-    // so it stays visible - the unmissable "this is the glitch" tell (docs/52). Gated by acc_glitch_aura.
-    if ( getdvarint( "acc_glitch_aura", 1 ) == 1 )
-    {
-        host.acc_aura_color = 2;   // 2 = dimmed MAGENTA (vs the Phantom's dark-purple 1) - shared accPhantomAura field; FX in _acc_boss_phantom.csc (user 2026-06-24)
-        acc_boss_phantom::set_phantom_aura( host, true );
-    }
+    // AURA REMOVED (user 2026-07-02, toxic-skin re-theme): the Glitch now has NO body glow - the
+    // TOXIC SKIN itself (vs the charred horde) is the visual tell, replacing the 2026-06-24 dimmed
+    // magenta aura (which existed because the old stock-Giant skin washed out under the dark vision
+    // grade). Teal eyes stay. The accPhantomAura field remains Phantom/Core-only; clientfield value
+    // 2 (glitch magenta) is now unused. Manual re-enable for A/B: `set acc_glitch_aura 1` no longer
+    // does anything - re-add the set_phantom_aura call if the toxic skin proves too subtle in the dark.
 
-    // NO health bar by design (user request 2026-06-15): we deliberately do NOT emit
-    // "acc_boss_spawned", so the top-screen boss bar + nameplate never appear. There is no
-    // over-head marker either - the stock zombie skin is the only indicator now.
+    // NO health bar / nameplate by design: no "acc_boss_spawned" notify (2D bar, user
+    // 2026-06-15) and NO 3D over-head nameplate either (user 2026-07-02: plates verified
+    // rendering in-game here, then scoped to the REAL bosses only - Brutus / Phantom /
+    // Rogue Protector; the Glitch reads as an elite, not a boss). To restore for A/B:
+    // acc_boss_nameplate::attach( host, "GLITCH STALKER" );
 
     // Behaviours.
     host thread glitch_blink_loop();      // self-endons on "death"

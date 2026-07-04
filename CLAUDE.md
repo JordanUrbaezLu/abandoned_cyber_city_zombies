@@ -47,7 +47,14 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   (tools root: `...\steamapps\common\Call of Duty Black Ops III 455130` —
   AppID-suffixed folder; scripts detect it via `bin\modlauncher.exe`, never
   folder name). `tools/preflight_windows.ps1` = live machine state (all-green
-  2026-06-12, repo synced into the usermap). **BUILD THE MAP YOURSELF — agents
+  2026-06-12 on the OLD box; **NEW box since 2026-07-01, setup COMPLETE
+  2026-07-03** — Smart App Control OFF, L3akMod + Node.js + all required
+  external packs reinstalled, builds + in-game tests green. Two durable
+  new-box gotchas: the Treyarch tools need the `TA_TOOLS_PATH`/`TA_GAME_PATH`
+  user env vars (set 2026-07-01; without them the tools 0xC0000005 crash with
+  no message), and if SAC is ever re-enabled it blocks `gdtdb.exe` so NOTHING
+  builds (cod2map/Radiant/linker all assert on the missing `gdtDB\gdt.db`).
+  Memory: `new-machine-setup-state-2026-07`). **BUILD THE MAP YOURSELF — agents
   run `.\tools\build_map.ps1` (full pipeline) or `-GscOnly` (linker-only); the
   Launcher GUI is NOT required and compiling is NOT a user action. The user's job
   is to TEST, not compile.** Build success = a FRESH `.ff`, NOT the linker exit

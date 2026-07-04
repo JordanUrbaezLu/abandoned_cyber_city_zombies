@@ -276,7 +276,16 @@ function get_closest_uncloaked_player( origin )
     for ( i = 0; i < players.size; i++ )
     {
         p = players[ i ];
-        if ( isdefined( p ) && !( isdefined( p.acc_cloak_glitch ) && p.acc_cloak_glitch ) )
+        // Exclude cloaked (Li'l Arnie acc_cloak_glitch) AND invalid players. The is_player_valid
+        // check is the COOP GLITCH-STALKER FIX (user 2026-07-04): without it a DOWNED teammate (who
+        // stays on the map in coop, perfectly stationary) could be the straight-line-closest "target"
+        // for the Stalker's blink AND phase-in charge, while the AI's real path-distance enemy is a
+        // different LIVE player - the two fought and the boss teleported around the downed body in the
+        // same spot over and over. is_player_valid = defined/alive/spawned/not-laststand/not-spectator
+        // (mirrors the Phantom's valid_target_players, which already excludes downed teammates). Do NOT
+        // remove this - re-including downed players revives the same-spot-teleport bug.
+        if ( isdefined( p ) && zm_utility::is_player_valid( p )
+             && !( isdefined( p.acc_cloak_glitch ) && p.acc_cloak_glitch ) )
         {
             filtered[ filtered.size ] = p;
         }
@@ -362,7 +371,19 @@ function recompute_move_speed( player )
     }
     if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )
     {
-        n_scale = n_scale * getdvarfloat( "acc_phantom_slow_mult", 0.75 ); // Phantom chain-special: -25% slow (Mega Electric Cherry "Power Surge" is immune; _acc_elites)
+        // Phantom chain-special stun: -25% normally, softened to -10% for Mega Electric Cherry "Power Surge" (user 2026-07-03, was full immunity; _acc_elites)
+        if ( isdefined( player.acc_phantom_slow_mega ) && player.acc_phantom_slow_mega )
+            n_scale = n_scale * getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
+        else
+            n_scale = n_scale * getdvarfloat( "acc_phantom_slow_mult", 0.75 );
+    }
+    if ( isdefined( player.acc_protector_slowed ) && player.acc_protector_slowed )
+    {
+        // Rogue Protector zap stun: -25% normally, softened to -10% for Mega Electric Cherry (user 2026-07-03, was full immunity; _acc_elites::acc_protector_zap)
+        if ( isdefined( player.acc_protector_slow_mega ) && player.acc_protector_slow_mega )
+            n_scale = n_scale * getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
+        else
+            n_scale = n_scale * getdvarfloat( "acc_protector_slow_mult", 0.75 );
     }
     // Layered trench slow (docs/47): depends on how many layers you are BELOW your Exo Suit's coverage.
     // Exo tier T -> normal in layers 1..T; below that, -20% at the first uncovered layer, then -10% per

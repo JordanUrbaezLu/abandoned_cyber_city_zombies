@@ -48,7 +48,9 @@ $dev = if ($NoDev) { "" } else { " +set acc_dev 1" }
 # god / perks / power / variant-debug) via acc_resolve_dev_flags(); gameplay (audio / lockdown / zombie-speed)
 # runs on its in-code defaults. ($vdbg/$audio/$lockdown/$zspeed above are unused now - kept only so the
 # -NoAmbient/-NoLockdown/-NoVarDebug params don't error; they no longer affect the launch.)
-$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1$dev"
+# g_log/g_logSync: enable the engine GAME log (games_mp.log) - the [ACCDIAG] diagnostics heartbeat
+# (_acc_diag.gsc, LogPrint census every 30s) lands there. logfile 1 covers console_mp.log separately.
+$gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1$dev"
 
 Write-Host "launching BO3 through Steam (DRM-safe): steam://run/311210"
 Write-Host "args: $gameArgs"

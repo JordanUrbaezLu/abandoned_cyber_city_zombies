@@ -75,10 +75,10 @@
 // Stalker - re-theme later if they read too similar.)
 #define ACC_PHANTOM_ENABLE_DEF        1     // master on/off (1 = on in normal play; dev also runs it)
 #define ACC_PHANTOM_HP                56000  // BASE solo HP at debut (round 10). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
-#define ACC_PHANTOM_HP_EXP            1.1    // per-round COMPOUNDING exponent (user 2026-06-27): SAME 1.1 rate as a zombie (was 1.06). Brutus also uses 1.1 but anchors 5 rounds earlier (r5 vs r10), so it still outranks the Phantom. solo r10 56k / r20 145k / r30 377k / r40 977k. Live dvar acc_phantom_hp_exp.
+#define ACC_PHANTOM_HP_EXP            1.08   // per-round COMPOUNDING exponent (user 2026-07-04: 1.1 -> 1.08). TIERED BOSS SCALE, all sharing base 56000 + anchor 10, differing ONLY by exponent: Brutus 1.12 > Rogue Protector 1.1 > Phantom 1.08 (Phantom is the SOFTEST). Phantom solo r10 56k / r20 121k / r30 261k / r40 564k. Live dvar acc_phantom_hp_exp.
 #define ACC_PHANTOM_HP_ANCHOR         10     // round the BASE HP applies (Phantom's debut); compounding starts past it. Live dvar acc_phantom_hp_anchor.
 #define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). DEV mode = 4 (cadence_hits branches on level.acc_dev).
-#define ACC_PHANTOM_INTERVAL_DEF      10    // BASE-GAME EVERY 10 rounds (10, 20, 30, ...). DEV mode = EVERY 4 (4, 8, 12, ...) for testing - user 2026-06-26. One-at-a-time guard (run_round_boss) still prevents stacking.
+#define ACC_PHANTOM_INTERVAL_DEF      10    // LEGACY-FALLBACK cadence only (used if the shared roster pointer isn't published yet). Live rotation is the every-9 multi-boss roster in _acc_civil_protector. DEV fallback = every 4.
 #define ACC_PHANTOM_TEST_ROUND_DEF    8     // dev/test first round
 // AGGRESSION MODEL (user 2026-06-24): jumpscary TELEPORTING HARASSER, not a camper and not a murderer. The
 // cloaked arrival + screech is the SCARE; the LOW melee keeps it survivable. He still EARNS his guaranteed Mega
@@ -138,18 +138,19 @@ function init()
 {
     acc_utility::log( "boss_phantom: init (holographic cloaker mini-boss, script-only)" );
 
-    // FULLPROOF SPAWN ARCHITECTURE (user 2026-06-25). Split into two halves so NOTHING can permanently stop the
-    // Phantom:
-    //   round_watch        - the cheap "is a Phantom DUE this round?" decider; on a due round it just raises the
-    //                        OWED flag (it NEVER tries to spawn, so it can't be blocked by anything).
-    //   phantom_director   - the single, persistent spawner. While a Phantom is owed and none is alive, it KEEPS
-    //                        RETRYING the spawn (every few seconds, across rounds) until one actually exists.
-    // The owed flag only clears two ways: a Phantom is alive, or a spawn succeeds. So a jammed/stuck Glitch Purge
-    // (or anything else) can at most DELAY the Phantom a few seconds while the actor pool is saturated - it can
-    // never drop the spawn for the rest of the match (the round-7 "phantom never spawned in real games" class of
-    // bug). The purge is also force-shut-down after 2 rounds (_acc_lockdown_challenge::ldc_round_cap_watch), which
-    // frees those actor slots regardless.
-    level.acc_phantom_owed = false;
+    // FULLPROOF SPAWN ARCHITECTURE (user 2026-06-25), now DEBT-based for multi-boss rounds (user 2026-07-03).
+    // Split into two halves so NOTHING can permanently stop a Phantom:
+    //   round_watch      - the cheap "how many Phantoms does this round owe?" decider; on a boss round it just
+    //                      ADDS that count to acc_phantom_debt (it NEVER spawns, so it can't be blocked).
+    //   phantom_director - the single persistent spawner. While debt > 0 it KEEPS RETRYING the spawn (every few
+    //                      seconds, across rounds), spending one Phantom of debt per successful spawn.
+    // Debt only goes down on a successful spawn, so a jammed/stuck Glitch Purge (or anything else) can at most
+    // DELAY a Phantom a few seconds while the actor pool is saturated - it can never drop the spawn for the rest
+    // of the match (the round-7 "phantom never spawned in real games" class of bug). The purge is also
+    // force-shut-down after 2 rounds (_acc_lockdown_challenge::ldc_round_cap_watch), freeing those slots regardless.
+    // MULTIPLE Phantoms may be alive at once now (the one-at-a-time guard is gone) - a multi-boss round (18+) can
+    // owe 2+ Phantoms, and the count comes from the shared roster (_acc_civil_protector, level.acc_boss_roster_fn).
+    level.acc_phantom_debt = 0;
     level thread round_watch();
     level thread phantom_director();
 }
@@ -157,108 +158,87 @@ function init()
 function round_watch()
 {
     level endon( "end_game" );
+    if ( !isdefined( level.acc_phantom_debt ) )
+        level.acc_phantom_debt = 0;
     for ( ;; )
     {
         level waittill( "acc_round_start", round_number );
-        if ( phantom_round_is_due( round_number ) )
-            level.acc_phantom_owed = true;   // mark only - the director fulfills it (fullproof: never one-shot)
+        n = phantom_due_count( round_number );
+        if ( n > 0 )
+            level.acc_phantom_debt += n;   // ADD (not set) - the director spends it down; carries a stale debt over
     }
 }
 
-// Pure decision: should THIS round owe a Phantom? Master gate + the manual test path + the real cadence. NO
-// spawning and NO purge check here - whether a purge is active is irrelevant to whether the Phantom is owed.
-function phantom_round_is_due( round_number )
+// How many Phantoms does THIS round owe? Master gate + the manual test path + the shared roster count. NO
+// spawning and NO purge check here - whether a purge is active is irrelevant to whether Phantoms are owed.
+function phantom_due_count( round_number )
 {
-    // Master gate for NORMAL play; the dev sandbox (level.acc_dev) bypasses it so acc_dev owes the phantom for
+    // Master gate for NORMAL play; the dev sandbox (level.acc_dev) bypasses it so acc_dev owes Phantoms for
     // testing without forcing acc_phantom_enable's value (user 2026-06-22, one-flag dev).
     if ( getdvarint( "acc_phantom_enable", ACC_PHANTOM_ENABLE_DEF ) != 1 && !IS_TRUE( level.acc_dev ) )
-        return false;
+        return 0;
 
-    // MANUAL test opt-in (+set acc_phantom_test 1): owe it every round from acc_phantom_test_round on.
+    // MANUAL test opt-in (+set acc_phantom_test 1): owe ONE every round from acc_phantom_test_round on.
     test = getdvarint( "acc_phantom_test", 0 );
     if ( test == 1 && round_number >= getdvarint( "acc_phantom_test_round", ACC_PHANTOM_TEST_ROUND_DEF ) )
-        return true;
+        return 1;
 
-    return cadence_hits( round_number );
+    // UNIFIED MULTI-BOSS ROSTER (user 2026-07-03): the per-round roster (owned by
+    // _acc_civil_protector, published as level.acc_boss_roster_fn) says how many of THIS round's
+    // bosses are Phantoms. Round 9 = 1 boss / 18 = 2 / 27 = 3, each an independent Phantom-or-Rogue
+    // coin flip, so this can be 0..count. Fallback to the legacy every-10 cadence if the pointer
+    // isn't published yet (init order between the two boss modules isn't fixed).
+    if ( isdefined( level.acc_boss_roster_fn ) )
+        return [[ level.acc_boss_roster_fn ]]( round_number, "phantom" );
+    return ( cadence_hits( round_number ) ? 1 : 0 );
 }
 
-// THE SINGLE PHANTOM SPAWNER (user 2026-06-25: FULLPROOF). Persistent for the whole match. Whenever a Phantom is
-// OWED (a due round passed) and none is currently alive, it spawns one. Under a SATURATED actor pool (jammed
-// purge / dense horde) stock spawn_zombie BLOCKS inside the spawn until a slot frees rather than failing, so the
-// spawn still completes - just delayed; if the spawn ever does return undefined (the cold-round-start case), the
-// director simply tries AGAIN next tick. The only escapes from "owed" are (a) a Phantom is alive, or (b) a spawn
-// succeeds, so the boss can never be permanently suppressed. DECOUPLED FROM THE PURGE: it does NOT read
-// level.acc_ldc_active at all. run_round_boss is called INLINE here (it carries NO endon now, so neither it nor a
-// blocking spawn inside it can be torn down at round end) and returns the host on success.
+// DEBT-based director (multi-boss safe, user 2026-07-03). Persistent for the whole match. Spends the
+// Phantom debt one spawn per tick while any are owed, so a multi-boss round trickles Phantoms in a few
+// seconds apart. NO one-at-a-time guard anymore - multiple Phantoms may be alive at once (same as the
+// Paradise onslaught already does). Under a SATURATED actor pool stock spawn_zombie BLOCKS until a slot
+// frees rather than failing, so the spawn still completes - just delayed; a spawn that does return
+// undefined (cold round start) leaves the debt untouched and retries next tick. Debt can never be
+// permanently suppressed, so the boss can't be silently dropped (the round-7 "never spawned" class).
 function phantom_director()
 {
     level endon( "end_game" );
+    if ( !isdefined( level.acc_phantom_debt ) )
+        level.acc_phantom_debt = 0;
 
     for ( ;; )
     {
         wait( getdvarint( "acc_phantom_director_period", 3 ) );
 
-        if ( !IS_TRUE( level.acc_phantom_owed ) )
+        if ( level.acc_phantom_debt <= 0 )
             continue;
 
         // Re-validate the master gate (it may have been toggled off after the round was marked owed).
         if ( getdvarint( "acc_phantom_enable", ACC_PHANTOM_ENABLE_DEF ) != 1 && !IS_TRUE( level.acc_dev ) )
         {
-            level.acc_phantom_owed = false;
+            level.acc_phantom_debt = 0;
             continue;
         }
 
-        // A Phantom already up SATISFIES the owed slot (one-at-a-time): clear owed and wait for the next due
-        // round. (Clearing here is what stops an instant respawn when this living Phantom later dies.)
-        if ( isdefined( level.acc_phantom_host ) && isalive( level.acc_phantom_host ) )
-        {
-            level.acc_phantom_owed = false;
-            continue;
-        }
-
-        pdebug( "director: Phantom OWED + none alive -> attempting spawn (round " + level.round_number + ")" );
-        host = run_round_boss( level.round_number );
+        pdebug( "director: " + level.acc_phantom_debt + " Phantom(s) owed -> attempting spawn (round " + level.round_number + ")" );
+        host = spawn_phantom( level.round_number );
         if ( isdefined( host ) && isalive( host ) )
         {
-            level.acc_phantom_owed = false;
-            pdebug( "director: Phantom spawned -> owed cleared" );
+            level.acc_phantom_debt--;
+            pdebug( "director: Phantom spawned -> debt " + level.acc_phantom_debt );
         }
-        // else: stay owed -> retry next tick (the actor pool is momentarily full; never give up).
+        // else: debt unchanged -> retry next tick (the actor pool is momentarily full; never give up).
     }
 }
 
-// The ROUND-BOSS ROTATION (user 2026-06-18: random pick per cadence slot). One entry now (Phantom); add future
-// script-only bosses to the pool and they join the random rotation. Called INLINE by phantom_director, so it
-// carries NO endon (an endon here would attach to and tear down the persistent director thread). Returns the
-// live host on success, or undefined if the spawn could not be completed (the director then retries).
-function run_round_boss( round_number )
-{
-    // ONE at a time (user 2026-06-23): never stack a second Phantom while one is still alive (it fights alongside
-    // the wave + never gates round end, so it can outlive its round). The director also guards this, belt-and-braces.
-    if ( isdefined( level.acc_phantom_host ) && isalive( level.acc_phantom_host ) )
-        return level.acc_phantom_host;
-
-    pool = [];
-    pool[ pool.size ] = "phantom";
-    // pool[ pool.size ] = "colossus";   // <- future bosses register here
-    pick = pool[ acc_utility::acc_rand_int( pool.size ) ];
-
-    if ( pick == "phantom" )
-        return spawn_phantom( round_number );
-    return undefined;
-}
-
+// Legacy fallback cadence (used by phantom_due_count only if level.acc_boss_roster_fn isn't published
+// yet - i.e. _acc_civil_protector::init hasn't run). Every-10 in normal play (dev every 4). The live
+// rotation is the shared roster in _acc_civil_protector (boss_count/boss_roster).
 function cadence_hits( round_number )
 {
-    // DEV mode (level.acc_dev) spawns the Phantom every 4 rounds (4, 8, 12, ...) for faster testing; base game
-    // every 10 (10, 20, 30, ...) - user 2026-06-26. Hardcoded off the one dev flag (no new dvar - dev-mode rule);
-    // the acc_phantom_first_round / acc_phantom_interval dvars still override either default for live tuning.
-    dev          = IS_TRUE( level.acc_dev );
-    def_first    = ( dev ? 4 : ACC_PHANTOM_FIRST_ROUND_DEF );
-    def_interval = ( dev ? 4 : ACC_PHANTOM_INTERVAL_DEF );
-
-    first    = getdvarint( "acc_phantom_first_round", def_first );
-    interval = getdvarint( "acc_phantom_interval", def_interval );
+    dev      = IS_TRUE( level.acc_dev );
+    first    = getdvarint( "acc_phantom_first_round", ( dev ? 4 : ACC_PHANTOM_FIRST_ROUND_DEF ) );
+    interval = getdvarint( "acc_phantom_interval",    ( dev ? 4 : ACC_PHANTOM_INTERVAL_DEF ) );
     if ( interval < 1 ) interval = 1;
     if ( round_number < first ) return false;
     return ( ( round_number - first ) % interval ) == 0;
@@ -288,10 +268,13 @@ function announce_inbound()
 // zombie horde (was 1.06); Brutus also uses 1.1 but anchors 5 rounds earlier (r5 vs r10), so Brutus stays the tankier. Anchored at the
 // Phantom's debut round (10) so the FIRST one is exactly the tuned base. GSC has no pow builtin - small
 // integer-exponent loop (past = round - anchor). The coop player mult is applied SEPARATELY at the caller.
-function scale_phantom_hp( round_number )
+// exp_override lets a DIFFERENT boss share this exact scale (same base 56000 + anchor 10) with its
+// own per-round exponent - the Rogue Protector passes 1.1 here (user 2026-07-04: Brutus 1.12 >
+// Rogue 1.1 > Phantom 1.08). Omitted = the Phantom's own acc_phantom_hp_exp (1.08).
+function scale_phantom_hp( round_number, exp_override )
 {
     base   = getdvarint( "acc_phantom_hp", ACC_PHANTOM_HP );
-    exp    = getdvarfloat( "acc_phantom_hp_exp", ACC_PHANTOM_HP_EXP );
+    exp    = ( isdefined( exp_override ) ? exp_override : getdvarfloat( "acc_phantom_hp_exp", ACC_PHANTOM_HP_EXP ) );
     anchor = getdvarint( "acc_phantom_hp_anchor", ACC_PHANTOM_HP_ANCHOR );
 
     past = round_number - anchor;
@@ -314,7 +297,10 @@ function spawn_phantom( round_number )
 
     host.acc_is_mini_boss = true;   // boss headshot mult + corpse-cleanup skip + speed-keepalive skip
     host.acc_is_phantom = true;     // tag for the chain-special slow detection in _acc_elites::on_player_damaged
-    level.acc_phantom_host = host;  // one-at-a-time guard ref (every-round cadence; run_round_boss checks isalive)
+    // NO level.acc_phantom_host anymore (user 2026-07-03 multi-boss): multiple Phantoms can be alive
+    // at once. Nothing needs a single "the Phantom" handle - each runs its own cloak/teleport/death
+    // threads on self, the nameplate + music are per-actor/refcounted, and callers (Paradise) capture
+    // the return value directly. Concurrency is bounded by the per-round roster count (director debt).
 
     // ROUND scaling (scale_phantom_hp - user 2026-06-27: the Phantom did NOT scale at all before, fixed
     // 56k every round = "dies easy late"; now COMPOUNDS x1.1/round, matching zombies) THEN the
@@ -346,17 +332,23 @@ function spawn_phantom( round_number )
     // mechanism the Glitch Stalker uses; the target is updated every blink in phantom_blink_to.
     host.closest_player_override = &phantom_pick_target_override;
 
-    // Canvas: stock Giant body (distinct from the charred horde). The Phantom is cloaked most
-    // of the time, so the body is just the brief-materialize silhouette. Same proven reskin idiom
-    // as the Glitch Stalker. NO SetScale.
+    // Canvas: TOXIC SKIN (user 2026-07-02; was the stock Giant body) - WetEgg's SAT toxic body
+    // variant 2 (the Glitch wears variant 1; same pack, EC-style model-only lift). The Phantom is
+    // cloaked most of the time, so the body is just the brief-materialize silhouette. The toxic
+    // body INCLUDES its head - Detach the charred head, attach nothing. Same live-actor SetModel
+    // idiom as the Glitch Stalker. Zone: xmodel,c_sat_zmb_zombie_toxic_2. NO SetScale.
     if ( getdvarint( "acc_phantom_stock_skin", 1 ) == 1 )
     {
-        host SetModel( "c_zom_der_zombie_body1" );
+        host SetModel( "c_sat_zmb_zombie_toxic_2" );
         host Detach( "c_zom_dlc4_zombie_charred_head" );
-        host Attach( "c_zom_der_zombie_head1" );
-        if ( isdefined( host.gib_data ) )
-            host.gib_data.head = "c_zom_der_zombie_head1";
+        // gib_data.head left as-is: the toxic head is part of the body model.
     }
+
+    // NEON YELLOW aura (user 2026-07-02, toxic-skin re-theme; was dark purple 2026-06-24): the
+    // Phantom KEEPS its materialize-glow but in neon yellow - clientfield value 3 (new), so the
+    // Subroutine Core (which shares this field and defaults to colour 1) stays dark purple.
+    // FX map lives in _acc_boss_phantom.csc::aura_cb.
+    host.acc_aura_color = 3;
 
     // Cyan/teal eyes via the EXISTING actor eye-tint clientfield (shared color, no new .csc).
     if ( getdvarint( "acc_phantom_eyes", 1 ) == 1 )
@@ -537,8 +529,9 @@ function phantom_cloak_loop()
 
 // Set the holographic glow-aura clientfield (the .csc PlayFX's it). Cloak-aware: on=materialized.
 // Gated by acc_phantom_aura (default 1); when off, force-clears any existing aura. COLOUR is per-actor
-// (user 2026-06-24): ent.acc_aura_color 1 = red (Phantom, default) / 2 = dimmed teal (Glitch Stalker sets
-// it before calling). The .csc maps the value to the matching FX - so both bosses share this one field.
+// via ent.acc_aura_color (2026-07-02 map): 1 = dark purple (Subroutine Core - the default, it never
+// sets a colour) / 2 = dimmed magenta (unused - ex-Glitch) / 3 = NEON YELLOW (the Phantom sets 3 at
+// setup). The .csc maps the value to the matching FX - all consumers share this one field.
 function set_phantom_aura( ent, on )
 {
     if ( !isdefined( ent ) ) return;
@@ -637,7 +630,7 @@ function phantom_teleport_loop()
         // (hops capped to the live player count), so in SOLO it is a SINGLE strike on the lone player instead of
         // re-chaining the same target 3x (user 2026-06-26). acc_phantom_chaining marks the window so
         // _acc_elites::on_player_damaged knows a connecting melee is the CHAIN SPECIAL -> it zaps the hit player
-        // (-25% slow + SFX; Mega Electric Cherry immune).
+        // (-25% slow + SFX; Mega Electric Cherry softens it to -10%, no longer full immunity - user 2026-07-03).
         if ( valid.size >= 1 &&
              acc_utility::acc_rand_int( 100 ) < getdvarint( "acc_phantom_chain_chance", ACC_PHANTOM_CHAIN_CHANCE_DEF ) )
         {
@@ -696,8 +689,8 @@ function phantom_chain( last_target )
         // player, so the chain connects on arrival - apply the -25% zap directly (gated on a generous melee range)
         // INSTEAD of relying on the player-damage callback. This makes the special's stun land even in GOD MODE
         // (EnableInvulnerability suppresses the damage event, so the old on_player_damaged path never fired there) -
-        // so the speed effect is testable while invulnerable. Mega Electric Cherry immunity is still honored inside
-        // acc_phantom_chain_zap. acc_phantom_slow_sec / acc_phantom_speed_mult tune the feel.
+        // so the speed effect is testable while invulnerable. Mega Electric Cherry now SOFTENS the stun to -10%
+        // (not full immunity) inside acc_phantom_chain_zap. acc_phantom_slow_sec / acc_phantom_speed_mult tune the feel.
         if ( isdefined( target ) && isalive( target ) &&
              DistanceSquared( self.origin, target.origin ) <= ( 160 * 160 ) )
         {
@@ -861,11 +854,8 @@ function phantom_death_watch()
         self clientfield::set( "accPhantomAura", 0 ); // kill the glow aura (cloak loop endon'd on death)
     }
 
-    // Clear the one-at-a-time guard ref so the NEXT round's cadence can spawn a fresh Phantom. The guard
-    // (run_round_boss) also checks isalive(), but clearing it explicitly here removes any reliance on a
-    // dead-actor edge case and documents the lifecycle (user 2026-06-24 no-spawn fix).
-    if ( isdefined( level.acc_phantom_host ) && level.acc_phantom_host == self )
-        level.acc_phantom_host = undefined;
+    // (No one-at-a-time guard ref to clear anymore - the debt-based director owns spawn accounting, and
+    // multiple Phantoms may be alive at once, user 2026-07-03 multi-boss.)
 
     drop_origin = self.origin;
 

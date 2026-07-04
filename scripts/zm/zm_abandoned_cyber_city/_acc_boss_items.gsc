@@ -1108,6 +1108,35 @@ function scale_octobombs_watch()
                 ob.anim_model SetScale( getdvarfloat( "acc_arnie_scale", 1.0 ) );   // user 2026-06-24: back to NORMAL size (was 0.33 minimized). 1.0 = default model size (shrink off).
             }
         }
+
+        // [acc] LIVE-OCTOBOMB CAP (user 2026-07-03, crash-hardening; fixed 2026-07-04): the stock
+        // octobomb re-threads its per-target infect + explode-on-death on EVERY nearby zombie each
+        // ~0.5s cycle (its dedup guard checks b_octobomb_infected, which normal zombies never set), so
+        // with 4 players each able to have 4 out (give_octobomb SetWeaponAmmoStock 4 -> up to 16 live)
+        // over a dense horde the thread/clientfield count can balloon into a frame-starving storm.
+        // Bound the TOTAL live octobombs: over the cap, force the OLDEST excess to DETONATE via the
+        // engine builtin `detonate()` - the SAME call stock itself uses on this missile entity
+        // (_zm_weap_octobomb.gsc:261). That fires the real explosion, which triggers the grenade's own
+        // "explode" waittill (stock:568) -> ArrayRemoveIndex out of level.octobombs + entity delete, so
+        // the live count actually drops and the array stays compact. (An earlier version fired
+        // notify("explode") instead, which does NOT detonate or delete - it left the entity live, so
+        // the cap never took effect and stock's one-shot cleanup got consumed against a still-defined
+        // slot, leaking an undefined slot per capped grenade. NEVER a raw Delete either - that orphans
+        // the stock threads/FX.) Generous default so normal use is untouched; live dvar
+        // acc_arnie_max_live (0 = disabled).
+        cap = getdvarint( "acc_arnie_max_live", 8 );
+        if ( cap > 0 )
+        {
+            live = [];
+            for ( i = 0; i < level.octobombs.size; i++ )
+                if ( isdefined( level.octobombs[ i ] ) )
+                    live[ live.size ] = level.octobombs[ i ];   // append order == oldest-first
+
+            // Detonate the oldest ( live.size - cap ) so at most `cap` remain.
+            for ( i = 0; i + cap < live.size; i++ )
+                if ( isdefined( live[ i ] ) )
+                    live[ i ] detonate();
+        }
     }
 }
 

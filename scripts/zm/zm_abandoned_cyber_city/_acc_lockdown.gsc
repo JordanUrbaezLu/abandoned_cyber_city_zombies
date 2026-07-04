@@ -82,6 +82,18 @@ function init()
     // (no acc_seal_* brushes exist yet).
     init_seals();
 
+    // HARDCODE DISABLED with the Glitch Purge (user 2026-07-04): the DEFCON room-lighting rotation is
+    // the purge's TELEGRAPH - with the purge off (_acc_lockdown_challenge hardcode-disabled) a red room
+    // leads nowhere, so the lights are killed too (they're one feature - "those are tied together").
+    // SAME gate/flag as the purge so both come back together: OFF in ALL versions until
+    // `+set acc_lockdown_challenge_on 1`. We return BEFORE watch_rounds so no room ever lights red;
+    // level.acc_lockdown_active stays undefined and the setup above (order/seals) is harmless.
+    if ( getdvarint( "acc_lockdown_challenge_on", 0 ) != 1 )
+    {
+        acc_utility::log( "lockdown: room-light rotation HARDCODE DISABLED (with the Glitch Purge) - no room will light red" );
+        return;
+    }
+
     level thread watch_rounds();
 }
 

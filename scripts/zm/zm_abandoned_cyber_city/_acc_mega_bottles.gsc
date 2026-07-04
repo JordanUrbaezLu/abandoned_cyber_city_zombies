@@ -475,10 +475,13 @@ function mega_trigger_think( t_vending )
     t_mega TriggerIgnoreTeam();
     t_mega UseTriggerRequireLookAt();
     t_mega SetCursorHint( "HINT_NOICON" );
-    // TODO(acc-verify): raw-string hint (community-standard but unverified
-    // against our toolchain; stock uses precached istrings). If blank on
-    // first compile, precache a triggerstring instead.
-    t_mega SetHintString( "Hold ^3&&1^7 for Mega upgrade [Cost: 1 Mega Bottle]" );
+    // Buyable-UI audit fix (2026-07-03): the hint MUST carry the PERK NAME so the Aetherium
+    // cursor-hint router classifies it as a PERK prompt ("hold"+"for"+perk name) - the old
+    // "Mega upgrade" wording matched nothing and fell into the wallbuy card ("WALL WEAPON").
+    // PromptPerks is mega-aware: with the base perk owned it renders "MEGA: <megaName>" +
+    // the mega abilities + cost 1 Mega Bottle (bottle icon). 10 bounded strings (cap-safe).
+    // mega_hint_name() below MUST stay in sync with Mappings/AetheriumPerks.lua names.
+    t_mega SetHintString( "Hold ^3&&1^7 for Mega " + mega_hint_name( perk ) + " [Cost: 1 Mega Bottle]" );
     t_mega thread mega_trigger_visibility( perk );
 
     for ( ;; )
@@ -1022,4 +1025,26 @@ function sync_bottle_count_to_client()
     // Freeing it makes room for the roster's one-row "points SH EXO MB" stats line without overflowing the
     // ~31/client pool in 4-player co-op (memory server-hudelem-pool-exhaustion-coop). The count lives in
     // self.acc_mega_bottles; the roster (_acc_health_bars::update_roster) reads it directly - nothing visible lost.
+}
+
+// Specialty -> display name for the Mega-upgrade machine hint (buyable-UI audit 2026-07-03).
+// MUST match ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua `name` fields - the Aetherium
+// cursor-hint router word-matches these to pick the PERK prompt, and PromptPerks resolves the
+// same record for the mega card. Bounded (10 strings) - triggerstring-cap safe.
+function mega_hint_name( perk )
+{
+    switch ( perk )
+    {
+        case "specialty_armorvest":               return "Jugger-Nog";
+        case "specialty_quickrevive":             return "Quick Revive";
+        case "specialty_fastreload":              return "Speed Cola";
+        case "specialty_doubletap2":              return "Double Tap";
+        case "specialty_staminup":                return "Stamin-Up";
+        case "specialty_additionalprimaryweapon": return "Mule Kick";
+        case "specialty_deadshot":                return "Deadshot";
+        case "specialty_widowswine":              return "Widow's Wine";
+        case "specialty_electriccherry":          return "PhD Flopper";
+        case "specialty_combat_efficiency":       return "Electric Cherry";
+    }
+    return "upgrade";
 }

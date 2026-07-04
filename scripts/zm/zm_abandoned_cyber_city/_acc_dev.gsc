@@ -80,7 +80,7 @@ function init()
     // in the file as the referenced HUD-waypoint recipe (see _acc_health_bars wallhack markers) but are no
     // longer threaded. Re-enable by restoring this line if a future build needs to locate unbought doors.
     // level thread dev_door_markers();
-    level thread dev_starting_loadout();   // start with the Action Figure (fast-swing test) - user 2026-06-27 (was a packed Chicom CQB)
+    level thread dev_starting_loadout();   // start with the Blast-O-Matic - user 2026-07-03 (was Thundergun 07-02, Action Figure before)
 
     // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
     // FEATURES, always on for every player, not dev tools. See the top of init().)
@@ -339,15 +339,17 @@ function dev_give_action_figure()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // Action Figure handheld MELEE (t8_melee_figure) - the fast-swing test (user 2026-06-27). The base figure's
-    // fireTime is the cadence-proof value (0.425 = ~2x swing speed) right now, so dev starts you swinging it fast.
-    w = GetWeapon( "t8_melee_figure" );
-    if ( !isdefined( w ) ) return;
+    // Blast-O-Matic dev-start, BASE form (user 2026-07-03 "just give me the base blastomatic
+    // on spawn - I'll PaP and overclock it myself"; supersedes the same-day maxed give, which
+    // in turn replaced the Thundergun 07-02 / Action Figure before that). No tier/OC records
+    // written - the machine and terminal treat it as a fresh gun.
+    w = GetWeapon( "t9_semiauto_cosplay" );
+    if ( !isdefined( w ) || w == level.weaponNone ) return;
 
     self GiveWeapon( w );
     self SwitchToWeapon( w );
 
-    self IPrintLnBold( "^2>> DEV: Action Figure (fast-swing test)" );
+    self IPrintLnBold( "^2>> DEV: Blast-O-Matic" );
 }
 
 // ---------------------------------------------------------------------------
@@ -639,6 +641,13 @@ function dev_unlimited_money()
 {
     level endon( "end_game" );
 
+    // CRASH GUARD (user 2026-07-02 "game won't start"): giving score to a player whose zm
+    // stats/bgb structures aren't seeded yet throws through _zm_score -> _zm_bgb ("undefined
+    // is not an array index" then a thrown script exception - console_mp.log 23:44). Gate the
+    // whole loop on the blackscreen flag (players fully initialized) AND skip any player whose
+    // pers score table isn't up yet (late joiners / first ticks).
+    level flag::wait_till( "initial_blackscreen_passed" );
+
     for ( ;; )
     {
         players = GetPlayers();
@@ -646,6 +655,7 @@ function dev_unlimited_money()
         {
             p = players[ i ];
             if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( !isdefined( p.pers ) || !isdefined( p.pers[ "score" ] ) ) continue;
 
             // Reading .score is fine; only WRITES must go through the API
             // (zm_score::add_to_player_score rounds up to multiples of 10).

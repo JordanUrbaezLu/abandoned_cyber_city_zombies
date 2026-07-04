@@ -258,7 +258,13 @@ function spawn_terminal_at( origin, yaw )
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE OVERCLOCK^7 - upgrade your held weapon" );
+    // Buyable-UI audit fix (2026-07-03): "upgrade"+"weapon" made the Aetherium router show the
+    // PACK-A-PUNCH card at this kiosk. "boost your held gun" avoids every router token ->
+    // clean DefaultHint card with this text verbatim. Costs are DATA SHARDS (audit typo fix).
+    // The kiosk's live tier/cost/result feedback ALSO lives in this hint now (terminal_loop
+    // updates it per interaction) - the old floating hud_msg popups are gone (user 2026-07-03:
+    // "remove the original display UI when you trigger things").
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE OVERCLOCK^7 - boost your held gun: +damage / glitch-pierce / +ammo (Data Shards)" );
     t thread terminal_loop();
     if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
     level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = origin;
@@ -273,17 +279,21 @@ function terminal_loop()
     {
         self waittill( "trigger", player );
 
+        // FEEDBACK CHANNEL REWORK (user 2026-07-03: "remove the original display UI when you
+        // trigger things"): every hud_msg popup below became a TRIGGER HINT update - the
+        // Aetherium default card re-renders live from cursorHintText, so the card itself is
+        // the feedback. All hint strings are BOUNDED (state x tier <= ~25) - cap-safe.
         current = player getcurrentweapon();
         family = weapon_name_to_family( current );
         if ( family == "unknown" )
         {
-            player acc_utility::hud_msg( "Cyberware Overclock: weapon not supported" );
+            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - this weapon is not supported" );
             wait( 0.5 );
             continue;
         }
         if ( family == "none" )
         {
-            player acc_utility::hud_msg( "Cyberware Overclock: this weapon class cannot be tiered" );
+            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - this weapon class cannot be tiered" );
             wait( 0.5 );
             continue;
         }
@@ -302,7 +312,7 @@ function terminal_loop()
         // raises the tier. No more random per-effect roll. PER-GUN (tracked on the true-base weapon).
         if ( progress.tier >= ACC_TIER_MAX )
         {
-            player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - weapon fully overclocked (Tier " + ACC_TIER_MAX + ")" );
+            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + ACC_TIER_MAX + "/" + ACC_TIER_MAX + " MAX ^7(damage / glitch-pierce / ammo all +)" );
             wait( 0.5 );
             continue;
         }
@@ -311,7 +321,7 @@ function terminal_loop()
         cost = tier_cost( next_tier );
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
-            player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards" );
+            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards^7 - hold ^3[{+activate}]^7 to boost" );
             wait( 0.5 );
             continue;
         }
@@ -333,8 +343,8 @@ function terminal_loop()
         if ( !isdefined( player ) )
             continue;
 
-        player acc_utility::hud_msg( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + "/" + ACC_TIER_MAX +
-                                     " ^7(damage / glitch-pierce / ammo all +)" );
+        self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + "/" + ACC_TIER_MAX +
+                            " ^7(damage / glitch-pierce / ammo all +) - hold ^3[{+activate}]^7 to boost again" );
         wait( 0.5 );
     }
 }
@@ -385,8 +395,8 @@ function weapon_name_to_family( weapon_name )
     // through to "unknown" (blocked) - add any NEW gun to a family list.
     ar_list = array( "t9_ak47", "s1_ae4",           // AK-47 (BO2), AE4 (AW energy)
                      "t6_galil" );                  // Galil (BO2, 2026-06-15)
-    smg_list = array( "s1_asm1",                    // ASM1
-                      "s4_ppsh41_base", "t9_ak74u",  // PPSH-41, AK-74u
+    // ASM1 RETIRED 2026-07-03 (user) - re-add "s1_asm1" first in this array to restore.
+    smg_list = array( "s4_ppsh41_base", "t9_ak74u",  // PPSH-41, AK-74u
                       "t6_chicom_cqb" );             // Chicom CQB (BO2 burst SMG, 2026-06-25)
     sg_list = array( "s1_tac19", "t6_olympia" );    // Tac-19, Olympia (BO2, 2026-06-15)
     sr_list = array( "t8_paladin_hb50", "s1_mk14", "s1_mors" ); // Paladin HB50 (BO4 sniper) + MK14 (AW DMR) + MORS (AW railgun sniper, 2026-06-24)

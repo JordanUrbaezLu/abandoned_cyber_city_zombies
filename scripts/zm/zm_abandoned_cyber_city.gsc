@@ -78,7 +78,27 @@
 //Traps
 #using scripts\zm\_zm_trap_electric;
 
+// [acc] Aetherium HUD (Owen-C137 BO7-remake kit, adopted 2026-07-03). REGISTER_SYSTEM_EX
+// autoexec registers the world-scope player_health_0..3 / player_states_packed clientfields
+// + the kill-feed damage callback. Kit README requires this #using ABOVE zm_usermap, and the
+// entry .csc MUST carry the matching #using (world clientfield registration lockstep).
+// Master flag: level.acc_aetherium_hud in _acc_lui.gsc. docs/22 + docs/49.
+#using scripts\zm\_zm_aetherium_hud;
+
 #using scripts\zm\zm_usermap;
+
+// [acc] Civil Protector ally robot (HarryBo21 pack v2.0.0, user 2026-07-02). This #using is the
+// pack-documented hook: zm_zod_robot's REGISTER_SYSTEM_EX autoexec registers the AI system +
+// clientfields at load. Matching #using in the entry .csc REQUIRED (clientfield mismatch otherwise).
+// Assets = gitignored external pack (tools/external_assets_manifest.ps1); spawns driven by
+// _acc_civil_protector (round-1 TEST spawn - the call-box/fuse quest prefabs are NOT placed).
+#using scripts\zm\zm_zod_robot;
+
+// [acc] Apothicon Fury trench elite (HarryBo21 pack v1.1.0, user 2026-07-03). Same REGISTER_SYSTEM_EX
+// autoexec contract as zm_zod_robot - matching #using in the entry .csc REQUIRED (clientfield
+// "apothicon_fury_spawn_meteor" mismatches otherwise). Special fury ROUNDS are disabled in our
+// zm_genesis_apothicon_fury.gsh; all spawning is driven by _acc_fury (5x hp, 40s trench cadence).
+#using scripts\zm\zm_genesis_apothicon_fury;
 
 // [acc] Custom systems. Modules live in scripts/zm/zm_abandoned_cyber_city/.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_main;
@@ -109,6 +129,13 @@
 // acc_lockdown_challenge::is_door_sealed so a door bordering an ACTIVE sealed purge room refuses to open
 // (else a sealed-in player just buys an un-bought border door and escapes - user 2026-06-25).
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown_challenge;
+// [acc] ROGUE PROTECTOR - the Civil Protector as the round-20 HOSTILE boss (user 2026-07-02;
+// replaced the round-1 ally test same day). Hostility = the team-axis aitype clone
+// acc_zod_robot_boss; cadence/HP/rewards in the module header.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_civil_protector;
+// [acc] 3D over-head boss nameplate + health bar (SetDrawName; matching .csc #using REQUIRED -
+// actor clientfields). Consumes the "acc_boss_spawned" notify + direct attach() calls.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;
 
 // Fix Power Lag
 #precache("triggerstring", "ZOMBIE_NEED_POWER");
@@ -297,6 +324,10 @@ function main()
 	// a real cadence (its old acc_avo_test round-1 default is now 0, so re-enabling won't surprise-spawn
 	// one on round 1).
 	// level thread acc_boss_avogadro::init();
+
+	// [acc] ROGUE PROTECTOR round-20 hostile boss (user 2026-07-02). Owed+director cadence like
+	// the Phantom (dev = round 2 / every 5 via the one dev flag); the Phantom yields his rounds.
+	level thread acc_civil_protector::init();
 }
 
 // [acc] DEV MODE - the SINGLE switch (user 2026-06-22). Reads `acc_dev` ONCE, caches it in level.acc_dev
@@ -313,6 +344,9 @@ function acc_resolve_dev_flags()
 {
 	// Resolved from the acc_dev dvar (default 0 = ship-safe normal play; the dev launch scripts pass +set acc_dev 1).
 	// This is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/49.
+	// SHIP-SAFE (user 2026-07-03: "turn off dev mode ... I am going to publish"): resolved from
+	// the dvar, default 0 = normal play. The dev launch scripts pass +set acc_dev 1.
+	// (Was TEMP-hardcoded true for new-box testing 2026-07-02; reverted for publish.)
 	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
 
 	v = ( level.acc_dev ? "1" : "0" );
@@ -345,6 +379,9 @@ function acc_resolve_dev_flags()
 	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
 	// Resolved from the acc_god dvar (default 0 = off; the standalone PLAY_GOD_MODE launch script passes +set acc_god 1).
 	// Every player INVULNERABLE when on (damage zeroed in _acc_elites::on_player_damaged; effects still fire). Ship-safe.
+	// SHIP-SAFE (user 2026-07-03: "turn off ... god mode ... I am going to publish"): resolved
+	// from the dvar, default 0 = off. The standalone PLAY_GOD_MODE launch script passes +set acc_god 1.
+	// (Was TEMP-hardcoded true for new-box testing 2026-07-02; reverted for publish.)
 	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
@@ -560,12 +597,38 @@ function zone_door_thin_offset( d )
 	return ( 60, 0, 0 );
 }
 
+// script_flag -> the destination shown on the door buy card (buyable-UI audit 2026-07-03).
+// MUST stay a bounded constant set (12 strings, triggerstring-cap safe). Names are the
+// zones' working titles - retitle freely, the card just displays them.
+function zone_door_dest_name( flag )
+{
+	switch ( flag )
+	{
+		case "enter_market":      return "the Market";
+		case "enter_alley":       return "the Alley";
+		case "enter_corp_w":      return "Corp Plaza (West)";
+		case "enter_corp_e":      return "Corp Plaza (East)";
+		case "enter_vault":       return "the Vault";
+		case "enter_roof":        return "the Roof";
+		case "enter_lab_e":       return "the Lab (East)";
+		case "enter_lab_w":       return "the Lab (West)";
+		case "enter_under_plaza": return "Under-Plaza";
+		case "enter_under_lab":   return "Under-Lab";
+		case "enter_implant":     return "the Implant Room";
+		case "enter_exchange":    return "the Exchange";
+	}
+	return "a new area";
+}
+
 function spawn_zone_door_trigger( d, pos, cost, clip, flag, side )
 {
 	t = spawn( "trigger_radius_use", pos, 0, 96, 100 );
 	t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger (memory script-trigger-needs-ignoreteam)
 	t SetCursorHint( "HINT_NOICON" );
-	t SetHintString( "Hold ^3[{+activate}]^7  Open Door  ^2[Cost: " + cost + "]" );
+	// Buyable-UI audit (2026-07-03, user: "buying a door should tell you the door"): the hint
+	// names the DESTINATION; the Aetherium door card (PromptDoors.lua) parses "Open Door to
+	// <dest>" and shows "Unlocks: <dest>". 12 bounded strings - triggerstring-cap safe.
+	t SetHintString( "Hold ^3[{+activate}]^7  Open Door to " + zone_door_dest_name( flag ) + "  ^2[Cost: " + cost + "]" );
 
 	d.acc_trigs[ d.acc_trigs.size ] = t;
 

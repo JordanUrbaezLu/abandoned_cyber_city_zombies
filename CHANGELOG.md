@@ -6,7 +6,1106 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
-### Changed — Buyable doors get a distinct tread-plate skin (user 2026-06-29)
+### Fixed — Kill feed printed raw `ZM_AETHERIUM_KF_*` tokens: the `.str` was missing its header (user 2026-07-04)
+
+The Aetherium kill feed rendered the **raw localization token** ("ZM_AETHERIUM_KF_CRITICAL", …) instead of the
+text ("Critical Kill", …). Root cause: [`localizedstrings/zm_aetherium.str`](localizedstrings/zm_aetherium.str)
+had **no StringEd header** — it started directly at `REFERENCE` (the closing `ENDMARKER` survived, the top
+`VERSION`/`CONFIG`/`FILENOTES` block did not, lost when the file was first split out of the kit). BO3's T7 string
+compiler requires `VERSION "1"` first; without it it parses **zero** strings, so every key falls through to its raw
+token. Everything else in the chain was already correct — GSC keys, `#precache`, the 15 `LANG_ENGLISH` values, the
+zone `localize,zm_aetherium` line, and the LUI `Engine.Localize(Engine.GetIString(...))` render. The earlier
+"rename the keys to match" fix (prior entry) was necessary but couldn't take effect until the header was restored.
+Fix: re-added the canonical header. GSC/LUI untouched. Doc: [28_lui_pipeline.md](docs/28_lui_pipeline.md).
+
+### Fixed — map-wide crash hunt: Apothicon Fury round-never-ends softlock + Avogadro undefined-attacker crash (user 2026-07-04)
+
+A 5-class adversarial crash sweep of the whole map (GSC runtime / hangs / CSC-LUI / stock-API / spawn-coop). Only TWO real,
+reachable crash/hang vectors survived verification across the entire codebase — both fixed:
+
+- **CRITICAL round-never-ends softlock** — the Apothicon Fury trench elite is `SpawnActor`'d with `is_zombie=1` but the pack
+  never sets `ignore_enemy_count`, so stock `get_current_zombie_count()` COUNTED each live fury toward the round. Clear the
+  horde with a fury alive (routine at r25-40 deep in the trench, 10× HP) and the round-over loop spins forever. The module
+  HEADER promised "does NOT count toward the round" but the flag was missing — every sibling extra spawner
+  (`_acc_bus_trench:965`, `_acc_boss_glitch:282`) sets it. Fix: `e.ignore_enemy_count = true;` at the spawn site (before
+  `fury_tune`'s `wait 1` window). [_acc_fury.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_fury.gsc)
+- **HIGH runtime crash** — `avogadro_damage_callback` (a `level.perk_damage_override` registered on every connect via a
+  REGISTER_SYSTEM init) runs on EVERY player-damage hit and read `attacker.targetname` with no guard → runtime error on
+  attacker-less damage (the decontamination seal 2-arg `DoDamage` self-kill, fall/environmental damage). The Avogadro boss
+  never spawns here, so the branch is pure dead-weight risk. Fix: `isdefined( attacker ) &&` guard on the read.
+  [_zm_ai_avogadro.gsc](scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.gsc)
+
+Independently re-verified all four player-damage callbacks return `-1` on no-opinion (god mode + boss-stun chain safe).
+`-GscOnly`, BUILD OK (fresh .ff; a concurrent sound-file lock threw waived UNRECOVERABLE noise but the GSC .ff packed clean).
+
+### Changed — Rogue Protector attack rework: 4 bullets + 1 Mahem explosive + passive proximity stun (user 2026-07-04)
+
+Reworked his offense from the flat burst into a telegraphed pattern (all live-tuned, then baked):
+
+- **4 rifle bullets → 1 Mahem explosive**, cycling. `MagicBullet` per bullet (25 dmg via the GDT), then a
+  `RadiusDamage` Mahem blast (`acc_protector_mahem_dmg` 50, r180). Fires one shot every **2.5 s**
+  (`acc_protector_fire_interval`, was 3.0), gated on target range 1500 + LOS.
+- **Visible Mahem explosion.** The blast was landing (log: `took 47 … MOD_PROJECTILE_SPLASH`) but invisible —
+  the client pulse only played a small muzzle flash. Now fires the boss's own proven server-side world-position
+  burst (`robot_landing` FX) at the impact point.
+- **Passive proximity stun.** Any player within `acc_protector_zap_range` (250u) is stunned (25% slow, 3 s) +
+  takes `acc_protector_pulse_dmg` (10) every `acc_protector_zap_interval` (3 s) — punishes getting close,
+  distinct from his ranged pressure.
+- **Damage sources fixed at the GDT** (all bullet/melee/explosion fields → 25; the real one-shot culprit was
+  `explosionInner/OuterDamage` = 3100). **Round-1 test spawn + `[DMG]` alarm** used to diagnose it, then removed;
+  reusable console damage logger kept in `_acc_diag.gsc`.
+
+[_acc_civil_protector.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc), [_acc_boss_nameplate.gsc/.csc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_nameplate.gsc), [c_zom_zod_robot_protector.gdt].
+
+### Changed — Enemy HP pass: shielded 5×→4×, Apothicon Fury 8×→10× (user 2026-07-04)
+
+Two enemy-HP tunings from live testing:
+
+- **Shielded ("Riot") elite: 5× → 4×** a same-round normal zombie ("5× is too much"). Flat multiplier on the
+  already-co-op-scaled base, so it stays a clean 4× at any player count. [_acc_elites.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc) `promote_to_shielded`.
+- **Apothicon Fury (trench meteor elite): 8× → 10×** the round zombie health (no co-op scaling, unchanged).
+  `#define ACC_FURY_HEALTH_MULT_DEF 8.0 → 10.0`. [_acc_fury.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_fury.gsc).
+
+**Trench HP clarified (no code change to net behavior):** a mid-session experiment briefly removed the trench
+per-layer HP amp, then restored it — trench zombies were always meant to **stack both**: proper above-ground
+scaling (round curve × co-op `regular_hp_mult`, which they already got — no location gate) **AND** the trench
+difficulty amp (`apply_trench_health`, +30%/layer one-way, L5 = +150%). Final HP = (round curve × player-count
+mult) × (1 + layer × 30%). The `acc_base_health` capture happens only after the zombie reaches a trench layer, by
+which point co-op scaling is already baked, so the amp correctly stacks on the player-scaled base. Docs restated
+for clarity: [11_enemies.md](docs/11_enemies.md), [34_flags_reference.md](docs/34_flags_reference.md), [46_trench_systems_guide.md](docs/46_trench_systems_guide.md).
+
+### Changed — Unified, tiered boss HP scale (user 2026-07-04)
+
+All three bosses now ride the SAME compounding HP scale — base **56,000**, anchored at **round 10**,
+× the logarithmic co-op multiplier — differing ONLY by per-round exponent, with **no cap**:
+**Brutus 1.12 > Rogue Protector 1.1 > Phantom 1.08** (Brutus tankiest, Phantom softest). Previously
+Phantom+Rogue shared one exponent (1.1) via `scale_phantom_hp` and Brutus ran a separate
+48k/anchor-5/1.1 `scale_mini_boss_hp`; the two are now split/aligned. `scale_phantom_hp` gained an
+optional exponent arg (Rogue passes `acc_protector_hp_exp` 1.1; Phantom keeps `acc_phantom_hp_exp`,
+now 1.08); Brutus's `acc_boss_mini_hp`/`_exp`/`_anchor` moved to 56000/1.12/10. Solo curves — Phantom
+r20 **121k** / r40 564k; Rogue r20 **145k** / r40 977k; Brutus r20 **174k** / r40 1.68M. The NSZ
+pack's dead linear `3500×round` / 85k-cap Brutus HP (overwritten every spawn) had its cap removed
+too. Docs: [11_enemies.md](docs/11_enemies.md), [34_flags_reference.md](docs/34_flags_reference.md).
+
+### Fixed — full-surface deep audit: octobomb-cap defect, Brutus helmet orphan, kill-feed strings, dead depth-elites, LUI re-subs (user 2026-07-04)
+
+A 5-dimension adversarial audit (LUI + CSC + GSC per-event + entity/thread balance + a fresh recheck of the session's own
+fixes) after the state-pool crash. It **verified the prior fixes correct** (remove_brutus rebuild, LUI UITimer closes,
+depth-shielded delay, bgb guards) and surfaced 5 more real items — the safe ones applied, the RP-diagnostic ones left for
+the other session:
+
+- **Octobomb live-cap was itself broken (my fix):** it fired `notify("explode")` on a live missile — which does NOT
+  detonate or delete it, so the cap never took effect AND it leaked an undefined slot into `level.octobombs` per capped
+  grenade. Swapped to the engine builtin `detonate()` (what stock uses, `_zm_weap_octobomb.gsc:261`) — real detonation →
+  stock's own `"explode"` cleanup fires → count drops + array stays compact. [_acc_boss_items.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc)
+- **Brutus helmet `script_model` orphaned:** `track_helmet` (the only code that frees `self.helmet`) carries
+  `endon("death")`, so a Brutus killed during the ~5-8s helmet-launch window leaks the helmet model forever (piles up over
+  a multi-boss game). Added an unconditional `self.helmet delete()` in `new_death()`. [nsz_brutus.gsc](scripts/_NSZ/nsz_brutus.gsc)
+- **Kill-feed strings never localized:** GSC references `&"ZM_AETHERIUM_KF_*"` but the `.str` defined the keys as `KF_*`
+  (no prefix) → every kill printed the raw token/blank. Renamed all 15 reference keys to match. [zm_aetherium.str](localizedstrings/zm_aetherium.str)
+- **Depth-shielded elites were silently dead (latent, flagged earlier):** the roll read the zombie's origin at
+  `zombie_init_done`, when every zombie is still at the surface factory spawner (layer 0 → 0% → never promoted). Threaded
+  with the same 0.3s delayed read as the trench skins — deep floors now actually produce armored elites. [_acc_elites.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc)
+- **Two leaked LUI subscriptions** (`bgb_current` in AetheriumPlayerInfo + AetheriumPartyPlayers — party rows rebind on
+  roster change, stacking a handler each time): given the same handle+`removeSubscription` guard their siblings already had.
+
+Deliberately NOT changed (the concurrent session's active Rogue-Protector damage diagnostics): the round-1 RP test spawn
+and the per-shot `rp_diag` LogPrint — both flagged as pre-ship reverts, left running while that debugging is live.
+`-GscOnly`, BUILD OK.
+
+### Fixed — "Failed to allocate from state pool" crash (round 26, 4p) + gradual frame decay = Aetherium HUD UITimer leaks (user 2026-07-04)
+
+A 4-player game slowly lost frames all game and died at round 26 with the engine fatal **"Failed to allocate from
+state pool"**. Multi-agent hunt + a dedicated LUI-lifecycle audit (diffed against Owen-C137's original kit — the bugs
+are KIT-INHERITED, byte-identical upstream; they arrived when the Aetherium HUD became the base HUD 2026-07-03, which
+is why old versions didn't leak). Root cause: **never-closed `LUI.UITimer` elements** — LUI timers keep firing until
+explicitly closed, so every one left behind is a live element burning state-pool entries and CPU forever:
+
+- **[AetheriumPowerupNotification.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupNotification.lua)
+  (the round-26 fatal):** every powerup pickup leaked a repeating 3000ms "hold" timer whose handler re-played the
+  hide animation AND `addElement`'d ANOTHER never-closed 300ms timer every 3s — a COMPOUNDING cascade
+  (pickups × elapsed/3s ⇒ tens of thousands of leaked elements by late game). Fixed: one handle per timer role,
+  close-before-create + close-inside-handler (fires exactly once).
+- **[AetheriumLoadout.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumLoadout.lua) (the frame decay):**
+  2 leaked timers per weapon SWITCH (grenade throws toggle the viewmodel weapon twice!) — ~600-1500 dead timers by
+  round 26, each dispatching every ~100-130ms. Same fix pattern on both (icon + name swap timers).
+- **[AetheriumPlayerInfo.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPlayerInfo.lua) (latent, hardened):**
+  the 7 per-score-type popup subscriptions were installed inside an unguarded `linkToElementModel("clientNum")` —
+  a re-fire (roster change/fastRestart) would add them AGAIN → N popups per score event. Guarded per-clientNum.
+  (The popup close-chain itself was audited SOUND — create-per-event + clip_over close is the vanilla pattern.)
+- **[_acc_atmosphere.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc) (log hygiene, NOT the leak):**
+  the fog authority loop re-issued the deprecated 8-arg `SetVolFog` with identical args 10×/sec forever
+  (~24,000 calls + "setVolFog: Old syntax used" lines per match, burying the real fatal in console_mp.log).
+  Now CHANGE-GATED via `acc_set_vol_fog()` (the vision loop's want≠applied pattern) — engine called only when a
+  fog param actually changes. Verified a pure global-state setter (stock _art.gsc runs the same 0.1s loop): noise, not the pool leak.
+- Also: Rogue Protector `StopLoopSound()` on death (hover-hum otherwise looped on the corpse forever; bounded, polish).
+
+Ruled out along the way (adversarially verified): fury looping-FX (stock-identical, alloc/free balanced, 8-cap),
+UI-model names (all fixed), octobomb cap loop, debt directors (spend-down verified). `-GscOnly`, BUILD OK.
+
+### Fixed — Li'l Arnie (octobomb) × Brutus co-op crash + hardened the whole octobomb↔boss surface (user 2026-07-03)
+
+Root-caused a 4-player round-8 crash (heavy Li'l Arnie use with Brutus alive) to a **mutate-during-foreach**
+in the NSZ Brutus pack. `nsz_brutus.gsc::remove_brutus` is registered as `level.octobomb_targets` and invoked by
+stock `_zm_weap_octobomb.gsc` every targeting cycle (`do_tentacle_burst`/`do_tentacle_grab`) as
+`[[ level.octobomb_targets ]]( <full zombie array> )`. The pack body did
+`foreach( zom in ai ) ArrayRemoveValue( ai, zom, false );` — **mutating the array it was iterating** (T7 GSC
+iterator-invalidation = UB) **and returning nothing** (caller then fed `undefined` into `ArraySortClosest`). Both
+branches are inert until an `is_boss` actor is in the zombie array, so they fire the instant Brutus is present; with
+many octobombs across 4 players the targeting cycle runs constantly → crash. A multi-agent adversarial sweep
+(GSC-only, `-GscOnly`, BUILD OK) confirmed this was the ONLY live `ArrayRemoveValue`-on-iterated-array in the tree,
+plus three related hazards — all fixed:
+
+- **`remove_brutus` (the crash):** rebuilt to return a NEW array of non-boss, defined-only AI; never touches the
+  input array. Fixes both the mutate-during-foreach AND the undefined return.
+- **Octobomb boss filter was half-fixed:** it excluded only `.is_boss`, but the Phantom / Glitch Stalker /
+  Juggernaut Host / Paradise host set only `.acc_is_mini_boss` and the Subroutine Core only `.acc_is_boss` — so
+  octobombs still `octo_gib`/`StartRagdoll`/`DoDamage(health)`'d those **live** mini-bosses (instakill + ragdoll of a
+  boss running scripted ASM = gameplay break + entity-corruption risk). `remove_brutus` now excludes
+  `is_boss || acc_is_boss || acc_is_mini_boss`.
+- **Thread-storm cap (`_acc_boss_items.gsc::scale_octobombs_watch`):** stock re-threads per-target infect/explode
+  every cycle (its dedup checks `b_octobomb_infected`, which normal zombies never set), so 4p × 4-ammo × dense horde
+  can balloon into a frame-starving thread/clientfield storm. Added a **total live-octobomb cap** (`acc_arnie_max_live`,
+  default 8) that force-detonates the oldest excess through their OWN stock `"explode"` path (self-cleans; never a raw
+  `Delete`). Live-tunable; `0` disables.
+- **`watch_for_machines` latent hang:** its `while(1)` yielded only inside a `for` over `brutus_lock` structs (none
+  exist on this map) — a hard hang if ever threaded. Inert today (`brutus_lock_machines` hardcoded false) but the file
+  header warns about it; added an unconditional `wait(0.05)` + empty-array `continue` so it's no longer a landmine.
+
+`-GscOnly`, BUILD OK (fresh `.ff`). The refuted 5th finding (`new_death` `%brutus_death` anim guard) only bites a
+fastfile built without the NSZ GDT imported (not our case), so left as-is.
+
+### Fixed — Aetherium HUD: teammate shards stuck at 0 + kill feed showed generic stock points (user 2026-07-03)
+
+**(1) Teammate shards stayed 0 in co-op:** the party widget subscribed to the
+`player_shards_<clientNum>` UI model via `Engine.GetModel`, which returns nil for a model that
+doesn't exist yet — and the model is only created by the .csc clientfield callback on the field's
+first CHANGE (a 0→0 initial set is an engine no-op), so the subscription bound dead and later
+shard gains updated a model nobody listened to. Fix: `Engine.CreateModel` (the proven own-panel
+`acc_shards` pattern) in
+[AetheriumPartyPlayers.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPartyPlayers.lua).
+
+**(2) Kill feed money was the KIT's stock formula ("+130 Elimination"), not this map's:** kill
+scoring is fully custom ([_acc_points.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc):
+70/110/100 base, 70/30 co-op damage split, DP scaling, Payroll Ledger). The feed is now sent FROM
+the scoring authority: `award_player`/`award_killer_with_ledger` return the amount actually paid,
+and every payout site (solo kill, co-op killer share, contributor shares, killer-gone split,
+trench-zombie flat award) sends `send_kill_feed` with that number — so the popup IS the money.
+Kill-type flavor via a light classifier port (`kill_feed_text`: grenade/monkey/Arnie/rocket
+shield/Ragnarok/dog/burn/melee/critical; AAT-specific texts not ported — those read ELIMINATION
+with correct points). Contributor assists pop as ELIMINATION with their real split. The kit's own
+zombie-damage kill-feed callback is DISARMED in
+[_zm_aetherium_hud.gsc](scripts/zm/_zm_aetherium_hud.gsc) `__main__` (dormant + restore recipe).
+
+### Fixed — Apothicon Fury never spawned in the trench: the enabled-zone gate rejected every below-volume spot (user 2026-07-03)
+
+The REAL root cause (the 8s-arm change made the timer fire, but the spawn itself still failed): the user
+confirmed furies dropped fine at Plaza but never in the trench. `_acc_fury::spawn_fury_near` filtered each
+navmesh candidate through `zm_utility::check_point_in_enabled_zone(origin, 1)` — and the deep trench floor
+(z −240 and lower) sits **below every zone's `player_volume`** (corp_zone spans only z[-16,400]), so that
+check returns FALSE for **every** trench point and rejected all 20 candidates. The surface (Plaza) spawn
+worked because it IS inside an enabled zone. Fix: **skip the enabled-zone check on the underground path**
+(`require_underground`) — the navmesh query is already centered on a valid deep player and returns pathable
+ground, and the pack's `apothicon_fury_spawn` force-sets `completed_emerging_into_playable_area = 1`, so a
+below-volume spawn is not OOB-killed or melee-locked (the SAME below-zone fix the trench *surge* uses). The
+surface dev force-spawn (`acc_fury_spawn 1`, `require_underground=false`) still gates on the enabled zone.
+`-GscOnly`, BUILD OK. Memory: `below-zone-trench-spawn-skips-enabled-zone-check`.
+
+### Changed — Multi-boss rounds + boss stun softened by Mega Electric Cherry (user 2026-07-03)
+
+**Multi-boss rounds that scale with the round.** A boss ROUND still lands every 9 rounds from round 9
+(dev: every 3 from round 3), but the COUNT now scales: **round 9 = 1 boss, 18 = 2, 27 = 3, …** (slot+1).
+**Each** boss that round is an INDEPENDENT coin flip — Phantom or Rogue Protector — so a round can be
+one-of-each, all Phantoms, all Rogue Protectors, or any mix (replaces the old alternating single-boss
+rotation). **Boss music holds until every boss that round is dead** (the `acc_boss::boss_music` refcount
+already did this per-actor — each boss threads it). Implementation: `_acc_civil_protector` owns a shared
+per-round **roster** (`boss_count`/`boss_roster`/`boss_type_count`, published as `level.acc_boss_roster_fn`),
+rolled once per round and cached on the level so both boss modules (whose `round_watch` threads fire on the
+same `acc_round_start`) read an identical roster. Both directors converted from a one-at-a-time owed flag to
+a **debt model** (`level.acc_phantom_debt` / `level.acc_protector_debt`): a boss round adds that type's
+roster count; the director spends one spawn per tick, so a multi-boss round trickles bosses in a few seconds
+apart and a failed spawn simply retries. Removed the single-instance handles `level.acc_phantom_host` /
+`level.acc_robot_boss` and the one-at-a-time guards (`run_round_boss`, `which_boss`, `boss_rotation_start`
+deleted). Paradise is unaffected (it spawns Phantoms on its own path via the `spawn_phantom` return value).
+
+**Multiple Rogue Protectors are now spawn-safe.** The landing kill-splash (`landing_kill_splash`) excluded
+only the boss that was landing, so on a 2+/3+ boss round two Rogue Protectors slamming down within 350u of
+each other would `DoDamage` each other to death (the old self-kill loop, aimed at a sibling). It now skips
+**any** actor flagged `is_boss`/`acc_is_boss`/`acc_is_mini_boss`, so no boss ever dies to another boss's
+entrance (Phantom/Brutus/Subroutine Core caught in the blast are spared too). Everything else was already
+per-actor (each Protector runs its own hunt/fire/zap/death threads; stun is applied per-boss in `zap_loop`;
+nameplate is a per-actor clientfield).
+
+### Changed — Mega Electric Cherry softens the boss stun to −10% (was full immunity) (user 2026-07-03)
+
+Mega Electric Cherry "Power Surge" **no longer grants full immunity to the Phantom / Rogue Protector stun** —
+it now **softens it to −10%** (`acc_boss_slow_mega_mult 0.90`) instead of 0%, versus the normal **−25%**
+(`acc_phantom_slow_mult` / `acc_protector_slow_mult 0.75`). In `_acc_elites::acc_phantom_chain_zap` /
+`acc_protector_zap` the Mega-EC check no longer early-returns; it sets a per-player `acc_*_slow_mega` flag
+that `_acc_utility::recompute_move_speed` reads to pick the softened multiplier. The EMP/power-off boss-special
+immunity (`_acc_boss::protect_immune_players_during_debuff`) is a separate path and stays full immunity. Docs/13
+updated.
+
+### Fixed — Blast-O-Matic PaP reserve (6) + Apothicon Fury per-player trench spawns (user 2026-07-03)
+
+**Blast-O-Matic PaP reserve** was 6 (`maxAmmo`/`startAmmo` on `t9_semiauto_cosplay_up`) — LESS than
+its own base (12), a projectileweapon flat-reserve bug (a pack re-unpack had reset the session's
+earlier 110). Restored to **110** on the base `_up` entry AND its 7 variant twins in
+`acc_weapon_variants.gdt`, SCOPED so the Chicom/ASM1 twins that also read `maxAmmo 6` (correct as "6
+clips" for bulletweapons) are untouched; gdtdb updated. Audit note (`tools/audit_gun_ammo.js`): the
+box guns' base-ammo cuts are otherwise applied; `t6_m60` base still reads at ORIGINAL (cut not
+applied) — flagged, not touched here (other session's weapon domain).
+
+**Apothicon Fury FIRST-drop arms in 8s** (live-diagnosed): the `[FURY]` layer log showed the player
+reached layer 2 (z −479) for only ~20s then surfaced — the full 30s dwell before the first spawn
+almost never completes (nobody camps deep-trench 30s straight), so furies never appeared. Now the
+FIRST drop after entering the deep trench arms in `acc_fury_arm_sec` (8s), then the 30s cadence
+continues while deep; surfacing re-arms the short delay. Added `dbg()` reaching console_mp.log +
+`acc_fury_spawn 1` dev force-spawn + a per-5s layer readout + spawn-failure reasons.
+
+**Apothicon Fury now spawns PER-PLAYER in the deep trench** (user: "spawn every 30s while someone's
+in the trench, stacks per player, only lv2 trench and below"). Rewrote `_acc_fury` from one global
+40s timer (gated at layer 1+) to a **per-player independent 30s clock**: `fury_manager` gives each
+connected player one timer thread; while that player is at trench **layer ≥ 2** (`underground_layer`,
+excludes the pit/hallway/Exchange) their clock advances (leaving pauses, not resets) and each full
+interval meteor-drops a fury near them. N players deep = N independent streams (stacks). Alive cap
+scales: `acc_fury_max_per_player` (2) × deep-player count, ceiling `acc_fury_max_ceil` (8). Dev
+`[FURY] spawned near you (layer N)` print. Dvars: `acc_fury_interval`, `acc_fury_min_layer`.
+
+### Changed — Rogue Protector: 4-shot burst → 3s gun+move cooldown, zap -25% + no self-explosion, HP = Phantom's exactly (user 2026-07-03)
+
+- **BURST + COOLDOWN** (user: "he can just kill someone if he keeps targeting them... after 4 shots he
+  cools down his gun and movement for 3 seconds"): `fire_loop` fires `acc_protector_burst_count` (4)
+  shots then sets `acc_protector_cooling` for `acc_protector_cooldown_sec` (3s), during which
+  `hunt_players` FREEZES him in place (gun + movement both stop). 4×25 = 100 dmg = a clean no-Jugg
+  kill if he locks a target through a full burst ("devastating if he targets you"), but the cooldown
+  is the counterplay window to heal / break LoS; Jugg (250 HP) survives a full burst. **Burst size
+  scales with player count** (user 2026-07-03): base 4 + 1 per EXTRA player = **4 solo / 5 duo / 6
+  trio / 7 quad** (he spreads shots across targets in co-op, so a bigger burst keeps him threatening).
+- **Zap slow → -25%** (`acc_protector_slow_mult` 0.5→0.75) to MATCH the Phantom reducer.
+- **Zap no longer "explodes on him"**: the XLG burst on `tag_origin` enveloped his body; swapped to a
+  small blue one-shot arc (`fx_elec_sparks_burst_xsm_omni_blue_os`) on his gun hand.
+- **HP scales EXACTLY like the Phantom**: `spawn_boss` calls `acc_boss_phantom::scale_phantom_hp(round)`
+  × the same log coop mult (base 56k, ×1.1^(round-10), no cap) - the two bosses are HP-identical.
+
+### Fixed — Aetherium HUD migration REVIEWED (8-angle + verify pass): 11 fixes + 2 HUD features (user 2026-07-03)
+
+Full-migration review (user: "fully reviewed with bug catches early ... fix everything"): 8 finder
+angles → ~38 candidates → adversarial verify (2 refuted with stock-code proof). Fixes, worst first:
+- **Co-op self-panel state lie:** AetheriumPlayerInfo hardcoded `player_state_0` (= the HOST) for
+  YOUR panel while health was per-clientNum — every non-host's panel mirrored the host's
+  downed/dead state. Now `player_state_<clientNum>` (the kit's own PartyPlayers pattern). Kit bug, vendored verbatim.
+- **Negative packed states:** monitor_player_states init'd unconnected slots to **-1** and OR-packed
+  all four — any sub-4-player game pushed a NEGATIVE value into the 8-bit clientfield (empty slots
+  decoded as undefined state 3). Init 0 + `& 3` masks.
+- **Kill-feed grenade hijack:** `IsSubStr(name,"grenade")` swallowed Widow's Wine kills
+  (`sticky_grenade_widows_wine`) before AAT/headshot classification → exact-match `frag_grenade`.
+- **5 kill-feed strings missing from the kit's own .str** (rocket shield/grenade/monkey/Arnie/
+  Ragnarok printed the raw key) → added to zm_aetherium.str.
+- **Bleedout bar lied:** kit-hardcoded 45s vs our stock 30s (implant 60s not client-visible —
+  bar now reads correct un-implanted, conservative with implant) in PlayerInfo + PartyPlayers.
+- **Restore-path trap:** the master flag claimed `false` = full old HUD back, but the kit .csc
+  LuiLoad is a different VM — flipping it re-armed the powerup suppressor and blanked power-ups
+  EVERYWHERE. Kit gsc threads now gate on the flag; new `.csc` twin `ACC_AETHERIUM_HUD_ON` gates
+  the LuiLoad; the flag comment documents the honest 3-step revert.
+- **Perf:** kill-feed callback early-outs on non-lethal hits (it threads on EVERY zombie damage
+  event); per-frame health push → 0.1s + cached-value dedupe (the `clientfield::get` compare could
+  miss vs the quantized 7-bit float); own-stats string-build now behind int guards @0.25s; perks
+  DataSource no longer rebuilds twice per mask push; entity-number ≥4 clamp on the health thread.
+- **Own-stats block: pool-full retry** (was a one-shot latch — one transient spike killed the
+  readout for the match; now retries every 5s, completes partial allocs).
+- **Zone file mojibake repaired** (7 pre-existing comment lines had `—`/`§` → `???` from a
+  non-UTF-8 whole-file rewrite in the working tree) + the Aetherium menu path aligned to the
+  on-disk lowercase `menus/hud` (was `HUD` — worked only via Windows case-insensitivity).
+- **Docs/sync-contract:** bit-order MUST-MATCH comments now name AetheriumPerks.lua (the live
+  consumer); CREDITS.md gained the Aetherium IP-review checklist item; known limit documented:
+  prompt perk prices are static (Armory 10% discount shows on the info card, not the kit prompt).
+
+**PRE-PUBLISH CLEANUP (same day, user: "turn off dev/mocks/god ... I am going to publish"):**
+reverted the three TEMP test-forces to ship-safe: level.acc_dev + level.acc_god back to their
+dvar resolution (default 0), and ACC_MOCK_PARTY=false. Audited that NOTHING test-related ships
+enabled: mock_party_feed / [FURY] + [RP] debug prints / wallhack markers / all _acc_dev tools /
+dev_boss_status / dev_fury_watchers / hudelem-pool logger are all gated on level.acc_dev (now
+off); acc_resolve_dev_flags force-sets acc_open_map/glitch_test/variants_debug/perk_doors_all_open/
+hudelem_debug to "0"; zone_door_debug is not threaded; boss test-spawn dvars default off. Kept-on
+FEATURES (intended, not dev): crosshair damage numbers, top-center room-name banner.
+
+**HP text wired to real max HP (same day, user):** the kit hardcoded "100 HP" (health clientfield
+is only a 0..1 FRACTION). Added a private toplayer acc_maxhp broadcast (9 bits, the local player,s
+self.maxhealth) so the panel shows current HP scaled by real max - reads 300 HP at full Mega Jugg,
+250 with Jugg, 100 base; re-renders when Jugg changes the max.
+
+**Per-player shards in co-op party HUD (same day, user):** each teammate row (AetheriumPartyPlayers)
+now shows a second currency line - Data Shard icon + count (teal) under the points. Fed by a new
+WORLD-scope broadcast player_shards_0..3 (10 bits each, appended after player_states_packed in the
+_zm_aetherium_hud gsc/csc world scope - same lane as player_health_N), pushed change-guarded from
+player_currency_watch (the local player also keeps its private toplayer acc_shards for its own
+panel). mock_party_feed pushes fake shard counts (175/250/325) so the mocks show it solo.
+
+**Trigger-UI parity pass (same day, user: everything should work as it did previously, just
+inside the new trigger UI):**
+- **Perk card shows FULL benefit lists** (the old info card behavior): 4 extra lines added to
+  PromptPerks + the card art stretches down per line; base view lists base benefits, Mega
+  preview lists what the bottle ADDS, Mega-owned lists every effective benefit
+  (benefits/megaBenefits/megaFullBenefits ported verbatim from AccPerkCards into
+  AetheriumPerks.lua - MUST-MATCH both ways).
+- **Mega cost is SPELLED OUT: "1 Mega Bottle"** (teal, right-aligned, widened box) - the bottle
+  icon is gone per user.
+- **Legacy floating feedback REMOVED for OC kiosk + EXO station**: all hud_msg popups (quotes,
+  maxed, success - the observed "CYBERWARE OVERCLOCK - Tier 2/10..." floating line) became live
+  TRIGGER HINT updates, so the Aetherium card itself shows tier/cost/result (bounded strings,
+  cap-safe). Kiosk static copy fixed: OC costs DATA SHARDS (audit reword wrongly said Points),
+  benefits named on both cards.
+- **PaP shield + "OC vN" moved back INSIDE the right gun-HUD section** (RIGHT=40 both, stacked).
+
+**BUYABLE-UI AUDIT (same day, user: 'run an audit on all buyable UI shown'):** full inventory of
+every cursor-hint on the map traced through the Aetherium prompt router; 5 misroutes + 2 systemic
+display bugs fixed:
+- **Stale-image wallbuy hijack (systemic):** the kit never clears cursorHintImage, so after aiming
+  at any wallbuy, EVERY [Cost:]-style custom hint (jukebox / hack terminal / vault overload /
+  Brutus locks / Mega upgrade - the observed 'WALL WEAPON' card) could classify as a wallbuy.
+  Router now also requires 'hold'+' for ' (every real wallbuy hint has them).
+- **Mega upgrade -> real PERK card:** machine hint now carries the perk name ('Hold X for Mega
+  Jugger-Nog [Cost: 1 Mega Bottle]', new mega_hint_name() in _acc_mega_bottles) so the router
+  picks PromptPerks, whose mega-aware card shows MEGA: <name> + abilities + 1 Mega Bottle cost
+  (bottle icon, teal).
+- **Overclock kiosk showed the PaP card** ('upgrade your held weapon' tokens) -> reworded 'boost
+  your held gun (Points)' = clean default card.
+- **Ammo crate showed the PaP card** ('Pack-a-Punched' + 'weapon') -> 'refill held gun [1000
+  base / 5000 PaP'd]'.
+- **Reactor showed a mystery-box WEAPON card** ('survive for' tripped hold+for) -> 'survive it:'.
+- **Paradise Box showed the stock Mystery Box card** (its 950 cost hit the router's magic-950
+  fallback) -> router excludes 'paradise' hints.
+- **Doors now name their destination** (user): hints read 'Open Door to <the Market/...>' (12
+  bounded strings, new zone_door_dest_name() in the entry gsc) and PromptDoors displays
+  'Unlocks: <destination>' (color-code-stripped parse).
+- **PromptPAP hardcoded 5000/2500 -> parses the LIVE cost** from the hint (our PaP is tiered
+  5000/7500/10000); re-pack description reworded for the tier system. **PromptPerks also prefers
+  the live hint cost** - Armory (Mule Kick Mega) holders now see the real discounted price.
+Verified-OK (no change): soul boxes, Paradise gate, shard drops/caches, vault pads, glitch altar,
+boss items, implant bench, cyberware kiosk, neural expansion, exo station, jukebox, hack/overload
+terminals, Brutus locks, Civil Protector fund/upgrade/fuse, wallbuys, mystery boxes, power switch.
+
+**Layout tune #2 (same day, user screenshot):** PaP label REMOVED (tier shield alone, pulled
+left into the loadout section - the text pushed it out of bounds); Overclock text shortened to
+"OC vN"; panel currencies reformatted to the user's exact two-row spec with group spacing:
+row 1 = $points + "Shards N" (shard icon), row 2 = "Mega Bottles N" (bottle icon) + "Exo Suit N".
+
+**Panel polish + party mocks + PaP/OC stack (same day, user screenshot):**
+- **Shard icon sharpened**: the 128px source was crunched 5x at draw time - pre-downscaled to a
+  high-quality 32px source + compressionMethod uncompressed in acc_perk_shaders.gdt (redeployed,
+  gdtdb refreshed).
+- **Currencies labeled**: Mega Bottles moved to its own row - bottle icon + count + the words
+  "MEGA BOTTLES"; "EXO SUIT n" chip is now ALWAYS visible (was hidden at tier 0).
+- **4-player mocks for the Aetherium party HUD** (ACC_MOCK_PARTY=true in AetheriumHud.lua,
+  DEV/QA - overrides real teammates while on): 3 locally-built fake-player model trees
+  (name/score/portrait/clientNum) feed the PartyPlayers slots, and dev-gated
+  mock_party_feed (_zm_aetherium_hud.gsc) animates player_health_1..3 for empty slots
+  (slot 3 drains/refills so a bar visibly slides). All mocks alive per the 2026-06-28 convention.
+- **PaP + Overclock stacked on the far-right strip** (right of the grenades, below the counter):
+  "PAP <shield>" row over "OVERCLOCK vN" row, labels dim-cyan, right-aligned at x~1254.
+
+**Buy-UI consolidation + currencies-in-panel + cyan retheme (same day, user):** the kit prompt is
+now THE buy UI —
+- **Old buy UI removed:** `CoD.AccPerkCard` (the right-side perk/PaP info card) is retired from
+  acc_hud.lua (restore recipe in place; NOTE its Overclock/Exo walk-up REPORT cards went with it).
+  The interim top-left shards/EXO/MB hudelem row + standalone shard icon are retired too.
+- **Kit perk prompt is MEGA-AWARE:** owning the base perk flips the card to
+  "MEGA: <megaName>" + mega description + **cost = 1 BOTTLE (teal, Ronan bottle icon)** — the Mega
+  currency, not points; fully Mega'd shows "<megaName> - MAX" with no cost row. State from the same
+  accOwnedMask/accMegaMask models as the perk row; mega fields added to
+  [AetheriumPerks.lua](ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua)
+  ([PromptPerks.lua](ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptPerks.lua)).
+- **All currencies in the base panel:** the PlayerInfo plate now shows **points + Data Shards
+  (Ronan shard icon) + Mega Bottles (Ronan bottle icon)** on the points row, plus a small "EXO n"
+  chip — teal/cyan per the map identity. Data rides **3 new TOPLAYER clientfields**
+  (`acc_shards` 10b / `acc_mb` 5b / `acc_exo` 4b — per-player private pool, NOT the full
+  clientuimodel pool; gsc+csc lockstep in `_zm_aetherium_hud`, fed by `player_currency_watch`
+  0.25s change-guarded).
+- **Cyan not amethyst:** the 4 purple theme plates (compass/loadout/party/player-info) are swapped
+  for the pack's **blue variant** (`sat_hud_colors/blue/`) in the installed pack — originals backed
+  up as `*.png.acc-purple-orig`; manifest install note updated so fresh installs repeat the swap.
+
+**Round counter back to OUR custom UI (same day, user):** the kit's top-right stock bloody
+digits (AetheriumRoundCounter) are disabled; the map's pre-Aetherium **teal "Round N" top-left
+counter** (pulse-on-round-change, _acc_health_bars ensure/update_round_counter) is re-enabled in
+Aetherium mode (+1 hudelem/client), and the HOSTILES drain bar returns to its original corner
+spot (TOPC -300) now that the digits are gone.
+
+**Icon-fidelity pass (same day, user: "the old icons are what they should use"):** the Aetherium
+powerup row + pickup notification banner now use OUR Ronan cyberpunk icons (`i_acc_powerup_*` —
+insta-kill/double-points/fire-sale/max-ammo/carpenter/nuke, the retired CoD.AccPowerupBar art)
+instead of the kit's BO7 `sat_*`/stock `t7_*` icons; one table swap in
+[AetheriumPowerupsContainer.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupsContainer.lua)
+covers both surfaces (the notification banner reads the same table). Death Machine keeps stock t7
+art (the old bar never drew it — no Ronan icon exists). Perk row/prompts, PaP tier shields, and
+the shard icon were already on the old Ronan art.
+
+**In-game screenshot round (same day, user):** four more catches fixed —
+(1) the EXO/MB line rendered **GIANT (~3x)**: a server fontstring with **fontScale < 1.0 hits an
+engine fallback** (mine was 0.85; every proven-small hudelem in the repo is ≥ 1.0) → 1.0. NEW
+HARD RULE: never createFontString below 1.0.
+(2) **Spawn weapon had no loadout icon/name** (the user's Five-Seven): the kit only SUBSCRIBES to
+`currentWeapon.viewmodelWeaponName`/`weaponName` — a value set BEFORE the menu exists never
+re-fires, so the starting gun stayed blank until the first weapon switch (why the box-pulled
+Blast-O-Rific worked). Fix: handler in a local, subscribe, AND invoke once at create.
+(3) The "inert" **GobbleGum widget drew a faint X/ring artifact** at the right edge — gums are
+disabled on this map (user), widget registration removed (restore recipe in comment).
+(4) **PaP/OC chips floated in mid-air** far right — moved onto the loadout plate's header row,
+left of the weapon name (TUNE IN-GAME).
+
+**Plus the two user features:** (1) own **shards/EXO/MB moved under the player HUD panel**
+(bottom-left row along the PlayerInfo plate edge, was top-left; TUNE anchors in-game); (2) **weapon
+2D icons for the whole arsenal** — 17 mapping entries (ports' own wall-chalk art, gdtdb-indexed,
+zone-listed; Five-Seven/MK14/MORS/RW1 use marked lookalikes, MAHEM a stock-name guess) + the
+critical `GetWeaponIcon` fix stripping our `_acc_*` variant / `_rdw`/`_ldw` akimbo / `_fast\d`
+suffixes — without it every tuned variant went blank mid-run even for mapped guns. Gobblegums
+confirmed disabled (user) — Coagulant branches are dead code, kept for kit fidelity.
+
+### Changed — TWO-BOSS RANDOM ROTATION every 9 rounds + Rogue Protector two attacks / 25-dmg bullets (user 2026-07-03)
+
+**Boss rotation redesign:** a boss now spawns **every 9 rounds from round 9** (9/18/27/...) and
+WHICH boss — Phantom or Rogue Protector — **alternates each slot with a random per-run start**
+(`level.acc_boss_rotation_start`, rolled once): one game Rogue is the round-9 boss and Phantom is
+round 18, the next game it's flipped. Single source of truth = `_acc_civil_protector::which_boss`
+(returns phantom/protector/none), published as `level.acc_boss_which`; the Phantom consults it (with
+a legacy-cadence fallback if the pointer isn't set yet). Dev cadence = every 3 from round 3. Dvars:
+`acc_boss_first_round`, `acc_boss_interval`.
+
+**Rogue Protector — his TWO attacks are now distinct** (user: "he has two attacks, shooting and
+zapping"):
+- **Shooting** (ranged): 25-dmg bullets (was 10; weapon GDT `playerDamage` 10→25), a real **energy
+  muzzle flash** (`fx_muz_energy_shotgun_3p` from the Blast-O-Matic pack — chunky energy discharge,
+  replaces the tiny concrete-spark that read as too small) + the loaded NPC energy-shot report
+  (`wpn_t9_shot_npc`), every 1.5s. **NO slow** — bullets are pure damage now.
+- **Zapping** (close-range, ≤350u, every 3s): a big electric burst enveloping him
+  (`fx_elec_sparks_burst_xlg_os`) + his own spark-burst report (`fly_bot_head_sparks_burst`) + the
+  **50% move slow** (3s, Mega-Electric-Cherry immune). Both attacks' FX/SFX run CLIENT-side via a
+  new per-attack clientfield (`acc_bnp_shot` / `acc_bnp_zap`) in `_acc_boss_nameplate` — server-side
+  actor FX/sound is dead in this build. The bullet-hit→slow trigger in `_acc_elites` is removed.
+
+**HP scaling fixed** (user "make sure he scales properly"): now ROUND-ANCHORED at round 9 (base
+20k), compounding ×1.1/round past it, cap 45 rounds, × log coop mult — consistent no matter which
+rotation slot he lands on. Solo examples: r9 20k, r18 ~47k, r27 ~111k, r36 ~262k.
+
+### Added — AETHERIUM HUD adopted as the map's base HUD (user 2026-07-03; BUILD OK, awaiting in-game verify)
+
+**The Owen-C137 BO7-remake Aetherium HUD kit now REPLACES the stock ZM HUD** (docs/22 discovery →
+same-day adoption). Its Lua redefines `LUI.createMenu.T7Hud_zm_factory` — the usermap HUD menu key
+(docs/28) — giving us the full BO7-style loadout plate/points card/party bars/compass/round counter/
+powerup row/kill feed/scoreboard/pause menu + custom TTF fonts, all **pure LUI (zero server hudelems)**.
+Master kill-switch: **`level.acc_aetherium_hud` in [_acc_lui.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc)**
+(hardcoded bool — server half; the FULL restore is 3 steps, documented at the flag: bool false +
+`ACC_AETHERIUM_HUD_ON 0` in the kit .csc + re-add the retired acc_hud.lua widget registrations).
+- **Vendored IN the repo** (licence: "free to use and modify" — CREDITS.md row added, in-game signatures
+  off): `scripts/zm/_zm_aetherium_hud.gsc/.csc` (world-scope `player_health_0..3` + `player_states_packed`
+  clientfields — a SEPARATE pool from our FULL clientuimodel pool; register loops pinned to 4 in lockstep),
+  40 Lua files under `ui/uieditor`, `fonts/*.ttf`, `localizedstrings/zm_aetherium.str`. Entry .gsc/.csc gain
+  the paired `#using` above zm_usermap; zone gains the inlined AETHERIUM block (the kit's zpkg, deduped).
+  Images (49 MB, 103-asset GDT) install as external pack `model_export\_OwensAssets` (manifest entry
+  "Aetherium HUD assets"; gdtdb indexed 104 assets). `sync_to_modtools.ps1` now mirrors `fonts/` +
+  `localizedstrings/`.
+- **Our perks/icons/tiers ported in:** [Mappings/AetheriumPerks.lua](ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua)
+  rewritten for our 10 perks (names/costs/descs mirror AccPerkCards — also feeds the kit's perk-machine
+  cursor prompts), and [AetheriumPerksContainer.lua](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPerksContainer.lua)
+  REWIRED from stock `hudItems.perks.*` to our `accOwnedMask`/`accMegaMask` masks with the Ronan
+  base(red)/mega(teal) icons + acquisition order — Mega state survives the migration (stock models
+  couldn't express it, and combat_efficiency has no stock uimodel). PaP tier shields + the OC `vN` chip
+  stay in the slimmed `acc_hud` overlay, repositioned above the Aetherium loadout plate; the HOSTILES
+  drain bar dropped below the kit's round counter (all three: TUNE IN-GAME).
+- **Deprecated (all behind the one flag, restore recipes in comments):** acc_hud.lua's AccPerkBar /
+  AccPowerupBar / AccAmmoBlock / AccEquip widget registrations; `_acc_lui.gsc`'s stock-HUD suppressors
+  (`suppress_stock_weapon_hud`, `suppress_stock_powerup_hud`, `stock_perk_hud_suppressor`,
+  `clear_stock_perk_hud` re-assert — Aetherium NEEDS the stock powerup clientfields + `hudItems.doublePointsActive`
+  flowing) and the accPowerupMask feeds; `_acc_health_bars.gsc`'s co-op SQUAD roster + "Round N" counter
+  (the #1/#2 hudelem-pool consumers, ~6-21 elems/client) — replaced by Aetherium PlayerInfo/PartyPlayers/
+  RoundCounter + a compact 2-hudelem TOP-LEFT own-stats block (shards via SetValue + bounded "EXO n  MB n";
+  the LUI shard icon re-registered in acc_hud.lua). **HUD-pool relief: roster+round ≈6+ hudelems/client
+  → 2.** KNOWN GAP: teammates' shards/EXO/MB are no longer visible anywhere (candidate future home: the
+  Aetherium scoreboard's placeholder salvage column).
+- **Verify in-game (docs/22 list):** .ff LOADS (menu-override precedent risk), perk row + mega tint,
+  powerups (stock clientfields un-suppressed), custom SetHintString prompts (kit keyword-hijack:
+  hints containing door/open/cost/pack/hold-for tokens get restyled), kill feed, party bars in co-op,
+  PlayerInfo health % under Jug (kit assumes 100 max), world-clientfield budget (36 new bits), chip/bar
+  positions. Build: gsc-only, fresh 56.36 MB .ff, only the 18 known-noise linker errors.
+
+### Fixed — Rogue Protector shot FX/SFX v3: CLIENT-side via a shot-pulse clientfield (user 2026-07-03)
+
+v2's muzzle spark + zap were STILL invisible/silent — because **server-side PlayFX/PlaySound on
+actors is dead in this build**, the same documented reason the perk glows render client-side (the
+_acc_perk_lights precedent; should have been caught sooner). v3 uses the proven Phantom-aura lane:
+a new 2-bit actor clientfield `acc_bnp_shot` (registered in _acc_boss_nameplate gsc+csc) that the
+fire loop increments per shot via `shot_pulse(boss)`; the .csc callback plays the small spark burst
+(`impacts/fx_bul_impact_concrete_sm`, client-precached) on `tag_weapon_right` + the
+`acc_phantom_zap` report ON EVERY CLIENT (bInitialSnap guarded so a boss snapshotting into view
+doesn't fire a phantom shot). Rule now recorded in memory: ALL runtime FX/SFX on actors must go
+clientfield → .csc.
+
+### Changed — Rogue Protector hunts flat-out: relentless sprint chase (user 2026-07-03)
+
+"He needs to move towards players like all enemies do, and he needs to be pretty fast" — with the
+shooting now script-driven (MagicBullet fires fine while moving), the stop-and-shoot pacing is
+obsolete. `hunt_players` now re-pins his goal to the closest player every 0.5s (zombie-style
+pursuit) and holds a **permanent SPRINT** via his own BT lever: the walk/sprint chooser
+(`zodcompanionkeepscurrentmovementmode`) compares his distance to `v_robot_land_position` (>512u ⇒
+sprint), so pinning that field to a point far below the map locks the fast gait full-time.
+
+### Fixed — Rogue Protector shot presentation v2 + HARD -50% slow (user 2026-07-03 playtest)
+
+Playtest verdicts on v1: the XLG electric burst "looked like a self-explosion on him" (tag_flash
+didn't resolve → the body-centred fallback fired the huge nova ON him), `wpn_t9_shot_npc` was
+SILENT, and the -25% phantom slow wasn't clearly felt. v2: **FX** = the SMALL one-shot spark burst
+(`impacts/fx_bul_impact_concrete_sm`, already zone-listed) played on `tag_flash` →
+`tag_weapon_right` (the rig-guaranteed weapon-hand tag) and NEVER body-centred (no-fx fallback);
+**SFX** = `acc_phantom_zap` (proven loaded + one-shot — the Phantom stun's zap; muzzle crack +
+hit-zap echo reads as shot→zap-on-target); **slow** = a dedicated `acc_protector_slowed` flag in
+`recompute_move_speed` at **`acc_protector_slow_mult` 0.5 (-50%)** via the new
+`_acc_elites::acc_protector_zap` (same Mega Electric Cherry immunity + 3s refresh window,
+`acc_protector_slow_sec`) — the Phantom keeps its own -25%.
+
+### Added — Rogue Protector shot presentation: muzzle burst + blaster SFX (user 2026-07-03)
+
+Each MagicBullet shot now plays an **electric-discharge muzzle burst** on his gun's `tag_flash`
+(`fx_elec_sparks_burst_xlg_os` — the PhD nova, the map's proven one-shot electric FX, already
+zone-listed; falls back to a positional PlayFX if the tag is missing) and a **blaster report**
+(`wpn_t9_shot_npc` — the Blast-O-Matic pack's nonlooping NPC shot, loaded via the `_owens_weapons`
+szc source; degrades to a silent no-op if that pack is ever removed). His own AR defines only
+LOOP-fire aliases (unsafe as one-shots), hence the borrow. Full shot loop now: burst + report at
+the muzzle → tracer → 10-dmg hit → Phantom-zap stun.
+
+### Fixed — Rogue Protector FIRES: script-driven MagicBullet loop (user 2026-07-03, "still isn't shooting")
+
+The enriched status log delivered the verdict: `see=1 shoot=0` on every line — LOS clear, weapon
+equipped, enemy committed, standing still, and the engine's `CanShootEnemy()` still permanently 0
+(even with `combatmode = "no_cover"`), so the BT's shoot actions can never run and no script lever
+flips that engine check. THE HACK THAT SHIPS: `fire_loop()` fires one **`MagicBullet`** per
+`acc_protector_fire_interval` (1.5s) from his `tag_flash` muzzle at the target's chest (small
+random spread, `acc_protector_fire_range` 1500 + LOS gates) — a REAL bullet from his REAL gun with
+HIM as attacker, so it carries the weapon's `playerDamage` 10, respects god mode via the normal
+player-damage chain, and trips the Phantom-zap stun in `_acc_elites`. Stock builtin precedent:
+`_zm_aat_fire_works.gsc`. One-time `[RP] script fire loop ACTIVE` dev print. Known polish gap: no
+muzzle flash/fire sound yet (his weapon only defines a LOOP-fire alias, unsafe as a one-shot); the
+stun zap on hits is the audible feedback. (The stop-and-shoot drive from earlier today stays as
+movement pacing; the name stays ROGUE PROTECTOR — the brief "Annihilator" rename was reverted by
+the user in the same session.)
+
+### Docs — Aetherium HUD (BO7 remake) full-adoption discovery (user 2026-07-03)
+
+Discovery pass on adopting [Owen-C137/Aetherium-Hud-Bo7-Remake-](https://github.com/Owen-C137/Aetherium-Hud-Bo7-Remake-)
+as the map's base HUD (cloned to `..\Aetherium-Hud-Bo7-Remake`). **Verdict: feasible, and the structural
+fix for our hudelem-pool pressure** (pure LUI, zero server hudelems), but a vendor-and-port job: it
+redefines `LUI.createMenu.T7Hud_zm_factory` (whole stock ZM HUD), so our additive `acc_hud.lua` overlay
+would double-draw perks/powerups until its duplicated widgets are ported. License permits committing it
+to git (unlike the game-rip packs). Full findings + must-fix hardcodes appended to the repo's entry in
+[docs/22_community_techniques.md](docs/22_community_techniques.md). No machine blockers: same-day live
+checks confirmed SAC off + L3akMod + Node + all packs installed (the "new box not set up" notes in
+CLAUDE.md/memory were stale from 2026-07-01 and were corrected). No code changed.
+
+### Added — Apothicon Fury TRENCH ELITE (HB21 pack, user 2026-07-03)
+
+**The DLC4 Apothicon Fury is now an underground elite** — "like the glitch and shielded",
+not a boss: while any player is below base level (z ≤ −36, the trench-skins plane), one fury
+meteor-drops near them every **40s** (`acc_fury_interval`), capped at **2 alive**
+(`acc_fury_max`), with **flat 8× the round's zombie health** (`acc_fury_health_mult`,
+user 2026-07-03: raised 5× → 8×,
+overriding the pack's 1.2/1.5/1.7 tiers) and the horde's current **gait** (run → sprint at
+`acc_zspeed_sprint_round`). Does NOT count toward the round; kills pay like zombie kills
+(pack's own damage/death events). New driver
+[_acc_fury.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_fury.gsc); pack scripts vendored at
+their own paths (scripts/shared/ai/ + scripts/zm/zm_genesis_apothicon_fury.*, special fury
+ROUNDS disabled in our .gsh). A dev-only round-1 test spawn validated the archetype in game
+(user 2026-07-03: spawn/audio/movement/attacks confirmed - 110 aliases, all gait footsteps +
+bamf/vocals compiled clean) and was removed the same day. Pack install: manifest entry "HB21 Apothicon Fury"
+(model/xanims/FX/sounds/GDT; needs NO HB21 FX library — but its ground-tell FX reference is
+DANGLING in the pack (`fx_meatball_impact_ground_tell_zod_zmb` not shipped) and was swapped
+to the Civil Protector's tell ring in our .gsh, per the dangling-refs lesson). Zone mirrors
+the pack zpkg; szc gains the `zm_ai_apothicon_fury` alias block; entry .gsc/.csc gain the
+paired `#using` (clientfield contract).
+
+### Changed — 3D boss nameplates restyled: two rows + wide health-colored bar (user 2026-07-03)
+
+Per user sketch: name on its own row, a **25-segment bar** below (`\n` in the SetDrawName string;
+if the engine ever renders it as one garbled line, swap back to a space — noted in the .csc).
+Names now Title Case ("Trench Warden"). The bar renders the 0–10 tenths clientfield at 2.5
+segments/tenth, unfilled segments are the same glyph in black (constant-width dark track), and the
+fill colour tracks health: **green > 60% / yellow > 30% / red ≤ 30%**. Client-only change.
+
+### Fixed — Rogue Protector never fired: his BT only shoots while STANDING STILL (user 2026-07-03)
+
+Behavior-tree read (`zod_robot_companion.ai_bt`): the exposed-shoot branch is gated on
+`locomotionbehaviorcondition` **negated** — the robot can only pull the trigger while NOT
+locomoting. Our drive loop re-issued a move goal at the player every 2s, keeping him permanently
+walking → no shots ever (and therefore no stun — it rides on his bullet hits). `hunt_players` is
+now **STOP-AND-SHOOT**: chase while outside a 700u standoff band (`acc_protector_standoff`), then
+stop (goal = own position) so the BT's shoot turn un-gates; resume chase when the player breaks
+the band. Also added a dev status logger (per user "add logs"): `[RP] status: weap=… enemy=…
+dist=… moving=…` every 3s for ~36s after spawn — whatever still blocks the trigger will name
+itself on screen. Also per user: **the Shielded elite's back rocket-shield attach is REMOVED** —
+the chain-armor body IS the tell now (the shield was the old visual tell from the charred era).
+
+### Changed — Blast-O-Matic -40% damage nerf + ammo re-tune (user 2026-07-03)
+
+`acc_weapon_balance_mult` 0.40 → 0.24: per-hit 4,550 → **2,730** on regular zombies
+(boss/glitch ×0.75 ≈ 2,048, shielded ×3.0 ≈ 8,190; 10% boss per-hit cap unchanged).
+Ammo (user targets: base clip **5** / reserve **60**, PaP reserve ~110). **TRAP HIT:
+`maxAmmo`/`startAmmo` in these weapon GDTs count MAGAZINES, not rounds** (docs/54 already
+said it: displayed reserve = maxAmmo × clipSize; verified AK-74u maxAmmo 8 × clip 20 = its
+documented 160 reserve) — the first pass set 60/110 as if rounds and the user got **300**
+base reserve (60 mags × 5). Final: base clipSize 7 → **5**, maxAmmo/startAmmo **12**
+(12 × 5 = 60); `_up` clip stays 20, maxAmmo/startAmmo 80 → **6** (6 × 20 = **120** — exactly
+110 is unreachable at clip 20; 5.5 mags). Applied to base+`_up` in the pack GDT + all 14
+twins in [source_data/acc_weapon_variants.gdt](source_data/acc_weapon_variants.gdt). GDT
+edits → full gdtdb rebuild in the same build.
+
+### Changed — box-odds + PaP-price swaps (user 2026-07-03)
+
+Four paired moves, each changing BOTH `acc_box_weight` (_acc_map_randomizer) and
+`pap_price_bucket` (_acc_pap_levels): **Chicom CQB ↔ Mahem** (Mahem now TOP-priced/rare-8,
+Chicom MID/29), **AK-74u ↔ Paladin** (Paladin MID/29, AK-74u BOT/50), **Galil ↔ RPD** (RPD
+MID/29, Galil BOT/50), **MK14 → S band** (TOP-priced/rare-8, was BOT/29). Pool total weight
+439 → 418 (odds: 8 ≈ 1.9%, 12 ≈ 2.9%, 29 ≈ 6.9%, 50 ≈ 12.0%). Damage/balance mults untouched.
+docs/54 + tools/compute_gun_tiers.js roster still pending regeneration (now also stale on these).
+
+### Changed — zombie skins are now a GAMEPLAY-SIGNAL system: one fixed body per class (user 2026-07-03)
+
+User design: "keep it easy for players to identify trench zombies so they know which zombies count
+towards the round or not" — so each class gets ONE unmistakable body (heads still vary):
+**charred = surface round zombie · BARBED WIRE (body1) = trench/underground spawn · CHAIN ARMOR
+(default body3) = Shielded armored elite.** Trench zombies no longer roll random bodies — fixed
+barbwire body + `no_gib` (the wire never comes off, same as the elite's armor). The armored default
+moved body1→body3 (the user's "spikes and chain armor" is a DIFFERENT body than the "just barbed
+wire" one; body1's bin owns the barbwire material, so chain-armor is 2 or 3 — flip
+`acc_armored_body 2` live if 3 isn't it). New dial `acc_trench_body` (default 1).
+
+### Added — ARMORED (Shielded) elites wear the chain-armor BOTD body, gib-proof (user 2026-07-03)
+
+The "chains and spikes" BOTD body the user picked
+is now the **Shielded elite's exclusive skin, map-wide**: `promote_to_shielded` SetModels it +
+attaches a mob head (before the back-shield attach, which survives SetModel) and sets
+**`no_gib = true`** so the armor NEVER comes off (user: "keep the armor on the whole time" —
+stock-honored flag, `zombie_utility.gsc` checks it in 4 places; Margwa/Mechz/sentinel precedent).
+The trench rotation now EXCLUDES the armored body (bodies 2+3 × 4 heads = 8 combos) so the
+silhouette stays elite-only, and the trench roll skips shielded/elite zombies (a late promote also
+detaches any already-attached mob head first — no double heads). Live dials: `acc_armored_body`
+1..3 (0 = off/charred; flip it if the spiked body is actually another index — the trench exclusion
+follows automatically) + `acc_armored_head` 1..4.
+
+### Changed — underground skin pack swap: 54i → BOTD (user 2026-07-03: "looks half baked / no head")
+
+First live look at the 54i skins: bodies render **HEADLESS** (their character entries have empty
+`head` fields and the pack ships exactly ONE head model — the "heads included" read was wrong) and
+the port quality disappointed. Swapped to the user's fallback pack: **Kingslayer Kyle's BOTD mob
+zombies** — 3 bodies × 4 heads = the pack's own 12 authentic combos, self-contained materials.
+`_acc_trench_skins` now rolls body+head independently and uses the original Glitch der-skin idiom
+(SetModel body + Detach charred head + Attach mob head, head models self-align). Zone: 7 explicit
+`xmodel,` lines (was 3); all packed (verified in assetinfo, build 10:19). 54i stays installed as the
+A/B fallback (manifest entry now optional, "superseded"); Ascension zip remains the uninstalled 2nd
+fallback. Pack lesson recorded in memory: `"head" ""` in a character GDT does NOT mean the body
+bakes a head in — verify per pack.
+
+### Fixed — Blast-O-Matic never packed (silent weapon-conversion kill) + DB-load crash (2026-07-03)
+
+The gun the user "never spawned in with" was genuinely absent from the `.ff`: **the linker DROPS a
+weapon asset silently — zero `ERROR` lines in the normal build log — when any file-backed reference
+on it dangles.** The Blast-O-Matic pack had TWO: (1) both `fx_raygun_geotrail_{blue,red}_doa.efx`
+carry `emission "zombie/fx_raygun_trail_ring_doa"` — a Dead-Ops fx that exists only inside stock
+fastfiles (no raw `.efx` in the public tools, and the zip doesn't ship it); (2)
+`aiVsPlayerAccuracyGraph "pistol.accu"` — `share\raw\accuracy\aivsplayer\` ships only
+assault_rifle/default/smg (`pistol.accu` exists only under `aivsai\`). Diagnosis trail: assetinfo
+CSV showed `weapon` rows 0 while the gun's images/fx/sounds packed; the errorlog dependency chains
+plus a `-verbose` linker run (`Could not load ai weapon accuracy file`, printed once per entry)
+were the only witnesses. FIX: blanked the emission in both efx (stock empty-field form,
+`.acc-orig` backups) and blanked `aiVsPlayerAccuracyGraph` in the pack GDT (base+up, Thundergun
+precedent — both its accuracy fields ship empty; graphs only matter for AI wielders) and in all 14
+twin clones in [source_data/acc_weapon_variants.gdt](source_data/acc_weapon_variants.gdt); gdtDB
+full rebuild; all 16 `weapon,t9_semiauto_cosplay*` rows now in assetinfo. The earlier map crash at
+DB load is explained by the same refs: the twins are `weaponfull,` lines (force-load at DB time) so
+the dangling refs crashed natively, while the base `weapon,` lines just got dropped at link — twin
+zone lines re-enabled. Patches documented in
+[tools/external_assets_manifest.ps1](tools/external_assets_manifest.ps1) (survive pack reinstall);
+zone comment garbage line (`awsoundaliases...` — a comment that lost its `//` during an append)
+also fixed. Memory: `silent-weapon-conversion-kill-dangling-refs`.
+
+### Fixed — trench zombies stayed charred: zombies spawn AT THE FACTORY SPAWNER (user 2026-07-03)
+
+The skin gate read `self.origin` inside the `zombie_init_done` hook — but stock `spawn_zombie`
+(`zombie_utility.gsc`) does `guy forceteleport( spawner.origin )` and only moves the zombie to its
+riser struct AFTERWARDS: at hook time EVERY zombie sits at the single factory spawner (z=208,
+surface), so a spawn-time z-check can never pass. FIX: the skin roll is now THREADED with a 0.3s
+delay — the zombie is at its real rise point by then, and risers spend 1–2s under the floor so the
+swap is invisible. Dev proof-of-life: `[54i] first underground skin applied (z=…)` prints once.
+**⚠️ LATENT BUG FLAGGED, not fixed here: `_acc_elites`' depth-Shielded roll reads origin in the SAME
+hook** — its per-floor Shielded ratio (`acc_shielded_pct_l2..l5`) has likely never fired; it needs
+the same delayed-read treatment (its promote has HP/round interplay, so it deserves its own pass).
+
+### Added — UNDERGROUND zombie faction skin: 54 Immortals (user 2026-07-03)
+
+**Every zombie that spawns below base level (trench floors, under-rooms, abyss, Paradise) now wears a
+54 Immortals body** — Zeroy's BO4 Blackout neon-triad zombie port, picked from the user's three
+candidate packs as the best cyber-city fit (BOTD 30-variant mob zombies + ninjaman's HD Ascension set
+= documented fallbacks, downloaded but not installed). New
+[_acc_trench_skins.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_trench_skins.gsc): chains
+`level.zombie_init_done` (the elites depth-roll pattern, initialized right after elites so a
+depth-Shielded promo keeps its back-shield), gate = spawn z ≤ -36 (a pure HEIGHT check on purpose —
+`underground_layer()` excludes hallway/Paradise for gameplay amping, but the skin rule is visual),
+then the toxic-skin idiom: `SetModel` one of the 3 head-included bodies (assault/cqb/sniper, random
+per spawn) + `Detach` the charred head. Bosses excluded (they own their skins). Toggle
+`acc_trench_skins 0`; z tunable via `acc_trench_skin_z`. Zone: 3 explicit `xmodel,` lines
+(script-only refs); all 28 materials verified packed transitively (the pack ships no material GDT —
+they resolve from the Mod Tools update's stock assets, per its readme). Pack registered in
+[tools/external_assets_manifest.ps1](tools/external_assets_manifest.ps1) "54 Immortals" +
+[CREDITS.md](CREDITS.md). Known cosmetic limit: gibbed limbs still pop charred pieces (gibDef lives
+on the spawned character — same compromise as the toxic boss skins).
+
+### Removed — ASM1 retired from the arsenal (user 2026-07-03)
+
+The ASM1 (`s1_asm1`, "least liked gun") is retired **restorably**: zone `weapon,`/14 twin `weaponfull,`
+lines commented under a RETIRED header carrying the full restore recipe; box pool/rarity, overclocks,
+abilities, twins roster (16→15 guns = 210 twins), PaP bucket + perk-info entries commented with markers;
+the levelcommon CSV row deleted per the PDW/M1911/Ripper precedent (text quoted for restore). Assets/
+twins GDT/sounds stay installed (unreferenced = unpacked). Box weighting redistributes automatically;
+grep-verified zero live refs. Also same session: **Thundergun fractional boss damage** (1/20 max HP per
+blast → 1/17/1/14/1/11 by PaP tier, via the stock fling hook — the BO1 port's weapon damage is 0 so the
+old boss mults were inert), **Shielded elites made Thundergun-immune** (no-op fling func), **MORS +15%**
+(bal 0.2123), and the workshop **thumbnail replaced** with the user's PublishSS shot (1024×640,
+[zone/previewimage.png](zone/previewimage.png)).
+
+### Fixed — boss spawn-die LOOP: the landing kill-splash was killing HIM (user 2026-07-03 playtest 2)
+
+"He just kept spawning in and dying" — the pack's `zod_robot_do_landing_damage` DoDamages every
+**AXIS** AI within 350u of the landing point. Safe for the ALLIES-team ally; lethal for our
+axis-team boss standing at ground zero: land → self-splash → die → the director sees a dead spawn
+(owed stays set) → spawns another → repeat, paying boss rewards every cycle. FIX: local
+`landing_kill_splash()` = the same zombie-clearing splash (kill + ragdoll fling) but the boss is
+excluded. Also `boss.ignore_nuke = true` (a nuke power-up kills axis AI; Brutus/Glitch rule).
+
+### Fixed — BOSS IS IN (user 2026-07-03 playtest): duplicate robot + no shooting + entrance crash
+
+**First live Rogue Protector fight.** User saw the nameplate + targeting; three problems, all
+log-diagnosed: (1) `zm_zod_robot::zod_robot_do_landing` derefs the ALLY global `level.ai_robot`
+(unset in the boss flow) → "undefined is not an object" (`zm_zod_robot.gsc:293`) killed the fly-in
+thread; (2) **the frozen duplicate robot = the entrance scene's own actor** —
+`cin_zod_robot_companion_entrance` spawns its own robot when the bound AI doesn't match its ally
+setup; (3) **he never fired because of his aitype engage band** (600–1000u cover-shooter standoff —
+landing 200u from the player puts them INSIDE engageMinDist). Fixes: the entrance is now
+SELF-CONTAINED (spawn directly ON the telegraphed ground point + quake + landing FX +
+`zod_robot_do_landing_damage` kill-splash (public, no ally refs) + rumble — no scene, no pack
+do_landing → no duplicate, no crash); clone aitype engage band widened to **100–1500u**
+(fires at close range). Boss music path audited (acc_boss::boss_music → acc_music::play has no
+silent gates; alias `acc_brutus_music` is the Phantom's proven track) + a dbg print marks the
+thread start for the next test.
+
+### Fixed — boss spawn, 4th iteration: SpawnActor direct spawn (user 2026-07-03: "boss still didn't spawn — check the logs")
+
+The `[RP]` logs showed the runtime-spawner path failing exactly where Avogadro's notes predicted:
+`Spawn("actor_spawner_acc_zod_robot_boss")` returns **undefined** (dead end #2, now confirmed live —
+dead end #1 was the .map entity load-crash below). The working path is **stock's own direct actor
+spawn**: `SpawnActor("spawner_acc_zod_robot_boss", v_sky, ang, "acc_robot_boss", true)` (nuketown
+mannequin / MP combat-robot precedent) — spawns straight at the fly-in point, no spawner object
+anywhere. Requires `aitype,spawner_acc_zod_robot_boss` zone-listed explicitly (nothing else pulls the
+derived aitype now). Belt-and-braces fallback if SpawnActor ever fails: spawn from the load-proven
+ALLIES gold spawner then flip `boss.team = "axis"` at runtime (stock Thrasher precedent,
+`archetype_thrasher.gsc:1387`). Full three-road ledger in memory `hb21-civil-protector-integration`.
+
+### Fixed — LOAD CRASH from the live boss spawner entity → spawner is now RUNTIME-CREATED (user 2026-07-02, latest)
+
+Once the boss spawner's aitype became resolvable (the derived-entry fix below), **the game hard-crashed
+during load** (~45s / 3.4GB — the first-zombie-spawn window; reproduced headless via run_game after a
+full Steam restart ruled out the launch-handler jam; no Com_ERROR, no WER event — silent process
+death). A live **team-axis** actor spawner entity at load trips something in the stock spawn machinery
+that the pack's allies-team pair doesn't (exact engine mechanism unidentified; the axis Brutus spawner
+rides a zombie-skeleton aitype, ours is the robot skeleton). FIX: the `.map` boss spawner entity is
+REMOVED (do NOT re-add one — warning in the module header) and `spawn_boss()` now **creates the
+spawner at runtime** — `Spawn("actor_spawner_acc_zod_robot_boss", ...)` at first need, round 3+ —
+after all load-time machinery has run. This is Avogadro's ensure_spawner idea, now viable because our
+aitype + all 441 anims are verified packed (zone `aitype,` lines + the GDT derived-entry chain), which
+Avogadro never had. Bonus: immune to the concurrent-session `.map` clobber. The ally spawner pair
+(allies team, load-proven) stays in the `.map`.
+
+### Changed — Mahem/Paladin/MORS damage nerfs + playtest round 3 fixes (user 2026-07-02, night)
+
+Balance ([_acc_damage.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc) `acc_weapon_balance_mult`),
+set by TARGET body damage (user superseded their first multiplier ask same message-thread):
+**Paladin → 450 body** (bal 0.3565 → 0.1385; head ~1125), **MORS → 600 body** (bal 0.429 → 0.1846;
+head ~1500), **Mahem → 2500 direct** (bal 0.29 → 0.1099; splash scales). Round-3 audit had confirmed the damage
+chain itself is clean (headshots uniformly 2.5× body; no double-application) — these are deliberate
+top-end cuts. Round-3 fixes also in this build: PaP machine swap escalated to the **zbarrier ASSET**
+(install-side `zbarriers.gdt` boards → the ALXS p9 models, `.acc-orig` backup; per-entity board fields
+proven inert at runtime) + a dev probe printing the live machine model; power-switch breaker seated
+against the wall (+4 local y in the clone prefab); T7 exchange-room props repositioned to open floor +
+spawn guarded + dev proof-of-life print; **Thundergun now PaPs to tier 3** (its upgraded form was
+AAT-exempt — the exact documented Mahem bug; same `make_*_pap_visible_to_tier3` fix);
+[tools/audit_gun_damage.js](tools/audit_gun_damage.js) roster synced (t9 names + Mahem row). Sky
+experiments closed same night: Miami and zm_silver_dark both rejected → stock `skybox_default_night`
+restored, then **sky light dimmed 20%** via `acc_ssi_night_dim80` (stock-clone SSI, stops −2.2 → −2.52);
+plaza cyan-tile repaint also reverted (original hexagon walls). Also: gdt.db change-detection proved
+unreliable (0-GDTs on real edits, twice) — full `gdt.db` delete + rebuild (582 GDTs) is the reliable
+pattern before builds that depend on GDT edits.
+
+### Changed — playtest round 2: darker sky, cyan plaza, switch sound restored (user 2026-07-02, late)
+
+Sky: Miami read too light → **`skybox_t9_zm_silver_dark`** (dark-aether storm; new SSI clone
+`acc_ssi_dark_night`, lighting identical, 5 `.map` ssi fields + worldspawn + zone swapped; Miami stays
+installed for one-token swaps). Plaza: rough brick → **`t10_brick_wall_tile_01_cyan`** (cyber teal tile,
+carved + textures from the MadGaz rar; [tools/paint_plaza_walls.js](tools/paint_plaza_walls.js) token
+updated + repainted; fallback noted in the tool: metal composite paneling). **Confirmed: BO6 face
+materials convert + render on this install** — the docs/29 §14 techset trap did NOT fire for `lit_plus`
+on faces (update docs/29 when the pilot is signed off). Power switch: the deleted stock handle silenced
+the power-on sound/spark (stock `_zm_power` guards everything on the handle entity) → restored as an
+**invisible `tag_origin` script_model** in the clone prefab — sound + FX back, no visible lever. Full
+LED-baked build 2026-07-02 21:55 (83 MB — includes the concurrent session's Rogue Protector pack);
+new known-cosmetic errors: 5 `mtl_p7_monitor_holo_display_*` (T7 holo-screen prop's stock-named display
+layers — carve from the pack if the prop is kept).
+
+### Fixed — Rogue Protector round-3 no-spawn: the .map spawner entities were CLOBBERED by a concurrent session (user 2026-07-02, late)
+
+The debug instrumentation caught it in one run: `[RP] round 3 - due=YES` → `[RP] FAIL: no
+acc_robot_boss_spawner entity found in BSP`. TWO stacked root causes:
+1. **A concurrent session's whole-file `.map` rewrite (the sky/plaza pass) silently erased ALL THREE
+   appended robot spawner entities** (the ally pair + the boss spawner — which is also why the
+   earlier ally test worked but nothing could spawn after). Re-appended with a warning comment; bake
+   gate re-run (BAKED 54.4s; all 3 verified present in the compiled `.d3dbsp` by direct grep). New
+   working rule (memory `concurrent-sessions-clobber-map-appends`): grep the `.map` for your entity
+   markers right before every geometry build when parallel sessions are active.
+2. **Spawner-classname aitype resolution needs a GDT derived-entry CHAIN**: with the entity finally
+   in the BSP, the linker revealed `'spawner_acc_zod_robot_boss' is not a valid aitype asset` — a
+   classname `actor_spawner_<X>` resolves to an aitype literally named `spawner_<X>`, which packs
+   provide as empty-body GDT **derived entries**: `archetype_<X>` (full def) ← `variant_<X>` ←
+   `spawner_<X>` (how the HB21 ally spawners + Brutus resolve; visible in assetinfo as BOTH
+   `archetype_*` and `spawner_*` aitypes). Our clone had only the base entry. Fixed: renamed the
+   base to `archetype_acc_zod_robot_boss` (+ zone line) and added the `variant_`/`spawner_` derived
+   aliases. Error gone; fresh `.ff` 22:37. **Any future custom aitype with a .map actor spawner
+   needs all three entries.**
+
+### Changed — Rogue Protector combat identity: 10-dmg STUN shots every 1.5s (user 2026-07-02, late)
+
+The boss is now a **suppressor, not a shredder**: one shot every 1.5s (aitype clone `burstCount` 1 +
+`fireInterval` 1.5), **10 damage flat** (weapon GDT `playerDamage`, both companion ARs), and **every
+hit stuns like the Phantom** — reuses `acc_elites::acc_phantom_chain_zap` wholesale (zap SFX, -25%
+move slow 3s, re-hit refreshes), applied INSIDE `_acc_elites::on_player_damaged` (the per-hit-effects
+home) so it **fires under god/dev exactly like the Phantom's** (user: "stun should still affect me in
+dev mode") — a callback registered after elites' would be short-circuited by god's `return 0`, so the
+first-cut callback approach was replaced same evening. The threat = the slow + the natural health-regen
+reset from chip damage; **Mega Electric Cherry "Power Surge" is the counter** (its zap immunity is
+built into the reused function) — by design, this boss is what makes that Mega wanted.
+
+### Changed — 3D nameplates VERIFIED in-game; scoped to real bosses only (user 2026-07-02, late)
+
+The user saw the over-head name + health bar on the Glitch Stalker — **confirming the SetDrawName
+plate renders on a hostile team-axis actor** (the open question from the nameplate build; plan B not
+needed). Per user, plates are now **bosses only — Trench Warden (Brutus) / Phantom / Rogue
+Protector**: the Glitch attach is removed (commented restore line kept in
+[_acc_boss_glitch.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc)); shielded elites
+never had one.
+
+### Added — Rogue Protector debug pass (user 2026-07-02, late: "never saw him spawn on round 3")
+
+The boss chain is now fully instrumented: dev-gated `dbg()` prints (`^6[RP] ...`) on-screen AND into
+`console_mp.log` as `[ SCRIPTER]` lines (our `acc_utility::log` `/# println #/` path never reaches the
+log — that's why the first no-spawn session was unreadable). Logged: init, every round's cadence
+verdict (`round N - due=YES/no`), director attempts, and every spawn_boss failure reason (no spawner
+entity in BSP / no valid player / SpawnFromSpawner undefined). Plus a **dev console force-spawn**:
+`acc_protector_spawn 1` marks him owed immediately (acc_skip_round pattern) — test the boss without
+surviving to round 3. Also guarded the HB21 fuse-glow crash (`_hb21_zm_craft_fuse.gsc:74` threw
+"undefined is not an object" x3 every game — no fuse prefabs placed; isdefined-guard, pack bug).
+
+### Fixed — GOD MODE restored (player-damage-callback chain poisoning) + mocks off + dev boss round 3 (user 2026-07-02, late)
+
+**God mode was dead since the Civil Protector install — root cause is a stock-chain contract:**
+`_zm.gsc::check_player_damage_callbacks` returns the FIRST callback result **!= -1** and SKIPS all
+later callbacks. The pack's `zm_zod_robot::zod_robot_player_damage_override` ends `return iDamage`
+(instead of -1 = "no opinion"), and it registers at load (REGISTER_SYSTEM) — BEFORE `_acc_elites`'
+damage handler — so the god-zeroing (and every per-hit effect) never ran ("I was dying in god
+mode"). Fixed in the vendored copy: `return -1`. The short-lived `acc_protector_dmg_scale` callback
+(same poison class) is REMOVED — the boss's bullet strength is now tuned at the source, in the
+weapon GDT: the pack shipped **`playerDamage` 1550/3100 per bullet (instakill!)** on the companion
+AR / upgraded AR → **25/35** (install-side). New rule for the KB: **any registered player-damage
+callback MUST return -1 on its no-opinion path.** Also: **player HUD mocks OFF everywhere** (user:
+"only dev mode and god mode on" — `_acc_health_bars` force_mocks now hard false, dev shows only real
+players) and the **dev Rogue Protector cadence moved to round 3** (was 2), still every 5.
+
+### Added — ROGUE PROTECTOR round-20 boss + 3D over-head boss nameplates (user 2026-07-02, same evening)
+
+**The Civil Protector is now the round-20 HOSTILE boss** ("make him an enemy/boss now" — replaces the
+round-1 ally test from earlier today, which proved the assets in-game). The whole hostility trick is
+ONE GDT field: a new install-side aitype clone `acc_zod_robot_boss` (gold model) with `team` allies→
+**axis** — engine target acquisition is team-based, so he natively hunts players while zombies (also
+axis) ignore him; the pack's own target service even ships a players-as-enemies path (leftover from the
+campaign robot it was ported from), so the behavior tree fights players with **zero BT edits**. The
+companion-only services (revive-downed-players/follow/powerup-chase) all early-out on
+`b_robot_finished=1` — set permanently. Rewritten
+[_acc_civil_protector.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc): Phantom-style
+owed+director cadence (round 20, every 20; dev = 2/every 5 off the one dev flag), **the Phantom yields
+his rounds** (level-pointer hook in `cadence_hits`, no #using cycle), HP = 20k compounding ×1.1/round +
+log coop mult, full pack fly-in entrance + boss music, his bullet damage vs players scaled by
+`acc_protector_dmg_scale` (0.5), crosshair damage numbers fed from his AI damage callback (the ally
+test showed none — he bypasses the zombie damage pipeline), rewards on kill = Warden flat set (item +
+3000 points each + 50% Mega Bottle). New `.map` spawner entity (bake gate **BAKED 61.5s**).
+
+**3D over-head boss nameplates + health bars — ALL bosses** (user: "Civil Protector somehow has a
+floating name — use that instead of the 2D global boss bar"). Mechanism found: the engine renders a
+world-space name over any actor the CLIENT calls `SetDrawName` on — the pack names the ally robot that
+way, and STOCK does it on a non-ally zombie actor for the Turned AAT (`_zm_aat_turned.csc:38`, the
+proven recipe: **actor clientfield → .csc callback → SetDrawName**). New
+[_acc_boss_nameplate.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_nameplate.gsc)/.csc: two actor
+clientfields (`acc_bnp_name` 3-bit identity, `acc_bnp_hp` 4-bit tenths) rebuild
+`NAME [|||||||---]` live on every hp change (server polls 4Hz, sets on change). Wired: Phantom +
+Rogue Protector auto via the existing `acc_boss_spawned` notify; Brutus + Glitch via direct `attach()`
+(they deliberately never emitted the notify). **The 2D top-screen boss bar is retired** (gated off in
+`_acc_health_bars::boss_bar_listener`; A/B back live with `set acc_boss_bar_2d 1`; plates off with
+`acc_boss_nameplate_on 0`).
+
+### Added — Civil Protector ally robot, round-1 TEST spawn (HarryBo21 pack v2.0.0, user 2026-07-02)
+
+HarryBo21's Civil Protector (the SoE police-callbox ally robot) integrated as a **feasibility test**:
+spawns **unconditionally on round 1** ~5s after blackscreen, **10x health** (aitype base 2000 → 20000),
+lands in front of the first player with the pack's full fly-in (sky-trail FX, quake, landing kill-splash,
+entrance scene). Driver = new [_acc_civil_protector.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc)
+— it **skips the pack's entire summon flow** (no call box / 3-fuse craft quest / 2000-point charge / 120s
+despawn placed or wired) and drives the pack's own public `zm_zod_robot::` landing/scene/vox functions
+directly; he is **permanent** and **damageable** (stock keeps him invulnerable while active —
+`SetCanDamage(1)` here so the 10x HP is observable; zombies still don't target him). **REMOVE/gate the
+auto-spawn before ship** (it is the only spawn path). Integration per the pack INSTRUCTIONS + the
+Avogadro/Brutus vendor pattern: scripts vendored at pack paths (`scripts/zm/zm_zod_robot.*`,
+`archetype_zod_companion.*`, `craftables/_hb21_zm_craft_fuse.*`), entry `.gsc`+`.csc` `#using` pair
+(clientfield match), zone lines mirror the pack zpkg (+ both `aitype,` lines + the test driver), szc gains
+the `zm_ai_zod_companion` alias source, and the 2 pack actor spawners are **inlined into the .map**
+(start room, from the pack prefab). Pack assets install-side (gitignored; registered in
+[tools/external_assets_manifest.ps1](tools/external_assets_manifest.ps1) "HB21 Civil Protector" +
+[CREDITS.md](CREDITS.md)). **Known gap:** the pack requires the separate "HB21 FX library" for 2
+fuse-quest FX we don't have — stubbed install-side as copies of a pack FX (they only render on the
+unplaced fuse-quest props). Gold (upgraded) variant ships in the pack too (spawner placed, dormant —
+`ee_complete` flag flips summons to it). **Pack shipped broken refs — fixed install-side** (first
+build failed on all of these; recipe in memory `hb21-civil-protector-integration`): his gun's Arak
+models have **no bins/textures in the pack** (GDT only — assumes a pack we don't have) → both
+`ar_standard_companion_zm` weapon entries retargeted to the Skye CW AK-47 (`vm/wm_t9_ak47`), arak
+`camo` + `grenadeWeapon frag_grenade_zm` blanked (stock weapons can't compile from GDT on usermap
+linkers); 3 FX-library `gfx_*` materials missing from every installed GDT swapped for proven ones
+in 3 pack `.efx` (jet-leg smoke + impact smoke → `gfx_fire_*`, ground-tell blue orb/ring →
+`gfx_light_phosphorous_em`); the zpkg's `xmodel,p7_zm_zod_fuse` line dropped (unbuildable + unused).
+LED bake gate with the new spawner entities: **BAKED 60.3s** (the Avogadro spawner-crash lesson does
+not repro when the aitype GDT is gdtdb-registered first). Build: fresh 70.35 MB `.ff` (41 MB before —
+the 441 anims + models + sounds).
+
+### Fixed — first-playtest feedback on the devraw drop + T7 prop pilot (user 2026-07-02, same evening)
+
+Post-playtest round: **PaP model now applied at the level that actually carries it** (the machine is the
+prefab zbarrier's per-entity `zbarrierboardModel1..6` fields, NOT a SetModel-able entity — new clone prefab
+`_prefabs/acc/vending_weapon_upgrade_alxs.map`, boards 1/2/6 → the ALXS `_off`/on models, sign + gun-mount
+boards stock; the useless runtime-SetModel thread removed). **Sky now actually changes** (the rendered sky
+binds via the volume_sun **SSI**, not worldspawn alone — cloned stock `default_night` SSI →
+`acc_ssi_miami_night` with ONLY the skybox stop swapped, lighting identical, `.map` ssi fields repointed).
+**Power switch** rotated to face the player (yaw 270 in the clone prefab) + the **stock lever entity deleted**
+(safe: stock `_zm_power::electric_switch` isdefined-guards every handle use). **Dev loadout** now starts with
+the Thundergun (Action Figure give retired) — [_acc_dev.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_dev.gsc).
+**BO6 plaza-wall pilot applied at user request**: new one-shot
+[tools/paint_plaza_walls.js](tools/paint_plaza_walls.js) (12 faces → `t10_brick_stone_wall_rough_dark`,
+`--revert` ready — the build errorlog is the techset-trap verdict). **T7 pilot props placed** in the exchange
+room (Moon server rack + Crucible holo screen, spawned by `_acc_atmosphere::spawn_exchange_props()`; slices
+carved from the 53GB rar per the spike recipe — also the PNG-image-pipeline pilot). **Two runtime errors
+fixed**: PaP-tier pollers crashed on unregistered stems (stock `get_upgrade_weapon` derefs
+`zombie_weapons[stem].upgrade` unguarded — Action Figure/knife class; guard added in
+[_acc_weapon_variants.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc)), and Brutus'
+helmet-pop threw on `%brutus_headpain` — root cause: **the NSZ Brutus GDT was never imported into
+source_data on this box** (installed as `source_data\nsz_brutus.gdt` + isdefined guards in
+[nsz_brutus.gsc](scripts/_NSZ/nsz_brutus.gsc)). Stock stats one-off (`_zm_stats` unranked noise) documented,
+not ours.
+
+### Added — devraw enhancement drop: toxic boss skins, BO1 Thundergun, CW PaP + WW2 switch + Miami skybox models, Kino round stingers (user 2026-07-02)
+
+Six user-supplied devraw packs integrated in one pass (each a **model/asset-only lift** — no pack
+scripts/AI systems installed; every pack registered in
+[tools/external_assets_manifest.ps1](tools/external_assets_manifest.ps1) + [CREDITS.md](CREDITS.md) rows/sign-offs):
+- **Toxic boss skins** (WetEgg SAT pack): the **Glitch Stalker** wears `c_sat_zmb_zombie_toxic_1` and
+  **loses its magenta aura** (the skin is the tell now); the **Phantom** wears `..._toxic_2` and keeps its
+  materialize-glow **re-coloured NEON YELLOW** — new clientfield value 3 + generated
+  `fx_perk_glow_neon_yellow` (palette entry in [tools/gen_perk_glow_fx.js](tools/gen_perk_glow_fx.js)); the
+  Subroutine Core keeps dark purple (value 1). Toxic bodies include their heads (no head re-attach).
+  [_acc_boss_glitch.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc) /
+  [_acc_boss_phantom.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc) /
+  [.csc](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.csc).
+- **BO1 Thundergun** (TheAllNightFall t5 port): the pack **overrides the stock `thundergun_zm` /
+  `thundergun_upgraded_zm` asset names in place** → zero GSC/box/damage-table changes; zone `weapon,` lines +
+  szc `t5_thundergun_sounds` alias block added.
+- **CW/BO6 Pack-a-Punch machine** (ALXS; model by Madgaz/Owen C137): both PaP machines (surface stock
+  zbarrier `vending_packapunch` — swapped by new `acc_swap_pap_machine_model()` in
+  [_acc_pap_levels.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc) — and the Paradise standalone
+  vendor) now use `p9_fxanim_zm_gp_pap_xmodel`. Risk note: fxanim rig as a static model — verify no
+  T-pose in-game; failure mode = stays stock + log line.
+- **Skybox → `skybox_t9_mp_miami`** (Nastian T9 set): CW Miami neon night city (worldspawn `skyboxmodel`
+  in [the .map](map_source/zm/zm_abandoned_cyber_city.map); `volume_sun` ssi stays `default_night` — the pack
+  ships no ssi). Runner-ups installed + swappable by one token: `skybox_t9_mp_amsterdam`,
+  `skybox_t9_zm_silver_dark`, `skybox_t9_mp_moscow`. Pack GDT shipped literal `\r\n` in 16 skinOverride
+  values — sanitized on install.
+- **WW2 power switch body** (Fanatic): clone prefab `_prefabs/acc/power_switch_ww2.map` = stock power_switch
+  prefab with only the baked body model → `ww2_circuit_breaker` (stock handle/trigger/flip anim/logic kept);
+  the Bus Station misc_prefab repointed. Aesthetic risk: the stock handle renders against the new body —
+  reposition in the clone prefab if it reads grafted.
+- **Kino round-change stingers** (WetEgg Ultimate Round Sounds): the map previously played NOTHING on round
+  change; new [sound/aliases/acc_round_sounds.csv](sound/aliases/acc_round_sounds.csv) + szc block + a
+  `round_sounds_watcher()` in [_acc_music.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc) hooking the
+  verified stock `start_of_round` / `end_of_round` notifies (layered on their own emitter — the theme keeps
+  playing) + `end_game` → Kino game-over song through the music channel. Round-1 also stings (authentic Kino).
+- **BO6 materials (MadGaz)**: pilot ONLY — `t10_brick_stone_wall_rough_dark` installed unzoned;
+  verdict **LIKELY-TRAP for brush faces** (the set is all `_plus`/`advanced_fullspec` materialTypes = the
+  docs/29 §14 uncached-face-techset class). Next step if wanted: one out-of-sight test face + full bake.
+- Also this session: **original perk-shader art restored** from the old-box bundle (31/31 zone coverage;
+  Data-Shard icon still placeholder — original art wanted), **perk-glow FX regenerated** (the missing
+  map-light/glow bug: generated `.efx` files are install-side and were wiped with the old machine), the
+  **AE4 muzzle-FX build error fixed** (docs/33 repair re-applied), and the old-box `acc_external_assets.zip`
+  reconciled (verdict: early pre-tuning snapshot — no GDT adoptions; fresh chain-derived state kept).
+
+### Changed — New-box asset restore: CW guns re-sourced from Skye's CW pack, twins regenerated (2026-07-02)
+
+Continuation of the 2026-07-01 new-machine restore. All external packs were re-downloaded fresh
+(old box not used): Skye AW/BO2/BO4/CW **full packs** + Charred zombies + Action Figure (port
+re-patched) + Ronan raw shaders. The **weapon-tuning chain was reapplied** to the pristine GDTs in
+the docs/33 canonical order (loc normalization 938 fields, recoil ×1.75 via the generator's
+in-place arm, ammo cuts 67 fields, hip-spread ×class 352 fields, PaP rebalance, drift sync — all
+audits green). Two structural changes landed in the repo:
+**(1) The 4 Cold War guns (`t9_ak47/ak74u/m60/rpd`) are now sourced from TheSkyeLord's CW pack**
+(the old untraceable `t9_wpn_ports` port is retired — this also resolves the CREDITS "author TBD"
+item). Their **56 perk twins were wholesale-regenerated** in
+[source_data/acc_weapon_variants.gdt](source_data/acc_weapon_variants.gdt) from the new pack's
+GDTs (old twins referenced the dead port's model/anim names → would have been invisible/broken);
+non-t9 blocks verified byte-identical. Side effects: MORS twins 48/72→41/61 + Paladin twins 12→10
+reserve (fixes an old-box drift where the 06-27 −15% nerf was applied install-side only); the
+undocumented RPD PaP reflex-sight graft is **superseded** (the new pack's PaP forms ship native
+optics); t9 ammo/damage profiles are the new pack's — balance-review in game.
+**(2)** [tools/apply_recoil_overhaul.js](tools/apply_recoil_overhaul.js) `GUNS[]` t9 paths
+repointed to `skye_t9_*.gdt` + a missing-GDT skip-with-warning guard (was a destructive mid-run
+throw after `rmSync`). Also rebuilt install-side from Ronan's raw art: `acc_perk_shaders.gdt`
+(31 assets — 4 power-up icons are best-guess art; `i_acc_data_shard` is a GENERATED placeholder,
+the user's original `data_shard_cyber_bare.png` art is wanted back). Still pending: NSZ Brutus
+pack + Skye VG pack (PPSh-41) downloads, then the first full build on this box.
+
+### Fixed — Electric Cherry machine shows the real cherry vending model (user 2026-07-01)
+
+Electric Cherry (the real 10th perk on `specialty_combat_efficiency`) no longer renders as the
+`p7_lab_bio_machinery_01` lab-prop stand-in — both its machines (Lab alcove X=675 + the Paradise
+duplicate row) now use the **real cherry vending machine**. Root cause history: the stock
+`p6_zm_vending_electric_cherry_on/_off` names are catalog-listed but have **no packable source in any
+install** (rendered INVISIBLE, 2026-06-25), which forced the lab-prop stand-in. Fix = an
+**EC-machine-only lift** from **[West] Community Perk Collection v2.7** (user-supplied zip; the 60-perk
+pack itself is NOT installed): xmodel `electric_cherry_model` (a retextured Treyarch BO2/Alcatraz
+machine) + 3 materials + 12 textures, extracted from the pack's 981k-line shared GDT into
+`source_data\acc_west_electric_cherry.gdt` — with the body material's `specColorMap` **repointed** from
+the unshipped stock image `i_mtl_zombie_vending_electric_s` to the pack's own shipped
+`electric_cherry_machine_body_s` (a pack defect that would otherwise miss at link). One model serves
+both power states (the pack's own convention; powered look = light FX, which `_acc_perk_lights` owns).
+Changes: [_acc_perk_electric_cherry.gsc](scripts/zm/zm_abandoned_cyber_city/_acc_perk_electric_cherry.gsc)
+`EC_OFF_MODEL`/`EC_ON_MODEL` → `electric_cherry_model` (machine_assets now use the defines);
+[the zone](zone_source/zm_abandoned_cyber_city.zone) swaps `xmodel,p7_lab_bio_machinery_01` →
+`xmodel,electric_cherry_model` (runtime-SetModel assets need the explicit line, docs/44); both
+[.map](map_source/zm/zm_abandoned_cyber_city.map) EC struct `model` tokens updated (cosmetic — GSC
+overrides at spawn); new **required external pack** entry in
+[tools/external_assets_manifest.ps1](tools/external_assets_manifest.ps1) (marker
+`source_data\acc_west_electric_cherry.gdt`) + [CREDITS.md](CREDITS.md) provenance row + IP sign-off box
++ [ONBOARDING.md](ONBOARDING.md) row; [docs/13_perks.md](docs/13_perks.md) roster/ledger updated.
+Install-side: assets copied to `<tools>\_custom\westchief596\perks\Electric Cherry` + the GDT to
+`source_data\` (`gdtdb /update` + full build **pending** — this machine's Mod Tools install is
+pristine-stock as of 2026-07-01 and **Windows Smart App Control blocks `gdtdb.exe`**; the external-asset
+bundle + L3akMod also need reinstall before the map links — see the new-machine setup notes in memory).
 
 The 12 **buyable zone doors** (`acc_door_*` brushmodels) each used to inherit their neighbouring wall's material (asphalt / concrete / dark metal), so the door panel blended into the wall until the buy-trigger UI popped. All 12 are now re-skinned to one distinct stock material — **`t7_metal_diamond_plate_worn_wet`** (raised diamond tread-plate) — so players can read a door at a glance. New one-shot tool [tools/paint_doors.js](tools/paint_doors.js) (72 faces; buyable doors ONLY — perk-alcove + abyss doors untouched; idempotent, `--revert` restores the pre-paint `.map`). Material/BSP change → FULL LED-baked build (bake clean, no `brush.cpp:1860` — pure albedo swap, no winding change).
 

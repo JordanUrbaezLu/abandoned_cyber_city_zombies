@@ -138,7 +138,12 @@
 // gun's acc_weapon_balance_mult. Separate dvars: the Thundergun is the worst offender (no per-shot ammo
 // cost), the launcher is ammo-limited so it gets a gentler cut, the Paladin is a single-shot sniper.
 // Live: acc_thundergun_boss_mult / acc_launcher_boss_mult / acc_paladin_boss_mult.
-#define ACC_THUNDERGUN_BOSS_MULT 0.20   // Thundergun vs bosses: ~140k (post -30%) x 0.20 -> ~28k/blast (a strong boss tool, not a one-shot).
+// [2026-07-03] THUNDERGUN NOTE: ACC_THUNDERGUN_BOSS_MULT is now INERT twice over - (1) the BO1
+// Thundergun port GDT ships "damage" "0" on BOTH forms, so the cone's weapon traces arrive as 0
+// and die at on_ai_damage's damage<=0 gate before any multiplier; (2) bosses now take the
+// FRACTIONAL blast system instead (thundergun_boss_blast below: maxhealth/divisor per blast,
+// divisor 20 -3/PaP tier). Kept for the dvar surface + in case a future port restores GDT damage.
+#define ACC_THUNDERGUN_BOSS_MULT 0.20   // INERT vs the BO1 port (GDT damage 0) - superseded for bosses by thundergun_boss_blast (maxhealth/20..11). Was: ~140k x 0.20 -> ~28k/blast.
 #define ACC_LAUNCHER_BOSS_MULT   0.50   // Mahem vs bosses: ~5,512 direct (post -10%) x 0.50 -> ~2,756/rocket + splash; ammo-limited.
 #define ACC_PALADIN_BOSS_MULT    0.50   // Paladin HB50 sniper vs bosses (user 2026-06-24): one-shot single-target boss-killer; ammo/RoF-limited (not a burst nuke) but reined in vs bosses too. On top of its 0.49 balance mult (B tier, user 2026-06-24) -> ~half its boss damage. Live dvar acc_paladin_boss_mult.
 
@@ -198,6 +203,12 @@ function init()
     // finishActorDamage (_zm.gsc:5824-5861).
     zm::register_actor_damage_callback( &on_ai_damage );
 
+    // THUNDERGUN FRACTIONAL BOSS DAMAGE (user 2026-07-03 design): expose the blast helper as a
+    // level pointer (vendored boss files call it without a #using) + keep boss-flagged AIs
+    // carrying the fling hook. See thundergun_boss_blast below.
+    level.acc_tg_boss_blast = &thundergun_boss_blast;
+    level thread tg_boss_fling_assigner();
+
     // Insta-Kill on NON-REGULAR enemies (bosses/elites/Glitch Stalker/Brutus) = 6x gun damage, NOT an
     // instant kill (user 2026-06-23). This stock global hook (zm_powerups::check_for_instakill) returns
     // FALSE for them so the gib+lethal is skipped (on_ai_damage applies the 6x instead); regular zombies
@@ -233,6 +244,92 @@ function init()
 // stock minigun adjustment - hence the explicit minigun passthrough below.
 // ---------------------------------------------------------------------------
 
+// =============================================================================
+// THUNDERGUN vs BOSSES - FRACTIONAL blast damage (user 2026-07-03 design; supersedes the
+// ACC_THUNDERGUN_BOSS_MULT cone cut AND the per-hit caps for this one path).
+//
+//   per blast: damage = ceil( boss MAXHEALTH / divisor ), divisor 20 - 3x PaP tier:
+//     tier 0 (base)        -> 1/20 = 5.0%      tier 1 (first pack) -> 1/17 = ~5.9%
+//     tier 2 (_up form)    -> 1/14 = ~7.1%     tier 3 (max)        -> 1/11 = ~9.1%
+//
+// WHY THE FLING HOOK (mechanism evidence): the BO1 Thundergun port GDT ships "damage" "0"
+// on BOTH forms, so the cone's weapon traces arrive as 0 and die at on_ai_damage's first
+// line (damage <= 0 -> -1) - the multiplier chain NEVER sees a thundergun weapon hit. The
+// stock cone code, however, ALWAYS calls self.thundergun_fling_func( player ) on every AI
+// it hits when that field is defined (_zm_weap_thundergun.gsc:248-251), independent of GDT
+// damage - the deterministic per-blast-per-AI hook, already proven by the Brutus + Avogadro
+// overrides. TRASH zombies are untouched: the hook is only installed on boss-flagged AIs,
+// so the stock weaponless fling one-shot (launchRagdoll + DoDamage health+666) still clears
+// regular zombies exactly as before.
+//
+// Coverage: tg_boss_fling_assigner() installs the hook on every AI flagged acc_is_boss /
+// acc_is_mini_boss by the boss framework (Phantom, Glitch bosses, Trench Warden, Paradise
+// spawns, and any future boss using the markers - no per-boss file edits). Exclusions,
+// mirroring the other maxhealth-fraction systems in this file: acc_is_glitch_zombie
+// (the lightweight Glitch Stalker keeps the stock fling). AIs that already own a
+// thundergun_fling_func keep it: Brutus's (nsz_brutus.gsc) now routes HERE via
+// level.acc_tg_boss_blast; the Avogadro's is a deliberate DoDamage(0) thundergun-immunity
+// (electric boss) and is intentionally preserved.
+// =============================================================================
+function thundergun_boss_blast( player )   // self = the boss AI (stock fling-func convention)
+{
+    if ( !isdefined( self ) || !IsAlive( self ) ) return;
+    if ( !isdefined( player ) || !isplayer( player ) ) return;
+
+    // ONE application per blast: the cone multi-traces / can re-enter within the same shot,
+    // so debounce per boss (a blast is a single trigger pull; 500ms is well under the RoF).
+    if ( isdefined( self.acc_tg_blast_gate ) && GetTime() < self.acc_tg_blast_gate ) return;
+    self.acc_tg_blast_gate = GetTime() + 500;
+
+    // divisor from the HELD thundergun's PaP tier (the ladder the 2026-07-02 tier-3 fix opened):
+    // base = 20, -3 per tier -> 17 / 14 / 11.
+    tier = 0;
+    w = player GetCurrentWeapon();
+    if ( isdefined( w ) && w != level.weaponNone && isdefined( w.name ) && IsSubStr( w.name, "thundergun" ) )
+        tier = acc_pap_levels::get_tier( player, w );
+    if ( tier < 0 ) tier = 0;
+    if ( tier > 3 ) tier = 3;
+    divisor = 20 - ( 3 * tier );
+
+    if ( !isdefined( self.maxhealth ) || self.maxhealth <= 0 )
+    {
+        self DoDamage( 5000, self.origin, player );   // no maxhealth to fraction - old flat fallback
+        return;
+    }
+
+    dmg = int( self.maxhealth / divisor );
+    if ( ( dmg * divisor ) < self.maxhealth ) dmg++;   // ceil()
+    if ( dmg < 1 ) dmg = 1;
+
+    // Mark the boss so on_ai_damage returns this EXACT value (bypasses multipliers + caps -
+    // see the consume block there), then deal it through DoDamage so death/HP-bar/point flows
+    // all run normally (bars read self.health, which DoDamage updates).
+    self.acc_tg_exact_dmg = dmg;
+    self DoDamage( dmg, self.origin, player );
+
+    /# println( "[acc] tg boss blast: tier " + tier + " divisor " + divisor + " dmg " + dmg + " / max " + self.maxhealth ); #/
+}
+
+// Keep every boss-flagged AI carrying the fling hook (bosses spawn at many points in many
+// modules; polling the marker decouples us from all of them - incl. bosses added later).
+function tg_boss_fling_assigner()
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        ais = GetAITeamArray( "axis" );
+        foreach ( ai in ais )
+        {
+            if ( !isdefined( ai ) ) continue;
+            if ( !IS_TRUE( ai.acc_is_boss ) && !IS_TRUE( ai.acc_is_mini_boss ) ) continue;
+            if ( IS_TRUE( ai.acc_is_glitch_zombie ) ) continue;      // Stalker: stock fling (see header)
+            if ( isdefined( ai.thundergun_fling_func ) ) continue;   // Brutus/Avogadro own theirs
+            ai.thundergun_fling_func = &thundergun_boss_blast;
+        }
+        wait 0.5;
+    }
+}
+
 function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
                        vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
 {
@@ -252,6 +349,24 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     }
 
     if ( !is_applicable_target( self ) ) return -1;
+
+    // THUNDERGUN FRACTIONAL BOSS BLAST (user 2026-07-03; see thundergun_boss_blast below): the
+    // fling hook already computed the EXACT damage (boss maxhealth / tier divisor) and marked it
+    // on the boss just before its DoDamage. Return it VERBATIM - for this one path the fractional
+    // system REPLACES every multiplier AND the boss per-hit cap (documented precedence; the trench
+    // Warden gate above still outranks it, and god mode / Mega-EC boss-special immunity are
+    // PLAYER-damage paths this never touches). One-shot consume so no other hit can ride the mark.
+    if ( isdefined( self.acc_tg_exact_dmg ) )
+    {
+        n_tg = self.acc_tg_exact_dmg;
+        self.acc_tg_exact_dmg = undefined;
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+        {
+            self acc_points::record_damage( attacker, n_tg );
+            feed_dmg_number( attacker, n_tg, false );
+        }
+        return n_tg;
+    }
 
     // Minigun powerup: record the 70/30 contribution, then pass through so
     // the stock minigun balancing callback (behind us in the chain) still
@@ -420,6 +535,29 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         if ( n_bnuke != 1.0 )
         {
             reduction = reduction * n_bnuke;
+            b_modified = true;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 0c2) BLAST-O-MATIC per-target profile (user 2026-07-03): "a little bit weaker against
+    //      bosses [and] glitch, regular against regular zombies, and 3x stronger against
+    //      shielded zombies." Regular zombies take the plain chain (no line here); bosses/
+    //      mini-bosses AND glitch zombies x0.75; Shielded elites x3.0 - an AMPLIFICATION
+    //      (>1, unlike the reductions above): this gun is the designated Shielded-counter
+    //      (note their Thundergun immunity does NOT extend to the Blast-O-Matic). IsSubStr
+    //      covers base + _up + all 14 twins. Live dvars to tune in-game.
+    // -----------------------------------------------------------------------
+    if ( IsSubStr( weapon.name, "t9_semiauto_cosplay" ) )
+    {
+        if ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) || IS_TRUE( self.acc_is_glitch_zombie ) )
+        {
+            reduction = reduction * getdvarfloat( "acc_blasto_boss_mult", 0.75 );
+            b_modified = true;
+        }
+        else if ( IS_TRUE( self.acc_is_shielded ) )
+        {
+            reduction = reduction * getdvarfloat( "acc_blasto_shield_mult", 3.0 );
             b_modified = true;
         }
     }
@@ -857,7 +995,7 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
 function acc_weapon_balance_mult( weapon_name )
 {
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.2522;   // [C-] Five-Seven (start pistol): ~50 eff/shot. SPREAD -3% worst-gun nerf (0.26 -> 0.2522, user 2026-06-26). Mobile starter, fast reload + 14 clip = decent sustain, but weak dmg + 56 reserve = C- (user 2026-06-21).
-    if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // [B] ASM1 (AW smg): ~401 DPS. v2 -> B (6.5): low DPS but fast reload + 22 clip + medium pierce = serviceable sustain (nerf clip/reload if you want it back to C).
+    if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // [B] ASM1 - RETIRED 2026-07-03 (user; gun removed from zone/CSV/pools - this entry is inert and STAYS for easy restore). ~401 DPS, v2 B (6.5).
     if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.6304;  // [S] Tac-19 (AW energy SG): SPREAD +3% best-gun buff (0.612 -> 0.6304, user 2026-06-26 -> papScore ~7.74 = now S) on the -10% max-scale trim (0.68 -> 0.612, 2026-06-25). 12-pellet crowd king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/05.
     if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.4743;  // [C] Olympia (BO2 double-barrel SG): SPREAD -3% worst-gun nerf (0.489 -> 0.4743, user 2026-06-26) on the -50% max-scale fix (0.9775 -> 0.489, 2026-06-25). 110/pellet x ~8, 2-round clip + 3.9s reload = worst sustain. Headshot-excluded.
     if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.2338;  // [S] AK-47 (200@0.08 = 2500 raw): ~585 DPS. SPREAD +3% best-gun buff (0.227 -> 0.2338, user 2026-06-26, papScore ~8.04) on the AK swap (0.186 -> 0.227 -> TOP/S). Solid DPS + decent reload. Focus Fire ability.
@@ -875,25 +1013,26 @@ function acc_weapon_balance_mult( weapon_name )
     // every other gun (body = base, headshot = our 2.0 map mult only), so x0.80 -> body r7 /
     // headshot r14 / HS+Deadshot r20, PaP+Cyberware push higher. A real sniper that FALLS OFF
     // without PaP. Tune the mult here (not the GDT) for further feel changes. Balance audit docs/33.
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.3565;  // [B-] Paladin HB50 (BO4 sniper): USER 2026-06-27 -25% damage nerf, ALL versions+twins (0.4753 -> 0.3565; full PaP+OC ~5228->3921/shot). Prior: SPREAD -3% (0.49 -> 0.4753, 2026-06-26); MOVED low-S -> B (2026-06-24). clip 8 / reserve 96/132 / reload 4.1 unchanged. ACC_PALADIN_BOSS_MULT boss cut is SEPARATE (stacks, so boss dmg also -25%). IsSubStr covers base+_up+twins. Has Precision Mode. docs/05/54.
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.1385;  // [B-] Paladin HB50 (BO4 sniper): USER 2026-07-02 TARGET-DAMAGE nerf - "450 body" -> bal = 450/(raw 1000 x global 3.25) = 0.1385 (head = 2.5x = ~1125). Supersedes same-day 0.26 and the 2026-06-27 0.3565. clip 8 / reserve 96/132 / reload 4.1 unchanged. ACC_PALADIN_BOSS_MULT boss cut is SEPARATE (stacks). IsSubStr covers base+_up+twins. Has Precision Mode. docs/05/54.
     if ( IsSubStr( weapon_name, "t9_m60" ) )       return 0.206;    // [S] M60 (Skye BO2 LMG, 290@0.1 = 2900 raw): ~597 DPS. SPREAD +3% best-gun buff (0.20 -> 0.206, user 2026-06-26, papScore ~8.11). clip 100 + reserve 400 + large pierce; 100-clip makes the 9.7s reload trivial. Slow 0.8 move is its only weakness.
     if ( IsSubStr( weapon_name, "t9_rpd" ) )       return 0.1213;   // [C] RPD (Skye BO2 LMG, 270@0.08 = 3375 raw): ~409 DPS. SPREAD -3% worst-gun nerf (0.125 -> 0.1213, user 2026-06-26) on the 2026-06-25 +25% (0.10 -> 0.125). The "bad LMG" - low DPS + 7.5s reload + 0.8 move. Clip 60/100, reserve 240/400.
     if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.132;    // [A+] RW1 (AW directed-energy pistol, 800@0.15 = 5333 raw): USER 2026-06-27 +20% damage BUFF, ALL versions+twins (0.11 -> 0.132; full PaP+OC ~1210->1452/shot). Energy sidearm; covers base+PaP+twins. Price tier/box odds UNCHANGED (docs/54 not regenerated). (user 2026-06-23)
     if ( IsSubStr( weapon_name, "s1_mk14" ) )      return 0.2619;   // [B-] MK14 (AW semi-auto DMR): USER 2026-06-27 -10% damage nerf, ALL versions+twins (0.291 -> 0.2619: body 87->79/shot, PaP 175->157; full PaP+OC ~1921->1729). Prior SPREAD -3% (0.30 -> 0.291, 2026-06-26). Curated single-target DPS. clip 14/12, reserve 168/240. Clean body loc. Price tier/box odds UNCHANGED (docs/54 not regenerated). docs/05/54.
-    if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.429;    // [A] MORS (AW charge railgun sniper): USER 2026-06-27 -35% damage nerf, ALL versions+twins (0.66 -> 0.429: base 660->429/shot, PaP 1320->858; full PaP+OC ~10890->7079). loc NORMALIZED install-side (body 1.0 / head 5.0; PaP dmg re-encoded 1000->2000). reserve 120/180, clip 1 / reload 1.2 unchanged. Reserve via reduce_base_ammo MAXAMMO_FIX (base+_up+14 twins); IsSubStr covers all for damage. Price tier/box odds UNCHANGED (docs/54 not regenerated). docs/05/54.
+    if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.2123;   // [A] MORS (AW charge railgun sniper): USER 2026-07-03 +15% buff on the 600-body target (0.1846 x 1.15 = 0.2123 -> body ~690, head ~1725). History: 600-body target 2026-07-02; 0.35 + 0.429 nerfs before that. loc NORMALIZED install-side (body 1.0 / head 5.0). reserve 120/180, clip 1 / reload 1.2 unchanged. IsSubStr covers base+_up+twins. docs/05/54.
     // Mahem (s1_mahem): EXPLOSIVE rocket launcher - 7000 direct + 2750/1500 splash (PaP 5500/3000), same trap as
     // the old M1911 explosive. acc_weapon_balance_mult scales ALL damage through on_ai_damage INCLUDING explosive,
     // so WITHOUT this line the default 1.0 x the global 2.5x = ~17,500/rocket (trivializes). 7000 x 0.315 x 2.5 =
     // ~5,512 direct + scaled splash = a strong but not game-breaking launcher; ammo-limited self-balances. NOTE:
     // explosive splash + direct both land on a single boss hitbox and there is NO boss-damage cut here (only pellet
     // shotguns get ACC_SHOTGUN_BOSS_MULT) - see the boss-nuke audit (docs/05). (user 2026-06-23)
-    if ( IsSubStr( weapon_name, "s1_mahem" ) )     return 0.29;     // [A] Mahem explosive rocket launcher: USER 2026-06-29 damage nerf (0.40 -> 0.29, -27.5%) - too OP after the global 2.75 -> 3.25 bump. IsSubStr matches BASE s1_mahem + PaP s1_mahem_up (both get this), direct + splash. (Was 0.315 -> 0.40 buff 2026-06-25.)
+    if ( IsSubStr( weapon_name, "s1_mahem" ) )     return 0.1099;   // [A] Mahem explosive rocket launcher: USER 2026-07-02 TARGET-DAMAGE nerf - "2500 direct" -> bal = 2500/(raw 7000 x global 3.25) = 0.1099 (splash scales proportionally). Supersedes same-day 0.19 and the 2026-06-29 0.29. IsSubStr matches BASE s1_mahem + PaP s1_mahem_up (both get this), direct + splash.
     // Thundergun (wonder weapon): wind-blast CONE that multi-traces a single boss hitbox. It had NO balance entry
     // at all -> the default 1.0 (zero cut) x the global 2.5x x ~8 cone traces = the ~200k-to-bosses nuke the user
     // hit. NERF -30% (user 2026-06-24, implicit 1.0 -> 0.70). Covers base + thundergun_upgraded (IsSubStr). NOTE:
     // 0.70 cuts ALL targets (incl. its intended chaff clear) but at global 2.5 + multi-hit it STILL nukes bosses
     // (~140k) - the surgical fix for the boss case is a boss-damage cut like is_pellet_shotgun's (see docs/05 audit).
-    if ( IsSubStr( weapon_name, "thundergun" ) )   return 0.45;     // [S+] Thundergun (wonder weapon): NERF to 0.45 (user 2026-06-25, was 0.70 = -55% from raw; "so good when I played"). Covers base + thundergun_upgraded.
+    if ( IsSubStr( weapon_name, "t9_semiauto_cosplay" ) ) return 0.24;  // [S+] Blast-O-Matic (CW DOA energy blaster): USER 2026-07-03 -40% nerf (0.40 -> 0.24). 3500 raw direct projectile, no splash. 3500x0.24x3.25 = 2,730/hit regular; x0.75 boss/glitch ~2,048; x3.0 shielded ~8,190. The 10% boss per-hit cap backstops bosses. Tune here first.
+    if ( IsSubStr( weapon_name, "thundergun" ) )   return 0.45;     // [S+] Thundergun (wonder weapon): NERF to 0.45 (user 2026-06-25, was 0.70). NOTE 2026-07-03: INERT vs the BO1 port - its GDT damage is 0 on both forms, so no thundergun weapon-hit ever passes on_ai_damage's damage<=0 gate. Trash dies to the weaponless FLING (multiplier-immune); bosses take thundergun_boss_blast (maxhealth/divisor). Kept for a future port with real GDT damage.
     return 1.0;
 }
 
@@ -1103,6 +1242,7 @@ function weapon_gets_dt_bullet( w_weapon )
     n = w_weapon.name;
     if ( IsSubStr( n, "thundergun" ) ) return false;   // wonder weapon: wind cone, no per-bullet doubling
     if ( IsSubStr( n, "s1_mahem" ) )   return false;   // rocket launcher: explosive, no extra bullet
+    if ( IsSubStr( n, "t9_semiauto_cosplay" ) ) return false;   // Blast-O-Matic: projectile energy blaster, no extra bullet (user 2026-07-03)
     return true;                                        // every other bullet gun gets the extra bullet -> tempered
 }
 
@@ -1265,7 +1405,7 @@ function boss_nuke_mult( w_weapon )
     if ( !isdefined( w_weapon ) ) return 1.0;
     name = weapon_root_name( w_weapon );
     if ( !isdefined( name ) ) return 1.0;
-    if ( name == "thundergun" )      return getdvarfloat( "acc_thundergun_boss_mult", ACC_THUNDERGUN_BOSS_MULT );
+    if ( name == "thundergun" )      return getdvarfloat( "acc_thundergun_boss_mult", ACC_THUNDERGUN_BOSS_MULT );   // INERT vs the BO1 port (GDT damage 0; bosses use thundergun_boss_blast) - see the define's note.
     if ( name == "s1_mahem" )        return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );
     if ( name == "t8_paladin_hb50" ) return getdvarfloat( "acc_paladin_boss_mult",    ACC_PALADIN_BOSS_MULT );
     return 1.0;

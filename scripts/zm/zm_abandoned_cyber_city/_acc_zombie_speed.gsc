@@ -217,6 +217,11 @@ function apply_speed_for_round( round )
         rate = rate * spd;
     }
     self apply_baseline_melee();
+    // Trench per-layer HP amp STACKS ON TOP of proper above-ground scaling (user 2026-07-04: "they should scale
+    // properly like an above-ground zombie AND still keep the trench difficulty scaling - so it would stack").
+    // acc_base_health is captured the first time the zombie reaches a trench layer (layer>0), by which point the
+    // co-op regular_hp_mult is already baked into maxhealth - so the final HP is (round curve x player-count mult)
+    // x (1 + layer x acc_trench_layer_hp_pct%). Player scaling + trench difficulty both apply. See apply_trench_health.
     self apply_trench_health( layer );
 
     // (Re)lock the gait tier ONLY when it has actually drifted. A one-shot override
