@@ -49,11 +49,15 @@ const FIELDS = [
 ];
 
 // old (current) -> new (Cold War) per gun. up = PaP asset names (mind AK-74u's _up_zm).
+// 2026-07-02 (new box): newGdt repointed from the old t9_wpn_ports pack (source_data\t9_weapons\,
+// never transferred) to the fresh Skye CW pack files - same t9 asset ids, Skye's own models/anims.
+// The ak74u OLD source (skye_t5_ak74u.gdt, BO1 pack) is NOT installed here - its published values
+// are re-applied from the documented record (docs/41 + reduce_base_ammo pins) by a separate step.
 const GUNS = {
-  ak47:  { oldGdt: 'source_data/skye_t6_ak47.gdt',          oldBase: 't6_ak47',  oldUp: 't6_ak47_up',     newGdt: 'source_data/t9_weapons/wpn_t9_ar_ak47.gdt',  newBase: 't9_ak47',  newUp: 't9_ak47_up' },
-  ak74u: { oldGdt: 'source_data/skye_t5_ak74u.gdt',         oldBase: 't5_ak74u', oldUp: 't5_ak74u_up_zm', newGdt: 'source_data/t9_weapons/wpn_t9_smg_ak74u.gdt', newBase: 't9_ak74u', newUp: 't9_ak74u_up' },
-  m60:   { oldGdt: 'source_data/skye_t6_m60.gdt',           oldBase: 't6_m60',   oldUp: 't6_m60_up',      newGdt: 'source_data/t9_weapons/wpn_t9_lmg_m60.gdt',  newBase: 't9_m60',   newUp: 't9_m60_up' },
-  rpd:   { oldGdt: 'source_data/skye_t6_rpd.gdt',           oldBase: 't6_rpd',   oldUp: 't6_rpd_up',      newGdt: 'source_data/t9_weapons/wpn_t9_lmg_rpd.gdt',  newBase: 't9_rpd',   newUp: 't9_rpd_up' },
+  ak47:  { oldGdt: 'source_data/skye_t6_ak47.gdt',          oldBase: 't6_ak47',  oldUp: 't6_ak47_up',     newGdt: 'source_data/skye_t9_ak-47.gdt',  newBase: 't9_ak47',  newUp: 't9_ak47_up' },
+  ak74u: { oldGdt: 'source_data/skye_t5_ak74u.gdt',         oldBase: 't5_ak74u', oldUp: 't5_ak74u_up_zm', newGdt: 'source_data/skye_t9_ak-74u.gdt', newBase: 't9_ak74u', newUp: 't9_ak74u_up' },
+  m60:   { oldGdt: 'source_data/skye_t6_m60.gdt',           oldBase: 't6_m60',   oldUp: 't6_m60_up',      newGdt: 'source_data/skye_t9_m60.gdt',  newBase: 't9_m60',   newUp: 't9_m60_up' },
+  rpd:   { oldGdt: 'source_data/skye_t6_rpd.gdt',           oldBase: 't6_rpd',   oldUp: 't6_rpd_up',      newGdt: 'source_data/skye_t9_rpd.gdt',  newBase: 't9_rpd',   newUp: 't9_rpd_up' },
 };
 
 // Return [startLine, endLineExclusive] of the asset's bulletweapon block.
@@ -96,30 +100,30 @@ function graftForm(oldLines, oldAsset, newLines, newAsset, label) {
 let total = 0;
 for (const [key, g] of Object.entries(GUNS)) {
   if (ONLY && ONLY !== key) continue;
-  const oldPath = path.join(TOOLS, g.oldGdt), newPath = path.join(TOOLS, g.newGdt);
+  const oldPath = path.join(TOOLS, g.oldGdt);
   console.log(`=== ${key}: ${g.oldBase} -> ${g.newBase} ===`);
   if (!fs.existsSync(oldPath)) { console.log(`  ! old GDT missing: ${oldPath}`); continue; }
-  if (!fs.existsSync(newPath)) { console.log(`  ! new GDT missing: ${newPath}`); continue; }
   const oldLines = fs.readFileSync(oldPath, 'utf8').split(/\r?\n/);
-  const newLines = fs.readFileSync(newPath, 'utf8').split(/\r?\n/);
-  let n = 0;
-  n += graftForm(oldLines, g.oldBase, newLines, g.newBase, 'base');
-  n += graftForm(oldLines, g.oldUp, newLines, g.newUp, 'PaP');
-  // STRIP the MP attachment slots (optic/laser/rail). The CW gun packs reference SHARED
-  // attachment models under model_export\t9_wpn_ports\_common\ that ship separately and are
-  // NOT installed (-> "Unable to load weapon <name>_up" + missing-xmodel link errors). Zombies
-  // box guns use no attachments anyway (the BO2/AW guns they replace had none), so blank every
-  // attachViewModel/attachWorldModel/defaultAttachment ref -> the gun loads as a bare model. (user 2026-06-25)
-  const stripRe = /^(\s*"(?:attachViewModel[1-9]|attachWorldModel[1-9]|defaultAttachment)"\s+)"[^"]+"(.*)$/;
-  let stripped = 0;
-  for (let i = 0; i < newLines.length; i++) {
-    // KEEP the MAGAZINE attachment (wpn_t9_<gun>_mag_view/world) - it's the gun's own installed model and is
-    // needed for the reload anim to show a magazine (user 2026-06-26). Only strip the optic/laser/etc. slots,
-    // which reference missing shared model_export\..\_common\ models and crash the load.
-    if (stripRe.test(newLines[i]) && !/_mag_/.test(newLines[i])) { newLines[i] = newLines[i].replace(stripRe, '$1""$2'); stripped++; }
+  // 2026-07-02: graft the LIVE target GDT AND its .acc-orig recoil baseline, so a future
+  // apply_recoil_overhaul re-run (which restores .acc-orig) keeps the grafted stats - this
+  // matches old-box history, where the .acc-orig snapshot was taken AFTER the graft. Safe
+  // vs the already-applied in-place tuning: FIELDS has no recoil/spread keys, so the x1.75
+  // recoil scale and hip-spread class scaling cannot double-apply.
+  for (const suf of ['', '.acc-orig']) {
+    const newPath = path.join(TOOLS, g.newGdt) + suf;
+    if (!fs.existsSync(newPath)) { console.log(`  ! new GDT missing: ${newPath}`); continue; }
+    const newLines = fs.readFileSync(newPath, 'utf8').split(/\r?\n/);
+    let n = 0;
+    n += graftForm(oldLines, g.oldBase, newLines, g.newBase, 'base' + suf);
+    n += graftForm(oldLines, g.oldUp, newLines, g.newUp, 'PaP' + suf);
+    total += n;
+    if (!DRY && n > 0) fs.writeFileSync(newPath, newLines.join('\n'));
   }
-  if (stripped) console.log(`  [strip] blanked ${stripped} attachment slot ref(s)`);
-  total += n + stripped;
-  if (!DRY && (n > 0 || stripped > 0)) fs.writeFileSync(newPath, newLines.join('\n'));
+  // ATTACHMENT STRIP REMOVED (2026-07-02): the old strip existed because the OLD t9_wpn_ports
+  // pack's optic/laser slots referenced missing shared model_export\..\_common\ models. The
+  // fresh Skye CW pack ships ALL its attachment models (mags/stocks/barrels/reflex optics -
+  // verified on disk), and its mag names (vm_t9_*_mag / vm_t9_*_extmag2) do NOT all match the
+  // old /_mag_/ keep-filter, so stripping would blank PaP magazines. Deviation from published
+  // visuals: PaP forms show the pack's native reflex optics instead of bare irons (documented).
 }
 console.log(`\n${DRY ? '[DRY] ' : ''}grafted ${total} field(s) total.${DRY ? '' : ' Run gdtdb /update next.'}`);

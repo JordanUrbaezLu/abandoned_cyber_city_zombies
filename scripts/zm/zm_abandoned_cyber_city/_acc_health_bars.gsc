@@ -72,15 +72,40 @@ function player_bars_loop()
         {
             p = players[ i ];
             if ( !isdefined( p ) || !isplayer( p ) ) continue;
-            // Single solo health bar REPLACED by the co-op SQUAD roster (user 2026-06-26): the roster's
-            // own row IS this player's health, so the standalone bar would just double-draw. The old
-            // ensure/update_player_bar are kept (dormant) in the file in case we want the big solo bar back.
-            ensure_roster( p );
-            update_roster( p );
-            ensure_round_counter( p );   // top-left round counter (user 2026-06-26)
-            update_round_counter( p );
+            if ( IS_TRUE( level.acc_aetherium_hud ) )
+            {
+                // AETHERIUM (2026-07-03): the SQUAD roster (5-6 hudelems/row, the #1 pool consumer)
+                // and the "Round N" counter are RETIRED - Aetherium PlayerInfo/PartyPlayers cover
+                // per-player health/points/name/state and its RoundCounter covers the round. The one
+                // thing Aetherium can't show is our custom currencies -> the compact own-stats block
+                // (2 hudelems). Restoring the roster needs the FULL 3-step revert documented at the
+                // level.acc_aetherium_hud flag (_acc_lui.gsc __init__) - flipping the bool alone
+                // brings the roster back UNDER the still-loaded Aetherium panels (double-draw).
+                // (own-stats hudelem row RETIRED 2026-07-03 second pass: shards/MB/EXO now render
+                // INSIDE the Aetherium PlayerInfo panel via the acc_shards/acc_mb/acc_exo toplayer
+                // clientfields - _zm_aetherium_hud player_currency_watch. ensure/update_own_stats
+                // kept dormant below for the pre-Aetherium restore path.)
+                // Custom "Round N" counter REUSED in Aetherium mode (user 2026-07-03: "move the
+                // round number top left ... we had a custom Round X UI"): same teal TOP_LEFT
+                // pulse-on-change elem as pre-Aetherium; the kit's top-right stock digits
+                // (AetheriumRoundCounter) are disabled in AetheriumHud.lua. +1 hudelem/client.
+                ensure_round_counter( p );
+                update_round_counter( p );
+            }
+            else
+            {
+                // Single solo health bar REPLACED by the co-op SQUAD roster (user 2026-06-26): the roster's
+                // own row IS this player's health, so the standalone bar would just double-draw. The old
+                // ensure/update_player_bar are kept (dormant) in the file in case we want the big solo bar back.
+                ensure_roster( p );
+                update_roster( p );
+                ensure_round_counter( p );   // top-left round counter (user 2026-06-26)
+                update_round_counter( p );
+            }
         }
-        wait 0.1;
+        // Aetherium mode only updates two change-guarded currency elems - 0.25s (the repo's
+        // watcher cadence) is plenty; the 0.1s rate existed for the roster's smooth HP bars.
+        wait ( IS_TRUE( level.acc_aetherium_hud ) ? 0.25 : 0.1 );
     }
 }
 
@@ -115,6 +140,96 @@ function update_round_counter( p )
     p.acc_round_hud SetText( "Round " + rnd );
     p.acc_round_hud setPulseFX( 80, 800, 700 );
     p.acc_round_last = rnd;
+}
+
+// ---------------------------------------------------------------------------
+// Compact TOP-LEFT own-stats block (Aetherium HUD mode, 2026-07-03)
+// ---------------------------------------------------------------------------
+// Replaces the retired SQUAD roster's custom-currency payload with 2 hudelems (vs the
+// roster's 5-6 PER ROW): own Data Shards count + one "EXO n  MB n" line. Health/points/
+// state/name per player are Aetherium's job now (PlayerInfo + PartyPlayers). Anchored to
+// the old pre-roster shard-row home: the LUI shard icon (acc_hud.lua CoD.AccShardIcon,
+// LUI 32,65) sits at hudelem ~(16,43); the count lands just right of it at (44,50).
+// Teammates' shards/EXO/MB are NOT shown anywhere in this mode (known gap - candidate
+// future home: the Aetherium scoreboard's placeholder salvage column).
+// POSITION (user 2026-07-03: "place shards, mb, and exo under the players player HUD"):
+// ONE row tucked along the BOTTOM edge of the Aetherium PlayerInfo panel (bottom-left plate,
+// LUI 16..360 x 595..710 -> hudelem ~8..180 x ~397..473). The LUI shard icon (acc_hud.lua
+// CoD.AccShardIcon) leads the row; the count + "EXO n MB n" hudelems follow. LUI->hudelem
+// mapping: x/2, y/1.5 (proven in the AccShardIcon comment). TUNE the three X/Y pairs in-game.
+function ensure_own_stats( p )
+{
+    if ( isdefined( p.acc_os_count ) && isdefined( p.acc_os_exomb ) ) return;
+
+    // Pool-full RETRY (review fix 2026-07-03): the first cut latched a one-shot acc_os_tried,
+    // so one transient pool-full moment lost the block for the whole match (and a PARTIAL
+    // alloc - count ok, exomb failed - was never completed). Now: retry every 5s until both
+    // elems exist; between attempts the early-outs above/below keep the 0.25s tick free.
+    if ( isdefined( p.acc_os_retry_at ) && GetTime() < p.acc_os_retry_at ) return;
+    p.acc_os_retry_at = GetTime() + 5000;
+
+    // Shard COUNT: SetValue, NEVER SetText - shards churn across 0..500+, and every distinct
+    // SetText string permanently burns a slot in the 2048-cap 'string' BG-cache (docs/49 #6).
+    if ( !isdefined( p.acc_os_count ) )
+    {
+        p.acc_os_count = acc_utility::he_check( p hud::createFontString( "default", 1.05 ), "own_stats_shards" );
+        if ( isdefined( p.acc_os_count ) )
+        {
+            p.acc_os_count hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 27, -16 );   // right of the LUI shard icon
+            p.acc_os_count.alignX = "left";
+            p.acc_os_count.alignY = "bottom";
+            p.acc_os_count.color = ( 0.20, 0.95, 0.85 );   // shard teal (matches the LUI icon)
+            p.acc_os_count.alpha = 0.95;
+            p.acc_os_count.hidewheninmenu = true;
+            p.acc_os_last_sh = undefined;   // fresh elem -> force a re-push
+        }
+    }
+
+    // "EXO n  MB n": bounded SetText (EXO 0..10 x MB 0..~9 = <=110 distinct, change-guarded).
+    // FONTSCALE MUST BE >= 1.0 (in-game catch 2026-07-03): 0.85 rendered GIANT (~3x) - a
+    // sub-1 fontScale on a server fontstring hits an engine fallback. Every proven-small
+    // hudelem in this file uses >= 1.0.
+    if ( !isdefined( p.acc_os_exomb ) )
+    {
+        p.acc_os_exomb = acc_utility::he_check( p hud::createFontString( "default", 1.0 ), "own_stats_exomb" );
+        if ( isdefined( p.acc_os_exomb ) )
+        {
+            p.acc_os_exomb hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 64, -16 );   // same row, right of the count
+            p.acc_os_exomb.alignX = "left";
+            p.acc_os_exomb.alignY = "bottom";
+            p.acc_os_exomb.color = ( 0.55, 0.80, 0.95 );   // dim cyan (roster stats colour)
+            p.acc_os_exomb.alpha = 0.85;
+            p.acc_os_exomb.hidewheninmenu = true;
+            p.acc_os_last_exo = undefined;   // fresh elem -> force a re-push
+        }
+    }
+}
+
+function update_own_stats( p )
+{
+    if ( isdefined( p.acc_os_count ) )
+    {
+        shards = ( isdefined( p.acc_data_shards ) ? p.acc_data_shards : 0 );
+        if ( !isdefined( p.acc_os_last_sh ) || p.acc_os_last_sh != shards )
+        {
+            p.acc_os_count SetValue( shards );
+            p.acc_os_last_sh = shards;
+        }
+    }
+    if ( isdefined( p.acc_os_exomb ) )
+    {
+        exo = ( isdefined( p.acc_exo_tier ) ? p.acc_exo_tier : 0 );
+        mb  = ( isdefined( p.acc_mega_bottles ) ? p.acc_mega_bottles : 0 );
+        // Review fix 2026-07-03: compare the INTS first (mirrors the shards guard above) -
+        // the old code built the string every tick and only then change-guarded the SetText.
+        if ( !isdefined( p.acc_os_last_exo ) || p.acc_os_last_exo != exo
+             || !isdefined( p.acc_os_last_mb ) || p.acc_os_last_mb != mb )
+        {
+            p.acc_os_exomb SetText( "EXO " + exo + "  MB " + mb );
+            p.acc_os_last_exo = exo;
+            p.acc_os_last_mb  = mb;
+        }
+    }
 }
 
 function ensure_player_bar( p )
@@ -505,7 +620,9 @@ function update_roster( p )
     // mock stats; row 0 = the real YOU). Mocks are DEV-ONLY again (user 2026-06-29: reverted the non-dev force so a
     // clean solo game - dev off, no mocks - can isolate the implant-UI display). Normal play shows ONLY connected
     // players (lazy rows -> pool-frugal). To re-force mocks in non-dev for a co-op-HUD test, set this back to `true`.
-    force_mocks = IS_TRUE( level.acc_dev );
+    // MOCKS OFF EVERYWHERE (user 2026-07-02: "only dev mode and god mode on - player mocks off").
+    // Dev now shows only REAL connected players too. To re-force the 4-row co-op-HUD test, set `true`.
+    force_mocks = false;
     shown = ( force_mocks ? 4 : ordered.size );
     if ( shown > 4 ) shown = 4;
 
@@ -658,6 +775,11 @@ function boss_bar_listener()
     for ( ;; )
     {
         level waittill( "acc_boss_spawned", boss, name );
+        // 2D TOP-SCREEN BAR RETIRED (user 2026-07-02): boss health now renders as the 3D
+        // over-head nameplate + bar on the enemy itself (_acc_boss_nameplate, SetDrawName).
+        // The 2D bar stays fully wired for A/B - re-enable live with `set acc_boss_bar_2d 1`.
+        if ( getdvarint( "acc_boss_bar_2d", 0 ) != 1 )
+            continue;
         // PARADISE FINALE (user 2026-06-25): suppress the boss HUD for the whole onslaught - a Phantom spawns
         // every minute and would spam boss bars/nameplates over the survival countdown. The gate is the level
         // flag level.acc_paradise_onslaught (set by _acc_paradise::start_onslaught).

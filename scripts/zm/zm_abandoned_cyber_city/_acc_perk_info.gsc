@@ -443,7 +443,7 @@ function gun_card_index( weapon )
     n = weapon.name;
     if ( !isdefined( n ) ) return 17;
     if ( IsSubStr( n, "t6_fiveseven" ) )    return 0;
-    if ( IsSubStr( n, "s1_asm1" ) )         return 1;
+    // if ( IsSubStr( n, "s1_asm1" ) )      return 1;   // ASM1 RETIRED 2026-07-03 (user); inert IsSubStr, commented for clarity
     if ( IsSubStr( n, "s1_tac19" ) )        return 2;
     if ( IsSubStr( n, "t9_ak47" ) )         return 3;
     if ( IsSubStr( n, "s1_ae4" ) )          return 4;
@@ -457,5 +457,6 @@ function gun_card_index( weapon )
     if ( IsSubStr( n, "t9_m60" ) )          return 14;
     if ( IsSubStr( n, "t9_rpd" ) )          return 15;
     if ( IsSubStr( n, "thundergun" ) )      return 16;
-    return 17;
+    if ( IsSubStr( n, "t9_semiauto_cosplay" ) ) return 17;   // Blast-O-Matic (user 2026-07-03)
+    return 18;
 }

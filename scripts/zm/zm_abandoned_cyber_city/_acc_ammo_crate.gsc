@@ -48,7 +48,9 @@ function spawn_crate_at( origin, yaw )
     // CONSTANT hint - both prices baked in (prices stay numeric per the vague-UI rule). The LIVE cost can't go
     // in the hint (it changes with the held weapon = an unbounded string churn -> the 250-triggerstring cap);
     // the per-use result is shown via hud_msg (chat-style, cache-free) instead. Memory triggerstring-cap-hint-strings.
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held weapon  ^2[1000 base / 5000 Pack-a-Punched]" );
+    // Buyable-UI audit fix (2026-07-03): "Pack-a-Punched" + "weapon" made the Aetherium router
+    // show the PACK-A-PUNCH card here. "PaP'd" + "gun" avoid every router token -> DefaultHint.
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held gun  ^2[1000 base / 5000 PaP'd]" );
     t thread crate_loop();
 
     acc_utility::log( "ammo crate spawned at " + origin );

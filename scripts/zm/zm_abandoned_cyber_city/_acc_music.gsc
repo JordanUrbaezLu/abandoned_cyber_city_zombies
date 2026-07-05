@@ -36,6 +36,7 @@ function init()
 {
     level.acc_music_ent = undefined;
     level.acc_music_cur = undefined;   // alias currently playing (or undefined) - lets callers avoid restart / stop-if-mine
+    level thread round_sounds_watcher();   // Kino/BO1 round-change stingers (user 2026-07-02)
 }
 
 // Play `alias`, OVERRIDING (instantly stopping) whatever song is playing. looping=true for a track that loops
@@ -104,4 +105,50 @@ function stop_if( alias )
 function is_playing( alias )
 {
     return ( isdefined( level.acc_music_cur ) && level.acc_music_cur == alias );
+}
+
+// =============================================================================
+// Kino/BO1 round-change stingers (Ultimate Round Sounds pack by WetEgg, user 2026-07-02).
+// Stock usermaps play NOTHING on a round change, so these hook the stock round notifies
+// (verified in stock _zm.gsc: "start_of_round" :4433, "end_of_round" :4449, "end_game" :1791)
+// and play the classic WaW/Kino stingers. Stingers are LAYERED like the perk jingles - a
+// one-shot on their OWN emitter, never through the single-song channel - so the main theme /
+// boss music keeps playing under them. GAME OVER does route through the channel (play()
+// stops the theme; correct at end_game). The pack's own GSC/gsh system + its zm_usermap
+// assetlist hack are deliberately NOT installed - aliases only (sound/aliases/
+// acc_round_sounds.csv + szc block; wavs install-side under sound_assets\_wetegg\).
+// The dog-round aliases (mus_dogstart1_intro/mus_dogend1_intro) ship in the CSV but are
+// unhooked - this map has no dog rounds.
+// =============================================================================
+function round_sounds_watcher()
+{
+    level thread round_stinger_loop( "start_of_round", "mus_roundstart1_intro" );
+    level thread round_stinger_loop( "end_of_round", "mus_roundend1_intro" );
+    level thread gameover_song_watcher();
+}
+
+function round_stinger_loop( note, alias )
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        level waittill( note );
+        level thread play_stinger( alias );
+    }
+}
+
+function gameover_song_watcher()
+{
+    level waittill( "end_game" );
+    play( "mus_gameover_intro", false );   // channel play: stops the theme for the game-over song
+}
+
+// One-shot 2D stinger OUTSIDE the song channel (perk-jingle layering rule): own emitter,
+// self-cleans when the sound ends. Reaches every client (same really_play_2D_sound idiom).
+function play_stinger( alias )
+{
+    e = spawn( "script_origin", ( 0, 0, 0 ) );
+    e PlaySoundWithNotify( alias, "acc_stinger_done" );
+    e waittill( "acc_stinger_done" );
+    if ( isdefined( e ) ) e Delete();
 }

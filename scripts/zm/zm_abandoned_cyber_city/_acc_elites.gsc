@@ -92,16 +92,25 @@ function init()
 function acc_depth_shielded_init_hook()
 {
     if ( isdefined( level.acc_depth_zid_prev ) ) self [[ level.acc_depth_zid_prev ]]();
-    self acc_depth_shielded_roll();
+    self thread acc_depth_shielded_roll();
 }
 
 // self = a fully-init'd zombie (coop HP applied). On an abyss FLOOR, roll depth_shielded_pct() to spawn as a
 // Shielded "Riot" elite. Skips bosses + anything already shielded/elite (the re-entrancy guard double-protects).
+// THREADED with the SAME 0.3s delay as _acc_trench_skins::trench_skin_roll (fixed 2026-07-04 - the flagged
+// latent SPAWN-ORIGIN TRAP): at zombie_init_done time EVERY zombie sits at the single surface factory spawner
+// (z=208, layer 0) - stock spawn_zombie only teleports it to its real riser AFTER init. The old same-frame
+// origin read therefore always saw layer 0 -> pct 0 -> the depth-Shielded roll NEVER fired anywhere. 0.3s
+// later the zombie is at its true rise point (risers spend 1-2s under the floor, so the promotion is
+// invisible to players).
 function acc_depth_shielded_roll()
 {
-    if ( !isalive( self ) ) return;
+    self endon( "death" );
+    wait 0.3;
+
+    if ( !isdefined( self ) || !isalive( self ) ) return;
     if ( IS_TRUE( self.acc_is_elite ) || IS_TRUE( self.acc_is_shielded ) ) return;
-    if ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) ) return;
+    if ( IS_TRUE( self.acc_is_boss ) || IS_TRUE( self.acc_is_mini_boss ) || IS_TRUE( self.is_boss ) ) return;
     pct = depth_shielded_pct( acc_bus_trench::underground_layer( self.origin ) );
     if ( pct <= 0 ) return;
     if ( acc_utility::acc_rand_int( 100 ) >= pct ) return;
@@ -279,6 +288,14 @@ function pick_elite_spawner()
 // promote time so mid-game joins are reflected on the next elite.
 // ---------------------------------------------------------------------------
 
+// self = the Shielded zombie the Thundergun blast hit. Deliberate no-op (immunity): no fling,
+// no damage, no ragdoll (user 2026-07-03 "make shield zombies immune to the thundergun").
+// A DEFINED fling func makes stock _zm_weap_thundergun skip its weaponless one-shot path
+// (the Avogadro vendor pattern); the acc fractional boss system never clobbers a set func.
+function shielded_thundergun_immune( player )
+{
+}
+
 function promote_to_shielded( z )
 {
     // Re-entrancy guard (user 2026-06-25): BOTH the round-based shield spawn AND the depth-scaled abyss roll
@@ -286,23 +303,47 @@ function promote_to_shielded( z )
     if ( !isdefined( z ) || IS_TRUE( z.acc_is_shielded ) ) return;
     z.acc_is_shielded = true;
 
-    // HP = EXACTLY 5x a NORMAL zombie's current health, at ANY player count (user 2026-06-24). By promote
-    // time z.maxhealth IS the round's normal-zombie HP WITH the co-op regular +100%/player mult already baked
-    // in (acc_coop_scaling at zombie_init_done), so a FLAT x5 keeps the Shielded a clean 5x a normal zombie.
-    // Do NOT multiply special_hp_mult() here - that DOUBLE-counts co-op (it earlier made a 2p Shielded ~4.5x a
-    // 2p zombie instead of a clean multiple); coop_scaling's own comment forbids stacking it on a maxhealth
-    // that already carries regular_hp_mult.
+    // THUNDERGUN IMMUNITY (user 2026-07-03): Shielded elites shrug the blast off entirely.
+    z.thundergun_fling_func = &shielded_thundergun_immune;
+
+    // HP = EXACTLY 4x a NORMAL zombie's current health, at ANY player count (user 2026-07-04: 5x -> 4x, "5x is
+    // too much"). By promote time z.maxhealth IS the round's normal-zombie HP WITH the co-op regular +100%/player
+    // mult already baked in (acc_coop_scaling at zombie_init_done), so a FLAT x4 keeps the Shielded a clean 4x a
+    // normal zombie. Do NOT multiply special_hp_mult() here - that DOUBLE-counts co-op (it earlier made a 2p
+    // Shielded ~4.5x a 2p zombie instead of a clean multiple); coop_scaling's own comment forbids stacking it on
+    // a maxhealth that already carries regular_hp_mult.
     base_hp = z.maxhealth;
-    z.maxhealth = int( base_hp * 5 );
+    z.maxhealth = int( base_hp * 4 );
     z.health = z.maxhealth;
     z.acc_elite_front_damage_resist = 0.25; // take 25% from front (OC tier pierces this - _acc_damage effect 4/4)
 
-    // Visual tell (docs/52): bolt the stock Rocket Shield world model onto the elite's back so it
-    // reads as the front-armoured "Shielded" class. j_spine4 is the zombie rig's upper-torso bone
-    // (stock uses it for torso FX/attachments on zombies, zombie.csc:103); attachments self-align to
-    // the tag. Zero new asset - wpn_t7_zmb_zod_rocket_shield_world already packs (.zone, used by the
-    // Rocket Shield boss item too). z is the live, init-done AI here (spawn_elite waits the init gate).
-    z Attach( "wpn_t7_zmb_zod_rocket_shield_world", "j_spine4" );
+    // ARMORED SKIN (user 2026-07-03): the SPIKES + CHAIN-ARMOR BOTD body is the Shielded
+    // elite's EXCLUSIVE look, map-wide. Default body3 (the user distinguished it from the
+    // "just barbed wire" body1, which is the TRENCH zombie's skin - _acc_trench_skins; body1's
+    // bin has the barbwire material, so chain-armor = body2 or body3). If 3 isn't the spiked
+    // one, flip `acc_armored_body 2` LIVE - no rebuild (0 = off/charred). no_gib = the armor
+    // NEVER comes off (user rule) - stock-honored flag (zombie_utility checks it; Margwa/Mechz
+    // precedent). If the zombie was already trench-skinned (underground spawn, 0.3s-delayed
+    // roll may have run first), detach whichever mob head it attached (Detach of a not-attached
+    // model is a safe no-op) so the armored head can't double up.
+    n_body = getdvarint( "acc_armored_body", 3 );
+    if ( n_body >= 1 && n_body <= 3 )
+    {
+        z SetModel( "c_t8_zmb_mob_zombie_body" + n_body );
+        z Detach( "c_zom_dlc4_zombie_charred_head" );
+        z Detach( "c_t8_zmb_mob_zombie_head1" );
+        z Detach( "c_t8_zmb_mob_zombie_head2" );
+        z Detach( "c_t8_zmb_mob_zombie_head3" );
+        z Detach( "c_t8_zmb_mob_zombie_head4" );
+        z Attach( "c_t8_zmb_mob_zombie_head" + getdvarint( "acc_armored_head", 1 ) );
+        z.no_gib = true;
+        z.acc_trench_skinned = true;   // belt-and-braces: the trench roll also guards on acc_is_shielded
+    }
+
+    // Back rocket-shield attach REMOVED (user 2026-07-03): it was the visual tell from the
+    // charred-skin era - the CHAIN-ARMOR body above is the tell now. (The
+    // wpn_t7_zmb_zod_rocket_shield_world zone line stays - the Rocket Shield boss item uses it.)
+    // Was: z Attach( "wpn_t7_zmb_zod_rocket_shield_world", "j_spine4" );
 
     // Heavy half-pace WALK gait (user 2026-06-22) - ~half the round's jog, natural (no slow-mo). See think.
     // Set the keep-alive skip-flag SYNCHRONOUSLY here (not only inside the threaded think) so the frame-N+1
@@ -469,6 +510,11 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         // called from there. (Was: self acc_phantom_chain_zap() gated on eAttacker.acc_phantom_chaining.)
     }
 
+    // (ROGUE PROTECTOR: his BULLETS are now PURE 25 damage - the 25% slow moved to his SEPARATE
+    // close-range ZAP attack, user 2026-07-03 "two attacks, shooting and zapping". The zap is
+    // applied directly from _acc_civil_protector::zap_loop via acc_protector_zap(), NOT on bullet
+    // hits - so no trigger here. acc_protector_zap()/acc_protector_slow_clear() stay below.)
+
     // EXO SUIT - damage resistance (user 2026-06-22): each Exo Suit tier reduces ALL incoming damage by
     // acc_exo_resist_per_tier (default 5%/tier -> -25% at T5). The exo's "body" counterpart to the gun
     // Overclock - the 3rd of its 3 augments (speed-gate + this + the melee scaler in _acc_damage). Applied
@@ -519,18 +565,47 @@ function acc_phantom_chain_zap()
 
     self PlaySound( "acc_phantom_zap" );
 
-    // Immune = the LIVE Mega Electric Cherry "Power Surge" (persistent mega flag AND currently holds the perk;
-    // moved off Mega Widow's, user 2026-06-25 - the electric perk shrugs off the electric zap special).
-    // Mega flag read straight off the player field - no cross-module #using.
-    if ( isdefined( self.acc_mega_perks ) && IS_TRUE( self.acc_mega_perks[ "specialty_combat_efficiency" ] )
-         && self HasPerk( "specialty_combat_efficiency" ) )
-        return;
+    // Mega Electric Cherry "Power Surge" NO LONGER grants full immunity - it now SOFTENS the stun to -10%
+    // instead of the normal -25% (user 2026-07-03, was a hard return/immune). Mega flag read straight off the
+    // player field (persistent mega flag AND currently holds the perk); recompute_move_speed picks the softened
+    // 0.90 vs the normal 0.75 multiplier off acc_phantom_slow_mega.
+    self.acc_phantom_slow_mega = ( isdefined( self.acc_mega_perks ) && IS_TRUE( self.acc_mega_perks[ "specialty_combat_efficiency" ] )
+                                   && self HasPerk( "specialty_combat_efficiency" ) );
 
     self.acc_phantom_slowed = true;
     acc_utility::recompute_move_speed( self );
 
     self notify( "acc_phantom_slow_restart" );   // a fresh chain hit refreshes the slow window
     self thread acc_phantom_slow_clear();
+}
+
+// ROGUE PROTECTOR on-hit zap (user 2026-07-03): the Phantom zap shape, -25% slow
+// (acc_protector_slow_mult in recompute_move_speed) so the hit is unmistakably felt. Mega
+// Electric Cherry "Power Surge" softens it to -10% (not full immunity); 3s window, re-hit refreshes.
+function acc_protector_zap()   // self = the hit player
+{
+    self endon( "disconnect" );
+
+    self PlaySound( "acc_phantom_zap" );
+
+    // Mega Electric Cherry "Power Surge" softens this stun to -10% instead of full immunity (user 2026-07-03).
+    self.acc_protector_slow_mega = ( isdefined( self.acc_mega_perks ) && IS_TRUE( self.acc_mega_perks[ "specialty_combat_efficiency" ] )
+                                     && self HasPerk( "specialty_combat_efficiency" ) );
+
+    self.acc_protector_slowed = true;
+    acc_utility::recompute_move_speed( self );
+
+    self notify( "acc_protector_slow_restart" );
+    self thread acc_protector_slow_clear();
+}
+
+function acc_protector_slow_clear()   // self = the slowed player
+{
+    self endon( "disconnect" );
+    self endon( "acc_protector_slow_restart" );
+    wait( getdvarfloat( "acc_protector_slow_sec", 3.0 ) );
+    self.acc_protector_slowed = false;
+    acc_utility::recompute_move_speed( self );
 }
 
 // Lift the Phantom slow after acc_phantom_slow_sec (default 3s); a re-hit restarts it via the notify above.

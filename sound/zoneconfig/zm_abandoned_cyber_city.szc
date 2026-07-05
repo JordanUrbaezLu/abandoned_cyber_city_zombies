@@ -21,6 +21,18 @@
 },
 {
  "Type" : "ALIAS",
+ "Name" : "zm_ai_zod_companion",
+ "Filename" : "zm_ai_zod_companion.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "zm_ai_apothicon_fury",
+ "Filename" : "zm_ai_apothicon_fury.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
  "Name" : "acc_skye_box_weapons",
  "Filename" : "acc_skye_box_weapons.csv",
  "Specs" : [ ]
@@ -35,6 +47,24 @@
  "Type" : "ALIAS",
  "Name" : "acc_audio",
  "Filename" : "acc_audio.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "t5_thundergun_sounds",
+ "Filename" : "t5_thundergun_sounds.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "acc_round_sounds",
+ "Filename" : "acc_round_sounds.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "_owens_weapons",
+ "Filename" : "_owens_weapons.csv",
  "Specs" : [ ]
 },
 {

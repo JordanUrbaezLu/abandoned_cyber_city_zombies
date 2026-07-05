@@ -240,6 +240,7 @@ function watch_connections()
         player thread trench_fall_watcher();
         player thread trench_shard_income();    // passive Data Shard income while standing in a trench layer (deeper = faster)
         player thread bridge_drain_watcher();   // anti-camp: bleed health on the zombie-unreachable bridge
+        player thread bridge_debug_readout();   // TEMP diag (user 2026-07-04): on-screen coord + on_bridge readout
         player thread trench_damage_logger();   // TEMP: name the exact cause of any trench death
         player thread trench_player_navlog();   // TEMP diag: log player nav state while underground
     }
@@ -577,6 +578,26 @@ function player_on_bridge( player )
     if ( o[ 1 ] < ACC_BRIDGE_Y1 || o[ 1 ] > ACC_BRIDGE_Y2 ) return false;
     if ( o[ 2 ] < ACC_BRIDGE_Z_MIN || o[ 2 ] > ACC_BRIDGE_Z_MAX ) return false;
     return true;
+}
+
+// TEMP DIAG (user 2026-07-04: "on the bridge above the trench I took NO damage in normal, non-god play").
+// Ungated on-screen readout of the player's ACTUAL origin + whether player_on_bridge() fires, so we can see
+// if detection is the problem (never says ON-BRIDGE = box/geometry mismatch) or the damage is (says
+// ON-BRIDGE but HP doesn't drop). Only shows when OFF normal ground (elevated deck z>20, or in the trench
+// z<-30) so it never spams surface play. IPrintLnBold refreshes one line (not spam). REMOVE once pinned.
+function bridge_debug_readout()   // self = player
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        wait 0.25;
+        if ( !zm_utility::is_player_valid( self ) ) continue;
+        o = self.origin;
+        if ( o[ 2 ] > -30 && o[ 2 ] < 20 ) continue;   // normal ground - stay quiet
+        on = ( player_on_bridge( self ) ? "^2ON-BRIDGE (should bleed)" : "^1off box" );
+        self IPrintLnBold( "^3[BRIDGE] x " + int( o[ 0 ] ) + "  y " + int( o[ 1 ] ) + "  z " + int( o[ 2 ] ) + "   " + on );
+    }
 }
 
 // Per-player: while standing on the zombie-unreachable bridge, bleed a % of MAX health every

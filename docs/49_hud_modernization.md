@@ -149,5 +149,20 @@ memory `hud-combat-reskin-client-models`):
 palette; perk-icon overlap fix (PITCH 48); damage-number rise+fade; ~~Overclock glass chip~~ (REVERTED
 2026-06-22 — user wanted plain `vN` text; the glass plate + cyan keyline were removed, bare teal text
 kept); info-card bottom accent strip. All in `acc_hud.lua`, proven primitives only, self-contained per widget.
-**Next (Phase 1 remainder):** info-card slide-in (edge-gated), perk gain-pop / Mega flash, round-ring
-danger glitch. **Phases 2-3** still begin with a **clientfield bit-budget audit** (the gating unknown).
+
+**SUPERSEDED IN LARGE PART 2026-07-03 — AETHERIUM HUD ADOPTED** (CHANGELOG entry + docs/22). The
+Owen-C137 kit replaced the stock HUD wholesale (T7Hud_zm_factory redefinition), which resolves several
+of this doc's blockers by a different route than planned:
+- **Custom fonts: UNBLOCKED** — the kit ships the proven path (`ttf,` zone lines + `setTTF`). The
+  "biggest cheap tell" is gone.
+- **"Two clashing render systems": largely gone** — the roster/round-counter GSC hudelem wall is retired
+  (behind `level.acc_aetherium_hud`); only the compact own-stats block (2 hudelems), boss bar, and
+  event/announce hudelems remain server-side.
+- **The clientuimodel-pool blocker is ROUTED AROUND, not lifted** — the kit's player-health/state fields
+  ride the near-empty **world scope** (player_health_0..3 = 28 bits + 8-bit packed states). The
+  clientuimodel pool itself is STILL full; principles 1/2/6 all still apply to any new field.
+- Our kept uniques (info card, damage numbers, HOSTILES bar, PaP/OC chips, shard icon) still live in the
+  slim acc_hud overlay — Phase-1-remainder polish (info-card slide-in, ring danger glitch) still applies
+  to THEM. The retheme direction changes: recolor the AETHERIUM plates (kit ships blue/green/grey/orange/
+  red/yellow variants under `sat_hud_colors/`, swap the 4 theme PNGs) toward our teal/magenta identity
+  instead of building our own panel kit from rects.

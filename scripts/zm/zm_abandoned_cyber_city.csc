@@ -49,7 +49,27 @@
 //Traps
 #using scripts\zm\_zm_trap_electric;
 
+// [acc] Aetherium HUD client half (see the entry .gsc note): mirrors the world-scope
+// clientfield registrations IN LOCKSTEP and LuiLoads ui.uieditor.menus.HUD.AetheriumHud,
+// which REDEFINES LUI.createMenu.T7Hud_zm_factory (the stock usermap ZM HUD menu key,
+// docs/28) - that's the whole-HUD replacement. Kit README: #using ABOVE zm_usermap.
+#using scripts\zm\_zm_aetherium_hud;
+
 #using scripts\zm\zm_usermap;
+
+// [acc] Civil Protector client half (HarryBo21 pack). Registers the robot_switch/robot_lights
+// clientfield mirrors + the "Civil Protector" draw-name archetype hook - MUST match the entry
+// .gsc #using or the clientfield registration mismatches at load.
+#using scripts\zm\zm_zod_robot;
+
+// [acc] Apothicon Fury client half (HarryBo21 pack) - meteor-spawn FX clientfield mirror.
+// MUST match the entry .gsc #using or clientfield registration mismatches at load.
+#using scripts\zm\zm_genesis_apothicon_fury;
+
+// [acc] Client half of the 3D boss nameplate + health bar - REGISTER_SYSTEM mirrors the
+// acc_bnp_name/acc_bnp_hp actor clientfields and renders them via SetDrawName (the floating
+// name the user saw over the ally Civil Protector). MUST match the entry .gsc #using.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;
 
 // [acc] Client half of the LUI pipeline foundation - its REGISTER_SYSTEM
 // autoexec registers the clientuimodel mirror (see _acc_lui.csc).

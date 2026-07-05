@@ -46,6 +46,29 @@ the linker passing as proof of *syntax* only, never of runtime API validity. The
 runtime oracle for LUI errors is the on-screen `UI Error <code>` box (the code is
 generic "a Lua error occurred in the UI"; the traceback is not in console_mp.log).
 
+## RUNTIME GOTCHA: a `.str` with no header compiles to ZERO strings -> raw tokens
+
+A localized string shown in game as its **raw reference token** (e.g. the kill feed printing
+`ZM_AETHERIUM_KF_CRITICAL` instead of "Critical Kill") almost always means the `.str` file
+**parsed to zero strings** — and the #1 cause is a **missing StringEd header**. A BO3/T7 `.str`
+MUST begin with:
+
+```
+VERSION             "1"
+CONFIG              "C:\projects\cod\t7\bin\StringEd.cfg"
+FILENOTES           " "
+```
+
+then the `REFERENCE` / `LANG_ENGLISH` pairs, and end with `ENDMARKER`. Without `VERSION` first,
+the compiler bails and produces **no** strings, so every `&"REF"` / `Engine.Localize("REF")`
+falls through to the raw token. (The `CONFIG` path is metadata — it does NOT need to exist on
+this machine.) This bit us 2026-07-04: `localizedstrings/zm_aetherium.str` had lost its top
+header (the bottom `ENDMARKER` survived) when it was first split out of the Aetherium kit — keys,
+`#precache`, the zone `localize,<name>` line, and the LUI `Engine.Localize(Engine.GetIString(x,
+"CS_LOCALIZED_STRINGS"))` render were ALL correct; only the header was gone. The linker does NOT
+loudly error on a headerless `.str` (no "bad string file" line), so the symptom only shows in game.
+**When adding/editing a `.str`, copy an existing headered one and change only the entries.**
+
 ## Architecture decision: standalone overlay, NOT a stock-HUD override
 
 Two ways to get custom LUI on screen:
@@ -60,6 +83,18 @@ Two ways to get custom LUI on screen:
   The "perk icon glow" is an additive glow sprite drawn **over** the stock perk
   bar's position. **This is what we use.** (Recipe: MattFiler/zm_alien_isolation
   blackscreen/audiolog overlays.)
+
+**UPDATE 2026-07-03 — we now ALSO run option (A), via the Aetherium HUD kit.** The
+Owen-C137 kit (docs/22) is a complete, shipped implementation of the risky path: its
+`AetheriumHud.lua` redefines `LUI.createMenu.T7Hud_zm_factory` AND re-requires/
+re-instantiates every needed stock widget (`CoD.Zombie.CommonHudRequire` +
+CommonPre/PostLoadHud + the full widget list) — exactly the "re-instantiate everything"
+burden that made a hand-rolled override a non-loadable-.ff trap. So the architecture is
+now: **Aetherium = the base HUD (option A, kit-proven), acc_hud = a slim additive overlay
+on top (option B)** for our uniques (perk/PaP info card, damage numbers, HOSTILES bar,
+PaP/OC chips, shard icon). Master flag `level.acc_aetherium_hud` (_acc_lui.gsc) flips the
+whole arrangement back. The kit also proves custom fonts: `ttf,fonts/*.ttf` zone lines +
+Lua `setTTF("fonts/x.ttf")` (no RegisterFont needed).
 
 ## The data bridge — `clientuimodel` clientfields (M1)
 

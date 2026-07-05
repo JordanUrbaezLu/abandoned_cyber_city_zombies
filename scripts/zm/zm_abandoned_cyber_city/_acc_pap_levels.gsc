@@ -84,6 +84,41 @@ function init()
     level thread pap_tier_machine_watcher(); // multi-pack tiers 2-5, no AAT
     level thread pap_cost_display_keeper(); // show the real tier-up cost on the machine
     level thread dev_mahem_pap_watch();      // acc_dev ground-truth readout for the Mahem PaP (user 2026-06-26)
+    level thread dev_pap_machine_probe();    // acc_dev: print what the PaP machine entity actually is (2026-07-02)
+    // CW/BO6 PaP machine model (ALXS pack, user 2026-07-02; 3rd attempt same day): now swapped at
+    // the ZBARRIER ASSET level - install-side zbarriers.gdt "zmcore_packapunch" boardModel1/2/5 ->
+    // p9_fxanim_zm_gp_pap_xmodel(_off) + those boardAnims blanked (backup zbarriers.gdt.acc-orig).
+    // History: (1) runtime SetModel on the zbarrier NO-OPS (verified in-game); (2) per-ENTITY
+    // zbarrierboardModelN overrides in the prefab clone (_prefabs/acc/vending_weapon_upgrade_alxs.map)
+    // ALSO did not take in-game -> the runtime board set evidently binds to the zbarrier ASSET.
+    // The prefab clone is kept (consistent intent, harmless). The Paradise clone
+    // (spawn_paradise_pap_at below) is a plain script_model and SetModels the p9 model directly.
+}
+
+// acc_dev PROBE (2026-07-02): make the next playtest TELL us what the surface PaP machine is.
+// Prints the zbarrier entity's .model once found. Readings: stock p7 name -> the asset edit
+// didn't drive it either (remaining lever: hide zbarrier + overlay script_model); p9 name but
+// machine LOOKS stock -> impossible (boards ARE the look); "" / undefined -> boards only (asset-
+// driven, expected); machine INVISIBLE in-game -> the fxanim static-render risk (docs/56).
+function dev_pap_machine_probe()
+{
+    if ( !IS_TRUE( level.acc_dev ) ) return;
+    machine = undefined;
+    for ( i = 0; i < 300 && !isdefined( machine ); i++ )
+    {
+        machine = GetEnt( "vending_packapunch", "targetname" );
+        if ( !isdefined( machine ) ) wait 0.1;
+    }
+    wait 8;   // past the blackscreen so the print is visible
+    if ( !isdefined( machine ) )
+    {
+        foreach ( p in GetPlayers() ) p IPrintLnBold( "^1[ACC] PaP probe: NO vending_packapunch entity" );
+        return;
+    }
+    m = machine.model;
+    if ( !isdefined( m ) || m == "" ) m = "(none - board-driven)";
+    foreach ( p in GetPlayers() )
+        p IPrintLnBold( "^3[ACC] PaP machine .model = " + m );
 }
 
 // DEV ground-truth readout for the Mahem "only packs twice" investigation (user 2026-06-26). Prints the EXACT
@@ -300,8 +335,12 @@ function pap_price_bucket( weapon_name )
 
     // TOP  (5000 / 7500 / 10000)
     if ( IsSubStr( weapon_name, "thundergun" ) )        return "TOP";   // Thundergun (special)
+    if ( IsSubStr( weapon_name, "t9_semiauto_cosplay" ) ) return "TOP";  // Blast-O-Matic (wonder-class special, user 2026-07-03)
     if ( IsSubStr( weapon_name, "t8_melee_figure" ) )   return "TOP";   // Action Figure (special)
-    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) )     return "TOP";   // Chicom CQB (PaP 8.18, +3% spread buff 2026-06-26)
+    // USER 2026-07-03 price swaps (PAIRED with the same moves in acc_box_weight):
+    // Chicom<->Mahem, AK-74u<->Paladin, Galil<->RPD, MK14 pushed to TOP.
+    if ( IsSubStr( weapon_name, "s1_mahem" ) )          return "TOP";   // Mahem (swapped with Chicom, user 2026-07-03)
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )           return "TOP";   // MK14 (pushed to S band, user 2026-07-03)
     if ( IsSubStr( weapon_name, "t9_m60" ) )            return "TOP";   // M60 (PaP 8.11, +3% spread buff 2026-06-26)
     if ( IsSubStr( weapon_name, "t9_ak47" ) )           return "TOP";   // AK-47 (PaP 8.04, +3% spread buff 2026-06-26)
     if ( IsSubStr( weapon_name, "s4_ppsh41" ) )         return "TOP";   // PPSH-41 (PaP 8.00, +3% spread buff 2026-06-26)
@@ -309,18 +348,17 @@ function pap_price_bucket( weapon_name )
     if ( IsSubStr( weapon_name, "s1_mors" ) )           return "TOP";   // MORS (PaP 7.50, reserve -20%)
 
     // MID  (4000 / 6000 / 8000)
-    if ( IsSubStr( weapon_name, "s1_mahem" ) )          return "MID";   // Mahem (special)
+    if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) )     return "MID";   // Chicom CQB (swapped with Mahem, user 2026-07-03)
+    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) )   return "MID";   // Paladin HB50 (swapped with AK-74u, user 2026-07-03)
+    if ( IsSubStr( weapon_name, "t9_rpd" ) )            return "MID";   // RPD (swapped with Galil, user 2026-07-03)
     if ( IsSubStr( weapon_name, "s1_ae4" ) )            return "MID";   // AE4 (PaP 7.19)
     if ( IsSubStr( weapon_name, "s1_rw1" ) )            return "MID";   // RW1 (PaP 7.15)
-    if ( IsSubStr( weapon_name, "t9_ak74u" ) )          return "MID";   // AK-74u (PaP 7.03, swapped with AK-47 2026-06-26)
-    if ( IsSubStr( weapon_name, "s1_asm1" ) )           return "MID";   // ASM1 (PaP 7.02)
-    if ( IsSubStr( weapon_name, "t6_galil" ) )          return "MID";   // Galil (PaP 6.85)
+    // if ( IsSubStr( weapon_name, "s1_asm1" ) )        return "MID";   // ASM1 (PaP 7.02) - RETIRED 2026-07-03 (user); inert IsSubStr, commented for clarity
 
     // BOT  (3000 / 4500 / 6000)
-    if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) )   return "BOT";   // Paladin HB50 (PaP 6.31, -3% spread nerf 2026-06-26)
-    if ( IsSubStr( weapon_name, "t9_rpd" ) )            return "BOT";   // RPD (PaP 6.10, -3% spread nerf; clip+reserve +25%)
+    if ( IsSubStr( weapon_name, "t9_ak74u" ) )          return "BOT";   // AK-74u (swapped with Paladin, user 2026-07-03)
+    if ( IsSubStr( weapon_name, "t6_galil" ) )          return "BOT";   // Galil (swapped with RPD, user 2026-07-03)
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) )      return "BOT";   // Five-Seven (PaP 5.99, -3% spread nerf 2026-06-26)
-    if ( IsSubStr( weapon_name, "s1_mk14" ) )           return "BOT";   // MK14 (PaP 5.89, -3% spread nerf 2026-06-26)
     if ( IsSubStr( weapon_name, "t6_olympia" ) )        return "BOT";   // Olympia (PaP 3.67, -3% spread nerf + -50% nerf)
 
     return "BOT";   // default: cheapest tier
@@ -686,7 +724,7 @@ function spawn_paradise_pap_at( origin, yaw )
     if ( !isdefined( yaw ) ) yaw = 0;
 
     m = spawn( "script_model", origin );
-    m setmodel( "p7_zm_vending_packapunch" );   // stock PaP vending xmodel (already loaded by the surface PaP)
+    m setmodel( "p9_fxanim_zm_gp_pap_xmodel" );   // CW/BO6 PaP machine (ALXS pack, user 2026-07-02) - matches the surface machine model swap
     m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 72, 100 );
@@ -987,6 +1025,31 @@ function pap_tier_machine_watcher()
 
     make_actionfigure_packable();   // let the stock machine SHOW for the no-_up Action Figure (user 2026-06-24 fix)
     make_mahem_pap_visible_to_tier3();   // un-exempt the launcher from AAT so its machine stays visible past pack 2 (user 2026-06-26)
+    make_thundergun_pap_visible_to_tier3();   // same bug, same fix, for the wonder weapon (user 2026-07-02: "can only PaP twice")
+    make_blasto_pap_visible_to_tier3();       // Blast-O-Matic ships is_aat_exempt TRUE - same gate, same fix (user 2026-07-03)
+}
+
+// Thundergun tier-3 fix (user 2026-07-02) - the EXACT Mahem bug: stock hides the PaP machine
+// for an _up gun unless weapon_supports_aat = is_weapon_upgraded && !is_exempt, and the wonder
+// weapon's upgraded form ("thundergun_upgraded", _zm_weap_thundergun.gsc:32) is AAT-EXEMPT ->
+// after pack 2 (tier-1 record + the _up transform) the machine never shows again, capping the
+// ladder at 2 interactions. Un-exempting it makes the machine show for tier 3 (the in-place
+// bump). NOTE: our packs never aat::acquire (see acc_do_first_pack), so un-exempting cannot
+// hand the thundergun an alt-ammo type - it only fixes the visibility gate, exactly like the
+// Mahem. (Tier damage mults apply via _acc_damage's weapon-carried hits; the thundergun's
+// one-shot FLING is a weaponless DoDamage the ladder never touched - docs/05 - so tier 3 buys
+// the ladder slot/HUD + any weapon-carried damage, not a bigger fling.)
+function make_thundergun_pap_visible_to_tier3()
+{
+    if ( !isdefined( level.aat_exemptions ) ) return;
+    up = GetWeapon( "thundergun_upgraded" );
+    if ( !isdefined( up ) || up == level.weaponNone ) up = GetWeapon( "thundergun_upgraded_zm" );
+    if ( !isdefined( up ) || up == level.weaponNone ) return;
+    up = zm_weapons::get_nonalternate_weapon( up );
+
+    was_exempt = isdefined( level.aat_exemptions[ up ] );
+    level.aat_exemptions[ up ] = undefined;
+    acc_utility::log( "pap_levels: Thundergun PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " (machine now stays visible past pack 2)" );
 }
 
 // THE Action Figure PaP-visibility fix (user 2026-06-24). The AF has NO "_up" asset, so stock's
@@ -1059,6 +1122,21 @@ function make_mahem_pap_visible_to_tier3()
     // the dev print "[dev] PaP s1_mahem_up -> tier 3/3" fires on the third pack (with +set acc_dev 1).
     upgraded = zm_weapons::is_weapon_upgraded( up );
     acc_utility::log( "pap_levels: Mahem PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " is_weapon_upgraded=" + upgraded + " (machine now stays visible past pack 2)" );
+}
+
+// Blast-O-Matic tier-3 fix (user 2026-07-03) - its CSV row ships is_aat_exempt TRUE (wonder-class
+// special), so like the Thundergun/Mahem the machine would hide after pack 2. Same un-exempt fix;
+// our packs never aat::acquire, so no alt-ammo can leak in (visibility gate only).
+function make_blasto_pap_visible_to_tier3()
+{
+    if ( !isdefined( level.aat_exemptions ) ) return;
+    up = GetWeapon( "t9_semiauto_cosplay_up" );
+    if ( !isdefined( up ) || up == level.weaponNone ) return;
+    up = zm_weapons::get_nonalternate_weapon( up );
+
+    was_exempt = isdefined( level.aat_exemptions[ up ] );
+    level.aat_exemptions[ up ] = undefined;
+    acc_utility::log( "pap_levels: Blast-O-Matic PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " (machine now stays visible past pack 2)" );
 }
 
 function player_setup_loop()

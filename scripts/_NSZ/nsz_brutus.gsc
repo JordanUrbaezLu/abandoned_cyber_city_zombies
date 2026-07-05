@@ -199,15 +199,14 @@ function spawn_brutus()
 	brutus thread aat_override(); 
 	brutus thread zombie_utility::round_spawn_failsafe();
 	
-	n_players = getplayers(); 
-	n_players = n_players.size; 
-	test_health = level.brutus_base_health*level.round_number*n_players; 
-	
-	if( test_health < 85000 )
-		brutus.health = test_health;
-	else 
-		brutus.health = 85000; 
-	brutus.deathanim = %brutus_death; 
+	// [acc] Brutus HP is OVERWRITTEN by _acc_boss::spawn_brutus_miniboss (the compounding
+	// scale_mini_boss_hp: 56000 x 1.12^(round-10) x coop, NO cap) right after this returns, so this
+	// pack value + its old 85000 cap never reach gameplay. Cap REMOVED here too (user 2026-07-04:
+	// "there shouldn't be a cap") so even a re-enabled pack path is uncapped. Provisional value only.
+	n_players = getplayers();
+	n_players = n_players.size;
+	brutus.health = level.brutus_base_health*level.round_number*n_players;
+	brutus.deathanim = %brutus_death;
 	brutus BloodImpact( "normal" ); 
 	brutus.no_damage_points = true; 
 	brutus.allowpain = false; 
@@ -386,9 +385,18 @@ function watch_for_machines()
 	
 	while(1)
 	{
-		locks = struct::get_array( "brutus_lock", "targetname" ); 
-		targets = array::get_all_closest( self.origin, locks ); 
-		
+		// [acc] HANG GUARD (user 2026-07-03): the ONLY wait() below sits inside the for-loop, so if
+		// no "brutus_lock" structs exist (this map dropped the lock mechanic - locks.size==0) the outer
+		// while(1) would spin with zero yield = hard engine hang (the exact trap the file header warns
+		// about). This whole thread is already gated OFF (brutus_lock_machines=false, never set true),
+		// but yield unconditionally here so it's a landmine no more - even if the flag is ever flipped.
+		wait( 0.05 );
+
+		locks = struct::get_array( "brutus_lock", "targetname" );
+		targets = array::get_all_closest( self.origin, locks );
+		if( !isDefined( locks ) || locks.size < 1 )
+			continue;
+
 		for( i=0;i<locks.size;i++ )
 		{
 			if( targets[i].script_noteworthy == "perk_machine" && !isDefined(targets[i].alread_locked) && Distance2d(self.origin, targets[i].origin) < 300 && BulletTracePassed( self.origin,targets[i].origin,false,self ) )
@@ -684,6 +692,14 @@ function new_death()
 	// "undefined is not an entity".
 	if ( isdefined( self.light ) )
 		self.light delete();
+	// [acc] HELMET ORPHAN FIX 2026-07-04: self.helmet (a script_model attached at half-health) is
+	// freed ONLY by track_helmet, which carries self endon("death") - so a Brutus killed during the
+	// ~5-8s helmet-launch window (or one-shot from above half HP) reaps that thread before its
+	// delete, orphaning the helmet script_model forever (survives round transitions/kill-alls, piles
+	// up over a multi-boss game). new_death fires unconditionally on death, so free it here too;
+	// isdefined guards the double-delete on the normal path (delete() nils the ref).
+	if ( isdefined( self.helmet ) )
+		self.helmet delete();
 	level.current_brutuses--;
 	PlayFx( SPAWN_FX, self.origin ); 
 	
@@ -756,9 +772,21 @@ function track_helmet()
 
 	PlayFxOnTag( HELMET_SMOKE, self, "j_head" );
 
-	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_headpain, undefined, undefined, undefined, .1 );
-	wait( GetAnimLength(%brutus_headpain) );
-	self AnimScripted( "note_notify", self.origin, self.angles, %brutus_enrage, undefined, undefined, undefined, .2 );
+	// [acc] GUARD 2026-07-02: "cannot cast undefined to string" here (user session, stack :759/:746).
+	// %brutus_headpain resolves UNDEFINED when the brutus_bundle scriptbundle / brutus xanims are not
+	// in the loaded zone - on this box the NSZ GDT had never been imported into source_data (now
+	// installed as source_data\nsz_brutus.gdt, the docs/research "APE GDT import" gate), so the anims
+	// were missing from gdtdb -> the FF. Guarded so a missing anim degrades to "no head-pain anim"
+	// (helmet launch + smoke + enrage still happen) instead of killing this thread with an exception.
+	a_pain = %brutus_headpain;
+	a_enrage = %brutus_enrage;
+	if ( isdefined( a_pain ) )
+	{
+		self AnimScripted( "note_notify", self.origin, self.angles, a_pain, undefined, undefined, undefined, .1 );
+		wait( GetAnimLength( a_pain ) );
+	}
+	if ( isdefined( a_enrage ) )
+		self AnimScripted( "note_notify", self.origin, self.angles, a_enrage, undefined, undefined, undefined, .2 );
 	wait(5);
 	if ( isdefined( self.helmet ) )
 		self.helmet delete();
@@ -771,7 +799,18 @@ function anti_instakill( player, mod, hit_location )
 
 function new_thundergun_fling_func( player )
 {
-	self DoDamage( 5000, self.origin, player ); 
+	// [acc] 2026-07-03: route through the map's FRACTIONAL boss-blast system
+	// (_acc_damage::thundergun_boss_blast via the level pointer - no #using needed in this
+	// vendored file): each blast = Brutus MAXHEALTH / divisor (20 base, -3 per Thundergun
+	// PaP tier -> 17/14/11). Behavior otherwise unchanged: same no-ragdoll hook slot the
+	// NSZ pack installed (nsz spawn :233); the old flat 5000 stays as the fallback if the
+	// damage module isn't up yet.
+	if ( isdefined( level.acc_tg_boss_blast ) )
+	{
+		self [[ level.acc_tg_boss_blast ]]( player );
+		return;
+	}
+	self DoDamage( 5000, self.origin, player );
 }
 
 function new_tesla_damage_func( origin, player )
@@ -784,14 +823,34 @@ function new_knockdown_damage( player, gib )
 	self DoDamage( 1000, self.origin, player ); 
 }
 
+// [acc] CRASH FIX (user 2026-07-03): octobomb-target filter (level.octobomb_targets), invoked by
+// stock _zm_weap_octobomb.gsc every targeting cycle for EVERY thrown Li'l Arnie. The pack's original
+// body did `foreach( zom in ai ) ArrayRemoveValue( ai, zom, false );` - MUTATING the very array it was
+// iterating, which invalidates the foreach iterator (undefined behavior in T7 GSC). It was harmless
+// only while no boss was present; the instant a boss (is_boss - Brutus, and now the Rogue Protector)
+// is in the zombie array it takes the ArrayRemoveValue branch, and with several Arnies out at once
+// (4-player spam) it fires constantly -> iterator corruption -> crash. Fix: build a NEW array of the
+// non-boss AI (never touch the array being iterated). Also drops any undefined entry so the octobomb's
+// ArraySortClosest never sees a stale ref.
 function remove_brutus( ai )
 {
+	filtered = [];
 	foreach( zom in ai )
 	{
-		if( isDefined(zom.is_boss) )
-			ArrayRemoveValue( ai, zom, false ); 
+		// Exclude EVERY boss marker the map uses, not just is_boss (user 2026-07-03). Brutus + the
+		// Rogue Protector set .is_boss, but the Phantom / Glitch Stalker / Juggernaut Host / Paradise
+		// host set only .acc_is_mini_boss, and the Subroutine Core only .acc_is_boss. If they slip
+		// through, the stock octobomb (do_tentacle_grab) runs octo_gib + DoDamage(health) + StartRagdoll
+		// + LaunchRagdoll on the LIVE mini-boss mid-scripted-animation -> instakill/gib/ragdoll of a boss
+		// that has no gib setup and whose threads keep running on a ragdolled-but-alive actor (entity
+		// corruption). Same family as the remove_brutus mutate-during-foreach crash - filter them all out.
+		if( isDefined( zom )
+			&& !isDefined( zom.is_boss )
+			&& !IS_TRUE( zom.acc_is_boss )
+			&& !IS_TRUE( zom.acc_is_mini_boss ) )
+			filtered[ filtered.size ] = zom;
 	}
-	return ai; 
+	return filtered;
 }
 
 // set up zombie walk cycles ================================================================================

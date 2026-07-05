@@ -184,6 +184,10 @@ $mappings = @(
     @{ Label = "zone_source";  RepoRel = "zone_source";  ModRel = "zone_source";  Mirror = $true  },
     @{ Label = "sound";        RepoRel = "sound";        ModRel = "sound";        Mirror = $true  },
     @{ Label = "ui";           RepoRel = "ui";           ModRel = "ui";           Mirror = $true  },
+    # Aetherium HUD kit (2026-07-03): custom TTF fonts (zone `ttf,` lines) + kill-feed
+    # localized strings (zone `localize,zm_aetherium`).
+    @{ Label = "fonts";            RepoRel = "fonts";            ModRel = "fonts";            Mirror = $true  },
+    @{ Label = "localizedstrings"; RepoRel = "localizedstrings"; ModRel = "localizedstrings"; Mirror = $true  },
     # Custom color-grade vision (rawfile,vision/*.vision). Copy, not mirror.
     @{ Label = "vision";       RepoRel = "vision";       ModRel = "vision";       Mirror = $false },
     # Custom level weapon table override (stock rows + Skye box imports). Copy,

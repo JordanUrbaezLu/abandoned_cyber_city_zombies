@@ -35,6 +35,26 @@ REGISTER_SYSTEM( "acc_lui", &__init__, undefined )
 
 function __init__()
 {
+    // ===== AETHERIUM HUD MASTER FLAG (2026-07-03) =====
+    // true  = the Aetherium kit (scripts/zm/_zm_aetherium_hud + ui/uieditor .../Aetherium*)
+    //         REPLACES the stock T7Hud_zm_factory menu. Everything below that existed only to
+    //         suppress or duplicate the stock HUD is skipped: stock-perk-bar zeroing, stock
+    //         powerup-icon suppression, the weapon_hud_visible clear, our LUI powerup mask
+    //         feeds, and (in _acc_health_bars) the co-op roster. accOwnedMask/accMegaMask KEEP
+    //         flowing - they now drive the REWIRED AetheriumPerksContainer (Mappings/
+    //         AetheriumPerks.lua carries the bit->icon table).
+    // false = SERVER half of the restore ONLY. The FULL pre-Aetherium restore is 3 steps
+    //         (review catch 2026-07-03 - the .csc lives in the OTHER VM and can't read this):
+    //           1. this bool -> false            (re-arms suppressors, roster, mask feeds)
+    //           2. _zm_aetherium_hud.csc         -> #define ACC_AETHERIUM_HUD_ON 0
+    //              (stops the LuiLoad that replaces T7Hud_zm_factory - REQUIRED, else the
+    //               re-armed powerup suppressor blanks Aetherium's powerup row = no powerup
+    //               display ANYWHERE, and the kit HUD double-draws over the roster)
+    //           3. acc_hud.lua createMenu        -> re-add the RETIRED widget registrations
+    //              (AccPerkBar / AccPowerupBar / AccAmmoBlock / AccEquip - recipes in place)
+    // Hardcoded bool by design (dev-mode-hardcoded-not-console rule: no runtime dvar).
+    level.acc_aetherium_hud = true;
+
     // Must match the .csc mirror EXACTLY (scope/name/version/bits/type) AND in the
     // SAME ORDER - the bit layout is assigned in registration order.
     // [acc] Held weapon's Cyberware Overclock tier (0..5), shown as "vN" near the gun name by
@@ -85,13 +105,19 @@ function __init__()
     clientfield::register( "actor", "accEyeTint", VERSION_SHIP, 1, "int" );
     callback::on_connect( &on_player_connect );
 
-    // Hide the STOCK power-up active-icon HUD for the 3 timed power-ups so ONLY our Ronan
-    // icons (CoD.AccPowerupBar) show (user 2026-06-15). See suppress_stock_powerup_hud.
-    level thread suppress_stock_powerup_hud();
+    // AETHERIUM: both level threads below existed to make OUR CoD.AccPowerupBar the only
+    // powerup display. Aetherium's PowerupsContainer reads the STOCK powerup clientfields,
+    // so suppressing them would blank it - skip both when the kit is on.
+    if ( !IS_TRUE( level.acc_aetherium_hud ) )
+    {
+        // Hide the STOCK power-up active-icon HUD for the 3 timed power-ups so ONLY our Ronan
+        // icons (CoD.AccPowerupBar) show (user 2026-06-15). See suppress_stock_powerup_hud.
+        level thread suppress_stock_powerup_hud();
 
-    // Flash Carpenter / Random-Perk (free_perk) icons 3s on pickup via the generic stock
-    // powerup_dropped -> powerup_grabbed signal pair (works for ANY powerup by name).
-    level thread powerup_drop_flash_watch();
+        // Flash Carpenter / Random-Perk (free_perk) icons 3s on pickup via the generic stock
+        // powerup_dropped -> powerup_grabbed signal pair (works for ANY powerup by name).
+        level thread powerup_drop_flash_watch();
+    }
 }
 
 // Push the contextual perk/PaP card selector to a player's LUI overlay.
@@ -248,12 +274,21 @@ function player_lui_init()
         // they immediately re-push the current state to the just-opened menu (a perk bar that
         // hasn't changed since the last push would otherwise never repaint into the new menu).
         self notify( "acc_lui_life" );
-        self thread perk_state_watch();          // owned/mega perk bar (CoD.AccPerkBar) + stock-bar hide re-assert
-        self thread stock_perk_hud_suppressor();  // instant zero-flash hide of the stock perk bar
-        self thread powerup_state_watch();        // Insta-Kill / Double Points / Fire Sale icons
-        self thread pickup_flash_watch();         // Nuke / Max Ammo 3s pickup flash (the "drops")
+        self thread perk_state_watch();          // owned/mega masks - feed the (rewired) Aetherium perk row, or CoD.AccPerkBar pre-Aetherium
         self thread round_ring_watch();           // upper-right round-progress bar
-        self thread suppress_stock_weapon_hud();  // hide the stock ammo/weapon HUD (we draw our own: acc_hud.lua AccAmmoBlock/AccEquip)
+
+        // AETHERIUM: the four threads below only serve the PRE-Aetherium HUD. With the kit on:
+        // the stock perk bar / ammo block don't exist (T7Hud_zm_factory replaced, so no zeroing
+        // or weapon_hud_visible clear needed - clearing it might even hide Aetherium's d-pad
+        // models), and power-ups are drawn by Aetherium from the STOCK clientfields (our
+        // accPowerupMask feeds + pickup flashes are dead weight).
+        if ( !IS_TRUE( level.acc_aetherium_hud ) )
+        {
+            self thread stock_perk_hud_suppressor();  // instant zero-flash hide of the stock perk bar
+            self thread powerup_state_watch();        // Insta-Kill / Double Points / Fire Sale icons
+            self thread pickup_flash_watch();         // Nuke / Max Ammo 3s pickup flash (the "drops")
+            self thread suppress_stock_weapon_hud();  // hide the stock ammo/weapon HUD (we draw our own: acc_hud.lua AccAmmoBlock/AccEquip)
+        }
 
         acc_utility::log( "lui: overlay (re)opened for a player (per-life)" );
 
@@ -273,10 +308,12 @@ function perk_state_watch()
     self endon( "acc_lui_life" );   // re-threaded per life by player_lui_init (respawn HUD rebuild)
     level endon( "end_game" );
 
-    // BAR-BIT order: array index i -> mask bit i -> acc_hud.lua ACC_PERK_ICONS[i].
-    // All 9 perks now carry a Ronan icon (PhD Flopper got exo_flopper at bit 8), so
-    // every bit renders. MUST stay in lockstep with acc_hud.lua ACC_PERK_ICONS /
-    // ACC_PERK_COUNT and _acc_perk_info::perk_card_index.
+    // BAR-BIT order: array index i -> mask bit i. MUST stay in lockstep with ALL of:
+    //   ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua `bit` fields  <- the LIVE consumer
+    //     (Aetherium perk row, since the 2026-07-03 adoption),
+    //   acc_hud.lua ACC_PERK_ICONS / ACC_PERK_COUNT  (retired CoD.AccPerkBar - restore path),
+    //   _acc_perk_info::perk_card_index  (info-card indices).
+    // All 10 perks carry a Ronan icon (PhD bit 8, Electric Cherry bit 9), so every bit renders.
     specialties = array(
         "specialty_armorvest",               // bit 0  Jugger-Nog
         "specialty_quickrevive",             // bit 1  Quick Revive
@@ -313,7 +350,10 @@ function perk_state_watch()
         // Re-assert stock perk-bar suppression. The common BUY case is already ZERO-flash
         // (stock_perk_hud_suppressor clears it the same frame the perk is gained); this
         // 0.25s re-assert just covers the rarer unpause / edge re-gives.
-        self clear_stock_perk_hud();
+        // AETHERIUM: skipped - the stock perk bar's menu no longer exists, and the rewired
+        // Aetherium perk row reads our masks, not hudItems.perks.
+        if ( !IS_TRUE( level.acc_aetherium_hud ) )
+            self clear_stock_perk_hud();
 
         if ( owned != last_owned )
         {

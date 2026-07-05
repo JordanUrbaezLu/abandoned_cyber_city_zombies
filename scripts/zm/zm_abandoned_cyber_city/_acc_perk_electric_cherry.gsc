@@ -78,8 +78,14 @@
 #define EC_BOTTLE_WEAPON       "zombie_perk_bottle_cherry"   // reuse the stock cherry bottle (already zoned by PhD/stock cherry; no new asset)
 #define EC_RADIANT_MACHINE     "vending_acc_electric_cherry" // unique radiant name (NOT the stamin-up default - avoids the machine-identity collision)
 #define EC_MACHINE_LIGHT_FX    "acc_ec_machine_light"
-#define EC_OFF_MODEL           "p6_zm_vending_electric_cherry_off"
-#define EC_ON_MODEL            "p6_zm_vending_electric_cherry_on"
+// The REAL cherry vending model, from [West] Community Perk Collection v2.7 (external
+// pack, gitignored - tools/external_assets_manifest.ps1 "West Electric Cherry machine").
+// ONE model for both power states (the pack's own convention: its gsh defines ACTIVE and
+// DISABLED to the same asset; the powered look is light FX, which _acc_perk_lights owns
+// for us). The old p6_zm_vending_electric_cherry_on/_off names are catalog-listed but
+// PERMANENTLY unpackable (no source in any install - rendered INVISIBLE, 2026-06-25).
+#define EC_OFF_MODEL           "electric_cherry_model"
+#define EC_ON_MODEL            "electric_cherry_model"
 
 // --- nova tuning (live-tunable dvars; magnitudes hidden in UI per vague-ui rule) ---
 #define EC_RADIUS_MIN          64     // full-mag reload = small spark
@@ -131,16 +137,16 @@ function ec_precache()
 
     level.machine_assets[ EC_PERK ] = SpawnStruct();
     level.machine_assets[ EC_PERK ].weapon    = GetWeapon( EC_BOTTLE_WEAPON );
-    // MODEL = p7_lab_bio_machinery_01 (user 2026-06-25: "use a model we haven't used; if none, wunderfizz").
-    // The real cherry vending model + the Wunderfizz machine are BOTH catalog-listed but UNPACKABLE here (no
-    // source in the install - the cherry one rendered INVISIBLE). Every stock VENDING model is already taken
-    // by one of the 9 perks (nuke=PhD), so there is no unused perk-machine model. p7_lab_bio_machinery_01 is
-    // an UNUSED lab-equipment model that thematically fits Electric Cherry sitting in the LAB. It is FORCE-PACKED
-    // via an `xmodel,p7_lab_bio_machinery_01` line in the .zone (so the linker bakes it into the .ff if a source
-    // exists - VERIFY it lands in the packed assetinfo, else it renders invisible like the cherry model).
+    // MODEL = electric_cherry_model (user 2026-07-01: "add the correct model") - the real cherry
+    // vending machine from the West Community Perk Collection v2.7 (see the EC_*_MODEL defines).
+    // History: the stock p6_zm_vending_electric_cherry_on/_off names are catalog-listed but have NO
+    // packable source in ANY install (rendered INVISIBLE, 2026-06-25), so EC shipped on the
+    // p7_lab_bio_machinery_01 lab-prop stand-in until the West pack supplied a real source. The model
+    // is FORCE-PACKED via `xmodel,electric_cherry_model` in the .zone (runtime-SetModel assets need an
+    // explicit line, docs/44) - VERIFY it lands in the packed assetinfo, else it renders invisible.
     // perk_machine_think SetModels this at runtime over the .map struct's model.
-    level.machine_assets[ EC_PERK ].off_model = "p7_lab_bio_machinery_01";
-    level.machine_assets[ EC_PERK ].on_model  = "p7_lab_bio_machinery_01";
+    level.machine_assets[ EC_PERK ].off_model = EC_OFF_MODEL;
+    level.machine_assets[ EC_PERK ].on_model  = EC_ON_MODEL;
 }
 
 // Machine setup callback (dispatched by perk_machine_spawn_init, _zm_perks.gsc:1599). MUST

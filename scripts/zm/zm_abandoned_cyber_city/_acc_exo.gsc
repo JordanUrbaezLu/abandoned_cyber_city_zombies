@@ -104,7 +104,9 @@ function spawn_station_at( origin, yaw )
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (memory script-trigger-needs-ignoreteam)
     t SetCursorHint( "HINT_NOICON" );
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5EXO SUIT^7 - upgrade to walk deeper (Data Shards)" );
+    // Buyable-UI copy pass (2026-07-03): richer card text + the station's live tier/cost
+    // feedback moved INTO this hint (station_loop updates it; old hud_msg popups removed).
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5EXO SUIT^7 - augment: walk deeper, resist more, hit harder (Data Shards)" );
     t.acc_station_model = m;
     t thread station_loop();
 
@@ -126,9 +128,11 @@ function station_loop()   // self = the station trigger
         if ( !acc_data_shards::is_player_alive( player ) ) continue;
         if ( !isdefined( player.acc_exo_tier ) ) player.acc_exo_tier = 0;
 
+        // FEEDBACK CHANNEL REWORK (user 2026-07-03): hud_msg popups -> TRIGGER HINT updates,
+        // so the Aetherium default card carries the tier/cost/result. Bounded strings (<=25).
         if ( player.acc_exo_tier >= ACC_EXO_MAX )
         {
-            player acc_utility::hud_msg( "^5EXO SUIT^7 - fully augmented (Tier " + ACC_EXO_MAX + "/" + ACC_EXO_MAX + ")" );
+            self SetHintString( "^5EXO SUIT^7 - Tier " + ACC_EXO_MAX + "/" + ACC_EXO_MAX + " MAX - fully augmented" );
             wait 0.4;
             continue;
         }
@@ -137,7 +141,7 @@ function station_loop()   // self = the station trigger
         cost = exo_cost( next_tier );
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
-            player acc_utility::hud_msg( "^5EXO SUIT^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards" );
+            self SetHintString( "^5EXO SUIT^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards^7 - hold ^3[{+activate}]^7 to augment" );
             wait 0.4;
             continue;
         }
@@ -147,8 +151,8 @@ function station_loop()   // self = the station trigger
         acc_utility::recompute_move_speed( player );   // the slow cancellation takes effect now
         sync_exo_hud( player );                        // refresh the always-on EXO readout
         // Vague (docs/50): the "Tier N/5" shows progress; effects stay qualitative. Exact %s are in docs/47.
-        player acc_utility::hud_msg( "^5EXO SUIT^7 - Tier " + next_tier + "/" + ACC_EXO_MAX +
-                                     " ^7- faster, tougher, stronger melee" );
+        self SetHintString( "^5EXO SUIT^7 - Tier " + next_tier + "/" + ACC_EXO_MAX +
+                            " ^7- faster, tougher, stronger melee - hold ^3[{+activate}]^7 to augment again" );
         wait 0.4;
     }
 }

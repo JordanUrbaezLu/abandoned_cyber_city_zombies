@@ -44,8 +44,9 @@ const COLORS = {
   // --- Glitch / Phantom re-theme (user 2026-06-24): glitch = MAGENTA glow, phantom = DARK PURPLE. ---
   magenta:     [ 1.00, 0.05, 0.90 ],  // 11 Glitch theme + lockdown "purge" room lights - full-bright MAGENTA (was red, user 2026-06-24).
   magenta_dim: [ 1.00, 0.05, 0.90 ],  //    Glitch Stalker BODY AURA - same magenta hue, DIMMED (BRIGHT below) = "50% less intense" than the old teal_dim (user 2026-06-24).
-  dark_purple: [ 0.42, 0.00, 0.72 ],  //    Phantom BODY AURA - deep DARK PURPLE (user 2026-06-24, was red). Low max channel (0.72) reads inherently dark.
+  dark_purple: [ 0.42, 0.00, 0.72 ],  //    ex-Phantom BODY AURA (user 2026-06-24), now the Subroutine Core's aura (it shares clientfield value 1).
   white_dim:   [ 1.00, 1.00, 1.00 ],  // 12 Trench Data-Cache "has shards this round" indicator - DIM white (BRIGHT below). On while armed, off while looted.
+  neon_yellow: [ 1.00, 0.95, 0.00 ],  //    Phantom BODY AURA v3 (user 2026-07-02, toxic-skin re-theme): full-bright NEON YELLOW (hotter + greener than Double Tap's yellow).
 };
 
 // Per-colour brightness scale (default 1.0). Only the colour tint + cast light are scaled (not

@@ -35,6 +35,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;   // single music channel (boss music routes through it)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;   // 3D over-head name + health bar (user 2026-07-02)
 
 #insert scripts\shared\shared.gsh;
 
@@ -45,9 +46,14 @@
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
-#define ACC_BOSS_MINI_HP 48000       // Brutus BASE solo HP at his DEBUT round (ACC_BOSS_MINI_HP_ANCHOR). (user 2026-06-26: +20% from 40k; before: 2026-06-24 -20% from 50k; earlier cut from 250000=5x/500000=10x "took forever"). Scaled by the round (scale_mini_boss_hp) THEN x boss_hp_player_mult (LOGARITHMIC coop). +20% here lifts the WHOLE curve (round + coop multiply this base), so it scales out of the box.
-#define ACC_BOSS_MINI_HP_EXP 1.1     // Brutus COMPOUNDS per round (user 2026-06-27) at the SAME 1.1 rate as a zombie (was 1.08): base x 1.1^(round-anchor) -> solo r10 77k / r20 200k / r30 520k / r40 1.35M. Anchored at r5 (5 rounds before Phantom's r10), so Brutus still outscales the Phantom even at the same exponent. Live dvar acc_boss_mini_hp_exp.
-#define ACC_BOSS_MINI_HP_ANCHOR 5    // round his BASE HP applies; round-scaling starts PAST it (matches the first-Warden round acc_warden_first_round). Live dvar acc_boss_mini_hp_anchor.
+// UNIFIED BOSS SCALE (user 2026-07-04): Brutus now rides the SAME base (56000) + anchor (10) as the
+// Phantom/Rogue Protector, differing ONLY by exponent - the TOP tier: Brutus 1.12 > Rogue 1.1 >
+// Phantom 1.08. NO cap (the pack's linear 3500*round / 85k-cap code is dead - overwritten here every
+// spawn). Brutus debuts at power-on & round >= acc_warden_first_round (5); rounds 5-9 sit at the flat
+// 56k base (past clamps to 0), then compound at 1.12 from round 10.
+#define ACC_BOSS_MINI_HP 56000       // Brutus BASE solo HP (shared with Phantom/Rogue). Scaled by scale_mini_boss_hp THEN x boss_hp_player_mult (LOGARITHMIC coop). Live dvar acc_boss_mini_hp.
+#define ACC_BOSS_MINI_HP_EXP 1.12    // Brutus COMPOUNDS per round at 1.12 (user 2026-07-04: 1.1 -> 1.12, the TANKIEST tier): base x 1.12^(round-anchor10) -> solo r10 56k / r20 174k / r30 541k / r40 1.68M. Live dvar acc_boss_mini_hp_exp.
+#define ACC_BOSS_MINI_HP_ANCHOR 10   // round his BASE HP applies (shared anchor with the Phantom/Rogue); round-scaling starts PAST it. Live dvar acc_boss_mini_hp_anchor.
 #define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
 #define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
 #define ACC_BRUTUS_RESPAWN_INTERVAL 3 // Trench Warden: rounds AFTER a kill before he respawns (user 2026-06-18)
@@ -270,6 +276,11 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     // but gets NO boss health bar and NO boss music - those now belong to the Phantom (the real
     // ~round-10 boss). So we deliberately do NOT emit "acc_boss_spawned" and do NOT call boss_music
     // here. (He's still the Trench Warden - the roam thread below applies.)
+    // 3D OVER-HEAD NAMEPLATE (user 2026-07-02): unlike the rejected 2D top-screen bar, the new
+    // world-space name + health bar (SetDrawName, _acc_boss_nameplate) is per-enemy and
+    // unobtrusive, so the mini-boss gets one too - direct attach (still no notify: that would
+    // also imply boss music semantics elsewhere).
+    acc_boss_nameplate::attach( host, "TRENCH WARDEN" );
 
     // Trench Warden (user 2026-06-18): roam the Bus Station trench, spawn at the trench
     // bottom, and only target a player on the trench floor with him. Supervisor thread (does

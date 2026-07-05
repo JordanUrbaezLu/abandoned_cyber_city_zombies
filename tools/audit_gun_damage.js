@@ -39,19 +39,24 @@ function findSourceData() {
 }
 
 // Display roster (weaponKey + class). Damage/loc come from the GDTs, balance from the GSC.
+// 2026-07-02: synced to the SHIPPED roster (CW swaps t9_* replaced t6_ak47/t6_m60/t6_rpd/
+// t5_ak74u; PPSH = the s4_ppsh41_base VG port). Thundergun + Action Figure are special-cased
+// OUTSIDE this bullet model (weaponless fling DoDamage / one-knife melee) so they are not
+// rows; the Mahem's projectile DIRECT hit does ride the model (splash is separate).
 const ROSTER = [
     { d: 'Five-Seven',   w: 't6_fiveseven',     c: 'Pistol'  },
     { d: 'RW1',          w: 's1_rw1',           c: 'Pistol'  },
-    { d: 'AK-74u',       w: 't5_ak74u',         c: 'SMG'     },
+    { d: 'AK-74u',       w: 't9_ak74u',         c: 'SMG'     },
     { d: 'Chicom CQB',   w: 't6_chicom_cqb',    c: 'SMG'     },
     { d: 'ASM1',         w: 's1_asm1',          c: 'SMG'     },
     { d: 'PPSH-41',      w: 's4_ppsh41',        c: 'SMG'     },
-    { d: 'AK-47',        w: 't6_ak47',          c: 'AR'      },
+    { d: 'AK-47',        w: 't9_ak47',          c: 'AR'      },
     { d: 'Galil',        w: 't6_galil',         c: 'AR'      },
     { d: 'AE4',          w: 's1_ae4',           c: 'AR'      },
     { d: 'MK14',         w: 's1_mk14',          c: 'DMR'     },
-    { d: 'M60',          w: 't6_m60',           c: 'LMG'     },
-    { d: 'RPD',          w: 't6_rpd',           c: 'LMG'     },
+    { d: 'M60',          w: 't9_m60',           c: 'LMG'     },
+    { d: 'RPD',          w: 't9_rpd',           c: 'LMG'     },
+    { d: 'Mahem',        w: 's1_mahem',         c: 'Launcher' },
     { d: 'Tac-19',       w: 's1_tac19',         c: 'Shotgun' },
     { d: 'Olympia',      w: 't6_olympia',       c: 'Shotgun' },
     { d: 'Paladin HB50', w: 't8_paladin_hb50',  c: 'Sniper'  },

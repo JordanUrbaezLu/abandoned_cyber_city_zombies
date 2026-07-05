@@ -16,7 +16,10 @@
 // =============================================================================
 
 xmodel,skybox_default_night
-xmodel,p7_lab_bio_machinery_01
+// Electric Cherry machine (West Community Perk Collection v2.7, external pack - see
+// tools/external_assets_manifest.ps1). Runtime-SetModel by perk_machine_think, so it
+// needs this explicit line (docs/44). Replaced the p7_lab_bio_machinery_01 stand-in 2026-07-01.
+xmodel,electric_cherry_model
 material,luts_t7_default
 
 // Map-name vision grade = NEUTRAL stock default (NOT a custom tint). MUST stay neutral:
@@ -74,6 +77,8 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_cyberware.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_overclocks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ammo_crate.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_elites.gsc
+// Underground 54i zombie reskin (below base level: trench/under-rooms/abyss/Paradise). docs: module header.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_trench_skins.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
@@ -104,7 +109,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
 // machine + stock nuke model) and presents it as PhD Flopper - fall/explosive immunity +
 // slide-to-explode nova (purple Apothicon FX). No .csc - the stock cherry .csc owns the client side. docs/13_perks.md.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_phd_flopper.gsc
-// [acc] Electric Cherry - the real 10th perk (specialty_combat_efficiency, own alcove + p6_zm_vending_electric_cherry model). docs/13_perks.md.
+// [acc] Electric Cherry - the real 10th perk (specialty_combat_efficiency, own alcove + the West-pack electric_cherry_model machine). docs/13_perks.md.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_electric_cherry.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 // Per-round DEFCON room lockdown (stage 1: red alarm-light half). docs/37.
@@ -156,11 +161,102 @@ fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.csc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_avogadro.gsc
+// [acc] Civil Protector ally robot (HarryBo21 pack v2.0.0, user 2026-07-02). External gitignored
+// pack (tools/external_assets_manifest.ps1 "HB21 Civil Protector"); GDT = source_data/
+// c_zom_zod_robot_protector.gdt (441 xanims + normal/gold aitype/character/xmodel + ASM/BT).
+// Lines mirror the pack's share/zone_source/zm_ai_zod_companion.zpkg. The 2 fuse FX are STUB
+// COPIES of a pack FX created install-side (share\raw\fx\zombie\) - the real ones live in the
+// separate "HB21 FX library" pack we don't have; they only render on the fuse-quest props,
+// which are NOT placed. Scripts vendored at the pack's own paths (scripts/zm/ + craftables/).
+scriptparsetree,scripts/zm/craftables/_hb21_zm_craft_fuse.gsc
+scriptparsetree,scripts/zm/craftables/_hb21_zm_craft_fuse.csc
+scriptparsetree,scripts/zm/archetype_zod_companion.gsc
+scriptparsetree,scripts/zm/archetype_zod_companion.csc
+scriptparsetree,scripts/zm/archetype_zod_companion_interface.gsc
+scriptparsetree,scripts/zm/zm_zod_robot.gsc
+scriptparsetree,scripts/zm/zm_zod_robot.csc
+// ROGUE PROTECTOR round-20 hostile boss driver (user 2026-07-02; was the round-1 ally test).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc
+// 3D over-head boss nameplate + health bar (SetDrawName via actor clientfields, stock Turned
+// recipe) - replaces the 2D top-screen boss bar (gated off, acc_boss_bar_2d). Server + client.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_nameplate.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_nameplate.csc
+// aitypes pull the model + 441 xanims + behavior tree transitively (Avogadro/charred precedent);
+// the .map actor spawners also reference them - belt-and-suspenders.
+// archetype_acc_zod_robot_boss = OUR install-side GDT clone of the gold aitype with team=axis (the
+// whole "make him hostile" trick - engine targeting is team-based; _acc_civil_protector.gsc header).
+// NAMING IS LOAD-BEARING: spawner classname actor_spawner_<X> resolves to aitype archetype_<X> -
+// the clone's first name "acc_zod_robot_boss" (no archetype_ prefix) made the linker/engine derive
+// a nonexistent aitype from the .map spawner ("'spawner_acc_zod_robot_boss' is not a valid aitype")
+// and the entity would be dropped at load. 2026-07-02.
+aitype,archetype_ally_zod_robot_companion_ar
+aitype,archetype_ally_zod_robot_companion_gold_ar
+aitype,archetype_acc_zod_robot_boss
+// spawner_ derived aitype = what SpawnActor("spawner_<X>", ...) resolves - MUST be zone-listed
+// explicitly now that no BSP entity references it (the .map spawner crashed the load; the boss
+// is SpawnActor'd directly in _acc_civil_protector::spawn_boss).
+aitype,spawner_acc_zod_robot_boss
+fx,zombie/fx_fuse_master_switch_on_zod_zmb
+fx,zombie/fx_robot_helper_jump_landing_zod_zmb
+fx,zombie/fx_robot_helper_trail_sky_zod_zmb
+fx,zombie/fx_robot_helper_ground_tell_zod_zmb
+fx,zombie/fx_robot_helper_revive_player_zod_zmb
+fx,destruct/fx_dest_robot_head_sparks
+fx,destruct/fx_dest_robot_body_sparks
+fx,zombie/fx_fuse_glow_blue_zod_zmb
+fx,electric/fx_elec_dmg_robot_helper_zod_zmb
+fx,zombie/fx_robot_helper_jet_leg_zod_zmb
+fx,impacts/fx_bul_impact_concrete_sm
+// (zpkg also lists xmodel p7_zm_zod_fuse - DROPPED: "xmodel missing" at link (not stock-buildable
+// on usermap linkers) and the fuse-quest props that use it are not placed.)
+// Entrance/exit cinematic scenes (scene::play in zm_zod_robot + our test spawn)
+scriptbundle,cin_zod_robot_companion_entrance
+scriptbundle,cin_zod_robot_companion_exit_death
+
+// [acc] Apothicon Fury trench elite (HarryBo21 pack v1.1.0, user 2026-07-03). External gitignored
+// pack (tools/external_assets_manifest.ps1 "HB21 Apothicon Fury"); GDT = source_data/
+// c_zom_dlc4_apothicon_fury.gdt. Lines mirror the pack's share/zone_source/zm_ai_apothicon_fury.zpkg
+// (its .gsh scriptparsetree lines dropped - #insert'd headers compile into their users; its
+// zombie/fx_meatball_impact_ground_tell_zod_zmb fx line dropped - the pack does NOT ship that fx,
+// our gsh swaps the tell to the Civil Protector's fx_robot_helper_ground_tell_zod_zmb, listed above).
+// Scripts vendored at the pack's own paths (scripts/shared/ai/ + scripts/zm/).
+scriptparsetree,scripts/shared/ai/archetype_apothicon_fury_interface.gsc
+scriptparsetree,scripts/shared/ai/archetype_apothicon_fury.gsc
+scriptparsetree,scripts/shared/ai/archetype_apothicon_fury.csc
+scriptparsetree,scripts/zm/zm_genesis_apothicon_fury.gsc
+scriptparsetree,scripts/zm/zm_genesis_apothicon_fury.csc
+// Our spawn driver (5x hp / round gait / 40s underground cadence / dev round-1 test).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_fury.gsc
+// [acc] file-only diagnostics heartbeat (LogPrint census every 30s; state-pool crash forensics, user 2026-07-04)
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_diag.gsc
+// SpawnActor("spawner_zm_genesis_apothicon_fury") derived aitype (pack INSTRUCTIONS step 5;
+// spawner_/archetype_ naming contract - see the zod-boss NAMING IS LOAD-BEARING note above).
+aitype,spawner_zm_genesis_apothicon_fury
+fx,dlc4/genesis/fx_apothicon_fury_impact
+fx,dlc4/genesis/fx_apothicon_fury_breath
+fx,dlc4/genesis/fx_apothicon_fury_smk_body
+fx,dlc4/genesis/fx_apothicon_fury_foot_amb
+fx,dlc4/genesis/fx_apothicon_fury_teleport_impact
+fx,dlc4/genesis/fx_apothicon_fury_footstep
+fx,dlc4/genesis/fx_apothicon_fury_footstep_ch
+fx,dlc4/genesis/fx_apothicon_fury_spawn_in
+fx,dlc4/genesis/fx_apothicon_fury_spawn_in_exp
+character,c_zom_dlc4_apothicon_fury_dissolve
+
 // PhD Flopper slide/down NOVA = a STOCK, installed one-shot electric spark burst (user 2026-06-24,
 // SWAPPED off dlc4/genesis/fx_apothicon_fury_spawn_in_exp - that DLC4 FX + its anim materials aren't
 // built in this install, so it errored + never rendered). _acc_perk_phd_flopper.gsc #precaches + PlayFXs
 // it; def_explosion is the fallback.
 fx,electric/fx_elec_sparks_burst_xlg_os
+
+// Rogue Protector GUN muzzle flash (user 2026-07-03): the Blast-O-Matic pack's energy-shotgun
+// 3rd-person muzzle FX - a chunky energy discharge (bigger than the concrete-spark it replaced),
+// fits the robot. Referenced only by _acc_boss_nameplate.csc's shot_cb (client PlayFxOnTag +
+// precache), so it needs this explicit line. External pack (Blast-O-Matic v1.2, _owens_effects).
+fx,_owens_effects/t9_semiauto_cosplay/fx_muz_energy_shotgun_3p
+// Rogue Protector ZAP arc (user 2026-07-03): small blue one-shot electric burst on his gun hand -
+// his second attack's visual (replaced the XLG burst that "exploded" on his body). Stock ZM fx.
+fx,electric/fx_elec_sparks_burst_xsm_omni_blue_os
 
 // Per-round DEFCON room lockdown red alarm lights (_acc_lockdown.gsc). Stock ZM
 // .efx, source present in <tools>\share\raw\fx\light\ (verified 2026-06-15):
@@ -192,6 +288,8 @@ fx,acc/light/fx_perk_glow_magenta
 fx,acc/light/fx_perk_glow_magenta_dim
 fx,acc/light/fx_perk_glow_dark_purple
 fx,acc/light/fx_perk_glow_white_dim
+// Phantom NEON YELLOW aura (user 2026-07-02 toxic re-theme; clientfield 3 in _acc_boss_phantom.csc)
+fx,acc/light/fx_perk_glow_neon_yellow
 
 // Charred Zombie base-horde reskin (Logical's Charred Zombie Pack): a custom
 // aitype `archetype_charred_zombie` = stock factory-zombie behaviour/anims
@@ -222,6 +320,26 @@ xmodel,c_zom_der_zombie_body1
 // c_zom_der_zombie_head1 - the raw bin name c_zom_der_head_1 has NO xmodel GDT entry, so it fails
 // to link. Same body/head naming family as c_zom_der_zombie_body1 above.)
 xmodel,c_zom_der_zombie_head1
+// TOXIC boss skins (user 2026-07-02): WetEgg SAT toxic bodies (heads included in the body models) -
+// Glitch Stalker wears _1, Phantom wears _2 (script SetModel, so explicit lines; materials ride in
+// transitively). EC-style model-only lift - external pack, see tools/external_assets_manifest.ps1
+// "SAT Toxic Zombies" (marker source_data\acc_sat_toxic_zombies.gdt). The der body/head lines above
+// stay: they remain the documented A/B fallback (acc_glitch_stock_skin / acc_phantom_stock_skin history).
+xmodel,c_sat_zmb_zombie_toxic_1
+xmodel,c_sat_zmb_zombie_toxic_2
+// UNDERGROUND horde reskin (user 2026-07-03): Kingslayer Kyle's BOTD mob zombies (BO4
+// Alcatraz prisoners; 3 bodies x 4 heads = the pack's own 12 combos, self-contained
+// materials). Runtime SetModel+Attach by _acc_trench_skins on every zombie spawning below
+// z=-36 (trench/under-rooms/abyss/Paradise) -> explicit lines (script-only refs); materials
+// ride transitively. External pack, tools/external_assets_manifest.ps1 "BOTD Zombies".
+// (Replaced Zeroy's 54i same day - its bodies render HEADLESS; 54i stays installed as fallback.)
+xmodel,c_t8_zmb_mob_zombie_body1
+xmodel,c_t8_zmb_mob_zombie_body2
+xmodel,c_t8_zmb_mob_zombie_body3
+xmodel,c_t8_zmb_mob_zombie_head1
+xmodel,c_t8_zmb_mob_zombie_head2
+xmodel,c_t8_zmb_mob_zombie_head3
+xmodel,c_t8_zmb_mob_zombie_head4
 
 // Custom ground-pickup world models (referenced ONLY by SetModel in script, so
 // the linker needs these explicit lines - same reason as the Glitch Stalker
@@ -260,6 +378,50 @@ xmodel,p7_cai_work_table_metal_03_white
 xmodel,p7_cai_sign_inteactive_kiosk
 xmodel,p7_cai_stacking_cargo_crate
 xmodel,p7_cai_ticket_kiosk_theatre
+// CW/BO6 Pack-a-Punch machine model (ALXS pack, user 2026-07-02, reworked same day):
+// swapped at the PREFAB level - both PaP misc_prefabs point at
+// _prefabs/acc/vending_weapon_upgrade_alxs.map, whose zbarrier entity board pieces are:
+// board1 = the _off model (pre-power), board2/6 = the on model (their p7-rigged board
+// anims blanked - rig mismatch); the sign flag + gun-mount tag boards stay stock.
+// (Runtime SetModel on the zbarrier NO-OPS - boards render, not the base model.)
+// The Paradise PaP clone (plain script_model) SetModels the on-model in _acc_pap_levels.gsc.
+// GDT install-side: acc_alxs_pap.gdt.
+xmodel,p9_fxanim_zm_gp_pap_xmodel
+xmodel,p9_fxanim_zm_gp_pap_xmodel_off
+// CW Miami night skybox (Nastian T9 Skyboxes pack, user 2026-07-02): worldspawn
+// skyboxmodel -> skybox_t9_mp_miami (volume_sun ssi stays default_night - the pack
+// ships no ssi). Sky is a NON-face asset -> explicit zone lines per docs/29. The
+// xmodel reuses the stock t6_skybox dome mesh with a skinOverride to the HDR
+// material below (sky_latlong_hdr). GDT install-side: acc_nastian_t9_skyboxes.gdt.
+// 2026-07-02 sky experiments CLOSED: Miami (too light) then zm_silver_dark (user: "past sky was
+// better") both rejected -> back to stock skybox_default_night (line 18 above) + default_night SSI.
+// The Nastian pack stays installed (manifest, Required=$false) for future one-token experiments.
+// NO material, line for the sky material (2026-07-02 build finding): an explicit
+// material,mtl_skybox_t9_mp_miami line forces the STANDALONE techset compile, which fails on
+// this install (8x "techsetdef_sky_latlong_hdr.hlsl Shader preprocessor error" + GetTechnique
+// (unlit) failed - the docs/29 SS14 trap, confirmed present even on the pristine 2026-07-01
+// tools reinstall). The material rides in TRANSITIVELY as an xmodel dep instead (docs/56 rule -
+// same path every custom model material here ships through). If the sky renders black/missing
+// in game, the latlong-HDR sky class is unshippable on this install -> revert worldspawn to
+// skybox_default_night (full bake).
+// WW2 circuit-breaker power-switch BODY (Fanatic pack, user 2026-07-02; prefab reworked
+// same day): the map's power_switch misc_prefab points at our clone prefab
+// _prefabs/acc/power_switch_ww2.map - stock prefab with the body misc_model swapped to
+// this xmodel (+ local yaw 270 so the face points at the use trigger) and the stock
+// p7 handle script_model DELETED (user request; stock _zm_power::electric_switch guards
+// every master_switch use with isdefined -> deletion-safe: power flips fine, no handle
+// flip anim/sound, spark FX skipped by the same guard). Trigger + fx struct unchanged.
+// Model-only lift: the pack's own GSC/sounds/anims system is deliberately NOT installed.
+// GDT install-side: source_data\fanatic\ww2\ww2_power_switch.gdt.
+xmodel,ww2_circuit_breaker
+// T7 prop-pack PILOT decor (MidgetBlaster "T7 Assets V2.7", user 2026-07-02): two static
+// props spawned in the Exchange transfer-vault room by _acc_atmosphere::spawn_exchange_props
+// (Moon server rack + crucible holo monitor). Install-side slice: source_data\
+// acc_t7_props_pilot.gdt + model_export\_midgetblaster\props\** (PNG baseImages - the
+// PNG-pipeline pilot). Some carved materials reference stock $-builtin / stock-named
+// images (not re-defined) - expect them to resolve from stock; errorlog is the oracle.
+xmodel,p7_zm_moo_server_comm_02
+xmodel,p7_cru_monitor_holo_screen_01
 // Cymbal Monkey (cymbal_monkey_zm) + Octobomb / Li'l Arnie (octobomb_zm) are
 // granted by boss items. Both weapon DEFS already ship in zm_levelcommon (every
 // usermap loads it at runtime - assetlist lines 6175 + 6225), so we do NOT add a
@@ -341,6 +503,206 @@ image,i_acc_pap_tier1
 image,i_acc_pap_tier2
 image,i_acc_pap_tier3
 
+// ============================================================================
+// AETHERIUM HUD (Owen-C137 BO7-remake kit, adopted 2026-07-03; docs/22, docs/49)
+// Full stock-HUD replacement: the kit's .csc LuiLoads AetheriumHud.lua, which
+// redefines LUI.createMenu.T7Hud_zm_factory (the usermap ZM HUD menu key, docs/28).
+// This block is the kit's aetherium_hud.zpkg INLINED (dupes removed) - we don't use
+// `include,` because our build compiles from the deployed usermap copy and this zone
+// is the single manifest. Assets ship in the licensed Aetherium pack
+// (model_export\_OwensAssets\bo7\aetherium_hud + its GDT; manifest entry
+// "Aetherium HUD" in tools/external_assets_manifest.ps1). Perk row REWIRED to our
+// accOwnedMask/accMegaMask + the Ronan i_acc_perk_* icons above (Mappings/
+// AetheriumPerks.lua) - the kit's bl3_* perk icons are NOT shipped/used.
+// Master flag: level.acc_aetherium_hud (_acc_lui.gsc) + its .csc twin
+// ACC_AETHERIUM_HUD_ON (_zm_aetherium_hud.csc) - flip BOTH for the stock HUD back.
+// ============================================================================
+scriptparsetree,scripts/zm/_zm_aetherium_hud.gsc
+scriptparsetree,scripts/zm/_zm_aetherium_hud.csc
+
+// -- Aetherium menus + cursor-hint system
+// (menus/hud is LOWERCASE on disk - the dir pre-exists for acc_hud.lua; the kit's HUD-cased
+//  path only resolved via Windows case-insensitivity, so this line + the .csc LuiLoad were
+//  aligned to the on-disk casing.)
+rawfile,ui/uieditor/menus/hud/AetheriumHud.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/ZMCursorHintNew.lua
+rawfile,ui/uieditor/menus/StartMenu/AetheriumStartMenu.lua
+rawfile,ui/uieditor/widgets/StartMenu/AetheriumMenuButton.lua
+rawfile,ui/uieditor/widgets/StartMenu/AetheriumSmallButton.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptDefault.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptPowerSwitch.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptPowerRequired.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptPerks.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptPAP.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptMysteryBox.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptWallBuy.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptBBG.lua
+rawfile,ui/uieditor/widgets/HUD/ZM_CursorHint/Prompts/PromptDoors.lua
+
+// -- Aetherium widgets
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumLoadout.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPlayerInfo.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPlusPoints.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPlusPointsContainer.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPartyPlayers.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumCompass.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPerksContainer.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPerkItem.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupsContainer.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupItem.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupNotification.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumRoundCounter.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumGobbleGum.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumScoreboard.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/Scoreboard/AetheriumQuestsCustom.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumKillFeed.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumKillFeedText.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumSpecialWeapon.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumThirdPersonCrosshair.lua
+
+// -- Aetherium mappings (perks table REWRITTEN for our 10 perks + Ronan icons)
+rawfile,ui/uieditor/widgets/HUD/Mappings/AetheriumBBG.lua
+rawfile,ui/uieditor/widgets/HUD/Mappings/AetheriumWeapons.lua
+rawfile,ui/uieditor/widgets/HUD/Mappings/AetheriumCharacters.lua
+rawfile,ui/uieditor/widgets/HUD/Mappings/AetheriumAAT.lua
+rawfile,ui/uieditor/widgets/HUD/Mappings/AetheriumPerks.lua
+
+// -- Compass strip material (in the Aetherium GDT; LUI 2D material, kit-proven zone line)
+material,sat_hud_horizontal_compass
+
+// -- Kill-feed strings (localizedstrings/zm_aetherium.str)
+localize,zm_aetherium
+
+// -- Custom fonts (fonts/*.ttf; first ttf assets in this map - kit-proven zone lines)
+ttf,fonts/ltromatic.ttf
+ttf,fonts/orbitron.ttf
+
+// -- Aetherium HUD images (all in the pack GDT except $blacktransparent +
+//    riotshield_zm_icon, which are stock). Kit zpkg list, deduped.
+image,$blacktransparent
+image,i_mtl_ui_hud_compass_theme_aetherium
+image,i_mtl_ui_hud_health_theme_aetherium
+image,i_mtl_ui_hud_loadout_theme_aetherium
+image,i_mtl_ui_hud_party_member_theme_aetherium
+image,i_mtl_ui_hud_party_member_wc_theme_aetherium
+image,i_mtl_ui_hud_player_info_theme_aetherium
+image,i_mtl_ui_icons_zombie_squad_info_essence
+image,i_mtl_ui_icons_zombie_squad_info_salvage
+image,i_mtl_ui_icons_zombie_essence
+image,i_mtl_ui_hud_player_health_bar_border
+image,i_mtl_ui_hud_player_health_bar_fill
+image,i_mtl_ui_hud_party_health_bar_fill
+image,i_mtl_ui_hud_leathal
+image,i_mtl_ui_hud_leathal_empty
+image,i_mtl_ui_hud_tactical
+image,i_mtl_ui_hud_tactical_empty
+image,i_mtl_ui_icon_zm_ping_mystery_box
+image,i_mtl_sat_ui_icon_zm_power
+image,i_mtl_ui_icon_minimap_doorbuys
+image,i_mtl_ui_icon_minimap_powerdoors
+image,i_mtl_ui_icon_zm_ping_door_buy
+image,i_mtl_ui_icon_zm_ping_power_door
+image,i_mtl_ui_icon_zm_ping_gobblegum_machine
+image,i_mtl_ui_icon_zm_ping_documents
+image,i_mtl_ui_icon_zm_ping_pack_a_punch
+image,i_mtl_ui_icons_elementaldamage_storm
+image,i_mtl_ui_icons_elementaldamage_electrical
+image,i_mtl_ui_icons_elementaldamage_fire
+image,i_mtl_ui_icons_elementaldamage_toxic
+image,i_mtl_ui_icons_elementaldamage_pyro
+image,i_mtl_image_13a4ae7c5608c7a5
+image,i_mtl_image_765101dd64f26a2b
+image,i_mtl_hud_icon_zombie
+image,i_mtl_icon_ping_downed
+image,i_mtl_ximage_58d2b2f6f49c85
+image,i_mtl_ximage_836c48038391c06
+image,i_mtl_ximage_89bc9beef04fb63
+image,i_mtl_ximage_c800fc9cce96f23
+image,i_mtl_ximage_e0683b14f47e4fc
+image,i_vfx_dist_blast_wave_loop_1_c
+image,riotshield_zm_icon
+image,i_mtl_hud_reticle_06_h
+// pause menu
+image,i_mtl_image_15f72351ec912f8b
+image,i_mtl_image_2c20915dba690ea5
+image,i_mtl_sat_pause_menu_bg
+image,i_mtl_image_25c963d7d5adbec3
+image,i_mtl_image_273102a380412bec
+image,i_mtl_image_2fe6956607db6e68
+image,i_mtl_image_2d767ba54c664e54
+image,i_mtl_icon_ftueftus_audio_config_tv
+image,i_mtl_firing_range_input_settings_kbm
+image,i_mtl_sat_ui_icon_gamemode_zm_standard
+image,i_mtl_ui_menu_codhq_icon_settings
+image,i_mtl_ui_icon_kingslayer_kyle_signature
+image,i_mtl_ui_icon_madgaz_signature
+image,i_mtl_ui_icon_shidouri_signature
+image,i_mtl_ui_icon_owenc137_signature
+// operator portraits (character mapping)
+image,i_mtl_ui_icon_operators_dempsey
+image,i_mtl_ui_icon_operators_richtofen
+image,i_mtl_ui_icon_operators_nikolai
+image,i_mtl_ui_icon_operators_takeo
+// equipment icons
+image,i_mtl_sat_ui_icon_lethal_grenade_frag
+image,i_mtl_sat_ui_icon_zm_support_cymball_monkey
+image,i_mtl_sat_ui_icon_lethal_grenade_frag_empty
+image,i_mtl_sat_ui_icon_zm_support_cymball_monkey_empty
+image,i_mtl_hud_octobomb
+image,i_mtl_hud_octobomb_empty
+// perk notification card art
+image,i_mtl_image_3a5dcba7b0d44850
+image,i_mtl_image_4b19966fe6b8a3f4
+image,i_mtl_image_6bac5ab6cef2cf7d
+image,i_mtl_image_7d9423641070f37e
+image,i_mtl_image_8a21f7a0f930d3f
+// powerup icons
+image,i_mtl_image_2ebe2f5764449435
+image,i_mtl_sat_ui_hud_zm_powerup_icon_doublepoints
+image,i_mtl_sat_ui_hud_zm_powerup_icon_firesale
+image,i_mtl_sat_ui_hud_zm_powerup_icon_instakill
+image,i_mtl_sat_ui_hud_zm_powerup_icon_maxammo
+// weapon LOADOUT icons (user 2026-07-03: every gun needs a 2D HUD image). These are the
+// ports' own wall-CHALK images (each ships in its gun's source_data GDT, gdtdb-indexed) -
+// consumed by Mappings/AetheriumWeapons.lua via RegisterImage. `image,` lines like the
+// i_acc_perk_* block above (NOT `material,` - the sky-materials rule doesn't apply).
+image,i_t6_wpn_pistol_b2023r_wall_chalk_c
+image,i_semiauto_cosplay_chaulk_new_c
+image,i_uts_19_wall_chalk_c
+image,i_weapon_vm_ar_t9damage_wall_chalk_c
+image,i_dear_wall_chalk_c
+image,i_ppapa41_wall_chalk_c
+image,i_weapon_vm_sm_t9heavy_wall_chalk_c
+image,i_t8_wpn_sniper_paladin_hb50_wall_chalk_c
+image,i_t6_wpn_shotty_olympia_wall_chalk_c
+image,i_t6_wpn_ar_galil_wall_chalk_c
+image,i_t6_wpn_ar_m14_wall_chalk_c
+image,i_t8_wpn_sniper_sdm_wall_chalk_c
+image,i_weapon_vm_lm_t9slowfire_wall_chalk_c
+image,i_weapon_vm_lm_t9rpapa_wall_chalk_c
+image,i_t8_wpn_pistol_rk7_garrison_wall_chalk_c
+image,i_wpn_t5_asl_thundergun_wall_chalk_c
+// (MAHEM uses stock t7_icon_weapon_launcher_standard_kf - stock images need no zone line.)
+
+// scoreboard (BO7 style)
+image,i_mtl_image_31890d5179c65d58
+image,i_mtl_image_67c0e1be4519503c
+image,i_mtl_image_2a0561747aef24aa
+image,i_mtl_image_40d71e2f7898114c
+image,i_mtl_image_570a038958e924a7
+image,i_mtl_image_6d18dfae10338ee0
+image,i_mtl_image_521820550542a1ef
+image,i_mtl_image_6f2d9c8089a2153e
+image,i_mtl_image_67118f82e09c58d9
+image,i_mtl_image_67118f82e09c58d9_light
+image,i_mtl_image_2c21c9a04a68e3ff
+image,i_mtl_ui_cursor_arrow_active
+image,i_mtl_sat_quest_widget
+image,i_mtl_sat_ui_icon_rank_prestige_04
+// ============================================================================
+// end AETHERIUM HUD block
+// ============================================================================
+
 // (The stock perk bar is hidden by ZEROING its hudItems.perks.* uimodel fields in GSC -
 // _acc_lui::clear_stock_perk_hud - NOT by asset override: a usermap zone loads LAST and a
 // same-named base-zone asset always wins, so transparent image overrides do nothing.)
@@ -363,8 +725,24 @@ weapon,t6_fiveseven_rdw_zm
 weapon,t6_fiveseven_ldw_zm
 weapon,t6_fiveseven_rdw_up_zm
 weapon,t6_fiveseven_ldw_up_zm
-weapon,s1_asm1
-weapon,s1_asm1_up
+// RETIRED 2026-07-03 (user: "least liked gun, remove it for now") - uncomment to restore.
+// Assets stay installed (GDT/models/sounds/twin blocks untouched); to fully restore also
+// re-add the zm_levelcommon_weapons.csv row (deleted, matching the PDW/M1911 precedent):
+//   s1_asm1,s1_asm1_up,,1300,smg,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,smg,,,
+// and un-comment the GSC table entries marked "ASM1 RETIRED 2026-07-03" (box pool/rarity,
+// overclocks, abilities, variant_guns, pap bucket, perk_info) + the twin lines below.
+// weapon,s1_asm1
+// weapon,s1_asm1_up
+
+// Blast-O-Matic (CW DOA energy blaster, Owens port v1.2; user 2026-07-03, GREEN-LIT install).
+// PROJECTILE wonder-class special that IS fully twinned (user requirement) - the standard
+// generator refuses projectileweapon.gdf, so its 14 twins are HAND-BUILT clones inside
+// acc_weapon_variants.gdt (canonical TWIN_DIMS mults on the projectile-equivalent fields).
+// GDT install-side: source_dataowens_weaponsocwwpn_t9_shotgun_semiauto_cb_cosplay.gdt;
+// aliases share
+// aliases: share\raw\sound\aliases\_owens_weapons.csv (szc block acc). See CREDITS (Owens).
+weapon,t9_semiauto_cosplay
+weapon,t9_semiauto_cosplay_up
 
 // AK-47 (BO2 t9_ak47) = full-auto AR box gun (user, 2026-06-14). See docs/33.
 weapon,t9_ak47
@@ -382,6 +760,12 @@ weapon,s1_rw1_up
 // (projectileweapon, NO twins, like the Thundergun WW); empty altWeapon so no _zm_zm Com_ERROR.
 weapon,s1_mahem
 weapon,s1_mahem_up
+// BO1 Thundergun (user 2026-07-02): TheAllNightFall's t5 port OVERRIDES the stock thundergun_zm /
+// thundergun_upgraded_zm weapon assets IN PLACE (same names -> zero GSC/box/damage-table changes;
+// night_t5_thundergun.gdt shadows the stock entries). These lines pack OUR overridden weapon files
+// into the .ff (per the pack README). External pack - see tools/external_assets_manifest.ps1.
+weapon,thundergun_zm
+weapon,thundergun_upgraded_zm
 
 // Box guns. AK-74u/M60/RPD are Cold War (t9) ports (user 2026-06-26): regular _up, empty altWeapon, models
 // compiled. (PDW-57 / M1911 / Nail Gun / Ripper REMOVED 2026-06-23 - none could be fully twinned for the
@@ -461,20 +845,37 @@ weaponfull,s1_ae4_up_acc_recoil50
 weaponfull,s1_ae4_up_acc_recoil50_fastfire
 weaponfull,s1_ae4_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_ae4_up_acc_recoil50_fastreload
-weaponfull,s1_asm1_acc_fastfire
-weaponfull,s1_asm1_acc_fastfire_fastreload
-weaponfull,s1_asm1_acc_fastreload
-weaponfull,s1_asm1_acc_recoil50
-weaponfull,s1_asm1_acc_recoil50_fastfire
-weaponfull,s1_asm1_acc_recoil50_fastfire_fastreload
-weaponfull,s1_asm1_acc_recoil50_fastreload
-weaponfull,s1_asm1_up_acc_fastfire
-weaponfull,s1_asm1_up_acc_fastfire_fastreload
-weaponfull,s1_asm1_up_acc_fastreload
-weaponfull,s1_asm1_up_acc_recoil50
-weaponfull,s1_asm1_up_acc_recoil50_fastfire
-weaponfull,s1_asm1_up_acc_recoil50_fastfire_fastreload
-weaponfull,s1_asm1_up_acc_recoil50_fastreload
+// RETIRED 2026-07-03 (user) - ASM1 twins; uncomment with the weapon, lines above to restore.
+// weaponfull,s1_asm1_acc_fastfire
+// weaponfull,s1_asm1_acc_fastfire_fastreload
+// weaponfull,s1_asm1_acc_fastreload
+// weaponfull,s1_asm1_acc_recoil50
+// weaponfull,s1_asm1_acc_recoil50_fastfire
+// weaponfull,s1_asm1_acc_recoil50_fastfire_fastreload
+// weaponfull,s1_asm1_acc_recoil50_fastreload
+// weaponfull,s1_asm1_up_acc_fastfire
+// weaponfull,s1_asm1_up_acc_fastfire_fastreload
+// weaponfull,s1_asm1_up_acc_fastreload
+// weaponfull,s1_asm1_up_acc_recoil50
+// weaponfull,s1_asm1_up_acc_recoil50_fastfire
+// weaponfull,s1_asm1_up_acc_recoil50_fastfire_fastreload
+// weaponfull,s1_asm1_up_acc_recoil50_fastreload
+
+// Blast-O-Matic twins (hand-built projectile twins - see the weapon, block comment above).
+weaponfull,t9_semiauto_cosplay_acc_fastfire
+weaponfull,t9_semiauto_cosplay_acc_fastfire_fastreload
+weaponfull,t9_semiauto_cosplay_acc_fastreload
+weaponfull,t9_semiauto_cosplay_acc_recoil50
+weaponfull,t9_semiauto_cosplay_acc_recoil50_fastfire
+weaponfull,t9_semiauto_cosplay_acc_recoil50_fastfire_fastreload
+weaponfull,t9_semiauto_cosplay_acc_recoil50_fastreload
+weaponfull,t9_semiauto_cosplay_up_acc_fastfire
+weaponfull,t9_semiauto_cosplay_up_acc_fastfire_fastreload
+weaponfull,t9_semiauto_cosplay_up_acc_fastreload
+weaponfull,t9_semiauto_cosplay_up_acc_recoil50
+weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastfire
+weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastfire_fastreload
+weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastreload
 weaponfull,s1_mk14_acc_fastfire
 weaponfull,s1_mk14_acc_fastfire_fastreload
 weaponfull,s1_mk14_acc_fastreload

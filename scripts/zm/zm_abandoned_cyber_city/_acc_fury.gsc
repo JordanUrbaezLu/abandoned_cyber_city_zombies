@@ -1,0 +1,296 @@
+// =============================================================================
+// _acc_fury.gsc - Apothicon Fury TRENCH ELITE (user 2026-07-03)
+//
+// The HB21 Apothicon Fury pack (v1.1.0, external - see tools/external_assets_manifest.ps1)
+// ships the archetype + a "special fury rounds" mode; that mode is DISABLED in our
+// zm_genesis_apothicon_fury.gsh (APOTHICAN_FURY_USE_SPECIAL_FURY_ROUNDS 0) - THIS module
+// is the only spawner. Design (user): "like the glitch and shielded" - an ELITE, not a
+// boss. It does NOT count toward the round (SpawnActor'd extra, zombie_total untouched -
+// same contract as the Glitch altar zombies).
+//
+//   - HEALTH: flat 10x the current round's zombie health (acc_fury_health_mult), OVERRIDING
+//     the pack's 1.2/1.5/1.7 round tiers (its threaded health_init runs first; we re-set
+//     after our post-spawn wait, so ours wins).
+//   - SPEED: matches the round zombies' GAIT - run before acc_zspeed_sprint_round (17),
+//     sprint from it (the horde's exact speed is a per-zombie xanim playback rate from
+//     _acc_zombie_speed that a different archetype can't share; gait is the same knob the
+//     stock fury uses, ai::set_behavior_attribute("move_speed")).
+//   - CADENCE (user 2026-07-03, PER-PLAYER): EVERY player runs their OWN independent
+//     acc_fury_interval (30s) clock; while that player is at trench LAYER >= acc_fury_min_layer
+//     (2 - "level 2 trench and below", NOT layer 1/the pit), each full interval meteor-drops one
+//     fury near them. Timers are per-player, so N players deep = N independent spawn streams
+//     ("stacks"). Leaving the deep trench PAUSES that player's clock (doesn't reset). Cap scales:
+//     acc_fury_max_per_player (2) x deep-player count, hard-ceiling acc_fury_max_ceil (8).
+//   (A dev-only round-1 test spawn validated the archetype in game 2026-07-03 and was
+//   removed the same day - the trench cadence is the only spawner.)
+//
+// Points/AAT/death events are the pack's own (registered per-archetype in
+// zm_genesis_apothicon_fury.gsc __init__). Kill credit pays like a zombie kill.
+// =============================================================================
+
+#using scripts\shared\ai_shared;
+#using scripts\shared\array_shared;
+#using scripts\shared\flag_shared;
+#using scripts\shared\util_shared;
+#using scripts\zm\_zm_utility;
+#using scripts\zm\zm_genesis_apothicon_fury;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer (trench-layer gate)
+
+#insert scripts\shared\shared.gsh;
+
+// Underground z gate for the SPAWN SPOT (a drop can't land above the deep trench). The PLAYER
+// gate is now a trench-LAYER check (>= acc_fury_min_layer), not this plane.
+#define ACC_FURY_Z_DEF          -36
+#define ACC_FURY_INTERVAL_DEF    30   // seconds between a PLAYER's trench fury drops (user 2026-07-03, per-player)
+#define ACC_FURY_MIN_LAYER_DEF    2   // only spawn while a player is at trench LAYER >= 2 (user 2026-07-03: "lv2 and below")
+#define ACC_FURY_MAX_PER_PLAYER   2   // furies a single deep player contributes to the alive cap
+#define ACC_FURY_MAX_CEIL_DEF     8   // hard ceiling on total alive furies (actor-budget safety)
+#define ACC_FURY_HEALTH_MULT_DEF  10.0 // x current round zombie health (user 2026-07-03: 5x -> 8x; 2026-07-04: 8x -> 10x)
+
+#namespace acc_fury;
+
+function init()
+{
+    if ( getdvarint( "acc_fury_on", 1 ) != 1 ) return;
+
+    level.acc_furies = [];
+    level thread fury_manager();
+    if ( IS_TRUE( level.acc_dev ) )
+        level thread dev_fury_watchers();
+
+    dbg( "init (10x hp, PER-PLAYER every " + getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF )
+        + "s at trench layer >= " + getdvarint( "acc_fury_min_layer", ACC_FURY_MIN_LAYER_DEF ) + ")" );
+}
+
+// DEV log that ALSO reaches console_mp.log (IPrintLnBold routes as [ SCRIPTER]; acc_utility::log's
+// /# println #/ path does NOT). No-op in normal play.
+function dbg( msg )
+{
+    acc_utility::log( "fury: " + msg );
+    if ( !IS_TRUE( level.acc_dev ) )
+        return;
+    players = GetPlayers();
+    if ( players.size > 0 && isdefined( players[ 0 ] ) && isplayer( players[ 0 ] ) )
+        players[ 0 ] IPrintLnBold( "^5[FURY] " + msg );
+}
+
+// DEV: (1) console `acc_fury_spawn 1` force-drops a fury near player 0 NOW (bypasses layer/timer -
+// proves the SPAWN path works independent of the gate). (2) every 5s print each player's trench
+// layer so we can see whether anyone is actually reaching layer >= 2.
+function dev_fury_watchers()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+    n = 0;
+    for ( ;; )
+    {
+        if ( getdvarint( "acc_fury_spawn", 0 ) == 1 )
+        {
+            SetDvar( "acc_fury_spawn", "0" );
+            players = GetPlayers();
+            if ( players.size > 0 && isdefined( players[ 0 ] ) )
+            {
+                dbg( "FORCE-SPAWN (console) near player at layer " + acc_bus_trench::underground_layer( players[ 0 ].origin ) );
+                e = spawn_fury_near( players[ 0 ], false );   // require_underground=false so it works anywhere
+                dbg( "force-spawn result: " + ( isdefined( e ) ? "OK" : "FAILED (query/zone/pack-spawn)" ) );
+            }
+        }
+        n++;
+        if ( n % 5 == 0 )   // every 5s, layer readout for player 0
+        {
+            players = GetPlayers();
+            if ( players.size > 0 && isdefined( players[ 0 ] ) )
+                dbg( "layer=" + acc_bus_trench::underground_layer( players[ 0 ].origin )
+                     + " z=" + int( players[ 0 ].origin[ 2 ] ) + " (need layer >= "
+                     + getdvarint( "acc_fury_min_layer", ACC_FURY_MIN_LAYER_DEF ) + ") furies=" + fury_count() );
+        }
+        wait 1;
+    }
+}
+
+// Give every connected player ONE persistent per-player timer thread (guard flag so we never
+// double-thread). Each player's timer is independent - N players deep = N spawn streams.
+function fury_manager()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    for ( ;; )
+    {
+        players = GetPlayers();
+        foreach ( player in players )
+        {
+            if ( isdefined( player ) && !IS_TRUE( player.acc_fury_timer_on ) )
+            {
+                player.acc_fury_timer_on = true;
+                player thread fury_player_timer();
+            }
+        }
+        wait 2;
+    }
+}
+
+// self = a player. Their OWN clock, advancing only while at trench layer >= min (leaving PAUSES
+// it, doesn't reset). Independent per player => furies stack in co-op. Live-diagnosed 2026-07-03:
+// requiring the FULL 30s dwell before the FIRST spawn meant furies almost never appeared (nobody
+// camps deep-trench 30s straight - the user reached layer 2 for ~20s and saw nothing). FIX: the
+// FIRST drop after entering the deep trench arms in acc_fury_arm_sec (8s), so descending actually
+// produces a fury; subsequent drops keep the acc_fury_interval (30s) cadence while they stay deep.
+// Bailing out of the deep trench re-arms the short delay on the next descent.
+function fury_player_timer()
+{
+    self endon( "disconnect" );
+    level endon( "end_game" );
+
+    b_first = true;   // next drop uses the short arm (fresh descent), not the full interval
+
+    for ( ;; )
+    {
+        delay = ( b_first
+                  ? getdvarfloat( "acc_fury_arm_sec", 8 )
+                  : getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF ) );
+
+        waited = 0;
+        while ( waited < delay )
+        {
+            wait 1;
+            if ( player_deep( self ) ) waited += 1;
+        }
+
+        if ( !player_deep( self ) )   // surfaced before the timer fired -> re-arm the short delay
+        {
+            b_first = true;
+            continue;
+        }
+        if ( fury_count() >= effective_cap() )
+            continue;
+
+        e = spawn_fury_near( self, true );
+        if ( isdefined( e ) )
+        {
+            b_first = false;   // armed drop done -> stay on the 30s cadence while deep
+            dbg( "spawned near you (layer " + acc_bus_trench::underground_layer( self.origin ) + ", next in " + getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF ) + "s)" );
+        }
+    }
+}
+
+// A player is "deep" (fury-eligible) while at trench LAYER >= acc_fury_min_layer (2). Uses the
+// canonical _acc_bus_trench layer (which already excludes the hallway / Exchange / surface).
+function player_deep( player )
+{
+    if ( !isdefined( player ) || !zm_utility::is_player_valid( player ) ) return false;
+    return acc_bus_trench::underground_layer( player.origin ) >= getdvarint( "acc_fury_min_layer", ACC_FURY_MIN_LAYER_DEF );
+}
+
+// How many players are currently deep - scales the alive cap so more players => more furies allowed.
+function deep_player_count()
+{
+    n = 0;
+    foreach ( player in GetPlayers() )
+        if ( player_deep( player ) ) n++;
+    return n;
+}
+
+// Alive-fury cap = deep players x per-player share, hard-ceilinged (actor-budget safety).
+function effective_cap()
+{
+    cap = deep_player_count() * getdvarint( "acc_fury_max_per_player", ACC_FURY_MAX_PER_PLAYER );
+    ceil = getdvarint( "acc_fury_max_ceil", ACC_FURY_MAX_CEIL_DEF );
+    if ( cap > ceil ) cap = ceil;
+    return cap;
+}
+
+// Living fury census (self-pruning).
+function fury_count()
+{
+    alive = [];
+    foreach ( e in level.acc_furies )
+    {
+        if ( isdefined( e ) && IsAlive( e ) )
+            alive[ alive.size ] = e;
+    }
+    level.acc_furies = alive;
+    return alive.size;
+}
+
+// Meteor-drop one fury near `player` (pack flow: navmesh query -> spot filter -> meteor FX ->
+// spawn). require_underground constrains candidates below the z gate so a trench drop can't land
+// on the surface above the player. Returns the AI or undefined.
+//
+// THE TRENCH-SPAWN FIX (user 2026-07-03: "furies spawned fine at Plaza but never in the trench"):
+// the deep trench floor (z=-240 and below) sits BELOW every zone's player_volume (corp_zone spans
+// z[-16,400]), so zm_utility::check_point_in_enabled_zone() returns FALSE for EVERY trench navmesh
+// point and rejected all 20 candidates - the fury only ever spawned on the surface (Plaza), which
+// IS in an enabled zone. So we SKIP the enabled-zone check on the underground path: the query is
+// already centered on a valid deep player and returns pathable navmesh, and apothicon_fury_spawn
+// force-sets completed_emerging_into_playable_area=1 (no OOB-kill / melee-lockout below the volume -
+// the SAME below-zone fix the trench SURGE uses). The surface dev force-spawn still gates on the zone.
+function spawn_fury_near( player, require_underground )
+{
+    z_gate = getdvarfloat( "acc_fury_z", ACC_FURY_Z_DEF );
+
+    query = positionQuery_Source_Navigation( player.origin, 200, 800, 128, 20 );
+    if ( !isdefined( query ) || query.data.size == 0 )
+    {
+        dbg( "spawn FAIL: navmesh query empty near player (no nav within 800u?)" );
+        return undefined;
+    }
+
+    n_reject_z = 0;
+    n_reject_zone = 0;
+    spots = array::randomize( query.data );
+    foreach ( spot in spots )
+    {
+        origin = spot.origin;
+        if ( IS_TRUE( require_underground ) && origin[ 2 ] > z_gate ) { n_reject_z++; continue; }
+        // Enabled-zone gate ONLY on the surface path - the trench is below all zone volumes (see header).
+        if ( !IS_TRUE( require_underground ) && !zm_utility::check_point_in_enabled_zone( origin, 1 ) ) { n_reject_zone++; continue; }
+
+        angles = VectorToAngles( VectorNormalize( player.origin - origin ) );
+
+        // Pack visuals: sky meteor + landing boom, then the spawn (blocks ~1.5s).
+        zm_genesis_apothicon_fury::apothicon_fury_meteor_fx( origin );
+        e = zm_genesis_apothicon_fury::apothicon_fury_spawn( origin, angles, 0 );
+        if ( !isdefined( e ) )
+        {
+            dbg( "spawn FAIL: pack apothicon_fury_spawn returned undefined (archetype not loaded?)" );
+            continue;
+        }
+
+        // [acc] ROUND-END FIX (user 2026-07-04): the pack spawns the fury with is_zombie=1 but never
+        // sets ignore_enemy_count, so stock get_current_zombie_count() COUNTS it toward the round - a
+        // fury alive after the horde clears would make the round NEVER END (softlock). This is the
+        // "SpawnActor'd extra, zombie_total untouched" the header promised but the flag was missing.
+        // Set it HERE (not in fury_tune, which has a `wait 1` window where it would still be counted).
+        // Mirrors every sibling extra spawner (_acc_bus_trench:965, _acc_boss_glitch:282).
+        e.ignore_enemy_count = true;
+
+        level.acc_furies[ level.acc_furies.size ] = e;
+        e thread fury_tune();
+        return e;
+    }
+    dbg( "spawn FAIL: no usable spot of " + query.data.size + " (z-rejected " + n_reject_z + ", zone-disabled " + n_reject_zone + ")" );
+    return undefined;
+}
+
+// Post-spawn stat override: 10x round zombie health + the horde's current gait.
+// Runs AFTER the pack's threaded health_init + the 1s think-done settle, so ours is final.
+function fury_tune()
+{
+    self endon( "death" );
+
+    wait 1;
+    self.zombie_think_done = 1;  // hunt immediately (pack sets this only on its own spawn paths)
+
+    n_zombie_health = level.zombie_health;
+    if ( !isdefined( n_zombie_health ) || n_zombie_health <= 0 )
+        n_zombie_health = level.zombie_vars[ "zombie_health_start" ];
+    self.maxhealth = int( n_zombie_health * getdvarfloat( "acc_fury_health_mult", ACC_FURY_HEALTH_MULT_DEF ) );
+    self.health = self.maxhealth;
+
+    // Same gait as the round's horde: run pre-sprint-round, sprint from it (_acc_zombie_speed's tier knob).
+    sprint_round = getdvarint( "acc_zspeed_sprint_round", 17 );
+    gait = ( ( level.round_number >= sprint_round ) ? "sprint" : "run" );
+    self ai::set_behavior_attribute( "move_speed", gait );
+}

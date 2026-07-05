@@ -291,7 +291,14 @@ function variant_guns()
     // MUST mirror tools/apply_recoil_overhaul.js GUNS. AK-74u/M60/RPD are now Cold War (t9) ports, all with the
     // REGULAR "_up" PaP form. Ripper/Nail/PDW/M1911 were REMOVED (convertible/projectile/akimbo = can't be twinned).
     // NOTE: 224 is only ~6 under the cap - do NOT add a 17th twinned gun without a boot test (silent AV past ~230).
-    return array( "s1_tac19", "s1_asm1", "t6_fiveseven", "t9_ak47", "s1_ae4",
+    // ASM1 RETIRED 2026-07-03 (user; zone twin lines commented too) - re-add "s1_asm1" to restore.
+    // Blast-O-Matic ADDED 2026-07-03 (user: "make sure it has all twins"): t9_semiauto_cosplay is a
+    // PROJECTILEWEAPON, which apply_recoil_overhaul/gen_weapon_variant_gdt refuse - its 14 twins are
+    // HAND-BUILT clones in acc_weapon_variants.gdt (scratchpad gen_blasto_twins recipe: canonical
+    // TWIN_DIMS mults on the projectile-equivalent fields; the swap path here is name-based and
+    // works for any weapon class). Roster: 16 guns x 14 = 224 twins - the boot-tested pre-ASM1-
+    // retirement level, still under the ~230 cap. Do NOT add a 17th twinned gun without a boot test.
+    return array( "s1_tac19", "t6_fiveseven", "t9_ak47", "s1_ae4", "t9_semiauto_cosplay",
                   "s4_ppsh41_base", "t6_galil", "t6_olympia", "t8_paladin_hb50", "t9_ak74u",
                   "t9_m60", "t9_rpd", "s1_rw1", "s1_mk14", "s1_mors", "t6_chicom_cqb" );
 }
@@ -717,6 +724,16 @@ function packed_form( weapon )
     base = GetWeapon( stem );
     if ( !isdefined( base ) || base == level.weaponNone ) return weapon;
     if ( zm_weapons::is_weapon_upgraded( base ) ) return base;   // stem already packed
+    // [acc] GUARD (user session 2026-07-02: "undefined is not a field object" x2 via _acc_pap_levels ->
+    // here -> _zm_weapons): stock get_upgrade_weapon() derefs level.zombie_weapons[rootWeapon].upgrade
+    // UNGUARDED (_zm_weapons.gsc:1649). A held weapon whose stem is NOT registered in the zombie-weapons
+    // table (the Action Figure - PaPs in place, no _up registration; knife/hero/dev gives) crashed there.
+    // Route unregistered/upgrade-less stems back unchanged - every caller treats packed==held as
+    // "nothing to first-pack" (the Action Figure's own tier path handles its in-place packs).
+    root = base.rootWeapon;
+    if ( !isdefined( root ) ) root = base;
+    if ( !isdefined( level.zombie_weapons[ root ] ) || !isdefined( level.zombie_weapons[ root ].upgrade ) )
+        return weapon;
     return zm_weapons::get_upgrade_weapon( base );               // stock base -> upgrade
 }
 

@@ -142,7 +142,7 @@ function register_mystery_box_pool()
     // can take the recoil/fire/reload twins, so they were cut. See CHANGELOG + docs/33.
     box_weapons = array(
         "t6_fiveseven",     // Five-Seven (Skye BO2 - also the starting pistol)
-        "s1_asm1",          // ASM1       (Skye AW)
+        // "s1_asm1",       // ASM1 RETIRED 2026-07-03 (user: least liked) - uncomment to restore (+ zone/CSV, see zone comment)
         "s1_tac19",         // Tac-19     (Skye AW)
         "t9_ak47",          // AK-47      (Skye BO2)
         "s1_ae4",           // AE4        (Skye AW - directed-energy AR)
@@ -171,6 +171,9 @@ function register_mystery_box_pool()
         // stock WW behavior). PaP -> thundergun_upgraded (cooked); stock cooked SFX. TIER-WEIGHTED box odds
         // (acc_box_weight): it's S+ (its own tier, above S), the RAREST roll of all at ~1% (acc_box_weight).
         "thundergun",            // Thundergun (wind-blast knockback - the map's wonder weapon)
+        // Blast-O-Matic (CW DOA energy blaster, Owens port; user 2026-07-03). Projectile wonder-class
+        // special that IS fully twinned (hand-built twins - see _acc_weapon_variants). S+/wonder rarity.
+        "t9_semiauto_cosplay",   // Blast-O-Matic (energy blaster)
         // Action Figure (BO4 t8 melee port by T0nic; TEST-ONLY rip, see CREDITS). A fun handheld swing weapon.
         // Source installed in the Mod Tools (gitignored); .zone + CSV + GDT wired 2026-06-23. Melee = "special"
         // class like the Thundergun, so it rides the same is_in_box flip below (degrades to "not in box" if the
@@ -383,10 +386,13 @@ function acc_box_weight( wpn )
     n = wpn.name;
     if ( n == "thundergun" ) return 3;   // ~0.6% each - Thundergun
     if ( n == "t8_melee_figure" ) return 5;   // ~1.1% each - Action Figure
-    if ( n == "t6_chicom_cqb" || n == "t9_m60" || n == "t9_ak47" || n == "s4_ppsh41_base" || n == "s1_tac19" ) return 8;   // ~1.7% each - Chicom CQB, M60, AK-47, PPSH-41, Tac-19 (S-tier, rarest; user 2026-06-26)
-    if ( n == "s1_mors" ) return 12;   // ~2.6% each - MORS
-    if ( n == "s1_ae4" || n == "s1_rw1" || n == "t9_ak74u" || n == "s1_asm1" || n == "t6_galil" || n == "s1_mk14" || n == "s1_mahem" ) return 29;   // ~6.3% each - AE4, RW1, AK-74u, ASM1, Galil, MK14, Mahem
-    if ( n == "t8_paladin_hb50" || n == "t9_rpd" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~10.8% each - Paladin HB50, RPD, Five-Seven, Olympia
+    if ( n == "t9_semiauto_cosplay" ) return 5;   // ~1.1% - Blast-O-Matic (wonder-class special, user 2026-07-03)
+    // USER 2026-07-03 rarity swaps (PAIRED with the same moves in pap_price_bucket):
+    // Chicom<->Mahem, AK-74u<->Paladin, Galil<->RPD, MK14 pushed into the S band.
+    if ( n == "t9_m60" || n == "t9_ak47" || n == "s4_ppsh41_base" || n == "s1_tac19" || n == "s1_mahem" || n == "s1_mk14" ) return 8;   // ~1.9% each - M60, AK-47, PPSH-41, Tac-19, Mahem, MK14 (S band, rarest)
+    if ( n == "s1_mors" ) return 12;   // ~2.9% - MORS
+    if ( n == "s1_ae4" || n == "s1_rw1" || n == "t6_chicom_cqb" || n == "t8_paladin_hb50" || n == "t9_rpd" ) return 29;   // ~6.9% each - AE4, RW1, Chicom CQB, Paladin HB50, RPD (ASM1 RETIRED 2026-07-03 - re-add "|| n == \"s1_asm1\"" to restore)
+    if ( n == "t9_ak74u" || n == "t6_galil" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~12.0% each - AK-74u, Galil, Five-Seven, Olympia (commonest)
     return 5;   // unknown -> mid
 }
 // <<< END GENERATED >>>

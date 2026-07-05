@@ -10,7 +10,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 "lightingquality" "1024"
 "samplescale" "1"
 "skyboxmodel" "skybox_default_night"
-"ssi" "default_night"
+"ssi" "acc_ssi_night_dim80"
 "wsi" "default_night"
 "fsi" "default"
 "gravity" "800"
@@ -1469,7 +1469,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 687 459.5 88 ) ( 687 419.5 88 ) ( 687 419.5 0 ) t7_metal_worn_iron_dark 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ===== end trench walls =====
-// ACC perk alcove partitions (tools/respace_perk_alcoves_10.js — 10-machine row)
+// ACC perk alcove partitions (tools/respace_perk_alcoves_10.js ??? 10-machine row)
 {
  guid "{155DC6DE-AC10-4E0D-8A3F-000000000022}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) t7_zm_der_tile_hexagon 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -1955,14 +1955,14 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 1990 459.5 88 ) ( 1990 419.5 88 ) ( 1990 419.5 0 ) t7_metal_painted_wall_dirty_black 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 // ===== ACC WALL-BUY CHALK OUTLINES (user 2026-06-24) =====
-// Inline worldspawn chalk meshes — the SAME recipe that built + worked flawlessly in the
+// Inline worldspawn chalk meshes ??? the SAME recipe that built + worked flawlessly in the
 // early map (commit 0044a16, t7_zm_chalk_buy_icr1 brush). The earlier "chalk shaders won't
 // compile" claim was wrong: these are plain colorMap material.gdf assets (verified in the
 // installed GDTs skye_t6_olympia / skye_t6_kap-40, + stock t7_zm_chalk_buy_frag). A flat
 // 42x42u quad on the wall face, 2u proud, contents nonColliding. Mesh winding sets the
 // visible normal: rows Xmin->Xmax = -y normal (room at -y); rows Xmax->Xmin = +y normal.
 // Paired 1:1 with the weapon_upgrade/model struct PAIRS below (entities 9001-9008).
-// FIVE-SEVEN chalk — Lab south wall face y3068, room to the NORTH (+y normal)
+// FIVE-SEVEN chalk ??? Lab south wall face y3068, room to the NORTH (+y normal)
  {
   guid "{ACCC0001-0000-4DE1-8A3F-1F00ACCC0001}"
   mesh
@@ -1982,7 +1982,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
    )
   }
  }
-// OLYMPIA chalk — corp south-rim wall face y1703, room to the SOUTH (-y normal)
+// OLYMPIA chalk ??? corp south-rim wall face y1703, room to the SOUTH (-y normal)
  {
   guid "{ACCC0002-0000-4DE1-8A3F-1F00ACCC0002}"
   mesh
@@ -2002,7 +2002,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
    )
   }
  }
-// FRAG GRENADE chalk — Plaza north wall face y720, room to the SOUTH (-y normal)
+// FRAG GRENADE chalk ??? Plaza north wall face y720, room to the SOUTH (-y normal)
  {
   guid "{ACCC0003-0000-4DE1-8A3F-1F00ACCC0003}"
   mesh
@@ -2022,13 +2022,13 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
    )
   }
  }
-// AK-47 chalk (user 2026-06-26) — Abyss Layer 4 ("4th floor" trench, floor z=-960) SOUTH wall face
+// AK-47 chalk (user 2026-06-26) ??? Abyss Layer 4 ("4th floor" trench, floor z=-960) SOUTH wall face
 // y1723, room to the NORTH (+y normal). Same recipe/winding as the Five-Seven chalk above (Xmax->Xmin
 // = +y normal), centered x=-400, z = floor+32.5..floor+74.5 = -927.5..-885.5. Material =
-// mtl_t6_wpn_ar_ak47_wall_chalk (the REAL AK-47 chalk from the installed skye_t6_ak47.gdt — same
+// mtl_t6_wpn_ar_ak47_wall_chalk (the REAL AK-47 chalk from the installed skye_t6_ak47.gdt ??? same
 // material.gdf class as the Five-Seven kard chalk, so it BAKES). !! LED-BAKE TRAP (verified 2026-06-26
 // via _bake_test): the stock t7_zm_chalk_buy_m8a4 chalk is in the runtime asset list BUT crashes the
-// Radiant lightmapper (0xC0000005) — it is NOT bake-safe. Use a skye *_wall_chalk material.gdf here.
+// Radiant lightmapper (0xC0000005) ??? it is NOT bake-safe. Use a skye *_wall_chalk material.gdf here.
  {
   guid "{ACCC0004-0000-4DE1-8A3F-1F00ACCC0004}"
   mesh
@@ -2048,7 +2048,7 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
    )
   }
  }
-// M60 chalk (user 2026-06-27) — Abyss Layer 5 ("bottom floor", floor z=-1200) SOUTH wall WEST jamb, face
+// M60 chalk (user 2026-06-27) ??? Abyss Layer 5 ("bottom floor", floor z=-1200) SOUTH wall WEST jamb, face
 // y1725, room to the NORTH (+y normal). Same recipe/winding as the AK-47 chalk above (Xmax->Xmin = +y
 // normal); ONLY z is translated -240 to L5 (the t-coords are decal-relative - verified identical to the
 // Five-Seven chalk at a totally different z, so a pure z-translation preserves the winding = bake-safe).
@@ -4190,7 +4190,7 @@ guid "{BD43FCAD-0A27-468D-A854-EBAFD228CB14}"
 guid "{E1B4DCC3-0D06-402E-A5C9-C3B0CA5D7B24}"
 "classname" "misc_prefab"
 "angles" "0 90 0"
-"model" "_prefabs/zm/zm_core/power_switch.map"
+"model" "_prefabs/acc/power_switch_ww2.map"
 "origin" "-752 2250 1"
 "script_string" "corp"
 }
@@ -4345,7 +4345,7 @@ guid "{315342F4-B77A-4FAC-9B45-ADF540B3B5D7}"
 guid "{122366A5-BD0F-46AD-B3E5-59AF52D4A611}"
 "classname" "misc_prefab"
 "angles" "0 179.999 0"
-"model" "_prefabs/zm/zm_core/vending_weapon_upgrade_spawnable.map"
+"model" "_prefabs/acc/vending_weapon_upgrade_alxs.map"
 "origin" "-700 3700 7.5"
 "script_string" "zclassic_perks_start_room"
 }
@@ -4415,10 +4415,10 @@ guid "{FB5AD357-A4DC-429A-8A50-AD766502F23D}"
 guid "{D675F5DE-6967-45BF-98F7-31A98642A66F}"
 "classname" "volume_sun"
 "shadowSplitDistance" "800"
-"ssi" "default_night"
-"ssi1" "default_night"
-"ssi1_runtime_override" "default_night"
-"ssi2" "default_night"
+"ssi" "acc_ssi_night_dim80"
+"ssi1" "acc_ssi_night_dim80"
+"ssi1_runtime_override" "acc_ssi_night_dim80"
+"ssi2" "acc_ssi_night_dim80"
 "global_fill_color" "0 0 0"
 "global_fill_intensity" "1"
 "grid_density" "32"
@@ -4525,19 +4525,19 @@ guid "{7A2B9C15-ACC0-4DE1-8A3F-1F00ACCE0043}"
 "targetname" "zm_perk_machine"
 "_color" "1 0 0"
 }
-// entity (acc electric cherry — real 10th perk, tools/respace_perk_alcoves_10.js)
+// entity (acc electric cherry ??? real 10th perk, tools/respace_perk_alcoves_10.js)
 {
 guid "{47003C9D-AC10-4E0D-8A3F-000000000021}"
 "classname" "script_struct"
 "angles" "0 359.999 0"
-"model" "p6_zm_vending_electric_cherry_on"
+"model" "electric_cherry_model"
 "origin" "675 4195 0"
 "script_noteworthy" "specialty_combat_efficiency"
 "script_string" "zclassic_perks_start_room"
 "targetname" "zm_perk_machine"
 "_color" "0 1 1"
 }
-// ===== ACC WALL-BUYS (user 2026-06-24) — chalk outline + flush wall placement =====
+// ===== ACC WALL-BUYS (user 2026-06-24) ??? chalk outline + flush wall placement =====
 // FIXED 2026-06-24: the prior pass (a) skipped chalk on a FALSE "shaders won't compile" claim
 // and (b) left the gun floating ~15-17u off the wall (model sat at the trigger origin, z50).
 // Now each wall-buy is the PROVEN early recipe (commit 0044a16, the t7_zm_chalk_buy_icr1 build
@@ -4547,9 +4547,9 @@ guid "{47003C9D-AC10-4E0D-8A3F-000000000021}"
 // buys AND the stock t6_olympia prefab): model angles "0 0 0" => faces +y (room north);
 // "0 180 0" => faces -y (room south). The HINT TEXT shown + the weapon/nade GIVEN come from
 // "zombie_weapon_upgrade" (t6_fiveseven / t6_olympia / frag_grenade / t9_ak47) + the weapons CSV
-// (500/500/100/1500) — NOT the chalk material, so a generic chalk outline is fine (user 2026-06-24).
+// (500/500/100/1500) ??? NOT the chalk material, so a generic chalk outline is fine (user 2026-06-24).
 // CHALK ONLY (user 2026-06-24): the model struct below is kept (it's the trigger's target for the
-// stock pipeline) but NOTHING renders it — script_structs don't draw their model KVP, and the
+// stock pipeline) but NOTHING renders it ??? script_structs don't draw their model KVP, and the
 // redundant 3D-gun spawn (spawn_acc_wallbuy_models) is DISABLED, so each spot shows only the chalk.
 // Kept past box-only remove_all_wallbuys() by its whitelist.
 // entity 9001  (Five-Seven wall-buy trigger - Lab south wall face y3068, room NORTH +y)
@@ -6432,7 +6432,7 @@ guid "{7A2B9F00-ACC9-4E0C-8A3F-000000000902}"
  ( 700 459.5 88 ) ( 700 419.5 88 ) ( 700 419.5 0 ) trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// ACC perk alcove door gates (tools/respace_perk_alcoves_10.js) — toggled by _acc_perk_doors.gsc
+// ACC perk alcove door gates (tools/respace_perk_alcoves_10.js) ??? toggled by _acc_perk_doors.gsc
 {
 guid "{E431ACDD-AC10-4E0D-8A3F-000000000001}"
 "classname" "script_brushmodel"
@@ -6583,7 +6583,7 @@ guid "{6A6748B6-AC10-4E0D-8A3F-000000000019}"
  ( 604 459.5 88 ) ( 604 419.5 88 ) ( 604 419.5 0 ) t7_zm_der_tile_hexagon 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// ACC EC right wall — script_brushmodel (acc_ec_right_wall): seals the OPEN right side of the Electric
+// ACC EC right wall ??? script_brushmodel (acc_ec_right_wall): seals the OPEN right side of the Electric
 // Cherry alcove so its closed door can't be flanked. A brushmodel (like the perk doors), NOT world
 // geometry, so the LED lightmapper IGNORES it (a WORLD brush in this thin nook hung the bake at 55s).
 // Fills X=746..799 (EC door right edge -> Lab east wall), Y=4154..4228 (alcove depth), Z=0..150.
@@ -10642,7 +10642,7 @@ guid "{7A2BAB0F-ACE0-4E14-8A3F-000000000008}"
  guid "{7A2BAF00-ACF0-4E0D-8A3F-00000000001A}"
  "classname" "script_struct"
  "angles" "0 359.999 0"
- "model" "p6_zm_vending_electric_cherry_on"
+ "model" "electric_cherry_model"
  "origin" "900 -820 -1200"
  "script_noteworthy" "specialty_combat_efficiency"
  "script_string" "zclassic_perks_start_room"
@@ -10653,7 +10653,7 @@ guid "{7A2BAB0F-ACE0-4E14-8A3F-000000000008}"
  guid "{7A2BAF00-ACF0-4E0D-8A3F-00000000001B}"
  "classname" "misc_prefab"
  "angles" "0 179.999 0"
- "model" "_prefabs/zm/zm_core/vending_weapon_upgrade_spawnable.map"
+ "model" "_prefabs/acc/vending_weapon_upgrade_alxs.map"
  "origin" "0 -1700 -1192.5"
  "script_string" "zclassic_perks_start_room"
 }
@@ -11721,3 +11721,51 @@ guid "{7A2BCE0E-CE04-4E14-8A3F-000000000016}"
  }
 }
 // <<< ACC CORP BRIDGE
+// >>> ACC CIVIL PROTECTOR SPAWNERS (HarryBo21 pack v2.0.0, user 2026-07-02) - inlined from the
+// pack prefab civil_protector_spawners.map (KVPs verbatim, origins ours). RE-APPENDED 2026-07-02
+// 22:2x: a concurrent session's .map read-modify-write clobbered the first append (in-game proof:
+// "[RP] FAIL: no acc_robot_boss_spawner entity found in BSP"). If these vanish again, check for
+// concurrent sessions rewriting the .map.
+{
+guid "{281169EB-1419-11E7-9E42-1C872C6043AB}"
+"classname" "actor_spawner_ally_zod_robot_companion_gold_ar"
+"SCRIPT_FORCESPAWN" "1"
+"count" "999"
+"export" "45"
+"guid" "DCFBAAE5"
+"invalid_s_m_i_d" "62496"
+"origin" "-240 120 8"
+"script_noteworthy" "zombie_robot_gold_spawner"
+"ALERTONSPAWN" "1"
+"SPAWNER" "1"
+"_color" "0 0.25 1"
+"engageMaxDist" "1000"
+"engageMinDist" "600"
+"model" "c_zom_zod_robot_protector_gold_fb"
+"script_dropammo" "1"
+"sm_active_count_max" "3"
+"sm_active_count_min" "3"
+"spawnflags" "25"
+}
+{
+guid "{2811603A-1419-11E7-9E42-1C872C6043AB}"
+"classname" "actor_spawner_ally_zod_robot_companion_ar"
+"SCRIPT_FORCESPAWN" "1"
+"count" "999"
+"export" "45"
+"guid" "C18BB03B"
+"invalid_s_m_i_d" "62496"
+"origin" "-200 120 8"
+"script_noteworthy" "zombie_robot_spawner"
+"ALERTONSPAWN" "1"
+"SPAWNER" "1"
+"_color" "0 0.25 1"
+"engageMaxDist" "1000"
+"engageMinDist" "600"
+"model" "c_zom_zod_robot_protector_fb"
+"script_dropammo" "1"
+"sm_active_count_max" "3"
+"sm_active_count_min" "3"
+"spawnflags" "25"
+}
+// <<< ACC CIVIL PROTECTOR SPAWNERS

@@ -344,8 +344,14 @@ function avogadro_callback()
 }
 
 function avogadro_damage_callback( inflictor, attacker, damage, flags, mod, weapon, vpoint, vdir, sHitLoc, psOffsetTime, boneIndex, surfaceType )
-{    
-    if( attacker.targetname == "avogadro")
+{
+    // [acc] CRASH GUARD (user 2026-07-04): this is a level.perk_damage_override, so it runs on EVERY
+    // player-damage event (registered via on_connect, REGISTER_SYSTEM init). Reading attacker.targetname
+    // on an UNDEFINED attacker (a 2-arg DoDamage self-kill like the decontamination seal, or fall/
+    // environmental damage) threw a runtime script error on the inline damage path. isdefined-guard it -
+    // same guard _acc_elites::on_player_damaged and _acc_damage use for this exact read. (The Avogadro
+    // boss never spawns on this map, so the branch is never true anyway - this just stops the crash.)
+    if( isdefined( attacker ) && attacker.targetname == "avogadro")
     {
     	//IPrintLnBold("hi");
     	//IPrintLnBold(inflictor);

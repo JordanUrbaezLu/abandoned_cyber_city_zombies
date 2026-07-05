@@ -164,7 +164,10 @@ function reactor_set_hint()   // self = the plinth trigger
     else if ( !reactor_available() )
         self SetHintString( "^1REACTOR^7 - recharging (" + reactor_rounds_left() + " round(s))" );
     else
-        self SetHintString( "Hold ^3[{+activate}]^7  ^1REACTOR SURGE^7 - survive for ^5" + reactor_reward() +
+        // Buyable-UI audit fix (2026-07-03): "survive for" tripped the router's "hold"+"for"
+        // mystery-box weapon-pickup mode (it displayed "5 Data Shards each + Fire Sale" as a
+        // WEAPON name). "survive it:" carries no router token -> DefaultHint.
+        self SetHintString( "Hold ^3[{+activate}]^7  ^1REACTOR SURGE^7 - survive it: ^5" + reactor_reward() +
                             " Data Shards^7 each + Fire Sale" );
 }
 
