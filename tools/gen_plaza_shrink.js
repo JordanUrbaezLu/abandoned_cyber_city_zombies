@@ -18,9 +18,10 @@
 //   at y[400,656]; the buyable doors live further out and are untouched.
 //
 // IMPLANT LAB room: the sealed strip SOUTH of the plaza south wall (y[-540,-240]),
-//   interior x[-400,-40] y[-540,-240] (360x300). Holds the two boss-item Implant Bench
-//   pads (spawned by _acc_boss_items at y~-480 - they were getting SEALED behind the new
-//   plaza south wall; now they live in this room). Entered from the plaza by a TIGHT 80u
+//   interior x[-720,180] y[-540,-240] (900x300 since the 2026-06-27 WEST + 2026-07-10 EAST
+//   widenings). Holds the THREE boss-item Implant Bench pads (spawned by _acc_boss_items,
+//   spread as a staggered arc across the widened EAST clear area, out of the Exchange
+//   staircase's SW corner). Entered from the plaza by a TIGHT 80u
 //   doorway (x[-260,-180]) in the plaza south wall, gated by a buyable slide-up door
 //   (enter_implant, 1500 - wired in zm_abandoned_cyber_city.gsc zone_door_trigger_origin
 //   + zone_door_thin_offset). Room/plaza are one zone (inside start_zone's volume), so no
@@ -67,7 +68,12 @@ const WALLS = [
   // ENLARGED 2026-06-27: lab widened WEST from x[-400,-40] to x[-720,-40] (more room + a sensible
   // stairwell). West wall moved -400 -> -720; The Exchange staircase room sits in the new SW corner.
   [-740, -720, -540, -240, 0, 256],   // room WEST wall (enlarged: -420/-400 -> -740/-720)
-  [-40, -20, -540, -240, 0, 256],     // room EAST wall
+  [180, 200, -540, -240, 0, 256],     // room EAST wall (WIDENED 2026-07-10: -40/-20 -> 180/200 for the 3-bench
+                                       // implant relayout; room x-extent now -720..180). NOTE: this table value
+                                       // is kept in sync, but the change was HAND-APPLIED to the .map - do NOT
+                                       // blindly re-run this generator: it re-emits solid wall #5 (213..233,
+                                       // -260..400) which gen_upper_room.js CARVES for the Armory doorway. If you
+                                       // must re-run, re-run gen_upper_room.js afterwards to re-carve wall #5.
   // MAZE REMOVED (user 2026-06-26: "remove the whole maze"). The plaza is open-but-shrunk now;
   // difficulty comes from the ~75% shrink + scattered crate cover (CLIPS below), not interior walls.
 ];
@@ -145,7 +151,7 @@ const RISER_MOVES = {
 
 // New interior bounds (for the clearance self-check).
 const PLAZA = { x1: -470, x2: 213, y1: -240, y2: 720 };
-const ROOM  = { x1: -720, x2: -40, y1: -540, y2: -240 };   // enlarged WEST 2026-06-27 (-400 -> -720)
+const ROOM  = { x1: -720, x2: 180, y1: -540, y2: -240 };   // enlarged WEST 2026-06-27 (-400 -> -720); widened EAST 2026-07-10 (-40 -> 180)
 
 // Deterministic HEX GUID (counter-based) - matches add_perk_alcoves / gen_room_cover.
 let gc = 0;

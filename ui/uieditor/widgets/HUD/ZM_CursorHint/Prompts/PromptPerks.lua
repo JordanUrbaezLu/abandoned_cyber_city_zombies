@@ -223,6 +223,20 @@ function CoD.PromptPerks.UpdatePerkInfo( self, perkData )
 		isMega = ACC_BitIsSet( megaMask, perkData.bit )
 	end
 
+	-- ACC $1-bug fix (2026-07-10): the LIVE machine hint is the definitive base-vs-mega signal, NOT the
+	-- async accOwnedMask - it lags the purchase by up to 0.25s (perk_state_watch poll), so a Mega hint can
+	-- fall through to the BASE branch below whose "Cost:%s*(%d+)" regex grabs the "1" of "1 Mega Bottle"
+	-- and paints a gold Points "1" with the essence icon (the reported "$1"). The literal "Cost: 1 Mega
+	-- Bottle" is unique to the mega machine hint (_acc_mega_bottles::mega_trigger_think); the perk-door
+	-- unlock reads "for 2 Mega Bottles" (no match), so this only ever forces the Mega-PREVIEW branch.
+	if perkData.megaName and self.acc_controller ~= nil then
+		local acc_ht = Engine.GetModelValue( Engine.GetModel( Engine.GetModelForController( self.acc_controller ), "hudItems.cursorHintText" ) )
+		if acc_ht and string.find( acc_ht, "Cost: 1 Mega Bottle", 1, true ) then
+			owned = true
+			isMega = false
+		end
+	end
+
 	if owned and perkData.megaName then
 		-- MEGA tier: name + FULL benefit list swap to the Mega upgrade; icon = teal Mega art.
 		-- Mega preview (owned, not Mega'd) lists what the bottle ADDS; Mega'd lists every

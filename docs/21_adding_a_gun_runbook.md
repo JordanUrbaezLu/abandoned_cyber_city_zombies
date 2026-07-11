@@ -179,10 +179,10 @@ alias per foley wav (alias name = wav basename = the GDT token). Traps it encode
   `wpn_sniper_<gun>_*scope/camo/lens*` material tokens; only the `wpn_<sid>_*` ones with a
   matching wav are sounds. Driving foley from the wav folder (not the GDT token list)
   sidesteps this automatically.
-- **Singular-token foley the auto-scanner can't emit.** China Lake's reload token is
-  `shell_in` (singular) mapping TWO wavs (`shell_in1/2`) — the scanner names foley by wav
-  basename so it can't collapse those; **hand-add** such guns' aliases (don't rely on the
-  generator's `GUNS`).
+- **Singular-token foley the auto-scanner can't emit.** The (now-removed, Apex migration
+  2026-07-06) China Lake's reload token was `shell_in` (singular) mapping TWO wavs
+  (`shell_in1/2`) — the scanner names foley by wav basename so it can't collapse those;
+  **hand-add** such guns' aliases (don't rely on the generator's `GUNS`).
 - **Projectile guns: grep `projExplosionSound`.** A launcher/GL's explosion sound is a
   separate alias — War Machine's `projExplosionSound` (`wpn_t6_grenade_explosion_npc`) had
   no alias anywhere → silent explosions until aliased to the Mahem explosion wav.
@@ -213,8 +213,9 @@ Each weapon **category** has one live signature ability. To add a category:
   Reusable contracts: `self.acc_ability_crit_shots` (N auto-crit shots at 4×) and
   `self.acc_ability_slug_next` (next shot 3×). Don't map to a stub. Cheapest live new
   ability = arm `acc_ability_crit_shots` to a count that fits the gun (the AR's **Focus
-  Fire** = 6, vs the pistol's Precision Mode = 3). **Explosive specials** (Mahem, China
-  Lake, War Machine) take **no ability** — they mirror the launcher special path instead.
+  Fire** = 6, vs the pistol's Precision Mode = 3). **Explosive specials** (Mahem, War
+  Machine) take **no ability** — they mirror the launcher special path instead. (The China
+  Lake was a third such special until it was removed in the 2026-07-06 Apex migration.)
 
 ### 6. Overclock family — `_acc_overclocks.gsc::weapon_name_to_family`
 Add the base name to the matching `*_list` (`ar_list`/`smg_list`/`sg_list`/…). The

@@ -42,7 +42,7 @@
 
 #precache( "model", "cp_town_jukebox" );
 
-#define ACC_JUKEBOX_ORIGIN        ( -140, 2350, -240 )   // NORTH under-room, west side (the old LEFT bear spot; center is the reactor plinth's)
+#define ACC_JUKEBOX_ORIGIN        ( -150, 2240, -240 )   // NORTH under-room, SOUTH-WEST (user 2026-07-10: spread it away from the reactor plinth at the north wall (0,2493) - was (-140,2350), only ~200u apart). Back to the west wall, faces +x into the room, clear of the south doorway (x[-96,96]). Clip mirrors in add_prop_clips.js (label 'jukebox').
 #define ACC_JUKEBOX_YAW           0                      // face +x = into the room (retune in-game if the IW model's forward differs)
 #define ACC_JUKEBOX_COOLDOWN_SEC  300                 // seconds between plays (lets a song play out) - dvar acc_jukebox_cooldown
 #define ACC_JUKEBOX_COST_POINTS   1000                // points per play      - dvar acc_jukebox_cost_points

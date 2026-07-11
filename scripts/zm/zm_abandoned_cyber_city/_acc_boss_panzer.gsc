@@ -60,7 +60,7 @@ function dbg( msg )
 	// Same contract as the Avogadro's dbg: key [PANZER] events log whenever level.acc_dev is on
 	// (lands in console_mp.log as [SCRIPTER] via acc_utility::log + on-screen), opt-in via
 	// acc_panzer_debug 1 outside dev. Normal play = silent.
-	if ( !IS_TRUE( level.acc_dev ) && getdvarint( "acc_panzer_debug", 0 ) != 1 )
+	if ( getdvarint( "acc_panzer_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PANZER] rides acc_panzer_debug now)
 		return;
 	acc_utility::log( "[PANZER] " + msg );
 	players = GetPlayers();
@@ -455,8 +455,9 @@ function spawn_boss()
 	boss.health    = hp;
 
 	dbg( "spawned @ " + org + " (" + where + ") - round " + rn + ", " + hp + " hp" );
-	if ( IS_TRUE( level.acc_dev ) )
-		announce( "^1PANZER ACTIVE^7 (" + where + ") - " + hp + " hp" );
+	// PANZER dev "ACTIVE + hp" banner REMOVED 2026-07-10 (clean screen in hardcoded dev); the 3D nameplate + boss music below are the tell.
+	// if ( IS_TRUE( level.acc_dev ) )
+	//	announce( "^1PANZER ACTIVE^7 (" + where + ") - " + hp + " hp" );
 
 	// --- presentation: 3D nameplate (index 2, the repurposed SUBROUTINE CORE slot) + music ---
 	level notify( "acc_boss_spawned", boss, ACC_PANZER_DISPLAY_NAME );
@@ -596,7 +597,7 @@ function dev_status()
 {
 	self endon( "death" );
 	level endon( "end_game" );
-	if ( !IS_TRUE( level.acc_dev ) && getdvarint( "acc_panzer_debug", 0 ) != 1 )
+	if ( getdvarint( "acc_panzer_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PANZER] rides acc_panzer_debug now)
 		return;
 	last = self.origin;
 	for ( ;; )

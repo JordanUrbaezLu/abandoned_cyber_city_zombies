@@ -6,6 +6,396 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed - Dev mode + god mode hardcoded OFF for publish (user, 2026-07-11)
+
+- **Both 2026-07-10 hardcode-ON lines in
+  [`zm_abandoned_cyber_city.gsc`](scripts/zm/zm_abandoned_cyber_city.gsc)`::acc_resolve_dev_flags()`
+  are commented out per their own SHIP PATH** (user publish prep: "hard code dev mode and god mode
+  off so i can publish"): `level.acc_dev` and `level.acc_god` again resolve from their dvars with
+  **default 0 = normal play / no demigod for every Workshop player**. Local testing is unchanged —
+  `PLAY_TEST_MAP` (`+set acc_dev 1`) and `PLAY_GOD_MODE` (`+set acc_god 1`) still opt in.
+  `tools/prep_release.ps1`'s ship-safe check (its exact regex) now finds 0 active hardcodes. Full
+  rebuild (LED bake included) run for the publish artifact.
+
+### Added - Berzerker boss item (11th pool item): +35% melee speed at 5% max HP per hit (user, 2026-07-11)
+
+- **New implantable boss item "Berzerker" (ID 11)**: while implanted, the three melee surfaces swing
+  **+35% faster** — the **regular knife bash**, the **Leviathan Axe**, and the **Action Figure** —
+  and every melee that **connects** costs the carrier **5% of MAX HP as real damage** (so it resets
+  the engine HP-regen timer, per spec; 2-arg self-DoDamage = MOD_UNKNOWN → PhD does not negate it;
+  clamped to a **1-HP floor** so it can never self-down). Guns untouched; a Widow's-Wine knife is
+  NOT the regular knife (no speed, no tax, by spec). Debounced **per swing** (150 ms) so a
+  Leviathan cleave through a crowd taxes once. Live dvar `acc_berzerker_hp_frac` (0.05).
+- **No runtime melee-speed setter exists**, so all three legs are pre-baked GDT speed twins
+  (`tools/oneshots/gen_berzerker_twins.js` → 9 blocks appended to
+  [`acc_weapon_variants.gdt`](source_data/acc_weapon_variants.gdt)), switched three different ways:
+  - **Leviathan** — new `brz` variant axis
+    ([`_acc_weapon_variants.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc)
+    `axis_brz`, LEVIATHAN-only twins like the turbo precedent): one `_brz` form per PaP-tier form
+    (base/spd1/spd2/spd3 → 4 clones, meleeTime+fireTime ÷1.35, stacking with the +10%/tier spd
+    twins). Twin matrix 148 → 152.
+  - **Action Figure** — a parallel `_brz` fast-twin ladder (4 clones, the 3 melee timing fields
+    ÷1.35): [`_acc_pap_levels.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc)
+    `actionfigure_tier_of` / `acc_pap_actionfigure` / `make_actionfigure_packable` are brz-aware;
+    the implant reconciles any carried form onto/off the ladder + a 0.5 s watch covers a later box
+    pull.
+  - **Regular knife — EXPERIMENTAL** (user: "if you cant do the knife thats fine but please try"):
+    the quick-melee is gated by the MELEE-SLOT weapon def (the stock Bowie/Widow's-Wine mechanism),
+    and the stock knife def has **no public GDT** (swept the install, T7-GDT-Backup, and the web),
+    so `acc_berzerker_melee` is a **melee-slot clone of the AF pack's `t8_actionfigure_melee`**
+    (the only melee-slot GDT on disk) with timings ÷1.35, `meleeDamage 150` (stock-knife parity)
+    and **emptied gun/world models → a bare-fist rage swipe** (engine-legal: stock ships
+    `weapon,bare_hands_mp`). Swapped via the exact stock recipe
+    (`zm_utility::set_player_melee_weapon`); the Widow's-Wine `w_widows_wine_prev_knife` restore
+    pointer is retargeted both ways. **LIVE-QA flags:** (a) does the melee-slot def's timing really
+    gate the bash, (b) does the bare-fist look read OK — if not, the knife leg is a one-line
+    disable (`berzerker_apply_knife` call in `apply_berzerker`).
+- **Blood tax** in [`_acc_damage.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc)
+  (`berzerker_melee_weapon` + `berzerker_melee_tax`; hook placed before the riot-deflect/AF
+  one-knife early-returns so every connecting swing pays). `is_action_figure_weapon` covers the
+  `_brz` names, so the AF one-knife + riot immunity + 1/30 boss cap all inherit.
+- **Pickup model** = the Wolf Bow death skull `rune_prison_death_skull` — already registered
+  install-side by the HB21 bow dep packs, zero new asset work (9.7 u base-pivot prop, bin-measured
+  → ×4 scale, `model_z 2`). New `.zone` lines: 8 `weaponfull` twins + `weapon,acc_berzerker_melee`
+  + `xmodel,rune_prison_death_skull`.
+- HUD: [`AetheriumLoadout.lua`](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumLoadout.lua)
+  weapon-name cleanup strips `_brz` (leviathan brz forms already ride the `_acc_*` strip). Pool
+  10 → 11 (C(11,3) = 165 equipped triples); the `_acc_boss_items.gsc` init log now prints the live
+  pool size. Docs: [docs/09](docs/09_boss_items.md).
+- Built + verified 2026-07-11: fresh `.ff` (105.99 MB), all 9 new weapons + the skull present in
+  assetinfo; the `knife_melee_surface` errorlog lines attribute to the base `leviathan_zm`'s
+  `fireaxe` sound table (pre-existing pack noise, not the new twins). GDT+zone+GSC+Lua →
+  `deploy_source_data.ps1 -Force` + `gdtdb /update` + `-GscOnly` relink.
+- **Deploy note:** the forced GDT deploy also overwrote a *differing* install-side `acc_ssi.gdt`
+  with the (git-clean) repo copy — the install copy was never `-Reverse` snapshotted, so if the
+  night sky reads different in the next test, that drift is the suspect.
+
+### Changed - Kill feed recolor: regular kills yellow, Critical Kills cyan (user, 2026-07-11)
+
+- **Kill feed text colors swapped to match the damage-number palette**: regular kills
+  (normal/melee/burned/elimination) are now **yellow** `(0.92, 0.94, 0.17)` (was white), and
+  **Critical Kill is now cyan/teal** `(0.20, 0.95, 0.85)` (was yellow) — the exact
+  `ACC_DMG_COLOR_HS` teal the headshot damage numbers use, so a crit reads as one color across
+  both HUD signals. AAT kills (Electric/Blast Furnace/Fireworks/Thunderwall/Turned) keep their
+  existing yellow, which now matches regular kills.
+- One function changed: `SetKillTypeColor` in
+  [`AetheriumKillFeed.lua`](ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumKillFeed.lua).
+  Docs: [docs/11](docs/11_controls_and_hud.md) Kill feed section. Lua rawfile → `-GscOnly` relink.
+
+### Changed - Data Cache co-op anti-hog cap is now PER GROUP (plaza vs trench) (user, 2026-07-11)
+
+- **The co-op "one Data Cache per player per round" cap (`acc_cache_one_per_player`) no longer spans the
+  whole map — it's scoped per cache GROUP**: the 4 plaza crates are the `"plaza"` group, the 2 trench pit
+  caches are the `"trench"` group. In 4-player co-op the same player can now loot **one plaza cache AND
+  one trench cache in the same round** (previously grabbing a plaza crate locked them out of the trench
+  caches and vice-versa); two from the *same* group per round is still blocked.
+- Implementation: [`acc_data_shards::spawn_cache_at`](scripts/zm/zm_abandoned_cyber_city/_acc_data_shards.gsc)
+  gained an optional `group` tag (callers pass `"plaza"` /
+  `"trench"`); the `cache_loop` gate marker `player.acc_cache_looted_round` became a per-group
+  round-number map keyed by that tag. Solo exemption + `acc_cache_one_per_player 0` off-switch unchanged.
+- Docs: [docs/22](docs/22_flags_reference.md) flag row + [docs/28](docs/28_trench_systems_guide.md)
+  Data Caches row updated. GSC-only → `-GscOnly` relink.
+
+### Changed - Repair Kit regen back to 10 HP/sec (user, 2026-07-11)
+
+- **Repair Kit passive regen 13 → 10 HP/sec** (`ACC_OVERCHARGE_REGEN` in
+  [`_acc_boss_items.gsc`](scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc)), reverting the
+  2026-07-07 +3 bump. Docs/09 row updated. Compile-time `#define` → `-GscOnly` relink.
+
+### Changed - Phase Serum now also slows the Phantom (30% gait slow) (user, 2026-07-11)
+
+- **Phase Serum aura extended to the Phantom**: any Phantom within `acc_phase_serum_radius` (350u) of a
+  serum holder runs **30% slower** (`acc_phantom_serum_slow`, default `0.7`; user retuned twice same day
+  from the initial 50% / `0.5`, applied in
+  [`phantom_speed_think`](scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc)). Same concept as the
+  Glitch Stalker suppression but deliberately **milder** — the Glitch takes 1/5 speed **and** loses its
+  blink; the Phantom only slows, its **teleports keep working**.
+- The aura check moved to a shared home, `acc_utility::serum_aura_active( origin )` (glitch already
+  `#using`s phantom, so phantom→glitch would be circular); `_acc_boss_glitch::acc_serum_suppressed` now
+  delegates to it — glitch behavior unchanged.
+- Docs: [docs/09](docs/09_boss_items.md) Phase Serum row + [docs/22](docs/22_flags_reference.md) new
+  `acc_phantom_serum_slow` flag.
+
+### Added - CW M16 tactical rifle (B tier, slightly better than the MK14) + G7 Scout retired (user, 2026-07-11)
+
+- **New box gun: the Cold War M16 (`t9_m16`, Skye CW port), a B-tier burst→full-auto tactical rifle placed
+  SLIGHTLY BETTER than the MK14 — it REPLACES the G7 Scout in the marksman slot.** Score **6.30 = B** (the MK14
+  is 5.89 B-); PaP body **374/468/562** (T1/T2/T3), head 935/1170/1405; DPS 3661; box **3.66%/open** (rank #19,
+  one notch rarer than the MK14); PaP price **MID** (4000/6000/8000). Authentic CW behaviour: base = **3-round
+  burst** (30-clip), PaP `_up` = **full-auto** (40-clip / 280-reserve). Balance mult **0.18** in `_acc_damage`.
+- **Install-side GDT prep** (`tools/prep_m16_gdt.js`, idempotent, `.acc-m16-orig`): `locNeck 4→1` (both forms,
+  torso already clean; `locHead` 5.0 kept) so body = `damage × bal × global × papMult`; PaP mag trim clip 70→40
+  / reserve 560→280; move 0.95→0.93 (marksman class); **recoil ×1.40** (gentler than the standard ×1.75 — the
+  pristine CW rip ships MP-high kick, so ×1.40 lands it at "High", comparable to the MK14, not "Very High").
+  Fully twinned (6 recoil50/fastreload × base+_up, `tools/oneshots/gen_m16_twins.js`).
+- **G7 Scout (`apex_g2a4`) fully retired**: removed from the box pool, `acc_box_weight` + `pap_price_bucket`
+  (regen), CSV, zone (weapon + 6 twin lines), the sniper Overclock `sr_list` / `sniper_list` / `variant_guns`,
+  its balance line, its 6 twin GDT blocks, and the AetheriumWeapons HUD map. Weapon table net-0 (−G7 +M16). The
+  M16 inherits the G7's slot: "sniper" Overclock family + Precision-Mode ability (like the MK14 / MORS), and the
+  Overclock-card name slot 10. Sounds via the proven t9 alias pattern (6 shot variants + `pap_flux` + foley).
+  Docs regenerated: docs/25 (stats), docs/33 (odds/pricing).
+
+### Added - BO2 HAMR box gun (B-tier LMG, between the M60 and RPD) (user, 2026-07-10)
+
+- **New box gun: the BO2 HAMR (`t6_hamr`, Skye port), a B-tier LMG that sits BETWEEN the M60 (S) and RPD (C)
+  on every axis.** PaP `_up` body **352/439/527** (T1/T2/T3) vs RPD 268/335/402 and M60 475/594/713; sustained
+  DPS **3764** (RPD 3102 / M60 4174); clip 100 / reserve 500; reload **6.0s** (its identity — faster than the
+  M60's 9.7s and RPD's 7.5s); move ×0.8; recoil 🟢 Low. Balance mult **0.208** in `_acc_damage` (between the M60's
+  0.24926 and RPD's 0.13213). PaP price **MID** (4000/6000/8000); box rarity **6.17%/open** (rank #24, one notch
+  rarer than the RPD). Score **6.27 = B** (`compute_gun_tiers`).
+- **Install-side GDT prep** (`tools/prep_hamr_gdt.js`, idempotent, `.acc-hamr-orig` backup): normalized the MP-rip
+  hit-location mults to 1.0 (`locNeck 4→1` both forms, `locTorsoMid 2→1` + `locTorsoUpper 3→1` on `_up`; `locHead`
+  5.0 kept = ×2.5 headshot) so body = `damage × bal × global × papMult` like the other LMGs; trimmed the absurd
+  ripped PaP mag (clip 250→100, reserve 1000→500) into the LMG band; reload 4.25→6.0; recoil ×1.75 skill-theme.
+- **Fully twinned** (6 recoil50/fastreload twins × base+_up, `tools/oneshots/gen_hamr_twins.js`) so Mega Deadshot /
+  Speed Cola swap its recoil/reload like the M60/RPD. Weapon table now ~220 registrations (~159 twins) — well under
+  the ~230 boot-safe line.
+- Wired through every box-gun integration point (CSV, zone weapon+twin lines, sound aliases, box pool, `acc_box_weight`
+  + `pap_price_bucket` regen via `gen_box_dynamic.js`, LMG Overclock + Focus-Fire ability lists, `variant_guns`,
+  Overclock-card name slot 9). Docs regenerated: docs/25 (stats), docs/33 (odds/pricing).
+
+### Fixed - Blast-O-Matic + Thundergun PaP reserve collapsed to 6 (`ammoCountClipRelative` trap) (user, 2026-07-10)
+
+- **Blast-O-Matic PaP (`_up`) showed only 6 reserve.** Root cause: the `t9_semiauto_cosplay_up` block is
+  authored **`ammoCountClipRelative "0"`** = `maxAmmo`/`startAmmo` are **ABSOLUTE ROUNDS**, but the 2026-07-09
+  `blasto_ammo_mors_ft_0709.js` oneshot assumed the normal magazine model (`reserve = maxAmmo × clipSize`) and
+  cut `maxAmmo`/`startAmmo` `110 → 6` believing it meant `6 × 20 = 120` rounds — under clipRel-0 that set the
+  literal reserve to **6**. The base form (`t9_semiauto_cosplay`, clipRel `1`, `maxAmmo 12 × clip 5 = 60`) was
+  fine, which is why only the PaP looked wrong.
+- **Thundergun had the identical bug.** The same-day `thundergun_ammo_0709.js` cut `thundergun_zm` / `thundergun_upgraded_zm`
+  `maxAmmo`/`startAmmo` `12/24 → 6`, again mis-reading clipRel-0 rounds as magazines → in-game reserve **6** instead
+  of the stock **12 (base) / 24 (Zeus)**.
+- **Full-roster audit** (scratchpad `audit_reserve.js`, honors `ammoCountClipRelative`): these two wonder weapons +
+  their PaP twins were the ONLY active guns with a broken reserve. Bows / Leviathan Axe / Action Figure are clipRel-0
+  with 0 reserve **by design** (regen/melee specials); PDW & M1911 akimbos are REMOVED; every other gun is clipRel-1
+  and correct.
+- **Fix** ([`tools/oneshots/fix_reserve_cliprel_0710.js`](tools/oneshots/fix_reserve_cliprel_0710.js)): restore the
+  porter/stock ROUND counts (clipRel stays `0`) on the packed/upgraded blocks **and their perk twins** (repo +
+  install GDTs): **Blast-O-Matic `_up` + 3 twins → 110**; **Thundergun base + fastreload twin → 12**, **upgraded +
+  twin → 24**. `gdtdb /update` + `-GscOnly` relink (fresh `.ff` verified).
+- **Guardrails against recurrence:** `tools/gen_weapon_stats.js` now honors `ammoCountClipRelative` (was hardcoding
+  `reserve = clip × maxAmmo`, which mis-reported the wonder reserves) and its `OUT` path corrected `41 → 25` (renumber
+  oversight); docs/25 regenerated (Blast-O-Matic reserve `120 → 110`). The misleading "maxAmmo = MAGAZINES" universal
+  claim corrected in [docs/04](docs/04_weapons.md) and the `reduce_base_ammo.js` header.
+
+### Changed - Weapon balance pass: class move-speed retune + recoil rating + Alternator −10% + RW1 +10% + AK-74u↔Prowler box swap + Prowler recoil to Low (user, 2026-07-10)
+
+Five weapon changes in one pass; the weapon stats table [docs/25](docs/25_weapon_stats_table.md) is regenerated
+from ground truth via `node tools/gen_weapon_stats.js` (also refreshed the stale pre-generator doc — it had listed
+the retired ASM1/M1911/Nail Gun/Galil/PDW roster; now the current 23-gun + 5-special roster, global ×3.25, PaP
+ladder ×1.333/1.667/2.000, box pool total 4364; all self-checks + `--check` pass).
+
+- **Class move-speed retune** ([`tools/oneshots/movespeed_0710.js`](tools/oneshots/movespeed_0710.js), supersedes
+  the 2026-07-09 pass): **Melee + Pistol 1.07** · **SMG + Shotgun + non-melee wonders 1.0** · **AR + Marksman +
+  Sniper 0.93** · **LMG + Launcher 0.86**. Sweeps `moveSpeedScale` on every base + `_up` + twin GDT block by class
+  stem (136 changes, then +20 for the Pistol 1.0→1.07 follow-up); shotguns + Thundergun/Fire Bow/Blast-O-Matic
+  deliberately left at 1.0 (confirmed not in scope). War Machine folded into Launcher (0.86). Deltas vs 0709:
+  Melee 1.05→1.07, Pistol 1.0→1.07, AR/Marksman/Sniper 0.95→0.93, LMG/Launcher 0.9→0.86.
+- **Recoil (control) rating column added to docs/25** ([`tools/gen_weapon_stats.js`](tools/gen_weapon_stats.js)):
+  reads the ADS view-kick off each `_up` GDT entry (`adsViewKick{Pitch,Yaw}{Min,Max}`) → **↑** vertical climb
+  `(pitchMax+pitchMin)/2` and **↔** horizontal shake `|yawMax−yawMin|/2` (abs — some entries ship yaw min/max
+  inverted), then buckets the total kick into a 5-step traffic-light rating (🟢 Very Low → 🔴 Very High, ≤60/≤90/
+  ≤120/≤160) so good-vs-bad reads at a glance. Numbers include the map's ×1.75 base scale (halved at runtime by
+  Mega Deadshot's `recoil50` twin).
+- **Alternator damage −10%** (`_acc_damage.gsc::acc_weapon_balance_mult`, both forms ×0.9): PaP `apex_alternator_up`
+  **0.71874 → 0.646866** (T3 body 794→715), base `apex_alternator` **0.1815 → 0.16335**.
+- **RW1 damage +10%** (`_acc_damage.gsc::acc_weapon_balance_mult`, `s1_rw1` covers base+PaP+twins): **0.1452 →
+  0.15972** (T3 body 944→1038, head 2360→2595). Price tier / box odds unchanged.
+- **AK-74u ↔ Prowler box-rarity swap** ([`tools/gen_box_dynamic.js`](tools/gen_box_dynamic.js) RANK-slot swap →
+  re-emit `acc_box_weight` + `pap_price_bucket` + [docs/33](docs/33_pap_pricing_tiers.md)): AK-74u **#22→#21**
+  (249→**224** weight, 5.62%→**5.06%**, rarer), Prowler **#21→#22** (224→**249**, 5.06%→**5.62%**, commoner).
+  **Prices unchanged** (AK-74u pinned MID, Prowler BOT via explicit overrides); `pap_price_bucket` functionally
+  identical (only the two rank-number comments shifted).
+- **Prowler recoil → Low** ([`tools/oneshots/prowler_recoil_low_0710.js`](tools/oneshots/prowler_recoil_low_0710.js)):
+  scaled all 16 kick-magnitude fields (hip+ads, gun+view, pitch+yaw) **×0.65 (−35%)** on every `apex_prowler*` block
+  (base + `_up` + twins + legend variants; 160 fields), keeping the Mega-Deadshot `recoil50` twin at a consistent
+  half. `_up` ADS view-kick pitch[-40,95]/yaw[±90] → pitch[-26,61.75]/yaw[±58.5]: docs/25 rating **🟡 Medium (K 117.5)
+  → 🟢 Low (K 76.4)**.
+- **Prowler reload → 1s** (2026-07-11 follow-up, [`tools/oneshots/prowler_reload_1s_0711.js`](tools/oneshots/prowler_reload_1s_0711.js)):
+  scaled all reload-timing fields **×0.625** on every `apex_prowler*` block → `_up` **reloadTime 1.6 → 1.0s**
+  (empty 1.84→1.15, addTime 0.8→0.5), keeping the partial:empty ratio and the Speed-Cola `fastreload` twin at
+  ×0.857 (1.3712→0.857). `PAP_RELOAD['Prowler']` 1.6→1.0 in `gen_weapon_stats.js`; docs/25 DPS 2888→3422.
+- Build: GDT (`moveSpeedScale` + Prowler kick) + GSC (`bal`/box weight) changes, no geometry → `gdtdb /update` + `-GscOnly` relink.
+  Docs: [docs/04](docs/04_weapons.md) class move-speed scheme note; docs/25 + docs/33 regenerated.
+
+### Changed - Dev + god hardcoded ON, all on-screen dev debug UI stripped, Blast-O-Matic dev start (user, 2026-07-10)
+
+- **Dev mode + god mode HARDCODED ON.** `acc_resolve_dev_flags()` now has an ACTIVE `level.acc_dev = true;`
+  ([`zm_abandoned_cyber_city.gsc:376`](scripts/zm/zm_abandoned_cyber_city.gsc#L376)) and `level.acc_god = true;`
+  ([:417](scripts/zm/zm_abandoned_cyber_city.gsc#L417)) line overriding the dvar gates, so every launch runs the
+  full dev sandbox **and** demigod (real damage lands, health floors at 1 HP). Ship path = comment those two
+  lines out; `prep_release.ps1` still fails on them so an invulnerable full-dev build can't reach a publish.
+  ("hardcode code[=god] mode and dev mode on".)
+- **ALL on-screen dev debug UI removed so hardcoded dev shows a CLEAN screen** ("remove all of that random debug
+  UI so the screen stays clean"). Because dev is now always-on, every dev-gated diagnostic would otherwise render
+  every session:
+  - **Removed outright** (un-threaded / commented): the `[BADGE]` gun-badge probe line + "DEV MODE ACTIVE"
+    spawn print (`_acc_dev`); the green **`[ACC] DEV BUILD LIVE`** ~15s status banner in the entry-script dev
+    loop (`acc_hardcoded_dev`); the through-walls zombie **wallhack markers** (`_acc_health_bars`); the **mock
+    party feed** fake-teammate HUD rows (`_zm_aetherium_hud`); the PaP-machine + Mahem PaP probes
+    (`_acc_pap_levels`); the bridge coord readout (`_acc_bus_trench`); the exchange-prop report (`_acc_atmosphere`).
+  - **Decoupled from `level.acc_dev`** (each now rides its own `acc_*_debug` dvar, default 0): every boss `dbg()`
+    channel — `[AVO]` / `[PANZER]` / `[WARDEN]` / `[PHANTOM]` / `[GLITCH]` / `[RP]` / `[FURY]` — plus the
+    Avogadro & Panzer HB heartbeats and the dev "BOSS ACTIVE + hp" announces; the hudelem-pool logger, the
+    drops/crash logs, the `[variants]` swap readout, and the `[DMG]` / `[lockdown]` / lockdown-challenge /
+    perk-lights / PhD-slider / nsz-brutus channels. The resolver also no longer `SetDvar`s
+    `acc_variants_debug` / `acc_hudelem_debug` on in dev (forced `0`).
+  - **Commented** (pure-`acc_dev` one-off prints): the `[dev] PaP tier` / PaP-ammo readouts (`_acc_pap_levels`),
+    `[TURBO]` flag prints (`_acc_boss_items`), `[BOTD]` skin proof-of-life (`_acc_trench_skins`), `[HAVOC]`
+    charge prints (`_acc_havoc_charge`), and the `[BOW]` / `[PORTAL]` Fire-Bow diagnostics (`_zm_weap_elemental_bow*`).
+  - **Kept** (NOT debug UI): the always-on crosshair damage numbers + area-name banner; every gameplay behavior
+    gated on dev (unlimited money/shards, all perk slots, Mega Bottle top-up, boss test spawns, door costs); and
+    the console-command dev tools (teleport / round-skip / open-doors / power-on) which only act when you set
+    their dvar. Every removed channel is **one line from re-enable** — its `acc_*_debug` dvar or the commented
+    `level thread` call. Supersedes the 2026-07-05 "gate all debug banners on `acc_dev`" approach (memory
+    `debug-banners-gated-by-acc-dev-only`), which now inverts under a hardcoded-on dev flag.
+- **Dev starting gun → Blast-O-Matic** (`t9_semiauto_cosplay`): re-enabled `dev_starting_loadout` (retired
+  2026-07-10 morning) and pointed `dev_give_starting_guns` at the CW DOA energy blaster, handed over **silently**
+  each life (no build-stamp print — clean screen). ("in dev start me with the blastomatic gun".)
+- **GSC-only change → linker-only build (`-GscOnly`), no LED bake.** `tools/lint_gsc_xref.js` green.
+
+### Fixed - Perk display UI audit: Mega "$1" cost + stale descriptions (user, 2026-07-10)
+
+- **Mega buy prompt showed "$1" (gold Points) instead of "1 Mega Bottle".** The Aetherium cursor-hint
+  perk card (`PromptPerks.lua::UpdatePerkInfo`) chose base-vs-mega purely from the async `accOwnedMask`,
+  which lags the buy by up to 0.25s (`perk_state_watch` poll). In that window a Mega machine hint fell to
+  the BASE branch, whose cost regex `Cost:%s*(%d+)` scraped the **"1"** out of `[Cost: 1 Mega Bottle]` and
+  painted a gold "1" with the essence/Points icon. Fix: the card now reads the LIVE machine hint and, when
+  it contains the literal `Cost: 1 Mega Bottle` (unique to `_acc_mega_bottles::mega_trigger_think`; the
+  perk-door unlock reads "for 2 Mega Bottles"), forces the Mega-PREVIEW branch → teal "1 Mega Bottle".
+  Root-caused + adversarially verified via a multi-agent audit of every perk display surface.
+- **Stale/wrong Mega descriptions in `AetheriumPerks.lua` (the live buy-prompt data):**
+  - **Double Tap → Gun Slinger** advertised "Shoots even faster / Swap weapons faster", but the 2026-07-04
+    rework removed the fire-rate/weapon-swap twin — Mega DT is now damage-only. Now reads "Extra bullets
+    hit harder" (matches `acc_hud.lua` + `_acc_damage`/`_acc_mega_bottles`). Base name also synced
+    "DOUBLE TAP" → "DOUBLE TAP 2.0" to match the info card + spec (routing unaffected).
+  - **Quick Revive → Savior** "Faster near allies" invented a proximity aura; the +15% only triggers while
+    a teammate is DOWNED (any distance). Now "Faster when an ally is down".
+  - **PhD Flopper → PhD Slider** "Bigger explosions" was backwards (the Mega nova is 250u vs base 300u,
+    hit-capped + damage-frozen) and omitted the real Mega perk. Now "More explosive damage" (+15%).
+  - Same three corrections mirrored in the retired-but-sync-mandated `acc_hud.lua` `AccPerkCards` table.
+- **Electric Cherry + PhD Flopper machine hints baked the cost as a literal** with `&&1` reserved for the
+  button, so `_acc_perk_info::armory_perk_pricing` couldn't substitute the Armory 10%-off price on the wall
+  (an Armory holder was charged the discount but the wall/prompt still read full price). Switched both to
+  the documented recipe (docs/16) `"Hold ^3[{+activate}]^7 for X [Cost: &&1]"` — `[{+activate}]` = use key,
+  `&&1` = cost substitution — so they behave like the 8 stock perks. **Verify the hint renders in-game.**
+- **Permanent perk-door unlock trigger routed to the perk BUY card.** Its hint ("Open <perk> permanently
+  for N Mega Bottles") contains a perk name + "for", so the cursor-hint router word-matched it as a perk
+  prompt. Added a `"permanently"` guard in `ZMCursorHintNew::getPerkFromHint` so it falls through to the
+  plain readable DefaultHint.
+- Docs reconciled to the shipped code: `docs/perk_abilities.md` + `docs/13_perks.md` still listed the Mega
+  Spiderman one-hit melee (removed 2026-06-29) as active/OK — marked REMOVED.
+- **GSC/`.csc`/`.lua`-only + docs change → linker-only build (`-GscOnly`), no LED bake needed.**
+
+### Changed - Implant Lab expanded + 3 benches re-spread (user, 2026-07-10)
+
+- **The Plaza Implant Lab was cluttered — 3 benches in a tight south-wall row, the west one crammed into
+  the Exchange staircase's corner, the east one against the wall.** Fixed the room's bad layout:
+  - **Widened the room EAST**: the lab east wall moved `x-40 → x180` (`.map` wall #12; interior now
+    **x[-720,180] y[-540,-240]**). It claims the empty sealed dead-space east of x-40 (already lit by the
+    `acc_roof_light_plaza_6` grid light; south seal = the full-width stock perimeter wall; north = the
+    plaza south-wall east segment) — a one-brush move, roofless like the rest of the lab, so **no ceiling /
+    no new light** needed. Hand-applied to the `.map` (NOT via re-running `gen_plaza_shrink.js` — that
+    re-emits solid wall #5, which `gen_upper_room.js` carves for the Armory doorway; the generator's WALLS
+    table is kept in sync as source-of-truth with a warning).
+  - **Re-spread the 3 bench pads** (`_acc_boss_items::spawn_bench`) from the old tight row into a
+    **staggered arc** across the widened east clear area — Slot 1 ≈ (-250,-430), Slot 2 ≈ (-75,-490,
+    center/back), Slot 3 ≈ (100,-430) — each ≥40u off the east wall, ≥70u off the Exchange staircase +
+    its buy triggers, ≥38u off the south wall, ~96u gaps between tables. The pads read as an arc facing
+    the north doorway, and the Exchange now has its own clear SW corner.
+  - **New Plaza-only dvars** `acc_bench_lab_sep` (175, X spread) + `acc_bench_lab_stagger` (60, Y arc); the
+    shared `acc_bench_pad_sep` now drives ONLY the Paradise bench (`_acc_glitch_altar`) — the Plaza bench no
+    longer reads it, so the two rows are independent. `acc_bench_off_x/y` re-defaulted (153 / -359).
+  - Collision clips (`add_prop_clips.js` `lab_bench_slot1/2/3`) moved in sync with the new pad origins.
+  - **Requires a full LED-bake build** (geometry moved). Docs: `docs/09_boss_items.md`, `docs/02_layout.md`.
+
+### Fixed - Avogadro no-item-drop + Mystery Box gun-swap (user, 2026-07-10)
+
+- **Avogadro dropped no item.** `_acc_boss_avogadro::boss_life()` sampled the drop origin with a bare
+  `while ( isdefined(boss) && isalive(boss) )` poll. The pack's `death()` sets `boss.is_alive=0` **at
+  ground**, then `AnimScripted("exit_anim")` lifts him ~800u while `allowdeath` stays false — so
+  `.health` is held and engine `isalive()` stays TRUE through the whole departure rise. The poll kept
+  re-sampling `boss.origin` **airborne**, and `grant_drops`' floor-snap (2500u down-trace) then missed /
+  snapped onto the roof → the item spawned unreachable. Fix: break the poll on the pack's own
+  `boss.is_alive==0` flag (set at ground before the rise) so the retained origin is the ground kill spot;
+  `wait 0.25`→`0.1` keeps it fresh. Root cause confirmed by adversarial verification. (Same class of
+  airborne-drop bug the `drop_floor_origin` rework addressed for grounded corpses — but the rise puts the
+  *origin* itself out of trace range, so it must be fixed at the capture site.)
+- **Mystery Box: the gun you pull out ≠ the gun you keep** (surfaces with Mule Kick + a Mega perk).
+  The box's slow `SwitchToWeapon` is transitional; it wakes `_acc_weapon_variants::variant_manager` mid-
+  grab, and `reconcile()` captures a stale `GetCurrentWeapon()`. With a Mega token active it swaps the
+  grabbed base to its twin: `GiveWeapon(twin)` + unconditional `TakeWeapon(base)` but the
+  `SwitchToWeaponImmediate` is gated on `was_equipped` (false against the stale current weapon) → the
+  box's pending switch target is removed with no re-switch → the view reverts to the previously-held gun
+  (twin is correct in inventory). Fix: `box_grab_defer_watcher` sets `acc_box_grabbing` on the stock
+  `user_grabbed_weapon` notify and clears it once the give settles (`weapon_change_complete` / 1s net),
+  and `reconcile()` early-returns while it's set — mirroring the existing `is_drinking` guard and the
+  proven `_acc_pap_levels::box_grab_clear_watcher`. The twin swap still happens, invisibly, once settled.
+
+### Changed - Armory UI pass: state-aware hints + honest toasts, both stations (user, 2026-07-10)
+
+- **Rack pad hints are now STATE-AWARE** (`update_rack_hints`, wired at spawn + after every
+  deposit/withdraw): empty rack -> withdraw pad says `Rack EMPTY - RACK a weapon at the other
+  end to share it` (the old static hint invited a press that could only refuse); occupied ->
+  deposit pad says `Rack OCCUPIED - a teammate can TAKE the weapon at the other end`. 4-6
+  constant strings total = configstring-cache safe.
+- **Internal weapon names REMOVED from toasts** (`Racked ar_accurate -> rack: 1` read as
+  broken UI): `wpn.name` is the engine class name, and `IString(wpn.displayname)` localization
+  can't be verified offline across the ~50 pack guns (a gap renders a raw `WEAPON_*` token) -
+  the cabinet-top world model is the gun's identity now. Names still go to `acc_utility::log`.
+- **Withdraw toast says where the gun went** (`took the racked weapon - it's in your loadout
+  (switch to it)`): the give deliberately does not auto-switch (no view-yank), so without this
+  the take looked like a no-op. Stale cap-8 phrasings fixed (`the team rack is empty` ->
+  `the rack is empty`; `you already carry the NEXT racked weapon` -> `the racked weapon`).
+- **Bottle-exchange hint names the actual prize** - `EXCHANGE a Mega Bottle for a random
+  Implant` (was `a random reward`, only revealed AFTER the spend); bottle quantity composed
+  from `acc_armory_bottle_cost` at spawn. Full UI matrix (every hint/toast/sound per flow,
+  both stations): docs/39.
+
+### Added - Armory rack: racked gun displays on the cabinet top + capacity 1 (user, 2026-07-10)
+
+- **The racked weapon now shows its WORLD MODEL on top of the armory cabinet** ("make the gun
+  model actually appear on top of the station" - the mystery-box display idiom was explicitly
+  OK'd). A deposit spawns a script_model wearing the gun via `UseBuildKitWeaponModel`
+  (the same engine call as `zm_utility::spawn_buildkit_weapon_model` / the magicbox float,
+  but with the ent-pool spawn guarded) - so the display wears the **depositor's buildkit
+  variant and the PaP camo** when the racked gun is upgraded. The gun lies across the cabinet
+  (yaw 90 off its long axis) at +6u hover (worldModel origins vary per gun).
+- **`acc_armory_rack_max` default 8 -> 1** ("only one gun can be racked at a time"). The
+  display row (`rack_slot_origin`) **self-centers for the configured cap**: cap 1 = one gun
+  dead-center; a raised cap fans up to 8 per row at 17u pitch on the 138u top, +16z per extra
+  row. Full-rack deposit refusal at cap 1 reads "take it first". A withdraw deletes slot 0's
+  model and **glides any survivors forward** (0.3s MoveTo).
+- Internals: `level.acc_armory_rack` entries are now **structs `{ wpn, model }`** (was bare
+  weapon objects) - one array keyed by slot can't desync gun vs display, and duplicate
+  weapon objects (two players rack the same gun class = the same `level.weapons` singleton
+  twice) stay distinct entries. New helpers `rack_slot_origin` / `spawn_rack_display`;
+  rack-only change, `-GscOnly` build. Docs: docs/39, docs/22.
+
+- **Missing-collision-clip audit** of all 102 model placements (GSC-spawned + Radiant). The test:
+  a bare `spawn(script_model)+setmodel` prop is solid ONLY if its xmodel ships a `_col` LOD
+  (check `find <model>*_col.xmodel_bin`; watch the `_coldwar` folder false-positive). 25 props were
+  already clipped; **2 were genuinely walk-through** and are now clipped in `tools/add_prop_clips.js`:
+  - **Jukebox** `cp_town_jukebox` (22.7×33×53, no `_col`) → `jukebox` clip @ (-129,2350,-240..-187).
+  - **Paradise Pack-a-Punch** `p9_fxanim_zm_gp_pap_xmodel` (67.9×40.6×75, no `_col`) → `paradise_pap`
+    clip @ (0,-1702,-1200..-1125), brushmodel (deep).
+  - Flagged-but-fine: the Paradise Mystery Box `p7_zm_der_magic_box` **ships a `_col` LOD** → already
+    solid, no clip spent.
+- **Data Cache model reverted** `p7_zm_sta_computer_tower_01` → **`p7_cai_stacking_cargo_crate`** (the
+  64×64×48 crate the user preferred; the 2026-07-09 STATION REMODEL is undone for this station). The
+  crate ships a `_col` LOD so the caches **self-collide again** (the tower had none = why they went
+  walk-through). Spawn lift `+36 → 0` via a new model-paired `level.acc_shards_cache_lift`
+  (`_acc_data_shards.gsc`). `.zone` xmodel already present (no change).
+- **4th plaza Data Cache** added at (-420,460) (`zm_abandoned_cyber_city::acc_spawn_plaza_props`): the
+  co-op "one cache per player per round" cap starved player 4 with only 3 plaza caches. Sits on the
+  path to the Market door.
+- **Cache clips consolidated into `add_prop_clips.js`**: the 3 `gen_plaza_shrink` obstacle clips were
+  removed from the `.map` and re-homed as `plaza_cache_1..4`; `pit_cache_w/e` resized 24×30 → 64×64 to
+  match the crate. All six now emit as LED-exempt `script_brushmodel`s (zero bake risk).
+- **Jukebox spread from the Reactor** in the North under-room: moved `ACC_JUKEBOX_ORIGIN` (-140,2350) →
+  **(-150,2240)** (SW corner) so it and the Reactor plinth (north wall, 0,2493) sit ~290u apart instead
+  of clustered ~200u in the NW (user 2026-07-10 "spread them out"). Clip mirror updated.
+
 ### Changed - Publish prep: v3 gun-badge art, dev/god hardcoded OFF, dev Plaza test-spawns removed (user, 2026-07-10)
 
 - **Gun-badge row art refreshed to the "enhanced v3" set** (all 16 chips: PaP tiers I-III,

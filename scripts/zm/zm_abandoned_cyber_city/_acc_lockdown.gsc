@@ -249,7 +249,7 @@ function on_defcon_failed( round_number )
 // a room each round. DEFAULT OFF for release (user 2026-06-25); set acc_lockdown_debug 1 to show it.
 function ld_debug( msg )
 {
-    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_lockdown_debug", 0 ) == 1 )
+    if ( getdvarint( "acc_lockdown_debug", 0 ) == 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [lockdown] rides acc_lockdown_debug now)
     {
         iprintlnbold( "[lockdown] " + msg );
     }

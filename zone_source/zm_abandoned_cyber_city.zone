@@ -471,6 +471,11 @@ xmodel,p7_ban_debris_car_carburetor
 // source_data\p7_zm_ctl_battery_ceramic.gdt (complete: xmodel + materials + images +
 // model_export\black_ops_3\p7_zm_ctl_battery_ceramic\ bin on disk).
 xmodel,p7_zm_ctl_battery_ceramic
+// Berzerker (item 11, 2026-07-11): the Wolf Bow death skull - ALREADY registered install-side by
+// the HB21 bow dependency packs (source_data\rune_prison_death_skull.gdt +
+// model_export\black_ops_3\rune_prison_death_skull\ bin on disk) - no new carve needed.
+// Small prop (9.7x6.7x8.2u, base pivot) -> ships x4 scale like the horseshoe/vial/carburetor.
+xmodel,rune_prison_death_skull
 // Trench JUKEBOX machine (2026-07-09, replaces the 3 teddy bears): IW cp_town_jukebox from the
 // eMoX "Jukebox Menu" pack - MODEL-ONLY lift (install-side source_data\iw_jukebox.gdt +
 // model_export\infinite_warfare\**; the pack's LUI menu/GSC/sounds are NOT installed).
@@ -836,6 +841,7 @@ image,i_t6_wpn_ar_m14_wall_chalk_c
 image,i_t8_wpn_sniper_sdm_wall_chalk_c
 image,i_weapon_vm_lm_t9slowfire_wall_chalk_c
 image,i_weapon_vm_lm_t9rpapa_wall_chalk_c
+image,i_t6_wpn_lmg_hamr_wall_chalk_c
 image,i_t8_wpn_pistol_rk7_garrison_wall_chalk_c
 image,i_wpn_t5_asl_thundergun_wall_chalk_c
 // [acc] 2026-07-05: 4 box guns that were unmapped in AetheriumWeapons.lua (showed no chalk). All WHITE.
@@ -922,6 +928,13 @@ weapon,leviathan_up_zm
 weaponfull,leviathan_acc_spd1_zm
 weaponfull,leviathan_up_acc_spd2_zm
 weaponfull,leviathan_up_acc_spd3_zm
+// Leviathan BERZERKER twins (boss item 11, +35% swing, user 2026-07-11): one _brz form per PaP
+// tier (meleeTime/fireTime / 1.35 off that tier's spd form; clones in acc_weapon_variants.gdt via
+// tools/oneshots/gen_berzerker_twins.js), swapped by axis_brz stacking with axis_lev_speed.
+weaponfull,leviathan_acc_brz_zm
+weaponfull,leviathan_acc_spd1_brz_zm
+weaponfull,leviathan_up_acc_spd2_brz_zm
+weaponfull,leviathan_up_acc_spd3_brz_zm
 
 // AK-47 (BO2 t9_ak47) = full-auto AR box gun (user, 2026-06-14). See docs/33.
 weapon,t9_ak47
@@ -970,8 +983,8 @@ weapon,apex_alternator_zm
 weapon,apex_alternator_up_zm
 weapon,apex_prowler_zm
 weapon,apex_prowler_up_zm
-weapon,apex_g2a4_zm
-weapon,apex_g2a4_up_zm
+weapon,t9_m16
+weapon,t9_m16_up
 // HAVOC wind-up is ENGINE-NATIVE only (v3, user 2026-07-06): fireDelay 1.25 + riser + shake anim in the
 // base/_up defs - re-winds every trigger pull (the actual Apex Havoc). NO charge-twin defs are packed:
 // both scripted persistence attempts (quarter-steps, 2s spool twin) swapped defs on a HELD weapon, which
@@ -1016,6 +1029,8 @@ weapon,t9_m60
 weapon,t9_m60_up
 weapon,t9_rpd
 weapon,t9_rpd_up
+weapon,t6_hamr
+weapon,t6_hamr_up
 
 // MK14 (AW s1_mk14) = semi-auto battle-rifle / DMR box gun, B tier (user 2026-06-24). Single-wield
 // bulletweapon -> FULLY TWINNED (twin block below). Clean body loc mults (head 6.0 = ~3x headshot).
@@ -1046,6 +1061,20 @@ weapon,t8_actionfigure_melee
 weaponfull,t8_melee_figure_fast1
 weaponfull,t8_melee_figure_fast2
 weaponfull,t8_melee_figure_fast3
+// Action Figure BERZERKER twins (boss item 11, +35% swing, user 2026-07-11): one _brz form per
+// PaP tier (melee timings / 1.35; clones in acc_weapon_variants.gdt via
+// tools/oneshots/gen_berzerker_twins.js), swapped by acc_pap_actionfigure + the implant reconcile.
+weaponfull,t8_melee_figure_brz
+weaponfull,t8_melee_figure_fast1_brz
+weaponfull,t8_melee_figure_fast2_brz
+weaponfull,t8_melee_figure_fast3_brz
+// Berzerker MELEE-SLOT knife (item 11's "regular knife" leg - EXPERIMENTAL, user 2026-07-11
+// "if you cant do the knife thats fine but please try"): acc_berzerker_melee is a meleeweapon.gdf
+// clone of t8_actionfigure_melee (the ONLY melee-slot GDT in the install; the stock knife def has
+// no public GDT) with melee timings / 1.35, meleeDamage 150 (stock-knife parity) and EMPTY
+// gun/world models -> bare-fist rage swipe. Swapped into the melee slot by _acc_boss_items via
+// the stock Bowie/Widow's-Wine recipe (zm_utility::set_player_melee_weapon).
+weapon,acc_berzerker_melee
 
 // Perk weapon-variant TWIN matrix (224 = 7 combos x base/_up x 16 guns): recoil
 // (Deadshot -35%/-70%) x fastfire (Gun Slinger) x fastreload (Speed Cola Mega). GDT =
@@ -1157,6 +1186,12 @@ weaponfull,t9_rpd_acc_recoil50_fastreload
 weaponfull,t9_rpd_up_acc_fastreload
 weaponfull,t9_rpd_up_acc_recoil50
 weaponfull,t9_rpd_up_acc_recoil50_fastreload
+weaponfull,t6_hamr_acc_fastreload
+weaponfull,t6_hamr_acc_recoil50
+weaponfull,t6_hamr_acc_recoil50_fastreload
+weaponfull,t6_hamr_up_acc_fastreload
+weaponfull,t6_hamr_up_acc_recoil50
+weaponfull,t6_hamr_up_acc_recoil50_fastreload
 
 // -----------------------------------------------------------------------------
 // Phase 4+ (uncomment as they come online):
@@ -1203,12 +1238,12 @@ weaponfull,apex_prowler_acc_recoil50_fastreload_zm
 weaponfull,apex_prowler_up_acc_recoil50_zm
 weaponfull,apex_prowler_up_acc_fastreload_zm
 weaponfull,apex_prowler_up_acc_recoil50_fastreload_zm
-weaponfull,apex_g2a4_acc_recoil50_zm
-weaponfull,apex_g2a4_acc_fastreload_zm
-weaponfull,apex_g2a4_acc_recoil50_fastreload_zm
-weaponfull,apex_g2a4_up_acc_recoil50_zm
-weaponfull,apex_g2a4_up_acc_fastreload_zm
-weaponfull,apex_g2a4_up_acc_recoil50_fastreload_zm
+weaponfull,t9_m16_acc_fastreload
+weaponfull,t9_m16_acc_recoil50
+weaponfull,t9_m16_acc_recoil50_fastreload
+weaponfull,t9_m16_up_acc_fastreload
+weaponfull,t9_m16_up_acc_recoil50
+weaponfull,t9_m16_up_acc_recoil50_fastreload
 weaponfull,apex_beam_rifle_acc_recoil50_zm
 weaponfull,apex_beam_rifle_acc_fastreload_zm
 weaponfull,apex_beam_rifle_acc_recoil50_fastreload_zm

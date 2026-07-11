@@ -39,8 +39,8 @@ packed guns are the priciest to upgrade *and* the hardest to find.
 |---|--:|--:|--:|---|
 | **Wonder** | 10,000 | 15,000 | 20,000 | Thundergun, Blast-O-Matic, Fire Bow, Leviathan Axe |
 | **Top** | 5,000 | 7,500 | 10,000 | XM4, AK-47, M60, PPSh-41, Peacekeeper, MORS, CEL-3, Action Figure, Havoc, Mahem, War Machine |
-| **Mid** | 4,000 | 6,000 | 8,000 | AE4, RW1, MK14, Tac-19, AK-74u, RPD |
-| **Bottom** | 3,000 | 4,500 | 6,000 | Alternator, Prowler, Streetsweeper, Olympia, Grav, G7 Scout, Five-Seven |
+| **Mid** | 4,000 | 6,000 | 8,000 | AE4, RW1, M16, MK14, Tac-19, AK-74u, HAMR, RPD |
+| **Bottom** | 3,000 | 4,500 | 6,000 | Alternator, Prowler, Streetsweeper, Olympia, Grav, Five-Seven |
 
 **Box roll** is roughly how often each gun comes up when you spin the Mystery Box, ranked from
 rarest (best packed) to commonest (weakest packed). The percentages are each gun's share of the
@@ -54,29 +54,30 @@ little whenever the arsenal is re-tuned — treat them as the *shape* of the odd
 | 3 | **Fire Bow** | Special | ~0.3% |
 | 4 | **Leviathan Axe** | Melee special | ~0.3% |
 | 5 | **Action Figure** (PaP in place) | Melee special | ~0.8% |
-| 6 | **XM4** | AR | ~1.2% |
-| 7 | **Havoc** (energy rifle) | Special | ~1.2% |
-| 8 | **Peacekeeper** (lever shotgun) | Shotgun | ~1.3% |
-| 9 | **AK-47** | AR | ~1.4% |
-| 10 | **M60** | LMG | ~1.6% |
-| 11 | **PPSh-41** | SMG | ~1.8% |
-| 12 | **Mahem** (rocket launcher) | Special | ~2.0% |
-| 13 | **War Machine** (drum GL) | Special | ~2.2% |
-| 14 | **MORS** (railgun sniper) | Sniper | ~2.4% |
-| 15 | **Alternator** | SMG | ~2.7% |
-| 16 | **AE4** (energy AR) | AR | ~3.0% |
-| 17 | **RW1** (energy pistol) | Pistol | ~3.3% |
-| 18 | **CEL-3** (spread shotgun) | Shotgun | ~3.7% |
-| 19 | **MK14** | DMR | ~4.1% |
-| 20 | **Tac-19** (energy shotgun) | Shotgun | ~4.6% |
-| 21 | **Prowler** (burst SMG) | SMG | ~5.1% |
-| 22 | **AK-74u** | SMG | ~5.6% |
-| 23 | **Streetsweeper** (drum shotgun) | Shotgun | ~6.2% |
-| 24 | **RPD** | LMG | ~6.9% |
-| 25 | **Olympia** | Shotgun | ~7.7% |
-| 26 | **Grav** | AR | ~8.5% |
-| 27 | **G7 Scout** (marksman) | Sniper | ~9.5% |
-| 28 | **Five-Seven** (start pistol) | Pistol | ~10.5% |
+| 6 | **XM4** | AR | ~1.1% |
+| 7 | **Peacekeeper** (lever shotgun) | Shotgun | ~1.2% |
+| 8 | **Havoc** (energy rifle) | Special | ~1.2% |
+| 9 | **AK-47** | AR | ~1.3% |
+| 10 | **M60** | LMG | ~1.4% |
+| 11 | **PPSh-41** | SMG | ~1.6% |
+| 12 | **Mahem** (rocket launcher) | Special | ~1.8% |
+| 13 | **War Machine** (drum GL) | Special | ~1.9% |
+| 14 | **MORS** (railgun sniper) | Sniper | ~2.2% |
+| 15 | **Alternator** | SMG | ~2.4% |
+| 16 | **AE4** (energy AR) | AR | ~2.7% |
+| 17 | **RW1** (energy pistol) | Pistol | ~3.0% |
+| 18 | **CEL-3** (spread shotgun) | Shotgun | ~3.3% |
+| 19 | **M16** (burst→full-auto rifle) | Tactical Rifle | ~3.7% |
+| 20 | **MK14** | DMR | ~4.1% |
+| 21 | **Tac-19** (energy shotgun) | Shotgun | ~4.5% |
+| 22 | **AK-74u** | SMG | ~5.0% |
+| 23 | **Prowler** (burst SMG) | SMG | ~5.6% |
+| 24 | **Streetsweeper** (drum shotgun) | Shotgun | ~6.2% |
+| 25 | **HAMR** (high-capacity LMG) | LMG | ~6.8% |
+| 26 | **RPD** | LMG | ~7.6% |
+| 27 | **Olympia** | Shotgun | ~8.4% |
+| 28 | **Grav** | AR | ~9.4% |
+| 29 | **Five-Seven** (start pistol) | Pistol | ~10.4% |
 
 > **The four wonder weapons (Thundergun, Blast-O-Matic, Fire Bow, Leviathan Axe) are the rarest
 > pulls of all (~0.3% each) and are claim-capped to one in the world.** The **Action Figure**
@@ -108,9 +109,9 @@ multi-tier sinks, finite so you can't hoard forever.
 |---|---|---|
 | **Data Caches** (×2) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
 | **Any boss kill** | Boss rounds (see below) | **Every boss pays the same guaranteed reward** to every player: **round × 180 points + ⌊round ÷ 3⌋ shards**, plus a **boss item** and a **Mega Bottle**. (Round 9 = ~1,620 points + 3 shards; round 18 = ~3,240 + 6.) This covers the **Trench Warden** (Brutus), **Phantom**, **Avogadro**, **Panzer**, and the **Rogue Protector** alike — they were unified 2026-07-05, no more per-boss differences. *(Bosses spawned during the Paradise finale pay nothing — that fight is survive-don't-farm.)* |
-| **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards, a shared Fire Sale, and a Mega Bottle.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
+| **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards and a shared Fire Sale.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
 | **Glitch Altar** | Deep underground (Abyss Layer 3) | A **2-Shard gamble**, not a faucet — see below. |
-| **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** (plus its own item + bottle). |
+| **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** — no boss item, no Mega Bottle (it spawns 1–3× every round, so those stay exclusive to the rare Brutus/Phantom). |
 
 **Boss rounds:** the first **mini-boss** (the Trench Warden / Brutus) shows up around **round 5**
 when the power comes on, then respawns on a timer. Full **boss rounds** land **every 9 rounds

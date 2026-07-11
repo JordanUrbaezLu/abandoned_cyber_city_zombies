@@ -247,8 +247,10 @@ function watch_connections()
         player thread trench_fall_watcher();
         player thread trench_shard_income();    // passive Data Shard income while standing in a trench layer (deeper = faster)
         player thread bridge_drain_watcher();   // anti-camp: bleed health on the zombie-unreachable bridge
-        if ( IS_TRUE( level.acc_dev ) )
-            player thread bridge_debug_readout();   // DEV-ONLY diag (user 2026-07-05): on-screen coord + on_bridge readout - was spamming every 0.25s in the trench in NORMAL play, now gated behind acc_dev
+        // DEV bridge coord/on-bridge readout REMOVED 2026-07-10 (clean screen in hardcoded dev; the "no damage on the
+        // bridge" bug it debugged is long fixed - memory stock-self-damage-mod-whitelist). Re-thread to debug the bridge.
+        // if ( IS_TRUE( level.acc_dev ) )
+        //     player thread bridge_debug_readout();
         player thread trench_damage_logger();   // TEMP: name the exact cause of any trench death
         player thread trench_player_navlog();   // TEMP diag: log player nav state while underground
     }

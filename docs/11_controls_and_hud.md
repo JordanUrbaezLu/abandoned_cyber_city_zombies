@@ -36,7 +36,7 @@ All standard BO3 controls are preserved. Custom inputs are additive.
 | Action | Binding | Notes |
 |---|---|---|
 | **Weapon Ability** | **ADS + Melee chord** (RMB + V on KBM / **LT + R3** on gamepad) | Not a rebindable key. `_acc_weapon_abilities::player_ability_listener` polls `AdsButtonPressed() && MeleeButtonPressed()` (0.05s) and fires the held weapon's ability class, then a 0.5s debounce. BO3 has no console command that emits a script notify on a player, so an earlier `bind h notify acc_ability` scheme could never work — the chord is the shipped input. Ability resolves via `acc_weapon_variants::true_base` so it survives PaP and Mega twins; cooldowns run holstered too. <!-- TODO(acc-input): a real LUI keybind was the planned Phase-4 replacement (_acc_weapon_abilities.gsc:160,187). --> |
-| **Third-person toggle** | Pause menu → "Third Person" option | Aetherium StartMenu option `ui_menu_option_third_person`; `_zm_aetherium_hud::menu_option_third_person_handler` calls `setclientthirdperson(1, 120, 30)` (`_zm_aetherium_hud.gsc:577`). |
+| **Third-person toggle** | Pause menu → "Third Person" option | Aetherium StartMenu option `ui_menu_option_third_person`; `_zm_aetherium_hud::menu_option_third_person_handler` (`_zm_aetherium_hud.gsc:605`) calls `setclientthirdperson(1, 120, 30)` (`_zm_aetherium_hud.gsc:626`). |
 
 ### Contextual interactions (stock Hold-to-use)
 
@@ -50,11 +50,11 @@ No custom keys; the interaction is the world trigger you look at.
 | Mystery Box | 3 inline boxes | Stock box; **box-only** weapon distribution (large arsenal). |
 | Wallbuys | per zone | Stock name + price via Aetherium cursor hint (`PromptWallBuy`). |
 | Buyable doors | 8 doors | `zombie_door` triggers (`script_flag enter_*`). |
-| Power switches | Corp / Vault | Stock power; also the Emergency Drop trigger (below). |
-| Cyberware kiosk / Overclock station | Plaza / Lab | Shard-spend upgrade UI (stock interact, contextual). |
+| Power switch | Corp (Bus Station) | Stock power; also the Emergency Drop trigger (below). The Vault switch was removed 2026-06-18 — the map ships **one** switch. |
+| Overclock terminal | Lab | Shard-spend **weapon-upgrade** UI — the live upgrade path (`_acc_overclocks`, model `p7_zm_sta_dragon_network_data_terminal`). The Cyberware kiosk/tree is **disabled by default** (gated behind `acc_cyberware_on`, default 0) and is not spawned. |
 | Exo Suit station | trench | Per-player depth-gate; cancels the per-layer trench slow (docs/29). |
 | Armory rack | Plaza upper room | Pooled-weapon rack + bottle→random-reward exchange. |
-| Jukebox | North trench room | Random song, 1 Data Shard + 1000 pts (replaced the EE-song teddy bears). |
+| Jukebox | North trench room | Random song, 2 Data Shards + 1000 pts (replaced the EE-song teddy bears). |
 | Glitch Altar | trench rooms | Data Shard gamble. |
 | The Exchange | transfer vault | `_acc_transfer` currency/item transfer. |
 | Reactor | pit | Reactor Surge climax event (docs/30). |
@@ -203,6 +203,13 @@ The map **does** have a kill feed now (this reverses the old "we don't have one"
 `localizedstrings/zm_aetherium.str` (the T7 compiler auto-prepends `ZM_AETHERIUM_`). The
 kit's own `zombie_death_callback` is kept **dormant** because it computed feed values from
 stock scoring formulas that don't match this map.
+
+**Feed text colors (user 2026-07-11):** regular kills (normal/melee/burned/elimination) =
+**yellow** `(0.92, 0.94, 0.17)`; **Critical Kill = cyan/teal** `(0.20, 0.95, 0.85)` — the SAME
+teal as the headshot damage numbers (`ACC_DMG_COLOR_HS` in `acc_hud.lua`), so crit feed text and
+crit damage numbers read as one signal. AAT kills (Electric/Blast Furnace/Fireworks/Thunderwall/
+Turned) keep the same yellow as regular kills. (Before: crits yellow, regular white.) All in
+`SetKillTypeColor`, `AetheriumKillFeed.lua`.
 
 ### HUD elements we deliberately DON'T have
 

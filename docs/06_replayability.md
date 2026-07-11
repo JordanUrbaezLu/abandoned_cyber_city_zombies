@@ -7,7 +7,7 @@ The explicit systems that make run N+1 meaningfully different from run N, withou
 Ordered from "subtle" to "radical":
 
 1. **Per-run / per-round variance** - re-rolls come from the box, the perk rotation, and boss drops. Small but pervasive. Default-on.
-2. **Build space** - your Cyberware + weapon-Tier decisions within a run. Large expressive space. Driven by player choice + Shard RNG.
+2. **Build space** - your weapon-Tier / Overclock decisions within a run. Large expressive space. Driven by player choice + Shard RNG. *(The Cyberware skill tree was designed as a co-equal build lever but is currently **disabled** — see Tier 2 below.)*
 3. **Modifiers** - optional opt-in rule changes (dvar-toggled). Radical changes to rules. Default-off.
 
 ## Tier 1 - Per-Run / Per-Round Variance
@@ -122,22 +122,30 @@ The map layout is the same every run; the *box pulls, per-round perk offer, and 
 
 ## Tier 2 - Build Space (within-run decisions)
 
-Covered in [03_progression_and_skills.md](03_progression_and_skills.md) (Cyberware) and
-[04_weapons.md](04_weapons.md) (weapon Tiers). Summary numbers:
+The live within-run build lever is the **weapon Tier / Overclock terminal** — see
+[04_weapons.md](04_weapons.md#the-overclock-system). The **Cyberware skill tree** described in
+[03_progression_and_skills.md](03_progression_and_skills.md) was designed as a co-equal lever but is
+**currently disabled** (dormant note below), so within-run build depth today comes entirely from weapon Tiers.
 
-- Cyberware end-state combinations: **27** (3 branches x 3 tier-2 choices x 3 tier-3 capstones, modulo not all combinations being coherent).
-- Recognizable **build archetypes**: see below.
 - Weapon Tiers: ~220 Shards to max one gun (T0→T10); you typically deep-tier 1-2 guns per run.
 
-### Build Archetypes (emergent, not enforced)
+> **Cyberware tree — dormant / disabled (user 2026-06-19).** The 9-node Cyberware skill tree (3 branches x 3
+> tiers; designed end-state combinations: **27** = 3 branches x 3 tier-2 choices x 3 tier-3 capstones, modulo
+> not all being coherent) was **removed from play**: the weapon Overclock terminal is now the sole upgrade, the
+> kiosk is no longer spawned, and node purchase is gated behind `acc_cyberware_on` (default **0**), so players
+> cannot buy nodes in a normal run (`_acc_cyberware.gsc:92-97`). The module stays loaded (its damage-flag
+> readers are harmless no-ops with no nodes bought). The archetypes and 27-combination math below describe that
+> dormant tree, kept as design intent for a possible re-enable.
 
-The three branches of Cyberware naturally produce three archetypes. You don't have to label your build, but these are the shapes that emerge:
+### Build Archetypes (design intent — the dormant Cyberware tree)
+
+Were the Cyberware tree re-enabled, its three branches would naturally produce three archetypes. You don't have to label your build, but these are the shapes it was designed to emerge:
 
 1. **Overclock / "Sniper"** - single-target damage stacker. Pairs with Sniper or single-shot AR. High ceiling, low margin for error.
 2. **Subroutine / "Economy"** - maximizes Shards and survivability. Pairs with the Payroll Ledger boss item and Widow's Wine for grenade-heavy farming. Long, slow runs.
 3. **Reflex / "Mobility"** - evasion + burst. Pairs with SMG or shotgun (fast handling) and Phase Step / Overdrive. High APM, big endgame upside.
 
-Mixed builds (e.g. Reflex Tier 1 + Subroutine Tier 2 + Overclock Tier 3) are legal and sometimes optimal - but emergent, not on-rails.
+Mixed builds (e.g. Reflex Tier 1 + Subroutine Tier 2 + Overclock Tier 3) were legal in the tree's design and sometimes optimal - but the tree is dormant today, so the only live within-run build choice is weapon-Tier / Overclock-terminal investment (which most resembles the single-target "Sniper" shape).
 
 ## Tier 3 - Modifiers
 

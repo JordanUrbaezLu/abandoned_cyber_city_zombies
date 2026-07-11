@@ -298,8 +298,8 @@ function bow_base_impact_watcher( w_bow, w_bow_charged, ptr_post_bow_impact = un
 		// [acc] dev breadcrumb (2026-07-08 "void does nothing" hunt): EVERY bow projectile impact,
 		// BEFORE the family match - if this never prints on a charged shot, the engine isn't
 		// notifying projectile_impact for the charged def at all.
-		if ( IS_TRUE( level.acc_dev ) )
-			self IPrintLnBold( "^2[BOW] impact w=" + weapon.name + " fam=" + w_player_bow + " (want " + w_bow + " | " + w_bow_charged + ")" );
+		// [BOW] impact dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+		// if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^2[BOW] impact w=" + weapon.name + " fam=" + w_player_bow + " (want " + w_bow + " | " + w_bow_charged + ")" );
 		if ( w_player_bow == w_bow || w_player_bow == w_bow_charged )
 		{
 			if ( w_player_bow != "elemental_bow" && w_player_bow != "elemental_bow_wolf_howl4" && isDefined( e_projectile.birthtime ) )

@@ -35,9 +35,9 @@ idea was **a new entity that controls the middle**.
 ```
             LAB   ← north pole: PaP, ALL 10 perks (rotating 4-of-10), Overclock terminal,
            /    \    wonder-weapon craft, full-boss venue.  NEVER sealed.
-        ROOF    VAULT   (Roof = best late train, one hop from Lab; Vault = Power B)
+        ROOF    VAULT   (Roof = best late train, one hop from Lab)
            \    /
-           CORP  ← THE MIDDLE. Cut-vertex hub: Power A, box, hack terminal, 2 trains.
+           CORP  ← THE MIDDLE. Cut-vertex hub: the power switch, box, hack terminal, 2 trains.
            /    \    NEVER sealed (sealing it disconnects Plaza↔Lab).
       MARKET    ALLEY
            \    /
@@ -380,7 +380,7 @@ coords.
 | `acc_lockdown_fail_cooldown` | `1` | Rounds after a *failed* challenge before the next lights (≥1 breather). |
 | `acc_lockdown_force_zone` | `""` | TEST pin: a zone name (e.g. `vault_zone`) locks the lockdown to ONE room, bypassing rotation. |
 | `acc_lockdown_lock_doors` | `1` | Door seal (see below). `0` = light only. |
-| `acc_lockdown_debug` | `0` | On-screen `[lockdown]` rotation trace (also on in `level.acc_dev`). |
+| `acc_lockdown_debug` | `0` | On-screen `[lockdown]` rotation trace. `1` = show (decoupled from `level.acc_dev` 2026-07-10, `_acc_lockdown.gsc:252` — clean screen in dev; the `[acc]` dev log still fires either way). |
 
 ### Door locking — stock buyable-door reuse, NOT seal brushes
 

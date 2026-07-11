@@ -30,8 +30,8 @@ All numbers are tight and even.
 
 | Thing | Where | What it does | Shards |
 |---|---|---|---|
-| **Data Caches** ×2 | Exposed pit | Main shard **source** — **+3 each** (user 2026-06-25: 2→3), once per round, to whoever loots it first (re-arms each round). **CO-OP anti-hog (user 2026-06-25): a player can loot only ONE of the two per round — grab one and the other must be taken by a teammate** (`acc_cache_one_per_player`; **solo is exempt** so the 2nd cache isn't wasted). A **dim white glow** on each crate = "shards available this round"; it **switches off the instant the cache is looted** and **comes back when it re-arms at round start** — an at-a-glance indicator (user 2026-06-24). | **+3** each |
-| **Trench Warden** (Brutus) | Near the trench | The signature boss; killing him gives **everyone +2 shards**. | **+2** all |
+| **Data Caches** ×2 | Exposed pit | Main shard **source** — **+3 each** (user 2026-06-25: 2→3), once per round, to whoever loots it first (re-arms each round). **CO-OP anti-hog (user 2026-06-25; per-group since 2026-07-11): a player can loot only ONE of the two TRENCH caches per round — grab one and the other must go to a teammate — but this cap is separate from the plaza crates (looting a plaza cache does NOT lock you out of a trench cache, and vice-versa)** (`acc_cache_one_per_player`; **solo is exempt** so the 2nd cache isn't wasted). A **dim white glow** on each crate = "shards available this round"; it **switches off the instant the cache is looted** and **comes back when it re-arms at round start** — an at-a-glance indicator (user 2026-06-24). | **+3** each |
+| **Trench Warden** (Brutus) | Near the trench | The signature mini-boss; killing him grants the **unified boss reward** (identical for every boss, user 2026-07-05) to **every player**: **int(round ÷ 3) shards** + **round × 180 points** + **1 guaranteed boss item** (dupes convert to shards at pickup) + **1 Mega Bottle**. Round-scaling, so the debut kill pays more the later it lands (e.g. round 9 → 3 shards + 1,620 pts). (`acc_boss::grant_unified_boss_reward`; tunables `acc_boss_shards_round_div` = 3, `acc_boss_score_per_round` = 180.) | **int(rnd/3)** all |
 | **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Fire Sale** (user 2026-06-27, was an Insta-Kill). The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
 | **Neural Expansion Bay** | Pit (west) | The marquee buy: **+1 perk slot** (start at 4, up to 10 — so 6 buyable slots). | spend (4/6/8/10/12/14) |
 | **Glitch Altar** | Abyss **floor 3** (west) | **Gamble 2 shards/spin** for a weighted result: usually a boon (Max Ammo / Insta-Kill / Double Points / free perk / +4 shard jackpot / rare ~2% Mega Win = Free Perk + Insta-Kill), sometimes a curse (surge / −2 drain / dud). ~65% boon / ~35% curse; net-negative, can't be farmed. | spend (2/spin) |
@@ -41,7 +41,8 @@ All numbers are tight and even.
 
 > **Jukebox (dev note):** the **NORTH** under-room (opposite the SOUTH "Foundry" room that holds the
 > Overclock + Altar) has a **JUKEBOX machine** (IW `cp_town_jukebox` model, eMoX pack model-only lift) on
-> the west side at `(-140, 2350)` — it **replaced the 3 teddy bears** (2026-07-09). Holding [activate]
+> the west side at `(-150, 2240, -240)` (moved 2026-07-10 to spread it away from the reactor plinth; was
+> `(-140, 2350)`) — it **replaced the 3 teddy bears** (2026-07-09). Holding [activate]
 > charges **2 Data Shards + 1000 points** and plays a **RANDOM song** from the playlist (never the same one
 > twice in a row) 2D for the whole lobby, with the same **5-min cooldown** between plays; it is never
 > consumed (repeatable all game). A **`NOW PLAYING <title>`** banner shows the song's name to **all
@@ -112,5 +113,6 @@ tier.** Every shard is earned and spent underground — that's the pull into the
 ## Tuning (for testing)
 - Real economy (not the dev firehose): `acc_dev_shards 0`, `acc_dev_perks 0`.
 - All trench feedback text height: `acc_msg_y` (smaller = higher), `acc_msg_sec` = how long it holds.
-- Per-thing knobs live in each module (`acc_cache_*`, `acc_altar_*`, `acc_perk_slot_*`, `acc_reactor_*`,
-  `acc_warden_shard_reward`); see the module headers.
+- Per-thing knobs live in each module (`acc_cache_*`, `acc_altar_*`, `acc_perk_slot_*`, `acc_reactor_*`;
+  the Trench Warden / all-boss reward is `acc_boss_shards_round_div` + `acc_boss_score_per_round` in
+  `_acc_boss.gsc`); see the module headers.

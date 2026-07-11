@@ -144,8 +144,11 @@ function __main__()
 	// clientfields for UNOCCUPIED slots so the Lua party mocks (AetheriumHud.lua
 	// ACC_MOCK_PARTY) show live bars solo. States stay 0 = all mocks alive (user 2026-06-28
 	// convention). Self-limits to empty slots, so it never fights a real player's feed.
-	if ( IS_TRUE( level.acc_dev ) )
-		level thread mock_party_feed();
+	// MOCK PARTY FEED REMOVED FROM DEV 2026-07-10 (user: "remove the random debug UI, keep the screen clean") - dev is
+	// now hardcoded ON, so this drove FAKE co-op teammate rows onto the party HUD every session. Re-thread to test the
+	// co-op HUD roster. (Also the crash-hunt clientfield-spam suspect - memory crash-hunt-2026-07-10-state.)
+	// if ( IS_TRUE( level.acc_dev ) )
+	//     level thread mock_party_feed();
 }
 
 // ACC (dev-only): fake teammate health for the party-widget mocks. Slot 1 steady-high,

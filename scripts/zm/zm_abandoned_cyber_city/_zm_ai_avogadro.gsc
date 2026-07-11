@@ -494,7 +494,7 @@ function avo_log( msg )
 	// DEV-ONLY (user 2026-07-05): the on-screen [AVO] spawn diagnostics show ONLY in dev mode (acc_dev) or with
 	// `acc_avo_debug 1`. level.avo_no_log was never assigned anywhere, so this used to IPrintLnBold ~7 lines to
 	// EVERY player on each Avogadro spawn in normal play. acc_dev is the one flag that gates it now.
-	if ( !IS_TRUE( level.acc_dev ) && getdvarint( "acc_avo_debug", 0 ) != 1 )
+	if ( getdvarint( "acc_avo_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_avo_debug now)
 		return;
 	players = GetPlayers();
 	for ( i = 0; i < players.size; i++ )

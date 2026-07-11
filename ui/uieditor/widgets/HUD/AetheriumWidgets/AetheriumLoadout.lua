@@ -82,7 +82,9 @@ local function GetWeaponIcon( weaponName )
 	-- akimbo forms (_rdw/_ldw), and the Action Figure speed twins (_fast1..3). Without these
 	-- strips every variant missed the table and the icon went blank mid-game even for mapped
 	-- guns. Strip them down to the base codename the table keys on.
-	cleanWeapon = cleanWeapon:gsub("_acc_.*$", ""):gsub("_[lr]dw$", ""):gsub("_fast%d$", "")
+	-- (2026-07-11: "_brz$" = the Berzerker implant's AF tier ladder, t8_melee_figure[_fastN]_brz -
+	-- stripped BEFORE _fast%d so both suffixes peel; the leviathan brz forms ride the _acc_ strip.)
+	cleanWeapon = cleanWeapon:gsub("_acc_.*$", ""):gsub("_[lr]dw$", ""):gsub("_brz$", ""):gsub("_fast%d$", "")
 
 	-- Check for exact match first
 	if CoD.AetheriumWeaponData[cleanWeapon] and CoD.AetheriumWeaponData[cleanWeapon].icon then

@@ -150,7 +150,7 @@ function register_mystery_box_pool()
         "apex_beam_rifle",    // Havoc (Apex energy projectile rifle - A energy special, replaces China Lake)
         "apex_alternator",    // Alternator (Apex full-auto SMG - trash base, A+ PaP; replaces Klauser)
         "apex_prowler",       // Prowler (Apex burst PDW/full-auto SMG - B; replaces Chicom)
-        "apex_g2a4",          // G7 Scout (Apex semi-auto marksman - C; replaces Paladin)
+        "t9_m16",             // M16 (CW burst->full-auto tactical rifle - B; slightly better than MK14, replaces the G7 Scout; user 2026-07-11)
         // "s1_asm1",       // ASM1 RETIRED 2026-07-03 (user: least liked) - uncomment to restore (+ zone/CSV, see zone comment)
         "s1_tac19",         // Tac-19     (Skye AW)
         "t9_ak47",          // AK-47      (Skye BO2)
@@ -168,6 +168,7 @@ function register_mystery_box_pool()
         // long reloads (9.7s / 7.5s) make the Speed Cola Mega twin especially valuable.
         "t9_m60",                // M60  (Cold War heavy belt-fed LMG)
         "t9_rpd",                // RPD  (Cold War drum-fed LMG)
+        "t6_hamr",               // HAMR (BO2 LMG - B tier, sits between the M60 and RPD; user 2026-07-10)
         // MK14 (AW s1_mk14): semi-auto battle-rifle / DMR, B tier, FULLY TWINNED (user 2026-06-24). Sniper category + family.
         "s1_mk14",               // MK14 (AW marksman DMR - B tier, twinned)
         // MORS (AW s1_mors): charge-up railgun SNIPER, S tier, FULLY TWINNED (user 2026-06-24). Loc normalized
@@ -512,34 +513,35 @@ function acc_box_weight( wpn )
 {
     if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 52;   // default = a mid gun
     n = wpn.name;
-    if ( n == "thundergun" )            return 13;   // 0.29% - #1 Thundergun
-    if ( n == "t9_semiauto_cosplay" )   return 13;   // 0.29% - #2 Blast-O-Matic
-    if ( n == "elemental_bow_demongate" ) return 13;   // 0.29% - #3 Fire Bow
-    if ( n == "leviathan" )             return 13;   // 0.29% - #4 Leviathan Axe
-    if ( n == "t8_melee_figure" )       return 35;   // 0.79% - #5 Action Figure
-    if ( n == "t9_xm4" )                return 52;   // 1.17% - #6 XM4
-    if ( n == "apex_peacekeeper" )      return 58;   // 1.31% - #7 Peacekeeper
-    if ( n == "t9_ak47" )               return 64;   // 1.44% - #8 AK-47
-    if ( n == "t9_m60" )                return 71;   // 1.60% - #9 M60
-    if ( n == "s4_ppsh41_base" )        return 79;   // 1.78% - #10 PPSH-41
-    if ( n == "apex_beam_rifle" )       return 53;   // 1.20% - #11 Havoc
-    if ( n == "s1_mahem" )              return 88;   // 1.99% - #12 Mahem
-    if ( n == "t6_war_machine" )        return 97;   // 2.19% - #13 War Machine
-    if ( n == "s1_mors" )               return 108;   // 2.44% - #14 MORS
-    if ( n == "apex_alternator" )       return 120;   // 2.71% - #15 Alternator
-    if ( n == "s1_ae4" )                return 133;   // 3.00% - #16 AE4
-    if ( n == "s1_rw1" )                return 148;   // 3.34% - #17 RW1
-    if ( n == "s1_cel3" )               return 164;   // 3.70% - #18 CEL-3
-    if ( n == "s1_mk14" )               return 182;   // 4.11% - #19 MK14
-    if ( n == "s1_tac19" )              return 202;   // 4.56% - #20 Tac-19
-    if ( n == "apex_prowler" )          return 224;   // 5.06% - #21 Prowler
-    if ( n == "t9_ak74u" )              return 249;   // 5.62% - #22 AK-74u
-    if ( n == "t9_streetsweeper" )      return 276;   // 6.23% - #23 Streetsweeper
-    if ( n == "t9_rpd" )                return 307;   // 6.93% - #24 RPD
-    if ( n == "t6_olympia" )            return 340;   // 7.67% - #25 Olympia
-    if ( n == "t9_grav" )               return 378;   // 8.53% - #26 Grav
-    if ( n == "apex_g2a4" )             return 419;   // 9.46% - #27 G7 Scout
-    if ( n == "t6_fiveseven" )          return 465;   // 10.50% - #28 Five-Seven
+    if ( n == "thundergun" )            return 15;   // 0.30% - #1 Thundergun
+    if ( n == "t9_semiauto_cosplay" )   return 15;   // 0.30% - #2 Blast-O-Matic
+    if ( n == "elemental_bow_demongate" ) return 15;   // 0.30% - #3 Fire Bow
+    if ( n == "leviathan" )             return 15;   // 0.30% - #4 Leviathan Axe
+    if ( n == "t8_melee_figure" )       return 40;   // 0.80% - #5 Action Figure
+    if ( n == "t9_xm4" )                return 52;   // 1.05% - #6 XM4
+    if ( n == "apex_peacekeeper" )      return 58;   // 1.17% - #7 Peacekeeper
+    if ( n == "t9_ak47" )               return 64;   // 1.29% - #8 AK-47
+    if ( n == "t9_m60" )                return 71;   // 1.43% - #9 M60
+    if ( n == "s4_ppsh41_base" )        return 79;   // 1.59% - #10 PPSH-41
+    if ( n == "apex_beam_rifle" )       return 60;   // 1.21% - #11 Havoc
+    if ( n == "s1_mahem" )              return 88;   // 1.77% - #12 Mahem
+    if ( n == "t6_war_machine" )        return 97;   // 1.95% - #13 War Machine
+    if ( n == "s1_mors" )               return 108;   // 2.17% - #14 MORS
+    if ( n == "apex_alternator" )       return 120;   // 2.41% - #15 Alternator
+    if ( n == "s1_ae4" )                return 133;   // 2.67% - #16 AE4
+    if ( n == "s1_rw1" )                return 148;   // 2.97% - #17 RW1
+    if ( n == "s1_cel3" )               return 164;   // 3.30% - #18 CEL-3
+    if ( n == "t9_m16" )                return 182;   // 3.66% - #19 M16
+    if ( n == "s1_mk14" )               return 202;   // 4.06% - #20 MK14
+    if ( n == "s1_tac19" )              return 224;   // 4.50% - #21 Tac-19
+    if ( n == "t9_ak74u" )              return 249;   // 5.00% - #22 AK-74u
+    if ( n == "apex_prowler" )          return 276;   // 5.55% - #23 Prowler
+    if ( n == "t9_streetsweeper" )      return 307;   // 6.17% - #24 Streetsweeper
+    if ( n == "t6_hamr" )               return 340;   // 6.83% - #25 HAMR
+    if ( n == "t9_rpd" )                return 378;   // 7.60% - #26 RPD
+    if ( n == "t6_olympia" )            return 419;   // 8.42% - #27 Olympia
+    if ( n == "t9_grav" )               return 465;   // 9.35% - #28 Grav
+    if ( n == "t6_fiveseven" )          return 517;   // 10.39% - #29 Five-Seven
     return 52;   // unknown -> a mid gun
 }
 // <<< END GENERATED >>>

@@ -12,8 +12,8 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > - **SMGs:** PPSH-41 `s4_ppsh41_base`, AK-74u `t9_ak74u`, Alternator `apex_alternator` (Apex; trash base / A+ PaP), Prowler `apex_prowler` (Apex burst SMG).
 > - **ARs:** AK-47 `t9_ak47`, XM4 `t9_xm4`, AE4 `s1_ae4` (energy), Grav `t9_grav` (CW model + Galil stats), Havoc `apex_beam_rifle` (Apex energy-projectile rifle, classed a special).
 > - **Shotguns:** Tac-19 `s1_tac19`, Olympia `t6_olympia`, Streetsweeper `t9_streetsweeper`, CEL-3 `s1_cel3`, Peacekeeper `apex_peacekeeper` (Apex lever, power-first top shotgun).
-> - **Marksman / snipers:** MK14 `s1_mk14`, MORS `s1_mors` (charge railgun), G7 Scout `apex_g2a4` (Apex semi marksman).
-> - **LMGs:** M60 `t9_m60`, RPD `t9_rpd` (both Cold War).
+> - **Marksman / snipers:** MK14 `s1_mk14`, MORS `s1_mors` (charge railgun), M16 `t9_m16` (CW burst→full-auto tactical rifle — B tier, slightly better than the MK14; replaces the G7 Scout, 2026-07-11).
+> - **LMGs:** M60 `t9_m60`, RPD `t9_rpd` (both Cold War), HAMR `t6_hamr` (BO2 — B tier, between the M60 and RPD).
 > - **Explosive specials:** Mahem `s1_mahem` (molten-metal rocket) + War Machine `t6_war_machine` (BO2 6-round drum GL, IMPACT detonation — GDT-native `fuseTime 0`; PaP "Dystopic Demolisher" = 12-rd full-auto drum; ~2000 direct/shot, below the Mahem per-shot — the drum burst is the appeal; Speed-Cola-only fastreload twins).
 > - **Wonder weapons** (all claim-capped 1 player/match, `wonder_cap_key()`): Thundergun `thundergun` (wind-blast, `is_limited=1`), Blast-O-Matic `t9_semiauto_cosplay` (CW DOA energy blaster), Fire Bow `elemental_bow_demongate` (HB21 demon-gate), Leviathan Axe `leviathan` (GoW melee).
 > - **Tacticals** (fixed pre-roll, `acc_box_tactical_preroll()`): Monkey Bomb `cymbal_monkey` 1% · Li'l Arnie `octobomb` 0.5%.
@@ -66,16 +66,21 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > cosmetic/generic. **Chalk only (user 2026-06-24):** the redundant server-spawned 3D gun/monkey-bomb model
 > (`spawn_acc_wallbuy_models()`) is **disabled**, so each spot shows just the chalk outline. Owning the gun
 > switches the prompt to **buy ammo** (PaP'd → 4500, else
-> ~half cost). Re-enabled past the box-only `remove_all_wallbuys()` by whitelisting those 4 weapon names — see
+> ~half cost). Re-enabled past the box-only `remove_all_wallbuys()` by whitelisting those 5 weapon names — see
 > [06_replayability.md](06_replayability.md). _(The prior pass wrongly claimed the chalk material "won't
 > compile" and used floating 3D models instead — both fixed: the chalk tokens are plain colorMap `material.gdf`
 > assets, verified on disk.)_
 >
 > **Ammo economy (2026-06-16).** Every box gun runs a global **30% ammo cut** baked by
-> `tools/reduce_base_ammo.js` (FACTOR 0.70). In the Skye GDTs `maxAmmo`/`startAmmo` are reserve
-> **magazine** counts, so **in-game reserve rounds = `maxAmmo × clipSize`**; cutting `clipSize`
-> ×0.70 drops both the mag and the reserve by 30% in one edit. Two special cases: **Olympia**
-> (double-barrel, `clipSize 2` floor) takes its 30% off `maxAmmo` instead (clip stays 2); the
+> `tools/reduce_base_ammo.js` (FACTOR 0.70). **The `maxAmmo`/`startAmmo` UNIT depends on the block's
+> `ammoCountClipRelative` field** — this is the trap that broke the Blast-O-Matic PaP (2026-07-10):
+> **`ammoCountClipRelative "1"` (every normal Skye gun)** = `maxAmmo`/`startAmmo` are reserve
+> **magazine** counts, so **in-game reserve rounds = `maxAmmo × clipSize`** (cutting `clipSize` ×0.70
+> drops both mag and reserve 30% in one edit); **`ammoCountClipRelative "0"` (the wonder weapons —
+> Blast-O-Matic `_up`, Thundergun)** = `maxAmmo`/`startAmmo` are **ABSOLUTE ROUNDS** (reserve = `maxAmmo`,
+> do NOT multiply by clip). Setting a clipRel-0 block's `maxAmmo` to a small "magazine" number sets the
+> literal round reserve — that is what collapsed the Blast-O-Matic PaP to 6 reserve. Two special cases:
+> **Olympia** (double-barrel, `clipSize 2` floor) takes its 30% off `maxAmmo` instead (clip stays 2); the
 > **PDW akimbo-PaP** shipped a broken `maxAmmo 920` (Skye data error, clamped to 18 ≈ 306 reserve).
 > Approx live reserves — autos ~130-225 base / ~280-420 PaP; shotguns/snipers/pistols ~26-84 (low
 > by design). Tune in that one tool; re-run + `gdtdb /update` + linker.
@@ -155,13 +160,13 @@ Both are live dvars — dial the exact boss damage without a rebuild. To protect
 
 #### Deeper audit (2026-06-24, adversarial workflow) — the name-keyed cut is NOT enough; a hard cap is
 
-An adversarial 19-agent audit found the weapon-name boss cuts above are **structurally defeated** in several ways, so they were backstopped with a **final per-hit boss-damage cap** (`ACC_BOSS_PER_HIT_CAP_PCT`, dvar `acc_boss_per_hit_cap_pct`, default **0.10** = a single player hit deals at most 10 % of a boss's maxhealth → ≥10 hits to kill). It clamps `final_damage` **after every multiplier** (global ×2.5 **and** insta-kill ×6), so it survives every bypass below. Applies to the **heavyweight bosses only** (marker-gated on `acc_is_boss`/`acc_is_mini_boss`, so it covers Brutus, The Phantom, and every roster boss) — the Glitch Stalker (`acc_is_glitch_zombie`) is excluded so it still dies fast.
+An adversarial 19-agent audit found the weapon-name boss cuts above are **structurally defeated** in several ways, so they were backstopped with a **final per-hit boss-damage cap** (`ACC_BOSS_PER_HIT_CAP_PCT`, dvar `acc_boss_per_hit_cap_pct`, default **0.10** = a single player hit deals at most 10 % of a boss's maxhealth → ≥10 hits to kill). It clamps `final_damage` **after every multiplier** (global ×3.25 **and** insta-kill ×6), so it survives every bypass below. Applies to the **heavyweight bosses only** (marker-gated on `acc_is_boss`/`acc_is_mini_boss`, so it covers Brutus, The Phantom, and every roster boss) — the Glitch Stalker (`acc_is_glitch_zombie`) is excluded so it still dies fast.
 
 Why the name-keyed cut alone failed (all confirmed in code):
-1. **The Thundergun one-shot is a WEAPONLESS DoDamage.** The real ~200k is the stock `thundergun_fling_zombie` → `DoDamage(self.health + 666)` with **no weapon** — so `acc_weapon_balance_mult` (gated on `isdefined(weapon)`) and `boss_nuke_mult` (returns 1.0 for undefined weapon) **never fire**. `int(80666 × 2.5) = ~201,665` = the exact report. The −30% nerf + ×0.20 cut did nothing to it. The hard cap catches it.
+1. **The Thundergun one-shot is a WEAPONLESS DoDamage.** The real ~200k is the stock `thundergun_fling_zombie` → `DoDamage(self.health + 666)` with **no weapon** — so `acc_weapon_balance_mult` (gated on `isdefined(weapon)`) and `boss_nuke_mult` (returns 1.0 for undefined weapon) **never fire**. `int(80666 × 2.5) = ~201,665` reproduced the ~200k report — that was at the then-×2.5 global; the scalar is now **×3.25** (`ACC_GLOBAL_DMG_MULT`), so an *uncapped* hit is higher still. The −30% nerf + ×0.20 cut did nothing to it. The hard cap catches it.
 2. **Octobomb** (granted by the Li'l Arnie boss item) does `DoDamage(target.health)` (full-HP pull) — same weaponless bypass, one-shots any boss. Capped now.
 3. **Insta-Kill ×6** is applied *after* the boss cut + global, re-inflating a cut weapon past the one-shot line during the powerup window. Capped now.
-4. **Investment stacking** (PaP T3 + Cyberware Amplifier + Overclock T10) lives in the *bonus_sum* bucket, a different bucket than the cut's *reduction* — so a fully-kitted weapon multiplies right past the cut (~130k/blast even at ×0.20). The advertised "~28k/blast" only held for a zero-investment gun. Capped now.
+4. **Investment stacking** (PaP T3 + Overclock T10 — the **Overclock Terminal** is the live upgrade path; a "Cyberware Amplifier" would also add here, but the Cyberware tree is **disabled by default** (`acc_cyberware_on 0`) so it's dormant) lives in the *bonus_sum* bucket, a different bucket than the cut's *reduction* — so a fully-kitted weapon multiplies right past the cut (~130k/blast even at ×0.20). The advertised "~28k/blast" only held for a zero-investment gun. Capped now.
 5. **Ability auto-crit** (Precision Mode +4.0 / Focus Fire / Slug +3.0) adds a flat bonus on bosses that the headshot-negation (`ACC_BOSS_HEADSHOT_MULT 1.0`) does **not** cover — biggest on the uncut snipers **MORS (`s1_mors`)** and **MK14 (`s1_mk14`)**. Capped now.
 6. **Melee** (Action Figure, Bowie) has no balance entry and scales with the Exo melee layer (now +30 %/tier to T10) → ~10k/swing maxed; single-target/point-blank, low severity, but also capped now.
 
@@ -176,7 +181,7 @@ The `boss_nuke_mult` cuts (Thundergun/Mahem/Paladin) are **kept** — they shape
 
 > ⚠️ **PARTIALLY STALE snapshot (2026-06 tuning pass).** The rows for **Nail Gun, Ripper, PDW-57, M1911,
 > ASM1, Paladin HB50, Chicom CQB, Wunderwaffe DG-2** are REMOVED guns — ignore them. The live box also adds
-> **XM4, Streetsweeper, CEL-3, Peacekeeper, Prowler, Alternator, G7 Scout, Havoc, War Machine, Blast-O-Matic,
+> **XM4, Streetsweeper, CEL-3, Peacekeeper, Prowler, Alternator, Havoc, War Machine, Blast-O-Matic,
 > Fire Bow, Leviathan Axe** which are NOT in this table. The canonical, auto-generated per-gun tier/score/PaP
 > data is [docs/25](25_weapon_stats_table.md) + [docs/33](33_pap_pricing_tiers.md) — trust those over this table.
 
@@ -198,6 +203,8 @@ How good the gun is *when you roll it* — the box-roll quality.
 | **B+** | 6.5 | ASM1 | SMG | ~401 | 22 | 132 | 2.1s | 1.0 | med | Low DPS saved by fast reload + clip + pierce. |
 | **B+** | 6.5 | Grav | AR | ~412 | 25 | 225 | 2.9s | 0.95 | med | Galil stats grafted onto the CW Grav model/sfx (2026-07-05). |
 | **B** | 5.9 | MK14 | DMR | ~81/shot | 14 | 168 | 2.0s | 0.95 | med | Semi-auto marksman (AW): hard per-shot, ~3× headshot, **curated** single-target DPS. **−10% dmg** (×0.291→0.2619), user 2026-06-27 — tier kept. |
+| **B** | 6.3 | M16 | Tac. Rifle | ~450 | 30 | 210 | 3.0s | 0.93 | med | CW burst→full-auto tactical rifle (user 2026-07-11): **slightly better than the MK14**; base 3-rd burst, PaP full-auto. **Replaces the G7 Scout.** |
+| **B** | 6.2 | HAMR | LMG | ~470 | 80 | 400 | 6.0s | 0.8 | large | BO2 LMG placed **between the M60 and RPD** (user 2026-07-10). Fast 6s reload is its comfort; mult 0.208, loc + ammo normalized install-side. |
 | **C** | 5.5 | RPD | LMG | ~421 | 60 | 240 | 7.5s | 0.8 | large | +25% damage buff (user 2026-06-25, mult 0.10→0.125, ~337→~421); tier/PaP-price/box-odds NOT recomputed. Big clip, slow move. |
 | **C** | 5.5 | Five-Seven | Pistol (start) | ~52/shot | 14 | **56** | 1.8s | 1.0 | small | Weak starter; reserve cut to land it at C. |
 | **C** | 5.2 | M1911 | Pistol | ~70/shot | 6 | 60 | 1.85s | 1.0 | small | Weak base — its value is the **PaP** (see the PaP list). |
@@ -256,8 +263,10 @@ uniformly at T3 (so the DPS order barely moves); the reshuffle vs base comes fro
 | **A** | 7.0 | ASM1 | 36 | 288 | — |
 | **A-** | 6.9 | Grav | 35 | 420 | — |
 | **B** | 6.4 | Paladin HB50 | 11 | 110 | **Moved S → B** (user 2026-06-24). **Reserve −15%** (132→110) + **dmg −25%**, user 2026-06-27 — tier kept; 11-round one-shot, mid-tier. |
+| **B** | 6.3 | HAMR | 100 | 500 | BO2 LMG, one notch above the RPD (user 2026-07-10); body 527 T3, DPS 3764 — both between the RPD and M60. Fast 6s reload keeps sustain up. |
 | **B** | 6.0 | RPD | 100 | 400 | Big belt, but low DPS ceiling. |
 | **B** | 6.0 | MK14 | 12 | 240 | Per-shot doubles (79→158 body) + more reserve; stays a precise marksman, not a sprayer. **−10% dmg** user 2026-06-27 — tier kept. |
+| **B** | 6.3 | M16 | 40 | 280 | Full-auto PaP (burst→auto); body 562 T3 / DPS 3661 / recoil High. Slightly better than the MK14; replaces the G7 Scout (user 2026-07-11). |
 | **C** | 5.2 | Olympia | 2 | 42 | 2-round clip — PaP can't fix the sustain. |
 
 > **Reading the two lists:** the base list is your *roll quality*; the PaP list is your *investment ceiling*.
@@ -283,7 +292,7 @@ uniformly at T3 (so the DPS order barely moves); the reshuffle vs base comes fro
 
 ### Hip-fire spread by class (skill gate, user 2026-06-29)
 
-Hip-fire accuracy is class-gated so every gun rewards ADS. `tools/scale_hipspread_by_class.js` (the single source of truth) scales the 8 `hipSpread` **pattern** fields (Stand/Ducked/Prone/Slide Min+Max — the cone size only; **ADS is untouched**, and the `*Add` per-shot bloom / `*Decay` recovery are left at stock) across **base + PaP + all 6 twins + the `.acc-orig` recoil baselines**, from a pristine `.acc-hipspread-orig` backup (idempotent; `--revert` resets to vanilla). Per class: **Sniper ×2.5** (MORS, G7 Scout), **Marksman ×1.50** (MK14), **AR ×1.25** (AE4, AK-47, XM4; the CW Grav `t9_grav`'s ×1.25 is **baked into its GDT** by the migration swap, not this tool), **LMG ×1.20** (M60, RPD), **SMG ×1.10** (PPSh-41, AK-74u, Prowler, Alternator). **Pistols + shotguns stay ×1** (`weaponClass` `pistol`/`spread`). Buckets come from the GDT `weaponClass`, with the `"rifle"` class hand-split into AR vs MK14 vs sniper. Re-run it after any `reduce_base_ammo.js` / balance-tool pass (those rewrite from their own `.acc-*-orig` baselines, which don't carry the spread change).
+Hip-fire accuracy is class-gated so every gun rewards ADS. `tools/scale_hipspread_by_class.js` (the single source of truth) scales the 8 `hipSpread` **pattern** fields (Stand/Ducked/Prone/Slide Min+Max — the cone size only; **ADS is untouched**, and the `*Add` per-shot bloom / `*Decay` recovery are left at stock) across **base + PaP + all 6 twins + the `.acc-orig` recoil baselines**, from a pristine `.acc-hipspread-orig` backup (idempotent; `--revert` resets to vanilla). Per class: **Sniper ×2.5** (MORS), **Marksman ×1.50** (MK14), **AR ×1.25** (AE4, AK-47, XM4; the CW Grav `t9_grav`'s ×1.25 is **baked into its GDT** by the migration swap, not this tool), **LMG ×1.20** (M60, RPD), **SMG ×1.10** (PPSh-41, AK-74u, Prowler, Alternator). **Pistols + shotguns stay ×1** (`weaponClass` `pistol`/`spread`). Buckets come from the GDT `weaponClass`, with the `"rifle"` class hand-split into AR vs MK14 vs sniper. Re-run it after any `reduce_base_ammo.js` / balance-tool pass (those rewrite from their own `.acc-*-orig` baselines, which don't carry the spread change).
 
 ### SMG + LMG coverage (the v1.0 "no SMG / no LMG" plan is superseded)
 
@@ -295,8 +304,11 @@ The original v1.0 spec skipped SMG and LMG; the live box has both. Notes worth k
   Cold War (BOCW, `t9`) models** — same gun, stats grafted from the BO2 originals via `graft_cw_weapon_stats.js`;
   the `t9` models compile clean). Box-only, fully twinned (their long reloads make the Speed Cola twin valuable).
   Current balance **M60 0.24926 (S) / RPD 0.13213 (C)** in `_acc_damage` (both took a +10% LMG-class buff
-  2026-07-09, paired with reserve +1 mag → M60 500/600, RPD 375/625, and the 0.9 LMG move-speed standard; M60
-  → S, RPD → C "the bad LMG"). Diverse: M60 heavy/slow (600 RPM), RPD faster (750 RPM). Sounds authored via
+  2026-07-09, paired with reserve +1 mag → M60 500/600, RPD 375/625, and the LMG move-speed standard (0.9, then
+  **0.86** in the 2026-07-10 class retune below); M60 → S, RPD → C "the bad LMG"). The **BO2 HAMR (`t6_hamr`)**
+  joins them 2026-07-10 as the **B-tier middle LMG** (mult **0.208**, body 527 / DPS 3764 — both between the RPD
+  and M60; clip 100 / reserve 500 / **6s** reload = its comfort; move ×0.8; loc + ammo normalized install-side via
+  `prep_hamr_gdt.js`; PaP price MID, box rank #24). Diverse: M60 heavy/slow (600 RPM), RPD + HAMR faster (750 RPM). Sounds authored via
   `gen_box_weapon_sounds.js` (Skye ships the wavs, not the aliases). The **LMG Overclock family is ACTIVE**
   (`lmg_list`).
 - **WONDER WEAPONS** - see the "Wonder Weapons" section (Thundergun / Blast-O-Matic / Fire Bow / Leviathan
@@ -304,7 +316,15 @@ The original v1.0 spec skipped SMG and LMG; the live box has both. Notes worth k
   claim-capped and tier-weighted to ~0.29% each (`acc_box_weight`), not uniform.
 
 Impact on Overclock pools: **both the SMG and LMG families are now populated and active** (SMG: PPSH-41,
-AK-74u, Prowler, Alternator · LMG: M60, RPD).
+AK-74u, Prowler, Alternator · LMG: M60, RPD, HAMR).
+
+**Class move-speed scheme (user 2026-07-10, `tools/oneshots/movespeed_0710.js`):** Melee + Pistol **1.07** ·
+SMG + Shotgun + the 3 non-melee wonders **1.0** · AR + Marksman + Sniper **0.93** · LMG + Launcher **0.86**.
+Applied to every base + `_up` + twin `moveSpeedScale` GDT block by class stem (shotguns + Thundergun/Fire Bow/
+Blast-O-Matic deliberately left at 1.0). Supersedes the 2026-07-09 pass (Melee 1.05 / AR·Sniper 0.95 / LMG·Launcher 0.9).
+Canonical per-gun values = the auto-generated [docs/25](25_weapon_stats_table.md) **Move** column. Same day:
+**Alternator −10% damage** (bal ×0.9, both forms), **AK-74u ↔ Prowler box-rarity swap** (AK-74u → 5.06% rarer /
+Prowler → 5.62%; prices unchanged), and a new **Recoil (control)** rating column in docs/25.
 
 ## Per-Weapon Detail (live-gun design notes)
 
@@ -379,7 +399,7 @@ The price tier per gun, the ranking, and the generator are in **[docs/33_pap_pri
 |---|--:|--:|--:|--:|
 | **TOP** (Tac-19, M60, MORS, AK-47, PPSH-41, XM4, Peacekeeper, Thundergun…) | 5,000 | 7,500 | 10,000 | **22,500** |
 | **MID** (AE4, RW1, AK-74u, Grav, Mahem, Havoc…) | 4,000 | 6,000 | 8,000 | **18,000** |
-| **BOT** (Five-Seven, RPD, MK14, Olympia, G7 Scout…) | 3,000 | 4,500 | 6,000 | **13,500** |
+| **BOT** (Five-Seven, Olympia, Grav, Streetsweeper, Prowler, Alternator…) | 3,000 | 4,500 | 6,000 | **13,500** |
 
 > ↑ Bucket membership is illustrative — the **canonical per-gun price tier is generated into
 > [docs/33](33_pap_pricing_tiers.md)** (ASM1 / Paladin HB50 / Chicom / China Lake / Klauser are removed guns).
@@ -434,8 +454,8 @@ Every weapon **category** has one signature ability, hotkey-triggered with coold
 | SMG | PPSH-41, AK-74u, Prowler, Alternator | **Whirlwind** | 20s | 360° AoE: insta-kill chaff within 96u (elites take 1000 flat; bosses excluded) |
 | Shotgun | Tac-19, Olympia, Streetsweeper, CEL-3, Peacekeeper | **Slug Round** | 20s | Next shot **3×** single-target (the 2×-range / tight-cone half is a Phase-4 GDT override) |
 | AR | AK-47, AE4, Grav, XM4 | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
-| Sniper / marksman | MK14, MORS, G7 Scout | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
-| LMG | M60, RPD | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
+| Sniper / marksman | MK14, MORS, M16 | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
+| LMG | M60, RPD, HAMR | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
 | Wonder / special | Thundergun, Blast-O-Matic, Fire Bow, Leviathan Axe, Mahem, Havoc, War Machine | *(intrinsic — no ability slot)* | — | Wonder/launcher power is built-in |
 
 > **Stub effects** (defined but NOT wired — no reachable gun / infeasible): Triple Tap (burst-reshape needs a GDT swap), Stabilizer (recoil twins are Deadshot-perk-driven), Thermal Vision (needs LUI/clientfield), Extended Fuse / Overcharge (grenades are never the *current* weapon). The 4 effects above (Precision Mode / Whirlwind / Slug Round / Focus Fire) are the only live ones; sniper reuses Precision Mode and LMG reuses Focus Fire.
@@ -472,9 +492,9 @@ pistol) Overclocks — only the Action Figure melee returns `"none"`.**
 
 - **AR family** (Burst Coil, Overpressure, Piercing Rounds, Adaptive Aim, Overheat, Subcritical). Active weapons: AK-47, AE4, Grav, XM4.
 - **Shotgun family** (Spread Cone, Breach, Concussive, Reflow). Active weapons: Tac-19, Olympia, Streetsweeper, CEL-3, Peacekeeper.
-- **Sniper family** (Thermal Lock, Penetration Round, Reactive Powder, Quick Chamber). Active weapons: MK14, MORS, G7 Scout.
+- **Sniper family** (Thermal Lock, Penetration Round, Reactive Powder, Quick Chamber). Active weapons: MK14, MORS, M16.
 - **SMG family** (Swarm, Reflex Fire, Coolant Flow, Shrapnel, Micro-Boost). Active weapons: PPSH-41, AK-74u, Prowler, Alternator.
-- **LMG family** (Sustained Fire, Suppression, Reload Drum). Active weapons: M60, RPD.
+- **LMG family** (Sustained Fire, Suppression, Reload Drum). Active weapons: M60, RPD, HAMR.
 - **Pistol family**: Five-Seven, RW1 (pistols were made Overclock-able, user 2026-06-22).
 - **Special** (`special_list` — overclockable, damage/vs-glitch tiers only): Mahem, Havoc, Thundergun, War Machine.
 - **Melee / Grenade** (Action Figure, laststand pistol, knife, frag): `"none"` — no Overclock roll.
@@ -488,7 +508,7 @@ pistol) Overclocks — only the Action Figure melee returns `"none"`.**
 
 ### Marksman guns ride the sniper pool
 
-The semi-auto marksman guns (MK14 `s1_mk14`, G7 Scout `apex_g2a4`) classify as `"sniper"` family for Overclock
+The marksman / tactical-rifle guns (MK14 `s1_mk14`, M16 `t9_m16`) classify as `"sniper"` family for Overclock
 purposes, alongside the MORS railgun. The sniper Overclock list mixes options that favor a slow bolt-action
 (Thermal Lock, Reactive Powder) with ones that favor fast follow-up (Quick Chamber) — the random roll creates
 interesting build puzzles regardless of which marksman/sniper you rolled.
@@ -502,7 +522,7 @@ interesting build puzzles regardless of which marksman/sniper you rolled.
 
 Full perk roster, costs, effects, and stacking rules live in **[10_perks.md](10_perks.md)**. Perks that are especially weapon-relevant:
 
-- **Deadshot** (3,500): +1.3 headshot damage bonus (American Sniper Mega: +1.5) + auto-aim to head on ADS. **Added** (not multiplied) into the crit/headshot bonus pool, which is then scaled by the map headshot temper (`locHead × 0.5` trash / `× 0.8` boss = ×2.5/×4 on a locHead-5.0 gun). Keystone for precision builds (MORS, MK14, G7 Scout).
+- **Deadshot** (3,500): +1.3 headshot damage bonus (American Sniper Mega: +1.5) + auto-aim to head on ADS. **Added** (not multiplied) into the crit/headshot bonus pool, which is then scaled by the map headshot temper (`locHead × 0.5` trash / `× 0.8` boss = ×2.5/×4 on a locHead-5.0 gun). Keystone for precision builds (MORS, MK14, M16).
 - **Speed Cola** (3,500): +50% reload, faster perk drinking, faster equipment swap. Best on the long-reload guns (M60, RPD, Tac-19, AK-47).
 - **Double Tap 2.0** (2,000): +33% fire rate + 3% damage. Compounds with PaP L5 + Tier 5 on full-auto ARs.
 - **Widow's Wine** (4,000): +50% frag damage + radius, +50% EMP stun duration + radius. Grenade-heavy builds.
@@ -528,8 +548,8 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
 
 | Wonder Weapon | Type | Boss Counter | Acquisition Gate |
 |---|---|---|---|
-| **Signal Staff** | Ranged, AoE data pulses | ~~Subroutine Core (full boss, r30+)~~ — counter target unassigned since that boss was removed 2026-06-22 | Vault Overload completed + 5 Data Shards |
-| **Vibro Cleaver** | Wide-arc energy melee | Juggernaut Host (mini-boss, r10/20) | Hack Terminal completed + 5 Data Shards |
+| **Signal Staff** | Ranged, AoE data pulses | ~~Subroutine Core (full boss, r30+)~~ — counter target unassigned since that boss was removed 2026-06-22 | ~~Vault Overload completed~~ + 5 Data Shards — the Vault Overload event was RETIRED 2026-07-07; re-gate on a live event when authored |
+| **Vibro Cleaver** | Wide-arc energy melee | ~~Juggernaut Host (mini-boss, r10/20)~~ — that mini-boss was removed 2026-06-22 (Brutus now fills r10/r20); counter target unassigned, retarget to Brutus or a current roster boss when authored | Hack Terminal completed + 5 Data Shards |
 
 ### Signal Staff (ranged wonder weapon)
 
@@ -543,7 +563,7 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
   - *Broadcast*: pulse cone widens ~50%.
   - *Interference*: hit enemies take +50% damage from all sources for 3s.
   - *Overflow*: every 5th pulse is a "burst" that deals 3x damage.
-- **Acquisition**: craft at the **Lab terminal**. Requires Vault Overload completed this run + 5 Data Shards spent. Without Overload completion, the staff cannot be crafted.
+- **Acquisition**: craft at the **Lab terminal**. The original gate — *Vault Overload completed this run* — is defunct: the Vault Overload side event was **RETIRED 2026-07-07** (its `init()` is commented out in `_acc_main.gsc` and its trigger/point struct were deleted from the `.map`), so re-gate this on a live event (+ 5 Data Shards) if the weapon is ever authored.
 - **Status**: **custom weapon, Phase 4 authoring.** Planned module `scripts/zm/zm_abandoned_cyber_city/_acc_wonder_signal_staff.gsc`.
 
 ### Vibro Cleaver (wonder melee)
@@ -551,9 +571,9 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
 - **Form**: large one-handed resonance blade - a mono-edge axe-cleaver hybrid. Wide arc on swing. Visibly hums / vibrates in first-person.
 - **Primary attack**: wide horizontal swing, hits up to 4 enemies in front 180-degree arc. One-shot kills chaff through round ~30.
 - **Heavy attack**: charged overhead strike (0.5s wind-up), deals 3x swing damage, can parry charges.
-- **Parry mechanic**: if heavy-attack wind-up completes *while a Juggernaut Host is mid-charge at you*, the strike counters the charge - knocks the Host on its back, staggers for 3 seconds, deals massive damage.
-- **Boss interaction (Juggernaut Host)**:
-  - Deals **+300% damage** to the Host on any hit.
+- **Parry mechanic**: if heavy-attack wind-up completes *while the r10/r20 mini-boss (now Brutus, formerly the removed Juggernaut Host) is mid-charge at you*, the strike counters the charge - knocks it on its back, staggers for 3 seconds, deals massive damage.
+- **Boss interaction (counter target unassigned — the original Juggernaut Host mini-boss was removed 2026-06-22 and replaced by Brutus at r10/r20; retarget to Brutus or a current roster boss when authored)**:
+  - Deals **+300% damage** to the target mini-boss on any hit.
   - Parry-on-charge is the skill-expression version of the counter: land one and the mini-boss is effectively solo'd by a good player.
 - **Versus everything else**: best melee weapon in the game by a mile (replaces Bowie Knife in a maxed build), but short-range obviously.
 - **Overclocks (all 3 always active, applied is random per use)**:
@@ -565,7 +585,7 @@ Two wonder weapons, each a hard counter to one specific boss. **No counter overl
 
 ### Design Notes
 
-- **Why craft-gated on side events.** Side events (Hack Terminal, Vault Overload) previously just gave Data Shards and a minor shortcut. Now each also unlocks a wonder weapon. This raises the value of completing them without making them mandatory - you can still beat the map without wonder weapons; the corresponding boss just takes much longer.
+- **Why craft-gated on side events.** Side events (Hack Terminal, Vault Overload) previously just gave Data Shards and a minor shortcut. The design idea was that each *also* unlocks a wonder weapon. *(Note: the Vault Overload event has since been RETIRED 2026-07-07, so this gate would need re-homing onto a live event.)* This raises the value of completing them without making them mandatory - you can still beat the map without wonder weapons; the corresponding boss just takes much longer.
 - **Why +300% vs specific bosses (and not a generic "anti-boss" buff).** Forces players to pick the *right* tool for the *right* boss. Brings flavor into mechanics: staff for the machine boss, melee for the brute boss. No "wonder weapon = god mode against everything" problem.
 - **Why wonder weapons don't route through the Overclock Terminal.** Their Overclocks are intrinsic (all 3 always active, applied is random). Cleaner UX; respects the specialness of the acquisition gate. Classifier (`_acc_overclocks.gsc::weapon_name_to_family`) returns `"none"` for them.
 - **Why only two wonder weapons (not three or four).** They map onto the two *physical* boss threats — a staff for the machine/ranged boss, a melee for the brute. (The roster has since grown to three archetypes — Phantom / Rogue Protector / Avogadro, 2026-07-04 — but Avogadro is a non-lethal disruptor countered by burning him down fast, not by a dedicated wonder weapon, so the two-craftable design still holds.) A third would dilute the counter-weapon identity and ask the player to grind more. *(Both craftables are a Phase-4 concept, NOT built.)*

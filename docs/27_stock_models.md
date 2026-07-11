@@ -3,7 +3,7 @@
 > **Auto-generated** by `tools/gen_stock_models_doc.js` from this install's stock scripts + GDTs.
 > Full flat list: `docs/stock_models_full.txt`.
 >
-> **Point-in-time snapshot** of THIS install — counts and names drift if the Mod Tools change and can go stale silently. To regenerate, note two gotchas first: (1) the generator **hardcodes** `ROOT = 'C:/Program Files (x86)/Steam/.../455130'` (`gen_stock_models_doc.js:28`) — on a box where the tools live elsewhere (this repo detects the tools root via `bin\modlauncher.exe`, not folder name) you must edit that constant or the run finds nothing; (2) the **category buckets are heuristic** (see below), so a name's category is a hint, not authoritative.
+> **Point-in-time snapshot** of THIS install — counts and names drift if the Mod Tools change and can go stale silently. To regenerate, note three gotchas first: (1) the generator **writes directly to `docs/27_stock_models.md`** (`OUT_MD`, `gen_stock_models_doc.js:32`) — a re-run overwrites this file in place (the generator was repointed 44→27 in the 2026-07-10 renumber; the flat-dump path `docs/stock_models_full.txt` is still correct). (2) the generator **hardcodes** `ROOT = 'C:/Program Files (x86)/Steam/.../455130'` (`gen_stock_models_doc.js:28`) — on a box where the tools live elsewhere (this repo detects the tools root via `bin\modlauncher.exe`, not folder name) you must edit that constant or the run finds nothing; (3) the **category buckets are heuristic** (see below), so a name's category is a hint, not authoritative.
 
 **6001 distinct stock model names** found across stock script references + GDTs (as of the snapshot — re-run to refresh).
 

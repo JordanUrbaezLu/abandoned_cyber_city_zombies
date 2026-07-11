@@ -373,17 +373,18 @@ function acc_resolve_dev_flags()
 	// SHIP-SAFE (user 2026-07-08 publish prep: "make sure dev mode and god mode are hardcoded off"):
 	// dvar-driven, default 0 = OFF for every Workshop player; PLAY_TEST_MAP still passes +set acc_dev 1.
 	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
-	// level.acc_dev = true;   // <- DISABLED 2026-07-10 for PUBLISH; ship-safe (dvar default 0 = normal play). Re-enable this one line for a dev test cycle. (When ACTIVE: current test-cycle workflow is
-	// dev hardcoded ON for every launch script - the dvar line above is the ship path; prep_release.ps1 FAILS
-	// on this line so it can't reach a publish). NOTE (crash hunt 2026-07-10): this hardcode is why every
-	// launch - incl. PLAY_NORMAL - runs dev; the exe+0x22c8f03 CTD lives in a DEV-gated path, so with this
-	// line active a dev-path bug hits every script. The mock_party_feed clientfield spam fix (same hunt)
-	// addresses the prime suspect.
+	// level.acc_dev = true;   // <- HARDCODED ON (user 2026-07-10: "hardcode dev mode on"). Overrides the dvar line above:
+	// EVERY launch now runs the dev sandbox (unlimited money/shards, all perk slots, boss test spawns, Blast-O-Matic
+	// start; god via acc_god below). SHIP PATH = comment this one line out (dvar line then rules, default 0 = normal
+	// play). prep_release.ps1 FAILS on this active line so an invulnerable full-dev build can never reach a publish.
+	// SHIPPED OFF 2026-07-11 (user publish prep: "hard code dev mode and god mode off so i can publish") -
+	// the hardcode-ON line above is commented per its own SHIP PATH; the dvar line rules, default 0 = normal
+	// play for every Workshop player (PLAY_TEST_MAP's +set acc_dev 1 still enables dev for local testing).
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
 	SetDvar( "acc_glitch_test",   v );   // _acc_boss_glitch (Glitch Stalker dev test spawn)
-	SetDvar( "acc_variants_debug",v );   // on-screen weapon-variant swap readout (dev aid)
+	SetDvar( "acc_variants_debug","0" ); // DEBUG UI OFF in dev (user 2026-07-10: "remove the random debug UI, keep the screen clean"). The on-screen weapon-variant swap readout rides ONLY its own dvar now (default 0); +set acc_variants_debug 1 to opt back in.
 	// PERK DOORS: dev mode now runs the REAL per-round 4-of-10 rotation, EXACTLY like normal play (user
 	// 2026-07-07: "dev and non-dev should work the same, only 4 open per round"). We intentionally do NOT
 	// force acc_perk_doors_all_open here anymore (that was the 2026-06-26 dev-all-open behavior, now removed).
@@ -394,7 +395,7 @@ function acc_resolve_dev_flags()
 	// HUDELEM POOL DIAGNOSTIC (user 2026-06-28): dev auto-enables the on-screen hudelem-pool logger
 	// (acc_utility::he_check / he_log) so the 4-player mock roster surfaces "<widget> did NOT allocate -
 	// POOL FULL" + the live high-water count. Normal play (acc_dev 0) leaves it off; `set acc_hudelem_debug 1` also works.
-	SetDvar( "acc_hudelem_debug", v );
+	SetDvar( "acc_hudelem_debug", "0" ); // DEBUG UI OFF in dev (user 2026-07-10: "remove the random debug UI"). hudelem-pool logger rides ONLY its own dvar now (default 0); +set acc_hudelem_debug 1 to opt back in.
 	// NOT driven by dev, so dev plays like the real game for these (user 2026-06-22):
 	//   acc_auto_power   - flip the Bus Station power switch yourself
 	//   acc_test_boss    - Brutus follows his real round-5 power cadence (brutus_power_watch), no early spawn
@@ -414,7 +415,11 @@ function acc_resolve_dev_flags()
 	// (_acc_elites::on_player_damaged clamp; effects still fire).
 	// SHIP-SAFE (user 2026-07-08 publish prep): dvar-driven, default 0 = OFF for every Workshop player.
 	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
-	// level.acc_god = true;   // <- DISABLED 2026-07-10 for PUBLISH; ship-safe (dvar default 0 = off, real damage). Re-enable this one line for a god test cycle. (Was ACTIVE for the 2026-07-09 "hardcode on for both" test cycle.)
+	// level.acc_god = true;   // <- HARDCODED ON (user 2026-07-10: "hardcode code[=god] mode on", paired with dev above).
+	// Demigod: real damage lands but health floors at 1 HP (effects still fire). SHIP PATH = comment this one line out
+	// (dvar line then rules, default 0 = off). prep_release.ps1 FAILS on this active line so it can't reach a publish.
+	// SHIPPED OFF 2026-07-11 (user publish prep, paired with acc_dev above): dvar line rules, default 0 = no god
+	// for every Workshop player (PLAY_GOD_MODE's +set acc_god 1 still enables the demigod floor for local testing).
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
 
@@ -488,12 +493,12 @@ function acc_hardcoded_dev()
 			if ( p.acc_mega_bottles < 5 )
 				p acc_mega_bottles::grant_bottle( 25, "dev" );
 
-			// On-screen status banner (first ~15 s) including acc_main init state.
-			if ( count < 15 )
-			{
-				init_state = ( IS_TRUE( level.acc_init_complete ) ? "^2COMPLETE" : "^3pending" );
-				p IPrintLnBold( "^2[ACC] DEV BUILD LIVE ^7- map open, power on, systems: " + init_state );
-			}
+			// On-screen "^2[ACC] DEV BUILD LIVE" status banner REMOVED 2026-07-10 (user: "there is still UI for
+			// something like DEV MODE ACTIVE ... it's green, please remove"). Dev is hardcoded ON, so this green
+			// banner printed for the first ~15s of every session. The money/shards/bottle top-ups above still run
+			// silently. Re-add the IPrintLnBold here to bring the banner back.
+			// if ( count < 15 )
+			//     p IPrintLnBold( "^2[ACC] DEV BUILD LIVE ^7- map open, power on, systems: " + ( IS_TRUE( level.acc_init_complete ) ? "^2COMPLETE" : "^3pending" ) );
 		}
 		count++;
 		wait 1;
@@ -547,13 +552,17 @@ function acc_fix_zone_doors()
 // [acc] Plaza crates = cover obstacles AND Data Caches (user 2026-06-28: "make them give shards, 1 each, refill
 // every round"). Same p7_cai_stacking_cargo_crate prop as the trench caches, but spawned via
 // acc_data_shards::spawn_cache_at so each is now a hold-USE shard source: grants 1 Data Shard, depletes when
-// looted, re-arms at the next round start (with the dim-white "armed" glow). COLLISION is STILL the matching
-// 'clip' brushes in the .map (tools/gen_plaza_shrink.js CLIPS) - KEEP THESE COORDS IN SYNC (prop-clip drift
-// footgun, memory prop-clips-drift-invisible-walls). spawn_cache_at re-uses the same SetModel path + same origin
-// + default angle 0, so the crates look/collide identically to the old decorative props (user 2026-06-26 "only
-// the little bunker/crate things" design preserved) - they just grant shards now. NOTE: in CO-OP the shared
-// "one cache per player per round" anti-hog cap (acc_cache_one_per_player) spans these + the 2 trench caches;
-// SOLO is exempt, so all 3 are grabbable each round there.
+// looted, re-arms at the next round start (with the dim-white "armed" glow). COLLISION (user 2026-07-10): the
+// cargo crate self-collides (it ships a _col LOD - unlike the interim computer-tower remodel, which is why the
+// caches went walk-through); matching belt-and-suspenders 'clip' brushes live in tools/add_prop_clips.js
+// (plaza_cache_1..4, migrated off gen_plaza_shrink) - KEEP THESE COORDS IN SYNC (prop-clip drift footgun,
+// memory prop-clips-drift-invisible-walls). spawn_cache_at re-uses the same SetModel path + same origin + default
+// angle 0, so the crates look/collide identically to the old decorative props (user 2026-06-26 "only the little
+// bunker/crate things" design preserved) - they just grant shards now. NOTE: in CO-OP the "one cache per player
+// per round" anti-hog cap (acc_cache_one_per_player) is PER GROUP since 2026-07-11: these 4 are the "plaza"
+// group, the 2 pit caches are the "trench" group - a player can loot one of EACH per round, never two plaza
+// or two trench. SOLO is exempt.
+// The 4th plaza cache (2026-07-10) restores 1-per-player parity for a full 4-player lobby (3 caches starved P4).
 function acc_spawn_plaza_props()
 {
 	level endon( "end_game" );
@@ -563,12 +572,15 @@ function acc_spawn_plaza_props()
 		wait 0.05;
 	// CRATES ONLY, in the OPEN exit band (NEVER in a maze leg - a crate there blocks the ~120u corridor =
 	// "stuck on one side"). SPREAD across the open plaza. ANGLE 0 (axis-aligned, spawn_cache_at's default) so
-	// each crate matches its axis-aligned 56x56 clip. Coords MUST match tools/gen_plaza_shrink.js CLIPS.
+	// each crate matches its axis-aligned 64x64 clip. Coords MUST match tools/add_prop_clips.js (plaza_cache_1..4).
 	// count = 1 -> 1 Data Shard each (cache_yield clamps; no round scaling at the default acc_cache_scale_rounds).
-	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1 );
-	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1 );
-	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1 );
-	acc_utility::log( "plaza props: 3 crate Data Caches spawned (1 shard each, refill/round)" );
+	// A 4TH cache was added (user 2026-07-10): the co-op "one cache per player per round" cap (see below) starved
+	// the 4th player with only 3 caches; the 4th sits on the path to the Market door.
+	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1, "plaza" );   // plaza_cache_1
+	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1, "plaza" );   // plaza_cache_2
+	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1, "plaza" );   // plaza_cache_3
+	acc_data_shards::spawn_cache_at( ( -300, 460, 0 ), 1, "plaza" );   // plaza_cache_4 (western approach to Market door - 4-player coverage). MOVED off (-420,460) 2026-07-10: that spot pocketed a boss between the crate clip and the L-wall corner (N-S wall x=-480 y[-260,400] + W-E wall y=390); -300 sits in the OPEN main plaza (x[-380,1095]) ~180u clear of any wall.
+	acc_utility::log( "plaza props: 4 crate Data Caches spawned (1 shard each, refill/round)" );
 }
 function acc_spawn_prop( model, org, yaw )
 {

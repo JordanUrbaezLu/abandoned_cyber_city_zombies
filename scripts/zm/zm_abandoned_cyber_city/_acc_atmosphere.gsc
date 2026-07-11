@@ -173,8 +173,9 @@ function spawn_exchange_props()
     n += spawn_exchange_prop( "p7_cru_monitor_holo_screen_01", ( 100, -300, -240 ), ( 0, 90, 0 ) ); // holo, open floor S half, faces north
 
     acc_utility::log( "atmosphere: exchange pilot props spawned (" + n + ")" );
-    if ( IS_TRUE( level.acc_dev ) )
-        level thread dev_report_exchange_props( n );
+    // DEV exchange-prop count report REMOVED 2026-07-10 (clean screen in hardcoded dev):
+    // if ( IS_TRUE( level.acc_dev ) )
+    //     level thread dev_report_exchange_props( n );
 }
 
 // Returns 1 on success, 0 on a dead spawn (guarded - spawn() CAN return undefined).

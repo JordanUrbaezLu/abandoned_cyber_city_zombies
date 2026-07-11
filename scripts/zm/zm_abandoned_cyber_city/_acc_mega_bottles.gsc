@@ -807,7 +807,7 @@ function apply_mega_flopper_speed()
     self notify( "acc_mega_flopper_watch_stop" );
     self.acc_mega_flopper_speed = false;
     self thread mega_flopper_slide_watch();
-    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
+    if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
 }
 
 function mega_flopper_slide_watch()    // self = player
@@ -828,7 +828,7 @@ function mega_flopper_slide_watch()    // self = player
                 self.acc_mega_flopper_speed = false;
                 acc_utility::recompute_move_speed( self );
             }
-            if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
+            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
             return;
         }
 
@@ -839,7 +839,7 @@ function mega_flopper_slide_watch()    // self = player
             self.acc_mega_flopper_speed = now_slide;   // 1.75x via recompute_move_speed
             acc_utility::crash_log( self, "mega_flopper_slide_watch: slide " + ( now_slide ? "ON" : "off" ) );
             acc_utility::recompute_move_speed( self );
-            if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
+            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
             {
                 if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.75 ) + ")" );
                 else self iprintln( "^7PhD Slider: slide boost off" );

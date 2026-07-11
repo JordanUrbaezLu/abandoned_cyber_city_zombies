@@ -56,7 +56,9 @@ covers `console_mp.log` separately.
 `level.acc_dev` and drives every legacy sub-dvar off it. There are **no
 per-feature dev flags**; dev is all-or-nothing by design.
 - `acc_dev 1` — the full hardcoded sandbox: unlimited money, 25 starting Data
-  Shards, topped-up Mega Bottles, all test bosses (Brutus / Glitch / Phantom),
+  Shards, topped-up Mega Bottles, the Glitch Stalker test-boss spawn
+  (`acc_glitch_test`; Brutus and Phantom are **not** dev-driven — they keep
+  their real round cadences, see below),
   all perk slots, the weapon-variant debug readout, and the dev HUDs +
   teleport / round-skip / open-doors console commands. **No god mode and no
   auto power-on** — you take regular damage and flip the Bus Station power

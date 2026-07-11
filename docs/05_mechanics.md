@@ -161,7 +161,7 @@ The override is **wired and live**. `_acc_points::init()` registers `suppress_st
 
 - **Widow's Wine perk** (see [10_perks.md](10_perks.md)): grenade damage boost applies to the grenade owner, so splash kills via Widow's-boosted frags still feed the 70/30 split normally. The perk doesn't bypass the split; it just makes those grenades more likely to land the final blow.
 - **Deadshot perk** (see [10_perks.md](10_perks.md)): the 1.4x headshot bonus is per-player — only applies to the shooter's damage, not the share others earn from a Deadshot player's kill.
-- **Meltdown capstone** (AoE kills from Cyberware tier-3 Overclock branch): the AoE kill from Meltdown still counts as "the caster's kill" for point purposes (the AoE source is the weapon; the player who fired is the killer).
+- **Meltdown capstone** (AoE kills from the Cyberware tier-3 Overclock branch — a **dormant** node while the Cyberware tree is disabled by default): the AoE kill from Meltdown still counts as "the caster's kill" for point purposes (the AoE source is the weapon; the player who fired is the killer).
 - **Multi-kill bonus (+50 per extra zombie killed within 0.5s)**: previously part of this doc's Point Economy section - **cut for now** to keep the point system surface area small. The 2x headshot multiplier plus the precision weapon tier (FAL, Drakon, Intervention) already rewards the playstyle a multi-kill bonus was targeting. Re-add as a modifier in `_acc_modifiers.gsc` if playtest feedback wants it.
 
 ### Data Source
@@ -190,6 +190,8 @@ Each gun's GDT carries a hit-location multiplier (`locHead`/`locHelmet`), **norm
 - **Boss fights become aim tests.** A boss-round Avogadro taken with clean headshots dies in ~60% the time it would from body shots. Miss, spray, and the fight drags on while the round's chaff and sibling bosses (see [08_enemies.md](08_enemies.md)) pile up — which can snowball into a wipe.
 
 ### Stacking with Perks / Cyberware / Overclocks
+
+> **Cyberware status:** the Cyberware-node bonus layers below (**Amplifier**, **Overload**) are **dormant** — the Cyberware tree is disabled by default (`acc_cyberware_on 0`), so today only the Deadshot perk, PaP tier, and weapon Overclock/ability layers actually feed the pool. The math below holds if the tree is re-enabled.
 
 **Bonuses ADD, reductions multiply.** Damage *bonuses* (Deadshot, Cyberware, PaP tier, abilities) are summed into one bonus factor — a literal sum, so a 1.3x and a 1.3x give **2.6x, not 1.69x**. The **headshot temper is NOT in that sum** — it's a separate multiplicative factor (×0.5 reg / ×0.8 boss, on top of the engine `locHead`), so it tempers ONLY the loc-inflation, not the PaP/Deadshot/Cyberware bonuses (that's what keeps a PaP headshot a clean 2.5x of the boosted body instead of ballooning). Damage *reductions* (per-gun balance cuts, shielded-elite frontal resist, boss per-hit cap) stay multiplicative and apply last: `final = damage × locHead × (bonus sum, or 1 if none) × headshot_temper × reductions`.
 
@@ -249,8 +251,8 @@ flowchart LR
     Pit[Pit Data Caches<br/>exposed, re-arm/round, scale w/ round] --> Bank[self.acc_data_shards]
     Warden[Trench Warden kill] --> Bank
     Altar[Glitch Altar jackpot] --> Bank
-    Bank --> Skill[Cyberware kiosk]
     Bank --> OC[Overclock terminal]
+    Bank -.-> Skill[Cyberware kiosk<br/>dormant]
     Bank --> AltarSpend[Glitch Altar gamble]
     Bank --> Emergency[Emergency drop]
 ```
@@ -275,10 +277,13 @@ flowchart LR
 ### The Foundry (where shards are spent)
 
 All the deep sinks live in the enclosed underground room, entered from the pit through the buyable
-`enter_under_plaza` door (1500 points — a one-time investment to unlock your spend hub): the **Cyberware
-kiosk**, the **Overclock terminal**, and the **Glitch Altar**. So you brave the pit to *earn*, then duck
-into the room to *spend* without surfacing. (The Cyberware/Overclock sinks also have surface fallback
-triggers in the Lab.)
+`enter_under_plaza` door (1500 points — a one-time investment to unlock your spend hub): the **Overclock
+terminal** and the **Glitch Altar** (with the Exo Suit station, ammo crates, and the Neural Expansion Bay
+perk-slot vendor also script-spawned down here by `_acc_glitch_altar.gsc`). So you brave the pit to *earn*,
+then duck into the room to *spend* without surfacing. (The **Cyberware kiosk is dormant** — the tree was
+removed from play 2026-06-19, so the kiosk is no longer spawned and its Lab fallback trigger is gated off in
+`_acc_cyberware.gsc::init()` behind `acc_cyberware_on` (default 0). The Overclock terminal is the sole live
+weapon-upgrade sink; re-enable the tree with `acc_cyberware_on 1`.)
 
 > **Note (2026-06-19):** an earlier elite-kill *diminishing-returns* rule is now inert — the topside elite
 > drop is **off by default** (`acc_elite_shard_drop 0`), so elites are no longer a default shard source, and
@@ -308,7 +313,7 @@ stateDiagram-v2
 - **Stage 2 "Survive"**: survive the trace window; any player's zombie kills purge the trace early (team-wide, counted via the verified zombie-death callback).
 - **Stage 3 "Confirm"**: return to the terminal and hold `[USE]` again in time.
 
-Cost **500 points** (`ACC_HACK_ACTIVATION_COST_POINTS`), reward **2 Data Shards** (`ACC_HACK_REWARD_SHARDS`). Each stage runs back-to-back; fail any stage and the terminal locks for the run (penalty wave of 8 zombies). **Parallel Processing** (Cyberware sr2a, `self.acc_cw_events_retry`) grants **one** retry whose tuning rotates — longer hold, longer trace, and headshot-only purge kills at round 11+ — so it isn't a replay.
+Cost **500 points** (`ACC_HACK_ACTIVATION_COST_POINTS`), reward **2 Data Shards** (`ACC_HACK_REWARD_SHARDS`). Each stage runs back-to-back; fail any stage and the terminal locks for the run (penalty wave of 8 zombies). **Parallel Processing** (Cyberware sr2a, `self.acc_cw_events_retry`) would grant **one** retry whose tuning rotates — longer hold, longer trace, and headshot-only purge kills at round 11+ — so it isn't a replay; the retry code still ships but is **dormant** while the Cyberware tree is disabled (`acc_cyberware_on 0`).
 
 > **Design vs shipped.** The interim stage set exists because stage 2 originally required reliable Shielded-elite uptime that the elite density can't yet guarantee. `_acc_events_hack.gsc` carries a `TODO(acc-design)` to restore the original kill-stage set — **10 kills / 40s**, **3 Shielded elites / 60s**, **15 headshots / 45s** — once the elite pressure pulses are validated.
 
@@ -334,8 +339,8 @@ Hard rules for any fight in the map:
 ## Downed & Revive Mechanics
 
 - Stock BO3 behavior preserved: down -> bleed out in 30s -> die or be revived.
-- **Subroutine Caching** doubles bleed to 60s.
-- **Self-revive** (when carried): 1-time use, 10s revive animation. Purchase cost 4000 points + 2 Data Shards. Caching halves the Shard cost.
+- **Subroutine Caching** (a Cyberware `sr2b` node) would double bleed to 60s, but it is **dormant** — the Cyberware tree is disabled by default (`acc_cyberware_on 0`), so **30s** is the live bleed-out. The effect code still ships (`_acc_cyberware.gsc`, `ACC_CW_BLEEDOUT_MULT 2.0`); re-enable the tree to reach it.
+- **Self-revive** (when carried): 1-time use, 10s revive animation. Purchase cost 4000 points + 2 Data Shards. (Caching would halve the Shard cost, but it is dormant — see the note above.)
 - **PhD Flopper perk** (see `10_perks.md`) isn't a save — but a dive-to-prone nova explosion clears nearby zombies, giving you a repositioning window before a second hit lands. Not a "downed prevention" layer but a "recovery option" layer.
 - **Ghost Shroud boss item** is the clutch 1-HP save; stacks independently with Jugger-Nog's doubled HP pool to maximize survival time before the save is even needed.
 
@@ -368,22 +373,23 @@ geometry, ships `-GscOnly`).
 Distinct from the Emergency Drop (the *guaranteed* 3-shard clutch button): the Altar is **higher variance**
 with a real downside, and its shard EV per spin is **negative** (the partial jackpot can't be farmed — the
 altar is a sink, the boons are the value). This is the user-chosen answer to "what do Data Shards do"
-(2026-06-18, workflow `underground-shards-design`); the other shard sinks (Cyberware / Overclock kiosks in
-the Foundry, the deeper-access door) are all built. All payouts are live dvars
+(2026-06-18, workflow `underground-shards-design`); the other live shard sink is the **Overclock terminal**
+in the Foundry (reached through the deeper-access door). (The Cyberware kiosk that once shared the room is
+**dormant** — see "The Foundry" above.) All payouts are live dvars
 (`acc_altar_jackpot` / `acc_altar_surge` / `acc_altar_drain`) for tuning.
 
 ## Feedback Loops (summary)
 
 Positive loops (encourage skilled play):
 
-- **Trench dives -> Data Shards -> Cyberware / Overclocks -> better kills -> deeper, safer trench runs.** Primary Shard loop.
+- **Trench dives -> Data Shards -> Overclocks -> better kills -> deeper, safer trench runs.** Primary Shard loop. (The Cyberware tree is dormant by default — the Overclock terminal is the live upgrade path.)
 - **Kills -> points -> box / PaP / perks -> clear rounds faster.** Primary point loop.
-- **Hack success -> Shards (+ Parallel Processing retry) -> better positioning -> more kills.**
+- **Hack success -> Shards (+ a Parallel Processing retry only if the Cyberware tree is re-enabled) -> better positioning -> more kills.**
 
 Negative loops (punish bad decisions):
 
 - **Fail Hack -> terminal locks + penalty wave -> 500 points and a Shard source wasted.**
-- **Skip the trench -> no Shards -> under-fund Cyberware -> under-powered late game.**
+- **Skip the trench -> no Shards -> under-fund Overclocks -> under-powered late game.**
 - **Greedy camping -> elite pressure pulse -> forced into bad position -> down -> resource drain.**
 
 Both loops are deliberate. The map wants you to feel rewarded and punished for the same decisions on different runs.
@@ -393,8 +399,8 @@ Both loops are deliberate. The map wants you to feel rewarded and punished for t
 The systems above ship as `_acc_*` modules under `scripts/zm/zm_abandoned_cyber_city/`, orchestrated by `acc_main::init()` (~48 active modules total):
 
 1. `_acc_data_shards.gsc` - per-player Data Shard currency + HUD bridge.
-2. `_acc_cyberware.gsc` - Cyberware node graph, purchase validation, effect application.
-3. `_acc_overclocks.gsc` - weapon Overclock registry, per-run pool roll, apply / re-roll.
+2. `_acc_cyberware.gsc` - Cyberware node graph, purchase validation, effect application. **Loaded but dormant** — the tree/kiosk is gated behind `acc_cyberware_on` (default 0); its flag-reader code stays as harmless no-ops. The live weapon-upgrade path is the Overclock terminal.
+3. `_acc_overclocks.gsc` - weapon Overclock registry, per-run pool roll, apply / re-roll (the live weapon-upgrade sink — the Overclock terminal).
 4. `_acc_elites.gsc` - elite spawning (pressure pulses), per-round cadence, elite classes.
 5. `_acc_events_hack.gsc` - the Hack Terminal side event. (`_acc_events_overload.gsc` exists but is **retired** — see above.)
 6. `_acc_map_randomizer.gsc` - per-run state roll (power side, box pool, wallbuy pool).

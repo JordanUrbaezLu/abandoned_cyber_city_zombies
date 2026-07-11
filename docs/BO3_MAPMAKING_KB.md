@@ -28,9 +28,9 @@ re-discovered. Worked examples from this map: **"disable" volumetric fog by push
 start plane to ~100,000,000 units** (there is NO fog-off builtin — even stock `_art.gsc`
 resorts to this); HUD via clientfields because `.csc` can't call `.gsc`; surface re-skin
 by swapping the brush-face **material token** (face materials need no `.zone` line);
-delivering a dark cyber-night look through runtime, **LED-free** levers (scripted fog +
-a global `VisionSetNaked` colour grade + emissive prop models) instead of a baked
-lightmap when the LED atlas won't take more surfaces (§1); **finish a stock-but-unfinished
+delivering the cold cyber-night haze through a **scripted `SetVolFog`** pass (there's no
+Radiant knob for the exact look), layered over the map's **baked** neon lights +
+reflection probes (§1); **finish a stock-but-unfinished
 pipeline from your own side** (this map completes the shipped-broken Electric Cherry perk
 in `_acc_perk_electric_cherry`). **A working hack beats a "clean" solution that's blocked
 by code you can't edit.**
@@ -107,7 +107,7 @@ What works vs what doesn't:
 - ✅ **Stay under the surface budget.** Reverting over-budget geometry back below the ceiling restores the bake — this project's map **bakes again today**, so `build_map.ps1` runs the LED pass **by default** and **`-SkipLED` is a RED FLAG** that hides a lightmapper regression, not a routine switch. Heavy new geometry can re-hit the wall — gate every geometry change with `_bake_test.ps1`.
 - ❌ **Rewriting the `.map` lightmap offsets in text is INERT** (`tools/pack_lightmap_uvs.js` proved this): Radiant re-derives its own atlas from geometry/materials and **ignores** the `.map` offsets. The only in-tool repack is Radiant **GUI** Select-All → recompute → Save, which the headless pipeline can't drive.
 - ❌ **Deleting the `.led`** links fine but renders **fullbright pure white** (greybox base color is `1.0`, so with no baked light every face is blown out).
-- The intended dark cyber-night look is **LED-free anyway** — scripted fog + a global `VisionSetNaked` colour grade + emissive neon prop models (all linker-only, all overwrite the baked light) — so baked-light *quality* was never on the critical path. Full saga + the ~50-bake investigation: `BO3_MAPMAKING_KB.md`.
+- **Historical (atlas-crisis era):** while the bake was down, the dark look could ride **LED-free** levers — scripted fog + a runtime `VisionSetNaked` grade (linker-only, overwriting the baked light) — so baked-light *quality* wasn't on the critical path. **That is no longer the stance:** the map **bakes today** and the shipped look now leans on **baked neon lights + reflection probes** (§4), with the custom vision grade **dormant** (`_acc_atmosphere.gsc` `ACC_VISION_ON 0` — it read worse than stock on flat greybox, so the map ships base-game colours). Full saga + the ~50-bake investigation: `BO3_MAPMAKING_KB.md`.
 
 ---
 
@@ -279,8 +279,8 @@ Reusable dev behaviors (all gated on `level.acc_dev`):
 | nothing opens, no log/dump | split-install, `.ff` in tools not game | usermaps junction |
 | game won't launch via automation | Steam launch-handler jam from force-kills | restart Steam |
 | link error `skybox_mp_havoc_override missing` | template `volume_sun` MP sky | set `ssi*` to `default_day` |
-| LED bake hangs 200s, no `.led`, `brush.cpp:1860` | lightmap-atlas overflow (unpacked placeholder UVs) | stay under the surface budget; else `-SkipLED` + vision/fog (§1) |
-| world renders fullbright white | `.led` deleted / missing | keep a lightmap; or ship the vision/fog dark look |
+| LED bake hangs 200s, no `.led`, `brush.cpp:1860` | lightmap-atlas overflow (unpacked placeholder UVs) | stay under the surface budget (the map bakes today); crisis-only fallback = `-SkipLED` + scripted fog (§1) |
+| world renders fullbright white | `.led` deleted / missing | keep a lightmap (the shipped path); crisis-only fallback = scripted-fog dark look (§1) |
 | `xmodel '<name>' is missing` | catalog model's source not in the install DB | carve it (`gen_t7_carve_gdt.js`) or pick a packable one (§6) |
 | AI/boss CTD `0xC0000005` on spawn | `SetScale` on a live actor | never SetScale AI; reskin via `SetModel` + eye-tint |
 | door slab floats above the gap / drops through floor | wrong inverse op (map force-opened *in place* vs stock *moved*) | match the close op to how it opened (§4) |

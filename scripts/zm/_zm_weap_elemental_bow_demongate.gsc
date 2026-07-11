@@ -88,7 +88,7 @@ function bow_demongate_dev_fire_probe()
 		if ( !IS_TRUE( level.acc_dev ) ) continue;
 		if ( !isdefined( w_probe ) || !isdefined( w_probe.name ) ) continue;
 		if ( !IsSubStr( w_probe.name, "elemental_bow" ) ) continue;
-		self IPrintLnBold( "^6[BOW] FIRED " + w_probe.name );
+		// [BOW] FIRED dev print REMOVED 2026-07-10 (clean screen in hardcoded dev)
 	}
 }
 
@@ -146,8 +146,8 @@ function bow_demongate_impact_explosion( weapon, position, radius, attacker, nor
 {
 	// [acc] dev breadcrumb (2026-07-08 hunt): which branch did the impact take? (self = the shooter;
 	// `attacker` is actually the PROJECTILE - the pack misnamed the param.)
-	if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) )
-		self IPrintLnBold( "^2[BOW] impact_explosion w=" + weapon.name + " -> " + ( weapon.name == "elemental_bow_demongate4" ? "PORTAL" : "chomper" ) );
+	// [BOW] impact_explosion dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+	// if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) ) self IPrintLnBold( "[BOW] impact_explosion ..." );
 	if ( weapon.name == "elemental_bow_demongate4" )
 		self thread bow_demongate_open_portal( weapon, position, attacker, normal );
 	else
@@ -226,8 +226,8 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	e_portal thread bow_demongate_portal_dot( self, position, acc_aoe_radius, acc_dot_frac, acc_tier );
 	// [acc] dev breadcrumb (2026-07-08 hunt): open_portal reached the DoT launch (i.e. the tier block
 	// above did not throw) with these resolved values.
-	if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) )
-		self IPrintLnBold( "^2[BOW] portal OPEN tier=" + acc_tier + " r=" + acc_aoe_radius + " frac=" + acc_dot_frac + " chompercap=" + acc_chomper_cap + " -> DoT threaded" );
+	// [BOW] portal-OPEN dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+	// if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) ) self IPrintLnBold( "[BOW] portal OPEN ..." );
 
 	// [acc] CHARGE COST = 3 ARROWS TOTAL (user 2026-07-08; was 5 for ~an hour same evening): the engine's
 	// full charge natively consumes 2; deduct 1 MORE from the clip here - the documented SAFE path
@@ -312,7 +312,7 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 
 	// [acc] dev breadcrumb (2026-07-08 hunt): the ticker STARTED (if [BOW] portal OPEN printed but this
 	// didn't, the thread died between launch and here). Also shows whether level.zombie_health is live.
-	if ( IS_TRUE( level.acc_dev ) && isdefined( e_shooter ) && isplayer( e_shooter ) )
+	if ( 0 )   // [BOW] DoT-ENTER dev print REMOVED 2026-07-10 (clean screen); restore IS_TRUE(acc_dev) && isplayer(e_shooter) to re-enable
 		e_shooter IPrintLnBold( "^2[BOW] DoT ENTER r=" + n_radius + " frac=" + n_frac + " zh=" + ( isdefined( level.zombie_health ) ? level.zombie_health : "UNDEFINED" ) );
 
 	tick = 0;
@@ -379,7 +379,7 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 		// loop is alive but nothing is inside the radius / the array came back empty). `near` = closest
 		// alive AI's distance to the portal center (radius-vs-visual mismatch shows here even at 0 hits);
 		// `hp a->b` = first damaged target's health before/after DoDamage (proves the hit lands or is eaten).
-		if ( IS_TRUE( level.acc_dev ) && isdefined( e_shooter ) && isplayer( e_shooter ) )
+		if ( 0 )   // [PORTAL] tick dev print REMOVED 2026-07-10 (clean screen); restore IS_TRUE(acc_dev) && isplayer(e_shooter) to re-enable
 			e_shooter IPrintLnBold( "^5[PORTAL] tick " + tick + ": ai=" + a_ai.size + " near=" + n_nearest + " zombies " + n_hit + " x" + n_dmg + ", bosses " + n_boss_hit + " x1/" + n_boss_div + ( n_probe_pre >= 0 ? " hp " + n_probe_pre + "->" + n_probe_post : "" ) + ( ( n_hit + n_boss_hit ) >= n_max_targets ? " ^1CAPPED@" + n_max_targets : "" ) + " (r" + n_radius + ", tier " + n_tier + ")" );
 
 		wait 1;

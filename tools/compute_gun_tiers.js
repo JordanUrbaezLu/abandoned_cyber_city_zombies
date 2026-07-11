@@ -89,11 +89,14 @@ const GUNS = [
   { d: 'Peacekeeper',  w: 'apex_peacekeeper', c: 'Shotgun', e: 620, cl: 6, rs: 60, rl: 2.5, mv: 1.00, p: 'large', h: 'single_sg', cu: true, pc: 8, pr: 80, prl: 2.5, t: 'none', pe: null, force: 'TOP' },
   // Prowler (Apex burst PDW, here full-auto): B SMG. bal 0.21. big clip/reserve pin it B via utility; e=354. PaP _up clip 28 / reserve 224.
   { d: 'Prowler',      w: 'apex_prowler', c: 'SMG', e: 360, cl: 20, rs: 160, rl: 2.0, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 28, pr: 224, prl: 2.0, t: 'none', pe: null },
-  // G7 Scout (Apex g2a4 semi marksman): C. bal 0.40. cu single-target (semi). e=340 (curated C). PaP _up clip 15 / reserve 150.
-  { d: 'G7 Scout',     w: 'apex_g2a4', c: 'Marksman', e: 360, cl: 10, rs: 100, rl: 2.4, mv: 0.95, p: 'medium', h: 'semi', cu: true, pc: 15, pr: 150, prl: 2.4, t: 'none', pe: null },
+  // G7 Scout REMOVED 2026-07-11 (user): replaced by the CW M16 (see below), which slots in as a slightly-better-than-MK14 marksman.
   // Alternator (Apex full-auto SMG): TRASH base (bal 0.05) but A+ PaP (bal 0.27, user "trash base but A+ papped" - Klauser pattern). e=430 = PaP eff DPS. PaP _up clip 26 / reserve 312 / reload 1.9.
   { d: 'Alternator',   w: 'apex_alternator', c: 'SMG', e: 480, cl: 16, rs: 160, rl: 1.9, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 26, pr: 312, prl: 1.9, t: 'none', pe: null },
   { d: 'RPD',          w: 't9_rpd',          c: 'LMG',     e: 327, cl: 75,  rs: 300, rl: 7.5,  mv: 0.80, p: 'large',  h: 'auto',      cu: false, pc: 125, pr: 500, prl: 7.5,   t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (e 337->327, mult 0.125->0.1213, user 2026-06-26); clip+reserve +25% (75/300 base, 125/500 PaP)
+  // HAMR (BO2 t6_hamr): B-tier LMG placed BETWEEN the M60 (S) and RPD (C) - user 2026-07-10. Loc + ammo normalized
+  // install-side (tools/prep_hamr_gdt.js): PaP clip 100 / reserve 500 (maxAmmo 5) / reload 6.0. e=360 -> papScore ~6.27 = B.
+  // Balance mult 0.208 in _acc_damage (body T3 527, between RPD 402 and M60 713). Box/price come from gen_box_dynamic (rank #24, MID).
+  { d: 'HAMR',         w: 't6_hamr',         c: 'LMG',     e: 360, cl: 80,  rs: 400, rl: 6.0,  mv: 0.80, p: 'large',  h: 'auto',      cu: false, pc: 100, pr: 500, prl: 6.0,   t: 'none', pe: null },
   // RW1: directed-energy pistol. Hand-tuned to a real magazine (reduce_base_ammo CLIP_FIX/MAXAMMO_FIX:
   // clip 8 base / 12 PaP, reserve 56/96 - ABSOLUTE, exempt from the x0.7 cut) so it EARNS A (user 2026-06-23).
   { d: 'RW1',          w: 's1_rw1',          c: 'Pistol',  e: 590, cl: 8,   rs: 56,  rl: 1.4,  mv: 1.00, p: 'small',  h: 'semi',      cu: false, pc: 12,  pr: 96,  prl: 1.4,   t: 'none', pe: null },
@@ -101,6 +104,9 @@ const GUNS = [
   // MK14 (AW s1_mk14): semi-auto DMR, B tier (user 2026-06-24). cu single-target (semi-auto raw DPS overstates).
   // e=400 + PaP clip 12 / reserve 240 -> papScore ~5.99 (B); base 14 / 168 -> ~5.90 (B). Body loc clean (no normalize).
   { d: 'MK14',         w: 's1_mk14',         c: 'DMR',     e: 388, cl: 14,  rs: 168, rl: 2.0,  mv: 0.95, p: 'medium', h: 'semi',      cu: true,  pc: 12,  pr: 240, prl: 2.0,   t: 'none', pe: null, boxForce: 29 },   // SPREAD -3% worst-gun nerf (e 400->388, mult 0.30->0.291, user 2026-06-26); boxForce 29 (MID rarity, BOT price)
+  // M16 (CW t9_m16): burst->full-auto tactical rifle placed SLIGHTLY BETTER than the MK14 (user 2026-07-11), REPLACING the G7 Scout.
+  // Loc + ammo normalized install-side (tools/prep_m16_gdt.js): PaP _up full-auto clip 40 / reserve 280 / reload ~3.5. e=395 -> papScore ~6.30 = B (MK14 is 5.89 B-). bal 0.18 in _acc_damage. Box/price from gen_box_dynamic (MID, one notch rarer than MK14).
+  { d: 'M16',          w: 't9_m16',          c: 'Marksman', e: 395, cl: 30, rs: 210, rl: 3.03, mv: 0.95, p: 'medium', h: 'semi',     cu: false, pc: 40,  pr: 280, prl: 3.5,   t: 'none', pe: null },
   // MORS (AW s1_mors): charge-up railgun sniper. cu single-target (one-shot rail). RESERVE CUT 50% (user 2026-06-25):
   // 120/180 -> 60/90 (gameplay ammo nerf, reduce_base_ammo MAXAMMO_FIX). That drops its reserve score, so papScore
   // falls ~7.90 -> ~7.60 (just under the S cutoff). force:'TOP' PINS its PaP price + box weight at TOP so the cut is a

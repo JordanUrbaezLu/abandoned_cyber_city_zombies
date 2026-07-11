@@ -9,22 +9,23 @@
 > The generator self-checks (aborts on any unresolved GDT entry or a roster/code price mismatch).
 > Base-form + full max-scale numbers: `node tools/audit_gun_damage.js`.
 
-## Formula (verified from `_acc_damage.gsc::on_ai_damage`, 2026-07-10)
+## Formula (verified from `_acc_damage.gsc::on_ai_damage`, (run date not injected))
 
 ```
 held-weapon raw damage  x  bal(acc_weapon_balance_mult)  x  global(3.25)  x  papMult(tier)  x  headTemper
 PaP BODY (tier T) = round( rawDamage(_up)  x  bal  x  3.25  x  papMult(T) )
 HEADSHOT (tier T) = round( BODY  x  locHead x 0.5 )      (locHead 5 -> x2.5;  Mahem locHead 4 -> x2.0;  shotguns headshot-EXCLUDED)
-RESERVE (rounds)  = clipSize x maxAmmo                                  (BO3 GDT maxAmmo = number of MAGAZINES)
+RESERVE (rounds)  = ammoCountClipRelative ? clipSize x maxAmmo : maxAmmo  (clipRel 1: maxAmmo = MAGAZINE count; clipRel 0: maxAmmo = ABSOLUTE ROUNDS - the wonder weapons Blast-O-Matic _up / Thundergun)
 PaP tier ladder papMult:  T1 x1.333   T2 x1.667   T3 x2.000  (+33% / +67% / +100%)
 ```
 
 - Every number below is the **PaP (`_up`) form**, read live from the deployed GDT. `raw`/`clip`/`maxAmmo`/`locHead` are exact GDT fields.
 - **PaP cost T1/T2/T3** is the per-gun price by its tier (`_acc_pap_levels.gsc::pap_price_bucket` -> `tier_cost`): **WONDER** 10000 / 15000 / 20000  ·  **TOP** 5000 / 7500 / 10000  ·  **MID** 4000 / 6000 / 8000  ·  **BOT** 3000 / 4500 / 6000.
-- **Box %** = per-open mystery-box pull chance, parsed from `_acc_map_randomizer.gsc::acc_box_weight` (weight / pool-total 4364 x gun-share 0.985, i.e. after the Monkey Bomb 1.0% + Li'l Arnie 0.5% fixed tactical pre-roll). This is the FRESH-pool chance; it re-normalizes UP live as you collect (owned guns drop out).
+- **Box %** = per-open mystery-box pull chance, parsed from `_acc_map_randomizer.gsc::acc_box_weight` (weight / pool-total 4901 x gun-share 0.985, i.e. after the Monkey Bomb 1.0% + Li'l Arnie 0.5% fixed tactical pre-roll). This is the FRESH-pool chance; it re-normalizes UP live as you collect (owned guns drop out).
 - **Body/Head columns** are the tier-ladder result (T1..T3). Shotguns are **per-pellet** (multiply x pellet count for a full point-blank hit) and **headshot-excluded** (`*`).
 - **DPS** = max-PaP (T3) body damage per second, averaged over emptying a full clip plus one reload (so big clips and fast reloads both help; shell-loaders use their per-shell reload time, which flatters them slightly).
 - **Move** = run speed while holding the gun (GDT `moveSpeedScale`; **×1 = full player speed**, e.g. ×0.95 = 5% slower). Read from the PaP `_up` entry.
+- **Recoil (control)** = an at-a-glance rating of ADS **view-kick** severity: **🟢 Very Low → 🔴 Very High** (lower/greener = steadier, easier to control; red = wild). It buckets the total per-shot kick **↑+↔**: ≤60 🟢 Very Low · ≤90 🟢 Low · ≤120 🟡 Medium · ≤160 🟠 High · >160 🔴 Very High. The precise kick follows the dot — **↑** = vertical climb `(pitchMax+pitchMin)/2`, **↔** = horizontal shake `|yawMax−yawMin|/2`, in degrees (GDT `adsViewKick*`). All numbers **include the map's ×1.75 base-recoil "skill theme"** (`apply_recoil_overhaul.js`) and are **halved at runtime by Mega Deadshot** (the `recoil50` twin, ×0.5), which drops most guns ~1–2 tiers. Hip view-kick is ~identical, so ADS stands in for both.
 - Layers NOT shown (stack on top at runtime): Cyberware Weapon Overclock (+10%/tier), Deadshot crit, Double Tap, boss per-hit cap 5000, pellet/launcher/sniper vs-boss cuts.
 
 ## Wonders & specials (special damage models - no standard hitscan tier ladder)
@@ -35,11 +36,11 @@ PaP tier ladder papMult:  T1 x1.333   T2 x1.667   T3 x2.000  (+33% / +67% / +100
 
 | Gun | Class | Box % | PaP cost T1/T2/T3 | Cap | Raw dmg | bal | Eff/hit | Clip / Reserve | fireTime | Move | vs Boss |
 |---|---|--:|--|:--:|--:|--:|--:|--|--:|--:|---|
-| **Thundergun** | Wonder (WW) | 0.29% | 10000 / 15000 / 20000 | 1/game | 0 (fling) | 0.45 | — | 4 / 24 | 0.95s | ×1 | maxHP-fraction blast (thundergun_boss_blast) |
-| **Fire Bow** | Wonder (bow) | 0.29% | 10000 / 15000 / 20000 | 1/game | 0 (AoE) | 1 | — | 75 / regen | 0.45s | ×1 | Charged portal = DAMAGE-OVER-TIME zone (2026-07-08): zombies/elites frac×roundHP/s (1/5→1/2 by tier), BOSSES maxHP/div/s (÷80→÷40 by tier) + chompers. Furies: arrow hit = guaranteed one-shot. |
-| **Leviathan Axe** | Wonder (melee) | 0.29% | 10000 / 15000 / 20000 | 1/game | — (per-enemy) | 1 | — | — / — | 0.48s | ×1.05 | hits-to-kill: zombie 1 · glitch 1 · shielded 4→2 · Fury 2→1 (→ = at 2nd PaP+) · **boss 17/14/12/8** (t0/T1/T2/T3) |
-| **Blast-O-Matic** | Wonder (energy) | 0.29% | 10000 / 15000 / 20000 | 1/game | 3500 | 0.24 | 2730 | 20 / 120 | 0.16s | ×1 | x0.75 + 10% per-hit cap |
-| **Action Figure** | Melee | 0.79% | 5000 / 7500 / 10000 | — | 5000 melee | — | — | — / — | 0.85s | ×1.05 | 1/30 maxHP/hit (~30 hits, acc_af_boss_hits) |
+| **Thundergun** | Wonder (WW) | 0.30% | 10000 / 15000 / 20000 | 1/game | 0 (fling) | 0.45 | — | 4 / 24 | 0.95s | ×1 | maxHP-fraction blast (thundergun_boss_blast) |
+| **Fire Bow** | Wonder (bow) | 0.30% | 10000 / 15000 / 20000 | 1/game | 0 (AoE) | 1 | — | 75 / regen | 0.45s | ×1 | Charged portal = DAMAGE-OVER-TIME zone (2026-07-08): zombies/elites frac×roundHP/s (1/5→1/2 by tier), BOSSES maxHP/div/s (÷80→÷40 by tier) + chompers. Furies: arrow hit = guaranteed one-shot. |
+| **Leviathan Axe** | Wonder (melee) | 0.30% | 10000 / 15000 / 20000 | 1/game | — (per-enemy) | 1 | — | — / — | 0.48s | ×1.07 | hits-to-kill: zombie 1 · glitch 1 · shielded 4→2 · Fury 2→1 (→ = at 2nd PaP+) · **boss 17/14/12/8** (t0/T1/T2/T3) |
+| **Blast-O-Matic** | Wonder (energy) | 0.30% | 10000 / 15000 / 20000 | 1/game | 3500 | 0.24 | 2730 | 20 / 110 | 0.16s | ×1 | x0.75 + 10% per-hit cap |
+| **Action Figure** | Melee | 0.80% | 5000 / 7500 / 10000 | — | 5000 melee | — | — | — / — | 0.85s | ×1.07 | 1/30 maxHP/hit (~30 hits, acc_af_boss_hits) |
 
 **Per-wonder notes:**
 - **Thundergun:** GDT damage 0 - kills via the multiplier-immune wind FLING; bosses take a separate maxhealth-fraction blast.
@@ -58,61 +59,62 @@ PaP tier ladder papMult:  T1 x1.333   T2 x1.667   T3 x2.000  (+33% / +67% / +100
 
 ### AR
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **XM4** | AR | S / TOP | 7.86 | 1.17% | 5000 / 7500 / 10000 | 360 | 0.231 | 55 | 550 | 360 / 450 / 541 | 900 / 1125 / 1353 | 0.07s | 3s | ×0.95 | 4344 |
-| **Havoc** | AR (energy, full-auto) | A / TOP | - | 1.20% | 5000 / 7500 / 10000 | 300 | 0.39797 | 40 | 320 | 517 / 647 / 776 | 776 / 971 / 1164 | 0.107s | 3.864s | ×0.95 | 3811 |
-| **AK-47** | AR | S / TOP | 8.04 | 1.44% | 5000 / 7500 / 10000 | 300 | 0.29579 | 31 | 341 | 385 / 481 / 577 | 963 / 1203 / 1443 | 0.08s | 3.25s | ×0.95 | 3122 |
-| **AE4** | AR | B / MID | 7.19 | 3.00% | 4000 / 6000 / 8000 | 290 | 0.341 | 38 | 304 | 429 / 536 / 643 | 1073 / 1340 / 1608 | 0.12s | 3s | ×0.95 | 3232 |
-| **Grav** | AR | B+ / BOT | 6.85 | 8.53% | 3000 / 4500 / 6000 | 340 | 0.165 | 35 | 420 | 243 / 304 / 365 | 608 / 760 / 913 | 0.075s | 2.925s | ×0.95 | 2302 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **XM4** | AR | S / TOP | 7.86 | 1.05% | 5000 / 7500 / 10000 | 360 | 0.231 | 55 | 550 | 360 / 450 / 541 | 900 / 1125 / 1353 | 0.07s | 3s | ×0.93 | 🔴 Very High · ↑70 ↔105 | 4344 |
+| **Havoc** | AR (energy, full-auto) | A / TOP | - | 1.21% | 5000 / 7500 / 10000 | 300 | 0.39797 | 40 | 320 | 517 / 647 / 776 | 776 / 971 / 1164 | 0.107s | 3.864s | ×0.93 | 🟡 Medium · ↑58 ↔50 | 3811 |
+| **AK-47** | AR | S / TOP | 8.04 | 1.29% | 5000 / 7500 / 10000 | 300 | 0.29579 | 31 | 341 | 385 / 481 / 577 | 963 / 1203 / 1443 | 0.08s | 3.25s | ×0.93 | 🟠 High · ↑26 ↔105 | 3122 |
+| **AE4** | AR | B / MID | 7.19 | 2.67% | 4000 / 6000 / 8000 | 290 | 0.341 | 38 | 304 | 429 / 536 / 643 | 1073 / 1340 / 1608 | 0.12s | 3s | ×0.93 | 🟠 High · ↑26 ↔105 | 3232 |
+| **Grav** | AR | B+ / BOT | 6.85 | 9.35% | 3000 / 4500 / 6000 | 340 | 0.165 | 35 | 420 | 243 / 304 / 365 | 608 / 760 / 913 | 0.075s | 2.925s | ×0.93 | 🟠 High · ↑26 ↔105 | 2302 |
 
 ### Marksman & Sniper
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **MORS** | Sniper | A / TOP | 7.50 | 2.44% | 5000 / 7500 / 10000 | 1500 | 0.25688 | 1 | 61 | 1670 / 2087 / 2505 | 4175 / 5218 / 6263 | 0.05s | 1.2s | ×0.95 | 2004 |
-| **MK14** | DMR | B- / MID | 5.89 | 4.11% | 4000 / 6000 / 8000 | 600 | 0.28809 | 12 | 240 | 749 / 936 / 1124 | 1873 / 2340 / 2810 | 0.095s | 2s | ×0.95 | 4296 |
-| **G7 Scout** | Marksman | C / BOT | 5.30 | 9.46% | 3000 / 4500 / 6000 | 190 | 0.5742 | 20 | 200 | 473 / 591 / 709 | 946 / 1182 / 1418 | 0.215s | 2.4s | ×0.95 | 2116 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **MORS** | Sniper | A / TOP | 7.50 | 2.17% | 5000 / 7500 / 10000 | 1500 | 0.25688 | 1 | 61 | 1670 / 2087 / 2505 | 4175 / 5218 / 6263 | 0.05s | 1.2s | ×0.93 | 🟢 Low · ↑4 ↔83 | 2004 |
+| **M16** | Tactical Rifle | B / MID | 6.30 | 3.66% | 4000 / 6000 / 8000 | 480 | 0.18 | 40 | 280 | 374 / 468 / 562 | 935 / 1170 / 1405 | 0.066s | 3.5s | ×0.93 | 🟠 High · ↑56 ↔84 | 3661 |
+| **MK14** | DMR | B- / MID | 5.89 | 4.06% | 4000 / 6000 / 8000 | 600 | 0.28809 | 12 | 240 | 749 / 936 / 1124 | 1873 / 2340 / 2810 | 0.095s | 2s | ×0.93 | 🟠 High · ↑26 ↔105 | 4296 |
 
 ### Shotgun
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **Peacekeeper** | Shotgun | S / TOP | 7.73 | 1.31% | 5000 / 7500 / 10000 | 340 | 0.41624 | 8 | 80 | 613 / 767 / 920/pel | excluded* | 0.16s | 2.5s | ×1 | 23365 (×pel) |
-| **CEL-3** | Shotgun | B / TOP | 6.22 | 3.70% | 5000 / 7500 / 10000 | 200 | 0.432 | 12 | 96 | 374 / 468 / 562/pel | excluded* | 0.5s | 3s | ×1 | 8992 (×pel) |
-| **Tac-19** | Shotgun | A- / MID | 6.80 | 4.56% | 4000 / 6000 / 8000 | 174 | 0.49929 | 6 | 54 | 376 / 471 / 565/pel | excluded* | 0.3s | 0.467s | ×1 | 17944 (×pel) |
-| **Streetsweeper** | Shotgun | B / BOT | 6.20 | 6.23% | 3000 / 4500 / 6000 | 610 | 0.106392 | 14 | 126 | 281 / 352 / 422/pel | excluded* | 0.15s | 0.9s | ×1 | 23632 (×pel) |
-| **Olympia** | Shotgun | C / BOT | 4.27 | 7.67% | 3000 / 4500 / 6000 | 260 | 0.41734 | 4 | 84 | 470 / 588 / 705/pel | excluded* | 0.283s | 1.75s | ×1 | 11742 (×pel) |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **Peacekeeper** | Shotgun | S / TOP | 7.73 | 1.17% | 5000 / 7500 / 10000 | 340 | 0.41624 | 8 | 80 | 613 / 767 / 920/pel | excluded* | 0.16s | 2.5s | ×1 | 🔴 Very High · ↑105 ↔60 | 23365 (×pel) |
+| **CEL-3** | Shotgun | B / TOP | 6.22 | 3.30% | 5000 / 7500 / 10000 | 200 | 0.432 | 12 | 96 | 374 / 468 / 562/pel | excluded* | 0.5s | 3s | ×1 | 🟢 Very Low · ↑3 ↔48 | 8992 (×pel) |
+| **Tac-19** | Shotgun | A- / MID | 6.80 | 4.50% | 4000 / 6000 / 8000 | 174 | 0.49929 | 6 | 54 | 376 / 471 / 565/pel | excluded* | 0.3s | 0.467s | ×1 | 🔴 Very High · ↑123 ↔96 | 17944 (×pel) |
+| **Streetsweeper** | Shotgun | B / BOT | 6.20 | 6.17% | 3000 / 4500 / 6000 | 610 | 0.106392 | 14 | 126 | 281 / 352 / 422/pel | excluded* | 0.15s | 0.9s | ×1 | 🟢 Very Low · ↑26 ↔0 | 23632 (×pel) |
+| **Olympia** | Shotgun | C / BOT | 4.27 | 8.42% | 3000 / 4500 / 6000 | 260 | 0.41734 | 4 | 84 | 470 / 588 / 705/pel | excluded* | 0.283s | 1.75s | ×1 | 🟢 Low · ↑4 ↔83 | 11742 (×pel) |
 
 ### SMG
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **PPSH-41** | SMG | S / TOP | 8.04 | 1.78% | 5000 / 7500 / 10000 | 280 | 0.24475 | 60 | 540 | 297 / 371 / 445 | 743 / 928 / 1113 | 0.048s | 1.75s | ×1 | 5767 |
-| **Alternator** | SMG (PaP power) | A / BOT | 7.20 | 2.71% | 3000 / 4500 / 6000 | 170 | 0.71874 | 30 | 360 | 529 / 662 / 794 | 1323 / 1655 / 1985 | 0.134s | 1.9s | ×1 | 4024 |
-| **Prowler** | SMG | B / BOT | 6.43 | 5.06% | 3000 / 4500 / 6000 | 135 | 0.451 | 28 | 224 | 264 / 330 / 396 | 528 / 660 / 792 | 0.08s | 1.6s | ×1 | 2888 |
-| **AK-74u** | SMG | A / MID | 7.03 | 5.62% | 4000 / 6000 / 8000 | 312 | 0.2024 | 40 | 280 | 274 / 342 / 410 | 685 / 855 / 1025 | 0.08s | 1.96s | ×1 | 3178 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **PPSH-41** | SMG | S / TOP | 8.04 | 1.59% | 5000 / 7500 / 10000 | 280 | 0.24475 | 60 | 540 | 297 / 371 / 445 | 743 / 928 / 1113 | 0.048s | 1.75s | ×1 | 🟡 Medium · ↑13 ↔79 | 5767 |
+| **Alternator** | SMG (PaP power) | A / BOT | 7.20 | 2.41% | 3000 / 4500 / 6000 | 170 | 0.646866 | 30 | 360 | 477 / 596 / 715 | 1193 / 1490 / 1788 | 0.134s | 1.9s | ×1 | 🟠 High · ↑26 ↔105 | 3623 |
+| **AK-74u** | SMG | A / MID | 7.03 | 5.00% | 4000 / 6000 / 8000 | 312 | 0.2024 | 40 | 280 | 274 / 342 / 410 | 685 / 855 / 1025 | 0.08s | 1.96s | ×1 | 🟠 High · ↑26 ↔105 | 3178 |
+| **Prowler** | SMG | B / BOT | 6.43 | 5.55% | 3000 / 4500 / 6000 | 135 | 0.451 | 28 | 224 | 264 / 330 / 396 | 528 / 660 / 792 | 0.08s | 1s | ×1 | 🟢 Low · ↑18 ↔59 | 3422 |
 
 ### LMG
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **M60** | LMG | S / TOP | 8.11 | 1.60% | 5000 / 7500 / 10000 | 440 | 0.24926 | 120 | 600 | 475 / 594 / 713 | 1188 / 1485 / 1783 | 0.09s | 9.7s | ×0.9 | 4174 |
-| **RPD** | LMG | C / MID | 6.10 | 6.93% | 4000 / 6000 / 8000 | 468 | 0.13213 | 125 | 625 | 268 / 335 / 402 | 670 / 838 / 1005 | 0.0696s | 7.5s | ×0.9 | 3102 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **M60** | LMG | S / TOP | 8.11 | 1.43% | 5000 / 7500 / 10000 | 440 | 0.24926 | 120 | 600 | 475 / 594 / 713 | 1188 / 1485 / 1783 | 0.09s | 9.7s | ×0.86 | 🟡 Medium · ↑22 ↔96 | 4174 |
+| **HAMR** | LMG | B / MID | 6.27 | 6.83% | 4000 / 6000 / 8000 | 390 | 0.208 | 100 | 500 | 352 / 439 / 527 | 880 / 1098 / 1318 | 0.08s | 6s | ×0.8 | 🟢 Low · ↑4 ↔83 | 3764 |
+| **RPD** | LMG | C / MID | 6.10 | 7.60% | 4000 / 6000 / 8000 | 468 | 0.13213 | 125 | 625 | 268 / 335 / 402 | 670 / 838 / 1005 | 0.0696s | 7.5s | ×0.86 | 🟡 Medium · ↑13 ↔88 | 3102 |
 
 ### Pistol
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **RW1** | Pistol | A+ / MID | 7.15 | 3.34% | 4000 / 6000 / 8000 | 1000 | 0.1452 | 12 | 96 | 629 / 786 / 944 | 1573 / 1965 / 2360 | 0.15s | 1.4s | ×1 | 3540 |
-| **Five-Seven** | Pistol (start) | C- / BOT | 5.99 | 10.50% | 3000 / 4500 / 6000 | 455 | 0.27742 | 27 | 189 | 547 / 684 / 820 | 1368 / 1710 / 2050 | 0.08s | 1.8s | ×1 | 5591 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **RW1** | Pistol | A+ / MID | 7.15 | 2.97% | 4000 / 6000 / 8000 | 1000 | 0.15972 | 12 | 96 | 692 / 865 / 1038 | 1730 / 2163 / 2595 | 0.15s | 1.4s | ×1.07 | 🟢 Low · ↑4 ↔83 | 3893 |
+| **Five-Seven** | Pistol (start) | C- / BOT | 5.99 | 10.39% | 3000 / 4500 / 6000 | 455 | 0.27742 | 27 | 189 | 547 / 684 / 820 | 1368 / 1710 / 2050 | 0.08s | 1.8s | ×1.07 | 🟢 Low · ↑4 ↔83 | 5591 |
 
 ### Launcher
 
-| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |
-|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| **Mahem** | Launcher | - / TOP | - | 1.99% | 5000 / 7500 / 10000 | 7000 | 0.1099 | 10 | 40 | 3334 / 4167 / 5000 | 6668 / 8334 / 10000 | 0.4s | 3.5s | ×0.9 | 6667 |
-| **War Machine** | Launcher | A / TOP | - | 2.19% | 5000 / 7500 / 10000 | 7000 | 0.0879 | 12 | 72 | 2666 / 3333 / 3999 | 5332 / 6666 / 7998 | 0.25s | 3.75s | ×0.9 | 7109 |
+| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |
+|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|
+| **Mahem** | Launcher | - / TOP | - | 1.77% | 5000 / 7500 / 10000 | 7000 | 0.1099 | 10 | 40 | 3334 / 4167 / 5000 | 6668 / 8334 / 10000 | 0.4s | 3.5s | ×0.86 | 🟢 Low · ↑48 ↔25 | 6667 |
+| **War Machine** | Launcher | A / TOP | - | 1.95% | 5000 / 7500 / 10000 | 7000 | 0.0879 | 12 | 72 | 2666 / 3333 / 3999 | 5332 / 6666 / 7998 | 0.25s | 3.75s | ×0.86 | 🟢 Low · ↑48 ↔25 | 7109 |
 
 `*` shotguns (Tac-19, Olympia, etc.): headshot-excluded; Body is **per pellet** (multiply x pellet count for a point-blank hit). GDT `_up` entry per gun: see the roster in `tools/gen_weapon_stats.js`.
 

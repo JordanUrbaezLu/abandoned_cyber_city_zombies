@@ -52,8 +52,11 @@ function init()
     level thread boss_bar_listener();
     // Through-walls zombie waypoints are a DEV/QA aid only - gate on the one dev switch so a ship
     // build never shows them (was hardcoded-on; user 2026-06-22, one-flag migration).
-    if ( IS_TRUE( level.acc_dev ) )
-        level thread zombie_wallhack_loop();
+    // Through-walls zombie waypoints (DEV/QA wallhack markers) REMOVED FROM DEV 2026-07-10 (user: "remove the random
+    // debug UI, keep the screen clean") - dev is now hardcoded ON, so a marker over every zombie would always clutter
+    // the screen. Re-thread this line if you ever need through-walls zombie markers for QA.
+    // if ( IS_TRUE( level.acc_dev ) )
+    //     level thread zombie_wallhack_loop();
 }
 
 // ---------------------------------------------------------------------------

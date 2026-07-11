@@ -162,17 +162,9 @@ function glitch_speed_think()
 // glitch ability (glitch_blink_loop) - "nullified" but still able to see + chase. self = the Stalker.
 function acc_serum_suppressed()
 {
-    radius = getdvarint( "acc_phase_serum_radius", 350 );
-    if ( radius <= 0 ) return false;
-    players = GetPlayers();
-    for ( i = 0; i < players.size; i++ )
-    {
-        p = players[ i ];
-        if ( !isdefined( p ) || !isplayer( p ) ) continue;
-        if ( !IS_TRUE( p.acc_phase_serum ) ) continue;
-        if ( Distance( self.origin, p.origin ) <= radius ) return true;
-    }
-    return false;
+    // Body lifted to acc_utility::serum_aura_active (2026-07-11) so the Phantom shares the
+    // aura check (its 50% gait slow) without a circular #using (we already #using phantom).
+    return acc_utility::serum_aura_active( self.origin );
 }
 
 // Spawn `acc_glitch_count` Glitch Stalkers this round, staggered a beat apart for
@@ -826,7 +818,7 @@ function cleanup_glitch_corpse()
 // (default off). Mirrors the acc_variants_debug pattern (docs/22 §E).
 function gdebug( msg )
 {
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_glitch_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_glitch_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [GLITCH] rides acc_glitch_debug now)
 
     for ( i = 0; i < level.players.size; i++ )
     {

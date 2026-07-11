@@ -75,8 +75,8 @@ function spawn_altars()
     // --- SOURCE: Data Caches in the EXPOSED PIT - FLAT 3 shards each, once per round, first-come
     //     (user 2026-06-23: 1->2; user 2026-06-25: 2->3, faster faucet). Re-arm each round. Spread
     //     across the open pit floor, clear of the side stairs.
-    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 3 ) ); // pit west (user 2026-06-25: 2->3)
-    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 3 ) ); // pit east (user 2026-06-25: 2->3)
+    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 3 ), "trench" ); // pit west (user 2026-06-25: 2->3)
+    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 3 ), "trench" ); // pit east (user 2026-06-25: 2->3)
 
     // --- DESCENT SINKS (user 2026-06-24): the two big shard sinks now REWARD descending the abyss - you
     //     must go DEEPER to spend. The Exo Suit (the thing that lets you walk deeper) stays up top in the

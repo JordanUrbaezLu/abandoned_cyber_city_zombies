@@ -2,7 +2,7 @@
 
 ## Elevator Pitch
 
-**Abandoned Cyber City** is a custom Call of Duty: Black Ops III zombies map built around **mechanics, skill expression, and replayability**. Players extract "Data Shards" from elite enemies and spend them on a branching **Cyberware / perk economy** that reshapes how their weapons, movement, and perks behave for that run. Weapon **Overclocks** are pulled from randomized pools. Map state (power routing, Pack-a-Punch path, wallbuy pool, elite spawn mix) re-rolls each game. The result: every run asks different build questions, and strong players are rewarded with longer, cleaner runs - not just more loot.
+**Abandoned Cyber City** is a custom Call of Duty: Black Ops III zombies map built around **mechanics, skill expression, and replayability**. Players extract "Data Shards" from elite enemies and spend them across a deep upgrade economy — the **Cyberware Weapon Overclock** terminal, extra perk slots, the Exo Suit — that reshapes how their weapons and perks behave for that run. Weapon **Overclocks** are pulled from randomized pools. (The original branching Cyberware skill tree is built but currently **disabled/dormant** in code — the Overclock terminal is the sole live weapon-upgrade path; see `03_progression_and_skills.md`.) Map state (power routing, Pack-a-Punch path, wallbuy pool, elite spawn mix) re-rolls each game. The result: every run asks different build questions, and strong players are rewarded with longer, cleaner runs - not just more loot.
 
 Systems come first. The "cyber city" theme is the flavor wrapper; the design work is in the mechanics.
 
@@ -14,10 +14,10 @@ Systems come first. The "cyber city" theme is the flavor wrapper; the design wor
 
 ## Design Pillars (ranked)
 
-1. **Meaningful upgrading** - every currency spend is a decision. Data Shards are finite per run; skill branches are mutually exclusive within a tier; Overclocks commit you to a playstyle.
+1. **Meaningful upgrading** - every currency spend is a decision. Data Shards are finite per run; the deep sinks (weapon Overclocks, perk slots, Exo Suit) all compete for the same slow income; Overclocks commit you to a playstyle.
 2. **Skill-based difficulty** - faster ramp than stock BO3, elite enemies from round 5+, a mini-boss debut at round 10 and full **boss rounds every 9 rounds from round 9** (the count scales: r9=1, r18=2, r27=3 bosses, dealt from a no-duplicate shuffled roster - see `08_enemies.md`). A lost run should trace to a decision, not RNG.
 3. **Replayability through randomization** - map *state* (not geometry) re-rolls per game: power routing, PaP path, wallbuy pool, elite cadence, Overclock pool. Geography and core objectives stay stable so muscle memory still pays off.
-4. **Multiple viable builds** - at least 3 distinct build archetypes reach the late game (e.g. Crit / AoE / Mobility) and the tree forces commitment, so runs feel different to play, not just to watch.
+4. **Multiple viable builds** - at least 3 distinct build archetypes reach the late game (e.g. Crit / AoE / Mobility) and the competing shard sinks force commitment, so runs feel different to play, not just to watch.
 5. **Skill over grind** - unlocks are gated by objectives and decisions, not raw time. No "shoot 10,000 zombies for X".
 
 ## Anti-Pillars (what this map is NOT)
@@ -58,7 +58,7 @@ The founding open questions have all been answered in the shipped build:
 
 - `01_toolchain.md` - how we build this thing (see also `BO3_MAPMAKING_KB.md`, the portable pipeline reference).
 - `02_layout.md` - physical map, gameplay-first (theme is flavor only).
-- `03_progression_and_skills.md` - the Cyberware/perk tree, Data Shard economy, difficulty curve.
+- `03_progression_and_skills.md` - Data Shard economy, weapon Overclocks, perk/Exo progression, difficulty curve (plus the dormant Cyberware skill tree, kept for reference).
 - `04_weapons.md` - arsenal (large, box-only pool: Apex + Skye ports + elemental bows), Overclocks, custom perks.
 - `05_mechanics.md` - round pacing, encounter design, economy math, feedback loops.
 - `06_replayability.md` - randomization systems, modifiers, build archetypes, hard mode.

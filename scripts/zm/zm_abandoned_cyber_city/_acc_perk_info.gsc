@@ -456,6 +456,8 @@ function gun_card_index( weapon )
     if ( IsSubStr( n, "t9_grav" ) )         return 13;   // Grav (CW model + Galil stats, migrated 2026-07-05)
     if ( IsSubStr( n, "t9_m60" ) )          return 14;
     if ( IsSubStr( n, "t9_rpd" ) )          return 15;
+    if ( IsSubStr( n, "t6_hamr" ) )         return 9;    // HAMR (BO2 LMG, 2026-07-10; reuses a freed card slot)
+    if ( IsSubStr( n, "t9_m16" ) )          return 10;   // M16 (CW tactical rifle, replaces G7 Scout 2026-07-11; freed card slot)
     if ( IsSubStr( n, "thundergun" ) )      return 16;
     if ( IsSubStr( n, "t9_semiauto_cosplay" ) ) return 17;   // Blast-O-Matic (user 2026-07-03)
     return 18;

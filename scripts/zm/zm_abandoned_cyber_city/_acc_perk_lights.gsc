@@ -234,7 +234,7 @@ function safe_sn( t )
 function dbg( msg )
 {
     acc_utility::log( "perk_lights: " + msg );
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_perk_lights_debug", 0 ) == 0 ) return;
+    if ( getdvarint( "acc_perk_lights_debug", 0 ) == 0 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_perk_lights_debug now)
     players = GetPlayers();
     foreach ( p in players )
         p IPrintLnBold( "[perklight] " + msg );

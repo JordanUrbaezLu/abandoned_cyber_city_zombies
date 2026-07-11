@@ -3308,46 +3308,26 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -740 459.5 88 ) ( -740 419.5 88 ) ( -740 419.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #12 [-40,-20,-540,-240,0,256]
+// ACC plaza shrink (tools/gen_plaza_shrink.js) wall #12 [180,200,-540,-240,0,256]
+// EAST WALL WIDENED 2026-07-10 (implant-lab relayout): was [-40,-20]; room x-extent -720..180 now,
+// claiming the sealed dead-space east of x-40 (empty; already lit by acc_roof_light_plaza_6 @ (5,-420),
+// south seal = full-width stock perimeter wall @ y-540, north = plaza S-wall east seg -180..233). Hand-
+// edited in the .map (gen_plaza_shrink.js WALLS[12] table updated to match but NOT re-run - it would
+// re-seal the Armory doorway wall #5 that gen_upper_room.js carves after it). 3 benches spread into the
+// widened clear area (_acc_boss_items::spawn_bench) away from the Exchange staircase (SW corner).
 {
  guid "{B4472801-ACC6-4E0D-8A3F-000000000013}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 256 ) ( 94.5 459.5 256 ) ( 142.5 459.5 256 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -540 88 ) ( 134.5 -540 88 ) ( 134.5 -540 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -20 415.5 88 ) ( -20 455.5 88 ) ( -20 455.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 200 415.5 88 ) ( 200 455.5 88 ) ( 200 455.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 -240 88 ) ( 90.5 -240 88 ) ( 90.5 -240 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -40 459.5 88 ) ( -40 419.5 88 ) ( -40 419.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 180 459.5 88 ) ( 180 419.5 88 ) ( 180 419.5 0 ) t7_concrete_wall_weathered_01_wet 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #0 [-332,-308,15,45,0,72] (resized to the Data Cache computer tower 24x30x72 - STATION REMODEL 2026-07-09; was the 56x56x48 cargo-crate box)
-{
- guid "{B4472802-ACC6-4E0D-8A3F-000000000014}"
- ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 72 ) ( 94.5 459.5 72 ) ( 142.5 459.5 72 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 15 88 ) ( 134.5 15 88 ) ( 134.5 15 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -308 415.5 88 ) ( -308 455.5 88 ) ( -308 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 45 88 ) ( 90.5 45 88 ) ( 90.5 45 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -332 459.5 88 ) ( -332 419.5 88 ) ( -332 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
-// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #1 [68,92,215,245,0,72] (resized to the Data Cache computer tower 24x30x72 - STATION REMODEL 2026-07-09; was the 56x56x48 cargo-crate box)
-{
- guid "{B4472803-ACC6-4E0D-8A3F-000000000015}"
- ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 72 ) ( 94.5 459.5 72 ) ( 142.5 459.5 72 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 215 88 ) ( 134.5 215 88 ) ( 134.5 215 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 92 415.5 88 ) ( 92 455.5 88 ) ( 92 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 245 88 ) ( 90.5 245 88 ) ( 90.5 245 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 68 459.5 88 ) ( 68 419.5 88 ) ( 68 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
-// ACC plaza shrink (tools/gen_plaza_shrink.js) obstacle clip #2 [-92,-68,545,575,0,72] (resized to the Data Cache computer tower 24x30x72 - STATION REMODEL 2026-07-09; was the 56x56x48 cargo-crate box)
-{
- guid "{B4472804-ACC6-4E0D-8A3F-000000000016}"
- ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 72 ) ( 94.5 459.5 72 ) ( 142.5 459.5 72 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 545 88 ) ( 134.5 545 88 ) ( 134.5 545 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -68 415.5 88 ) ( -68 455.5 88 ) ( -68 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 575 88 ) ( 90.5 575 88 ) ( 90.5 575 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -92 459.5 88 ) ( -92 419.5 88 ) ( -92 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
+// ACC plaza Data Cache clips MIGRATED to tools/add_prop_clips.js (plaza_cache_1..4) on 2026-07-10 - the Data Cache
+// model was reverted to p7_cai_stacking_cargo_crate (self-colliding _col LOD), and a 4th plaza cache was added.
+// The three former gen_plaza_shrink obstacle clips (#0-2, at the cache origins) are re-emitted from add_prop_clips.js
+// as LED-exempt script_brushmodels sized to the 64x64x48 crate. Do NOT re-add them here.
 // ACC plaza basement (tools/gen_plaza_basement.js) ===== BEGIN world brushes (carved floor + stairwell + vault) =====
 // ACC plaza basement (tools/gen_plaza_basement.js) arena floor WEST of well
 {
@@ -4112,29 +4092,9 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( 138.5 2516 88 ) ( 90.5 2516 88 ) ( 90.5 2516 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( -46 459.5 88 ) ( -46 419.5 88 ) ( -46 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
-// clip: pit_cache_w @ (-360,1950)
-{
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D03}"
- ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -168 ) ( 94.5 459.5 -168 ) ( 142.5 459.5 -168 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 1935 88 ) ( 134.5 1935 88 ) ( 134.5 1935 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -348 415.5 88 ) ( -348 455.5 88 ) ( -348 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 1965 88 ) ( 90.5 1965 88 ) ( 90.5 1965 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -372 459.5 88 ) ( -372 419.5 88 ) ( -372 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
-// clip: pit_cache_e @ (360,1950)
-{
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D04}"
- ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 94.5 419.5 -168 ) ( 94.5 459.5 -168 ) ( 142.5 459.5 -168 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 1935 88 ) ( 134.5 1935 88 ) ( 134.5 1935 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 372 415.5 88 ) ( 372 455.5 88 ) ( 372 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 1965 88 ) ( 90.5 1965 88 ) ( 90.5 1965 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 348 459.5 88 ) ( 348 419.5 88 ) ( 348 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
-}
 // clip: perk_slot_vendor @ (120,1550)
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D05}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0F}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -169 ) ( 94.5 459.5 -169 ) ( 142.5 459.5 -169 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1528 88 ) ( 134.5 1528 88 ) ( 134.5 1528 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4145,13 +4105,103 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 // ===== end prop clips =====
 }
 // ===== PROP CLIPS (brushmodel) - deep abyss-depth clips as LED-exempt script_brushmodels =====
-// clip(brushmodel): ammo_crate_l2 @ (400,1948) z[-480,-459]
+// clip(brushmodel): pit_cache_w @ (-360,1950) z[-240,-192]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D04}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_pit_cache_w"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D03}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1918 88 ) ( 134.5 1918 88 ) ( 134.5 1918 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -328 415.5 88 ) ( -328 455.5 88 ) ( -328 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1982 88 ) ( 90.5 1982 88 ) ( 90.5 1982 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -392 459.5 88 ) ( -392 419.5 88 ) ( -392 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): pit_cache_e @ (360,1950) z[-240,-192]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D06}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_pit_cache_e"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D05}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -192 ) ( 94.5 459.5 -192 ) ( 142.5 459.5 -192 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 1918 88 ) ( 134.5 1918 88 ) ( 134.5 1918 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 392 415.5 88 ) ( 392 455.5 88 ) ( 392 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 1982 88 ) ( 90.5 1982 88 ) ( 90.5 1982 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 328 459.5 88 ) ( 328 419.5 88 ) ( 328 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): plaza_cache_1 @ (-320,30) z[0,48]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D08}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_plaza_cache_1"
 {
  guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D07}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -2 88 ) ( 134.5 -2 88 ) ( 134.5 -2 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -288 415.5 88 ) ( -288 455.5 88 ) ( -288 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 62 88 ) ( 90.5 62 88 ) ( 90.5 62 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -352 459.5 88 ) ( -352 419.5 88 ) ( -352 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): plaza_cache_2 @ (80,230) z[0,48]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0A}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_plaza_cache_2"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D09}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 198 88 ) ( 134.5 198 88 ) ( 134.5 198 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 112 415.5 88 ) ( 112 455.5 88 ) ( 112 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 262 88 ) ( 90.5 262 88 ) ( 90.5 262 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 48 459.5 88 ) ( 48 419.5 88 ) ( 48 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): plaza_cache_3 @ (-80,560) z[0,48]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0C}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_plaza_cache_3"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0B}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 528 88 ) ( 134.5 528 88 ) ( 134.5 528 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -48 415.5 88 ) ( -48 455.5 88 ) ( -48 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 592 88 ) ( 90.5 592 88 ) ( 90.5 592 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -112 459.5 88 ) ( -112 419.5 88 ) ( -112 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): plaza_cache_4 @ (-300,460) z[0,48]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0E}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_plaza_cache_4"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0D}"
+ ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 48 ) ( 94.5 459.5 48 ) ( 142.5 459.5 48 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 428 88 ) ( 134.5 428 88 ) ( 134.5 428 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -268 415.5 88 ) ( -268 455.5 88 ) ( -268 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 492 88 ) ( 90.5 492 88 ) ( 90.5 492 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -332 459.5 88 ) ( -332 419.5 88 ) ( -332 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): ammo_crate_l2 @ (400,1948) z[-480,-459]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D11}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_ammo_crate_l2"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D06}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D10}"
  ( 134.5 459.5 -480 ) ( 86.5 459.5 -480 ) ( 86.5 419.5 -480 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -459 ) ( 94.5 459.5 -459 ) ( 142.5 459.5 -459 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1938 88 ) ( 134.5 1938 88 ) ( 134.5 1938 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4162,11 +4212,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): ammo_crate_l5 @ (-400,1948) z[-1200,-1179]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D09}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D13}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_ammo_crate_l5"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D08}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D12}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1179 ) ( 94.5 459.5 -1179 ) ( 142.5 459.5 -1179 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1938 88 ) ( 134.5 1938 88 ) ( 134.5 1938 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4177,11 +4227,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): overclock_terminal @ (-400,1948) z[-480,-402]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0B}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D15}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_overclock_terminal"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0A}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D14}"
  ( 134.5 459.5 -480 ) ( 86.5 459.5 -480 ) ( 86.5 419.5 -480 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -402 ) ( 94.5 459.5 -402 ) ( 142.5 459.5 -402 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1931 88 ) ( 134.5 1931 88 ) ( 134.5 1931 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4192,11 +4242,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): overclock_l5 @ (400,1948) z[-1200,-1122]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0D}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D17}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_overclock_l5"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0C}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D16}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1122 ) ( 94.5 459.5 -1122 ) ( 142.5 459.5 -1122 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1931 88 ) ( 134.5 1931 88 ) ( 134.5 1931 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4207,11 +4257,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): glitch_altar_l3 @ (-400,1948) z[-720,-662]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0F}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D19}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_glitch_altar_l3"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D0E}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D18}"
  ( 134.5 459.5 -720 ) ( 86.5 459.5 -720 ) ( 86.5 419.5 -720 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -662 ) ( 94.5 459.5 -662 ) ( 142.5 459.5 -662 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 1915 88 ) ( 134.5 1915 88 ) ( 134.5 1915 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4222,11 +4272,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): paradise_altar @ (-850,-1350) z[-1200,-1142]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D11}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1B}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_paradise_altar"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D10}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1A}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1142 ) ( 94.5 459.5 -1142 ) ( 142.5 459.5 -1142 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -1383 88 ) ( 134.5 -1383 88 ) ( 134.5 -1383 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4237,11 +4287,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): paradise_overclock @ (850,-1350) z[-1200,-1122]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D13}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1D}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_paradise_overclock"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D12}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1C}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1122 ) ( 94.5 459.5 -1122 ) ( 142.5 459.5 -1122 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -1367 88 ) ( 134.5 -1367 88 ) ( 134.5 -1367 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4252,11 +4302,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): paradise_exo @ (-850,-1950) z[-1200,-1086]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D15}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1F}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_paradise_exo"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D14}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1E}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1086 ) ( 94.5 459.5 -1086 ) ( 142.5 459.5 -1086 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -1976 88 ) ( 134.5 -1976 88 ) ( 134.5 -1976 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4267,11 +4317,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): paradise_perk_vendor @ (850,-1950) z[-1200,-1129]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D17}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D21}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_paradise_perk_vendor"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D16}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D20}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1129 ) ( 94.5 459.5 -1129 ) ( 142.5 459.5 -1129 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -1972 88 ) ( 134.5 -1972 88 ) ( 134.5 -1972 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4282,11 +4332,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): paradise_ammo_crate @ (850,-1650) z[-1200,-1179]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D19}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D23}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_paradise_ammo_crate"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D18}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D22}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1179 ) ( 94.5 459.5 -1179 ) ( 142.5 459.5 -1179 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -1660 88 ) ( 134.5 -1660 88 ) ( 134.5 -1660 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4297,11 +4347,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): bench_slot1 @ (-710,-2080) z[-1200,-1158]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1B}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D25}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_bench_slot1"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1A}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D24}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1158 ) ( 94.5 459.5 -1158 ) ( 142.5 459.5 -1158 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -2092 88 ) ( 134.5 -2092 88 ) ( 134.5 -2092 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4312,11 +4362,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): bench_slot2 @ (-550,-2080) z[-1200,-1158]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1D}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D27}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_bench_slot2"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1C}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D26}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1158 ) ( 94.5 459.5 -1158 ) ( 142.5 459.5 -1158 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -2092 88 ) ( 134.5 -2092 88 ) ( 134.5 -2092 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4327,11 +4377,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): bench_slot3 @ (-390,-2080) z[-1200,-1158]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1F}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D29}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_bench_slot3"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D1E}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D28}"
  ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -1158 ) ( 94.5 459.5 -1158 ) ( 142.5 459.5 -1158 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -2092 88 ) ( 134.5 -2092 88 ) ( 134.5 -2092 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4340,58 +4390,58 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
  ( -430 459.5 88 ) ( -430 419.5 88 ) ( -430 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// clip(brushmodel): lab_bench_slot1 @ (-428,-481) z[0,42]
+// clip(brushmodel): lab_bench_slot1 @ (-250,-430) z[0,42]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D21}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2B}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_lab_bench_slot1"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D20}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2A}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 42 ) ( 94.5 459.5 42 ) ( 142.5 459.5 42 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 -493 88 ) ( 134.5 -493 88 ) ( 134.5 -493 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -388 415.5 88 ) ( -388 455.5 88 ) ( -388 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 -469 88 ) ( 90.5 -469 88 ) ( 90.5 -469 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -468 459.5 88 ) ( -468 419.5 88 ) ( -468 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -442 88 ) ( 134.5 -442 88 ) ( 134.5 -442 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -210 415.5 88 ) ( -210 455.5 88 ) ( -210 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -418 88 ) ( 90.5 -418 88 ) ( 90.5 -418 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -290 459.5 88 ) ( -290 419.5 88 ) ( -290 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// clip(brushmodel): lab_bench_slot2 @ (-268,-481) z[0,42]
+// clip(brushmodel): lab_bench_slot2 @ (-75,-490) z[0,42]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D23}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2D}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_lab_bench_slot2"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D22}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2C}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 42 ) ( 94.5 459.5 42 ) ( 142.5 459.5 42 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 -493 88 ) ( 134.5 -493 88 ) ( 134.5 -493 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -228 415.5 88 ) ( -228 455.5 88 ) ( -228 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 -469 88 ) ( 90.5 -469 88 ) ( 90.5 -469 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -308 459.5 88 ) ( -308 419.5 88 ) ( -308 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -502 88 ) ( 134.5 -502 88 ) ( 134.5 -502 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -35 415.5 88 ) ( -35 455.5 88 ) ( -35 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -478 88 ) ( 90.5 -478 88 ) ( 90.5 -478 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -115 459.5 88 ) ( -115 419.5 88 ) ( -115 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
-// clip(brushmodel): lab_bench_slot3 @ (-108,-481) z[0,42]
+// clip(brushmodel): lab_bench_slot3 @ (100,-430) z[0,42]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D25}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2F}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_lab_bench_slot3"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D24}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2E}"
  ( 134.5 459.5 0 ) ( 86.5 459.5 0 ) ( 86.5 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 42 ) ( 94.5 459.5 42 ) ( 142.5 459.5 42 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 86.5 -493 88 ) ( 134.5 -493 88 ) ( 134.5 -493 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -68 415.5 88 ) ( -68 455.5 88 ) ( -68 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( 138.5 -469 88 ) ( 90.5 -469 88 ) ( 90.5 -469 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
- ( -148 459.5 88 ) ( -148 419.5 88 ) ( -148 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -442 88 ) ( 134.5 -442 88 ) ( 134.5 -442 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 140 415.5 88 ) ( 140 455.5 88 ) ( 140 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -418 88 ) ( 90.5 -418 88 ) ( 90.5 -418 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 60 459.5 88 ) ( 60 419.5 88 ) ( 60 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
 // clip(brushmodel): armory_rack @ (870,-100) z[288,336]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D27}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D31}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_armory_rack"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D26}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D30}"
  ( 134.5 459.5 288 ) ( 86.5 459.5 288 ) ( 86.5 419.5 288 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 336 ) ( 94.5 459.5 336 ) ( 142.5 459.5 336 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -109 88 ) ( 134.5 -109 88 ) ( 134.5 -109 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4402,11 +4452,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): armory_bottle @ (870,100) z[288,398]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D29}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D33}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_armory_bottle"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D28}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D32}"
  ( 134.5 459.5 288 ) ( 86.5 459.5 288 ) ( 86.5 419.5 288 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 398 ) ( 94.5 459.5 398 ) ( 142.5 459.5 398 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 72 88 ) ( 134.5 72 88 ) ( 134.5 72 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4417,11 +4467,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): transfer_points @ (98,200) z[-240,-137]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2B}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D35}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_transfer_points"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2A}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D34}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -137 ) ( 94.5 459.5 -137 ) ( 142.5 459.5 -137 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 183 88 ) ( 134.5 183 88 ) ( 134.5 183 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4432,11 +4482,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): transfer_shards @ (98,40) z[-240,-137]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2D}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D37}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_transfer_shards"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2C}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D36}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -137 ) ( 94.5 459.5 -137 ) ( 142.5 459.5 -137 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 23 88 ) ( 134.5 23 88 ) ( 134.5 23 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4447,11 +4497,11 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): transfer_bottles @ (98,-120) z[-240,-137]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2F}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D39}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_transfer_bottles"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D2E}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D38}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -137 ) ( 94.5 459.5 -137 ) ( 142.5 459.5 -137 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -137 88 ) ( 134.5 -137 88 ) ( 134.5 -137 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
@@ -4462,17 +4512,47 @@ guid "{9BD63EEC-3004-4F9F-8742-23FA86214AE2}"
 }
 // clip(brushmodel): transfer_items @ (98,-280) z[-240,-137]
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D31}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3B}"
  "classname" "script_brushmodel"
  "targetname" "acc_clip_transfer_items"
 {
- guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D30}"
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3A}"
  ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 94.5 419.5 -137 ) ( 94.5 459.5 -137 ) ( 142.5 459.5 -137 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 86.5 -297 88 ) ( 134.5 -297 88 ) ( 134.5 -297 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 117 415.5 88 ) ( 117 455.5 88 ) ( 117 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 138.5 -263 88 ) ( 90.5 -263 88 ) ( 90.5 -263 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
  ( 79 459.5 88 ) ( 79 419.5 88 ) ( 79 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): jukebox @ (-139,2240) z[-240,-187]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3D}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_jukebox"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3C}"
+ ( 134.5 459.5 -240 ) ( 86.5 459.5 -240 ) ( 86.5 419.5 -240 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -187 ) ( 94.5 459.5 -187 ) ( 142.5 459.5 -187 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 2223 88 ) ( 134.5 2223 88 ) ( 134.5 2223 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -127 415.5 88 ) ( -127 455.5 88 ) ( -127 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 2257 88 ) ( 90.5 2257 88 ) ( 90.5 2257 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -151 459.5 88 ) ( -151 419.5 88 ) ( -151 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+}
+}
+// clip(brushmodel): paradise_pap @ (0,-1702) z[-1200,-1125]
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3F}"
+ "classname" "script_brushmodel"
+ "targetname" "acc_clip_paradise_pap"
+{
+ guid "{7A2B9F0D-ACCD-4E13-8A3F-000000000D3E}"
+ ( 134.5 459.5 -1200 ) ( 86.5 459.5 -1200 ) ( 86.5 419.5 -1200 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 94.5 419.5 -1125 ) ( 94.5 459.5 -1125 ) ( 142.5 459.5 -1125 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 86.5 -1723 88 ) ( 134.5 -1723 88 ) ( 134.5 -1723 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 35 415.5 88 ) ( 35 455.5 88 ) ( 35 455.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( 138.5 -1681 88 ) ( 90.5 -1681 88 ) ( 90.5 -1681 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
+ ( -35 459.5 88 ) ( -35 419.5 88 ) ( -35 419.5 0 ) clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0
 }
 }
 // ===== end prop clips (brushmodel) =====

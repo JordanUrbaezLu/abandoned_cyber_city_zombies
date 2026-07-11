@@ -1,6 +1,6 @@
 # 08 - Enemies
 
-The bestiary: regular zombies, the Shielded elite, the Glitch Stalker mini-boss, the boss-round roster (The Phantom / Rogue Protector / Avogadro / Panzer, rolled every 9 rounds from r9), plus the Trench Warden and NSZ Brutus. Design principles for difficulty and how enemies tie back into the Data Shard and Cyberware loops.
+The bestiary: regular zombies, the Shielded elite, the Glitch Stalker mini-boss, the boss-round roster (The Phantom / Rogue Protector / Avogadro / Panzer, rolled every 9 rounds from r9), plus the Trench Warden and NSZ Brutus. Design principles for difficulty and how enemies tie back into the Data Shard and Overclock loops (the Cyberware tree is dormant — see the Regular Zombie note).
 
 Weapons are in a separate doc: [04_weapons.md](04_weapons.md).
 
@@ -18,7 +18,7 @@ Weapons are in a separate doc: [04_weapons.md](04_weapons.md).
 
 - **Behavior**: stock BO3 chaff. HP scales per round.
 - **Data Shard drop**: none.
-- **Value in the loop**: drives Point economy, keeps pressure up, triggers AoE Overclocks and Cyberware capstones.
+- **Value in the loop**: drives Point economy, keeps pressure up, triggers AoE Overclocks. (The Cyberware skill tree is **dormant** — gated off behind `acc_cyberware_on` (default 0), `_acc_cyberware.gsc::init()`; the live weapon-upgrade path is the **Overclock terminal** (`_acc_overclocks.gsc`).)
 - **HP scaling delta vs stock**: +1 effective round (start at 150 HP instead of 130, same per-round ramp). See [03_progression_and_skills.md](03_progression_and_skills.md).
 - **Speed curve** (`_acc_zombie_speed.gsc` — replaced the old Rampage Inducer): zombies get faster **every round**, with a **natural gait** (never slow-motion). The BO3 engine has no continuous "move at X% speed" knob for zombies — movement is root-motion / animation-driven, so the only levers are the discrete gait **tier** (walk/run/sprint, each a real animation whose baked gait *is* its ground speed) and the animation **playback rate** (which scales cadence *and* ground speed together, so a rate below 1.0 looks like literal slow-motion — it is the Widow's Wine slow mechanism). So "slower than max" comes from a slower **gait**, not a slowed animation:
   - **Rounds 1–14:** the **run** gait (a natural jog) at playback rate ≥ 1.0, starting at **101.3%** (`acc_zspeed_jog_start_pct`) and creeping up `acc_zspeed_jog_step_pct` (0.65%) per round. The jog's intrinsic speed is the "slow start" (~70–80% of max — baked into the xanim, so it's approximate, not a dialled percentage). (user 2026-06-23: jog phase extended for a gentler early-round ramp; step cut to 0.65% so the jog never outpaces the real sprint.)
@@ -156,7 +156,7 @@ The map otherwise runs stock round spawning; this is the "Moderate" intensity pa
 | Corpse linger | body stays after death | 5s → **0 (delete on death)** | `_acc_corpse_cleanup.gsc` `acc_corpse_linger_sec` — frees the actor slot so the 50 cap refills |
 | Spawn-delay mult | time between spawns (wave fill speed) | ×1.0 → **×0.85** (0.1 s floor) | `_acc_main.gsc` `ACC_SPAWN_DELAY_MULT` (chains `level.func_get_zombie_spawn_delay`) |
 | Early-round count | r1 / r2-4 spawn mult | ×1.40/×1.35 → **×1.50/×1.45** | `_acc_early_round_pacing.gsc` |
-| Elite spacing | seconds between elite spawns | 45 → **38** | `_acc_elites.gsc` |
+| Elite spacing | seconds between elite spawns | 45 → **3 s** (`acc_shielded_spacing`, default 3.0) | `_acc_elites.gsc:200` |
 | Co-op spawn rate | per extra player | **+30%** (unchanged) | `_acc_coop_scaling.gsc` |
 | Regular-zombie melee | damage per hit to player | 60 → **45** HP (baseline) | `_acc_zombie_speed.gsc` `ACC_ZOMBIE_MELEE_BASE_DEF` / dvar `acc_zombie_melee_base` |
 | Trench melee (per layer) | damage per hit while in the trench | **+6 HP per layer** on the incoming hit (L1 ≈51, L2 ≈57, … L5 ≈75) | `_acc_bus_trench.gsc` `trench_melee_scaled` / dvar `acc_trench_layer_dmg_add` |

@@ -41,7 +41,9 @@ Keep = a **price**, a **tier/progress indicator**, a **currency/inventory count*
 
 - **Prices** — Points (PaP 5000/7500/10000, `acc_hud.lua:52-54`; perks 2000/2500/3000/3500/4000, `AccPerkCards`
   `acc_hud.lua:66-111`) + Data Shards (exo = 4×tier: 4/8/12/16/20 … up to 40 at tier 10, `AccExoCosts`
-  `acc_hud.lua:128`; overclock tier costs; cyberware respec; Neural slot; altar; reactor).
+  `acc_hud.lua:128`; overclock tier costs; Neural slot; altar; reactor). (Cyberware node/respec prices are
+  NOT a live surface — the tree is disabled by default, `_acc_cyberware.gsc:96` gate `acc_cyberware_on 0`; the
+  live weapon-upgrade spend is the Overclock terminal.)
 - **Tier / progress** — PaP `Tier N/3` + `T1/T2/T3` + roman `I/II/III` icon; Overclock `vN/10` (`acc_hud.lua:212`);
   Exo `Tier N/10` + `layer N` (`acc_hud.lua:244`, `ACC_EXO_MAX 10` at `_acc_exo.gsc:29`); Reactor `wave N/M`.
 - **Currency / inventory counts** — `DATA SHARDS N`, `MEGA BOTTLES N`, `WEB GRENADES N`, `+N` grants, Neural `+1 slot`.
@@ -91,13 +93,16 @@ Cards live in one `AccPerkCards` table (index = `_acc_perk_info::perk_card_index
 | PaP card `[11]` bullets | `acc_hud.lua:110-111` | `T1 +33% / T2 +100%+UPGRADE / T3 +150% MAX` | `T1: more damage` / `T2: much more damage` / `T3: max damage` |
 | `pap_tier_benefit(1/2/3)` | `acc_hud.lua:45-49` | `+33% / +100%+form / +150% MAX` | `more damage` / `much more + new form` / `max damage` |
 | next-tier line (render) | `acc_hud.lua:307,327` | — | `Max weapon damage` / `pap_tier_benefit(nextTier)` |
-| `pap_tier_benefit(1/2/3)` (GSC) | `_acc_pap_levels.gsc:1496-1498` | `+33% / +100%+form / +150% MAX` | `more damage …` / `much more damage + upgraded form …` / `greatly increased damage (MAX)` |
+| `tier_benefit(1/2/3)` (GSC) | `_acc_pap_levels.gsc:1497-1499` | `+33% / +100%+form / +150% MAX` | `more damage …` / `much more damage + upgraded form …` / `greatly increased damage (MAX)` — **currently unused** (no callers; the toast that showed it was removed, see below) |
 
-The old **PaP tier/benefit TOAST is REMOVED** (`_acc_pap_levels.gsc:731`, user 2026-06-22): a pack shows only the
-machine price, no benefit popup — so there is no magnitude to hide there anymore.
+The old **PaP tier/benefit TOAST is REMOVED** (`_acc_pap_levels.gsc:732`, user 2026-06-22): a pack shows only the
+machine price, no benefit popup — so there is no magnitude to hide there anymore. This also left the GSC
+`tier_benefit()` helper (`:1492`) with no callers — it is dead code that renders nowhere.
 
-⚠️ **Load-bearing duplication:** the PaP ladder text exists in BOTH `acc_hud.lua` (`pap_tier_benefit` + the
-`AccPerkCards[11]` bullets) and `_acc_pap_levels.gsc` (`pap_tier_benefit`). Change them together or the surfaces disagree.
+⚠️ **Duplicated text (kept in lockstep by convention):** the PaP ladder lives in `acc_hud.lua` (`pap_tier_benefit`
++ the `AccPerkCards[11]` bullets — the ONLY live surface) and is mirrored in `_acc_pap_levels.gsc` (`tier_benefit`,
+per the `acc_hud.lua:42` mirror note). The GSC copy is **currently dead code** (no callers; its toast was removed,
+above), so it renders nowhere today — but keep the two in sync so a re-enabled toast can never disagree.
 
 ### 4c. Overclock & Exo report cards — `acc_hud.lua`  (exact: `docs/04_weapons.md`, `docs/29_exo_suit_plan.md`)
 

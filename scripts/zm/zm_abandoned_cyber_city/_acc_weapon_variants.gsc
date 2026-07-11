@@ -96,7 +96,7 @@ function init()
     // >>> ADD A NEW PERK/ABILITY EFFECT by appending its axis here (and a matching
     // dim in variant_dims() + the built combos in build_available_twins). See the
     // "EXTENSION POINT" banner above the axis functions. <<<
-    level.acc_variant_axes = array( &axis_recoil, &axis_reload, &axis_turbo, &axis_lev_speed );   // ammo axis removed 2026-06-16 (Armory = runtime refill); FIRE axis removed 2026-07-04 (Mega Double Tap = damage buff in _acc_damage); TURBO axis added 2026-07-08 (Turbocharger implant -> Havoc sprintOutTime 0.2 twin); SPD axis added 2026-07-09 (Leviathan Axe +5% swing per PaP tier - LEVIATHAN-only twins, trailing token so every other gun degrades to its other twins)
+    level.acc_variant_axes = array( &axis_recoil, &axis_reload, &axis_turbo, &axis_lev_speed, &axis_brz );   // ammo axis removed 2026-06-16 (Armory = runtime refill); FIRE axis removed 2026-07-04 (Mega Double Tap = damage buff in _acc_damage); TURBO axis added 2026-07-08 (Turbocharger implant -> Havoc sprintOutTime 0.2 twin); SPD axis added 2026-07-09 (Leviathan Axe +5% swing per PaP tier - LEVIATHAN-only twins, trailing token so every other gun degrades to its other twins); BRZ axis added 2026-07-11 (Berzerker implant, boss item 11 - +35% axe swing, LEVIATHAN-only twins stacking with the spd tiers)
 
     // Allow-list of twin weapon names that ACTUALLY EXIST in the build. We only
     // ever GetWeapon() a name in here, so an un-baked twin cannot throw. POPULATE
@@ -336,9 +336,9 @@ function variant_guns()
     // there, the Action Figure speed twins proved it live). Was x0.95 (+5%) same day, user bumped to +10%.
     return array( "s1_tac19", "t6_fiveseven", "t9_ak47", "s1_ae4", "t9_semiauto_cosplay",
                   "s4_ppsh41_base", "t9_grav", "t6_olympia", "t9_ak74u",
-                  "t9_m60", "t9_rpd", "s1_rw1", "s1_mk14", "s1_mors",
+                  "t9_m60", "t9_rpd", "t6_hamr", "s1_rw1", "s1_mk14", "s1_mors",
                   "t9_xm4", "t9_streetsweeper",
-                  "apex_peacekeeper", "apex_alternator", "apex_prowler", "apex_g2a4", "s1_cel3",
+                  "apex_peacekeeper", "apex_alternator", "apex_prowler", "t9_m16", "s1_cel3",
                   "apex_beam_rifle",
                   "s1_mahem", "thundergun", "elemental_bow_demongate", "leviathan", "t6_war_machine" );
 }
@@ -363,6 +363,7 @@ function variant_dims()
     dims[ 1 ] = array( "fastreload" );             // axis_reload  (Speed Cola Mega)
     dims[ 2 ] = array( "turbo" );                  // axis_turbo   (Turbocharger implant; HAVOC-ONLY twins - see build_available_twins)
     dims[ 3 ] = array( "spd1", "spd2", "spd3" );   // axis_lev_speed (Leviathan Axe PaP tier +5% swing/tier; LEVIATHAN-ONLY twins - see form_bakes_suffix. user 2026-07-09)
+    dims[ 4 ] = array( "brz" );                    // axis_brz (Berzerker implant, boss item 11, user 2026-07-11: +35% swing; LEVIATHAN-ONLY twins - one _brz form per spd tier, see form_bakes_suffix. The Action Figure's brz forms live OUTSIDE this engine - its in-place fast-twin PaP ladder handles them in _acc_pap_levels)
     // ammo axis REMOVED 2026-06-16: Armory = runtime round-start refill, not a twin.
     // FIRE axis (fastfire) REMOVED 2026-07-04: Mega Double Tap is now a damage buff
     // (extra-bullet temper x0.6 -> x0.8 in _acc_damage), not a fire-rate/swap twin.
@@ -449,14 +450,17 @@ function form_bakes_suffix( gun, form, suffix )
     // TURBO combos: HAVOC ONLY (8 hand-generated clones, 2026-07-08).
     if ( IsSubStr( suffix, "turbo" ) && gun != "apex_beam_rifle" ) return false;
 
-    // SPD (Leviathan PaP-tier swing) combos: LEVIATHAN ONLY, and only the 3 EXACT tier forms
-    // (base+spd1 at tier 1; _up+spd2 / _up+spd3 at tiers 2/3 - 3 hand-generated clones, 2026-07-09).
-    // Any spd combo on another gun, or a mixed combo (e.g. _acc_fastreload_spd1), is NOT baked.
-    if ( IsSubStr( suffix, "spd" ) )
+    // SPD (Leviathan PaP-tier swing) + BRZ (Berzerker implant) combos: LEVIATHAN ONLY, and only the
+    // EXACT tier forms (base: spd1 at tier 1; _up: spd2/spd3 at tiers 2/3 - 3 hand-generated clones,
+    // 2026-07-09; each of the 4 tier forms additionally bakes ONE _brz twin - tools/oneshots/
+    // gen_berzerker_twins.js, 2026-07-11 - so the +35% Berzerker swing stacks with every PaP tier).
+    // Any spd/brz combo on another gun, or a mixed combo (e.g. _acc_fastreload_spd1), is NOT baked.
+    if ( IsSubStr( suffix, "spd" ) || IsSubStr( suffix, "brz" ) )
     {
         if ( gun != "leviathan" ) return false;
-        if ( form == gun ) return ( suffix == "_acc_spd1" );
-        return ( suffix == "_acc_spd2" || suffix == "_acc_spd3" );
+        if ( form == gun ) return ( suffix == "_acc_spd1" || suffix == "_acc_brz" || suffix == "_acc_spd1_brz" );
+        return ( suffix == "_acc_spd2" || suffix == "_acc_spd3"
+              || suffix == "_acc_spd2_brz" || suffix == "_acc_spd3_brz" );
     }
     // The axe bakes NOTHING else - no recoil50/fastreload forms (melee: recoil + reload meaningless).
     if ( gun == "leviathan" ) return false;
@@ -482,6 +486,30 @@ function on_player_connect( player )
     player.acc_variant_timed = undefined;
     player thread variant_manager();
     player thread twin_thundergun_fire_shim();
+    player thread box_grab_defer_watcher();
+}
+
+// BOX-GRAB DEFER (user 2026-07-10 "the gun you pull from the box isn't the gun you keep"): the Mystery Box
+// gives a gun with a SLOW SwitchToWeapon (the visible pull-out). That fires "weapon_change", which wakes
+// variant_manager mid-raise while GetCurrentWeapon() is still transitional (the previously-held gun, not the
+// just-grabbed one). With a Mega token active, reconcile then TakeWeapon()s the grabbed base to give its twin
+// but SKIPS SwitchToWeaponImmediate (was_equipped is false against the stale current weapon) -> the box's
+// pending switch target is removed with no re-switch -> the first-person view reverts to the OLD gun even
+// though the correct twin is in inventory. So DEFER reconcile across the grab, exactly like the is_drinking
+// guard in reconcile() and the proven box_grab_clear_watcher (_acc_pap_levels): stock magicbox fires the
+// player notify "user_grabbed_weapon" BEFORE the switch, so set the flag then, clear it once the give settles
+// (weapon_change_complete / 1s net), and poke a clean reconcile on the fully-equipped gun (invisible, same model).
+function box_grab_defer_watcher()   // self = player
+{
+    self endon( "disconnect" );
+    for ( ;; )
+    {
+        self waittill( "user_grabbed_weapon" );
+        self.acc_box_grabbing = true;
+        self util::waittill_any_timeout( 1.0, "weapon_change_complete" );   // let the box give settle (mirrors box_grab_clear_watcher)
+        self.acc_box_grabbing = false;
+        self notify( "acc_variant_dirty" );   // reconcile the settled twin now, current weapon no longer transitional
+    }
 }
 
 // THUNDERGUN TWIN FIRE SHIM (2026-07-08, with the fastreload twin): the BO1-port Thundergun deals
@@ -569,6 +597,12 @@ function reconcile( force )
     // The Mega path (_acc_mega_bottles::replay_perk_drink) IS mid-drink on purpose -
     // it drives its own holstered swap + re-raises the twin - so it passes force=true.
     if ( !IS_TRUE( force ) && isdefined( self.is_drinking ) && self.is_drinking > 0 ) return;
+
+    // Don't fight the stock MYSTERY-BOX give either (user 2026-07-10): the box's slow SwitchToWeapon is
+    // transitional, so a mid-grab swap TakeWeapon's the box's pending gun with no re-switch and the view
+    // reverts to the old gun. box_grab_defer_watcher holds this flag across the grab, then pokes a clean
+    // reconcile once it settles. Same class as the is_drinking guard above.
+    if ( IS_TRUE( self.acc_box_grabbing ) ) return;
 
     // Active variant tokens (canonical axis order), derived LIVE from perks. Empty = hold
     // the plain base gun. No Pack-a-Punch proximity suppression: PaP packs the held gun IN
@@ -660,7 +694,7 @@ function swap_weapon( w_from, w_to, equipped )
     // Proof-of-life: `acc_variants_debug 1` shows each swap on-screen so you can
     // confirm Deadshot/Mega is actually changing the weapon (recoil is invisible
     // otherwise). Off by default.
-    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_variants_debug", 0 ) == 1 )
+    if ( getdvarint( "acc_variants_debug", 0 ) == 1 )   // DECOUPLED from level.acc_dev (user 2026-07-10: clean screen in hardcoded dev) - dvar-only now
         self iprintln( "^3[variants]^7 " + w_from.name + " ^2->^7 " + w_to.name );
 
     self.acc_swapping = false;
@@ -763,6 +797,20 @@ function axis_lev_speed()
     if ( t >= 3 ) return "spd3";
     if ( t == 2 ) return "spd2";
     if ( t == 1 ) return "spd1";
+    return undefined;
+}
+
+// --- AXIS: Berzerker implant (boss item 11) -> brz (LEVIATHAN-ONLY twins) ------
+// self = player. While the Berzerker is implanted (self.acc_item_berzerker, set by
+// _acc_boss_items::apply_berzerker) the token is active for ALL guns, but only the Leviathan bakes
+// brz twins (one per spd tier: meleeTime/fireTime / 1.35) - every other gun degrades through the
+// subset resolver, exactly the turbo precedent. The implant apply/remove poke request_reconcile so
+// a held axe swaps at the bench instantly. (The Action Figure + regular-knife legs of the item are
+// handled OUTSIDE this engine - _acc_pap_levels fast-twin ladder + the _acc_boss_items melee-slot
+// swap; the 5% max-HP melee tax lives in _acc_damage.)
+function axis_brz()
+{
+    if ( IS_TRUE( self.acc_item_berzerker ) ) return "brz";
     return undefined;
 }
 

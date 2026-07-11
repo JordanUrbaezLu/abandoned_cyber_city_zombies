@@ -104,7 +104,7 @@ that turn survival tools into win conditions. Triple-tier Pack-a-Punch on top.
 Nearly 30 box weapons, every one Pack-a-Punchable and Overclock-ready — pulled from six Call of
 Duty games and a fresh squad ripped straight out of [b]Apex Legends[/b]:
 [list]
-[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · G7 Scout · Beam Rifle
+[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Beam Rifle
 [*][b]Wonder & special:[/b] Thundergun · Blast-O-Matic · Fire Bow · Leviathan Axe · Action Figure melee
 [*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · MORS railgun · Mahem launcher — and 15 more
 [/list]
@@ -169,8 +169,8 @@ full 1920×1080. Order them boss → abyss → Apex gun → Paradise → HUD so 
 at a glance.
 
 > **SHOT 5 note:** the Apex guns are imported — the weapon table (`zm_levelcommon_weapons.csv`)
-> carries `apex_peacekeeper`, `apex_prowler`, `apex_alternator`, `apex_beam_rifle`, and
-> `apex_g2a4` (the in-game **G7 Scout**). SHOT 5 should be a real Apex-gun-in-hand screenshot —
+> carries `apex_peacekeeper`, `apex_prowler`, `apex_alternator`, and `apex_beam_rifle`
+> (the G7 Scout `apex_g2a4` was retired 2026-07-11, replaced by the CW M16). SHOT 5 should be a real Apex-gun-in-hand screenshot —
 > it's the differentiator, so frame the weapon prominently.
 
 ---

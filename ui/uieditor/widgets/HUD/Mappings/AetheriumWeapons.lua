@@ -112,6 +112,11 @@ CoD.AetheriumWeaponData = {
 		icon = "i_weapon_vm_lm_t9rpapa_wall_chalk_c",
 		description = "Belt-fed LMG"
 	},
+	["t6_hamr"] = {
+		ingame_name = "HAMR",
+		icon = "i_t6_wpn_lmg_hamr_wall_chalk_c",   -- HAMR's own BO2 wall-chalk (skye_t6_hamr.gdt), zone-listed in the AETHERIUM block
+		description = "High-capacity LMG"
+	},
 	["s1_rw1"] = {
 		ingame_name = "RW1",
 		icon = "i_t8_wpn_pistol_rk7_garrison_wall_chalk_c",   -- LOOKALIKE (RK7 chalk; no RW1 art)
@@ -149,10 +154,10 @@ CoD.AetheriumWeaponData = {
 		icon = "i_weapon_vm_ar_t9standard_wall_chalk_c",   -- LOOKALIKE (XM4 chalk; burst PDW)
 		description = "Burst PDW"
 	},
-	["apex_g2a4"] = {
-		ingame_name = "G7 Scout",
-		icon = "i_t6_wpn_ar_m14_wall_chalk_c",   -- LOOKALIKE (MK14 marksman chalk)
-		description = "Semi-auto marksman"
+	["t9_m16"] = {
+		ingame_name = "M16",
+		icon = "i_t6_wpn_ar_m14_wall_chalk_c",   -- LOOKALIKE (MK14 marksman chalk; M16 replaces the G7 Scout, 2026-07-11)
+		description = "Burst tactical rifle"
 	},
 	["thundergun"] = {
 		ingame_name = "Thundergun",

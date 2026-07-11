@@ -131,7 +131,8 @@ function init()
 function dbg( msg )
 {
 	acc_utility::log( "protector: " + msg );
-	if ( !IS_TRUE( level.acc_dev ) )
+	// acc_dev DECOUPLED 2026-07-10 (clean screen in hardcoded dev): the [RP] on-screen line rides acc_protector_debug (default 0) now; the console log above is unaffected.
+	if ( getdvarint( "acc_protector_debug", 0 ) != 1 )
 		return;
 	players = GetPlayers();
 	if ( players.size > 0 && isdefined( players[ 0 ] ) && isplayer( players[ 0 ] ) )
@@ -642,7 +643,7 @@ function dev_boss_status()
 {
 	self endon( "death" );
 	level endon( "end_game" );
-	if ( !IS_TRUE( level.acc_dev ) )
+	if ( getdvarint( "acc_protector_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; HB console log rides acc_protector_debug now)
 		return;
 
 	for ( i = 0; i < 12; i++ )

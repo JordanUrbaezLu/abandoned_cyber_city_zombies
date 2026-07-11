@@ -15,9 +15,9 @@ Points are fast and plentiful. Data Shards are **slow and precious**.
 
 > **Trench-only economy (user, 2026-06-19).** Shards are earned almost exclusively **underground**: the
 > exposed-pit **Data Caches**, passive **trench income** (deeper layer = faster), the **Glitch Altar**
-> jackpot, and boss/boss-item rewards. The old topside sources (elite corpse drops, Hack Terminal,
-> Vault Overload) are OFF by default — you raid the trench to earn, and most of the deep sinks live
-> underground too (Neural Expansion Bay, Exo Suit).
+> jackpot, and boss/boss-item rewards. The old topside sources (elite corpse drops, Hack Terminal) are
+> OFF by default (dvar-gated re-enable), and **Vault Overload is fully retired** (no toggle — see below) —
+> you raid the trench to earn, and most of the deep sinks live underground too (Neural Expansion Bay, Exo Suit).
 
 ## Data Shard Sources (detailed)
 
@@ -46,7 +46,7 @@ Per-run competition for a limited budget.
 | Sink | Cost | Module |
 |---|---|---|
 | **Perk slots** (start at 4, buy up to 10) | 4 / 6 / 8 / 10 / 12 / 14 (54 total for all 6 extra) | `_acc_perks.gsc` — Neural Expansion Bay (underground) |
-| Weapon Overclock terminal (the sole weapon-upgrade path) | per-tier | `_acc_cyberware.gsc` — "Cyberware Weapon Overclock" |
+| Weapon Overclock terminal (the sole weapon-upgrade path) | per-tier (1/2/3/4/5 Shards) | `_acc_overclocks.gsc` — Tier 1–5 terminal (in-game label "CYBERWARE OVERCLOCK") |
 | Exo Suit station | deep multi-tier sink | `_acc_exo.gsc` |
 | Emergency Drop | 3 Shards (`ACC_EMERGENCY_COST_SHARDS`) | `_acc_emergency_drop.gsc` |
 | Jukebox (song swap) | 2 Shards + points | `_acc_jukebox.gsc` |
