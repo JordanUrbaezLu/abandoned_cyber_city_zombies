@@ -52,7 +52,7 @@
 #define ACC_CLOVER_POWERUP_CHANCE   0.005  // per-kill chance for a Clover carrier to drop a random power-up
 
 // Item buff tuning.
-#define ACC_OVERCHARGE_REGEN     13    // Repair Kit: HP regenerated per second (user 2026-07-07: +3, was 10)
+#define ACC_OVERCHARGE_REGEN     10    // Repair Kit: HP regenerated per second (user 2026-07-11: back to 10; was briefly 13 from 2026-07-07)
 #define ACC_BULWARK_HP           50    // (legacy Bulwark - now unused; kept for the dead fn)
 #define ACC_SALVAGE_INTERVAL_SEC 20    // (legacy Salvage - now unused; kept for the dead fn)
 #define ACC_DROP_MODEL_Z_DEF     24    // ground drops: lift model Z off the floor (live dvar acc_drop_model_z)
@@ -80,6 +80,7 @@
 #precache( "model", "p7_boots_safehouse_01" );             // 8 Boots (safehouse boots - proven packable)
 #precache( "model", "p7_ra2_tool_vintage_horseshoe" );     // 7 Lucky Horseshoe (REAL vintage iron horseshoe - T7 Assets carve 2026-07-08; was the X2 orb placeholder for "Lucky Clover" - no clover/charm model exists in any T7 source, the horseshoe is the luck icon)
 #precache( "model", "p7_zm_ctl_battery_ceramic" );         // 10 Battery (REAL Der Eisendrache ceramic battery - carve GDT p7_zm_ctl_battery_ceramic.gdt already installed; .zone xmodel line)
+#precache( "model", "rune_prison_death_skull" );           // 11 Berzerker (Wolf Bow death skull - already registered install-side by the HB21 bow dep packs, .zone xmodel line; 9.7x6.7x8.2u base pivot -> x4 scale)
 
 // VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
 // it terminates the directive preamble; a #using after it is a compile
@@ -93,10 +94,9 @@
 
 function init()
 {
-    acc_utility::log( "boss_items init (pool=10, slots=" +
-                       ACC_ITEM_SLOTS_PER_PLAYER + ")" );
-
     level.acc_item_pool = build_item_pool();
+    acc_utility::log( "boss_items init (pool=" + level.acc_item_pool.size + ", slots=" +
+                       ACC_ITEM_SLOTS_PER_PLAYER + ")" );
     level thread spawn_bench();
     // Plaza item-scatter QA (user 2026-07-08): full item grid RETIRED after the T7-carve models passed
     // the visual test; currently re-enabled FILTERED (space-separated id list) to the Turbocharger (user,
@@ -255,7 +255,7 @@ function build_item_pool()
         "p7_zm_mob_vial_surgical_lrg",  // REAL MOTD surgical vial (T7 Assets carve 2026-07-08; was the generic perk bottle)
         2,                              // floor lift (small vial, base pivot; tune live)
         "implant",
-        &apply_arnie_cloak,             // Glitch-suppression aura: Stalkers in range = 1/5 speed + no blink (user 2026-06-29 nerf, was a cloak)
+        &apply_arnie_cloak,             // Phase-boss aura: Stalkers in range = 1/5 speed + no blink; Phantoms = 30% slower (2026-07-11)
         &remove_arnie_cloak,
         4.0                             // model scale (user 2026-07-08: 2.0 still too small -> "make all of them 4x original size")
     );
@@ -329,6 +329,26 @@ function build_item_pool()
         &apply_battery,                 // sets self.acc_item_volt_battery -> boss zaps become +8% surges
         &remove_battery,
         2.0                             // model scale (DE quest prop, reads small at 1x; tune at the next visual QA)
+    );
+
+    // Berzerker (item 11, user 2026-07-11): +35% MELEE SWING SPEED, paid in blood - every melee that
+    // CONNECTS costs the carrier 5% of MAX HP as REAL damage (so it resets the engine HP-regen timer;
+    // clamped to never self-down - _acc_damage berzerker tax). Melee-only by design: it covers exactly
+    // the three melee surfaces (regular knife bash / Leviathan Axe / Action Figure) - guns untouched.
+    // Speed is pre-baked GDT twins (no runtime melee-speed setter exists): Leviathan via the brz
+    // variant axis, Action Figure via a parallel "_brz" fast-twin ladder, the knife via the
+    // EXPERIMENTAL acc_berzerker_melee melee-slot swap (bare-fist swipe - see apply_berzerker).
+    // Model = the Wolf Bow death skull (already installed by the HB21 bow dep packs).
+    pool[ pool.size ] = item(
+        11,
+        "berzerker",
+        "Berzerker",
+        "rune_prison_death_skull",
+        2,                              // floor lift (base pivot, minZ -0.2 measured from the bin; tune live)
+        "implant",
+        &apply_berzerker,               // flag + leviathan reconcile poke + AF brz ladder + melee-slot knife swap
+        &remove_berzerker,
+        4.0                             // model scale (small 9.7u skull - x4 like the horseshoe/vial/carburetor)
     );
 
     return pool;
@@ -939,16 +959,16 @@ function apply_turbocharger()
     // sprint-out is PER-PLAYER. Poke reconcile so the swap happens at the bench, not on the 3s net.
     acc_weapon_variants::request_reconcile( self );
     acc_utility::log( "equip: turbocharger (Havoc: 0s charge-up + turbo twin sprint-out)" );
-    if ( isdefined( level.acc_dev ) && level.acc_dev )   // no shared.gsh #insert in this file - hand-expanded IS_TRUE
-        self IPrintLnBold( "^3[TURBO] flag ON - Havoc charge gate now skipped" );
+    // [TURBO] on-screen debug print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+    // if ( isdefined( level.acc_dev ) && level.acc_dev ) self IPrintLnBold( "^3[TURBO] flag ON - Havoc charge gate now skipped" );
 }
 function remove_turbocharger()
 {
     self.acc_item_turbocharger = false;
     acc_weapon_variants::request_reconcile( self );   // swap the Havoc back to its 0.98 sprint-out form
     acc_utility::log( "unequip: turbocharger" );
-    if ( isdefined( level.acc_dev ) && level.acc_dev )   // no shared.gsh #insert in this file - hand-expanded IS_TRUE
-        self IPrintLnBold( "^3[TURBO] flag OFF - Havoc charge gate re-enabled" );
+    // [TURBO] on-screen debug print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+    // if ( isdefined( level.acc_dev ) && level.acc_dev ) self IPrintLnBold( "^3[TURBO] flag OFF - Havoc charge gate re-enabled" );
 }
 
 // Nuclear Energy (item 9, user 2026-07-07): passive flag. While set, _acc_damage adds a +15% bonus layer to
@@ -956,6 +976,171 @@ function remove_turbocharger()
 // self.acc_item_nuclear (payroll_ledger / lucky_clover pattern; no #using needed on the reader side).
 function apply_nuclear_energy()      { self.acc_item_nuclear = true;  acc_utility::log( "equip: nuclear_energy (+15% explosive + energy dmg)" ); }
 function remove_nuclear_energy()     { self.acc_item_nuclear = false; acc_utility::log( "unequip: nuclear_energy" ); }
+
+// ---------------------------------------------------------------------------
+// Berzerker (item 11, user 2026-07-11): +35% melee swing speed on the THREE melee surfaces
+// (regular knife bash / Leviathan Axe / Action Figure), at 5% of MAX HP per connecting melee
+// (real damage -> resets the HP-regen timer; the tax lives in _acc_damage off the flag below).
+// There is NO runtime melee-speed setter in this engine, so all three legs are pre-baked GDT
+// speed twins (tools/oneshots/gen_berzerker_twins.js), switched three different ways:
+//   LEVIATHAN - the brz variant axis (_acc_weapon_variants::axis_brz) reads the flag; poke
+//     reconcile so a held axe swaps instantly at the bench (the Turbocharger idiom).
+//   ACTION FIGURE - not in the variant engine (its PaP is the in-place fast-twin ladder), so we
+//     reconcile any carried form onto the parallel "_brz" ladder here, and keep a light watch so
+//     a LATER acquisition (box pull) upgrades too. acc_pap_actionfigure packs up the _brz ladder
+//     while the flag is set.
+//   REGULAR KNIFE - EXPERIMENTAL (user: "if you cant do the knife thats fine but please try"):
+//     the quick-melee is gated by the MELEE-SLOT weapon def (the stock Bowie/Widow's-Wine
+//     mechanism), and the stock knife def has no public GDT, so acc_berzerker_melee is a
+//     melee-slot clone of the AF pack's t8_actionfigure_melee with timings /1.35, meleeDamage 150
+//     (stock-knife parity) and EMPTIED gun/world models -> a BARE-FIST rage swipe (engine-legal:
+//     stock ships weapon,bare_hands_mp). Swapped with the exact stock recipe (TakeWeapon +
+//     GiveWeapon + zm_utility::set_player_melee_weapon). Widow's Wine interplay: WW owns the slot
+//     while active (its knife is NOT the regular knife -> no berzerker speed/tax, by spec); we
+//     retarget its w_widows_wine_prev_knife restore pointer both ways so losing WW hands back the
+//     right knife. LIVE-QA flags: (a) melee-slot def timing gating the bash, (b) bare-fist look.
+// ---------------------------------------------------------------------------
+function apply_berzerker()    // self = player
+{
+    self.acc_item_berzerker = true;
+    acc_weapon_variants::request_reconcile( self );   // leviathan brz twin swap, instant at the bench
+    self berzerker_af_reconcile();
+    self thread berzerker_af_watch();
+    self berzerker_apply_knife();
+    self thread berzerker_regrant_on_spawn();
+    acc_utility::log( "equip: berzerker (+35% melee swing, 5% maxHP per connecting melee)" );
+}
+function remove_berzerker()    // self = player (bench swap or bleed-out implant wipe)
+{
+    self.acc_item_berzerker = false;
+    self notify( "acc_berzerker_removed" );
+    acc_weapon_variants::request_reconcile( self );   // axe back to its non-brz tier form
+    self berzerker_af_reconcile();                    // figure back to the normal fast ladder
+    self berzerker_remove_knife();
+    acc_utility::log( "unequip: berzerker" );
+}
+
+// The AF form <-> its berzerker twin, driven by the flag state. Fixed 8-name map (the tier ladder
+// is closed); undefined = not an AF form we ladder (the t8_actionfigure_melee sibling is never
+// given in this map and stays untouched).
+function berzerker_af_form_for( name, brz_on )
+{
+    if ( brz_on )
+    {
+        if ( name == "t8_melee_figure" )       return "t8_melee_figure_brz";
+        if ( name == "t8_melee_figure_fast1" ) return "t8_melee_figure_fast1_brz";
+        if ( name == "t8_melee_figure_fast2" ) return "t8_melee_figure_fast2_brz";
+        if ( name == "t8_melee_figure_fast3" ) return "t8_melee_figure_fast3_brz";
+        return undefined;
+    }
+    if ( name == "t8_melee_figure_brz" )       return "t8_melee_figure";
+    if ( name == "t8_melee_figure_fast1_brz" ) return "t8_melee_figure_fast1";
+    if ( name == "t8_melee_figure_fast2_brz" ) return "t8_melee_figure_fast2";
+    if ( name == "t8_melee_figure_fast3_brz" ) return "t8_melee_figure_fast3";
+    return undefined;
+}
+
+// Swap any carried Action Figure form onto the ladder matching the flag (same tier, brz <-> non-brz).
+// GIVE-then-TAKE mirrors acc_pap_actionfigure's swap (never an empty-handed frame). Idempotent -
+// no-ops when every carried form already matches, so the 0.5s watch below is cheap.
+function berzerker_af_reconcile()    // self = player
+{
+    brz_on = ( isdefined( self.acc_item_berzerker ) && self.acc_item_berzerker );
+    weapons = self GetWeaponsListPrimaries();
+    for ( i = 0; i < weapons.size; i++ )
+    {
+        w = weapons[ i ];
+        if ( !isdefined( w ) || !isdefined( w.name ) ) continue;
+        target = berzerker_af_form_for( w.name, brz_on );
+        if ( !isdefined( target ) ) continue;
+        tw = GetWeapon( target );
+        if ( !isdefined( tw ) || tw == level.weaponNone ) continue;   // brz twins not in this build
+        held = ( self GetCurrentWeapon() == w );
+        self GiveWeapon( tw );
+        if ( held ) self SwitchToWeapon( tw );
+        if ( w != tw ) self TakeWeapon( w );
+        acc_utility::log( "berzerker: AF " + w.name + " -> " + target );
+    }
+}
+
+// A berzerker carrier who acquires the Action Figure LATER (box pull) gets the normal base form -
+// nothing else re-reconciles it (the AF is outside the variant engine's 3s net), so keep a light
+// poll while implanted. 0.5s is far coarser than this file's 20Hz bar loops; ends with the item.
+function berzerker_af_watch()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_berzerker_removed" );
+    for ( ;; )
+    {
+        wait( 0.5 );
+        if ( !isdefined( self.acc_item_berzerker ) || !self.acc_item_berzerker ) return;
+        self berzerker_af_reconcile();
+    }
+}
+
+// Melee-slot swap IN (the stock Widow's-Wine acquire recipe, _zm_perk_widows_wine.gsc:170-198).
+// Only the REGULAR knife upgrades (spec); a Bowie never exists in this map, and a Widow's-Wine
+// knife keeps the slot (we just retarget its restore pointer so losing WW yields the fast knife).
+function berzerker_apply_knife()    // self = player
+{
+    w_brz = GetWeapon( "acc_berzerker_melee" );
+    if ( !isdefined( w_brz ) || w_brz == level.weaponNone ) return;   // clone not in this build
+    cur = self zm_utility::get_player_melee_weapon();
+    if ( isdefined( cur ) && cur != level.weaponNone && isdefined( cur.name ) && cur.name == "knife" )
+    {
+        self TakeWeapon( cur );
+        self GiveWeapon( w_brz );
+        self zm_utility::set_player_melee_weapon( w_brz );
+        acc_utility::log( "berzerker: melee slot knife -> acc_berzerker_melee" );
+    }
+    else if ( isdefined( self.w_widows_wine_prev_knife ) && isdefined( self.w_widows_wine_prev_knife.name )
+              && self.w_widows_wine_prev_knife.name == "knife" )
+    {
+        // Widow's Wine holds the slot right now; its lost-perk restore must hand back the FAST knife.
+        self.w_widows_wine_prev_knife = w_brz;
+    }
+}
+
+// Melee-slot swap OUT (mirror of the above; the stock lost-perk restore recipe).
+function berzerker_remove_knife()    // self = player
+{
+    w_brz = GetWeapon( "acc_berzerker_melee" );
+    if ( !isdefined( w_brz ) || w_brz == level.weaponNone ) return;
+    w_knife = GetWeapon( "knife" );
+    cur = self zm_utility::get_player_melee_weapon();
+    if ( isdefined( cur ) && cur == w_brz )
+    {
+        self TakeWeapon( w_brz );
+        self GiveWeapon( w_knife );
+        self zm_utility::set_player_melee_weapon( w_knife );
+        acc_utility::log( "berzerker: melee slot acc_berzerker_melee -> knife" );
+    }
+    else if ( isdefined( self.w_widows_wine_prev_knife ) && self.w_widows_wine_prev_knife == w_brz )
+    {
+        // Unequipped while Widow's Wine owns the slot: point the WW restore back at the normal knife.
+        self.w_widows_wine_prev_knife = w_knife;
+    }
+}
+
+// Respawn re-assert (the octobomb_regrant_on_spawn idiom): stock re-inits the melee slot to the
+// plain knife on spawn, and a revived/late-joining carrier's AF form can be re-given by other
+// systems - re-apply both legs. Both helpers are idempotent. (A bleed-out wipes implants BEFORE
+// the respawn - remove_berzerker ends this thread via acc_berzerker_removed.)
+function berzerker_regrant_on_spawn()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_berzerker_removed" );
+    for ( ;; )
+    {
+        self waittill( "spawned_player" );
+        wait( 0.1 );
+        if ( isdefined( self.acc_item_berzerker ) && self.acc_item_berzerker )
+        {
+            self berzerker_apply_knife();
+            self berzerker_af_reconcile();
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // NEW self-contained buffs (Power Lever / Rocket Shield / Monkey Bomb). These
@@ -1208,16 +1393,18 @@ function set_gas_bar_fill( frac )    // self = bar BG elem
 //     ignoreme flag; the Glitch Stalker is covered in _acc_boss_glitch
 //     (get_closest_uncloaked_player). NEVER write .ignoreme directly - laststand
 //     shares the same counter; use the increment/decrement pair.
-// Phase Serum -> GLITCH-SUPPRESSION AURA (user 2026-06-29 NERF, was a glitch-only cloak). It NO LONGER hides you.
-// While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 1/5 speed AND loses its blink (its
-// glitch ability) - it can still SEE + chase you, it's just nullified. Read by _acc_boss_glitch
-// (glitch_speed_think slow + glitch_blink_loop skip, via acc_serum_suppressed). The old acc_cloak_glitch flag is
-// cleared so the Stalker targets a serum-holder normally again.
+// Phase Serum -> PHASE-BOSS SUPPRESSION AURA (user 2026-06-29 NERF, was a glitch-only cloak). It NO LONGER hides
+// you. While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 1/5 speed AND loses its blink
+// (its glitch ability), and any Phantom in the same aura is slowed by 30% (user 2026-07-11 - milder: gait
+// only, teleports keep working). Both can still SEE + chase you. Aura check = acc_utility::serum_aura_active;
+// read by _acc_boss_glitch (glitch_speed_think + glitch_blink_loop via acc_serum_suppressed) and
+// _acc_boss_phantom (phantom_speed_think). The old acc_cloak_glitch flag is cleared so the Stalker targets a
+// serum-holder normally again.
 function apply_arnie_cloak()    // self = player
 {
     self.acc_phase_serum = true;
     self.acc_cloak_glitch = false;   // drop the old cloak - the Stalker CAN target a serum-holder now
-    acc_utility::log( "equip: phase_serum (glitch-suppression aura: 1/5 speed + no blink in range)" );
+    acc_utility::log( "equip: phase_serum (phase-boss aura: glitch 1/5 + no blink, phantom -30% speed in range)" );
 }
 function remove_arnie_cloak()
 {
@@ -1537,28 +1724,26 @@ function spawn_bench()
         return;
     }
 
-    // Place the pair AGAINST THE SOUTH WALL of the Plaza, behind the spawn points, instead of in
-    // the wide-open middle (user 2026-06-24). The south wall's interior face is at y=-540 (full
-    // width, no exits, no props - verified vs the baked .map perimeter brushes), so off_y=-350 from
-    // the spawn struct (y=-130.67) puts the pads at y=-480.67 == ~59u in front of the wall: clearly
-    // "against the wall" with clearance for the table model + the use-trigger. off_x=0 centers the
-    // row on the spawn X (-227.5). off_z keeps the floor height that was tuned 2026-06-18. All live
-    // dvars for in-game nudging.
-    // off_x -40 since the 3rd pad landed (user 2026-07-09): the row grew from 2 pads (base +-80) to 3
-    // pads (base, base +-160) at the SAME 160u spacing, and un-shifted the east pad's table (79u long)
-    // would clip the Implant Lab's east wall (interior x=-40). Shifting the whole row 40u west keeps
-    // every pad >=28u clear of both walls AND the Exchange staircase room (x<=-476 ends at y=-460;
-    // the bench row rides y~-480, south of it) - so the lab needed NO geometry change / no LED re-bake.
-    base = s.origin + ( getdvarint( "acc_bench_off_x", -40 ), getdvarint( "acc_bench_off_y", -350 ), getdvarint( "acc_bench_off_z", -35 ) );
-    // THREE bench pads = the three implant slots (2 -> 3, user 2026-07-09; docs/09). The player picks
-    // WHICH slot to fill/replace by which pad they look at - no in-game menu needed (BO3 usermap GSC
-    // has none). Pads sit SIDE BY SIDE along X (a row parallel to the south wall), 2*sep=160 apart so
-    // their use-trigger volumes (radius 40 each) never overlap -> no ambiguous double-fire - and the
-    // 79u table models can't touch at any orientation. Live dvars for in-game tuning.
-    sep = getdvarint( "acc_bench_pad_sep", 80 );
-    spawn_bench_pad( base + ( -2 * sep, 0, 0 ), 0 );   // Slot 1 (west pad)
-    spawn_bench_pad( base,                     1 );    // Slot 2 (center pad)
-    spawn_bench_pad( base + (  2 * sep, 0, 0 ), 2 );   // Slot 3 (east pad; NEW 2026-07-09)
+    // ROOM WIDENED + BENCHES SPREAD (user 2026-07-10: "expand the room ... the 3 benches are cluttered
+    // and one is right next to a wall ... move the implants to spots that make sense"). The Implant Lab
+    // east wall moved x-40 -> x180 (.map wall #12), so the lab is now x[-720,180] y[-540,-240]. The pads
+    // NO LONGER sit in a tight row jammed against the south wall (the old x[-428,-268,-108] @ y-481, the
+    // west one crammed into the Exchange staircase's SW corner). They now spread as a STAGGERED ARC across
+    // the widened EAST clear area, well clear of the Exchange staircase (SW) and every wall:
+    //   Slot 1 (west, fwd) ~(-250,-430)   Slot 2 (center, back) ~(-75,-490)   Slot 3 (east, fwd) ~(100,-430)
+    // The CENTER pad (Slot 2) is the anchor = spawn struct (-227.5,-130.67,28) + off(153,-359,-35); the
+    // two OUTER pads sit +/-sep along X and `stag` NORTH (toward the doorway) of it, so they read as an arc
+    // facing the north entrance, not a cramped line. Clearances (operating table 79w[X] x 24d[Y]): >=40u
+    // off the east wall (x180), >=70u off the Exchange staircase (x<=-360) + its buy triggers, >=38u off
+    // the south wall (y-540); ~96u gaps between the tables. off_z keeps the floor height tuned 2026-06-18.
+    // Pads look-at-gated (UseTriggerRequireLookAt) so the arc never double-prompts. ALL Plaza-only dvars:
+    // NOT acc_bench_pad_sep - that one is SHARED with the Paradise bench (_acc_glitch_altar::spawn amenities).
+    base = s.origin + ( getdvarint( "acc_bench_off_x", 153 ), getdvarint( "acc_bench_off_y", -359 ), getdvarint( "acc_bench_off_z", -35 ) );
+    sep  = getdvarint( "acc_bench_lab_sep", 175 );      // X half-spread of the two OUTER pads from the center pad
+    stag = getdvarint( "acc_bench_lab_stagger", 60 );   // Y forward-offset (toward the north doorway) of the OUTER pads
+    spawn_bench_pad( base + ( -sep, stag, 0 ), 0 );   // Slot 1 (west, forward)
+    spawn_bench_pad( base,                    1 );    // Slot 2 (center, deepest/back)
+    spawn_bench_pad( base + (  sep, stag, 0 ), 2 );   // Slot 3 (east, forward; NEW 2026-07-09)
 }
 
 // DEV MODE ONLY (user 2026-07-08): lay out ONE pickup of EVERY pool item across the open

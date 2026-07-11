@@ -487,6 +487,27 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
     b_fire   = is_weapon_fire_mod( meansofdeath );
 
     // -----------------------------------------------------------------------
+    // BERZERKER melee blood tax (boss item 11, user 2026-07-11): while implanted, every melee that
+    // CONNECTS on one of the item's three surfaces (berzerker knife bash / Leviathan Axe / Action
+    // Figure - berzerker_melee_weapon) costs the attacker 5% of MAX HP as REAL self-damage (2-arg
+    // DoDamage = undefined attacker + MOD_UNKNOWN, the proven self-damage recipe - dodges both the
+    // stock self-attacker MOD whitelist zero-out AND PhD; being real damage it resets the engine
+    // HP-regen timer, the user's explicit spec). Debounced per SWING, not per victim - one Leviathan
+    // cleave multi-hits several zombies in the same frame and must tax ONCE (the riot-deflect
+    // debounce idiom above). 150ms sits under the fastest swing cycle (AF fast3+brz ~194ms).
+    // Placed BEFORE the riot deflect / AF one-knife early returns so every connecting swing pays.
+    // -----------------------------------------------------------------------
+    if ( b_player_attacker && b_melee && IS_TRUE( attacker.acc_item_berzerker )
+         && berzerker_melee_weapon( attacker, weapon ) )
+    {
+        if ( !isdefined( attacker.acc_brz_tax_cd ) || GetTime() >= attacker.acc_brz_tax_cd )
+        {
+            attacker.acc_brz_tax_cd = GetTime() + 150;
+            attacker thread berzerker_melee_tax();
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // PhD SLIDER nova bypass (user 2026-06-27). _acc_perk_phd_flopper::phd_explode deals self-dealt
     // MOD_GRENADE_SPLASH hits tagged attacker.acc_phd_nova_hit, with the incoming `damage` already FROZEN at a
     // round-18 normal-zombie's health (so one slide one-shots trash through r18, then 2/3 slides past it).
@@ -1148,11 +1169,11 @@ function acc_weapon_balance_mult( weapon_name )
     // Prowler 1215 = worst automatic, G7 1317 < RPD(C) 2847). New sustained-DPS targets (docs/25 scale):
     // Alternator ~3300 (A+, RW1/AE4 cluster) - Prowler ~2375 (solid B, above Grav) - G7 ~1910 (honest C,
     // 2x heads) - Beam ~2650 (proper A). Peacekeeper UNCHANGED - power-first one-pump by design.
-    if ( IsSubStr( weapon_name, "apex_alternator_up" ) ) return 0.71874;   // [A+] Alternator PaP: USER 2026-07-06 +10% DAMAGE (0.54 -> 0.594; 170 x 0.594 -> body T3 ~657). Also RoF -20% (fireTime 0.107->0.134) + clip 26->30 (GDT), PaP cost MID->BOT. Prior: 0.27 -> 0.54. The payoff gun.
-    if ( IsSubStr( weapon_name, "apex_alternator" ) )       return 0.1815;   // [trash] Alternator BASE: 100 x 0.15 x 3.25 = ~49/bullet (3-4 bullets/r1 zombie) - trash-but-shootable (0.05 = 16/bullet was broken-feeling). Covers base.
+    if ( IsSubStr( weapon_name, "apex_alternator_up" ) ) return 0.646866;   // [A+] Alternator PaP: USER 2026-07-10 -10% DAMAGE (0.71874 -> 0.646866). Prior: 2026-07-06 +10% (0.54 -> 0.594 -> global +10% 0.71874). Also RoF -20% (fireTime 0.107->0.134) + clip 26->30 (GDT), PaP cost MID->BOT. The payoff gun.
+    if ( IsSubStr( weapon_name, "apex_alternator" ) )       return 0.16335;   // [trash] Alternator BASE: USER 2026-07-10 -10% (0.1815 -> 0.16335). ~44/bullet at r1 - trash-but-shootable (0.05 = 16/bullet was broken-feeling). Covers base.
     if ( IsSubStr( weapon_name, "apex_peacekeeper" ) )      return 0.41624;  // [S] Peacekeeper (Apex 11->12-pellet lever SG): USER 2026-07-07 +10% DAMAGE on top of the global +10% (0.344 -> 0.3784 -> 0.41624). Prior: 2026-07-06 -20% ALL-SHOTGUN NERF (0.43 -> 0.344). POWER-FIRST top shotgun (user #6), DELIBERATELY not DPS-tuned ("one pump machine"). Headshot-excluded + pellet-boss-cut. Also RoF +25% (fireTime 0.2->0.16 GDT).
     if ( IsSubStr( weapon_name, "apex_prowler" ) )          return 0.451;   // [B] Prowler (Apex full-auto SMG): 135 x 0.41 -> body T3 ~360, ~2375 sustained (was 0.21 = 1215, worst automatic on the map). Sits above Grav(B+ 2087), below AK-74u(A 2487).
-    if ( IsSubStr( weapon_name, "apex_g2a4" ) )             return 0.5742;  // [C+] G7 Scout (semi marksman): USER 2026-07-06 +20% DAMAGE (0.435 -> 0.522; body T3 ~644, head ~1289) + clip 15->20 + reserve 150->200 (GDT). Prior: 0.40 -> 0.58 -> 0.435. Rewarded per-shot.
+    if ( IsSubStr( weapon_name, "t9_m16" ) )                return 0.18;    // [B] M16 (CW burst->full-auto tactical rifle, user 2026-07-11): REPLACES the G7 Scout, slightly better than the MK14 (score 5.89 B- -> M16 6.30 B). raw _up 480 -> body T3 562, head 1405. Loc normalized install-side (tools/prep_m16_gdt.js, .acc-m16-orig): neck 1.0 so body = damage x bal x global x papMult. PaP _up full-auto clip 40 / reserve 280 / reload ~3.5s. IsSubStr covers base+_up+twins. docs/04/25.
     if ( IsSubStr( weapon_name, "apex_beam_rifle" ) )       return 0.39797;  // [A] Havoc (energy PROJECTILE rifle, full-auto): USER 2026-07-08 +10% DAMAGE (0.36179 -> 0.39797; 300 x 0.39797 -> body T3 ~776, head ~1164, ~4060 sustained). History: 0.21 -> 0.26 -> 0.299 -> 0.36179 -> 0.39797. Projectile -> no DT extra bullet; special OC; per-hit cap backstops bosses. IsSubStr covers base + _up + all 6 twins.
     if ( IsSubStr( weapon_name, "pistol_standard" ) ) return 1.10;  // [start] MR6/M1911 start pistol (level.start_weapon): was default 1.0 (uncut); +10% all-gun buff (user 2026-07-07). IsSubStr covers pistol_standard + _upgraded (laststand). Only >1.0 entry - an amplify, not a cut.
     if ( IsSubStr( weapon_name, "elemental_bow_demongate" ) ) return 1.0;  // [wonder] FIRE BOW (HB21 demongate, added 2026-07-07): pack-native damage x global 3.25; the boss per-hit cap backstops. PLAYTEST-TUNE HERE (charged-shot AoE is script DoDamage inside the pack's weap script - only the arrow hit routes through this mult).
@@ -1182,7 +1203,8 @@ function acc_weapon_balance_mult( weapon_name )
     if ( IsSubStr( weapon_name, "t8_paladin_hb50" ) ) return 0.15235;  // [B-] Paladin HB50 (BO4 sniper): USER 2026-07-02 TARGET-DAMAGE nerf - "450 body" -> bal = 450/(raw 1000 x global 3.25) = 0.1385 (head = 2.5x = ~1125). Supersedes same-day 0.26 and the 2026-06-27 0.3565. clip 8 / reserve 96/132 / reload 4.1 unchanged. ACC_PALADIN_BOSS_MULT boss cut is SEPARATE (stacks). IsSubStr covers base+_up+twins. Has Precision Mode. docs/04/54.
     if ( IsSubStr( weapon_name, "t9_m60" ) )       return 0.24926;   // [S] M60 (Skye CW LMG): USER 2026-07-09 +10% LMG-class buff (0.2266 x 1.1), paired with LMG reserve +1 mag (4 -> 5: 500/600 rounds) + the 0.9 LMG move-speed standard. Prior: SPREAD +3% best-gun buff (user 2026-06-26). clip 100/120 + large pierce; the big clip makes the 9.7s reload trivial. Slow 0.9 move is its weakness.
     if ( IsSubStr( weapon_name, "t9_rpd" ) )       return 0.13213;   // [C] RPD (Skye CW LMG): USER 2026-07-09 +10% LMG-class buff (0.12012 x 1.1; the M60 got the same +10%, so the "M60 clearly better" gap from 2026-07-06 is preserved), paired with reserve +1 mag (4 -> 5: 375/625 rounds) + the 0.9 LMG move-speed standard. Prior: -10% 2026-07-06; SPREAD -3% 2026-06-26; +25% 2026-06-25. The "bad LMG" - 7.5s reload.
-    if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.1452;    // [A+] RW1 (AW directed-energy pistol, 800@0.15 = 5333 raw): USER 2026-06-27 +20% damage BUFF, ALL versions+twins (0.11 -> 0.132; full PaP+OC ~1210->1452/shot). Energy sidearm; covers base+PaP+twins. Price tier/box odds UNCHANGED (docs/33 not regenerated). (user 2026-06-23)
+    if ( IsSubStr( weapon_name, "t6_hamr" ) )      return 0.208;     // [B] HAMR (BO2 LMG, user 2026-07-10): sits BETWEEN the M60 (S, 0.24926) and RPD (C, 0.13213). raw _up 390 -> PaP T3 body 527 (RPD 402 / M60 713); DPS 3764 (RPD 3102 / M60 4174). Loc NORMALIZED install-side (tools/prep_hamr_gdt.js, .acc-hamr-orig): neck/torso 1.0 so body = damage x bal x global x papMult like the other LMGs. GDT PaP clip 100 / reserve 500 / reload 6.0 - the fast-reload comfort LMG. IsSubStr covers base+_up+twins. docs/04/25.
+    if ( IsSubStr( weapon_name, "s1_rw1" ) )       return 0.15972;   // [A+] RW1 (AW directed-energy pistol, 1000@0.15 raw): USER 2026-07-10 +10% damage BUFF (0.1452 -> 0.15972). Prior 2026-06-27 +20% (-> 0.1452). ALL versions+twins; covers base+PaP+twins. Price tier/box odds UNCHANGED (docs/33 not regenerated).
     if ( IsSubStr( weapon_name, "s1_mk14" ) )      return 0.28809;   // [B-] MK14 (AW semi-auto DMR): USER 2026-06-27 -10% damage nerf, ALL versions+twins (0.291 -> 0.2619: body 87->79/shot, PaP 175->157; full PaP+OC ~1921->1729). Prior SPREAD -3% (0.30 -> 0.291, 2026-06-26). Curated single-target DPS. clip 14/12, reserve 168/240. Clean body loc. Price tier/box odds UNCHANGED (docs/33 not regenerated). docs/04/54.
     if ( IsSubStr( weapon_name, "s1_mors" ) )      return 0.25688;   // [A] MORS (AW charge railgun sniper): USER 2026-07-09 +10% damage buff (0.23353 x 1.1 -> PaP T3 body ~2504), PAIRED with the GDT fireTime 0.064 -> 0.05 buff (base + _up + all 6 twins, backup .acc-mors-ft-orig). History: +15% 2026-07-03 (-> 0.23353); 600-body target 2026-07-02; 0.35 + 0.429 nerfs before that. loc NORMALIZED install-side (body 1.0 / head 5.0). reserve 41/61 (-15% 2026-06-27), clip 1 / reload 1.2. IsSubStr covers base+_up+twins. docs/04/54.
     // Mahem (s1_mahem): EXPLOSIVE rocket launcher - 7000 direct + 2750/1500 splash (PaP 5500/3000), same trap as
@@ -1482,12 +1504,65 @@ function is_melee_mod( meansofdeath )
 // True for the Action Figure base weapon, its off-hand sibling, and its faster PaP "speed twins" - so they ALL
 // one-knife in the AF block above. Add a twin name here when a new speed tier is registered. Replaces the old
 // actionfigure_cleave / _cleave_count multi-hit (removed 2026-06-27, user) - PaP scales swing SPEED now, not targets.
+// The "_brz" names are the Berzerker implant's parallel tier ladder (boss item 11, 2026-07-11).
 function is_action_figure_weapon( weapon )
 {
     if ( !isdefined( weapon ) || !isdefined( weapon.name ) ) return false;
     n = weapon.name;
-    return ( n == "t8_melee_figure"       || n == "t8_actionfigure_melee"
-          || n == "t8_melee_figure_fast1" || n == "t8_melee_figure_fast2" || n == "t8_melee_figure_fast3" );
+    return ( n == "t8_melee_figure"           || n == "t8_actionfigure_melee"
+          || n == "t8_melee_figure_fast1"     || n == "t8_melee_figure_fast2"     || n == "t8_melee_figure_fast3"
+          || n == "t8_melee_figure_brz"
+          || n == "t8_melee_figure_fast1_brz" || n == "t8_melee_figure_fast2_brz" || n == "t8_melee_figure_fast3_brz" );
+}
+
+// BERZERKER (boss item 11): does this melee hit ride one of the item's three surfaces? The damage
+// `weapon` on a melee MOD is the swinging weapon for held melee (axe/figure) and the MELEE-SLOT
+// def for a knife bash (the Widow's-Wine web trigger proves the slot weapon attributes) - but the
+// axe-resolution note above shows melee attribution can also arrive as the HELD gun, so check all
+// three surfaces on BOTH the damage weapon and the attacker's state. The regular-knife leg is
+// "melee slot IS the berzerker knife" (raw current_melee_weapon field read - what
+// zm_utility::set_player_melee_weapon writes - avoiding a new #using): with Widow's Wine active
+// its knife owns the slot, so a WW bash correctly gets neither the speed nor the tax (only the
+// REGULAR knife is in-spec).
+function berzerker_melee_weapon( player, weapon )
+{
+    if ( isdefined( weapon ) && isdefined( weapon.name ) )
+    {
+        if ( IsSubStr( weapon.name, "leviathan" ) )       return true;
+        if ( IsSubStr( weapon.name, "t8_melee_figure" ) ) return true;
+        if ( weapon.name == "acc_berzerker_melee" )       return true;
+    }
+    held = player GetCurrentWeapon();
+    if ( isdefined( held ) && isdefined( held.name )
+         && ( IsSubStr( held.name, "leviathan" ) || IsSubStr( held.name, "t8_melee_figure" ) ) )
+        return true;
+    mw = player.current_melee_weapon;
+    if ( isdefined( mw ) && isdefined( mw.name ) && mw.name == "acc_berzerker_melee" )
+        return true;
+    return false;
+}
+
+// The 5% max-HP blood tax itself (threaded on the ATTACKER). One wait decouples the self-DoDamage
+// from the actor-damage callback we were called in (no nested-callback re-entry in the same frame).
+// 2-arg DoDamage (undefined attacker, MOD_UNKNOWN) = the decontamination/trench-proven self-damage
+// path: real damage -> red flash + engine regen-timer reset; PhD does NOT negate it (MOD_UNKNOWN).
+// NEVER self-downs: clamps to leave 1 HP (a rage item that downs its own carrier reads as a bug;
+// at 1 HP the swings keep their speed, you just stop paying). Live dvar acc_berzerker_hp_frac.
+function berzerker_melee_tax()    // self = player
+{
+    self endon( "disconnect" );
+    wait( 0.05 );
+    if ( !isdefined( self ) || !IsAlive( self ) ) return;
+    if ( !IS_TRUE( self.acc_item_berzerker ) ) return;      // unequipped during the wait
+    frac = getdvarfloat( "acc_berzerker_hp_frac", 0.05 );
+    if ( frac <= 0 ) return;
+    maxhp = 100;
+    if ( isdefined( self.maxhealth ) && self.maxhealth > 0 ) maxhp = self.maxhealth;
+    dmg = int( maxhp * frac );
+    if ( dmg < 1 ) dmg = 1;
+    if ( isdefined( self.health ) && self.health <= dmg ) dmg = self.health - 1;   // 1-HP floor (laststand health 1 -> dmg 0 -> skip)
+    if ( dmg < 1 ) return;
+    self DoDamage( dmg, self.origin );
 }
 
 // VERIFIED(acc): bullet damage MODs are "MOD_PISTOL_BULLET" /

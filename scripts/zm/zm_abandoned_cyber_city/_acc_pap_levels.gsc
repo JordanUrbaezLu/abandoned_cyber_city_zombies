@@ -83,8 +83,9 @@ function init()
     level thread player_setup_loop();
     level thread pap_tier_machine_watcher(); // multi-pack tiers 2-5, no AAT
     level thread pap_cost_display_keeper(); // show the real tier-up cost on the machine
-    level thread dev_mahem_pap_watch();      // acc_dev ground-truth readout for the Mahem PaP (user 2026-06-26)
-    level thread dev_pap_machine_probe();    // acc_dev: print what the PaP machine entity actually is (2026-07-02)
+    // DEV on-screen PaP probes REMOVED 2026-07-10 (clean screen in hardcoded dev). Re-thread either line to debug PaP.
+    // level thread dev_mahem_pap_watch();      // acc_dev ground-truth readout for the Mahem PaP (user 2026-06-26)
+    // level thread dev_pap_machine_probe();    // acc_dev: print what the PaP machine entity actually is (2026-07-02)
     // CW/BO6 PaP machine model (ALXS pack, user 2026-07-02; 3rd attempt same day): swapped at
     // the ZBARRIER ASSET level - install-side zbarriers.gdt "zmcore_packapunch" boardModel1/2/5 ->
     // p9_fxanim_zm_gp_pap_xmodel(_off) + those boardAnims blanked (backup zbarriers.gdt.acc-orig).
@@ -358,9 +359,9 @@ function nearest_pap_player( origin )
 // =============================================================================
 
 // <<< BEGIN GENERATED >>>  pap_price_bucket = tools/gen_box_dynamic.js (CURATED rank bands + per-gun price
-//     overrides carried in that script's RANK table; 27-entry roster. Regenerated 2026-07-09 after the box-odds
-//     SWAPS [XM4<->M60, Peacekeeper<->PPSH, CEL-3<->AK-74u, MK14<->Grav, Olympia<->Five-Seven] - every gun's
-//     PRICE is unchanged (AK-74u pinned MID in RANK). tier_cost below stays from compute_gun_tiers.js.
+//     overrides carried in that script's RANK table; 29-entry roster. Regenerated 2026-07-10 after adding the
+//     HAMR (BO2 LMG, MID price, rank #24 between Streetsweeper and RPD) - every pre-existing gun's PRICE is
+//     unchanged. tier_cost below stays from compute_gun_tiers.js.
 function pap_price_bucket( weapon_name )
 {
     if ( !isdefined( weapon_name ) ) return "BOT";
@@ -387,19 +388,20 @@ function pap_price_bucket( weapon_name )
     // MID  (4000 / 6000 / 8000)
     if ( IsSubStr( weapon_name, "s1_ae4" ) )                return "MID";   // #16 AE4
     if ( IsSubStr( weapon_name, "s1_rw1" ) )                return "MID";   // #17 RW1
-    if ( IsSubStr( weapon_name, "s1_mk14" ) )               return "MID";   // #19 MK14
-    if ( IsSubStr( weapon_name, "s1_tac19" ) )              return "MID";   // #20 Tac-19
+    if ( IsSubStr( weapon_name, "t9_m16" ) )                return "MID";   // #19 M16
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )               return "MID";   // #20 MK14
+    if ( IsSubStr( weapon_name, "s1_tac19" ) )              return "MID";   // #21 Tac-19
     if ( IsSubStr( weapon_name, "t9_ak74u" ) )              return "MID";   // #22 AK-74u
-    if ( IsSubStr( weapon_name, "t9_rpd" ) )                return "MID";   // #24 RPD
+    if ( IsSubStr( weapon_name, "t6_hamr" ) )               return "MID";   // #25 HAMR
+    if ( IsSubStr( weapon_name, "t9_rpd" ) )                return "MID";   // #26 RPD
 
     // BOT  (3000 / 4500 / 6000)
     if ( IsSubStr( weapon_name, "apex_alternator" ) )       return "BOT";   // #15 Alternator
-    if ( IsSubStr( weapon_name, "apex_prowler" ) )          return "BOT";   // #21 Prowler
-    if ( IsSubStr( weapon_name, "t9_streetsweeper" ) )      return "BOT";   // #23 Streetsweeper
-    if ( IsSubStr( weapon_name, "t6_olympia" ) )            return "BOT";   // #25 Olympia
-    if ( IsSubStr( weapon_name, "t9_grav" ) )               return "BOT";   // #26 Grav
-    if ( IsSubStr( weapon_name, "apex_g2a4" ) )             return "BOT";   // #27 G7 Scout
-    if ( IsSubStr( weapon_name, "t6_fiveseven" ) )          return "BOT";   // #28 Five-Seven
+    if ( IsSubStr( weapon_name, "apex_prowler" ) )          return "BOT";   // #23 Prowler
+    if ( IsSubStr( weapon_name, "t9_streetsweeper" ) )      return "BOT";   // #24 Streetsweeper
+    if ( IsSubStr( weapon_name, "t6_olympia" ) )            return "BOT";   // #27 Olympia
+    if ( IsSubStr( weapon_name, "t9_grav" ) )               return "BOT";   // #28 Grav
+    if ( IsSubStr( weapon_name, "t6_fiveseven" ) )          return "BOT";   // #29 Five-Seven
 
     return "BOT";   // default: cheapest tier
 }
@@ -500,7 +502,7 @@ function acc_pap_firebow()
     self fill_full_ammo( w );        // the clip watcher re-clamps to the new tier's cap within a tick
 
     self acc_pap_play_on_machine( "zmb_perks_packa_ready" );
-    if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^5[dev] Fire Bow -> PaP tier " + next + "/" + ACC_PAP_MAX_TIER );
+    // [dev] Fire-Bow PaP-tier on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)
 }
 
 // The Action Figure's current PaP tier = which SPEED-TWIN form is held (base=0, fast1/2/3=1/2/3). This is the
@@ -508,10 +510,12 @@ function acc_pap_firebow()
 function actionfigure_tier_of( w )
 {
     if ( !isdefined( w ) || !isdefined( w.name ) ) return 0;
-    if ( w.name == "t8_melee_figure_fast3" ) return 3;
-    if ( w.name == "t8_melee_figure_fast2" ) return 2;
-    if ( w.name == "t8_melee_figure_fast1" ) return 1;
-    return 0;
+    // Berzerker (boss item 11, 2026-07-11) forms: each tier has a "_brz" twin (+35% swing on top of
+    // the tier speed; _acc_boss_items swaps ladders on implant/unequip). Same tier, faster GDT.
+    if ( w.name == "t8_melee_figure_fast3" || w.name == "t8_melee_figure_fast3_brz" ) return 3;
+    if ( w.name == "t8_melee_figure_fast2" || w.name == "t8_melee_figure_fast2_brz" ) return 2;
+    if ( w.name == "t8_melee_figure_fast1" || w.name == "t8_melee_figure_fast1_brz" ) return 1;
+    return 0;   // t8_melee_figure / t8_melee_figure_brz
 }
 
 // True if `w` actually has a PaP form (so the machine can pack it). Used by the cost display so a
@@ -639,7 +643,7 @@ function acc_do_first_pack( w, cost )
     self.acc_pap_tier[ base ] = 1;
     // DEV verify (acc_dev only): confirm the per-pack tier (user 2026-06-25, "Mahem only packs twice" - prove
     // the uniform 3-tier flow runs for every gun incl. launchers). No effect in normal play.
-    if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^5[dev] PaP " + w.name + " -> tier 1/" + ACC_PAP_MAX_TIER );
+    // [dev] PaP tier-1 on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)
 
     // Tier 1 is a damage-only pack (NO asset swap, NO camo - gold PaP camo removed 2026-06-27).
     // replay_pack_draw re-gives the held weapon AND plays the first-pack "gun comes out" draw for
@@ -720,7 +724,7 @@ function acc_do_tier_up( w )
 
     self zm_score::minus_to_player_score( cost );
     self.acc_pap_tier[ base ] = next;
-    if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^5[dev] PaP " + w.name + " -> tier " + next + "/" + ACC_PAP_MAX_TIER );   // user 2026-06-25 Mahem pack-count verify
+    // [dev] PaP tier-N on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)   // user 2026-06-25 Mahem pack-count verify
     self.acc_pap_busy = false;
     // Tier 2 is already full (filled inside the transform on the reliable packed ref). Tier 3 keeps the
     // SAME "_up" gun in hand (replay_pack_draw re-gives it), so fill THAT via the original w - NOT the
@@ -757,7 +761,10 @@ function acc_pap_actionfigure()
         return;                                            // maxed (tier 3); the machine price already reads 0
     next = cur + 1;
 
-    twin = GetWeapon( "t8_melee_figure_fast" + next );
+    // Berzerker carriers (boss item 11, 2026-07-11) pack up the "_brz" ladder so the +35% implant
+    // swing persists across PaP tiers (the implant's apply/remove reconciles the ladder itself).
+    sfx = ( ( isdefined( self.acc_item_berzerker ) && self.acc_item_berzerker ) ? "_brz" : "" );
+    twin = GetWeapon( "t8_melee_figure_fast" + next + sfx );
     if ( !isdefined( twin ) || twin == level.weaponNone )  // speed twin not in this build
         return;
 
@@ -1003,7 +1010,7 @@ function fill_full_ammo( w )
 
     // DEV readout (one-flag gated, remove once verified): prints the ACTUAL clip/reserve the engine set,
     // so a "reserve not filling" report can be checked against real numbers (user 2026-06-22 triple-check).
-    if ( IS_TRUE( level.acc_dev ) )
+    if ( 0 )   // DEV PaP-ammo readout REMOVED FROM SCREEN 2026-07-10 (clean screen in hardcoded dev); restore IS_TRUE( level.acc_dev ) to re-enable
     {
         msg = "^3PaP ammo " + w.name + ": clip " + self GetWeaponAmmoClip( w ) + " / reserve " + self GetWeaponAmmoStock( w );
         if ( isdefined( w.isDualWield ) && w.isDualWield && isdefined( w.dualWieldWeapon ) && w.dualWieldWeapon != level.weaponNone )
@@ -1214,9 +1221,18 @@ function make_actionfigure_packable()
             tw = GetWeapon( "t8_melee_figure_fast" + i );
             if ( isdefined( tw ) && tw != level.weaponNone )
                 level.zombie_weapons_upgraded[ tw ] = w;
+            // Berzerker (_brz) tier twins (boss item 11, 2026-07-11): same visibility net.
+            tw = GetWeapon( "t8_melee_figure_fast" + i + "_brz" );
+            if ( isdefined( tw ) && tw != level.weaponNone )
+                level.zombie_weapons_upgraded[ tw ] = w;
         }
+        // The tier-0 berzerker form must ALSO keep the machine visible (it is not upgraded and,
+        // unlike the base figure, has no level.zombie_weapons entry to point .upgrade at).
+        tw = GetWeapon( "t8_melee_figure_brz" );
+        if ( isdefined( tw ) && tw != level.weaponNone )
+            level.zombie_weapons_upgraded[ tw ] = w;
     }
-    acc_utility::log( "pap_levels: Action Figure + speed twins marked packable" );
+    acc_utility::log( "pap_levels: Action Figure + speed twins (+brz forms) marked packable" );
 }
 
 // THE Fire Bow PaP-visibility fix (user 2026-07-07). Same root cause as the Action Figure: the demon-gate bow
