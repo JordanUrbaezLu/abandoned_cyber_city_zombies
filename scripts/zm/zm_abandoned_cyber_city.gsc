@@ -64,6 +64,19 @@
 #using scripts\zm\_zm_perk_staminup;
 #using scripts\zm\_zm_perk_widows_wine;
 
+// HB21 Elemental Bows (pack v1.0.0, installed 2026-07-07; box-only - no pedestals placed).
+// ALL FIVE pairs must load in BOTH entry scripts (clientfield lockstep - the pack's own
+// "Clientfield Mismatch" trap); only the DEMONGATE (fire) bow is box-wired (docs/21).
+// LIVE (2026-07-07): FX Library v2.1.0 + New BT Stuff v3.0.0 + Rumbles v2.0.0 + Physics Presets
+// v1.0.0 all installed (deps that supply bow_explosion / gfx_* / bow_fire rumble / the demongate
+// swarm-react anims). All 5 pairs load (clientfield lockstep); only the DEMONGATE (fire) bow is
+// box-wired (CSV). The 4 non-fire bows load but are unobtainable (user: fire bow only).
+#using scripts\zm\_zm_weap_elemental_bow;
+#using scripts\zm\_zm_weap_elemental_bow_storm;
+#using scripts\zm\_zm_weap_elemental_bow_rune_prison;
+#using scripts\zm\_zm_weap_elemental_bow_wolf_howl;
+#using scripts\zm\_zm_weap_elemental_bow_demongate;
+
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
@@ -82,7 +95,7 @@
 // autoexec registers the world-scope player_health_0..3 / player_states_packed clientfields
 // + the kill-feed damage callback. Kit README requires this #using ABOVE zm_usermap, and the
 // entry .csc MUST carry the matching #using (world clientfield registration lockstep).
-// Master flag: level.acc_aetherium_hud in _acc_lui.gsc. docs/22 + docs/49.
+// Master flag: level.acc_aetherium_hud in _acc_lui.gsc. docs/16 + docs/22.
 #using scripts\zm\_zm_aetherium_hud;
 
 #using scripts\zm\zm_usermap;
@@ -133,6 +146,13 @@
 // replaced the round-1 ally test same day). Hostility = the team-axis aitype clone
 // acc_zod_robot_boss; cadence/HP/rewards in the module header.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_civil_protector;
+// [acc] PANZER boss (Spiki asset-dump mechz port, user 2026-07-08 - previously live
+// 2026-06-19, rebuilt from tools/_panzer_stash). Custom aitype archetype_zm_mechz_genesis
+// (assets at the Mod Tools root, gitignored via the manifest). scripts\zm\mechz_spiki.gsc
+// (vendored, crash fixes re-applied - read its header) rides in via _acc_boss_panzer's #using;
+// the mechz_spiki.csc twin is #using'd from the entry .csc (clientfield lockstep). Joins the
+// shared boss roster as the 4th type; DEV runs its own test-spawn loop.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;
 // [acc] 3D over-head boss nameplate + health bar (SetDrawName; matching .csc #using REQUIRED -
 // actor clientfields). Consumes the "acc_boss_spawned" notify + direct attach() calls.
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;
@@ -219,7 +239,7 @@ function main()
 	// [acc] Optional dev/test sandbox - ALL OFF by default, so a launch with no
 	// dvars is a clean consumer game (closed map, earn your own money, decon hazard
 	// live). The launch scripts (PLAY_TEST_MAP.bat / tools/run_game.ps1) set these
-	// for test sessions. Full reference: docs/34_flags_reference.md.
+	// for test sessions. Full reference: docs/22_flags_reference.md.
 	//   +set acc_dev 1      -> unlimited money + Data Shards + Mega Bottles + dev banner
 	//                          (and enables the _acc_dev module: perk cap 18, dev HUDs,
 	//                          teleport / round-skip / open-doors console cmds). Power is NO
@@ -232,7 +252,7 @@ function main()
 	// dev sandbox, 0 (the SHIP DEFAULT) = normal play. acc_resolve_dev_flags() resolves it ONCE here
 	// (before any module reads it) into level.acc_dev and drives the legacy sub-dvars off that one flag,
 	// so there are no per-feature dev flags to set or forget. To add a dev behavior, read level.acc_dev
-	// and HARDCODE the value - do NOT add a new dvar (docs/49, CLAUDE.md "Dev/test mode - ONE flag").
+	// and HARDCODE the value - do NOT add a new dvar (docs/22, CLAUDE.md "Dev/test mode - ONE flag").
 	acc_resolve_dev_flags();
 	if ( level.acc_dev )
 	{
@@ -265,7 +285,7 @@ function main()
 	// BEFORE the first game tick.
 	acc_perk_phd_flopper::init();
 
-	// [acc] Apply the map's custom per-perk costs (docs/13_perks.md - perk
+	// [acc] Apply the map's custom per-perk costs (docs/10_perks.md - perk
 	// customization is a headline feature). Runs before the first tick / first
 	// machine read, same as the PhD Flopper cost override above.
 	set_perk_costs();
@@ -318,16 +338,22 @@ function main()
 	// so this is safe in the starting-room-only build.
 	level thread acc_main::init();
 
-	// [acc] Avogadro electric boss DISABLED for release (user 2026-06-25): not shipping him yet.
-	// The AI stays registered (the _zm_ai_avogadro #using above) but NOTHING spawns him - this is the
-	// only spawn path. To bring him back, uncomment the thread below and give _acc_boss_avogadro::init()
-	// a real cadence (its old acc_avo_test round-1 default is now 0, so re-enabling won't surprise-spawn
-	// one on round 1).
-	// level thread acc_boss_avogadro::init();
+	// [acc] Avogadro "cyberhacker" boss (user 2026-07-04): fast electric harasser - stun-locks players
+	// (0-dmg shots that apply the 25% slow) + hacks Lab machines (disables perks/PaP + kills their glow
+	// for 30s, max 2). Spawns in the Lab, HP = Phantom's. Joins the shared boss roster as a 3rd type;
+	// DEV mode runs a repeating test spawn. Toggle live: acc_avo_enable 0. See _acc_boss_avogadro.gsc.
+	level thread acc_boss_avogadro::init();
 
 	// [acc] ROGUE PROTECTOR round-20 hostile boss (user 2026-07-02). Owed+director cadence like
 	// the Phantom (dev = round 2 / every 5 via the one dev flag); the Phantom yields his rounds.
 	level thread acc_civil_protector::init();
+
+	// [acc] PANZER boss (user 2026-07-08): the heaviest roster walker - TANK-tier HP
+	// (exp 1.12 on the shared scale, tied with Brutus at the top of the ladder; both 1.12),
+	// hard melee (acc_panzer_melee_damage 90), stock mechz flame/grenade BT attacks. 4th
+	// shared-roster type; DEV keeps one alive from round 3 for iteration. Toggle live:
+	// acc_panzer_enable 0. See _acc_boss_panzer.gsc + scripts/zm/mechz_spiki.gsc headers.
+	level thread acc_boss_panzer::init();
 }
 
 // [acc] DEV MODE - the SINGLE switch (user 2026-06-22). Reads `acc_dev` ONCE, caches it in level.acc_dev
@@ -335,7 +361,7 @@ function main()
 // that still read their own dvar (perk doors / boss-test / auto-power / variant-debug) follow dev with no
 // per-feature flag to set. THIS is the place to hardcode dev values: add a SetDvar
 // here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
-// in main(), before any consumer reads them. docs/49.
+// in main(), before any consumer reads them. docs/22.
 //
 // PUBLISH-SAFE (user 2026-06-29): both flags restored to their dvar GATES (default 0 = normal play). The shipped .ff
 // plays normally; the launch scripts can still flip them on for testing (+set acc_dev 1 / the PLAY_GOD_MODE script's
@@ -343,22 +369,28 @@ function main()
 function acc_resolve_dev_flags()
 {
 	// Resolved from the acc_dev dvar (default 0 = ship-safe normal play; the dev launch scripts pass +set acc_dev 1).
-	// This is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/49.
-	// SHIP-SAFE (user 2026-07-03: "turn off dev mode ... I am going to publish"): resolved from
-	// the dvar, default 0 = normal play. The dev launch scripts pass +set acc_dev 1.
-	// (Was TEMP-hardcoded true for new-box testing 2026-07-02; reverted for publish.)
+	// This is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/22.
+	// SHIP-SAFE (user 2026-07-08 publish prep: "make sure dev mode and god mode are hardcoded off"):
+	// dvar-driven, default 0 = OFF for every Workshop player; PLAY_TEST_MAP still passes +set acc_dev 1.
 	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
+	// level.acc_dev = true;   // <- DISABLED 2026-07-10 for PUBLISH; ship-safe (dvar default 0 = normal play). Re-enable this one line for a dev test cycle. (When ACTIVE: current test-cycle workflow is
+	// dev hardcoded ON for every launch script - the dvar line above is the ship path; prep_release.ps1 FAILS
+	// on this line so it can't reach a publish). NOTE (crash hunt 2026-07-10): this hardcode is why every
+	// launch - incl. PLAY_NORMAL - runs dev; the exe+0x22c8f03 CTD lives in a DEV-gated path, so with this
+	// line active a dev-path bug hits every script. The mock_party_feed clientfield spam fix (same hunt)
+	// addresses the prime suspect.
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
 	SetDvar( "acc_glitch_test",   v );   // _acc_boss_glitch (Glitch Stalker dev test spawn)
 	SetDvar( "acc_variants_debug",v );   // on-screen weapon-variant swap readout (dev aid)
-	// All 10 Lab perk alcoves OPEN in dev mode (user 2026-06-26). _acc_perk_doors::dev_all_open() reads this
-	// dvar; forcing it on under dev bypasses the per-round 4-of-10 rotation so every perk is buyable while
-	// testing. Normal play (acc_dev 0) leaves it at the ship default 0 -> the rotation runs as designed.
-	// (Reverses the 2026-06-18 "walls close in dev too" choice; the manual `set acc_perk_doors_all_open 1`
-	// override still works independently in normal play.)
-	SetDvar( "acc_perk_doors_all_open", v );
+	// PERK DOORS: dev mode now runs the REAL per-round 4-of-10 rotation, EXACTLY like normal play (user
+	// 2026-07-07: "dev and non-dev should work the same, only 4 open per round"). We intentionally do NOT
+	// force acc_perk_doors_all_open here anymore (that was the 2026-06-26 dev-all-open behavior, now removed).
+	// To still test a walled-off perk in dev, use the permanent-unlock buy trigger (_acc_perk_doors): dev tops
+	// you up to a big Mega Bottle stash (_acc_mega_bottles::dev_unlimited_bottles) so you can just buy any
+	// closed door open. The manual `set acc_perk_doors_all_open 1` escape hatch still works on its own in
+	// either mode (dev_all_open() reads it) - it's simply no longer auto-set by dev.
 	// HUDELEM POOL DIAGNOSTIC (user 2026-06-28): dev auto-enables the on-screen hudelem-pool logger
 	// (acc_utility::he_check / he_log) so the 4-player mock roster surfaces "<widget> did NOT allocate -
 	// POOL FULL" + the live high-water count. Normal play (acc_dev 0) leaves it off; `set acc_hudelem_debug 1` also works.
@@ -378,11 +410,11 @@ function acc_resolve_dev_flags()
 	// without dying. Default 0; INDEPENDENT of acc_dev; changes NO existing dev/normal behavior. See
 	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
 	// Resolved from the acc_god dvar (default 0 = off; the standalone PLAY_GOD_MODE launch script passes +set acc_god 1).
-	// Every player INVULNERABLE when on (damage zeroed in _acc_elites::on_player_damaged; effects still fire). Ship-safe.
-	// SHIP-SAFE (user 2026-07-03: "turn off ... god mode ... I am going to publish"): resolved
-	// from the dvar, default 0 = off. The standalone PLAY_GOD_MODE launch script passes +set acc_god 1.
-	// (Was TEMP-hardcoded true for new-box testing 2026-07-02; reverted for publish.)
+	// GOD = DEMIGOD since 2026-07-08: real damage lands but health floors at 1 HP
+	// (_acc_elites::on_player_damaged clamp; effects still fire).
+	// SHIP-SAFE (user 2026-07-08 publish prep): dvar-driven, default 0 = OFF for every Workshop player.
 	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
+	// level.acc_god = true;   // <- DISABLED 2026-07-10 for PUBLISH; ship-safe (dvar default 0 = off, real damage). Re-enable this one line for a god test cycle. (Was ACTIVE for the 2026-07-09 "hardcode on for both" test cycle.)
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
 
@@ -616,6 +648,7 @@ function zone_door_dest_name( flag )
 		case "enter_under_lab":   return "Under-Lab";
 		case "enter_implant":     return "the Implant Room";
 		case "enter_exchange":    return "the Exchange";
+		case "enter_armory":      return "the Armory";
 	}
 	return "a new area";
 }
@@ -704,6 +737,7 @@ function zone_door_trigger_origin( d )
 	case "enter_under_plaza": return ( -160, 1735, -200 );
 	case "enter_implant":     return ( -220, -240, 50 );   // Plaza Implant Lab door (doorway x[-260,-180] in the plaza south wall)
 	case "enter_exchange":    return ( -380, -376, 50 );   // The Exchange staircase-room EAST doorway, SW corner of the enlarged Implant Lab (tools/gen_plaza_basement.js); X-thin -> default (60,0,0) offset
+	case "enter_armory":      return ( 223, 0, 50 );       // The Armory doorway in the EAST Plaza wall (x[213,233] y[-64,64], gen_upper_room.js); X-thin -> default (60,0,0) offset puts a buy trigger on the playable side (x=163)
 	case "enter_market":      return ( -1168, 528, 40 );
 	case "enter_alley":       return ( 1207, 528, 40 );
 	case "enter_corp_w":      return ( -1031, 1328, 40 );
@@ -828,7 +862,7 @@ function acc_hardcoded_open_map()
 	            pap_opened + " PaP blocker(s)" ); #/
 }
 
-// [acc] Custom per-perk costs (docs/13_perks.md). The perk cost is read from
+// [acc] Custom per-perk costs (docs/10_perks.md). The perk cost is read from
 // level._custom_perks[specialty].cost (the same field the PhD Flopper module
 // sets); set it before the first purchase. Buying all 9 = 27,500 by design
 // (Double Tap 3,000).
@@ -899,7 +933,7 @@ function usermap_test_zone_init()
 	level flag::init( "always_on" );
 	level flag::set( "always_on" );
 
-	// [acc] 7-zone graph (docs/03_layout.md). VERIFIED(acc): an info_volume
+	// [acc] 7-zone graph (docs/02_layout.md). VERIFIED(acc): an info_volume
 	// alone does nothing - a zone only exists once zone_init runs, reached
 	// via add_adjacent_zone / the manage_zones init list (_zm_zonemgr.gsc:288,
 	// :595). Each flag below is set by the matching buyable door's

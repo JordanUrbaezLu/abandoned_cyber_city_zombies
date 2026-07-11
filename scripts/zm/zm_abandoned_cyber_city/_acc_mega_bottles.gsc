@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_mega_bottles.gsc - Empty Mega Bottle acquisition + perk-Mega upgrades
 //
-// Design reference: docs/13_perks.md (Mega Bottles system + Perk reference base/Mega).
+// Design reference: docs/10_perks.md (Mega Bottles system + Perk reference base/Mega).
 //
 // Acquisition: 1 bottle guaranteed per player on EVERY boss kill (mini + full).
 // Usage: at a Lab perk machine currently dispensing a perk the player owns,
@@ -32,6 +32,13 @@
 //  low-stance spider-mobility + the boosted spider-drop rate.) Armory Mega (Mule): -10% buys + reserve refill.
 #define ACC_ARMORY_ROUND_REFILL 0.20   // Armory (Mule Kick Mega): +20% of each gun's reserve cap, refilled at round start (was 0.35, user 2026-06-21)
 
+// DEV bottle stash (user 2026-07-07): dev mode no longer force-opens the perk doors (they run the real 4-of-10
+// rotation now); instead a dev tester is kept topped up so they can BUY any closed door open via the permanent-
+// unlock trigger. Refill to TARGET whenever below FLOOR (mirrors _acc_dev::dev_unlimited_money). Both cover all
+// 10 doors many times over (10 doors x 2 bottles = 20).
+#define ACC_DEV_BOTTLE_TARGET   99
+#define ACC_DEV_BOTTLE_FLOOR    30
+
 #namespace acc_mega_bottles;
 
 // ---------------------------------------------------------------------------
@@ -49,7 +56,7 @@ function init()
 
     // Sticky-Mega lifecycle: stock calls these ON the player after a
     // successful perk drink / on perk loss (_zm_perks.gsc:652-655 / :956-958).
-    // Re-buying a Mega'd perk re-applies its deltas (docs/13 persistence rule).
+    // Re-buying a Mega'd perk re-applies its deltas (docs/10 persistence rule).
     level.perk_bought_func = &on_perk_bought;
     level.perk_lost_func = &on_perk_lost;
 
@@ -62,6 +69,36 @@ function init()
     // drop per-zombie (sets b_widows_wine_no_powerup) and the death hook does the single replacement roll.
     callback::on_ai_spawned( &mww_suppress_stock_spider_drop );
     zm_spawner::register_zombie_death_event_callback( &mww_spider_drop_roll );
+
+    // DEV: keep testers stocked with bottles so they can buy perk doors open (dev no longer force-opens them).
+    if ( isdefined( level.acc_dev ) && level.acc_dev )
+        level thread dev_unlimited_bottles();
+}
+
+// DEV top-up (user 2026-07-07): while level.acc_dev, refill every player's Mega Bottles to ACC_DEV_BOTTLE_TARGET
+// whenever they dip below ACC_DEV_BOTTLE_FLOOR - so a dev tester always has enough to buy any closed perk door
+// open (the permanent-unlock trigger, _acc_perk_doors) and Mega any perk. No-ops entirely in normal play (thread
+// only started under dev). Plain field write (no stock API), so no blackscreen-flag gate is needed here.
+function dev_unlimited_bottles()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( !isdefined( p.acc_mega_bottles ) ) p.acc_mega_bottles = 0;
+            if ( p.acc_mega_bottles < ACC_DEV_BOTTLE_FLOOR )
+            {
+                p.acc_mega_bottles = ACC_DEV_BOTTLE_TARGET;
+                p sync_bottle_count_to_client();
+            }
+        }
+        wait 1;
+    }
 }
 
 // --- Widow's Wine spider-drop economy (we OWN it; user 2026-06-26) ----------------------------------------
@@ -150,7 +187,7 @@ function flash_respawn_watcher()
         {
             self apply_flash_speed();
         }
-        // Mega Flopper (PhD Slider) +15% move - same respawn re-apply as The Flash.
+        // Mega Flopper (PhD Slider) 1.75x slide-gated move - same respawn re-apply as The Flash.
         if ( self HasPerk( "specialty_electriccherry" )
              && has_mega_perk( self, "specialty_electriccherry" ) )
         {
@@ -266,7 +303,103 @@ function has_active_mega_perk( player, specialty_string )
 function owns_or_paused( player, specialty_string )
 {
     if ( player HasPerk( specialty_string ) ) return true;
+    // [acc] AVOGADRO HACK EXCLUSION (user 2026-07-06: "the actual ability for both base and mega are
+    // removed" - Mega Spiderman mobility survived a Widow's hack). The paused-but-owned grace below
+    // exists ONLY for the Ultimate-Tank EMP debuff window (megas should survive that boss attack); the
+    // cyberhacker's machine hack is a REAL disable, so while HE has this perk down, every mega live
+    // effect gated through has_active_mega_perk (spider drops, Power Surge, boss-special immunity, EMP
+    // immunity, stance mobility) reads inactive. Restores automatically: unhack re-gives the base perk
+    // (perk_unpause -> HasPerk true again) and the first branch takes over.
+    if ( isdefined( level.acc_avo_hacked ) && IS_TRUE( level.acc_avo_hacked[ specialty_string ] ) )
+        return false;
     return isdefined( player.disabled_perks ) && IS_TRUE( player.disabled_perks[ specialty_string ] );
+}
+
+// HUD predicate (perk row ONLY - _acc_lui::perk_state_watch): like owns_or_paused but ALSO true while
+// the perk is merely Avogadro-hacked (stock disabled_perks still tracks the pause-ownership). The row
+// must KEEP a hacked perk's icon in its slot and BLINK it - if the owned bit dropped (as owns_or_paused
+// now does for gameplay gates, 2026-07-06), the icon would vanish and the whole row reflow/slide-in,
+// exactly what the blink design avoids. NOT for gameplay checks - abilities must stay off while hacked.
+function owns_paused_or_hacked( player, specialty_string )
+{
+    if ( player HasPerk( specialty_string ) ) return true;
+    return isdefined( player.disabled_perks ) && IS_TRUE( player.disabled_perks[ specialty_string ] );
+}
+
+// ---------------------------------------------------------------------------
+// [acc] AVOGADRO HACK bridge (user 2026-07-06: "when he disables a perk ... the actual ability for both
+// base and mega are removed - check all cases"). Called by _acc_boss_avogadro::apply_hack_effect /
+// apply_unhack_effect. The BASE perk is stock perk_pause/unpause; the MEGA layer splits into:
+//   EVENT-TIME gates (spider drops, Power Surge, boss-special immunity, EMP immunity, Armory discount):
+//     all flow through has_active_mega_perk -> owns_or_paused, which reads level.acc_avo_hacked and
+//     reports the perk NOT owned while hacked - nothing to do here.
+//   WATCHER gates (Savior +15% checks HasPerk live -> auto-off; Widow's stance watcher pauses itself
+//     off level.acc_avo_hacked and survives the window -> auto-resume; re-applied below as backup).
+//   STATEFUL effects (live in a field until recomputed): Ultimate Tank's +50 n_player_health_boost and
+//     jugg's own +150 sit in max health until a health_reboot recompute - forced here both ways. The
+//     Flash's +15% (acc_flash_speed, Stamin-Up mega) likewise sits in recompute_move_speed - cleared on
+//     hack / re-applied on restore (Stamin-Up joined the hackable set 2026-07-06).
+// ---------------------------------------------------------------------------
+
+function on_perk_hacked( specialty )
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) )
+            continue;
+        if ( specialty == "specialty_armorvest" )
+        {
+            if ( has_mega_perk( p, specialty ) )
+                p.n_player_health_boost = 0;   // Ultimate Tank +50 off while jugg is hacked
+            // Recompute max health from CURRENT perk state: jugg is paused (HasPerk false) -> back to 100.
+            // Same health_reboot recompute apply_mega_effects uses; current health clamps to the new max.
+            p zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
+        }
+        else if ( specialty == "specialty_staminup" )
+        {
+            // The Flash (+15% move) is STATEFUL - apply_flash_speed sets acc_flash_speed once and it rides
+            // recompute_move_speed until cleared. Base Stamin-Up (engine sprint specialty) is already off
+            // via perk_pause's UnsetPerk; this drops the mega half for the hack window.
+            if ( IS_TRUE( p.acc_flash_speed ) )
+            {
+                p.acc_flash_speed = false;
+                acc_utility::recompute_move_speed( p );
+            }
+        }
+    }
+}
+
+function on_perk_restored( specialty )
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) )
+            continue;
+        if ( specialty == "specialty_armorvest" )
+        {
+            if ( has_mega_perk( p, specialty ) && p HasPerk( specialty ) )
+                p.n_player_health_boost = 50;  // Ultimate Tank back (only for holders the unpause re-gave)
+            p zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
+        }
+        else if ( specialty == "specialty_widowswine" )
+        {
+            // Belt-and-suspenders: the stance watcher normally survives the hack (pause branch), but if it
+            // genuinely ended during the window (e.g. the player went down and bled out mid-hack), restart
+            // it for a returning holder - apply_mww_stance_speed is single-instance via its stop notify.
+            if ( has_mega_perk( p, specialty ) && p HasPerk( specialty ) )
+                p apply_mww_stance_speed();
+        }
+        else if ( specialty == "specialty_staminup" )
+        {
+            // The Flash back for holders the unpause re-gave the base perk to.
+            if ( has_mega_perk( p, specialty ) && p HasPerk( specialty ) )
+                p apply_flash_speed();
+        }
+    }
 }
 
 // Set the Mega flag. Called from perk-machine interaction logic once a
@@ -332,7 +465,7 @@ function replay_perk_drink( perk )
     self zm_utility::enable_player_move_states();
     self TakeWeapon( w_bottle );
 
-    // Variant-aware switch-back (docs/13 Mega "hidden swap"): do the recoil/fire/reload
+    // Variant-aware switch-back (docs/10 Mega "hidden swap"): do the recoil/fire/reload
     // twin swap WHILE the gun is holstered - reconcile() is synchronous and silent here
     // (no primary is equipped right now), so it just gives the twin / takes the base in
     // inventory. Then we re-raise the TWIN. Result: a Mega upgrade's twin swap is masked
@@ -384,6 +517,11 @@ function add_mega_glow_icon( perk )
     s = SpawnStruct();
 
     s.badge = acc_utility::he_check( self hud::createIcon( "white", 162, 22 ), "mega.badge" );
+    // [acc] COOP CRASH GUARD: he_check passes undefined through when the shared hudelem pool is full
+    // (4p exhaustion, worsened by one badge+label PER Mega perk PER player). Field writes on undefined
+    // throw. Bail without storing the struct so it retries on the next Mega refresh once the pool frees.
+    if ( !isdefined( s.badge ) )
+        return;
     s.badge hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 12, y );
     s.badge.alignX = "left";
     s.badge.alignY = "middle";
@@ -394,6 +532,11 @@ function add_mega_glow_icon( perk )
     s.badge setPulseFX( 55, 700, 700 ); // the pulse = the "glow"
 
     s.label = acc_utility::he_check( self hud::createFontString( "default", 1.05 ), "mega.label" );
+    if ( !isdefined( s.label ) )   // [acc] COOP CRASH GUARD: drop the half-built badge, don't store the struct
+    {
+        s.badge Destroy();
+        return;
+    }
     s.label hud::setPoint( "BOTTOM_LEFT", "BOTTOM_LEFT", 20, y );
     s.label.alignX = "left";
     s.label.alignY = "middle";
@@ -544,18 +687,20 @@ function try_apply_mega( player, specialty_string )
 
 // ---------------------------------------------------------------------------
 // Mega effect application. Called on upgrade AND on every (re)buy of a
-// Mega'd perk (sticky persistence, docs/13_perks.md). Per-perk status:
+// Mega'd perk (sticky persistence, docs/10_perks.md). Per-perk status:
 //   IMPLEMENTED here: Ultimate Tank (+50 max HP -> 300), The Flash (+15% speed),
 //     Spiderman (web-grenade clip fill -> 6).
 //   IMPLEMENTED elsewhere, read live from the Mega flag each frame/hit/reconcile:
-//     American Sniper (headshot _acc_damage + -40% recoil twin), Gun Slinger
-//     (+50% fire rate + -75% swap twin), Sleight of Hand Expert (+70% reload twin),
-//     The Armory (+25% reserve ammo "ammo" twin + reserve fill to the raised cap)
-//     - all four twins via _acc_weapon_variants (baked 2026-06-14); Savior (revive
-//     speed/regen/+15% speed _acc_perks).
-//   The deadshot/doubletap2/fastreload/armory cases below POKE (or call) the swap engine so the
-//   twin applies instantly; the axes also re-derive on the 3s reconcile safety-net. The Armory
-//   additionally GiveMaxAmmo-fills the reserve to the twin's raised cap.
+//     American Sniper (headshot _acc_damage + -50% recoil twin), Gun Slinger
+//     (extra-bullet damage temper eases x0.6 -> x0.8 in _acc_damage - NO twin, reworked
+//     2026-07-04; was a +fire-rate/-swap "fastfire" twin), Sleight of Hand Expert
+//     (+75% reload twin) via _acc_weapon_variants; The Armory (+20% round-start reserve
+//     refill, ACC_ARMORY_ROUND_REFILL, runtime not a twin - was 0.35 until 2026-06-21);
+//     Savior (revive speed/regen/+15% speed _acc_perks).
+//   The deadshot/fastreload cases below POKE the swap engine so their twin applies instantly
+//   (the axes also re-derive on the 3s reconcile safety-net); doubletap2 has NO twin (the damage
+//   path reads the Mega flag live); armory calls armory_refill() (instant +20% reserve top-up -
+//   the old "GiveMaxAmmo to the twin's raised cap" died with the ammo axis 2026-06-16).
 // ---------------------------------------------------------------------------
 
 function apply_mega_effects( player, specialty_string )
@@ -563,7 +708,7 @@ function apply_mega_effects( player, specialty_string )
     switch ( specialty_string )
     {
     case "specialty_armorvest":
-        // Ultimate Tank: docs/13 = 300 HP. VERIFIED(acc): n_player_health_boost is
+        // Ultimate Tank: docs/10 = 300 HP. VERIFIED(acc): n_player_health_boost is
         // the only field the stock "health_reboot" recompute adds
         // (_zm_perks.gsc:828-831), and that recompute re-runs at every revive - so
         // the bonus survives downs. A bare SetMaxHealth would be wiped by the next
@@ -573,14 +718,14 @@ function apply_mega_effects( player, specialty_string )
         break;
 
     case "specialty_staminup":
-        // The Flash: +15% uniform move speed only (docs/13 overhaul - the old
+        // The Flash: +15% uniform move speed only (docs/10 overhaul - the old
         // SetSprintDuration extension was removed).
         player apply_flash_speed();
         break;
 
     case "specialty_widowswine":
-        // Spiderman: one-hit melee on regular zombies (_acc_damage) + immunity to boss specials
-        // (_acc_boss / _acc_elites) are applied elsewhere off the mega flag. LOW-STANCE MOBILITY
+        // Spiderman: immunity to boss specials (_acc_boss / _acc_elites) is applied elsewhere off the
+        // mega flag. (The one-hit melee was REMOVED 2026-06-29 - see the header + _acc_damage.) LOW-STANCE MOBILITY
         // (user 2026-06-26): crouch 2.6x / prone 10x / last-stand (down) 15x the normal speed of that stance,
         // via a per-player stance watcher -> player.acc_mww_stance_speed -> recompute_move_speed.
         player apply_mww_stance_speed();
@@ -589,27 +734,27 @@ function apply_mega_effects( player, specialty_string )
     case "specialty_additionalprimaryweapon":
         // The Armory (reworked 2026-06-16): NO LONGER a maxAmmo twin. The engine clamps reserve to
         // the baked cap, so a +capacity boost required a twin - that axis was removed to free the
-        // twin budget (docs/39). Armory is now a SUSTAIN perk: +35% reserve refill per carried gun
-        // at the start of every round (armory_round_refill_watcher), plus this instant top-up on
-        // acquire/rebuy. The 10%-off point-of-sale discount (gated on this Mega flag) is unchanged.
+        // twin budget (docs/21). Armory is now a SUSTAIN perk: +20% reserve refill per carried gun
+        // (ACC_ARMORY_ROUND_REFILL; was 0.35 until the 2026-06-21 nerf) at the start of every round
+        // (armory_round_refill_watcher), plus this instant top-up on acquire/rebuy. The 10%-off
+        // point-of-sale discount (gated on this Mega flag) is unchanged.
         player armory_refill();
         break;
 
     case "specialty_deadshot":
-        // American Sniper: the headshot-mult layer lives in _acc_damage; the
-        // -40% recoil half is the weapon-variant swap (base Deadshot is -25%, off the
-        // 2.1x map base). Poke the swap engine to upgrade base->Mega recoil twin
-        // (baked 2026-06-14, docs/perk_abilities §7 / docs/30 §4).
+        // American Sniper: the headshot-mult layer lives in _acc_damage; the recoil half is the
+        // weapon-variant swap - the SINGLE Mega-only "recoil50" twin (-50% off the 1.75x map base;
+        // base Deadshot has NO recoil twin since 2026-06-16 - the old -25%/-40% tiers are gone).
+        // Poke the swap engine so axis_recoil re-derives from the fresh Mega flag.
         acc_weapon_variants::request_reconcile( player );
         break;
 
     case "specialty_doubletap2":
-        // Gun Slinger: +45% fire rate AND -50% weapon-swap (~2x faster swap) via the
-        // "fastfire" weapon-variant twin (fireTime x0.69 + raise/drop x0.5, baked by
-        // tools/apply_recoil_overhaul.js TWIN_DIMS = the single source of truth). Poke the
-        // swap engine; axis_fire reads the Mega flag live. (Double Tap 2.0 base = fire rate
-        // + extra-bullet only; the old +6% damage layer was removed from _acc_damage.)
-        acc_weapon_variants::request_reconcile( player );
+        // Gun Slinger (REWORKED 2026-07-04): Mega Double Tap's ONLY effect is now a DAMAGE buff -
+        // the base DT extra-bullet temper eases from x0.6 -> x0.8 (acc_doubletap_mega_dmg_mult),
+        // applied live in _acc_damage::on_ai_damage via has_mega_perk. The old fire-rate/swap
+        // "fastfire" weapon-variant twin was REMOVED entirely (docs/10, docs/21). There is no DT
+        // twin to swap to anymore, so nothing to reconcile here - the damage path handles it live.
         break;
 
     case "specialty_fastreload":
@@ -617,15 +762,15 @@ function apply_mega_effects( player, specialty_string )
         // weapon-variant twin (reloadTime x0.857 on top of the engine +50%, baked
         // 2026-06-14). Poke the swap engine; axis_reload reads the Mega flag live.
         // Base +50% reload + barrier repair stay pure-engine; the map-wide drink-anim
-        // speedup was CUT (no per-perk lever - docs/perk_abilities §3).
+        // speedup was CUT (no per-perk lever - docs/10_perks §3).
         acc_weapon_variants::request_reconcile( player );
         break;
 
     case "specialty_electriccherry":
         // PhD Slider (PhD Flopper Mega): a bigger/stronger dive + down explosion. The deltas
         // (radius + damage) are read LIVE from the Mega flag in
-        // _acc_perk_phd_flopper::phd_explode. ALSO (user 2026-06-18): +15% move speed (flag ->
-        // recompute_move_speed, like The Flash) + +15% explosive damage (read live in
+        // _acc_perk_phd_flopper::phd_explode. ALSO: 1.75x SLIDE-gated move speed (flag ->
+        // recompute_move_speed) + +15% explosive damage (read live in
         // _acc_damage::on_ai_damage via has_active_mega_perk - GSC, no weapon twin needed).
         player apply_mega_flopper_speed();
         break;
@@ -652,8 +797,8 @@ function apply_flash_speed()
     acc_utility::recompute_move_speed( self );
 }
 
-// Mega Flopper (PhD Slider) = 1.5x SLIDE speed (user 2026-06-22, was 1.35x; matches/stacks with the Rocket Shield
-// slide boost). Slide-GATED, not always-on: a per-player watcher sets acc_mega_flopper_speed
+// Mega Flopper (PhD Slider) = 1.75x SLIDE speed (user 2026-07-05, was 1.5x/1.35x; stacks with the Rocket Shield's
+// own 1.75x slide boost - combined clamps to the 2.2x move cap). Slide-GATED, not always-on: a per-player watcher sets acc_mega_flopper_speed
 // only while you're actually sliding (IsSliding, mirrors _acc_boss_items::rocket_shield_watch),
 // recomputing through acc_utility's single owner. Single-instance via the stop notify (no
 // stacking on re-acquire / respawn re-apply).
@@ -662,7 +807,7 @@ function apply_mega_flopper_speed()
     self notify( "acc_mega_flopper_watch_stop" );
     self.acc_mega_flopper_speed = false;
     self thread mega_flopper_slide_watch();
-    if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
+    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
 }
 
 function mega_flopper_slide_watch()    // self = player
@@ -683,7 +828,7 @@ function mega_flopper_slide_watch()    // self = player
                 self.acc_mega_flopper_speed = false;
                 acc_utility::recompute_move_speed( self );
             }
-            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
+            if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
             return;
         }
 
@@ -691,12 +836,12 @@ function mega_flopper_slide_watch()    // self = player
         if ( now_slide != sliding )
         {
             sliding = now_slide;
-            self.acc_mega_flopper_speed = now_slide;   // 1.5x via recompute_move_speed
+            self.acc_mega_flopper_speed = now_slide;   // 1.75x via recompute_move_speed
             acc_utility::crash_log( self, "mega_flopper_slide_watch: slide " + ( now_slide ? "ON" : "off" ) );
             acc_utility::recompute_move_speed( self );
-            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
+            if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
             {
-                if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.5 ) + ")" );
+                if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.75 ) + ")" );
                 else self iprintln( "^7PhD Slider: slide boost off" );
             }
         }
@@ -745,6 +890,22 @@ function mww_stance_speed_watch()   // self = player
     self.acc_mww_stance_speed = 1.0;
     for ( ;; )
     {
+        // [acc] AVOGADRO HACK PAUSE (user 2026-07-06): while the cyberhacker has Widow's Wine disabled the
+        // stance mobility must drop with it, but the WATCHER must survive the window - the genuine-loss
+        // stop below `return`s, and on restore only on_perk_restored could restart it. Zero the factor,
+        // idle, resume automatically when the machine comes back.
+        if ( isdefined( level.acc_avo_hacked ) && IS_TRUE( level.acc_avo_hacked[ "specialty_widowswine" ] ) )
+        {
+            if ( last != 1.0 )
+            {
+                last = 1.0;
+                self.acc_mww_stance_speed = 1.0;
+                acc_utility::recompute_move_speed( self );
+            }
+            wait( 0.25 );
+            continue;
+        }
+
         // OWNERSHIP SNAPSHOT for the DOWN case (user 2026-06-25): while UP (HasPerk reliable), record whether
         // we LEGITIMATELY hold active Mega Widow's. mww_stance_factor's last-stand branch reads THIS snapshot,
         // NOT HasPerk - because going into last stand makes the engine report the perk as "lost" (and a real
@@ -804,7 +965,12 @@ function mww_stance_factor( player )
 // weapon.maxammo = reserve cap in rounds (_zm_weapons:2935). self = player.
 function armory_refill()
 {
-    self endon( "disconnect" );
+    // [acc] NO endon("disconnect"): called inline from the LEVEL thread armory_round_refill_watcher
+    // (and the acquire path), so an endon would bind to that shared thread and permanently kill
+    // round-start refills for the WHOLE lobby the moment any Armory-Mega holder disconnects. This
+    // function has no wait, so the endon protected nothing anyway - a simple validity guard is enough.
+    if ( !isdefined( self ) || !isplayer( self ) )
+        return;
 
     guns = self GetWeaponsListPrimaries();
 
@@ -874,9 +1040,9 @@ function on_perk_bought( perk )
     }
 
     // Deadshot's recoil reduction applies at the BASE tier (-25%) too, so the
-    // variant twin must reconcile on any (re)buy, not just on Mega. Double Tap's
-    // fast-fire is Mega-only but a re-buy poke is harmless. (Reconcile derives
-    // the tier live; inert until twins baked.)
+    // variant twin must reconcile on any (re)buy, not just on Mega. Double Tap has
+    // NO twin anymore (fast-fire removed 2026-07-04 - Mega DT is a damage buff in
+    // _acc_damage), so its poke here is a harmless no-op; kept for symmetry.
     if ( perk == "specialty_deadshot" || perk == "specialty_doubletap2" )
     {
         acc_weapon_variants::request_reconcile( self );
@@ -974,15 +1140,16 @@ function on_perk_lost( perk )
     if ( perk == "specialty_deadshot" || perk == "specialty_doubletap2"
          || perk == "specialty_fastreload" || perk == "specialty_additionalprimaryweapon" )
     {
-        // Strip the recoil / fastfire / fastreload / ammo twin back to the base weapon.
-        // reconcile re-derives from the (now-removed) perk, so the twin is undone (the
-        // engine then re-clamps the reserve to the base cap, dropping the +25%).
+        // Strip the recoil / fastreload twin back to the base weapon (fastfire/ammo axes
+        // are gone). reconcile re-derives from the (now-removed) perk, so the twin is undone.
+        // (doubletap2 is kept in the guard but is a no-op for twins now - Mega DT is a damage
+        // buff in _acc_damage, no twin; the reconcile is harmless/idempotent.)
         acc_weapon_variants::request_reconcile( self );
     }
 }
 
 // ---------------------------------------------------------------------------
-// Display names for Mega variants (docs/13_perks.md source of truth).
+// Display names for Mega variants (docs/10_perks.md source of truth).
 // ---------------------------------------------------------------------------
 
 function mega_display_name( specialty_string )

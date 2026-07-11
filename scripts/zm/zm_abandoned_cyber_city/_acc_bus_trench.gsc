@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_bus_trench.gsc - Bus Station (corp_zone) cross-room trench fall tax
 //
-// Design reference: docs/03_layout.md "Bus Station trench"; geometry SoT
+// Design reference: docs/02_layout.md "Bus Station trench"; geometry SoT
 // source_data/rooms.json "trenches".corp; brushes tools/gen_corp_trench.js.
 //
 // The Bus Station has a horizontal (E-W) trench cut dead-centre. To reach the
@@ -14,7 +14,7 @@
 // WOULD apply and could KILL on a jump-in (user 2026-06-18: "died in the trench, not
 // from a zombie"). We DISABLE native fall damage map-wide in init() (raise the threshold
 // well above any map fall) so the trench's danger comes from the AMPED ZOMBIES, not from
-// the drop. The ONLY fall cost is our fixed tax (ACC_TRENCH_FALL_DMG = 25), applied ONLY
+// the drop. The ONLY fall cost is our fixed tax (ACC_TRENCH_FALL_DMG = 35), applied ONLY
 // on a FAST entry
 // (jumped/fell in with downward velocity past a threshold) - a player who walks
 // the stair walkway down keeps near-zero vertical speed and pays nothing. The
@@ -61,7 +61,7 @@
 #define ACC_UNDER_Y2                2900
 #define ACC_UNDER_Z                 -36
 
-// Abyss descent (docs/48): 5 floors straight down on a fixed 240u pitch - L1 floor -240, L2 -480,
+// Abyss descent (docs/30): 5 floors straight down on a fixed 240u pitch - L1 floor -240, L2 -480,
 // L3 -720, L4 -960, L5 -1200. underground_layer() turns a world z into the layer index (how many
 // 240u steps below the lip); the per-layer zombie scaling in _acc_zombie_speed reads it. PITCH is
 // a GEOMETRY constant (must match gen_abyss_layer.js), NOT a tuning dvar.
@@ -103,9 +103,13 @@
 #define ACC_TRENCH_FALL_VZ          -200
 
 // Fall-tax damage. A plain constant - this feature is ALWAYS on (no flag/dvar);
-// edit this number to retune. ~25 is a light tax that never downs a healthy
+// edit this number to retune. ~35 is a light tax that never downs a healthy
 // player; PhD Flopper negates it (MOD_FALLING, see apply_fall_tax).
-#define ACC_TRENCH_FALL_DMG         25
+#define ACC_TRENCH_FALL_DMG         35
+// Delay (s) between flagging the fast entry and applying the tax (user 2026-07-05): the watcher flags
+// entry the instant the feet cross the lip, while the player is still FALLING, so an immediate tax feels
+// disconnected. ~0.2s lands it closer to the actual floor impact. See apply_fall_tax_delayed.
+#define ACC_TRENCH_FALL_DELAY       0.2
 #define ACC_TRENCH_POLL_SEC         0.05
 
 // ---------------------------------------------------------------------------
@@ -125,9 +129,12 @@
 #define ACC_BRIDGE_X2               147    // x[-109,147], y[1723,2173], deck top z=58 (the 2x-jump gate).
 #define ACC_BRIDGE_Y1               1723
 #define ACC_BRIDGE_Y2               2173
-#define ACC_BRIDGE_Z_MIN            50     // ~8u below the z=58 deck top (feet jitter, user 2026-06-26). >0 = ABOVE
-                                            // GROUND: the trench/abyss is all NEGATIVE z, so this one bound excludes
-                                            // ALL of it (the old -241 box sat IN the pit = the whole bug).
+#define ACC_BRIDGE_Z_MIN            20     // GENEROUS floor below the z=58 deck top (was 50; user 2026-07-05). >0 = ABOVE
+                                            // GROUND: the trench/abyss is all NEGATIVE z AND the bus-station ground (z=0)
+                                            // is CUT AWAY inside this XY column, so NOTHING is standable between the deck
+                                            // (z58) and the trench floor (~-240) - the low floor only adds jitter/mantle
+                                            // margin, it can NEVER catch a trench camper. (The real "no damage" bug was
+                                            // the self-attacker DoDamage below, not the box - see bridge_drain_watcher.)
 #define ACC_BRIDGE_Z_MAX            178    // deck 58 + ~120 headroom: catches a camper bunny-hopping on the deck;
                                             // the bus-station ground (z=0) is below z_min so normal play is clear.
 #define ACC_BRIDGE_DRAIN_PCT        15     // % of MAX health per tick (user 2026-06-25)
@@ -240,7 +247,8 @@ function watch_connections()
         player thread trench_fall_watcher();
         player thread trench_shard_income();    // passive Data Shard income while standing in a trench layer (deeper = faster)
         player thread bridge_drain_watcher();   // anti-camp: bleed health on the zombie-unreachable bridge
-        player thread bridge_debug_readout();   // TEMP diag (user 2026-07-04): on-screen coord + on_bridge readout
+        if ( IS_TRUE( level.acc_dev ) )
+            player thread bridge_debug_readout();   // DEV-ONLY diag (user 2026-07-05): on-screen coord + on_bridge readout - was spamming every 0.25s in the trench in NORMAL play, now gated behind acc_dev
         player thread trench_damage_logger();   // TEMP: name the exact cause of any trench death
         player thread trench_player_navlog();   // TEMP diag: log player nav state while underground
     }
@@ -342,7 +350,7 @@ function trench_fall_watcher()
     self endon( "disconnect" );
 
     was_inside  = false;
-    prev_layer  = 0;   // last trench layer (docs/47): recompute move speed on any depth change
+    prev_layer  = 0;   // last trench layer (docs/29): recompute move speed on any depth change
     dbg_tick    = 0;
     dbg_last_hp = self.health;
 
@@ -350,10 +358,10 @@ function trench_fall_watcher()
     {
         wait ACC_TRENCH_POLL_SEC;
 
-        layer  = underground_layer( self.origin );   // 0 = surface, 1..N by depth (docs/47)
+        layer  = underground_layer( self.origin );   // 0 = surface, 1..N by depth (docs/29)
         inside = ( layer > 0 );
 
-        // Layered trench slow (docs/47): the move-speed owner reads acc_trench_layer + the player's Exo
+        // Layered trench slow (docs/29): the move-speed owner reads acc_trench_layer + the player's Exo
         // Suit tier (tier T cancels the slow down to layer T). Track the layer and recompute on ANY depth
         // change - entry, exit, or one layer deeper. (acc_trench_slow boolean kept for active_speed_flags.)
         self.acc_trench_slow = inside;
@@ -388,9 +396,9 @@ function trench_fall_watcher()
             if ( zm_utility::is_player_valid( self ) &&
                  ( self GetVelocity()[ 2 ] ) < ACC_TRENCH_FALL_VZ )
             {
-                apply_fall_tax( self );
+                self thread apply_fall_tax_delayed();   // ~0.2s delay so it lands on IMPACT, not mid-air
             }
-            // (The trench slow is now handled per-poll by the layer tracking above - docs/47.)
+            // (The trench slow is now handled per-poll by the layer tracking above - docs/29.)
             // Danger warning while EXPOSED in the pit (any entry, stairs included).
             if ( getdvarint( "acc_trench_warn", 1 ) == 1 )
             {
@@ -411,7 +419,7 @@ function trench_fall_watcher()
         {
             self notify( "acc_left_trench" );   // stop the pulse loop
             self trench_warning_off();          // fade the warning out
-            // (the slow drop is handled by the per-poll layer tracking above - exiting = layer 0 - docs/47)
+            // (the slow drop is handled by the per-poll layer tracking above - exiting = layer 0 - docs/29)
         }
 
         // TEMP DIAGNOSTIC (acc_trench_dbg, default 0 - set 1 to re-enable) - find out WHAT kills a player in
@@ -505,7 +513,7 @@ function player_in_vault( player )
 }
 
 // Which trench LAYER a world position is in: 0 = surface (not underground), 1 = the top trench
-// (lip -36 .. floor -240), 2..5 = the deeper Abyss floors (docs/48). The trench goes DEEP in layers
+// (lip -36 .. floor -240), 2..5 = the deeper Abyss floors (docs/30). The trench goes DEEP in layers
 // (user 2026-06-21), each one deadlier - the per-layer zombie scaling (+move / +melee) in
 // _acc_zombie_speed reads this. Takes a raw origin so it works for ANY entity (player OR zombie),
 // letting the zombie buff gate on the ZOMBIE'S OWN position rather than its target.
@@ -552,14 +560,29 @@ function trench_melee_scaled( player, n_damage )
 
 function apply_fall_tax( player )
 {
-    // MOD_FALLING routes through the stock player-damage pipeline (so PhD
-    // Flopper's level.perk_damage_override negates it - _acc_perk_phd_flopper),
-    // and reads as a fall on the HUD. Self as attacker/inflictor mirrors the
-    // self-inflicted idiom (PhD's own slide nova does z DoDamage(...,self,self)).
-    // 25 never downs a healthy player; if it ever did, it routes to laststand
-    // normally (same as decon's DoDamage path, _acc_decontamination).
-    player DoDamage( ACC_TRENCH_FALL_DMG, player.origin, player, player, 0, "MOD_FALLING" );
+    // MOD_FALLING routes through the stock player-damage pipeline (so PhD Flopper's
+    // level.perk_damage_override negates it - _acc_perk_phd_flopper), and reads as a fall on the HUD.
+    // *** UNDEFINED attacker/inflictor (was self,self), fixed 2026-07-05. *** Self-as-attacker made the
+    // stock self-damage MOD whitelist (_zm.gsc:1424-1448) DROP this entirely - MOD_FALLING is NOT on that
+    // whitelist, so the tax silently did NOTHING (same root bug as the bridge drain; memory
+    // stock-self-damage-mod-whitelist). Undefined attacker skips the isPlayer(eAttacker) block so the hit
+    // lands, and MOD_FALLING still routes to phd_damage_override so PhD Flopper negates the tax for free.
+    // 35 never downs a healthy player; if it ever did, it routes to laststand normally (decon's path).
+    player DoDamage( ACC_TRENCH_FALL_DMG, player.origin, undefined, undefined, 0, "MOD_FALLING" );
     acc_utility::log_player( player, "bus trench fall tax (" + ACC_TRENCH_FALL_DMG + ")" );
+}
+
+// The fall watcher flags "entered the trench" the instant the feet cross the lip - but the player is
+// still FALLING then (in the air), so an immediate tax feels disconnected from the landing. Wait
+// ACC_TRENCH_FALL_DELAY (~0.2s) so the tax lands closer to the actual floor IMPACT (user 2026-07-05).
+// Threaded so the poll loop isn't blocked; endon disconnect + a revalidate guard a down/leave in the wait.
+function apply_fall_tax_delayed()   // self = player
+{
+    self endon( "disconnect" );
+    wait ACC_TRENCH_FALL_DELAY;
+    if ( !zm_utility::is_player_valid( self ) )
+        return;
+    apply_fall_tax( self );
 }
 
 // ---------------------------------------------------------------------------
@@ -606,6 +629,20 @@ function bridge_debug_readout()   // self = player
 // free. Stops cleanly when downed/invalid (is_player_valid skips this tick, resumes on revive);
 // DoDamage routes through the stock laststand pipeline if the bleed ever downs you. Gated by
 // acc_bridge_drain_on (default 1); pct + interval are live dvars.
+//
+// *** THE "NO DAMAGE ON THE BRIDGE" FIX (user, 2026-07-05; root-caused by a 4-agent workflow). ***
+// For a LONG time this bled nothing and we kept moving the detection box (4x) blaming the geometry.
+// The box was NEVER the problem. The bleed passed the PLAYER as attacker+inflictor
+// (self DoDamage(..., self, self, ..., "MOD_UNKNOWN")). Stock Callback_PlayerDamage (_zm.gsc:1424-1448)
+// has a self-inflicted-damage MOD WHITELIST: when the attacker isPlayer + same team + == self, it
+// RETURNS WITHOUT DAMAGE unless the MOD is one of GRENADE / GRENADE_SPLASH / EXPLOSIVE / PROJECTILE /
+// PROJECTILE_SPLASH / BURNED / SUICIDE. MOD_UNKNOWN is NOT on that list, so every tick's damage was
+// silently dropped BEFORE any override ran - that is why the camp was always free. FIX: pass an
+// UNDEFINED attacker/inflictor (like the decontamination seal _acc_decontamination.gsc:392 and stock
+// _oob.gsc:308 / zombie_vortex.gsc:353) so the isPlayer(eAttacker) block is skipped and the hit
+// proceeds - while KEEPING MOD_UNKNOWN so PhD / all perks still can't negate the camp bleed.
+// Memory: stock-self-damage-mod-whitelist. (apply_fall_tax above had the SAME defect - self-attacker +
+// MOD_FALLING, also not whitelisted - fixed the same way 2026-07-05, so the 25 fall tax now actually lands.)
 function bridge_drain_watcher()   // self = player
 {
     self endon( "disconnect" );
@@ -639,7 +676,9 @@ function bridge_drain_watcher()   // self = player
         pct = getdvarint( "acc_bridge_drain_pct", ACC_BRIDGE_DRAIN_PCT );
         dmg = int( self.maxhealth * pct / 100 );
         if ( dmg < 1 ) dmg = 1;
-        self DoDamage( dmg, self.origin, self, self, 0, "MOD_UNKNOWN" );
+        // UNDEFINED attacker/inflictor (NOT self) so the stock self-damage MOD whitelist (_zm.gsc:1424)
+        // does NOT drop this hit - see the note above bridge_drain_watcher. MOD_UNKNOWN kept so no perk negates it.
+        self DoDamage( dmg, self.origin, undefined, undefined, 0, "MOD_UNKNOWN" );
 
         // Qualitative warning only (no magnitudes - memory vague-ui-no-magnitudes). IPrintLnBold REPLACES the
         // previous bold line, so a 1/s refresh doesn't stack - it just tells the player WHY they're bleeding.
@@ -999,6 +1038,24 @@ function tag_trench_zombie()   // self = the surge-spawned zombie
     // that caused the trench OOB-kill - the pit sits below the zone volume.) Fix: force-complete emergence
     // like the round path, after the rise finishes (bounded wait so a missed "risen" can't deadlock).
     // No-op when a surge zombie ever spawns at a corp spawner instead of the pit (already emerged).
+    // (Split into force_playable_emergence so teleporting stock-BT bosses can reuse it - see below.)
+    self force_playable_emergence();
+}
+
+// PUBLIC split of tag_trench_zombie's emergence step (Paradise boss audit, user 2026-07-09): force the
+// stock BT's playable-area flag on any STOCK-ZOMBIE-hosted AI that will FIGHT BELOW every player_volume
+// (deep trench z<=-240, Paradise z=-1200). Callers beyond the trench surge: the Phantom and the Glitch
+// Stalker (_acc_boss_phantom / _acc_boss_glitch) - both spawn their host TOPSIDE at a normal spawner and
+// TELEPORT/blink to players, so when the players are in Paradise the host warps below the volumes before
+// ever touching one -> completed_emerging_into_playable_area never sets -> the stock melee branch never
+// unlocks and the boss chases + stands in your face without ever swinging ("bosses weren't doing damage").
+// Safe topside: no-op when the flag is already set; bounded rise-wait so a missed "risen" can't deadlock.
+// self = the zombie-archetype host. Callable inline (has waits) or threaded.
+function force_playable_emergence()
+{
+    self endon( "death" );
+    while ( !isdefined( self.zombie_init_done ) )
+        util::wait_network_frame();
     if ( !IS_TRUE( self.completed_emerging_into_playable_area ) )
     {
         if ( IS_TRUE( self.in_the_ground ) )
@@ -1177,6 +1234,11 @@ function ensure_trench_warning()   // self = player
     // fixed-size icon did NOT reach the widescreen edges (user 2026-06-18). Moderate alpha
     // = dread, not a blackout; do NOT setPoint (the fullscreen align is the positioning).
     self.acc_trench_warn_bg = self hud::createIcon( "white", 640, 480 );
+    // [acc] COOP CRASH GUARD: hud::create* returns undefined when the shared hudelem pool is full
+    // (4-player exhaustion); the field writes below would throw. Bail - the warning just isn't shown
+    // this exposure and re-arms next time (the re-entry guard above keys on acc_trench_warn_txt).
+    if ( !isdefined( self.acc_trench_warn_bg ) )
+        return;
     self.acc_trench_warn_bg.horzAlign = "fullscreen";
     self.acc_trench_warn_bg.vertAlign = "fullscreen";
     self.acc_trench_warn_bg.alignX = "left";
@@ -1191,6 +1253,14 @@ function ensure_trench_warning()   // self = player
     // Banner, upper-center (clears the boss bar + dev sign). fontscale 1.4 (>= 1.0:
     // a sub-1.0 fontscale renders oversized on this build - see _acc_boss_items NITRO).
     self.acc_trench_warn_txt = self hud::createFontString( "default", 1.4 );
+    // [acc] COOP CRASH GUARD: pool-full undefined. Drop the half-built warning (destroy the bg so the
+    // re-entry guard doesn't think the warning exists) and bail; it re-arms cleanly next exposure.
+    if ( !isdefined( self.acc_trench_warn_txt ) )
+    {
+        self.acc_trench_warn_bg Destroy();
+        self.acc_trench_warn_bg = undefined;
+        return;
+    }
     self.acc_trench_warn_txt hud::setPoint( "TOP", "TOP", 0, 110 );
     self.acc_trench_warn_txt.alignX = "center";
     self.acc_trench_warn_txt.alignY = "top";
@@ -1207,6 +1277,11 @@ function trench_warning_on()   // self = player
     self endon( "acc_left_trench" );
 
     self ensure_trench_warning();
+    // [acc] 4p guard (2026-07-06 coop sweep): ensure_trench_warning legitimately bails with BOTH
+    // elems undefined when the hudelem pool is full - the fadeovertime calls below would then throw.
+    // Skip the warning this exposure; it re-arms on the next trench entry.
+    if ( !isdefined( self.acc_trench_warn_txt ) || !isdefined( self.acc_trench_warn_bg ) )
+        return;
 
     // SHOW FOR ~4s THEN AUTO-OFF (user 2026-06-18: shorter + less frequent pulse - the old
     // continuous fast pulse was annoying). A slow ~2s pulse cycle (hp up + hp down) over a 4s

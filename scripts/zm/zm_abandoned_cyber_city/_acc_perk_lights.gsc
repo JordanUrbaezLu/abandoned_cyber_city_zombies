@@ -12,7 +12,7 @@
 // power-ups render fine. So we copy that: the SERVER (this file) only sets a
 // per-machine "accPerkGlow" colour-index clientfield on the power_on flag; the
 // CLIENT (_acc_perk_lights.csc) actually PlayFX's the glow. No FX is ever played
-// from .gsc. See memory power-on-lights-perks-mechanism + docs/29.
+// from .gsc. See memory power-on-lights-perks-mechanism + docs/20.
 //
 // LED-SAFE: this is pure .gsc/.csc/.zone/.fx - it NEVER touches map_source/*.map,
 // so it ships with `build_map.ps1 -GscOnly` (no cod2map64/LED) and cannot regress
@@ -69,6 +69,7 @@ function power_glow_watch()
         wait( 0.25 );
 
     glow_all_machines();
+    level thread paradise_glow_rekick();
 }
 
 // Set the per-perk colour index on every perk machine + a PaP host. One-shot (the
@@ -129,6 +130,96 @@ function glow_all_machines()
     {
         dbg( "PaP NOT FOUND via pack_a_punch noteworthy - no PaP glow" );
     }
+
+    // PARADISE PaP glow (user 2026-07-09: "the pap in paradise doesn't glow like the lab one"): the
+    // arena's 2nd PaP is our CUSTOM script_model vendor (_acc_pap_levels::spawn_paradise_pap_at,
+    // registered on level.acc_custom_pap_machines) - it carries no "pack_a_punch" noteworthy, so the
+    // scan above only ever found the SURFACE machine. Give each custom vendor its own invisible glow
+    // host (the same tag_origin idiom). Own z dvar: the custom model's origin is the FLOOR (unlike the
+    // elevated surface trigger the -50 offset above corrects for).
+    level.acc_custom_pap_glow_hosts = [];
+    if ( isdefined( level.acc_custom_pap_machines ) )
+    {
+        foreach ( t in level.acc_custom_pap_machines )
+        {
+            if ( !isdefined( t ) || !isdefined( t.acc_pap_model ) ) continue;
+            org = t.acc_pap_model.origin + ( 0, 0, getdvarint( "acc_paradise_pap_glow_z", -20 ) );
+            host = spawn( "script_model", org );
+            host setmodel( "tag_origin" );
+            host clientfield::set( "accPerkGlow", 10 );
+            ARRAY_ADD( level.acc_custom_pap_glow_hosts, host );
+            dbg( "custom PaP glow host spawned at " + org + " -> glow 10" );
+        }
+    }
+}
+
+// PARADISE GLOW RE-KICK (user 2026-07-09: "the perks and pap in paradise don't have the glow like the
+// lab"). The power-on pass above sets every machine's field ONCE - and the client plays the looping glow
+// FX the moment the value arrives, which for the arena row (z=-1200) is while every player is 1000+u
+// ABOVE it; an FX spawned that far out never becomes visible when you finally drop in. Every WORKING use
+// of this pipeline (Lab/surface machines, loot glow, shard banks, purge lights) has the field set while a
+// player is near the ent - the deep row was the one far-away set. Fix: each time the team transitions
+// into the deep band (anyone below z<-1000 = the abyss bottom / Paradise), PULSE the deep machines'
+// fields 0 -> idx so the client stops + replays the FX at close range. Edge-triggered (once per descent,
+// not per tick); a brief 0.25s off-blink on ents whose glow WAS rendering is the worst case.
+function paradise_glow_rekick()
+{
+    level endon( "end_game" );
+
+    was_deep = false;
+    for ( ;; )
+    {
+        wait 1;
+        deep = false;
+        foreach ( p in GetPlayers() )
+        {
+            if ( isdefined( p ) && isplayer( p ) && isalive( p ) && p.origin[ 2 ] < -1000 )
+            {
+                deep = true;
+                break;
+            }
+        }
+        if ( deep && !was_deep )
+            pulse_deep_glows();
+        was_deep = deep;
+    }
+}
+
+// Re-pulse ONLY the deep-band glow ents (machine models + custom PaP hosts below z=-600): 0 now, the
+// real index a beat later. The two values must land in DIFFERENT snapshots or they coalesce into
+// no-change (no client callback), hence the threaded re-set with a real wait.
+function pulse_deep_glows()
+{
+    n = 0;
+    triggers = GetEntArray( "zombie_vending", "targetname" );
+    foreach ( t in triggers )
+    {
+        if ( !isdefined( t.machine ) ) continue;
+        if ( t.machine.origin[ 2 ] > -600 ) continue;   // surface/Lab rows render fine - deep band only
+        idx = perk_color_index( t.script_noteworthy );
+        t.machine clientfield::set( "accPerkGlow", 0 );
+        t.machine thread reglow( idx );
+        n++;
+    }
+    if ( isdefined( level.acc_custom_pap_glow_hosts ) )
+    {
+        foreach ( host in level.acc_custom_pap_glow_hosts )
+        {
+            if ( !isdefined( host ) || host.origin[ 2 ] > -600 ) continue;
+            host clientfield::set( "accPerkGlow", 0 );
+            host thread reglow( 10 );
+            n++;
+        }
+    }
+    dbg( "deep-glow pulse: rekicked " + n + " glow ents" );
+}
+
+function reglow( idx )   // self = the machine model / glow host
+{
+    level endon( "end_game" );
+    wait 0.25;   // > one snapshot, so the 0 actually transmits before the re-set
+    if ( isdefined( self ) )
+        self clientfield::set( "accPerkGlow", idx );
 }
 
 function safe_sn( t )
@@ -143,7 +234,7 @@ function safe_sn( t )
 function dbg( msg )
 {
     acc_utility::log( "perk_lights: " + msg );
-    if ( getdvarint( "acc_perk_lights_debug", 0 ) == 0 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_perk_lights_debug", 0 ) == 0 ) return;
     players = GetPlayers();
     foreach ( p in players )
         p IPrintLnBold( "[perklight] " + msg );
@@ -174,10 +265,11 @@ function perk_color_index( specialty )
 // Public: drive the coloured-glow FX on ANY scriptmover ent (the per-round lockdown "purge" room
 // alarm in _acc_lockdown + the trench shard-bank indicator in _acc_data_shards reuse this exact
 // client-side pipeline, not just perk machines). The client _acc_perk_lights.csc renders it.
-// color_index 0 = off; 1..12 = the colours in the .csc level._effect map (1 red, 2 green, ...
-// 7 blacklight, 8 white, 9 purple, 10 teal, 11 MAGENTA [purge lights], 12 DIM WHITE [shard banks]).
-// accPerkGlow is a 4-bit field (0..15), so indices 11/12 fit with no width change. Centralises the
-// "accPerkGlow" field name so callers do not hardcode it.
+// color_index 0 = off; 1..13 = the colours in the .csc level._effect map (1 red, 2 green, ...
+// 7 blacklight, 8 white, 9 purple, 10 teal, 11 MAGENTA [purge lights], 12 DIM WHITE [shard banks],
+// 13 DIM AMBER [dropped-item loot glow, user 2026-07-08]). accPerkGlow is a 4-bit field (0..15),
+// so indices 11..13 fit with no width change. Centralises the "accPerkGlow" field name so callers
+// do not hardcode it.
 function set_glow( ent, color_index )
 {
     if ( !isdefined( ent ) ) return;

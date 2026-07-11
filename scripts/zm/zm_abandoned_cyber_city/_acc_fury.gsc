@@ -8,7 +8,7 @@
 // boss. It does NOT count toward the round (SpawnActor'd extra, zombie_total untouched -
 // same contract as the Glitch altar zombies).
 //
-//   - HEALTH: flat 10x the current round's zombie health (acc_fury_health_mult), OVERRIDING
+//   - HEALTH: flat 12x the current round's zombie health (acc_fury_health_mult), OVERRIDING
 //     the pack's 1.2/1.5/1.7 round tiers (its threaded health_init runs first; we re-set
 //     after our post-spawn wait, so ours wins).
 //   - SPEED: matches the round zombies' GAIT - run before acc_zspeed_sprint_round (17),
@@ -46,7 +46,7 @@
 #define ACC_FURY_MIN_LAYER_DEF    2   // only spawn while a player is at trench LAYER >= 2 (user 2026-07-03: "lv2 and below")
 #define ACC_FURY_MAX_PER_PLAYER   2   // furies a single deep player contributes to the alive cap
 #define ACC_FURY_MAX_CEIL_DEF     8   // hard ceiling on total alive furies (actor-budget safety)
-#define ACC_FURY_HEALTH_MULT_DEF  10.0 // x current round zombie health (user 2026-07-03: 5x -> 8x; 2026-07-04: 8x -> 10x)
+#define ACC_FURY_HEALTH_MULT_DEF  12.0 // x current round zombie health (user 2026-07-03: 5x -> 8x; 2026-07-04: 8x -> 10x; 2026-07-09: 10x -> 12x)
 
 #namespace acc_fury;
 
@@ -59,7 +59,7 @@ function init()
     if ( IS_TRUE( level.acc_dev ) )
         level thread dev_fury_watchers();
 
-    dbg( "init (10x hp, PER-PLAYER every " + getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF )
+    dbg( "init (12x hp, PER-PLAYER every " + getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF )
         + "s at trench layer >= " + getdvarint( "acc_fury_min_layer", ACC_FURY_MIN_LAYER_DEF ) + ")" );
 }
 
@@ -192,10 +192,13 @@ function deep_player_count()
     return n;
 }
 
-// Alive-fury cap = deep players x per-player share, hard-ceilinged (actor-budget safety).
+// Alive-fury cap = NUMBER OF PLAYERS in the game (user 2026-07-07: "match number of players - solo 1, ...,
+// 4p 4"). Was deep-players x 2 (up to 8); now simply the live player count, so it tracks the lobby size
+// (solo 1 / duo 2 / trio 3 / quad 4). The actor-budget ceiling (8) still backstops as a hard safety.
 function effective_cap()
 {
-    cap = deep_player_count() * getdvarint( "acc_fury_max_per_player", ACC_FURY_MAX_PER_PLAYER );
+    cap = GetPlayers().size;
+    if ( cap < 1 ) cap = 1;
     ceil = getdvarint( "acc_fury_max_ceil", ACC_FURY_MAX_CEIL_DEF );
     if ( cap > ceil ) cap = ceil;
     return cap;
@@ -266,6 +269,15 @@ function spawn_fury_near( player, require_underground )
         // Mirrors every sibling extra spawner (_acc_bus_trench:965, _acc_boss_glitch:282).
         e.ignore_enemy_count = true;
 
+        // [acc] BELOW-WORLD CULL IMMUNITY (Paradise audit, user 2026-07-09): the pack threads the stock
+        // zombie_utility::round_spawn_failsafe on every fury (zm_genesis_apothicon_fury.gsc:193), and
+        // that failsafe silently DoDamage-kills ANY actor whose z sits below below_world_check (-1000)
+        // on its 30s tick - REGARDLESS of movement. A trench-L5 fury (z=-1200) was being culled ~30s in,
+        // and every Paradise fury (arena z=-1200) would be guaranteed dead in 30s. The failsafe re-reads
+        // this flag each loop, so setting it here (same frame as spawn) fully disarms it - the same
+        // treatment every deep boss gets (paradise Brutus / Rogue Protector / Avogadro).
+        e.ignore_round_spawn_failsafe = true;
+
         level.acc_furies[ level.acc_furies.size ] = e;
         e thread fury_tune();
         return e;
@@ -274,7 +286,38 @@ function spawn_fury_near( player, require_underground )
     return undefined;
 }
 
-// Post-spawn stat override: 10x round zombie health + the horde's current gait.
+// PARADISE WAVE FURY (user 2026-07-09): spawn ONE fury INTO the Paradise arena as part of the finale
+// boss wave (_acc_paradise::maybe_spawn_fury, cap 1 - the same rolling one-of-each contract as the other
+// bosses). Anchors the meteor-drop on a living player already in the arena; require_underground=true is
+// the below-zone path (z gate -36; the arena floor -1200 passes) which SKIPS the enabled-zone check and
+// force-emerges - the exact trench recipe, so the drop can't land topside. Boss-flagged so the battle's
+// clean-slate purge, the Rogue Protector landing splash, and the octobomb targeting all exclude it, and
+// no-shard like every Paradise wave boss (a THREAT, not a farm). Returns the AI or undefined.
+function spawn_paradise_fury()
+{
+    anchor = undefined;
+    foreach ( p in GetPlayers() )
+    {
+        if ( isdefined( p ) && isplayer( p ) && isalive( p ) && acc_bus_trench::player_in_second_part( p ) )
+        {
+            anchor = p;
+            break;
+        }
+    }
+    if ( !isdefined( anchor ) )
+        return undefined;
+
+    e = spawn_fury_near( anchor, true );
+    if ( !isdefined( e ) )
+        return undefined;
+
+    e.acc_is_mini_boss    = true;   // purge/landing-splash/octobomb exclusion + boss damage handling
+    e.acc_no_shard_reward = true;   // parity with the other Paradise wave bosses (no Data Shards)
+    dbg( "PARADISE fury joined the battle" );
+    return e;
+}
+
+// Post-spawn stat override: 12x round zombie health + the horde's current gait.
 // Runs AFTER the pack's threaded health_init + the 1s think-done settle, so ours is final.
 function fury_tune()
 {

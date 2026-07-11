@@ -5,7 +5,7 @@
 //
 // MODEL = shared deposit/withdraw POOL (chosen by the user over directed-give /
 // two-pad). Co-op is host-authoritative and every resource is strictly per-player
-// (docs/15) - boss rewards even grant to each player independently - so the vault
+// (docs/12) - boss rewards even grant to each player independently - so the vault
 // is about REDISTRIBUTING: a strong killer banks points/shards/bottles/items that a
 // teammate building toward an expensive sink (Exo Suit, per-gun Overclocks) pulls
 // out. No player-targeting (avoids the closest_player_override hazards) - anyone on
@@ -46,7 +46,11 @@
 
 // Terminal mesh: the Cyber City interactive kiosk (stock t7 prop, proven-packing - same
 // model the Glitch Altar uses).
-#precache( "model", "p7_cai_sign_inteactive_kiosk" );
+// STATION REMODEL (user 2026-07-09, docs/09): ATM totem (37x34x103, T7-dump carve; Zurich
+// ticket-kiosk mesh family) - the deposit/withdraw read for the 4 vault stations. Its origin is
+// at the BASE (station origins are z=-160 = 80 above the -240 floor, tuned to the old kiosk
+// pivot), so the model spawns -80 to sit on the floor; pads/triggers keep the -160 origins.
+#precache( "model", "p7_out_monitor_atm" );
 
 #namespace acc_transfer;
 
@@ -85,8 +89,8 @@ function spawn_stations()
 
 function spawn_station( kind, origin )
 {
-    base = spawn( "script_model", origin );
-    base setmodel( "p7_cai_sign_inteactive_kiosk" );
+    base = spawn( "script_model", origin + ( 0, 0, -80 ) );   // ATM origin is at its base - drop to the -240 floor
+    base setmodel( "p7_out_monitor_atm" );
 
     // DEPOSIT pad (west of the terminal) + WITHDRAW pad (east of the terminal).
     spawn_pad( kind, "deposit",  origin + ( -55, 0, 0 ) );
@@ -165,7 +169,7 @@ function pad_loop()
 // A 10% TAX (dvar acc_vault_tax_pct) applied on DEPOSIT of Points + Data Shards ONLY - the pool
 // receives n minus the rounded tax, so the pool always holds clean 1:1 value and the withdraw paths
 // (incl. the shard cap clamp) stay untouched. Mega Bottles + Boss Items are NOT taxed. The tax is the
-// "house cut" that keeps a team from trivially funnelling the whole economy onto one player (docs/58).
+// "house cut" that keeps a team from trivially funnelling the whole economy onto one player (docs/37).
 function after_tax( n )
 {
     pct = getdvarint( "acc_vault_tax_pct", 10 );

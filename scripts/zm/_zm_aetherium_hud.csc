@@ -26,7 +26,50 @@ REGISTER_SYSTEM_EX( "zm_aetherium_hud", &__init__, &__main__, undefined )
 function set_ui_model_value( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
 	//  - create model using exact fieldName
-	setuimodelvalue( createuimodel( getuimodelforcontroller( localClientNum ), fieldName ), newVal );
+	// [acc] GUARD: getuimodelforcontroller can return undefined for a client whose UI model root isn't
+	// ready yet (join/first-snapshot); createuimodel on undefined faults the client UI. REVIEW FIX
+	// 2026-07-08: don't silently DROP the value on that window - every GSC feeder is change-guarded
+	// (last_* != value) and never re-sends, so a dropped first value left that widget 0/stale for the
+	// whole match. Stash it latest-wins per (client, field) and retry until the root exists.
+	model_root = getuimodelforcontroller( localClientNum );
+	if ( !isdefined( model_root ) )
+	{
+		level thread deferred_set_ui_model_value( localClientNum, fieldName, newVal );
+		return;
+	}
+	// Keep any in-flight retry for this field coherent: it re-applies the NEWEST value (idempotent),
+	// so a stale deferred value can never overwrite a fresher direct set.
+	if ( isdefined( level.acc_uim_pending ) )
+		level.acc_uim_pending[ "" + localClientNum + "_" + fieldName ] = newVal;
+	setuimodelvalue( createuimodel( model_root, fieldName ), newVal );
+}
+
+// [acc] Deferred re-apply for set_ui_model_value when the client's UI model root isn't ready yet
+// (initial snapshot). Latest value per (client, field) wins; ONE bounded retry thread per key (~10s
+// at 0.1s - the root appears within the first frames once the snapshot settles, this just outlives
+// any realistic init order). Applies whatever is newest in the pending slot at fire time.
+function deferred_set_ui_model_value( localClientNum, fieldName, newVal )
+{
+	if ( !isdefined( level.acc_uim_pending ) )      level.acc_uim_pending = [];
+	if ( !isdefined( level.acc_uim_retry_active ) ) level.acc_uim_retry_active = [];
+
+	key = "" + localClientNum + "_" + fieldName;
+	level.acc_uim_pending[ key ] = newVal;                 // latest-wins
+	if ( IS_TRUE( level.acc_uim_retry_active[ key ] ) )
+		return;                                            // a retry for this field is already waiting
+	level.acc_uim_retry_active[ key ] = true;
+
+	for ( i = 0; i < 100; i++ )
+	{
+		wait 0.1;
+		model_root = getuimodelforcontroller( localClientNum );
+		if ( isdefined( model_root ) )
+		{
+			setuimodelvalue( createuimodel( model_root, fieldName ), level.acc_uim_pending[ key ] );
+			break;
+		}
+	}
+	level.acc_uim_retry_active[ key ] = false;
 }
 
 function __init__()
@@ -50,6 +93,18 @@ function __init__()
 		clientfield::register( "world", "player_shards_" + i, VERSION_SHIP, 10, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	}
 
+	// ACC per-player MB + EXO broadcast (LOCKSTEP with the .gsc - mb 0..3 THEN exo 0..3, right after
+	// player_shards). set_ui_model_value pipes each into the "player_mb_<i>" / "player_exo_<i>" UI
+	// models the AetheriumPartyPlayers widget reads per teammate clientNum.
+	for( i = 0; i < 4; i++ )
+	{
+		clientfield::register( "world", "player_mb_" + i, VERSION_SHIP, 5, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	}
+	for( i = 0; i < 4; i++ )
+	{
+		clientfield::register( "world", "player_exo_" + i, VERSION_SHIP, 4, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	}
+
 	// ACC currencies (LOCKSTEP with the .gsc - same order/width/type): toplayer fields piped
 	// straight into same-named UI models for AetheriumPlayerInfo's panel row.
 	clientfield::register( "toplayer", "acc_shards", VERSION_SHIP, 10, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
@@ -57,6 +112,11 @@ function __init__()
 	clientfield::register( "toplayer", "acc_exo", VERSION_SHIP, 4, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	// ACC max HP (LOCKSTEP with the .gsc - appended last in toplayer scope) -> "acc_maxhp" UI model.
 	clientfield::register( "toplayer", "acc_maxhp", VERSION_SHIP, 9, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	// ACC gun-badge FLAG bitmask (LOCKSTEP with the .gsc - appended last; REPLACED the 1-bit
+	// acc_mule field 2026-07-08) -> "acc_badges" UI model read by acc_hud.lua CoD.AccGunBadgeRow
+	// (bit 0 MULE, bit 1 TURBO, bit 2 NUKE; bit table + compute live in _acc_gun_badges.gsc. TIER
+	// badges PaP/OC ride the existing accPapTier/accOcTier clientuimodels).
+	clientfield::register( "toplayer", "acc_badges", VERSION_SHIP, 6, "int", &set_ui_model_value, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     
 	// Load the Aetherium HUD - ACC: gate + LOWERCASE "hud" (matches the on-disk dir shared
 	// with acc_hud.lua and the zone rawfile line; the kit's "HUD" casing only worked via

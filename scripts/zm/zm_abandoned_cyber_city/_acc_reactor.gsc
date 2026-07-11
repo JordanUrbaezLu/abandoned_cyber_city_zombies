@@ -1,7 +1,7 @@
 // =============================================================================
-// _acc_reactor.gsc - the "Reactor Surge": the underground CLIMAX event (docs/45).
+// _acc_reactor.gsc - the "Reactor Surge": the underground CLIMAX event (docs/30).
 //
-// OWNER SPLIT (docs/45): the SYSTEM (this module) owns the event LOGIC + the Arm
+// OWNER SPLIT (docs/30): the SYSTEM (this module) owns the event LOGIC + the Arm
 // Plinth interactable + the tier-dialed payout. The GEOMETRY agent owns the Core
 // room, the seal door, and the FX seam. INTERFACE: the §3 anchor (Plinth at
 // 0,2120,-240, on the existing pit floor at the Core entrance) + a named seal
@@ -32,7 +32,9 @@
 
 // Plinth model: a Cyber City interactive sign kiosk (industrial/power read for the Reactor; stock t7_props, proven packable). Placed in
 // the pit, far from the perk vendor, with a distinct red REACTOR prompt - no player confusion.
-#precache( "model", "p7_cai_sign_inteactive_kiosk" );
+// STATION REMODEL (user 2026-07-09, docs/09): Rise industrial generator (92x46x50, T7-dump
+// carve) - a power read for the reactor Arm Plinth; kills the 6-way sign-kiosk reuse.
+#precache( "model", "p7_ris_generator_lg_01_blue" );
 
 // Surge tuning defaults: MORE + QUICKER waves, and re-arm on a round COOLDOWN (was a buggy once-per-round).
 // SCARY PASS (user 2026-06-25): make the surge something you might NOT want to start - 5 waves (was 3), +30%
@@ -67,7 +69,7 @@ function init()
 // the rest of the game" (the reported bug). The new gate reads level.round_number LIVE against
 // acc_reactor_ready_round, so re-availability NEVER depends on a notify firing or a flag being cleared - it
 // self-heals. The cooldown is committed at the START of run_surge, and reactor_busy_watchdog force-clears a
-// stuck busy. Default 3 rounds ("raid it, don't farm it", docs/45). Live dvar acc_reactor_cooldown.
+// stuck busy. Default 3 rounds ("raid it, don't farm it", docs/30). Live dvar acc_reactor_cooldown.
 function reactor_available()
 {
     if ( level.acc_reactor_busy )
@@ -109,18 +111,19 @@ function spawn_reactor()
     if ( getdvarint( "acc_reactor_on", 1 ) != 1 )
         return;
 
-    // Arm Plinth - in the teddy-bear NORTH under-room (user 2026-06-26: declutter the trench + reward opening that
+    // Arm Plinth - in the jukebox NORTH under-room (user 2026-06-26: declutter the trench + reward opening that
     // door). Room is ORIGINAL: interior x[-192,192], walkable y[2189,2517], floor z=-240. Plinth is CENTERED (x=0)
-    // at the back wall (0,2493) - clip north flush at 2517. The plinth model (p7_cai_sign_inteactive_kiosk) is deep,
-    // so it overlapped the center bear back when the bears were at y2430; the bears were NUDGED FORWARD to y2350
-    // (user 2026-06-28, _acc_ee_song) -> ~143u clearance behind them, so the plinth sits dead-center + clear. yaw 270.
-    spawn_plinth_at( ( 0, 2493, -240 ), 270 );
+    // at the back wall (0,2493) - clip north flush at 2517. STATION REMODEL 2026-07-09: the plinth is now the
+    // Rise industrial generator (92 LONG in X x 46 deep) - yaw 0 keeps the long axis along the back wall
+    // (yaw 270 would poke it through the north wall at 2517) and stays clear of the jukebox machine
+    // (_acc_jukebox, replaced the 3 teddy bears 2026-07-09) WEST at (-140, 2350).
+    spawn_plinth_at( ( 0, 2493, -240 ), 0 );
 }
 
 function spawn_plinth_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_sign_inteactive_kiosk" );
+    m setmodel( "p7_ris_generator_lg_01_blue" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 90 );
@@ -341,7 +344,7 @@ function reactor_spawn_shielded()
 }
 
 // ---------------------------------------------------------------------------
-// Sealed-arena hook (docs/45 §5). If the parallel geometry agent has placed a seal door
+// Sealed-arena hook (docs/30 §5). If the parallel geometry agent has placed a seal door
 // (script_brushmodel targetname "acc_reactor_seal") that listens for these notifies, the Core
 // seals during a Surge. Until that geometry lands, getentarray is empty => harmless no-op and
 // the surge runs OPEN in the pit. NEVER hard-depends on the unbuilt Core room.

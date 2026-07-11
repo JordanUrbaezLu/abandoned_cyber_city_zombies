@@ -1,8 +1,8 @@
 // =============================================================================
 // _acc_data_shards.gsc - the custom "Data Shards" currency
 //
-// Design reference: docs/04_progression_and_skills.md (Two Currencies, Data
-// Shard Sources), docs/06_mechanics.md (Data Shard Economy flow).
+// Design reference: docs/03_progression_and_skills.md (Two Currencies, Data
+// Shard Sources), docs/05_mechanics.md (Data Shard Economy flow).
 //
 // Responsibilities:
 //  - Per-player shard counter (self.acc_data_shards).
@@ -23,7 +23,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;   // set_glow() for the shard-bank "has shards" indicator glow
 
 // ---------------------------------------------------------------------------
-// Constants - tune freely; documented in docs/04_progression_and_skills.md.
+// Constants - tune freely; documented in docs/03_progression_and_skills.md.
 // ---------------------------------------------------------------------------
 
 // Trench shard-bank ("Data Cache") indicator glow (user 2026-06-24): a DIM WHITE glow on each cache
@@ -34,7 +34,7 @@
 
 // Cap 99 -> 30 -> 50 -> 500 (user 2026-06-19/21/22): the 50 cap was too tight ("we dont really need a
 // 50 cap"); raised to 500 so players can bank toward the deep multi-tier sinks (Exo Suit + per-gun
-// Overclocks; see docs/47) without constantly hitting the ceiling. Still finite (blocks infinite hoarding).
+// Overclocks; see docs/29) without constantly hitting the ceiling. Still finite (blocks infinite hoarding).
 #define ACC_SHARDS_MAX 500
 #define ACC_DEV_SHARDS 1000   // dev sandbox (acc_dev 1) starting count + raised cap (user 2026-06-25); normal play keeps ACC_SHARDS_MAX
 #define ACC_SHARD_DROP_LIFETIME_SEC 30
@@ -51,7 +51,10 @@
 // Pickup world model (stock energy-ball; also needs an xmodel line in the .zone).
 // #precache is a DIRECTIVE in BO3 - must sit after all #using/#define, before #namespace.
 #precache( "model", "p7_fxanim_zm_stal_ray_gun_ball_mod" );
-#precache( "model", "p7_cai_stacking_cargo_crate" );   // underground Data Cache (loot-for-shards) model
+// STATION REMODEL (user 2026-07-09, docs/09): the Data Cache is a man-height Gorod computer
+// tower (24x30x72, T7-dump carve) - a machine full of DATA, not the cargo crate the Ammo Crate
+// shared. Tower origin is MESH-CENTERED (floorLift 36 from vertex bounds): spawn +36 z.
+#precache( "model", "p7_zm_sta_computer_tower_01" );   // underground Data Cache (loot-for-shards) model
 // Data Shards HUD icon (user 2026-06-25): the player's PNG replaces the "DATA SHARDS" text label. The server
 // hudelem path is a DEAD END - a usermap cannot build a 2D HUD material ("No techsetdef for material type '2d'");
 // the image i_acc_data_shard packs fine though, so the icon is drawn in LUI (acc_hud.lua, CoD.AccShardIcon),
@@ -80,7 +83,7 @@ function init()
     // createFontString + SetValue, numeric = no localization needed).
 
     level.acc_shards_pickup_model = "p7_fxanim_zm_stal_ray_gun_ball_mod"; // glowing energy ball = data-shard look (stock, verified); #precache'd above + xmodel line in .zone.
-    level.acc_shards_cache_model = "p7_cai_stacking_cargo_crate";         // underground Data Cache crate (stock t7 prop, xmodel line in .zone).
+    level.acc_shards_cache_model = "p7_zm_sta_computer_tower_01";         // Data Cache = computer tower (T7-dump carve, xmodel line in .zone; origin mesh-centered -> +36 spawn lift in spawn_cache_at).
     // (No tracking array: a former level.acc_shards_pool was WRITE-ONLY - appended per drop, never read
     // or trimmed - an unbounded dead-reference leak over a long match. Each pickup self-cleans via
     // watch_lifetime (timeout) or cleanup_pickup (on grab), so no pool is needed. Removed 2026-06-25.)
@@ -136,7 +139,7 @@ function grant_player( player, amount, source_tag )
 
     effective = amount;
 
-    // Low-round elite diminishing returns (see docs/06_mechanics.md).
+    // Low-round elite diminishing returns (see docs/05_mechanics.md).
     if ( isdefined( source_tag ) && source_tag == "elite_kill" )
     {
         if ( level.round_number <= ACC_SHARD_LOW_ROUND_THRESHOLD )
@@ -153,6 +156,12 @@ function grant_player( player, amount, source_tag )
             }
         }
     }
+
+    // [acc] COOP CRASH GUARD: a player added to level.players before acc_data_shards::on_player_connect
+    // has run (mid-game join / startup race) has no acc_data_shards yet; a grant (Reactor Surge, elite
+    // drop, cache) would do arithmetic on undefined and throw. Mirror the try_spend/get_count guards.
+    if ( !isdefined( player.acc_data_shards ) )
+        player.acc_data_shards = 0;
 
     new_total = acc_utility::clamp_int( player.acc_data_shards + effective, 0, shards_cap() );
     granted = new_total - player.acc_data_shards;
@@ -189,6 +198,13 @@ function get_count( player )
 function spawn_pickup_at( origin, count )
 {
     if ( !isdefined( count ) || count <= 0 ) count = 1;
+
+    // FLOOR-SNAP the drop origin (user 2026-07-08): shared acc_utility::drop_floor_origin - steps through
+    // the dying enemy's own body (the trace starts inside it - the "snapped onto the corpse mid-air" bug)
+    // down to real world geometry, accepts brushmodel surfaces, keeps the origin on a true miss (never
+    // buries). Fixed ground callers (glitch-altar caches) snap to themselves (no-op). Live dvar
+    // acc_drop_floor_snap (1 = on) lives inside the helper, shared with the boss-item path.
+    origin = acc_utility::drop_floor_origin( origin );
 
     // Lift off the floor so the model doesn't sink in (live dvar acc_drop_model_z).
     shard = spawn( "script_model", origin + ( 0, 0, getdvarint( "acc_drop_model_z", 24 ) ) );
@@ -229,7 +245,7 @@ function spawn_cache_at( origin, count )
 {
     if ( !isdefined( count ) || count <= 0 ) count = 1;
 
-    crate = spawn( "script_model", origin );
+    crate = spawn( "script_model", origin + ( 0, 0, 36 ) );   // tower origin is mesh-centered (floorLift 36) - lift or it half-sinks
     crate setmodel( level.acc_shards_cache_model );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 30 ), 0, 60, 72 );
@@ -369,7 +385,7 @@ function watch_pickup()   // self = the hold-use trigger
         grant_player( player, self.acc_shard_count, "pickup" );
         acc_utility::drops_debug( "shard GRANT player=" + player.name + " req=" + self.acc_shard_count + " total=" + player.acc_data_shards );
 
-        // Pickup blip (docs/35_sound_plan.md): positional cue on the picking
+        // Pickup blip (docs/23_sound_plan.md): positional cue on the picking
         // player at the PHYSICAL pickup only. Alias "acc_shard_pickup" lives in
         // sound/aliases/acc_audio.csv; silent no-op until authored + registered.
         player PlaySound( "acc_shard_pickup" );

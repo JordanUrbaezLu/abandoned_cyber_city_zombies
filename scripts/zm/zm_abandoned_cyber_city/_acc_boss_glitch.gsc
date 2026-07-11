@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_boss_glitch.gsc - "Glitch Stalker" mini-boss (script-only, zero assets)
 //
-// Design: docs/11_enemies.md ("Glitch Stalker"). A MOBILE mini-boss - the map's
+// Design: docs/08_enemies.md ("Glitch Stalker"). A MOBILE mini-boss - the map's
 // first boss that is neither pinned (Subroutine Core) nor a straight charger
 // (Brutus). It is a PROMOTED STOCK ZOMBIE (same scaffold as spawn_subroutine_core
 // in _acc_boss.gsc) so it needs NO new model/anim/FX assets and a fresh clone
@@ -16,9 +16,9 @@
 // "acc_round_start" like the panzer test loop), spawn, promotion, ability, and
 // death->reward. _acc_boss.gsc is NOT edited. To disable the whole boss live:
 // `acc_glitch_enable 0`. To trace it live: `acc_glitch_debug 1`. Every stat is an
-// `acc_glitch_*` dvar read LIVE (no rebuild to tune) - see docs/34_flags_reference.md.
+// `acc_glitch_*` dvar read LIVE (no rebuild to tune) - see docs/22_flags_reference.md.
 //
-// CRASH-SAFETY (deliberate, see docs/11 + CLAUDE.md hard-won facts):
+// CRASH-SAFETY (deliberate, see docs/08 + CLAUDE.md hard-won facts):
 //   - NO SetScale (the confirmed 0xC0000005 live-AI crasher) and NO independent
 //     ASMSetAnimationRate writer (the global _acc_zombie_speed keep-alive already
 //     drives this actor's speed every sweep - a second writer would fight it).
@@ -41,12 +41,13 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // (aura call removed 2026-07-02 - kept for shared phantom helpers/history)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;   // 3D over-head name + health bar (user 2026-07-02)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;       // force_playable_emergence (unlock stock melee below player_volumes - Paradise/deep trench)
 
 #insert scripts\shared\shared.gsh;
 
 // --- Tunable defaults. EVERY one is overridable live via the matching acc_glitch_*
 //     dvar (read at the point of use, not cached) - this is the whole "easy slider"
-//     contract. Mirror each row in docs/34_flags_reference.md. ---
+//     contract. Mirror each row in docs/22_flags_reference.md. ---
 #define ACC_GLITCH_ENABLE_DEF            1      // master on/off (set 0 to disable the boss entirely - gates real cadence + test spawn)
 #define ACC_GLITCH_HP_MULT_DEF              1.5 // HP = this x the round's NORMAL zombie health (user 2026-06-23: 3 -> 1.5, 3x too tanky)
 #define ACC_GLITCH_FIRST_ROUND_DEF          4   // first round it spawns (user 2026-06-23: 2->8->4, difficulty cut)
@@ -281,6 +282,13 @@ function spawn_glitch( round_number )
     // bugged fight can't soft-lock the round (the deliberate-safe choice, like Brutus).
     host.ignore_enemy_count = true;
 
+    // [acc] PARADISE/DEEP-TRENCH MELEE FIX (Paradise boss audit, user 2026-07-09): same lockout as the
+    // Phantom - the host spawns TOPSIDE and its blink can take it below every player_volume (the Paradise
+    // specials wave at z=-1200) before it ever touches one, so completed_emerging_into_playable_area never
+    // sets and the stock BT melee branch never unlocks: it blinks onto you but never swings. Same fix as
+    // the trench surge zombies (tag_trench_zombie); no-op when the flag is already set topside.
+    host thread acc_bus_trench::force_playable_emergence();
+
     // TOXIC SKIN (user 2026-07-02; was the stock Giant body 2026-06-15): the Glitch now wears
     // WetEgg's SAT toxic zombie body (c_sat_zmb_zombie_toxic_1 - EC-style machine-only lift, see
     // tools/external_assets_manifest.ps1 "SAT Toxic Zombies"; the pack's AI system is NOT installed).
@@ -288,7 +296,7 @@ function spawn_glitch( round_number )
     // head ("head" is empty in its character GDT entry), so we Detach the engine-attached charred
     // head and attach NOTHING (attaching a stock head would double-head it). Detach of a
     // not-attached model is a safe no-op. Toxic bodies ride the shared 'base' zombie skeleton
-    // (WetEgg port, stock zombie xanims drive it - docs/56 lane). Zone: xmodel,c_sat_zmb_zombie_toxic_1.
+    // (WetEgg port, stock zombie xanims drive it - docs/35 lane). Zone: xmodel,c_sat_zmb_zombie_toxic_1.
     // Toggle with acc_glitch_stock_skin 0. NO SetScale (the confirmed live-AI 0xC0000005 crasher).
     if ( getdvarint( "acc_glitch_stock_skin", 1 ) == 1 )
     {
@@ -334,7 +342,7 @@ function spawn_glitch( round_number )
 
     // [acc] return the live host so _acc_lockdown_challenge can tag it (acc_ldc), teleport it
     // into the sealed room, and count it on its own death watch (the scheduled cadence ignores
-    // this return value). docs/43.
+    // this return value). docs/26.
     return host;
 }
 
@@ -722,7 +730,7 @@ function ldc_random_anchor_nav()
 
 // Aggressive-but-CONTAINED challenge blink: aim NEAR the (provably in-room) player using only SMALL
 // offsets - never the 300u flank, which could clamp past a sealed door and still pass the loose
-// ldc_in_room radius test (docs/43 §4.5). Every candidate is ldc_in_room-checked before it's accepted;
+// ldc_in_room radius test (docs/26 §4.5). Every candidate is ldc_in_room-checked before it's accepted;
 // if none near the player is in-room we fall back to a guaranteed-in-room anchor, so containment holds.
 function ldc_aggressive_blink( target )
 {
@@ -780,7 +788,7 @@ function glitch_death_watch()
 
     // [acc] NO per-kill shard for purge-spawned (acc_ldc) OR reactor-surge-spawned (acc_no_shard_reward)
     // Stalkers - else a 30-wave purge drops 30 rewards, and the reactor surge would pay for its own threats
-    // (user 2026-06-24: reactor specials don't pay, same as the glitch purge). docs/43 §4.6. Corpse still cleaned above.
+    // (user 2026-06-24: reactor specials don't pay, same as the glitch purge). docs/26 §4.6. Corpse still cleaned above.
     if ( ( isdefined( self.acc_ldc ) && self.acc_ldc ) ||
          ( isdefined( self.acc_no_shard_reward ) && self.acc_no_shard_reward ) )
         return;
@@ -815,10 +823,10 @@ function cleanup_glitch_corpse()
 // ---------------------------------------------------------------------------
 
 // On-screen trace for live debugging without the console. Gated on `acc_glitch_debug 1`
-// (default off). Mirrors the acc_variants_debug pattern (docs/34 §E).
+// (default off). Mirrors the acc_variants_debug pattern (docs/22 §E).
 function gdebug( msg )
 {
-    if ( getdvarint( "acc_glitch_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_glitch_debug", 0 ) != 1 ) return;
 
     for ( i = 0; i < level.players.size; i++ )
     {

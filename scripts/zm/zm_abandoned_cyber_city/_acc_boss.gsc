@@ -1,17 +1,17 @@
 // =============================================================================
 // _acc_boss.gsc - boss round orchestration
 //
-// Design reference: docs/11_enemies.md (Mini-Boss / Full Boss),
-// docs/06_mechanics.md (boss rooms are the only forced-camp encounters).
+// Design reference: docs/08_enemies.md (Mini-Boss / Full Boss),
+// docs/05_mechanics.md (boss rooms are the only forced-camp encounters).
 //
-// Round 10, 20: mini-boss REPLACES the normal wave (docs/11: "Spawn: replaces
+// Round 10, 20: mini-boss REPLACES the normal wave (docs/08: "Spawn: replaces
 // the normal round wave") - the wave budget is zeroed at round start
 // (suppress_normal_wave), zombies already out remain, and the round ends when
 // everything counted (Juggernaut Host included) is dead. r10 = 1 host,
 // r20 = 2 simultaneous hosts.
 // Round 30, 40, 50+: full boss "Subroutine Core" in the Lab - a REAL
 // damageable actor spawned at the acc_boss_spawn struct and pinned in place
-// (stationary by design, docs/11). Per docs/11 the full-boss fight runs
+// (stationary by design, docs/08). Per docs/08 the full-boss fight runs
 // ALONGSIDE normal waves ("constant chaff spawn during the fight"), so the
 // Core neither gates round end nor consumes the wave's AI budget.
 // =============================================================================
@@ -46,14 +46,14 @@
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
 // 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
 // that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
-// UNIFIED BOSS SCALE (user 2026-07-04): Brutus now rides the SAME base (56000) + anchor (10) as the
-// Phantom/Rogue Protector, differing ONLY by exponent - the TOP tier: Brutus 1.12 > Rogue 1.1 >
-// Phantom 1.08. NO cap (the pack's linear 3500*round / 85k-cap code is dead - overwritten here every
-// spawn). Brutus debuts at power-on & round >= acc_warden_first_round (5); rounds 5-9 sit at the flat
-// 56k base (past clamps to 0), then compound at 1.12 from round 10.
-#define ACC_BOSS_MINI_HP 56000       // Brutus BASE solo HP (shared with Phantom/Rogue). Scaled by scale_mini_boss_hp THEN x boss_hp_player_mult (LOGARITHMIC coop). Live dvar acc_boss_mini_hp.
-#define ACC_BOSS_MINI_HP_EXP 1.12    // Brutus COMPOUNDS per round at 1.12 (user 2026-07-04: 1.1 -> 1.12, the TANKIEST tier): base x 1.12^(round-anchor10) -> solo r10 56k / r20 174k / r30 541k / r40 1.68M. Live dvar acc_boss_mini_hp_exp.
-#define ACC_BOSS_MINI_HP_ANCHOR 10   // round his BASE HP applies (shared anchor with the Phantom/Rogue); round-scaling starts PAST it. Live dvar acc_boss_mini_hp_anchor.
+// UNIFIED BOSS SCALE (user 2026-07-04; base 56000 -> 65000 user 2026-07-05): Brutus now rides the SAME base (65000) + anchor (5) as the
+// Phantom/Rogue Protector/Avogadro, differing ONLY by exponent - the TOP tier: Brutus 1.12 > Rogue 1.09 >
+// Phantom 1.06 (Avogadro shares the Phantom's 1.06). NO cap (the pack's linear 3500*round / 85k-cap code is dead - overwritten here every
+// spawn). Brutus debuts at power-on & round >= acc_warden_first_round (5); his round-5 debut is exactly the flat
+// 65k base (past clamps to 0), then compounds at 1.12 from round 5 onward.
+#define ACC_BOSS_MINI_HP 65000       // Brutus BASE solo HP (shared with Phantom/Rogue/Avo; user 2026-07-05: 56000 -> 65000). Scaled by scale_mini_boss_hp THEN x boss_hp_player_mult (LOGARITHMIC coop). Live dvar acc_boss_mini_hp.
+#define ACC_BOSS_MINI_HP_EXP 1.12    // Brutus COMPOUNDS per round at 1.12 (user 2026-07-08: 1.12 -> 1.13 -> 1.14 -> 1.12 after the anchor moved to r5, the TANKIEST tier tied with the Panzer): base x 1.12^(round-anchor5) -> solo r5 65k / r10 115k / r20 356k / r30 1.11M / r40 3.43M. Live dvar acc_boss_mini_hp_exp.
+#define ACC_BOSS_MINI_HP_ANCHOR 5    // round his BASE HP applies + compounding STARTS (user 2026-07-08: 10 -> 5, so scaling begins at his round-5 power-on debut, not round 10; matches the roster's acc_phantom_hp_anchor 5). Live dvar acc_boss_mini_hp_anchor.
 #define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
 #define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
 #define ACC_BRUTUS_RESPAWN_INTERVAL 3 // Trench Warden: rounds AFTER a kill before he respawns (user 2026-06-18)
@@ -179,7 +179,18 @@ function run_mini_boss( round_number )
 
     host = spawn_brutus_miniboss();
     if ( !isdefined( host ) )
+    {
         level.acc_brutus_active = false; // spawn failed -> don't soft-lock the respawn schedule
+        // REVIEW FIX 2026-07-08: re-arm the schedule. round_hook_loop's respawn condition needs
+        // acc_brutus_kill_round, which only a KILL sets - so a failed FIRST spawn (actor pool at cap
+        // the frame the power-on Warden fired; brutus_power_watch is one-shot and the pack's own
+        // cadence is disabled) used to mean NO Trench Warden for the rest of the match, silently.
+        // Backdate a synthetic kill round so the loop retries from the NEXT round. (After a real kill
+        // the field is already set, so failed respawns retry every round on their own.)
+        if ( !isdefined( level.acc_brutus_kill_round ) )
+            level.acc_brutus_kill_round = level.round_number + 1
+                - getdvarint( "acc_brutus_respawn_interval", ACC_BRUTUS_RESPAWN_INTERVAL );
+    }
 }
 
 // Zero the remaining wave budget so the boss round is boss-only.
@@ -214,13 +225,14 @@ function suppress_normal_wave( round_number )
     level.zombie_total = 0;
 }
 
-// Brutus HP COMPOUNDS each round (user 2026-06-27) like a zombie, at the SAME 1.1/round rate as the horde
-// so a high-round Trench Warden keeps pace:
-//   hp = base * exp^( rounds_past_anchor )      (exp 1.1; the Phantom also uses 1.1, but Brutus anchors
-//                                                5 rounds earlier (r5 vs r10) so it stays the tankier of the two)
-// anchored at his debut round so the FIRST Warden stays exactly the base the user tuned (48k). Knobs are
+// Brutus HP COMPOUNDS each round (user 2026-06-27) like a zombie so a high-round Trench Warden keeps pace:
+//   hp = base * exp^( rounds_past_anchor )      (exp 1.12 - the TOP TANK tier, tied with the Panzer, on the
+//                                                unified 65k-base/anchor-5 scale shared with all bosses;
+//                                                Brutus/Panzer 1.12 > Rogue 1.09 > Phantom/Avogadro 1.06)
+// anchored at round 5 (user 2026-07-08: was 10) so scaling begins at his round-5 power-on debut - the FIRST
+// Warden is exactly the base, and every round after compounds. Knobs are
 // LIVE balance dvars: acc_boss_mini_hp / _exp / _anchor. The coop player multiplier (boss_hp_player_mult)
-// is applied SEPARATELY at the spawn site, on top of this. (Was 1.08; user 2026-06-27 -> 1.1 to match zombies.)
+// is applied SEPARATELY at the spawn site, on top of this. (exp history: 1.08 -> 1.1 -> 1.12 -> 1.13 -> 1.14 -> 1.12 w/ anchor r5.)
 function scale_mini_boss_hp( round_number )
 {
     base   = getdvarint( "acc_boss_mini_hp", ACC_BOSS_MINI_HP );
@@ -245,7 +257,7 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     // systems on top. The pack drives his locomotion natively (custom_find_flesh). NOTE: the long
     // "spawns then stands frozen" bug was NOT in this promotion layer - it was _acc_zombie_speed
     // stomping his run-cycle ASM; fixed at the source (it excludes is_boss actors, and the pack
-    // now flags him is_boss on spawn). See docs/11_enemies.md "Brutus" + CHANGELOG 2026-06-15.
+    // now flags him is_boss on spawn). See docs/08_enemies.md "Brutus" + CHANGELOG 2026-06-15.
     host = acc_boss_brutus::spawn_one();
     if ( !isdefined( host ) || !isalive( host ) )
     {
@@ -257,11 +269,11 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     host.acc_is_mini_boss = true; // boss headshot multiplier in _acc_damage
     if ( isdefined( n_bottle_count ) ) host.acc_bottle_drop = n_bottle_count;
     if ( isdefined( n_health_override ) ) host.maxhealth = n_health_override;
-    // ROUND scaling (scale_mini_boss_hp - user 2026-06-27: COMPOUNDS x1.1/round, matching the zombie horde)
+    // ROUND scaling (scale_mini_boss_hp - COMPOUNDS x1.12/round from the round-5 anchor, the TOP TANK tier)
     // THEN LOGARITHMIC coop scaling by player count (the old LINEAR xN -> 200k at 4p was "crazy").
     // boss_hp_player_mult() = 1 + 0.5*log2(n) -> x1 / 1.5 / 1.79 / 2.0 for 1-4p. So a round-10 solo Warden
-    // = 77k; a round-30 solo = 520k; a round-30 4p = 520k x2.0 = 1.04M. Tune live: acc_boss_mini_hp_exp /
-    // acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
+    // = 115k; a round-30 solo = 1.11M; a round-30 4p = 1.11M x2.0 = 2.22M. Tune live: acc_boss_mini_hp_exp /
+    // acc_boss_mini_hp_anchor / acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
     else
     {
         rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
@@ -341,6 +353,37 @@ function boss_music( host )
     }
 }
 
+// ---------------------------------------------------------------------------
+// UNIFIED BOSS REWARD (user 2026-07-05: "the boss reward rule applies for ALL bosses, no differences").
+// EVERY boss - Phantom, Rogue Protector, Avogadro, Trench Warden (Brutus) - grants the SAME set on death:
+//   - 1 guaranteed challenge item (dupes convert to shards at pickup)
+//   - 1 Mega Bottle to every player
+//   - ROUND x acc_boss_score_per_round (180) points to every player (user 2026-07-07: nerfed -40%, was 300)
+//   - int( ROUND / acc_boss_shards_round_div (3) ) Data Shards to every player
+// PER boss, so a 2-boss round pays the full set for EACH kill. Examples: round 9 -> 3 shards + $1,620;
+// round 18 (x2 bosses) -> 6 shards + $3,240 EACH; round 30 -> 10 shards + $5,400. Paradise-suppressed
+// (the finale is survive-don't-farm). Call: acc_boss::grant_unified_boss_reward( drop_origin ).
+// ---------------------------------------------------------------------------
+function grant_unified_boss_reward( drop_origin )
+{
+    if ( IS_TRUE( level.acc_paradise_onslaught ) )
+        return;
+    acc_boss_items::grant_challenge_reward( drop_origin );   // 1 item, guaranteed (dupes -> shards)
+    kill_round = ( isdefined( level.round_number ) ? level.round_number : 1 );
+    score  = kill_round * getdvarint( "acc_boss_score_per_round", 180 );   // user 2026-07-07: -40% boss cash (was 300)
+    shards = int( kill_round / getdvarint( "acc_boss_shards_round_div", 3 ) );
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) )
+            continue;
+        if ( score  > 0 ) p zm_score::add_to_player_score( score );   // rounds UP to a multiple of 10
+        if ( shards > 0 ) acc_data_shards::grant_player( p, shards, "boss" );
+        p acc_mega_bottles::grant_bottle( 1, "boss" );
+    }
+}
+
 function watch_mini_boss_death()
 {
     // STUCK-GUARD FAILSAFE (user 2026-06-27 crash-hunt): acc_brutus_active is a one-at-a-time gate that is
@@ -351,9 +394,23 @@ function watch_mini_boss_death()
 
     self waittill( "death", attacker );
 
-    // Capture origin now - the corpse can be cleaned up moments after death.
-    drop_origin = self.origin;
-    n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
+    // COOP CRASH GUARD: capture every self field behind ONE isdefined - the corpse can be reaped the same
+    // frame the death notify fires (the race phantom_death_watch guards), and a self deref then throws
+    // "not an entity" and ends the match. The respawn bookkeeping at the bottom MUST still run in that
+    // case or acc_brutus_active jams true and the Trench Warden never respawns.
+    drop_origin = undefined;
+    n_bottles = 1;
+    no_reward = false;
+    if ( isdefined( self ) )
+    {
+        drop_origin = self.origin;
+        n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
+        no_reward = IS_TRUE( self.acc_no_shard_reward );
+    }
+    else if ( isdefined( attacker ) && isplayer( attacker ) )
+    {
+        drop_origin = attacker.origin;   // corpse already reaped: anchor the drop at the killer instead
+    }
 
     if ( n_bottles <= 1 )
     {
@@ -362,52 +419,11 @@ function watch_mini_boss_death()
         // Paradise Brutus already spawns on a SEPARATE path (spawn_one_paradise) + runs its OWN death watcher
         // (brutus_death_watch, count-only) and never threads THIS handler, so this guard is belt-and-suspenders
         // that also documents the intent (user 2026-06-29: "Paradise Brutus should not give any of this").
-        if ( !IS_TRUE( self.acc_no_shard_reward ) )
+        if ( !no_reward && isdefined( drop_origin ) )
         {
-            // TRENCH WARDEN (Brutus) reward (user 2026-06-22): item + shards + points GUARANTEED (100%, upgraded
-            // from the earlier 75%); the Mega Bottle is a 50% roll (user 2026-06-25). 1 item drop + 3 FLAT Data
-            // Shards + 3,000 points to every player, plus a 50%-chance Mega Bottle. (The Phantom shares the
-            // item+bottle set, but its shards AND points are ROUND-SCALED, not flat - see phantom_death_watch.)
-            // Per-reward chance tunable via acc_brutus_reward_chance (default 1.0 = always; roll <= 1.0 always true).
-            chance = getdvarfloat( "acc_brutus_reward_chance", 1.0 );
-
-            // 1) Item: grant_challenge_reward = the guaranteed free-for-all pool drop (dupes convert to shards at
-            //    pickup). acc_warden_item 0 = use the "mini" chance pool instead (kept for tuning).
-            if ( acc_utility::acc_rand_float() <= chance )
-            {
-                if ( getdvarint( "acc_warden_item", 1 ) )
-                    acc_boss_items::grant_challenge_reward( drop_origin );
-                else
-                    acc_boss_items::on_boss_death( "mini", attacker, drop_origin );
-            }
-
-            // 2) Mega Bottle: 50% chance (user 2026-06-25). When it hits, 1 to every player (the on_boss_death
-            //    rule). Rolled SEPARATELY from `chance` above so the item + shard drops stay guaranteed while only
-            //    the bottle is gated. Tunable via acc_brutus_bottle_chance (default 0.5).
-            bottle_chance = getdvarfloat( "acc_brutus_bottle_chance", 0.5 );
-            if ( acc_utility::acc_rand_float() <= bottle_chance )
-                acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin );
-
-            // 3) Data Shards: acc_warden_shard_reward (default 3) to every player ("warden" = no diminish).
-            if ( acc_utility::acc_rand_float() <= chance )
-            {
-                warden_shards = getdvarint( "acc_warden_shard_reward", 3 );
-                if ( warden_shards > 0 )
-                {
-                    for ( wi = 0; wi < level.players.size; wi++ )
-                        acc_data_shards::grant_player( level.players[ wi ], warden_shards, "warden" );
-                    acc_utility::log( "Trench Warden: " + warden_shards + " shards to each player" );
-                }
-            }
-
-            // 4) Points: 3,000 to every player (user 2026-06-29: "3k points every time the trench Brutus dies").
-            //    FLAT - the Phantom's points are round-scaled instead. Tunable via acc_warden_score_reward.
-            brutus_score = getdvarint( "acc_warden_score_reward", 3000 );
-            if ( brutus_score > 0 )
-            {
-                for ( si = 0; si < level.players.size; si++ )
-                    level.players[ si ] zm_score::add_to_player_score( brutus_score );  // rounds UP to a multiple of 10
-            }
+            // Shared boss reward (user 2026-07-05: EVERY boss identical, no differences) - 1 item + 1 bottle +
+            // round*300 pts + int(round/3) shards, to every player. (Was: 3 FLAT shards + 3000 FLAT pts + 50% bottle.)
+            grant_unified_boss_reward( drop_origin );
         }
     }
     else
@@ -494,7 +510,7 @@ function spawn_subroutine_core( round_number )
 {
     // The Core is a promoted stock zombie pinned at the struct (real, damageable, full stock
     // damage pipeline; scripted ranged attacks still TODO). Its boss SKIN (stock "Giant" body +
-    // head + teal eyes + glow aura) is applied below, after the spawn-init gate (docs/52).
+    // head + teal eyes + glow aura) is applied below, after the spawn-init gate (docs/09).
     spawn_struct = struct::get( "acc_boss_spawn", "targetname" );
     if ( !isdefined( spawn_struct ) )
     {
@@ -555,9 +571,9 @@ function spawn_subroutine_core( round_number )
     core.acc_is_boss = true; // boss headshot multiplier in _acc_damage
     core.phase = 1;
 
-    // boss reskin model dropped - c_zom_zod_* not packable in this Mod Tools install; aura+eyes carry the distinction (see docs/52)
+    // boss reskin model dropped - c_zom_zod_* not packable in this Mod Tools install; aura+eyes carry the distinction (see docs/09)
 
-    // TEAL EYES + glow AURA (docs/52): mark the boss for the client-side eye recolour (accEyeTint,
+    // TEAL EYES + glow AURA (docs/09): mark the boss for the client-side eye recolour (accEyeTint,
     // _acc_lui.csc, shared teal colour - NO FX asset) and the holographic body-glow aura
     // (accPhantomAura, _acc_boss_phantom.csc PlayFX) so the Core is visually unmistakable. Both
     // reuse already-registered actor clientfields (no new field; the clientuimodel pool is untouched).
@@ -566,7 +582,7 @@ function spawn_subroutine_core( round_number )
     if ( getdvarint( "acc_core_aura", 1 ) == 1 )
         acc_boss_phantom::set_phantom_aura( core, true );
 
-    // HP: docs/11 - 50k base at round 30, +15k per round past 30.
+    // HP: docs/08 - 50k base at round 30, +15k per round past 30.
     core.maxhealth = int( scale_boss_hp( round_number ) * acc_coop_scaling::special_hp_mult() );
     core.health = core.maxhealth;
 
@@ -581,7 +597,7 @@ function spawn_subroutine_core( round_number )
     // VERIFIED(acc): get_current_zombie_count/get_round_enemy_array skip any
     // actor with .ignore_enemy_count (zombie_utility.gsc:2023-2038, skip at
     // :2031); that count feeds BOTH the round-end poll (_zm.gsc:4733) and
-    // round_spawning's 24-AI budget gate (_zm.gsc:3735). Per docs/11, full
+    // round_spawning's 24-AI budget gate (_zm.gsc:3735). Per docs/08, full
     // boss rounds 30+ run the normal wave alongside the fight ("constant
     // chaff spawn") and the fight may span multiple rounds, so the Core must
     // neither hold rounds open nor starve the wave of AI slots. This is the
@@ -611,7 +627,7 @@ function spawn_subroutine_core( round_number )
     return core;
 }
 
-// self = the Core actor. Stationary-boss pin (docs/11: forced-camp encounter).
+// self = the Core actor. Stationary-boss pin (docs/08: forced-camp encounter).
 function pin_core_in_place()
 {
     self endon( "death" );
@@ -767,7 +783,7 @@ function disable_perks_for( duration )
     acc_utility::log( "perks restored" );
 }
 
-// Mega Electric Cherry ("Power Surge") boss-special immunity (docs/13_perks.md; moved from Jug/Widow's, user 2026-06-25). Re-assert
+// Mega Electric Cherry ("Power Surge") boss-special immunity (docs/10_perks.md; moved from Jug/Widow's, user 2026-06-25). Re-assert
 // immune players' perks for ~2s so the debuff's UnsetPerk cascade (one powered
 // item per network frame) can't stick on them. Clearing disabled_perks[perk]
 // makes the trailing global unpause/repower a no-op for these players.

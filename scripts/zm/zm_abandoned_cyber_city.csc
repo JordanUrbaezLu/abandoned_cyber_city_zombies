@@ -37,6 +37,14 @@
 #using scripts\zm\_zm_perk_staminup;
 #using scripts\zm\_zm_perk_widows_wine;
 
+// HB21 Elemental Bows - LOCKSTEP with the .gsc #using block (clientfield registration).
+// LIVE (2026-07-07) - LOCKSTEP with the .gsc block (clientfield registration). Deps installed.
+#using scripts\zm\_zm_weap_elemental_bow;
+#using scripts\zm\_zm_weap_elemental_bow_storm;
+#using scripts\zm\_zm_weap_elemental_bow_rune_prison;
+#using scripts\zm\_zm_weap_elemental_bow_wolf_howl;
+#using scripts\zm\_zm_weap_elemental_bow_demongate;
+
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
@@ -52,7 +60,7 @@
 // [acc] Aetherium HUD client half (see the entry .gsc note): mirrors the world-scope
 // clientfield registrations IN LOCKSTEP and LuiLoads ui.uieditor.menus.HUD.AetheriumHud,
 // which REDEFINES LUI.createMenu.T7Hud_zm_factory (the stock usermap ZM HUD menu key,
-// docs/28) - that's the whole-HUD replacement. Kit README: #using ABOVE zm_usermap.
+// docs/19) - that's the whole-HUD replacement. Kit README: #using ABOVE zm_usermap.
 #using scripts\zm\_zm_aetherium_hud;
 
 #using scripts\zm\zm_usermap;
@@ -88,6 +96,12 @@
 // [acc] Client half of the Avogadro electric boss (its "avogadro_fx" scriptmover clientfield +
 // the linger/tesla FX). Must match the entry .gsc #using or the clientfield registration mismatches.
 #using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
+
+// [acc] Client half of the PANZER (Spiki mechz port, 2026-07-08). Registers the pack's
+// 6 mechz clientfields AND mirror-registers the 11 stock server-side mechz fields (the one-sided
+// "mechz_face" registration was the historical attack-CTD - see the file header). MUST stay in
+// lockstep with the .gsc side (loaded via _acc_boss_panzer in the entry .gsc).
+#using scripts\zm\mechz_spiki;
 
 function main()
 {

@@ -4,13 +4,15 @@
 // THE BUG: apply_recoil_overhaul.js builds the perk-twins (acc_weapon_variants.gdt) from the
 // PRISTINE base GDT, but reduce_base_ammo.js (+ the RW1 CLIP_FIX / Olympia MAXAMMO_FIX) only
 // cut the INSTALL base/_up blocks - never the twins. So holding a handling perk (Deadshot=recoil,
-// Gun Slinger=fastfire, Speed Cola=fastreload) swaps you to a twin with the WRONG (usually higher,
+// Speed Cola=fastreload) swaps you to a twin with the WRONG (usually higher,
 // sometimes lower) clip/reserve than the same gun without the perk. Reported live: Tac-19 (3->6),
 // ASM1 (22->32), AE4, MK14, Galil, MORS, Olympia, RW1 (8->1 clip / 7->40 reserve!), PPSH, Paladin.
+// (Gun Slinger=fastfire twins REMOVED 2026-07-04 - only recoil50 + fastreload twins remain, so any
+// leftover fastfire keys below just match nothing.)
 //
 // THE FIX: for every twin block <canonical>_acc_<dims>, SET clipSize / maxAmmo / startAmmo to the
-// canonical form's INSTALL value (the cut/final number). fireTime/lastFireTime (fastfire = Gun
-// Slinger +45% RoF) and damage are left ALONE - those twin diffs are intentional / already correct.
+// canonical form's INSTALL value (the cut/final number). fireTime/lastFireTime and damage are left
+// ALONE - those twin diffs are intentional / already correct.
 // Idempotent + re-runnable. Deploys the twin GDT + runs gdtdb /update.
 //
 // PIPELINE ORDER (re-run after these, they reset base + regenerate twins, reintroducing the drift):

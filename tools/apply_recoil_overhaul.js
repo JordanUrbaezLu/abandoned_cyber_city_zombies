@@ -7,15 +7,14 @@
 // docs/30/31.
 //
 // DIMENSIONS (independent perk effects that can stack on one held gun):
-//   recoil  : none / recoil25 / recoil40   (Deadshot base -25% / Mega -40%, off the 2.1x base)
-//   fastfire: Gun Slinger (Double Tap Mega) = fireTime x0.69 (+45% RoF) AND swap x0.5 (-50%)
-//   reload  : Sleight of Hand Expert (Speed Cola Mega) = reloadTime x0.882 (+70% net, see below)
+//   recoil  : none / recoil50              (Deadshot Mega ONLY -50%, off the 1.75x base)
+//   reload  : Sleight of Hand Expert (Speed Cola Mega) = reloadTime x0.857 (+75% net, see below)
+//   (fastfire: Gun Slinger REMOVED 2026-07-04 - Mega Double Tap is now a DAMAGE buff, temper
+//    x0.6 -> x0.8 in _acc_damage, NOT a fireTime/swap twin. See TWIN_DIMS below.)
 //
-// The cross-product (minus the all-base combo) = 11 twins per gun form:
-//   recoil25, recoil40, fastfire, fastreload, recoil25_fastfire, recoil40_fastfire,
-//   recoil25_fastreload, recoil40_fastreload, fastfire_fastreload,
-//   recoil25_fastfire_fastreload, recoil40_fastfire_fastreload
-//   x (base + _up) x 5 guns = 110 twins. The GSC swap engine resolves the exact
+// The cross-product (minus the all-base combo) = 3 twins per gun form (recoil50 x fastreload):
+//   recoil50, fastreload, recoil50_fastreload
+//   x (base + _up) x 16 guns = 96 twins. The GSC swap engine resolves the exact
 //   combo for a player's live perk state (graceful fallback if a combo is absent).
 //
 // PER-GUN BASELINE BUFFS (always-on, not perk-gated): a gun's `baseline` config is applied
@@ -29,12 +28,11 @@
 // TUNING (single source; confirm magnitudes in-game, they compose with engine perk bonuses):
 //   RECOIL50   - Mega Deadshot ONLY: recoil x0.50 off the 1.75x base -> ~0.875x vanilla (-50%). Base
 //                 Deadshot has NO recoil twin (the old recoil25/recoil40 tiers were collapsed 2026-06-16).
-//   FIRE 0.69   - +45% RoF (1/1.45; was 0.714 = +40%, raised 2026-06-25 per user). The base perk
-//                 KEEPS the stock Double Tap 2.0 extra-BULLET (~2x damage, now tempered by
-//                 acc_doubletap_dmg_mult in _acc_damage) - the twin only adds fire rate + swap on top,
-//                 so the Mega is "+45% RoF + faster swap" over the base.
-//                 If an in-game check shows doubletap2 also lowers fireTime, raise toward ~0.9.
-//   SWAP 0.5    - -50% weapon-swap (raise/drop times); bundled with fastfire (same Mega flag).
+//   FIRE / SWAP - REMOVED 2026-07-04. The fastfire twin gave +45% RoF (fireTime x0.69) + -50%
+//                 weapon-swap (raise/drop x0.5). Mega Double Tap ("Gun Slinger") is now a pure DAMAGE
+//                 buff instead: the base extra-bullet temper eases x0.6 -> x0.8 for Mega holders
+//                 (acc_doubletap_mega_dmg_mult in _acc_damage), no twin. Base DT keeps the stock +33%
+//                 RoF + extra bullet (tempered x0.6).
 //   RELOAD 0.857- net +75% reload. Speed Cola owners ALSO get the engine +50% (x0.667),
 //                 which compounds: 0.857 x 0.667 ~= 0.571 = +75%. Base (non-Mega) Speed
 //                 owners keep the engine +50% only (no twin). Confirm the engine bonus is a
@@ -59,7 +57,7 @@ const BASE_SCALE = 1.75;   // map base-recoil "skill theme" (was 2.1, lowered 20
 
 // Per-dimension twin levels. [ suffix-part, scale-factors ]. '' = the base level
 // (no twin part). Order here == the suffix concatenation order the GSC expects
-// (recoil -> fastfire -> reload -> ammo), and the longest-first strip list is derived
+// (recoil -> reload), and the longest-first strip list is derived
 // from it. MUST mirror _acc_weapon_variants.gsc variant_dims() order.
 //   ammo: Mule Kick Mega "The Armory" = +25% reserve capacity (maxAmmo x1.25). This is the
 //   ONLY clean way to gate a GDT-baked stat to Mega holders (engine clamps reserve to maxAmmo),
@@ -68,10 +66,16 @@ const TWIN_DIMS = [
     // 2026-06-16 cap-savings rework: recoil collapsed 3->2 tiers, gated on Deadshot MEGA only
     // (base Deadshot now has NO recoil twin). One -50% tier (×0.50 off the 2.1x base ≈ vanilla).
     [ [ "", {} ], [ "recoil50", { recoil: 0.50 } ] ],
-    [ [ "", {} ], [ "fastfire", { fire: 0.69, swap: 0.5 } ] ],
     [ [ "", {} ], [ "fastreload", { reload: 0.857 } ] ],
+    // fastfire axis REMOVED 2026-07-04: Mega Double Tap ("Gun Slinger") is now a DAMAGE buff
+    // (extra-bullet temper x0.6 -> x0.8 in _acc_damage), NOT a fireTime/swap twin. Frees the
+    // axis (14 -> 6 twins/gun; 224 -> 96 total). Was [ [ "", {} ], [ "fastfire", { fire: 0.69, swap: 0.5 } ] ].
     // ammo axis REMOVED 2026-06-16: Armory is now a runtime round-start +35% reserve refill
-    // (_acc_mega_bottles::armory_refill), NOT a maxAmmo twin. Frees the axis (46->14/gun).
+    // (_acc_mega_bottles::armory_refill), NOT a maxAmmo twin.
+    // NOTE: the deployed GDT + zone were surgically stripped of *_acc_fastfire* entries in place
+    // (2026-07-04); this file was NOT re-run because it does not manage the hand-built
+    // Blast-O-Matic (t9_semiauto_cosplay) twins - re-running would DROP them. If you must
+    // regenerate, hand-restore the Blast-O-Matic twins afterward (scratchpad gen_blasto_twins).
 ];
 
 // gun file + its base/PaP asset names (verified on the box 2026-06-14).
@@ -86,20 +90,22 @@ const GUNS = [
     // + wider blast "girth" (hip spread x1.25, catches more adjacent zombies) traded against
     // -15% per-pellet damage (x0.85). Tune any factor here; bump penetrate to none/small/medium
     // to dial pierce back. shotCount 8 (per-pellet damage), adsSpread stays 0 (ADS = precise).
-    { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up",    baseline: { range: 1.5, penetrate: "large", damage: 0.85, spread: 1.25 } },
+    { gdt: "skye_s1_tac-19.gdt",    base: "s1_tac19",     up: "s1_tac19_up",    baseline: { range: 0.825, penetrate: "large", damage: 0.85, spread: 1.25 } },   // range: 1.5 stock-buff x0.55 = the 2026-07-06 all-shotgun -45% range nerf (25% -> 35% -> 45% in three same-day steps). Applied install-side via scratchpad shotgun_range_45_pk_best.js - keep so a re-run reproduces it
     { gdt: "skye_s1_asm1.gdt",      base: "s1_asm1",      up: "s1_asm1_up" },
     { gdt: "skye_t6_five-seven.gdt", base: "t6_fiveseven", up: "t6_fiveseven_up" },
     { gdt: "skye_t9_ak-47.gdt", base: "t9_ak47", up: "t9_ak47_up" },   // CW port. 2026-07-02: repointed from the old t9_wpn_ports pack (t9_weapons/wpn_t9_ar_ak47.gdt, never transferred to the new box) to the fresh Skye CW pack - same asset ids, Skye's own models/anims/stats (graft_cw_weapon_stats no longer applies).
-    { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up" },
+    { gdt: "skye_t9_xm4.gdt", base: "t9_xm4", up: "t9_xm4_up", baseline: { reload: 1.5 } },   // XM4 (CW, S tier, user 2026-07-04). reload x1.5 = the 2026-07-09 -50% reload nerf (applied install-side via scratchpad reload_balance_0709.js - keep so a re-run reproduces it). Twins were HAND-GENERATED (scratchpad/gen_new_gun_twins.js) NOT via a full re-run of this tool - re-running here would DROP Blast-O-Matic's hand-built twins. If you must re-run, hand-restore Blast-O-Matic afterward.
+    { gdt: "skye_t9_streetsweeper.gdt", base: "t9_streetsweeper", up: "t9_streetsweeper_up" },   // Streetsweeper (CW full-auto SG, A tier, user 2026-07-04). Hand-generated twins (see XM4 note).
+    { gdt: "skye_s1_ae4.gdt",       base: "s1_ae4",       up: "s1_ae4_up",      baseline: { reload: 1.5 } },   // reload x1.5 = 2026-07-09 -50% reload nerf (reload_balance_0709.js precedent - see XM4 note)
     // STAGE 2 (2026-06-16): with the slimmed 14-twin/gun layout (ammo→runtime, recoil 2-tier),
     // 9 guns x 14 = 126 twins fit under the ~230 cap. +4 clean single-wield guns:
-    { gdt: "skye_s4_ppsh-41.gdt",    base: "s4_ppsh41_base", up: "s4_ppsh41_base_up" },
-    { gdt: "skye_t6_galil.gdt",      base: "t6_galil",       up: "t6_galil_up" },
-    { gdt: "skye_t6_olympia.gdt",    base: "t6_olympia",     up: "t6_olympia_up" },
+    { gdt: "skye_s4_ppsh-41.gdt",    base: "s4_ppsh41_base", up: "s4_ppsh41_base_up", baseline: { reload: 0.5 } },   // reload x0.5 = 2026-07-09 +50% reload buff (reload_balance_0709.js)
+    { gdt: "skye_t9_grav.gdt",       base: "t9_grav",        up: "t9_grav_up" },   // Grav: CW full-auto AR (user 2026-07-05, MIGRATED FROM Galil t6_galil - same B+/MID box slot). Twins are SURGICALLY swapped (scratchpad/swap_galil_grav_twins.js), NOT via a full re-run of this tool (a re-run would DROP Klauser's hand-added twins). If you must re-run, add s4_klauser + hand-restore Blast-O-Matic first.
+    { gdt: "skye_t6_olympia.gdt",    base: "t6_olympia",     up: "t6_olympia_up",  baseline: { reload: 0.7 } },   // reload x0.7 = 2026-07-09 +30% reload buff (reload_balance_0709.js)
     { gdt: "skye_t8_paladin_hb50.gdt", base: "t8_paladin_hb50", up: "t8_paladin_hb50_up" },
     // AK-74u: CW port (user 2026-06-26) - swapped from BO1 skye_t5_ak74u to the Cold War model. The t9 PaP
     // form is the REGULAR t9_ak74u_up (the old _up_zm irregularity is gone). Stats grafted via graft_cw_weapon_stats.js.
-    { gdt: "skye_t9_ak-74u.gdt", base: "t9_ak74u", up: "t9_ak74u_up" },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note).
+    { gdt: "skye_t9_ak-74u.gdt", base: "t9_ak74u", up: "t9_ak74u_up", baseline: { reload: 0.7 } },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note). reload x0.7 = 2026-07-09 +30% reload buff (reload_balance_0709.js)
     // M60 + RPD: CW ports (user 2026-06-26) - both LMGs swapped from Skye BO2 to the Cold War models. Single-wield
     // bulletweapon, regular _up, empty altWeapon. Stats grafted via graft_cw_weapon_stats.js; twin count unchanged.
     { gdt: "skye_t9_m60.gdt", base: "t9_m60", up: "t9_m60_up" },   // 2026-07-02: repointed to the fresh Skye CW pack (see AK-47 note).
@@ -128,6 +134,7 @@ function baselineArgs( b ) {
     if ( b.damage !== undefined )    a.push( "--damage", String( b.damage ) );
     if ( b.spread !== undefined )    a.push( "--spread", String( b.spread ) );
     if ( b.penetrate !== undefined ) a.push( "--penetrate", b.penetrate );
+    if ( b.reload !== undefined )    a.push( "--reload", String( b.reload ) );   // always-on reload retune (RELOAD_KEYS set; twins inherit + stack their own x0.857)
     return a;
 }
 

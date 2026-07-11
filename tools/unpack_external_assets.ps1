@@ -41,6 +41,27 @@ if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
 Write-Info 'extracting ...'
 [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $tmp)
 
+# Zip freshness gate (red-team 2026-07-10): an OUTDATED zip silently ROLLS BACK
+# newer install-side-patched files (robocopy /E copies Older-class files too) -
+# e.g. the hand-patched Apex GDTs whose only carrier is this zip flow. The stamp
+# is written by pack_external_assets.ps1; a pre-stamp zip just warns generically.
+$stamp = Join-Path $tmp 'acc_zip_manifest.txt'
+if (Test-Path $stamp) {
+    Write-Info '--- zip stamp ---'
+    Get-Content $stamp | ForEach-Object { Write-Info "  $_" }
+    $stampHash = (Get-Content $stamp | Where-Object { $_ -like 'manifest_sha256=*' }) -replace '^manifest_sha256=', ''
+    $curHash = (Get-FileHash (Join-Path $PSScriptRoot 'external_assets_manifest.ps1') -Algorithm SHA256).Hash
+    if ($stampHash -and $stampHash -ne $curHash) {
+        Write-Info 'WARN: this zip was packed against a DIFFERENT manifest version than yours.'
+        Write-Info '      If the zip is OLDER, unpacking can roll back newer install-side patched'
+        Write-Info '      files (Apex GDTs etc.). Consider re-packing on the up-to-date machine.'
+    }
+    Remove-Item $stamp -Force  # never merge the stamp into the Mod Tools root
+} else {
+    Write-Info 'NOTE: zip has no acc_zip_manifest.txt stamp (packed before 2026-07-10).'
+    Write-Info '      It predates the Apex/music/FX-library manifest entries - re-pack when possible.'
+}
+
 # Merge into the Mod Tools root. /E = copy subtree, NO /MIR, so nothing already
 # installed (stock or other packs) is ever deleted - only overwritten/added.
 Write-Info 'merging into Mod Tools (overwrite, never delete) ...'

@@ -1,8 +1,8 @@
 // =============================================================================
 // _acc_early_round_pacing.gsc - modifier-round spawn-count hook (boost NEUTRALIZED)
 //
-// Design reference: docs/06_mechanics.md ("Early round pressure"),
-// docs/04_progression_and_skills.md (Difficulty Curve).
+// Design reference: docs/05_mechanics.md ("Early round pressure"),
+// docs/03_progression_and_skills.md (Difficulty Curve).
 //
 // Spawn COUNT now follows the BASE GAME (user 2026-06-24): the early-round
 // boost is NEUTRALIZED (ACC_EARLY_SPAWN_MULT* = 1.0). Stock
@@ -27,7 +27,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
 // ---------------------------------------------------------------------------
-// Tuning (keep in sync with docs/06_mechanics.md + docs/04_progression_and_skills.md)
+// Tuning (keep in sync with docs/05_mechanics.md + docs/03_progression_and_skills.md)
 // ---------------------------------------------------------------------------
 
 #define ACC_EARLY_ROUND_MAX 4

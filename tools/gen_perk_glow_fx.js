@@ -47,6 +47,7 @@ const COLORS = {
   dark_purple: [ 0.42, 0.00, 0.72 ],  //    ex-Phantom BODY AURA (user 2026-06-24), now the Subroutine Core's aura (it shares clientfield value 1).
   white_dim:   [ 1.00, 1.00, 1.00 ],  // 12 Trench Data-Cache "has shards this round" indicator - DIM white (BRIGHT below). On while armed, off while looted.
   neon_yellow: [ 1.00, 0.95, 0.00 ],  //    Phantom BODY AURA v3 (user 2026-07-02, toxic-skin re-theme): full-bright NEON YELLOW (hotter + greener than Double Tap's yellow).
+  amber_dim:   [ 1.00, 0.62, 0.22 ],  // 13 Dropped-ITEM loot glow (user 2026-07-08 "really dim the light"): Mule Kick's amber hue, DIMMED (BRIGHT below). Index 5 (full amber) stays on the Mule Kick machine.
 };
 
 // Per-colour brightness scale (default 1.0). Only the colour tint + cast light are scaled (not
@@ -54,7 +55,7 @@ const COLORS = {
 //   teal_dim 0.75    = legacy (unused now).
 //   magenta_dim 0.375 = the Glitch Stalker aura at HALF the old 0.75 teal_dim -> "make the glitch glow 50% less intense" (user 2026-06-24).
 //   white_dim 0.40   = a subtle indicator glow on the trench shard banks.
-const BRIGHT = { teal_dim: 0.75, magenta_dim: 0.375, white_dim: 0.40 };
+const BRIGHT = { teal_dim: 0.75, magenta_dim: 0.375, white_dim: 0.40, amber_dim: 0.25 };   // amber_dim 0.40 -> 0.25 (user 2026-07-08 "dim it even more")
 
 // Whole-machine coverage + intensity (user 2026-06-18). The source FX is a small spherical
 // aura at tag_origin (= machine base), so only the BOTTOM lit. We enlarge the glow sprites

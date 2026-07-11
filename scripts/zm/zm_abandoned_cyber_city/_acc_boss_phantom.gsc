@@ -61,6 +61,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;   // boss_hp_player_mult (log coop HP)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_elites;         // acc_phantom_chain_zap (apply the chain slow Phantom-side, god-mode-safe)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;     // force_playable_emergence (unlock stock melee below player_volumes - Paradise/deep trench)
 
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\system_shared;
@@ -68,15 +69,15 @@
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 
-// --- Tunable defaults (every one a live acc_phantom_* dvar; mirror docs/34). ---
+// --- Tunable defaults (every one a live acc_phantom_* dvar; mirror docs/22). ---
 // ENABLED (user 2026-06-22): Phantom is a live boss in BOTH normal play and dev, first appearing at
 // round 10 (then every 10 rounds - ACC_PHANTOM_INTERVAL 10 - with a one-at-a-time guard). Disable live with
 // `acc_phantom_enable 0`. (RED holographic glow + cyan eyes; shares the phase theme with the Glitch
 // Stalker - re-theme later if they read too similar.)
 #define ACC_PHANTOM_ENABLE_DEF        1     // master on/off (1 = on in normal play; dev also runs it)
-#define ACC_PHANTOM_HP                56000  // BASE solo HP at debut (round 10). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
-#define ACC_PHANTOM_HP_EXP            1.08   // per-round COMPOUNDING exponent (user 2026-07-04: 1.1 -> 1.08). TIERED BOSS SCALE, all sharing base 56000 + anchor 10, differing ONLY by exponent: Brutus 1.12 > Rogue Protector 1.1 > Phantom 1.08 (Phantom is the SOFTEST). Phantom solo r10 56k / r20 121k / r30 261k / r40 564k. Live dvar acc_phantom_hp_exp.
-#define ACC_PHANTOM_HP_ANCHOR         10     // round the BASE HP applies (Phantom's debut); compounding starts past it. Live dvar acc_phantom_hp_anchor.
+#define ACC_PHANTOM_HP                65000  // BASE solo HP at the round-5 anchor (user 2026-07-05: 56000 -> 65000). Shared by Phantom + Rogue + Avogadro (+ Panzer). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
+#define ACC_PHANTOM_HP_EXP            1.06   // per-round COMPOUNDING exponent (user 2026-07-04: 1.1 -> 1.08 -> 2026-07-08 1.06 after the anchor moved to r5). TIERED BOSS SCALE, all sharing base 65000 + anchor 5, differing ONLY by exponent: Brutus/Panzer 1.12 > Rogue Protector 1.09 > Phantom 1.06 (Phantom is the SOFTEST; Avogadro shares this). Phantom solo r5 65k / r10 87k / r20 156k / r30 279k / r40 500k. Live dvar acc_phantom_hp_exp.
+#define ACC_PHANTOM_HP_ANCHOR         5      // round the BASE HP applies + compounding STARTS (user 2026-07-08: 10 -> 5, so ALL bosses scale from round 5; they first spawn at round 9 = base x exp^4). Live dvar acc_phantom_hp_anchor.
 #define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). DEV mode = 4 (cadence_hits branches on level.acc_dev).
 #define ACC_PHANTOM_INTERVAL_DEF      10    // LEGACY-FALLBACK cadence only (used if the shared roster pointer isn't published yet). Live rotation is the every-9 multi-boss roster in _acc_civil_protector. DEV fallback = every 4.
 #define ACC_PHANTOM_TEST_ROUND_DEF    8     // dev/test first round
@@ -185,9 +186,9 @@ function phantom_due_count( round_number )
 
     // UNIFIED MULTI-BOSS ROSTER (user 2026-07-03): the per-round roster (owned by
     // _acc_civil_protector, published as level.acc_boss_roster_fn) says how many of THIS round's
-    // bosses are Phantoms. Round 9 = 1 boss / 18 = 2 / 27 = 3, each an independent Phantom-or-Rogue
-    // coin flip, so this can be 0..count. Fallback to the legacy every-10 cadence if the pointer
-    // isn't published yet (init order between the two boss modules isn't fixed).
+    // bosses are Phantoms. Round 9 = 1 boss / 18 = 2 / 27 = 3, each an independent 3-way roll
+    // (Phantom / Rogue Protector / Avogadro), so this can be 0..count. Fallback to the legacy every-10
+    // cadence if the pointer isn't published yet (init order between the boss modules isn't fixed).
     if ( isdefined( level.acc_boss_roster_fn ) )
         return [[ level.acc_boss_roster_fn ]]( round_number, "phantom" );
     return ( cadence_hits( round_number ) ? 1 : 0 );
@@ -264,13 +265,14 @@ function announce_inbound()
 // Spawn + promote
 // ---------------------------------------------------------------------------
 
-// Phantom HP COMPOUNDS per round (user 2026-06-27): base * exp^(round-anchor). SAME 1.1 exponent as the
-// zombie horde (was 1.06); Brutus also uses 1.1 but anchors 5 rounds earlier (r5 vs r10), so Brutus stays the tankier. Anchored at the
-// Phantom's debut round (10) so the FIRST one is exactly the tuned base. GSC has no pow builtin - small
-// integer-exponent loop (past = round - anchor). The coop player mult is applied SEPARATELY at the caller.
-// exp_override lets a DIFFERENT boss share this exact scale (same base 56000 + anchor 10) with its
-// own per-round exponent - the Rogue Protector passes 1.1 here (user 2026-07-04: Brutus 1.12 >
-// Rogue 1.1 > Phantom 1.08). Omitted = the Phantom's own acc_phantom_hp_exp (1.08).
+// Phantom HP COMPOUNDS per round (user 2026-06-27): base * exp^(round-anchor). Phantom is the SOFTEST tier
+// at exp 1.06; the unified scale shares base 65000 + anchor 5 across all bosses, differing only by exponent
+// (Brutus/Panzer 1.12 > Rogue 1.09 > Phantom/Avogadro 1.06). Anchored at round 5 (user 2026-07-08: was 10 -
+// "all boss scaling starts on round 5"); the roster bosses first spawn at round 9 = base x exp^4. GSC has no
+// pow builtin - small integer-exponent loop (past = round - anchor). Coop player mult applied SEPARATELY at the caller.
+// exp_override lets a DIFFERENT boss share this exact scale (same base 65000 + anchor 5) with its
+// own per-round exponent - the Rogue Protector passes 1.09 here (user 2026-07-08: Brutus/Panzer 1.12 >
+// Rogue 1.09 > Phantom 1.06). Omitted = the Phantom's own acc_phantom_hp_exp (1.06).
 function scale_phantom_hp( round_number, exp_override )
 {
     base   = getdvarint( "acc_phantom_hp", ACC_PHANTOM_HP );
@@ -323,6 +325,15 @@ function spawn_phantom( round_number )
     host.ignore_nuke = true;
     host.ignore_enemy_count = true;
     host.acc_boss_custom_speed = true; // _acc_zombie_speed keep-alive skips us (we drive gait)
+
+    // [acc] PARADISE/DEEP-TRENCH MELEE FIX (Paradise boss audit, user 2026-07-09): the host spawns
+    // TOPSIDE at a normal spawner, then BLINKS to players. When the players are BELOW every
+    // player_volume (Paradise z=-1200 / deep trench), the host warps down before ever touching a
+    // volume -> completed_emerging_into_playable_area never sets -> the stock BT's melee branch never
+    // unlocks (_zm_behavior.gsc:1118 inPlayableArea) -> the Phantom stalks + stands in your face but
+    // NEVER swings (only the chain-special's direct DoDamage landed). Same lockout + same fix as the
+    // trench surge zombies (tag_trench_zombie); no-op when the flag is already set topside.
+    host thread acc_bus_trench::force_playable_emergence();
 
     // MULTI-PLAYER MELEE FIX (user 2026-06-26): force the stock AI to target whoever the Phantom LAST warped
     // onto, so its melee lands on EACH player it strikes - not just one acquired enemy. Without this the stock
@@ -718,7 +729,10 @@ function players_not_yet_hit( live, hit )
     {
         already = false;
         for ( j = 0; j < hit.size; j++ )
-            if ( live[ i ] == hit[ j ] ) { already = true; break; }
+            // [acc] 4p guard (2026-07-06 sweep, found by two independent reviews): hit[] holds raw
+            // player refs across the per-hop dwell wait; a struck player disconnecting between hops
+            // leaves an undefined entry and `entity == undefined` THROWS on the next hop.
+            if ( isdefined( hit[ j ] ) && live[ i ] == hit[ j ] ) { already = true; break; }
         if ( !already )
             out[ out.size ] = live[ i ];
     }
@@ -848,11 +862,15 @@ function phantom_death_watch()
 {
     self waittill( "death", attacker );
 
-    if ( isdefined( self ) )
-    {
-        self Show();                                  // un-cloak so the corpse renders
-        self clientfield::set( "accPhantomAura", 0 ); // kill the glow aura (cloak loop endon'd on death)
-    }
+    // [acc] 4p guard (2026-07-06 sweep): the isdefined(self) below acknowledges the corpse can be
+    // gone right after the death notify - but drop_origin then deref'd self.origin unguarded anyway.
+    // Bail entirely: a throw here ends the whole match; a skipped reward on an already-reaped corpse
+    // does not.
+    if ( !isdefined( self ) )
+        return;
+
+    self Show();                                  // un-cloak so the corpse renders
+    self clientfield::set( "accPhantomAura", 0 ); // kill the glow aura (cloak loop endon'd on death)
 
     // (No one-at-a-time guard ref to clear anymore - the debt-based director owns spawn accounting, and
     // multiple Phantoms may be alive at once, user 2026-07-03 multi-boss.)
@@ -866,19 +884,9 @@ function phantom_death_watch()
     // don't-farm gauntlet with up to 4 Phantoms cycling, so a per-kill payout would break it. The WHOLE block
     // sits behind the !acc_paradise_onslaught gate -> Paradise-fight Phantoms grant NONE of this (points/shards/item).
     // Mirrors the onslaught's block_powerup_drop + the reward-free Paradise Brutus path (host.acc_no_shard_reward).
-    if ( !IS_TRUE( level.acc_paradise_onslaught ) )
-    {
-        acc_boss_items::grant_challenge_reward( drop_origin );            // 1 item, guaranteed (free-for-all pool drop)
-        acc_mega_bottles::on_boss_death( "mini", attacker, drop_origin ); // 1 Mega Bottle to every player
-        kill_round     = level.round_number;                                            // the round the Phantom died on
-        phantom_score  = kill_round * getdvarint( "acc_phantom_score_per_round", 500 ); // round x 500 points (round 10 = 5,000)
-        phantom_shards = kill_round * getdvarint( "acc_phantom_shards_per_round", 1 );  // round x 1 shards  (round 10 = 10)
-        for ( pi = 0; pi < level.players.size; pi++ )
-        {
-            if ( phantom_score  > 0 ) level.players[ pi ] zm_score::add_to_player_score( phantom_score );      // rounds UP to a multiple of 10
-            if ( phantom_shards > 0 ) acc_data_shards::grant_player( level.players[ pi ], phantom_shards, "phantom" );
-        }
-    }
+    // Shared boss reward (user 2026-07-05: every boss identical) - 1 item + 1 bottle + round*300 pts +
+    // int(round/3) shards, to every player. Paradise-suppression is handled inside the shared fn.
+    acc_boss::grant_unified_boss_reward( drop_origin );
 
     pdebug( "^2Phantom down^7" );
 
@@ -907,7 +915,7 @@ function cleanup_phantom_corpse()
 
 function pdebug( msg )
 {
-    if ( getdvarint( "acc_phantom_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_phantom_debug", 0 ) != 1 ) return;
     for ( i = 0; i < level.players.size; i++ )
     {
         p = level.players[ i ];

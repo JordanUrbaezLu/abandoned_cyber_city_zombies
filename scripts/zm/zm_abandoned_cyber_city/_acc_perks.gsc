@@ -1,5 +1,5 @@
 // =============================================================================
-// _acc_perks.gsc - base-perk effect retuning (Phase 3, docs/13_perks.md)
+// _acc_perks.gsc - base-perk effect retuning (Phase 3, docs/10_perks.md)
 //
 // Owns the map-specific BASE-perk tuning + custom Mega effects that have a real
 // GSC lever and don't belong to a more specific module. Current tenants:
@@ -25,27 +25,29 @@
 #insert scripts\shared\shared.gsh;
 
 // Neural Expansion Bay world model (a Cyber City interactive sign kiosk - DNI/neural read; stock t7_props, proven packable).
-#precache( "model", "p7_cai_sign_inteactive_kiosk" );
+// STATION REMODEL (user 2026-07-09, docs/09): Gorod drop-pod console (49x44x71, T7-dump carve)
+// - a screen-covered tech console for the Neural Expansion read; kills the 6-way sign-kiosk reuse.
+#precache( "model", "p7_zm_sta_drop_pod_console_blue" );
 
 // --- Jug hit model (melee ~45 dmg/hit, stock GDT, unchangeable) ---------------
 // player_base_health = 100 (stock _zm.gsc:1229) -> no-Jug downs on the 3rd melee.
-// with-Jug HP = 100 + jugg add; docs/13: base Jug = 250 HP -> down on the 6th.
+// with-Jug HP = 100 + jugg add; docs/10: base Jug = 250 HP -> down on the 6th.
 // Tuning lever: change ONLY this to move the with-Jug hit count.
 #define ACC_JUGG_HEALTH_ADD          150
 #define ACC_JUGG_HEALTH_ADD_UPGRADE  150  // stock persistent-upgrade var mirror
 
-// --- Quick Revive regen: base 20% sooner, Savior Mega 40% sooner (docs/13; user 2026-06-21) ---
+// --- Quick Revive regen: base 20% sooner, Savior Mega 40% sooner (docs/10; user 2026-06-21) ---
 #define ACC_QR_REGEN_DELAY_BASE   0.80   // base QR: regen delay x0.80 (=20% sooner -> ~1.92s; was 0.85/15%)
 #define ACC_QR_REGEN_DELAY_SAVIOR 0.60   // Savior: regen delay x0.60 (=40% sooner -> ~1.44s; was 0.70/30%)
 #define ACC_QR_REGEN_RATE         0.10   // ratio healed/server-frame (= stock local regenRate)
 
-// --- Revive time override (docs/13): base QR 2.0s, Savior Mega 1.0s ----------
+// --- Revive time override (docs/10): base QR 2.0s, Savior Mega 1.0s ----------
 // Replaces stock reviveTime (3s no-perk / 1.5s stock-QR) via the self.get_revive_time
 // reviver hook, so BOTH base QR and Savior key off our numbers.
 #define ACC_QR_BASE_REVIVE_TIME   2.0    // base QR reviver
 #define ACC_SAVIOR_REVIVE_TIME    1.0    // Savior Mega reviver (half of base QR)
 
-// --- Savior (Mega QR) revive damage reduction (docs/13; user 2026-06-26): take 50% damage while you are
+// --- Savior (Mega QR) revive damage reduction (docs/10; user 2026-06-26): take 50% damage while you are
 //     actively reviving a teammate. Applied in _acc_elites::on_player_damaged via savior_revive_damage_mult. ---
 #define ACC_SAVIOR_REVIVE_DMG_TAKEN  0.50    // fraction of incoming damage taken while a Savior is reviving (50% off)
 
@@ -132,7 +134,7 @@ function on_player_connect( player )
 }
 
 // ---------------------------------------------------------------------------
-// Perk slots - the marquee shard sink (docs/45 §3; user 2026-06-19).
+// Perk slots - the marquee shard sink (docs/30 §3; user 2026-06-19).
 // ---------------------------------------------------------------------------
 
 // Per-player perk capacity. Called BY the engine as self [[level.get_player_perk_purchase_limit]]()
@@ -166,7 +168,7 @@ function perk_slot_cost( bonus )
 function spawn_perk_slot_vendor_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_sign_inteactive_kiosk" );   // Cyber City interactive sign kiosk (DNI/neural read)
+    m setmodel( "p7_zm_sta_drop_pod_console_blue" );   // Gorod drop-pod console (screens + blue glow = neural-tech read)
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
@@ -233,7 +235,7 @@ function on_player_spawned( player )
 // Jug 3/6 hit model
 // ---------------------------------------------------------------------------
 
-// Re-tune the Jug health add so base Jug downs on the 6th melee (docs/13 3/6).
+// Re-tune the Jug health add so base Jug downs on the 6th melee (docs/10 3/6).
 // VERIFIED(acc): perk_set_max_health_if_jugg reads
 // level.zombie_vars["zombie_perk_juggernaut_health"] LIVE on every perk
 // give/revive (_zm_perks.gsc:803,835), so setting the var before any player can
@@ -256,7 +258,7 @@ function tune_jugg_health()
 
 // ---------------------------------------------------------------------------
 // Quick Revive: HP regen starts sooner after damage - base 20% sooner, Savior
-// Mega 40% sooner (docs/13).
+// Mega 40% sooner (docs/10).
 //
 // VERIFIED(acc): the ZM regen authority (_zm_playerhealth.gsc::playerHealthRegen)
 // honors NO per-player override field and uses a hardcoded local regenRate. So we
@@ -326,7 +328,7 @@ function qr_damage_time_watcher()
 // ---------------------------------------------------------------------------
 
 // self = the reviver. Base Quick Revive -> 2.0s; with the Savior Mega -> 1.0s
-// (docs/13). Fully replaces stock's computed reviveTime (3s no-perk / 1.5s stock QR).
+// (docs/10). Fully replaces stock's computed reviveTime (3s no-perk / 1.5s stock QR).
 function qr_revive_time( e_revivee )
 {
     if ( acc_mega_bottles::has_mega_perk( self, "specialty_quickrevive" ) )

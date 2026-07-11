@@ -6,7 +6,7 @@
 // triggered, stop the previous"). Sources routed here:
 //   - main theme            (_acc_atmosphere::apply_music)
 //   - boss music            (_acc_boss::boss_music)
-//   - teddy-bear jukebox    (_acc_ee_song::play_ee_song)
+//   - jukebox machine       (_acc_jukebox - was the 3 teddy bears until 2026-07-09)
 //   - Paradise calm + 115   (_acc_paradise)
 // NOT routed (by design): PERK JINGLES (acc_jingle_*) and the ambient city bed (acc_amb_city_bed) - those are
 // SFX / ambience, not songs, and are meant to layer under the music. (User 2026-06-25: "this doesn't apply to

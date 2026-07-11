@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_lockdown.gsc - per-round "DEFCON" room lockdown (MAGENTA "purge" alarm lighting; was red, user 2026-06-24)
 //
-// Design reference: docs/37_punishing_middle_design.md (lockdown concept) and
+// Design reference: docs/24_punishing_middle_design.md (lockdown concept) and
 // the per-round rotation contract shared with _acc_decontamination.gsc.
 //
 // ONE of four rooms - Vault, Alley, Helipad (roof_zone), Market - lights up RED as the DEFCON
@@ -14,7 +14,7 @@
 // STAGE 2 (later, scaffolded here): physically LOCKING the room's doors so you are stuck
 // inside for the round - via hidden script_brushmodels "acc_seal_<zone>" authored in
 // Radiant across each doorway (none exist yet, so lock_doors() is a harmless no-op until
-// they do). Decided design (docs/37 §11): LOCK PLAYERS IN, no escape window.
+// they do). Decided design (docs/24 §11): LOCK PLAYERS IN, no escape window.
 //
 // RENDER (the important bit): the red FX is driven CLIENT-side, NOT server-side. Stock/
 // server `PlayFX` does NOT render in this build (the ORIGINAL version of this file used
@@ -157,7 +157,7 @@ function run_lockdown( round_number )
     level endon( "end_game" );
 
     // A lockdown CHALLENGE in progress (set by _acc_lockdown_challenge) OWNS the lit room: it
-    // stays sealed + red ACROSS ROUNDS until cleared (docs/43 decision #1). So do NOT clear /
+    // stays sealed + red ACROSS ROUNDS until cleared (docs/26 decision #1). So do NOT clear /
     // rotate / unseal here - bail and leave the current emitters + seal in place. Undefined in
     // normal play -> normal rotation. (Fixes the round-boundary unseal conflict the plan flags.)
     if ( isdefined( level.acc_ldc_active ) )
@@ -249,7 +249,7 @@ function on_defcon_failed( round_number )
 // a room each round. DEFAULT OFF for release (user 2026-06-25); set acc_lockdown_debug 1 to show it.
 function ld_debug( msg )
 {
-    if ( getdvarint( "acc_lockdown_debug", 0 ) == 1 )
+    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) || getdvarint( "acc_lockdown_debug", 0 ) == 1 )
     {
         iprintlnbold( "[lockdown] " + msg );
     }
@@ -367,7 +367,7 @@ function lockdown_clear()
 // lock/unlock toggle them - the proven _acc_map_randomizer::apply_pap_approach pattern.
 // NONE exist yet, so all of this is a no-op until the seal brushes are authored.
 //
-// Decided design (docs/37 §11): LOCK PLAYERS IN, no escape window.
+// Decided design (docs/24 §11): LOCK PLAYERS IN, no escape window.
 // ---------------------------------------------------------------------------
 
 // Make every seal brush hidden + non-solid + nav-connected (inert) at startup.

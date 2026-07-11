@@ -29,10 +29,12 @@
 //
 // CADENCE (SHARED multi-boss roster, owned by this module - boss_count/boss_roster/
 // boss_type_count): a boss ROUND every 9 rounds from round 9 (dev: every 3 from round 3). The
-// COUNT scales - round 9 = 1 boss, 18 = 2, 27 = 3, ... (slot+1) - and EACH boss that round is an
-// independent Phantom-or-Rogue-Protector coin flip, so a round can be all one type, or a mix. This
-// module's debt-based director spawns the "protector" entries; _acc_boss_phantom reads its own
-// "phantom" count off level.acc_boss_roster_fn. MULTIPLE Rogue Protectors may be alive at once.
+// COUNT scales - round 9 = 1 boss, 18 = 2, 27 = 3, ... (slot+1) - and the types are dealt from a
+// shuffled 4-type deck WITHOUT replacement (Phantom / Rogue Protector / Avogadro / Panzer;
+// no-duplicate guard, user 2026-07-08), so a duplicate type first appears at the forced 5th slot
+// (round 45). This module's debt-based director spawns the "protector" entries; the phantom/
+// avogadro/panzer modules each read their own count off level.acc_boss_roster_fn. MULTIPLE bosses
+// (and, from round 45 / via disabled-type re-homing, multiple of a TYPE) may be alive at once.
 //
 // NO SPAWNER EXISTS AT ALL (see spawn_boss): the boss is spawned DIRECTLY via
 // SpawnActor("spawner_acc_zod_robot_boss", ...) - a .map actor_spawner entity
@@ -76,10 +78,13 @@
 #namespace acc_civil_protector;
 
 #define ACC_PROTECTOR_NAME          "ROGUE PROTECTOR"   // user 2026-07-03: briefly "THE ANNIHILATOR", reverted same message - Rogue Protector is final
-// UNIFIED BOSS ROTATION (user 2026-07-03): a boss every 9 rounds from round 9 (9, 18, 27, ...);
-// which one (Phantom vs Rogue Protector) alternates each slot, with a RANDOM per-run start - so
-// one game Rogue is the round-9 boss + Phantom is round 18, and the next game it's flipped.
-#define ACC_PROTECTOR_HP_EXP        1.1   // per-round HP exponent (user 2026-07-04): the MIDDLE boss tier - Brutus 1.12 > Rogue 1.1 > Phantom 1.08 - on the SHARED 56k/anchor-10 scale_phantom_hp scale. Live dvar acc_protector_hp_exp.
+// UNIFIED BOSS ROTATION (user 2026-07-03; 3-boss pool 2026-07-04; 4-boss pool + no-duplicate deck
+// 2026-07-08): a boss every 9 rounds from round 9 (9, 18, 27, ...); the slots are DEALT from a
+// shuffled 4-type deck WITHOUT replacement (Phantom / Rogue Protector / Avogadro / Panzer),
+// reshuffled per run and only when the deck empties - so rounds with up to 4 bosses are always
+// all-distinct types, a repeat first becomes possible at the 5th boss slot (round 45) where it's
+// forced, and no two games play the same boss sequence.
+#define ACC_PROTECTOR_HP_EXP        1.09  // per-round HP exponent: the MIDDLE boss tier - Brutus 1.12 > Rogue/Panzer 1.09 > Phantom 1.06 - on the SHARED 65k/anchor-5 scale_phantom_hp scale (user 2026-07-04 1.1 -> 2026-07-08 1.11 -> 1.09 after anchor moved to r5). Live dvar acc_protector_hp_exp.
 #define ACC_BOSS_FIRST_DEF          9     // BASE GAME: first boss round 9, then every 9
 #define ACC_BOSS_INTERVAL_DEF       9
 #define ACC_BOSS_FIRST_DEV          3     // DEV: round 3, every 3 (fast iteration)
@@ -90,8 +95,8 @@
 function init()
 {
 	// Publish the SHARED per-round roster decider (function pointer, NOT a #using - that would
-	// cycle _acc_boss -> _acc_boss_phantom -> here). The Phantom module counts its own entries off
-	// this. boss_type_count( round, "phantom" | "protector" ) reads the cached roster (boss_roster).
+	// cycle _acc_boss -> _acc_boss_phantom -> here). Every boss module counts its own entries off
+	// this. boss_type_count( round, "phantom" | "protector" | "avogadro" | "panzer" ) reads the cached roster (boss_roster).
 	level.acc_boss_roster_fn = &boss_type_count;
 
 	if ( !isdefined( level.acc_protector_debt ) )
@@ -117,7 +122,7 @@ function init()
 	dbg( "init ok - dev=" + ( IS_TRUE( level.acc_dev ) ? "1" : "0" )
 	     + " boss round every " + getdvarint( "acc_boss_interval", ( IS_TRUE( level.acc_dev ) ? ACC_BOSS_INTERVAL_DEV : ACC_BOSS_INTERVAL_DEF ) )
 	     + " from " + getdvarint( "acc_boss_first_round", ( IS_TRUE( level.acc_dev ) ? ACC_BOSS_FIRST_DEV : ACC_BOSS_FIRST_DEF ) )
-	     + " (count scales: round 9=1, 18=2, 27=3, ... each boss an independent Phantom/Protector roll)" );
+	     + " (count scales: round 9=1, 18=2, 27=3, ... types dealt no-duplicate from the 4-boss deck; first repeat = slot 5/round 45)" );
 }
 
 // DEV-ONLY debug print: on-screen for the first player AND (unlike acc_utility::log's
@@ -180,9 +185,9 @@ function dev_force_spawn_watcher()
 //
 // MULTI-BOSS ROUNDS (user 2026-07-03): a boss ROUND lands every 9 rounds from round 9, and the
 // COUNT scales with the slot - round 9 = 1 boss, round 18 = 2, round 27 = 3, and so on (slot+1).
-// EACH boss that round is an INDEPENDENT coin flip: Phantom or Rogue Protector. So a round can be
-// one-of-each, all Phantoms, all Rogue Protectors, or any mix. Boss music holds until EVERY boss
-// that round is dead - the acc_boss::boss_music refcount already does that (each boss threads it).
+// EACH boss that round is an INDEPENDENT 3-way roll: Phantom / Rogue Protector / Avogadro (user
+// 2026-07-04). So a round can be one-of-each, all one type, or any mix. Boss music holds until EVERY
+// boss that round is dead - the acc_boss::boss_music refcount already does that (each boss threads it).
 //
 // The roster is rolled ONCE per round and cached on the level (boss_roster) so BOTH boss modules -
 // this one and _acc_boss_phantom, whose round_watch threads BOTH fire on the same "acc_round_start"
@@ -200,9 +205,14 @@ function boss_count( round_number )
 	return ( ( round_number - first ) / interval ) + 1;   // slot 0 -> 1 boss, slot 1 -> 2, ...
 }
 
-// The per-round ROSTER: an array of "phantom"/"protector", one entry per boss, each an INDEPENDENT
-// roll. Rolled once and cached (level.acc_boss_roster keyed by level.acc_boss_roster_round) so the
-// two boss modules agree regardless of which reads it first. Not a boss round -> empty array.
+// The per-round ROSTER: an array of "phantom"/"protector"/"avogadro"/"panzer", one entry per boss,
+// dealt from a SHUFFLED DECK of the 4 types WITHOUT REPLACEMENT (user 2026-07-08: "no same boss
+// spawns until it's required" - the old independent per-slot roll had no guard rails and could
+// double a type as early as round 18). The deck reshuffles only when it empties, so rounds with
+// 1-4 bosses (9/18/27/36) are always ALL-DISTINCT types, and the first possible duplicate is the
+// 5th boss slot (round 45), where it's mathematically forced with a 4-type pool. Rolled once and
+// cached (level.acc_boss_roster keyed by level.acc_boss_roster_round) so all boss modules agree
+// regardless of which reads it first. Not a boss round -> empty array.
 function boss_roster( round_number )
 {
 	if ( isdefined( level.acc_boss_roster_round ) && level.acc_boss_roster_round == round_number
@@ -218,10 +228,49 @@ function boss_roster( round_number )
 	// exact gate (_acc_boss_phantom.gsc). The Rogue Protector has no such disable toggle, so it always
 	// absorbs. Default ships enabled, so normal play still gets the full random mix.
 	phantom_off = ( getdvarint( "acc_phantom_enable", 1 ) != 1 && !IS_TRUE( level.acc_dev ) );
+	avo_off     = ( getdvarint( "acc_avo_enable", 1 ) != 1 || IS_TRUE( level.acc_dev ) );   // DEV spawns Avogadro via its own dev_test_spawn, not the roster - re-home its slots so the boss count is still filled (L4)
+	panzer_off  = ( getdvarint( "acc_panzer_enable", 1 ) != 1 || IS_TRUE( level.acc_dev ) );   // PANZER (2026-07-08): same dev rule as Avogadro - _acc_boss_panzer runs its own dev_test_spawn loop, so dev re-homes his slots too
 
 	roster = [];
+	deck   = [];
+	di     = 0;   // deal cursor into the current deck
 	for ( i = 0; i < n; i++ )
-		roster[ i ] = ( ( !phantom_off && acc_utility::acc_rand_int( 2 ) == 0 ) ? "phantom" : "protector" );
+	{
+		// NO-DUPLICATE GUARD (user 2026-07-08): deal from a shuffled 4-type deck without
+		// replacement; reshuffle only when it runs dry. Slots 1-4 of a round are therefore
+		// always distinct types; slot 5+ (round 45+) starts a fresh deck = the first REQUIRED
+		// repeat. (Fisher-Yates on the fixed type list, acc_rand_int = the codebase RNG.)
+		if ( di >= deck.size )
+		{
+			deck = [];
+			deck[ 0 ] = "phantom";
+			deck[ 1 ] = "protector";
+			deck[ 2 ] = "avogadro";
+			deck[ 3 ] = "panzer";
+			for ( j = deck.size - 1; j > 0; j-- )
+			{
+				k = acc_utility::acc_rand_int( j + 1 );
+				tmp = deck[ j ];
+				deck[ j ] = deck[ k ];
+				deck[ k ] = tmp;
+			}
+			di = 0;
+		}
+		t = deck[ di ];
+		di++;
+		// A DISABLED type re-homes to the Rogue Protector (which has no toggle) so a disabled
+		// deal never SHRINKS the round's boss count - the count-preservation rule (Phantom's
+		// original gate). NOTE: re-homing deliberately BREAKS uniqueness (e.g. dev mode re-homes
+		// Avogadro + Panzer, so a 3-boss dev round can be several Protectors) - count trumps
+		// distinctness when types are unavailable.
+		if ( t == "phantom" && phantom_off )
+			t = "protector";
+		if ( t == "avogadro" && avo_off )
+			t = "protector";
+		if ( t == "panzer" && panzer_off )
+			t = "protector";
+		roster[ i ] = t;
+	}
 
 	level.acc_boss_roster       = roster;
 	level.acc_boss_roster_round = round_number;
@@ -229,7 +278,7 @@ function boss_roster( round_number )
 }
 
 // PUBLIC (via level.acc_boss_roster_fn): how many of a given TYPE the roster assigns this round.
-// str_type = "phantom" | "protector". Both boss directors read their own count off this.
+// str_type = "phantom" | "protector" | "avogadro" | "panzer". Every boss director reads its own count off this.
 function boss_type_count( round_number, str_type )
 {
 	roster = boss_roster( round_number );
@@ -269,6 +318,12 @@ function director()
 	{
 		wait 3;
 
+		// [acc] #6 PARADISE (2026-07-05): during the finale the paradise wave OWNS Rogue Protector spawns
+		// (cap 1). Pause the debt director so a carried-over debt can't drop an unauthorized second RP into
+		// the arena (which would also grant an extra guaranteed boss reward). Debt is preserved for after.
+		if ( IS_TRUE( level.acc_paradise_onslaught ) )
+			continue;
+
 		if ( level.acc_protector_debt <= 0 )
 			continue;
 
@@ -292,20 +347,32 @@ function director()
 
 function spawn_boss()
 {
-	// Land in front of a random living player (same proven entrance as the ally test).
-	p = pick_target_player();
-	if ( !isdefined( p ) )
+	// SPAWN ORIGIN: ALWAYS the PLAZA (user 2026-07-05: "have the Rogue Protector spawn at plaza always").
+	// Replaces the old trench-prone random-player down-trace ENTIRELY - it stranded him in the bus trench,
+	// invisible + unkillable, so the boss music looped forever. Fixed anchor = the Plaza mystery-box chest
+	// spot (acc_box_plaza @ 100,-150,14 in the .map): open, central, on the navmesh, always reachable + visible.
+	// Live-tunable via acc_protector_spawn_* if the exact spot ever needs a nudge (no rebuild).
+	if ( !isdefined( pick_target_player() ) )   // still require a live player (nobody to fight otherwise)
 	{
-		dbg( "no valid player to land at - retrying" );
+		dbg( "no valid player - retrying" );
 		return undefined;
 	}
+	v_ground = ( getdvarfloat( "acc_protector_spawn_x", 100 ), getdvarfloat( "acc_protector_spawn_y", -150 ), getdvarfloat( "acc_protector_spawn_z", 14 ) );
+	ang      = ( 0, getdvarfloat( "acc_protector_spawn_yaw", 0 ), 0 );
 
-	v_fwd = AnglesToForward( ( 0, p.angles[ 1 ], 0 ) );
-	v_probe = p.origin + v_fwd * 200 + ( 0, 0, 50 );
-	trace = BulletTrace( v_probe, v_probe - ( 0, 0, 500 ), 0, p );
-	v_ground = trace[ "position" ];
-	v_face = VectorToAngles( p.origin - v_ground );
-	ang = ( 0, v_face[ 1 ], 0 );
+	// PARADISE (review fix 2026-07-08): the arena is a separate dimension at z=-1200 and the Plaza anchor
+	// (z=14) is unreachable from it - a wave-spawned RP stranded in the empty overworld and jammed the
+	// finale's cap-1 gate (its count never decremented). Mirror the Avogadro's paradise branch: spawn ON
+	// a living player in the arena. Normal rounds keep the fixed Plaza anchor.
+	if ( IS_TRUE( level.acc_paradise_onslaught ) )
+	{
+		pp = pick_target_player();
+		if ( isdefined( pp ) )
+		{
+			v_ground = pp.origin;
+			ang      = ( 0, pp.angles[ 1 ], 0 );
+		}
+	}
 
 	announce();
 	level thread zm_zod_robot::zod_robot_spawn_fx( v_ground );   // ground-tell FX (retires on "robot_landed")
@@ -363,6 +430,8 @@ function spawn_boss()
 	boss.combatmode = "no_cover";
 	boss.is_boss = true;           // _acc_zombie_speed excludes is_boss actors (Brutus rule)
 	boss.acc_is_mini_boss = true;  // boss headshot handling in _acc_damage where applicable
+	boss.acc_is_rogue_protector = true;  // proximity-damage scaling in _acc_elites::on_player_damaged
+	                                     // (bullets hit harder up close) keys off THIS marker
 	boss.ignore_enemy_count = true;
 	boss.ignore_nuke = true;       // a nuke power-up kills axis AI - boss is exempt (Brutus/Glitch rule)
 	boss.allow_zombie_to_target_ai = 0;   // archetype spawn setup sets 1; same-team means moot, but explicit
@@ -370,10 +439,10 @@ function spawn_boss()
 	boss.disableAmmoDrop = true;
 	boss.can_gib_zombies = 0;
 
-	// HP: the SHARED boss scale (base 56k + anchor 10, scale_phantom_hp) but with the Rogue
-	// Protector's OWN exponent - the TIER between Brutus and the Phantom (user 2026-07-04: Brutus
-	// 1.12 > Rogue 1.1 > Phantom 1.08). Then the SAME log coop multiplier. No cap.
-	// Rogue solo: r10 56k / r20 145k / r30 377k / r40 977k.
+	// HP: the SHARED boss scale (base 65k + anchor 5, scale_phantom_hp) but with the Rogue
+	// Protector's OWN exponent - the TIER between Brutus and the Phantom (user 2026-07-08: Brutus/Panzer
+	// 1.12 > Rogue 1.09 > Phantom 1.06). Then the SAME log coop multiplier. No cap.
+	// Rogue solo: r5 65k / r10 100k / r20 237k / r30 561k / r40 1.33M (anchor r5, exp 1.09; user 2026-07-08).
 	rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
 	hp = int( acc_boss_phantom::scale_phantom_hp( rn, getdvarfloat( "acc_protector_hp_exp", ACC_PROTECTOR_HP_EXP ) ) * acc_coop_scaling::boss_hp_player_mult() );
 	boss.maxhealth = hp;
@@ -411,7 +480,7 @@ function spawn_boss()
 
 	// --- TWO ATTACKS (user 2026-07-03) + drive + death ---
 	boss thread hunt_players();
-	boss thread fire_loop();   // ranged: 25-dmg bullets, energy muzzle flash + gun report
+	boss thread fire_loop();   // ranged: 4 chip bullets (28 base, proximity-ramped) then a REAL s1_mahem rocket; knockback per hit (_acc_elites)
 	boss thread zap_loop();    // close-range: electric burst + spark report + 25% slow
 	boss thread dev_boss_status();
 	boss thread death_watch();
@@ -555,13 +624,11 @@ function hunt_players()
 		if ( isdefined( target ) )
 		{
 			self.favoriteenemy = target;
-			// MOVEMENT COOLDOWN (user 2026-07-03): while his gun is cooling (fire_loop sets
-			// acc_protector_cooling after a 4-shot burst), he FREEZES in place - the player's
-			// window to heal/escape. Otherwise chase flat-out.
-			if ( IS_TRUE( self.acc_protector_cooling ) )
-				self SetGoal( self.origin, 1 );
-			else
-				self SetGoal( target.origin, 1 );
+			// [acc] #8 (2026-07-05): removed the dead "freeze while gun cooling" branch. It gated on
+			// self.acc_protector_cooling, which the rewritten fire_loop (4 bullets + 1 explosive) never
+			// sets, so the branch was permanently false and he chased anyway. Now he unconditionally
+			// chases - the behavior that was actually happening all along (no gameplay change).
+			self SetGoal( target.origin, 1 );
 		}
 
 		wait 0.5;
@@ -616,11 +683,10 @@ function dev_boss_status()
 // spread - most shots land at close/mid range (the design: chip + stun pressure).
 // ---------------------------------------------------------------------------
 
-// BURST + COOLDOWN (user 2026-07-03): he fires acc_protector_burst_count (4) shots, then his gun AND
-// movement COOL DOWN for acc_protector_cooldown_sec (3s). 4 bullets x 25 = 100 dmg = a clean no-Jugg
-// kill IF he locks a target the whole burst (intended: "devastating if he targets you"), but the
-// cooldown is the counterplay window - he freezes (hunt_players stops on acc_protector_cooling), so
-// the player can heal/reposition/break LoS. Get Jugg (250 HP) to survive a full burst.
+// FIRE PATTERN (user 2026-07-04): 4 chip bullets, then ONE big mahem explosive, then a
+// acc_protector_mahem_cooldown (3s) pause before the next cycle. He keeps CHASING the whole time
+// (the old "freeze while cooling" was removed 2026-07-05 - it was never wired up); the counterplay
+// window is the gap between explosive volleys. Get Jugg (250 HP) to survive a concentrated burst.
 function fire_loop()
 {
 	self endon( "death" );
@@ -715,9 +781,9 @@ function fire_loop()
 		}
 		else
 		{
-			// 5th = BIG EXPLOSIVE: controlled AOE (RadiusDamage, exact tunable dmg) + mahem
-			// explosion sound/FX, then a cooldown before the next 4-bullet cycle.
-			mahem_shot( target, v_aim, w );
+			// 5th = the ROCKET: a real, VISIBLE s1_mahem projectile (player damage capped in
+			// _acc_elites' rocket lane), then a cooldown before the next 4-bullet cycle.
+			mahem_shot( target, v_muzzle, v_aim, w );
 			n_shots = 0;
 			wait getdvarfloat( "acc_protector_mahem_cooldown", 3.0 );
 		}
@@ -730,30 +796,35 @@ function fire_loop()
 	}
 }
 
-// The 5th shot: a big MAHEM-style explosive. Damage is a SCRIPTED RadiusDamage (exact, tunable -
-// NOT the weapon's built-in explosion, which was the 3100 one-shot), so it's controllable; the
-// look/sound is the mahem explosion pulse (client-side, _acc_boss_nameplate). self = the boss.
-function mahem_shot( target, v_aim, w )
+// The 5th shot: the ROCKET. Since 2026-07-09 ("his rocket launcher doesn't look like it works")
+// this fires a REAL s1_mahem projectile via MagicBullet - the SoE Mahem is in the ZM levelcommon
+// weapon table, so GetWeapon resolves it at runtime and the shot carries the launcher's own rocket
+// model, smoke trail, explosion FX and boom SOUND (everything the old invisible scripted
+// RadiusDamage lacked). Its raw playerDamage is the 3100 one-shot that forced the scripted
+// explosion in the first place - that is now HARD-CAPPED player-side to acc_protector_mahem_dmg
+// (55) in _acc_elites::on_player_damaged (the rocket lane; big knockback rides the same hit).
+// Zombies caught in the blast just die - the boss only chips himself (65k+ hp) if he point-blanks.
+// The scripted RadiusDamage survives only as the fallback if s1_mahem ever fails to resolve.
+function mahem_shot( target, v_muzzle, v_aim, w )
 {
-	// Controlled explosion at the target: acc_protector_mahem_dmg (50) inner, tapering to min,
-	// within acc_protector_mahem_radius (180). Routed through the player-damage chain (god-safe),
-	// tagged MOD_PROJECTILE_SPLASH so the big-hit alarm attributes it clearly if ever retuned.
-	dmg    = getdvarint( "acc_protector_mahem_dmg", 50 );
+	w_rocket = GetWeapon( "s1_mahem" );
+	if ( isdefined( w_rocket ) && w_rocket != level.weaponNone && isdefined( w_rocket.name ) && w_rocket.name != "none" )
+	{
+		MagicBullet( w_rocket, v_muzzle, v_aim, self );   // a real rocket from his muzzle at the target
+		acc_boss_nameplate::mahem_pulse( self );          // client-side: launch boom + muzzle flash on the boss
+		rp_diag( "fire: ROCKET (s1_mahem projectile, player dmg capped in _acc_elites) at " + ( isdefined( target ) ? target.name : "?" ) );
+		return;
+	}
+
+	// FALLBACK ONLY (s1_mahem unresolvable): the pre-2026-07-09 invisible-but-exact scripted blast.
+	dmg    = getdvarint( "acc_protector_mahem_dmg", 55 );
 	radius = getdvarint( "acc_protector_mahem_radius", 180 );
 	dmg_min = int( dmg / 3 );
 	RadiusDamage( v_aim, radius, dmg, dmg_min, self, "MOD_PROJECTILE_SPLASH", w );
-
-	// VISIBLE explosion at the impact (user 2026-07-04: "I didn't see his explosion weapon"). The
-	// mahem RadiusDamage IS landing (log: took 47 MOD_PROJECTILE_SPLASH) but was invisible - the
-	// client mahem_pulse only played a small muzzle flash on the boss. Reuse the boss's own proven
-	// server-side world-position FX (robot_landing = fx_robot_helper_jump_landing_zod_zmb, the
-	// slam-down burst - already precached + used at spawn line 416) as the explosion burst AT the
-	// blast point. Server-side PlayFX(fx, world_pos) works (unlike actor-tag FX); v_aim is a world pos.
 	if ( isdefined( level._effect[ "robot_landing" ] ) )
 		PlayFX( level._effect[ "robot_landing" ], v_aim );
-
-	acc_boss_nameplate::mahem_pulse( self );   // client-side: mahem explosion boom (SFX) + muzzle flash on the boss
-	rp_diag( "fire: MAHEM explosive (" + dmg + " dmg, r" + radius + ") at " + ( isdefined( target ) ? target.name : "?" ) );
+	acc_boss_nameplate::mahem_pulse( self );
+	rp_diag( "fire: MAHEM fallback RadiusDamage (" + dmg + " dmg, r" + radius + ") - s1_mahem did not resolve" );
 }
 
 // SECOND ATTACK - close-range ZAP (user 2026-07-03: "he has two attacks, shooting and zapping").
@@ -815,7 +886,11 @@ function boss_damage_feed( inflictor, attacker, damage, flags, meansOfDeath, wea
 {
 	if ( isdefined( attacker ) && isplayer( attacker ) )
 	{
-		b_head = ( isdefined( hitLoc ) && IsInArray( array( "head", "neck", "helmet" ), hitLoc ) );
+		// Melee gate added 2026-07-06 to match the main on_ai_damage feed (melee never headshots,
+		// user 2026-06-23) - a knife to the boss's head no longer tints teal. Head tint itself is
+		// hit-loc only (no shotgun exclusion), same as the main feed's b_head_display.
+		b_head = ( isdefined( hitLoc ) && IsInArray( array( "head", "neck", "helmet" ), hitLoc )
+		           && !acc_damage::is_melee_mod( meansOfDeath ) );
 		// feed_dmg_number is public + self-guarding (no-ops when the damage-number HUD isn't up).
 		acc_damage::feed_dmg_number( attacker, int( damage ), b_head );
 	}
@@ -842,29 +917,31 @@ function death_watch()
 
 	self waittill( "death", attacker );
 
-	self StopLoopSound();   // kill the hover-jet hum (PlayLoopSound at spawn) - it otherwise loops on the corpse forever
-
-	drop_origin = self.origin;
+	// COOP CRASH GUARD: the corpse can be reaped the same frame the death notify fires (4p corpse churn) -
+	// any self deref then throws "not an entity" and ends the whole match (same race phantom_death_watch
+	// guards). Fall back to the killer's origin so the reward still pays out when the corpse is already gone.
+	if ( isdefined( self ) )
+	{
+		self StopLoopSound();   // kill the hover-jet hum (PlayLoopSound at spawn) - it otherwise loops on the corpse forever
+		drop_origin = self.origin;
+	}
+	else if ( isdefined( attacker ) && isplayer( attacker ) )
+	{
+		drop_origin = attacker.origin;
+	}
+	else
+	{
+		return;   // no corpse and no killer to anchor the drop - nothing safe to reference
+	}
 	acc_utility::log( "protector boss: KILLED (round " + level.round_number + ")" );
 
-	// Guaranteed boss-item drop at the corpse (dupes convert to shards at pickup).
-	acc_boss_items::grant_challenge_reward( drop_origin );
+	// NO drops during the Paradise final battle (2026-07-09 parity audit): the RP was the ONLY boss whose
+	// death reward still fired in the arena - Panzer/Avogadro/Phantom/Brutus all suppress theirs there (the
+	// documented survive-not-farm finale: power-ups + shards are blocked too). Align with the others.
+	if ( IS_TRUE( level.acc_paradise_onslaught ) )
+		return;
 
-	// 3000 points to every player + a 50% Mega Bottle roll (one to every player when it hits).
-	players = GetPlayers();
-	for ( i = 0; i < players.size; i++ )
-	{
-		p = players[ i ];
-		if ( isdefined( p ) && isplayer( p ) )
-			p zm_score::add_to_player_score( 3000 );
-	}
-	if ( acc_utility::acc_rand_float() <= 0.5 )
-	{
-		for ( i = 0; i < players.size; i++ )
-		{
-			p = players[ i ];
-			if ( isdefined( p ) && isplayer( p ) )
-				p acc_mega_bottles::grant_bottle( 1, "boss" );
-		}
-	}
+	// Shared boss reward (user 2026-07-05: every boss identical - this FIXES the Rogue Protector granting
+	// ZERO shards): 1 item + 1 bottle + round*300 pts + int(round/3) shards, to every player.
+	acc_boss::grant_unified_boss_reward( drop_origin );
 }

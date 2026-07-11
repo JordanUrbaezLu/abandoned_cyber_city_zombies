@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_atmosphere.gsc - global volumetric fog for the abandoned cyber-city mood
 //
-// Design reference: docs/29_atmosphere_and_materials.md (Phase 1 - "flip greybox
+// Design reference: docs/20_atmosphere_and_materials.md (Phase 1 - "flip greybox
 // to cyber city"). Fog is the ONE atmosphere lever that is pure GSC (no Radiant):
 // a cold, low city haze applied once after the initial blackscreen. The other
 // Phase-1 levers - night sky (stock `default_night` SSI + `skybox_default_night`
@@ -17,11 +17,11 @@
 //   (A wider 18-arg sun-fog overload exists in _art.gsc's dev block; the 8-arg
 //   shipped-path form is what we want.)
 //
-// Fog is ON by default (the cyber-night atmosphere pass, docs/40). Disable with
+// Fog is ON by default (the cyber-night atmosphere pass, docs/BO3_MAPMAKING_KB.md). Disable with
 // `set acc_fog_on 0`. Tune the per-parameter `acc_fog_*` dvars live - the watch loop
 // re-applies every half second, no rebuild (same live-dvar pattern as the
 // `acc_zspeed_*` speed-curve knobs). When a look is locked, bake the numbers into the
-// #define defaults AND docs/29. The colour grade (vision) is the companion lever below.
+// #define defaults AND docs/20. The colour grade (vision) is the companion lever below.
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -37,7 +37,7 @@
 #insert scripts\shared\shared.gsh;   // IS_TRUE (dev-gated prop report, 2026-07-02)
 
 // Defaults = cold low city haze. TODO(acc-tune): lock these in a playtest, then
-// mirror the numbers in docs/29_atmosphere_and_materials.md.
+// mirror the numbers in docs/20_atmosphere_and_materials.md.
 #define ACC_FOG_START_DIST     0      // units from camera where fog begins
 #define ACC_FOG_HALFWAY_DIST    550   // units to half opacity; denser for the shrunk rooms (tune live)
 #define ACC_FOG_HALFWAY_HEIGHT  750   // vertical falloff - dense at the floor, thinner at eye level
@@ -69,7 +69,7 @@
 
 // Ambient bed = the AUDIO half of the atmosphere (the fog above is the visual
 // half). A single 2D LOOPING city/rain soundscape, authored as the alias below
-// in sound/aliases/acc_audio.csv (see docs/35_sound_plan.md). OFF by default
+// in sound/aliases/acc_audio.csv (see docs/23_sound_plan.md). OFF by default
 // (same stance as fog - the owner controls the room), enable with
 // `set acc_amb_on 1`. The alias being absent today is a SILENT no-op (a missing
 // alias never errors a build), so this ships build-safe before the WAV exists.
@@ -82,7 +82,7 @@
 #define ACC_MUSIC_ALIAS         "acc_main_theme"
 
 // Cyber-night COLOUR GRADE = an optional global VisionSetNaked colour grade applied
-// at RUNTIME with NO lightmap bake (docs/40). OFF BY DEFAULT (user 2026-06-18): every
+// at RUNTIME with NO lightmap bake (docs/BO3_MAPMAKING_KB.md). OFF BY DEFAULT (user 2026-06-18): every
 // custom grade (cyan / magenta / neutral+cyan) read worse than stock on this flat
 // fullbright scene, so the map ships with BASE GAME COLOURS - apply_vision with
 // acc_vision_on 0 applies the stock neutral "default" vision and adds no tint of its own.
@@ -151,7 +151,7 @@ function init()
 // T7 prop-pack PILOT decor (user 2026-07-02: "place a thing or two in... the exchange
 // room actually since that's pretty open"). The Exchange = the transfer-vault room
 // UNDER the spawn Plaza (gen_plaza_basement.js: floor z=-240, x[-720,300], y[-448,360],
-// docs/58). Two static script_models from the MidgetBlaster "T7 Assets" pack (Zombies
+// docs/37). Two static script_models from the MidgetBlaster "T7 Assets" pack (Zombies
 // Chronicles Moon server rack + Awakening/crucible holo monitor - fits the cyber read):
 // install-side slice source_data\acc_t7_props_pilot.gdt + model_export\_midgetblaster\
 // (PNG baseImages - same pipeline as the ALXS PaP/actionfigure images). Zone:
@@ -367,11 +367,11 @@ function acc_set_vol_fog( start_dist, halfway_dist, halfway_height, base_height,
 }
 
 // ---------------------------------------------------------------------------
-// Cyber-night colour grade - global VisionSetNaked, no lightmap bake (docs/40).
+// Cyber-night colour grade - global VisionSetNaked, no lightmap bake (docs/BO3_MAPMAKING_KB.md).
 // Watches acc_vision_on / acc_vision_set so the look can be toggled + hot-swapped
 // live. Applies only on CHANGE so it does not spam the renderer every half second.
 //
-// REVIVE GOTCHA (docs/29 §7c, fixed 2026-06-24): this CHANGE-GATE is per-this-loop
+// REVIVE GOTCHA (docs/20 §7c, fixed 2026-06-24): this CHANGE-GATE is per-this-loop
 // (the local `applied`), but the engine FORCE-RESTORES the MAP-NAME vision
 // ("zm_abandoned_cyber_city") PER-CLIENT on every revive (visionset_mgr / _zm_laststand),
 // which BYPASSES this global slot - so after a down/revive a player keeps whatever

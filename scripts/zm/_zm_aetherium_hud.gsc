@@ -69,9 +69,22 @@ function __init__()
 		clientfield::register( "world", "player_shards_" + i, VERSION_SHIP, 10, "int" );
 	}
 
+	// ACC (2026-07-04, user: "add Mega Bottles + Exo Suit Lv per teammate too"): per-player MB (5 bits,
+	// <=31) + EXO tier (4 bits, <=15) BROADCAST world-scope, same lane as player_shards_N, so the party
+	// widgets show each TEAMMATE's count. Appended AFTER player_shards - mb 0..3 THEN exo 0..3 - and the
+	// .csc MUST register in this EXACT order/width or the world-scope bit layout desyncs.
+	for( i = 0; i < 4; i++ )
+	{
+		clientfield::register( "world", "player_mb_" + i, VERSION_SHIP, 5, "int" );
+	}
+	for( i = 0; i < 4; i++ )
+	{
+		clientfield::register( "world", "player_exo_" + i, VERSION_SHIP, 4, "int" );
+	}
+
 	// ACC CURRENCIES -> the base HUD (2026-07-03, user: "incorporate all our currencies").
 	// Data Shards + Mega Bottles (+ EXO tier) ride TOPLAYER-scope clientfields - per-player
-	// private, a SEPARATE pool from both the FULL clientuimodel pool (docs/49) and the world
+	// private, a SEPARATE pool from both the FULL clientuimodel pool (docs/22) and the world
 	// fields above. The .csc mirror pipes them into the "acc_shards"/"acc_mb"/"acc_exo" UI
 	// models that AetheriumPlayerInfo (panel row) reads. MUST stay in lockstep with the .csc
 	// (same order/width/type). Widths cap the pushed values: shards<=1023, MB<=31, EXO<=15
@@ -83,6 +96,20 @@ function __init__()
 	// health (100 / 250 / 300; the health clientfield is only a FRACTION). 9 bits (<=511) fits
 	// 300. Appended LAST in the toplayer scope - MUST match the .csc order.
 	clientfield::register( "toplayer", "acc_maxhp", VERSION_SHIP, 9, "int" );
+	// ACC GUN BADGES (2026-07-08, user: "unify the gun-HUD badges"): FLAG badges for the HELD
+	// weapon, ONE bitmask driving acc_hud.lua's CoD.AccGunBadgeRow (the unified chip row under
+	// the ammo readout; TIER badges PaP/OC keep riding their existing accPapTier/accOcTier
+	// clientuimodel fields). COMPUTED + PUSHED by _acc_gun_badges.gsc (registry of predicates,
+	// threaded from _acc_main::on_player_connect); this file only REGISTERS the field so the
+	// toplayer bit layout stays in lockstep with the other currency fields. Same toplayer->uimodel
+	// bridge as acc_shards (the clientuimodel pool is FULL, docs/11). 6 bits = room for 6 flag
+	// badges. BIT TABLE (owned by _acc_gun_badges::init) - MUST match ACC_GUN_BADGES in acc_hud.lua:
+	//   bit 0 = MULE    (held gun is the one Mule Kick removes on a down; was the 1-bit acc_mule
+	//                    field 2026-07-06..08 - REPLACED in-place, .csc updated in lockstep)
+	//   bit 1 = TURBO   (Turbocharger implanted AND the held gun is a Havoc, _acc_boss_items item 8)
+	//   bit 2 = NUKE    (Nuclear Energy implanted AND held weapon is one it buffs, item 9)
+	// Appended LAST in the toplayer scope - MUST match the .csc order.
+	clientfield::register( "toplayer", "acc_badges", VERSION_SHIP, 6, "int" );
 
 	// Register on_connect callback to start per-player health monitoring
 	callback::on_connect( &on_player_connect );
@@ -128,6 +155,14 @@ function mock_party_feed()
 {
 	level endon( "end_game" );
 
+	// [acc] CHANGE-GUARD EVERY SET (crash hunt 2026-07-10): this loop wrote 12 world clientfields
+	// per second forever (health + shards + mb + exo x 3 mock slots @ 4Hz), even though only slot 3's
+	// health actually changes. Every clientfield::set dirties the world snapshot for retransmit, so
+	// the constant-value spam was pure churn on the already-tight world-field budget (and the prime
+	// suspect for the corrupted configstring + delayed native CTD, exe+0x22c8f03). Each field now
+	// writes ONLY when its value changes: shards/mb/exo once at start, slot 1/2 health once, slot 3
+	// health only on real 4Hz drain ticks. Visual result is identical.
+	sent = [];
 	for( ;; )
 	{
 		wait 0.25;
@@ -143,9 +178,30 @@ function mock_party_feed()
 				v = 0.55;
 			else
 				v = 0.95 - 0.8 * ( ( GetTime() % 5000 ) / 5000 );
-			level clientfield::set( "player_health_" + i, v );
-			// Fake shard counts for the mock teammates (mirrors the old roster demo values).
-			level clientfield::set( "player_shards_" + i, 100 + i * 75 );
+
+			key = "h" + i;
+			if ( !isdefined( sent[ key ] ) || sent[ key ] != v )
+			{
+				level clientfield::set( "player_health_" + i, v );
+				sent[ key ] = v;
+			}
+			// Fake shards / Mega Bottles / Exo Lv for the mock teammates - CONSTANT values, so
+			// one write each on the first pass (slot occupancy changes re-send via the guard).
+			if ( !isdefined( sent[ "s" + i ] ) || sent[ "s" + i ] != 100 + i * 75 )
+			{
+				level clientfield::set( "player_shards_" + i, 100 + i * 75 );
+				sent[ "s" + i ] = 100 + i * 75;
+			}
+			if ( !isdefined( sent[ "m" + i ] ) || sent[ "m" + i ] != i * 2 + 1 )
+			{
+				level clientfield::set( "player_mb_" + i, i * 2 + 1 );
+				sent[ "m" + i ] = i * 2 + 1;
+			}
+			if ( !isdefined( sent[ "e" + i ] ) || sent[ "e" + i ] != i + 1 )
+			{
+				level clientfield::set( "player_exo_" + i, i + 1 );
+				sent[ "e" + i ] = i + 1;
+			}
 		}
 	}
 }
@@ -169,6 +225,11 @@ function on_player_connect()
 
 	// ACC: push the map's currencies (shards / mega bottles / exo tier) to this player's HUD
 	self thread player_currency_watch();
+
+	// ACC GUN BADGES: the per-player flag-badge watch moved to its own module 2026-07-08
+	// (_acc_gun_badges.gsc - registry-driven predicates, threaded from _acc_main::on_player_connect).
+	// This file keeps ONLY the `acc_badges` clientfield REGISTRATION (below, for toplayer bit-layout
+	// lockstep with the other currency fields); the compute+push lives there now.
 }
 
 // ACC (2026-07-03): per-player currency feed for the base-HUD panel row. Change-guarded
@@ -214,11 +275,17 @@ function player_currency_watch()
 		if ( mb != last_mb )
 		{
 			self clientfield::set_to_player( "acc_mb", mb );
+			// BROADCAST my Mega Bottles so every client's party widget shows this teammate's count.
+			if ( entnum < 4 )
+				level clientfield::set( "player_mb_" + entnum, mb );
 			last_mb = mb;
 		}
 		if ( exo != last_exo )
 		{
 			self clientfield::set_to_player( "acc_exo", exo );
+			// BROADCAST my Exo Suit tier for the party widgets.
+			if ( entnum < 4 )
+				level clientfield::set( "player_exo_" + entnum, exo );
 			last_exo = exo;
 		}
 		if ( mhp != last_mhp )

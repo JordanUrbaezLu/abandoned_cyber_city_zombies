@@ -68,6 +68,7 @@
 #using scripts\zm\_zm_zonemgr;
 #using scripts\shared\ai_shared;
 #using scripts\shared\ai\zombie_shared;
+#using scripts\shared\ai\zombie;   // [acc] ZombieBehavior::ArchetypeZombieBlackboardInit (full blackboard incl. LOCOMOTION_SPEED_TYPE)
 
 // AATs
 #insert scripts\shared\aat_zm.gsh;
@@ -122,6 +123,11 @@ REGISTER_SYSTEM( "zm_ai_avogadro", &init, undefined )
 function init()
 {
 	clientfield::register( "scriptmover", "avogadro_fx", VERSION_SHIP, 1, "int" );
+	// [acc] BOLT PROJECTILE field (2026-07-06, user: "hard to see his projectile"): dedicated mover field
+	// for _acc_boss_avogadro::bolt_travel's thrown bolt. The .csc callback stacks TWO fx (his linger
+	// crackle + the bright tesla-bolt arc) and plays the launch/impact sounds CLIENT-side, positionally at
+	// the bolt (server PlaySound on AI actors is dead in this build - _acc_boss_nameplate precedent).
+	clientfield::register( "scriptmover", "acc_avo_bolt_fx", VERSION_SHIP, 1, "int" );
 
 	callback::on_connect( &avogadro_callback );
 
@@ -170,10 +176,26 @@ function private InitavogadroBehaviorsAndASM()
 	//Condition
 	BT_REGISTER_API(	"ShouldDomeleeAttack",	&ShouldDomeleeAttack 	);
 	BT_REGISTER_API( "avoShouldShootBolt", 	&avoShouldShootBolt );
+	// [acc] BUG FIX (2026-07-06): the pack BT (zm_avogadro.ai_bt, shootgroundtorpedobehavior node) gates the
+	// bolt-shoot sequence on `condition_script_negate: ShouldDopunchAttack` - a script function the pack GSC
+	// NEVER REGISTERED (it's not stock either; leftover from whatever AI the BT was cloned from). An
+	// unregistered BT scriptFunction can never pass, so (a) the bolt branch was DEAD (range-attack anim never
+	// played -> no avo_send_bolt notify -> no visible attack), and (b) whenever avoShouldShootBolt was TRUE the
+	// BT deadlocked: bolt branch failed, and BOTH movebehavior and idlebehavior require NOT-avoShouldShootBolt,
+	// so no branch could run -> he FROZE in place (the "never walks" bug). Registering the stub (no punch
+	// attack exists -> always false; the negate node then passes) revives the bolt branch and the freeze.
+	BT_REGISTER_API( "ShouldDopunchAttack",	&ShouldDopunchAttack );
 	//Action
 	BT_REGISTER_ACTION(	"ShouldDomeleeAttackAction",	&ShouldDomeleeAttackAction,	undefined,	&melee_attack );
 	BT_REGISTER_API( "avoFinishBoltShoot", 			&avoFinishBoltShoot );
 	//Function
+}
+
+// [acc] Stub for the BT's unregistered ShouldDopunchAttack condition (see the register note above).
+// The Avogadro has no punch attack - always false, so the BT's negate gate always passes.
+function private ShouldDopunchAttack( entity )
+{
+	return false;
 }
 
 //
@@ -203,6 +225,12 @@ function private avogadrotargetservice( avogadro )
 			}
 		}
 
+		// [acc] ENEMY UPKEEP RUNS UNCONDITIONALLY (2026-07-06): this used to early-return on the machine-seek
+		// override BEFORE setting enemy_target/favoriteenemy - so while _acc_boss_avogadro's hack_director had
+		// a goal set (which is nearly ALWAYS), .enemy went stale/undefined, which silently killed the BT bolt
+		// attack (avoShouldShootBolt needs entity.enemy) AND OrientMode("face enemy"). Enemy bookkeeping now
+		// always runs; only the GOAL below switches between the machine override and the player chase.
+		closest_player = undefined;
 		if(valid_players.size > 0)
 		{
 			closest_player = ArrayGetClosest(avogadro.origin, valid_players);
@@ -212,19 +240,30 @@ function private avogadrotargetservice( avogadro )
 
 			avogadro SetIgnoreEnt( closest_player, false );
 			avogadro GetPerfectInfo( closest_player );
-			avogadro SetGoal( closest_player );
 		}
 		else
 		{
 			avogadro.enemy_target = undefined;
 			avogadro.favoriteenemy = undefined;
-			avogadro SetGoal( avogadro.origin );
 		}
+
+		// [acc] Boss HACK movement (user 2026-07-04): when _acc_boss_avogadro's hack_director wants him to
+		// walk up to a machine, it sets avogadro.acc_avo_seek + .acc_avo_goal_pos; honour that goal instead
+		// of chasing the closest player. It clears acc_avo_seek (false) when he should chase players again.
+		// Clean hand-off (no BT re-registration): default (unset) = the stock closest-player chase.
+		if ( IS_TRUE( avogadro.acc_avo_seek ) && isdefined( avogadro.acc_avo_goal_pos ) )
+			avogadro SetGoal( avogadro.acc_avo_goal_pos );
+		else if ( isdefined( closest_player ) )
+			avogadro SetGoal( closest_player );
+		else
+			avogadro SetGoal( avogadro.origin );
 	}
 }
 
 function ShouldDomeleeAttackService( entity )
 {
+	if ( IS_TRUE( entity.acc_avo_no_melee ) )   // [acc] our boss disables the pack BT melee (0-dmg stun-only design; allowmelee/canattack don't gate this custom chain)
+		return false;
 	if(isDefined( entity.last_melee_time ) && ( GetTime() - entity.last_melee_time ) < ATTACK_TIME_TRACK)
 	{
 		return false;
@@ -251,6 +290,8 @@ function ShouldDomeleeAttackService( entity )
 
 function ShouldDomeleeAttack(entity)
 {
+	if ( IS_TRUE( entity.acc_avo_no_melee ) )   // [acc] boss: never melee (see ShouldDomeleeAttackService)
+		return false;
 	if ( IS_TRUE( entity.do_melee_attack ) )
 	{
 		return true;
@@ -259,60 +300,72 @@ function ShouldDomeleeAttack(entity)
 	return false;	
 }
 
+// [acc] entity.acc_avo_bolt_block (2026-07-06): each BT eval records WHY the bolt is not firing
+// ("none" = firing / ready). Pure diagnostics - _acc_boss_avogadro's dev heartbeat prints it, so a
+// playtest log shows exactly which gate starves the attack (cooldown vs range vs LOS vs no enemy).
 function private avoShouldShootBolt( entity )
 {
+	if ( IS_TRUE( entity.acc_avo_no_bolt ) )   // [acc] script kill-switch (paradise / future use)
+	{
+		entity.acc_avo_bolt_block = "disabled";
+		return false;
+	}
 	if( !IsDefined( entity.enemy ) )
     {
+		entity.acc_avo_bolt_block = "no_enemy";
 		return false;
 	}
 	time = GetTime();
 	if( time < entity.next_bolt_time )
 	{
+		entity.acc_avo_bolt_block = "cooldown";
 		return false;
 	}
-	
+
 	enemy_dist_sq = DistanceSquared( entity.origin, entity.enemy.origin );
-	
-	if(	!(enemy_dist_sq >= (150*150) && enemy_dist_sq <= (1200*1200) && entity avoCanSeeBoltTarget( entity.enemy )) )
+
+	if( enemy_dist_sq < AVO_BOLT_RANGE_MIN_SQ || enemy_dist_sq > AVO_BOLT_RANGE_MAX_SQ )
 	{
+		entity.acc_avo_bolt_block = "range";
 		return false;
 	}
-	
+	if( !( entity avoCanSeeBoltTarget( entity.enemy ) ) )
+	{
+		entity.acc_avo_bolt_block = "los";
+		return false;
+	}
+
+	entity.acc_avo_bolt_block = "none";
 	return true;
 }
 
 function private avoCanSeeBoltTarget( enemy )
 {
-	entity = self; 
+	entity = self;
 	origin_point = entity GetTagOrigin( "tag_weapon_right" );
 	target_point = enemy.origin + (0,0,48);
 
 	forward_vect = AnglesToForward( self.angles );
 	vect_to_enemy = target_point - origin_point;
-	
+
 	if( VectorDot(forward_vect, vect_to_enemy) <= 0 ) //player behind RAZ
 	{
 		return false;
 	}
-	
-	//Check if the enemy is inside my sight rect range
-	right_vect = AnglesToRight( self.angles );
-	
-	projected_distance = VectorDot(vect_to_enemy, right_vect);
-	
 
-	if(abs(projected_distance) > 50)
-	{
-		return false;
-	}
+	// [acc] SIGHT RECT REMOVED (2026-07-06 playtest: bolt starved on block=los nearly the whole fight):
+	// the pack also required the enemy within +/-50u LATERALLY of his exact facing - an orbiting player
+	// almost never sat in that strip, so he virtually never threw. The behind-check above + the world
+	// trace below stay; the range_in state's mocomp_force_face_enemy snaps him onto the target during
+	// the throw anim anyway, so precise pre-aim is pointless.
 
 	trace = BulletTrace( origin_point, target_point, false, self );
-	
+
 	if( trace[ "position" ] === target_point )
 	{
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -333,7 +386,12 @@ function melee_attack( behavior_tree_entity, asm_state_name )
 
 function private avoFinishBoltShoot( entity )
 {
-	entity.next_bolt_time = GetTime() + 20000;
+	// [acc] CADENCE (2026-07-06): pack hardcoded a 20s cooldown - way too slow for the "annoying
+	// stun-harasser" design (the 3s slow would fully expire between shots). Dvar-tunable, default 0.75s
+	// (user playtest ladder: 3.0 "so slow" -> 1.5 -> "2x faster" -> 0.75; the throw anim itself - now at
+	// 2x playback via acc_avo_anim_rate - spaces the real cadence): a chased player stays near-permanently
+	// slowed, and every zap is a VISIBLE thrown bolt. Live-tune acc_avo_bolt_cd (secs).
+	entity.next_bolt_time = GetTime() + int( getdvarfloat( "acc_avo_bolt_cd", 0.75 ) * 1000 );
 }
 
 //
@@ -349,15 +407,23 @@ function avogadro_damage_callback( inflictor, attacker, damage, flags, mod, weap
     // player-damage event (registered via on_connect, REGISTER_SYSTEM init). Reading attacker.targetname
     // on an UNDEFINED attacker (a 2-arg DoDamage self-kill like the decontamination seal, or fall/
     // environmental damage) threw a runtime script error on the inline damage path. isdefined-guard it -
-    // same guard _acc_elites::on_player_damaged and _acc_damage use for this exact read. (The Avogadro
-    // boss never spawns on this map, so the branch is never true anyway - this just stops the crash.)
+    // same guard _acc_elites::on_player_damaged and _acc_damage use for this exact read.
     if( isdefined( attacker ) && attacker.targetname == "avogadro")
     {
-    	//IPrintLnBold("hi");
-    	//IPrintLnBold(inflictor);
-        attacker.enemy shellShock( "avogadro_shock", 1.25 );
-		visionset_mgr::activate( "overlay", "zm_trap_electric", attacker.enemy, 1.25, 1.25 );
-		return damage;                    
+        // [acc] LIVE NOW (2026-07-06): the boss's zaps deal real chip damage with attacker=boss
+        // (_acc_boss_avogadro::zap_damage), so this branch actually RUNS on every zap. The pack body was a
+        // double runtime bomb: it shellshocked `attacker.enemy` (can be undefined or a DIFFERENT player
+        // than the victim -> method-on-undefined throw on the inline damage path) with "avogadro_shock"
+        // (a shock asset the pack does NOT ship/zone). Retargeted to SELF (stock dispatches these
+        // overrides ON the damaged player, _zm.gsc:5235) with the stock-shipped "electrocution" shock
+        // (zm tesla/teleporter precedent) + the zm_trap_electric overlay (REGISTER_SYSTEM-registered by
+        // _zm_trap_electric, pulled in by zm_usermap). This is the on-hit "I got zapped" screen tell.
+        // 0.75s (not the pack's 1.25): with the aura ticking at 0.5s and bolts at ~2s, a 1.25s shock
+        // would chain into a PERMANENT wobble while near him - the tell must sting, not blind.
+        shock_sec = getdvarfloat( "acc_avo_shock_sec", 0.75 );
+        self shellShock( "electrocution", shock_sec );
+        visionset_mgr::activate( "overlay", "zm_trap_electric", self, shock_sec, shock_sec );
+        return damage;                    // identity (chain is isdefined-based; other overrides still run)
     }
 }
 
@@ -401,6 +467,10 @@ function choose_a_spawn()
         }
     }
     players = array::randomize( GetPlayers() );
+    // [acc] 4p guard (2026-07-06 coop sweep): GetPlayers() can be empty in the same tick as a mass
+    // quit/host-migration; players[0].origin then throws and ends the match. Caller handles undefined.
+    if ( players.size == 0 || !isdefined( players[ 0 ] ) )
+        return undefined;
     spot = ArrayGetClosest( players[0].origin, valid_spots );
 
     // [acc] FALLBACK (user 2026-06-25): no map-placed avogadro_spawn_loc struct (we don't place
@@ -415,53 +485,108 @@ function choose_a_spawn()
     return spot;
 }
 
-function avogadro_spawn()
+// [acc] SPAWN-DIAGNOSTIC LOG (user 2026-07-04): IPrintLnBold to every player so each spawn step is
+// visible ON-SCREEN and in console_mp.log (routes as [SCRIPTER] lines - the one log channel the
+// launch runbook confirms actually shows up; the /# println #/ dev-block log does NOT). Used to
+// pinpoint exactly which spawn step a CTD dies on. Silence with `level.avo_no_log = true`.
+function avo_log( msg )
 {
-	avogadro = zombie_utility::spawn_zombie( level.avogadro_spawners[0] );
+	// DEV-ONLY (user 2026-07-05): the on-screen [AVO] spawn diagnostics show ONLY in dev mode (acc_dev) or with
+	// `acc_avo_debug 1`. level.avo_no_log was never assigned anywhere, so this used to IPrintLnBold ~7 lines to
+	// EVERY player on each Avogadro spawn in normal play. acc_dev is the one flag that gates it now.
+	if ( !IS_TRUE( level.acc_dev ) && getdvarint( "acc_avo_debug", 0 ) != 1 )
+		return;
+	players = GetPlayers();
+	for ( i = 0; i < players.size; i++ )
+	{
+		if ( isdefined( players[i] ) )
+			players[i] IPrintLnBold( "^5[AVO]^7 " + msg );
+	}
+}
 
-	s_struct = choose_a_spawn();
-	
-	//self PlaySound("incoming_alarm");
-	Blackboard::CreateBlackBoardForEntity( avogadro );
-	// USE UTILITY BLACKBOARD
-	avogadro AiUtility::RegisterUtilityBlackboardAttributes();
+// [acc] SPAWN ENTRY (user 2026-07-04): now accepts an OPTIONAL pre-spawned actor so our driver can
+// spawn him via SpawnActor("spawner_zm_avogadro", ...) - the LED-bake-SAFE Rogue Protector recipe -
+// instead of the pack's spawn_zombie( spawner ), which needs a .map actor_spawner_zm_avogadro entity
+// that CRASHES the Radiant LED bake (map_source note ~L3969). Pass the SpawnActor result as
+// `pre_spawned`; omit it for the legacy native path. `skip_cinematic` skips the 806u-up ForceTeleport
+// + rise_anim entrance (the bare spawn test just leaves him where SpawnActor put him). Every risky
+// step is bracketed by avo_log so a mid-setup crash shows its last reached step. Returns the actor.
+function avogadro_spawn( pre_spawned, skip_cinematic )
+{
+	if ( isdefined( pre_spawned ) )
+	{
+		avo_log( "avogadro_spawn: using PRE-SPAWNED actor (SpawnActor path)" );
+		avogadro = pre_spawned;
+	}
+	else
+	{
+		avo_log( "avogadro_spawn: native spawn_zombie path" );
+		avogadro = zombie_utility::spawn_zombie( level.avogadro_spawners[0] );
+	}
 
-	// CREATE INTERFACE
-	ai::CreateInterfaceForEntity( avogadro );
+	if ( !isdefined( avogadro ) )
+	{
+		avo_log( "^1avogadro_spawn: actor UNDEFINED after spawn - ABORT" );
+		return undefined;
+	}
+	avo_log( "step A: actor defined, origin=" + avogadro.origin );
 
+	// [acc] #7 LEAK FIX (2026-07-05): only synthesize a spawn point when the cinematic entrance will
+	// actually consume it. choose_a_spawn() has no map-placed avogadro_spawn_loc struct to return, so it
+	// spawn()s a script_origin on the host player - a real entity. The SpawnActor boss path passes
+	// skip_cinematic=true and never touches s_struct, so calling this there leaked one script_origin per
+	// spawn (worst in the dev respawn loop). Guard it; the cinematic block below Delete()s it after use.
+	s_struct = undefined;
+	if ( !IS_TRUE( skip_cinematic ) )
+		s_struct = choose_a_spawn();
+
+	// [acc] LOCOMOTION FIX (user 2026-07-05): the pack did ONLY these 3 blackboard lines and OMITTED
+	// LOCOMOTION_SPEED_TYPE, so the ASM had no walk/run state to enter -> he never moved (melee still
+	// worked because it's a DIRECT state request, not blackboard-driven). ArchetypeZombieBlackboardInit
+	// does all 3 of those PLUS LOCOMOTION_SPEED_TYPE / arms / legs / variant + the post-AnimScripted
+	// blackboard re-init callback (stock; mechz calls it the same way). The archetype "avogadro" doesn't
+	// auto-run it (engine only does that for ARCHETYPE_ZOMBIE), hence the hand-call.
+	avogadro ZombieBehavior::ArchetypeZombieBlackboardInit();
+	avo_log( "step B: blackboard init (full ArchetypeZombieBlackboardInit incl. locomotion)" );
 
 	avogadro.stumble_stun_cooldown_time = GetTime();
-	avogadro thread death(); 
+	avogadro thread death();
 	avogadro thread zombie_spawn_init();
 
-	avogadro thread avo_range_attack();
+	// [acc] PACK BOLT ATTACK HANDLERS DISABLED (user 2026-07-04): avo_range_attack -> shoot_bolt does 90
+	// dmg + shellShock (conflicts with our "0-damage stun-lock" design) and do_bolt_attack (below) fires
+	// MagicBullet(GetWeapon("avogadro_bolt")) which CRASHES if that weapon isn't loaded (weapon-none
+	// crash). Both pack handlers stay removed - but as of 2026-07-06 the BT's "avo_send_bolt" anim notify
+	// DOES have a listener again: _acc_boss_avogadro::bolt_listener (0-dmg visible bolt + 30% slow on
+	// impact), so the throw animation, bolt projectile, SFX and stun are one synced event.
+	// avogadro thread avo_range_attack();
 	avogadro.health = level.avogadro_hp;
 	avogadro.maxhealth = avogadro.health;
-	avogadro BloodImpact( "none" ); 
-	avogadro.no_damage_points = false; 
+	avogadro BloodImpact( "none" );
+	avogadro.no_damage_points = false;
 	//self.closest_player_override = &get_favorite_enemy;
 	avogadro.allowpain = false;
-	avogadro.allowmelee = false; 
-	avogadro.needs_run_update = true; 
-	avogadro.no_powerups = true; 
-	avogadro.canattack = false; 
+	avogadro.allowmelee = false;
+	avogadro.needs_run_update = true;
+	avogadro.no_powerups = true;
+	avogadro.canattack = false;
 	avogadro DetachAll();
 	avogadro.is_on_fire = true;
-	avogadro.variant_type = 0; 
-	avogadro.zombie_move_speed = level.zombie_move_speed; 
-	avogadro.zombie_arms_position = "down"; 
-	avogadro.ignore_nuke = true; 
+	avogadro.variant_type = 0;
+	avogadro.zombie_move_speed = level.zombie_move_speed;
+	avogadro.zombie_arms_position = "down";
+	avogadro.ignore_nuke = true;
 	avogadro OrientMode( "face enemy" );
 	avogadro SetCanDamage( 1 );
 	avogadro AnimMode( "normal" );
 	avogadro.ignore_enemy_count = true;
 	avogadro PushActors( true );
 	avogadro.lightning_chain_immune = true;
-	avogadro.headpain = true; 
-	avogadro.tesla_damage_func = &new_tesla_damage_func; 
-	avogadro.thundergun_fling_func = &new_thundergun_fling_func; 
-	avogadro.thundergun_knockdown_func = &new_knockdown_damage; 
-	avogadro.instakill_func = &anti_instakill; 
+	avogadro.headpain = true;
+	avogadro.tesla_damage_func = &new_tesla_damage_func;
+	avogadro.thundergun_fling_func = &new_thundergun_fling_func;
+	avogadro.thundergun_knockdown_func = &new_knockdown_damage;
+	avogadro.instakill_func = &anti_instakill;
 	avogadro.actor_damage_func = &avogadro_damage_override;
 	avogadro.non_attack_func_takes_attacker = 1;
 	avogadro thread zm_spawner::zombie_death_event( avogadro );
@@ -469,6 +594,7 @@ function avogadro_spawn()
 	//avogadro thread melee_time_track();
 	avogadro.is_alive = 1;
 	level.avogadros = 1;
+	avo_log( "step C: fields + AI threads set, is_alive=1, hp=" + avogadro.health );
 
 	if(IS_TRUE(level.enable_avogadro_theme))
 	{
@@ -476,14 +602,32 @@ function avogadro_spawn()
 	}
 
 	avogadro thread avogadro_vfx();
+	avo_log( "step D: electric vfx threaded" );
 
-	//IPrintLnBold("avo spawned");
-	avogadro ForceTeleport( s_struct.origin + ( 0, 0, 806.568 ) , s_struct.angles, 1 ); 
-	avogadro AnimScripted( "rise_anim", avogadro.origin, avogadro.angles, "ai_zombie_avogadro_arrival" );
-	avogadro zombie_shared::DoNoteTracks( "rise_anim" );
+	if ( !IS_TRUE( skip_cinematic ) && isdefined( s_struct ) )
+	{
+		avo_log( "step E: cinematic entrance (ForceTeleport +806u -> rise_anim)" );
+		avogadro ForceTeleport( s_struct.origin + ( 0, 0, 806.568 ) , s_struct.angles, 1 );
+		avogadro AnimScripted( "rise_anim", avogadro.origin, avogadro.angles, "ai_zombie_avogadro_arrival" );
+		avogadro zombie_shared::DoNoteTracks( "rise_anim" );
+		avo_log( "step E done: rise_anim complete, origin=" + avogadro.origin );
+		// [acc] #7 LEAK FIX (2026-07-05): the entrance has now consumed s_struct - Delete the synthesized
+		// script_origin choose_a_spawn() spawned. Guard on the script_origin classname so a future
+		// MAP-placed avogadro_spawn_loc struct (a non-entity) is never passed to Delete().
+		if ( isdefined( s_struct ) && isdefined( s_struct.classname ) && s_struct.classname == "script_origin" )
+			s_struct Delete();
+	}
+	else
+	{
+		avo_log( "step E SKIPPED (bare spawn test - actor stays at SpawnActor origin)" );
+	}
+
 	avogadro.damage_taunt_time = GetTime();
 	avogadro.next_bolt_time = GetTime();
-	avogadro thread do_bolt_attack();
+	// avogadro thread do_bolt_attack();   // [acc] DISABLED - see the note above avo_range_attack (crash + damage risk)
+	avo_log( "^2avogadro_spawn: COMPLETE - fully set up at " + avogadro.origin );
+
+	return avogadro;
 }
 
 function do_bolt_attack()
@@ -532,11 +676,17 @@ function avogadro_vfx()
 	lingersfx LinkTo(self,"tag_origin");
 	self PlayLoopSound("avogadro_loop");
 	self waittill("avogadro_death");
-	lingerfx clientfield::set( "avogadro_fx", 0 );
-	self StopLoopSound();
+	// [acc] GUARD (user 2026-07-05): death() Delete()s self immediately after this notify, so self (and the
+	// LinkTo'd fx) can already be a removed entity here - isdefined-guard every access to avoid the crash.
+	if ( isdefined( lingerfx ) )
+		lingerfx clientfield::set( "avogadro_fx", 0 );
+	if ( isdefined( self ) )
+		self StopLoopSound();
 	wait(1);
-	lingersfx Delete();
-	lingerfx Delete();
+	if ( isdefined( lingersfx ) )
+		lingersfx Delete();
+	if ( isdefined( lingerfx ) )
+		lingerfx Delete();
 }
 
 function debug()
@@ -632,7 +782,14 @@ function avogadro_damage_override( inflictor, attacker, damage, flags, mod, weap
 	    {
 	    	//IPrintLnBold("damn it failed");
 	    }
-    	damage = damage;
+    	// [acc] KNIFE COUNTER (user 2026-07-05): he is WEAK to knifing - each knife does a FLAT 1/100 of his
+    	// MAX health, so EXACTLY acc_avo_knife_hits (100) knives kill him at ANY round (independent of the
+    	// incoming knife damage or his scaled HP). High-risk close-range counter (you eat the stun-lock to get in).
+    	hits = getdvarint( "acc_avo_knife_hits", 100 );
+    	if ( hits < 1 ) hits = 1;
+    	mh = ( isdefined( self.maxhealth ) ? self.maxhealth : self.health );
+    	damage = int( mh / hits );
+    	if ( damage < 1 ) damage = 1;
     	return damage;
     }
     else
@@ -648,7 +805,10 @@ function avogadro_damage_override( inflictor, attacker, damage, flags, mod, weap
 	    {
 	    	//IPrintLnBold("damn it failed");
 	    }
-	    damage = 0;
+	    // [acc] BULLET IMMUNITY REMOVED (user 2026-07-04): the BO2 Avogadro took damage ONLY from melee -
+	    // this else-branch zeroed ALL non-melee damage. As a real boss he must be killable by GUNS (map
+	    // rule: no bullet-sponge, a PaP'd weapon should drop him). Pass the incoming damage through; the
+	    // hurt vox above stays. HP is Phantom-tier (huge), so it's still a proper boss fight.
 	    return damage;
     }
 
@@ -685,7 +845,11 @@ function death()
 		{
 			//IPrintLnBold( "avo died Died" );
 			level.avogadro_death_origin = self.origin;
-			self.attacker thread death_rewards(self.attacker);
+			// [acc] H1 (review 2026-07-04): guard the attacker - self.attacker is engine-maintained and
+			// can be undefined (non-attributed death), which would throw method-on-undefined on this
+			// guaranteed death path. Our real boss rewards come from _acc_boss_avogadro::grant_drops anyway.
+			if ( isdefined( self.attacker ) )
+				self.attacker thread death_rewards(self.attacker);
 			self.is_alive = 0;
 			self PlaySound("avogadro_death");
 			if( isdefined( level.musicSystem.currentState ) && level.musicSystem.currentState == "avogadro_theme" )
@@ -694,7 +858,12 @@ function death()
 				music::setmusicstate("none");
 			}
 			level.avogadros = 0;
-			self.sfx StopLoopSound();
+			// [acc] C1 CRITICAL (review 2026-07-04): self.sfx is NEVER assigned (not in this pack, not in
+			// stock), so this method-on-undefined threw on EVERY kill - aborting death() BEFORE Delete(),
+			// leaving a frozen dead boss that kept zapping + re-hacking forever. Guarded. (The linger loop
+			// sound is already stopped by avogadro_vfx's own StopLoopSound.)
+			if ( isdefined( self.sfx ) )
+				self.sfx StopLoopSound();
 			self AnimScripted( "exit_anim", self.origin, self.angles, "ai_zombie_avogadro_exit" );
 			self StopSounds();
 			self PlaySound("vox_avogadro_depart_0"+randomintrange(1,7));
@@ -703,6 +872,7 @@ function death()
 			wait(0.05);
 			self notify("avogadro_death");
 			self Delete();
+			return;   // [acc] STOP (user 2026-07-05): after Delete the old while(1) looped back to read self.health on the REMOVED entity every 0.01s = the "removed entity is not an entity" error wall (endon("death") never fires; the pack notifies "avogadro_death"). The redundant Delete cascade below is now dead code.
 			if(isDefined(self))
 			{
 				//IPrintLnBold("avo is still alive");
@@ -735,8 +905,11 @@ function death_rewards(attacker)
 	{
 		level thread zm_powerups::specific_powerup_drop( "full_ammo", power_up_origin );
 	}
-	wait(2);
-	power_up_origin Delete();
+	// [acc] REMOVED the buggy `wait(2); power_up_origin Delete();` (user 2026-07-04): power_up_origin is
+	// level.avogadro_death_origin, a VECTOR (set in death()), so Delete() on a non-entity throws at
+	// runtime. It only began firing now that the boss can actually die (bullet immunity removed). The
+	// full_ammo drop above is a kept bonus; the real boss rewards (item/bottle/shards) come from
+	// _acc_boss_avogadro::grant_drops.
 }
 
 function zombie_spawn_init()

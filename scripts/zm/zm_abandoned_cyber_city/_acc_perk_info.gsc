@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_perk_info.gsc - perk + Pack-a-Punch info CARD selector (drives LUI)
 //
-// Player-facing (REQUIREMENTS / docs/13_perks.md, docs/27_ui_plan.md): walk up
+// Player-facing (REQUIREMENTS / docs/10_perks.md, docs/11_controls_and_hud.md): walk up
 // to a perk machine (or Pack-a-Punch) and a premium card shows the NAME, PRICE,
 // and BULLETED benefits (base + Mega for perks; the 5-tier ladder for PaP) so
 // players can craft builds.
@@ -59,7 +59,7 @@ function init()
     level thread armory_box_pricing();
 }
 
-// The Armory also gives 10% off the Mystery Box (spec docs/13_perks.md). Unlike perk
+// The Armory also gives 10% off the Mystery Box (spec docs/10_perks.md). Unlike perk
 // machines, the box uses PER-PLAYER unitriggers (unitrigger_force_per_player_triggers),
 // and both its charge (box.zombie_cost) and its shown price (trigger_target.zombie_cost)
 // resolve to the same box-entity field - so we wrap each box's prompt func to set that
@@ -267,7 +267,7 @@ function watch_players()
     // PaP origin: read LIVE from the stock pack_a_punch trigger (script_noteworthy
     // "pack_a_punch", same lookup as acc_pap_levels::pap_cost_display_keeper) so the
     // info card follows the machine if it's relocated. Was hardcoded ( -700, 3700, 7.5 ),
-    // which silently broke the card on any PaP move (docs/36 Stage 0). The literal is
+    // which silently broke the card on any PaP move (docs/BO3_MAPMAKING_KB.md Stage 0). The literal is
     // kept ONLY as a fallback if the trigger never comes up.
     pap_org = ( -700, 3700, 7.5 );
     for ( i = 0; i < 60; i++ )
@@ -453,7 +453,7 @@ function gun_card_index( weapon )
     if ( IsSubStr( n, "s1_mahem" ) )        return 8;   // Mahem launcher (reuses the freed Nail Gun slot, 2026-06-23)
     if ( IsSubStr( n, "t9_ak74u" ) )        return 11;
     if ( IsSubStr( n, "t6_olympia" ) )      return 12;
-    if ( IsSubStr( n, "t6_galil" ) )        return 13;
+    if ( IsSubStr( n, "t9_grav" ) )         return 13;   // Grav (CW model + Galil stats, migrated 2026-07-05)
     if ( IsSubStr( n, "t9_m60" ) )          return 14;
     if ( IsSubStr( n, "t9_rpd" ) )          return 15;
     if ( IsSubStr( n, "thundergun" ) )      return 16;

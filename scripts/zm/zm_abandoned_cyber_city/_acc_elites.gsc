@@ -1,8 +1,8 @@
 // =============================================================================
 // _acc_elites.gsc - elite cyber-zombie spawn logic
 //
-// Design reference: docs/11_enemies.md (The Cast, Elite Quota Per Round,
-// Co-op Scaling), docs/06_mechanics.md (Elite Timing).
+// Design reference: docs/08_enemies.md (The Cast, Elite Quota Per Round,
+// Co-op Scaling), docs/05_mechanics.md (Elite Timing).
 //
 // Three elite classes: Shielded (r5+), Teleporter (r11+), EMP (r21+).
 // Spawning is driven by "pressure pulses" inside a round, not random spawn
@@ -18,6 +18,7 @@
 
 #using scripts\shared\ai\zombie_utility;
 #using scripts\shared\util_shared;
+#using scripts\shared\hud_util_shared;   // hud::createIcon for the Battery-surge full-screen aura (trench-warning recipe)
 
 #insert scripts\shared\shared.gsh;
 
@@ -36,7 +37,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;          // Savior (Mega QR) revive damage-reduction predicate
 
 // ---------------------------------------------------------------------------
-// Tuning (tuned against docs/04_progression_and_skills.md difficulty table)
+// Tuning (tuned against docs/03_progression_and_skills.md difficulty table)
 // ---------------------------------------------------------------------------
 
 #define ACC_ELITE_SHIELDED_MIN_ROUND 5
@@ -45,7 +46,7 @@
 
 #define ACC_ELITE_SHARD_REWARD 1
 
-// EMP elite on-hit debuff (docs/11_enemies.md "Elite: EMP (Surge)").
+// EMP elite on-hit debuff (docs/08_enemies.md "Elite: EMP (Surge)").
 #define ACC_ELITE_EMP_HIT_POINT_DRAIN 200
 #define ACC_ELITE_EMP_HIT_DISABLE_SEC 5
 
@@ -155,7 +156,7 @@ function round_pressure_loop()
 // The elite-shard diminishing-returns counter
 // (player.acc_shards_elite_count_round, incremented by
 // acc_data_shards::grant_player for "elite_kill"-sourced grants) is PER ROUND
-// by design (docs/06_mechanics.md Data Shard Economy) - without this reset
+// by design (docs/05_mechanics.md Data Shard Economy) - without this reset
 // the low-round diminish became permanent once tripped. The reset lives here
 // because elites own the elite-kill cadence.
 function watch_round_shard_counter_reset()
@@ -283,7 +284,7 @@ function pick_elite_spawner()
 //
 // Every promotion multiplies HP by acc_coop_scaling::special_hp_mult() - the
 // flat elite co-op curve (1.0 solo / 1.5 / 2.0 / 2.5 at 2/3/4 players;
-// docs/11_enemies.md "Co-op Scaling": elites gain +50% HP per extra player,
+// docs/08_enemies.md "Co-op Scaling": elites gain +50% HP per extra player,
 // flatter than regular zombies so duos don't blender them). Sampled at
 // promote time so mid-game joins are reflected on the next elite.
 // ---------------------------------------------------------------------------
@@ -423,7 +424,7 @@ function promote_to_teleporter( z )
     z.health = z.maxhealth;
     z thread teleporter_ability_loop();
 
-    // Visual tell (docs/52): recoloured eyes mark this elite vs the horde, using the SAME client-side
+    // Visual tell (docs/09): recoloured eyes mark this elite vs the horde, using the SAME client-side
     // eye-tint path as the Glitch Stalker (accEyeTint clientfield -> _acc_lui.csc eye_tint_cb,
     // mapshaderconstant; NO FX asset). NOTE: the existing accEyeTint field is a single on/off bit and
     // the colour comes from ONE global dvar (acc_glitch_eye_color), so all tinted actors share the
@@ -462,7 +463,7 @@ function promote_to_emp( z )
     z.health = z.maxhealth;
     z.acc_emp_on_hit = true; // consumed by on_player_damaged below
 
-    // Visual tell (docs/52): recoloured eyes mark this elite vs the horde (same accEyeTint client path
+    // Visual tell (docs/09): recoloured eyes mark this elite vs the horde (same accEyeTint client path
     // as the Glitch Stalker / Teleporter). NOTE: a DISTINCT electric-blue tint (different from the
     // Teleporter's intended magenta) is NOT possible through the current 1-bit field + single global
     // colour dvar - it needs accEyeTint widened to carry a per-actor colour index plus a colour map in
@@ -471,7 +472,7 @@ function promote_to_emp( z )
 }
 
 // ---------------------------------------------------------------------------
-// EMP elite on-hit debuff (docs/11_enemies.md: melee hit drains 200 points
+// EMP elite on-hit debuff (docs/08_enemies.md: melee hit drains 200 points
 // and locks the player's active Cyberware ability for 5s)
 // ---------------------------------------------------------------------------
 
@@ -515,14 +516,69 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
     // applied directly from _acc_civil_protector::zap_loop via acc_protector_zap(), NOT on bullet
     // hits - so no trigger here. acc_protector_zap()/acc_protector_slow_clear() stay below.)
 
+    // ROGUE PROTECTOR - PROXIMITY DAMAGE (user 2026-07-05: "more damage the closer he is"): his
+    // BULLETS scale on a LINEAR ramp over Distance(boss, player) - full acc_protector_close_mult (3x)
+    // at/inside close_range, tapering to 1.0 (unchanged) at/beyond far_range. Applied BEFORE exo/savior
+    // so the player's resistances reduce the boosted value. eAttacker = the boss; his hits route here
+    // (register_player_damage_callback). THREE lanes since 2026-07-09:
+    //   ROCKET (the visible s1_mahem projectile fire_loop now fires - weapon name says "mahem", or any
+    //     MOD_PROJECTILE_SPLASH): the raw weapon damage is a 3100 one-shot - HARD-CAP it to
+    //     acc_protector_mahem_dmg + the BIG knockback. This cap is what makes the real rocket usable.
+    //   ZAP PULSE (MOD_GRENADE_SPLASH): untouched here (exact scripted 10 from zap_loop).
+    //   BULLETS (everything else from him): fixed base + proximity ramp + max cap + the small knockback.
+    if ( isdefined( eAttacker ) && IS_TRUE( eAttacker.acc_is_rogue_protector ) && isdefined( sMeansOfDeath ) )
+    {
+        b_rp_mahem = ( ( isdefined( weapon ) && isdefined( weapon.name ) && IsSubStr( weapon.name, "mahem" ) )
+                       || sMeansOfDeath == "MOD_PROJECTILE_SPLASH" );
+        if ( b_rp_mahem )
+        {
+            // ROCKET CAP: keep the engine's blast falloff shape but never exceed the design value
+            // (s1_mahem raw playerDamage would one-shot; the old invisible scripted RadiusDamage was 50).
+            mahem_dmg = getdvarint( "acc_protector_mahem_dmg", 55 );
+            if ( final > mahem_dmg ) final = mahem_dmg;
+            if ( final < 1 ) final = 1;
+            // KNOCKBACK (user 2026-07-09): the rocket blast shoves you hard away from the boss.
+            self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_mahem_knockback", 320 ), 110 );
+        }
+        else if ( sMeansOfDeath != "MOD_GRENADE_SPLASH" )
+        {
+        // BULLET damage is fully CONTROLLED here (user 2026-07-05: he was ONE-HITTING - "before he did 25 ...
+        // he should max do 60"). OVERRIDE the raw MagicBullet weapon damage with a fixed base (the far-range
+        // value), apply the proximity ramp up to close_mult, then HARD-CAP at acc_protector_max_dmg (60) so he
+        // can NEVER one-shot regardless of the weapon or the buff. (28 base x 3.0 close = 84 -> clamped to 60.)
+        // Base 25 -> 28 (user 2026-07-09: "very slightly buff the Rogue Protector damage"; cap unchanged).
+        base_dmg    = getdvarint(   "acc_protector_bullet_dmg", 28 );
+        max_dmg     = getdvarint(   "acc_protector_max_dmg",    60 );
+        close_mult  = getdvarfloat( "acc_protector_close_mult",  3.0 );
+        close_range = getdvarfloat( "acc_protector_close_range", 150 );
+        far_range   = getdvarfloat( "acc_protector_far_range",   1000 );
+        final = base_dmg;
+        if ( close_mult > 1.0 && far_range > close_range )
+        {
+            dist = Distance( eAttacker.origin, self.origin );
+            if ( dist <= close_range )
+                mult = close_mult;
+            else if ( dist >= far_range )
+                mult = 1.0;
+            else
+                mult = 1.0 + ( close_mult - 1.0 ) * ( ( far_range - dist ) / ( far_range - close_range ) );
+            final = int( base_dmg * mult );
+        }
+        if ( final > max_dmg ) final = max_dmg;   // *** THE CAP: max 60, never a one-shot ***
+        if ( final < 1 ) final = 1;
+        // KNOCKBACK (user 2026-07-09: "add knock back to his shots"): a light shove per bullet.
+        self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_knockback", 160 ), 45 );
+        }
+    }
+
     // EXO SUIT - damage resistance (user 2026-06-22): each Exo Suit tier reduces ALL incoming damage by
-    // acc_exo_resist_per_tier (default 5%/tier -> -25% at T5). The exo's "body" counterpart to the gun
-    // Overclock - the 3rd of its 3 augments (speed-gate + this + the melee scaler in _acc_damage). Applied
-    // AFTER the trench melee bump so it resists the bumped value too. Capped + floored at 1 (always killable).
+    // acc_exo_resist_per_tier (default 6%/tier -> -30% at T5, -60% at T10; user 2026-07-08: 5% -> 6%). The exo's
+    // "body" counterpart to the gun Overclock - the 3rd of its 3 augments (speed-gate + this + the melee scaler in
+    // _acc_damage). Applied AFTER the trench melee bump so it resists the bumped value too. Capped (0.80) + floored at 1 (always killable).
     exo_tier = ( isdefined( self.acc_exo_tier ) ? self.acc_exo_tier : 0 );
     if ( exo_tier > 0 )
     {
-        resist = exo_tier * getdvarfloat( "acc_exo_resist_per_tier", 0.05 );
+        resist = exo_tier * getdvarfloat( "acc_exo_resist_per_tier", 0.06 );
         if ( resist > 0.80 ) resist = 0.80;
         final = int( final * ( 1.0 - resist ) );
         if ( final < 1 ) final = 1;
@@ -530,7 +586,7 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
 
     // SAVIOR (Mega Quick Revive) - take 50% damage while you are reviving a teammate (user 2026-06-26). Read
     // live (no poll lag) from the stock reviving state; applied AFTER exo so the two resistances stack
-    // multiplicatively. Floored at 1 (always killable). See acc_perks::savior_revive_damage_mult + docs/13.
+    // multiplicatively. Floored at 1 (always killable). See acc_perks::savior_revive_damage_mult + docs/10.
     savior_dr = acc_perks::savior_revive_damage_mult( self );
     if ( savior_dr < 1.0 )
     {
@@ -538,14 +594,28 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         if ( final < 1 ) final = 1;
     }
 
-    // GOD MODE (user 2026-06-27): every per-hit EFFECT above has ALREADY fired (EMP debuff, trench melee scaling;
-    // the Phantom chain slow runs Phantom-side) - but a godded player takes ZERO damage. Returning 0 zeros the hit
-    // on the stock player-damage path (zombie melee, boss hits, and DoDamage all route through this
-    // register_player_damage_callback), so there is no down/death. REPLACES the old EnableInvulnerability god mode,
-    // which blocked this whole callback so no effect could land while invulnerable. "Only damage is impossible."
-    // level.acc_god is the entry-script flag (default OFF in normal play, so this is a no-op there).
+    // GOD MODE = DEMIGOD (user 2026-07-08, refactor of the 2026-06-27 zero-damage god): damage LANDS
+    // FOR REAL - you see and feel exactly what every zombie/boss hit deals - but health is FLOORED AT
+    // 1 HP, so death/downs stay impossible ("I can't die but I can still test how much damage they
+    // do"). Every per-hit EFFECT above has already fired (EMP debuff, trench melee scaling; the
+    // Phantom chain slow runs Phantom-side). Implementation: clamp the outgoing damage to
+    // (health - 1) at THIS event's health snapshot - sequential hits re-read health, so a burst can
+    // park you at exactly 1 HP but never below. (The old return 0 zeroed every hit - no damage
+    // numbers, no HP movement, nothing to test against. The pre-2026-06-27 EnableInvulnerability
+    // god blocked this whole callback.) level.acc_god is the entry-script flag (default OFF in
+    // normal play, so this is a no-op there). NOTE FOR NEW DAMAGE CALLBACKS: this clamp only
+    // protects damage that REACHES this callback - a callback registered EARLIER in the chain that
+    // returns its own value short-circuits us (the mechz melee did exactly that and killed a godded
+    // player, 2026-07-08) - any such override must carry its own acc_god demigod clamp (memory
+    // player-damage-callbacks-return-minus-one).
     if ( IS_TRUE( level.acc_god ) )
-        return 0;
+    {
+        if ( final >= self.health )
+            final = self.health - 1;
+        if ( final < 0 )
+            final = 0;
+        return final;
+    }
 
     // Return the modified damage (check_player_damage_callbacks uses the first != -1 return,
     // _zm.gsc:5512); -1 = leave unchanged (no exo, non-melee = identical to before).
@@ -561,7 +631,18 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
 // even under GOD MODE. Mega ELECTRIC CHERRY "Power Surge" is IMMUNE to the slow.
 function acc_phantom_chain_zap()
 {
-    self endon( "disconnect" );
+    // [acc] NO endon("disconnect") here: this helper is CALLED INLINE from the Phantom's teleport loop
+    // (_acc_boss_phantom.gsc), so an endon would bind to the BOSS thread and silently kill the Phantom's
+    // attack loop when this player disconnects. The function has no wait; the timed part runs in the
+    // separately-threaded acc_phantom_slow_clear() which carries its own disconnect endon.
+    if ( !isdefined( self ) )
+        return;
+
+    // Battery boss item (user 2026-07-08): absorb the zap when READY (fresh +20% surge + aura + SFX) OR while a
+    // surge is already ACTIVE (a 2nd zap inside the 5s window can't hinder your boost). Only a zap during the
+    // post-surge recharge (5-10s) slows you normally. See acc_battery_absorb_zap.
+    if ( self acc_battery_absorb_zap() )
+        return;
 
     self PlaySound( "acc_phantom_zap" );
 
@@ -584,7 +665,16 @@ function acc_phantom_chain_zap()
 // Electric Cherry "Power Surge" softens it to -10% (not full immunity); 3s window, re-hit refreshes.
 function acc_protector_zap()   // self = the hit player
 {
-    self endon( "disconnect" );
+    // [acc] NO endon("disconnect"): called inline from _acc_civil_protector::zap_loop, so an endon would
+    // bind to the Protector's zap-loop thread and kill it on this player's disconnect. Timed part is in
+    // the separately-threaded acc_protector_slow_clear() (which keeps its own endon). See acc_phantom_chain_zap.
+    if ( !isdefined( self ) )
+        return;
+
+    // Battery boss item: absorb the zap (fresh surge if ready, or protect the active surge); only a zap
+    // during the post-surge recharge slows normally. See acc_battery_absorb_zap.
+    if ( self acc_battery_absorb_zap() )
+        return;
 
     self PlaySound( "acc_phantom_zap" );
 
@@ -608,6 +698,27 @@ function acc_protector_slow_clear()   // self = the slowed player
     acc_utility::recompute_move_speed( self );
 }
 
+// ROGUE PROTECTOR shot KNOCKBACK (user 2026-07-09): one horizontal impulse away from the boss +
+// a small pop of lift so the engine actually registers it mid-ground-friction. SetVelocity on a
+// PLAYER is the stock jump-pad idiom (_zm_jump_pad.gsc); a single additive impulse (not the pad's
+// sustain loop) reads as recoil, not a launch. Threaded from on_player_damaged so a throw there
+// can never break the damage-callback chain. self = the hit player, boss = the Rogue Protector.
+function rp_knockback( boss, strength, z_pop )
+{
+    if ( !isdefined( self ) || !isplayer( self ) || !isdefined( boss ) )
+        return;
+    if ( strength <= 0 )
+        return;   // acc_protector_knockback 0 = knockback off
+
+    dir = self.origin - boss.origin;
+    dir = ( dir[ 0 ], dir[ 1 ], 0 );   // horizontal shove; the lift is the fixed z_pop below
+    if ( LengthSquared( dir ) < 1 )
+        dir = AnglesToForward( ( 0, self.angles[ 1 ] + 180, 0 ) );   // on top of the boss: shove backwards
+    dir = VectorNormalize( dir );
+
+    self SetVelocity( self GetVelocity() + VectorScale( dir, strength ) + ( 0, 0, z_pop ) );
+}
+
 // Lift the Phantom slow after acc_phantom_slow_sec (default 3s); a re-hit restarts it via the notify above.
 function acc_phantom_slow_clear()   // self = the slowed player
 {
@@ -616,6 +727,155 @@ function acc_phantom_slow_clear()   // self = the slowed player
     wait( getdvarfloat( "acc_phantom_slow_sec", 3.0 ) );
     self.acc_phantom_slowed = false;
     acc_utility::recompute_move_speed( self );
+}
+
+// AVOGADRO "cyberhacker" on-shot zap (user 2026-07-04): identical shape to the Rogue zap - a 30% move
+// slow (acc_avogadro_slow_mult in recompute_move_speed; user 2026-07-05, was 25%), 3s window, refreshes on
+// re-hit, Mega Electric Cherry "Power Surge" softens it to -10%. His shot does NO damage - this stun IS the
+// whole threat; at ~1.6 shots/sec on a nearby player the window keeps refreshing so you stay slowed. Driven
+// from his own fire_loop (not a damage callback), so it lands under god mode.
+function acc_avogadro_zap()   // self = the hit player
+{
+    // [acc] NO endon("disconnect"): called inline from Avogadro's aura_loop/bolt_watchdog/fire loop
+    // (_acc_boss_avogadro.gsc), so an endon would bind to the BOSS thread and kill his attack loop when
+    // this player disconnects. Timed part is in the threaded acc_avogadro_slow_clear(). See acc_phantom_chain_zap.
+    if ( !isdefined( self ) )
+        return;
+
+    // Battery boss item: absorb the zap (fresh surge if ready, or protect the active surge); only a zap
+    // during the post-surge recharge slows normally. See acc_battery_absorb_zap.
+    if ( self acc_battery_absorb_zap() )
+        return;
+
+    self PlaySound( "acc_phantom_zap" );
+
+    self.acc_avogadro_slow_mega = ( isdefined( self.acc_mega_perks ) && IS_TRUE( self.acc_mega_perks[ "specialty_combat_efficiency" ] )
+                                    && self HasPerk( "specialty_combat_efficiency" ) );
+
+    self.acc_avogadro_slowed = true;
+    acc_utility::recompute_move_speed( self );
+
+    self notify( "acc_avogadro_slow_restart" );
+    self thread acc_avogadro_slow_clear();
+}
+
+function acc_avogadro_slow_clear()   // self = the slowed player
+{
+    self endon( "disconnect" );
+    self endon( "acc_avogadro_slow_restart" );
+    wait( getdvarfloat( "acc_avogadro_slow_sec", 3.0 ) );
+    self.acc_avogadro_slowed = false;
+    acc_utility::recompute_move_speed( self );
+}
+
+// BATTERY boss item surge (user 2026-07-08): shared absorb path for ALL THREE boss zaps (Phantom chain /
+// Rogue Protector / Avogadro). A zap on a READY Battery holder is fully replaced - no slow, no mega-softening,
+// instead a +20% move boost (acc_battery_boost_mult in recompute_move_speed) for 5s (acc_battery_boost_sec) +
+// a light blue-green full-screen aura (battery_aura, the trench-warning tint recipe) + own SFX (acc_battery_zap,
+// the "electric voltage" wav). COOLDOWN 10s (acc_battery_cooldown_sec; user 2026-07-09, was 12s), one surge per cooldown (NOT a
+// refresh-on-re-zap). While the surge is ACTIVE (the 5s window) a second zap is ABSORBED so it can't hinder the
+// boost (user 2026-07-08); only a zap during the LATER recharge window (surge ended, cd not up) slows you
+// normally. NOT the legacy Kinetic Battery (acc_item_battery, dormant) - the flag is acc_item_volt_battery.
+
+// True if the Battery is implanted AND its absorb cooldown has elapsed (ready to proc a fresh surge).
+function acc_battery_ready()   // self = player
+{
+    if ( !IS_TRUE( self.acc_item_volt_battery ) )
+        return false;
+    if ( isdefined( self.acc_battery_cd_until ) && GetTime() < self.acc_battery_cd_until )
+        return false;   // still recharging
+    return true;
+}
+
+// Battery zap handling (user 2026-07-08 "a 2nd zap in the surge window shouldn't hinder the boost").
+// Returns true if the Battery HANDLED this zap (the caller must then NOT apply its slow):
+//   - Mid-surge (acc_battery_boost, the active 5s): ABSORB - protects the running boost from a 2nd zap.
+//   - Off cooldown: proc a FRESH +20% surge.
+//   - Implanted but recharging (surge already ended, still <12s): returns FALSE -> the caller's slow applies,
+//     so you CAN still be slowed during the cooldown - just never while the boost itself is up.
+function acc_battery_absorb_zap()   // self = the zapped player
+{
+    if ( !IS_TRUE( self.acc_item_volt_battery ) )
+        return false;                        // not a Battery holder -> normal slow
+    if ( IS_TRUE( self.acc_battery_boost ) )
+        return true;                         // surge ACTIVE -> absorb, keep the boost intact (no re-slow)
+    if ( self acc_battery_ready() )
+    {
+        self acc_battery_surge();            // off cooldown -> fresh surge
+        return true;
+    }
+    return false;                            // recharging (surge ended) -> caller applies its normal slow
+}
+
+function acc_battery_surge()   // self = the zapped player (Battery implanted + off cooldown)
+{
+    // [acc] NO endon("disconnect"): called inline from the boss zap applicators above, which run on the
+    // BOSS's thread - same rule as acc_phantom_chain_zap. Timed part is in acc_battery_boost_clear().
+    if ( !isdefined( self ) )
+        return;
+
+    self PlaySound( "acc_battery_zap" );
+
+    // Start the 10s recharge NOW so a second zap this window can't re-proc (one surge per cooldown).
+    self.acc_battery_cd_until = GetTime() + int( getdvarfloat( "acc_battery_cooldown_sec", 10.0 ) * 1000 );
+
+    self.acc_battery_boost = true;
+    acc_utility::recompute_move_speed( self );
+
+    self notify( "acc_battery_boost_restart" );   // cancel any stale clear/aura thread from a prior surge
+    self thread acc_battery_boost_clear();
+    self thread battery_aura();                    // light blue-green screen tint for the surge window
+}
+
+function acc_battery_boost_clear()   // self = the surging player
+{
+    self endon( "disconnect" );
+    self endon( "acc_battery_boost_restart" );
+    wait( getdvarfloat( "acc_battery_boost_sec", 5.0 ) );
+    self.acc_battery_boost = false;
+    acc_utility::recompute_move_speed( self );
+}
+
+// Full-screen light blue-green aura while the surge is active - the SAME recipe as the trench "DANGER" red
+// tint (_acc_bus_trench::ensure_trench_warning): a 640x480 "white" icon with horzAlign/vertAlign "fullscreen"
+// spans the whole screen on any aspect. Per-player, lazily created + reused (hidden alpha 0 between surges).
+function battery_aura()   // self = the surging player
+{
+    self endon( "disconnect" );
+    self endon( "acc_battery_boost_restart" );   // a fresh proc (post-cooldown) restarts a clean aura window
+
+    battery_ensure_aura( self );
+    if ( !isdefined( self.acc_battery_aura_bg ) )
+        return;   // [acc] coop pool-full guard (hud::create returned undefined) - skip the aura this proc
+
+    self.acc_battery_aura_bg fadeovertime( 0.15 );   // quick flash in
+    // SUBTLE tint (user 2026-07-08: 0.35 filled the whole screen + hid the player). A light edge-of-screen
+    // wash, not a color fill - dial acc_battery_aura_alpha live to taste (0 = off).
+    self.acc_battery_aura_bg.alpha = getdvarfloat( "acc_battery_aura_alpha", 0.15 );
+
+    wait( getdvarfloat( "acc_battery_boost_sec", 5.0 ) );
+
+    self.acc_battery_aura_bg fadeovertime( 0.5 );     // gentle fade out at the end of the surge
+    self.acc_battery_aura_bg.alpha = 0;
+}
+
+function battery_ensure_aura( player )
+{
+    if ( isdefined( player.acc_battery_aura_bg ) )
+        return;
+    player.acc_battery_aura_bg = player hud::createIcon( "white", 640, 480 );
+    if ( !isdefined( player.acc_battery_aura_bg ) )
+        return;   // pool full - caller guards
+    player.acc_battery_aura_bg.horzAlign = "fullscreen";
+    player.acc_battery_aura_bg.vertAlign = "fullscreen";
+    player.acc_battery_aura_bg.alignX = "left";
+    player.acc_battery_aura_bg.alignY = "top";
+    player.acc_battery_aura_bg.x = 0;
+    player.acc_battery_aura_bg.y = 0;
+    player.acc_battery_aura_bg.color = ( 0.25, 0.95, 0.80 );   // light blue-green (aqua/teal)
+    player.acc_battery_aura_bg.alpha = 0;
+    player.acc_battery_aura_bg.sort  = 0;                       // behind HUD text, like the trench bg
+    player.acc_battery_aura_bg.hidewheninmenu = true;
 }
 
 // Runs on the player. No waits - keeps the damage pipeline synchronous.
@@ -633,7 +893,7 @@ function apply_emp_melee_debuff()
         self zm_score::minus_to_player_score( n_drain );
     }
 
-    // Active-Cyberware-ability lockout window (docs/11: "Phase Step locked
+    // Active-Cyberware-ability lockout window (docs/08: "Phase Step locked
     // out"). Contract: ability runtimes (_acc_cyberware's Phase Step watcher,
     // _acc_weapon_abilities::try_activate_ability) must refuse activation
     // while gettime() < player.acc_cw_locked_until.

@@ -2,7 +2,7 @@
 // fix_twin_attachments.js [--audit] - re-sync every weapon TWIN's ATTACHMENT slots to its CURRENT base.
 //
 // The twins in source_data/acc_weapon_variants.gdt are clones of their base weapon GDT blocks (the perk-handling
-// recoil/fast-fire/fast-reload/fast-swap + PaP variants). gen_weapon_variant_gdt.js copies the base block
+// recoil/fast-reload + PaP variants; fast-fire/fast-swap REMOVED 2026-07-04). gen_weapon_variant_gdt.js copies the base block
 // VERBATIM - but for the Cold War (t9) ports the magazine attachment (attachViewModel5/attachWorldModel5 =
 // wpn_t9_<gun>_mag_view/world) was wired into the base AFTER the twins were cloned, so the twins carry EMPTY mag
 // slots and render WITHOUT a magazine. Visible as "missing parts of the model" - user 2026-06-28: RPD held, and

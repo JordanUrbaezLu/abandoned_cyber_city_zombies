@@ -9,7 +9,9 @@
 //
 // CHANGE SET (user 2026-06-27):
 //   RPD  (_up):  +20% damage (390->468, min 375->450) + ~15% fire rate
-//                (fireTime 0.08->0.0696, fastfire twin 0.0552->0.048; RPM 750->862 / 1087->1250)
+//                (fireTime 0.08->0.0696; RPM 750->862. The "fastfire twin 0.0552->0.048" leg is
+//                 INERT since 2026-07-04 - the fastfire twin axis was removed, so that FT-map key
+//                 matches nothing now; harmless.)
 //   Tac-19 (_up): -20% damage (217->174)  [shotgun per-pellet; pellets/clip/reserve unchanged]
 //   Five-Seven:  _up +30% damage (350->455, min 320->416); BOTH base+_up +30% clip & reserve
 //                (base clip 14->18 / maxAmmo 4 -> reserve 56->72; _up clip 21->27 / maxAmmo 7 -> reserve 147->189)
@@ -40,7 +42,7 @@ function detectSD() { for (const r of ['C:\\Program Files (x86)\\Steam\\steamapp
 
 const SET = (v) => ['set', String(v)];
 const MAP = (m) => ['map', m];
-const FT = MAP({ '0.08': '0.0696', '0.0552': '0.048' });   // RPD +15% fire rate (both base + fastfire-twin fireTimes)
+const FT = MAP({ '0.08': '0.0696', '0.0552': '0.048' });   // RPD +15% fire rate (base fireTime; the '0.0552' fastfire-twin leg is INERT since 2026-07-04 - fastfire twins removed, matches nothing)
 
 // per-gun ops by FORM. up = base _up + *_up_acc_* twins; base = base block + *_acc_* (non-up) twins.
 const G = {

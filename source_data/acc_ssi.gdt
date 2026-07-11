@@ -1,0 +1,33 @@
+{
+	"acc_ssi_night_dim80" ( "ssi.gdf" )
+	{
+		"bounceCount" "4"
+		"colorSRGB" "0.791298368368055 1 1 1"
+		"dynamicShadow" "1"
+		"enablesun" "1"
+		"ev" "6"
+		"evcmp" "2.5"
+		"evmax" "3.5"
+		"evmin" "3"
+		"lensFlare" ""
+		"lensFlarePitchOffset" "0"
+		"lensFlareYawOffset" "0"
+		"penumbra_inches" "1.5"
+		"pitch" "130"
+		"skyboxmodel" "skybox_default_night"
+		"spec_comp" "0"
+		"stops" "-2.52"
+		"sunCookieAngle" "0"
+		"sunCookieIntensity" "0"
+		"sunCookieLightDefName" ""
+		"sunCookieOffsetX" "0"
+		"sunCookieOffsetY" "0"
+		"sunCookieRotation" "0"
+		"sunCookieScale" "0"
+		"sunCookieScrollX" "0"
+		"sunCookieScrollY" "0"
+		"sunVolumetricCookie" "0"
+		"type" "ssi"
+		"yaw" "140"
+	}
+}

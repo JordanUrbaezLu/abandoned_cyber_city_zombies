@@ -33,7 +33,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer() for trench/abyss location titles
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;   // true_base() for the dev packed-AK loadout
-#using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;        // get_or_init_progress() for the dev OC tier
+#using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;        // held_oc_tier() for the gun-badge probe (+ historical dev OC tier)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;        // get_tier() for the gun-badge probe
 
 #define ACC_DEV_MONEY_TARGET 1000000
 #define ACC_DEV_MONEY_FLOOR  100000
@@ -61,6 +62,12 @@ function init()
     // ensure_dev_huds, which stays gated on level.acc_dev there.
     level thread dev_player_hud_loop();
 
+    // [acc] GUN-BADGE PROBE (dev-only, user 2026-07-08: "the havoc overclock badge never showed").
+    // Live line near the top of the screen with the SERVER-side value of every badge lane for the
+    // held weapon. Splits the fault in one glance: probe shows the value but no chip = client/LUI
+    // lane; probe shows 0 = server lookup. See dev_badge_probe_loop.
+    level thread dev_badge_probe_loop();
+
     // ONE dev switch: level.acc_dev (resolved once in the entry script's acc_resolve_dev_flags(),
     // which runs in main() before this init). Off = normal play; the REST of this harness no-ops.
     if ( !IS_TRUE( level.acc_dev ) )
@@ -80,7 +87,10 @@ function init()
     // in the file as the referenced HUD-waypoint recipe (see _acc_health_bars wallhack markers) but are no
     // longer threaded. Re-enable by restoring this line if a future build needs to locate unbought doors.
     // level thread dev_door_markers();
-    level thread dev_starting_loadout();   // start with the Blast-O-Matic - user 2026-07-03 (was Thundergun 07-02, Action Figure before)
+    // DEV STARTING LOADOUT (Fire Bow) RETIRED 2026-07-10 (user, publish prep: "remove the bow that spawns").
+    // Commented (not deleted) so a future charge-fix test can re-enable one line; dev now starts on the
+    // stock pistol like normal play. Was: start with the FIRE BOW (was Havoc 07-08/07-06, Alternator 07-06, XM4 07-04, Blast-O-Matic 07-03, Thundergun 07-02).
+    // level thread dev_starting_loadout();
 
     // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
     // FEATURES, always on for every player, not dev tools. See the top of init().)
@@ -309,9 +319,9 @@ function dev_apply_jugg_state( v )
     acc_utility::log( "dev: jugg state v=" + v + " mega=" + ( mega ? "1" : "0" ) );
 }
 
-// DEV starting loadout (user 2026-06-26): every player spawns holding a fully-packed (PaP III) +
-// fully-tiered (max Overclock = tier 10) Chicom CQB so the combat-HUD device (gun name / PaP shield /
-// OC chip) is testable immediately. Hardcoded in dev (no console dvar). Re-given each life.
+// DEV starting loadout: every player spawns holding the HAVOC (Apex energy rifle) in BASE form (user
+// 2026-07-06: "give me havoc on spawn", supersedes the same-day Alternator start) - to PaP + overclock
+// yourself. Hardcoded in dev (no console dvar). Re-given each life.
 function dev_starting_loadout()
 {
     level endon( "end_game" );
@@ -329,28 +339,41 @@ function dev_loadout_per_life()
     level flag::wait_till( "initial_blackscreen_passed" );
     for ( ;; )
     {
-        wait 1.5;                          // let the stock starting pistol settle, then hand over the Action Figure
-        self dev_give_action_figure();
+        wait 1.5;                          // let the stock starting pistol settle, then hand over the dev guns
+        self dev_give_starting_guns();
         self waittill( "spawned_player" ); // re-give on respawn
     }
 }
 
-function dev_give_action_figure()
+function dev_give_starting_guns()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // Blast-O-Matic dev-start, BASE form (user 2026-07-03 "just give me the base blastomatic
-    // on spawn - I'll PaP and overclock it myself"; supersedes the same-day maxed give, which
-    // in turn replaced the Thundergun 07-02 / Action Figure before that). No tier/OC records
-    // written - the machine and terminal treat it as a fresh gun.
-    w = GetWeapon( "t9_semiauto_cosplay" );
+    // FIRE BOW dev-start (user 2026-07-08 evening: "start me with the firebow so I can test it" - the
+    // charge-fix + Mega-Speed-Cola-twin test round; supersedes the same-day Havoc start, itself over the
+    // earlier 07-07 Fire Bow / Leviathan / Alternator / XM4 / Blast-O-Matic / Thundergun starts). RUNTIME
+    // name = "elemental_bow_demongate" (asset id ..._zm - engine strips the mode suffix). Raw GiveWeapon is
+    // enough: the bow's per-player watchers ride bow_demongate_watchers_respawn_loop (connect-threaded),
+    // NOT the give path. TEST FOCUS: hold-fire full charge -> portal opens; bleed out, respawn, charge
+    // again -> portal STILL opens (the 07-08 watcher-respawn fix); with Mega Speed Cola -> nock 1.5->1.29s
+    // (the fastreload twin swaps in; tap chompers + charged portal must both still work on the twin).
+    // (Havoc swap-back: GetWeapon( "apex_beam_rifle" ), print "Havoc (apex beam rifle)".)
+    w = GetWeapon( "elemental_bow_demongate" );
     if ( !isdefined( w ) || w == level.weaponNone ) return;
-
     self GiveWeapon( w );
     self SwitchToWeapon( w );
 
-    self IPrintLnBold( "^2>> DEV: Blast-O-Matic" );
+    self IPrintLnBold( "^2>> DEV: Fire Bow (demon gate) [bow-diag v2]" );   // build stamp: if this suffix is missing, the session loaded a STALE .ff
 }
+
+// APEX WEAPON DIAGNOSTIC - REMOVED 2026-07-06 after serving its purpose. It was a persistent dev-HUD
+// GetWeapon name-probe that root-caused the "Apex guns dead at runtime" bug (see CHANGELOG + memory
+// apex-weapons-pack-integration): the pack's baked _zm is the ZM MODE SUFFIX the engine strips at
+// registration, so runtime names are apex_<gun> / apex_<gun>_up (NEVER apex_<gun>_zm). Its final
+// verification round ALSO exposed why it had to go: its give-check handed the host an Alternator ~8s in,
+// which REPLACED the held dev-spawn gun (2-primary limit) - "my gun despawned". If Apex weapons ever go
+// missing again, rebuild the probe from the recipe in the memory note (GetWeapon != level.weaponNone per
+// name on a persistent hudelem - console_mp.log does NOT write on this box, HUD is the only oracle).
 
 // ---------------------------------------------------------------------------
 // Damage indicators + zone signage HUD
@@ -462,6 +485,68 @@ function acc_center_dmg_push_loop()
 }
 
 // Zone signage only (the DMG/DPS side panel was replaced by floating numbers).
+// GUN-BADGE PROBE (dev-gated ONLY, memory debug-banners-gated-by-acc-dev-only). One persistent
+// amber line per player (TOP y78 - below the boss-nameplate cluster y[22,60], above the AVO HB
+// banners ~y126): "[BADGE] held=<name> oc=<N> pap=<N> turbo=<0/1> mask=<M>". Every value is the
+// SERVER-side source the badge row rides:
+//   oc    = acc_overclocks::held_oc_tier   (drives accOcTier -> OC pennant)
+//   pap   = acc_pap_levels::get_tier       (drives accPapTier -> PaP pennant)
+//   turbo = self.acc_item_turbocharger     (drives acc_badges bit 1 -> TURBO pennant)
+//   mask  = the acc_badges bitmask _acc_gun_badges::badge_watch last computed
+//           (bit 0 MULE, bit 1 TURBO, bit 2 NUKE; -1 = watch not running)
+// If the probe shows a value but the chip is missing, the break is in the clientfield/LUI lane;
+// if the probe shows 0, the break is the server lookup (held-form keying). Standard dev-HUD probe
+// (logfile writes nothing on this box, memory apex-weapons-pack-integration).
+function dev_badge_probe_loop()
+{
+    level endon( "end_game" );
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // acc_resolve_dev_flags ran first thing in main()
+    level flag::wait_till( "initial_blackscreen_passed" );
+
+    for ( ;; )
+    {
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) )
+                continue;
+            ensure_badge_probe( p );
+            if ( !isdefined( p.acc_dev_badge_hud ) )
+                continue;   // hudelem pool full - retry next tick
+
+            cur = p GetCurrentWeapon();
+            held = "none";
+            pap = 0;
+            if ( isdefined( cur ) && cur != level.weaponNone )
+            {
+                held = cur.name;
+                pap = acc_pap_levels::get_tier( p, cur );
+            }
+            oc = acc_overclocks::held_oc_tier( p );
+            turbo = ( IS_TRUE( p.acc_item_turbocharger ) ? 1 : 0 );
+            mask = ( isdefined( p.acc_gun_badge_mask ) ? p.acc_gun_badge_mask : -1 );
+
+            p.acc_dev_badge_hud SetText( "[BADGE] held=" + held + " oc=" + oc + " pap=" + pap
+                                         + " turbo=" + turbo + " mask=" + mask );
+        }
+        wait 0.25;
+    }
+}
+
+// Create the probe hudelem on demand (guarded: hud::create* returns undefined on hudelem-pool-full,
+// memory gsc-t7-runtime-traps - the loop just retries next tick).
+function ensure_badge_probe( p )
+{
+    if ( isdefined( p.acc_dev_badge_hud ) ) return;
+    p.acc_dev_badge_hud = p hud::createFontString( "default", 1.0 );
+    if ( !isdefined( p.acc_dev_badge_hud ) ) return;
+    p.acc_dev_badge_hud hud::setPoint( "TOP", "TOP", 0, 78 );
+    p.acc_dev_badge_hud.color = ( 1.0, 0.85, 0.3 );
+    p.acc_dev_badge_hud.alpha = 0.85;
+    p.acc_dev_badge_hud.hidewheninmenu = true;
+}
+
 function dev_player_hud_loop()
 {
     level endon( "end_game" );

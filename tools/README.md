@@ -32,13 +32,26 @@ Mirrors the authoring trees in this repo into the BO3 Mod Tools `usermaps\zm_aba
 | `zone_source\` | `usermaps\zm_abandoned_cyber_city\zone_source\` | mirror |
 | `sound\` | `usermaps\zm_abandoned_cyber_city\sound\` | mirror |
 | `ui\` | `usermaps\zm_abandoned_cyber_city\ui\` | mirror |
+| `fonts\` | `usermaps\zm_abandoned_cyber_city\fonts\` | mirror |
+| `localizedstrings\` | `usermaps\zm_abandoned_cyber_city\localizedstrings\` | mirror |
+| `vision\` | `usermaps\zm_abandoned_cyber_city\vision\` | copy |
+| `gamedata\` | `usermaps\zm_abandoned_cyber_city\gamedata\` | copy |
 | `zone\` | `usermaps\zm_abandoned_cyber_city\zone\` | copy only - Launcher writes `workshop.json` and publish artifacts here; we must never delete them |
 | `map_source\zm\zm_abandoned_cyber_city.map` | `<BO3 root>\map_source\zm\` | single-file copy - Radiant reads map sources from the game root; that folder also holds `_prefabs\` and other maps, so it is never mirrored |
+| `map_source\_prefabs\acc\` | `<BO3 root>\map_source\_prefabs\acc\` | copy (our custom clone prefabs; added 2026-07-10) |
+| `sound\aliases\*.csv` | `<tools>\share\raw\sound\aliases\` | copy - the sound-bank compile reads THIS path, not the usermap copy (learned 2026-06-14) |
+| `sound_assets\` | `<tools>\sound_assets\` | copy - alias FileSpec paths are relative to the tools root; never purges installed game-rip packs |
 
-### What is NOT synced
+### What is NOT synced (other tools own these)
 
 - Compiled fast files (`.ff`) and the `zone_out\` build output - build artifacts.
-- Stock `share\raw\` assets - never touch.
+- Stock `share\raw\` assets are never modified - the ONLY things we write under
+  `share\raw\` are our own alias CSVs (table above) and the generated
+  `fx\acc\light\*.efx` (via `gen_perk_glow_fx.js`).
+- Repo-owned `source_data\*.gdt` deploy via `deploy_source_data.ps1`
+  (acc_ssi, acc_weapon_variants; divergence-guarded, `-Reverse` snapshots
+  install->repo) and `deploy_perk_shaders.ps1` (perk-shader GDT + custom art).
+- Fresh machine? `restore_machine.ps1` chains ALL of the above in order.
 
 ### Prerequisites
 

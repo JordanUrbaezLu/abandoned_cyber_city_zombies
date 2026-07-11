@@ -4,8 +4,9 @@
 //
 // BO3 weapon GDTs are PLAIN TEXT. This extracts one `"<asset>" ( "bulletweapon.gdf" )`
 // block from a source GDT, renames it to `<asset>_<suffix>`, and SCALES selected
-// stat fields - producing the recoil / fast-fire / fast-reload / fast-swap twins
-// that _acc_weapon_variants.gsc swaps in. No APE GUI needed (APE just edits this text).
+// stat fields - producing the recoil / fast-reload twins that _acc_weapon_variants.gsc
+// swaps in. (fast-fire / fast-swap twins REMOVED 2026-07-04 - Mega Double Tap is now a
+// damage buff, not a fireTime/swap twin.) No APE GUI needed (APE just edits this text).
 //
 // Usage:
 //   node tools/gen_weapon_variant_gdt.js \

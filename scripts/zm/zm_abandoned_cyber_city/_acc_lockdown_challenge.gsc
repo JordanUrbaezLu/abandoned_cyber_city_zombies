@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_lockdown_challenge.gsc - the per-round lockdown CHALLENGE room (Phase A).
 //
-// Full design + the adversarial-verified fixes: docs/43_lockdown_challenge_room.md.
+// Full design + the adversarial-verified fixes: docs/26_lockdown_challenge_room.md.
 //
 // Each round _acc_lockdown lights ONE of 4 rooms RED (Vault / Alley / Helipad=roof_zone /
 // Market) and notifies "acc_lockdown_room_lit". This module turns the lit room into a TRAP:
@@ -207,7 +207,7 @@ function commit_challenge( zone, party )
     level.acc_ldc_start_round = ( isdefined( level.round_number ) ? level.round_number : 1 );   // for the hard round-cap watchdog
     level.acc_ldc_total       = ldc_compute_total();   // round x 2 (or fixed override), captured once - can't drift mid-fight
 
-    // CRITICAL (docs/43 §4.1): stop the OUTSIDE horde from RISING inside the sealed room.
+    // CRITICAL (docs/26 §4.1): stop the OUTSIDE horde from RISING inside the sealed room.
     acc_decontamination::disable_zone_spawning( zone );
 
     // Belt-and-suspenders: nudge the party off any doorway footprint to the room interior BEFORE the
@@ -229,7 +229,7 @@ function commit_challenge( zone, party )
     ldc_debug( "COMMIT zone=" + zone + " party=" + party.size );
 
     // Per-inside-player "GLITCH PURGE X/N" HUD (server-side hud::, NOT a clientuimodel field -
-    // that pool is full at 64 bits and overflow crashes at load; docs/43 §4.8).
+    // that pool is full at 64 bits and overflow crashes at load; docs/26 §4.8).
     for ( i = 0; i < party.size; i++ )
     {
         p = party[ i ];
@@ -457,7 +457,7 @@ function challenge_producer( zone )
     {
         // Share the engine actor pool with the outside horde: cap concurrent + only spawn when
         // a slot is free (spawn_zombie itself hard-waits on GetFreeActorCount, so this just
-        // avoids parking the producer in that spin under a dense horde - docs/43 §4.3).
+        // avoids parking the producer in that spin under a dense horde - docs/26 §4.3).
         if ( ldc_alive() >= cap || GetFreeActorCount() < 1 )
         {
             wait( 0.25 );
@@ -1009,7 +1009,10 @@ function is_in_party( player )
 {
     if ( !isdefined( level.acc_ldc_party ) ) return false;
     for ( i = 0; i < level.acc_ldc_party.size; i++ )
-        if ( level.acc_ldc_party[ i ] == player ) return true;
+        // [acc] 4p guard (2026-07-06 sweep): the party is a snapshot held for the whole challenge; a
+        // disconnected member's entry is undefined and `entity == undefined` THROWS. Every other party
+        // consumer already isdefined-guards - this was the one raw compare (polled 1/s per zombie).
+        if ( isdefined( level.acc_ldc_party[ i ] ) && level.acc_ldc_party[ i ] == player ) return true;
     return false;
 }
 
@@ -1044,6 +1047,12 @@ function create_challenge_hud()
     total = ldc_total();
 
     self.acc_ldc_label = self hud::createFontString( "objective", 1.3 );
+    // [acc] 4p guard (2026-07-06 coop sweep): hud::create* returns undefined when the shared hudelem
+    // pool is full (demonstrated 4p condition) - the writes below would throw. Bail on each failed
+    // create; ldc_update_hud/destroy_challenge_hud already tolerate undefined fields, and purge
+    // commit is exactly when the pool is most saturated (3 elems x up to 4 sealed players).
+    if ( !isdefined( self.acc_ldc_label ) )
+        return;
     self.acc_ldc_label hud::setPoint( "TOP", "TOP", 0, 62 );
     self.acc_ldc_label.alignX = "center";
     self.acc_ldc_label.alignY = "top";
@@ -1057,6 +1066,8 @@ function create_challenge_hud()
     // pattern - frees 2 hudelems/player AND removes the createBar barFrame child that destroy_challenge_hud never
     // freed = a per-player-per-purge hudelem leak that progressively starved the shared co-op HUD pool).
     self.acc_ldc_bar = self hud::createIcon( "white", 1, ACC_LDC_BAR_H );   // start empty (killed=0); first update fills it
+    if ( !isdefined( self.acc_ldc_bar ) )   // [acc] pool-full guard (see label above)
+        return;
     self.acc_ldc_bar hud::setPoint( "TOP", "TOP", -( ACC_LDC_BAR_W / 2 ), 84 );   // left edge of the centered bar
     self.acc_ldc_bar.alignX = "left";
     self.acc_ldc_bar.alignY = "top";
@@ -1067,6 +1078,8 @@ function create_challenge_hud()
     self.acc_ldc_bar.acc_w = 1;
 
     self.acc_ldc_num = self hud::createFontString( "default", 1.0 );
+    if ( !isdefined( self.acc_ldc_num ) )   // [acc] pool-full guard (see label above)
+        return;
     self.acc_ldc_num hud::setPoint( "TOP", "TOP", 0, 98 );
     self.acc_ldc_num.alignX = "center";
     self.acc_ldc_num.alignY = "top";
@@ -1122,7 +1135,7 @@ function ldc_announce( party, msg )
 function ldc_debug( msg )
 {
     acc_utility::log( "ldc: " + msg );
-    if ( getdvarint( "acc_lockdown_challenge_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_lockdown_challenge_debug", 0 ) != 1 ) return;
     players = GetPlayers();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )

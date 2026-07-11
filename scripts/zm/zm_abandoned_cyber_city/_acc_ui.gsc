@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_ui.gsc - reusable themed UI component library (server-HUD, v1)
 //
-// docs/27_ui_plan.md. One styled "card" renderer used by every touchpoint
+// docs/11_controls_and_hud.md. One styled "card" renderer used by every touchpoint
 // (perks, PaP, Mega, wallbuys, Cyberware nodes, ...) so they stay consistent
 // and adding a touchpoint is data + one call. The renderer is server-HUD font
 // strings + a translucent "white"-shader box (resized via setShader, per the
@@ -112,6 +112,10 @@ function card_ensure( p )
     // Background panel (sort LOWEST so text draws over it). "white" = engine
     // built-in material, tinted by .color.
     p.acc_card_bg = p hud::createIcon( "white", ACC_UI_W, 10 );
+    // [acc] COOP CRASH GUARD: createIcon returns undefined when the shared hudelem pool is full
+    // (4-player exhaustion); the field writes below would throw on undefined. Bail - the card just
+    // doesn't build this time (card_ensure retries next open once the pool frees). See _acc_utility::hud_msg_slot.
+    if ( !isdefined( p.acc_card_bg ) ) return;
     p.acc_card_bg.alignX = "right";
     p.acc_card_bg.alignY = "middle";
     p.acc_card_bg hud::setPoint( "RIGHT", "RIGHT", -16, 0 );
@@ -122,36 +126,48 @@ function card_ensure( p )
     p.acc_card_bg.hidewheninmenu = true;
 
     // Left accent strip (parented to the box so it moves/sizes with it).
+    // [acc] COOP CRASH GUARD: card_bg is guaranteed defined here (guarded above), but the shared hudelem
+    // pool can still fill BETWEEN these sub-element creates at 4p; each create is guarded so a pool-full
+    // returns undefined without the following setParent/field writes throwing (card_show tolerates undefined).
     p.acc_card_strip = p hud::createIcon( "white", 3, 10 );
-    p.acc_card_strip hud::setParent( p.acc_card_bg );
-    p.acc_card_strip hud::setPoint( "LEFT", "LEFT", 0, 0 );
-    p.acc_card_strip.color = ( 0.4, 0.9, 1.0 );
-    p.acc_card_strip.alpha = 0;
-    p.acc_card_strip.sort = 2;
-    p.acc_card_strip.foreground = true;
-    p.acc_card_strip.hidewheninmenu = true;
+    if ( isdefined( p.acc_card_strip ) )
+    {
+        p.acc_card_strip hud::setParent( p.acc_card_bg );
+        p.acc_card_strip hud::setPoint( "LEFT", "LEFT", 0, 0 );
+        p.acc_card_strip.color = ( 0.4, 0.9, 1.0 );
+        p.acc_card_strip.alpha = 0;
+        p.acc_card_strip.sort = 2;
+        p.acc_card_strip.foreground = true;
+        p.acc_card_strip.hidewheninmenu = true;
+    }
 
     p.acc_card_title = p hud::createFontString( "objective", 1.7 );
-    p.acc_card_title hud::setParent( p.acc_card_bg );
-    p.acc_card_title.alignX = "left";
-    p.acc_card_title.alignY = "top";
-    p.acc_card_title hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD );
-    p.acc_card_title.color = ( 0.55, 0.85, 1.0 );
-    p.acc_card_title.alpha = 0;
-    p.acc_card_title.sort = 3;
-    p.acc_card_title.foreground = true;
-    p.acc_card_title.hidewheninmenu = true;
+    if ( isdefined( p.acc_card_title ) )
+    {
+        p.acc_card_title hud::setParent( p.acc_card_bg );
+        p.acc_card_title.alignX = "left";
+        p.acc_card_title.alignY = "top";
+        p.acc_card_title hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD );
+        p.acc_card_title.color = ( 0.55, 0.85, 1.0 );
+        p.acc_card_title.alpha = 0;
+        p.acc_card_title.sort = 3;
+        p.acc_card_title.foreground = true;
+        p.acc_card_title.hidewheninmenu = true;
+    }
 
     p.acc_card_price = p hud::createFontString( "default", 1.2 );
-    p.acc_card_price hud::setParent( p.acc_card_bg );
-    p.acc_card_price.alignX = "left";
-    p.acc_card_price.alignY = "top";
-    p.acc_card_price hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD + ACC_UI_TITLE_H );
-    p.acc_card_price.color = ( 1.0, 0.85, 0.2 );
-    p.acc_card_price.alpha = 0;
-    p.acc_card_price.sort = 3;
-    p.acc_card_price.foreground = true;
-    p.acc_card_price.hidewheninmenu = true;
+    if ( isdefined( p.acc_card_price ) )
+    {
+        p.acc_card_price hud::setParent( p.acc_card_bg );
+        p.acc_card_price.alignX = "left";
+        p.acc_card_price.alignY = "top";
+        p.acc_card_price hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD + ACC_UI_TITLE_H );
+        p.acc_card_price.color = ( 1.0, 0.85, 0.2 );
+        p.acc_card_price.alpha = 0;
+        p.acc_card_price.sort = 3;
+        p.acc_card_price.foreground = true;
+        p.acc_card_price.hidewheninmenu = true;
+    }
 
     p.acc_card_lines = [];
 }

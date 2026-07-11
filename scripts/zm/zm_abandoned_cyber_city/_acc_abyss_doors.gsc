@@ -338,6 +338,19 @@ function setup_hub_door()
     door disconnectpaths();
     door.acc_open = false;
 
+    // [acc] DOOR BEACON (user 2026-07-06: the final gate is "so hard to see people don't even know
+    // it's a door"): a small glow light on the player-side door face. Same tag_origin + accPerkGlow
+    // clientfield recipe as spawn_soul_light above; BLUE (6) = the descent-gate soul colour, so the
+    // final gate reads as the last "pay the door" beacon. y 1727 = just off the slab's north face
+    // (band y[1703,1723], players approach from +y); z floor+72 = torso height. Kept lit after the
+    // door opens - it then marks the passage into Paradise.
+    beacon = spawn( "script_model", ( 0, 1727, ACC_HUB_FLOOR_Z + 72 ) );
+    if ( isdefined( beacon ) )
+    {
+        beacon setmodel( "tag_origin" );
+        acc_perk_lights::set_glow( beacon, 6 );
+    }
+
     // Two SEPARATE shared pools, cost SCALED BY LIVE PLAYER COUNT (hub_cost_*). The door opens (after the
     // gather) only when BOTH reach 0. Dev keeps the gate a REAL currency gate (NOT auto-open) so it is
     // testable - just cheaper (10 shards + 10k points, handled inside the hub_cost_* helpers).
@@ -375,8 +388,12 @@ function hub_set_hint( t )
     // CONSTANT string (uses the snapshotted TOTALS, not the live remaining) so it never grows the
     // triggerstring cache - see the cap note in spawn/setup above. Remaining progress is announced
     // on each deposit via IPrintLnBold (not a triggerstring).
+    // "(adds up to N + N per use)" replaced "(adds all you carry)" (user 2026-07-06 installments).
+    // Still cache-safe: chunk dvars are fixed in play, so this stays ONE constant string per price snapshot.
     t SetHintString( "Hold ^3[{+activate}]^7  Open the gate to PARADISE  ^2[" + level.acc_hub_shards_total +
-                     " Shards ^7+ ^2" + level.acc_hub_points_total + " Points total^7]  ^3(adds all you carry)" );
+                     " Shards ^7+ ^2" + level.acc_hub_points_total + " Points total^7]  ^3(adds up to " +
+                     getdvarint( "acc_hub_chunk_shards", 10 ) + " Shards + " +
+                     getdvarint( "acc_hub_chunk_points", 10000 ) + " Points per use)" );
 }
 
 // Keep the PARADISE-gate price ALIGNED with the LIVE player count (hub_cost_*) until the first contribution
@@ -434,12 +451,19 @@ function hub_door_loop( door )
             continue;
         }
 
-        // Contribute ALL the player carries of BOTH currencies, each capped to its remaining pool
-        // (so the two pools draw down separately - user 2026-06-24).
+        // INSTALLMENTS, not drain-all (user 2026-07-06: the old "contribute ALL you carry" from
+        // 2026-06-24 was "killing people cause they lose everything at once"): each trigger press
+        // deposits AT MOST 10 shards + 10k points (dvar-tunable), still capped by what the player
+        // carries and what each pool has left. Repeat presses to keep paying - deliberately a
+        // several-press ritual so nobody gets zeroed by one accidental hold.
         contributed = false;
+
+        chunk_s = getdvarint( "acc_hub_chunk_shards", 10 );
+        chunk_p = getdvarint( "acc_hub_chunk_points", 10000 );
 
         have_s = acc_data_shards::get_count( player );
         give_s = ( have_s < level.acc_hub_shards_rem ? have_s : level.acc_hub_shards_rem );
+        if ( give_s > chunk_s ) give_s = chunk_s;
         if ( give_s > 0 && acc_data_shards::try_spend( player, give_s ) )
         {
             level.acc_hub_shards_rem -= give_s;
@@ -448,6 +472,7 @@ function hub_door_loop( door )
 
         have_p = ( isdefined( player.score ) ? player.score : 0 );
         give_p = ( have_p < level.acc_hub_points_rem ? have_p : level.acc_hub_points_rem );
+        if ( give_p > chunk_p ) give_p = chunk_p;
         if ( give_p > 0 )
         {
             // Debit the shared pool by the points ACTUALLY removed, not give_p (user 2026-06-27 audit): stock

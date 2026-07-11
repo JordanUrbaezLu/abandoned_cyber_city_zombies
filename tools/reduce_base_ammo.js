@@ -7,9 +7,12 @@
 // +25% "ammo" twin (maxAmmo x1.25) then yields +25% of the REDUCED reserve automatically.
 //
 // SCOPE (GLOBAL ARCHITECTURE): EVERY weapon entry in every gun GDT - base AND PaP (`_up`)
-// AND all recoil/fire/reload/ammo twins (base- and _up-form). The 30% applies uniformly so
+// AND all recoil/reload twins (base- and _up-form). The 30% applies uniformly so
 // PaP keeps its relative ammo edge but the whole economy is 30% tighter, and any twin the
-// held gun swaps to (Deadshot/Armory/Gun Slinger) carries the same reduced mag.
+// held gun swaps to (Deadshot/Speed Cola) carries the same reduced mag.
+// NOTE 2026-07-04: the fastfire (Gun Slinger) + ammo (Armory) twin axes were removed; any
+// *_acc_fastfire* / *_acc_ammo* keys still listed in the tables below are now INERT (they
+// match no GDT entry, so the tool simply skips them - harmless, not worth pruning).
 // FACTOR = 0.70 (round nearest, min 1). (Stock weapons - the laststand pistol_standard,
 // knife, grenades - are not Skye GDTs and are not touched.)
 //
@@ -58,7 +61,7 @@ const GDTS = [
     "skye_t6_five-seven.gdt", "skye_s1_asm1.gdt", "skye_s1_tac-19.gdt", "skye_t6_ak47.gdt",
     "skye_s1_ae4.gdt", "skye_iw6_ripper.gdt", "skye_t8_paladin_hb50.gdt", "skye_s4_ppsh-41.gdt",
     "skye_t9_nail_gun.gdt", "skye_s1_pdw.gdt", "skye_s2_m1911.gdt", "skye_t5_ak74u.gdt",
-    "skye_t6_olympia.gdt", "skye_t6_galil.gdt",                       // added 2026-06-16: were skipped at gun-add → never reduced
+    "skye_t6_olympia.gdt", "skye_t6_galil.gdt",                       // added 2026-06-16: were skipped at gun-add → never reduced. (t6_galil KEPT as the CW Grav graft SOURCE - its cut clip 25/35 is grafted onto t9_grav; the t9_grav TWINS are pinned via CLIP_FIX below.)
     "skye_t6_m60.gdt", "skye_t6_rpd.gdt",                             // added 2026-06-19: LMGs - native clip 100 / reserve 400-1000 was wildly over (user); CLIP_FIX + MAXAMMO_FIX below
     "skye_s1_rw1.gdt",                                                // added 2026-06-23: RW1 energy pistol (twinned). CLIP_FIX/MAXAMMO_FIX below hand-tune it to 8/12 (A-tier, docs/54) - NOT the x0.7 cut (the clip-1 single-shot original would floor to 1). Mahem launcher left uncut.
     "skye_s1_mk14.gdt",                                               // added 2026-06-24: MK14 AW DMR (twinned, B-tier). Plain x0.70 clip cut: base 20->14, PaP 17->12; reserve = maxAmmo x clip = 168 / 240. No CLIP_FIX needed.
@@ -152,6 +155,11 @@ const CLIP_FIX = {
     // variants GDT). Values == the grafted base clips: ak47 21/31, ak74u 20/40, m60 100/120, rpd 75/125.
     "t9_ak47": 21, "t9_ak47_up": 31, "t9_ak74u": 20, "t9_ak74u_up": 40,
     "t9_m60": 100, "t9_m60_up": 120, "t9_rpd": 75, "t9_rpd_up": 125,
+    // Grav (CW t9_grav, MIGRATED FROM Galil t6_galil 2026-07-05): pin the twins to the GRAFTED Galil clips
+    // (base 25 / PaP 35 - the already-cut Galil values graft_cw_weapon_stats copied onto t9_grav). The base
+    // t9_grav GDT is NOT in GDTS (graft brought the cut clip), so this only covers the t9_grav_acc_* twins in
+    // the variants GDT - without the pin the global x0.70 cut would shrink them 25->18 / 35->25 below the base.
+    "t9_grav": 25, "t9_grav_up": 35,
     // Paladin clip 4->8 / PaP 7->11 (user 2026-06-21): bigger sniper mag to lift it to low S (with its
     // single-target DPS). Reserve rises with it (maxAmmo 12 unchanged): base 8x12=96, PaP 11x12=132.
     "t8_paladin_hb50": 8, "t8_paladin_hb50_up": 11,

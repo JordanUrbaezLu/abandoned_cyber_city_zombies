@@ -1,5 +1,5 @@
 // =============================================================================
-// _acc_exo.gsc - the Exo Suit Upgrade Station (docs/47).
+// _acc_exo.gsc - the Exo Suit Upgrade Station (docs/29).
 //
 // The BODY counterpart to the per-gun Weapon Overclock: per-PLAYER, with THREE augments that scale with the
 // exo tier (mirroring the gun Overclock's 3 effects). This module owns ONLY the tier STATE + the buy station
@@ -8,7 +8,7 @@
 //      + player.acc_exo_tier. Tier T -> normal speed in layers 1..T; below that -20% first uncovered layer,
 //      -10%/layer deeper. (So you buy tiers to reach + fight in the deeper, richer layers.)
 //   2. DAMAGE RESISTANCE - _acc_elites::on_player_damaged cuts ALL incoming damage by acc_exo_resist_per_tier
-//      (default 5%/tier -> -25% at T5).
+//      (default 6%/tier -> -30% at T5, -60% at T10; user 2026-07-08: 5% -> 6%).
 //   3. KNIFE/MELEE damage - _acc_damage::on_ai_damage adds +acc_exo_melee_per_tier per tier to the player's
 //      melee hits (default +30%/tier -> +150% at T5).
 //
@@ -21,9 +21,12 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 
 // Station model: a Cyber City white metal workbench as a body-augment chamber (stock t7_props, proven packable).
-#precache( "model", "p7_cai_work_table_metal_03_white" );
+// STATION REMODEL (user 2026-07-09, docs/09): Cryogen stasis pod (58x53x114, T7-dump carve
+// acc_t7_props_stations.gdt) - a body-augmentation pod, no longer the white workbench the
+// Implant Bench shares. Pod ORIGIN IS MID-BODY (measured floorLift 63): spawn +63 z or it sinks.
+#precache( "model", "p7_cry_cryogen_pod_exterior" );
 
-#define ACC_EXO_MAX 10   // user 2026-06-24: 5 -> 10 tiers. Resist (+5%/t, clamped -80%) + melee (+30%/t) keep scaling; the DEPTH gate past L5 is inert until the abyss has layers 6-10 (geometry, not GSC).
+#define ACC_EXO_MAX 10   // user 2026-06-24: 5 -> 10 tiers. Resist (+6%/t, clamped -80%; user 2026-07-08: 5% -> 6%) + melee (+30%/t) keep scaling; the DEPTH gate past L5 is inert until the abyss has layers 6-10 (geometry, not GSC).
 
 #namespace acc_exo;
 
@@ -97,8 +100,8 @@ function spawn_station()
 
 function spawn_station_at( origin, yaw )
 {
-    m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_work_table_metal_03_white" );
+    m = spawn( "script_model", origin + ( 0, 0, 63 ) );   // pod origin is mid-body (floorLift 63 from vertex bounds)
+    m setmodel( "p7_cry_cryogen_pod_exterior" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
@@ -150,7 +153,7 @@ function station_loop()   // self = the station trigger
         player PlaySound( "acc_shard_pickup" );
         acc_utility::recompute_move_speed( player );   // the slow cancellation takes effect now
         sync_exo_hud( player );                        // refresh the always-on EXO readout
-        // Vague (docs/50): the "Tier N/5" shows progress; effects stay qualitative. Exact %s are in docs/47.
+        // Vague (docs/31): the "Tier N/5" shows progress; effects stay qualitative. Exact %s are in docs/29.
         self SetHintString( "^5EXO SUIT^7 - Tier " + next_tier + "/" + ACC_EXO_MAX +
                             " ^7- faster, tougher, stronger melee - hold ^3[{+activate}]^7 to augment again" );
         wait 0.4;

@@ -35,22 +35,45 @@ if (!inPath || !outArg) { console.error('usage: add_prop_clips.js <in> <out>'); 
 // Ammo Crate bookends (L2 east z-480 & L5 z-1200), Glitch Altar L3 (z-720); L4 = AK-47 wall-buy. The 4 PARADISE
 // stations stay skipped for now (add `brushmodel: true` to clip them too). Coords mirror spawn_altars. Half-extents
 // are SNUG estimates; if a box over/under-reaches in playtest, just nudge hx/hy + re-run + full bake.
+// STATION REMODEL (user 2026-07-09, docs/52): every station got a DISTINCT bounds-measured
+// model (tools/xmodel_bin_inspect.js; all spawn SetScale 1.0 so clip == visual - "make sure
+// the hitboxes make sense"). Extents below are the measured mesh footprints, snug. NEW
+// stations (armory loft, transfer vault, paradise ammo crate, implant bench pads) are clipped
+// too; ALL new/updated Paradise + loft clips use `brushmodel: true` (LED-exempt at ANY depth -
+// zero bake risk; the shallow legacy worldspawn clips keep baking as before, just resized).
 const PROPS = [
-  { x: -120, y: 1550, hx: 18, hy: 30, label: 'exo_station' },         // p7_cai_work_table_metal_03_white (work table) - Foundry/Exo room WEST side, ORIGINAL size (user 2026-06-28 reverted a brief shrink, mid-depth y1550); mirrors _acc_exo::spawn_station_at (-120,1550). EXTENTS SWAPPED hx30/hy18 -> hx18/hy30 (user 2026-06-27): this table spawns at YAW 90, so its ~60-long axis runs along Y (clip 36x in X, 60y in Y) - the old 60x/36y was the un-rotated footprint, 90deg off (table poked out the long sides). The yaw-0 PARADISE twin (paradise_exo) correctly keeps 30/18. VERIFY in-game: if the table now pokes out front/back instead, the model's native long axis is the other way - flip back to hx30/hy18.
-  { x:    0, y: 2493, hx: 9, hy: 24, top: -176, label: 'reactor_plinth' }, // p7_cai_sign_inteactive_kiosk = a FLAT SCREEN panel - THIN slab 18(X)x48(Y)x64 (faces E/W at yaw 270, thin in X). Teddy-bear NORTH under-room (ORIGINAL, x[-192,192] y[2173,2517]). CENTERED at the back wall (0,2493); the bears were nudged forward to y2350 so the deep kiosk clears them behind; mirrors _acc_reactor::spawn_plinth_at (0,2493)
-  { x: -360, y: 1950, hx: 28, hy: 28, top: -192, label: 'pit_cache_w' }, // p7_cai_stacking_cargo_crate - snug 56x56x48 (matches the plaza crates; user 2026-06-26 "same clips")
-  { x:  360, y: 1950, hx: 28, hy: 28, top: -192, label: 'pit_cache_e' }, // p7_cai_stacking_cargo_crate - snug 56x56x48
-  { x:  120, y: 1550, hx: 24, hy: 9, top: -176, label: 'perk_slot_vendor' }, // p7_cai_sign_inteactive_kiosk = same FLAT SCREEN panel as the reactor plinth. THIN slab 48(X)x18(Y)x64; faces +Y at yaw 0 so thin in Y. Foundry/Exo room EAST side, ORIGINAL size (user 2026-06-28 reverted a brief shrink, opposite the Exo station at WEST -120,1550); mirrors _acc_glitch_altar spawn_perk_slot_vendor_at (120,1550)
-  { x:  400, y: 1948, hx: 28, hy: 28, bot:  -480, top:  -432, brushmodel: true, label: 'ammo_crate_l2' }, // p7_cai_stacking_cargo_crate (AMMO crate #1, _acc_ammo_crate::spawn_crate_at) - abyss L2 EAST, opposite the OC. 56x56x48. DEEP -> script_brushmodel clip, LED-exempt (user 2026-06-27: "all deep abyss stations" get clips).
-  { x: -400, y: 1948, hx: 28, hy: 28, bot: -1200, top: -1152, brushmodel: true, label: 'ammo_crate_l5' }, // p7_cai_stacking_cargo_crate (AMMO crate #2) - abyss L5 WEST, the bottom before Paradise. 56x56x48. DEEP -> script_brushmodel clip, LED-exempt (user 2026-06-27).
-  { x: -400, y: 1948, hx: 30, hy: 34, bot: -480, top: -400, brushmodel: true, label: 'overclock_terminal' }, // p7_cai_ticket_kiosk_theatre (acc_overclocks::spawn_terminal_at) - abyss L2 WEST, OPPOSITE the ammo crate. 60x68x80. DEEP -> script_brushmodel clip, LED-exempt (user 2026-06-27).
-  { x:  400, y: 1948, hx: 30, hy: 34, bot: -1200, top: -1120, brushmodel: true, label: 'overclock_l5' }, // p7_cai_ticket_kiosk_theatre (acc_overclocks::spawn_terminal_at) - abyss L5 EAST, opposite the L5 ammo crate. 60x68x80. DEEP -> script_brushmodel clip, LED-exempt (user 2026-06-28). Emits on the next add_prop_clips.js run + LED bake (queued; the L5 OC is GSC-spawned + walk-through until then).
-  // --- L3 + Paradise deep kiosks (user 2026-06-27 "add clips to those") - the last walk-through interactables, clipped at their own floors via per-prop `bot`. The sign kiosks reuse the SAME 48x18x64 thin slab as the reactor/perk-vendor (same model, spawned yaw 0 -> thin in Y); their floating core orbs are decorative (no clip). ---
-  { x: -400, y: 1948, hx: 24, hy:  9, bot:  -720, top:  -656, brushmodel: true, label: 'glitch_altar_l3' },      // p7_cai_sign_inteactive_kiosk (acc_glitch_altar::spawn_altar_at, yaw 0) - abyss L3 (z=-720). 48x18x64. DEEP -> script_brushmodel clip, LED-exempt (user 2026-06-27: the gambling altar was walk-through).
-  { x: -850, y: -1350, hx: 24, hy:  9, bot: -1200, top: -1136, label: 'paradise_altar' },       // p7_cai_sign_inteactive_kiosk (spawn_altar_at, yaw 0) - PARADISE (z=-1200) west-mid. 48x18x64.
-  { x:  850, y: -1350, hx: 30, hy: 34, bot: -1200, top: -1120, label: 'paradise_overclock' },   // p7_cai_ticket_kiosk_theatre (spawn_terminal_at yaw 0) - PARADISE east-mid. 60x68x80, same as the L2 overclock.
-  { x: -850, y: -1950, hx: 30, hy: 18, bot: -1200, top: -1120, label: 'paradise_exo' },         // p7_cai_work_table_metal_03_white (acc_exo::spawn_station_at yaw 0) - PARADISE west-south. 60x36x80, same as the Foundry exo table.
-  { x:  850, y: -1950, hx: 24, hy:  9, bot: -1200, top: -1136, label: 'paradise_perk_vendor' }, // p7_cai_sign_inteactive_kiosk (acc_perks::spawn_perk_slot_vendor_at yaw 0) - PARADISE east-south. 48x18x64.
+  { x: -120, y: 1550, hx: 26, hy: 29, top: -126, label: 'exo_station' },  // p7_cry_cryogen_pod_exterior (stasis pod 58x53x114, spawns yaw 90 -> X/Y swapped) - Foundry/Exo room WEST (-120,1550); mirrors _acc_exo::spawn_station_at.
+  { x:    0, y: 2493, hx: 46, hy: 23, top: -190, label: 'reactor_plinth' }, // p7_ris_generator_lg_01_blue (industrial generator 92x46x50, yaw 0 - long axis X along the back wall). Jukebox NORTH under-room; the jukebox machine sits WEST at (-140,2350), clear. Mirrors _acc_reactor::spawn_plinth_at (0,2493).
+  { x: -360, y: 1950, hx: 12, hy: 15, top: -168, label: 'pit_cache_w' }, // p7_zm_sta_computer_tower_01 (Data Cache tower 24x30x72; plaza cache clips resized in-map to match, gen_plaza_shrink obstacle clips #0-2)
+  { x:  360, y: 1950, hx: 12, hy: 15, top: -168, label: 'pit_cache_e' }, // p7_zm_sta_computer_tower_01 (Data Cache tower 24x30x72)
+  { x:  120, y: 1550, hx: 25, hy: 22, top: -169, label: 'perk_slot_vendor' }, // p7_zm_sta_drop_pod_console_blue (Gorod console 49x44x71, yaw 0). Foundry/Exo room EAST; mirrors _acc_glitch_altar spawn_perk_slot_vendor_at (120,1550).
+  { x:  400, y: 1948, hx: 39, hy: 10, bot:  -480, top:  -459, brushmodel: true, label: 'ammo_crate_l2' }, // p7_zm_sha_crate_ammo_closed_sml_stack_full (ammo-crate stack 78x20x21) - abyss L2 EAST.
+  { x: -400, y: 1948, hx: 39, hy: 10, bot: -1200, top: -1179, brushmodel: true, label: 'ammo_crate_l5' }, // ammo-crate stack - abyss L5 WEST, the bottom before Paradise.
+  { x: -400, y: 1948, hx: 24, hy: 17, bot: -480, top: -402, brushmodel: true, label: 'overclock_terminal' }, // p7_zm_sta_dragon_network_data_terminal (48x34x78) - abyss L2 WEST.
+  { x:  400, y: 1948, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'overclock_l5' }, // dragon network terminal - abyss L5 EAST.
+  { x: -400, y: 1948, hx: 81, hy: 33, bot:  -720, top:  -662, brushmodel: true, label: 'glitch_altar_l3' }, // p7_ram_altar (stone altar 162x66x58) - abyss L3; slab x[-781,-112] holds the 162 width fine.
+  { x: -850, y: -1350, hx: 81, hy: 33, bot: -1200, top: -1142, brushmodel: true, label: 'paradise_altar' },       // p7_ram_altar - PARADISE west-mid (was a skipped walk-through clip; brushmodel = real collision now).
+  { x:  850, y: -1350, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'paradise_overclock' },   // dragon network terminal - PARADISE east-mid.
+  { x: -850, y: -1950, hx: 29, hy: 26, bot: -1200, top: -1086, brushmodel: true, label: 'paradise_exo' },         // cryogen stasis pod (yaw 0) - PARADISE west-south.
+  { x:  850, y: -1950, hx: 25, hy: 22, bot: -1200, top: -1129, brushmodel: true, label: 'paradise_perk_vendor' }, // drop-pod console - PARADISE east-south.
+  { x:  850, y: -1650, hx: 39, hy: 10, bot: -1200, top: -1179, brushmodel: true, label: 'paradise_ammo_crate' },  // ammo-crate stack - PARADISE east wall (AMMO CRATE #3, user 2026-07-09).
+  // Implant Bench pads: THREE per site since 2026-07-09 (slots 2->3; 2*sep=160 spacing). Model =
+  // p7_zm_isl_table_operating (79x24x42). PARADISE row mirrors _acc_glitch_altar (-550 -/+ 160, -2080);
+  // the IMPLANT LAB row mirrors _acc_boss_items::spawn_bench_pads base (spawn struct -227.5,-130.67 +
+  // off -40,-350,-35 -> ~(-268,-481) on the z=0 Plaza floor), pads at base -/+ 160. Coords are dvar-
+  // nudgeable live (acc_bench_off_*/acc_bench_pad_sep) - re-sync here + re-run after any nudge.
+  { x: -710, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot1' },          // PARADISE Slot 1 (west)
+  { x: -550, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot2' },          // PARADISE Slot 2 (center)
+  { x: -390, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot3' },          // PARADISE Slot 3 (east; NEW 2026-07-09)
+  { x: -428, y: -481, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot1' },              // IMPLANT LAB Slot 1 (west) - south-wall row, missed by the first clip pass
+  { x: -268, y: -481, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot2' },              // IMPLANT LAB Slot 2 (center)
+  { x: -108, y: -481, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot3' },              // IMPLANT LAB Slot 3 (east)
+  { x:  870, y:  -100, hx: 69, hy:  9, bot:   288, top:   336, brushmodel: true, label: 'armory_rack' },          // p7_con_cargo_train_armory_cabinet (138x18x48) - Armory loft (z=288); long axis spans the deposit/withdraw pads.
+  { x:  870, y:   100, hx: 37, hy: 28, bot:   288, top:   398, brushmodel: true, label: 'armory_bottle' },        // p7_zm_vending_wonder (Wonderfizz 74x56x110) - Armory loft bottle exchange.
+  { x:   98, y:   200, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_points' },      // p7_out_monitor_atm (37x34x103; mesh extends +X from its back-face origin at x=80 -> clip centered x=98) - Exchange vault.
+  { x:   98, y:    40, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_shards' },      // ATM - Exchange vault.
+  { x:   98, y:  -120, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_bottles' },     // ATM - Exchange vault.
+  { x:   98, y:  -280, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_items' },       // ATM - Exchange vault.
 ];
 const CLIP_BOT = -240, CLIP_TOP = -160;   // default: sits on the z=-240 floor, 80 tall. Per-prop `top` can override
                                           // (e.g. the cargo crates use top=-192 = a snug 48-tall clip = the plaza crate height).
@@ -118,7 +141,10 @@ for (const p of PROPS) {
   const z1 = (p.bot !== undefined ? p.bot : CLIP_BOT), z2 = (p.top !== undefined ? p.top : CLIP_TOP);
   const x1 = p.x - p.hx, x2 = p.x + p.hx, y1 = p.y - p.hy, y2 = p.y + p.hy;
 
-  if (deep && p.brushmodel) {
+  // brushmodel is honored at ANY depth (2026-07-09): a script_brushmodel is LED-exempt
+  // everywhere, so new clips (armory loft z288, Exchange z-240, Paradise) carry zero bake
+  // risk. Only legacy shallow clips stay worldspawn (they were already baking fine).
+  if (p.brushmodel) {
     entityBlock.push(`// clip(brushmodel): ${p.label} @ (${p.x},${p.y}) z[${z1},${z2}]`);
     entityBlock.push(brushmodelEntity(p.label, x1, x2, y1, y2, z1, z2, MAT));
     nBm++;

@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_points.gsc - kill-point awards with co-op damage splitting
 //
-// Design reference: docs/06_mechanics.md (Point Economy).
+// Design reference: docs/05_mechanics.md (Point Economy).
 //
 // Replaces stock BO3 kill-point awards with:
 //   - Regular kill:  70 pts
@@ -49,7 +49,7 @@
 #precache( "string", "ZM_AETHERIUM_KF_ZOMBIE_DOG" );
 
 // ---------------------------------------------------------------------------
-// Tuning constants. See docs/06_mechanics.md.
+// Tuning constants. See docs/05_mechanics.md.
 // ---------------------------------------------------------------------------
 
 #define ACC_POINTS_REGULAR_KILL    70    // body/non-headshot kill (user 2026-06-23: 40 -> 70)
@@ -75,7 +75,7 @@
 // who have a bad start. SET, not added: whatever they kept through the death (stock penalty_died is 0.0, so they
 // DO keep it) is wiped and replaced with the target - so a rich player who dies drops to the floor and a broke
 // player is lifted to it (user picked "set to exactly", full-death respawns only - NOT last-stand revives,
-// which never bleed_out so they don't qualify). See on_player_spawned / watch_comeback_death + docs/06.
+// which never bleed_out so they don't qualify). See on_player_spawned / watch_comeback_death + docs/05.
 #define ACC_COMEBACK_PER_ROUND   500
 
 #namespace acc_points;
@@ -201,7 +201,7 @@ function comeback_set_score( target )
 // Signature must match the dispatch at _zm_score.gsc:147; self = player.
 function suppress_stock_kill_score( event, mod, hit_location, zombie_team, damage_weapon )
 {
-    return 0; // _acc_points owns all kill awards (docs/06_mechanics.md Point Economy)
+    return 0; // _acc_points owns all kill awards (docs/05_mechanics.md Point Economy)
 }
 
 // Per-hit points (the +10/shot). Default 0 = kill-only economy (user 2026-06-18). Set
@@ -247,7 +247,7 @@ function on_zombie_death( attacker ) // self = the killed zombie
 
     distribute_points( self, attacker, self.damagemod, self.damagelocation );
 
-    // Kinetic Battery accrual (docs/12): every 10 kills charges the battery;
+    // Kinetic Battery accrual (docs/09): every 10 kills charges the battery;
     // _acc_damage consumes the charge (3x next shot) and resets the counter.
     if ( isdefined( attacker ) && isplayer( attacker )
          && isdefined( attacker.acc_item_battery ) && attacker.acc_item_battery

@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_modifiers.gsc - opt-in rule-change modifiers
 //
-// Design reference: docs/07_replayability.md (Tier 3 - Modifiers).
+// Design reference: docs/06_replayability.md (Tier 3 - Modifiers).
 //
 // Modifiers are toggled at map load before anything else initializes, so
 // they can override subsystem behavior cleanly.

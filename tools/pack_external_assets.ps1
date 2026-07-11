@@ -84,14 +84,20 @@ function Stage-Path($relPattern) {
     return $count
 }
 
-$packed = @(); $missing = @()
+$packed = @(); $missing = @(); $deadPathCount = 0
 foreach ($pack in $ExternalAssetPacks) {
     if (-not $pack.Required -and -not $IncludeOptional) {
         Write-Info "skip optional: $($pack.Name)  (add with -IncludeOptional)"
         continue
     }
     $total = 0
-    foreach ($p in $pack.Paths) { $total += (Stage-Path $p) }
+    foreach ($p in $pack.Paths) {
+        $n = Stage-Path $p
+        # Red-team 2026-07-10: a per-path zero-match must self-report - two dead
+        # HB21 wildcards silently staged nothing for weeks before this existed.
+        if ($n -eq 0) { Write-Info "  WARN: 0 matches for '$p' ($($pack.Name))"; $deadPathCount++ }
+        $total += $n
+    }
     if ($total -gt 0) {
         Write-Info "[OK]   $($pack.Name) - staged $total path(s)"
         $packed += $pack.Name
@@ -99,6 +105,23 @@ foreach ($pack in $ExternalAssetPacks) {
         Write-Info "[MISS] $($pack.Name) - NOTHING found in the Mod Tools. Installed here? ($($pack.Link))"
         $missing += $pack.Name
     }
+}
+
+# Zip freshness stamp (red-team 2026-07-10): lets unpack detect a zip that
+# predates the current manifest (stale-zip unpacks silently ROLL BACK newer
+# install-patched files - robocopy /E copies Older-class files by default).
+if (-not $DryRun -and (Test-Path $staging)) {
+    $manifestPath = Join-Path $PSScriptRoot 'external_assets_manifest.ps1'
+    $manifestHash = (Get-FileHash $manifestPath -Algorithm SHA256).Hash
+    $head = ''
+    try { $head = (& git -C $RepoRoot rev-parse --short HEAD 2>$null) } catch {}
+    @(
+        "packed_utc=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss'))",
+        "machine=$env:COMPUTERNAME",
+        "git_head=$head",
+        "manifest_sha256=$manifestHash",
+        "packs=$($packed -join ';')"
+    ) | Set-Content -Path (Join-Path $staging 'acc_zip_manifest.txt') -Encoding Ascii
 }
 
 if ($DryRun) {

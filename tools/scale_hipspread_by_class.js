@@ -2,7 +2,8 @@
 // scale_hipspread_by_class.js [--revert] - SINGLE SOURCE OF TRUTH for per-class hip-fire spread (user 2026-06-29).
 //
 // Scales the 8 hipSpread PATTERN fields (Stand/Ducked/Prone/Slide Min+Max - the cone size; ADS is NOT touched)
-// for each gun by its class factor, across EVERY form: base, PaP (_up), all 14 perk-twins (_acc_* + _up_acc_*),
+// for each gun by its class factor, across EVERY form: base, PaP (_up), all 6 perk-twins (_acc_* + _up_acc_*;
+// was 14 before the 2026-07-04 fastfire removal - this tool prefix-scans _acc_* so it adapts automatically),
 // AND the .acc-orig recoil baselines (so an apply_recoil_overhaul re-run keeps it). ALWAYS scales from a pristine
 // .acc-hipspread-orig backup -> idempotent + re-runnable; --revert restores x1 (vanilla) for every mapped gun.
 // Pistols (s1_rw1, t6_fiveseven) + shotguns (s1_tac19, t6_olympia) are intentionally NOT mapped = unchanged.
@@ -18,7 +19,7 @@ const REPO_TWINS = path.resolve('source_data/acc_weapon_variants.gdt');
 
 // gun base-name -> hip-spread factor. weaponClass buckets, refined (the GDT "rifle" class mixes AR + MK14 + snipers).
 const FACTOR = {
-    s1_ae4: 1.25, t6_galil: 1.25, t9_ak47: 1.25,                        // AR  +25%
+    s1_ae4: 1.25, t9_ak47: 1.25,                                       // AR  +25%  (NOTE: the CW Grav t9_grav is NOT here - its AR +25% hip-spread is BAKED into the base+twins by the surgical swap [scratchpad/swap_galil_grav.js], since that swap does not go through this class tool's repo-twins->deploy path. Keeping it out avoids a double-scale.)
     s1_asm1: 1.10, s4_ppsh41_base: 1.10, t6_chicom_cqb: 1.10, t9_ak74u: 1.10, // SMG +10%
     t9_m60: 1.20, t9_rpd: 1.20,                                          // LMG +20%
     s1_mk14: 1.50,                                                      // Marksman +50%

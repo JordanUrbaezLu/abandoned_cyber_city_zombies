@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_coop_scaling.gsc - per-player-count HP + spawn-rate scaling (1-4p)
 //
-// Design reference: docs/15_coop_rules.md (HP Scaling table).
+// Design reference: docs/12_coop_rules.md (HP Scaling table).
 // Targets, all relative to the SOLO value (user 2026-06-24):
 //   regular zombie HP : 2p 1.20x / 3p 1.40x / 4p 1.60x  (+20% per extra)
 //   elite/boss HP     : 2p 1.50x / 3p 2.00x / 4p 2.50x  (+50% per extra)
@@ -12,7 +12,7 @@
 //
 // What stock actually does (verified vs tmp/bo3_stock_ref, 2026-06-12):
 //   - HP: NO per-player term anywhere. ai_calculate_health is purely
-//     round-based (zombie_utility.gsc:1906-1929). docs/15's "stock scales HP
+//     round-based (zombie_utility.gsc:1906-1929). docs/12's "stock scales HP
 //     per player" assumption is wrong about BO3 - the FULL multiplier is
 //     our delta to implement, done here via the level.zombie_init_done hook.
 //   - Spawn count: stock DOES scale per player (_zm.gsc:3858-3865), but on a
@@ -35,7 +35,7 @@
 #insert scripts\shared\shared.gsh;
 
 // ---------------------------------------------------------------------------
-// Tuning (keep in sync with docs/15_coop_rules.md scaling tables)
+// Tuning (keep in sync with docs/12_coop_rules.md scaling tables)
 // ---------------------------------------------------------------------------
 
 #define ACC_COOP_MAX_PLAYERS 4
@@ -82,7 +82,7 @@ function init()
 }
 
 // ---------------------------------------------------------------------------
-// Public API (docs/15_coop_rules.md scaling tables)
+// Public API (docs/12_coop_rules.md scaling tables)
 // ---------------------------------------------------------------------------
 
 // VERIFIED(acc): stock has NO per-player HP term - ai_calculate_health is
@@ -140,7 +140,7 @@ function player_count()
     if ( n < 1 )
         n = 1;
     if ( n > ACC_COOP_MAX_PLAYERS )
-        n = ACC_COOP_MAX_PLAYERS; // 5+ unsupported (docs/15: stock caps at 4)
+        n = ACC_COOP_MAX_PLAYERS; // 5+ unsupported (docs/12: stock caps at 4)
     return n;
 }
 
@@ -161,7 +161,7 @@ function on_zombie_init_done()
         self [[ level.acc_coop_prev_zombie_init_done ]]();
 
     // Specials scale flatter via special_hp_mult() at promote time
-    // (docs/15 HP table). The flags are only visible here when set before
+    // (docs/12 HP table). The flags are only visible here when set before
     // init completes (custom fields survive zombie_spawn_init - it only
     // clobbers stock fields like targetname/health). NOTE the current flow:
     // _acc_boss's mini-boss writes ABSOLUTE HP after its init poll
