@@ -181,7 +181,7 @@ The `boss_nuke_mult` cuts (Thundergun/Mahem/Paladin) are **kept** — they shape
 
 > ⚠️ **PARTIALLY STALE snapshot (2026-06 tuning pass).** The rows for **Nail Gun, Ripper, PDW-57, M1911,
 > ASM1, Paladin HB50, Chicom CQB, Wunderwaffe DG-2** are REMOVED guns — ignore them. The live box also adds
-> **XM4, Streetsweeper, CEL-3, Peacekeeper, Prowler, Alternator, G7 Scout, Havoc, War Machine, Blast-O-Matic,
+> **XM4, Streetsweeper, CEL-3, Peacekeeper, Prowler, Alternator, Havoc, War Machine, Blast-O-Matic,
 > Fire Bow, Leviathan Axe** which are NOT in this table. The canonical, auto-generated per-gun tier/score/PaP
 > data is [docs/25](25_weapon_stats_table.md) + [docs/33](33_pap_pricing_tiers.md) — trust those over this table.
 
@@ -292,7 +292,7 @@ uniformly at T3 (so the DPS order barely moves); the reshuffle vs base comes fro
 
 ### Hip-fire spread by class (skill gate, user 2026-06-29)
 
-Hip-fire accuracy is class-gated so every gun rewards ADS. `tools/scale_hipspread_by_class.js` (the single source of truth) scales the 8 `hipSpread` **pattern** fields (Stand/Ducked/Prone/Slide Min+Max — the cone size only; **ADS is untouched**, and the `*Add` per-shot bloom / `*Decay` recovery are left at stock) across **base + PaP + all 6 twins + the `.acc-orig` recoil baselines**, from a pristine `.acc-hipspread-orig` backup (idempotent; `--revert` resets to vanilla). Per class: **Sniper ×2.5** (MORS, G7 Scout), **Marksman ×1.50** (MK14), **AR ×1.25** (AE4, AK-47, XM4; the CW Grav `t9_grav`'s ×1.25 is **baked into its GDT** by the migration swap, not this tool), **LMG ×1.20** (M60, RPD), **SMG ×1.10** (PPSh-41, AK-74u, Prowler, Alternator). **Pistols + shotguns stay ×1** (`weaponClass` `pistol`/`spread`). Buckets come from the GDT `weaponClass`, with the `"rifle"` class hand-split into AR vs MK14 vs sniper. Re-run it after any `reduce_base_ammo.js` / balance-tool pass (those rewrite from their own `.acc-*-orig` baselines, which don't carry the spread change).
+Hip-fire accuracy is class-gated so every gun rewards ADS. `tools/scale_hipspread_by_class.js` (the single source of truth) scales the 8 `hipSpread` **pattern** fields (Stand/Ducked/Prone/Slide Min+Max — the cone size only; **ADS is untouched**, and the `*Add` per-shot bloom / `*Decay` recovery are left at stock) across **base + PaP + all 6 twins + the `.acc-orig` recoil baselines**, from a pristine `.acc-hipspread-orig` backup (idempotent; `--revert` resets to vanilla). Per class: **Sniper ×2.5** (MORS), **Marksman ×1.50** (MK14), **AR ×1.25** (AE4, AK-47, XM4; the CW Grav `t9_grav`'s ×1.25 is **baked into its GDT** by the migration swap, not this tool), **LMG ×1.20** (M60, RPD), **SMG ×1.10** (PPSh-41, AK-74u, Prowler, Alternator). **Pistols + shotguns stay ×1** (`weaponClass` `pistol`/`spread`). Buckets come from the GDT `weaponClass`, with the `"rifle"` class hand-split into AR vs MK14 vs sniper. Re-run it after any `reduce_base_ammo.js` / balance-tool pass (those rewrite from their own `.acc-*-orig` baselines, which don't carry the spread change).
 
 ### SMG + LMG coverage (the v1.0 "no SMG / no LMG" plan is superseded)
 
@@ -399,7 +399,7 @@ The price tier per gun, the ranking, and the generator are in **[docs/33_pap_pri
 |---|--:|--:|--:|--:|
 | **TOP** (Tac-19, M60, MORS, AK-47, PPSH-41, XM4, Peacekeeper, Thundergun…) | 5,000 | 7,500 | 10,000 | **22,500** |
 | **MID** (AE4, RW1, AK-74u, Grav, Mahem, Havoc…) | 4,000 | 6,000 | 8,000 | **18,000** |
-| **BOT** (Five-Seven, RPD, MK14, Olympia, G7 Scout…) | 3,000 | 4,500 | 6,000 | **13,500** |
+| **BOT** (Five-Seven, Olympia, Grav, Streetsweeper, Prowler, Alternator…) | 3,000 | 4,500 | 6,000 | **13,500** |
 
 > ↑ Bucket membership is illustrative — the **canonical per-gun price tier is generated into
 > [docs/33](33_pap_pricing_tiers.md)** (ASM1 / Paladin HB50 / Chicom / China Lake / Klauser are removed guns).
@@ -454,8 +454,8 @@ Every weapon **category** has one signature ability, hotkey-triggered with coold
 | SMG | PPSH-41, AK-74u, Prowler, Alternator | **Whirlwind** | 20s | 360° AoE: insta-kill chaff within 96u (elites take 1000 flat; bosses excluded) |
 | Shotgun | Tac-19, Olympia, Streetsweeper, CEL-3, Peacekeeper | **Slug Round** | 20s | Next shot **3×** single-target (the 2×-range / tight-cone half is a Phase-4 GDT override) |
 | AR | AK-47, AE4, Grav, XM4 | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
-| Sniper / marksman | MK14, MORS, G7 Scout | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
-| LMG | M60, RPD | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
+| Sniper / marksman | MK14, MORS, M16 | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) |
+| LMG | M60, RPD, HAMR | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
 | Wonder / special | Thundergun, Blast-O-Matic, Fire Bow, Leviathan Axe, Mahem, Havoc, War Machine | *(intrinsic — no ability slot)* | — | Wonder/launcher power is built-in |
 
 > **Stub effects** (defined but NOT wired — no reachable gun / infeasible): Triple Tap (burst-reshape needs a GDT swap), Stabilizer (recoil twins are Deadshot-perk-driven), Thermal Vision (needs LUI/clientfield), Extended Fuse / Overcharge (grenades are never the *current* weapon). The 4 effects above (Precision Mode / Whirlwind / Slug Round / Focus Fire) are the only live ones; sniper reuses Precision Mode and LMG reuses Focus Fire.
@@ -492,9 +492,9 @@ pistol) Overclocks — only the Action Figure melee returns `"none"`.**
 
 - **AR family** (Burst Coil, Overpressure, Piercing Rounds, Adaptive Aim, Overheat, Subcritical). Active weapons: AK-47, AE4, Grav, XM4.
 - **Shotgun family** (Spread Cone, Breach, Concussive, Reflow). Active weapons: Tac-19, Olympia, Streetsweeper, CEL-3, Peacekeeper.
-- **Sniper family** (Thermal Lock, Penetration Round, Reactive Powder, Quick Chamber). Active weapons: MK14, MORS, G7 Scout.
+- **Sniper family** (Thermal Lock, Penetration Round, Reactive Powder, Quick Chamber). Active weapons: MK14, MORS, M16.
 - **SMG family** (Swarm, Reflex Fire, Coolant Flow, Shrapnel, Micro-Boost). Active weapons: PPSH-41, AK-74u, Prowler, Alternator.
-- **LMG family** (Sustained Fire, Suppression, Reload Drum). Active weapons: M60, RPD.
+- **LMG family** (Sustained Fire, Suppression, Reload Drum). Active weapons: M60, RPD, HAMR.
 - **Pistol family**: Five-Seven, RW1 (pistols were made Overclock-able, user 2026-06-22).
 - **Special** (`special_list` — overclockable, damage/vs-glitch tiers only): Mahem, Havoc, Thundergun, War Machine.
 - **Melee / Grenade** (Action Figure, laststand pistol, knife, frag): `"none"` — no Overclock roll.
@@ -522,7 +522,7 @@ interesting build puzzles regardless of which marksman/sniper you rolled.
 
 Full perk roster, costs, effects, and stacking rules live in **[10_perks.md](10_perks.md)**. Perks that are especially weapon-relevant:
 
-- **Deadshot** (3,500): +1.3 headshot damage bonus (American Sniper Mega: +1.5) + auto-aim to head on ADS. **Added** (not multiplied) into the crit/headshot bonus pool, which is then scaled by the map headshot temper (`locHead × 0.5` trash / `× 0.8` boss = ×2.5/×4 on a locHead-5.0 gun). Keystone for precision builds (MORS, MK14, G7 Scout).
+- **Deadshot** (3,500): +1.3 headshot damage bonus (American Sniper Mega: +1.5) + auto-aim to head on ADS. **Added** (not multiplied) into the crit/headshot bonus pool, which is then scaled by the map headshot temper (`locHead × 0.5` trash / `× 0.8` boss = ×2.5/×4 on a locHead-5.0 gun). Keystone for precision builds (MORS, MK14, M16).
 - **Speed Cola** (3,500): +50% reload, faster perk drinking, faster equipment swap. Best on the long-reload guns (M60, RPD, Tac-19, AK-47).
 - **Double Tap 2.0** (2,000): +33% fire rate + 3% damage. Compounds with PaP L5 + Tier 5 on full-auto ARs.
 - **Widow's Wine** (4,000): +50% frag damage + radius, +50% EMP stun duration + radius. Grenade-heavy builds.

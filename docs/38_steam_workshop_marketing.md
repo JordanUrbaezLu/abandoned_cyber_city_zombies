@@ -104,7 +104,7 @@ that turn survival tools into win conditions. Triple-tier Pack-a-Punch on top.
 Nearly 30 box weapons, every one Pack-a-Punchable and Overclock-ready — pulled from six Call of
 Duty games and a fresh squad ripped straight out of [b]Apex Legends[/b]:
 [list]
-[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · G7 Scout · Beam Rifle
+[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Beam Rifle
 [*][b]Wonder & special:[/b] Thundergun · Blast-O-Matic · Fire Bow · Leviathan Axe · Action Figure melee
 [*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · MORS railgun · Mahem launcher — and 15 more
 [/list]
