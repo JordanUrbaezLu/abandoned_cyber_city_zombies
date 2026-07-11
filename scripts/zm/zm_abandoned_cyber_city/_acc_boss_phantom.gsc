@@ -88,6 +88,7 @@
 #define ACC_PHANTOM_REVEAL_DIST_DEF   240   // stay invisible until THIS close, then materialize (was 400 - now he's on you)
 #define ACC_PHANTOM_SPEED_MULT_DEF    1.1   // sprint-gait playback rate. User 2026-06-24: +10% from the 1.0 interim baseline (natural zombie sprint ~181 u/s, KITEABLE vs a player's ~299 sprint). CAVEAT: anim-rate->ground-speed is NON-LINEAR (1.685 once overshot badly = caught+instakilled), so 1.1 is +10% PLAYBACK, not exactly +10% u/s - verify real speed with the [SPD] probe and tune LIVE via acc_phantom_speed_mult.
 #define ACC_PHANTOM_MELEE_DMG_DEF     19    // melee dealt to players: ~30% UNDER a Glitch Stalker's 27/hit (glitch = stock 60 x acc_glitch_melee_dmg_mult 0.45). User 2026-06-24 "not super lethal, 30% less than a glitch" (was 85). Stock zombie=60, our horde=45.
+#define ACC_PHANTOM_SERUM_SLOW_DEF    0.7   // gait mult while inside a Phase Serum holder's aura = 30% slow (user 2026-07-11, retuned twice same day: 0.5 -> 0.6 -> 0.7; matches the boss-zap slow's unified 30%). Glitch takes 0.2 + loses its blink; the Phantom only slows - teleports keep working. Live dvar acc_phantom_serum_slow; aura radius shared via acc_phase_serum_radius.
 #define ACC_PHANTOM_FLICKER_PCT_DEF   12    // % of 0.1s ticks that blip invisible while materialized (hologram flicker)
 
 // TELEPORT mobility (user 2026-06-24). The Phantom blinks to REPOSITION (it stalks via teleport, doesn't just
@@ -573,7 +574,8 @@ function materialize_scare( ent )
 }
 
 // Drive the gait every sweep (the global keep-alive skips mini-bosses). Clone of
-// glitch_speed_think. NEVER rate < 1.0 (no slow-mo); NO SetScale.
+// glitch_speed_think. NEVER rate < 1.0 (no slow-mo) - sole exception: the Phase Serum
+// aura's deliberate 30% slow below. NO SetScale.
 function phantom_speed_think()
 {
     self endon( "death" );
@@ -591,6 +593,11 @@ function phantom_speed_think()
         // acc_phantom_speed_mult is the live rate; 1.0 = natural zombie sprint (~181 u/s). Target = your
         // sprint +2% (dial it up live, watch PH in the probe, then bake the value).
         rate = getdvarfloat( "acc_phantom_speed_mult", ACC_PHANTOM_SPEED_MULT_DEF );
+        // PHASE SERUM aura (user 2026-07-11): 30% gait slow near a serum holder - the Glitch concept
+        // (acc_serum_suppressed) but a MILDER penalty (glitch = 1/5 + no blink; Phantom keeps its
+        // teleports, only the run slows). The deliberate exception to "never rate < 1.0".
+        if ( acc_utility::serum_aura_active( self.origin ) )
+            rate = rate * getdvarfloat( "acc_phantom_serum_slow", ACC_PHANTOM_SERUM_SLOW_DEF );
         if ( rate < 0.1 ) rate = 0.1;
 
         self zombie_utility::set_zombie_run_cycle_override_value( "sprint" );
@@ -915,7 +922,7 @@ function cleanup_phantom_corpse()
 
 function pdebug( msg )
 {
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_phantom_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_phantom_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PHANTOM] rides acc_phantom_debug now)
     for ( i = 0; i < level.players.size; i++ )
     {
         p = level.players[ i ];

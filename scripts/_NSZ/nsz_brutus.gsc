@@ -36,7 +36,7 @@
 
 function nsz_iprintlnbold( string )
 {
-	if( ( isDefined(level.acc_dev) && level.acc_dev ) || ( isDefined(level.nsz_debug) && level.nsz_debug ) )
+	if( ( isDefined(level.nsz_debug) && level.nsz_debug ) )   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides nsz_debug now)
 		iprintlnbold( "^6NSZ Debug:^7 "+string ); 
 }
 

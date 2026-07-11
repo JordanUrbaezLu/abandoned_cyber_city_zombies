@@ -25,7 +25,7 @@ Every player has their own copy of these:
 - **Points** - personal currency.
 - **Data Shards** - personal.
 - **Weapons** (weapon tiers, PaP levels, Overclocks slotted).
-- **Cyberware tree** - independent per player; player A's Overclock Tier 2 doesn't affect player B.
+- **Overclock Terminal upgrades** - independent per player; player A's weapon Overclock tiers don't affect player B. (The old **Cyberware skill tree** is **disabled by default** — `_acc_cyberware.gsc` init only spawns the kiosk / allows node purchase when `acc_cyberware_on` is 1, default 0 — so the Overclock Terminal is the sole live per-player upgrade path.)
 - **Perks** - each player buys their own.
 - **Boss items** - per-player inventory (2 slots each; `_acc_boss_items.gsc`).
 - **Weapon abilities** - each player has their own cooldowns.
@@ -109,18 +109,17 @@ The only enemies that spawn *on top of* the stock horde are our custom additions
 
 - **Down state**: player HP reaches 0 from zombie damage → drop into down state (crawl with pistol).
 - **Bleed-out timer**: **30 seconds** base.
-  - Extended by **Subroutine Tier 2 Caching** Cyberware: 60 seconds.
   - Halved by **Bleed Out** modifier: 15 seconds.
+  - (The old **Subroutine Tier 2 Caching** Cyberware would double this to 60s, but the Cyberware skill tree is **disabled by default** (`acc_cyberware_on` 0), so that extension is **not live**.)
 - **Revive action**: stand over downed teammate, hold [use] for **3 seconds** base (stock no-perk time; `_acc_perks.gsc` replaces only the perk-driven times).
   - Reduced by **Quick Revive** to **2 seconds** (`ACC_QR_BASE_REVIVE_TIME` 2.0), and by **Savior** (Mega QR) to **1 second** (`ACC_SAVIOR_REVIVE_TIME` 1.0).
 - **Revive points**: 100 for the reviver (stock BO3 behavior).
 - **Self-revive (solo)**: Quick Revive grants 1 self-revive per run in solo; cannot self-revive in co-op.
-- **Self-revive (co-op)**: **available only via purchased self-revive** (see [05_mechanics.md](05_mechanics.md#downed--revive-mechanics)). Subroutine Caching halves the Shard cost.
+- **Self-revive (co-op)**: **available only via purchased self-revive** (see [05_mechanics.md](05_mechanics.md#downed--revive-mechanics)). (The Subroutine Caching Cyberware's Shard-cost discount is **not live** — the Cyberware skill tree is disabled by default, `acc_cyberware_on` 0.)
 - **Dying**: if bleed-out expires without revive, player dies. They respawn at the start of the next round.
 - **Respawn consequences**:
   - Lose all perks.
   - Keep all weapons (with their tiers + Overclocks).
-  - Keep all Cyberware.
   - Keep all boss items.
   - Keep Data Shards.
   - **Keep Points intact.** Stock BO3 "lose all points" on death is NOT applied; we keep Points as a deliberate softening.
@@ -165,7 +164,7 @@ See [05_mechanics.md](05_mechanics.md#co-op-kill-point-split-70--30) for full de
 
 ### Hack Terminal
 
-- **One activation per run** (or two with Parallel Processing Cyberware).
+- **One activation per run.** (The Parallel Processing Cyberware's "2 event attempts" upgrade is **not live** — the Cyberware skill tree is disabled by default, `acc_cyberware_on` 0.)
 - **Activator**: the player who holds F first wins the activation.
 - **Other players can help** during the 3 stages (their kills count toward the stage counter).
 - **Reward**: 2 Data Shards go to the **activator only**. (Note: this is the one place where the 70/30 split does NOT apply - Shard rewards from events are activator-gated.)

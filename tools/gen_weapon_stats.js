@@ -18,7 +18,11 @@
 //   PaP BODY (tier T) = round( rawDamage(_up) x bal x global x papMult(T) )
 //   HEADSHOT          = round( BODY x (locHead x headMult) )   [locHead 5 -> 2.5x;
 //                       Mahem locHead 4 -> 2.0x; shotguns locHead 1 = headshot-excluded]
-//   RESERVE (rounds)  = clipSize x maxAmmo   (BO3 GDT maxAmmo = MAGAZINE count)
+//   RESERVE (rounds)  = ammoCountClipRelative ? clipSize x maxAmmo : maxAmmo
+//                       (clipRel 1 = maxAmmo is a MAGAZINE count; clipRel 0 = maxAmmo is
+//                        ABSOLUTE ROUNDS - the wonder weapons Blast-O-Matic _up / Thundergun.
+//                        Reading maxAmmo as mags for a clipRel-0 gun is the 2026-07-09 bug that
+//                        collapsed the Blast-O-Matic PaP reserve to 6 - see CHANGELOG 2026-07-10.)
 //
 // SELF-CHECK: every ROSTER gun MUST resolve a real _up GDT entry with non-zero
 // damage/clipSize/maxAmmo AND a bal mult, or the script ABORTS (never emits a
@@ -41,7 +45,7 @@ const REPO = path.resolve(__dirname, '..');
 const DMG_GSC = path.join(REPO, 'scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc');
 const PAP_GSC = path.join(REPO, 'scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc');
 const MAP_GSC = path.join(REPO, 'scripts/zm/zm_abandoned_cyber_city/_acc_map_randomizer.gsc');
-const OUT = path.join(REPO, 'docs/41_weapon_stats_table.md');
+const OUT = path.join(REPO, 'docs/25_weapon_stats_table.md');   // renumbered 41->25 (docs_renumber_2026_07_10); keep OUT in sync
 
 const CHECK_ONLY = process.argv.includes('--check');
 
@@ -71,10 +75,11 @@ const ROSTER = [
   { d: 'Grav',        cls: 'AR',      sec: 'AR',          balKey: 't9_grav',        gdt: 'skye_t9_grav.gdt',        up: 't9_grav_up',        tier: 'B+', price: 'BOT', score: 6.85 },
   { d: 'Prowler',     cls: 'SMG',     sec: 'SMG',         balKey: 'apex_prowler',   gdt: 'acc_apex_up.gdt',         up: 'apex_prowler_up_zm', tier: 'B',  price: 'BOT', score: 6.43 },   // Apex burst PDW (full-auto here), user 2026-07-06
   { d: 'RPD',         cls: 'LMG',     sec: 'LMG',         balKey: 't9_rpd',         gdt: 'skye_t9_rpd.gdt',         up: 't9_rpd_up',         tier: 'C',  price: 'MID', score: 6.10 },
+  { d: 'HAMR',        cls: 'LMG',     sec: 'LMG',         balKey: 't6_hamr',        gdt: 'skye_t6_hamr.gdt',        up: 't6_hamr_up',        tier: 'B',  price: 'MID', score: 6.27 },   // BO2 LMG (user 2026-07-10): between M60 (S) and RPD (C). Loc + ammo normalized install-side (tools/prep_hamr_gdt.js).
   { d: 'Five-Seven',  cls: 'Pistol (start)', sec: 'Pistol', balKey: 't6_fiveseven', gdt: 'skye_t6_fiveseven.gdt',  up: 't6_fiveseven_up',   tier: 'C-', price: 'BOT', score: 5.99 },
   { d: 'MK14',        cls: 'DMR',     sec: 'Marksman & Sniper', balKey: 's1_mk14',  gdt: 'skye_s1_mk14.gdt',        up: 's1_mk14_up',        tier: 'B-', price: 'MID', score: 5.89 },
   { d: 'Olympia',     cls: 'Shotgun', sec: 'Shotgun',     balKey: 't6_olympia',     gdt: 'skye_t6_olympia.gdt',     up: 't6_olympia_up',     tier: 'C',  price: 'BOT', score: 4.27, pellet: true },
-  { d: 'G7 Scout',    cls: 'Marksman', sec: 'Marksman & Sniper', balKey: 'apex_g2a4', gdt: 'acc_apex_up.gdt',       up: 'apex_g2a4_up_zm',   tier: 'C',  price: 'BOT', score: 5.30 },   // Apex semi-auto marksman (user 2026-07-06)
+  { d: 'M16',         cls: 'Tactical Rifle', sec: 'Marksman & Sniper', balKey: 't9_m16', gdt: 'skye_t9_m16.gdt',  up: 't9_m16_up',         tier: 'B',  price: 'MID', score: 6.30 },   // CW M16 burst->full-auto (user 2026-07-11): slightly better than the MK14, REPLACES the G7 Scout. Loc + ammo normalized install-side (prep_m16_gdt.js).
   { d: 'Alternator',  cls: 'SMG (PaP power)', sec: 'SMG', balKey: 'apex_alternator_up', gdt: 'acc_apex_up.gdt', up: 'apex_alternator_up_zm', tier: 'A', price: 'BOT', score: 7.20, box: 'apex_alternator' },   // Apex - trash base, A+ PaP (user 2026-07-06); balKey = the _up bal line (RUNTIME name, no _zm); up = GDT BLOCK id; box = acc_box_weight key (no _up)
   { d: 'Mahem',       cls: 'Launcher', sec: 'Launcher', balKey: 's1_mahem', gdt: 'skye_s1_mahem.gdt',      up: 's1_mahem_up',       tier: '-',  price: 'TOP', score: null, special: 'explosive (direct + splash)' },
   { d: 'War Machine', cls: 'Launcher', sec: 'Launcher', balKey: 't6_war_machine', gdt: 'skye_t6_war_machine.gdt', up: 't6_war_machine_up', tier: 'A',  price: 'TOP', score: null, special: 'explosive drum GL (impact detonation; PaP = 12-rd full-auto)' },   // user 2026-07-09
@@ -114,10 +119,10 @@ const PAP_RELOAD = {
   // Prowler x0.8 (2.0->1.6). Each keeps its prior convention (partial vs empty _up reload).
   'Chicom CQB': 2.1, 'M60': 9.7, 'AK-47': 3.25, 'PPSH-41': 1.75, 'XM4': 3.0, 'Tac-19': 0.467, 'MORS': 1.2,
   'AE4': 3.0, 'RW1': 1.4, 'AK-74u': 1.96, 'Streetsweeper': 0.9, 'Grav': 2.925, 'Paladin HB50': 4.13,
-  'RPD': 7.5, 'Five-Seven': 1.8, 'MK14': 2.0, 'Olympia': 1.75, 'Klauser': 2.9, 'Mahem': 3.5,
+  'RPD': 7.5, 'HAMR': 6.0, 'M16': 3.5, 'Five-Seven': 1.8, 'MK14': 2.0, 'Olympia': 1.75, 'Klauser': 2.9, 'Mahem': 3.5,
   'War Machine': 3.75,   // GDT reloadTime (drum swap; fastreload twin 3.2138 - user 2026-07-09)
   'CEL-3': 3.0, 'China Lake': 3.5,   // CEL-3 GDT reloadTime 3.0; China Lake launcher estimate (like Mahem)
-  'Peacekeeper': 2.5, 'Prowler': 1.6, 'G7 Scout': 2.4, 'Alternator': 1.9, 'Havoc': 3.864,   // Apex guns (user 2026-07-06; Havoc/Prowler retuned 2026-07-09)
+  'Peacekeeper': 2.5, 'Prowler': 1.0, 'G7 Scout': 2.4, 'Alternator': 1.9, 'Havoc': 3.864,   // Apex guns (user 2026-07-06; Havoc retuned 2026-07-09; Prowler reloadTime 1.6->1.0 user 2026-07-11, prowler_reload_1s_0711.js)
 };
 
 // -----------------------------------------------------------------------------
@@ -273,15 +278,28 @@ const rows = ROSTER.map(g => {
   const raw = fieldNum(blk, 'damage', g.gdt, g.up);
   const clip = fieldNum(blk, 'clipSize', g.gdt, g.up);
   const mags = fieldNum(blk, 'maxAmmo', g.gdt, g.up);
+  const clipRel = fieldNumSoft(blk, 'ammoCountClipRelative');           // 1 = maxAmmo is MAGAZINES; 0 = ABSOLUTE ROUNDS (wonder weapons)
   const locHead = fieldNum(blk, 'locHead', g.gdt, g.up);
   const fireTime = fieldNum(blk, 'fireTime', g.gdt, g.up);              // seconds between shots (PaP _up entry)
   const moveSpeed = fieldNumSoft(blk, 'moveSpeedScale') || 1;           // run speed while holding (1.0 = full speed)
   const pellets = g.pellet ? (fieldNumSoft(blk, 'numPellets') || 12) : 1; // PaP shotguns = 12 pellets (docs/41)
 
+  // Recoil = the ADS VIEW-KICK (the on-screen kick the player feels), read off the `_up` entry. These GDT
+  // values ALREADY include the map's x1.75 "skill theme" base scale (apply_recoil_overhaul.js) - Mega Deadshot's
+  // recoil50 twin halves them at runtime (-> ~x0.875 vanilla). We reduce the 4 fields to two comparable numbers:
+  //   vClimb = mean per-shot VERTICAL kick  (pitchMax+pitchMin)/2       -> net upward climb, deg/shot (order-agnostic)
+  //   hShake = per-shot HORIZONTAL amplitude |yawMax-yawMin|/2          -> side-to-side wander, deg/shot
+  // The |..| on hShake is load-bearing: some GDT entries ship yaw min/max INVERTED (max < min) - amplitude is a
+  // magnitude regardless of ordering, so abs keeps it positive. (hip view-kick is identical on nearly every gun.)
+  const rkPMax = fieldNumSoft(blk, 'adsViewKickPitchMax'), rkPMin = fieldNumSoft(blk, 'adsViewKickPitchMin');
+  const rkYMax = fieldNumSoft(blk, 'adsViewKickYawMax'),   rkYMin = fieldNumSoft(blk, 'adsViewKickYawMin');
+  const recoil = (rkPMax != null && rkPMin != null && rkYMax != null && rkYMin != null)
+    ? { vClimb: (rkPMax + rkPMin) / 2, hShake: Math.abs(rkYMax - rkYMin) / 2 } : null;
+
   // self-check: no zero primitives
   if (!(raw > 0 && clip > 0 && mags > 0 && bal > 0 && fireTime > 0)) die(g.d + ': non-positive primitive (raw ' + raw + ' clip ' + clip + ' mags ' + mags + ' bal ' + bal + ' fireTime ' + fireTime + ')');
 
-  const reserve = clip * mags;
+  const reserve = (clipRel === 0) ? mags : clip * mags;   // clipRel 0 -> maxAmmo IS the round count (do NOT x clip)
   const papBase = raw * bal * GLOBAL;             // pap_mult 1.0 reference (pre tier-ladder)
   const bodyT = { 1: Math.round(papBase * PAP[1]), 2: Math.round(papBase * PAP[2]), 3: Math.round(papBase * PAP[3]) };
   const headMult = g.pellet ? null : locHead * HEAD_MULT;   // 5*0.5=2.5; Mahem 4*0.5=2.0; shotgun excluded
@@ -308,7 +326,7 @@ const rows = ROSTER.map(g => {
   if (priceTier !== g.price) die(g.d + ': roster price "' + g.price + '" != code pap_price_bucket "' + priceTier + '" (boxName ' + boxName + ') - the CODE is authoritative; fix the roster price to match');
   const papCost = PRICE_COST[priceTier];
 
-  return { ...g, bal, raw, clip, mags, reserve, locHead, fireTime, moveSpeed, pellets, reload, papBase, bodyT, headMult, headT, dpsT3, boxName, box_pct, priceTier, papCost };
+  return { ...g, bal, raw, clip, mags, reserve, locHead, fireTime, moveSpeed, pellets, recoil, reload, papBase, bodyT, headMult, headT, dpsT3, boxName, box_pct, priceTier, papCost };
 });
 
 // -----------------------------------------------------------------------------
@@ -318,7 +336,7 @@ const stamp = process.env.ACC_GEN_DATE || '(run date not injected)';
 function hs(v) { return v == null ? 'excluded*' : String(v); }
 
 let md = '';
-md += '# 41 - Weapon Stats Table (Pack-a-Punch form)\n\n';
+md += '# 25 - Weapon Stats Table (Pack-a-Punch form)\n\n';
 md += '> **GENERATED FILE - do NOT hand-edit.** Regenerate with `node tools/gen_weapon_stats.js`\n';
 md += '> after ANY gun retune (GDT ammo/damage, bal mult, box weight, PaP price tier, or claim cap).\n';
 md += '> **Everything is parsed from code** (cannot drift): DEPLOYED GDT `_up` entries (raw/clip/ammo/\n';
@@ -332,7 +350,7 @@ md += '```\n';
 md += 'held-weapon raw damage  x  bal(acc_weapon_balance_mult)  x  global(' + GLOBAL + ')  x  papMult(tier)  x  headTemper\n';
 md += 'PaP BODY (tier T) = round( rawDamage(_up)  x  bal  x  ' + GLOBAL + '  x  papMult(T) )\n';
 md += 'HEADSHOT (tier T) = round( BODY  x  locHead x ' + HEAD_MULT + ' )      (locHead 5 -> x2.5;  Mahem locHead 4 -> x2.0;  shotguns headshot-EXCLUDED)\n';
-md += 'RESERVE (rounds)  = clipSize x maxAmmo                                  (BO3 GDT maxAmmo = number of MAGAZINES)\n';
+md += 'RESERVE (rounds)  = ammoCountClipRelative ? clipSize x maxAmmo : maxAmmo  (clipRel 1: maxAmmo = MAGAZINE count; clipRel 0: maxAmmo = ABSOLUTE ROUNDS - the wonder weapons Blast-O-Matic _up / Thundergun)\n';
 md += 'PaP tier ladder papMult:  T1 x' + PAP[1].toFixed(3) + '   T2 x' + PAP[2].toFixed(3) + '   T3 x' + PAP[3].toFixed(3) + '  (+33% / +67% / +100%)\n';
 md += '```\n\n';
 md += '- Every number below is the **PaP (`_up`) form**, read live from the deployed GDT. `raw`/`clip`/`maxAmmo`/`locHead` are exact GDT fields.\n';
@@ -343,6 +361,7 @@ md += '- **Box %** = per-open mystery-box pull chance, parsed from `_acc_map_ran
 md += '- **Body/Head columns** are the tier-ladder result (T1..T3). Shotguns are **per-pellet** (multiply x pellet count for a full point-blank hit) and **headshot-excluded** (`*`).\n';
 md += '- **DPS** = max-PaP (T3) body damage per second, averaged over emptying a full clip plus one reload (so big clips and fast reloads both help; shell-loaders use their per-shell reload time, which flatters them slightly).\n';
 md += '- **Move** = run speed while holding the gun (GDT `moveSpeedScale`; **×1 = full player speed**, e.g. ×0.95 = 5% slower). Read from the PaP `_up` entry.\n';
+md += '- **Recoil (control)** = an at-a-glance rating of ADS **view-kick** severity: **🟢 Very Low → 🔴 Very High** (lower/greener = steadier, easier to control; red = wild). It buckets the total per-shot kick **↑+↔**: ≤60 🟢 Very Low · ≤90 🟢 Low · ≤120 🟡 Medium · ≤160 🟠 High · >160 🔴 Very High. The precise kick follows the dot — **↑** = vertical climb `(pitchMax+pitchMin)/2`, **↔** = horizontal shake `|yawMax−yawMin|/2`, in degrees (GDT `adsViewKick*`). All numbers **include the map\'s ×1.75 base-recoil "skill theme"** (`apply_recoil_overhaul.js`) and are **halved at runtime by Mega Deadshot** (the `recoil50` twin, ×0.5), which drops most guns ~1–2 tiers. Hip view-kick is ~identical, so ADS stands in for both.\n';
 md += '- Layers NOT shown (stack on top at runtime): Cyberware Weapon Overclock (+10%/tier), Deadshot crit, Double Tap, boss per-hit cap 5000, pellet/launcher/sniper vs-boss cuts.\n\n';
 
 // Sectioned emission (user 2026-07-09): Wonders & specials FIRST, then one table per gun type
@@ -362,6 +381,7 @@ for (const s of SPECIALS) {
   const gMelee = fieldNumSoft(blk, 'meleeDamage');
   const gClip = fieldNumSoft(blk, 'clipSize');
   const gMags = fieldNumSoft(blk, 'maxAmmo');
+  const gRel = fieldNumSoft(blk, 'ammoCountClipRelative');   // 0 -> maxAmmo IS rounds (Blast-O-Matic _up / Thundergun)
   const gFt = fieldNumSoft(blk, 'fireTime');
   const bal = balSoft(s.box);
   let rawStr, effStr;
@@ -373,7 +393,7 @@ for (const s of SPECIALS) {
   let clipRes;
   if (gClip == null || gClip === 0) clipRes = '— / —';
   else if (gMags === 0) clipRes = gClip + ' / regen';
-  else clipRes = gClip + ' / ' + (gClip * gMags);
+  else clipRes = gClip + ' / ' + (gRel === 0 ? gMags : gClip * gMags);   // clipRel 0 -> maxAmmo IS the reserve rounds
   let bossStr = s.boss;
   if (s.perEnemy) bossStr = 'hits-to-kill: zombie ' + LEVI_ENEMY.zombie + ' · glitch ' + LEVI_ENEMY.glitch + ' · shielded ' + LEVI_ENEMY.shield + '→' + LEVI_ENEMY_PAP2.shield + ' · Fury ' + LEVI_ENEMY.fury + '→' + LEVI_ENEMY_PAP2.fury + ' (→ = at 2nd PaP+) · **boss ' + LEVI_HITS.join('/') + '** (t0/T1/T2/T3)';
   const gMove = fieldNumSoft(blk, 'moveSpeedScale') || 1;
@@ -389,15 +409,26 @@ md += '\n> **Claim cap** = max distinct players who may acquire that wonder per 
 
 // ---- gun sections: one table per type, rows rarest -> commonest -------------------------------
 md += '\n## PaP-form gun stats (by type, rarest box pull first)\n\n';
+// Readable recoil rating (user 2026-07-10 - "so I know what is bad or what is good"): bucket the total per-shot
+// view-kick (vClimb + hShake, deg) into a 5-step control rating with a traffic-light dot, so steady (good) vs wild
+// (bad) reads at a glance. Thresholds calibrated to the deployed roster - these degrees INCLUDE the x1.75 base
+// scale (Mega Deadshot halves them at runtime, dropping most guns ~1-2 tiers).
+const RECOIL_TIERS = [[60, '🟢 Very Low'], [90, '🟢 Low'], [120, '🟡 Medium'], [160, '🟠 High'], [Infinity, '🔴 Very High']];
+function recoilCell(rc) {
+  if (!rc) return '—';
+  const k = rc.vClimb + rc.hShake;                       // total per-shot kick (deg): vertical climb + horizontal shake
+  const label = RECOIL_TIERS.find(t => k <= t[0])[1];
+  return `${label} · ↑${Math.round(rc.vClimb)} ↔${Math.round(rc.hShake)}`;
+}
 const GUN_TABLE_HEAD =
-  '| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | DPS |\n' +
-  '|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|--:|\n';
+  '| Gun | Class | Tier | Score | Box % | PaP cost T1/T2/T3 | raw | bal | Clip | Reserve | Body T1/T2/T3 | Head T1/T2/T3 | fireTime | reload | Move | Recoil (control) | DPS |\n' +
+  '|---|---|:--:|--:|--:|--|--:|--:|--:|--:|---|---|--:|--:|--:|:--|--:|\n';
 for (const sec of SECTION_ORDER) {
   const secRows = rows.filter(r => r.sec === sec).sort((a, b) => a.box_pct - b.box_pct);
   if (!secRows.length) continue;
   md += '### ' + sec + '\n\n' + GUN_TABLE_HEAD;
   for (const r of secRows) {
-    md += `| **${r.d}** | ${r.cls} | ${r.tier} / ${r.priceTier} | ${r.score == null ? '-' : r.score.toFixed(2)} | ${r.box_pct.toFixed(2)}% | ${r.papCost} | ${r.raw} | ${r.bal} | ${r.clip} | ${r.reserve} | ${r.bodyT[1]} / ${r.bodyT[2]} / ${r.bodyT[3]}${r.pellet ? '/pel' : ''} | ${r.headT ? `${r.headT[1]} / ${r.headT[2]} / ${r.headT[3]}` : 'excluded*'} | ${r.fireTime}s | ${r.reload}s | ×${r.moveSpeed} | ${r.dpsT3}${r.pellet ? ' (×pel)' : ''} |\n`;
+    md += `| **${r.d}** | ${r.cls} | ${r.tier} / ${r.priceTier} | ${r.score == null ? '-' : r.score.toFixed(2)} | ${r.box_pct.toFixed(2)}% | ${r.papCost} | ${r.raw} | ${r.bal} | ${r.clip} | ${r.reserve} | ${r.bodyT[1]} / ${r.bodyT[2]} / ${r.bodyT[3]}${r.pellet ? '/pel' : ''} | ${r.headT ? `${r.headT[1]} / ${r.headT[2]} / ${r.headT[3]}` : 'excluded*'} | ${r.fireTime}s | ${r.reload}s | ×${r.moveSpeed} | ${recoilCell(r.recoil)} | ${r.dpsT3}${r.pellet ? ' (×pel)' : ''} |\n`;
   }
   md += '\n';
 }

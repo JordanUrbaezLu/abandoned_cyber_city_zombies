@@ -145,9 +145,11 @@ older docs is stale; the per-zone notes below list box locations, not wallbuys.
   the **east** (spawns + window-barricade + corridor mouths fix the W/S/N sides). The two corner exits (NW→Market,
   NE→Alley) stay connected by connector corridors to the original wall mouths; the buyable doors (further out)
   are untouched. See CHANGELOG 2026-06-26.
-- **Implant Lab (side-room)**: the sealed strip south of the plaza is a small **gated room** (interior
-  x[-400,-40] y[-540,-240]) holding the boss-item **Implant Bench** pads. Entered by a **tight 80u doorway**
-  with a **buyable slide-up door** (`enter_implant`, 1500). See [09_boss_items.md](09_boss_items.md).
+- **Implant Lab (side-room)**: the gated room south of the plaza (interior **x[-720,180] y[-540,-240]**,
+  widened WEST 2026-06-27 then EAST 2026-07-10) holds the three boss-item **Implant Bench** pads — spread as
+  a **staggered arc** across the open EAST half (out of the Exchange staircase's SW corner and clear of every
+  wall; relayout 2026-07-10). Entered by a **tight 80u doorway** with a **buyable slide-up door**
+  (`enter_implant`, 1500). Also holds the descent to **The Exchange** (below). See [09_boss_items.md](09_boss_items.md).
 - **The Exchange (transfer vault, under the Plaza)**: a stairwell carved **down from the Implant Lab floor**
   leads to an enclosed **transfer vault** at **z=-240 directly under the Plaza** (room x[-360,300] y[-420,360]).
   A **SHARED TEAM VAULT** for player-to-player transfers of Points / Data Shards / Mega Bottles / Boss Items —

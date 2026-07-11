@@ -68,7 +68,8 @@ function init()
 function dbg( msg )
 {
     acc_utility::log( "fury: " + msg );
-    if ( !IS_TRUE( level.acc_dev ) )
+    // acc_dev DECOUPLED 2026-07-10 (clean screen in hardcoded dev): the [FURY] on-screen line rides acc_fury_debug (default 0) now; the console log above is unaffected.
+    if ( getdvarint( "acc_fury_debug", 0 ) != 1 )
         return;
     players = GetPlayers();
     if ( players.size > 0 && isdefined( players[ 0 ] ) && isplayer( players[ 0 ] ) )

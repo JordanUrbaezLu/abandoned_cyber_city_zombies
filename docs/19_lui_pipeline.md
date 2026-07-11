@@ -279,16 +279,20 @@ the standalone `CoD.AccPerkBar` widget is the pre-Aetherium restore path.
 
 - **Two-mask data bridge (always on).** `accOwnedMask` (bit i = owns perk i+1) +
   `accMegaMask` (bit i = Mega'd), perk_card_index order. `_acc_lui.gsc::perk_state_watch()`
-  (per-player 0.25s poll, threaded unconditionally) computes both from
-  `owns_or_paused`/`has_mega_perk` and pushes them, so the bar tracks buys / downs /
+  (per-player 0.25s poll, threaded unconditionally) computes the owned bit from
+  `acc_mega_bottles::owns_paused_or_hacked` (NOT `owns_or_paused` — a hacked perk must keep
+  its row slot; `owns_or_paused` reads a hacked perk as not-owned) and the mega bit from
+  `has_mega_perk`, and pushes them, so the bar tracks buys / downs /
   EMP-pause / re-buys with **no manual event tracking**. Under Aetherium these two
   masks drive the **rewired `AetheriumPerksContainer`** (Mappings/AetheriumPerks.lua
   carries the bit→icon table); pre-Aetherium they drive `CoD.AccPerkBar`.
 - **Image, not material.** Icons are 2D UI `image` assets drawn via
   `setImage(RegisterImage("i_acc_perk_<perk>_base"|"_mega"))` (countryside `PerkImage`
   idiom) — no custom material/techset, so it sidesteps the shader-compile blocker
-  (docs/20 §14). 16 images (8 perks × base/mega) in `source_data/acc_perk_shaders.gdt`
-  (deploy via `tools/deploy_perk_shaders.ps1`); one `image,<name>` zone line each.
+  (docs/20 §14). 20 images (10 perks × base/mega) in `source_data/acc_perk_shaders.gdt`
+  (deploy via `tools/deploy_perk_shaders.ps1`); one `image,<name>` zone line each
+  (`i_acc_perk_{jugg,revive,speed,doubletap,staminup,mule,deadshot,widows,phd,cherry}_{base,mega}`,
+  `ACC_PERK_COUNT = 10` in acc_hud.lua; PhD bit 8 + Electric Cherry bit 9 each ship base+mega).
 - **No bitwise ops in Lua 5.1/HavokScript** — the widget tests bit i arithmetically
   (`math.floor(mask / 2^i) % 2`).
 
@@ -387,7 +391,8 @@ retired in place as the restore path).
     badge off, and holding a twin of the 3rd gun still lights it. Naturally hides while downed (held =
     laststand pistol) and when Mule is lost/`_retain_perks`.
   - *Nuclear*: reuses `acc_damage::is_energy_weapon` (single source of truth for the buff list) + the
-    one explosive primary (Mahem), so the badge and the damage buff can never disagree.
+    two explosive primaries (Mahem launcher `s1_mahem` and War Machine drum GL `t6_war_machine`), so
+    the badge and the damage buff can never disagree.
 - **Adding a badge:** (1) write a `pred_x(cur)` in `_acc_gun_badges.gsc`, (2) `register_badge(bit,
   &pred_x)` in its `init()`, (3) one entry in `ACC_GUN_BADGES` (acc_hud.lua) with `bit = <bit>`. No new
   widget, no new clientfield, no per-badge positioning. (Widen the 6-bit `acc_badges` in BOTH

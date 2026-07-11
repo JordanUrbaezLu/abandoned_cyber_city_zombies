@@ -84,7 +84,7 @@ function dbg( msg )
     // (PLAY_TEST_MAP.bat, acc_dev 1) logs them to console_mp.log (as [SCRIPTER]) with NO extra flag. These
     // are infrequent (a few per boss), so no screen spam. The per-2.5s position HEARTBEAT stays behind
     // acc_avo_debug (opt-in via run_avo_test.bat) so it doesn't clutter normal dev play.
-    if ( ACC_AVO_TEST_MODE == 0 && !IS_TRUE( level.acc_dev ) && getdvarint( "acc_avo_debug", 0 ) != 1 )
+    if ( ACC_AVO_TEST_MODE == 0 && getdvarint( "acc_avo_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [AVO] rides acc_avo_debug now)
         return;
     acc_utility::log( "[AVO] " + msg );
     players = GetPlayers();
@@ -319,7 +319,7 @@ function spawn_boss()
     dbg( "spawned @ " + org + " (" + where + ") - round " + rn + ", " + hp + " hp, gait=" + boss.zombie_move_speed );
     // DEV: always tell every player he's live (regardless of acc_avo_debug), so a test can never "miss"
     // a spawn that happened across the map. Normal play stays silent (the nameplate + music are the tell).
-    if ( ACC_AVO_TEST_MODE == 1 || IS_TRUE( level.acc_dev ) )
+    if ( ACC_AVO_TEST_MODE == 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen): no dev "ACTIVE + hp" banner; the 3D nameplate + boss music below are the tell
         announce( "^5AVOGADRO ACTIVE^7 (" + where + ") - " + hp + " hp" );
 
     // --- presentation: 3D nameplate + shared boss music ---
@@ -349,10 +349,17 @@ function boss_life( boss )
     // level.avogadro_death_origin - it's a single global the pack overwrites, so with 2 Avogadros alive
     // one boss_life could drop at the other's death spot). This captures his position ~0.25s before death.
     org = boss.origin;
-    while ( isdefined( boss ) && isalive( boss ) )
+    // Freeze org at the GROUND kill spot, NOT the airborne exit-anim rise (user 2026-07-10 "killed Avogadro,
+    // no item"). The pack's death() (_zm_ai_avogadro.gsc:853) sets boss.is_alive=0 AT GROUND, THEN
+    // AnimScripted("exit_anim") LIFTS him ~800u while allowdeath stays false (line 929) so .health is held ->
+    // engine isalive() stays TRUE through the whole departure rise. A bare isalive() poll therefore kept
+    // re-sampling boss.origin high in the air, and grant_drops' floor-snap (2500u down-trace) then MISSED /
+    // snapped onto the roof -> the item spawned unreachable. Breaking on the pack's own is_alive==0 flag (set
+    // at ground, before the rise) keeps the last pre-rise ground origin. wait 0.1 keeps that origin fresh.
+    while ( isdefined( boss ) && isalive( boss ) && !( isdefined( boss.is_alive ) && boss.is_alive == 0 ) )
     {
         org = boss.origin;
-        wait 0.25;
+        wait 0.1;
     }
 
     level.acc_avo_alive--;
@@ -880,7 +887,7 @@ function hack_director()
         // path = engine PathMode; gait = zombie_move_speed (drives the locomotion blackboard); enemy =
         // distance to .enemy (must ~always be set - "none" = target-service bug); bolt = the BT attack
         // gate reason from avoShouldShootBolt ("none"=ready/firing, cooldown/range/los legit) + cooldown.
-        if ( ( ACC_AVO_TEST_MODE == 1 || IS_TRUE( level.acc_dev ) || getdvarint( "acc_avo_debug", 0 ) == 1 ) && GetTime() >= hb_next )
+        if ( ( ACC_AVO_TEST_MODE == 1 || getdvarint( "acc_avo_debug", 0 ) == 1 ) && GetTime() >= hb_next )   // acc_dev DECOUPLED 2026-07-10 (clean screen; heartbeat rides acc_avo_debug now)
         {
             hb_next = GetTime() + 2500;
             gd = ( isdefined( goal ) ? int( Distance( self.origin, goal ) ) : -1 );

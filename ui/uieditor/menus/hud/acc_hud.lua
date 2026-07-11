@@ -72,8 +72,8 @@ local AccPerkCards = {
             megaFull = { "Take even more hits" } },
     [2] = { title = "QUICK REVIVE", price = "2500", megaName = "Savior",
             base = { "Revive allies faster", "Health regen starts sooner", "Revive yourself solo" },
-            mega = { "Revive even faster", "Regen starts even sooner", "Faster near allies", "Shielded while reviving" },
-            megaFull = { "Revive even faster", "Regen starts even sooner", "Revive yourself solo", "Faster near allies", "Shielded while reviving" } },
+            mega = { "Revive even faster", "Regen starts even sooner", "Faster when an ally is down", "Shielded while reviving" },
+            megaFull = { "Revive even faster", "Regen starts even sooner", "Revive yourself solo", "Faster when an ally is down", "Shielded while reviving" } },
     [3] = { title = "SPEED COLA", price = "3500", megaName = "Sleight of Hand Expert",
             base = { "Reload faster", "Fix barriers faster" },
             mega = { "Reload even faster" },
@@ -100,8 +100,8 @@ local AccPerkCards = {
             megaFull = { "Grenades trap zombies", "Webbing on melee", "Scuttle fast when low", "More spider drops" } },
     [9] = { title = "PHD FLOPPER", price = "2500", megaName = "PhD Slider",
             base = { "No fall or blast damage", "Explode when downed" },
-            mega = { "Slide to explode", "Bigger explosions", "Move faster" },
-            megaFull = { "No fall or blast damage", "Slide to explode", "Explode when downed", "Bigger explosions", "Move faster" } },
+            mega = { "Slide to explode", "More explosive damage", "Move faster" },
+            megaFull = { "No fall or blast damage", "Slide to explode", "Explode when downed", "More explosive damage", "Move faster" } },
     [10] = { title = "ELECTRIC CHERRY", price = "3000", megaName = "Power Surge",
             base = { "Reload to zap zombies", "Emptier mag = bigger zap" },
             mega = { "Stronger, faster zap", "Shrugs off boss zaps" },
@@ -117,8 +117,8 @@ local AccPerkCards = {
 -- accPapTier / accOcTier models (already pushed for the held weapon).
 local AccGunNames = {
     [0] = "Five-Seven", [1] = "ASM1", [2] = "Tac-19", [3] = "AK-47", [4] = "AE4",
-    [5] = "RW1", [6] = "Paladin HB50", [7] = "PPSH-41", [8] = "Mahem", [9] = "(removed)",
-    [10] = "(removed)", [11] = "AK-74u", [12] = "Olympia", [13] = "Grav", [14] = "M60",
+    [5] = "RW1", [6] = "Paladin HB50", [7] = "PPSH-41", [8] = "Mahem", [9] = "HAMR",
+    [10] = "M16", [11] = "AK-74u", [12] = "Olympia", [13] = "Grav", [14] = "M60",
     [15] = "RPD", [16] = "Thundergun", [17] = "Held weapon",
 }
 

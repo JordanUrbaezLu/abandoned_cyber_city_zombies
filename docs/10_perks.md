@@ -68,8 +68,10 @@ The table above is a **complete at-a-glance** summary (base + Mega). Below, **[P
   decision rather than adding one. Making slots a **shard purchase** turns "how many perks" into the headline
   reason to risk the trench: the cap is a *goal you grind toward*, not a freebie.
 - A round-10 player runs the base 4; reaching all 10 is a long-horizon investment (54 shards) that competes with
-  the Cyberware tree and weapon Overclocks for the same trench-earned shards — exactly the "tight Shard
-  decisions" tension the progression design wants.
+  weapon Overclocks (the **Overclock terminal** — the live shard-driven weapon upgrade) and the Exo Suit for the
+  same trench-earned shards — exactly the "tight Shard decisions" tension the progression design wants. *(The
+  Cyberware skill tree is **dormant** — gated off behind `acc_cyberware_on` (default 0), so it is **not** currently
+  a competing shard sink; see [03_progression_and_skills.md](03_progression_and_skills.md).)*
 - Dev mode (the one hardcoded `level.acc_dev` flag) returns the max so every machine is buyable while testing
   (`acc_perk_slot_limit` short-circuits to `ACC_PERK_SLOT_MAX` when `IS_TRUE( level.acc_dev )`).
 
@@ -86,7 +88,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 **Mechanics**
 
 - **HP / hit counts** (at ~45 dmg per zombie melee): **100 HP → 3rd · 250 HP → 6th · 300 HP → 7th**. Open-field melee damage is a baked GDT value — confirm hit counts in-game.
-- **Stacking**: Cyberware Subroutine Caching; Ghost Shroud.
+- **Stacking**: Ghost Shroud (boss item). *(Cyberware Subroutine Caching also stacks if the tree is re-enabled — dormant by default, docs/03.)*
 
 ### 2. Quick Revive — 2,500 Points
 
@@ -119,8 +121,8 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 > **Design decision (2026-06-14):** the base perk IS the stock `specialty_doubletap2` machine,
 > which fires an **extra bullet per shot** (≈2× damage). There is no usermap-side way to remove
 > that, so we **keep Double Tap 2.0** (the old "convert to a rate-only 1.0" plan is cancelled) and
-> price/balance around what we have: **5,000** (up from ~2,000) because doubling bullet output is
-> a major damage perk.
+> price/balance around what we have: **5,000** (up from ~2,000; **later lowered to 3,000** on 2026-06-25 —
+> the current price, see the table above) because doubling bullet output is a major damage perk.
 > **REWORK 2026-07-04:** the Mega (Gun Slinger) is no longer a fire-rate/swap perk. Its `fastfire`
 > weapon-variant twin was **removed entirely** (freeing 8 twins/gun, 224 → 96 total at the then-16-gun
 > roster; the current matrix — 140 twins on 22 guns incl. the Havoc turbo axis — lives in docs/21
@@ -148,7 +150,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 - **Sprint duration:** no perk **~4 s** → Stamin-Up **~12 s** → The Flash unchanged.
 - **Move speed:** base Stamin-Up **+7–8%** → The Flash adds **×1.15**.
-- **Stacking**: Neural Boots, Reflex T1 (multiplicative speed terms).
+- **Stacking**: Neural Boots (boss item, ×1.20) — a multiplicative speed term. *(Cyberware Reflex T1 also stacks if the tree is re-enabled — dormant by default, docs/03.)*
 
 ### 6. Mule Kick — 2,500 Points
 
@@ -255,10 +257,10 @@ This mirrors the existing perk-rotation decision texture. Mega-ing a perk is a *
 
 ### Mega damage stack example
 
-PaP L5 + Tier 5 FAL + American Sniper + Overload Cyberware + Precision Mode ability + a clean headshot on a boss:
+PaP L5 + Tier 5 FAL + American Sniper + Precision Mode ability + a clean headshot on a boss (plus the Cyberware Overload node, if its **dormant** tree is re-enabled — docs/03):
 
-- The head hit takes the gun's **multiplicative headshot temper** — `locHead × ACC_BOSS_HEADSHOT_MULT (0.8)` = **×4** on a boss with a `locHead 5` gun (`×2.5` on trash via `ACC_HEADSHOT_MULT 0.5`). Deadshot's bonus stacks **additively** into the separate crit-damage bonus pool: **+1.5** with American Sniper (+1.3 base), alongside the PaP / Cyberware crit adds.
-- That result is then scaled by the multiplicative damage terms: `× 1.15` (Cyberware Oc1) `× 1.30` (Overload Cyberware T2) `× 4.0` (Precision Mode ability) `× 1.5` (Overpressure Overclock if rolled) → a large multiple per headshot (illustrative; recompute once exact PaP/Tier values are locked). Numbers live in `_acc_damage.gsc::on_ai_damage`.
+- The head hit takes the gun's **multiplicative headshot temper** — `locHead × ACC_BOSS_HEADSHOT_MULT (0.8)` = **×4** on a boss with a `locHead 5` gun (`×2.5` on trash via `ACC_HEADSHOT_MULT 0.5`). Deadshot's bonus stacks **additively** into the separate crit-damage bonus pool: **+1.5** with American Sniper (+1.3 base), alongside the PaP crit adds (and Cyberware's, only if its dormant tree is re-enabled).
+- That result is then scaled by the multiplicative damage terms: `× 4.0` (Precision Mode ability) `× 1.5` (Overpressure Overclock if rolled) → a large multiple per headshot (illustrative; recompute once exact PaP/Tier values are locked). *(The Cyberware damage terms `× 1.15` (Oc1) and `× 1.30` (Overload T2) apply **only** if the Cyberware tree is re-enabled — it's **dormant** by default, so in normal play those flags stay unset, docs/03.)* Numbers live in `_acc_damage.gsc::on_ai_damage`.
 
 Absurd. Intended for late-game power-fantasy. Tune via the levers at the bottom of the doc if playtest shows this is *unfun* absurd rather than *earned* absurd.
 
@@ -424,19 +426,19 @@ To ever build this alternative (not needed — the door layer already ships per-
 
 ## Full Stacking Example — "Swiss Army Player" Build
 
-A player with **all 10 live perks** + good Cyberware + boss items + PaP L5 + Tier 5 FAL:
+A player with **all 10 live perks** + boss items + PaP L5 + Tier 5 FAL (plus the Cyberware tree, if its **dormant** nodes are re-enabled — docs/03):
 
 - **HP**: **250 HP** → 6-hit survival with Jug; **300 HP** → 7 hits with Ultimate Tank.
 - **HP regen**: starts 20% sooner (Quick Revive) / 40% sooner (Savior).
 - **Revive**: 2.0 s (Quick Revive) / 1.0 s (Savior). Savior also takes **−50% damage while reviving** a teammate.
 - **Reload**: +50% reload (Speed Cola) / +75% (Sleight of Hand Expert).
-- **Move / sprint**: ~12 s sprint + ~7–8% move (Stamin-Up); +15% sprint speed (The Flash); +15% move while a teammate is down (Savior); plus Cyberware / Boss-item speed terms (multiplicative).
+- **Move / sprint**: ~12 s sprint + ~7–8% move (Stamin-Up); +15% sprint speed (The Flash); +15% move while a teammate is down (Savior); plus Boss-item speed terms (Neural Boots ×1.20), and Cyberware speed terms only if the dormant tree is re-enabled (multiplicative).
 - **Fire rate**: **+33%** (Double Tap 2.0 base, stock — both base and Mega). Mega **Gun Slinger** adds **no** fire rate or weapon-swap bonus (reworked 2026-07-04 to a pure damage buff). Base fires an extra bullet per shot tempered 0.6× → ~1.6× DPS; Mega eases the temper to 0.8× → ~2.1× DPS.
 - **Headshot damage**: the map's **multiplicative** headshot temper (×2.5 trash via `ACC_HEADSHOT_MULT 0.5` / ×4 boss via `ACC_BOSS_HEADSHOT_MULT 0.8`, on a `locHead 5` gun), plus Deadshot **+1.3** / American Sniper **+1.5** added into the separate crit-bonus pool; recoil none (base) / −50% (Mega-only).
 - **Weapon slots**: 3 primaries (Mule Kick); +20% reserve refill each round & all buys 10% cheaper (The Armory).
 - **Crowd control**: Widow's Wine web grenades + self-defense webbing + webbing melee (2-per-round stock restock; low-stance mobility + boosted spider-drops with Spiderman); PhD Flopper slide-to-explode nova clears zombies (and explodes when you go down) — immune to fall + your own splash damage throughout.
 
-Add **Cyberware full branch** + **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons = our peak power fantasy. Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
+Add **2 Boss Items** + **PaP L5 + Tier 5 with 5 Overclocks** on 2 weapons + the **Exo Suit** = our peak power fantasy (and the **Cyberware full branch** on top, if its dormant tree is re-enabled — docs/03). Reaching that takes a full 30+ round commitment; it's a reward for sustained play, not a baseline.
 
 ## Implementation Status
 

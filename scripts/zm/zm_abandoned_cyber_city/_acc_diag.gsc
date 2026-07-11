@@ -69,7 +69,7 @@ function dmg_debug_probe( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath
 	// and landed one). Silent unless you EXPLICITLY enable it with `set acc_dmg_debug 1` for a debug
 	// session (then it logs a hit >= acc_dmg_debug_min (40); acc_dmg_debug_min 0 = every hit). This
 	// was the temporary alarm for the Rogue Protector one-shot bug, now resolved.
-	if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_dmg_debug", 0 ) != 1 )
+	if ( getdvarint( "acc_dmg_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [DMG] rides acc_dmg_debug now)
 		return -1;
 	if ( iDamage < getdvarint( "acc_dmg_debug_min", 40 ) )
 		return -1;

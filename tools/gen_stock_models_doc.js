@@ -3,7 +3,7 @@
 // gen_stock_models_doc.js  (reference generator, re-runnable)
 //
 // Enumerates STOCK BO3 xmodels available to this install and writes a
-// categorized reference: docs/44_stock_models.md  +  full flat dump
+// categorized reference: docs/27_stock_models.md  +  full flat dump
 // docs/stock_models_full.txt.
 //
 // Sources (in priority order):
@@ -29,7 +29,7 @@ const ROOT = 'C:/Program Files (x86)/Steam/steamapps/common/Call of Duty Black O
 const SCRIPTS = ROOT + '/share/raw/scripts';
 const GDT = ROOT + '/source_data';
 const PREFABS = path.join(__dirname, '..', 'map_source', '_prefabs');
-const OUT_MD = path.join(__dirname, '..', 'docs', '44_stock_models.md');
+const OUT_MD = path.join(__dirname, '..', 'docs', '27_stock_models.md');
 const OUT_TXT = path.join(__dirname, '..', 'docs', 'stock_models_full.txt');
 
 // Pure-node recursive file walk (execSync here runs under cmd.exe, so grep/rg + shell

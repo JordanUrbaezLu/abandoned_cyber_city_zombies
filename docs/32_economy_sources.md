@@ -19,7 +19,7 @@ dvars. Audited from the code; verify amounts in-game.
 |---|---|---|---|
 | **Shard orb pickups** (glowing orbs) | per-orb (`acc_shard_count`) | the grabber | `_acc_data_shards.gsc:385` (`pickup`) |
 | **Pit / vault caches** (crates) | `cache_yield` (scales w/ cache count) | the opener | `_acc_data_shards.gsc:330` (`vault_cache`) |
-| **Plaza spawn caches** (3 crates) | 1 shard each, re-arms every round | the opener | `zm_abandoned_cyber_city.gsc::acc_spawn_plaza_props` (`vault_cache`) — early-game faucet at spawn (user 2026-06-28) |
+| **Plaza spawn caches** (4 crates) | 1 shard each, re-arms every round | the opener | `zm_abandoned_cyber_city.gsc::acc_spawn_plaza_props` (`vault_cache`) — early-game faucet at spawn (user 2026-06-28; 4th cache added 2026-07-10 so a full 4-player lobby keeps 1-per-player parity) |
 
 **Enemy kills:**
 | Source | Amount | Who | File |
@@ -40,8 +40,16 @@ dvars. Audited from the code; verify amounts in-game.
 |---|---|---|---|
 | **Duplicate boss item** (you already own it) | 3 (`ACC_ITEM_DUPLICATE_SHARD_CONVERT`) | the picker | `_acc_boss_items.gsc:623` (`boss_item_duplicate`) |
 | Boss-item **salvage** effect | 1 / interval | the holder | `_acc_boss_items.gsc:1057` (`salvage`) |
-| Cyberware **respec refund** | the node's cost | the player | `_acc_cyberware.gsc:310` (`respec_refund`) |
-| Cyberware **subroutine regen** node | 1 | the player | `_acc_cyberware.gsc:912` (`subroutine_regen`) |
+| Cyberware **respec refund** _(dormant)_ | the node's cost | the player | `_acc_cyberware.gsc:310` (`respec_refund`) |
+| Cyberware **subroutine regen** node _(dormant)_ | 1 | the player | `_acc_cyberware.gsc:912` (`subroutine_regen`) |
+
+> **Dormant (Cyberware tree disabled):** the two Cyberware rows above are UNREACHABLE in normal play.
+> The skill tree was removed 2026-06-19 — `_acc_cyberware.gsc::init()` only spawns the kiosk / enables
+> node purchase when `acc_cyberware_on 1` (default **0**, `_acc_cyberware.gsc:96`), and `_acc_glitch_altar`
+> spawns only the **Overclock terminal**, never `spawn_kiosk_at`. With no node buyable, `respec_refund`
+> (fires on a kiosk respec) and `subroutine_regen` (needs `acc_cw_shard_regen_active`, set by buying a
+> node) never trigger. The live weapon-upgrade path is the **Cyberware Weapon Overclock** terminal
+> (`_acc_overclocks.gsc`).
 
 **Dev only:** each player starts with **1,000 shards** (`ACC_DEV_SHARDS`) in `acc_dev 1`
 (`_acc_data_shards.gsc:106`, `on_player_connect`); the shard cap is also raised to 1,000 in dev.
@@ -126,7 +134,8 @@ r27=3); the boss TYPE is dealt from a no-duplicate shuffled deck (shared via `le
 
 - **Shards** = the broad currency: orbs + caches (primary), small per-kill trickles (Glitch 1 /
   Riot 2), event payouts (Reactor / Hack / Altar), and the big boss payout (`int(round/3)` to
-  everyone). Spent on Cyberware / Overclocks / the Altar.
+  everyone). Spent on the Overclock terminal / the Altar / perk slots (the Cyberware tree is disabled by
+  default — `acc_cyberware_on 0` — so the Overclock terminal is the sole live weapon-upgrade sink).
 - **Mega Bottles** = rare, boss-only (1 to everyone from every full boss). Spent to Mega-upgrade perks.
 - **Boss Items** = rare, boss-only (1 guaranteed drop from every full boss).
 - The frequent **Glitch Stalker** gives neither bottle nor item — just 1 shard to its killer.

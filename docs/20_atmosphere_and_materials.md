@@ -180,7 +180,7 @@ core:
    = 1092 floor+ceiling faces, counted at the 2026-06-28 repaint) were bulk-swapped
    to stock `t7_*` via `tools/paint_walls.js`; per-region/per-zone refinement via
    `tools/paint_region.js` + `tools/apply_zone_materials.js` (Lab/Paradise hex
-   tile, Plaza cable-panel walls, etc.); the **12 buyable zone doors** repainted to
+   tile, Plaza cable-panel walls, etc.); the **13 buyable zone doors** repainted to
    `t7_metal_diamond_plate_worn_wet` via `tools/paint_doors.js` so a door reads
    distinct from the wall (they had been the same asphalt/concrete tokens as the
    walls — which is why they vanished). Face tokens → **no `.zone` line**;
@@ -536,7 +536,7 @@ tokens, no `.zone` line**.
 ## 15. Soundscape (audio) — see [docs/23](23_sound_plan.md)
 
 This doc owns the map's *look*; **audio has its own spec in
-[35 — Sound & Music Plan](23_sound_plan.md)**. Short version so the atmosphere
+[23 — Sound & Music Plan](23_sound_plan.md)**. Short version so the atmosphere
 picture is complete:
 
 - `_acc_atmosphere.gsc` owns the audio half too: a one-shot main theme

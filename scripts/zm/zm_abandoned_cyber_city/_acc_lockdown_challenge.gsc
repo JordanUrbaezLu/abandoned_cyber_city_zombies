@@ -1135,7 +1135,7 @@ function ldc_announce( party, msg )
 function ldc_debug( msg )
 {
     acc_utility::log( "ldc: " + msg );
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_lockdown_challenge_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_lockdown_challenge_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_lockdown_challenge_debug now)
     players = GetPlayers();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )

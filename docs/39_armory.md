@@ -37,17 +37,52 @@ targeting at all). Mesh: **`p7_con_cargo_train_armory_cabinet`** (the long Condu
 X axis spans the two flanking pads at ±55, `spawn_rack_station`).
 
 - **DEPOSIT pad**: racks the player's **currently-held primary** into `level.acc_armory_rack` (a FIFO list
-  of weapon objects) and `weapon_take`s it. Rejects: nothing held / melee / mines / non-primary (pistol,
-  equipment) / **capped wonder weapons** (a racked wonder could let a 2nd player slip past the per-match
-  claim cap — `acc_map_randomizer::wonder_cap_key`). Refused when the rack is full (`acc_armory_rack_max`, 8).
+  of `{ wpn, model }` structs) and `weapon_take`s it. Rejects: nothing held / melee / mines / non-primary
+  (pistol, equipment) / **capped wonder weapons** (a racked wonder could let a 2nd player slip past the
+  per-match claim cap — `acc_map_randomizer::wonder_cap_key`). Refused when the rack is full
+  (`acc_armory_rack_max` = **1** — **one gun racked at a time**, user 2026-07-10; was 8).
 - **WITHDRAW pad**: gives the **oldest** racked weapon (FIFO, like the Exchange item locker) to the presser.
   **Mandatory free-slot gate** first (`weapon_give` at the weapon limit silently deletes the held gun);
   `b_switch_weapon = false` so there's no mid-fight view-yank; refused if the presser already carries it.
 - **Free** (giving up the gun *is* the cost — untaxed, like the Exchange item locker).
 - **Balance**: a gifted gun auto-tunes — `acc_weapon_balance_mult` is name-keyed / owner-agnostic
   (`_acc_damage.gsc`), so no per-give work.
+- **Visible contents (2026-07-10)**: the racked gun's **world model displays on the cabinet top**
+  — the magicbox idiom (`UseBuildKitWeaponModel`, same engine call as
+  `zm_utility::spawn_buildkit_weapon_model`, spawn-guarded), so the model wears the **depositor's
+  buildkit variant + PaP camo** when upgraded. Layout (`rack_slot_origin`): guns lie **across** the
+  cabinet (yaw 90 off its long X axis, like rifles on a bench) at +6u hover (worldModel origins vary
+  per gun; a slight float beats a buried receiver). The row **self-centers for the configured cap**:
+  the shipped cap 1 puts the single gun dead-center; a raised `acc_armory_rack_max` fans up to 8 per
+  row at 17u pitch across the 138u top, wrapping +16z per row. A withdraw deletes slot 0's model and
+  **MoveTo-glides** any survivors forward (0.3s). Rack entries are structs `{ wpn, model }` (single
+  array = gun/display can never desync; duplicate weapon objects — two players racking the same gun
+  class — stay distinct entries). Dual-wields show the right-hand model only. Ent-pool-full spawn
+  failure = that slot just goes undisplayed, never a crash.
 
 Two flanking pads share one kiosk (the Exchange multi-pad idiom, since BO3 use-triggers are single-button).
+
+### UI matrix (2026-07-10 UI pass — every player-facing string, both stations)
+
+**Pad hints are STATE-AWARE** (`update_rack_hints`, called at spawn + after every deposit/withdraw): the
+hint tells you the rack state *before* you press — the old static hints invited presses that could only
+refuse. 4–6 constant strings total → configstring-cache safe. **No gun names anywhere in the UI**:
+`wpn.name` is the INTERNAL class name (`ar_accurate`, not "ICR-1") and `IString(wpn.displayname)`
+localization can't be verified offline across the ~50 pack guns (any gap renders a raw `WEAPON_*` token) —
+the cabinet-top **world model is the gun's identity**. Internal names go to `acc_utility::log` only.
+
+| Station / state | Hint (on aim) | Press result (toast) |
+|---|---|---|
+| Deposit pad, rack empty | `RACK your held weapon for a teammate` | ✅ `weapon racked - a teammate can TAKE it at the other end` (model appears on cabinet) |
+| Deposit pad, rack occupied | `Rack OCCUPIED - a teammate can TAKE the weapon at the other end` (no press prompt) | ❌ `the rack already holds a weapon - take it first` |
+| Deposit refusals (any state) | — | ❌ `hold the weapon you want to rack` (nothing held) / `hold a primary weapon to rack it` (melee, mine, pistol, equipment) / `wonder weapons can't be racked` |
+| Withdraw pad, rack empty | `Rack EMPTY - RACK a weapon at the other end to share it` (no press prompt) | ❌ `the rack is empty` |
+| Withdraw pad, rack occupied | `TAKE the racked weapon` | ✅ `took the racked weapon - it's in your loadout (switch to it)` — the give deliberately does **not** auto-switch (no view-yank), so the toast must say where the gun went or the take looks like a no-op |
+| Withdraw refusals | — | ❌ `no free weapon slot - buy Mule Kick or drop a gun` / `you already carry the racked weapon` |
+| Bottle exchange (always) | `EXCHANGE a Mega Bottle for a random Implant` — names the **actual prize** before the spend (was "a random reward", only revealed post-purchase); quantity composed from `acc_armory_bottle_cost` at spawn | ✅ `ARMORY EXCHANGE: a random Implant - grab it, then enable it at a bench` · ❌ `need N Mega Bottle(s)` |
+
+Sounds: every ✅ plays `zmb_cha_ching`, every ❌ plays `zmb_no_purchase`. A player already aiming at a pad
+picks a hint change up on the engine's next hint refresh (worst case: re-aim).
 
 ## Station 2 — Mega-Bottle Exchange (1 bottle → random implant)
 
@@ -75,7 +110,8 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
 - [`_acc_armory.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_armory.gsc) — `acc_armory::init()`
   + `spawn_stations()` + rack (`deposit_gun`/`withdraw_gun`) + exchange (`bottle_loop`/`deliver_reward`).
 - Wired in `_acc_main.gsc` (`#using` + `acc_armory::init()` after `acc_transfer`), `.zone` (`scriptparsetree`).
-- **Dvars** in [docs/22](22_flags_reference.md): only `acc_armory_rack_max` (8) + `acc_armory_bottle_cost` (1).
+- **Dvars** in [docs/22](22_flags_reference.md): only `acc_armory_rack_max` (**1** — one gun at a
+  time, user 2026-07-10; was 8) + `acc_armory_bottle_cost` (1).
 
 ## Build / test
 

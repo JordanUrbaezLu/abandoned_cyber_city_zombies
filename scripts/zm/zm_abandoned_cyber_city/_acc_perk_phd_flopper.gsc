@@ -115,8 +115,11 @@ function init()
     }
 
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].cost = ACC_PHD_COST;
-    // Readable raw hint (no localized PhD token exists; &&1 = use button, engine-substituted).
-    level._custom_perks[ PERK_ELECTRIC_CHERRY ].hint_string = "Hold ^3&&1^7 for PhD Flopper [Cost: " + ACC_PHD_COST + "]";
+    // Readable raw hint (no localized PhD token). Recipe per docs/16 community-perk ledger: [{+activate}] = the
+    // use key, &&1 = the COST substitution filled by stock SetHintString(hint,cost) AND _acc_perk_info::
+    // armory_perk_pricing (10%-off). The old "^3&&1^7 ...[Cost: <literal>]" baked the cost with &&1 as the button,
+    // so the Armory discount never showed on the wall (stayed 2500 while a holder paid 2250) - UI audit 2026-07-10.
+    level._custom_perks[ PERK_ELECTRIC_CHERRY ].hint_string = "Hold ^3[{+activate}]^7 for PhD Flopper [Cost: &&1]";
     // Direct overwrite (register_perk_threads only assigns when undefined; cherry's are set).
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].player_thread_give = &give_phd;
     level._custom_perks[ PERK_ELECTRIC_CHERRY ].player_thread_take = &take_phd;

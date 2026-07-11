@@ -61,15 +61,16 @@ const RANK = [
   { d: 'AE4',           box: 's1_ae4',              key: 's1_ae4' },
   { d: 'RW1',           box: 's1_rw1',              key: 's1_rw1' },
   { d: 'CEL-3',         box: 's1_cel3',             key: 's1_cel3', price: 'TOP' },   // user 2026-07-07 BOT->TOP; swapped with AK-74u 2026-07-09 (rarer)
+  { d: 'M16',           box: 't9_m16',              key: 't9_m16', price: 'MID' },   // CW M16 (user 2026-07-11): B-tier burst->full-auto tactical rifle, slightly better than the MK14 -> one notch RARER; MID price. REPLACES the G7 Scout.
   { d: 'MK14',          box: 's1_mk14',             key: 's1_mk14', price: 'MID' },   // user 2026-07-07 BOT->MID; swapped with Grav 2026-07-09 (rarer)
   { d: 'Tac-19',        box: 's1_tac19',            key: 's1_tac19' },   // demoted S -> A-
-  { d: 'Prowler',       box: 'apex_prowler',     key: 'apex_prowler', price: 'BOT' },   // Apex - B SMG; user 2026-07-07 MID->BOT
-  { d: 'AK-74u',        box: 't9_ak74u',            key: 't9_ak74u', price: 'MID' },   // swapped with CEL-3 2026-07-09 (commoner); price PINNED to its pre-swap MID band (rank 21 would fall in BOT)
+  { d: 'AK-74u',        box: 't9_ak74u',            key: 't9_ak74u', price: 'MID' },   // swapped with Prowler 2026-07-10 (now #21, rarer); price PINNED MID (2026-07-09 CEL-3 swap; rank-21 band is MID anyway)
+  { d: 'Prowler',       box: 'apex_prowler',     key: 'apex_prowler', price: 'BOT' },   // Apex - B SMG; user 2026-07-07 MID->BOT; swapped with AK-74u 2026-07-10 (now #22, commoner)
   { d: 'Streetsweeper', box: 't9_streetsweeper',    key: 't9_streetsweeper' },   // demoted A -> B
+  { d: 'HAMR',          box: 't6_hamr',             key: 't6_hamr', price: 'MID' },   // BO2 LMG (user 2026-07-10): B tier, sits between the M60 (S) and RPD (C) - one notch RARER than the RPD (it's the better LMG); MID PaP price like the RPD
   { d: 'RPD',           box: 't9_rpd',              key: 't9_rpd', price: 'MID' },   // user 2026-07-07 BOT->MID
   { d: 'Olympia',       box: 't6_olympia',          key: 't6_olympia' },   // swapped with Five-Seven 2026-07-09 (rarer)
   { d: 'Grav',          box: 't9_grav',             key: 't9_grav', price: 'BOT' },   // user 2026-07-07 MID->BOT; swapped with MK14 2026-07-09 (commoner)
-  { d: 'G7 Scout',      box: 'apex_g2a4',        key: 'apex_g2a4' },   // Apex - C marksman, replaces Paladin
   { d: 'Five-Seven',    box: 't6_fiveseven',        key: 't6_fiveseven' },   // swapped with Olympia 2026-07-09 (commonest)
 ];
 

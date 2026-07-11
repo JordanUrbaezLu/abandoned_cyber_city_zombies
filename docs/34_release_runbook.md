@@ -261,7 +261,10 @@ The map is a **fully-built systems-depth zombies map**, not a greybox — the Ae
 HUD (shipped 2026-07-03), the gun-badge chip row (2026-07-08), a large box-only arsenal
 (Apex pack + Skye ports + elemental bows), the Abyss Descent (soul-box layers → Paradise),
 Exo Suit, Armory, Reactor Surge, Glitch Altar, Jukebox, The Exchange, Data Shards,
-Cyberware, Overclocks, 5-tier Pack-a-Punch, Mega perks, and the multi-boss roster
+Overclocks (the weapon Overclock terminal is the **sole live upgrade path**; the
+Cyberware skill tree is disabled/dormant by default — `_acc_cyberware.gsc` only spawns
+the kiosk under `acc_cyberware_on 1`, default 0), 3-tier Pack-a-Punch, Mega perks, and
+the multi-boss roster
 (Brutus, Glitch, Phantom, Avogadro, Panzer, Rogue/Civil Protector) are all in. It art-passes
 mostly on stock + ripped assets (hence the B1 IP gate). What "v1.0" means is a conscious
 call — the real pre-release work is a **solo + co-op balance pass to round 30+** and

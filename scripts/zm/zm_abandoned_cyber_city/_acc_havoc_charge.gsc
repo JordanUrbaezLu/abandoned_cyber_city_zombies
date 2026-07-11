@@ -143,8 +143,8 @@ function havoc_charge_loop()
                 self.acc_havoc_gated = true;
                 // Dev print (2026-07-08 turbo hunt): if this shows AFTER implanting the Turbocharger,
                 // the flag write is the break (should read the [HAVOC] skip line instead).
-                if ( IS_TRUE( level.acc_dev ) )
-                    self IPrintLnBold( "^5[HAVOC] charge gate ENGAGED (turbo=0)" );
+                // [HAVOC] charge-gate dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+                // if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^5[HAVOC] charge gate ENGAGED (turbo=0)" );
             }
             // truly empty gun: no gate, no riser - let it dry-fire naturally
         }
@@ -171,8 +171,8 @@ function havoc_charge_loop()
             // Turbo press edge: gate deliberately skipped - the gun fires live off its GDT 0.1s
             // press-guard. Dev print (2026-07-08 turbo hunt): if this shows but the gun STILL winds
             // up, the wind-up is engine/GDT-side, not this script.
-            if ( IS_TRUE( level.acc_dev ) )
-                self IPrintLnBold( "^5[HAVOC] turbo: charge skipped (firing live)" );
+            // [HAVOC] turbo-skip dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
+            // if ( IS_TRUE( level.acc_dev ) ) self IPrintLnBold( "^5[HAVOC] turbo: charge skipped (firing live)" );
         }
 
         was_holding = holding;

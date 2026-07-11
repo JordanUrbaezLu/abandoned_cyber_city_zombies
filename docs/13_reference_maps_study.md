@@ -28,8 +28,8 @@ Steam Workshop: the defining "modern" custom zombies map for deep progression sy
 
 | Ameliorama idea | Our equivalent |
 |---|---|
-| Parallel progression tracks | Cyberware tree (`_acc_cyberware.gsc`) + Weapon Tier + PaP Level + Boss Items — four tracks in our design. |
-| Skill tree with branches | Cyberware tree (3 branches × 3 tiers, mutually exclusive per tier). |
+| Parallel progression tracks | Weapon Tier + PaP Level + Overclock terminal (`_acc_overclocks.gsc`) + Boss Items — the live tracks. The Cyberware skill tree (`_acc_cyberware.gsc`) was designed as a fourth track but is **disabled in play** (turned off 2026-06-19; dormant behind `acc_cyberware_on`, default 0). The Overclock terminal is now the sole weapon-upgrade sink. |
+| Skill tree with branches | Cyberware tree (3 branches × 3 tiers, mutually exclusive per tier) — **built but dormant**; re-enable with `acc_cyberware_on 1`. |
 | Shared vs personal currencies | Points (personal) + Data Shards (`_acc_data_shards.gsc`, personal, co-op split) + boss-item team drops. Team-shared transfers ride "The Exchange" (`_acc_transfer.gsc`). |
 | Weapon leveling-via-use | We chose *explicit* Tier / PaP purchases via Shards instead of kill-grind. Similar intent, less grind. |
 
@@ -41,13 +41,13 @@ Steam Workshop: the defining "modern" custom zombies map for deep progression sy
 
 ### Known issues to avoid (from Steam comments on Ameliorama)
 
-- **Menu-stuck bugs**: requiring force-quit because of UI state machine edge cases. We stress-test our LUI interactions (Cyberware kiosk, Overclock terminal, item-replace prompt) — our HUD/menu bridge is the Aetherium LUI kit (`_zm_aetherium_hud`), so watch for never-closed `LUI.UITimer` state-pool leaks specifically.
+- **Menu-stuck bugs**: requiring force-quit because of UI state machine edge cases. We stress-test our LUI interactions (Overclock terminal, item-replace prompt; the Cyberware kiosk LUI is **dormant** — the kiosk is unspawned and its skill-tree screen is still a Phase-4 stub) — our HUD/menu bridge is the Aetherium LUI kit (`_zm_aetherium_hud`), so watch for never-closed `LUI.UITimer` state-pool leaks specifically.
 - **Difficulty scaling outpacing currency acquisition**: a known Ameliorama pain point. Our Data Shard budget table is tight; keep an eye on it in playtest.
 - **Splitscreen / controller glitches in UI**: stock BO3 splitscreen has edge cases. Decide whether to explicitly support/test splitscreen or declare it unsupported.
 
 ### Our open question
 
-- Ameliorama's skill tree is **permanent through deaths**. Ours is per-run. If per-run resets feel too punishing in playtest, we could consider a light permanent meta like "unlock one cyberware branch for free across all future runs". Currently out-of-scope in [00_overview.md](00_overview.md).
+- Ameliorama's skill tree is **permanent through deaths**. Our Cyberware tree was designed per-run — but note it is currently **dormant** (disabled in play, see §1), so this is a question for if/when we re-enable it. If per-run resets feel too punishing in playtest, we could consider a light permanent meta like "unlock one cyberware branch for free across all future runs". Currently out-of-scope in [00_overview.md](00_overview.md).
 
 ---
 
@@ -117,8 +117,8 @@ Patterns we mirror because stock is the path of least resistance:
 ### Power & perks: `_zm_power.gsc` + `_zm_perks.gsc`
 
 - Stock: one power switch, flips once, stays on.
-- Our variant: 2 power switches (script_string `corp` / `vault`); the "live" one is decided per run (see `_acc_map_randomizer.gsc`).
-- Perk machines require power on, then stay buyable for the rest of the run. We ship **10 perks** (Electric Cherry is the real 10th, finishing the stock-but-unfinished pipeline); slot cap `ACC_PERK_SLOT_MAX = 10` with escalating shard costs, and the Lab alcove runs a live 4-of-10 door roll (`_acc_perks.gsc`).
+- Our variant: **one** power switch (the Bus Station "corp" switch, script_string `corp`). An earlier dual-switch design (corp / vault, live one rolled per run) was cut — the vault switch prefab was removed from the map source 2026-06-18, so `_acc_map_randomizer.gsc::roll_power_switch_side()` now hardcodes `return "corp";` (the `acc_power_side` override is retired).
+- Perk machines require power on, then stay buyable for the rest of the run. We ship **10 perks** (Electric Cherry is the real 10th, finishing the stock-but-unfinished pipeline); slot cap `ACC_PERK_SLOT_MAX = 10` (`_acc_perks.gsc`) with escalating shard costs, and the Lab alcove runs a live 4-of-10 door roll (`_acc_perk_doors.gsc`, `ACC_PERK_DOORS_OPEN_PER_ROUND = 4`).
 
 ### Mystery Box: `_zm_magicbox.gsc`
 
@@ -151,7 +151,7 @@ Open items worth revisiting (tracked here so we don't forget):
 
 - **Kill point streaks / combo bonus**: stock BO3 doesn't have this; some custom maps do. Should our multi-kill bonus return (it was cut in an earlier balance pass)? Playtest call.
 - **Weapon XP alternative to Tier?**: Ameliorama levels weapons via kills. Ours uses Shard spending. Hybrid ("first Tier free via weapon XP, rest via Shards")? Deferred.
-- **Skill tree persistence as a modifier**: offer a modifier that makes Cyberware persist across deaths within a run? Would soften the respawn penalty.
+- **Skill tree persistence as a modifier**: offer a modifier that makes Cyberware persist across deaths within a run? Would soften the respawn penalty. (Moot until the Cyberware tree is re-enabled — it's dormant in ship, see §1.)
 - **Mini-boss / boss-type variety**: Machin[a] has multiple mini-boss types per map. We ship a Brutus mini-boss plus a multi-boss roster (Brutus/Phantom/Glitch/Avogadro/Panzer/Rogue Protector). Room for more roster entries post-1.0 — add via the shared roster fn.
 
 ---
@@ -161,7 +161,7 @@ Open items worth revisiting (tracked here so we don't forget):
 Ordered by relevance to our design:
 
 1. **Machin[a]** — detailed pass through the workshop page and any community teardowns. Our biggest design cousin.
-2. **Ameliorama II** — specifically its skill tree UI. Our Cyberware tree LUI should take visual cues.
+2. **Ameliorama II** — specifically its skill tree UI. If we re-enable the (currently dormant) Cyberware tree, its LUI should take visual cues from here.
 3. **Shadows of Evil (`zm_zod`)** — the stock boss-fight + ritual patterns are what our boss fights + side events should mirror.
 4. **Der Eisendrache** — bow crafting as a reference for elemental-bow behavior (we dropped the acquisition quest, kept the bows).
 5. **Leviathan** and **Tranzit: Reimagined** — long-tail community maps known for clean GSC; source-dive for idioms.

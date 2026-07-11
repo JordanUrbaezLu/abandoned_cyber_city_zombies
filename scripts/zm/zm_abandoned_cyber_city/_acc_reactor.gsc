@@ -116,7 +116,9 @@ function spawn_reactor()
     // at the back wall (0,2493) - clip north flush at 2517. STATION REMODEL 2026-07-09: the plinth is now the
     // Rise industrial generator (92 LONG in X x 46 deep) - yaw 0 keeps the long axis along the back wall
     // (yaw 270 would poke it through the north wall at 2517) and stays clear of the jukebox machine
-    // (_acc_jukebox, replaced the 3 teddy bears 2026-07-09) WEST at (-140, 2350).
+    // (_acc_jukebox, replaced the 3 teddy bears 2026-07-09) - MOVED to the SOUTH-WEST at (-150, 2240)
+    // on 2026-07-10 (user: "spread them out") so the plinth (north wall) and jukebox (south corner) sit
+    // ~290u apart across the room instead of clustered ~200u in the north-west.
     spawn_plinth_at( ( 0, 2493, -240 ), 0 );
 }
 

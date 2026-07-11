@@ -120,7 +120,11 @@ REGISTER_SYSTEM( "acc_perk_electric_cherry", &__init__, undefined )
 function __init__()
 {
     // The 6-call chain (minus clientfields - skipped on purpose, see header).
-    zm_perks::register_perk_basic_info( EC_PERK, EC_ALIAS, EC_COST, "Hold ^3&&1^7 for Electric Cherry [Cost: " + EC_COST + "]", GetWeapon( EC_BOTTLE_WEAPON ) );
+    // Hint recipe (docs/16 community-perk ledger): [{+activate}] = the use key, &&1 = the COST substitution
+    // that the stock SetHintString(hint,cost) and _acc_perk_info::armory_perk_pricing (10%-off) pass. The old
+    // "^3&&1^7 ...[Cost: <literal>]" baked the cost with &&1 as the button, so the Armory discount could never
+    // show on the wall (the wall stayed 3000 while an Armory holder was charged 2700) - buyable-UI audit 2026-07-10.
+    zm_perks::register_perk_basic_info( EC_PERK, EC_ALIAS, EC_COST, "Hold ^3[{+activate}]^7 for Electric Cherry [Cost: &&1]", GetWeapon( EC_BOTTLE_WEAPON ) );
     zm_perks::register_perk_precache_func( EC_PERK, &ec_precache );
     zm_perks::register_perk_machine( EC_PERK, &ec_machine_setup );
     zm_perks::register_perk_threads( EC_PERK, &give_electric_cherry, &take_electric_cherry );

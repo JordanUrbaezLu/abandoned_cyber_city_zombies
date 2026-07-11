@@ -53,8 +53,14 @@ script errors across a full playtest. The greybox superset shipped as the real m
   is **not** a placeholder `iprintln` — it renders in the full Aetherium **LUI** HUD;
   see Phase 4.)
 - `_acc_cyberware.gsc` — the Cyberware node graph from `03_progression_and_skills.md`.
+  **Disabled in play since 2026-06-19** (`_acc_cyberware.gsc:92-96`): the kiosk only
+  spawns behind `acc_cyberware_on 1` (default `0`), so no node is buyable and the tree
+  is inert. The weapon **Overclock Terminal** (below) is now the sole live upgrade path.
+  The module stays loaded — its damage-flag readers are harmless no-ops with nothing
+  bought — and the full tree can be re-enabled with `acc_cyberware_on 1` (also noted in
+  `03_progression_and_skills.md`).
 - `_acc_overclocks.gsc` — weapon-family registry + per-run active-pool roll, applied
-  at the Lab Overclock Terminal.
+  at the Lab Overclock Terminal (the live weapon-upgrade path).
 - `_acc_map_randomizer.gsc` — power side, PaP approach, wallbuy/perk pools all re-roll
   on map load.
 - `_acc_elites.gsc` — elite classes dropping Shards.
@@ -121,9 +127,9 @@ stock props carved from the T7 assets dump (`09_boss_items.md`).
 
 This is the standing state of the map: iterative playtests feed a continuous balance +
 bug-fix loop (see `CHANGELOG.md` — HP tuning, economy/HUD sync, zombie speed curve,
-coop-crash hardening). Balance levers in play: Data Shard drop rates, Cyberware
-capstone strength, elite/boss HP and spawn timing, and wallbuy/perk/Overclock pool
-weights.
+coop-crash hardening). Balance levers in play: Data Shard drop rates, Overclock upgrade
+strength, elite/boss HP and spawn timing, and wallbuy/perk/Overclock pool weights.
+(Cyberware capstone tuning is dormant along with the disabled tree — see Phase 3.)
 
 ## Phase 7 - Release — PENDING
 

@@ -1,10 +1,17 @@
 // =============================================================================
 // reduce_ammo.js - GLOBAL gun magazine + reserve ammo cut of 30% (user 2026-06-15).
 //
-// In BO3 GDTs `maxAmmo`/`startAmmo` are reserve MAGAZINE counts (6-12), so the in-game
-// reserve = maxAmmo x clipSize. Reducing clipSize by 30% therefore drops BOTH the mag
-// (clipSize) AND the reserve (maxAmmo x clipSize) by 30% in one edit - and the Armory
-// +25% "ammo" twin (maxAmmo x1.25) then yields +25% of the REDUCED reserve automatically.
+// In BO3 GDTs `maxAmmo`/`startAmmo` are reserve MAGAZINE counts (6-12) *WHEN the block has
+// `ammoCountClipRelative "1"`* (every gun this tool touches), so the in-game reserve =
+// maxAmmo x clipSize. Reducing clipSize by 30% therefore drops BOTH the mag (clipSize) AND
+// the reserve (maxAmmo x clipSize) by 30% in one edit - and the Armory +25% "ammo" twin
+// (maxAmmo x1.25) then yields +25% of the REDUCED reserve automatically.
+//   *** TRAP (do NOT extend a MAXAMMO_FIX to a wonder weapon without checking): the
+//   Blast-O-Matic `_up` + Thundergun blocks are `ammoCountClipRelative "0"` = maxAmmo/startAmmo
+//   are ABSOLUTE ROUNDS (reserve = maxAmmo, NOT x clip). Treating them as magazines collapsed
+//   their reserve to 6 on 2026-07-09 (fixed 2026-07-10, tools/oneshots/fix_reserve_cliprel_0710.js).
+//   None of THIS tool's targets are clipRel-0, so the math below is correct as-is - but verify
+//   `ammoCountClipRelative` before adding any new maxAmmo override.
 //
 // SCOPE (GLOBAL ARCHITECTURE): EVERY weapon entry in every gun GDT - base AND PaP (`_up`)
 // AND all recoil/reload twins (base- and _up-form). The 30% applies uniformly so

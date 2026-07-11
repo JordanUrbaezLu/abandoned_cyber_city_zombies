@@ -130,6 +130,14 @@ clone(afLines, 't8_melee_figure_fast2', 't8_melee_figure_fast2_brz', AF_FIELDS, 
 clone(afLines, 't8_melee_figure_fast3', 't8_melee_figure_fast3_brz', AF_FIELDS, AF_GDT);
 
 // -- KNIFE (melee-slot clone; bare-fist visuals + stock-knife damage) ----------
+// FALSE-ALARM HISTORY (2026-07-11, keep for the next hang hunt): the first launch of the build
+// carrying this weapon HUNG in the weapon DB-load phase (AppHangB1 in Event Viewer, console_mp.log
+// truncated mid-line) and the empty gunModel/worldModel below were briefly suspected + restored to
+// the AF models. The user then relaunched the SAME .ff and it loaded fine -> the hang was a
+// transient first-launch stall (shader warm-up after a full rebuild / the Steam relaunch jam),
+// NOT this def. Empty models are engine-legal (stock ships weapon,bare_hands_mp). If load hangs
+// ever CORRELATE with this weapon, the fallback is: delete the two setField('' ) lines below
+// (quick melee then shows the figure in hand, the AF melee-slot sibling's own design) + re-run.
 clone(afLines, 't8_actionfigure_melee', 'acc_berzerker_melee', AF_FIELDS, AF_GDT, b => {
   setField(b, 'displayName', 'Berzerker');
   setField(b, 'gunModel', '');      // bare-fist swipe (no stock knife viewmodel exists in the tools)

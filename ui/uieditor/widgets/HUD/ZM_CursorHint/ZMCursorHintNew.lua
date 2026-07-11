@@ -181,6 +181,15 @@ CoD.ZMCursorHintNew.new = function ( menu, controller )
 			return nil
 		end
 		
+		-- ACC (2026-07-10 buyable-UI audit): the permanent perk-door UNLOCK trigger hint reads
+		-- "Hold [{+activate}] Open <perk> permanently for N Mega Bottles" (_acc_perk_doors::unlock_hint).
+		-- It contains a perk name + "for", so without this guard it falsely routes to the perk BUY card.
+		-- "permanently" is unique to that unlock hint (no perk buy/mega hint has it), so bail and let it
+		-- fall through to the plain DefaultHint, which shows the literal readable unlock text.
+		if string.find( lowerHint, "permanently" ) then
+			return nil
+		end
+
 		-- Loop through perks table and check for perk name matches
 		for i = 1, #CoD.AetheriumPerks do
 			local perkName = string.lower(CoD.AetheriumPerks[i].name)

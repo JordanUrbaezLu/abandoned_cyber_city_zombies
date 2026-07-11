@@ -121,7 +121,7 @@ function he_free( n )
 
 function he_log( msg )
 {
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_hudelem_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_hudelem_debug", 0 ) != 1 ) return;   // DECOUPLED from level.acc_dev (user 2026-07-10: clean screen in hardcoded dev) - this on-screen logger rides its dvar ONLY now
     players = get_all_players();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( msg );
@@ -203,7 +203,7 @@ function drop_floor_origin( origin )
 // Launch with: +set acc_drops_debug 1 +set logfile 1
 function drops_debug( msg )
 {
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_drops_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_drops_debug", 0 ) != 1 ) return;   // DECOUPLED from level.acc_dev (user 2026-07-10: clean screen in hardcoded dev) - dvar-only now
     players = get_all_players();
     for ( i = 0; i < players.size; i++ )
     {
@@ -224,7 +224,7 @@ function drops_debug( msg )
 //   reproduce the crash, then read the LAST "[CRASHDBG]" lines in <game>\console_mp.log.
 function crash_log( player, msg )
 {
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_crash_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_crash_debug", 0 ) != 1 ) return;   // DECOUPLED from level.acc_dev (user 2026-07-10: clean screen in hardcoded dev) - dvar-only now
     if ( isdefined( player ) && isplayer( player ) )
     {
         player IPrintLnBold( "^1[CRASHDBG]^7 " + msg );
@@ -347,6 +347,26 @@ function get_closest_uncloaked_player( origin )
     }
     if ( filtered.size == 0 ) return undefined;
     return arraygetclosest( origin, filtered );
+}
+
+// PHASE SERUM aura check (shared home 2026-07-11; lifted from _acc_boss_glitch::acc_serum_suppressed
+// so the Phantom can read it too - glitch already #using's phantom, so phantom #using glitch would be
+// circular). True if any alive player within acc_phase_serum_radius holds the Phase Serum boss item
+// (p.acc_phase_serum, set by _acc_boss_items::apply_arnie_cloak). Consumers pick their own penalty:
+// Glitch Stalker = 1/5 speed + no blink; Phantom = 30% slower (gait only, teleports untouched).
+function serum_aura_active( origin )
+{
+    radius = getdvarint( "acc_phase_serum_radius", 350 );
+    if ( radius <= 0 ) return false;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( !isdefined( p.acc_phase_serum ) || !p.acc_phase_serum ) continue;   // no IS_TRUE here - this file has no shared.gsh #insert
+        if ( Distance( origin, p.origin ) <= radius ) return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------

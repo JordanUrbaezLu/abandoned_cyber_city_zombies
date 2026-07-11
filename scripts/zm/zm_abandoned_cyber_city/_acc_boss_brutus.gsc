@@ -275,7 +275,7 @@ function warden_patrol_step( risers )   // self = Brutus
 function warden_debug()   // self = Brutus
 {
     self.acc_warden_dbg_tick++;
-    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_warden_debug", 0 ) != 1 ) return;
+    if ( getdvarint( "acc_warden_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [WARDEN] rides acc_warden_debug now)
     if ( ( self.acc_warden_dbg_tick % 10 ) != 0 ) return;
 
     tgt  = ( isdefined( self.brutus_enemy ) ? "Y" : "N" );

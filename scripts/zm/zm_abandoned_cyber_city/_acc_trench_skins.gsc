@@ -102,7 +102,7 @@ function trench_skin_roll()
 	self.acc_trench_skinned = true;
 
 	// Dev proof-of-life: announce the FIRST skinned zombie once per game (on-screen + log).
-	if ( !IS_TRUE( level.acc_trench_skin_seen ) && IS_TRUE( level.acc_dev ) )
+	if ( 0 )   // [BOTD] dev proof-of-life print REMOVED 2026-07-10 (clean screen); restore !IS_TRUE(acc_trench_skin_seen) && IS_TRUE(acc_dev) to re-enable
 	{
 		level.acc_trench_skin_seen = true;
 		players = GetPlayers();

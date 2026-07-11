@@ -51,10 +51,12 @@
 // Pickup world model (stock energy-ball; also needs an xmodel line in the .zone).
 // #precache is a DIRECTIVE in BO3 - must sit after all #using/#define, before #namespace.
 #precache( "model", "p7_fxanim_zm_stal_ray_gun_ball_mod" );
-// STATION REMODEL (user 2026-07-09, docs/09): the Data Cache is a man-height Gorod computer
-// tower (24x30x72, T7-dump carve) - a machine full of DATA, not the cargo crate the Ammo Crate
-// shared. Tower origin is MESH-CENTERED (floorLift 36 from vertex bounds): spawn +36 z.
-#precache( "model", "p7_zm_sta_computer_tower_01" );   // underground Data Cache (loot-for-shards) model
+// MODEL REVERT (user 2026-07-10): back to the p7_cai_stacking_cargo_crate the user preferred (the 2026-07-09
+// STATION REMODEL to p7_zm_sta_computer_tower_01 is undone). The crate SHIPS a _col collision LOD so a bare
+// script_model of it is SOLID on its own (the tower had none = that's why the caches went walk-through); the
+// matching add_prop_clips.js clips are belt-and-suspenders, sized to the 64x64x48 crate. Crate origin sits at
+// its BASE (floorLift 0) -> spawn lift is 0 (was +36 for the mesh-centered tower). xmodel line already in .zone.
+#precache( "model", "p7_cai_stacking_cargo_crate" );   // underground/plaza Data Cache (loot-for-shards) model
 // Data Shards HUD icon (user 2026-06-25): the player's PNG replaces the "DATA SHARDS" text label. The server
 // hudelem path is a DEAD END - a usermap cannot build a 2D HUD material ("No techsetdef for material type '2d'");
 // the image i_acc_data_shard packs fine though, so the icon is drawn in LUI (acc_hud.lua, CoD.AccShardIcon),
@@ -83,7 +85,8 @@ function init()
     // createFontString + SetValue, numeric = no localization needed).
 
     level.acc_shards_pickup_model = "p7_fxanim_zm_stal_ray_gun_ball_mod"; // glowing energy ball = data-shard look (stock, verified); #precache'd above + xmodel line in .zone.
-    level.acc_shards_cache_model = "p7_zm_sta_computer_tower_01";         // Data Cache = computer tower (T7-dump carve, xmodel line in .zone; origin mesh-centered -> +36 spawn lift in spawn_cache_at).
+    level.acc_shards_cache_model = "p7_cai_stacking_cargo_crate";         // Data Cache = stacking cargo crate (64x64x48, ships _col LOD so it self-collides; xmodel line in .zone).
+    level.acc_shards_cache_lift  = 0;                                     // crate origin sits at its base (floorLift 0) -> no spawn lift. Paired with the model above; a mesh-centered model would set this to its floorLift.
     // (No tracking array: a former level.acc_shards_pool was WRITE-ONLY - appended per drop, never read
     // or trimmed - an unbounded dead-reference leak over a long match. Each pickup self-cleans via
     // watch_lifetime (timeout) or cleanup_pickup (on grab), so no pool is needed. Removed 2026-06-25.)
@@ -241,11 +244,14 @@ function spawn_pickup_at( origin, count )
 // diminish). Placed by _acc_glitch_altar along the underground floor.
 // ---------------------------------------------------------------------------
 
-function spawn_cache_at( origin, count )
+// group (user 2026-07-11): the anti-hog cap is scoped PER GROUP ("plaza" vs "trench") - a player may
+// loot one cache from EACH group per round, just never two from the same group. Omitted = "default".
+function spawn_cache_at( origin, count, group )
 {
     if ( !isdefined( count ) || count <= 0 ) count = 1;
 
-    crate = spawn( "script_model", origin + ( 0, 0, 36 ) );   // tower origin is mesh-centered (floorLift 36) - lift or it half-sinks
+    lift = ( isdefined( level.acc_shards_cache_lift ) ? level.acc_shards_cache_lift : 0 );   // model-paired lift (init sets it beside the model)
+    crate = spawn( "script_model", origin + ( 0, 0, lift ) );   // 0 for the base-origin cargo crate; was +36 for the mesh-centered tower
     crate setmodel( level.acc_shards_cache_model );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 30 ), 0, 60, 72 );
@@ -253,6 +259,7 @@ function spawn_cache_at( origin, count )
     t UseTriggerRequireLookAt();
     t SetCursorHint( "HINT_NOICON" );
     t.acc_cache_count = count;
+    t.acc_cache_group = ( isdefined( group ) ? group : "default" );   // anti-hog scope key (see cache_loop)
     t.acc_depleted = false;
     t.acc_cache_crate = crate;   // the renderable model the indicator glow rides (the trigger has no tag_origin)
     t cache_set_hint();
@@ -312,23 +319,29 @@ function cache_loop()   // self = the cache trigger
             continue;
         }
 
-        // ONE cache per player per round (user 2026-06-25): in CO-OP, a player who already grabbed a cache
-        // this round can't take the OTHER one - it must go to a teammate (anti-hog: stops one player looting
-        // both every round). Per-player round-NUMBER gate = self-healing (no reset thread; a new round
-        // re-enables them automatically, like the reactor cooldown). SOLO is EXEMPT (level.players.size <= 1)
-        // - with no teammate to "leave it for", blocking the 2nd cache would just waste its shards forever.
+        // ONE cache per player per round PER GROUP (user 2026-06-25; group split user 2026-07-11): in CO-OP,
+        // the anti-hog cap is scoped to the cache's GROUP ("plaza" crates vs "trench" pit caches) - a player
+        // may grab one PLAZA cache AND one TRENCH cache in the same round, but never two from the SAME group
+        // (the second must go to a teammate). Marker = per-group round-number map
+        // (player.acc_cache_looted_round[ group ]) - still self-healing (no reset thread; a new round
+        // re-enables everything automatically, like the reactor cooldown). SOLO is EXEMPT
+        // (level.players.size <= 1) - with no teammate to "leave it for", blocking would waste shards forever.
         // Toggle: acc_cache_one_per_player 0 disables the restriction (then it's first-come per cache again).
         cur = ( isdefined( level.round_number ) ? level.round_number : 1 );
+        grp = ( isdefined( self.acc_cache_group ) ? self.acc_cache_group : "default" );
         if ( getdvarint( "acc_cache_one_per_player", 1 ) == 1 && level.players.size > 1
-             && isdefined( player.acc_cache_looted_round ) && player.acc_cache_looted_round == cur )
+             && isdefined( player.acc_cache_looted_round ) && isdefined( player.acc_cache_looted_round[ grp ] )
+             && player.acc_cache_looted_round[ grp ] == cur )
         {
-            player acc_utility::hud_msg( "^5DATA CACHE^7 - you already grabbed one this round (leave the other for a teammate)" );
+            player acc_utility::hud_msg( "^5DATA CACHE^7 - you already grabbed one here this round (leave these for a teammate)" );
             wait 0.3;
             continue;
         }
 
         grant_player( player, cache_yield( self.acc_cache_count ), "vault_cache" );
-        player.acc_cache_looted_round = cur;   // mark: this player has taken a cache THIS round (the per-player gate above)
+        if ( !isdefined( player.acc_cache_looted_round ) )
+            player.acc_cache_looted_round = [];   // per-group map, keyed by cache group string
+        player.acc_cache_looted_round[ grp ] = cur;   // mark: this player has taken a cache from THIS GROUP this round
         player PlaySound( "acc_shard_pickup" );
         self.acc_depleted = true;
         self cache_set_hint();

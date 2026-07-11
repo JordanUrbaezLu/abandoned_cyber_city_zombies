@@ -66,7 +66,9 @@ function init()
     // Live line near the top of the screen with the SERVER-side value of every badge lane for the
     // held weapon. Splits the fault in one glance: probe shows the value but no chip = client/LUI
     // lane; probe shows 0 = server lookup. See dev_badge_probe_loop.
-    level thread dev_badge_probe_loop();
+    // REMOVED FROM DEV (user 2026-07-10: "remove the random debug UI, keep the screen clean") - dev is now hardcoded
+    // ON, so this persistent top-of-screen line would ALWAYS show. Re-enable this one line to debug badge lanes.
+    // level thread dev_badge_probe_loop();
 
     // ONE dev switch: level.acc_dev (resolved once in the entry script's acc_resolve_dev_flags(),
     // which runs in main() before this init). Off = normal play; the REST of this harness no-ops.
@@ -87,10 +89,11 @@ function init()
     // in the file as the referenced HUD-waypoint recipe (see _acc_health_bars wallhack markers) but are no
     // longer threaded. Re-enable by restoring this line if a future build needs to locate unbought doors.
     // level thread dev_door_markers();
-    // DEV STARTING LOADOUT (Fire Bow) RETIRED 2026-07-10 (user, publish prep: "remove the bow that spawns").
-    // Commented (not deleted) so a future charge-fix test can re-enable one line; dev now starts on the
-    // stock pistol like normal play. Was: start with the FIRE BOW (was Havoc 07-08/07-06, Alternator 07-06, XM4 07-04, Blast-O-Matic 07-03, Thundergun 07-02).
-    // level thread dev_starting_loadout();
+    // DEV STARTING LOADOUT: start every player holding the BLAST-O-MATIC (user 2026-07-10: "in dev start me with
+    // the blastomatic gun"). Re-enabled after the 07-10 Fire-Bow retirement; dev_give_starting_guns hands over the
+    // CW DOA energy blaster (runtime name t9_semiauto_cosplay) each life. (History: Fire Bow 07-08/07-10, Havoc
+    // 07-08/07-06, Alternator 07-06, XM4 07-04, Blast-O-Matic 07-03, Thundergun 07-02.)
+    level thread dev_starting_loadout();
 
     // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
     // FEATURES, always on for every player, not dev tools. See the top of init().)
@@ -349,21 +352,15 @@ function dev_give_starting_guns()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // FIRE BOW dev-start (user 2026-07-08 evening: "start me with the firebow so I can test it" - the
-    // charge-fix + Mega-Speed-Cola-twin test round; supersedes the same-day Havoc start, itself over the
-    // earlier 07-07 Fire Bow / Leviathan / Alternator / XM4 / Blast-O-Matic / Thundergun starts). RUNTIME
-    // name = "elemental_bow_demongate" (asset id ..._zm - engine strips the mode suffix). Raw GiveWeapon is
-    // enough: the bow's per-player watchers ride bow_demongate_watchers_respawn_loop (connect-threaded),
-    // NOT the give path. TEST FOCUS: hold-fire full charge -> portal opens; bleed out, respawn, charge
-    // again -> portal STILL opens (the 07-08 watcher-respawn fix); with Mega Speed Cola -> nock 1.5->1.29s
-    // (the fastreload twin swaps in; tap chompers + charged portal must both still work on the twin).
-    // (Havoc swap-back: GetWeapon( "apex_beam_rifle" ), print "Havoc (apex beam rifle)".)
-    w = GetWeapon( "elemental_bow_demongate" );
+    // BLAST-O-MATIC dev-start (user 2026-07-10: "in dev start me with the blastomatic gun"). RUNTIME name =
+    // "t9_semiauto_cosplay" (the CW DOA energy blaster, a wonder-class box gun already integrated on this map).
+    // Raw GiveWeapon is enough - it's a normal box weapon (no per-life watcher wiring like the Fire Bow needed).
+    // SILENT handover (no IPrintLnBold): the user wants a clean screen in hardcoded dev, and the gun appearing in
+    // hand IS the confirmation. Swap the runtime name below to test-start a different gun.
+    w = GetWeapon( "t9_semiauto_cosplay" );
     if ( !isdefined( w ) || w == level.weaponNone ) return;
     self GiveWeapon( w );
     self SwitchToWeapon( w );
-
-    self IPrintLnBold( "^2>> DEV: Fire Bow (demon gate) [bow-diag v2]" );   // build stamp: if this suffix is missing, the session loaded a STALE .ff
 }
 
 // APEX WEAPON DIAGNOSTIC - REMOVED 2026-07-06 after serving its purpose. It was a persistent dev-HUD
@@ -575,10 +572,10 @@ function ensure_dev_huds( p )
     if ( IS_TRUE( p.acc_dev_huds_init ) ) return;
     p.acc_dev_huds_init = true;
 
-    // Unmistakable dev-mode confirmation - if you SEE this, acc_dev IS active (also logs as [ SCRIPTER] in
-    // console_mp.log). Absent = NOT in dev mode. The zone-banner hud loop runs in BOTH modes; only this print is dev.
-    if ( IS_TRUE( level.acc_dev ) )
-        p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
+    // DEV MODE ACTIVE spawn print REMOVED (user 2026-07-10: "remove the random debug UI, keep the screen clean").
+    // Dev is now hardcoded ON, so this would print for every player on every spawn. Re-enable to reconfirm the flag.
+    // if ( IS_TRUE( level.acc_dev ) )
+    //     p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
 }
 
 // Create the area-name banner hudelem on demand (TOP, y2). CONDITIONAL/pooled (user 2026-06-28): dev_update_zone

@@ -38,18 +38,20 @@ climbs to ~4.7 GB over ~40 s.
 | **Power** | NOT auto-on — flip the Bus Station (corp) power switch yourself (perks/PaP/traps gate on it), same as normal play. (`set acc_auto_power 1` is a dormant manual shortcut.) |
 | **Bosses** | The full multi-boss roster runs on **per-module dev cadences** (see below), not one fixed test boss. |
 | **Mega Bottles** | Topped up to **25** in dev regardless of any boss kill, so perk Mega-upgrades are testable without farming a boss. |
-| **Status banner** | First ~15 s: `[ACC] DEV BUILD LIVE - map open, power on, systems: COMPLETE`. `COMPLETE` (vs `pending`) confirms the full `_acc_` init chain ran (`level.acc_init_complete`). The "map open, power on" part is fixed banner label text — power is still yours to flip. |
-| **Diagnostics** | Dev auto-enables the hudelem-pool logger and the weapon-variant swap readout; door/boss debug is routed to the log, not the screen. |
+| **Status banner** | None — the on-screen green `[ACC] DEV BUILD LIVE …` banner was **removed 2026-07-10** (user asked to kill the green "DEV MODE ACTIVE" UI). The money/shards/bottle top-ups still run silently; the dev-live cue is now points jumping to 1,000,000 at spawn. |
+| **Diagnostics** | Dev now runs with a **clean screen** (user 2026-07-10): it does NOT auto-enable the hudelem-pool logger or the weapon-variant swap readout. Each rides only its own opt-in dvar (default 0) — `set acc_hudelem_debug 1` / `set acc_variants_debug 1` to turn one on. Door/boss debug stays off the screen (log only). |
 | **Zombie speed** | Two-phase natural-gait curve (see below). |
 
 ### Boss dev cadences (per module)
 
-- **Phantom** ("Reaper") — normal first round 10 / every 8; dev bypasses the master
-  gate and owes Phantoms on the dev cadence (`_acc_boss_phantom.gsc`).
+- **Phantom** ("Reaper") — normal first round 10, then the every-9 shared roster
+  (legacy fallback every 10); dev bypasses the master gate and owes Phantoms on the
+  dev cadence, first test spawn from round 8 (`_acc_boss_phantom.gsc`).
 - **Glitch Stalker** — dev spawns from round 2 (`acc_glitch_test`, `_acc_boss_glitch.gsc`).
 - **Avogadro** (cyberhacker) — dev runs a repeating test spawn (`_acc_boss_avogadro.gsc`).
-- **Rogue/Civil Protector** (r20 hostile) — dev = round 2 / every 5 (`_acc_civil_protector.gsc`).
-- **Panzer** (mechz) — dev keeps one alive from round 3 (`_acc_boss_panzer.gsc`).
+- **Rogue/Civil Protector** (r20 hostile) — this module also hosts the shared boss
+  director; dev cadence = round 3, every 3 (`_acc_civil_protector.gsc`).
+- **Panzer** (mechz) — dev keeps one alive from round 2 (`_acc_boss_panzer.gsc`).
 - **Brutus** — follows his real round-5 power cadence even in dev (`acc_test_boss` stays off).
 
 In normal play, bosses come as a mini-boss first at round 10, then full boss
@@ -77,8 +79,9 @@ health scaling on top — see docs/08_enemies.md.)
 
 ## Test checklist
 
-1. **Spawn** — confirm the green `[ACC] DEV BUILD LIVE … systems: COMPLETE` banner
-   and points jumping to 1,000,000. (If it says `pending`, a module init failed — tell me.)
+1. **Spawn** — confirm points jump to 1,000,000 (the dev-live cue; the old on-screen
+   `[ACC] DEV BUILD LIVE` banner was removed 2026-07-10). If money never tops up, the
+   dev sandbox didn't thread — tell me. `[acc]` init breadcrumbs land in `console_mp.log`.
 2. **Move freely** — buy the zone doors (money is unlimited) and walk every zone:
    Market, Alley, Corp Plaza, Vault, Roof, Lab, plus the Armory, the Exchange, and
    the underground Abyss layers → Paradise plaza. Note any spot where geometry blocks you.
@@ -91,13 +94,15 @@ health scaling on top — see docs/08_enemies.md.)
 6. **Perk upgrades** — dev tops you to 25 Mega Bottles; at a perk machine you own,
    hold for the "Hold ✋ for Mega upgrade" prompt → upgrade. Test several
    (Jug→Ultimate Tank, Stamin-Up→The Flash, Deadshot→American Sniper, …).
-7. **Bosses** — let the dev cadences run (Glitch/Protector from ~round 2, Panzer
-   from 3, Phantom on its cadence); confirm each spawns, moves, attacks, and dies,
-   and drops its reward.
-8. **Data Shards / Cyberware / Overclocks** — you start with 25 shards; find the
-   kiosk(s), buy extra perk slots (escalating shard cost 4/6/8/10/12/14, up to the
-   10-slot cap), buy Cyberware nodes / roll Overclocks, and confirm a SPEND actually
-   deducts (the real economy is live in dev).
+7. **Bosses** — let the dev cadences run (Glitch from ~round 2, Panzer from round 2,
+   Protector director round 3 / every 3, Phantom on its dev cadence); confirm each
+   spawns, moves, attacks, and dies, and drops its reward.
+8. **Data Shards / Overclocks** — you start with 25 shards. Live shard spends: buy
+   extra perk slots at the **Neural Expansion Bay** perk-slot vendor, and roll/re-roll
+   Overclocks at the **Overclock terminal** (`p7_zm_sta_dragon_network_data_terminal`).
+   Confirm a SPEND actually deducts (the real economy is live in dev). NOTE: the
+   **Cyberware skill tree is disabled** — its kiosk isn't spawned unless `acc_cyberware_on 1`
+   is set (dev never sets it), so the Overclock terminal is the sole weapon-upgrade path.
 9. **Zombie speed** — early rounds jog (creeping faster); the wave breaks into a
    full sprint at **round 15**, then inches up after. Optionally `set acc_zspeed_jog_step_pct <n>`
    and re-check the feel.

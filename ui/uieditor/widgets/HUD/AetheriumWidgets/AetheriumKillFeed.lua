@@ -4,7 +4,7 @@
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumKillFeedText" )
 
 local SetKillTypeColor = function ( element, killName )
-	-- AAT Kill Colors (all use yellow like critical kills)
+	-- AAT Kill Colors (yellow, same as regular kills since the 2026-07-11 recolor)
 	if killName:find( "Electric Kill" ) then
 		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow
 	elseif killName:find( "Blast Furnace" ) then
@@ -15,11 +15,12 @@ local SetKillTypeColor = function ( element, killName )
 		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow
 	elseif killName:find( "Turned" ) then
 		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow
-	-- Critical Kill Colors
+	-- Critical Kill Colors (user 2026-07-11: crits = the damage-number headshot teal/cyan,
+	-- ACC_DMG_COLOR_HS in acc_hud.lua, so crit feed text matches the crit damage numbers)
 	elseif killName:find( "Critical" ) then
-		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow for crits
+		element:setRGB( 0.20, 0.95, 0.85 ) -- Cyan/teal for crits (= dmg-number headshot color)
 	else
-		element:setRGB( 1, 1, 1 ) -- White for normal/melee/burned/elimination
+		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow for normal/melee/burned/elimination (user 2026-07-11: was white)
 	end
 end
 
