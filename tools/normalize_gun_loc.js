@@ -31,7 +31,7 @@ function findSourceData() {
     throw new Error('Mod Tools source_data not found.');
 }
 
-const ROSTER = ['t6_fiveseven', 's1_rw1', 't5_ak74u', 's1_asm1', 's4_ppsh41', 't6_ak47', 't6_galil', 's1_ae4', 's1_mk14', 't6_m60', 't6_rpd', 's1_tac19', 't6_olympia', 't8_paladin_hb50', 's1_mors', 't6_chicom_cqb'];
+const ROSTER = ['t6_fiveseven', 's1_rw1', 't5_ak74u', 's1_asm1', 's4_ppsh41', 't6_ak47', 't6_galil', 's1_ae4', 's1_mk14', 't6_m60', 't6_rpd', 's1_tac19', 't6_olympia', 't8_paladin_hb50', 's1_mors', 't6_chicom_cqb'];   // NOTE: t6_galil is kept as the GRAFT SOURCE for the CW Grav (t9_grav) - its normalized loc is copied onto t9_grav by graft_cw_weapon_stats.js, so t9_grav is NOT listed here (same as t6_ak47->t9_ak47).
 const DAMAGE_REENCODE = [{ prefix: 't8_paladin_hb50_up', value: '2000' }];
 
 // read the headshot-excluded set from the GSC (single source of truth)

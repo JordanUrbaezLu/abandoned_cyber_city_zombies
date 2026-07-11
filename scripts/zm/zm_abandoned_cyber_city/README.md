@@ -23,7 +23,7 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_events_overload.gsc` | Vault Overload point-defense event. | main, data_shards |
 | `_acc_emergency_drop.gsc` | 3-Shard clutch button at power switches. | main, data_shards |
 | `_acc_modifiers.gsc` | Opt-in rule-change toggles (Code Red, Shardless, etc.) via dvars for now. | main (via pre_init) |
-| `_acc_boss.gsc` | Mini-boss (r10/r20) and full boss Subroutine Core (r30+). | main, data_shards |
+| `_acc_boss.gsc` | Trench Warden (Brutus) cadence (power-on debut, respawn 3 rounds after each kill) + boss shard rewards. The every-9-rounds boss roster (Phantom / Rogue Protector / Avogadro from r9) is directed by `_acc_civil_protector`; the legacy Subroutine Core full-boss code (`run_full_boss` / `spawn_subroutine_core`) is unreachable dead code (removed 2026-06-22). | main, data_shards |
 | `_acc_points.gsc` | Kill-point awards (40 / 100 / 100) with co-op 70/30 damage split and anti-exploit rules. | main, damage |
 | `_acc_damage.gsc` | Global AI damage hook. Applies 2x/3x headshot multiplier, forwards each hit to `_acc_points::record_damage`. | main |
 | `_acc_decontamination.gsc` | **Zone-seal hazard REMOVED (2026-06-22)** — no seal / no EVACUATE-SEALS-SEALED UI / no kill. Now only re-emits `acc_decontamination_complete` each round; keeps the zone helpers (`get_zone_volumes` / `enable+disable_zone_spawning` / `is_zone_sealed`) that `_acc_lockdown[_challenge]` reuse. | main |
@@ -73,7 +73,7 @@ Custom events this namespace publishes (subscribe via `level waittill(...)`):
 - `acc_round_end` (args: previous_round_number) - emitted right before the new round's start event.
 - `acc_shards_changed` (args: player) - emitted when a player's shard count changes.
 - `acc_cyberware_purchased` (args: player, node_id) - node bought.
-- `acc_boss_dead` - full boss defeated.
+- `acc_boss_dead` - a boss defeated (legacy: its only emitter lives in the unreachable full-boss path in `_acc_boss.gsc` since the 2026-06-22 removal).
 
 ## State Conventions
 
@@ -106,7 +106,7 @@ Level state lives on `level.acc_*`:
 
 Per-actor state used by `_acc_damage.gsc`:
 
-- `actor.acc_is_boss` (bool) - set by `_acc_boss.gsc` on full-boss spawn; triggers 3x headshot.
+- `actor.acc_is_boss` (bool) - set by the boss framework on boss spawn; triggers 3x headshot.
 - `actor.acc_is_mini_boss` (bool) - set by `_acc_boss.gsc` on Juggernaut Host spawn; triggers 3x headshot.
 - `actor.acc_is_elite` (bool) - set by `_acc_elites.gsc`; keeps the 2x regular headshot multiplier (no special case needed).
 

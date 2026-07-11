@@ -4,14 +4,14 @@
 //
 // WHAT IT DOES (user 2026-06-23):
 //   1. Scores every SCOREABLE live gun on its FULLY PACK-A-PUNCHED (PaP T3) form
-//      using the multi-factor "v2 sustain" formula from docs/05_weapons.md.
+//      using the multi-factor "v2 sustain" formula from docs/04_weapons.md.
 //   2. Ranks the guns best -> worst by that PaP score.
 //   3. Splits the ranking into THIRDS (rank terciles): top third = highest PaP
 //      cost AND rarest box roll; bottom third = cheapest PaP AND commonest roll.
 //      Relative split -> add/remove a gun and the boundaries reshuffle.
 //   4. Applies hand OVERRIDES + places non-scoreable SPECIALS (wonder weapon /
 //      launcher) + lists EXCLUDED guns with no PaP form.
-//   5. GENERATES docs/54_pap_pricing_tiers.md with: the ranking, the PaP price
+//   5. GENERATES docs/33_pap_pricing_tiers.md with: the ranking, the PaP price
 //      table, the mystery-box odds, AND the two GSC functions to paste:
 //        - pap_price_bucket() + tier_cost()  -> _acc_pap_levels.gsc
 //        - acc_box_weight()                  -> _acc_map_randomizer.gsc
@@ -62,29 +62,42 @@ const BOX_WW = 3;
 // 6-23 GDT regen wiped it; verified by tools/audit_gun_ammo.js). reserve = maxAmmo x clipSize.
 const GUNS = [
   // display        weaponKey          class     effDPS clip res reload move pen      hand        cu     pc  pr  prl   transform pe  extra
-  { d: 'Tac-19',       w: 's1_tac19',        c: 'Shotgun', e: 569, cl: 3,   rs: 27,  rl: 0.47, mv: 1.00, p: 'large',  h: 'single_sg', cu: true,  pc: 6,   pr: 54,  prl: 0.467, t: 'none', pe: null, boxForce: 8 },   // SPREAD +3% best-gun buff (e 552->569, mult 0.612->0.6304, user 2026-06-26 -> papScore ~7.74 = now S); boxForce 10->8 (~1.7%, S-tier rare)
+  { d: 'Tac-19',       w: 's1_tac19',        c: 'Shotgun', e: 456, cl: 3,   rs: 27,  rl: 0.47, mv: 1.00, p: 'large',  h: 'single_sg', cu: true,  pc: 6,   pr: 54,  prl: 0.467, t: 'none', pe: null },   // DEMOTED S -> A- (user 2026-07-06 Apex migration): the Peacekeeper is now the top shotgun; e 569->456 -> papScore ~6.9 = A-. Damage unchanged (mult 0.5674 = 642/pellet). Was S+3% buff.
   { d: 'M60',          w: 't9_m60',          c: 'LMG',     e: 597, cl: 100, rs: 400, rl: 9.7,  mv: 0.80, p: 'large',  h: 'auto',      cu: false, pc: 120, pr: 480, prl: 9.7,   t: 'none', pe: null, boxForce: 8 },   // SPREAD +3% best-gun buff (e 580->597, mult 0.20->0.206, user 2026-06-26); boxForce 10->8 (~1.7%, S-tier rare)
   { d: 'AK-74u',       w: 't9_ak74u',        c: 'SMG',     e: 414, cl: 20,  rs: 160, rl: 2.8,  mv: 1.00, p: 'medium', h: 'auto',      cu: false, pc: 40,  pr: 280, prl: 2.8,   t: 'none', pe: null },   // SWAPPED with AK-47 -> MID (user 2026-06-26): e 518->414 (acc_weapon_balance_mult 0.23->0.184); boxForce:29 REMOVED so box rarity follows price (MID, common)
-  // Chicom CQB (BO2 t6_chicom_cqb): 3-round-burst SMG, the box's TOP-3 gun (user 2026-06-25). cu single-target/burst
-  // (raw within-burst DPS overstates; e = honest ~497 sustained after the 0.1s burst delay, mult 0.25). PaP "Auto Burst"
-  // 4-round, clip 56 / reserve 448 UNCUT (NOT in reduce_base_ammo) -> papScore ~8.05 = #2 (just under Tac-19), S+, TOP.
-  { d: 'Chicom CQB',   w: 't6_chicom_cqb',   c: 'SMG',     e: 515, cl: 36,  rs: 180, rl: 2.1,  mv: 1.00, p: 'medium', h: 'auto',      cu: true,  pc: 56,  pr: 448, prl: 2.1,   t: 'none', pe: null, boxForce: 8 },   // SPREAD +3% best-gun buff (e 500->515, mult 0.25->0.2575, user 2026-06-26); boxForce 8 (~1.7%, S-tier rare)
-  // Paladin HB50 (BO4 sniper): MOVED low-S -> B (user 2026-06-24). DPS cut e 624->437 (mult 0.70->0.49); clip 8 /
-  // reserve 96/132 / reload 4.1 unchanged -> base ~6.14 / papScore ~6.42 (B). MORS is now the S sniper; the Paladin
-  // is the cheaper mid-tier one-shot. (Its ACC_PALADIN_BOSS_MULT boss cut is separate and stays.)
-  { d: 'Paladin HB50', w: 't8_paladin_hb50', c: 'Sniper',  e: 424, cl: 8,   rs: 96,  rl: 4.1,  mv: 1.00, p: 'large',  h: 'sniper',    cu: true,  pc: 11,  pr: 132, prl: 4.13,  t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (e 437->424, mult 0.49->0.4753, user 2026-06-26)
+  // Chicom CQB + Paladin HB50 REMOVED 2026-07-06 (Apex migration): swapped out for the Prowler + G7 Scout (see below).
   // PPSH-41 scores S and lands TOP naturally; force keeps it TOP if the roster shrinks.
-  { d: 'PPSH-41',      w: 's4_ppsh41',       bn: 's4_ppsh41_base', c: 'SMG', e: 507, cl: 40, rs: 360, rl: 3.5, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 54, pr: 486, prl: 3.5, t: 'none', pe: null, force: 'TOP', boxForce: 8 },   // SPREAD +3% best-gun buff (e 492->507, mult 0.24->0.2472, user 2026-06-26); boxForce 10->8 (~1.7%, S-tier rare); force:TOP
+  { d: 'PPSH-41',      w: 's4_ppsh41',       bn: 's4_ppsh41_base', c: 'SMG', e: 507, cl: 40, rs: 360, rl: 3.5, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 60, pr: 540, prl: 3.5, t: 'none', pe: null, force: 'TOP', boxForce: 8 },   // SPREAD +3% best-gun buff (e 492->507); PaP clip 54->60 / reserve 486->540 (user 2026-07-05); boxForce 8; force:TOP
   { d: 'AK-47',        w: 't9_ak47',         c: 'AR',      e: 585, cl: 21,  rs: 168, rl: 3.25, mv: 0.95, p: 'medium', h: 'auto',      cu: false, pc: 31,  pr: 279, prl: 3.25,  t: 'none', pe: null, boxForce: 8 },   // SPREAD +3% best-gun buff (e 568->585, mult 0.227->0.2338, user 2026-06-26); boxForce 8 (~1.7%, S-tier rare). Swapped to TOP/S with AK-74u 2026-06-26
+  // XM4 (Cold War t9_xm4): full-auto AR, S tier (user 2026-07-04). e = base 200/0.083 x mult 0.21 = 506 -> papScore ~7.86 = S.
+  // PaP _up clip 70 / reserve 700 (maxAmmo 10 x 70) UNCUT / reload 2.3. boxForce 8 = S-tier rare roll. Balance mult in _acc_damage.
+  { d: 'XM4',          w: 't9_xm4',          c: 'AR',      e: 506, cl: 24,  rs: 216, rl: 2.63, mv: 0.95, p: 'medium', h: 'auto',      cu: false, pc: 55,  pr: 550, prl: 2.3,   t: 'none', pe: null, boxForce: 8, force: 'TOP' },   // PaP clip 55 / reserve 550 (user 2026-07-04, up from the -35% cut's 46/460); base 24/216 proportional; all twins too
+  // Streetsweeper (Cold War t9_streetsweeper): full-auto drum shotgun, A tier (user 2026-07-04). CURATED e=445 -> papScore ~6.94 = A
+  // (shotgun crowd-DPS curated like Tac-19/Olympia; the actual damage is mult 0.135 in _acc_damage, decoupled). 12 pellets PaP.
+  // PaP _up clip 36 / reserve 432 (maxAmmo 12 x 36) / reload 0.9. force:'MID' pins A-tier price.
+  { d: 'Streetsweeper', w: 't9_streetsweeper', c: 'Shotgun', e: 380, cl: 6, rs: 60, rl: 0.9, mv: 1.00, p: 'medium', h: 'single_sg', cu: true, pc: 14, pr: 126, prl: 0.9, t: 'none', pe: null },   // DEMOTED A -> B (user 2026-07-06 Apex migration): e 445->380 -> papScore ~6.2 = B (below Tac-19 A-, Peacekeeper S). Damage/ammo unchanged (mult 0.0930, clip 14/reserve 126).
+  // CEL-3 Cauterizer (AW s1_cel3): triple-barrel full-auto SPREAD shotgun, B tier (user 2026-07-05). CURATED crowd
+  // DPS e=395 (12 pellets PaP like Streetsweeper/Tac-19; raw damage decoupled - mult 0.27 in _acc_damage). Loc
+  // NORMALIZED install-side (torso/neck 1.0, .acc-loc-orig). PaP _up clip 24 / reserve 192 (maxAmmo 8 x 24) / reload 3.0 -> papScore ~6.22 = B.
+  { d: 'CEL-3',        w: 's1_cel3',         c: 'Shotgun', e: 395, cl: 16,  rs: 128, rl: 3.0,  mv: 1.00, p: 'medium', h: 'single_sg', cu: true,  pc: 24,  pr: 192, prl: 3.0,   t: 'none', pe: null },
   { d: 'AE4',          w: 's1_ae4',          c: 'AR',      e: 413, cl: 25,  rs: 200, rl: 2.0,  mv: 1.00, p: 'medium', h: 'auto',      cu: false, pc: 38,  pr: 304, prl: 2.0,   t: 'none', pe: null },
   { d: 'ASM1',         w: 's1_asm1',         c: 'SMG',     e: 401, cl: 22,  rs: 132, rl: 2.1,  mv: 1.00, p: 'medium', h: 'auto',      cu: false, pc: 36,  pr: 288, prl: 2.1,   t: 'none', pe: null },
-  { d: 'Galil',        w: 't6_galil',        c: 'AR',      e: 412, cl: 25,  rs: 225, rl: 2.9,  mv: 0.95, p: 'medium', h: 'auto',      cu: false, pc: 35,  pr: 420, prl: 2.925, t: 'none', pe: null },
+  { d: 'Grav',         w: 't9_grav',         c: 'AR',      e: 412, cl: 25,  rs: 225, rl: 2.9,  mv: 0.95, p: 'medium', h: 'auto',      cu: false, pc: 35,  pr: 420, prl: 2.925, t: 'none', pe: null, force: 'MID' },   // Grav (CW full-auto AR): the GALIL's STATS grafted onto the CW model/sfx (user 2026-07-05, graft_cw_weapon_stats t6_galil->t9_grav - same AK-47-style "new model, same gun" migration). Identical box slot to the Galil: 220@0.08=2750 raw x mult 0.15 = ~412 eff DPS; PaP clip 35 / reserve 420 (maxAmmo 12 x 35). force:MID pins its price (as the Galil did).
   { d: 'Five-Seven',   w: 't6_fiveseven',    c: 'Pistol',  e: 412, cl: 14,  rs: 56,  rl: 1.8,  mv: 1.00, p: 'small',  h: 'semi',      cu: true,  pc: 21,  pr: 147, prl: 1.8,   t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (e 425->412, mult 0.26->0.2522, user 2026-06-26)
+  // ===== APEX MIGRATION 2026-07-06: Klauser removed (swapped for the Alternator). +4 Apex guns below. =====
+  // Peacekeeper (Apex 11->12-pellet lever shotgun): POWER-FIRST top shotgun (user #6). bal 0.43 -> ~950/pellet T3 (highest shotgun power). e=620 curated for S (power, not raw DPS). PaP _up clip 8 / reserve 80 / reload 2.5.
+  { d: 'Peacekeeper',  w: 'apex_peacekeeper', c: 'Shotgun', e: 620, cl: 6, rs: 60, rl: 2.5, mv: 1.00, p: 'large', h: 'single_sg', cu: true, pc: 8, pr: 80, prl: 2.5, t: 'none', pe: null, force: 'TOP' },
+  // Prowler (Apex burst PDW, here full-auto): B SMG. bal 0.21. big clip/reserve pin it B via utility; e=354. PaP _up clip 28 / reserve 224.
+  { d: 'Prowler',      w: 'apex_prowler', c: 'SMG', e: 360, cl: 20, rs: 160, rl: 2.0, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 28, pr: 224, prl: 2.0, t: 'none', pe: null },
+  // G7 Scout (Apex g2a4 semi marksman): C. bal 0.40. cu single-target (semi). e=340 (curated C). PaP _up clip 15 / reserve 150.
+  { d: 'G7 Scout',     w: 'apex_g2a4', c: 'Marksman', e: 360, cl: 10, rs: 100, rl: 2.4, mv: 0.95, p: 'medium', h: 'semi', cu: true, pc: 15, pr: 150, prl: 2.4, t: 'none', pe: null },
+  // Alternator (Apex full-auto SMG): TRASH base (bal 0.05) but A+ PaP (bal 0.27, user "trash base but A+ papped" - Klauser pattern). e=430 = PaP eff DPS. PaP _up clip 26 / reserve 312 / reload 1.9.
+  { d: 'Alternator',   w: 'apex_alternator', c: 'SMG', e: 480, cl: 16, rs: 160, rl: 1.9, mv: 1.00, p: 'medium', h: 'auto', cu: false, pc: 26, pr: 312, prl: 1.9, t: 'none', pe: null },
   { d: 'RPD',          w: 't9_rpd',          c: 'LMG',     e: 327, cl: 75,  rs: 300, rl: 7.5,  mv: 0.80, p: 'large',  h: 'auto',      cu: false, pc: 125, pr: 500, prl: 7.5,   t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (e 337->327, mult 0.125->0.1213, user 2026-06-26); clip+reserve +25% (75/300 base, 125/500 PaP)
   // RW1: directed-energy pistol. Hand-tuned to a real magazine (reduce_base_ammo CLIP_FIX/MAXAMMO_FIX:
   // clip 8 base / 12 PaP, reserve 56/96 - ABSOLUTE, exempt from the x0.7 cut) so it EARNS A (user 2026-06-23).
   { d: 'RW1',          w: 's1_rw1',          c: 'Pistol',  e: 590, cl: 8,   rs: 56,  rl: 1.4,  mv: 1.00, p: 'small',  h: 'semi',      cu: false, pc: 12,  pr: 96,  prl: 1.4,   t: 'none', pe: null },
-  { d: 'Olympia',      w: 't6_olympia',      c: 'Shotgun', e: 255, cl: 2,   rs: 26,  rl: 3.9,  mv: 1.00, p: 'small',  h: 'single_sg', cu: true,  pc: 2,   pr: 42,  prl: 2.5,   t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (e 263->255, mult 0.489->0.4743, user 2026-06-26)
+  { d: 'Olympia',      w: 't6_olympia',      c: 'Shotgun', e: 255, cl: 2,   rs: 26,  rl: 3.9,  mv: 1.00, p: 'small',  h: 'single_sg', cu: true,  pc: 4,   pr: 84,  prl: 2.5,   t: 'none', pe: null },   // SPREAD -3% worst-gun nerf (mult 0.4743); PaP clip 2->4 / reserve 42->84 DOUBLED (user 2026-07-05) - helps its awful 2-round sustain
   // MK14 (AW s1_mk14): semi-auto DMR, B tier (user 2026-06-24). cu single-target (semi-auto raw DPS overstates).
   // e=400 + PaP clip 12 / reserve 240 -> papScore ~5.99 (B); base 14 / 168 -> ~5.90 (B). Body loc clean (no normalize).
   { d: 'MK14',         w: 's1_mk14',         c: 'DMR',     e: 388, cl: 14,  rs: 168, rl: 2.0,  mv: 0.95, p: 'medium', h: 'semi',      cu: true,  pc: 12,  pr: 240, prl: 2.0,   t: 'none', pe: null, boxForce: 29 },   // SPREAD -3% worst-gun nerf (e 400->388, mult 0.30->0.291, user 2026-06-26); boxForce 29 (MID rarity, BOT price)
@@ -98,8 +111,14 @@ const GUNS = [
 // ---- SPECIALS: PaP-able but OUTSIDE the formula. Hand price tier + box weight.
 const SPECIALS = [
   { d: 'Thundergun', w: 'thundergun', tier: 'TOP', box: BOX_WW, why: 'wonder weapon (wind-blast, is_limited) - rarest roll of all' },
-  { d: 'Mahem',      w: 's1_mahem',   tier: 'MID', box: BOX_WEIGHT.MID, why: 'explosive rocket launcher (projectile, [A] tag, aat-exempt)' },
+  { d: 'Mahem',      w: 's1_mahem',   tier: 'TOP', box: 8, why: 'explosive rocket launcher (projectile, [A] tag, aat-exempt). TOP price + rare roll; box weight now SUPERSEDED by gen_box_dynamic.js (rank 10, ~1.94%)' },
+  { d: 'Havoc', w: 'apex_beam_rifle', tier: 'TOP', box: 8, why: 'Apex energy PROJECTILE rifle (full-auto), A-tier energy special replacing China Lake (user 2026-07-06). Projectile -> twin-exempt, energy special like the Blast-O-Matic. Box weight from gen_box_dynamic.js' },
   { d: 'Action Figure', w: 't8_melee_figure', tier: 'TOP', box: 5, why: 'melee special - PaPs IN PLACE (no _up form), +1 cleave target per tier; S-tier PaP cost (user 2026-06-25). Box weight 5 (~1%) HAND override (user 2026-06-25): rarest special after Thundergun, decoupled from its TOP price tier' },
+  // [acc] #5 FIX (2026-07-05): the Blast-O-Matic was MISSING from this table, so a regen DROPPED its hand-added
+  // TOP price line and it fell through to BOT (cheapest) - a wonder-class special fully packable for 13,500
+  // instead of 22,500. Pinned TOP like the other specials so a future regen keeps it. box:5 matches its prior
+  // effective roll (it hit acc_box_weight's default `return 5`), so a future box regen won't shift its odds.
+  { d: 'Blast-O-Matic', w: 't9_semiauto_cosplay', tier: 'TOP', box: 5, why: 'is_wonder_weapon energy blaster (projectile special, hand-built twins) - TOP PaP price like the other specials; box weight 5 preserves its current default roll' },
 ];
 // ---- EXCLUDED from PaP pricing (no _up form) but STILL in the box -> needs a box weight.
 const EXCLUDED = [
@@ -290,6 +309,6 @@ ${gscBox()}
 - PaP-form clip/reserve GDT-verified (workflow \`pap-form-gdt-stats\`, 2026-06-23).
 `;
 
-const docPath = path.join(__dirname, '..', 'docs', '54_pap_pricing_tiers.md');
+const docPath = path.join(__dirname, '..', 'docs', '33_pap_pricing_tiers.md');
 fs.writeFileSync(docPath, doc);
 console.log(`\nwrote ${path.relative(path.join(__dirname, '..'), docPath)}`);

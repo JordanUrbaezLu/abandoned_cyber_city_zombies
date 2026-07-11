@@ -2,7 +2,7 @@
 
 A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, skill expression, and replayability**. Inspired by Ameliorama I/II and Machin[a], with a deliberate bias toward systems depth over art and narrative.
 
-> **Status**: Builds + runs on Windows with the BO3 Mod Tools. Full 7-zone greybox + all systems compile and load in-game; in-game validation + UI polish (custom LUI HUD) in progress. Recent state: [CHANGELOG.md](CHANGELOG.md).
+> **Status**: Fully built and playable. First clean compile + link 2026-06-12; the full multi-zone map plus ~48 custom `_acc_` systems build with `tools/build_map.ps1` and run in-game on Windows with the BO3 Mod Tools. Ongoing work is balance, content, and polish. Recent state: [CHANGELOG.md](CHANGELOG.md).
 
 ## Start Here
 
@@ -10,6 +10,7 @@ A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, ski
 - **What are the requirements?** → **[REQUIREMENTS.md](REQUIREMENTS.md)**. This is the authoritative spec for every system. Design changes go in the doc first, code follows.
 - **What changed recently?** → [CHANGELOG.md](CHANGELOG.md).
 - **Setting up a Windows dev box?** Full install + publish walkthrough: [SETUP_WINDOWS.md](SETUP_WINDOWS.md).
+- **Portable mapmaking reference** (build pipeline, GSC dialect, entity recipes, gotchas): [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md).
 - **Want to read the design cold?** Start with [docs/00_overview.md](docs/00_overview.md) then follow the numbered docs.
 - **Want to see the code?** Start with [scripts/zm/zm_abandoned_cyber_city/README.md](scripts/zm/zm_abandoned_cyber_city/README.md).
 
@@ -19,7 +20,8 @@ A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, ski
 - **Weapon Overclocks** drawn from randomized per-run pools.
 - **Map state randomization** - power routing, PaP approach, wallbuy pool, perk pool re-roll each game.
 - **Two currencies** - Points for the basics, Data Shards for the systems.
-- **Optional risk/reward events** (Hack Terminal, Vault Overload).
+- **Vertical "Abyss Descent"** - soul-box layers below the city (L2/L3/L5) that open the Paradise plaza, plus trench-only stations (Exo Suit, Reactor Surge, Glitch Altar, Jukebox).
+- **Optional risk/reward events** (Hack Terminal).
 - **No Easter Egg mega-quest. No persistent meta-progression.** The loop is the product.
 
 ## Pillars
@@ -36,16 +38,16 @@ A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, ski
 .
 ├── README.md                   this file
 ├── ROADMAP.md                  phase graph + summaries
-├── SETUP_WINDOWS.md            one-time Windows laptop setup
-├── docs/                       design, mechanics, references
-├── map_source/zm/              Radiant .map source (starting room greybox)
+├── SETUP_WINDOWS.md            one-time Windows dev-box setup
+├── docs/                       design, mechanics, references, mapmaking KB
+├── map_source/zm/              Radiant .map source (full multi-zone map)
 ├── scripts/zm/                 map entry scripts (.gsc / .csc) +
-│   └── zm_abandoned_cyber_city/   custom _acc_ GSC modules (18 files)
-├── zone_source/                .zone asset manifest for the Launcher linker
-├── sound/zoneconfig/           sound zone config (.szc)
+│   └── zm_abandoned_cyber_city/   custom _acc_ GSC modules
+├── zone_source/                .zone asset manifest for the linker
+├── sound/                      sound aliases + zone config (.szc)
 ├── zone/                       workshop publish assets (images, json example)
-├── ui/                         LUI (deferred to Phase 4)
-├── tools/                      Windows sync script + helpers
+├── ui/                         custom LUI (Aetherium HUD + gun-badge row)
+├── tools/                      build/sync scripts + helpers
 └── .gitignore
 ```
 
@@ -56,38 +58,48 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), `scrip
 ### Design
 
 - [docs/00_overview.md](docs/00_overview.md) - pitch, pillars, anti-pillars, success criteria.
-- [docs/03_layout.md](docs/03_layout.md) - zone graph and gameplay flow.
-- [docs/04_progression_and_skills.md](docs/04_progression_and_skills.md) - Cyberware tree and Data Shard economy.
-- [docs/05_weapons.md](docs/05_weapons.md) - arsenal (10-weapon shortlist), Overclocks, perks.
-- [docs/11_enemies.md](docs/11_enemies.md) - bestiary, elite timing, boss design.
-- [docs/12_boss_items.md](docs/12_boss_items.md) - 5 boss-drop items, slot rules, duplicate handling.
-- [docs/13_perks.md](docs/13_perks.md) - 8 perks (6 stock + 2 custom), per-run slot randomization.
-- [docs/14_controls_and_hud.md](docs/14_controls_and_hud.md) - input bindings, HUD elements, LUI plan.
-- [docs/15_coop_rules.md](docs/15_coop_rules.md) - multiplayer scaling and per-player vs shared rules.
-- [docs/16_gsc_reference.md](docs/16_gsc_reference.md) - verified BO3 GSC/CSC API reference (callbacks, scoring, clientfields, common patterns).
-- [docs/19_stock_api_verification.md](docs/19_stock_api_verification.md) - the stock-API verification ledger (211 verified / 52 fixed vs real Treyarch sources; the trap list). Read before touching stock interfaces.
-- [docs/17_reference_maps_study.md](docs/17_reference_maps_study.md) - design lessons from Ameliorama, Machin[a], and stock Treyarch maps.
-- [docs/06_mechanics.md](docs/06_mechanics.md) - round pacing, economy, events, feedback loops.
-- [docs/07_replayability.md](docs/07_replayability.md) - randomization, modifiers, build archetypes.
+- [docs/02_layout.md](docs/02_layout.md) - zone graph and gameplay flow.
+- [docs/03_progression_and_skills.md](docs/03_progression_and_skills.md) - Cyberware tree and Data Shard economy.
+- [docs/04_weapons.md](docs/04_weapons.md) - the (box-only) arsenal, Overclocks, Pack-a-Punch.
+- [docs/08_enemies.md](docs/08_enemies.md) - bestiary, elite timing, boss design.
+- [docs/09_boss_items.md](docs/09_boss_items.md) - boss-drop items, slot rules, duplicate handling.
+- [docs/10_perks.md](docs/10_perks.md) - the 10 perks (stock + custom, incl. Electric Cherry), per-run slot randomization.
+- [docs/11_controls_and_hud.md](docs/11_controls_and_hud.md) - input bindings and HUD elements.
+- [docs/12_coop_rules.md](docs/12_coop_rules.md) - multiplayer scaling and per-player vs shared rules.
+- [docs/30_abyss_descent.md](docs/30_abyss_descent.md) - the vertical underground (soul boxes, Paradise gate).
+- [docs/29_exo_suit_plan.md](docs/29_exo_suit_plan.md) - Exo Suit station and depth-gate.
+- [docs/37_transfer_vault.md](docs/37_transfer_vault.md) - The Exchange transfer vault.
+- [docs/39_armory.md](docs/39_armory.md) - the Armory upper room and bottle exchange.
+- [docs/05_mechanics.md](docs/05_mechanics.md) - round pacing, economy, events, feedback loops.
+- [docs/06_replayability.md](docs/06_replayability.md) - randomization, modifiers, build archetypes.
+- [docs/13_reference_maps_study.md](docs/13_reference_maps_study.md) - design lessons from Ameliorama, Machin[a], and stock Treyarch maps.
+- [docs/36_player_guide.md](docs/36_player_guide.md) - the in-fiction player guide.
 
 ### How to Build & Ship
 
-- [docs/01_toolchain.md](docs/01_toolchain.md) - BO3 Mod Tools reference.
-- [docs/02_learning_path.md](docs/02_learning_path.md) - curriculum for going from zero to shipping.
-- [docs/09_language_and_publishing.md](docs/09_language_and_publishing.md) - GSC/LUI basics and Steam Workshop publishing.
-- [docs/10_today_quickstart.md](docs/10_today_quickstart.md) - fastest path to a box-room build on Workshop (throwaway test map).
-- [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md) - **the** sync → compile → run → publish walkthrough for the real map's starting-room kit.
-- [SETUP_WINDOWS.md](SETUP_WINDOWS.md) - the actual install + first-compile walkthrough.
+- [SETUP_WINDOWS.md](SETUP_WINDOWS.md) - the install + build walkthrough.
+- [docs/BO3_MAPMAKING_KB.md](docs/BO3_MAPMAKING_KB.md) - build pipeline, launch, GSC dialect, entity recipes, gotchas.
+- [docs/17_launch_runbook.md](docs/17_launch_runbook.md) - launching the built `.ff` in-game (the gametype/split-install gotchas).
+- [docs/21_adding_a_gun_runbook.md](docs/21_adding_a_gun_runbook.md) - end-to-end recipe for adding a weapon.
+- [docs/19_lui_pipeline.md](docs/19_lui_pipeline.md) - custom LUI/HUD pipeline (Aetherium HUD, clientfield bridge).
+- [docs/34_release_runbook.md](docs/34_release_runbook.md) - Steam Workshop release checklist.
+
+### Reference
+
+- [docs/14_stock_api_verification.md](docs/14_stock_api_verification.md) - the stock-API verification ledger (verified vs. fixed vs. refuted; the trap list). Read before touching stock interfaces.
+- [docs/16_community_techniques.md](docs/16_community_techniques.md) - cited techniques lifted from shipped community sources.
+- [docs/22_flags_reference.md](docs/22_flags_reference.md) - the `script_flag` / level-flag reference.
+- [docs/15_requirements_checklist.md](docs/15_requirements_checklist.md) - requirements tracker.
 
 ### Project Management
 
-- [docs/08_milestones.md](docs/08_milestones.md) - phased milestones with exit criteria.
+- [docs/07_milestones.md](docs/07_milestones.md) - phased milestones with exit criteria.
 - [ROADMAP.md](ROADMAP.md) - top-level phase graph.
 
 ### Code
 
 - [scripts/zm/zm_abandoned_cyber_city/README.md](scripts/zm/zm_abandoned_cyber_city/README.md) - module map, call order, event/state conventions, TODO marker legend.
-- [tools/README.md](tools/README.md) - sync script usage and flags.
+- [tools/README.md](tools/README.md) - build + sync script usage and flags.
 
 ## Conventions
 
@@ -96,18 +108,19 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), `scrip
 - All custom GSC module **files** use the `_acc_` prefix ("abandoned cyber city") to separate them from stock `_zm_*` scripts. Their **GSC namespaces drop the leading underscore** (`_acc_main.gsc` declares `#namespace acc_main;`, called as `acc_main::`), mirroring the stock convention (`_zm_utility.gsc` → `zm_utility::`).
 - Per-player state is stored on `self.acc_*` fields; level state on `level.acc_*`.
 - Custom events use the `acc_*` namespace (e.g. `acc_round_start`, `acc_shards_changed`).
-- Every file that has unverified API calls marks them `TODO(acc-verify)`. Grep for this on first compile.
+- **Dev/test mode is ONE hardcoded flag.** `acc_dev` resolves once (in `acc_main::acc_resolve_dev_flags()`) into `level.acc_dev`; every module gates on `IS_TRUE( level.acc_dev )`. There is no runtime dev console — never "set dvar X to test".
 - BO3 GSC syntax, not WaW/BO1: `function` keyword on every definition, `&func` function pointers, entry scripts in `scripts/zm/` (not `maps/zm/`), `zm_usermap::main()` bootstrap (there is no `_zm::main()` in BO3).
 
-## Status (first compile readiness)
+## Systems (all built)
 
-When you sync and compile on Windows for the first time (full walkthrough: [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md)):
+Orchestrated by `acc_main::init()` (`scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc`, ~48 active modules):
 
-- **Geometry exists**: `map_source/zm/zm_abandoned_cyber_city.map` is a byte-for-byte copy of the stock Launcher zm template starting room (spawns, barrier, zombie spawner, `start_zone`, perk slots, PaP, Mystery Box, power switch). It compiles as-is; Spawn greybox shaping happens in Radiant later.
-- **Will parse**: all GSC was converted to BO3 syntax (`function` keyword, `#namespace`, stock namespace names). Entry scripts are structured exactly like the stock template.
-- **Will fail gracefully**: any `TODO(acc-geom)` lookup for a Radiant entity that doesn't exist yet will log and continue - no crash.
-- **Expect**: a handful of `TODO(acc-verify)` sites where a stock API name may have drifted - documented in each file near the call site.
-- **Don't expect**: the full 7-zone map. This build is the starting room with all custom systems initialized - the e2e proof that compile → run → publish works.
+- **Economy & progression**: Data Shards, Cyberware tree, Weapon Overclocks, per-run map randomizer.
+- **Weapons**: box-only arsenal (Apex + Skye ports + elemental bows), Pack-a-Punch tiers, gun-badge chip HUD row.
+- **Perks**: 10 perks (stock + custom incl. Electric Cherry), escalating shard-cost perk slots (cap 10), a live 4-of-10 Lab-alcove rotation.
+- **Enemies & bosses**: elites/trench skins; a mini-boss debut at round 10, then full boss rounds every 9 from round 9 (count scales), boss types dealt from a no-duplicate shuffled deck. Roster: Brutus, Glitch, Phantom, Avogadro, Panzer (mechz), and the Rogue/Civil Protector.
+- **Underground**: the vertical Abyss Descent (soul-box layers → Paradise plaza), Exo Suit station, Reactor Surge, Glitch Altar, Jukebox, The Exchange transfer vault, the Armory upper room.
+- **Presentation**: the Aetherium LUI HUD (shipped base) with a smooth round-progress bar, custom atmosphere/fog, and a full Radiant LED lightmap bake (~157 lights + ~15 reflection probes).
 
 ## Not a Goal
 

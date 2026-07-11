@@ -32,11 +32,40 @@ try {
 }
 Write-Host "modtools = $ModTools`n"
 
+# Deep path test (red-team 2026-07-10): the Marker alone proved too weak — a
+# dangling wildcard or a single missing file (e.g. one of two music wavs) passed
+# the gate while pack/build still broke. Same wildcard semantics as
+# pack_external_assets.ps1's Stage-Path.
+function Test-PackPath($relPattern) {
+    if ($relPattern -match '[\*\?]') {
+        $parentRel = Split-Path $relPattern -Parent
+        $leaf      = Split-Path $relPattern -Leaf
+        $srcParent = Join-Path $ModTools $parentRel
+        if (-not (Test-Path $srcParent)) { return $false }
+        return (@(Get-ChildItem -LiteralPath $srcParent -Filter $leaf -ErrorAction SilentlyContinue).Count -gt 0)
+    }
+    return (Test-Path (Join-Path $ModTools $relPattern))
+}
+
 $fails = 0; $warns = 0
 foreach ($pack in $ExternalAssetPacks) {
     $ok = Test-Path (Join-Path $ModTools $pack.Marker)
+    $deadPaths = @()
     if ($ok) {
+        foreach ($p in $pack.Paths) {
+            if (-not (Test-PackPath $p)) { $deadPaths += $p }
+        }
+    }
+    if ($ok -and $deadPaths.Count -eq 0) {
         Write-Host "[PASS] $($pack.Name)" -ForegroundColor Green
+    } elseif ($ok) {
+        # Marker present but some Paths resolve to nothing: incomplete install OR a
+        # stale manifest entry - either way the next pack/unpack silently drops them.
+        if ($pack.Required) { $fails++ } else { $warns++ }
+        $tag = if ($pack.Required) { '[FAIL]' } else { '[WARN]' }
+        $col = if ($pack.Required) { 'Red' } else { 'Yellow' }
+        Write-Host "$tag $($pack.Name) - marker ok but $($deadPaths.Count) Paths entr$(if ($deadPaths.Count -eq 1) {'y'} else {'ies'}) match NOTHING:" -ForegroundColor $col
+        $deadPaths | ForEach-Object { Write-Host "       -> $_" -ForegroundColor $col }
     } elseif ($pack.Required) {
         $fails++
         Write-Host "[FAIL] $($pack.Name) - missing: $($pack.Marker)" -ForegroundColor Red

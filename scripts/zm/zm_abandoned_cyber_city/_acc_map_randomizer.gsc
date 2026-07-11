@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_map_randomizer.gsc - per-run map state
 //
-// Design reference: docs/07_replayability.md (Tier 1 - Per-Run Map State).
+// Design reference: docs/06_replayability.md (Tier 1 - Per-Run Map State).
 //
 // Runs in pre_init(). Rolls a state struct that every other system can read
 // from `level.acc_map_state`. Logs the roll for debuggability.
@@ -71,7 +71,7 @@ function pre_init()
     // CHALK-ONLY wall-buys (user 2026-06-24): the chalk outline mesh now lives in
     // the .map, so the server-spawned 3D gun/monkey-bomb model is redundant clutter
     // sitting ON TOP of the chalk. Disabled so each spot shows ONLY the chalk outline.
-    // (spawn_acc_wallbuy_models stays defined but uncalled — re-enable if a future
+    // (spawn_acc_wallbuy_models stays defined but uncalled â€” re-enable if a future
     // wall-buy wants a 3D prop instead of chalk.)
     // spawn_acc_wallbuy_models();
 
@@ -79,6 +79,9 @@ function pre_init()
     // emergency-drop trigger disable, box pool registration) after _zm has
     // initialized. Defer to post-init via thread+flag.
     level thread apply_state_when_ready();
+
+    // Per-match wonder-weapon claim caps (user 2026-07-07): Thundergun 1 player, Blast-O-Matic 2.
+    level thread wonder_claims_watch();
     // Per-round perk gating is now done by _acc_perk_doors.gsc (random 3 of the 9
     // Lab perk-alcove DOORS open each round). The old machine-reskin rotation below
     // (roll_perk_rotation / watch_round_for_perk_rotation) targeted acc_lab_perk_a..d
@@ -111,7 +114,7 @@ function roll_pap_approach()
 // level.zombie_weapons[wpn].is_in_box flag.
 //
 // BOX ARSENAL (user, 2026-06-14): the box is being switched to Tac-19, Locus,
-// FN FAL, AK-47 (docs/05_weapons.md tiers; import staging in docs/32). Of those
+// FN FAL, AK-47 (docs/04_weapons.md tiers; import staging in docs/21). Of those
 // only Locus is stock BO3 (sniper_fastbolt); Tac-19 (s1_tac19), FN FAL (t6_fal)
 // and AK-47 (s1_ak47 / t9_ak47) are Skye weapon-pack imports that must be
 // installed on the Windows box before they can be enabled. A weapon that is not
@@ -139,19 +142,28 @@ function register_mystery_box_pool()
     // the Mega-perk handling buffs); only the Thundergun (wonder weapon) is exempt.
     // REMOVED 2026-06-23 (user: "remove any gun that can't be fully twinned"): Ripper
     // (convertible altWeapon), Nail Gun (projectile), PDW-57 + M1911 (akimbo PaP) - none
-    // can take the recoil/fire/reload twins, so they were cut. See CHANGELOG + docs/33.
+    // can take the recoil/fire/reload twins, so they were cut. See CHANGELOG + docs/21.
     box_weapons = array(
         "t6_fiveseven",     // Five-Seven (Skye BO2 - also the starting pistol)
+        // ===== APEX MIGRATION 2026-07-06: 5 Apex Legends guns (asset ids carry a baked _zm). Klauser/Chicom/Paladin/China Lake removed (commented below). =====
+        "apex_peacekeeper",   // Peacekeeper (Apex 11-12 pellet lever shotgun - S, top shotgun, power-first)
+        "apex_beam_rifle",    // Havoc (Apex energy projectile rifle - A energy special, replaces China Lake)
+        "apex_alternator",    // Alternator (Apex full-auto SMG - trash base, A+ PaP; replaces Klauser)
+        "apex_prowler",       // Prowler (Apex burst PDW/full-auto SMG - B; replaces Chicom)
+        "apex_g2a4",          // G7 Scout (Apex semi-auto marksman - C; replaces Paladin)
         // "s1_asm1",       // ASM1 RETIRED 2026-07-03 (user: least liked) - uncomment to restore (+ zone/CSV, see zone comment)
         "s1_tac19",         // Tac-19     (Skye AW)
         "t9_ak47",          // AK-47      (Skye BO2)
+        "t9_xm4",           // XM4        (Cold War full-auto AR - S tier, user 2026-07-04)
+        "t9_streetsweeper", // Streetsweeper (Cold War full-auto drum shotgun - A tier, user 2026-07-04)
+        "s1_cel3",          // CEL-3 Cauterizer (AW triple-barrel full-auto spread shotgun - B tier, user 2026-07-05; FULLY TWINNED 2026-07-06)
         "s1_ae4",           // AE4        (Skye AW - directed-energy AR)
-        "t8_paladin_hb50",       // Paladin HB50 (BO4 sniper)
+        // "t8_paladin_hb50",    // Paladin HB50 REMOVED 2026-07-06 (Apex migration, swapped for G7 Scout)
         "s4_ppsh41_base",        // PPSH-41 (Vanguard SMG)
         "t9_ak74u",              // AK-74u (Cold War SMG, swapped 2026-06-26; regular _up, empty altWeapon)
-        "t6_chicom_cqb",         // Chicom CQB (BO2 3-round-burst SMG; S+ box gun, user 2026-06-25)
+        // "t6_chicom_cqb",      // Chicom CQB REMOVED 2026-07-06 (Apex migration, swapped for Prowler)
         "t6_olympia",            // Olympia (BO2 double-barrel shotgun)
-        "t6_galil",              // Galil   (BO2 full-auto AR)
+        "t9_grav",               // Grav    (CW full-auto AR; the Galil's stats on a CW model/sfx, user 2026-07-05)
         // LMGs (user 2026-06-19): M60 + RPD (Skye BO2). NOW FULLY TWINNED (user 2026-06-23) - their
         // long reloads (9.7s / 7.5s) make the Speed Cola Mega twin especially valuable.
         "t9_m60",                // M60  (Cold War heavy belt-fed LMG)
@@ -165,6 +177,11 @@ function register_mystery_box_pool()
         // (EXEMPT explosive special - projectile, no twins, like the Thundergun). Both A-tier box odds.
         "s1_rw1",                // RW1   (AW directed-energy pistol - twinned)
         "s1_mahem",              // Mahem (AW molten-metal rocket launcher - exempt explosive special)
+        // "t5_china_lake",      // China Lake REMOVED 2026-07-06 (Apex migration, swapped for the Havoc energy special)
+        // War Machine (BO2 t6_war_machine, user 2026-07-09): 6-round drum GL, IMPACT detonation (GDT-native
+        // fuseTime 0 - "explodes on land"). Exempt explosive special like the Mahem, but WITH the wonder-tier
+        // fastreload twins. A-tier box odds/pricing (rank after the Mahem, gen_box_dynamic.js).
+        "t6_war_machine",        // War Machine (BO2 drum grenade launcher - exempt explosive special, fastreload-twinned)
         // WONDER WEAPON (user 2026-06-23, SWAPPED from the Wunderwaffe DG-2): Thundergun. STOCK common weapon
         // (def cooked in zm_levelcommon -> NO `weapon,` .zone line; just a row in our slim weapon table CSV, the
         // octobomb/cymbal_monkey precedent). Wind-blast knockback; is_limited=1 (one in the world at a time =
@@ -174,6 +191,12 @@ function register_mystery_box_pool()
         // Blast-O-Matic (CW DOA energy blaster, Owens port; user 2026-07-03). Projectile wonder-class
         // special that IS fully twinned (hand-built twins - see _acc_weapon_variants). S+/wonder rarity.
         "t9_semiauto_cosplay",   // Blast-O-Matic (energy blaster)
+        // Fire Bow + Leviathan Axe (added 2026-07-07; REVIEW FIX 2026-07-08): both were fully wired
+        // (acc_box_weight 0.41%, wonder claim caps, WONDER PaP tier, CSV in_box=TRUE) but MISSING from
+        // this array - and step 1 below wipes the CSV's in_box flags, so this array is the SOLE authority.
+        // Without these entries neither weapon could ever leave the box (the axe was unobtainable in ANY mode).
+        "elemental_bow_demongate",   // Fire Bow (HB21 demongate - wonder tier, claim-capped 1)
+        "leviathan",                 // Leviathan Axe (WetEgg GoW melee - wonder tier, claim-capped 1)
         // Action Figure (BO4 t8 melee port by T0nic; TEST-ONLY rip, see CREDITS). A fun handheld swing weapon.
         // Source installed in the Mod Tools (gitignored); .zone + CSV + GDT wired 2026-06-23. Melee = "special"
         // class like the Thundergun, so it rides the same is_in_box flip below (degrades to "not in box" if the
@@ -231,18 +254,117 @@ function register_mystery_box_pool()
     level.CustomRandomWeaponWeights = &acc_box_only_weapon_keys;
 }
 
+// ---------------------------------------------------------------------------
+// PER-MATCH WONDER-WEAPON CLAIM CAPS (user 2026-07-07): only N DISTINCT players may
+// acquire certain wonder weapons in one match - Thundergun 1, Blast-O-Matic 2 (dvars
+// acc_cap_thundergun / acc_cap_blastomatic). A claims WATCHER scans every player's
+// primaries (0.5s), so EVERY acquisition path registers the claim with zero per-give
+// hooks. Claims persist for the match even after the gun is lost (trade/down) - "the
+// Thundergun guy" stays the only one who can re-roll it - but a claimant DISCONNECTING
+// is pruned, freeing the slot. Enforcement: the two draw filters (acc_box_only_weapon_keys
+// below + _acc_glitch_altar::paradise_box_pick_weapon) exclude a capped gun for
+// non-claimants once its slots are full. IsSubStr keys cover base + _up PaP forms.
+// ---------------------------------------------------------------------------
+
+function wonder_cap_key( w )   // weapon object -> claim key, or undefined = uncapped
+{
+    if ( !isdefined( w ) || !isdefined( w.name ) ) return undefined;
+    if ( IsSubStr( w.name, "thundergun" ) )              return "thundergun";
+    if ( IsSubStr( w.name, "t9_semiauto_cosplay" ) )     return "blastomatic";   // Blast-O-Matic
+    if ( IsSubStr( w.name, "elemental_bow_demongate" ) ) return "firebow";       // HB21 fire bow (2026-07-07)
+    if ( IsSubStr( w.name, "leviathan" ) )               return "leviathanaxe";  // GoW Leviathan Axe (covers _up)
+    return undefined;
+}
+
+// ALL wonders 1 claimant/match (user 2026-07-07; Blast-O-Matic was 2 for one day, now 1 too).
+function wonder_cap_limit( key )
+{
+    if ( key == "thundergun" )   return getdvarint( "acc_cap_thundergun", 1 );
+    if ( key == "blastomatic" )  return getdvarint( "acc_cap_blastomatic", 1 );
+    if ( key == "firebow" )      return getdvarint( "acc_cap_firebow", 1 );
+    if ( key == "leviathanaxe" ) return getdvarint( "acc_cap_leviathanaxe", 1 );
+    return 0;
+}
+
+// The live claimant list for a key, pruned of disconnected players (frees their slot).
+function wonder_claimants( key )
+{
+    if ( !isdefined( level.acc_wonder_claims ) ) level.acc_wonder_claims = [];
+    if ( !isdefined( level.acc_wonder_claims[ key ] ) ) level.acc_wonder_claims[ key ] = [];
+    kept = [];
+    arr = level.acc_wonder_claims[ key ];
+    for ( i = 0; i < arr.size; i++ )
+        if ( isdefined( arr[ i ] ) && isplayer( arr[ i ] ) )
+            kept[ kept.size ] = arr[ i ];
+    level.acc_wonder_claims[ key ] = kept;
+    return kept;
+}
+
+// true = this player may still DRAW this weapon (uncapped gun / already a claimant / a free slot).
+function player_may_receive_wonder( player, w )
+{
+    key = wonder_cap_key( w );
+    if ( !isdefined( key ) ) return true;
+    claims = wonder_claimants( key );
+    for ( i = 0; i < claims.size; i++ )
+        if ( claims[ i ] == player ) return true;
+    return ( claims.size < wonder_cap_limit( key ) );
+}
+
+// Level loop: whoever CARRIES a capped wonder becomes a claimant (catches box, Paradise box,
+// and any future give path automatically).
+function wonder_claims_watch()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        wait 0.5;
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            weapons = p GetWeaponsListPrimaries();
+            for ( j = 0; j < weapons.size; j++ )
+            {
+                w = weapons[ j ];
+                if ( !isdefined( w ) ) continue;
+                key = wonder_cap_key( w );
+                if ( !isdefined( key ) ) continue;
+                claims = wonder_claimants( key );
+                already = false;
+                for ( k = 0; k < claims.size; k++ )
+                    if ( claims[ k ] == p ) { already = true; break; }
+                if ( already ) continue;
+                claims[ claims.size ] = p;
+                level.acc_wonder_claims[ key ] = claims;
+                acc_utility::log( "wonder cap: " + p.name + " claimed " + key +
+                                  " (" + claims.size + "/" + wonder_cap_limit( key ) + ")" );
+            }
+        }
+    }
+}
+
 // Box draw key filter (hooked via level.CustomRandomWeaponWeights). Runs ON the
 // drawing player; returns the randomized key list narrowed to is_in_box weapons
 // the player does NOT already own (so the box can't hand out a duplicate).
 function acc_box_only_weapon_keys( keys )
 {
+    // [acc] COOP CRASH GUARD: this runs as level.CustomRandomWeaponWeights, invoked by the stock box
+    // thread with self = the spinning player. That thread has no disconnect endon, so if the buyer
+    // leaves mid-spin (coop-only) self is undefined and the self.* writes/reads below throw. Bail safely.
+    if ( !isdefined( self ) )
+        return keys;
+
     box_only = [];
     for ( i = 0; i < keys.size; i++ )
     {
         w = keys[ i ];
         if ( isdefined( level.zombie_weapons[ w ] ) &&
              IS_TRUE( level.zombie_weapons[ w ].is_in_box ) &&
-             !is_box_tactical( w ) )   // tacticals (Monkey/Arnie) are FIXED-odds pre-roll, not tier-weighted
+             !is_box_tactical( w ) &&   // tacticals (Monkey/Arnie) are FIXED-odds pre-roll, not tier-weighted
+             player_may_receive_wonder( self, w ) )   // per-match wonder claim caps (TG 1 / BoM 2, user 2026-07-07)
         {
             box_only[ box_only.size ] = w;
         }
@@ -292,8 +414,8 @@ function acc_box_only_weapon_keys( keys )
     // TIER-WEIGHTED ROLL (user 2026-06-22): best guns rarer, worst guns commoner. Stock's
     // treasure_chest_ChooseWeightedRandomWeapon returns the FIRST eligible key (_zm_magicbox.gsc:1279-1284),
     // so we do our OWN weighted pick by tier and return it at the FRONT; the rest follow as fallback so the
-    // stock loop still has a non-empty list. Per-gun weights (~percent on the fresh 17-gun pool, sum 100):
-    // S 4 / A 5 / B 7 / C 8 (acc_box_weight; docs/05 Gun Tier List).
+    // stock loop still has a non-empty list. Per-gun weights = the generated power-rank curve in
+    // acc_box_weight below (wonders pinned 0.3%/open, Havoc 1.2%, Action Figure 0.8%; docs/04 Gun Tier List).
     picked = acc_box_weighted_pick( eligible, IS_TRUE( self.acc_lucky_clover ) );   // Lucky Clover (user 2026-06-29): boost top-tier odds for a Clover-carrying spinner
     if ( !isdefined( picked ) ) return eligible;   // safety - never hand the box an empty list
     out = [];
@@ -338,20 +460,23 @@ function box_pick_weight( wpn, clover )
 
 // LUCKY CLOVER box luck (user 2026-06-29): applied ONLY when the spinner has the Clover. Shifts roll probability
 // from the COMMON tier into the TOP tier, classified by the base tier weight (higher weight = commoner, so the
-// S+/S rares have the LOWEST weights):
-//   top tier  (w <= acc_clover_box_top_maxw 12, the S+/S rares) -> + acc_clover_box_top_add (5)   ~= +1% each on the full pool
-//   common    (w >= acc_clover_box_common_minw 50)              -> - acc_clover_box_common_sub (10), funding the boost
-//   mid (A-tier, w 13..49)                                      -> unchanged
-// On the full 482-weight pool that's ~+1% per top gun, pulled ~-2% from each common gun (net total ~unchanged);
-// it drifts as the pool shrinks (collected guns drop out) but always favours the rares more. Layered OVER the
-// generated acc_box_weight so the auto-generated table is never hand-edited. All live dvars.
+// rare specials have the LOWEST weights):
+//   top tier  (w <= acc_clover_box_top_maxw 48: the 4 wonders / Action Figure / Havoc) -> + acc_clover_box_top_add (16) ~= +0.4%/open each
+//   common    (w >= acc_clover_box_common_minw 260: RPD..Olympia)                      -> - acc_clover_box_common_sub (32), funding the boost
+//   mid guns                                                                            -> unchanged
+// ~+0.4% per rare (the 2026-07-05 "+0.5%, nerfed from +1%" intent), drifting as the pool shrinks (collected
+// guns drop out) but always favouring the rares. Layered OVER the generated acc_box_weight so the auto-generated
+// table is never hand-edited. All live dvars.
+// [acc] RESCALED 2026-07-09: the defaults (12 / +2 / 50 / -4) were tuned for the ORIGINAL 482-weight pool; the
+// 2026-07-06 Apex regen rescaled the pool to ~3400+ (min weight 14), so top_maxw 12 matched NOTHING and the
+// Clover box boost had silently become a no-op. Same intended effect, new scale.
 function acc_box_clover_weight( wpn, base_w )
 {
-    if ( base_w <= getdvarint( "acc_clover_box_top_maxw", 12 ) )
-        return base_w + getdvarint( "acc_clover_box_top_add", 5 );
-    if ( base_w >= getdvarint( "acc_clover_box_common_minw", 50 ) )
+    if ( base_w <= getdvarint( "acc_clover_box_top_maxw", 48 ) )
+        return base_w + getdvarint( "acc_clover_box_top_add", 16 );
+    if ( base_w >= getdvarint( "acc_clover_box_common_minw", 260 ) )
     {
-        adj = base_w - getdvarint( "acc_clover_box_common_sub", 10 );
+        adj = base_w - getdvarint( "acc_clover_box_common_sub", 32 );
         return ( adj < 1 ? 1 : adj );
     }
     return base_w;
@@ -374,26 +499,48 @@ function is_box_tactical( wpn )
     return ( wpn.name == "cymbal_monkey" || wpn.name == "octobomb" );
 }
 
-// Per-gun mystery-box weight by PaP PRICE TIER (docs/54; ranked on PaP-form power, split into thirds).
-// HIGHER weight = COMMONER roll, so the best packed guns (TOP) are the rarest finds; the WW (Thundergun)
-// is rarest of all. GENERATED by tools/compute_gun_tiers.js - do NOT hand-edit between the markers; edit
-// that script's roster + re-run (regenerates docs/54 + this block, GSC #2). Matched by EXACT box-pool name;
-// pool total weight 482, re-normalizes live as you collect (the box never repeats a gun you own). 2026-06-25.
-// <<< BEGIN GENERATED (tools/compute_gun_tiers.js) >>>
+// Per-gun mystery-box weight (docs/33; ranked on PaP-form power). HIGHER weight = COMMONER roll,
+// so the best packed guns are the rarest finds. GENERATED by tools/gen_box_dynamic.js - do NOT
+// hand-edit between the markers; edit that script's RANK/curve + re-run (rare specials are
+// FIXED-% targets there: wonders 0.3% / Action Figure 0.8% / Havoc 1.2%). Matched by EXACT
+// box-pool name; re-normalizes live as you collect (the box never repeats a gun you own).
+// <<< BEGIN GENERATED (tools/gen_box_dynamic.js - CURATED dynamic power-rank curve; user 2026-07-09:
+//     wonders pinned 0.3%, Havoc pinned 1.2%, gun curve steepened 1.09->1.11 (top guns rarer);
+//     same-day rarity SWAPS: XM4<->M60, Peacekeeper<->PPSH, CEL-3<->AK-74u, MK14<->Grav, Olympia<->Five-Seven.
+//     Per-open % = weight/total x 0.985 after the Monkey Bomb 1.0% + Li'l Arnie 0.5% tactical pre-roll. >>>
 function acc_box_weight( wpn )
 {
-    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 5;
+    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 52;   // default = a mid gun
     n = wpn.name;
-    if ( n == "thundergun" ) return 3;   // ~0.6% each - Thundergun
-    if ( n == "t8_melee_figure" ) return 5;   // ~1.1% each - Action Figure
-    if ( n == "t9_semiauto_cosplay" ) return 5;   // ~1.1% - Blast-O-Matic (wonder-class special, user 2026-07-03)
-    // USER 2026-07-03 rarity swaps (PAIRED with the same moves in pap_price_bucket):
-    // Chicom<->Mahem, AK-74u<->Paladin, Galil<->RPD, MK14 pushed into the S band.
-    if ( n == "t9_m60" || n == "t9_ak47" || n == "s4_ppsh41_base" || n == "s1_tac19" || n == "s1_mahem" || n == "s1_mk14" ) return 8;   // ~1.9% each - M60, AK-47, PPSH-41, Tac-19, Mahem, MK14 (S band, rarest)
-    if ( n == "s1_mors" ) return 12;   // ~2.9% - MORS
-    if ( n == "s1_ae4" || n == "s1_rw1" || n == "t6_chicom_cqb" || n == "t8_paladin_hb50" || n == "t9_rpd" ) return 29;   // ~6.9% each - AE4, RW1, Chicom CQB, Paladin HB50, RPD (ASM1 RETIRED 2026-07-03 - re-add "|| n == \"s1_asm1\"" to restore)
-    if ( n == "t9_ak74u" || n == "t6_galil" || n == "t6_fiveseven" || n == "t6_olympia" ) return 50;   // ~12.0% each - AK-74u, Galil, Five-Seven, Olympia (commonest)
-    return 5;   // unknown -> mid
+    if ( n == "thundergun" )            return 13;   // 0.29% - #1 Thundergun
+    if ( n == "t9_semiauto_cosplay" )   return 13;   // 0.29% - #2 Blast-O-Matic
+    if ( n == "elemental_bow_demongate" ) return 13;   // 0.29% - #3 Fire Bow
+    if ( n == "leviathan" )             return 13;   // 0.29% - #4 Leviathan Axe
+    if ( n == "t8_melee_figure" )       return 35;   // 0.79% - #5 Action Figure
+    if ( n == "t9_xm4" )                return 52;   // 1.17% - #6 XM4
+    if ( n == "apex_peacekeeper" )      return 58;   // 1.31% - #7 Peacekeeper
+    if ( n == "t9_ak47" )               return 64;   // 1.44% - #8 AK-47
+    if ( n == "t9_m60" )                return 71;   // 1.60% - #9 M60
+    if ( n == "s4_ppsh41_base" )        return 79;   // 1.78% - #10 PPSH-41
+    if ( n == "apex_beam_rifle" )       return 53;   // 1.20% - #11 Havoc
+    if ( n == "s1_mahem" )              return 88;   // 1.99% - #12 Mahem
+    if ( n == "t6_war_machine" )        return 97;   // 2.19% - #13 War Machine
+    if ( n == "s1_mors" )               return 108;   // 2.44% - #14 MORS
+    if ( n == "apex_alternator" )       return 120;   // 2.71% - #15 Alternator
+    if ( n == "s1_ae4" )                return 133;   // 3.00% - #16 AE4
+    if ( n == "s1_rw1" )                return 148;   // 3.34% - #17 RW1
+    if ( n == "s1_cel3" )               return 164;   // 3.70% - #18 CEL-3
+    if ( n == "s1_mk14" )               return 182;   // 4.11% - #19 MK14
+    if ( n == "s1_tac19" )              return 202;   // 4.56% - #20 Tac-19
+    if ( n == "apex_prowler" )          return 224;   // 5.06% - #21 Prowler
+    if ( n == "t9_ak74u" )              return 249;   // 5.62% - #22 AK-74u
+    if ( n == "t9_streetsweeper" )      return 276;   // 6.23% - #23 Streetsweeper
+    if ( n == "t9_rpd" )                return 307;   // 6.93% - #24 RPD
+    if ( n == "t6_olympia" )            return 340;   // 7.67% - #25 Olympia
+    if ( n == "t9_grav" )               return 378;   // 8.53% - #26 Grav
+    if ( n == "apex_g2a4" )             return 419;   // 9.46% - #27 G7 Scout
+    if ( n == "t6_fiveseven" )          return 465;   // 10.50% - #28 Five-Seven
+    return 52;   // unknown -> a mid gun
 }
 // <<< END GENERATED >>>
 
@@ -420,7 +567,7 @@ function player_owns_box_weapon( player, candidate )
 // ---------------------------------------------------------------------------
 // Perk rotation - per ROUND, not per run.
 //
-// See docs/13_perks.md "Per-Round Rotating Lab Machines". All 9 perks are
+// See docs/10_perks.md "Per-Round Rotating Lab Machines". All 9 perks are
 // at the Lab; 4 machines (lab_a, lab_b, lab_c, lab_d) re-assign to a random
 // 4-of-9 at each round start. No duplicates, no per-perk guarantees.
 // ---------------------------------------------------------------------------
@@ -483,7 +630,7 @@ function watch_round_for_perk_rotation()
 {
     level endon( "end_game" );
 
-    // DESIGN (docs/03_layout.md, docs/13_perks.md): perk machines re-roll
+    // DESIGN (docs/02_layout.md, docs/10_perks.md): perk machines re-roll
     // AFTER the decontamination phase (20s evac + seal on rounds 1-4, the
     // nominal 0s tick on 5+), never on acc_round_start. _acc_decontamination
     // emits acc_decontamination_complete with the round number EVERY round.
@@ -533,7 +680,7 @@ function roll_mystery_box_initial()
     // pair (script_struct targetname "treasure_chest_use" + zbarrier
     // "<node>_zbarrier") in map_source/.../zm_abandoned_cyber_city.map, or stock
     // _zm_magicbox finds no start match and HIDES ALL boxes (silent no-box, see
-    // docs/research/BO3_Mystery_Box_Radiant_anatomy_multi_.txt §C gotcha). The
+    // docs/research/BO3_Mystery_Box_Radiant_anatomy_multi_.txt Â§C gotcha). The
     // acc_box_plaza chest exists (added with the +3-spots change).
     return "plaza";
 }
@@ -750,11 +897,11 @@ function remove_all_wallbuys()
 // DISABLED 2026-06-24 (user: "I only want the chalk in each spot, not two things"). This spawns a
 // VISIBLE 3D gun/monkey-bomb model per wall-buy; we now have a real CHALK outline mesh on each wall
 // (in the .map), so the 3D model is redundant clutter sitting on top of the chalk. The call in init()
-// is commented out — each spot shows ONLY the chalk now. Kept defined (uncalled) in case a future
-// wall-buy wants a 3D prop instead. (Earlier note "chalk shaders won't compile" was FALSE — the chalk
+// is commented out â€” each spot shows ONLY the chalk now. Kept defined (uncalled) in case a future
+// wall-buy wants a 3D prop instead. (Earlier note "chalk shaders won't compile" was FALSE â€” the chalk
 // builds + packs fine; see memory wallbuy-chalk-inline-mesh-recipe + CHANGELOG 2026-06-24.)
 // Spawns a SERVER-side script_model at each model-struct origin (wm_t6_five_seven / wm_t6_olympia /
-// wpn_t7_zmb_monkey_bomb_world — zone-packed). Stock buildkit renders nothing for Skye ports + grenades.
+// wpn_t7_zmb_monkey_bomb_world â€” zone-packed). Stock buildkit renders nothing for Skye ports + grenades.
 function spawn_acc_wallbuy_models()
 {
     names = array( "acc_fiveseven_wallbuy_model", "acc_olympia_wallbuy_model", "acc_grenade_wallbuy_model" );

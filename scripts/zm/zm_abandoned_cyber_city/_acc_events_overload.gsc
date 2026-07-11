@@ -1,14 +1,14 @@
 // =============================================================================
 // _acc_events_overload.gsc - Vault Overload side event (Vault)
 //
-// Design reference: docs/06_mechanics.md (Vault Overload state machine),
-// docs/15_coop_rules.md (activator tether).
+// Design reference: docs/05_mechanics.md (Vault Overload state machine),
+// docs/12_coop_rules.md (activator tether).
 //
 // 90-second hold event near the acc_overload_point script_struct:
 //   - progress (elapsed) accrues ONLY while the activator is on the point
-//     (docs/06: "leaving the point pauses progress");
+//     (docs/05: "leaving the point pauses progress");
 //   - off-point time accrues CUMULATIVELY across the event; >8s total fails
-//     (docs/15 tether rule - stepping back on does NOT reset the meter);
+//     (docs/12 tether rule - stepping back on does NOT reset the meter);
 //   - only the activator is tethered; other players roam freely;
 //   - activator down/disconnect = immediate fail.
 //
@@ -146,7 +146,7 @@ function terminal_loop()
         // Parallel Processing (Cyberware sr2a): the ACTIVATOR's passive
         // re-opens the event for exactly one more attempt per run, after
         // either outcome ("attempted twice per run instead of once",
-        // docs/20 sr2a-parallel-processing). A failed first attempt still
+        // docs/15 sr2a-parallel-processing). A failed first attempt still
         // fires the takedown wave above.
         if ( isdefined( player ) && player_has_parallel_processing( player ) &&
              level.acc_overload_attempts_used < 2 )
@@ -245,7 +245,7 @@ function run_defense_loop( player, point_struct )
         wait( ACC_OVERLOAD_TICK_SEC );
 
         // Activator downed or disconnected = immediate fail (the tether is on
-        // the activator only - docs/15_coop_rules.md).
+        // the activator only - docs/12_coop_rules.md).
         // VERIFIED(acc): zm_utility::is_player_valid (_zm_utility.gsc:1600)
         // = defined/alive/spawned/not-laststand/not-spectator; also false for
         // an undefined (disconnected) player.
@@ -260,7 +260,7 @@ function run_defense_loop( player, point_struct )
 
         if ( is_player_on_point( player, point_struct ) )
         {
-            // Progress accrues only on the point (docs/06: leaving pauses it).
+            // Progress accrues only on the point (docs/05: leaving pauses it).
             elapsed += ACC_OVERLOAD_TICK_SEC;
 
             if ( elapsed >= next_progress_announce && elapsed < ACC_OVERLOAD_DURATION_SEC )
@@ -272,7 +272,7 @@ function run_defense_loop( player, point_struct )
         else
         {
             // CUMULATIVE off-point meter - intentionally never reset
-            // (docs/15 tether rule; the old per-re-entry reset is gone).
+            // (docs/12 tether rule; the old per-re-entry reset is gone).
             off_total += ACC_OVERLOAD_TICK_SEC;
 
             whole_off = int( off_total );
@@ -334,7 +334,7 @@ function overload_wave_schedule( at_sec, wave_level )
     level.zombie_total += zombie_count;
     acc_utility::log( "overload: wave " + wave_level + " (+" + zombie_count + " zombie budget)" );
 
-    // TODO(acc-design): post-greybox, force elites per docs/06 (wave 2: +1
+    // TODO(acc-design): post-greybox, force elites per docs/05 (wave 2: +1
     // elite type, wave 3: +2 elite types) via acc_elites::spawn_elite.
 }
 
@@ -348,7 +348,7 @@ function spawn_takedown_wave()
     acc_utility::log( "overload: takedown wave (+" + ACC_OVERLOAD_TAKEDOWN_COUNT + " zombie budget)" );
 
     // TODO(acc-design): post-greybox, 3x acc_elites::spawn_elite for each of
-    // shielded/teleporter/emp per docs/06.
+    // shielded/teleporter/emp per docs/05.
 }
 
 // ---------------------------------------------------------------------------

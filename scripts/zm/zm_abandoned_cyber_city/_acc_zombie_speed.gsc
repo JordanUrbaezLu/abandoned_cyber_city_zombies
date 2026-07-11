@@ -2,9 +2,9 @@
 // _acc_zombie_speed.gsc - round-driven zombie move-speed curve (natural-gait)
 //
 // Replaces the old Rampage Inducer with a deterministic, EVERY-ROUND speed ramp
-// (design: docs/11_enemies.md "Regular Zombie / speed curve").
+// (design: docs/08_enemies.md "Regular Zombie / speed curve").
 //
-// THE ENGINE CONSTRAINT (deep-researched 2026-06-15, see memory + docs/19):
+// THE ENGINE CONSTRAINT (deep-researched 2026-06-15, see memory + docs/14):
 // A BO3 normal zombie has NO continuous "move at X% speed" knob. Movement is
 // ROOT-MOTION / animation-driven, so there are only two levers:
 //   (1) the discrete run-cycle TIER (walk / run / sprint) - each a separate xanim
@@ -23,13 +23,13 @@
 //     starting at 1.0 and creeping up jog_step % per round (a faster jog, never
 //     slow-mo). The jog's intrinsic ground speed is the "slow start" (~70-80% of
 //     sprint - the real value is baked into the xanim, hence approximate).
-//   - Round sprint_round (default 17): the zombies break into the SPRINT gait at
+//   - Round sprint_round (default 15; 2 rounds earlier since 2026-07-09): the zombies break into the SPRINT gait at
 //     rate 1.0 = base-game max speed. This is a deliberate, natural escalation
 //     ("they start sprinting now"); sprint@1.0 comfortably exceeds the topped-out
 //     jog, so the wave still steps UP (strictly monotonic).
 //   - Round > sprint_round: sprint gait, rate 1.0 + sprint_step % per round above
-//     (default +0.5%/round, user 2026-06-29: with sprint_round 17, R20 ≈ 1.015,
-//     R25 ≈ 1.04, R30 ≈ 1.065). rate > 1.0 = a faster sprint,
+//     (default +0.5%/round; with sprint_round 15 [user 2026-07-09], R20 = 1.025,
+//     R25 = 1.05, R30 = 1.075). rate > 1.0 = a faster sprint,
 //     which reads fine (no slow-mo). The engine takes unbounded float here (stock
 //     siegebot 1.429, apothicon 2.0), so there is NO upper clamp.
 //
@@ -37,9 +37,9 @@
 // sprint creeps up) and never plays below natural cadence.
 //
 // Tunable dvars (read live per spawn, so a console set affects new zombies):
-//   acc_zspeed_sprint_round     (17)  first round the zombies use the SPRINT gait
-//   acc_zspeed_jog_start_pct    (100) round-1 jog playback rate, % (100 = natural)
-//   acc_zspeed_jog_step_pct     (0.65) + jog playback % per round (R1-16 ramps UP toward sprint speed)
+//   acc_zspeed_sprint_round     (15)  first round the zombies use the SPRINT gait (user 2026-07-09: curve shifted 2 rounds earlier)
+//   acc_zspeed_jog_start_pct    (101.3) round-1 jog playback rate, % (the old round-3 value - the same 2-round shift; FLOAT)
+//   acc_zspeed_jog_step_pct     (0.65) + jog playback % per round (R1-14 ramps UP toward sprint speed)
 //   acc_zspeed_sprint_start_pct (100) sprint playback rate at sprint_round (100 = natural)
 //   acc_zspeed_sprint_step_pct  (0.5) + sprint playback % per round after sprint_round (read as a FLOAT)
 // (All rates are floored at 1.0 in code - we never animate below natural cadence.)
@@ -56,8 +56,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 
-#define ACC_ZSPEED_SPRINT_ROUND_DEF    17   // zombies switch to the SPRINT gait at round 17 (user 2026-06-29: 15 -> 17 to spread the jog ramp over more rounds = easier early game). Jog phase = R1-16, sprint @ R17, creep R18+.
-#define ACC_ZSPEED_JOG_START_PCT_DEF   100  // round-1 jog playback rate (100 = natural jog cadence)
+#define ACC_ZSPEED_SPRINT_ROUND_DEF    15   // zombies switch to the SPRINT gait at round 15 (user 2026-07-09: WHOLE CURVE shifted 2 rounds EARLIER - "zombies slightly faster than before"; was 17, orig 15). Jog phase = R1-14, sprint @ R15, creep R16+.
+#define ACC_ZSPEED_JOG_START_PCT_DEF   101.3 // round-1 jog playback rate (user 2026-07-09: 100 -> 101.3 = the old round-3 value, completing the 2-round curve shift; every round now runs the OLD curve's rate from 2 rounds later, and R14 lands on the same ~109.75% sprint-equivalent target the old R16 did). READ AS FLOAT.
 #define ACC_ZSPEED_JOG_STEP_PCT_DEF    0.65 // + jog playback % per round (user 2026-06-29: spread the even ramp over R1-16 - R16 = 100 + 15*0.65 = ~109.75% = sprint-equivalent at the last jog round, then R17 switches near-continuously; easier early game). The sprint gait is BARELY faster than the jog (user obs 2026-06-23: NOT ~1.33x), so it hits sprint-equiv around ~108-110% - R16 is TARGETED there. Going much higher overshoots (at 2.75 the jog hit 122% by R9 and FELT FASTER THAN A SPRINT, making the switch a step DOWN). Live dvar acc_zspeed_jog_step_pct - dial in-game; the exact jog:sprint ratio is baked/unknown.
 #define ACC_ZSPEED_SPRINT_START_PCT_DEF 100 // sprint playback rate at sprint_round (100 = natural full sprint)
 #define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 0.5  // + sprint playback % per round after sprint_round (user 2026-06-29: 0.6 -> 0.5, a slightly GENTLER late creep - R20 = 1.025x, R25 = 1.05x, R30 = 1.075x; unbounded, no clamp). MUST be read via getdvarfloat - getdvarint would truncate the fractional % -> 0 (mirrors the jog_step float handling).
@@ -70,17 +70,19 @@
 // per layer (+acc_trench_layer_dmg_add HP per layer, user 2026-06-21) instead of a flat in-trench value.
 #define ACC_ZOMBIE_MELEE_BASE_DEF      45   // baseline melee dmg (was stock 60)
 
-// PARADISE holistic HORDE BUFF (user 2026-06-26, reworked from the per-zombie ramp). Paradise (the open-air plaza
-// below the abyss) is EXCLUDED from acc_bus_trench::underground_layer (0 there), so trench_layer_for_zombie
-// substitutes a single WORLD-WIDE battle layer that _acc_paradise.gsc steps on the BATTLE CLOCK (not per-zombie
-// alive-time): L2 for minute 0-1, then +1 each minute (L3, L4) up to L5 for the final minute, in lockstep with the
-// Brutus escalation + the "horde is getting stronger" UI alert. The whole horde - including fresh spawns - shares the
-// current layer, which feeds the SAME per-layer SPEED (+acc_trench_layer_speed_pct%/layer) AND HEALTH
-// (apply_trench_health, +acc_trench_layer_hp_pct%/layer, one-way) as a real trench floor. So the ENTIRE onslaught
-// gets faster AND tankier every minute that passes. 0 (base) during the calm/dread entry (battle not started) and
-// anywhere outside the plaza. SINGLE SOURCE OF TRUTH: level.acc_paradise_horde_layer, owned + stepped by
-// _acc_paradise.gsc::escalation_loop (defines ACC_PARADISE_BUFF_START_DEF 2 / _MAX_DEF 5 there). Bosses/mini-bosses
-// never reach here (apply_speed_for_round returns early for them).
+// PARADISE HORDE BUFF (user 2026-06-26 lockstep waves; per-zombie 30s-alive ramp RESTORED on top 2026-07-09).
+// Paradise (the open-air plaza below the abyss) is EXCLUDED from acc_bus_trench::underground_layer (0 there), so
+// trench_layer_for_zombie substitutes a battle layer with TWO escalation vectors (paradise_buff_layer):
+//   (1) the WAVE clock - _acc_paradise.gsc steps level.acc_paradise_horde_layer L2 -> +1/min -> L5 in lockstep
+//       with the boss wave + the "horde is getting stronger" UI alert; fresh spawns open at the current wave; and
+//   (2) the PER-ZOMBIE AGE ramp - every acc_paradise_age_step_sec (30) a zombie stays ALIVE it jumps +1 tier
+//       above its wave-of-birth (the anti-kite vector: run instead of kill and YOUR pursuers outpace the wave).
+// Effective layer = max(wave, birth wave + age steps), capped at acc_paradise_buff_max (5). Feeds the SAME
+// per-layer SPEED (+acc_trench_layer_speed_pct%/layer) AND HEALTH (apply_trench_health,
+// +acc_trench_layer_hp_pct%/layer, one-way) as a real trench floor. 0 (base) during the calm/dread entry (battle
+// not started) and anywhere outside the plaza. Wave source of truth: level.acc_paradise_horde_layer, owned +
+// stepped by _acc_paradise.gsc::escalation_loop (defines ACC_PARADISE_BUFF_START_DEF 2 / _MAX_DEF 5 there).
+// Bosses/mini-bosses never reach here (apply_speed_for_round returns early for them).
 
 #namespace acc_zombie_speed;
 
@@ -152,8 +154,9 @@ function rate_for_round( round )
 
     if ( round < sr && !IS_TRUE( level.acc_mod_force_sprint ) )
     {
-        // Jog phase: natural jog at round 1, creeping faster each round.
-        pct = getdvarint( "acc_zspeed_jog_start_pct", ACC_ZSPEED_JOG_START_PCT_DEF ) +
+        // Jog phase: creeping faster each round (start 101.3% since the 2026-07-09 2-round curve shift).
+        // getdvarfloat NOT getdvarint - the start default is fractional now (101.3), same trap as the steps.
+        pct = getdvarfloat( "acc_zspeed_jog_start_pct", ACC_ZSPEED_JOG_START_PCT_DEF ) +
               ( round - 1 ) * getdvarfloat( "acc_zspeed_jog_step_pct", ACC_ZSPEED_JOG_STEP_PCT_DEF );
     }
     else
@@ -272,25 +275,53 @@ function trench_layer_for_zombie( zombie )
     return paradise_buff_layer( zombie );   // in Paradise during the battle: the world-wide L2->L5 horde buff (0 otherwise)
 }
 
-// PARADISE holistic HORDE BUFF (user 2026-06-26). Returns the trench-equivalent layer for a zombie in the sealed
-// plaza during the BATTLE = the WORLD-WIDE level.acc_paradise_horde_layer, which _acc_paradise.gsc::escalation_loop
-// owns and steps on the battle clock (L2 minute 0-1 -> L3 -> L4 -> L5 final minute, +1 each minute, synced to the
-// Brutus spawn + the UI alert). EVERY live plaza zombie - including fresh spawns - reads the SAME current layer, so
-// the whole onslaught buffs up together (replaces the old per-zombie 30s-alive ramp). 0 = BASE while you first enter
-// (calm/dread, battle not started yet) and anywhere outside the plaza. Fed back through trench_layer_for_zombie so it
-// drives the SAME per-layer SPEED + HEALTH as a real trench floor. The vanilla/aggro master gates are already checked
-// by the caller. Bosses/specials never reach here (apply_speed_for_round returns early for them).
+// PARADISE HORDE BUFF = wave baseline + PER-ZOMBIE 30s-ALIVE RAMP (user 2026-07-09, the anti-kite fix - brings
+// BACK the per-zombie alive-time ramp the 2026-06-26 lockstep rework dropped, ON TOP of the wave clock). Returns
+// the trench-equivalent layer for a zombie in the sealed plaza during the BATTLE:
+//   - WAVE baseline: level.acc_paradise_horde_layer (owned + stepped by _acc_paradise.gsc::escalation_loop, L2
+//     minute 0-1 -> +1/min -> L5, synced to the boss wave + the "horde is getting stronger" alert). Every FRESH
+//     spawn opens at the current wave layer.
+//   - AGE ramp: the zombie is STAMPED (wave layer + GetTime) on its first sweep here, then jumps +1 tier per
+//     acc_paradise_age_step_sec (30) it stays ALIVE - so a wave-1 zombie you kite instead of kill hits L3 at
+//     0:30, L4 at 1:00, L5 at 1:30 while the wave clock is still on L3. Kill-or-be-outscaled.
+//   - Effective layer = max(wave, stamped + age steps), capped at acc_paradise_buff_max (5 = "You will never
+//     escape!"). The max() keeps the whole-horde floor the alerts promise; the cap matches the trench's 5 layers.
+// Called every 1.5s keepalive sweep per zombie, so the age step lands within a sweep of the 30s mark and feeds
+// the SAME per-layer SPEED (re-asserted each sweep) + HEALTH (apply_trench_health, one-way delta on a NEW deeper
+// layer - aging a live zombie adds armor, never heals) as a real trench floor. 0 = BASE while you first enter
+// (calm/dread, battle not started yet - no stamp either) and anywhere outside the plaza. The vanilla/aggro master
+// gates are already checked by the caller. Bosses/specials never reach here (apply_speed_for_round returns early).
 function paradise_buff_layer( zombie )
 {
     if ( !IS_TRUE( level.acc_paradise_onslaught ) ) return 0;        // BASE until the battle actually begins
     if ( !acc_bus_trench::origin_in_second_part( zombie.origin ) ) return 0;
 
-    // The whole horde shares ONE layer, stepped by the Paradise battle clock. Fallback to the start layer for the
-    // brief window before escalation_loop has set it (start_battle sets it the same frame onslaught goes true, so
-    // this fallback is belt-and-suspenders).
-    if ( isdefined( level.acc_paradise_horde_layer ) )
-        return level.acc_paradise_horde_layer;
-    return getdvarint( "acc_paradise_buff_start", 2 );
+    // The wave baseline, stepped by the Paradise battle clock. Fallback to the start layer for the brief window
+    // before escalation_loop has set it (start_battle sets it the same frame onslaught goes true, so this
+    // fallback is belt-and-suspenders).
+    wave = level.acc_paradise_horde_layer;
+    if ( !isdefined( wave ) )
+        wave = getdvarint( "acc_paradise_buff_start", 2 );
+
+    // Stamp once, on the zombie's first battle sweep (<= 1.5s after spawn): its wave-of-birth layer + birth time.
+    if ( !isdefined( zombie.acc_paradise_age_layer ) || !isdefined( zombie.acc_paradise_age_ms ) )
+    {
+        zombie.acc_paradise_age_layer = wave;
+        zombie.acc_paradise_age_ms    = GetTime();
+    }
+
+    step_sec = getdvarfloat( "acc_paradise_age_step_sec", 30 );   // +1 tier per this many seconds ALIVE (0 = ramp off)
+    if ( step_sec > 0 )
+    {
+        aged = zombie.acc_paradise_age_layer + int( ( GetTime() - zombie.acc_paradise_age_ms ) / ( step_sec * 1000 ) );
+        if ( aged > wave )
+            wave = aged;
+    }
+
+    max_l = getdvarint( "acc_paradise_buff_max", 5 );
+    if ( wave > max_l )
+        wave = max_l;
+    return wave;
 }
 
 // Assert this zombie's BASELINE melee damage (ABSOLUTE HP), re-asserted every keepalive sweep. NOTE:

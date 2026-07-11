@@ -39,7 +39,9 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;       // Paradise PaP: standalone custom vendor (not a 2nd stock machine)
 
 // Altar base model (a Cyber City interactive sign kiosk - corrupted-tech pedestal; stock t7_props, proven packable).
-#precache( "model", "p7_cai_sign_inteactive_kiosk" );
+// STATION REMODEL (user 2026-07-09, docs/09): Citadel stone altar (162x66x58, T7-dump carve)
+// as the gamble-altar base - the ray-gun core orb (+72) now hovers ~14u above the slab top.
+#precache( "model", "p7_ram_altar" );
 #precache( "model", "p7_zm_der_magic_box" );   // Paradise Mystery Box mesh (stock; verified packed via the surface box, xmodel.csv)
 
 #namespace acc_glitch_altar;
@@ -124,11 +126,17 @@ function spawn_paradise()
     acc_overclocks::spawn_terminal_at( ( 850, -1350, pz ), 0 );      // Cyberware Weapon Overclock (east-mid)
     acc_exo::spawn_station_at( ( -850, -1950, pz ), 0 );             // Exo Suit station (west-south)
     acc_perks::spawn_perk_slot_vendor_at( ( 850, -1950, pz ), 0 );   // Neural Expansion Bay / perk slots (east-south)
+    acc_ammo_crate::spawn_crate_at( ( 850, -1650, pz ), 0 );         // AMMO CRATE #3 (user 2026-07-09) - east wall between the OC and the
+                                                                     // Neural Bay, so the onslaught has an in-arena refill (same GSC crate
+                                                                     // as the two abyss bookends; trigger is a radius, yaw is cosmetic)
 
-    // Boss-item Implant Bench: 2 pads = the 2 implant slots, side by side along X, south-LEFT of center.
+    // Boss-item Implant Bench: 3 pads = the 3 implant slots (2 -> 3, user 2026-07-09), side by side
+    // along X at the same 160u spacing as the Plaza lab row, south-LEFT of center (row spans
+    // x[-710,-390] - clear of the west wall at -1000 and the Mystery Box at +550).
     sep = getdvarint( "acc_bench_pad_sep", 80 );
-    acc_boss_items::spawn_bench_pad( ( -550 - sep, -2080, pz ), 0 );
-    acc_boss_items::spawn_bench_pad( ( -550 + sep, -2080, pz ), 1 );
+    acc_boss_items::spawn_bench_pad( ( -550 - 2 * sep, -2080, pz ), 0 );
+    acc_boss_items::spawn_bench_pad( ( -550,           -2080, pz ), 1 );
+    acc_boss_items::spawn_bench_pad( ( -550 + 2 * sep, -2080, pz ), 2 );
 
     spawn_paradise_box_at( ( 550, -2080, pz ) );   // permanent Mystery Box (south-right, balances the bench)
 
@@ -137,7 +145,7 @@ function spawn_paradise()
     // what broke the surface PaP before). Reuses the SAME player-scoped tier path, so tier never resets.
     acc_pap_levels::spawn_paradise_pap_at( ( 0, -1700, pz ), 0 );
 
-    acc_utility::log( "paradise: GSC amenities spawned (altar/overclock/exo/perk-slot/bench/box/pap)" );
+    acc_utility::log( "paradise: GSC amenities spawned (altar/overclock/exo/perk-slot/ammo-crate/bench/box/pap)" );
 }
 
 // ---------------------------------------------------------------------------
@@ -196,7 +204,35 @@ function paradise_box_loop()   // self = the box trigger
 
         player zm_score::minus_to_player_score( cost );
         self.acc_spinning = true;
-        wait 0.75;   // brief "spin" beat so the charge + give don't feel instant
+
+        // [acc] VISIBLE SPIN (user 2026-07-06: "it just takes your points without spinning through
+        // guns"): the old 0.75s bare wait gave zero feedback. Recreate the stock box read - a floating
+        // weapon model FLICKING through the pool while it rises, decelerating, then settling on the
+        // final gun - with a plain script_model, keeping this box's ZERO _zm_magicbox/zbarrier coupling.
+        // The real pick (wpn) already happened above; the flicker is display-only.
+        dsp = spawn( "script_model", self.acc_box_model.origin + ( 0, 0, 26 ) );
+        if ( isdefined( dsp ) )
+        {
+            dsp.angles = self.acc_box_model.angles + ( 0, 90, 0 );
+            dsp MoveZ( 38, 2.4 );          // slow rise out of the box lid
+            dsp RotateYaw( 540, 2.4 );     // 1.5 turns for the "reading the datastream" flair
+        }
+        pool = paradise_box_display_models( wpn );
+        start = ( pool.size > 0 ? RandomInt( pool.size ) : 0 );
+        for ( i = 0; i < 13; i++ )
+        {
+            if ( isdefined( dsp ) && pool.size > 0 )
+                dsp SetModel( pool[ ( start + i ) % pool.size ] );
+            // stock-like decelerating cadence: 7 fast flicks then progressively slower to the settle
+            wait ( i < 7 ? 0.1 : 0.1 + ( i - 6 ) * 0.05 );
+        }
+        if ( isdefined( dsp ) )
+        {
+            if ( isdefined( wpn.worldModel ) )
+                dsp SetModel( wpn.worldModel );   // the settled "this is your gun" beat
+            wait 0.7;
+            dsp Delete();
+        }
 
         // DISCONNECT-WINDOW GUARD (user 2026-06-27 crash-hunt): this loop runs on the box TRIGGER, so its
         // self endon("death") does NOT fire when the buying PLAYER leaves. If that player disconnected during
@@ -216,6 +252,26 @@ function paradise_box_loop()   // self = the box trigger
     }
 }
 
+// World models for the spin display: up to 8 box guns' worldModels, final gun EXCLUDED so the flicker
+// never "lands early" on the real result. Display-only (the weighted pick already happened); an empty
+// return just means the flicker frames keep the last model - harmless.
+function paradise_box_display_models( wpn_final )
+{
+    models = [];
+    if ( !isdefined( level.zombie_weapons ) ) return models;
+    keys = getarraykeys( level.zombie_weapons );
+    for ( i = 0; i < keys.size && models.size < 8; i++ )
+    {
+        w = keys[ i ];
+        if ( !isdefined( level.zombie_weapons[ w ].is_in_box ) || !level.zombie_weapons[ w ].is_in_box ) continue;
+        if ( acc_map_randomizer::is_box_tactical( w ) ) continue;
+        if ( isdefined( wpn_final ) && w == wpn_final ) continue;
+        if ( !isdefined( w.worldModel ) ) continue;
+        models[ models.size ] = w.worldModel;
+    }
+    return models;
+}
+
 // Random weapon from OUR box pool (is_in_box, not a fixed-odds tactical, not already owned), via the
 // surface box's weighted pick. Returns a weapon object or undefined (empty pool only).
 function paradise_box_pick_weapon( player )
@@ -229,7 +285,8 @@ function paradise_box_pick_weapon( player )
         w = keys[ i ];
         if ( ( isdefined( level.zombie_weapons[ w ].is_in_box ) && level.zombie_weapons[ w ].is_in_box )
              && !acc_map_randomizer::is_box_tactical( w )
-             && !acc_map_randomizer::player_owns_box_weapon( player, w ) )
+             && !acc_map_randomizer::player_owns_box_weapon( player, w )
+             && acc_map_randomizer::player_may_receive_wonder( player, w ) )   // per-match wonder claim caps (TG 1 / BoM 2)
             eligible[ eligible.size ] = w;
     }
     if ( eligible.size == 0 )   // owns every gun: fall back to the full box-flagged set (stock parity)
@@ -238,7 +295,8 @@ function paradise_box_pick_weapon( player )
         {
             w = keys[ i ];
             if ( ( isdefined( level.zombie_weapons[ w ].is_in_box ) && level.zombie_weapons[ w ].is_in_box )
-                 && !acc_map_randomizer::is_box_tactical( w ) )
+                 && !acc_map_randomizer::is_box_tactical( w )
+                 && acc_map_randomizer::player_may_receive_wonder( player, w ) )   // caps hold in the fallback too
                 eligible[ eligible.size ] = w;
         }
     }
@@ -251,10 +309,11 @@ function spawn_altar_at( origin )
 {
     cost = altar_cost();
 
-    // Kiosk BASE (the interactive machine you gamble at) + a glowing corrupted-data ORB
-    // floating + spinning above it = the Glitch Altar. Both are verified-packing stock props.
+    // Stone-altar BASE (the machine you gamble at) + a glowing corrupted-data ORB floating +
+    // spinning above it = the Glitch Altar. Altar slab is 58 tall, so the +72 orb hovers just
+    // above it (STATION REMODEL 2026-07-09 - was the shared sign kiosk).
     base = spawn( "script_model", origin );
-    base setmodel( "p7_cai_sign_inteactive_kiosk" );
+    base setmodel( "p7_ram_altar" );
 
     core = spawn( "script_model", origin + ( 0, 0, 72 ) );
     core setmodel( level.acc_shards_pickup_model );   // glowing energy ball

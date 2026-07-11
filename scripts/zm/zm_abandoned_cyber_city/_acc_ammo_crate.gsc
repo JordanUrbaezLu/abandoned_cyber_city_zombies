@@ -1,17 +1,25 @@
 // =============================================================================
 // _acc_ammo_crate.gsc - the trench AMMO CRATE (user 2026-06-27)
 //
-// A buyable ammo refill - TWO crates that BOOKEND the abyss descent (user 2026-06-27): one on L2 EAST
+// A buyable ammo refill - THREE crates: two BOOKEND the abyss descent (user 2026-06-27): one on L2 EAST
 // (400,1948,-480) by the Overclock (entry refill) + one on L5 WEST (-400,1948,-1200) at the bottom before
-// Paradise. (Layout: OC + crate L2, Glitch Altar L3, AK-47 wall-buy L4, crate L5 - see
-// _acc_glitch_altar::spawn_altars.) Walk up, hold [activate], and your HELD weapon's reserve is topped off
-// (like a personal Max Ammo). NOTE: the Action Figure melee is excluded (crate_cost returns 0 for it).
+// Paradise; a third IN Paradise itself (850,-1650,-1200, east wall - user 2026-07-09) so the finale
+// onslaught has an in-arena refill. (Layout: OC + crate L2, Glitch Altar L3, AK-47 wall-buy L4, crate L5 -
+// see _acc_glitch_altar::spawn_altars; the Paradise crate is spawned by spawn_paradise there.) Walk up,
+// hold [activate], and your HELD weapon's reserve is topped off (like a personal Max Ammo). NOTE: the
+// Action Figure melee is excluded (crate_cost returns 0 for it).
 //
 // PRICING - by the held weapon's PaP state (user 2026-06-27):
 //   - a BASE (un-Pack-a-Punched) gun ........ 1000 points   (acc_ammo_crate_base)
 //   - a PACK-A-PUNCHED gun .................. 5000 points   (acc_ammo_crate_pap)
+//   - a WONDER weapon ....................... 10000 points  (acc_ammo_crate_wonder, user 2026-07-08) -
+//     flat, regardless of PaP state. "Wonder" = _acc_pap_levels::pap_price_bucket == WONDER (the same
+//     single-source list as the WONDER PaP price tier: Thundergun / Fire Bow / Blast-O-Matic; the
+//     Leviathan Axe is also WONDER there but is a melee with no ammo -> not serviceable here).
 //   - a gun with NO PaP version (melee / equipment / specials that can't be packed) ... NOTHING.
 //     Those weapons can't be serviced here - the crate just tells you and charges nothing.
+//     (Exception: the WONDER check runs FIRST, so the Fire Bow - custom in-place PaP, no registered
+//     .upgrade form - is still refillable here at the wonder price.)
 //
 // The "has a PaP version" test is the SAME one _acc_weapon_variants uses (level.zombie_weapons[base].upgrade
 // is a real, different weapon), and "is it PaP'd" is stock zm_weapons::is_weapon_upgraded - so the gate
@@ -30,8 +38,12 @@
 #using scripts\zm\_zm_weapons;     // is_weapon_upgraded / get_base_weapon (PaP state + base lookup)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;   // hud_msg / log
+#using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels; // pap_price_bucket (the WONDER-tier gun list, single source of truth)
 
-#precache( "model", "p7_cai_stacking_cargo_crate" );
+// STATION REMODEL (user 2026-07-09, docs/09): literal ammo-crate stack (78x20x21, T7-dump
+// carve, Shangri-La set) - reads AMMO at a glance; the cargo crate now belongs to nothing
+// (the Data Cache became a computer tower), killing the 2-way crate reuse.
+#precache( "model", "p7_zm_sha_crate_ammo_closed_sml_stack_full" );
 
 #namespace acc_ammo_crate;
 
@@ -39,7 +51,7 @@
 function spawn_crate_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_stacking_cargo_crate" );
+    m setmodel( "p7_zm_sha_crate_ammo_closed_sml_stack_full" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
@@ -50,7 +62,7 @@ function spawn_crate_at( origin, yaw )
     // the per-use result is shown via hud_msg (chat-style, cache-free) instead. Memory triggerstring-cap-hint-strings.
     // Buyable-UI audit fix (2026-07-03): "Pack-a-Punched" + "weapon" made the Aetherium router
     // show the PACK-A-PUNCH card here. "PaP'd" + "gun" avoid every router token -> DefaultHint.
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held gun  ^2[1000 base / 5000 PaP'd]" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held gun  ^2[1000 base / 5000 PaP'd / 10000 wonder]" );
     t thread crate_loop();
 
     acc_utility::log( "ammo crate spawned at " + origin );
@@ -107,6 +119,20 @@ function crate_cost( weapon )
     // t8_melee_figure_fast1/2/3) plus the off-hand. Matches _acc_pap_levels::is_actionfigure. user 2026-06-27.
     if ( isdefined( weapon.name ) && ( IsSubStr( weapon.name, "t8_melee_figure" ) || weapon.name == "t8_actionfigure_melee" ) )
         return 0;
+
+    // WONDER weapons = flat 10k, regardless of PaP state (user 2026-07-08). Same single-source list as
+    // the WONDER PaP price tier (_acc_pap_levels::pap_price_bucket). Checked BEFORE the PaP'd/upgradeable
+    // gates on purpose: the Fire Bow's PaP is a custom in-place tier bump (no registered .upgrade form),
+    // so the has-a-PaP-version gate below would wrongly read it as unserviceable. The Leviathan Axe is
+    // WONDER-bucketed too but is a melee with NO ammo - GiveMaxAmmo would charge 10k for nothing, so it
+    // stays unserviceable (same treatment as the Action Figure above).
+    if ( isdefined( weapon.name ) )
+    {
+        if ( IsSubStr( weapon.name, "leviathan" ) )
+            return 0;   // melee wonder - no ammo to refill
+        if ( acc_pap_levels::pap_price_bucket( weapon.name ) == "WONDER" )
+            return getdvarint( "acc_ammo_crate_wonder", 10000 );
+    }
 
     // Already Pack-a-Punched -> the 5k tier.
     if ( zm_weapons::is_weapon_upgraded( weapon ) )

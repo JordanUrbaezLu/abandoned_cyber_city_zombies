@@ -4,7 +4,7 @@
 // Stands up the map's custom LUI HUD overlay (ui/uieditor/menus/hud/acc_hud.lua)
 // and the clientuimodel data bridge that drives it. This is the substrate every
 // future premium-UI touchpoint rides on (perk-icon glow, Data Shards counter,
-// Cyberware indicators, boss bar - see docs/27_ui_plan.md, docs/28_lui_pipeline.md).
+// Cyberware indicators, boss bar - see docs/11_controls_and_hud.md, docs/19_lui_pipeline.md).
 //
 // Pattern (verified vs stock _zm_perk_deadshot.gsc/.csc + shipped usermaps
 // zm_alien_isolation / zm_building / zm_countryside): REGISTER_SYSTEM so the
@@ -54,13 +54,15 @@ function __init__()
     //              (AccPerkBar / AccPowerupBar / AccAmmoBlock / AccEquip - recipes in place)
     // Hardcoded bool by design (dev-mode-hardcoded-not-console rule: no runtime dvar).
     level.acc_aetherium_hud = true;
+    // NOTE (crash-hunt 2026-07-10): flipping ONLY this bool + the .csc define black-screens the load -
+    // the full stock-HUD rollback really is the 3-step recipe above (step 3 included). Verified live.
 
     // Must match the .csc mirror EXACTLY (scope/name/version/bits/type) AND in the
     // SAME ORDER - the bit layout is assigned in registration order.
     // [acc] Held weapon's Cyberware Overclock tier (0..5), shown as "vN" near the gun name by
     // acc_hud.lua CoD.AccOcTierText; pushed by _acc_overclocks::oc_hud_loop. REPURPOSED 2026-06-21
     // from the dead `accLuiTest` test field - SAME 4-bit slot in the SAME registration order, so the
-    // clientfield bit layout is UNCHANGED (no pool growth -> no overflow / stock-field break, docs/42).
+    // clientfield bit layout is UNCHANGED (no pool growth -> no overflow / stock-field break, docs/11).
     clientfield::register( "clientuimodel", "accOcTier", VERSION_SHIP, 4, "int" );
     // Perk/PaP info card selector: code = perkIndex*4 + mode (0 = hide), +64 when the
     // viewing player holds The Armory (Mule Kick Mega) so the card shows the 10%-off
@@ -96,7 +98,7 @@ function __init__()
     // as the round's zombies die). 7 bits (0..127). Appended LAST so existing fields' bit
     // layout is untouched (MUST match _acc_lui.csc order/width). NOTE: kept to 7 bits because
     // the clientuimodel clientfield pool is nearly full - wider count fields overflow it and
-    // a STOCK field (zmhud.swordEnergy) then fails to register => Com_ERROR at load. docs/42.
+    // a STOCK field (zmhud.swordEnergy) then fails to register => Com_ERROR at load. docs/11.
     clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int" );
     // [acc] ACTOR-scope eye-tint marker for the Glitch Stalker (teal eyes, NO FX). Separate
     // bit pool from the clientuimodel fields above. MUST match _acc_lui.csc EXACTLY
@@ -332,17 +334,39 @@ function perk_state_watch()
 
     for ( ;; )
     {
+        // BLINK an Avogadro-hacked perk on the row (user 2026-07-05: "the perk that is affected should
+        // blink"). CONSTRAINT: the clientuimodel clientfield pool is FULL (docs/11) so NO new field, and
+        // toggling the perk's OWNED bit is NOT viable - HandlePerksList (AetheriumPerksContainer.lua) rebuilds
+        // the row in ACQUISITION order, so a perk whose owned bit drops out re-appends on the far RIGHT and
+        // replays its slide-in => the whole row reshuffles every blink. INSTEAD flip the hacked perk's MEGA
+        // bit on a wall-clock half-second: owned stays set so the icon KEEPS ITS SLOT (no reflow, no slide-in)
+        // and only its art alternates base<->mega IN PLACE - a stable, eye-catching pulse with NO new
+        // clientfield and NO LUI edit (zero map-load / LUI-runtime risk). Same server-clock idiom as
+        // pu_show_bit's powerup blink. The paired hack_alert toast says WHAT went down; this pulse draws the
+        // eye to WHICH perk. Hack state = level.acc_avo_hacked[ specialty ] (_acc_boss_avogadro::do_hack /
+        // undo_hack), read directly to avoid a HUD->boss #using. Only the 5 hackable perks ever match; PaP
+        // isn't on the row (toast only). perk_state_watch recomputes mega from source every tick, so the real
+        // Mega state is restored the instant the hack ends - the flip is transient, never persisted.
+        blink_flip = ( ( GetTime() % 1000 ) < 500 );   // 1Hz, wall-clock -> co-op players pulse in sync
+        hacks = level.acc_avo_hacked;                  // may be undefined pre-Avogadro-init; guarded below
+
         owned = 0;
         mega  = 0;
         for ( i = 0; i < specialties.size; i++ )
         {
             sp = specialties[ i ];
-            // owns_or_paused (not bare HasPerk) so a boss EMP-pause of the perk does
-            // NOT flicker the icon off mid-fight (mirrors has_active_mega_perk intent).
-            if ( acc_mega_bottles::owns_or_paused( self, sp ) )
+            // owns_paused_or_hacked (not bare HasPerk, not owns_or_paused): an EMP-pause OR an
+            // Avogadro hack keeps the icon IN ITS SLOT (owns_or_paused now reads a hacked perk as
+            // not-owned for gameplay gates, 2026-07-06 - using it here would drop the owned bit and
+            // reflow the whole row, exactly what the blink design below avoids).
+            if ( acc_mega_bottles::owns_paused_or_hacked( self, sp ) )
             {
-                owned = owned | ( 1 << i );
-                if ( acc_mega_bottles::has_mega_perk( self, sp ) )
+                owned   = owned | ( 1 << i );
+                is_mega = acc_mega_bottles::has_mega_perk( self, sp );
+                // On the "flip" half of the blink cycle, invert a hacked perk's mega art so its icon pulses.
+                if ( blink_flip && isdefined( hacks ) && IS_TRUE( hacks[ sp ] ) )
+                    is_mega = !is_mega;
+                if ( is_mega )
                     mega = mega | ( 1 << i );
             }
         }
@@ -406,7 +430,7 @@ function clear_stock_perk_hud()
 // RE-ASSERT every 0.25s (not one-shot): stock re-SETS weapon_hud_visible to 1 on spawn/revive/etc
 // (_zm.gsc:536/1761/1882), so a single call would let the stock block flicker back. Cheap poll,
 // mirrors clear_stock_perk_hud's re-assert cadence. Per-life (re-threaded by player_lui_init).
-// NOTE (verify in-game, docs/49 Phase 0 gate): confirm this cleanly hides the block AND does not
+// NOTE (verify in-game, docs/22 Phase 0 gate): confirm this cleanly hides the block AND does not
 // also hide a d-pad/GobbleGum prompt we want to keep; if it over-hides, scope down before Phase 2.
 function suppress_stock_weapon_hud()
 {

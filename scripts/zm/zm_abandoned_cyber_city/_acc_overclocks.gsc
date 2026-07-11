@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_overclocks.gsc - weapon Tier progression + Overclock slots
 //
-// Design reference: docs/05_weapons.md (Weapon Progression - Tier 1-5).
+// Design reference: docs/04_weapons.md (Weapon Progression - Tier 1-5).
 //
 // Tier model:
 //   - Each weapon tracks a TIER from 0 (base) to 5 (max) per player.
@@ -30,8 +30,9 @@
 
 // Tier costs per level. ACC_TIER_MAX 5 -> 10 (user 2026-06-24): both the gun Overclock and the Exo Suit
 // now go to 10 tiers. The 4 effects scale off the tier in _acc_damage (get_oc_tier, no internal clamp),
-// so they extend to T10 automatically: flat dmg +100%, glitch +250%, ammo 100%, shield-pierce 0.05/tier
-// (the Riot's front takes 25% dmg at T0 -> 62.5% at T10; a PARTIAL restore, never a full bypass, user 2026-06-25).
+// so they extend to T10 automatically: flat dmg +120%, glitch +150%, ammo 50%, shield-pierce 0.04/tier
+// (the Riot's front takes 25% dmg at T0 -> 55% at T10; a PARTIAL restore, never a full bypass). Per-tier
+// magnitudes retuned 2026-07-08 (dmg 0.10->0.12, glitch 0.25->0.15, ammo 0.10->0.05, pierce 0.05->0.04).
 // Cost ladder (SHARED with the Exo Suit, user 2026-06-24): LINEAR +4/tier = 4 x tier ->
 // 4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 36 / 40 (220 to max one gun; all fit the 500 shard cap).
 #define ACC_TIER_MAX 10
@@ -48,7 +49,9 @@
 #define ACC_OC_REROLL_COST_SHARDS 1
 
 // Overclock terminal world model (a theatre ticket kiosk - on-theme tech read; xmodel-listed in the .zone).
-#precache( "model", "p7_cai_ticket_kiosk_theatre" );
+// STATION REMODEL (user 2026-07-09, docs/09): Gorod dragon-network data terminal (48x34x78,
+// T7-dump carve) - a real tech terminal instead of the thematically-wrong THEATRE ticket kiosk.
+#precache( "model", "p7_zm_sta_dragon_network_data_terminal" );
 
 #namespace acc_overclocks;
 
@@ -151,7 +154,7 @@ function tier_cost( target_tier )
 }
 
 // ---------------------------------------------------------------------------
-// Pool definition. Synced with docs/05_weapons.md.
+// Pool definition. Synced with docs/04_weapons.md.
 // Each overclock is a struct with id, display_name, on_apply (callback).
 // ---------------------------------------------------------------------------
 
@@ -252,7 +255,7 @@ function watch_terminal_trigger()
 function spawn_terminal_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_cai_ticket_kiosk_theatre" );
+    m setmodel( "p7_zm_sta_dragon_network_data_terminal" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
@@ -394,22 +397,23 @@ function weapon_name_to_family( weapon_name )
     // Figure melee (+ the non-box laststand pistol, knife, grenades) return "none". A gun not listed falls
     // through to "unknown" (blocked) - add any NEW gun to a family list.
     ar_list = array( "t9_ak47", "s1_ae4",           // AK-47 (BO2), AE4 (AW energy)
-                     "t6_galil" );                  // Galil (BO2, 2026-06-15)
+                     "t9_grav", "t9_xm4" );        // Grav (CW, Galil stats + CW model, 2026-07-05), XM4 (CW, 2026-07-04)
     // ASM1 RETIRED 2026-07-03 (user) - re-add "s1_asm1" first in this array to restore.
     smg_list = array( "s4_ppsh41_base", "t9_ak74u",  // PPSH-41, AK-74u
-                      "t6_chicom_cqb" );             // Chicom CQB (BO2 burst SMG, 2026-06-25)
-    sg_list = array( "s1_tac19", "t6_olympia" );    // Tac-19, Olympia (BO2, 2026-06-15)
-    sr_list = array( "t8_paladin_hb50", "s1_mk14", "s1_mors" ); // Paladin HB50 (BO4 sniper) + MK14 (AW DMR) + MORS (AW railgun sniper, 2026-06-24)
+                      "apex_prowler", "apex_alternator" );  // Apex Prowler + Alternator (2026-07-06; Chicom removed)
+    sg_list = array( "s1_tac19", "t6_olympia",      // Tac-19, Olympia (BO2, 2026-06-15)
+                     "t9_streetsweeper", "s1_cel3", "apex_peacekeeper" ); // Streetsweeper, CEL-3, + Peacekeeper (Apex, 2026-07-06)
+    sr_list = array( "s1_mk14", "s1_mors", "apex_g2a4" ); // MK14 (AW DMR) + MORS (AW railgun) + Apex G7 Scout (2026-07-06; Paladin removed)
     lmg_list = array( "t9_m60", "t9_rpd" );         // M60 + RPD (Cold War LMGs, 2026-06-26)
 
     // Pistols are NOW Overclock-able (user 2026-06-22: "every gun except wunderwaffe").
-    pistol_list = array( "t6_fiveseven", "s1_rw1" ); // Five-Seven (start pistol) + RW1 (AW energy pistol, 2026-06-23)
+    pistol_list = array( "t6_fiveseven", "s1_rw1" ); // Five-Seven + RW1 (AW energy pistol). Klauser removed (Apex migration 2026-07-06).
 
     // SPECIAL weapons that DO Overclock (user 2026-06-23: "every weapon except the Action Figure"). The Mahem
     // launcher + Thundergun WW gain the damage + vs-glitch tiers (the headshot->ammo effect is inert on them -
     // explosions / wind-blast don't headshot - but harmless). "special" is just the overclockable gate; the OC
     // effects are tier-based and family-agnostic, so the value string beyond none/unknown doesn't change them.
-    special_list = array( "s1_mahem", "thundergun" );
+    special_list = array( "s1_mahem", "apex_beam_rifle", "thundergun", "t6_war_machine" );   // Mahem + Apex Havoc energy special (replaces China Lake, user 2026-07-06) + Thundergun + War Machine drum GL (user 2026-07-09)
 
     // The ONLY weapon that CANNOT Overclock is the Action Figure melee (the Exo Suit scales melee instead),
     // plus the non-box held things that were never tier-able (laststand pistol, knife, grenade) -> "none"

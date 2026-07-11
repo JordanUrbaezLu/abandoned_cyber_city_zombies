@@ -44,6 +44,7 @@
 // lights, was red index 1), 12 = DIM WHITE (trench shard-bank "has shards" indicator).
 #precache( "client_fx", "acc/light/fx_perk_glow_magenta" );
 #precache( "client_fx", "acc/light/fx_perk_glow_white_dim" );
+#precache( "client_fx", "acc/light/fx_perk_glow_amber_dim" );
 
 #namespace acc_perk_lights;
 
@@ -65,6 +66,7 @@ function __init__()
     level._effect[ "acc_glow_10" ] = "acc/light/fx_perk_glow_teal";       // Pack-a-Punch - teal
     level._effect[ "acc_glow_11" ] = "acc/light/fx_perk_glow_magenta";    // lockdown "purge" room lights (user 2026-06-24, was red)
     level._effect[ "acc_glow_12" ] = "acc/light/fx_perk_glow_white_dim";  // trench shard-bank "has shards" indicator (dim white)
+    level._effect[ "acc_glow_13" ] = "acc/light/fx_perk_glow_amber_dim";  // dropped-ITEM loot glow (user 2026-07-08: dimmed to 40% - index 5 full amber stays on Mule Kick)
 
     // MUST match _acc_perk_lights.gsc EXACTLY. !CF_CALLBACK_ZERO_ON_NEW_ENT so the
     // latched value replays for clients that join AFTER power-on (the callback fires on

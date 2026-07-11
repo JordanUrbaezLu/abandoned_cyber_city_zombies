@@ -1,11 +1,11 @@
 // =============================================================================
 // _acc_perk_electric_cherry.gsc - Electric Cherry, the REAL 10th perk (perk #10)
 //
-// Design reference: docs/13_perks.md / docs/perk_abilities.md (Electric Cherry).
+// Design reference: docs/10_perks.md / docs/10_perks.md (Electric Cherry).
 //
 // This is a genuinely NEW perk registered FROM SCRATCH on the unused engine
 // specialty `specialty_combat_efficiency` (the shipped Elemental Pop precedent,
-// docs/22 - HasPerk/SetPerk/HUD all work natively on it). It does NOT touch the
+// docs/16 - HasPerk/SetPerk/HUD all work natively on it). It does NOT touch the
 // stock `specialty_electriccherry` pipeline, which PhD Flopper still hijacks
 // (_acc_perk_phd_flopper.gsc). So both PhD AND a real Electric Cherry coexist:
 //   - PhD Flopper  -> specialty_electriccherry + p7_zm_vending_nuke (unchanged)
@@ -14,7 +14,7 @@
 //     added by tools/respace_perk_alcoves_10.js).
 //
 // Registration mirrors the stock 6-call chain (cleanest example _zm_perk_deadshot.gsc;
-// shipped custom-perk precedent ColDog/zm_countryside, docs/22):
+// shipped custom-perk precedent ColDog/zm_countryside, docs/16):
 //   register_perk_basic_info / precache / machine / threads / host_migration_params.
 // We DELIBERATELY SKIP register_perk_clientfields: the clientuimodel pool is near
 // full (memory hud-pool-full-workarounds), and this map's perk HUD is driven by the
@@ -33,13 +33,15 @@
 // single global level.custom_laststand_func - we don't fight it).
 //
 // MEGA ("Power Surge", read live from the Mega flag): bigger radius, more targets,
-// higher damage, shorter cooldown, AND immunity to boss "special moves" - the Phantom
-// chain-zap slow + the Subroutine Core power/perk-disable (moved here from Mega Widow's
-// Wine, user 2026-06-25; thematically the electric perk shrugs off the electric special).
-// That immunity is enforced in _acc_boss::protect_immune_players_during_debuff and
-// _acc_elites::acc_phantom_chain_zap, which gate on the PERSISTENT Mega flag
-// (specialty_combat_efficiency) - the only ownership marker that survives the boss's
-// UnsetPerk debuff, which is exactly why it must live on the Mega tier, not base.
+// higher damage, shorter cooldown, AND boss-zap SOFTENING - a Power-Surge holder takes
+// the boss zap slows (Phantom chain / Rogue Protector / Avogadro) at -10% instead of
+// -30% (was full immunity 2026-06-25 -> softened 2026-07-03; enforced in the
+// _acc_elites zap applicators off the PERSISTENT Mega flag specialty_combat_efficiency;
+// thematically the electric perk shrugs off electric specials). The Battery boss item
+// (2026-07-08) fully absorbs those zaps for its holder, superseding the softening.
+// (The old "Subroutine Core power/perk-disable immunity" is DEAD with that boss - the
+// full boss was removed 2026-06-22; _acc_boss::protect_immune_players_during_debuff
+// survives only as unreachable code behind the dead run_full_boss path.)
 //
 // REGISTER_SYSTEM autoexec runs the registration at the correct pre-load phase (same
 // as stock perks + _acc_perk_lights); wired by the #using in zm_abandoned_cyber_city.gsc
@@ -71,7 +73,7 @@
 // --- identity ---------------------------------------------------------------
 // specialty_combat_efficiency = an UNUSED engine specialty (no stock perk binds it;
 // HasPerk/SetPerk work natively). Hosts the real Electric Cherry so PhD keeps the
-// cherry pipeline. (docs/22 "Reserved specialty strings are engine-valid".)
+// cherry pipeline. (docs/16 "Reserved specialty strings are engine-valid".)
 #define EC_PERK                "specialty_combat_efficiency"
 #define EC_ALIAS               "acc_electric_cherry"
 #define EC_COST                3000
@@ -96,7 +98,7 @@
 #define EC_TARGET_CAP          8      // max zombies zapped per nova (base)
 #define EC_TARGET_CAP_MEGA     12     // user 2026-06-25: 16 -> 12
 #define EC_COOLDOWN            6      // seconds between novas (base)
-#define EC_COOLDOWN_MEGA       5      // user 2026-06-25: 4 -> 5
+#define EC_COOLDOWN_MEGA       4      // user 2026-07-08: 5 -> 4 (2026-06-25 had gone 4 -> 5)
 #define EC_KILL_POINTS         40     // points per zombie the nova kills (mirrors stock RELOAD_ATTACK_POINTS)
 
 // Electric burst FX - the PhD-proven, on-disk one-shot spark burst (electric/, "_os" =
@@ -143,7 +145,7 @@ function ec_precache()
     // packable source in ANY install (rendered INVISIBLE, 2026-06-25), so EC shipped on the
     // p7_lab_bio_machinery_01 lab-prop stand-in until the West pack supplied a real source. The model
     // is FORCE-PACKED via `xmodel,electric_cherry_model` in the .zone (runtime-SetModel assets need an
-    // explicit line, docs/44) - VERIFY it lands in the packed assetinfo, else it renders invisible.
+    // explicit line, docs/27) - VERIFY it lands in the packed assetinfo, else it renders invisible.
     // perk_machine_think SetModels this at runtime over the .map struct's model.
     level.machine_assets[ EC_PERK ].off_model = EC_OFF_MODEL;
     level.machine_assets[ EC_PERK ].on_model  = EC_ON_MODEL;
@@ -278,9 +280,16 @@ function ec_nova()
             // soft-locking the boss round. Skip the freeze for any boss / mini-boss (covers Brutus/Warden,
             // Phantom, Subroutine Core, Glitch Stalker - all carry acc_is_boss or acc_is_mini_boss). They
             // still get the shock FX + the nova DoDamage below, just not the ignoreall stun.
+            // [acc] BOSS THREAD-HANG GUARD (2026-07-06 crash-hunt): stock electric_cherry_shock_fx sets the
+            // shock-eye clientfield then `waittill("stun_fx_end")` - which ONLY electric_cherry_stun fires. For a
+            // boss the stun is skipped (above), so shock_fx would block forever (leaking a thread every reload and
+            // leaving the shock-eye FX stuck ON until the boss dies). Run BOTH only for non-bosses; bosses still
+            // take the nova DoDamage below, they just don't get the (self-hanging) shock-eye FX.
             if ( !IS_TRUE( z.acc_is_boss ) && !IS_TRUE( z.acc_is_mini_boss ) )
+            {
                 z thread zm_perk_electric_cherry::electric_cherry_stun();    // real ~4s freeze (ignoreall)
-            z thread zm_perk_electric_cherry::electric_cherry_shock_fx();    // real shock-eyes FX
+                z thread zm_perk_electric_cherry::electric_cherry_shock_fx();    // real shock-eyes FX
+            }
         }
 
         z DoDamage( dmg, v_origin, self, self, 0, "MOD_GRENADE_SPLASH" );

@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_weapon_abilities.gsc - per-category active weapon abilities
 //
-// Design reference: docs/05_weapons.md (Weapon Abilities - intrinsic).
+// Design reference: docs/04_weapons.md (Weapon Abilities - intrinsic).
 //
 // Every weapon CATEGORY has one signature active ability, triggered by a
 // hotkey with a cooldown. The ability is intrinsic to the weapon (no unlock,
@@ -13,7 +13,7 @@
 //      * pistol  (Five-Seven, M1911)               -> Precision Mode: 3 auto-crit shots.
 //      * smg     (ASM1, Ripper, PPSH, AK-74u, PDW) -> Whirlwind: 96u AoE panic clear.
 //      * shotgun (Tac-19, Olympia)                 -> Slug Round: next shot 3x single-target.
-//      * ar      (AK-47, AE4, Galil, Nail Gun)     -> Focus Fire: 6 auto-crit shots.
+//      * ar      (AK-47, AE4, Grav, XM4)           -> Focus Fire: 6 auto-crit shots.
 //      * sniper  (Paladin HB50)                    -> Precision Mode (3 auto-crit).
 //      * lmg     (M60, RPD)                         -> Focus Fire (6 auto-crit burst).
 //   _acc_damage::on_ai_damage consumes the crit-shots / slug flags; this module arms.
@@ -36,7 +36,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 
-#define ACC_WHIRLWIND_RADIUS_SQ    9216  // 96u * 96u (docs/05_weapons.md)
+#define ACC_WHIRLWIND_RADIUS_SQ    9216  // 96u * 96u (docs/04_weapons.md)
 #define ACC_WHIRLWIND_ELITE_DAMAGE 1000  // flat - elites are not chaff
 #define ACC_PRECISION_CRIT_SHOTS   3
 #define ACC_FOCUS_FIRE_CRIT_SHOTS  6   // AK-47 (AR): longer auto-crit burst (full-auto)
@@ -70,7 +70,7 @@ function on_player_connect( player )
 
 // ---------------------------------------------------------------------------
 // Ability table - source of truth for cooldowns and effects.
-// Keep in sync with docs/05_weapons.md "Weapon Abilities" table.
+// Keep in sync with docs/04_weapons.md "Weapon Abilities" table.
 // ---------------------------------------------------------------------------
 
 function build_ability_table()
@@ -85,7 +85,7 @@ function build_ability_table()
     t[ "pistol" ]  = ability( "precision_mode", 30, &effect_precision_mode ); // Five-Seven + M1911: 3 auto-crit shots
     t[ "smg" ]     = ability( "whirlwind",      20, &effect_whirlwind );      // ASM1 + Ripper + PPSH + AK-74u + PDW: 96u AoE panic clear
     t[ "shotgun" ] = ability( "slug_round",     20, &effect_slug_round );     // Tac-19 + Olympia: next shot 3x single-target
-    t[ "ar" ]      = ability( "focus_fire",     25, &effect_focus_fire );     // AK-47 + AE4 + Galil + Nail Gun: 6 auto-crit shots
+    t[ "ar" ]      = ability( "focus_fire",     25, &effect_focus_fire );     // AK-47 + AE4 + Grav + XM4: 6 auto-crit shots
 
     // Sniper + LMG categories (user 2026-06-21): the box guns added 2026-06-15/19 were
     // never wired to a category, so M1911 / PPSH / AK-74u / PDW / Nail Gun / Paladin /
@@ -116,7 +116,7 @@ function ability( id, cooldown_sec, on_activate )
 //   pistol  : t6_fiveseven, s2_m1911                         -> Precision Mode
 //   smg     : s1_asm1, iw6_ripper_*, s4_ppsh41_base, t9_ak74u, s1_pdw -> Whirlwind
 //   shotgun : s1_tac19, t6_olympia                           -> Slug Round
-//   ar      : t9_ak47, s1_ae4, t6_galil, t9_nail_gun         -> Focus Fire
+//   ar      : t9_ak47, s1_ae4, t9_grav, t9_xm4               -> Focus Fire
 //   sniper  : t8_paladin_hb50, s1_mk14, s1_mors              -> Precision Mode
 //   lmg     : t9_m60, t9_rpd                                 -> Focus Fire
 // Offhand framework weapons (knife melee, frag_grenade lethal) + laststand
@@ -131,13 +131,13 @@ function weapon_name_to_ability_category( weapon_name )
     // Only the 5 HELD guns map to a category. getcurrentweapon() drives this
     // (try_activate_ability) - the offhand knife + grenades are never the
     // "current weapon", so they have no reachable ability and are absent.
-    pistol_list  = array( "pistol_standard", "t6_fiveseven", "s1_rw1" );  // Five-Seven + RW1 (+ laststand) -> Precision Mode
+    pistol_list  = array( "pistol_standard", "t6_fiveseven", "s1_rw1" );  // Five-Seven + RW1 (+ laststand) -> Precision Mode. Klauser removed (Apex migration 2026-07-06).
     // ASM1 RETIRED 2026-07-03 (user) - re-add "s1_asm1" first in this array to restore.
     smg_list     = array( "s4_ppsh41_base", "t9_ak74u",          // PPSH-41, AK-74u -> Whirlwind
-                          "t6_chicom_cqb" );                     // Chicom CQB (BO2 burst SMG)
-    shotgun_list = array( "s1_tac19", "t6_olympia" );           // Tac-19, Olympia (BO2) -> Slug Round
-    ar_list      = array( "t9_ak47", "s1_ae4", "t6_galil" );    // AK-47, AE4, Galil -> Focus Fire
-    sniper_list  = array( "t8_paladin_hb50", "s1_mk14", "s1_mors" );  // Paladin HB50 + MK14 DMR + MORS railgun (2026-06-24) -> Precision Mode
+                          "apex_prowler", "apex_alternator" );  // Apex Prowler + Alternator (2026-07-06; Chicom removed)
+    shotgun_list = array( "s1_tac19", "t6_olympia", "t9_streetsweeper", "s1_cel3", "apex_peacekeeper" ); // + Peacekeeper (Apex, 2026-07-06) -> Slug Round
+    ar_list      = array( "t9_ak47", "s1_ae4", "t9_grav", "t9_xm4" );    // AK-47, AE4, Grav (CW model + Galil stats, 2026-07-05), XM4 -> Focus Fire
+    sniper_list  = array( "s1_mk14", "s1_mors", "apex_g2a4" );  // MK14 DMR + MORS railgun + Apex G7 Scout (2026-07-06; Paladin removed) -> Precision Mode
     lmg_list     = array( "t9_m60", "t9_rpd" );                 // M60, RPD (Cold War, 2026-06-26) -> Focus Fire
 
     if ( array::contains( pistol_list, weapon_name ) ) return "pistol";
@@ -206,12 +206,17 @@ function try_activate_ability( player )
     }
 
     // VERIFIED(acc): PaP'd weapons KEEP the _upgraded suffix in
-    // rootWeapon.name; the base<->upgrade mapping is table-driven via
-    // zm_weapons::get_base_weapon (_zm_weapons.gsc:1624), which falls
-    // through to the weapon itself when not upgraded. Resolving the base
-    // here keeps abilities working after PaP (docs/05: abilities are
+    // rootWeapon.name; the base<->upgrade mapping is table-driven. Resolving
+    // the base here keeps abilities working after PaP (docs/04: abilities are
     // intrinsic and ignore the upgrade tracks).
-    w_base = zm_weapons::get_base_weapon( weapon );
+    // [acc] #4 FIX (2026-07-05): use acc_weapon_variants::true_base, NOT
+    // zm_weapons::get_base_weapon. get_base_weapon only maps an "_up" form back
+    // through the stock upgrade table; it does NOT strip our "_acc_<twin>" suffix.
+    // Un-PaP'd variant twins (e.g. t9_xm4_acc_recoil50, which a Mega perk swaps in)
+    // aren't in zombie_weapons_upgraded, so get_base_weapon returned the twin
+    // unchanged -> category "none" -> "No ability on this weapon" until PaP.
+    // true_base() strips the _acc suffix THEN maps _up->base, resolving both forms.
+    w_base = acc_weapon_variants::true_base( weapon );
     category = weapon_name_to_ability_category( w_base.name );
     if ( category == "none" )
     {
@@ -242,7 +247,7 @@ function try_activate_ability( player )
 
     // Start cooldown immediately so rapid presses can't double-activate.
     // Timestamps (not tickers) mean the cooldown runs while holstered too
-    // (docs/05: cooldowns tick down equipped AND holstered).
+    // (docs/04: cooldowns tick down equipped AND holstered).
     player.acc_ability_ready_at[ ability.id ] = now + ( ability.cooldown_sec * 1000 );
 
     player iprintln( "Activated: " + ability.id );
@@ -262,7 +267,7 @@ function try_activate_ability( player )
 
 function effect_triple_tap()
 {
-    // docs/05: next B23R shot fires the 3-round burst as one tight cluster.
+    // docs/04: next B23R shot fires the 3-round burst as one tight cluster.
     // NOT implementable yet: collapsing burst ballistics needs a weapon-fire
     // intercept / weapon-override GDT swap - GSC alone cannot reshape a
     // burst's projectile pattern. Cooldown is still consumed by design so
@@ -273,23 +278,25 @@ function effect_triple_tap()
 
 function effect_stabilizer()
 {
-    // docs/05: 5s zero recoil + 20% fire rate. Both are baked weapon-GDT
-    // properties with no live setter, so they are delivered by the weapon-variant
-    // SWAP framework (_acc_weapon_variants): hand the player a reduced-recoil +
-    // fast-fire twin of their current gun for the duration, then swap the base
-    // back. Maps to the strongest baked recoil tier (-40%, recoil40) + fastfire
-    // (no literal "zero" twin; -40% is the closest level). In Phase 1 the fast half
-    // no-ops until fastfire twins exist (Phase 2).
-    // Inert until the twins are baked + allow-listed (docs/31 §4-5); the cooldown
-    // is still consumed so the input loop stays testable end-to-end.
-    self acc_weapon_variants::apply_timed_variant( array( "recoil40", "fastfire" ), 5 );
-    self iprintln( "Stabilizer: recoil/fire-rate boost" );   // vague (docs/50): duration/% hidden, exact in docs/05
-    acc_utility::log( "ability: stabilizer -> timed weapon-variant (inert until twins baked)" );
+    // docs/04: 5s zero recoil (the fire-rate half is gone). Recoil is a baked weapon-GDT
+    // property with no live setter, so it is delivered by the weapon-variant SWAP framework
+    // (_acc_weapon_variants): hand the player a reduced-recoil twin of their current gun for
+    // the duration, then swap the base back. Maps to the strongest baked recoil tier
+    // (-50%, recoil50; there is no literal "zero" twin). The fire-rate half was DROPPED
+    // 2026-07-04 with the fastfire twin removal (Mega Double Tap became a damage buff, so the
+    // fastfire twins no longer exist). Was array( "recoil40", "fastfire" ) - recoil40 was a
+    // stale token from the old 3-tier recoil system too, so it fixes that dead ref in passing.
+    // LIVE (audit 2026-07-08 - the old "inert until baked" note predated the bake): recoil50
+    // twins exist for the whole 22-gun roster; on a twin-less gun (wonders/specials/starting
+    // pistol) the token no-ops gracefully via desired_weapon()'s fallback.
+    self acc_weapon_variants::apply_timed_variant( array( "recoil50" ), 5 );
+    self iprintln( "Stabilizer: recoil boost" );   // vague (docs/31): duration/% hidden, exact in docs/04
+    acc_utility::log( "ability: stabilizer -> timed recoil50 weapon-variant (5s)" );
 }
 
 function effect_precision_mode()
 {
-    // docs/05: next 3 shots auto-crit (4x damage, ignore hit-loc).
+    // docs/04: next 3 shots auto-crit (4x damage, ignore hit-loc).
     // CONTRACT: _acc_damage::on_ai_damage consumes acc_ability_crit_shots -
     // it treats each hit as an auto-crit at 4x and decrements the counter.
     // The damage math lives in _acc_damage; this module only arms the state.
@@ -299,7 +306,7 @@ function effect_precision_mode()
 
 function effect_focus_fire()
 {
-    // docs/05: AK-47 (AR) signature - next ACC_FOCUS_FIRE_CRIT_SHOTS shots
+    // docs/04: AK-47 (AR) signature - next ACC_FOCUS_FIRE_CRIT_SHOTS shots
     // auto-crit (4x, ignore hit-loc). Reuses the SAME damage CONTRACT as
     // Precision Mode (_acc_damage::on_ai_damage consumes acc_ability_crit_shots,
     // decrementing per hit) but arms a longer burst to fit a full-auto AR.
@@ -309,7 +316,7 @@ function effect_focus_fire()
 
 function effect_slug_round()
 {
-    // docs/05: next shotgun shot is a slug - 2x range, 3x single-target
+    // docs/04: next shotgun shot is a slug - 2x range, 3x single-target
     // damage, tight cone.
     // CONTRACT: _acc_damage::on_ai_damage consumes acc_ability_slug_next
     // (applies 3x once, then clears the flag). The 2x-range / tight-cone
@@ -321,7 +328,7 @@ function effect_slug_round()
 
 function effect_thermal_vision()
 {
-    // docs/05: 3s see-through-walls on enemies in view cone.
+    // docs/04: 3s see-through-walls on enemies in view cone.
     // NOT implementable yet: per-player enemy outlines need a
     // clientfield-driven visionset/LUI overlay rendered in the client VM -
     // and .csc cannot be driven from here until the Phase 4 client modules
@@ -332,7 +339,7 @@ function effect_thermal_vision()
 
 function effect_whirlwind()
 {
-    // docs/05: 360 spin hits all enemies within 96 units; insta-kill chaff.
+    // docs/04: 360 spin hits all enemies within 96 units; insta-kill chaff.
     // Self-contained - no shot fires, so this does NOT use the primed-flag
     // contract. DoDamage routes through the stock actor damage pipeline, so
     // _acc_damage::on_ai_damage still records the hit for the 70/30 point
@@ -378,7 +385,7 @@ function effect_whirlwind()
         else
         {
             // Chaff: guaranteed kill, stock health+666 idiom.
-            // TODO(acc-tune): docs/05 says insta-kill "until round ~15" -
+            // TODO(acc-tune): docs/04 says insta-kill "until round ~15" -
             // first pass is unconditional; add a round-gated flat-damage
             // falloff in playtest if it trivializes high rounds.
             zombie DoDamage( zombie.health + 666, self.origin, self, self, "none" );
@@ -394,7 +401,7 @@ function effect_whirlwind()
 
 function effect_extended_fuse()
 {
-    // docs/05: next frag throw auto-airbursts at optimal height.
+    // docs/04: next frag throw auto-airbursts at optimal height.
     // NOT implementable yet: needs a grenade-throw watcher plus a custom
     // detonation that replaces the stock fuse. The hook point exists -
     // VERIFIED(acc): players notify "grenade_fire" with the grenade entity
@@ -407,9 +414,9 @@ function effect_extended_fuse()
 
 function effect_overcharge()
 {
-    // docs/05: next EMP grenade stun is 2x duration.
+    // docs/04: next EMP grenade stun is 2x duration.
     // NOT implementable yet: the EMP grenade itself is Phase 4 work
-    // (_acc_weapon_emp_grenade.gsc, docs/05 Custom Weapon GSC Notes). The
+    // (_acc_weapon_emp_grenade.gsc, docs/04 Custom Weapon GSC Notes). The
     // 2x-stun consume hook belongs inside that module's explosion handler
     // once it exists.
     self iprintln( "Overcharge - effect lands in Phase 4" );

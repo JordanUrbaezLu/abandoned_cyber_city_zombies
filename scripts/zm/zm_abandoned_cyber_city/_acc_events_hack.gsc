@@ -1,8 +1,8 @@
 // =============================================================================
 // _acc_events_hack.gsc - Hack Terminal side event (Bus Station)
 //
-// Design reference: docs/06_mechanics.md (Hack Terminal state machine),
-// docs/15_coop_rules.md (activator gating).
+// Design reference: docs/05_mechanics.md (Hack Terminal state machine),
+// docs/12_coop_rules.md (activator gating).
 //
 // State machine:
 //   Available -> Active -> (Success | Failed)
@@ -10,9 +10,9 @@
 //   Failed    -> Locked (penalty wave spawns)
 //   Either outcome -> back to Available ONCE if the activator has Parallel
 //   Processing (Cyberware sr2a, self.acc_cw_events_retry - "attempted twice
-//   per run instead of once", docs/20 sr2a-parallel-processing).
+//   per run instead of once", docs/15 sr2a-parallel-processing).
 //
-// GREYBOX STAGE SET (interim until elite density exists - the docs/06
+// GREYBOX STAGE SET (interim until elite density exists - the docs/05
 // kill-stage set needs reliable Shielded-elite uptime before stage 2 is
 // physically completable):
 //   Stage 1 "Breach":  hold USE on the terminal until the meter fills.
@@ -22,7 +22,7 @@
 //   Stage 3 "Confirm": return to the terminal and hold USE again in time.
 // Parallel Processing's second attempt rotates the tuning (longer hold,
 // longer trace, headshot-only purge kills at round 11+) so it isn't a replay.
-// TODO(acc-design): restore the docs/06 kill-stage set (10 kills/40s,
+// TODO(acc-design): restore the docs/05 kill-stage set (10 kills/40s,
 // 3 Shielded/60s, 15 headshots/45s) once elite pressure pulses are validated.
 // =============================================================================
 
@@ -150,7 +150,7 @@ function terminal_loop()
         // Parallel Processing (Cyberware sr2a): the ACTIVATOR's passive
         // re-opens the event for exactly one more attempt per run, after
         // either outcome ("attempted twice per run instead of once",
-        // docs/20 sr2a-parallel-processing). A failed first attempt still
+        // docs/15 sr2a-parallel-processing). A failed first attempt still
         // fires the penalty wave above.
         if ( isdefined( player ) && player_has_parallel_processing( player ) &&
              level.acc_hack_attempts_used < 2 )
@@ -234,7 +234,7 @@ function run_hack_sequence( player, terminal )
 
 // Stage tuning. attempt_number is 1-based (level.acc_hack_attempts_used is
 // incremented before the sequence runs). Attempt 2 (Parallel Processing only)
-// rotates the tuning so it is not a replay (docs/06).
+// rotates the tuning so it is not a replay (docs/05).
 function build_stages( round_number, attempt_number )
 {
     stages = [];
@@ -369,7 +369,7 @@ function run_stage_survive( player, s )
 // Registered once in init(); dispatched ON the dying zombie (self) with the
 // attacker as the only arg (_zm_spawner.gsc:2449-2459). No-ops unless a
 // Survive stage opened the kill window. ANY player's kills count (team-wide
-// stage progress; the reward stays activator-gated - docs/15_coop_rules.md).
+// stage progress; the reward stays activator-gated - docs/12_coop_rules.md).
 function acc_hack_zombie_death_watch( attacker )
 {
     window = level.acc_hack_kill_window;

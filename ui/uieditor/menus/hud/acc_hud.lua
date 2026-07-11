@@ -80,8 +80,8 @@ local AccPerkCards = {
             megaFull = { "Reload even faster", "Fix barriers faster" } },
     [4] = { title = "DOUBLE TAP 2.0", price = "3000", megaName = "Gun Slinger",
             base = { "Fires extra bullets", "Shoots faster" },
-            mega = { "Shoots even faster", "Swap weapons faster" },
-            megaFull = { "Fires extra bullets", "Shoots even faster", "Swap weapons faster" } },
+            mega = { "Extra bullets hit harder" },
+            megaFull = { "Fires extra bullets", "Shoots faster", "Extra bullets hit harder" } },
     [5] = { title = "STAMIN-UP", price = "2000", megaName = "The Flash",
             base = { "Sprint longer", "Move faster" },
             mega = { "Move even faster" },
@@ -96,16 +96,16 @@ local AccPerkCards = {
             megaFull = { "Even more headshot dmg", "Much less recoil", "Aims at the head" } },
     [8] = { title = "WIDOW'S WINE", price = "4000", megaName = "Spiderman",
             base = { "Grenades trap zombies", "Webbing on melee", "Refills each round" },
-            mega = { "One-hit melee", "Scuttle fast when low", "More spider drops" },
-            megaFull = { "Grenades trap zombies", "Webbing on melee", "One-hit melee", "Scuttle fast when low", "More spider drops" } },
+            mega = { "Scuttle fast when low", "More spider drops" },
+            megaFull = { "Grenades trap zombies", "Webbing on melee", "Scuttle fast when low", "More spider drops" } },
     [9] = { title = "PHD FLOPPER", price = "2500", megaName = "PhD Slider",
             base = { "No fall or blast damage", "Explode when downed" },
             mega = { "Slide to explode", "Bigger explosions", "Move faster" },
             megaFull = { "No fall or blast damage", "Slide to explode", "Explode when downed", "Bigger explosions", "Move faster" } },
     [10] = { title = "ELECTRIC CHERRY", price = "3000", megaName = "Power Surge",
             base = { "Reload to zap zombies", "Emptier mag = bigger zap" },
-            mega = { "Stronger, faster zap", "Immune to boss specials" },
-            megaFull = { "Reload to zap zombies", "Emptier mag = bigger zap", "Stronger, faster zap", "Immune to boss specials" } },
+            mega = { "Stronger, faster zap", "Shrugs off boss zaps" },
+            megaFull = { "Reload to zap zombies", "Emptier mag = bigger zap", "Stronger, faster zap", "Shrugs off boss zaps" } },
     [11] = { title = "PACK-A-PUNCH", price = "",
             base = { "Re-pack to upgrade more:", "T1: more damage",
                      "T2: much more damage", "T3: max damage" } },
@@ -118,7 +118,7 @@ local AccPerkCards = {
 local AccGunNames = {
     [0] = "Five-Seven", [1] = "ASM1", [2] = "Tac-19", [3] = "AK-47", [4] = "AE4",
     [5] = "RW1", [6] = "Paladin HB50", [7] = "PPSH-41", [8] = "Mahem", [9] = "(removed)",
-    [10] = "(removed)", [11] = "AK-74u", [12] = "Olympia", [13] = "Galil", [14] = "M60",
+    [10] = "(removed)", [11] = "AK-74u", [12] = "Olympia", [13] = "Grav", [14] = "M60",
     [15] = "RPD", [16] = "Thundergun", [17] = "Held weapon",
 }
 
@@ -669,6 +669,11 @@ function CoD.AccPowerupBar.new(HudRef, InstanceRef)
     return self
 end
 
+-- RETIRED (gun-badge unification, 2026-07-08): CoD.AccPapTierIcon / CoD.AccOcTierText /
+-- CoD.AccMuleTag below are no longer instantiated - the unified CoD.AccGunBadgeRow (next
+-- touchpoint after them) draws PaP/OC/MULE/TURBO as ONE chip row under the ammo readout.
+-- Classes kept as the restore path (re-add their 3 registrations in createMenu).
+--
 -- TOUCHPOINT 4 - Pack-a-Punch tier icon (Ronan teal hex shields, roman I/II/III). CoD.AccPapTierIcon.
 -- Shows the HELD weapon's current PaP tier as ONE small icon centered over the gadget HUD circle
 -- (bottom-right), replacing the old "PaP TIER x/3" font string (user 2026-06-16). Driven by the
@@ -701,7 +706,7 @@ function CoD.AccPapTierIcon.new(HudRef, InstanceRef)
     -- pulled LEFT into the loadout section where the old label sat, with the "OC vN" row
     -- (AccOcTierText) stacked directly below and right-aligned to the same edge. TUNE IN-GAME.
     local SIZE = 26       -- icon width/height (virtual px)
-    local RIGHT = 46      -- tune #5 (user: "pap tier icon over 6 points") - icon x 1208..1234
+    local RIGHT = 52      -- tune #5 (user: "pap tier icon over 6 points"; +4 then +2 left 2026-07-06) - icon x 1202..1228
     local BOTTOM = 100    -- icon y 594..620
 
     local icons = {}
@@ -753,7 +758,7 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
     -- out of bounds"): short "OC vN", right-aligned under the PaP shield, same right edge.
     local W = 80
     local H = 22
-    local RIGHT = 43     -- tune #5 (user: "overclock text over 3 points") - text right edge x 1237
+    local RIGHT = 47     -- tune #5 (user: "overclock text over 3 points"; +4 left 2026-07-06) - text right edge x 1233
     local BOTTOM = 74    -- y 624..646, just under the PaP row (its BOTTOM = 100)
     self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
     self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
@@ -777,6 +782,243 @@ function CoD.AccOcTierText.new(HudRef, InstanceRef)
             self.Txt:setText("")
         end
     end)
+
+    return self
+end
+
+-- TOUCHPOINT 4c - Mule Kick at-risk gun tag. CoD.AccMuleTag. An amber "MULE GUN" chip shown while
+-- the HELD weapon is the gun Mule Kick removes on a down (the LAST qualifying primary - stock
+-- recomputes at loss time; _zm_aetherium_hud::player_mule_watch replicates the filter server-side
+-- and drives the "acc_mule" toplayer clientfield -> "acc_mule" UI model, the same escape-hatch
+-- bridge as acc_shards because the clientuimodel pool is FULL, docs/42). Lets the player cycle
+-- that slot deliberately instead of losing a gun blind (user 2026-07-06).
+CoD.AccMuleTag = InheritFrom(LUI.UIElement)
+
+function CoD.AccMuleTag.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccMuleTag)
+    self.id = "AccMuleTag"
+
+    -- Right-aligned to the PaP/OC chip column (right edge x ~1233), one row ABOVE the ammo plate
+    -- (plate top y 570) so the crowded bottom-right corner stays untouched. y 546..568.
+    local W = 110
+    local H = 22
+    local RIGHT = 47
+    local BOTTOM = 152
+    self:setLeftRight(false, true, -(RIGHT + W), -RIGHT)
+    self:setTopBottom(false, true, -(BOTTOM + H), -BOTTOM)
+
+    local Txt = LUI.UIText.new()
+    Txt:setLeftRight(true, true, 0, 0)
+    Txt:setTopBottom(true, true, 0, 0)
+    Txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+    Txt:setScale(0.62)
+    Txt:setRGB(0.95, 0.62, 0.22)   -- Mule Kick amber (the Mega-badge palette's Mule colour)
+    Txt:setText("")
+    self:addElement(Txt)
+    self.Txt = Txt
+
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "acc_mule"), function(m)
+        local v = Engine.GetModelValue(m) or 0
+        if v == 1 then
+            self.Txt:setText("MULE GUN")
+        else
+            self.Txt:setText("")
+        end
+    end)
+
+    return self
+end
+
+-- TOUCHPOINT 4d - GUN BADGE ROW (2026-07-08, user: "unify the gun badges - a row under the gun's
+-- ammo, start from the right and add to the left"). CoD.AccGunBadgeRow. ONE row of uniform chips
+-- under the Aetherium ammo readout showing the HELD weapon's enhancements; the RIGHTMOST chip is
+-- badge priority 1 and further badges stack LEFT (toward screen center only as needed). Replaces
+-- the three scattered one-offs (AccPapTierIcon / AccOcTierText / AccMuleTag, RETIRED above).
+--
+-- DATA (two lanes, one row):
+--   * TIER badges (an int per badge) ride their EXISTING clientuimodels - "accPapTier" (0..3,
+--     _acc_pap_levels::pap_hud_loop) and "accOcTier" (0..10, _acc_overclocks::oc_hud_loop). Those
+--     fields must keep flowing anyway (the PaP/OC report cards read the same models), so the row
+--     just re-consumes them - NO clientuimodel pool growth (the pool is FULL, docs/42).
+--   * FLAG badges (on/off) share the ONE "acc_badges" toplayer->uimodel bitmask
+--     (_zm_aetherium_hud::player_gun_badge_watch; bit 0 MULE, bit 1 TURBO, 4 spare bits).
+--
+-- TO ADD A BADGE: one entry in ACC_GUN_BADGES below (+ for a flag, OR its bit into the mask in
+-- player_gun_badge_watch). Chips auto-pack right-to-left; no per-badge positioning ever again.
+--
+-- GEOMETRY (virtual 1280x720, from AetheriumLoadout.lua): weapon name y 568..585, mag count
+-- y 605..624, reserve count x 968..1057 / y 629..638 -> the row sits at y 644..676 with its right
+-- edge at x 1061, flush under the reserve line. CAVEAT: the AAT ammo-mod icon (when an AAT is
+-- rolled) occupies x 1037..1061 / y 641..665 - if they collide in-game, raise BOTTOM or drop
+-- RIGHT_EDGE to ~250. TUNE IN-GAME (screenshot pass, like every chip before it).
+--
+-- PENNANT ART (user PNGs 2026-07-08): every live badge is a 5:7 pennant card with its own baked
+-- background (i_acc_* images below), so icon chips draw FULL-BLEED with NO plate. Masters are
+-- 400x560; shipped textures are 128x128 STRETCHED (single HQ bicubic pass, the proven icon-rail
+-- recipe - noMipMaps like every HUD icon), and the quad below is 31x43 = true 5:7, so the GPU
+-- un-stretches them back to the exact source aspect. Text chips (label defs) keep the navy plate.
+-- Size passes (user 2026-07-08, "make the badges bigger, keep the spacing"): 23x32 -> 31x43 (+35%)
+-- -> 34x47 (+10% more). Same ~5:7 aspect; GAP and the row's RIGHT edge untouched, and the row grows
+-- DOWNWARD (top edge held at y 644) so the approved distance to the ammo readout never changes -
+-- BOTTOM is recomputed each pass as 720 - (644 + H) so the top stays put while H grows.
+local ACC_GUN_BADGE_H      = 47    -- uniform chip height (32 -> 43 +35% -> 47 +10%)
+local ACC_GUN_BADGE_GAP    = 6     -- horizontal gap between chips (KEEP - user-approved spacing)
+local ACC_GUN_BADGE_RIGHT  = 219   -- gap from screen right to the row's right edge (x 1061)
+local ACC_GUN_BADGE_BOTTOM = 29    -- gap from screen bottom to the row's bottom edge (y 691; top y 644 held as H grows)
+
+-- Badge registry, PRIORITY order: [1] renders RIGHTMOST, later entries stack left. Fields:
+--   model  - UI model driving the badge ("accPapTier" / "accOcTier" / "acc_badges")
+--   kind   - "tier" (value = the model int, 0 hides) | "flag" (bit N of the acc_badges mask)
+--   w      - chip width (fixed per badge so the row packs deterministically; 34 = ~5:7 of H 47)
+--   icon   - image per VALUE (tier v -> icon[v], clamped to last; flags show icon[1]), full-bleed
+--   label  - text chip fallback (string, or fn(value)); gets the navy plate + `color` RGB
+local ACC_GUN_BADGES = {
+    { id = "pap",   model = "accPapTier", kind = "tier", w = 34,
+      icon = { "i_acc_pap_tier1", "i_acc_pap_tier2", "i_acc_pap_tier3" } },
+    { id = "oc",    model = "accOcTier",  kind = "tier", w = 34,
+      icon = { "i_acc_oc_tier1", "i_acc_oc_tier2", "i_acc_oc_tier3", "i_acc_oc_tier4",
+               "i_acc_oc_tier5", "i_acc_oc_tier6", "i_acc_oc_tier7", "i_acc_oc_tier8",
+               "i_acc_oc_tier9", "i_acc_oc_tier10" } },
+    { id = "mule",  model = "acc_badges", kind = "flag", bit = 0, w = 34,
+      icon = { "i_acc_badge_mule" } },
+    { id = "turbo", model = "acc_badges", kind = "flag", bit = 1, w = 34,
+      icon = { "i_acc_badge_turbo" } },
+    -- NUKE (Nuclear Energy, acc_badges bit 2): shows while the item is implanted AND the held gun is one
+    -- Nuclear buffs (energy guns + the Mahem launcher; _acc_gun_badges::pred_nuclear = the same list the
+    -- +15% damage buff reads). Art landed 2026-07-08 (user's badges_all_16.zip, gold "Damage+" atom).
+    { id = "nuke",  model = "acc_badges", kind = "flag", bit = 2, w = 34,
+      icon = { "i_acc_badge_nuclear" } },
+}
+
+CoD.AccGunBadgeRow = InheritFrom(LUI.UIElement)
+
+function CoD.AccGunBadgeRow.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccGunBadgeRow)
+    self.id = "AccGunBadgeRow"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Build every chip ONCE (hidden). Icon chips = FULL-BLEED pennant art (the PNGs carry their
+    -- own card background, so NO plate - a rectangle behind the pointed pennant would show at the
+    -- notch). Text chips (future label defs) = navy glass plate (CoD.TextWithBg.Bg, docs/29 §14)
+    -- + centered label. Horizontal anchors are re-set by Layout() as badges come and go.
+    local chips = {}
+    for i = 1, #ACC_GUN_BADGES do
+        local def = ACC_GUN_BADGES[i]
+        local chip = LUI.UIElement.new()
+        chip:setTopBottom(false, true, -(ACC_GUN_BADGE_BOTTOM + ACC_GUN_BADGE_H), -ACC_GUN_BADGE_BOTTOM)
+        chip:setLeftRight(false, true, -(ACC_GUN_BADGE_RIGHT + def.w), -ACC_GUN_BADGE_RIGHT)
+
+        if def.icon then
+            -- One pre-registered image per VALUE, show exactly one (AccPapTierIcon idiom). The
+            -- image fills the chip box (31x43 = true 5:7 of the stretched 128x128 texture).
+            local imgs = {}
+            for t = 1, #def.icon do
+                local img = LUI.UIImage.new()
+                img:setLeftRight(true, true, 0, 0)
+                img:setTopBottom(true, true, 0, 0)
+                img:setImage(RegisterImage(def.icon[t]))
+                img:hide()
+                chip:addElement(img)
+                imgs[t] = img
+            end
+            chip.imgs = imgs
+        else
+            local Plate = CoD.TextWithBg.new(HudRef, InstanceRef)
+            Plate.Text:setText("")
+            Plate.Bg:setRGB(ACC_PAL.glass[1], ACC_PAL.glass[2], ACC_PAL.glass[3])
+            Plate.Bg:setAlpha(0.55)
+            Plate:setLeftRight(true, true, 0, 0)
+            Plate:setTopBottom(true, true, 0, 0)
+            chip:addElement(Plate)
+
+            local txt = LUI.UIText.new()
+            txt:setLeftRight(true, true, 0, 0)
+            txt:setTopBottom(true, true, 2, -2)
+            txt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+            txt:setScale(0.62)
+            txt:setRGB(def.color[1], def.color[2], def.color[3])
+            txt:setText("")
+            chip:addElement(txt)
+            chip.txt = txt
+        end
+
+        chip:hide()
+        self:addElement(chip)
+        chips[i] = chip
+    end
+
+    -- Live value per badge (tier int / flag 0-1), written by the model subscriptions below.
+    local values = {}
+    for i = 1, #ACC_GUN_BADGES do values[i] = 0 end
+
+    -- Pack every VISIBLE chip right-to-left from the row's right edge; hide the rest. Re-anchoring
+    -- on each change keeps the row gap-free when a middle badge disappears (e.g. swap off the gun).
+    local function Layout()
+        local rightEdge = ACC_GUN_BADGE_RIGHT
+        for i = 1, #ACC_GUN_BADGES do
+            local def = ACC_GUN_BADGES[i]
+            local v = values[i]
+            if v > 0 then
+                local chip = chips[i]
+                chip:setLeftRight(false, true, -(rightEdge + def.w), -rightEdge)
+                if chip.imgs then
+                    local t = v
+                    if t > #chip.imgs then t = #chip.imgs end
+                    for k = 1, #chip.imgs do
+                        if k == t then chip.imgs[k]:show() else chip.imgs[k]:hide() end
+                    end
+                elseif chip.txt then
+                    if type(def.label) == "function" then
+                        chip.txt:setText(def.label(v))
+                    else
+                        chip.txt:setText(def.label)
+                    end
+                end
+                chip:show()
+                rightEdge = rightEdge + def.w + ACC_GUN_BADGE_GAP
+            else
+                chips[i]:hide()
+            end
+        end
+    end
+
+    -- ONE subscription per distinct model; on change, refresh every badge riding that model
+    -- (flags decode their bit via acc_bit_is_set - Lua 5.1/HavokScript has no bitwise ops).
+    --
+    -- ACCESSOR CHOICE (bugfix 2026-07-08, user "turbocharger badge never showed"): a TOPLAYER-scoped
+    -- field (acc_badges) has NO UI-model node until its server bridge's createuimodel fires on the
+    -- FIRST change - so Engine.GetModel subscribes to a node that never gets populated and the callback
+    -- never fires (the MULE/TURBO flags were dead). Engine.CreateModel makes the SAME node the bridge
+    -- later writes, so the subscription catches it - the exact pattern the working currency chips use
+    -- (AetheriumPlayerInfo.lua acc_shards/acc_mb/acc_exo/acc_maxhp). The clientuimodel-scope tier
+    -- fields (accPapTier/accOcTier) ARE auto-created, so GetModel works for them (proven by the old
+    -- AccPapTierIcon/AccOcTierText) - but CreateModel is idempotent (returns the existing node), so we
+    -- use it for BOTH lanes: correct for toplayer, harmless for clientuimodel, one code path.
+    local controllerModel = Engine.GetModelForController(InstanceRef)
+    local subscribed = {}
+    for i = 1, #ACC_GUN_BADGES do
+        local modelName = ACC_GUN_BADGES[i].model
+        if not subscribed[modelName] then
+            subscribed[modelName] = true
+            self:subscribeToModel(Engine.CreateModel(controllerModel, modelName), function(m)
+                local raw = Engine.GetModelValue(m) or 0
+                for j = 1, #ACC_GUN_BADGES do
+                    local d = ACC_GUN_BADGES[j]
+                    if d.model == modelName then
+                        if d.kind == "flag" then
+                            values[j] = (acc_bit_is_set(raw, d.bit) and 1 or 0)
+                        else
+                            values[j] = raw
+                        end
+                    end
+                end
+                Layout()
+            end)
+        end
+    end
 
     return self
 end
@@ -1237,17 +1479,21 @@ function LUI.createMenu.acc_hud(Instance)
     --     Hud:addElement(Equip); Hud.accEquip = Equip
     -- AND flip level.acc_aetherium_hud = false in _acc_lui.gsc (re-arms suppress_stock_weapon_hud).
 
-    -- PaP-tier shield (I/II/III) + Overclock "vN" chip: the held weapon's status, drawn in the combat
-    -- device's HEADER row (top-left of the ammo plate). Registered HERE - after the ammo block - so they
-    -- render on TOP of the translucent plate (driven by accPapTier / accOcTier, repositioned in their
-    -- widget defs above). This makes the bottom-right read as ONE weapon device: [PaP][OC] Name / mag / reserve.
-    local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
-    Hud:addElement(PapTier)
-    Hud.accPapTierIcon = PapTier
-
-    local OcTier = CoD.AccOcTierText.new(Hud, Instance)
-    Hud:addElement(OcTier)
-    Hud.accOcTierText = OcTier
+    -- GUN BADGE ROW (2026-07-08, user: "unify the gun badges"): ONE right-anchored chip row under
+    -- the ammo readout - PaP shield / "OC vN" / "MULE" / "TURBO" - packing leftward as badges
+    -- appear. Registered after the (Aetherium) plate region so it draws on top. RETIRED the three
+    -- one-off chips it replaces (AccPapTierIcon / AccOcTierText / AccMuleTag - restore recipe):
+    --     local PapTier = CoD.AccPapTierIcon.new(Hud, Instance)
+    --     Hud:addElement(PapTier); Hud.accPapTierIcon = PapTier
+    --     local OcTier = CoD.AccOcTierText.new(Hud, Instance)
+    --     Hud:addElement(OcTier); Hud.accOcTierText = OcTier
+    --     local MuleTag = CoD.AccMuleTag.new(Hud, Instance)
+    --     Hud:addElement(MuleTag); Hud.accMuleTag = MuleTag
+    -- (AccMuleTag's acc_mule field became bit 0 of acc_badges - restoring it also needs the
+    -- 1-bit acc_mule toplayer field back in _zm_aetherium_hud.gsc/.csc, in lockstep.)
+    local BadgeRow = CoD.AccGunBadgeRow.new(Hud, Instance)
+    Hud:addElement(BadgeRow)
+    Hud.accGunBadgeRow = BadgeRow
 
     -- (AccPerkCard retired 2026-07-03 -> no accCard:close() override needed; re-add with it.)
 

@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_cyberware.gsc - the Cyberware skill tree
 //
-// Design reference: docs/04_progression_and_skills.md (Cyberware Skill Tree).
+// Design reference: docs/03_progression_and_skills.md (Cyberware Skill Tree).
 //
 // Model:
 //  - Tree of 9 nodes (3 branches x 3 tiers).
@@ -47,17 +47,17 @@
 #precache( "model", "p7_cai_work_table_metal_03_white" );
 
 // ---------------------------------------------------------------------------
-// Tuning - see docs/04_progression_and_skills.md.
+// Tuning - see docs/03_progression_and_skills.md.
 // ---------------------------------------------------------------------------
 
 // rx2a Phase Step: blink distance (units), wall back-off, minimum useful
-// travel (below this we keep the cooldown), cooldown (docs/04: 6s).
+// travel (below this we keep the cooldown), cooldown (docs/03: 6s).
 #define ACC_CW_PHASE_DIST 160
 #define ACC_CW_PHASE_BACKOFF 18
 #define ACC_CW_PHASE_MIN_TRAVEL 32
 #define ACC_CW_PHASE_COOLDOWN_MS 6000
 
-// rx2b Ghost Protocol: ticks of stillness before cloak (20 * 0.1s = docs/04's
+// rx2b Ghost Protocol: ticks of stillness before cloak (20 * 0.1s = docs/03's
 // 2 seconds; integer ticks avoid float-accumulation drift), movement epsilon.
 #define ACC_CW_GHOST_TICK_SEC 0.1
 #define ACC_CW_GHOST_STILL_TICKS 20
@@ -69,17 +69,17 @@
 #define ACC_CW_MELTDOWN_DMG_FRAC 0.35
 #define ACC_CW_MELTDOWN_DMG_MIN 100
 
-// sr2b Caching: bleed-out time multiplier (docs/04: 2x; stock default dvar
+// sr2b Caching: bleed-out time multiplier (docs/03: 2x; stock default dvar
 // player_lastStandBleedoutTime is 30s -> 60s with this).
 #define ACC_CW_BLEEDOUT_MULT 2.0
 
-// Respec tax (docs/04 Respec Rules: 3 Shards, once per run, never Tier 3).
+// Respec tax (docs/03 Respec Rules: 3 Shards, once per run, never Tier 3).
 #define ACC_CW_RESPEC_TAX 3
 
 #namespace acc_cyberware;
 
 // ---------------------------------------------------------------------------
-// Tree definition. Keep in sync with docs/04_progression_and_skills.md.
+// Tree definition. Keep in sync with docs/03_progression_and_skills.md.
 // Node ids are strings so we can log/debug cleanly; do NOT refactor to ints.
 // ---------------------------------------------------------------------------
 
@@ -282,7 +282,7 @@ function try_purchase( player, node_id )
 }
 
 // Refund the highest-tier node the player owns. Costs ACC_CW_RESPEC_TAX
-// Shards tax, once per run, never removes Tier 3 (docs/04 Respec Rules).
+// Shards tax, once per run, never removes Tier 3 (docs/03 Respec Rules).
 function try_respec_last_node( player )
 {
     if ( !isdefined( player.acc_cyberware_nodes ) ) return false;
@@ -387,7 +387,7 @@ function has_branch_tier( branch, tier )
 // For Phase 3 we cycle through nodes via an F key prompt on a trigger_use
 // placed in Radiant. Real UI (Phase 4) is a LUI skill-tree screen.
 // Stand + use  = buy the first purchasable node.
-// Crouch + use = respec (docs/04 Respec Rules).
+// Crouch + use = respec (docs/03 Respec Rules).
 // ---------------------------------------------------------------------------
 
 function watch_kiosk_trigger()
@@ -542,9 +542,9 @@ function apply_sr2a() { self.acc_cw_events_retry = true; }
 
 function apply_sr2b()
 {
-    // Caching (docs/04): down-but-not-out lasts 2x longer before bleed-out,
+    // Caching (docs/03): down-but-not-out lasts 2x longer before bleed-out,
     // self-revive Shard cost halved (discount flag consumed by the future
-    // self-revive module - see docs/20 self-revive-purchase).
+    // self-revive module - see docs/15 self-revive-purchase).
     self.acc_cw_bleed_multiplier = ACC_CW_BLEEDOUT_MULT;
     self.acc_cw_selfrevive_shard_discount = 0.5;
     self recompute_bleedout_multiplier();
@@ -552,7 +552,7 @@ function apply_sr2b()
 
 function apply_rx2a()
 {
-    // Phase Step (docs/04): slide becomes a short teleport through zombies
+    // Phase Step (docs/03): slide becomes a short teleport through zombies
     // (no damage dealt, 6s cooldown). Implemented as a forward blink at slide
     // START - see phase_step_watcher for the verified mechanism and the
     // documented deltas vs the doc wording.
@@ -562,7 +562,7 @@ function apply_rx2a()
 
 function apply_rx2b()
 {
-    // Ghost Protocol (docs/04): standing still for 2s makes you untargeted
+    // Ghost Protocol (docs/03): standing still for 2s makes you untargeted
     // by melee zombies until you move. See ghost_protocol_watcher.
     self.acc_cw_ghost_protocol = true;
     self thread ghost_protocol_watcher();
@@ -592,7 +592,7 @@ function apply_rx3() { self.acc_cw_overdrive_active = true; }
 // 'data.attacker IsSliding()' challenges_shared.gsc:1676). We poll for the
 // not-sliding -> sliding edge and blink the player forward.
 //
-// Deltas vs docs/04 wording (degraded-but-real, no input hooks exist for
+// Deltas vs docs/03 wording (degraded-but-real, no input hooks exist for
 // "replace the slide"):
 //  - The slide still plays; the blink fires instantly at slide start, so the
 //    net effect is slide + ~10ft displacement through whatever was in front.
@@ -601,7 +601,7 @@ function apply_rx3() { self.acc_cw_overdrive_active = true; }
 //    (walls, closed doors) DOES block it, which also prevents escaping the
 //    playable space. Bullet-permeable window boards can be blinked through -
 //    kept short (160 units) so this stays inside adjacent playable space.
-//  - No damage is dealt (matches docs/04).
+//  - No damage is dealt (matches docs/03).
 // ---------------------------------------------------------------------------
 
 function phase_step_watcher()
@@ -692,11 +692,11 @@ function do_phase_step()
 // Stock precedents for exactly this inc/dec pattern on players:
 // _zm.gsc player_spawn_protection (:1924/:1931) and _zm_laststand.gsc:1510-1512.
 //
-// Delta vs docs/04 ("special enemies unaffected"): ignoreme is global to the
+// Delta vs docs/03 ("special enemies unaffected"): ignoreme is global to the
 // stock targeting pipeline, and our elites/bosses are promoted stock zombies
 // (_acc_elites promote_*), so they ALSO untarget a cloaked player. Restoring
 // elite aggro needs a custom favoriteenemy/targeting pass on the elite side -
-// deferred to balance work (documented in docs/04 code notes).
+// deferred to balance work (documented in docs/03 code notes).
 // ---------------------------------------------------------------------------
 
 function ghost_protocol_watcher()
@@ -726,7 +726,7 @@ function ghost_protocol_watcher()
         }
 
         // Movement check is positional: looking around doesn't break the
-        // cloak, translating does (matches docs/04 "until you move").
+        // cloak, translating does (matches docs/03 "until you move").
         if ( DistanceSquared( self.origin, v_anchor ) > ACC_CW_GHOST_MOVE_EPSILON_SQ )
         {
             self ghost_set_cloaked( false );
@@ -769,11 +769,11 @@ function ghost_set_cloaked( b_cloak )
 // oc3 Meltdown
 //
 // Kills by a player with the capstone explode for AoE damage at the corpse.
-// "Does not chain" (docs/04): zombies killed BY the AoE are tagged
+// "Does not chain" (docs/03): zombies killed BY the AoE are tagged
 // acc_meltdown_killed before the damage lands; the tag short-circuits this
 // callback so their deaths never re-explode.
 //
-// Delta vs docs/04 ("scaling with weapon damage"): GSC cannot read GDT weapon
+// Delta vs docs/03 ("scaling with weapon damage"): GSC cannot read GDT weapon
 // damage tables at runtime, so the AoE proxy-scales with each victim's
 // maxhealth (which itself scales per round) - 35% of maxhealth, floor 100.
 // The oc1/oc2a damage chain still gates how FAST you trigger Meltdowns.
@@ -832,7 +832,7 @@ function meltdown_explode( v_origin, e_attacker, e_source )
         z.acc_meltdown_killed = true;
 
         // Damage is dealt WITH the caster as attacker so points and kill
-        // attribution flow to the player (docs/06 meltdown-kill-attribution).
+        // attribution flow to the player (docs/05 meltdown-kill-attribution).
         // VERIFIED(acc): 'zombie DoDamage( dmg, origin, attacker, attacker,
         // "none", mod )' is the stock script-AoE shape
         // (_zm_aat_thunder_wall.gsc:122); "MOD_EXPLOSIVE" is a valid mod
@@ -857,7 +857,7 @@ function meltdown_explode( v_origin, e_attacker, e_source )
 // GetDvarfloat("player_lastStandBleedoutTime") * self.n_bleedout_time_multiplier
 // (when defined), and :545-546 only applies the anti-cheese snap-back clamp
 // when the multiplier is NOT defined - so a defined multiplier is fully
-// honored. Stock default is 30s -> 60s with our 2.0 (docs/06 bleed-caching-60s).
+// honored. Stock default is 30s -> 60s with our 2.0 (docs/05 bleed-caching-60s).
 // Solo quick-revive getup (level.lastStandGetupAllowed, :250) bypasses the
 // bleed-out timer entirely and is intentionally unaffected.
 // ---------------------------------------------------------------------------
@@ -867,13 +867,13 @@ function recompute_bleedout_multiplier()
 {
     n_mult = 1.0;
 
-    // Cyberware Caching (docs/04).
+    // Cyberware Caching (docs/03).
     if ( isdefined( self.acc_cw_bleed_multiplier ) )
     {
         n_mult = n_mult * self.acc_cw_bleed_multiplier;
     }
 
-    // Run modifier "bleed_out" (docs/07) - _acc_modifiers sets the level var;
+    // Run modifier "bleed_out" (docs/06) - _acc_modifiers sets the level var;
     // folding it here keeps the two systems stacking instead of clobbering.
     if ( isdefined( level.acc_mod_bleed_out_mult ) )
     {

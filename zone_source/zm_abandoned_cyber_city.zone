@@ -16,6 +16,13 @@
 // =============================================================================
 
 xmodel,skybox_default_night
+// ULTIMIS player crew (external pack "BO3 Ultimis" - Illuminati Donut port of Treyarch WaW models;
+// gitignored, installed via tools/external_assets_manifest.ps1). This custom zm_character_customization
+// table SHADOWS the stock same-named one (gdtdb same-name-wins) -> swaps the 4 player bodies to Dempsey/
+// Nikolai/Richtofen/Takeo (+ their 1st-person viewhands/viewlegs). Transitively pulls all 12 xmodels +
+// materials + the bodystyle iconImage portraits; no per-model lines needed. HUD portraits aligned via the
+// hud* keys in ui/uieditor/widgets/HUD/Mappings/AetheriumCharacters.lua. User 2026-07-04.
+customizationtable,zm_character_customization
 // Electric Cherry machine (West Community Perk Collection v2.7, external pack - see
 // tools/external_assets_manifest.ps1). Runtime-SetModel by perk_machine_think, so it
 // needs this explicit line (docs/44). Replaced the p7_lab_bio_machinery_01 stand-in 2026-07-01.
@@ -85,7 +92,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc
-scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ee_song.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_exo.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_abyss_doors.gsc
@@ -99,7 +106,10 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc
+// "The Armory" upper room: team weapon rack (pooled give-to-teammate) + mega-bottle exchange. docs/60.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_armory.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_havoc_charge.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
@@ -129,6 +139,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_info.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_ui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_gun_badges.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
 // Perk machine + Pack-a-Punch glow on power-on. Server (.gsc) sets a colour-index
 // clientfield on the power_on flag; client (.csc, listed below by _acc_lui.csc) PlayFX's
@@ -155,12 +166,76 @@ fx,fire/fx_fire_ground_rubble_50x50
 // Tools root, gitignored via tools/external_assets_manifest.ps1). The aitype line pulls the model +
 // xanims + behavior tree transitively (like Brutus's archetype_charred_zombie). docs/56.
 aitype,archetype_zm_avogadro
+// [acc] SpawnActor derived-entry aitype (user 2026-07-04): the pack GDT ships
+// variant_zm_avogadro -> spawner_zm_avogadro (a .map classname actor_spawner_zm_avogadro
+// resolves to aitype spawner_zm_avogadro). We spawn him at RUNTIME via
+// SpawnActor("spawner_zm_avogadro", ...) - the Rogue Protector recipe - because a .map
+// actor_spawner_zm_avogadro entity CRASHES the LED bake (map_source note ~L3969). This aitype
+// line is REQUIRED and must be listed EXPLICITLY (no BSP entity pulls the derived spawner in).
+aitype,spawner_zm_avogadro
 fx,zombie/fx_avogadro_linger
 fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
 // Vendored control + driver scripts (REGISTER_SYSTEM registers the AI; _acc_boss_avogadro drives spawns).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.csc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_avogadro.gsc
+
+// [acc] PANZER boss (Spiki asset-dump mechz port - user 2026-07-08; previously live
+// 2026-06-19, recipe tools/_panzer_stash/README.md + docs/research/BO3_Panzer_mechz_usermap_
+// method.txt). Custom aitype archetype_zm_mechz_genesis: GDT = source_data/mechz_spiki.gdt +
+// model/xanim/fx/sound at the Mod Tools root (gitignored, tools/external_assets_manifest.ps1
+// "Panzer / mechz"). Spawned at RUNTIME via SpawnActor("archetype_zm_mechz_genesis", ...) -
+// NO .map spawner entity (custom-aitype .map spawners crashed the LED bake (Avogadro, above)
+// and game load (Rogue Protector, below)); like Avogadro's spawner_ line this aitype MUST be
+// listed explicitly - no BSP entity pulls it in. The aitype pulls model+anims+ASM/BT transitively.
+aitype,archetype_zm_mechz_genesis
+// Client FX (mechz_spiki.csc precache set). Sources verified ON DISK 2026-07-08: the dlc1/castle
+// + dlc4/genesis + dlc5/tomb .efx all ship with the HB21 FX Library (already installed); the
+// pack's own copies are identical DLC rips and were NOT copied over HB21's. The decompile's
+// maps/zombie_tomb/* names exist NOWHERE - repointed to the dlc1/castle equivalents (csc too).
+// fx_mech_dmg_sparks may emit the WAIVED gfx_spark_blink_anim_pcloud_em linker noise (stash
+// README item 6) - cosmetic, build_map.ps1 already treats it as non-fatal.
+fx,dlc4/genesis/fx_mech_spawn
+fx,dlc4/genesis/fx_elec_trap_body_shock
+fx,dlc5/tomb/fx_tomb_mech_death
+fx,dlc1/castle/fx_mech_dmg_sparks
+fx,dlc1/castle/fx_mech_dmg_steam
+fx,dlc1/castle/fx_mech_jump_landing
+fx,dlc5/tomb/fx_tomb_mech_wpn_claw
+fx,dlc5/tomb/fx_tomb_mech_wpn_source
+// [acc] visible flamethrower cone (2026-07-08 playtest fix: "mechz_ft" is DLC1 version-gated
+// dead -> no flame rendered; our acc_panzer_ft SHIP-version clientfield twin plays this)
+fx,dlc1/castle/fx_mech_wpn_flamethrower
+// The mechz animtree (vendored gsc #using_animtree("mechz_tomb")) - per the pack's own
+// mechz.zpkg zone recipe. Installed to share/raw/animtrees/ (dir created 2026-07-08).
+rawfile,animtrees/mechz_tomb.atr
+// Flamethrower burn scene bundle (gsc precaches the xanim; the bundle carries the scene def).
+scriptbundle,ai_zombie_mech_ft_burn_player
+// The 115 grenade attack weapon: GDT block electroball_grenade_zm (the _zm ASSET id - engine
+// strips the suffix, stock mechz.gsc fires GetWeapon("electroball_grenade"), memory
+// apex-weapons _zm trap). Its projExplosionEffect (dlc1/castle/fx_wpn_115_blob_exp) ships with
+// the HB21 FX Library - verified on disk, no silent-weapon-kill dangle. The pack's optional
+// _electroball_grenade.gsc/.csc behavior scripts are NOT vendored (5 extra clientfields for
+// cosmetic ball behavior; engine-native launch+explosion suffice) - revisit if the grenade
+// needs its electric-AoE flavor.
+weapon,electroball_grenade_zm
+// Flame beam (referenced by the flamethrower attack). The ASSET lives in HB21's t7_beams.gdt -
+// Spiki's duplicate block was STRIPPED from source_data/mechz_spiki.gdt (gdtdb dupe failure;
+// electric_arc_beam_electroball + one shared trav xanim stripped for the same reason).
+beam,flamethrower_beam_3p_zm_mechz
+// Core mechz xmodels (per the pack's mechz.zpkg; the gsc also #precaches the origins claw +
+// chemistry bottle). The aitype line pulls the character->model chain, these are belt+braces.
+xmodel,c_zom_mech_body_lod0
+xmodel,c_zom_mech_faceplate_lod0
+xmodel,c_zom_mech_powersupply_cap_lod0
+xmodel,c_zom_mech_gun_barrel_lod0
+xmodel,p7_zm_ctl_115_grenade_lod0
+xmodel,c_t7_zm_dlchd_origins_mech_claw_lod0
+// Vendored pack scripts (clean-room crash fixes re-applied - READ BOTH FILE HEADERS before
+// touching) + the roster driver module.
+scriptparsetree,scripts/zm/mechz_spiki.gsc
+scriptparsetree,scripts/zm/mechz_spiki.csc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_panzer.gsc
 // [acc] Civil Protector ally robot (HarryBo21 pack v2.0.0, user 2026-07-02). External gitignored
 // pack (tools/external_assets_manifest.ps1 "HB21 Civil Protector"); GDT = source_data/
 // c_zom_zod_robot_protector.gdt (441 xanims + normal/gold aitype/character/xmodel + ASM/BT).
@@ -175,6 +250,19 @@ scriptparsetree,scripts/zm/archetype_zod_companion.csc
 scriptparsetree,scripts/zm/archetype_zod_companion_interface.gsc
 scriptparsetree,scripts/zm/zm_zod_robot.gsc
 scriptparsetree,scripts/zm/zm_zod_robot.csc
+// HB21 ELEMENTAL BOWS (pack v1.0.0, 2026-07-07): all 5 gsc/csc pairs load (clientfield lockstep);
+// only the DEMONGATE (fire) bow is box-wired. Assets ride the include below (share/zone_source zpkg).
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow.gsc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow.csc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_storm.gsc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_storm.csc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_rune_prison.gsc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_rune_prison.csc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.gsc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.csc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.gsc
+scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.csc
+include,hb21_elemental_bows
 // ROGUE PROTECTOR round-20 hostile boss driver (user 2026-07-02; was the round-1 ally test).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc
 // 3D over-head boss nameplate + health bar (SetDrawName via actor clientfields, stock Turned
@@ -223,6 +311,12 @@ scriptbundle,cin_zod_robot_companion_exit_death
 scriptparsetree,scripts/shared/ai/archetype_apothicon_fury_interface.gsc
 scriptparsetree,scripts/shared/ai/archetype_apothicon_fury.gsc
 scriptparsetree,scripts/shared/ai/archetype_apothicon_fury.csc
+// HB21 New BT Stuff's STOCK-SCRIPT OVERRIDE, vendored (2026-07-10 red-team): the pack
+// replaced share/raw/.../animation_state_machine_utility.gsc with a 617-byte version that
+// IMPLEMENTS RequestState/SearchAnimationMap (stock = no-ops) - Panzer/pack-AI ASM calls
+// depend on it, but NO manifest path carried it, so a zip-flow restore silently reverted
+// it. Vendored at the stock path = usermap copy wins over share/raw at compile.
+scriptparsetree,scripts/shared/ai/systems/animation_state_machine_utility.gsc
 scriptparsetree,scripts/zm/zm_genesis_apothicon_fury.gsc
 scriptparsetree,scripts/zm/zm_genesis_apothicon_fury.csc
 // Our spawn driver (5x hp / round gait / 40s underground cadence / dev round-1 test).
@@ -288,6 +382,7 @@ fx,acc/light/fx_perk_glow_magenta
 fx,acc/light/fx_perk_glow_magenta_dim
 fx,acc/light/fx_perk_glow_dark_purple
 fx,acc/light/fx_perk_glow_white_dim
+fx,acc/light/fx_perk_glow_amber_dim
 // Phantom NEON YELLOW aura (user 2026-07-02 toxic re-theme; clientfield 3 in _acc_boss_phantom.csc)
 fx,acc/light/fx_perk_glow_neon_yellow
 
@@ -347,18 +442,40 @@ xmodel,c_t8_zmb_mob_zombie_head4
 // model workflow); materials ride in transitively (dodge the brush-face trap).
 //   p7_fxanim_zm_stal_ray_gun_ball_mod = Data Shard drop (_acc_data_shards.gsc)
 // Boss Cyberware items - one distinct model each (_acc_boss_items build_item_pool).
-// 5 props packed here; item 4 "Repair Kit" uses a runtime-loaded powerup icon (no
-// line needed). (zombie_zapper_handle + p6_power_lever were tried and FAILED to
-// link - "xmodel missing", not in ZM-common fastfiles - so they were swapped out.)
+// As of the 2026-07-08 T7-carve swap EVERY item model is packed via an explicit line
+// (this block + the T7-carve block below) - the old "Repair Kit = runtime-loaded icon,
+// no line needed" note is OBSOLETE (it now packs p7_spl_first_aid_box below). Only
+// Nuclear Energy still rides a runtime-loaded stock orb (p7_zm_power_up_nuke, kept on
+// purpose - no line needed). (zombie_zapper_handle + p6_power_lever were tried and
+// FAILED to link - "xmodel missing", not in ZM-common fastfiles - so they were swapped.)
 //   nitrous_tank=Gas Tank, octobomb=Li'l Arnie, teddybear=Teddy Bear,
 //   rocket_shield=Rocket Shield, monkey_bomb=Monkey Bomb
 xmodel,p7_fxanim_zm_stal_ray_gun_ball_mod
 xmodel,p7_zm_zod_nitrous_tank
 xmodel,p7_fxanim_zm_zod_octobomb_mod
 xmodel,p7_boots_safehouse_01
-xmodel,zombietron_gold_brick
 xmodel,wpn_t7_zmb_zod_rocket_shield_world
 xmodel,wpn_t7_zmb_monkey_bomb_world
+// Boss-item REAL pickup models (T7 Assets V2.7 carve, 2026-07-08 - replaces the
+// placeholder orbs/brick; install-side slice source_data\acc_t7_props_items.gdt +
+// model_export\_midgetblaster\props\** like the exchange-room pilot, docs/12):
+//   first_aid_box=Repair Kit, money_bag=Loot Stash, horseshoe=Lucky Horseshoe (was
+//   Clover/X2 orb), vial_surgical=Phase Serum, carburetor=Turbocharger.
+// (zombietron_gold_brick dropped - was only the old Loot Stash model.)
+xmodel,p7_spl_first_aid_box
+xmodel,p7_wes_money_bag
+xmodel,p7_ra2_tool_vintage_horseshoe
+xmodel,p7_zm_mob_vial_surgical_lrg
+xmodel,p7_ban_debris_car_carburetor
+// Battery (item 10, 2026-07-08): REAL Der Eisendrache ceramic battery - own carve GDT
+// source_data\p7_zm_ctl_battery_ceramic.gdt (complete: xmodel + materials + images +
+// model_export\black_ops_3\p7_zm_ctl_battery_ceramic\ bin on disk).
+xmodel,p7_zm_ctl_battery_ceramic
+// Trench JUKEBOX machine (2026-07-09, replaces the 3 teddy bears): IW cp_town_jukebox from the
+// eMoX "Jukebox Menu" pack - MODEL-ONLY lift (install-side source_data\iw_jukebox.gdt +
+// model_export\infinite_warfare\**; the pack's LUI menu/GSC/sounds are NOT installed).
+// Spawned by _acc_jukebox.gsc in the NORTH trench under-room.
+xmodel,cp_town_jukebox
 xmodel,wm_t6_five_seven
 xmodel,wm_t6_olympia
 // Wall-buy CHALK outlines (restored 2026-06-24): inline worldspawn meshes tokened
@@ -422,6 +539,30 @@ xmodel,ww2_circuit_breaker
 // images (not re-defined) - expect them to resolve from stock; errorlog is the oracle.
 xmodel,p7_zm_moo_server_comm_02
 xmodel,p7_cru_monitor_holo_screen_01
+// STATION REMODEL (user 2026-07-09, docs/52 de-dup finally unblocked by the T7-dump carve
+// pipeline): one DISTINCT, use-case-correct model per interactive station - kills the
+// 6-way sign-kiosk / 3-way white-workbench / 2-way cargo-crate reuse. Sources:
+// MidgetBlaster "T7 Assets V2.7" carve slices (source_data\acc_t7_props_stations.gdt +
+// model_export\_midgetblaster\props\**) for whatever the errorlog says is not already
+// stock-packable. Errorlog is the oracle per model. Old p7_cai_* lines above stay (the
+// dead-code Cyberware kiosk still precaches the workbench; lines are proven + harmless).
+// Final picks are BOUNDS-MEASURED (tools/xmodel_bin_inspect.js, vertex token 0x9383) so every
+// station keeps SetScale 1.0 = visual size == collision size (user 2026-07-09 "hitboxes make
+// sense"; script_model SetScale does NOT rescale collision). First-pass picks that measured
+// wrong were dropped: p7_ram_suit_armor_power (a 41u-tall CHEST display, not a suit),
+// p7_medical_machine_mri + p7_con_control_center_console (room-scale, too big for their sites),
+// p7_zm_ctl_crate_ammo_vintage_02 + p7_zm_moo_server_comm_01 (single tiny crate / desk unit).
+xmodel,p7_cry_cryogen_pod_exterior            // Exo Suit Station (Cryogen stasis pod 58x53x114; origin mid-body -> +63 spawn lift)
+xmodel,p7_zm_isl_table_operating              // Implant Bench (Zetsubou operating table 79x24x42)
+xmodel,p7_zm_sta_drop_pod_console_blue        // Neural Expansion Bay (Gorod drop-pod console 49x44x71)
+xmodel,p7_zm_sta_dragon_network_data_terminal // Weapon Overclock terminal (Gorod network data terminal 48x34x78)
+xmodel,p7_ram_altar                           // Glitch Altar base (Citadel stone altar 162x66x58; orb floats above)
+xmodel,p7_ris_generator_lg_01_blue            // Reactor Surge Arm Plinth (Rise industrial generator 92x46x50)
+xmodel,p7_con_cargo_train_armory_cabinet      // Armory weapon-rack station (Conduit armory cabinet 138x18x48)
+xmodel,p7_zm_vending_wonder                   // Armory mega-bottle exchange (Wonderfizz chassis - STOCK, packs from gdtDB, probe-verified)
+xmodel,p7_out_monitor_atm                     // Transfer Vault stations x4 (ATM totem 37x34x103; spawn -80 to the -240 floor)
+xmodel,p7_zm_sha_crate_ammo_closed_sml_stack_full // Ammo Crate (Shangri-La ammo-crate stack 78x20x21)
+xmodel,p7_zm_sta_computer_tower_01            // Data Cache (Gorod computer tower 24x30x72; origin mesh-centered -> +36 spawn lift)
 // Cymbal Monkey (cymbal_monkey_zm) + Octobomb / Li'l Arnie (octobomb_zm) are
 // granted by boss items. Both weapon DEFS already ship in zm_levelcommon (every
 // usermap loads it at runtime - assetlist lines 6175 + 6225), so we do NOT add a
@@ -496,12 +637,27 @@ image,i_acc_powerup_maxammo
 image,i_acc_powerup_carpenter
 image,i_acc_powerup_randomperk
 
-// PaP tier roman-numeral icons (Ronan teal hex shields I/II/III). Drawn by acc_hud.lua
-// CoD.AccPapTierIcon over the gadget HUD circle (bottom-right); driven by accPapTier (held
-// weapon's current PaP tier 1..3, 0=hidden). GDT = source_data/acc_perk_shaders.gdt.
+// GUN BADGE ROW pennant icons (user art 2026-07-08, docs/28 "Gun badge row"). Drawn by
+// acc_hud.lua CoD.AccGunBadgeRow under the ammo readout for the HELD weapon: PaP tier I/II/III
+// (accPapTier, replaced the old hex-shield art in place - same asset names), Overclock Lv1..10
+// (accOcTier), MULE / TURBO flags (acc_badges bits 0/1). 128x128 stretched from 400x560
+// masters; the LUI quad draws them at the true 5:7 aspect. GDT = source_data/acc_perk_shaders.gdt.
 image,i_acc_pap_tier1
 image,i_acc_pap_tier2
 image,i_acc_pap_tier3
+image,i_acc_oc_tier1
+image,i_acc_oc_tier2
+image,i_acc_oc_tier3
+image,i_acc_oc_tier4
+image,i_acc_oc_tier5
+image,i_acc_oc_tier6
+image,i_acc_oc_tier7
+image,i_acc_oc_tier8
+image,i_acc_oc_tier9
+image,i_acc_oc_tier10
+image,i_acc_badge_mule
+image,i_acc_badge_turbo
+image,i_acc_badge_nuclear
 
 // ============================================================================
 // AETHERIUM HUD (Owen-C137 BO7-remake kit, adopted 2026-07-03; docs/22, docs/49)
@@ -675,13 +831,18 @@ image,i_ppapa41_wall_chalk_c
 image,i_weapon_vm_sm_t9heavy_wall_chalk_c
 image,i_t8_wpn_sniper_paladin_hb50_wall_chalk_c
 image,i_t6_wpn_shotty_olympia_wall_chalk_c
-image,i_t6_wpn_ar_galil_wall_chalk_c
+image,i_wpn_vm_ar_t9season6_wall_chalk_c   // Grav (CW t9_grav, migrated from Galil 2026-07-05) - was the orphaned i_t6_wpn_ar_galil_wall_chalk_c (nothing referenced it after the migration); this is Grav's REAL chalk from skye_t9_grav.gdt, what AetheriumWeapons.lua maps t9_grav to
 image,i_t6_wpn_ar_m14_wall_chalk_c
 image,i_t8_wpn_sniper_sdm_wall_chalk_c
 image,i_weapon_vm_lm_t9slowfire_wall_chalk_c
 image,i_weapon_vm_lm_t9rpapa_wall_chalk_c
 image,i_t8_wpn_pistol_rk7_garrison_wall_chalk_c
 image,i_wpn_t5_asl_thundergun_wall_chalk_c
+// [acc] 2026-07-05: 4 box guns that were unmapped in AetheriumWeapons.lua (showed no chalk). All WHITE.
+image,i_weapon_vm_ar_t9standard_wall_chalk_c   // XM4
+image,i_weapon_vm_sh_t9fullauto_wall_chalk_c   // Streetsweeper
+image,i_t6_wpn_smg_chicom_wall_chalk_c         // Chicom CQB
+image,i_t6_wpn_pistol_kard_wall_chalk_c        // Klauser (Kard lookalike)
 // (MAHEM uses stock t7_icon_weapon_launcher_standard_kf - stock images need no zone line.)
 
 // scoreboard (BO7 style)
@@ -717,6 +878,11 @@ stringtable,gamedata/weapons/zm/zm_levelcommon_weapons.csv
 weapon,s1_tac19
 weapon,s1_tac19_up
 
+// Klauser (Vanguard s4_klauser, Skye VG port) = C-tier box pistol (user 2026-07-05). Base = semi
+// (dmg 20), PaP = full-auto (dmg 400) - the transform is split by a two-line balance mult (M1911
+// pattern). Single-wield. FULLY TWINNED (twin block below, auto-gen by apply_recoil_overhaul.js).
+// Clean body loc mults. External pack (gitignored, tools/external_assets_manifest.ps1).
+
 // Five-Seven (BO2 t6_fiveseven) = the STARTING pistol (level.start_weapon, set
 // in _acc_main::init). Dual-wield variants included (PaP akimbo). ASM1 = AW SMG (box).
 weapon,t6_fiveseven
@@ -744,9 +910,35 @@ weapon,t6_fiveseven_ldw_up_zm
 weapon,t9_semiauto_cosplay
 weapon,t9_semiauto_cosplay_up
 
+// LEVIATHAN AXE (WetEgg God of War port, 2026-07-07): wonder-tier box melee. Asset ids bake the
+// _zm suffix (zone keeps it; ALL script/CSV refs use the stripped runtime names leviathan /
+// leviathan_up - the apex _zm trap, memory apex-weapons-pack-integration). GDT rides bin\
+// converter_gdt_dirs_0.txt's _custom entry.
+weapon,leviathan_zm
+weapon,leviathan_up_zm
+// Leviathan PaP-tier SPEED twins (+5% swing per tier, user 2026-07-09): _acc_spdN clones in
+// acc_weapon_variants.gdt (meleeTime/fireTime x0.95 per tier), swapped by axis_lev_speed off the
+// stored PaP tier. weaponfull like every other twin (not in the weapons CSV; box-excluded).
+weaponfull,leviathan_acc_spd1_zm
+weaponfull,leviathan_up_acc_spd2_zm
+weaponfull,leviathan_up_acc_spd3_zm
+
 // AK-47 (BO2 t9_ak47) = full-auto AR box gun (user, 2026-06-14). See docs/33.
 weapon,t9_ak47
 weapon,t9_ak47_up
+
+// XM4 (Cold War t9_xm4) = full-auto AR box gun, S tier (user, 2026-07-04). See docs/33.
+weapon,t9_xm4
+weapon,t9_xm4_up
+
+// Streetsweeper (Cold War t9_streetsweeper) = full-auto shotgun box gun, A tier (user, 2026-07-04). See docs/33.
+weapon,t9_streetsweeper
+weapon,t9_streetsweeper_up
+
+// CEL-3 Cauterizer (AW s1_cel3) = triple-barrel full-auto SPREAD shotgun box gun, B tier (user, 2026-07-05).
+// bulletweapon, single-wield, empty altWeapon; twin-less first pass. Loc normalized install-side. See docs/33.
+weapon,s1_cel3
+weapon,s1_cel3_up
 
 // AE4 (AW s1_ae4) = directed-energy AR box gun (user, 2026-06-14). See docs/33.
 weapon,s1_ae4
@@ -760,6 +952,39 @@ weapon,s1_rw1_up
 // (projectileweapon, NO twins, like the Thundergun WW); empty altWeapon so no _zm_zm Com_ERROR.
 weapon,s1_mahem
 weapon,s1_mahem_up
+// War Machine (BO2 t6_war_machine) = 6-round drum GRENADE LAUNCHER (user 2026-07-09, "explodes on
+// land"). EXEMPT explosive special like the Mahem (projectileweapon; empty altWeapon so no _zm_zm
+// Com_ERROR; is_aat_exempt CSV col -> make_war_machine_pap_visible_to_tier3). IMPACT detonation is
+// GDT-native (fuseTime 0.0 / forceBounce 0 - Skye's port already removed BO2's bouncing fuse; same
+// fields as the proven China Lake). PaP "Dystopic Demolisher" = 12-round FULL-AUTO drum. Projectile
+// model wm_t6_gl_grenade ships in skye_t6_wepcommon.gdt; stock rocket explosion FX. Speed-Cola-only
+// fastreload twins in the twin block below (the Mahem wonder-tier pattern).
+weapon,t6_war_machine
+weapon,t6_war_machine_up
+// Apex Legends guns (zeroy pack, user 2026-07-06 migration). Asset ids carry a baked _zm; _up forms in acc_apex_up.gdt (legend-skin PaP model). Twin-less.
+weapon,apex_peacekeeper_zm
+weapon,apex_peacekeeper_up_zm
+weapon,apex_beam_rifle_zm
+weapon,apex_beam_rifle_up_zm
+weapon,apex_alternator_zm
+weapon,apex_alternator_up_zm
+weapon,apex_prowler_zm
+weapon,apex_prowler_up_zm
+weapon,apex_g2a4_zm
+weapon,apex_g2a4_up_zm
+// HAVOC wind-up is ENGINE-NATIVE only (v3, user 2026-07-06): fireDelay 1.25 + riser + shake anim in the
+// base/_up defs - re-winds every trigger pull (the actual Apex Havoc). NO charge-twin defs are packed:
+// both scripted persistence attempts (quarter-steps, 2s spool twin) swapped defs on a HELD weapon, which
+// visibly yanks the viewmodel every burst - see _acc_havoc_charge.gsc (dead file, not compiled) + CHANGELOG.
+// Apex ammo-counter UI3D meshes - REQUIRED by the pack Readme ("Weapon names + LUA for Zone Source").
+// Every apex gun attaches one via attachViewModel1 (alternator/peacekeeper=glass_ammo, prowler=glass_ammo_bigger).
+// (The Readme's two AmmocounterZM *.lua rawfiles are the optional WIP ammo-counter UI - intentionally NOT shipped.)
+xmodel,glass_ammo
+xmodel,glass_ammo_smaller
+xmodel,glass_ammo_bigger
+// China Lake (BO1 t5_china_lake) = pump-action GRENADE LAUNCHER (user 2026-07-05). EXEMPT explosive special
+// like the Mahem (projectileweapon, NO twins); empty altWeapon so no _zm_zm Com_ERROR; is_aat_exempt CSV
+// flag -> needs make_china_lake_pap_visible_to_tier3. Stock rocket explosion FX (fx_exp_rocket_default_sm).
 // BO1 Thundergun (user 2026-07-02): TheAllNightFall's t5 port OVERRIDES the stock thundergun_zm /
 // thundergun_upgraded_zm weapon assets IN PLACE (same names -> zero GSC/box/damage-table changes;
 // night_t5_thundergun.gdt shadows the stock entries). These lines pack OUR overridden weapon files
@@ -770,8 +995,6 @@ weapon,thundergun_upgraded_zm
 // Box guns. AK-74u/M60/RPD are Cold War (t9) ports (user 2026-06-26): regular _up, empty altWeapon, models
 // compiled. (PDW-57 / M1911 / Nail Gun / Ripper REMOVED 2026-06-23 - none could be fully twinned for the
 // Mega-perk handling buffs; see CHANGELOG + docs/33.)
-weapon,t8_paladin_hb50
-weapon,t8_paladin_hb50_up
 weapon,s4_ppsh41_base
 weapon,s4_ppsh41_base_up
 weapon,t9_ak74u
@@ -782,10 +1005,10 @@ weapon,t9_ak74u_up
 weapon,t6_olympia
 weapon,t6_olympia_up
 
-// Galil (BO2 t6_galil) = full-auto AR box gun (user, 2026-06-15). BO1 rip GDT-only, BO2 port
-// used. Std loc mults (= AK-47). Twin-less (weapon-count cap).
-weapon,t6_galil
-weapon,t6_galil_up
+// Grav (CW t9_grav) = full-auto AR box gun. MIGRATED FROM the Galil (user 2026-07-05): the Galil's tuned
+// stats grafted onto the CW Grav model/anims/sounds (graft_cw_weapon_stats). FULLY TWINNED (6 twins below).
+weapon,t9_grav
+weapon,t9_grav_up
 
 // LMGs: M60 + RPD - Cold War (t9) ports (user 2026-06-26, swapped from Skye BO2). Diverse (M60 heavy/slow,
 // RPD fast/drum), FULLY TWINNED. Models compiled (.xmodel_bin sources verified install-side).
@@ -811,8 +1034,6 @@ weapon,s1_mors_up
 // bulletweapon -> FULLY TWINNED (twin block auto-generated below by apply_recoil_overhaul.js). PaP = "Auto Burst"
 // 4-round. Strong burst DPS (balance mult 0.25 = ~500 eff) + generous ammo (clip 36/56) -> top-3 PaP score.
 // SMG ability (Whirlwind) + SMG Overclock family. PaP = t6_chicom_cqb_up.
-weapon,t6_chicom_cqb
-weapon,t6_chicom_cqb_up
 
 // Action Figure melee (BO4 t8 port by T0nic; free w/ credit - TEST-ONLY rip, see CREDITS). Handheld swing
 // weapon + its offhand melee component, both packed here. Source installed into the Mod Tools as a gitignored
@@ -831,246 +1052,110 @@ weaponfull,t8_melee_figure_fast3
 // source_data/acc_weapon_variants.gdt, generated by tools/apply_recoil_overhaul.js
 // (also runs gdtdb /update). Must stay in sync with build_available_twins(). Consumed
 // by _acc_weapon_variants.gsc (axis model); default ON. Add an effect: docs/30.
-weaponfull,s1_ae4_acc_fastfire
-weaponfull,s1_ae4_acc_fastfire_fastreload
 weaponfull,s1_ae4_acc_fastreload
 weaponfull,s1_ae4_acc_recoil50
-weaponfull,s1_ae4_acc_recoil50_fastfire
-weaponfull,s1_ae4_acc_recoil50_fastfire_fastreload
 weaponfull,s1_ae4_acc_recoil50_fastreload
-weaponfull,s1_ae4_up_acc_fastfire
-weaponfull,s1_ae4_up_acc_fastfire_fastreload
 weaponfull,s1_ae4_up_acc_fastreload
 weaponfull,s1_ae4_up_acc_recoil50
-weaponfull,s1_ae4_up_acc_recoil50_fastfire
-weaponfull,s1_ae4_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_ae4_up_acc_recoil50_fastreload
 // RETIRED 2026-07-03 (user) - ASM1 twins; uncomment with the weapon, lines above to restore.
-// weaponfull,s1_asm1_acc_fastfire
-// weaponfull,s1_asm1_acc_fastfire_fastreload
 // weaponfull,s1_asm1_acc_fastreload
 // weaponfull,s1_asm1_acc_recoil50
-// weaponfull,s1_asm1_acc_recoil50_fastfire
-// weaponfull,s1_asm1_acc_recoil50_fastfire_fastreload
 // weaponfull,s1_asm1_acc_recoil50_fastreload
-// weaponfull,s1_asm1_up_acc_fastfire
-// weaponfull,s1_asm1_up_acc_fastfire_fastreload
 // weaponfull,s1_asm1_up_acc_fastreload
 // weaponfull,s1_asm1_up_acc_recoil50
-// weaponfull,s1_asm1_up_acc_recoil50_fastfire
-// weaponfull,s1_asm1_up_acc_recoil50_fastfire_fastreload
 // weaponfull,s1_asm1_up_acc_recoil50_fastreload
 
 // Blast-O-Matic twins (hand-built projectile twins - see the weapon, block comment above).
-weaponfull,t9_semiauto_cosplay_acc_fastfire
-weaponfull,t9_semiauto_cosplay_acc_fastfire_fastreload
 weaponfull,t9_semiauto_cosplay_acc_fastreload
 weaponfull,t9_semiauto_cosplay_acc_recoil50
-weaponfull,t9_semiauto_cosplay_acc_recoil50_fastfire
-weaponfull,t9_semiauto_cosplay_acc_recoil50_fastfire_fastreload
 weaponfull,t9_semiauto_cosplay_acc_recoil50_fastreload
-weaponfull,t9_semiauto_cosplay_up_acc_fastfire
-weaponfull,t9_semiauto_cosplay_up_acc_fastfire_fastreload
 weaponfull,t9_semiauto_cosplay_up_acc_fastreload
 weaponfull,t9_semiauto_cosplay_up_acc_recoil50
-weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastfire
-weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastfire_fastreload
 weaponfull,t9_semiauto_cosplay_up_acc_recoil50_fastreload
-weaponfull,s1_mk14_acc_fastfire
-weaponfull,s1_mk14_acc_fastfire_fastreload
 weaponfull,s1_mk14_acc_fastreload
 weaponfull,s1_mk14_acc_recoil50
-weaponfull,s1_mk14_acc_recoil50_fastfire
-weaponfull,s1_mk14_acc_recoil50_fastfire_fastreload
 weaponfull,s1_mk14_acc_recoil50_fastreload
-weaponfull,s1_mk14_up_acc_fastfire
-weaponfull,s1_mk14_up_acc_fastfire_fastreload
 weaponfull,s1_mk14_up_acc_fastreload
 weaponfull,s1_mk14_up_acc_recoil50
-weaponfull,s1_mk14_up_acc_recoil50_fastfire
-weaponfull,s1_mk14_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_mk14_up_acc_recoil50_fastreload
-weaponfull,s1_mors_acc_fastfire
-weaponfull,s1_mors_acc_fastfire_fastreload
 weaponfull,s1_mors_acc_fastreload
 weaponfull,s1_mors_acc_recoil50
-weaponfull,s1_mors_acc_recoil50_fastfire
-weaponfull,s1_mors_acc_recoil50_fastfire_fastreload
 weaponfull,s1_mors_acc_recoil50_fastreload
-weaponfull,s1_mors_up_acc_fastfire
-weaponfull,s1_mors_up_acc_fastfire_fastreload
 weaponfull,s1_mors_up_acc_fastreload
 weaponfull,s1_mors_up_acc_recoil50
-weaponfull,s1_mors_up_acc_recoil50_fastfire
-weaponfull,s1_mors_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_mors_up_acc_recoil50_fastreload
-weaponfull,s1_rw1_acc_fastfire
-weaponfull,s1_rw1_acc_fastfire_fastreload
 weaponfull,s1_rw1_acc_fastreload
 weaponfull,s1_rw1_acc_recoil50
-weaponfull,s1_rw1_acc_recoil50_fastfire
-weaponfull,s1_rw1_acc_recoil50_fastfire_fastreload
 weaponfull,s1_rw1_acc_recoil50_fastreload
-weaponfull,s1_rw1_up_acc_fastfire
-weaponfull,s1_rw1_up_acc_fastfire_fastreload
 weaponfull,s1_rw1_up_acc_fastreload
 weaponfull,s1_rw1_up_acc_recoil50
-weaponfull,s1_rw1_up_acc_recoil50_fastfire
-weaponfull,s1_rw1_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_rw1_up_acc_recoil50_fastreload
-weaponfull,s1_tac19_acc_fastfire
-weaponfull,s1_tac19_acc_fastfire_fastreload
 weaponfull,s1_tac19_acc_fastreload
 weaponfull,s1_tac19_acc_recoil50
-weaponfull,s1_tac19_acc_recoil50_fastfire
-weaponfull,s1_tac19_acc_recoil50_fastfire_fastreload
 weaponfull,s1_tac19_acc_recoil50_fastreload
-weaponfull,s1_tac19_up_acc_fastfire
-weaponfull,s1_tac19_up_acc_fastfire_fastreload
 weaponfull,s1_tac19_up_acc_fastreload
 weaponfull,s1_tac19_up_acc_recoil50
-weaponfull,s1_tac19_up_acc_recoil50_fastfire
-weaponfull,s1_tac19_up_acc_recoil50_fastfire_fastreload
 weaponfull,s1_tac19_up_acc_recoil50_fastreload
-weaponfull,s4_ppsh41_base_acc_fastfire
-weaponfull,s4_ppsh41_base_acc_fastfire_fastreload
 weaponfull,s4_ppsh41_base_acc_fastreload
 weaponfull,s4_ppsh41_base_acc_recoil50
-weaponfull,s4_ppsh41_base_acc_recoil50_fastfire
-weaponfull,s4_ppsh41_base_acc_recoil50_fastfire_fastreload
 weaponfull,s4_ppsh41_base_acc_recoil50_fastreload
-weaponfull,s4_ppsh41_base_up_acc_fastfire
-weaponfull,s4_ppsh41_base_up_acc_fastfire_fastreload
 weaponfull,s4_ppsh41_base_up_acc_fastreload
 weaponfull,s4_ppsh41_base_up_acc_recoil50
-weaponfull,s4_ppsh41_base_up_acc_recoil50_fastfire
-weaponfull,s4_ppsh41_base_up_acc_recoil50_fastfire_fastreload
 weaponfull,s4_ppsh41_base_up_acc_recoil50_fastreload
-weaponfull,t6_chicom_cqb_acc_fastfire
-weaponfull,t6_chicom_cqb_acc_fastfire_fastreload
-weaponfull,t6_chicom_cqb_acc_fastreload
-weaponfull,t6_chicom_cqb_acc_recoil50
-weaponfull,t6_chicom_cqb_acc_recoil50_fastfire
-weaponfull,t6_chicom_cqb_acc_recoil50_fastfire_fastreload
-weaponfull,t6_chicom_cqb_acc_recoil50_fastreload
-weaponfull,t6_chicom_cqb_up_acc_fastfire
-weaponfull,t6_chicom_cqb_up_acc_fastfire_fastreload
-weaponfull,t6_chicom_cqb_up_acc_fastreload
-weaponfull,t6_chicom_cqb_up_acc_recoil50
-weaponfull,t6_chicom_cqb_up_acc_recoil50_fastfire
-weaponfull,t6_chicom_cqb_up_acc_recoil50_fastfire_fastreload
-weaponfull,t6_chicom_cqb_up_acc_recoil50_fastreload
-weaponfull,t6_fiveseven_acc_fastfire
-weaponfull,t6_fiveseven_acc_fastfire_fastreload
 weaponfull,t6_fiveseven_acc_fastreload
 weaponfull,t6_fiveseven_acc_recoil50
-weaponfull,t6_fiveseven_acc_recoil50_fastfire
-weaponfull,t6_fiveseven_acc_recoil50_fastfire_fastreload
 weaponfull,t6_fiveseven_acc_recoil50_fastreload
-weaponfull,t6_fiveseven_up_acc_fastfire
-weaponfull,t6_fiveseven_up_acc_fastfire_fastreload
 weaponfull,t6_fiveseven_up_acc_fastreload
 weaponfull,t6_fiveseven_up_acc_recoil50
-weaponfull,t6_fiveseven_up_acc_recoil50_fastfire
-weaponfull,t6_fiveseven_up_acc_recoil50_fastfire_fastreload
 weaponfull,t6_fiveseven_up_acc_recoil50_fastreload
-weaponfull,t6_galil_acc_fastfire
-weaponfull,t6_galil_acc_fastfire_fastreload
-weaponfull,t6_galil_acc_fastreload
-weaponfull,t6_galil_acc_recoil50
-weaponfull,t6_galil_acc_recoil50_fastfire
-weaponfull,t6_galil_acc_recoil50_fastfire_fastreload
-weaponfull,t6_galil_acc_recoil50_fastreload
-weaponfull,t6_galil_up_acc_fastfire
-weaponfull,t6_galil_up_acc_fastfire_fastreload
-weaponfull,t6_galil_up_acc_fastreload
-weaponfull,t6_galil_up_acc_recoil50
-weaponfull,t6_galil_up_acc_recoil50_fastfire
-weaponfull,t6_galil_up_acc_recoil50_fastfire_fastreload
-weaponfull,t6_galil_up_acc_recoil50_fastreload
-weaponfull,t6_olympia_acc_fastfire
-weaponfull,t6_olympia_acc_fastfire_fastreload
+weaponfull,t9_grav_acc_fastreload
+weaponfull,t9_grav_acc_recoil50
+weaponfull,t9_grav_acc_recoil50_fastreload
+weaponfull,t9_grav_up_acc_fastreload
+weaponfull,t9_grav_up_acc_recoil50
+weaponfull,t9_grav_up_acc_recoil50_fastreload
 weaponfull,t6_olympia_acc_fastreload
 weaponfull,t6_olympia_acc_recoil50
-weaponfull,t6_olympia_acc_recoil50_fastfire
-weaponfull,t6_olympia_acc_recoil50_fastfire_fastreload
 weaponfull,t6_olympia_acc_recoil50_fastreload
-weaponfull,t6_olympia_up_acc_fastfire
-weaponfull,t6_olympia_up_acc_fastfire_fastreload
 weaponfull,t6_olympia_up_acc_fastreload
 weaponfull,t6_olympia_up_acc_recoil50
-weaponfull,t6_olympia_up_acc_recoil50_fastfire
-weaponfull,t6_olympia_up_acc_recoil50_fastfire_fastreload
 weaponfull,t6_olympia_up_acc_recoil50_fastreload
-weaponfull,t8_paladin_hb50_acc_fastfire
-weaponfull,t8_paladin_hb50_acc_fastfire_fastreload
-weaponfull,t8_paladin_hb50_acc_fastreload
-weaponfull,t8_paladin_hb50_acc_recoil50
-weaponfull,t8_paladin_hb50_acc_recoil50_fastfire
-weaponfull,t8_paladin_hb50_acc_recoil50_fastfire_fastreload
-weaponfull,t8_paladin_hb50_acc_recoil50_fastreload
-weaponfull,t8_paladin_hb50_up_acc_fastfire
-weaponfull,t8_paladin_hb50_up_acc_fastfire_fastreload
-weaponfull,t8_paladin_hb50_up_acc_fastreload
-weaponfull,t8_paladin_hb50_up_acc_recoil50
-weaponfull,t8_paladin_hb50_up_acc_recoil50_fastfire
-weaponfull,t8_paladin_hb50_up_acc_recoil50_fastfire_fastreload
-weaponfull,t8_paladin_hb50_up_acc_recoil50_fastreload
-weaponfull,t9_ak47_acc_fastfire
-weaponfull,t9_ak47_acc_fastfire_fastreload
 weaponfull,t9_ak47_acc_fastreload
 weaponfull,t9_ak47_acc_recoil50
-weaponfull,t9_ak47_acc_recoil50_fastfire
-weaponfull,t9_ak47_acc_recoil50_fastfire_fastreload
 weaponfull,t9_ak47_acc_recoil50_fastreload
-weaponfull,t9_ak47_up_acc_fastfire
-weaponfull,t9_ak47_up_acc_fastfire_fastreload
 weaponfull,t9_ak47_up_acc_fastreload
 weaponfull,t9_ak47_up_acc_recoil50
-weaponfull,t9_ak47_up_acc_recoil50_fastfire
-weaponfull,t9_ak47_up_acc_recoil50_fastfire_fastreload
 weaponfull,t9_ak47_up_acc_recoil50_fastreload
-weaponfull,t9_ak74u_acc_fastfire
-weaponfull,t9_ak74u_acc_fastfire_fastreload
+weaponfull,t9_xm4_acc_fastreload
+weaponfull,t9_xm4_acc_recoil50
+weaponfull,t9_xm4_acc_recoil50_fastreload
+weaponfull,t9_xm4_up_acc_fastreload
+weaponfull,t9_xm4_up_acc_recoil50
+weaponfull,t9_xm4_up_acc_recoil50_fastreload
+weaponfull,t9_streetsweeper_acc_fastreload
+weaponfull,t9_streetsweeper_acc_recoil50
+weaponfull,t9_streetsweeper_acc_recoil50_fastreload
+weaponfull,t9_streetsweeper_up_acc_fastreload
+weaponfull,t9_streetsweeper_up_acc_recoil50
+weaponfull,t9_streetsweeper_up_acc_recoil50_fastreload
 weaponfull,t9_ak74u_acc_fastreload
 weaponfull,t9_ak74u_acc_recoil50
-weaponfull,t9_ak74u_acc_recoil50_fastfire
-weaponfull,t9_ak74u_acc_recoil50_fastfire_fastreload
 weaponfull,t9_ak74u_acc_recoil50_fastreload
-weaponfull,t9_ak74u_up_acc_fastfire
-weaponfull,t9_ak74u_up_acc_fastfire_fastreload
 weaponfull,t9_ak74u_up_acc_fastreload
 weaponfull,t9_ak74u_up_acc_recoil50
-weaponfull,t9_ak74u_up_acc_recoil50_fastfire
-weaponfull,t9_ak74u_up_acc_recoil50_fastfire_fastreload
 weaponfull,t9_ak74u_up_acc_recoil50_fastreload
-weaponfull,t9_m60_acc_fastfire
-weaponfull,t9_m60_acc_fastfire_fastreload
 weaponfull,t9_m60_acc_fastreload
 weaponfull,t9_m60_acc_recoil50
-weaponfull,t9_m60_acc_recoil50_fastfire
-weaponfull,t9_m60_acc_recoil50_fastfire_fastreload
 weaponfull,t9_m60_acc_recoil50_fastreload
-weaponfull,t9_m60_up_acc_fastfire
-weaponfull,t9_m60_up_acc_fastfire_fastreload
 weaponfull,t9_m60_up_acc_fastreload
 weaponfull,t9_m60_up_acc_recoil50
-weaponfull,t9_m60_up_acc_recoil50_fastfire
-weaponfull,t9_m60_up_acc_recoil50_fastfire_fastreload
 weaponfull,t9_m60_up_acc_recoil50_fastreload
-weaponfull,t9_rpd_acc_fastfire
-weaponfull,t9_rpd_acc_fastfire_fastreload
 weaponfull,t9_rpd_acc_fastreload
 weaponfull,t9_rpd_acc_recoil50
-weaponfull,t9_rpd_acc_recoil50_fastfire
-weaponfull,t9_rpd_acc_recoil50_fastfire_fastreload
 weaponfull,t9_rpd_acc_recoil50_fastreload
-weaponfull,t9_rpd_up_acc_fastfire
-weaponfull,t9_rpd_up_acc_fastfire_fastreload
 weaponfull,t9_rpd_up_acc_fastreload
 weaponfull,t9_rpd_up_acc_recoil50
-weaponfull,t9_rpd_up_acc_recoil50_fastfire
-weaponfull,t9_rpd_up_acc_recoil50_fastfire_fastreload
 weaponfull,t9_rpd_up_acc_recoil50_fastreload
 
 // -----------------------------------------------------------------------------
@@ -1089,4 +1174,71 @@ weaponfull,t9_rpd_up_acc_recoil50_fastreload
 //     weaponfull,<gun>_acc_fastreload
 //     weaponfull,<gun>_acc_recoil40_fastfire
 //     weaponfull,<gun>_acc_recoil40_fastfire_fastreload_ammo   (full stack)
+// CEL-3 perk twins (2026-07-06 - was the last twin-less conventional gun; user "twin the Cel 3 as well")
+weaponfull,s1_cel3_acc_recoil50
+weaponfull,s1_cel3_acc_fastreload
+weaponfull,s1_cel3_acc_recoil50_fastreload
+weaponfull,s1_cel3_up_acc_recoil50
+weaponfull,s1_cel3_up_acc_fastreload
+weaponfull,s1_cel3_up_acc_recoil50_fastreload
+// APEX perk twins (user 2026-07-06 "all guns need to be twinned up"): 5 guns x 6 = 30 twins.
+// Block ids put the _zm MODE suffix LAST (apex_X_acc_Y_zm -> runtime apex_X_acc_Y - the engine strips it).
+// 4 bulletweapons via gen_weapon_variant_gdt.js; Havoc twins HAND-BUILT (projectileweapon, Blast-O-Matic
+// recipe) and carry the charge fields (fireDelay + riser). GDT: acc_weapon_variants.gdt.
+weaponfull,apex_peacekeeper_acc_recoil50_zm
+weaponfull,apex_peacekeeper_acc_fastreload_zm
+weaponfull,apex_peacekeeper_acc_recoil50_fastreload_zm
+weaponfull,apex_peacekeeper_up_acc_recoil50_zm
+weaponfull,apex_peacekeeper_up_acc_fastreload_zm
+weaponfull,apex_peacekeeper_up_acc_recoil50_fastreload_zm
+weaponfull,apex_alternator_acc_recoil50_zm
+weaponfull,apex_alternator_acc_fastreload_zm
+weaponfull,apex_alternator_acc_recoil50_fastreload_zm
+weaponfull,apex_alternator_up_acc_recoil50_zm
+weaponfull,apex_alternator_up_acc_fastreload_zm
+weaponfull,apex_alternator_up_acc_recoil50_fastreload_zm
+weaponfull,apex_prowler_acc_recoil50_zm
+weaponfull,apex_prowler_acc_fastreload_zm
+weaponfull,apex_prowler_acc_recoil50_fastreload_zm
+weaponfull,apex_prowler_up_acc_recoil50_zm
+weaponfull,apex_prowler_up_acc_fastreload_zm
+weaponfull,apex_prowler_up_acc_recoil50_fastreload_zm
+weaponfull,apex_g2a4_acc_recoil50_zm
+weaponfull,apex_g2a4_acc_fastreload_zm
+weaponfull,apex_g2a4_acc_recoil50_fastreload_zm
+weaponfull,apex_g2a4_up_acc_recoil50_zm
+weaponfull,apex_g2a4_up_acc_fastreload_zm
+weaponfull,apex_g2a4_up_acc_recoil50_fastreload_zm
+weaponfull,apex_beam_rifle_acc_recoil50_zm
+weaponfull,apex_beam_rifle_acc_fastreload_zm
+weaponfull,apex_beam_rifle_acc_recoil50_fastreload_zm
+weaponfull,apex_beam_rifle_up_acc_recoil50_zm
+weaponfull,apex_beam_rifle_up_acc_fastreload_zm
+weaponfull,apex_beam_rifle_up_acc_recoil50_fastreload_zm
+// Havoc TURBO twins (user 2026-07-08 "0.98 without turbocharger, faster WITH it"): sprintOutTime 0.2
+// clones swapped in per-player by the Turbocharger implant via the _acc_weapon_variants turbo axis
+// (turbo token LAST in canonical order; Havoc-ONLY - no other gun bakes turbo forms). 8 blocks in
+// acc_weapon_variants.gdt (install-side), generated by scratchpad gen_havoc_turbo_twins.js.
+weaponfull,apex_beam_rifle_acc_turbo_zm
+weaponfull,apex_beam_rifle_acc_recoil50_turbo_zm
+weaponfull,apex_beam_rifle_acc_fastreload_turbo_zm
+weaponfull,apex_beam_rifle_acc_recoil50_fastreload_turbo_zm
+weaponfull,apex_beam_rifle_up_acc_turbo_zm
+weaponfull,apex_beam_rifle_up_acc_recoil50_turbo_zm
+weaponfull,apex_beam_rifle_up_acc_fastreload_turbo_zm
+weaponfull,apex_beam_rifle_up_acc_recoil50_fastreload_turbo_zm
+// Speed-Cola-ONLY wonder/special twins (user 2026-07-08 "Mahem, Thundergun and Fire Bow get the mega
+// speed cola"): 5 hand-cloned forms, reload fields x0.857, blocks in acc_weapon_variants.gdt
+// (scratchpad gen_wonder_fastreload_twins.js). No recoil50 combos; the bow has no _up (in-place PaP);
+// Thundergun's upgrade is the irregular "thundergun_upgraded" (variant_up_name maps it).
+weaponfull,s1_mahem_acc_fastreload
+weaponfull,s1_mahem_up_acc_fastreload
+weaponfull,thundergun_acc_fastreload_zm
+weaponfull,thundergun_upgraded_acc_fastreload_zm
+weaponfull,elemental_bow_demongate_acc_fastreload_zm
+// War Machine fastreload twins (user 2026-07-09, same Mahem wonder-tier pattern): 2 hand-cloned
+// forms, reload fields x0.857, blocks in acc_war_machine_twins.gdt (SEPARATE install-side GDT -
+// acc_weapon_variants.gdt is contended by the parallel weapon-variants session).
+weaponfull,t6_war_machine_acc_fastreload
+weaponfull,t6_war_machine_up_acc_fastreload
 // -----------------------------------------------------------------------------

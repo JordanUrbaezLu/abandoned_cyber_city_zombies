@@ -31,7 +31,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_emergency_drop;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_ee_song;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_jukebox;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_doors;
@@ -45,8 +45,10 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_transfer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_armory;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_havoc_charge;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_corpse_cleanup;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
@@ -60,6 +62,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_gun_badges;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
@@ -141,7 +144,7 @@ function init()
     acc_early_round_pacing::init();
     acc_coop_scaling::init();
 
-    // Atmosphere: cold city-haze fog (Phase 1 of docs/29). Pure GSC; the night
+    // Atmosphere: cold city-haze fog (Phase 1 of docs/20). Pure GSC; the night
     // sky + wet-ground re-skin + reflection probes are Radiant edits (see doc).
     acc_atmosphere::init();
 
@@ -193,12 +196,14 @@ function init()
     acc_trench_skins::init();
     acc_fury::init();           // Apothicon Fury trench elite (5x hp; PER-PLAYER 30s cadence at trench layer 2+; HB21 pack)
     acc_events_hack::init();
-    acc_events_overload::init();
+    // acc_events_overload::init();   // RETIRED 2026-07-07 (user): the "Vault Overload" side event is
+    // removed - its leftover trigger (acc_overload_terminal) + point struct were deleted from the .map
+    // (Vault). #using kept for easy restore; nothing reads level.acc_overload_state (README doc only).
     acc_emergency_drop::init();
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
-    acc_ee_song::init();        // hidden Easter Egg SONG teddy bear in the NORTH trench room (the non-Overclock one)
-    acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/45)
-    acc_exo::init();            // Exo Suit station: per-player depth-gate (cancels the per-layer trench slow; docs/47)
+    acc_jukebox::init();        // JUKEBOX (random song, 1 Data Shard + 1000 pts) in the NORTH trench room (the non-Overclock one)
+    acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/30)
+    acc_exo::init();            // Exo Suit station: per-player depth-gate (cancels the per-layer trench slow; docs/29)
     acc_abyss_doors::init();    // Abyss descent = SOUL BOXES (100 kills/layer) + the communal Paradise gate (shards+points)
     acc_boss::init();
     // NSZ Brutus boss pack (stage 1: native spawn, for the asset-import go/no-go).
@@ -209,26 +214,39 @@ function init()
     acc_boss_phantom::init();
     // Paradise FINAL ONSLAUGHT: a timed 5-min survival fight (x4 spawns + Brutus/Phantom every minute +
     // shield/glitch gauntlet) that ENDS THE GAME on a win. After the boss modules it drives (brutus/glitch/
-    // phantom) + abyss_doors (which arms it on Paradise open). docs/48.
+    // phantom) + abyss_doors (which arms it on Paradise open). docs/30.
     acc_paradise::init();
     acc_boss_items::init();
     // Lockdown CHALLENGE room (Phase A): the lit DEFCON room becomes a TRAP -> 30 confined
     // glitch zombies -> free-for-all reward. After lockdown/glitch/items so its reuse targets
-    // exist. Isolated from the round via ignore_enemy_count. docs/43.
+    // exist. Isolated from the round via ignore_enemy_count. docs/26.
     acc_lockdown_challenge::init();
-    // Weapon-variant swap engine (no-recoil / fast-fire perk twins, Stabilizer).
+    // Weapon-variant swap engine (no-recoil / fast-reload perk twins, Stabilizer;
+    // fast-fire twin removed 2026-07-04 - Mega Double Tap is a damage buff now).
     // Before mega_bottles so level.acc_variant_* exist before any reconcile poke.
-    // Inert until twins baked + `acc_weapon_variants 1` (docs/30-31).
+    // Inert until twins baked + `acc_weapon_variants 1` (docs/21-31).
     acc_weapon_variants::init();
     acc_mega_bottles::init();
     // "The Exchange" shared team vault (player-to-player transfers of points/shards/bottles/items).
     // After data_shards + mega_bottles + boss_items so their accessors are live; stations spawn in the
-    // under-Plaza room (tools/gen_plaza_basement.js), gated by the enter_exchange door. docs/58.
+    // under-Plaza room (tools/gen_plaza_basement.js), gated by the enter_exchange door. docs/37.
     acc_transfer::init();
+    // "The Armory" upper room: shared team WEAPON RACK (pooled deposit/withdraw - give
+    // guns to teammates) + a MEGA-BOTTLE EXCHANGE (1 bottle -> random reward item). After
+    // mega_bottles + data_shards so their accessors are live; stations spawn pure-GSC
+    // (currently TEMP in the Plaza until gen_upper_room.js lands). docs/39.
+    acc_armory::init();
     // Base-perk retuning (Jug 3/6, QR regen, Savior). After mega_bottles so its
     // has_mega_perk / move-speed hooks are live.
     acc_perks::init();
     acc_weapon_abilities::init();
+    // HAVOC charge-intent monitor v4 (user 2026-07-06 "force holding it down to charge... let go mid
+    // charge the sfx should stop"). The wind-up itself is engine-native (weapon-def fireDelay 1.25 +
+    // riser + shake anim, re-winds every pull - the real Apex Havoc, v3); v4 adds release-to-CANCEL on
+    // top: StopLocalSound kills the riser, a same-weapon SwitchToWeaponImmediate snaps state to idle,
+    // and the clip is pulsed to 0 through the latch window so the tap-latched shot dry-fires. NO def
+    // swaps (v1/v2 lesson: held-weapon def swaps visibly yank the viewmodel - banned in that file).
+    acc_havoc_charge::init();
     // Points must init before damage so record_damage is available on the first hit.
     acc_points::init();
     // Zombie-corpse cleanup: bodies linger ~5s then hide + de-collide (registers its
@@ -242,7 +260,7 @@ function init()
     // the keep-alive. Replaces the old Rampage Inducer with a natural-gait ramp -
     // a jog that speeds up rounds 1-9, breaking into a full sprint at round 10,
     // then +1%/round. Never animates below natural cadence (no slow-mo).
-    // docs/11_enemies.md.
+    // docs/08_enemies.md.
     acc_zombie_speed::init();
 
     // Perk benefit descriptions (base + Mega) shown at the machine.
@@ -253,6 +271,10 @@ function init()
 
     // 5-tier Pack-a-Punch (tier damage ladder + HUD + benefit text).
     acc_pap_levels::init();
+
+    // Gun-HUD badge registry (flag badges: Mule / Turbo / Nuclear). After pap_levels + damage +
+    // weapon_variants (its predicates call true_base + is_energy_weapon). docs/19.
+    acc_gun_badges::init();
 
     // Dev/test harness LAST so it can override caps (perk limit) set earlier. Self-gates on the `acc_dev`
     // dvar - the DEV tools no-op in normal play, but two FEATURES set up above that gate ship to everyone:
@@ -331,6 +353,7 @@ function on_player_connect()
     acc_weapon_abilities::on_player_connect( self );
     acc_exo::on_player_connect( self );
     acc_points::on_player_connect( self );   // arm the bleed-out watcher for the comeback bonus
+    acc_gun_badges::on_player_connect( self );   // per-player gun-HUD flag-badge watch (Mule/Turbo/Nuclear)
 }
 
 // Fires on every respawn (round start, revive, map load).

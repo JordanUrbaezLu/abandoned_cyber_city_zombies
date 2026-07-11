@@ -1,133 +1,69 @@
-# Missing Requirements — what cannot be completed from this machine, and why
+# Missing Requirements — the short list of what is still open, and why
 
-> Status as of 2026-06-12, after two ultracode implementation passes
-> (geometry + systems + verification, ~150 agents total). The live tracker is
-> [docs/20_requirements_checklist.md](docs/20_requirements_checklist.md):
-> **201 of 471 requirement items are implemented**; everything still open
-> falls into one of the categories below. Each category says exactly **why**
-> it is blocked and **what I need from you** to unblock it.
+> **The map is FULLY BUILT.** First clean compile + link landed 2026-06-12; the
+> Windows dev box has Mod Tools installed (setup complete 2026-07-03) and agents
+> build headlessly with `.\tools\build_map.ps1`. ~48 active `_acc_*` modules run
+> from `_acc_main.gsc` init(). This file is **no longer** the "nothing is
+> verified yet" tracker it started as — it is now a small punch-list of items
+> still genuinely open in the code.
+>
+> **Live status lives elsewhere:** the per-requirement tracker is
+> [docs/15_requirements_checklist.md](docs/15_requirements_checklist.md) (its
+> per-item statuses are a frozen 2026-06-12 snapshot — read its "Current-state
+> corrections" header, then [CHANGELOG.md](CHANGELOG.md) for what actually
+> shipped). Don't restate a checklist total here; it goes stale the day it's
+> written.
 
 ---
 
-## 1. EVERYTHING is unverified until the first Windows compile  ← biggest blocker
+## Still-open items (confirmed against code, 2026-07-10)
 
-**Why:** BO3 Mod Tools (Radiant, APE, the Launcher/linker) are Windows-only
-and are **not installed on this machine** — the Steam folder at
-`C:\Program Files (x86)\Steam\...\Call of Duty Black Ops III` has only base-game
-files (no `map_source/`, no `usermaps/`, no tools). Every line of GSC and map
-source was authored against verified stock references (the
-`tmp/bo3_stock_ref` mirror + shipped community map sources), but *nothing has
-ever been compiled or play-tested*.
+- **Self-revive purchase module — not built.** Cyberware **Caching** already sets
+  the discount flag `self.acc_cw_selfrevive_shard_discount = 0.5`
+  (`_acc_cyberware.gsc:549`), but the comment there (`:546-547`) states it is
+  "consumed by the future self-revive module" — that module does not exist yet.
+  Design intent: docs/05_mechanics.md.
 
-**What I need from you:**
-1. Install **BO3 Mod Tools** (Steam → Library → Tools → "Call of Duty: Black
-   Ops III - Mod Tools", ~170 GB with the game). [SETUP_WINDOWS.md](SETUP_WINDOWS.md)
-   is the complete walkthrough.
-2. Run `.\tools\sync_to_modtools.ps1`, then build via the Launcher and walk
-   [docs/18_first_build_checklist.md](docs/18_first_build_checklist.md).
-3. Report any compile errors back to me — the modules are designed to degrade
-   one-by-one, and every risky call site carries a `TODO(acc-verify)` marker.
+- **Ghost Protocol also cloaks elites and bosses.** Cyberware Ghost Protocol uses
+  the stock refcounted `ignoreme` pipeline (`_acc_cyberware.gsc:757/763`), which
+  is **global** to zombie targeting — and our elites/bosses are promoted stock
+  zombies, so they untarget a cloaked player too. Restoring elite/boss aggro
+  needs a custom favoriteenemy/targeting pass on the elite side. Deferred to
+  balance work; documented in-code at `_acc_cyberware.gsc:695-699`.
 
-Items gated only on this: all `TODO(acc-verify)` sites, weapon class-name
-confirmations (HVK-30, KRM-262 vs Argus identity, second lethal grenade name),
-chalk material names for Haymaker/Drakon, the raw-string `SetHintString` on
-the Mega trigger, hudelem positioning, and the navmesh/pathing quality of the
-greybox geometry.
+- **EMP-elite ability-lock is set but not consumed.** The EMP elite writes
+  `player.acc_cw_locked_until` (`_acc_elites.gsc:900`), but nothing in the
+  Cyberware watchers reads it yet, so a hit doesn't actually gate ability
+  activation. Wire the gate check into the cyberware ability paths.
 
-## 2. The 7 import weapons (B23R, Tac-19, AK-47, M14 EBR, G3, FN FAL, Intervention)
+- **Opt-in modifiers have no config UI.** All 11 modifiers
+  (`_acc_modifiers.gsc:61-73`: code_red, limited_liability, fragility, bleed_out,
+  draft_mode, shardless, one_shot, roguelike_lite, express, sprint,
+  shortened_rounds) toggle via `acc_mod_<name>` dvars and most drive real effects
+  in `apply_global_modifiers()`. What's still open is only the
+  `TODO(acc-config)` at `:56` — parsing a config file / UI struct instead of raw
+  dvars. Design reference: docs/06_replayability.md.
 
-**Why:** the assets live in TheSkyeLord's community packs (Mega/iCloud
-downloads) and must be merged into the Mod Tools install and converted in
-APE — there is no Mod Tools install here, and the packs are interactive
-downloads. The wallbuy slots are already in the map with stock stand-ins, so
-each import is a one-line `zombie_weapon_upgrade` swap once installed.
+- **A few engine-property ability halves still need GDT variants.** GSC has no
+  runtime setter for recoil / fire-rate / burst pattern / grenade fuse, so these
+  need authored weapon-override GDTs (Mod Tools are installed — this is unblocked
+  GDT work, just not done):
+  - Slug Round's tighter-cone / longer-range half (the 3× single-target damage
+    half is live in `_acc_weapon_abilities.gsc` + `_acc_damage.gsc`; note at
+    `_acc_weapon_abilities.gsc:20`).
+  - Triple Tap's burst reshape and Extended Fuse's airburst
+    (`effect_triple_tap` / `effect_extended_fuse` are defined but unreachable —
+    `_acc_weapon_abilities.gsc:21-24`).
 
-**What I need from you:** on the Windows box, download the packs listed in
-[docs/21_weapon_import_sources.md](docs/21_weapon_import_sources.md) (exact
-links, all verified live) and extract them to the BO3 root. Then I can do the
-CSV/zone/wallbuy wiring — the recipe in that doc is mechanical.
-
-## 3. Custom assets (models / FX / materials / sounds) — Phase 5 art
-
-**Why:** these need asset authoring tools (Maya/Blender + APE conversion),
-not code. Currently using documented stock placeholders.
-
-- PhD Flopper machine looks like the stock "nuke" vending machine + raw hint
-  token (`ZOMBIE_PERK_ELECTRICCHERRY`) until a custom model + localized `.str` exist.
-- Data Shard pickups are invisible `tag_origin`s (functional, no visual).
-- Juggernaut Host / Subroutine Core use buffed regular-zombie bodies (the
-  stock mechz mini-boss archetype needs DLC1 zone assets usermaps don't have).
-- Elite visual identities (shield prop, teleporter FX, EMP arcs), boss
-  size/siren/wind-up reads, Cyber Cleaver reskin, perk-machine rotation
-  skins, decontamination zone FX.
-
-**What I need from you:** a decision — ship v1.0 greybox-with-stock-assets
-(fully playable), or invest in an art pass (needs an artist or asset-pack
-hunting session).
-
-## 4. LUI / HUD widgets and client-side (.csc) work — Phase 4
-
-**Why:** persistent HUD beyond the two `SetValue` counters (Shards, Bottles),
-keybind screens, Targeting Visor HP bars, Thermal Vision outlines, boss
-health bars, and decontamination banners all require LUI (lua) widgets +
-client `.csc` modules with clientfield pairs. That work is compile-iterate
-heavy — pointless to author blind before the first successful build.
-
-**Currently degraded-but-working:** `iprintlnbold` text for all warnings,
-ADS+melee chord for weapon abilities, numeric hudelem counters.
-
-## 5. Engine-property abilities (need weapon GDT variants, not GSC)
-
-**Why:** GSC has no runtime setter for recoil, fire rate, burst patterns, or
-grenade fuses. These need authored override-GDT weapon variants swapped at
-activation (Phase 4, needs APE):
-
-- Triple Tap (B23R burst cluster), Stabilizer (zero recoil + RoF),
-  American Sniper's no-recoil half, Gun Slinger's +45% RoF + −50% swap (BUILT — fastfire twin),
-  Sleight-of-Hand Expert's +65% reload, Extended Fuse airburst,
-  Savior's revive-speed (engine revive anim timing).
-- The EMP Grenade itself (custom weapon `emp_grenade_zm` GDT) and both
-  wonder weapons (Signal Staff, Vibro Cleaver) — full Phase 4 authoring.
-
-All have their **damage/economy halves implemented** where one exists
-(Precision Mode, Slug Round, Mega multipliers are live).
-
-## 6. Geometry decisions I need from you (design calls, not blockers)
-
-- **Server↔Roof shortcut** (Vault Overload's reward opens it): the two zones
-  are on opposite sides of the map — where should the shortcut run?
-  The script no-ops gracefully until `acc_shortcut_server_roof` doors exist.
-- **Decontamination seal visuals**: the seal is enforced by a kill-on-reentry
-  volume (works today). Physical seal walls (`acc_seal_<zone>` brushes) need
-  a "spawn hidden" pass in the decon module before placing them, or they'd
-  block corridors from round 1 — tell me if you want solid seal walls and
-  I'll add the hide-at-init handling + brushes.
-- **Rooftop verticality**: the Roof is currently flat greybox at ground level.
-  Real elevation = larger geometry rework in Radiant (better done visually).
-
-## 7. Small code gaps with documented owners (next session's quick list)
-
-- Self-revive purchase system (docs/06; consumes the Caching 50% discount
-  flag that's already set) — module doesn't exist yet.
-- Shard diminishing-returns needs a source tag threaded through
-  `_acc_data_shards::spawn_pickup_at` (elite-vs-event distinction).
-- Full-boss add waves (chaff + 1 elite/min during the Core fight).
-- Ghost Protocol currently also cloaks you from elites (stock `ignoreme` is
-  global); needs an elite-side re-target override.
-- EMP elite's ability-lock gate in the Cyberware watchers
-  (`player.acc_cw_locked_until`).
-- 11 opt-in modifiers: dvar plumbing exists, several effects still log-only.
+- **Latent map bug — 7 malformed `reflection_probe` boxes.** Verified in
+  `map_source/zm/zm_abandoned_cyber_city.map` (2026-07-10): 7 of the 16
+  reflection probes have an inverted Y extent (`size_min Y 548.5 > size_max Y
+  544.75`). Harmless to the bake but the boxes don't bound what they should;
+  resize `size_min ≤ size_max` on each axis, then rebuild WITH the LED bake to
+  confirm. (Salvaged from the retired lab-tunnel LED research doc before it was
+  deleted — that was the only place this was written down.)
 
 ## Out of scope by design (REQUIREMENTS.md "Out of Scope v1.0")
 
-Main-quest Easter Egg, persistent meta-progression, SMG/LMG categories,
-traps, procedural geometry, extra game modes — not missing, excluded.
-
----
-
-### TL;DR — the three things only you can do
-
-1. **Install Mod Tools + run the first compile** (SETUP_WINDOWS.md → docs/18).
-   This unblocks more open items than everything else combined.
-2. **Download the Skye weapon packs** (docs/21) onto the Windows box.
-3. **Three design calls**: shortcut route, seal-wall visuals, roof verticality.
+Main-quest Easter Egg, persistent meta-progression, extra game modes — not
+missing, deliberately excluded. See REQUIREMENTS.md for the current list.

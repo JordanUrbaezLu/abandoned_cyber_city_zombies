@@ -22,7 +22,7 @@ pipelines (electric cherry) from our side. **Prefer a working hack that ships ov
 "clean" approach that's blocked by code we can't touch.** When you find one, DOCUMENT
 the hack + *why* (code comment + the relevant doc + a memory) so the next agent reuses
 it instead of re-hitting the wall. Verify hacks against stock/shipped precedent where
-possible (docs/19, docs/22), but absence of precedent is not a blocker — invent it.
+possible (docs/14, docs/16), but absence of precedent is not a blocker — invent it.
 
 ## Dev/test mode — ONE flag, HARDCODED (user, 2026-06-21; built 2026-06-22)
 
@@ -39,7 +39,7 @@ experiments are still fine — this rule is specifically about the DEV/TEST-mode
 `SetDvar`s the legacy sub-dvars off that one flag. Default 0 = ship-safe normal play; the launch scripts pass
 just `+set acc_dev 1`. **To add a dev behavior: branch on `IS_TRUE( level.acc_dev )` and hardcode the value (or
 add a `SetDvar` line in `acc_resolve_dev_flags()`) — NEVER introduce a new `acc_dev_*` / `acc_*` toggle.** Full
-design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
+design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
 
 ## Hard constraints
 
@@ -88,13 +88,13 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
 
 ## Code map (one line each)
 
-- `map_source/zm/*.map` — Radiant source; 7-zone greybox + 8 buyable doors (script_flag enter_*), 3 inline mystery boxes (acc_box_*), 2 power switches (script_string corp/vault), all interaction triggers (kiosk/terminals/overload/boss spawn/PaP blockers). Generators in tools/ are ONE-SHOT (refuse re-apply); visual design: docs/map_design.svg (+png), regen via tools/gen_map_design.js. Tracker: docs/20_requirements_checklist.md; blockers: MISSING_REQUIREMENTS.md.
+- `map_source/zm/*.map` — Radiant source; 7-zone greybox + 8 buyable doors (script_flag enter_*), 3 inline mystery boxes (acc_box_*), 2 power switches (script_string corp/vault), all interaction triggers (kiosk/terminals/overload/boss spawn/PaP blockers). Generators in tools/ are ONE-SHOT (refuse re-apply); visual design: docs/map_design.svg (+png), regen via tools/gen_map_design.js. Tracker: docs/15_requirements_checklist.md; blockers: MISSING_REQUIREMENTS.md.
 - `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 4 `[acc]` hooks).
-- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 21 custom modules; orchestrated by `acc_main` (exception: `_acc_perk_electric_cherry` is called directly from the entry script — it finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline, see docs/13_perks.md Implementation Status).
+- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 21 custom modules; orchestrated by `acc_main` (exception: `_acc_perk_electric_cherry` is called directly from the entry script — it finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline, see docs/10_perks.md Implementation Status).
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).
 - `sound/zoneconfig/*.szc`, `zone/` — sound config + workshop publish assets.
 - `tools/sync_to_modtools.ps1` — repo ↔ Mod Tools sync (run on Windows).
-- `docs/18_first_build_checklist.md` — the e2e build/publish walkthrough.
+- `docs/34_release_runbook.md` — the e2e build/publish walkthrough.
 
 ## Hard-won facts — do not re-learn
 
@@ -122,7 +122,7 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   `usermaps\`. Never mirror that folder (holds `_prefabs/` + other maps).
 - **`.csc` cannot call `.gsc`** (separate VMs). Client `_acc_` modules must be
   real `.csc` files (Phase 4).
-- **Stock-API truth lives in docs/19_stock_api_verification.md** — the
+- **Stock-API truth lives in docs/14_stock_api_verification.md** — the
   2026-06 ledger (211 verified / 52 fixed / 5 refuted, every fix cited
   `VERIFIED(acc)` in code). Headline traps: `callback::on_ai_damage` and
   `on_ai_killed` are register-only (NEVER dispatched — use
@@ -142,14 +142,14 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
     `FanaticSoftware/Skye-Weapon-Templates` → `rex/templates/01. ZM - Base/`
   - Shipped community map with full source: `MattFiler/zm_alien_isolation`
   - Stock `share/raw` scripts mirror: `zeroy99/bo3_modtools`; stock GDTs: `shidouri/T7-GDT-Backup`
-  - Drop-in system kits (verified 2026-06, details in docs/22): `kelson8/bo3-Zombies-Test-Map` (GSC→LUI menu bridge = Cyberware UI blueprint), `Scobalula/Bo3CWStyleItemDrops` (item-drop framework = Shards pickups), `Owen-C137/Aetherium-Hud-Bo7-Remake-` (clientfield→LUI HUD pipeline) + `.../Bo7-Sawblade-Trap-Bo3-Script-` (traps, zombie POI lure), `Resxt/T7-Scripts` (soul boxes, challenges, buyable ending), `ColDog5044/zm_countryside` (custom perk suite + Wonderfizz), `PotatoClips/potatoclips-bo3-scripts` (quest chains, correct door recipe)
+  - Drop-in system kits (verified 2026-06, details in docs/16): `kelson8/bo3-Zombies-Test-Map` (GSC→LUI menu bridge = Cyberware UI blueprint), `Scobalula/Bo3CWStyleItemDrops` (item-drop framework = Shards pickups), `Owen-C137/Aetherium-Hud-Bo7-Remake-` (clientfield→LUI HUD pipeline) + `.../Bo7-Sawblade-Trap-Bo3-Script-` (traps, zombie POI lure), `Resxt/T7-Scripts` (soul boxes, challenges, buyable ending), `ColDog5044/zm_countryside` (custom perk suite + Wonderfizz), `PotatoClips/potatoclips-bo3-scripts` (quest chains, correct door recipe)
 - **zm wiring entities** (from template): player spawns = `script_struct`
   targetname `initial_spawn_points` (script_int 1/2, noteworthy
   `initial_spawn`); zones = `info_volume` noteworthy `player_volume`,
   targetname `<zone>`, target `<zone>_spawners`; zombie spawn locations =
   structs targetname `<zone>_spawners` (noteworthy `riser_location` /
   `dog_location`); the AI spawner itself = one `actor_spawner_zm_factory_zombie`.
-- **Community techniques ledger: docs/22_community_techniques.md** (142 cited
+- **Community techniques ledger: docs/16_community_techniques.md** (142 cited
   techniques from shipped sources, raw dossiers in docs/research/). CONVENTION:
   every external-codebase finding gets documented there — never left in
   conversation. Headline lift already applied: `level.perk_purchase_limit` is
@@ -166,13 +166,13 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   stock `vending_*_struct.map` prefabs contain exactly this struct, so inline
   structs are equivalent (zm_alien_isolation ships jug that way). Single-chest
   maps ignore `level.start_chest_name` (`_zm_magicbox.gsc` size==1 branch).
-- **Atmosphere (materials/sky/fog), verified — full plan docs/29, recipe in
+- **Atmosphere (materials/sky/fog), verified — full plan docs/20, recipe in
   BO3_MAPMAKING_KB.md:** a brush face's material **token IS the GDT material
   name** (greybox = `script_wall`/`script_floor_ceiling`); re-skin = change the
   token. **Face materials need NO `.zone` line** (shipped `zm_alien_isolation`:
   2 `material,` lines for ~1017 materials) — only non-face assets (LUT/sky/FX/
   decal/sky-xmodel/HDR) get listed. Stock `t7_{concrete,metal,glass,asphalt,…}`
-  materials ship free (already in fastfiles); verified dark/wet names in docs/29.
+  materials ship free (already in fastfiles); verified dark/wet names in docs/20.
   **TRAP:** the alien map's material names (`black1_plaster`, `ayz_floor`,
   `really_dirty_emissive`) are that author's *custom, unlicensed* GDT — NOT stock;
   would "missing material" + can't ship. **Sky** = `volume_sun` `ssi*` +
@@ -243,9 +243,9 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   `Hud.Bg:setAlpha()` → **UI Error 43408** (`CoD.Menu.NewForUIEditor()` has no `.Bg`
   member). **Only copy LUI from shipped-ACTIVE files, not commented-out ones**
   (audiolog.lua used `Hud.Bg` and shipped commented). Full recipe + architecture +
-  the clientuimodel bridge: **docs/28_lui_pipeline.md**.
+  the clientuimodel bridge: **docs/19_lui_pipeline.md**.
 
-## Launch/run findings (real game, 2026-06-13 — see docs/23_launch_runbook.md)
+## Launch/run findings (real game, 2026-06-13 — see docs/17_launch_runbook.md)
 
 - **Launch the built map with `+set_gametype zclassic`, NOT `+set g_gametype
   zclassic`.** `g_gametype` is a dvar the engine RESETS to the session default
@@ -256,7 +256,7 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   gametype to load with map" knob); it sticks. Verified live: `+set_gametype
   zclassic` → clean load to ~4.7 GB; `+set g_gametype zclassic` or no gametype
   arg → `tdm.gsc` black screen. Both repo launchers pass `+set_gametype`.
-- **Split-install launch path (all four gotchas solved, table in docs/23):**
+- **Split-install launch path (all four gotchas solved, table in docs/17):**
   (1) junction `<game>\usermaps -> <tools>\usermaps` so the game finds the `.ff`;
   (2) `steam_appid.txt`=`311210` + launch THROUGH Steam (`steam://run/311210//`),
   not the raw exe (BO3 DRM); (3) `+set_gametype zclassic` (above); (4) Steam
@@ -264,7 +264,7 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   re-corrupts the gametype to `tdm`. Use ONE arg source.
 - **Do NOT use the Mod Tools Launcher's "Run" checkbox** on this split install
   (it launches the raw exe → DRM popup / silent exit). Build with Run unchecked,
-  then `PLAY_TEST_MAP.bat` / `.\tools\run_game.ps1` (canonical args in docs/23).
+  then `PLAY_TEST_MAP.bat` / `.\tools\run_game.ps1` (canonical args in docs/17).
 - **console_mp.log is the runtime oracle** (`<game>\console_mp.log`, needs
   `+set logfile 1`): the LAST lines are the fatal error; the wall of "Could not
   find material/fx" (margwa/mech/DLC/`*_zm` weapon-table entries) is NORMAL
@@ -285,7 +285,7 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
   written, NOT the linker exit code:** the linker prints `ERROR: Material … not
   found in gdtDB` for missing-but-substituted assets (the user-waived
   `mtl_origins_camo_alt` — the AE4/Ripper FX errors were fixed install-side
-  2026-06-15, docs/33), exits NONZERO, yet still
+  2026-06-15, docs/21), exits NONZERO, yet still
   packs a valid `.ff`; build_map.ps1 waives those and fails only if no fresh `.ff`
   lands. The raw commands it wraps:
 - **You can build the `.ff` directly (no Launcher GUI):** for GSC-only changes,
@@ -309,13 +309,17 @@ design + rationale: docs/49. Memory: `dev-mode-hardcoded-not-console`.
 - GSC: structural lint (column-0 lines must be comment/directive/`function`/
   brace; brace+paren balance) — see CHANGELOG Unreleased entry for the last
   full pass. Real verification only happens on the Windows box:
-  `docs/18_first_build_checklist.md`.
+  `docs/34_release_runbook.md`.
 - Status of perishable claims (compile-readiness, TODO counts): grep
   `TODO(acc-verify)` / `TODO(acc-geom)`; don't trust prose counts.
 
 ## History
 
-CHANGELOG.md (newest first). Current state: **FIRST CLEAN COMPILE + LINK
-achieved 2026-06-12** (6 first-compile fix passes, all 21 modules + entry
-build clean, fastfile written). Next: in-game runtime validation (Run Game,
-docs/18 test loop). Full 7-zone greybox + all systems (202/471 checklist).
+CHANGELOG.md (newest first). Current state: **fully built, in active
+balance/polish.** First clean compile + link landed 2026-06-12; since then all
+~48 `_acc_` modules + entry compile and run, and the map ships the Aetherium
+LUI HUD + gun-badge row, the multi-boss roster, Abyss Descent, and the
+Exo/Armory/Reactor/Jukebox/Exchange systems. Loop: build
+(`.\tools\build_map.ps1`) → Run Game (docs/17_launch_runbook.md) → test
+(docs/18_test_session.md). Live requirement tracker:
+docs/15_requirements_checklist.md. Doc index: docs/README.md.

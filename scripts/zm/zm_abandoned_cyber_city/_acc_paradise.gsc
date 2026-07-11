@@ -12,26 +12,32 @@
 //             and the dog-round announcer ("fetch me their souls" = stock zmb_dog_round_start) howls.
 //   PHASE 3 - DREAD (acc_paradise_dread_sec, 10s): just the fog closing in, the trickle continuing. Tension.
 //   PHASE 4 - BATTLE (acc_paradise_survive_sec, 225s = 3:45): the arena SEALS, the "115" anthem
-//             (acc_paradise_music) drops, and 2 Brutus + 1 Phantom storm in ALONGSIDE the horde (x4 spawn rate +
-//             shield/glitch gauntlet). EVERY MINUTE the whole battle escalates IN LOCKSTEP: +1 Brutus + 1 Phantom
-//             join (up to the caps), the WORLD-WIDE horde trench-buff steps up a layer (L2 minute 0-1 -> L3 -> L4 ->
-//             L5 final wave), and a UI alert fires ("The horde is getting stronger", or "You will never escape!"
-//             on the final L5 step) - so the alert lands exactly when a Brutus spawns. Four waves: L2/L3/L4 are
-//             60s each, the FINAL L5 wave is 45s (3:00 -> 3:45). NO power-up drops the whole
+//             (acc_paradise_music) drops, and 1 of EACH boss storms in ALONGSIDE the horde (x4 spawn rate +
+//             shield/glitch gauntlet): Trench Warden (Brutus) + Phantom + Rogue Protector + Avogadro (user
+//             2026-07-05, cap 1 of each) + Apothicon Fury + Panzer (user 2026-07-09). EVERY MINUTE the whole battle escalates IN LOCKSTEP: the boss wave tops
+//             back up to 1 of each (a killed boss is replaced next minute), the wave-baseline horde trench-buff steps
+//             up a layer (L2 minute 0-1 -> L3 -> L4 -> L5 final wave), and a UI alert fires ("The horde is getting
+//             stronger", or "You will never escape!" on the final L5 step). Four waves: L2/L3/L4 are
+//             60s each, the FINAL L5 wave is 45s (3:00 -> 3:45). ON TOP of the wave, EVERY ZOMBIE individually
+//             jumps +1 tier for each 30s it stays ALIVE (acc_paradise_age_step_sec, capped L5 - the anti-kite
+//             ramp restored 2026-07-09): kill the wave or the ones chasing you outscale the wave clock 2:1. NO power-up drops the whole
 //             battle (no insta-kill / max-ammo / double-points - block_powerup_drop). A countdown TIMER HUD shows
 //             the time left; the BOSS HUD + boss music are SUPPRESSED for the whole battle (level.acc_paradise_
 //             onslaught - read by _acc_health_bars and _acc_boss::boss_music).
 //
-// WIN: survive the 3:45 battle (team not wiped) -> the documented BO3 end-game sequence (docs/22): victory
+// WIN: survive the 3:45 battle (team not wiped) -> the documented BO3 end-game sequence (docs/16): victory
 // banner -> freeze controls -> fade to black -> purge the horde (DoDamage health+666) -> level notify("end_game")
 // (the single stock signal that ends the zombies match to the post-game scoreboard; there is no separate
 // "victory" screen, so the banner is what tells the player they WON vs died).
 // LOSE: if the team is wiped at any point, stock fires game-over normally (our endon kills the loops).
 //
-// AUDIO needs three wavs at sound_assets/acc/music/ (48k/16-bit) + a GAME-CLOSED sound build to play (the .sabs
-// bank is file-locked while BO3 runs - memory custom-sound-48k-and-game-lock): 115.wav (battle), paradise_calm.wav
-// (victory fanfare). The omen uses the STOCK zmb_dog_round_start (no asset). LICENSING: 115 / Mario fanfare are
-// not CC0 - test-only, NOT for the public Workshop (CREDITS.md IP review).
+// AUDIO: three wavs at sound_assets/acc/ (48k/16-bit) + a GAME-CLOSED sound build (the .sabs bank is file-locked
+// while BO3 runs - memory custom-sound-48k-and-game-lock): music/115.wav (battle), music/paradise_calm.wav
+// (victory fanfare), fx/paradise_omen.wav (the omen cue). *** REAL 115 + Mario wavs landed 2026-07-09: both are
+// GITIGNORED (licensing) so they never migrated from the old box - this machine had silent PLACEHOLDER copies
+// (115 = a byte-copy of brutus_music, calm = a copy of the nuke SFX). Restore from a download via
+// tools/resample48k.js (44.1k -> 48k) if ever lost again. *** LICENSING: 115 / Mario fanfare are not CC0 -
+// test-only, NOT for the public Workshop (CREDITS.md IP review).
 //
 // GSC-ONLY + LED-SAFE: pure script (risers are computed structs, the HUD is server hudelems, the fog is a script
 // SetVolFog) - builds with `-GscOnly`, no .map / material / sky change, no LED bake.
@@ -56,8 +62,12 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;  // spawn_phantom (returns the host)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;          // scale_mini_boss_hp (paradise Brutus HP, consistent with the trench warden)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;  // boss_hp_player_mult (log coop HP)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_civil_protector; // spawn_boss (Rogue Protector - lands in front of a living player, reaches the arena)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_avogadro;   // spawn_boss (Avogadro - has a paradise branch that spawns him in the arena)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_fury;            // spawn_paradise_fury (Apothicon Fury - meteor-drops onto a player in the arena, user 2026-07-09)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;     // spawn_boss (Panzer - has a paradise branch that spawns him on a player in the arena, user 2026-07-09)
 
-// --- Tunable defaults. Every one a live acc_paradise_* dvar (mirror docs/34). ---
+// --- Tunable defaults. Every one a live acc_paradise_* dvar (mirror docs/22). ---
 #define ACC_PARADISE_CALM_SEC_DEF         60    // PHASE 1: calm/victory-fakeout seconds before the fog hits
 #define ACC_PARADISE_DREAD_SEC_DEF        10    // PHASE 3: fog-closing-in seconds before the battle (user 2026-06-26: 15 -> 10)
 #define ACC_PARADISE_SURVIVE_SEC_DEF      225   // PHASE 4: battle survival time to WIN (seconds) = 3:45 (user 2026-06-27). 60s escalation => waves L2/L3/L4 @ 60s each + the final L5 wave @ 45s (180->225).
@@ -70,16 +80,22 @@
 #define ACC_PARADISE_SHIELD_PER_WAVE_DEF  3     // Shielded ("Riot") elites per special wave - was 1 (user 2026-06-25: "not enough shields")
 #define ACC_PARADISE_GLITCH_PER_WAVE_DEF  1     // Glitch Stalkers per special wave
 #define ACC_PARADISE_SPECIAL_MAX_DEF      12    // concurrent shielded+glitch cap (engine actor-overflow guard) - was 8 (room for the extra shields; lower if unstable)
-#define ACC_PARADISE_BRUTUS_MAX_DEF       4     // concurrent paradise Brutus cap (escalation stops adding past this) - lower if unstable
-#define ACC_PARADISE_PHANTOM_MAX_DEF      4     // concurrent paradise Phantom cap
+#define ACC_PARADISE_BRUTUS_MAX_DEF       1     // concurrent paradise Trench Warden (Brutus) cap (user 2026-07-05: 1 of each boss)
+#define ACC_PARADISE_PHANTOM_MAX_DEF      1     // concurrent paradise Phantom cap
+#define ACC_PARADISE_RP_MAX_DEF           1     // concurrent paradise Rogue Protector cap
+#define ACC_PARADISE_AVO_MAX_DEF          1     // concurrent paradise Avogadro cap
+#define ACC_PARADISE_FURY_MAX_DEF         1     // concurrent paradise Apothicon Fury cap (user 2026-07-09: joins the 1-of-each wave)
+#define ACC_PARADISE_PANZER_MAX_DEF       1     // concurrent paradise Panzer cap (user 2026-07-09: joins the 1-of-each wave)
 #define ACC_PARADISE_BOSS_INTERVAL_DEF    60.0  // seconds between escalation ticks (+1 Brutus +1 Phantom + buff step + alert each "minute")
 #define ACC_PARADISE_BUFF_START_DEF       2     // world-wide horde trench-buff layer for the FIRST battle minute (0-1 min)
 #define ACC_PARADISE_BUFF_MAX_DEF         5     // deepest horde layer (reached at the 3:00 step, held for the final 45s wave)
-// (The Paradise holistic HORDE BUFF anti-camp - the WHOLE battle horde shares ONE trench-equivalent layer that steps
-// L2 -> L3 -> L4 -> L5 on the BATTLE CLOCK, +1 each minute, in lockstep with the Brutus escalation + the UI alert
-// below. The per-layer SPEED + HEALTH treatment lives in _acc_zombie_speed.gsc::paradise_buff_layer (it just READS
-// our level.acc_paradise_horde_layer); WE own + step that var here in escalation_loop. user 2026-06-26, reworked
-// from the old per-zombie 30s-alive ramp.)
+// (The Paradise HORDE BUFF anti-camp/anti-kite - TWO escalation vectors (user 2026-07-09 restored the second):
+//  (1) the WAVE clock: one trench-equivalent layer that steps L2 -> L3 -> L4 -> L5 on the BATTLE CLOCK, +1 each
+//      minute, in lockstep with the boss escalation + the UI alert below - fresh spawns open at the current wave;
+//  (2) the PER-ZOMBIE 30s-ALIVE ramp: a zombie left alive jumps +1 tier above its wave-of-birth every
+//      acc_paradise_age_step_sec (30) - so kiting instead of killing outscales the wave clock 2:1.
+// The per-layer SPEED + HEALTH treatment + the age stamp live in _acc_zombie_speed.gsc::paradise_buff_layer (it
+// READS our level.acc_paradise_horde_layer as the wave baseline); WE own + step that var here in escalation_loop.)
 
 #namespace acc_paradise;
 
@@ -96,6 +112,10 @@ function init()
     level.acc_paradise_won        = false;
     level.acc_paradise_brutus_count  = 0;
     level.acc_paradise_phantom_count = 0;
+    level.acc_paradise_rp_count      = 0;    // live paradise Rogue Protector count (cap 1)
+    level.acc_paradise_avo_count     = 0;    // live paradise Avogadro count (cap 1; separate from the module's acc_avo_alive, which may include a stranded Lab test-spawn)
+    level.acc_paradise_fury_count    = 0;    // live paradise Apothicon Fury count (cap 1; user 2026-07-09)
+    level.acc_paradise_panzer_count  = 0;    // live paradise Panzer count (cap 1; user 2026-07-09; separate from the module's acc_panzer_alive)
     level.acc_paradise_horde_layer   = 0;    // world-wide horde trench-buff layer (0 outside the battle); set to L2 at start_battle, +1/min in escalation_loop
 
     // NO power-up drops during the battle (user 2026-06-26): claim the stock powerup_drop override hook
@@ -191,13 +211,14 @@ function start_battle()
     foreach ( p in GetPlayers() )
         if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^1THE PARADISE ONSLAUGHT^7 - SURVIVE 3:45!" );
 
-    // Initial bosses: 2 Brutus + 1 Phantom storm in with the horde.
-    level thread spawn_n_brutus( 2 );
-    level thread maybe_spawn_phantom();
+    // Initial bosses: 1 of EACH storms in with the horde (user 2026-07-05) - Trench Warden (Brutus) + Phantom +
+    // Rogue Protector + Avogadro + Apothicon Fury + Panzer (2026-07-09). The same wave repeats every escalation
+    // minute (escalation_loop) to top back up.
+    spawn_paradise_boss_wave();
 
     level thread ai_pressure();         // raise the AI cap for the x4 horde
     level thread deathzone_loop();      // the x4 regular surge + shield/glitch specials
-    level thread escalation_loop();     // every minute: +1 Brutus +1 Phantom, step the horde buff L2->L5, fire the UI alert (all in lockstep)
+    level thread escalation_loop();     // every minute: top the boss wave back to 1 of each, step the horde buff L2->L5, fire the UI alert (all in lockstep)
     level thread survival_timer_loop(); // the countdown HUD + the WIN trigger
 }
 
@@ -535,11 +556,12 @@ function spawn_shielded()
 // ---------------------------------------------------------------------------
 
 // Every acc_paradise_boss_interval (a "minute"), the WHOLE battle escalates IN LOCKSTEP (user 2026-06-26): the
-// world-wide horde trench-buff steps up one layer (L2 -> L3 -> L4 -> L5, capped at acc_paradise_buff_max - the
-// holistic anti-camp that replaced the old per-zombie 30s-alive ramp; _acc_zombie_speed::paradise_buff_layer just
-// READS level.acc_paradise_horde_layer), a UI alert fires ("The horde is getting stronger", or "You will never
-// escape!" on the FINAL step to L5), and +1 Brutus + 1 Phantom join (up to the caps). Driving all three off the
-// SAME tick is what makes the alert + buff line up with the Brutus spawn. No step / no alert past L5.
+// wave-baseline horde trench-buff steps up one layer (L2 -> L3 -> L4 -> L5, capped at acc_paradise_buff_max;
+// _acc_zombie_speed::paradise_buff_layer reads level.acc_paradise_horde_layer as the FLOOR - each zombie also
+// ages +1 tier per 30s it stays alive, the per-zombie ramp restored 2026-07-09), a UI alert fires ("The horde is
+// getting stronger", or "You will never escape!" on the FINAL step to L5), and +1 Brutus + 1 Phantom join (up to
+// the caps). Driving all three off the SAME tick is what makes the alert + buff line up with the Brutus spawn.
+// No step / no alert past L5.
 function escalation_loop()
 {
     level endon( "end_game" );
@@ -555,7 +577,7 @@ function escalation_loop()
         wait interval;
         if ( !any_player_in_paradise() ) continue;
 
-        // Step the world-wide horde buff one layer (capped) and ANNOUNCE it - synced to this minute's Brutus spawn.
+        // Step the world-wide horde buff one layer (capped) and ANNOUNCE it - synced to this minute's boss wave.
         if ( !isdefined( level.acc_paradise_horde_layer ) )
             level.acc_paradise_horde_layer = getdvarint( "acc_paradise_buff_start", ACC_PARADISE_BUFF_START_DEF );
         if ( level.acc_paradise_horde_layer < max_l )
@@ -568,8 +590,7 @@ function escalation_loop()
             acc_utility::log( "paradise: horde buff -> L" + level.acc_paradise_horde_layer + " (whole horde)" );
         }
 
-        level thread spawn_n_brutus( 1 );
-        level thread maybe_spawn_phantom();
+        spawn_paradise_boss_wave();     // top back up to 1 of each: Trench Warden + Phantom + Rogue Protector + Avogadro + Fury + Panzer
     }
 }
 
@@ -691,6 +712,171 @@ function phantom_death_watch()
         level.acc_paradise_phantom_count--;
 }
 
+// The Paradise boss wave (user 2026-07-05; +Apothicon Fury 2026-07-09): ONE of each boss, each self-gated by
+// its own cap-1. Threaded so the five spawns (some carry a ground-tell wait) run concurrently, not serially.
+// Called at battle start and every escalation minute; a boss that is still alive simply skips (cap 1) until it
+// is killed, then the next minute replaces it - a rolling "one of each" pressure rather than an ever-growing pile.
+function spawn_paradise_boss_wave()
+{
+    level thread maybe_spawn_brutus();            // Trench Warden
+    level thread maybe_spawn_phantom();
+    level thread maybe_spawn_rogue_protector();
+    level thread maybe_spawn_avogadro();
+    level thread maybe_spawn_fury();              // Apothicon Fury (user 2026-07-09)
+    level thread maybe_spawn_panzer();            // Panzer (user 2026-07-09)
+}
+
+// Spawn ONE Panzer IN PARADISE if under the cap (user 2026-07-09). acc_boss_panzer::spawn_boss already
+// carries a paradise branch (spawns ON a living player - the every-boss rule; its Plaza anchor z=0 is
+// unreachable from the z=-1200 arena) and its grant_drops self-suppresses during the onslaught like the
+// other wave bosses. Same rewards/behavior as a normal-round Panzer otherwise (claw + electroball zap).
+function maybe_spawn_panzer()
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    if ( getdvarint( "acc_paradise_panzer_on", 1 ) != 1 ) return;
+    if ( !any_player_in_paradise() ) return;
+
+    if ( !isdefined( level.acc_paradise_panzer_count ) ) level.acc_paradise_panzer_count = 0;
+    if ( level.acc_paradise_panzer_count >= getdvarint( "acc_paradise_panzer_max", ACC_PARADISE_PANZER_MAX_DEF ) )
+        return;
+
+    host = acc_boss_panzer::spawn_boss();
+    if ( !isdefined( host ) || !isalive( host ) )
+    {
+        acc_utility::log( "paradise: Panzer spawn returned none" );
+        return;
+    }
+
+    level.acc_paradise_panzer_count++;
+    host.ignore_round_spawn_failsafe = true;   // arena z=-1200 sits below the -1000 below-world cull (every-boss rule)
+    level thread paradise_boss_count_watch( host, "panzer" );
+    acc_utility::log( "paradise: Panzer joined the battle (#" + level.acc_paradise_panzer_count + ")" );
+}
+
+// Spawn ONE Rogue Protector IN PARADISE if under the cap (user 2026-07-05). acc_civil_protector::spawn_boss
+// normally uses its fixed Plaza anchor, but has a paradise branch (review fix 2026-07-08) that spawns him ON a
+// living player in the arena (the Plaza z=14 is unreachable from the z=-1200 arena - same reason the Avogadro
+// spawns on a player here). Its own death_watch fires its rewards; this only tracks the cap-1 count.
+function maybe_spawn_rogue_protector()
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    if ( getdvarint( "acc_paradise_rp_on", 1 ) != 1 ) return;
+    if ( !any_player_in_paradise() ) return;
+
+    if ( !isdefined( level.acc_paradise_rp_count ) ) level.acc_paradise_rp_count = 0;
+    if ( level.acc_paradise_rp_count >= getdvarint( "acc_paradise_rp_max", ACC_PARADISE_RP_MAX_DEF ) )
+        return;
+
+    host = acc_civil_protector::spawn_boss();
+    if ( !isdefined( host ) || !isalive( host ) )
+    {
+        acc_utility::log( "paradise: Rogue Protector spawn returned none" );
+        return;
+    }
+
+    level.acc_paradise_rp_count++;
+    host.ignore_round_spawn_failsafe = true;   // same below-world cull immunity the paradise Brutus needs (arena z=-1200)
+    level thread paradise_boss_count_watch( host, "rp" );
+    acc_utility::log( "paradise: Rogue Protector joined the battle (#" + level.acc_paradise_rp_count + ")" );
+}
+
+// Spawn ONE Avogadro IN PARADISE if under the cap (user 2026-07-05). acc_boss_avogadro::spawn_boss has a paradise
+// branch that spawns him ON a living player in the arena (his Lab spawn is z=0, unreachable from z=-1200). His
+// hack_director keeps working down here (user 2026-07-09 parity pass: it seeks the arena's own duplicate perk
+// row / PaP via the paradise target cache - he used to pause and degrade to a pure chase+zap threat). The
+// module's Lab test-respawn loop is paused during paradise, so this wave is the sole Avogadro source.
+function maybe_spawn_avogadro()
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    if ( getdvarint( "acc_paradise_avo_on", 1 ) != 1 ) return;
+    if ( !any_player_in_paradise() ) return;
+
+    if ( !isdefined( level.acc_paradise_avo_count ) ) level.acc_paradise_avo_count = 0;
+    if ( level.acc_paradise_avo_count >= getdvarint( "acc_paradise_avo_max", ACC_PARADISE_AVO_MAX_DEF ) )
+        return;
+
+    host = acc_boss_avogadro::spawn_boss();
+    if ( !isdefined( host ) || !isalive( host ) )
+    {
+        acc_utility::log( "paradise: Avogadro spawn returned none" );
+        return;
+    }
+
+    level.acc_paradise_avo_count++;
+    host.ignore_round_spawn_failsafe = true;
+    level thread paradise_boss_count_watch( host, "avo" );
+    acc_utility::log( "paradise: Avogadro joined the battle (#" + level.acc_paradise_avo_count + ")" );
+}
+
+// Spawn ONE Apothicon Fury IN PARADISE if under the cap (user 2026-07-09). acc_fury::spawn_paradise_fury
+// meteor-drops it onto a living player in the arena via the trench below-zone spawn path (zone check skipped,
+// forced emergence) and boss-flags it (acc_is_mini_boss -> excluded from the battle purge, the Rogue Protector
+// landing splash, and octobomb targeting; ignore_round_spawn_failsafe is set by the fury spawner itself - the
+// arena z=-1200 sits below the -1000 below-world cull, same as every other paradise boss). The trench cadence
+// never fires down here (underground_layer excludes the second part), so this wave is the sole arena source.
+function maybe_spawn_fury()
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    if ( getdvarint( "acc_paradise_fury_on", 1 ) != 1 ) return;
+    if ( !any_player_in_paradise() ) return;
+
+    if ( !isdefined( level.acc_paradise_fury_count ) ) level.acc_paradise_fury_count = 0;
+    if ( level.acc_paradise_fury_count >= getdvarint( "acc_paradise_fury_max", ACC_PARADISE_FURY_MAX_DEF ) )
+        return;
+
+    host = acc_fury::spawn_paradise_fury();
+    if ( !isdefined( host ) || !isalive( host ) )
+    {
+        acc_utility::log( "paradise: Apothicon Fury spawn returned none" );
+        return;
+    }
+
+    level.acc_paradise_fury_count++;
+    level thread paradise_boss_count_watch( host, "fury" );
+    acc_utility::log( "paradise: Apothicon Fury joined the battle (#" + level.acc_paradise_fury_count + ")" );
+}
+
+// Poll-based death watch for the paradise-only boss counts (RP / Avogadro / Fury). Level-threaded with the host
+// passed in so it still decrements if the actor is Delete()d without a "death" notify (the pack death path).
+// endon paradise end so a leftover watcher never outlives the finale.
+function paradise_boss_count_watch( host, kind )
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    while ( isdefined( host ) && isalive( host ) )
+        wait 0.5;
+
+    if ( kind == "rp" )
+    {
+        if ( isdefined( level.acc_paradise_rp_count ) && level.acc_paradise_rp_count > 0 )
+            level.acc_paradise_rp_count--;
+    }
+    else if ( kind == "avo" )
+    {
+        if ( isdefined( level.acc_paradise_avo_count ) && level.acc_paradise_avo_count > 0 )
+            level.acc_paradise_avo_count--;
+    }
+    else if ( kind == "panzer" )
+    {
+        if ( isdefined( level.acc_paradise_panzer_count ) && level.acc_paradise_panzer_count > 0 )
+            level.acc_paradise_panzer_count--;
+    }
+    else   // "fury"
+    {
+        if ( isdefined( level.acc_paradise_fury_count ) && level.acc_paradise_fury_count > 0 )
+            level.acc_paradise_fury_count--;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Survival timer (countdown HUD) + the WIN trigger
 // ---------------------------------------------------------------------------
@@ -738,9 +924,11 @@ function update_timer_hud( remaining )
 function ensure_timer_hud( p )
 {
     if ( isdefined( p.acc_paradise_timer ) ) return;
-    p.acc_paradise_timer = acc_utility::he_check( p hud::createFontString( "objective", 1.6 ), "paradise.timer" );
+    p.acc_paradise_timer = acc_utility::he_check( p hud::createFontString( "objective", 1.9 ), "paradise.timer" );
     if ( !isdefined( p.acc_paradise_timer ) ) return;   // pool full (he_check logged it) - degrade, don't touch undefined
-    p.acc_paradise_timer hud::setPoint( "TOP", "TOP", 0, 24 );
+    // y 24 -> 150 + scale 1.6 -> 1.9 (user 2026-07-06: "timer too high, none of the players noticed").
+    // 150 sits clearly below the trench DANGER banner band (y 110) so the two never stack.
+    p.acc_paradise_timer hud::setPoint( "TOP", "TOP", 0, 150 );
     p.acc_paradise_timer.alignX = "center";
     p.acc_paradise_timer.alignY = "top";
     p.acc_paradise_timer.color  = ( 1, 0.85, 0.2 );
@@ -749,7 +937,7 @@ function ensure_timer_hud( p )
 }
 
 // ---------------------------------------------------------------------------
-// WIN: the documented BO3 end-game sequence (docs/22): banner -> freeze -> fade -> purge -> notify("end_game").
+// WIN: the documented BO3 end-game sequence (docs/16): banner -> freeze -> fade -> purge -> notify("end_game").
 // ---------------------------------------------------------------------------
 
 function win()
@@ -793,6 +981,11 @@ function win()
 function show_win_banner()   // self = player
 {
     self.acc_paradise_win_txt = self hud::createFontString( "objective", 2.2 );
+    // [acc] COOP CRASH GUARD: the win fires when the shared hudelem pool is most saturated (a full
+    // match of HUD x4 players); createFontString can return undefined - the field writes would throw
+    // and turn the victory into a crash. Degrade to no banner rather than crash the win.
+    if ( !isdefined( self.acc_paradise_win_txt ) )
+        return;
     self.acc_paradise_win_txt hud::setPoint( "CENTER", "CENTER", 0, -16 );
     self.acc_paradise_win_txt.alignX = "center";
     self.acc_paradise_win_txt.alignY = "middle";
@@ -810,6 +1003,8 @@ function fade_all_to_black( dur )
     {
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
         bg = p hud::createIcon( "white", 640, 480 );
+        if ( !isdefined( bg ) )   // [acc] COOP CRASH GUARD: pool-full undefined at match-end; skip this player's fade overlay
+            continue;
         bg.horzAlign = "fullscreen";
         bg.vertAlign = "fullscreen";
         bg.alignX = "left";
@@ -825,7 +1020,7 @@ function fade_all_to_black( dur )
     }
 }
 
-// Purge the whole horde (the documented end-game step, docs/22): DoDamage health+666 on every live AI so nothing
+// Purge the whole horde (the documented end-game step, docs/16): DoDamage health+666 on every live AI so nothing
 // is mid-swing when the match ends.
 function purge_zombies()
 {

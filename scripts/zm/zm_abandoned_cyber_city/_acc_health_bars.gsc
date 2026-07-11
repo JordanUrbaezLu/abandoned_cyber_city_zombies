@@ -34,7 +34,7 @@
 #define ACC_ROSTER_POINTS_X   18   // x where the POINTS number starts = 12 (the "$" prefix elem) + ~1 char, so it reads "$<points>" near-flush. The SH field flows dynamically from here in update_roster.
 // Tiered roster HEALTH bar (user 2026-06-27): the bar is THREE proportional segments - base 0..100 HP (green),
 // Juggernog 100..250 (darker green), Mega Jug 250..300 (dark green). PX_PER_HP keeps them to-scale (40/60/20 px).
-// The 100/250/300 thresholds ARE the Jug numbers - keep in sync with the Jug system + docs/13 (memory
+// The 100/250/300 thresholds ARE the Jug numbers - keep in sync with the Jug system + docs/10 (memory
 // jugg-health-numbers-sync; this is now a 5th sync site).
 #define ACC_HP_PX_PER_HP 0.4   // roster health-bar scale: px per HP (300 HP Mega = 120 px full, no-Jug 100 HP = 40 px). (user 2026-06-27: reverted a 0.8 doubling - the original 0.4 was fine.)
 #define ACC_HP_TIER_BASE 100   // base max HP (no perks) -> end of the green segment
@@ -120,12 +120,18 @@ function ensure_round_counter( p )
     // match), so SetText "Round " + N is BG-cache-safe (change-guarded in update_round_counter) - no need to
     // split a label + SetValue. ACC_ROUND_HUD_X/Y/SCALE are the inset + size; flashes on round change.
     p.acc_round_hud = acc_utility::he_check( p hud::createFontString( "default", 1.6 ), "round_counter" );
-    if ( isdefined( p.acc_round_hud ) ) p.acc_round_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 40, 30 );
-    p.acc_round_hud.alignX = "left";
-    p.acc_round_hud.alignY = "top";
-    p.acc_round_hud.color = ( 0.3, 0.85, 1.0 );
-    p.acc_round_hud.alpha = 0.95;
-    p.acc_round_hud.hidewheninmenu = true;
+    // [acc] COOP CRASH GUARD: he_check passes undefined through on pool-full (4p exhaustion). The old
+    // guard covered only setPoint - the field writes below still threw on undefined. Guard them all;
+    // update_round_counter already bails on an undefined p.acc_round_hud, so it retries next tick.
+    if ( isdefined( p.acc_round_hud ) )
+    {
+        p.acc_round_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 40, 30 );
+        p.acc_round_hud.alignX = "left";
+        p.acc_round_hud.alignY = "top";
+        p.acc_round_hud.color = ( 0.3, 0.85, 1.0 );
+        p.acc_round_hud.alpha = 0.95;
+        p.acc_round_hud.hidewheninmenu = true;
+    }
 }
 
 function update_round_counter( p )
@@ -169,7 +175,7 @@ function ensure_own_stats( p )
     p.acc_os_retry_at = GetTime() + 5000;
 
     // Shard COUNT: SetValue, NEVER SetText - shards churn across 0..500+, and every distinct
-    // SetText string permanently burns a slot in the 2048-cap 'string' BG-cache (docs/49 #6).
+    // SetText string permanently burns a slot in the 2048-cap 'string' BG-cache (docs/22 #6).
     if ( !isdefined( p.acc_os_count ) )
     {
         p.acc_os_count = acc_utility::he_check( p hud::createFontString( "default", 1.05 ), "own_stats_shards" );
@@ -249,7 +255,7 @@ function ensure_player_bar( p )
 
     make_player_bar( p, bar_width_for_hp( player_maxhp( p ) ) );
 
-    // HP NUMERIC READOUT REMOVED (docs/50 D1, user 2026-06-22): the "current / max" text leaked the
+    // HP NUMERIC READOUT REMOVED (docs/31 D1, user 2026-06-22): the "current / max" text leaked the
     // Juggernog magnitude as a NUMBER. The bar now conveys the same thing VISUALLY (user 2026-06-24): its
     // WIDTH scales with max HP and its GREEN SHADE deepens with the Jug tier (see make_player_bar / hp_bar_color).
 }
@@ -622,6 +628,7 @@ function update_roster( p )
     // players (lazy rows -> pool-frugal). To re-force mocks in non-dev for a co-op-HUD test, set this back to `true`.
     // MOCKS OFF EVERYWHERE (user 2026-07-02: "only dev mode and god mode on - player mocks off").
     // Dev now shows only REAL connected players too. To re-force the 4-row co-op-HUD test, set `true`.
+    // (Avogadro test mocks reverted 2026-07-05 for the real non-dev publish run.)
     force_mocks = false;
     shown = ( force_mocks ? 4 : ordered.size );
     if ( shown > 4 ) shown = 4;
@@ -863,17 +870,26 @@ function make_boss_bar_set( player, boss, name )
 
     // (1) Name label, top-center.
     s.label = acc_utility::he_check( player hud::createFontString( "objective", 1.5 ), "bossbar.label" );
-    s.label hud::setPoint( "TOP", "TOP", 0, 22 );
-    s.label.alignX = "center"; s.label.alignY = "top";
-    s.label.color = ( 1, 0.85, 0.2 ); s.label.alpha = 0.95;
-    s.label.hidewheninmenu = true;
-    s.label SetText( "^1" + name );
+    // [acc] pool-full guard (2026-07-06 sweep): he_check passes undefined THROUGH on hudelem-pool
+    // exhaustion; the writes below would throw. Dormant in publish (acc_boss_bar_2d 0) - guarded so
+    // any future A/B re-enable can't hit the demonstrated 4p pool crash.
+    if ( isdefined( s.label ) )
+    {
+        s.label hud::setPoint( "TOP", "TOP", 0, 22 );
+        s.label.alignX = "center"; s.label.alignY = "top";
+        s.label.color = ( 1, 0.85, 0.2 ); s.label.alpha = 0.95;
+        s.label.hidewheninmenu = true;
+        s.label SetText( "^1" + name );
+    }
 
     // (1) Depleting bar, top-center, just under the name (proven createBar path).
     s.screen_bar = acc_utility::he_check( player hud::createBar( boss_hp_color( 1.0 ), ACC_BOSS_BAR_W, ACC_BOSS_BAR_H ), "bossbar.bar(x3)", 3 );
-    s.screen_bar hud::setPoint( "TOP", "TOP", 0, 46 );
-    s.screen_bar.alpha = 0.9;
-    s.screen_bar.hidewheninmenu = true;
+    if ( isdefined( s.screen_bar ) )   // [acc] pool-full guard (see label above)
+    {
+        s.screen_bar hud::setPoint( "TOP", "TOP", 0, 46 );
+        s.screen_bar.alpha = 0.9;
+        s.screen_bar.hidewheninmenu = true;
+    }
 
     s.player = player;   // owner, for the late-join reconcile in boss_bar_track (user 2026-06-27 audit)
     return s;

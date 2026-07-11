@@ -36,7 +36,7 @@
 
 function nsz_iprintlnbold( string )
 {
-	if( isDefined(level.nsz_debug) && level.nsz_debug )
+	if( ( isDefined(level.acc_dev) && level.acc_dev ) || ( isDefined(level.nsz_debug) && level.nsz_debug ) )
 		iprintlnbold( "^6NSZ Debug:^7 "+string ); 
 }
 
@@ -183,6 +183,18 @@ function spawn_brutus()
 	playsound_to_players( "brutus_spawn_short" ); 
 	
 	brutus = zombie_utility::spawn_zombie( spawner );
+	// [acc] 4p guard (2026-07-06 coop sweep): spawn_zombie returns UNDEFINED when SpawnFromSpawner
+	// fails (actor pool at cap - the horde spawner can steal the freed slot the same frame at 4p).
+	// The field write below then throws and ends the match. Bail; the caller retries: the paradise
+	// wave re-calls every escalation minute, and the Trench Warden path re-arms in
+	// acc_boss::run_mini_boss (synthetic kill round -> round_hook_loop retries next round; there is
+	// NO Brutus debt director - review fix 2026-07-08).
+	if ( !isdefined( brutus ) )
+	{
+		nsz_iprintlnbold( "^1 brutus spawn failed (actor pool full) - retrying via debt" );
+		level.current_brutuses--;
+		return;
+	}
 	// [acc] 2026-06-15: mark him a boss IMMEDIATELY (before any thread/callback runs) so our
 	// zombie-speed system (_acc_zombie_speed.gsc) never grabs him. is_zombie() is true on Brutus
 	// (set for melee), so without this our keepalive sweep stomps his locomotion ASM and freezes
@@ -200,7 +212,7 @@ function spawn_brutus()
 	brutus thread zombie_utility::round_spawn_failsafe();
 	
 	// [acc] Brutus HP is OVERWRITTEN by _acc_boss::spawn_brutus_miniboss (the compounding
-	// scale_mini_boss_hp: 56000 x 1.12^(round-10) x coop, NO cap) right after this returns, so this
+	// scale_mini_boss_hp: 65000 x 1.12^(round-5) x coop, NO cap) right after this returns, so this
 	// pack value + its old 85000 cap never reach gameplay. Cap REMOVED here too (user 2026-07-04:
 	// "there shouldn't be a cap") so even a re-enabled pack path is uncapped. Provisional value only.
 	n_players = getplayers();
@@ -252,6 +264,12 @@ function spawn_brutus()
 	PlayFx( SPAWN_FX, brutus.origin );
 	Earthquake( 0.4, 4, brutus.origin, 5000 );
 	wait( GetAnimLength( %brutus_spawn ) );
+
+	// [acc] COOP CRASH GUARD: a 4-player team can burn Brutus down DURING the spawn-rise anim; his
+	// corpse can be reaped before this wait returns, nulling `brutus`. Threading/methods on undefined
+	// throw "not an entity" and end the game. Same reap race already guarded in new_death (~:693/:727).
+	if ( !isdefined( brutus ) )
+		return;
 
 	// brutus thread debug_health();
 	brutus thread custom_find_flesh();   // pack-native chase (writes v_zombie_custom_goal_pos)
@@ -583,14 +601,19 @@ function IS_TRUE( statement )
 function choose_a_spawn()
 {
 	// nsz_iprintlnbold( "^5 Choose a Spot" ); 
-	players = getplayers(); 
-	players = array::randomize( players ); 
-	player = players[0]; 
-	
+	players = getplayers();
+	players = array::randomize( players );
+	player = players[0];
+
+	// [acc] 4p guard (2026-07-06 coop sweep): getplayers() can be empty in the same tick as a mass
+	// quit/host-migration; player.origin then throws. spawn_brutus already has an undefined-spot fallback.
+	if ( !isDefined( player ) )
+		return undefined;
+
 	if ( !isDefined( level.brutus_spawn_points ) || level.brutus_spawn_points.size < 1 )
-		nsz_iprintlnbold( "^1 No brutus Spots Are Init" ); 
-	
-	option = ArrayGetClosest( player.origin, level.brutus_spawn_points ); 
+		nsz_iprintlnbold( "^1 No brutus Spots Are Init" );
+
+	option = ArrayGetClosest( player.origin, level.brutus_spawn_points );
 	// nsz_iprintlnbold( option.script_string ); 
 	
 	return option; 
@@ -655,7 +678,10 @@ function note_tracker()
 			players = getplayers(); 
 			foreach( player in players )
 			{
-				if( Distance2d(player.origin, self.origin) < 150 && self.brutus_enemy == player )
+				// [acc] 4p guard (2026-07-06 sweep, two independent reviews): the warden think tick
+				// clears brutus_enemy the moment the target leaves the pit/downs/disconnects, and the
+				// "swing" note lands ~1s into the anim - the compare then ran on undefined.
+				if( Distance2d(player.origin, self.origin) < 150 && isDefined( self.brutus_enemy ) && self.brutus_enemy == player )
 				{
 					Earthquake( .25, 3, player.origin, 50 ); 
 					player shellShock( "frag_grenade_mp", 1 ); 

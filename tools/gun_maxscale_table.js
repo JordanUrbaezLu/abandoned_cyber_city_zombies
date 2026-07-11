@@ -87,7 +87,7 @@ function upBlock(key) { for (const n of [key + '_up', key + '_up_zm', key + '_ba
 
 // ---- roster from the CSV (always current) ----------------------------------
 const GUN_CLASSES = new Set(['rifle', 'smg', 'pistol', 'shotgun', 'sniper', 'lmg']);
-const NAMES = { t6_fiveseven: 'Five-Seven', s1_rw1: 'RW1', t5_ak74u: 'AK-74u', t6_chicom_cqb: 'Chicom CQB', s1_asm1: 'ASM1', s4_ppsh41_base: 'PPSH-41', t9_ak47: 'AK-47 (CW)', t9_ak74u: 'AK-74u (CW)', t9_m60: 'M60 (CW)', t9_rpd: 'RPD (CW)', t6_ak47: 'AK-47', s1_ae4: 'AE4', t6_galil: 'Galil', s1_mk14: 'MK14', t6_m60: 'M60', t6_rpd: 'RPD', s1_tac19: 'Tac-19', t6_olympia: 'Olympia', t8_paladin_hb50: 'Paladin HB50', s1_mors: 'MORS' };
+const NAMES = { t6_fiveseven: 'Five-Seven', s1_rw1: 'RW1', t5_ak74u: 'AK-74u', t6_chicom_cqb: 'Chicom CQB', s1_asm1: 'ASM1', s4_ppsh41_base: 'PPSH-41', t9_ak47: 'AK-47 (CW)', t9_ak74u: 'AK-74u (CW)', t9_m60: 'M60 (CW)', t9_rpd: 'RPD (CW)', t6_ak47: 'AK-47', s1_ae4: 'AE4', t9_grav: 'Grav', s1_mk14: 'MK14', t6_m60: 'M60', t6_rpd: 'RPD', s1_tac19: 'Tac-19', t6_olympia: 'Olympia', t8_paladin_hb50: 'Paladin HB50', s1_mors: 'MORS' };
 const csv = fs.readFileSync(CSV, 'utf8').split(/\r?\n/).filter(l => l.trim());
 const hdr = csv[0].split(',');
 const iName = hdr.indexOf('weapon_name'), iClass = hdr.indexOf('class'), iBox = hdr.indexOf('in_box');

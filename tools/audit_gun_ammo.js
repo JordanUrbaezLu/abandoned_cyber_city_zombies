@@ -24,7 +24,7 @@ const GUNS = [
     [ "skye_s4_ppsh-41.gdt",    "s4_ppsh41_base",  "s4_ppsh41_base_up",  "30", "44" ],
     [ "skye_t5_ak74u.gdt",      "t5_ak74u",        "t5_ak74u_up_zm",     "20", "40" ],
     [ "skye_t6_olympia.gdt",    "t6_olympia",      "t6_olympia_up",      "2",  "2" ],
-    [ "skye_t6_galil.gdt",      "t6_galil",        "t6_galil_up",        "~",  "~" ],
+    [ "skye_t9_grav.gdt",       "t9_grav",         "t9_grav_up",         "~",  "~" ],
     [ "skye_t6_m60.gdt",        "t6_m60",          "t6_m60_up",          "100","120" ],
     [ "skye_t6_rpd.gdt",        "t6_rpd",          "t6_rpd_up",          "60", "100" ],
     [ "skye_s1_rw1.gdt",        "s1_rw1",          "s1_rw1_up",          "8",  "12" ],   // our buff

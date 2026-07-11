@@ -219,6 +219,21 @@ if ($Reverse) {
     Copy-One $repoMap $modMap "map_source"
 }
 
+# Custom prefabs (OUR authored .map text - clone prefabs referenced by the main
+# .map: vending_weapon_upgrade_alxs, power_switch_ww2). These live in the game
+# root's map_source\_prefabs\acc\, which the single-file .map copy above does
+# NOT carry - they were install-only until the 2026-07-10 asset-portability
+# audit. COPY (never mirror) both ways; never touch other _prefabs subdirs
+# (they hold external-pack prefabs).
+$repoPrefabs = Join-Path $RepoRoot "map_source\_prefabs\acc"
+$modPrefabs  = Join-Path $ModTools "map_source\_prefabs\acc"
+
+if ($Reverse) {
+    Copy-Tree $modPrefabs $repoPrefabs "map_source\_prefabs\acc" $false
+} else {
+    Copy-Tree $repoPrefabs $modPrefabs "map_source\_prefabs\acc" $false
+}
+
 # Sound alias CSVs ALSO have to land in the canonical sound-source path that the
 # linker's sound-bank build reads (share\raw\sound\aliases\), NOT just the
 # usermap. The usermap copy alone is silently ignored at sound-compile time. A

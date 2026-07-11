@@ -56,6 +56,11 @@ function hud_msg_slot( text, slot, color )   // self = player
         self.acc_hud_msg_slots[ slot ] = e;
     }
     e = self.acc_hud_msg_slots[ slot ];
+    // [acc] COOP CRASH GUARD: when the shared hudelem pool is FULL, he_check returns undefined and the
+    // store above (assigning undefined) REMOVES the key, so `e` is undefined here. Dereferencing it
+    // (setPoint/SetText) threw "method on undefined" and ended the game - a demonstrated 4-player
+    // pool-exhaustion condition (memory server-hudelem-pool-exhaustion-coop). Bail; the toast just doesn't draw.
+    if ( !isdefined( e ) ) return;
     // Re-apply the anchor each show so a live acc_msg_y tweak takes effect without a relog.
     e hud::setPoint( "TOP", "TOP", 0, getdvarint( "acc_msg_y", 190 ) + slot * getdvarint( "acc_msg_slot_h", 26 ) );
     e.color = color;
@@ -116,7 +121,7 @@ function he_free( n )
 
 function he_log( msg )
 {
-    if ( getdvarint( "acc_hudelem_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_hudelem_debug", 0 ) != 1 ) return;
     players = get_all_players();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( msg );
@@ -142,6 +147,55 @@ function iprintlnbold_if_dev( msg )
     /# iprintln( msg ); #/
 }
 
+// Snap a loot-drop origin to the FLOOR beneath it - the ONE shared ground-snap for every world
+// pickup (boss items, zombie item drops, shard drops). Live dvar acc_drop_floor_snap (1 = on).
+//
+// WHY THE ENTITY-STEPPING LOOP (user 2026-07-08, "items still floating; the GLOW is airborne too"):
+// a plain BulletTrace down from origin+60 starts INSIDE the dying enemy's own body, and a solid
+// AI hit returns position ~= the airborne death origin - so the "snap" landed the drop ON THE
+// CORPSE mid-air. That was the real cause of floating drops from the hovering bosses (Rogue
+// Protector / Avogadro); ground zombies never showed it because their corpse already sits on the
+// floor. Fix: when the trace hits an ACTOR or PLAYER (the dying boss, a sibling, a teammate), step
+// 4u below the hit and re-trace, until we reach either WORLD geometry (tr["entity"] undefined -
+// the stock world-hit idiom, vehicle_shared.gsc:2772) or a solid NON-AI entity (a script_brushmodel
+// bridge/platform IS a floor - accept it). A true miss (fraction >= 1: over a void) KEEPS the
+// original origin - never bury a drop 2500u below. Diagnostics ride drops_debug (dev-visible).
+function drop_floor_origin( origin )
+{
+    if ( getdvarint( "acc_drop_floor_snap", 1 ) != 1 ) return origin;
+
+    start  = origin + ( 0, 0, 60 );
+    bottom = origin - ( 0, 0, 2500 );
+    for ( i = 0; i < 8; i++ )
+    {
+        tr = BulletTrace( start, bottom, false, undefined );
+        if ( !isdefined( tr ) || !isdefined( tr[ "fraction" ] ) || tr[ "fraction" ] >= 1 || !isdefined( tr[ "position" ] ) )
+        {
+            drops_debug( "floor-snap MISS (kept origin) after " + i + " step(s) at " + origin );
+            return origin;   // nothing below within 2500u: keep the origin (never bury)
+        }
+
+        e = tr[ "entity" ];
+        if ( !isdefined( e ) )
+        {
+            if ( i > 0 ) drops_debug( "floor-snap stepped through " + i + " body/bodies -> floor " + tr[ "position" ] );
+            return tr[ "position" ];   // world geometry = the real floor
+        }
+        if ( !isplayer( e ) && !( IsActor( e ) ) )
+        {
+            return tr[ "position" ];   // solid non-AI entity (brushmodel bridge / door slab) = a walkable surface
+        }
+
+        // Hit a live/dying AI or player body (the boss's own corpse on its death frame, a sibling
+        // boss, a teammate under the flyer): step just below the hit and keep tracing down.
+        start = tr[ "position" ] - ( 0, 0, 4 );
+        if ( start[ 2 ] <= bottom[ 2 ] ) break;
+    }
+
+    drops_debug( "floor-snap gave up (8 entity hits) - kept origin " + origin );
+    return origin;
+}
+
 // Drop/pickup debug channel, gated by the `acc_drops_debug` dvar (default 0 =
 // silent in normal play). Uses IPrintLnBold deliberately: it is the ONLY channel
 // that reaches console_mp.log (printed there as "[ SCRIPTER] ..."); the /# #/
@@ -149,7 +203,7 @@ function iprintlnbold_if_dev( msg )
 // Launch with: +set acc_drops_debug 1 +set logfile 1
 function drops_debug( msg )
 {
-    if ( getdvarint( "acc_drops_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_drops_debug", 0 ) != 1 ) return;
     players = get_all_players();
     for ( i = 0; i < players.size; i++ )
     {
@@ -170,7 +224,7 @@ function drops_debug( msg )
 //   reproduce the crash, then read the LAST "[CRASHDBG]" lines in <game>\console_mp.log.
 function crash_log( player, msg )
 {
-    if ( getdvarint( "acc_crash_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_crash_debug", 0 ) != 1 ) return;
     if ( isdefined( player ) && isplayer( player ) )
     {
         player IPrintLnBold( "^1[CRASHDBG]^7 " + msg );
@@ -198,12 +252,13 @@ function active_speed_flags( player )
     if ( isdefined( player.acc_cw_rx1_speed ) && player.acc_cw_rx1_speed )             f += "cwrx1 ";
     if ( isdefined( player.acc_trench_slow ) && player.acc_trench_slow )               f += "trench ";
     if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )         f += "phantomslow ";
+    if ( isdefined( player.acc_battery_boost ) && player.acc_battery_boost )           f += "battery ";
     return f;
 }
 
 // ---------------------------------------------------------------------------
 // RNG. We use a seeded PRNG for map-state rolls so runs can be reproduced by
-// seed later (post-1.0 feature, see docs/07_replayability.md).
+// seed later (post-1.0 feature, see docs/06_replayability.md).
 // For now, randomint is fine; the wrapper gives us one place to swap in a
 // seeded PRNG later without hunting every callsite.
 // ---------------------------------------------------------------------------
@@ -339,53 +394,103 @@ function recompute_move_speed( player )
     n_scale = 1.0;
     if ( isdefined( player.acc_item_neural_boots ) && player.acc_item_neural_boots )
     {
-        n_scale = n_scale * 1.20; // Neural Boots (docs/12_boss_items.md)
+        n_scale = n_scale * 1.20; // Neural Boots (docs/09_boss_items.md)
     }
     if ( isdefined( player.acc_item_boots ) && player.acc_item_boots )
     {
-        n_scale = n_scale * getdvarfloat( "acc_boots_mult", 1.08 ); // Boots boss item: +8% move overall + trench-slow immunity (user 2026-06-18, docs/12)
+        n_scale = n_scale * getdvarfloat( "acc_boots_mult", 1.08 ); // Boots boss item: +8% move overall + trench-slow immunity (user 2026-06-18, docs/09)
     }
     if ( isdefined( player.acc_cw_rx1_speed ) && player.acc_cw_rx1_speed )
     {
-        n_scale = n_scale * 1.10; // Cyberware Reflex T1 (docs/04)
+        n_scale = n_scale * 1.10; // Cyberware Reflex T1 (docs/03)
     }
     if ( isdefined( player.acc_flash_speed ) && player.acc_flash_speed )
     {
-        n_scale = n_scale * 1.15; // The Flash Mega: +15% move (docs/13)
+        n_scale = n_scale * 1.15; // The Flash Mega: +15% move (docs/10)
+    }
+    if ( isdefined( player.acc_battery_boost ) && player.acc_battery_boost )
+    {
+        // Battery boss item (docs/09, user 2026-07-08): a boss zap ABSORBED by the implant becomes a
+        // +20% surge for 5s instead of a slow (flag set by _acc_elites::acc_battery_surge). While the surge
+        // is active the zap applicators absorb further zaps (acc_battery_absorb_zap), so a slow flag is NOT
+        // set during the boost - they never multiply against each other. (A zap during the post-surge
+        // recharge CAN set a slow flag, but the boost is already cleared by then, so still no stacking.)
+        n_scale = n_scale * getdvarfloat( "acc_battery_boost_mult", 1.20 );
     }
     if ( isdefined( player.acc_savior_speed ) && player.acc_savior_speed )
     {
-        n_scale = n_scale * 1.15; // Savior Mega: +15% while a teammate is down (docs/13)
+        n_scale = n_scale * 1.15; // Savior Mega: +15% while a teammate is down (docs/10)
     }
     if ( isdefined( player.acc_mega_flopper_speed ) && player.acc_mega_flopper_speed )
     {
-        n_scale = n_scale * getdvarfloat( "acc_mega_flopper_slide_mult", 1.5 ); // Mega Flopper (PhD Slider): 1.5x WHILE SLIDING (user 2026-06-22, docs/13)
+        n_scale = n_scale * getdvarfloat( "acc_mega_flopper_slide_mult", 1.75 ); // Mega Flopper (PhD Slider): 1.75x WHILE SLIDING (user 2026-07-05, was 1.5x, docs/10)
     }
     if ( isdefined( player.acc_gas_burst ) && player.acc_gas_burst )
     {
-        n_scale = n_scale * getdvarfloat( "acc_gas_burst_mult", 2.0 ); // Gas Tank nitro burst: +100% (live dvar, docs/12)
+        n_scale = n_scale * getdvarfloat( "acc_gas_burst_mult", 2.0 ); // Gas Tank nitro burst: +100% (live dvar, docs/09)
     }
     if ( isdefined( player.acc_rocket_slide_speed ) && player.acc_rocket_slide_speed )
     {
-        n_scale = n_scale * getdvarfloat( "acc_rocket_slide_mult", 1.5 ); // Rocket Shield: 1.5x while sliding (user 2026-06-29 buff, was 1.35; live dvar, docs/12)
+        n_scale = n_scale * getdvarfloat( "acc_rocket_slide_mult", 1.75 ); // Rocket Shield: 1.75x while sliding (user 2026-07-05, was 1.5x; live dvar, docs/09)
     }
+    // BOSS ZAP STUNS BARELY STACK (user 2026-07-09). The three boss zap slows - Phantom chain-special /
+    // Rogue Protector / Avogadro, each -30% normally (user 2026-07-05, was -25%), softened to -10% for Mega
+    // Electric Cherry "Power Surge" (was full immunity; applicators in _acc_elites) - used to MULTIPLY when
+    // two+ bosses zapped the same player (0.70 x 0.70 = 0.49x, all three = 0.34x): a multi-boss/Paradise
+    // pile-on stun-locked you to a crawl. Now the single STRONGEST active boss slow is the base and each
+    // EXTRA concurrent stun adds only a flat -5% (acc_boss_slow_stack_add): one stun -30%, two at once
+    // -35%, three -40%. MEGA ELECTRIC CHERRY PREVENTS THE STACKING OUTRIGHT (user 2026-07-09): while every
+    // active stun is Mega-softened, the slow is a FLAT -10% no matter how many bosses zap you - the
+    // anti-stack is part of the perk's ability. Each boss's 3s window still refreshes independently (its
+    // own flag + clear thread) - as stuns expire the count drops and the base falls back to the strongest
+    // one still running.
+    n_boss_slow  = 1.0;
+    n_boss_stuns = 0;
+    b_all_mega   = true;   // stays true only while every active stun carries its mega-softened snapshot
     if ( isdefined( player.acc_phantom_slowed ) && player.acc_phantom_slowed )
     {
-        // Phantom chain-special stun: -25% normally, softened to -10% for Mega Electric Cherry "Power Surge" (user 2026-07-03, was full immunity; _acc_elites)
+        n_boss_stuns++;
         if ( isdefined( player.acc_phantom_slow_mega ) && player.acc_phantom_slow_mega )
-            n_scale = n_scale * getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
+            m = getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
         else
-            n_scale = n_scale * getdvarfloat( "acc_phantom_slow_mult", 0.75 );
+        {
+            m = getdvarfloat( "acc_phantom_slow_mult", 0.70 );
+            b_all_mega = false;
+        }
+        if ( m < n_boss_slow ) n_boss_slow = m;
     }
     if ( isdefined( player.acc_protector_slowed ) && player.acc_protector_slowed )
     {
-        // Rogue Protector zap stun: -25% normally, softened to -10% for Mega Electric Cherry (user 2026-07-03, was full immunity; _acc_elites::acc_protector_zap)
+        n_boss_stuns++;
         if ( isdefined( player.acc_protector_slow_mega ) && player.acc_protector_slow_mega )
-            n_scale = n_scale * getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
+            m = getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
         else
-            n_scale = n_scale * getdvarfloat( "acc_protector_slow_mult", 0.75 );
+        {
+            m = getdvarfloat( "acc_protector_slow_mult", 0.70 );
+            b_all_mega = false;
+        }
+        if ( m < n_boss_slow ) n_boss_slow = m;
     }
-    // Layered trench slow (docs/47): depends on how many layers you are BELOW your Exo Suit's coverage.
+    if ( isdefined( player.acc_avogadro_slowed ) && player.acc_avogadro_slowed )
+    {
+        n_boss_stuns++;
+        if ( isdefined( player.acc_avogadro_slow_mega ) && player.acc_avogadro_slow_mega )
+            m = getdvarfloat( "acc_boss_slow_mega_mult", 0.90 );
+        else
+        {
+            m = getdvarfloat( "acc_avogadro_slow_mult", 0.70 );
+            b_all_mega = false;
+        }
+        if ( m < n_boss_slow ) n_boss_slow = m;
+    }
+    // Stack add ONLY when at least one non-Mega stun is active: a full Mega Electric Cherry holder stays
+    // at the flat -10% (all snapshots mega -> n_boss_slow is already the 0.90 base, no add). A MIXED set
+    // (perk bought/lost mid-window) behaves as non-mega: strongest raw slow + the stack add.
+    if ( n_boss_stuns > 1 && !b_all_mega )
+        n_boss_slow = n_boss_slow - ( ( n_boss_stuns - 1 ) * getdvarfloat( "acc_boss_slow_stack_add", 0.05 ) );
+    if ( n_boss_slow < 0.10 ) n_boss_slow = 0.10;   // never near-zero speed (mirrors the exo-slow 0.90 cap)
+    n_scale = n_scale * n_boss_slow;
+    // Layered trench slow (docs/29): depends on how many layers you are BELOW your Exo Suit's coverage.
     // Exo tier T -> normal in layers 1..T; below that, -20% at the first uncovered layer, then -10% per
     // layer deeper (-0.10*(L-T-1)). Boots do NOT cancel this (user 2026-06-21) - only the Exo Suit does.
     // acc_trench_layer is set by the bus_trench watcher; acc_exo_tier by _acc_exo. Gated by acc_trench_slow_on.
@@ -397,7 +502,7 @@ function recompute_move_speed( player )
         if ( exo_red > 0.90 ) exo_red = 0.90;   // never let speed hit 0
         n_scale = n_scale * ( 1.0 - exo_red );
     }
-    // TWO active boss-item slots (docs/12) let two MOBILITY items stack (Boots x Gas burst / Rocket
+    // TWO active boss-item slots (docs/09) let two MOBILITY items stack (Boots x Gas burst / Rocket
     // slide) ON TOP of Cyberware + Mega speed - all multiplicative with no natural ceiling, and a
     // very high SetMoveSpeedScale clips you through geometry / desyncs nav. Clamp the TOTAL (live
     // dvar). Applied AFTER the trench slow so the clamp (a max) never masks the slow (which only

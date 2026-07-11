@@ -17,6 +17,8 @@
 // the live actor (the vendored hook stamps it onto level.acc_brutus_last + notifies).
 // =============================================================================
 
+#insert scripts\shared\shared.gsh;
+
 #using scripts\_NSZ\nsz_brutus;
 #using scripts\shared\util_shared;
 
@@ -51,6 +53,15 @@ function spawn_one()
     // ForceTeleports + plays the %brutus_spawn rise anim + FX AT that spot. So point those spawn
     // points onto the trench floor -> the WHOLE spawn happens in the pit (no lab appearance at all).
     // Done here, just before the pack reads them. Gated by acc_warden_trench (0 = pack-native lab spawn).
+    // [acc] SHARED SPAWN LOCK (2026-07-06 sweep): the pack handoff (level.acc_brutus_last + the
+    // level-wide "acc_brutus_spawned" notify + the SHARED level.brutus_spawn_points) means a trench
+    // spawn in flight while the paradise onslaught fires maybe_spawn_brutus() (or vice versa) wakes
+    // BOTH waiters off ONE actor -> one double-promoted Brutus + one unpromoted pack-HP rogue that
+    // the paradise purge doesn't exclude. Serialize every pack spawn through this one lock.
+    while ( IS_TRUE( level.acc_brutus_spawn_lock ) )
+        wait( 0.25 );
+    level.acc_brutus_spawn_lock = true;
+
     if ( getdvarint( "acc_warden_trench", 1 ) )
         relocate_spawn_points_to_trench();
 
@@ -60,6 +71,7 @@ function spawn_one()
     // (no spawn spot / dog round) just times out and returns undefined.
     level util::waittill_any_timeout( 15, "acc_brutus_spawned" );
 
+    level.acc_brutus_spawn_lock = false;
     return level.acc_brutus_last;
 }
 
@@ -127,7 +139,11 @@ function trench_warden_think()   // self = the live Brutus
     if ( isdefined( risers ) && risers.size > 0 )
     {
         tries = 0;
-        while ( tries < 50 && !acc_bus_trench::player_in_trench( self ) )
+        // [acc] COOP CRASH GUARD (2026-07-06 sweep): isalive() hoisted into the condition - it is
+        // re-evaluated after the wait( 0.2 ), and player_in_trench derefs self.origin; a warden
+        // killed+reaped during the wait threw before the inner guard could run. Mirrors the
+        // paradise twin's fix below.
+        while ( isalive( self ) && tries < 50 && !acc_bus_trench::player_in_trench( self ) )
         {
             if ( !isalive( self ) ) return;
             r0 = risers[ acc_utility::acc_rand_int( risers.size ) ];
@@ -136,6 +152,7 @@ function trench_warden_think()   // self = the live Brutus
             wait( 0.2 );
             tries++;
         }
+        if ( !isalive( self ) ) return;   // reaped mid-retry: the log below derefs self again
         acc_utility::log( "boss_brutus: warden drop-in " +
             ( acc_bus_trench::player_in_trench( self ) ? "OK (in pit)" : "FAILED (still out)" ) +
             " after " + tries + " tries" );
@@ -258,7 +275,7 @@ function warden_patrol_step( risers )   // self = Brutus
 function warden_debug()   // self = Brutus
 {
     self.acc_warden_dbg_tick++;
-    if ( getdvarint( "acc_warden_debug", 0 ) != 1 ) return;
+    if ( !( isdefined( level.acc_dev ) && level.acc_dev ) && getdvarint( "acc_warden_debug", 0 ) != 1 ) return;
     if ( ( self.acc_warden_dbg_tick % 10 ) != 0 ) return;
 
     tgt  = ( isdefined( self.brutus_enemy ) ? "Y" : "N" );
@@ -288,12 +305,19 @@ function spawn_one_paradise()
 {
     level endon( "end_game" );
 
+    // [acc] SHARED SPAWN LOCK (2026-07-06 sweep) - see spawn_one(): serializes against a trench
+    // warden spawn in flight so one pack actor can never satisfy both waiters.
+    while ( IS_TRUE( level.acc_brutus_spawn_lock ) )
+        wait( 0.25 );
+    level.acc_brutus_spawn_lock = true;
+
     relocate_spawn_points_to_paradise();
 
     level.acc_brutus_last = undefined;
     level thread brutus::spawn_brutus();
     level util::waittill_any_timeout( 15, "acc_brutus_spawned" );
 
+    level.acc_brutus_spawn_lock = false;
     return level.acc_brutus_last;
 }
 
@@ -333,7 +357,11 @@ function paradise_warden_think()
     if ( isdefined( risers ) && risers.size > 0 )
     {
         tries = 0;
-        while ( tries < 50 && !acc_bus_trench::origin_in_second_part( self.origin ) )
+        // [acc] COOP CRASH GUARD: the condition reads self.origin, which is re-evaluated after the
+        // wait( 0.2 ) below - if Brutus is killed and reaped during that wait, self is undefined and the
+        // .origin deref throws. isalive() in the condition short-circuits before the deref (the inner
+        // guard alone runs too late - the condition is evaluated first).
+        while ( isalive( self ) && tries < 50 && !acc_bus_trench::origin_in_second_part( self.origin ) )
         {
             if ( !isalive( self ) ) return;
             r0 = risers[ acc_utility::acc_rand_int( risers.size ) ];
@@ -342,6 +370,7 @@ function paradise_warden_think()
             wait( 0.2 );
             tries++;
         }
+        if ( !isalive( self ) ) return;   // [acc] reaped mid-retry (the hoist above exited): the log derefs self.origin
         acc_utility::log( "boss_brutus: PARADISE warden drop-in " +
             ( acc_bus_trench::origin_in_second_part( self.origin ) ? "OK (in paradise)" : "FAILED (still out)" ) +
             " after " + tries + " tries" );

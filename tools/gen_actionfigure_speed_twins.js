@@ -5,7 +5,8 @@
 // WHY meleeTime (not fireTime): the Action Figure is a MELEE weapon (`fireType "Melee"`), so the engine
 // IGNORES fireTime and gates the swing on the MELEE timing - meleeTime (swing duration) + meleeChargeDelay
 // (wind-up) + meleeChargeTime. There is no runtime swing-speed setter, so each PaP tier swaps the held figure
-// to a pre-baked faster twin (mirrors the gun "fastfire" twins, but on melee timing). Verified live: scaling
+// to a pre-baked faster twin (same variant-swap idea as the gun perk twins, but on melee timing; the gun
+// "fastfire" twins this once mirrored were removed 2026-07-04, but the action-figure speed twins are separate). Verified live: scaling
 // these 3 fields made the swing visibly faster; fireTime did nothing.
 //
 // SPEED PER TIER (additive, user 2026-06-27 "33%"): T1 +33% (1.33x), T2 +66% (1.66x), T3 +99% (1.99x).
@@ -20,7 +21,11 @@ const GDT = process.argv[2];
 if (!GDT) { console.error('usage: gen_actionfigure_speed_twins.js <wpn_t8_melee_actionfigure.gdt>'); process.exit(1); }
 
 const BASE = 't8_melee_figure';
-const BASE_MELEE_TIME = 0.65, BASE_CHARGE_DELAY = 0.16, BASE_CHARGE_TIME = 0.2;   // the base entry's normal-speed values
+// BASE speed was +25% hit-speed bumped (user 2026-07-07): the tier-0 held figure's primary swing
+// timings x0.8 (0.65/0.16/0.2 -> 0.52/0.128/0.16). The twins are cloned from this faster base, so
+// every PaP tier is 25% faster than before too. The base entry itself is edited in the GDT (this
+// tool only writes the _fast twins); keep these constants == the GDT base or a re-run desyncs.
+const BASE_MELEE_TIME = 0.52, BASE_CHARGE_DELAY = 0.128, BASE_CHARGE_TIME = 0.16;   // the base entry's (now +25%-faster) values
 const TIERS = [
   { name: BASE + '_fast1', mult: 1.33 },   // PaP tier 1: +33%
   { name: BASE + '_fast2', mult: 1.66 },   // PaP tier 2: +66%
@@ -61,9 +66,9 @@ for (const t of TIERS) {
   const ct = (BASE_CHARGE_TIME * f).toFixed(4);
   clones.push(...block.map(l => l
     .replace(`"${BASE}" ( "bulletweapon.gdf" )`, `"${t.name}" ( "bulletweapon.gdf" )`)
-    .replace('"meleeTime" "0.65"', `"meleeTime" "${mt}"`)
-    .replace('"meleeChargeDelay" "0.16"', `"meleeChargeDelay" "${cd}"`)
-    .replace('"meleeChargeTime" "0.2"', `"meleeChargeTime" "${ct}"`)));
+    .replace('"meleeTime" "0.52"', `"meleeTime" "${mt}"`)
+    .replace('"meleeChargeDelay" "0.128"', `"meleeChargeDelay" "${cd}"`)
+    .replace('"meleeChargeTime" "0.16"', `"meleeChargeTime" "${ct}"`)));
   console.log(`  ${t.name}: ${t.mult}x -> meleeTime ${mt}  (chargeDelay ${cd}, chargeTime ${ct})`);
 }
 

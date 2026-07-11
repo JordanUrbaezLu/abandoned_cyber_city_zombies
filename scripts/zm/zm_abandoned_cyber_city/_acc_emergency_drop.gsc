@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_emergency_drop.gsc - the "clutch button"
 //
-// Design reference: docs/06_mechanics.md (Emergency Drop System).
+// Design reference: docs/05_mechanics.md (Emergency Drop System).
 //
 // Spend 3 Data Shards at any power switch to call a random powerup drop.
 // Drop weights bias toward economy at low rounds, survival at high rounds.

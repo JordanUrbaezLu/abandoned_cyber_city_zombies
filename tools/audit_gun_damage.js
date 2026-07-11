@@ -51,13 +51,16 @@ const ROSTER = [
     { d: 'ASM1',         w: 's1_asm1',          c: 'SMG'     },
     { d: 'PPSH-41',      w: 's4_ppsh41',        c: 'SMG'     },
     { d: 'AK-47',        w: 't9_ak47',          c: 'AR'      },
-    { d: 'Galil',        w: 't6_galil',         c: 'AR'      },
+    { d: 'Grav',         w: 't9_grav',          c: 'AR'      },
     { d: 'AE4',          w: 's1_ae4',           c: 'AR'      },
     { d: 'MK14',         w: 's1_mk14',          c: 'DMR'     },
     { d: 'M60',          w: 't9_m60',           c: 'LMG'     },
     { d: 'RPD',          w: 't9_rpd',           c: 'LMG'     },
     { d: 'Mahem',        w: 's1_mahem',         c: 'Launcher' },
+    { d: 'China Lake',   w: 't5_china_lake',    c: 'Launcher' },
+    { d: 'War Machine',  w: 't6_war_machine',   c: 'Launcher' },
     { d: 'Tac-19',       w: 's1_tac19',         c: 'Shotgun' },
+    { d: 'CEL-3',        w: 's1_cel3',          c: 'Shotgun' },
     { d: 'Olympia',      w: 't6_olympia',       c: 'Shotgun' },
     { d: 'Paladin HB50', w: 't8_paladin_hb50',  c: 'Sniper'  },
     { d: 'MORS',         w: 's1_mors',          c: 'Sniper'  },
@@ -155,6 +158,10 @@ console.log(fmt(H));
 console.log('|' + H.map((_, i) => '-'.repeat([12, 7, 5, 6, 7, 5, 6, 8, 8, 8][i] + 2)).join('|') + '|');
 for (const x of rows) console.log(fmt([x.d, x.c, x.bal, x.dmg, x.lh + (x.exq ? '*' : ''), x.hsRatio.toFixed(2), x.body, x.head, x.pBody ?? '?', x.pHead ?? '?']));
 console.log('\n* = headshot-excluded (no map headshot bonus; engine locHead still applies)');
+console.log('\n!! The "PaP BODY/HEAD" columns here are APPROXIMATE (base raw x a flat ladder) and can be WRONG:');
+console.log('   the real PaP weapon is the GDT "_up" entry with its OWN raw damage (verified 2026-07-04). For');
+console.log('   accurate PaP-form numbers use  node tools/gen_weapon_stats.js  (reads each _up entry live +');
+console.log('   self-checks -> docs/41). The BODY/HEADSHOT (base, unpacked) columns above are correct.');
 console.log('\nANOMALIES (' + anomalies.length + '):');
 if (!anomalies.length) console.log('  none - all guns consistent.');
 else for (const a of anomalies) console.log('  ⚠ ' + a);

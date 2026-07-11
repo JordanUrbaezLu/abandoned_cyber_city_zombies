@@ -29,7 +29,7 @@
 #
 # Exit 0 = TRACK A (private dev publish) is ready (build OK + metadata sane).
 # Exit 1 = a hard blocker failed (or, with -Public, a public-release blocker failed).
-# Full procedure + the IP sign-off process: docs/55_release_runbook.md.
+# Full procedure + the IP sign-off process: docs/34_release_runbook.md.
 # =============================================================================
 
 [CmdletBinding()]
@@ -89,6 +89,28 @@ function Get-PngSize($path) {
         $h = ([int]$b[20] -shl 24) -bor ([int]$b[21] -shl 16) -bor ([int]$b[22] -shl 8) -bor [int]$b[23]
         return [pscustomobject]@{ W = $w; H = $h }
     } catch { return $null }
+}
+
+# ===========================================================================
+# 0. ship-safe flag gate - the dev/god hardcode MUST be flipped back to the
+#    dvar resolution before ANY publish (review fix 2026-07-08: the temporary
+#    `level.acc_dev = true` / `level.acc_god = true` test hardcodes in
+#    acc_resolve_dev_flags() ship an invulnerable full-dev build, and nothing
+#    else in this script looked at that line).
+# ===========================================================================
+Step "ship-safe flags (acc_dev / acc_god not hardcoded)"
+$entryGsc = Join-Path $RepoRoot "scripts\zm\$MapName.gsc"
+if (-not (Test-Path $entryGsc)) {
+    Record 'ship-safe flags' 'WARN' 'any' "entry script not found at $entryGsc - cannot verify"
+} else {
+    $entrySrc = Get-Content $entryGsc -Raw
+    # an ACTIVE (uncommented) hardcode of either flag to a truthy literal
+    $hardcoded = @([regex]::Matches($entrySrc, '(?m)^\s*level\.acc_(dev|god)\s*=\s*(true|1)\s*;') | ForEach-Object { $_.Groups[1].Value })
+    if ($hardcoded.Count -gt 0) {
+        Record 'ship-safe flags' 'FAIL' 'any' ("HARDCODED ON in acc_resolve_dev_flags(): {0} - restore the getdvarint() resolution (default 0) before publishing" -f (($hardcoded | Sort-Object -Unique) -join ', '))
+    } else {
+        Record 'ship-safe flags' 'PASS' 'any' 'acc_dev / acc_god resolve from dvars (ship-safe default 0)'
+    }
 }
 
 # ===========================================================================
@@ -310,7 +332,7 @@ Write-Host @"
   6. Upload, then copy the Workshop URL.
   7. Pull the PublisherID back into the repo:  .\tools\sync_to_modtools.ps1 -Reverse
      then commit zone\workshop.json (so future publishes UPDATE the same item).
-  Full runbook: docs/55_release_runbook.md
+  Full runbook: docs/34_release_runbook.md
 "@ -ForegroundColor Gray
 
 # exit code

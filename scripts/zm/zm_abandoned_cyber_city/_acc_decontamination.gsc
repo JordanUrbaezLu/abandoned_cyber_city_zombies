@@ -10,10 +10,10 @@
 // player_in_zone_volumes / enable+disable_zone_spawning) and _acc_lockdown reads is_zone_sealed (always
 // false now). The original design below is retained for reference. ***
 //
-// Design reference: docs/03_layout.md "Decontamination zones (round hazard)",
-// docs/13_perks.md "Per-Round Rotating Lab Machines" (timing contract).
+// Design reference: docs/02_layout.md "Decontamination zones (round hazard)",
+// docs/10_perks.md "Per-Round Rotating Lab Machines" (timing contract).
 //
-// Rules implemented (docs/03_layout.md Rules v1.0):
+// Rules implemented (docs/02_layout.md Rules v1.0):
 //   - A permutation of the 4 eligible zones (Market, Alley,
 //     Vault, Helipad) is rolled ONCE at map load. NEVER
 //     start_zone / corp_zone / lab_zone (spawn-safe floor / cut vertex / the
@@ -61,7 +61,7 @@
 #insert scripts\shared\shared.gsh;
 
 // ---------------------------------------------------------------------------
-// Tuning (keep in sync with docs/03_layout.md Rules v1.0)
+// Tuning (keep in sync with docs/02_layout.md Rules v1.0)
 // ---------------------------------------------------------------------------
 
 #define ACC_DECON_ESCAPE_WINDOW_SEC 20
@@ -105,7 +105,7 @@ function is_zone_sealed( zone_name )
 // Eligible zones + display names
 // ---------------------------------------------------------------------------
 
-// docs/03_layout.md: eligible seals are EXACTLY these four. Plaza
+// docs/02_layout.md: eligible seals are EXACTLY these four. Plaza
 // (start_zone), Bus Station (corp_zone) and Lab (lab_zone)
 // are NEVER sealed - do not add them here.
 function get_eligible_zones()
@@ -213,7 +213,7 @@ function run_seal_phase( round_number, zone_name )
 {
     if ( !is_eligible_zone( zone_name ) )
     {
-        // docs/03_layout.md: Plaza / Bus Station / Lab are NEVER sealed. This can
+        // docs/02_layout.md: Plaza / Bus Station / Lab are NEVER sealed. This can
         // only trip if someone edits get_eligible_zones / the order roll.
         /# assertmsg( "decontamination rolled non-eligible zone: " + zone_name ); #/
         acc_utility::log( "decon: REFUSING to seal non-eligible zone " + zone_name );
@@ -232,14 +232,14 @@ function run_seal_phase( round_number, zone_name )
     acc_utility::log( "decon: round " + round_number + " contaminates " +
                        zone_name + " (" + display_name + ")" );
 
-    // Greybox warning + countdown (docs/03_layout.md "Player warning" /
+    // Greybox warning + countdown (docs/02_layout.md "Player warning" /
     // "Escape window"). Phase 4 replaces with LUI HUD widget + audio alias.
     iprintlnbold( "DECONTAMINATION - EVACUATE " + display_name );
 
-    // Audio half of decon-hud-audio-warning (docs/20, docs/35_sound_plan.md): a 2D
+    // Audio half of decon-hud-audio-warning (docs/15, docs/23_sound_plan.md): a 2D
     // klaxon to every player. zm_utility::play_sound_2D is level-scoped (plays to
     // all, non-positional - _zm_utility.gsc:3493). Alias "acc_decon_alarm" lives in
-    // sound/aliases/acc_audio.csv; author + register it per docs/35. Until then a
+    // sound/aliases/acc_audio.csv; author + register it per docs/23. Until then a
     // missing alias is a silent no-op (same as the stock evt_* aliases), so this is
     // build-safe today.
     zm_utility::play_sound_2D( "acc_decon_alarm" );
@@ -262,16 +262,16 @@ function seal_zone( zone_name )
     // Mark first so is_zone_sealed() is true from the seal instant.
     level.acc_decon_sealed[ zone_name ] = true;
 
-    // docs/03_layout.md "Failure": each player evaluated independently.
+    // docs/02_layout.md "Failure": each player evaluated independently.
     kill_players_in_zone( zone_name );
 
-    // docs/03_layout.md "After the timer": spawners inside are disabled.
+    // docs/02_layout.md "After the timer": spawners inside are disabled.
     disable_zone_spawning( zone_name );
 
     // Optional physical blockers (no-op until Radiant places them).
     close_seal_geometry( zone_name );
 
-    // docs/03_layout.md "After the timer": kill volume on re-entry.
+    // docs/02_layout.md "After the timer": kill volume on re-entry.
     level thread reentry_kill_monitor( zone_name );
 
     // Keep the spawn seal authoritative against later enable_zone calls.
@@ -378,7 +378,7 @@ function decon_kill_player( player )
 {
     acc_utility::log_player( player, "caught by decontamination seal" );
 
-    // Stock down/kill path (docs/03_layout.md "Failure": same as being downed
+    // Stock down/kill path (docs/02_layout.md "Failure": same as being downed
     // - Quick Revive / co-op laststand rules apply): a self-origin DoDamage
     // for more than current health routes through the stock player damage
     // pipeline into laststand instead of bypassing it.
@@ -525,7 +525,7 @@ function reentry_kill_monitor( zone_name )
         return;
     }
 
-    // The sealed zone is a kill volume from now on (docs/03_layout.md "After
+    // The sealed zone is a kill volume from now on (docs/02_layout.md "After
     // the timer"). is_player_valid keeps us from re-hitting a player already
     // bleeding out in laststand inside the zone; if they get revived in place,
     // the next poll downs them again - that is the kill volume working.

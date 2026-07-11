@@ -7,10 +7,10 @@ a stock interface question comes up, grep here before re-deriving.
 
 Convention (saved as a standing rule): every finding from exploring external
 codebases gets documented durably —
-- **Synthesized technique** → [docs/22_community_techniques.md](../22_community_techniques.md)
+- **Synthesized technique** → [docs/16_community_techniques.md](../16_community_techniques.md)
   (the ledger: mechanism + citation + applicability)
 - **Raw dossier** → this folder (+ a line in this index)
-- **Design-level map study** → [docs/17_reference_maps_study.md](../17_reference_maps_study.md)
+- **Design-level map study** → [docs/13_reference_maps_study.md](../13_reference_maps_study.md)
 - **Load-bearing trap for every session** → CLAUDE.md hard-won facts
 
 ## Index

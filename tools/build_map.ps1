@@ -181,7 +181,7 @@ if (-not $GscOnly) {
         # NOTE: Invoke-BuildExe has NO timeout, so a crash MODAL would hang this build. For an
         # isolated, auto-killed bake check use tools/_bake_test.ps1. -SkipLED is now a RED FLAG
         # (it hides a broken bake); only use it knowingly. Working baseline + the overhaul
-        # incompatibility: memory led-relight-dead-end-enclosed-geometry, docs/40.
+        # incompatibility: memory led-relight-dead-end-enclosed-geometry, docs/26_lockdown_challenge_room.md (was docs/40).
         $radArgs = @('-ledSilent', '+medium', '+forceclean', '+recompute', (Q $MapSrc))
         $r = Invoke-BuildExe $Radiant $radArgs 'Radiant LED' $Bin
         if (-not $DryRun -and $r.Code -ne 0) { Write-Host $r.Out; Warn "Radiant LED exited $($r.Code) - lighting may be stale; if it CRASHED (brush.cpp:1860) a geometry change regressed the bake - FIX before testing" }

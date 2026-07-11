@@ -59,14 +59,16 @@ const seq = ( n, pfx ) => Array.from( { length: n }, ( _, i ) => `${pfx}${i + 1}
 const GUNS = [
     { sid: "t8_paladinhb50", shot: [ "wpn_t8_paladinhb50_shot.wav" ], pap: "wpn_t8_paladinhb50_pap_shot.wav" },
     { sid: "s4_ppsh41",      shot: seq( 30, "wpn_s4_ppsh41_shot" ),    pap: "wpn_s4_ppsh41_pap_flux.wav" },
-    { sid: "t5_ak74u",       shot: seq( 5,  "wpn_t5_ak74u_shot" ),     pap: "wpn_t5_ak74u_shot1.wav" }, // no separate PaP fire wav -> reuse base
-    { sid: "t9_nailgun",     shot: seq( 6,  "wpn_t9_nailgun_shot" ),   pap: "wpn_t9_nailgun_pap_flux.wav" },
-    { sid: "s1_pdw",         shot: [ "wpn_s1_pdw_shot.wav" ],          pap: "wpn_s1_pdw_pap_shot.wav" },
-    { sid: "s2_m1911",       shot: [ "wpn_s2_m1911_shot.wav" ],        pap: "wpn_s2_m1911_pap_shot.wav" },
+    // REMOVED 2026-07-05 (user): t5_ak74u (swapped to Cold War t9_ak74u), t9_nailgun / s1_pdw / s2_m1911
+    // (Nail Gun / PDW / M1911 cut 2026-06-23 - can't be twinned). Their wavs are gone (t5_ak74u + s2_m1911
+    // folders deleted), so their stale alias rows were FAILING the sound-bank build ("no files for filespec"),
+    // which froze the whole bank + silenced the new guns. Rows stripped from acc_skye_box_weapons.csv.
     // +2 box guns (user, 2026-06-15): Olympia + Galil (BO2 ports; BO1 had GDTs only).
     // Foley auto-scanned from foley\ (Olympia: close/open/shell_in/switch; Galil: bolt_*/futz/mag_*).
     { sid: "t6_olympia",     shot: [ "wpn_t6_olympia_shot.wav" ],      pap: "wpn_t6_olympia_pap_shot.wav" },
-    { sid: "t6_galil",       shot: [ "wpn_t6_galil_shot.wav" ],        pap: "wpn_t6_galil_pap_shot.wav" },
+    // Grav (CW t9_grav, MIGRATED FROM Galil t6_galil, user 2026-07-05): 6 shot-variant wavs + pap_flux PaP fire
+    // (same layered pattern as XM4/Streetsweeper/PPSH). Foley auto-scanned from foley\ (bolt_*/mag_*/inspect_*/start/end).
+    { sid: "t9_grav",        shot: seq( 6, "wpn_t9_grav_shot" ),      pap: "wpn_t9_grav_pap_flux.wav" },
     // +2 LMGs (user, 2026-06-19): M60 + RPD (BO2 ports). Foley auto-scanned from foley\ (bolt/mag/etc.).
     { sid: "t6_m60",         shot: [ "wpn_t6_m60_shot.wav" ],          pap: "wpn_t6_m60_pap_shot.wav" },
     { sid: "t6_rpd",         shot: [ "wpn_t6_rpd_shot.wav" ],          pap: "wpn_t6_rpd_pap_shot.wav" },
@@ -80,6 +82,18 @@ const GUNS = [
     // matching the GDT fireSound tokens + wav basenames) but the on-disk folder KEEPS it (t6_chicom_cqb) -> dir.
     // Foley auto-scanned from foley\ (bolt_back/forward + mag_in/out). Base + PaP fire wavs both exist (48k stereo).
     { sid: "t6_chicomcqb",   dir: "t6_chicom_cqb", shot: [ "wpn_t6_chicomcqb_shot.wav" ], pap: "wpn_t6_chicomcqb_pap_shot.wav" },
+    // +2 CW box guns (user 2026-07-04): XM4 (AR, S tier) + Streetsweeper (full-auto SG, A tier). Skye CW pack,
+    // 6 shot-variant wavs each + a pap_flux PaP fire wav (same as PPSH/Nail Gun). Foley auto-scanned from foley\
+    // (XM4: bolt_back/forward + empty_mag_* + mag set; Streetsweeper: knob_rotate + shell + inspect set).
+    { sid: "t9_xm4",            shot: seq( 6, "wpn_t9_xm4_shot" ),            pap: "wpn_t9_xm4_pap_flux.wav" },
+    { sid: "t9_streetsweeper",  shot: seq( 6, "wpn_t9_streetsweeper_shot" ),  pap: "wpn_t9_streetsweeper_pap_flux.wav" },
+    // Klauser (VG Luger, user 2026-07-05): 5 shot-variant wavs + pap_flux PaP fire (same pattern as PPSH/XM4).
+    // Foley auto-scanned from foley\ (charge/drum_*/mag_*/empty_*/first_raise).
+    { sid: "s4_klauser",        shot: seq( 5, "wpn_s4_klauser_shot" ),        pap: "wpn_s4_klauser_pap_flux.wav" },
+    // CEL-3 Cauterizer (AW s1_cel3, user 2026-07-05): triple-barrel full-auto SPREAD shotgun, B tier. Single
+    // shot + pap_shot fire wav. Foley auto-scanned from foley\ (barrel_spin/close/cylinder_in/open/spin/start/etc.
+    // - all basenames match the GDT tokens, no cross-naming). Folder == sid (s1_cel3, no hyphen; model dir is s1_cel-3).
+    { sid: "s1_cel3",           shot: [ "wpn_s1_cel3_shot.wav" ],             pap: "wpn_s1_cel3_pap_shot.wav" },
 ];
 
 const lines = fs.readFileSync( CSV, "utf8" ).split( /\r?\n/ );

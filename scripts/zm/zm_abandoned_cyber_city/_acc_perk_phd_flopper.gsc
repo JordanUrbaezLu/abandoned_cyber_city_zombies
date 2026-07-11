@@ -1,7 +1,7 @@
 // =============================================================================
 // _acc_perk_phd_flopper.gsc - PhD Flopper (perk #9)
 //
-// Design reference: docs/13_perks.md / docs/perk_abilities.md (PhD Flopper).
+// Design reference: docs/10_perks.md / docs/10_perks.md (PhD Flopper).
 //
 // Strategy: HIJACK the stock-but-unfinished _zm_perk_electric_cherry pipeline (its
 // registered machine/bottle/clientfield/power scaffold) and present it as PhD Flopper.

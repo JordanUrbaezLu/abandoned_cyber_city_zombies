@@ -1,57 +1,50 @@
-// Aetherium HUD kill-feed strings (Owen-C137 BO7 remake kit).
-// ACC 2026-07-04: RESTORED the StringEd VERSION/CONFIG/FILENOTES header. Without it the T7 string
-// compiler parses ZERO strings, so every kill-feed key rendered as its RAW token ("ZM_AETHERIUM_KF_...")
-// in game. The keys + zone `localize,zm_aetherium` + LUI Engine.Localize were all correct; only the
-// header was missing (the ENDMARKER at the bottom survived, the top header did not).
 VERSION             "1"
 CONFIG              "C:\projects\cod\t7\bin\StringEd.cfg"
-FILENOTES           " "
+FILENOTES           "ACC kill-feed strings. REFERENCE keys are BARE (KF_*): the T7 compiler auto-prepends the filename ZM_AETHERIUM_ so KF_MELEE becomes ZM_AETHERIUM_KF_MELEE in game. Do NOT prefix the keys here or they double up. VERSION must stay line 1, no comment lines."
 
-REFERENCE            ZM_AETHERIUM_KF_ELIMINATION
+REFERENCE            KF_ELIMINATION
 LANG_ENGLISH         "Elimination"
 
-REFERENCE            ZM_AETHERIUM_KF_CRITICAL
+REFERENCE            KF_CRITICAL
 LANG_ENGLISH         "Critical Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_MELEE
+REFERENCE            KF_MELEE
 LANG_ENGLISH         "Melee Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_BURNED
+REFERENCE            KF_BURNED
 LANG_ENGLISH         "Burned Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_BLAST_FURNACE
+REFERENCE            KF_BLAST_FURNACE
 LANG_ENGLISH         "Blast Furnace Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_DEAD_WIRE
+REFERENCE            KF_DEAD_WIRE
 LANG_ENGLISH         "Electric Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_FIRE_WORKS
+REFERENCE            KF_FIRE_WORKS
 LANG_ENGLISH         "Fireworks Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_THUNDER_WALL
+REFERENCE            KF_THUNDER_WALL
 LANG_ENGLISH         "Thunderwall Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_TURNED
+REFERENCE            KF_TURNED
 LANG_ENGLISH         "Turned Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_ZOMBIE_DOG
+REFERENCE            KF_ZOMBIE_DOG
 LANG_ENGLISH         "Zombie Dog"
 
-// ACC FIX 2026-07-03: the 5 strings below are #precached + sent by _zm_aetherium_hud.gsc but
-// were MISSING from the kit's shipped .str (upstream bug - the feed printed the raw key).
-REFERENCE            ZM_AETHERIUM_KF_ROCKET_SHIELD
+REFERENCE            KF_ROCKET_SHIELD
 LANG_ENGLISH         "Rocket Shield Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_GRENADE
+REFERENCE            KF_GRENADE
 LANG_ENGLISH         "Grenade Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_MONKEY_BOMB
+REFERENCE            KF_MONKEY_BOMB
 LANG_ENGLISH         "Monkey Bomb Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_LIL_ARNIE
+REFERENCE            KF_LIL_ARNIE
 LANG_ENGLISH         "Li'l Arnie Kill"
 
-REFERENCE            ZM_AETHERIUM_KF_RAGNAROK_DG4
+REFERENCE            KF_RAGNAROK_DG4
 LANG_ENGLISH         "Ragnarok Kill"
 
 ENDMARKER

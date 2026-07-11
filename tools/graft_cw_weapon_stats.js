@@ -58,6 +58,10 @@ const GUNS = {
   ak74u: { oldGdt: 'source_data/skye_t5_ak74u.gdt',         oldBase: 't5_ak74u', oldUp: 't5_ak74u_up_zm', newGdt: 'source_data/skye_t9_ak-74u.gdt', newBase: 't9_ak74u', newUp: 't9_ak74u_up' },
   m60:   { oldGdt: 'source_data/skye_t6_m60.gdt',           oldBase: 't6_m60',   oldUp: 't6_m60_up',      newGdt: 'source_data/skye_t9_m60.gdt',  newBase: 't9_m60',   newUp: 't9_m60_up' },
   rpd:   { oldGdt: 'source_data/skye_t6_rpd.gdt',           oldBase: 't6_rpd',   oldUp: 't6_rpd_up',      newGdt: 'source_data/skye_t9_rpd.gdt',  newBase: 't9_rpd',   newUp: 't9_rpd_up' },
+  // Grav (user 2026-07-05): "new model, same gun" - graft the BO2 Galil's tuned stats (dmg 220/340, RPM,
+  // clip 25/35, reserve 225/420, reload, medium pierce, normalized loc) onto the CW Grav model/anims/sounds.
+  // The Galil is otherwise RETIRED from the game (removed from zone/CSV/pools); its GDT stays only as this source.
+  grav:  { oldGdt: 'source_data/skye_t6_galil.gdt',         oldBase: 't6_galil', oldUp: 't6_galil_up',    newGdt: 'source_data/skye_t9_grav.gdt', newBase: 't9_grav',  newUp: 't9_grav_up' },
 };
 
 // Return [startLine, endLineExclusive] of the asset's bulletweapon block.

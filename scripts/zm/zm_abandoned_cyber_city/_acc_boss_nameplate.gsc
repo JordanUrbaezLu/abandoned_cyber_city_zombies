@@ -92,10 +92,11 @@ function name_to_index( name )
 	switch ( name )
 	{
 		case "PHANTOM":          return 1;
-		case "SUBROUTINE CORE":  return 2;
+		case "PANZER":           return 2;   // 2026-07-08: repurposed the dead SUBROUTINE CORE slot - the 3-bit field is FULL and the Core's run_full_boss has been unreachable since 2026-06-22 (its notify now renders the generic 7 "BOSS" if ever resurrected). Widening the field needs LOCKSTEP gsc+csc registration edits. (Renamed from PANZER SOLDAT same day, user.)
 		case "TRENCH WARDEN":    return 3;
 		case "GLITCH STALKER":   return 4;
 		case "ROGUE PROTECTOR":  return 5;   // the Civil Protector boss
+		case "AVOGADRO":         return 6;   // the cyberhacker boss
 		default:                 return 7;   // generic "BOSS"
 	}
 }
@@ -141,6 +142,15 @@ function hp_watch()
 	{
 		wait 0.25;
 
+		// [acc] #1 GUARD (2026-07-05): some bosses (the Avogadro) Delete() themselves WITHOUT firing the
+		// engine "death" notify - their pack death() notifies "avogadro_death" then Delete()s - so the
+		// endon( "death" ) above never fires and this thread survives the removal. Reading self.health on a
+		// removed entity throws "removed entity is not an entity" and (per _zm_ai_avogadro.gsc:807) the
+		// erroring thread keeps looping. Test isdefined( self ) FIRST (safe on a removed entity; a field
+		// access is NOT) and bail so the thread ends cleanly instead of spamming the error every 0.25s.
+		if ( !isdefined( self ) )
+			return;
+
 		if ( !isdefined( self.health ) || !isdefined( self.maxhealth ) || self.maxhealth <= 0 )
 			continue;
 
@@ -155,7 +165,8 @@ function hp_watch()
 			self clientfield::set( "acc_bnp_hp", tenths );
 		}
 
-		// The plate + this thread die with the actor ("death" endon); the corpse's
-		// draw name goes away when the body is cleaned up. No explicit clear needed.
+		// The plate + this thread die with the actor ("death" endon, or the isdefined( self )
+		// bail above for bosses that Delete() without "death"); the corpse's draw name goes
+		// away when the body is cleaned up. No explicit clear needed.
 	}
 }

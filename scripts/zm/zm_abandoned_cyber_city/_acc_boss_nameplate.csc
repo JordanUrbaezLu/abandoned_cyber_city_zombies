@@ -76,10 +76,11 @@ function name_for_index( idx )
 	switch ( idx )
 	{
 		case 1: return "PHANTOM";
-		case 2: return "SUBROUTINE CORE";
+		case 2: return "PANZER";   // 2026-07-08: repurposed dead SUBROUTINE CORE slot (renamed from PANZER SOLDAT same day) - MUST match _acc_boss_nameplate.gsc name_to_index
 		case 3: return "TRENCH WARDEN";
 		case 4: return "GLITCH STALKER";
 		case 5: return "ROGUE PROTECTOR";
+		case 6: return "AVOGADRO";
 		default: return "BOSS";
 	}
 }

@@ -175,7 +175,10 @@ $libRoots = @(
 )
 $gameFound = $false
 $tools = $null
-if ($ModToolsRoot -ne "" -and (Test-Path (Join-Path $ModToolsRoot "bin\modlauncher.exe"))) { $tools = $ModToolsRoot }
+if ($ModToolsRoot -ne "") {
+    if (Test-Path (Join-Path $ModToolsRoot "bin\modlauncher.exe")) { $tools = $ModToolsRoot }
+    else { Check "-ModToolsRoot override valid" $false "no bin\modlauncher.exe under '$ModToolsRoot' - override IGNORED, falling back to auto-detection" $true }
+}
 foreach ($lib in $libRoots) {
     if (-not (Test-Path $lib)) { continue }
     $dirs = Get-ChildItem $lib -Directory -Filter "Call of Duty Black Ops III*" -ErrorAction SilentlyContinue
@@ -202,6 +205,31 @@ if ($tools) {
         # Steam DRM: direct BlackOps3.exe launch needs steam_appid.txt or it
         # exits silently (Launcher Run opens nothing).
         Check "steam_appid.txt present (Launcher Run works)" (Test-Path (Join-Path $gameRoot "steam_appid.txt")) "run .\tools\sync_to_modtools.ps1 (writes steam_appid.txt=311210) - else the game exe quits on launch" $true
+    }
+
+    # New-box hard requirements (2026-07 lessons; see restore_machine.ps1 which
+    # can fix all three). Without TA_TOOLS_PATH/TA_GAME_PATH the Treyarch tools
+    # 0xC0000005-crash with NO error message. Compare path-normalized: the live
+    # values carry a trailing backslash.
+    $taTools = [Environment]::GetEnvironmentVariable("TA_TOOLS_PATH", "User")
+    $taOk = ($null -ne $taTools) -and ($taTools.TrimEnd("\").ToLowerInvariant() -eq $tools.TrimEnd("\").ToLowerInvariant())
+    Check "TA_TOOLS_PATH env var set + matches tools root" $taOk "run .\tools\restore_machine.ps1 (sets TA_TOOLS_PATH/TA_GAME_PATH) - without them the tools crash 0xC0000005 with no message"
+    $taGame = [Environment]::GetEnvironmentVariable("TA_GAME_PATH", "User")
+    Check "TA_GAME_PATH env var set" ($null -ne $taGame -and $taGame -ne "") "run .\tools\restore_machine.ps1"
+
+    # Smart App Control blocks gdtdb.exe -> cod2map/Radiant/linker all assert
+    # on the missing gdtDB\gdt.db and NOTHING builds. 0 = off.
+    $sacState = $null
+    try { $sacState = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy" -ErrorAction Stop).VerifiedAndReputablePolicyState } catch {}
+    if ($null -ne $sacState) {
+        Check "Smart App Control off (state=$sacState)" ($sacState -eq 0) "Windows Security -> App & browser control -> Smart App Control -> Off (it blocks gdtdb.exe; NOTHING builds while on)"
+    }
+
+    # L3akMod DLL overwrite: without it the linker errors 'Lua not supported'
+    # on every rawfile,*.lua = the whole custom HUD. Stock DLL = 441,856 bytes.
+    $tiffDll = Join-Path $tools "bin\libtiff64r.dll"
+    if (Test-Path $tiffDll) {
+        Check "L3akMod installed (bin\libtiff64r.dll not stock)" ((Get-Item $tiffDll).Length -ne 441856) "install L3akMod v1.0.4 (dtzxporter.com/tools/l3akmod): back up bin\libtiff64r.dll as .acc-orig-backup, overwrite with the L3akMod DLL - custom LUI cannot link without it"
     }
 }
 
