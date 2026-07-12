@@ -187,7 +187,7 @@ core:
    LED-bake-clean; no missing-material warning.
 4. **Reflection probes:** **15** `reflection_probe` entities placed (surface-only)
    so neon mirrors in the wet ground. *(Baked → LED.)*
-5. **Baked neon light pools:** **157** light entities via `tools/gen_neon_lights.js`
+5. **Baked neon light pools:** **22** light entities via `tools/gen_neon_lights.js`
    — one unique power-gated hue per zone (cyan/blue/magenta/red/orange/green/
    purple/yellow/white). This is the neon read; it replaced the originally-planned
    emissive-material kit (§7c note). *(Baked → LED.)*
@@ -289,12 +289,15 @@ renderer every tick. It also drives two special cases:
   on instantly when power comes on (a binary lighting-state swap that can't be
   faded at the bake), so `apply_vision` holds a dark grade (`acc_grade_warm1`) then
   slow-lerps to `"default"` to fake a gentle swell — no flash, no dip-to-black.
-  Warm-up stages: `acc_grade_blackout` (~5%) → `warm1` (~18%) → `warm2` (~45%) →
-  `default`.
+  It's a single hold-then-lerp: one `VisionSetNaked(start, 0)` (start =
+  `acc_power_light_start`, default `acc_grade_warm1`) then one
+  `VisionSetNaked("default", ramp)`. `acc_grade_blackout`/`warm1`/`warm2` are
+  alternative *selectable* start grades (darkest→brightest reference), not a
+  played 4-stage sequence. (reconciled to code 2026-07-11)
 - **Abyss darkness** (`acc_abyss_dark_on`, default OFF): the deep trench's baseline
   brightness is the vision tonemap-curve top + sky/IBL ambient (surface-only
   probes → bright default cubemap), NOT the point lights — so dimming light
-  intensity can't reach it. `acc_grade_abyss_dark` (`vkRM 0.08`, R=G=B, no hue)
+  intensity can't reach it. `acc_grade_abyss_dark` (`vkRM 0.40`, R=G=B, no hue)
   crushes that IBL/curve floor to black whenever a player is below the trench lip.
   Default OFF because the abyss darkness now comes from *fewer baked lights*
   (`gen_abyss_layer.js`); flip it on to also post-process-darken.
@@ -423,7 +426,7 @@ legally redistributable.
 | Night sky | ✅ shipped — `skybox_default_night` + custom `acc_ssi_night_dim80` on all `ssi*` |
 | Wall/floor/ceiling paint | ✅ shipped — fully painted stock `t7_*` (no greybox), per-zone via `apply_zone_materials.js`; buyable doors distinct via `paint_doors.js` |
 | Reflection probes | ✅ 15 placed (surface-only), baked |
-| Baked neon lights | ✅ 157 power-gated per-zone light entities (`gen_neon_lights.js`) |
+| Baked neon lights | ✅ 22 power-gated per-zone light entities (`gen_neon_lights.js`) |
 | Perk/PaP power-on glow | ✅ client-side FX (`_acc_perk_lights.gsc/.csc`), per-perk recoloured `.efx` |
 | Ambient dust/steam FX | ✅ `apply_fx()` (dust drift + steam vents; hero glow *sprites* removed — glow comes from baked lights) |
 | Bespoke HDRI sky | ⬜ optional future (§12.3) |

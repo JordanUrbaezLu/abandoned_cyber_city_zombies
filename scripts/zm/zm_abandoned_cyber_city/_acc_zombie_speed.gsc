@@ -404,6 +404,8 @@ function under_anim_slow()
 {
     if ( IS_TRUE( self.b_widows_wine_slow ) )   return true;  // Widow's Wine web
     if ( IS_TRUE( self.b_widows_wine_cocoon ) ) return true;  // Widow's Wine cocoon
+    if ( IS_TRUE( self.acc_fb_void_slowed ) )   return true;  // Fire Bow demon-gate void slow (2026-07-11, _zm_weap_elemental_bow_demongate - its watchdog restores rate 1.0 on exit)
+    if ( IS_TRUE( self.acc_freeze_slowed ) )    return true;  // Winter's Howl freezegun slow (2026-07-11, _zm_weap_freezegun - watchdog restores rate 1.0 on expiry)
     if ( isdefined( self.a_n_slowdown_timeouts ) &&
          getarraykeys( self.a_n_slowdown_timeouts ).size > 0 )
         return true;                                          // generic trap slowdown

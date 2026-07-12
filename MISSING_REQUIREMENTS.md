@@ -56,7 +56,7 @@
     `_acc_weapon_abilities.gsc:21-24`).
 
 - **Latent map bug — 7 malformed `reflection_probe` boxes.** Verified in
-  `map_source/zm/zm_abandoned_cyber_city.map` (2026-07-10): 7 of the 16
+  `map_source/zm/zm_abandoned_cyber_city.map` (2026-07-10): 7 of the 15
   reflection probes have an inverted Y extent (`size_min Y 548.5 > size_max Y
   544.75`). Harmless to the bake but the boxes don't bound what they should;
   resize `size_min ≤ size_max` on each axis, then rebuild WITH the LED bake to

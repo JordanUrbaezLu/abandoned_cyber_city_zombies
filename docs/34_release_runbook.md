@@ -57,7 +57,7 @@ works through the **subscribed Workshop map** + a Steam invite.
 | Purpose | Hidden/Friends-Only Workshop item for playtesting | The real, world-visible release |
 | Visibility | **Friends-Only / Unlisted** | **Public** |
 | Gate | A clean build + sane metadata + the dev/god flags OFF | Track A **plus** the IP/credit review, the test-only music swap, real screenshots, and a content/balance pass |
-| Who can do it now | One flip away — the only open blocker is the dev/god test hardcode in `acc_resolve_dev_flags()`; comment it out (below) and you're ready | Blocked on the IP sign-off (mostly async author permission), three test-only music tracks that must be swapped, and screenshots |
+| Who can do it now | Ready — the only gate is the dev/god hardcode in `acc_resolve_dev_flags()` (toggled ON/OFF often for testing vs publish; check the code, lines 376/416); Gate 0 enforces OFF at publish | Blocked on the IP sign-off (mostly async author permission), three test-only music tracks that must be swapped, and screenshots |
 
 **Do Track A first.** A Public release that hasn't passed Track A has never been
 proven to build, load, and play from a real Workshop subscription.
@@ -79,11 +79,13 @@ proven to build, load, and play from a real Workshop subscription.
   `Thumbnail` path, a written BBCode Description, and **`PublisherID` 3751124295** already
   captured (so future publishes update the same item; see A6). `zone/previewimage.png` is
   **512×512** (the prep-script thumbnail gate passes). `CREDITS.md` carries the IP sign-off gate.
-- ⚠️ **The dev/god flags are currently HARDCODED ON.** `acc_resolve_dev_flags()` in
-  `scripts/zm/zm_abandoned_cyber_city.gsc` has active `level.acc_dev = true;` (~line 376)
-  and `level.acc_god = true;` (~line 412) test lines sitting *below* the normal
-  `getdvarint()` resolution. `prep_release.ps1` Gate 0 FAILs on these — **comment out both
-  lines before any publish** (see A1). An invulnerable full-dev build must never ship.
+- ⚠️ **Dev/god hardcode = VOLATILE (read the code, not this line).** `acc_resolve_dev_flags()` in
+  `scripts/zm/zm_abandoned_cyber_city.gsc` resolves both flags from `getdvarint("acc_dev"/"acc_god", 0)`
+  (default **0** = normal play); the `level.acc_dev = true;` (line 376) and `level.acc_god = true;` (line 416)
+  hardcode lines directly below **force both ON when uncommented**. The user flips these **ON for local
+  testing / OFF (commented) for publish, often several times a day across parallel sessions** — so a dated
+  "currently ON/OFF" here is unreliable; **lines 375-376 / 415-416 in the code are the live truth.** Either
+  way the publish is safe: `prep_release.ps1` Gate 0 FAILs if either hardcode line is active. (2026-07-11)
 - ✅ **LED bake passes.** After the pre-stage3 geometry revert the map bakes again
   (~157 light entities); `build_map.ps1` runs the LED bake **by default** and `-SkipLED`
   is a RED FLAG. The bake can occasionally crash *transiently* with exit `-1073741819`
@@ -111,7 +113,8 @@ cd c:\Users\Jordan Urbaez\Repositories\abandoned_cyber_city_zombies
   `acc_resolve_dev_flags()` (an invulnerable full-dev build must never publish — even
   Private). **Comment out / delete both hardcode lines** in
   `scripts/zm/zm_abandoned_cyber_city.gsc` so the flags fall back to their `getdvarint(…, 0)`
-  resolution (ship-safe default 0) before a publish run. As of 2026-07-10 both are ON.
+  resolution (ship-safe default 0) before a publish run. **These hardcode lines are toggled ON/OFF frequently
+  (local testing vs publish) — check the code (lines 376/416), not a date; Gate 0 enforces OFF at publish.**
 - It does **not** pass `-SkipLED` — the LED bake is the gate and currently passes.
 - Want only the readiness report (no ~15-min rebuild, reuse the existing `.ff`)?
   `.\tools\prep_release.ps1 -NoBuild`.
@@ -243,7 +246,7 @@ things still need doing before Public:
   Perk HUD icons: Ronan — Treyarch, Anna Kuźmińska, CD Projekt Red
   Music: <confirmed-CC0 replacements for the 🚫 test-only tracks>
   ```
-- **Replace the 7 `[img]SCREENSHOT-N-…[/img]` placeholders** in the Description with real
+- **Replace the 6 `[img]SCREENSHOT-N-…[/img]` placeholders** in the Description with real
   uploaded-screenshot references (or drop them) — they are placeholder tokens, not URLs.
 
 ### B3. Presentation assets

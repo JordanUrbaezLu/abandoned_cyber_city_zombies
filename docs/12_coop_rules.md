@@ -27,7 +27,7 @@ Every player has their own copy of these:
 - **Weapons** (weapon tiers, PaP levels, Overclocks slotted).
 - **Overclock Terminal upgrades** - independent per player; player A's weapon Overclock tiers don't affect player B. (The old **Cyberware skill tree** is **disabled by default** — `_acc_cyberware.gsc` init only spawns the kiosk / allows node purchase when `acc_cyberware_on` is 1, default 0 — so the Overclock Terminal is the sole live per-player upgrade path.)
 - **Perks** - each player buys their own.
-- **Boss items** - per-player inventory (2 slots each; `_acc_boss_items.gsc`).
+- **Boss items** - per-player inventory (3 slots each; `ACC_ITEM_SLOTS_PER_PLAYER` 3 in `_acc_boss_items.gsc`).
 - **Weapon abilities** - each player has their own cooldowns.
 - **HP / armor** - standard per-player.
 - **Ability cooldowns** - independent.
@@ -43,10 +43,10 @@ Every player has their own copy of these:
 
 ### Awarded per-player (independent of team)
 
-- **Elite Data Shard drops** - go to the killer (pickup entity).
+- **Elite Data Shard drops** - go to the killer (direct grant on kill, not a pickup entity).
 - **Boss Data Shard drops** - **every player gets the full amount independently** (not split). The payout is round-scaled (`int(round / 3)` Shards to every player, `grant_unified_boss_reward` in `_acc_boss.gsc`), so 4p co-op = 4× the Shards distributed per kill.
 - **Boss items** - per-player duplicate detection; one player's copy doesn't block another's pickup.
-- **Side event rewards** - 2 Shards (Hack) go to the activating player (plus any contributors via the 70/30 split for kills made during the event).
+- **Side event rewards** - the Hack Shard payout is **OFF by default** (`acc_hack_shard_drop` default 0), so the Hack pays **0 Shards** in default play; with that dvar enabled, `ACC_HACK_REWARD_SHARDS` = 2 Shards go to the activating player (plus any contributors via the 70/30 split for kills made during the event).
 
 ## HP Scaling
 
@@ -70,7 +70,7 @@ Stock BO3 does **NOT** scale zombie HP per player (HP is purely round-based, `zo
 | Boss | Per-round exponent | Solo HP examples |
 |---|---|---|
 | Brutus (Trench Warden, mini-boss) | 1.12 (tankiest tier) | r5 65k / r10 115k / r20 356k |
-| Panzer (mechz) | 1.12 | tankiest tier |
+| Panzer (mechz) | 1.09 (middle tier, matches Rogue Protector) | — |
 | Rogue Protector | 1.09 (middle tier) | — |
 | Phantom | 1.06 (softest tier) | r5 65k / r10 87k / r20 156k |
 | Avogadro | 1.06 (shares Phantom's) | — |
@@ -81,7 +81,7 @@ Rationale: a single boss takes ~N× the team's fire in 4p, but **not** a clean 4
 
 ## Boss Cadence & Roster
 
-- **Mini-boss (Brutus / Trench Warden)**: first spawns around **round 10** (`ACC_BOSS_MINI_FIRST_ROUND` 10), on a power-on cadence with respawns.
+- **Mini-boss (Brutus / Trench Warden)**: first spawns at **power-on AND round ≥ 5** (`acc_warden_first_round`, default 5, `_acc_boss.gsc:150-151`), on a power-on cadence with respawns. (The `ACC_BOSS_MINI_FIRST_ROUND` 10 define is only read by the now-dead full-boss `compute_shard_reward()` path.)
 - **Round bosses**: a boss ROUND lands **every 9 rounds from round 9** (9, 18, 27, …; `ACC_BOSS_FIRST_DEF` 9 in `_acc_civil_protector.gsc`). The **count scales** with the slot — round 9 = 1 boss, 18 = 2, 27 = 3, … (`boss_count()`).
 - **Types are dealt from a shuffled 4-type deck WITHOUT replacement** — Phantom / Rogue Protector / Avogadro / Panzer (`boss_roster()`), reshuffled per run only when the deck empties, so a multi-boss round is always all-distinct types (first forced repeat = the 5th boss slot, round 45). The roster is owned by `_acc_civil_protector` and published as `level.acc_boss_roster_fn`; each boss module reads its own count off it.
 - **Glitch** runs on its own special-round system (`ACC_GLITCH_INTERVAL_DEF` 2 = every 2nd round from its first), separate from the boss deck.
@@ -122,7 +122,7 @@ The only enemies that spawn *on top of* the stock horde are our custom additions
   - Keep all weapons (with their tiers + Overclocks).
   - Keep all boss items.
   - Keep Data Shards.
-  - **Keep Points intact.** Stock BO3 "lose all points" on death is NOT applied; we keep Points as a deliberate softening.
+  - **Points are SET to exactly 500 × round** on respawn (comeback bonus; `comeback_set_score` in `_acc_points.gsc:185-197` does a `take_all` then awards `ACC_COMEBACK_PER_ROUND` (500) × round). Stock BO3's "lose all points" is replaced by this comeback formula — a poor player is floored up to 500 × round, but a rich player is reduced down to it. Points are NOT kept intact through a full bleed-out death.
 
 ## Friendly Fire
 
@@ -134,16 +134,16 @@ The only enemies that spawn *on top of* the stock horde are our custom additions
 
 See [05_mechanics.md](05_mechanics.md#co-op-kill-point-split-70--30) for full detail. Summary:
 
-- **Regular kill**: 40 pts total. Killer gets 70% (28), non-killer damage contributors split 30% (12 total).
-- **Headshot / knife kill**: 100 pts total. Killer 70% (70), others split 30% (30 total).
+- **Regular kill**: 70 pts total. Killer gets 70% (49), non-killer damage contributors split 30% (21 total).
+- **Headshot kill**: 110 pts total (killer 70% ≈ 77, others split 30% ≈ 33). **Knife kill**: 100 pts total (killer 70%, others split 30%).
 - **Solo kill (no other contributors)**: killer gets 100%.
 - **Minimum contribution threshold**: 5% of zombie maxhealth to qualify for a share.
 - **Anti-exploit rules**: documented in `_acc_points.gsc` and [05_mechanics.md](05_mechanics.md#anti-exploit-rules-hard-enforced-in-code).
 
 ## Data Shard Distribution in Co-op
 
-- **Elite kill**: killer picks up the shard. First-come-first-served on pickup entity.
-- **Shared damage on an elite**: no automatic split. Only the player who collects the pickup entity receives the Shard. Anti-grief: if one player kills the elite, they MUST move to the corpse to collect, otherwise the pickup despawns and Shards are lost.
+- **Elite kill**: the live (Shielded) elite grants **2 Shards directly to the killer** on death (`shielded_death_reward` in `_acc_elites.gsc:362-370`) — no pickup entity, no corpse walk. (The generic pickup path `spawn_pickup_at` is gated by `acc_elite_shard_drop`, default 0 = OFF.)
+- **Shared damage on an elite**: no automatic split. The direct 2-Shard grant always goes to the player credited with the kill (`attacker`); there is no pickup to collect or despawn.
 - **Boss shard grant**: independent per-player (the round-scaled boss Shard amount goes to every player on a boss kill, not shared).
 - **Objective Shard rewards** (Hack): go to the player who activated and saw the event through. In 4p, if 3 players help but one player activated the Hack, only the activator gets the 2 Shards.
 
@@ -167,7 +167,7 @@ See [05_mechanics.md](05_mechanics.md#co-op-kill-point-split-70--30) for full de
 - **One activation per run.** (The Parallel Processing Cyberware's "2 event attempts" upgrade is **not live** — the Cyberware skill tree is disabled by default, `acc_cyberware_on` 0.)
 - **Activator**: the player who holds F first wins the activation.
 - **Other players can help** during the 3 stages (their kills count toward the stage counter).
-- **Reward**: 2 Data Shards go to the **activator only**. (Note: this is the one place where the 70/30 split does NOT apply - Shard rewards from events are activator-gated.)
+- **Reward**: the Shard payout is **OFF by default** (`acc_hack_shard_drop` default 0, `_acc_events_hack.gsc:138-139`) — in default play the Hack pays **0 Shards**. When `acc_hack_shard_drop 1` is set, `ACC_HACK_REWARD_SHARDS` = 2 Data Shards go to the **activator only**. (Note: even when enabled, this is the one place where the 70/30 split does NOT apply - Shard rewards from events are activator-gated.)
 
 > **Vault Overload** was a second side event (activator holds a defense point, leaving > 8s fails it, reward 3 Shards + a map shortcut). It was **RETIRED 2026-07-07** — `acc_events_overload::init()` is commented out in `_acc_main.gsc` and the trigger + point struct were deleted from the `.map`. Documented here only so the history is clear; it is not in the live map.
 
@@ -207,7 +207,7 @@ Solo is the hardest configuration. **This is intentional.** Zombies is a co-op g
 - Stock co-op: works out of the box via the zm template.
 - **HP / spawn-rate scaling: LIVE.** Fully implemented and live-tuned in `_acc_coop_scaling.gsc` — the `level.max_zombie_func` override handles spawn count, `regular_hp_mult()` hooks `level.zombie_init_done` for regular HP, and `boss_hp_player_mult()` is wired into every boss module.
 - Per-player state: correctly isolated in all our modules (grep `self.acc_*` in scripts/).
-- Boss item per-player duplicate detection: implemented in `_acc_boss_items.gsc::on_boss_death`.
+- Boss item per-player duplicate detection: implemented in `_acc_boss_items.gsc::watch_pickup` (per-grabber; `on_boss_death` is the now-dead full-boss reward path).
 - Side-event activator-gating: implemented in `_acc_events_hack.gsc` (Hack Terminal).
 
 ## Tuning Levers

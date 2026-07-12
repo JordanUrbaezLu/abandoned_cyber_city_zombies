@@ -48,8 +48,11 @@ tracker: [docs/15_requirements_checklist.md](docs/15_requirements_checklist.md))
   `gamedata/weapons/zm/zm_levelcommon_weapons.csv`; runbook: [docs/21_adding_a_gun_runbook.md](docs/21_adding_a_gun_runbook.md).
 - **Boss cadence:** mini-boss debut at round 10, then full **boss rounds every 9
   from round 9** (count scales r9=1, r18=2, r27=3), boss **types dealt from a
-  no-duplicate shuffled roster** (`level.acc_boss_roster_fn`): **Brutus, Glitch,
-  Phantom, Avogadro, Panzer (mechz), + Rogue/Civil Protector** (the round-20 boss).
+  no-duplicate shuffled 4-type deck** (`level.acc_boss_roster_fn`): **Phantom,
+  Rogue/Civil Protector, Avogadro, Panzer (mechz)**. **Brutus** (his own round-5 power
+  cadence) and **Glitch** (its own r12+ test-spawn system) are separate boss modules,
+  NOT dealt from the shuffled deck. (The Protector's "round-20" is a design label only —
+  at runtime he rides the shared every-9-from-9 roster, first possible at round 9.)
   See [docs/08_enemies.md](docs/08_enemies.md), [docs/09_boss_items.md](docs/09_boss_items.md).
 - **Built side systems:** Exo Suit station ([docs/29](docs/29_exo_suit_plan.md)),
   Armory upper room ([docs/39](docs/39_armory.md)), Reactor Surge climax event,
@@ -219,8 +222,11 @@ to ~5 GB). `PLAY_TEST_MAP.bat` in the repo root is a double-click equivalent.
 **Dev mode is ONE hardcoded flag.** `run_game.ps1` passes just `+set acc_dev 1`,
 which the entry script resolves ONCE in `acc_resolve_dev_flags()` into the global
 `level.acc_dev` (unlimited money, 25 starting Data Shards, all perk slots, open map,
-all test bosses, dev HUDs). **There is no runtime dev console — never "set dvar X to
-test".** `-NoDev` = clean normal play. Default 0 = ship-safe. Design: CLAUDE.md
+the Glitch test spawn forced on — Avogadro/Panzer ride their own dev spawn loops while
+Brutus/Phantom run their real dev-accelerated cadence). Dev also forces the debug HUDs
+**OFF** (`acc_variants_debug`/`acc_hudelem_debug` = 0) and the green DEV banner was
+removed (reconciled to code 2026-07-11). **There is no runtime dev console — never "set
+dvar X to test".** `-NoDev` = clean normal play. Default 0 = ship-safe. Design: CLAUDE.md
 (dev-mode section).
 
 **CRITICAL #1 — the gametype must be `+set_gametype zclassic` (engine command), NOT

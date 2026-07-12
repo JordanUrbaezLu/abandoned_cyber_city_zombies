@@ -262,6 +262,38 @@ scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.gsc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.csc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.gsc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.csc
+// [acc] BALLISTIC KNIFE (pmr360 pack over the stock t7 loot asset, 2026-07-11): our override REPLACES the
+// stock 116-byte _zm_weap_ballistic_knife.gsc stub (its zm_patch.csv scriptparsetree line is commented
+// install-side so the linker uses THIS one - see memory stock-override-zm-patch-dedupe). Adds the PaP
+// Krauss revive. The stock retrievable-knife watcher is already wired for knife_ballistic[_upgraded].
+scriptparsetree,scripts/zm/_zm_weap_ballistic_knife.gsc
+// [acc] Winter's Howl freeze gun (GCPeinhardt 1:1 BO1 port; box UTILITY wonder weapon, 2026-07-11).
+// Self-contained GDT (source_data/wpn_t8_zmb_freezegun.gdt): view/world models + freeze/shatter/crumple
+// FX + freeze-death anims + the c_t8_freezegun_mtl dissolve material. Asset ids carry the _zm mode
+// suffix (script/CSV/box use the bare "freezegun"/"freezegun_upgraded"). Only the SCRIPT-precached FX
+// are zone-listed (weapon-def FX/materials ride transitively with the weapon asset). External rip -
+// gitignored via the manifest. .gsh is #inserted (no scriptparsetree line, the elemental-bow pattern).
+scriptparsetree,scripts/zm/_zm_weap_freezegun.gsc
+scriptparsetree,scripts/zm/_zm_weap_freezegun.csc
+weapon,freezegun_zm
+weapon,freezegun_upgraded_zm
+xanim,ai_zm_dlc5_zombie_crawl_freeze_death_01
+xanim,ai_zm_dlc5_zombie_crawl_freeze_death_02
+xanim,ai_zm_dlc5_zombie_freeze_death_a
+xanim,ai_zm_dlc5_zombie_freeze_death_b
+xanim,ai_zm_dlc5_zombie_freeze_death_c
+xanim,ai_zm_dlc5_zombie_freeze_death_d
+xanim,ai_zm_dlc5_zombie_freeze_death_e
+fx,blood/fx_blood_decal_impact_ground
+fx,dlc2/island/fx_zombie_gib_trail
+fx,dlc5/zmb_weapon/fx_freezegun_crumple
+fx,dlc5/zmb_weapon/fx_freezegun_smoke_cloud
+fx,dlc5/zmb_weapon/fx_freezegun_freeze_md
+fx,dlc5/zmb_weapon/fx_freezegun_reload_smoke
+fx,dlc5/zmb_weapon/fx_freezegun_shatter
+fx,dlc5/zmb_weapon/fx_freezegun_shatter_upg
+fx,dlc5/zmb_weapon/fx_freezegun_freeze_torso
+material,mc/c_t8_freezegun_mtl
 include,hb21_elemental_bows
 // ROGUE PROTECTOR round-20 hostile boss driver (user 2026-07-02; was the round-1 ally test).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc
@@ -582,11 +614,19 @@ xmodel,p7_zm_sta_computer_tower_01            // Data Cache (Gorod computer towe
 // game's Lua VM at runtime - a Lua syntax error shows at load, NOT at link).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc
+// Leaderboard (docs/40): end_game recorder + Plaza top-10 station + background curl
+// agent boot (the fullscreen tab-out fix). The three acc_lb_*.lua below are GENERATED
+// by tools/build_lb_lui.js (hksc bytecode chunks embedded as \ddd strings - THE
+// WORKING RECIPE); edit tools/lui_chunks/, never the generated files.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_leaderboard.gsc
 // Client half of the perk/PaP power-on glow (REGISTER_SYSTEM mirror + PlayFX render).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_lights.csc
 // Client half of the Phantom holographic glow aura (accPhantomAura clientfield -> PlayFXOnTag).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.csc
 rawfile,ui/uieditor/menus/hud/acc_hud.lua
+rawfile,ui/uieditor/menus/hud/acc_lb_rec.lua
+rawfile,ui/uieditor/menus/hud/acc_lb_board.lua
+rawfile,ui/uieditor/menus/hud/acc_lb_boot.lua
 
 // Custom perk HUD icons (Ronan's Cyberpunk Shaders), drawn by acc_hud.lua's
 // CoD.AccPerkBar via setImage(RegisterImage(...)). 2D UI `image` assets - NOT
@@ -663,6 +703,7 @@ image,i_acc_oc_tier10
 image,i_acc_badge_mule
 image,i_acc_badge_turbo
 image,i_acc_badge_nuclear
+image,i_acc_badge_berzerker
 
 // ============================================================================
 // AETHERIUM HUD (Owen-C137 BO7-remake kit, adopted 2026-07-03; docs/22, docs/49)
@@ -983,8 +1024,16 @@ weapon,apex_alternator_zm
 weapon,apex_alternator_up_zm
 weapon,apex_prowler_zm
 weapon,apex_prowler_up_zm
-weapon,t9_m16
-weapon,t9_m16_up
+// Triple Take (Apex 3-bolt ENERGY sniper, user 2026-07-11): REPLACES the CW M16 in the #19/MID
+// marksman slot. shotCount 3 = the horizontal tri-bolt; is_energy_weapon -> Nuclear Energy +15%
+// lands its per-trigger at/above the MORS per-shot. Base block prepped in zeroy/APEX_BO3.gdt +
+// _up (legendary_02 skin) in acc_apex_up.gdt by tools/prep_apex_tripletake_gdt.js; fire sounds
+// retargeted to the pack's own wpn_apex_tripletake_fire_* (the shipped wpn_bo4_paladin_* refs
+// exist nowhere = silent-gun trap; alias rows hand-fixed into sound/aliases/acc_apex_weapons.csv).
+weapon,apex_tripletake_zm
+weapon,apex_tripletake_up_zm
+// weapon,t9_m16      // M16 RETIRED 2026-07-11 (user: replaced by the Triple Take) - uncomment to restore (+ CSV/GSC rosters/twins)
+// weapon,t9_m16_up
 // HAVOC wind-up is ENGINE-NATIVE only (v3, user 2026-07-06): fireDelay 1.25 + riser + shake anim in the
 // base/_up defs - re-winds every trigger pull (the actual Apex Havoc). NO charge-twin defs are packed:
 // both scripted persistence attempts (quarter-steps, 2s spool twin) swapped defs on a HELD weapon, which
@@ -1004,6 +1053,19 @@ xmodel,glass_ammo_bigger
 // into the .ff (per the pack README). External pack - see tools/external_assets_manifest.ps1.
 weapon,thundergun_zm
 weapon,thundergun_upgraded_zm
+
+// [acc] BALLISTIC KNIFE (2026-07-11): thrown retrievable projectile special. Art is STOCK-cooked t7
+// (wpn_t7_loot_ballistic_knife); the pmr360 GDT wraps two projectileweapon defs (source_data, gdtdb-
+// registered). _zm-suffixed here (engine strips it -> runtime name is bare knife_ballistic); PaP form is
+// _upgraded_zm (like the thundergun), NOT _up_zm. Base 500dmg/4 ammo, PaP 1000dmg/9 ammo (one-hit + shielded
+// rules are scripted in _acc_damage; PaP tier 2 = the _upgraded transform = the Krauss revive unlock).
+weapon,knife_ballistic_zm
+weapon,knife_ballistic_upgraded_zm
+// Berzerker +35% STAB-speed twins (user 2026-07-11): _acc_brz clones (meleeTime/meleeChargeTime x1/1.35,
+// throw untouched) - acc_ballistic_knife_twins.gdt via tools/oneshots/gen_ballistic_brz_twins.js. The
+// leviathan brz-axis precedent; weaponfull like every twin.
+weaponfull,knife_ballistic_acc_brz_zm
+weaponfull,knife_ballistic_upgraded_acc_brz_zm
 
 // Box guns. AK-74u/M60/RPD are Cold War (t9) ports (user 2026-06-26): regular _up, empty altWeapon, models
 // compiled. (PDW-57 / M1911 / Nail Gun / Ripper REMOVED 2026-06-23 - none could be fully twinned for the
@@ -1238,12 +1300,12 @@ weaponfull,apex_prowler_acc_recoil50_fastreload_zm
 weaponfull,apex_prowler_up_acc_recoil50_zm
 weaponfull,apex_prowler_up_acc_fastreload_zm
 weaponfull,apex_prowler_up_acc_recoil50_fastreload_zm
-weaponfull,t9_m16_acc_fastreload
-weaponfull,t9_m16_acc_recoil50
-weaponfull,t9_m16_acc_recoil50_fastreload
-weaponfull,t9_m16_up_acc_fastreload
-weaponfull,t9_m16_up_acc_recoil50
-weaponfull,t9_m16_up_acc_recoil50_fastreload
+weaponfull,apex_tripletake_acc_fastreload_zm
+weaponfull,apex_tripletake_acc_recoil50_zm
+weaponfull,apex_tripletake_acc_recoil50_fastreload_zm
+weaponfull,apex_tripletake_up_acc_fastreload_zm
+weaponfull,apex_tripletake_up_acc_recoil50_zm
+weaponfull,apex_tripletake_up_acc_recoil50_fastreload_zm
 weaponfull,apex_beam_rifle_acc_recoil50_zm
 weaponfull,apex_beam_rifle_acc_fastreload_zm
 weaponfull,apex_beam_rifle_acc_recoil50_fastreload_zm
@@ -1276,4 +1338,28 @@ weaponfull,elemental_bow_demongate_acc_fastreload_zm
 // acc_weapon_variants.gdt is contended by the parallel weapon-variants session).
 weaponfull,t6_war_machine_acc_fastreload
 weaponfull,t6_war_machine_up_acc_fastreload
+// [acc] Winter's Howl freeze gun fastreload wonder twins (user 2026-07-11): the Speed-Cola-Mega reload
+// pair (reload x0.857) + move speed 1.07. projectileweapon _zm ids (the twin block puts _zm LAST ->
+// runtime freezegun_acc_fastreload / freezegun_upgraded_acc_fastreload). Blocks in the STANDALONE
+// acc_freezegun_twins.gdt (tools/oneshots/gen_freezegun_twins.js). The PaP model transform lands at tier 2.
+weaponfull,freezegun_acc_fastreload_zm
+weaponfull,freezegun_upgraded_acc_fastreload_zm
 // -----------------------------------------------------------------------------
+
+// ============================================================================
+// eMoX "T8 Powerup Delayed Drop" (installed 2026-07-11, CREDITS.md) - BO4-style
+// 1.5s pre-drop FX + sound before every power-up materializes. STOCK-SCRIPT
+// OVERRIDE: scripts/zm/_zm_powerups.gsc is the stock file + eMoX's delay block
+// ([acc]-hardened; header comment in the file). Same-path replacement - this
+// scriptparsetree wins over zm_patch at load; the matching stock line in
+// <tools>\zone_source\all\assetlist\zm_patch.csv is commented out (install-side
+// edit, documented in tools/external_assets_manifest.ps1) or the linker dedupe
+// silently drops this copy. NO line for _zm_powerups.gsh (repo convention:
+// #insert'd headers compile into their users). Sounds ride the szc alias file
+// emox_t8_powerups_delayed_drop.csv; FX materials in source_data\_emox GDT.
+// ============================================================================
+scriptparsetree,scripts/zm/_zm_powerups.gsc
+fx,_mori2/t8_powerup_pre_drop
+fx,_mori2/t8_powerup_pre_drop_solo
+fx,_mori2/t8_powerup_pre_drop_pop_solo
+fx,_mori2/t8_powerup_pre_drop_pop

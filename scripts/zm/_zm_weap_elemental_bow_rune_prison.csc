@@ -29,9 +29,11 @@ function __init__()
 	clientfield::register( "scriptmover", "runeprison_rock_fx", VERSION_SHIP, 1, "int", &runeprison_rock_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "runeprison_explode_fx", VERSION_SHIP, 1, "int", &runeprison_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "runeprison_lava_geyser_fx", VERSION_SHIP, 1, "int", &runeprison_lava_geyser_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "runeprison_lava_geyser_dot_fx", VERSION_SHIP, 1, "int", &runeprison_lava_geyser_dot_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "runeprison_zombie_charring", VERSION_SHIP, 1, "int", &runeprison_zombie_charring, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "runeprison_zombie_death_skull", VERSION_SHIP, 1, "int", &runeprison_zombie_death_skull, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	// [acc] ACTOR clientfields DISABLED (2026-07-11) - LOCKSTEP with the .gsc twin (bow
+	// unobtainable in this map; actor bit budget full - see the .gsc comment).
+	//clientfield::register( "actor", "runeprison_lava_geyser_dot_fx", VERSION_SHIP, 1, "int", &runeprison_lava_geyser_dot_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "runeprison_zombie_charring", VERSION_SHIP, 1, "int", &runeprison_zombie_charring, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "runeprison_zombie_death_skull", VERSION_SHIP, 1, "int", &runeprison_zombie_death_skull, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	level._effect[ "rune_ambient_bow" ] = "dlc1/zmb_weapon/fx_bow_rune_ambient_1p_zmb";
 	level._effect[ "rune_arrow_impact" ] = "dlc1/zmb_weapon/fx_bow_rune_impact_zmb";
 	level._effect[ "rune_fire_pillar" ] = "dlc1/zmb_weapon/fx_bow_rune_impact_ug_fire_zmb";

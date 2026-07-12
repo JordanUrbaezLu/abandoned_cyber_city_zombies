@@ -150,7 +150,8 @@ function register_mystery_box_pool()
         "apex_beam_rifle",    // Havoc (Apex energy projectile rifle - A energy special, replaces China Lake)
         "apex_alternator",    // Alternator (Apex full-auto SMG - trash base, A+ PaP; replaces Klauser)
         "apex_prowler",       // Prowler (Apex burst PDW/full-auto SMG - B; replaces Chicom)
-        "t9_m16",             // M16 (CW burst->full-auto tactical rifle - B; slightly better than MK14, replaces the G7 Scout; user 2026-07-11)
+        "apex_tripletake",    // Triple Take (Apex 3-bolt ENERGY sniper - B; Nuclear Energy lifts its per-trigger to ~MORS; replaces the M16; user 2026-07-11)
+        // "t9_m16",        // M16 RETIRED 2026-07-11 (user: replaced by the Triple Take) - uncomment to restore (+ zone/CSV/twins/rosters)
         // "s1_asm1",       // ASM1 RETIRED 2026-07-03 (user: least liked) - uncomment to restore (+ zone/CSV, see zone comment)
         "s1_tac19",         // Tac-19     (Skye AW)
         "t9_ak47",          // AK-47      (Skye BO2)
@@ -198,11 +199,20 @@ function register_mystery_box_pool()
         // Without these entries neither weapon could ever leave the box (the axe was unobtainable in ANY mode).
         "elemental_bow_demongate",   // Fire Bow (HB21 demongate - wonder tier, claim-capped 1)
         "leviathan",                 // Leviathan Axe (WetEgg GoW melee - wonder tier, claim-capped 1)
+        // Winter's Howl freeze gun (GCPeinhardt 1:1 BO1 port; box UTILITY wonder weapon, 2026-07-11): slows
+        // bosses 25%/3s (the headline use) + super-effective vs Shielded/Glitch. projectileweapon _zm asset,
+        // claim-capped 1, self-registers via autoexec (_zm_weap_freezegun). Combat logic in that file's [acc] block.
+        "freezegun",                 // Winter's Howl (freeze utility wonder weapon)
         // Action Figure (BO4 t8 melee port by T0nic; TEST-ONLY rip, see CREDITS). A fun handheld swing weapon.
         // Source installed in the Mod Tools (gitignored); .zone + CSV + GDT wired 2026-06-23. Melee = "special"
         // class like the Thundergun, so it rides the same is_in_box flip below (degrades to "not in box" if the
         // weapon table lacks the row - never a crash).
         "t8_melee_figure",       // Action Figure melee (fun swing weapon)
+        // Ballistic Knife (pmr360 pack over the stock t7 loot asset, 2026-07-11): thrown retrievable
+        // projectile special. Base one-hits regular+glitch (incl. the Glitch Stalker) / bounces off Riot
+        // shields; PaP = the Krauss Refibrillator ranged teammate revive (co-op headline). Twin-less
+        // (projectile). AF-adjacent rare (~0.8%). Bare runtime name (the _zm is stripped).
+        "knife_ballistic",       // Ballistic Knife (co-op revive utility special)
         // TACTICAL grenades as RARE box rolls (user 2026-06-24): Monkey Bomb (cymbal_monkey, 1%) + Li'l Arnie
         // (octobomb, 0.5%). FIXED odds via acc_box_tactical_preroll() - NOT tier-weighted (excluded from the
         // gun pick by is_box_tactical()). is_in_box here lets the box float+give them; the grant is finalized
@@ -274,6 +284,7 @@ function wonder_cap_key( w )   // weapon object -> claim key, or undefined = unc
     if ( IsSubStr( w.name, "t9_semiauto_cosplay" ) )     return "blastomatic";   // Blast-O-Matic
     if ( IsSubStr( w.name, "elemental_bow_demongate" ) ) return "firebow";       // HB21 fire bow (2026-07-07)
     if ( IsSubStr( w.name, "leviathan" ) )               return "leviathanaxe";  // GoW Leviathan Axe (covers _up)
+    if ( IsSubStr( w.name, "freezegun" ) )               return "freezegun";     // Winter's Howl (covers freezegun_upgraded)
     return undefined;
 }
 
@@ -284,6 +295,7 @@ function wonder_cap_limit( key )
     if ( key == "blastomatic" )  return getdvarint( "acc_cap_blastomatic", 1 );
     if ( key == "firebow" )      return getdvarint( "acc_cap_firebow", 1 );
     if ( key == "leviathanaxe" ) return getdvarint( "acc_cap_leviathanaxe", 1 );
+    if ( key == "freezegun" )    return getdvarint( "acc_cap_freezegun", 1 );
     return 0;
 }
 
@@ -517,7 +529,9 @@ function acc_box_weight( wpn )
     if ( n == "t9_semiauto_cosplay" )   return 15;   // 0.30% - #2 Blast-O-Matic
     if ( n == "elemental_bow_demongate" ) return 15;   // 0.30% - #3 Fire Bow
     if ( n == "leviathan" )             return 15;   // 0.30% - #4 Leviathan Axe
+    if ( n == "freezegun" )             return 15;   // 0.30% - Winter's Howl utility wonder (hand-added 2026-07-11; re-run gen_box_dynamic.js RANK to re-sync the printed %)
     if ( n == "t8_melee_figure" )       return 40;   // 0.80% - #5 Action Figure
+    if ( n == "knife_ballistic" )       return 40;   // 0.80% - Ballistic Knife (co-op revive utility special; hand-added 2026-07-11, re-run gen_box_dynamic.js RANK to re-sync the printed %)
     if ( n == "t9_xm4" )                return 52;   // 1.05% - #6 XM4
     if ( n == "apex_peacekeeper" )      return 58;   // 1.17% - #7 Peacekeeper
     if ( n == "t9_ak47" )               return 64;   // 1.29% - #8 AK-47
@@ -531,7 +545,7 @@ function acc_box_weight( wpn )
     if ( n == "s1_ae4" )                return 133;   // 2.67% - #16 AE4
     if ( n == "s1_rw1" )                return 148;   // 2.97% - #17 RW1
     if ( n == "s1_cel3" )               return 164;   // 3.30% - #18 CEL-3
-    if ( n == "t9_m16" )                return 182;   // 3.66% - #19 M16
+    if ( n == "apex_tripletake" )       return 182;   // 3.66% - #19 Triple Take (took the retired M16's exact slot, 2026-07-11)
     if ( n == "s1_mk14" )               return 202;   // 4.06% - #20 MK14
     if ( n == "s1_tac19" )              return 224;   // 4.50% - #21 Tac-19
     if ( n == "t9_ak74u" )              return 249;   // 5.00% - #22 AK-74u
@@ -711,6 +725,9 @@ function apply_state_when_ready()
     // Deep abyss-station prop clips (acc_clip_* script_brushmodels from add_prop_clips.js) - solidify them the
     // same deterministic way (user 2026-06-27: the Glitch Altar / Overclock / Ammo Crates were walk-through).
     level thread manage_deep_prop_clips();
+    // Cut the AI navmesh under EVERY prop/box clip (user 2026-07-11: zombies ground
+    // against props instead of pathing around them). See manage_prop_clip_navmesh.
+    level thread manage_prop_clip_navmesh();
     // Perk rotation is NOT applied at map-load; it rolls per-round.
     // See watch_round_for_perk_rotation().
 
@@ -1033,6 +1050,56 @@ function manage_deep_prop_clips()
         wait 0.1;
     }
     box_clip_dbg( "no acc_clip_* deep prop brushmodels found in .map" );
+}
+
+// --- Navmesh cut under the prop/box clips (2026-07-11) --------------------------------------------------------
+// cod2map64's navmesh generator IGNORES entities (radiant\configs\navmesh.json "exclusions":
+// misc_model/script_model/script_brushmodel/dyn_model), so every acc_clip_*/acc_box_clip_* script_brushmodel is
+// collision the pathfinder cannot see: zombies path straight through the prop footprint, grind on the invisible
+// clip, and never reroute (stock factory_closest_player only re-picks a target that goes INVALID, never one
+// that is merely unreachable). The stock fix is a runtime DisconnectPaths() on the collision entity - every
+// perk machine (_zm_perks.gsc:1551-1555) and PaP (_zm_pack_a_punch.gsc:114-118) does exactly this, and door
+// slabs auto-disconnect in _zm_blockers.gsc:272-275. Our door/seal modules already prove the call works on our
+// .map-authored brushmodels (no DYNAMICPATH spawnflag needed). Full ledger entry: docs/16 "Navmesh ignores ALL
+// entity collision"; memory navmesh-excludes-entities-disconnectpaths.
+//
+// The sweep is targetname-prefix based so NEW clips from tools/add_prop_clips.js re-runs are covered with zero
+// script changes. All these clips are PERMANENTLY solid (see the two managers above), so a one-shot cut is
+// correct. RULE: if future code ever NotSolid()s one of these clips, it MUST ConnectPaths() it too (pair them
+// exactly like _acc_perk_doors / the lockdown seal do), or the navmesh stays cut under a passable spot.
+
+function cut_navmesh_under_prop_clips()
+{
+    // Classname query is stock-proven (exploder_shared.gsc:28).
+    bms = GetEntArray( "script_brushmodel", "classname" );
+    cut = 0;
+    for ( i = 0; i < bms.size; i++ )
+    {
+        tn = bms[ i ].targetname;
+        if ( !isdefined( tn ) )
+            continue;
+        // acc_clip_* = add_prop_clips.js station clips; acc_box_clip_* = box-node clips
+        // ("acc_box_clip_" does NOT contain "acc_clip_", so both checks are needed).
+        if ( !IsSubStr( tn, "acc_clip_" ) && !IsSubStr( tn, "acc_box_clip_" ) )
+            continue;
+        bms[ i ] disconnectpaths();
+        cut++;
+    }
+    return cut;
+}
+
+function manage_prop_clip_navmesh()
+{
+    level endon( "end_game" );
+
+    // The clips are .map entities (present at load); mirror the managers' defensive poll anyway.
+    for ( i = 0; i < 40; i++ )
+    {
+        n = cut_navmesh_under_prop_clips();
+        if ( n > 0 ) { box_clip_dbg( "navmesh cut under prop/box clips=" + n ); return; }
+        wait 0.1;
+    }
+    box_clip_dbg( "no acc_clip_*/acc_box_clip_* brushmodels to nav-cut" );
 }
 
 // Temporary diagnostic: route a box-collision message to console_mp.log via the

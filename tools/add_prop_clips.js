@@ -79,8 +79,8 @@ const PROPS = [
   { x: -250, y: -430, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot1' },              // IMPLANT LAB Slot 1 (west, forward) - staggered arc 2026-07-10
   { x:  -75, y: -490, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot2' },              // IMPLANT LAB Slot 2 (center, deepest/back)
   { x:  100, y: -430, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot3' },              // IMPLANT LAB Slot 3 (east, forward)
-  { x:  870, y:  -100, hx: 69, hy:  9, bot:   288, top:   336, brushmodel: true, label: 'armory_rack' },          // p7_con_cargo_train_armory_cabinet (138x18x48) - Armory loft (z=288); long axis spans the deposit/withdraw pads.
-  { x:  870, y:   100, hx: 37, hy: 28, bot:   288, top:   398, brushmodel: true, label: 'armory_bottle' },        // p7_zm_vending_wonder (Wonderfizz 74x56x110) - Armory loft bottle exchange.
+  { x:  878, y:  -100, hx: 69, hy:  9, bot:   192, top:   240, brushmodel: true, label: 'armory_rack' },          // p7_con_cargo_train_armory_cabinet (138x18x48) - Armory loft (RE-SYNCED 2026-07-11: loft rebuilt, floor 288->192, stations 870->878 - _acc_armory::spawn_stations); long axis spans the deposit/withdraw pads.
+  { x:  878, y:   100, hx: 37, hy: 28, bot:   192, top:   302, brushmodel: true, label: 'armory_bottle' },        // p7_zm_vending_wonder (Wonderfizz 74x56x110) - Armory loft bottle exchange (RE-SYNCED 2026-07-11, same move).
   { x:   98, y:   200, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_points' },      // p7_out_monitor_atm (37x34x103; mesh extends +X from its back-face origin at x=80 -> clip centered x=98) - Exchange vault.
   { x:   98, y:    40, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_shards' },      // ATM - Exchange vault.
   { x:   98, y:  -120, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_bottles' },     // ATM - Exchange vault.
@@ -89,6 +89,7 @@ const PROPS = [
   // ships NO _col LOD (verified via find <model>*_col.xmodel_bin + tools/xmodel_bin_inspect.js) -> walk-through until clipped.
   { x: -139, y:  2240, hx: 12, hy: 17, bot:  -240, top:  -187, brushmodel: true, label: 'jukebox' },              // cp_town_jukebox 22.7x33x53, yaw 0; mesh sits +X of the spawn origin (-150,2240) -> clip center x=-139. North under-room SW (spread from the reactor 2026-07-10).
   { x:    0, y: -1702, hx: 35, hy: 21, bot: -1200, top: -1125, brushmodel: true, label: 'paradise_pap' },        // p9_fxanim_zm_gp_pap_xmodel 67.9x40.6x75; Paradise standalone Pack-a-Punch (deep z=-1200 -> brushmodel required).
+  { x: -340, y: -210, hx: 17, hy: 24, bot: 0, top: 78, brushmodel: true, label: 'leaderboard_terminal' },        // dragon network terminal 48x34x78 at yaw 90 (X/Y swapped) - PLAZA south wall, west of the Implant door (user 2026-07-11 "network computer has no clip"). Mirrors _acc_leaderboard ACC_LB_STATION_ORIGIN (-340,-210,0).
 ];
 const CLIP_BOT = -240, CLIP_TOP = -160;   // default: sits on the z=-240 floor, 80 tall. Per-prop `top` can override
                                           // (e.g. the cargo crates use top=-192 = a snug 48-tall clip = the plaza crate height).
@@ -111,6 +112,11 @@ function box(x1, x2, y1, y2, z1, z2, tex) {
 // LED lightmapper IGNORES script_brushmodels (memory brushmodel-wall-led-exempt + the shipped acc_ec_right_wall /
 // acc_door_implant precedents in this .map), so an abyss-depth `clip` here gives REAL collision WITHOUT the
 // worldspawn-clip bake crash (brush.cpp:1860). It is solid at load - static, no GSC needed (same as the EC wall).
+// NAVMESH (2026-07-11): the navmesh generator ALSO ignores script_brushmodels (radiant\configs\navmesh.json
+// exclusions), so these clips are collision zombies cannot path around - they grind on the prop. The runtime
+// cut is DisconnectPaths(), done centrally by _acc_map_randomizer.gsc::manage_prop_clip_navmesh, which sweeps
+// ALL `acc_clip_*` targetnames - so new brushmodel clips emitted here are covered automatically, keep the
+// `acc_clip_` prefix. (Worldspawn clips from box() need nothing - cod2map cuts the mesh around them at compile.)
 // Two guids: one for the entity, one for the nested brush (box() emits the brush wrapper + 6 planes).
 function brushmodelEntity(label, x1, x2, y1, y2, z1, z2, tex) {
   const brush = box(x1, x2, y1, y2, z1, z2, tex);   // "{ guid... 6 planes }"

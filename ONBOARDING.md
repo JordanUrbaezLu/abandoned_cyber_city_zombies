@@ -134,8 +134,10 @@ changed in game"):
   ```
 - **Geometry (`.map`), a material/sky/probe, OR a weapon GDT changed** — a relink is
   **not enough**; it silently reuses the old baked geometry/GDT. Run the **full** build,
-  which chains `gdtdb /update` → `cod2map64` (`.map` geometry + navmesh) → **Radiant LED
-  bake** → linker:
+  which chains external-asset gate → sync → `cod2map64` (`.map` geometry + navmesh) →
+  **Radiant LED bake** → linker (note: `build_map.ps1` does **not** run `gdtdb /update` —
+  a weapon-GDT edit needs a separate `gdtdb /update`, via `restore_machine.ps1` /
+  `deploy_source_data.ps1`):
   ```powershell
   .\tools\build_map.ps1
   ```
@@ -157,11 +159,14 @@ launches through Steam with the right dev args.
 > [docs/17_launch_runbook.md](docs/17_launch_runbook.md).
 
 You spawn in Spawn. The launch scripts pass dev **flags**, so you get a
-sandbox: unlimited money + Data Shards, power on, whole map open, a boss on
-round 2. Those flags are all opt-in — **launch with no `acc_` flags and you get
+sandbox: unlimited money + Data Shards and a boss on round 2. Power and the
+buyable doors are **not** auto-granted even in dev — you flip the Bus Station
+power switch and buy the doors yourself (trivial with unlimited money). (reconciled
+to code 2026-07-11) Those flags are all opt-in — **launch with no `acc_` flags and you get
 the clean consumer game** (closed map, earn your own money, decon hazard live).
 Full list + recipes: [docs/22_flags_reference.md](docs/22_flags_reference.md)
-(`run_game.ps1 -NoDev` = clean game, `-ClosedMap` = sandbox but map closed).
+(`run_game.ps1 -NoDev` = clean game; `-ClosedMap` and the other legacy flags are now
+no-ops kept only for call compatibility — dev is all-or-nothing by design). (reconciled to code 2026-07-11)
 
 ---
 

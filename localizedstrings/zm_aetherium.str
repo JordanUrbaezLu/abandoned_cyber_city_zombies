@@ -47,4 +47,7 @@ LANG_ENGLISH         "Li'l Arnie Kill"
 REFERENCE            KF_RAGNAROK_DG4
 LANG_ENGLISH         "Ragnarok Kill"
 
+REFERENCE            BK_PICKUP
+LANG_ENGLISH         "Retrieve Ballistic Knife"
+
 ENDMARKER

@@ -5,7 +5,7 @@
 > `zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` into the global bool
 > `level.acc_dev` (default `0` = ship-safe **normal play**). The dev launch script
 > passes `+set acc_dev 1`; that one flag then drives the legacy sub-dvars
-> (`acc_open_map`, `acc_glitch_test`, `acc_hudelem_debug`, …) so no per-feature
+> (`acc_open_map`, `acc_glitch_test`, …) so no per-feature
 > toggle is needed. **Never "set dvar X in the console" to test a feature** —
 > add a `IS_TRUE( level.acc_dev )` branch instead (design: docs/22). During an
 > active test cycle a hardcode line `level.acc_dev = true;` (and `level.acc_god = true;`)
@@ -44,9 +44,10 @@ climbs to ~4.7 GB over ~40 s.
 
 ### Boss dev cadences (per module)
 
-- **Phantom** ("Reaper") — normal first round 10, then the every-9 shared roster
+- **Phantom** (display name `PHANTOM`) — normal first round 10, then the every-9 shared roster
   (legacy fallback every 10); dev bypasses the master gate and owes Phantoms on the
-  dev cadence, first test spawn from round 8 (`_acc_boss_phantom.gsc`).
+  dev cadence, first spawn from round 4 (dev fallback: every 4; the every-9 shared
+  roster from round 9 takes over once published) (`_acc_boss_phantom.gsc`).
 - **Glitch Stalker** — dev spawns from round 2 (`acc_glitch_test`, `_acc_boss_glitch.gsc`).
 - **Avogadro** (cyberhacker) — dev runs a repeating test spawn (`_acc_boss_avogadro.gsc`).
 - **Rogue/Civil Protector** (r20 hostile) — this module also hosts the shared boss

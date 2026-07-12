@@ -40,6 +40,40 @@ it errors `ERROR: Lua not supported`. Custom LUI needs **L3akMod** (DTZxPorter):
    by the launchers. (So the old "players need -unsafe-lua" ship-blocker is moot for
    Steam — the compiled LUI is baked into the `.ff`.)
 
+## BUILD GOTCHA: L3akMod rejects non-whitelisted GLOBALS -> bogus `'ERR'` crash
+
+**Hard-won 2026-07-11 (leaderboard Stage-0 spike, docs/40).** L3akMod's rawfile-Lua
+compiler (the DLL that turns a `rawfile,*.lua` into HKS bytecode at LINK time) has a
+**whitelist of allowed global identifiers**. Naming any global it doesn't know —
+`io`, `os`, `_G`, `getfenv`, `loadstring`, `rawget` — **fails the compile**, and
+because L3akMod's own error reporter is buggy the failure surfaces as the *misleading*:
+
+```
+[L3akMod (D3V)] Error: attempt to index global 'ERR' (a nil value)
+```
+
+…with linker **exit -1 and NO fresh `.ff`**. The `ERR` message is generic — it means
+"a rawfile Lua chunk failed to compile," NOT anything about a literal `ERR` variable.
+This is a **LINK-time** block, entirely separate from what the HKS **runtime** exposes.
+
+- **Bisected live** (single-construct probe files, one global each): `type(pcall)`
+  builds; `type(io)` does not. **Whitelisted (build OK):** `pcall`, `type`, `tostring`,
+  `string.*`, `math.*`, `require`, **`load`**, `setfenv`, `Engine.*`/`LUI.*`/`CoD.*`.
+  **NOT whitelisted (build CRASH):** `io`, `os`, `_G`, `getfenv`, `loadstring`,
+  `rawget`/`select`. Plain **string literals** containing "io"/"os" are fine — only a
+  bare non-whitelisted **global identifier** trips it.
+- **THE DODGE (proven to compile + the pattern the spike ships):** reach a blocked
+  global through **`load("… io …")`** — a string chunk the HKS VM compiles at RUNTIME,
+  so the LINK-time whitelist never sees the identifier. `load` is whitelisted; the
+  string is just data. Both `load("return io")` and the 5.1 `load(readerfn)` form
+  build clean. (`.luac` precompiled bytecode is the other bypass — it skips L3akMod's
+  source compiler entirely; likely how MACHIN[A] ships its `io`/`os` save system.)
+- **Diagnosis method that worked:** run `linker_modtools.exe -language english
+  -modsource <map>` directly (cwd = `bin`), capture stderr; `ERR` + exit -1 = a Lua
+  rawfile is naming a blocked global. A/B by commenting `rawfile,` lines in the
+  DEPLOYED `.zone` and relinking (linker-only, ~15-40s each) until the offending file
+  is isolated, then bisect the constructs inside it.
+
 ## RUNTIME GOTCHA: `Hud.Bg` -> UI Error 43408
 
 `CoD.Menu.NewForUIEditor()` does **not** expose a `.Bg` member. `Hud.Bg:setAlpha(..)`
@@ -356,18 +390,20 @@ widget, plumbing and hand-tuned position (`AccPapTierIcon` / `AccOcTierText` / `
 retired in place as the restore path).
 
 - **Row model:** the registry `ACC_GUN_BADGES` in acc_hud.lua, in PRIORITY order — entry `[1]`
-  renders rightmost, later entries pack LEFT. Chips are fixed-width, uniform height 32. `Layout()`
+  renders rightmost, later entries pack LEFT. Chips are fixed-width, uniform height 47. `Layout()`
   re-packs on every model change, so the row is always gap-free.
 - **Pennant art (user PNGs, 2026-07-08):** every live badge is a 5:7 pennant card with its own
   baked background — PaP I/II/III (replaced the Ronan hex shields **in place**, same
   `i_acc_pap_tier{1,2,3}` asset names; old PNGs kept as `*.acc-hexshield-orig`), `i_acc_oc_tier1..10`
-  (Lv1–Lv10), `i_acc_badge_mule`, `i_acc_badge_turbo`, `i_acc_badge_nuclear`. Icon chips draw the art
-  **full-bleed with NO plate** (a rectangle would show at the pennant notch); text-chip defs (future
-  badges without art yet) still get the navy plate. Masters are 400×560; shipped textures are
-  **128×128 STRETCHED** (single HQ bicubic pass, System.Drawing, TileFlipXY wrap to kill edge halos,
-  `noMipMaps` like every HUD icon) and the 23×32 quad (true 5:7) un-stretches them at draw time. New
-  badge art: drop a 400×560 (or any 5:7) RGBA PNG in `source_data/acc_perk_shaders/_images/`, resize
-  to 128×128, add the `image.gdf` GDT block + zone `image,` line, run `tools/deploy_perk_shaders.ps1`.
+  (Lv1–Lv10), `i_acc_badge_mule`, `i_acc_badge_turbo`, `i_acc_badge_nuclear`, `i_acc_badge_berzerker`.
+  Icon chips draw the art **full-bleed with NO plate** (a rectangle would show at the pennant notch);
+  text-chip defs (future badges without art yet) still get the navy plate. Since the "enhanced" packs
+  (badges_16/17_enhanced, 2026-07-10/11) the 400×560 masters ship **AS-IS** — the old pre-resize to
+  128×128 (HQ bicubic, System.Drawing, TileFlipXY) is RETIRED; the linker converts the PNG itself
+  (`noMipMaps` like every HUD icon) and the 34×47 quad (~5:7) draws it at the true source aspect. New
+  badge art: drop the 400×560 (or any 5:7) RGBA PNG in `source_data/acc_perk_shaders/_images/` as
+  `i_acc_badge_<x>.png`, clone an `image.gdf` GDT block + zone `image,` line, run
+  `tools/deploy_perk_shaders.ps1` (copies to install + `gdtdb /update`) before linking.
 - **Data (two lanes, one row):**
   - *Tier badges* (int value): ride the **existing** clientuimodels `accPapTier` (0..3) and
     `accOcTier` (0..10) — those keep flowing anyway (the PaP/OC report cards read the same models), so
@@ -376,12 +412,15 @@ retired in place as the restore path).
     same-named UI model (`&set_ui_model_value`, the acc_shards escape hatch above). **bit 0 = MULE**
     (held gun is the one Mule Kick removes on a down — absorbed the former 1-bit `acc_mule` field,
     replaced in-place in gsc+csc lockstep), **bit 1 = TURBO** (Turbocharger implanted and the held gun
-    is a Havoc), **bit 2 = NUKE** (Nuclear Energy implanted and holding a weapon it buffs), 3 spare bits.
+    is a Havoc), **bit 2 = NUKE** (Nuclear Energy implanted and holding a weapon it buffs), **bit 3 =
+    BRZ** (Berzerker implanted and holding a melee weapon it speeds up — Leviathan Axe / Action
+    Figure; the knife-bash surface is deliberately not a trigger or the badge would pin on
+    permanently), 2 spare bits.
 - **Server engine = `_acc_gun_badges.gsc`** (dedicated module, 2026-07-08). A **predicate registry**:
   `init()` calls `register_badge(bit, &pred_fn)` once per flag badge; the per-player `badge_watch`
   (0.25s change-guarded poll, threaded from `_acc_main::on_player_connect`) recomputes the whole mask
   each tick by calling every predicate on the held weapon and pushing `acc_badges` on change. Each
-  predicate (`pred_mule` / `pred_turbo` / `pred_nuclear`) is `self=player, cur=held weapon → bool`,
+  predicate (`pred_mule` / `pred_turbo` / `pred_nuclear` / `pred_berzerker`) is `self=player, cur=held weapon → bool`,
   self-contained and independently correct, so one badge can never break another and any order of
   operations converges within a tick. The `acc_badges` clientfield is *registered* in
   `_zm_aetherium_hud.gsc/.csc` (toplayer bit-layout lockstep); the module only reads/writes it.
@@ -397,7 +436,7 @@ retired in place as the restore path).
   &pred_x)` in its `init()`, (3) one entry in `ACC_GUN_BADGES` (acc_hud.lua) with `bit = <bit>`. No new
   widget, no new clientfield, no per-badge positioning. (Widen the 6-bit `acc_badges` in BOTH
   `_zm_aetherium_hud.gsc`+`.csc` in lockstep only if a 7th flag badge is needed.)
-- **Position:** right edge x 1061, y 646..668 (virtual) — flush under the Aetherium reserve-ammo line
+- **Position:** right edge x 1061, y 644..691 (virtual) — flush under the Aetherium reserve-ammo line
   (AetheriumLoadout.lua: reserve x 968..1057 / y 629..638). CAVEAT: the AAT ammo-mod icon occupies
   x 1037..1061 / y 641..665 when an AAT is rolled — if they collide in-game, raise `ACC_GUN_BADGE_BOTTOM`
   or grow `ACC_GUN_BADGE_RIGHT`. Tune in-game.

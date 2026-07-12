@@ -76,7 +76,9 @@ All currency writes are per-player and multiplayer-safe.
 - **Bosses** — a full roster, not placeholders: Brutus (`_acc_boss_brutus.gsc`),
   Glitch (`_acc_boss_glitch.gsc`), Phantom (`_acc_boss_phantom.gsc`), Avogadro
   (`_acc_boss_avogadro.gsc`), Panzer/mechz, plus the Rogue/Civil Protector r20 boss,
-  shared via `level.acc_boss_roster_fn`. Cadence: a **mini-boss first at round 10**;
+  shared via `level.acc_boss_roster_fn`. Cadence: the **Trench Warden mini-boss debuts
+  once power is on AND round >= 5** (`acc_warden_first_round`, default 5), then respawns
+  3 rounds after each kill (kill-anchored, not a fixed round);
   full **boss rounds every 9 from round 9** (r9=1, r18=2, r27=3), with types dealt
   from a no-duplicate shuffled deck (see `_acc_boss.gsc`). *(The old "one boss every
   10" plan is superseded.)*

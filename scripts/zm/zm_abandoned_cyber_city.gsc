@@ -77,6 +77,13 @@
 #using scripts\zm\_zm_weap_elemental_bow_wolf_howl;
 #using scripts\zm\_zm_weap_elemental_bow_demongate;
 
+// [acc] Winter's Howl freeze gun (GCPeinhardt 1:1 BO1 port; box UTILITY wonder weapon, 2026-07-11).
+// Self-registers via autoexec system::register - this #using pulls it into the compile. Utility WW:
+// slows bosses (25%/3s), super-effective vs the Shielded elite + Glitch Stalker (map logic in the
+// _zm_weap_freezegun.gsc [acc] block). Matching #using in the entry .csc REQUIRED (toggle_freezegun_*
+// clientfield lockstep). External rip - assets gitignored via the manifest.
+#using scripts\zm\_zm_weap_freezegun;
+
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
@@ -373,13 +380,12 @@ function acc_resolve_dev_flags()
 	// SHIP-SAFE (user 2026-07-08 publish prep: "make sure dev mode and god mode are hardcoded off"):
 	// dvar-driven, default 0 = OFF for every Workshop player; PLAY_TEST_MAP still passes +set acc_dev 1.
 	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
-	// level.acc_dev = true;   // <- HARDCODED ON (user 2026-07-10: "hardcode dev mode on"). Overrides the dvar line above:
-	// EVERY launch now runs the dev sandbox (unlimited money/shards, all perk slots, boss test spawns, Blast-O-Matic
-	// start; god via acc_god below). SHIP PATH = comment this one line out (dvar line then rules, default 0 = normal
-	// play). prep_release.ps1 FAILS on this active line so an invulnerable full-dev build can never reach a publish.
-	// SHIPPED OFF 2026-07-11 (user publish prep: "hard code dev mode and god mode off so i can publish") -
-	// the hardcode-ON line above is commented per its own SHIP PATH; the dvar line rules, default 0 = normal
-	// play for every Workshop player (PLAY_TEST_MAP's +set acc_dev 1 still enables dev for local testing).
+	//level.acc_dev = true;   // <- OFF FOR PUBLISH (user 2026-07-12): commented out so the dvar line ABOVE rules (default 0 = OFF for every Workshop player; the dev launch script's +set acc_dev 1 still enables it for testing). Was HARDCODED ON (2026-07-11) for the
+	// Winter's Howl freeze-gun test). Overrides the dvar line above: EVERY launch runs the full dev sandbox
+	// (unlimited money/shards, all perk slots + buyable, boss test spawns from round 2, the freeze-gun dev
+	// start, etc.; god via acc_god below). SHIP PATH = comment this one line out (the dvar line then rules,
+	// default 0 = normal play). prep_release.ps1 FAILS on this active line so an invulnerable full-dev build
+	// can never reach a publish.
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
@@ -415,11 +421,9 @@ function acc_resolve_dev_flags()
 	// (_acc_elites::on_player_damaged clamp; effects still fire).
 	// SHIP-SAFE (user 2026-07-08 publish prep): dvar-driven, default 0 = OFF for every Workshop player.
 	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
-	// level.acc_god = true;   // <- HARDCODED ON (user 2026-07-10: "hardcode code[=god] mode on", paired with dev above).
-	// Demigod: real damage lands but health floors at 1 HP (effects still fire). SHIP PATH = comment this one line out
-	// (dvar line then rules, default 0 = off). prep_release.ps1 FAILS on this active line so it can't reach a publish.
-	// SHIPPED OFF 2026-07-11 (user publish prep, paired with acc_dev above): dvar line rules, default 0 = no god
-	// for every Workshop player (PLAY_GOD_MODE's +set acc_god 1 still enables the demigod floor for local testing).
+	//level.acc_god = true;   // <- OFF FOR PUBLISH (user 2026-07-12): commented out so the dvar line ABOVE rules (default 0 = OFF). Was HARDCODED ON (2026-07-11), paired with
+	// acc_dev above). Demigod: real damage lands but health floors at 1 HP (effects still fire). SHIP PATH =
+	// comment this one line out (the dvar line then rules, default 0 = off). prep_release.ps1 FAILS on this line.
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
 }
 

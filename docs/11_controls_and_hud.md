@@ -47,9 +47,9 @@ No custom keys; the interaction is the world trigger you look at.
 |---|---|---|
 | Perk machine | per zone | Buy perk; Mega upgrade prompt is Mega-aware (bottle cost). |
 | Pack-a-Punch | Lab | Our tiered PaP (T1-T3 scaling cost; `_acc_pap_levels`). |
-| Mystery Box | 3 inline boxes | Stock box; **box-only** weapon distribution (large arsenal). |
+| Mystery Box | 6 locations (roaming) | Stock box; **box-only** weapon distribution (large arsenal). One active at a time across 6 chest nodes (`acc_box_market/corp/roof/plaza/lab/vault`). |
 | Wallbuys | per zone | Stock name + price via Aetherium cursor hint (`PromptWallBuy`). |
-| Buyable doors | 8 doors | `zombie_door` triggers (`script_flag enter_*`). |
+| Buyable doors | 13 doors | `zombie_door` triggers (`script_flag enter_*`). |
 | Power switch | Corp (Bus Station) | Stock power; also the Emergency Drop trigger (below). The Vault switch was removed 2026-06-18 — the map ships **one** switch. |
 | Overclock terminal | Lab | Shard-spend **weapon-upgrade** UI — the live upgrade path (`_acc_overclocks`, model `p7_zm_sta_dragon_network_data_terminal`). The Cyberware kiosk/tree is **disabled by default** (gated behind `acc_cyberware_on`, default 0) and is not spawned. |
 | Exo Suit station | trench | Per-player depth-gate; cancels the per-layer trench slow (docs/29). |
@@ -128,7 +128,9 @@ and go. Two data lanes feed one row:
 - **Flag badges** (on/off) share ONE `acc_badges` toplayer bitmask
   (`_acc_gun_badges.gsc`, 6 bits): **bit 0 = MULE** (the gun Mule Kick removes on a down —
   swap-stable via the acquisition-order override), **bit 1 = TURBO** (Turbocharger implant +
-  holding a Havoc), **bit 2 = NUKE** (Nuclear Energy implant + holding a weapon it buffs).
+  holding a Havoc), **bit 2 = NUKE** (Nuclear Energy implant + holding a weapon it buffs),
+  **bit 3 = BRZ** (Berzerker implant + holding a melee weapon it speeds up — Leviathan Axe /
+  Action Figure; the knife-bash surface deliberately doesn't light it, it would pin on always).
   A per-player 0.25s poll (`badge_watch`) recomputes the whole mask from a **predicate
   registry**, so it is self-correcting on any weapon swap / perk gain / twin reform.
 
@@ -149,13 +151,14 @@ readout was removed, user 2026-06-17). The fill + sliver **slide** to each new v
 250ms LUI keyframe tween (`completeAnimation → beginAnimation`), matching the ~0.25s server
 push so steps chain into a continuous drain.
 
-Data path: one `accRoundRing` clientuimodel int (7 bits; `_acc_lui.gsc:100`) = fill percent
-0-100, with **127 = hide** (boss / no-wave rounds). `_acc_lui`'s per-round **director**
-captures the "full" denominator **once** at round start — `remaining = alive +
-still-to-spawn`, over `round_total` frozen once — deliberately **not** a high-water-mark
-latch (`level.zombie_total` starts at max and only decrements, so a max-latch mis-tracks
-overflow waves). A per-player `round_ring_watch` (0.25s poll) pushes the fill on change and
-hides the bar on boss rounds.
+Data path: one `accRoundRing` clientuimodel int (7 bits; `_acc_lui.gsc:100`) = fill percent,
+**clamped 0-100** (`set_round_ring` never pushes above 100; the 7-bit field width just spans
+0-127). There is **no hide sentinel** — the bar is always visible. `_acc_lui`'s `round_ring_watch` tracks the "full"
+denominator as a **high-water-mark (peak) latch**: `total` resets to 1 each new round, then
+grows to the peak of `remaining = alive + level.zombie_total` seen that round
+(`if ( remaining > total ) total = remaining;`, `_acc_lui.gsc:228`), and the fill is
+`remaining / total * 100`. A per-player `round_ring_watch` (0.25s poll) pushes the fill on change; the bar
+is **always visible** — there is no boss-round or no-wave hide.
 
 > The earlier **radial ring** design (a stock `hud_objective_circle_meter` material driven
 > by `setShaderVector`) was the first attempt and is **abandoned** — that meter draws in
@@ -262,7 +265,7 @@ The map's UI touchpoints and what actually draws each one today:
 | 6 | Weapon / ammo / equipment | `AetheriumLoadout` (bottom-right). |
 | 7 | Currencies (Shards / Bottles / Exo) | `AetheriumPlayerInfo` panel + `AetheriumPartyPlayers` (co-op teammates). |
 | 8 | Player + boss HP + nameplate | server hudelems (`_acc_health_bars.gsc`, sliding bars). |
-| 9 | Held-weapon status (PaP / OC / MULE / TURBO / NUKE) | `acc_hud` gun-badge row (`CoD.AccGunBadgeRow`). |
+| 9 | Held-weapon status (PaP / OC / MULE / TURBO / NUKE / BRZ) | `acc_hud` gun-badge row (`CoD.AccGunBadgeRow`). |
 | 10 | Round progress | `acc_hud` HOSTILES bar (`CoD.AccRoundRing`). |
 | 11 | Damage numbers | `acc_hud` (`CoD.AccDmgNum`). |
 | 12 | Kill feed | `AetheriumKillFeed` + `_acc_points::send_kill_feed`. |

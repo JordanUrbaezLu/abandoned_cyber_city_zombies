@@ -10,7 +10,7 @@
 > only stock, self-authored, or CC0 audio** (see §4).
 
 **Status (2026-07-10):** a large custom alias set is **LIVE** in
-[`sound/aliases/acc_audio.csv`](../sound/aliases/acc_audio.csv) (48 rows) +
+[`sound/aliases/acc_audio.csv`](../sound/aliases/acc_audio.csv) (47 alias rows) +
 [`acc_round_sounds.csv`](../sound/aliases/acc_round_sounds.csv) (round stingers) +
 the boss/weapon packs. The one-song-at-a-time **music channel** ([`_acc_music.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc))
 governs every *song*. Perk jingles, pickups, PaP, decon alarm, powerup drop/grab,

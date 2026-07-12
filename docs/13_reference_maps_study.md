@@ -59,8 +59,8 @@ The "most advanced custom zombies map" per several youtube reviews. Cyber / indu
 
 - **Boss-drop item system.** Bosses drop random passive-buff items. Players equip; effects apply while implanted; late runs assemble interesting combinations. **This is the single biggest pattern we took** — our `_acc_boss_items.gsc` is directly inspired.
 - **Custom wonder weapons with unique boss synergy.** In Machin[a] one weapon excels against one specific boss. We **considered** this (early docs named a "Signal Staff" / "Vibro Cleaver") but **never shipped boss-specific wonder weapons** — they don't exist in `gamedata/weapons/zm/zm_levelcommon_weapons.csv`. Our arsenal is **box-only** and large (Apex ports + Skye ports + elemental bows) rather than a small counter-weapon set. See "did NOT take" below.
-- **Integrated theme-mechanic alignment.** Machine/cyber theme shows up in WEAPON BEHAVIOR (not just art). Energy guns behave differently from gunpowder guns. **We shipped this**: energy weapons (Havoc beam rifle, Tac-19, AE4, RW1, Blast-O-Matic, Thundergun) are flagged by `_acc_damage::is_energy_weapon()` and interact with the Nuclear Energy boss item (+15% energy/explosive damage). The **Tac-19** is our headline example: `is_weapon_headshot_excluded()` drops its headshot multiplier and it trades that for a bumped base damage in its GDT, making it the crowd-control gun (`_acc_damage.gsc:1549/1577`).
-- **Multi-stage upgrade for weapons.** Weapons upgrade through multiple tiers with visible external changes. Our PaP L1–5 (`_acc_pap_levels.gsc`) + Overclocks (`_acc_overclocks.gsc`) drive weapon-state escalation.
+- **Integrated theme-mechanic alignment.** Machine/cyber theme shows up in WEAPON BEHAVIOR (not just art). Energy guns behave differently from gunpowder guns. **We shipped this**: energy weapons (Havoc beam rifle, Tac-19, AE4, RW1, Blast-O-Matic, Thundergun) are flagged by `_acc_damage::is_energy_weapon()` and interact with the Nuclear Energy boss item (+15% energy/explosive damage). The **Tac-19** is our headline example: `is_weapon_headshot_excluded()` drops its headshot multiplier and it trades that for a bumped base damage in its GDT, making it the crowd-control gun (`_acc_damage.gsc:1620` `is_energy_weapon` / `:1639` `is_weapon_headshot_excluded`, Tac-19 at `:1652`).
+- **Multi-stage upgrade for weapons.** Weapons upgrade through multiple tiers with visible external changes. Our PaP L1–3 (`_acc_pap_levels.gsc`, `ACC_PAP_MAX_TIER = 3`) + Overclocks (`_acc_overclocks.gsc`) drive weapon-state escalation.
 
 ### What we took
 
@@ -68,12 +68,12 @@ The "most advanced custom zombies map" per several youtube reviews. Cyber / indu
 |---|---|
 | Boss-drop passive items | Our 10-item pool in `_acc_boss_items.gsc::build_item_pool()`: Gas Tank, Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger (Havoc), Nuclear Energy, Battery. Fixed 3-slot implant bench (docs/09). |
 | Energy weapon = different damage rules | Tac-19 no-headshot-mult + bumped base damage; energy-weapon family gets the Nuclear Energy +15% layer. |
-| Multi-stage weapon upgrade | PaP L1–5 + Overclocks. |
+| Multi-stage weapon upgrade | PaP L1–3 + Overclocks. |
 
 ### What we explicitly did NOT take
 
 - **Boss-specific wonder-weapon counters**: the early "Signal Staff → boss X" / "Vibro Cleaver → boss Y" idea was **abandoned, never built** (no entries in the weapon table). Our difficulty gate is boss HP tuning + the box arsenal, not a mandatory counter-weapon.
-- **Intricate main Easter Egg chain**: we dropped main EEs entirely per design direction in [00_overview.md](00_overview.md). Replaced with the Hack Terminal side event (`_acc_events_hack.gsc`, grants Data Shards) and the Reactor Surge / Glitch Altar / Jukebox POIs — **not** wonder-weapon craft gates.
+- **Intricate main Easter Egg chain**: we dropped main EEs entirely per design direction in [00_overview.md](00_overview.md). Replaced with the Hack Terminal side event (`_acc_events_hack.gsc`; its +2 Data-Shard reward is **off by default** behind the `acc_hack_shard_drop` dvar, so shards come from the trench economy, not the terminal) and the Reactor Surge / Glitch Altar / Jukebox POIs — **not** wonder-weapon craft gates.
 - **High visual polish as a design pillar**: Machin[a] is art-heavy; our [00_overview.md](00_overview.md) explicitly de-prioritizes art.
 
 ### Lessons from Machin[a] reception
@@ -89,7 +89,7 @@ When unsure how a system should behave, grep the stock map's GSC. These are the 
 ### Shadows of Evil (`zm_zod`)
 
 - **Rituals and beast mode**: complex state-machine gameplay. Our side events (Hack Terminal, Reactor Surge) are distant cousins — timed objective sequences with pressure scaling. (The old "Vault Overload" timed point-defense event was **retired 2026-07-07** and is commented out in `_acc_main.gsc` — nothing reads `level.acc_overload_state` anymore.)
-- **Shadow Man boss**: phase-based boss fight with add spawning and arena mechanics. We do **not** copy the arena-lockout shape. Our current model is a **multi-boss roster** (Brutus, Phantom, Glitch, Avogadro, Panzer, + Rogue/Civil Protector) dealt from a no-duplicate shuffled deck on boss rounds — no single scripted "Shadow Man"-style fight, no arena lockout. (An earlier single "Subroutine Core" full boss with HP-threshold phases + arena lockout was **removed 2026-06-22**, superseded by the roster.)
+- **Shadow Man boss**: phase-based boss fight with add spawning and arena mechanics. We do **not** copy the arena-lockout shape. Our current model is a **multi-boss roster**: boss rounds deal from a no-duplicate shuffled **4-type deck** (Phantom, Rogue/Civil Protector, Avogadro, Panzer — `_acc_civil_protector.gsc:247-250`), while Brutus (round 10/20) and Glitch run on their own independent mini-boss cadences outside that deck — no single scripted "Shadow Man"-style fight, no arena lockout. (An earlier single "Subroutine Core" full boss with HP-threshold phases + arena lockout was **removed 2026-06-22**, superseded by the roster.)
 
 ### Der Eisendrache (`zm_castle`)
 
@@ -152,7 +152,7 @@ Open items worth revisiting (tracked here so we don't forget):
 - **Kill point streaks / combo bonus**: stock BO3 doesn't have this; some custom maps do. Should our multi-kill bonus return (it was cut in an earlier balance pass)? Playtest call.
 - **Weapon XP alternative to Tier?**: Ameliorama levels weapons via kills. Ours uses Shard spending. Hybrid ("first Tier free via weapon XP, rest via Shards")? Deferred.
 - **Skill tree persistence as a modifier**: offer a modifier that makes Cyberware persist across deaths within a run? Would soften the respawn penalty. (Moot until the Cyberware tree is re-enabled — it's dormant in ship, see §1.)
-- **Mini-boss / boss-type variety**: Machin[a] has multiple mini-boss types per map. We ship a Brutus mini-boss plus a multi-boss roster (Brutus/Phantom/Glitch/Avogadro/Panzer/Rogue Protector). Room for more roster entries post-1.0 — add via the shared roster fn.
+- **Mini-boss / boss-type variety**: Machin[a] has multiple mini-boss types per map. We ship a **Brutus mini-boss** (Trench Warden, its own cadence) plus a **4-type boss roster** dealt from a no-duplicate shuffled deck (Phantom / Rogue Protector / Avogadro / Panzer). Room for more roster entries post-1.0 — add via the shared roster fn. (reconciled to code 2026-07-11)
 
 ---
 

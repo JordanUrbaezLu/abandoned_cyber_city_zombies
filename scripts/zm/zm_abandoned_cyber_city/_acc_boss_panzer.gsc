@@ -433,6 +433,16 @@ function spawn_boss()
 	// see the [acc] header on acc_setup_mechz for what it applies and what it deliberately skips.
 	boss mechz_spiki::acc_setup_mechz();
 
+	// BODY-DAMAGE REBUFF (user 2026-07-11): acc_setup_mechz just pointed actor_damage_func at the
+	// STOCK MechzServerUtils::mechzDamageCallback, which scales EVERY body/limb hit to 10% while the
+	// head + exposed core stay 100% - the "no headshot weakness, pure sponge" feel. Re-point it at
+	// our wrapper, which delegates to stock (all side effects intact) and rebuffs ONLY the body
+	// family to acc_panzer_body_scale (default 0.35). Capture the stock pointer ONCE from the field
+	// acc_setup_mechz set, so we never need a MechzServerUtils #using here. See acc_mechz_damage_wrap.
+	if ( !isdefined( level.acc_mechz_stock_damage_func ) )
+		level.acc_mechz_stock_damage_func = boss.actor_damage_func;   // = &MechzServerUtils::mechzDamageCallback
+	boss.actor_damage_func = &acc_mechz_damage_wrap;
+
 	// --- boss identity (the shared flags - octobomb filter, sibling landing-splash exclusion,
 	// _acc_zombie_speed ASM skip, corpse-cleanup skip, nuke/round-count exemption all key off
 	// these; set IMMEDIATELY so there is no unflagged window) ---
@@ -469,6 +479,104 @@ function spawn_boss()
 	boss thread retarget_loop();  // closest-player targeting (see the function header)
 
 	return boss;
+}
+
+// ---------------------------------------------------------------------------
+// Hit-location damage wrapper - body rebuff + headshot bonus (user 2026-07-11)
+// ---------------------------------------------------------------------------
+//
+// TWO tunings live here (both bullet-only; explosives/projectiles keep stock handling):
+//   1. BODY REBUFF - stock scales torso/limb hits to 10%; we rebuff to acc_panzer_body_scale (0.35).
+//   2. HEADSHOT - stock gates the head weak spot behind the (on our map, fat) faceplate; we make the
+//      head a weak spot for every bullet and pay acc_panzer_head_scale (1.25x). See the inline notes.
+//
+// WHY: stock MechzServerUtils::mechzDamageCallback scales EVERY body/limb hit to 10%
+// (MECHZ_BODY_DAMAGE_SCALE 0.1) while a head hit + the exposed power core stay at 100% and
+// explosives at 50%. In-game that reads as "he has no headshot weakness, he's just a sponge"
+// (docs/08) - because center-mass (the biggest, most natural target) does 1/10th damage and the
+// head does base (not a BONUS) damage, so there's no headshot "pop" to reward. The 0.1 lives in a
+// stock #define inside a STOCK function we don't own (can't edit it), so instead we WRAP the
+// callback: run stock first (preserving ALL its side effects - part destruction, faceplate/powercap
+// tracking, hit markers, pain audio, scoring, the explosive-reaction path) and then rebuff ONLY the
+// 0.1 body family up to acc_panzer_body_scale (default 0.35). Head / exposed-core / explosive
+// returns are left byte-for-byte stock, so the head is still ~3x better than the body - the weak
+// spot survives, the body just stops being useless.
+//
+// HOW WE ISOLATE THE BODY FAMILY WITHOUT REPLICATING THE STOCK SWITCH: stock's only hit-location
+// scales are { 0, 0.1, 0.5, 1.0 }, each times the weapon-class modifier { 0.5, 0.65, 0.75, 1.0 }.
+// Dividing the stock RESULT by that same weapon-modified base recovers the PURE hit scale exactly
+// (level.mechz_damage_override is NOT registered on this map, so nothing else skews the base). The
+// 0.1 family maxes at 0.1; the next family (0.5) floors at 0.25 - so a 0.2 threshold cleanly
+// separates "body" from "weak spot / explosive". No new dev flag - acc_panzer_body_scale is a
+// live-balance tuning dvar (default baked below); set it 0.1 to restore exact stock behavior.
+function acc_mechz_damage_wrap( inflictor, attacker, damage, dFlags, mod, weapon, point, dir, hitLoc, offsetTime, boneIndex )
+{
+	// self = the mechz. Delegate to stock FIRST - it does every side effect (part destruction,
+	// faceplate/powercap tracking, hit markers, scoring, explosive reaction) and returns the scaled hit.
+	result = self [[ level.acc_mechz_stock_damage_func ]]( inflictor, attacker, damage, dFlags, mod, weapon, point, dir, hitLoc, offsetTime, boneIndex );
+	if ( !isdefined( result ) || result <= 0 )
+		return result;   // flyin-gate / elemental-bow / no-damage returns - untouched
+
+	// EXPLOSIVE / PROJECTILE weapons take their OWN stock path (flat 0.5 explosive, or the MOD_PROJECTILE
+	// tag-proximity block with its own head/core checks) - leave those exactly stock; our head + body
+	// tuning is for BULLET guns, the thing the player actually aims with.
+	if ( acc_mechz_is_splash_mod( mod ) )
+		return result;
+
+	ref = acc_mechz_weapon_mod( damage, weapon );   // stock's post-weapon-modifier base, pre hit-scale
+	if ( ref <= 0 )
+		return result;
+
+	// HEADSHOT (user 2026-07-11): stock gates the head weak spot BEHIND the faceplate, and OUR faceplate
+	// is a fat pool (level.var_fa14536d 1500+, vs stock's 50), so a weak gun can never break the helmet
+	// to expose the head => "some guns can't headshot" (the t9_grav report - it's the helmet, NOT PaP).
+	// We make the head a weak spot for EVERY bullet, faceplate or not: a face hit is the engine "head"
+	// hitLoc OR proximity to the j_faceplate tag (the exact tag stock uses; height-guarded so a missing
+	// tag falling back to the feet origin can't false-positive a leg shot). Pays acc_panzer_head_scale
+	// (default 1.25x). Stock still chips the faceplate as a side effect, so the helmet visually breaks -
+	// it's just no longer a hard gate on landing headshots.
+	is_head = ( isdefined( hitLoc ) && hitLoc == "head" );
+	if ( !is_head )
+	{
+		face = self GetTagOrigin( "j_faceplate" );
+		hr   = getdvarfloat( "acc_panzer_head_radius", 21 );   // 18 -> 21 (+~15%, user 2026-07-11: headshots felt too tight)
+		if ( isdefined( face ) && ( face[ 2 ] - self.origin[ 2 ] ) > 20 && DistanceSquared( face, point ) <= hr * hr )
+			is_head = true;
+	}
+	if ( is_head )
+		return ref * getdvarfloat( "acc_panzer_head_scale", 1.25 );   // 1.25x base = ~3.6x a body shot
+
+	// BODY: rebuff the stock 0.1 family up to acc_panzer_body_scale; leave the exposed-core weak spot
+	// (0.5/1.0) stock. The 0.1 family maxes at 0.1, the next family (0.5) floors at 0.25 -> a 0.2 cut is clean.
+	scale = result / ref;
+	if ( scale >= 0.2 )
+		return result;         // exposed core - leave stock behavior intact
+	body_scale = getdvarfloat( "acc_panzer_body_scale", 0.35 );
+	return result * ( body_scale / 0.1 );   // 0.1 = stock MECHZ_BODY_DAMAGE_SCALE (0.35 -> x3.5)
+}
+
+// Splash/explosive/projectile MODs get their own dedicated stock handling in mechzDamageCallback -
+// our bullet head/body tuning must NOT touch them (guarded: string == undefined THROWS in T7).
+function acc_mechz_is_splash_mod( mod )
+{
+	if ( !isdefined( mod ) )
+		return false;
+	return ( mod == "MOD_GRENADE" || mod == "MOD_GRENADE_SPLASH" || mod == "MOD_PROJECTILE" || mod == "MOD_PROJECTILE_SPLASH" || mod == "MOD_EXPLOSIVE" );
+}
+
+// Mirror of stock mechzWeaponDamageModifier (mechz.gsc) - kept in lockstep so the scale inference
+// above divides by the EXACT base stock used. Stock constants; update here only if Treyarch's ever change.
+function acc_mechz_weapon_mod( damage, weapon )
+{
+	if ( isdefined( weapon ) && isdefined( weapon.name ) )
+	{
+		if ( IsSubStr( weapon.name, "shotgun_fullauto" ) )  return damage * 0.5;
+		if ( IsSubStr( weapon.name, "lmg_cqb" ) )           return damage * 0.65;
+		if ( IsSubStr( weapon.name, "lmg_heavy" ) )         return damage * 0.65;
+		if ( IsSubStr( weapon.name, "shotgun_precision" ) ) return damage * 0.65;
+		if ( IsSubStr( weapon.name, "shotgun_semiauto" ) )  return damage * 0.75;
+	}
+	return damage;
 }
 
 // GOAL DRIVER (playtest round 2, 2026-07-08: HB showed favoriteenemy SET + path "move allowed" +

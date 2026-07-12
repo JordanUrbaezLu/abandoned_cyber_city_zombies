@@ -19,12 +19,17 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
 ### Current-state corrections (supersede the frozen rows/headers below)
 
 - **The map is NOT an entity-less greybox.** `map_source/zm/zm_abandoned_cyber_city.map`
-  now contains ~300 `acc_`-prefixed references, including the interaction
-  entities the audit reported "absent": `acc_boss_spawn`, `acc_cyberware_kiosk`,
-  `acc_overclock_terminal`, `acc_hack_terminal`, `acc_power_corp`/`_vault`,
-  `acc_box_*`, `acc_lab_perk_*`. Every "grep `acc_` over the .map returns zero
-  matches / every interaction entity is map-missing" claim (docs/03, 07, 12, 15
-  headers) is stale. <!-- TODO(acc-verify): re-audit each map-missing row -->
+  now contains ~300 `acc_`-prefixed references, including interaction
+  entities the audit reported "absent": `acc_boss_spawn`, `acc_hack_terminal`,
+  `acc_power_corp`/`_vault`, `acc_box_*`. Three of the originally-listed entities
+  are NOT present: `acc_cyberware_kiosk` is still map-missing (`_acc_cyberware.gsc`
+  no-ops until Radiant places it), `acc_overclock_terminal` was removed 2026-06-25
+  (only a removal comment remains), and the `acc_lab_perk_*` machines never
+  shipped — Lab perks now use the `acc_perk_door_<specialty>` alcove doors
+  (`_acc_perk_doors.gsc`). (reconciled to code 2026-07-11) Every "grep `acc_` over
+  the .map returns zero matches / every interaction entity is map-missing" claim
+  (docs/03, 07, 12, 15 headers) is stale.
+  <!-- TODO(acc-verify): re-audit each map-missing row -->
 - **Bosses are real, not log-only stubs.** Live modules `_acc_boss_avogadro`,
   `_acc_boss_brutus`, `_acc_boss_glitch`, `_acc_boss_phantom`, `_acc_boss_panzer`
   (mechz) + Rogue/Civil Protector, plus `_acc_boss_nameplate.gsc/.csc`, all
@@ -56,9 +61,13 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   was never built.
 - **RETIRED / superseded:** the **Vault Overload** side-event was removed
   2026-07-07 (commented out in `_acc_main.gsc:199`) — treat all `overload-*` rows
-  as retired. Co-op zombie **spawn-count** scaling reverted to the base game
-  2026-06-24 (`base-game` rows). Weapons are **box-only** with a large arsenal
-  (Apex + Skye ports + elemental bows), not a fixed 16-weapon shortlist.
+  as retired. Co-op zombie **spawn-count** scaling applies a custom
+  +30%-per-extra-player rescale (1p 1.0 / 2p 1.3 / 3p 1.6 / 4p 1.9) via
+  `acc_coop_max_zombie_override`, which chains `level.max_zombie_func`
+  (reconciled to code 2026-07-11). Weapons come from a large box arsenal
+  (Apex + Skye ports + elemental bows) plus a few wallbuys (Olympia, a grenade,
+  Five-seveN) — not box-only, and not a fixed 16-weapon shortlist (reconciled to
+  code 2026-07-11).
 
 ## Status totals (frozen 2026-06-12 — see corrections above; no longer accurate)
 
@@ -287,8 +296,8 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Design + implement a r31+ spawn-pacing override (e.g., reduce stock spawn delay / raise concurrent AI limit).
 - [x] **coop-elite-hp-flat** `implemented` *(closed 2026-06-12 second ultracode pass)* — Elites scale +50% HP per extra player (flatter than regular zombies).
   - *Next:* Multiply elite promotion HP by (1 + 0.5 * (level.players.size - 1)) in promote_to_*.
-- [x] **coop-spawn-rate-30pct** `base-game` *(reverted to stock 2026-06-24)* — Zombie spawn count now follows the **base game** (stock per-player scaling). The custom +30%/+50%-per-extra-player rescale was removed at the user's request ("follow how base game does it").
-  - *Done:* Removed acc_coop_max_zombie_override; coop_scaling no longer chains level.max_zombie_func.
+- [x] **coop-spawn-rate-30pct** `implemented` — Zombie spawn **count** scales +30% per extra player vs solo (1p 1.0 / 2p 1.3 / 3p 1.6 / 4p 1.9) via `acc_coop_max_zombie_override`, which `coop_scaling` chains onto `level.max_zombie_func` in post_zm_main. (reconciled to code 2026-07-11)
+  - *Status:* acc_coop_max_zombie_override is live (`_acc_coop_scaling.gsc:67`); coop_scaling wraps the prior func and chains level.max_zombie_func (ACC_COOP_SPAWN_PER_EXTRA 0.3).
 - [ ] **shards-hud** `phase4-blocked` — Shard count is visible to the player on the HUD.
   - *Next:* Author client-side .csc module + LUI widget bound to the 'acc_data_shards' toplayer clientfield (Phase 4).
 
@@ -311,7 +320,7 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
 - [x] **ability-table-cooldowns** `implemented` — Eight category abilities with exact cooldowns: Triple Tap 15s, Stabilizer 25s, Precision Mode 30s, Slug Round 20s, Thermal Vision 30s, Whirlwind 20s, Extended Fuse 15s, Overcharge 20s.
 - [x] **ability-cooldown-holstered** `implemented` — Ability cooldowns tick down while the weapon is equipped AND while holstered.
 - [x] **ability-free-round1** `implemented` — Abilities are free (no buy, no gate) and available from round 1 regardless of Tier/PaP level.
-- [x] **wonder-oc-classifier-none** `implemented` — Wonder weapons do not route through the Overclock Terminal — weapon_name_to_family returns "none" for signal_staff_zm and vibro_cleaver_zm.
+- [x] **wonder-oc-classifier-none** `implemented` — Wonder weapons do not route through the Overclock Terminal — weapon_name_to_family returns "unknown" (they are in no family list nor the none_list) for signal_staff_zm and vibro_cleaver_zm.
 - [ ] **roster-16-weapons** `scaffolded` — Arsenal is exactly 16 weapons: 4 categories x 3 tiers (12 primaries) + B23R starter pistol + Bowie Knife + Frag Grenade + EMP Grenade; 8 stock, 7 imports, 1 custom.
   - *Next:* Author the 7 import + 1 custom weapon GDTs on the Windows box and add matching weaponfull zone lines.
 - [ ] **wallbuy-intervention-3500** `scaffolded` — Intervention (MW2 import) is a 3,500-point wallbuy at Helipad; documented fallback is Drakon at the wallbuy if the port is unstable.
@@ -663,7 +672,9 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
 > spawners are log-only stubs, so no drop can fire; the map has zero acc_*
 > entities (no acc_boss_spawn, no acc_cyberware_kiosk)" is FALSE now: the
 > multi-boss roster (`_acc_boss_*.gsc`) spawns real, damageable bosses that drop
-> rewards, and both `acc_boss_spawn` and `acc_cyberware_kiosk` exist in the .map.
+> rewards, and `acc_boss_spawn` exists in the .map (the `acc_cyberware_kiosk`
+> trigger is still map-missing — `_acc_cyberware.gsc` no-ops until Radiant places
+> it).
 > See the top-of-file corrections.
 
 - [x] **pool-of-6** `implemented` — Drop pool contains exactly 6 items (Neural Boots/feet, Overclocked Gauntlets/hands, Targeting Visor/head, Kinetic Battery/back, Ghost Shroud/chest, Payroll Ledger/implant).
@@ -742,10 +753,10 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
 - [x] **staminup-stock-base** `implemented` — Base Stamin-Up matches stock BO3 exactly (longer sprint reserve + faster sprint, still finite; no extra global move bonus added).
 - [x] **mule-third-slot** `implemented` — Mule Kick grants a third primary weapon slot.
 - [x] **map-9-perk-machines** `implemented` — All 9 perk machines are placeable and present in the map: 6 stock vending prefabs (Jug, Speed, DT2, Stamin, Mule, QR) plus inline zm_perk_machine structs for Deadshot, Widow's Wine, and PhD Flopper.
-- [x] **rotation-roll-4of9** `implemented` — Each round rolls 4 distinct perks out of the 9-perk roster with equal 1/9 weights (no duplicates, no guaranteed placements), team-wide via level.acc_perk_rotation, starting at round 1.
+- [x] **rotation-roll-4of9** `implemented` — Each round rolls 4 distinct perks out of the 10-perk roster with equal 1/10 weights (no duplicates, no guaranteed placements), team-wide via level.acc_perk_rotation, starting at round 1.
 - [x] **phd-flopper-ability** `implemented` — PhD Flopper (perk #9, cost 2,500): immunity to fall damage and your own explosive splash, a dive-to-prone nova explosion that clears nearby zombies, and an explode-on-down blast (custom ability hijacking the stock cherry pipeline via _acc_perk_phd_flopper.gsc — real cost/hint + machine-identity fix; machine is the stock p7_zm_vending_nuke placeholder, icon is Ronan exo_flopper). Dive-triggered/passive: no activation chord. Overcharge Mega (bigger dive explosion) is a declarative TODO.
 - [x] **mega-bottle-inventory** `implemented` — Mega Bottles stack without limit per player on self.acc_mega_bottles; per-player in co-op (4p boss kill = 4 bottles, one each); bottles cannot be given to teammates.
-  - *Next:* Clamp the value passed in sync_bottle_count_to_client (scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:206-210) to 15 so counts >15 cannot overflow the 4-bit clientfield.
+  - *Next:* Clamp the value passed in sync_bottle_count_to_client (scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc:206-210) to 31 so counts >31 cannot overflow the 5-bit `acc_mb` clientfield.
 - [x] **machine-behavior-stock** `implemented` — Perk machines: hold-use interaction, gated on map power, perks retained through down/revive, all perks lost on (respawn) death.
 - [ ] **perk-costs-table** `scaffolded` — Per-perk costs are Jug 4000 / QR 2500 / Speed 3500 / DT2 2000 / Stamin-Up 2000 / Mule Kick 2500 / Deadshot 3500 / Widow 4000 / PhD Flopper 2500 (all 9 = 26,500 points).
   - *Next:* In _acc_perks.gsc overwrite level._custom_perks[perk].cost for Jug(4000), QR(2500), Speed(3500), Mule(2500), Deadshot(3500) after zm_usermap::main(), and update the matching #precache triggerstring cost variants in the entry script.

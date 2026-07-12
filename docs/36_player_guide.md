@@ -9,8 +9,9 @@ the code wins. (Verified against the code 2026-07-10.)*
 ## The 60-second version
 
 - You have **two currencies.** **Points** (cash) keep you alive *this* round — guns, doors,
-  perks, Pack-a-Punch. **Data Shards** are the rare upgrade currency, earned and spent
-  **underground in the trench**, and they make you permanently stronger.
+  perks, Pack-a-Punch. **Data Shards** are the rare upgrade currency — earned both **up top**
+  (plaza Data Caches, boss kills) and down in the trench, but **spent only underground in the
+  trench** — and they make you permanently stronger.
 - **Guns are box-only.** There's one starting pistol (Five-Seven); everything else comes out
   of the **Mystery Box**, which pulls from a large arsenal. The stronger a gun is when packed,
   the **more it costs to Pack-a-Punch** — and the **rarer it rolls** (the best guns are
@@ -107,11 +108,12 @@ multi-tier sinks, finite so you can't hoard forever.
 
 | Source | Where | Reward |
 |---|---|---|
-| **Data Caches** (×2) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
+| **Data Caches** (×4, up top) | The open plaza (surface) | **+1 each**, once per round, first-come; they re-arm every round. Separate pool from the pit caches — you can grab one plaza cache *and* one pit cache each round (the anti-hog cap is per group). |
+| **Data Caches** (×2, in the pit) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
 | **Any boss kill** | Boss rounds (see below) | **Every boss pays the same guaranteed reward** to every player: **round × 180 points + ⌊round ÷ 3⌋ shards**, plus a **boss item** and a **Mega Bottle**. (Round 9 = ~1,620 points + 3 shards; round 18 = ~3,240 + 6.) This covers the **Trench Warden** (Brutus), **Phantom**, **Avogadro**, **Panzer**, and the **Rogue Protector** alike — they were unified 2026-07-05, no more per-boss differences. *(Bosses spawned during the Paradise finale pay nothing — that fight is survive-don't-farm.)* |
 | **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards and a shared Fire Sale.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
 | **Glitch Altar** | Deep underground (Abyss Layer 3) | A **2-Shard gamble**, not a faucet — see below. |
-| **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** — no boss item, no Mega Bottle (it spawns 1–3× every round, so those stay exclusive to the rare Brutus/Phantom). |
+| **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** — no boss item, no Mega Bottle (it spawns on **even rounds from round 4** — 1 at round 4, 2 at round 6, 3 at round 8, then 4+ from round 10 on, uncapped — so those stay exclusive to the rare Brutus/Phantom). |
 
 **Boss rounds:** the first **mini-boss** (the Trench Warden / Brutus) shows up around **round 5**
 when the power comes on, then respawns on a timer. Full **boss rounds** land **every 9 rounds
@@ -238,8 +240,9 @@ Pack-a-Punch is a one-time power jump; the Overclock is **permanent, per-gun sca
 keeps a favorite weapon relevant deep into a run. Bought at the **Foundry terminal in the
 trench** (it only works underground — any overclock kiosk above ground is dead). It's
 **per-gun and per-player**, and the tier sticks to the weapon through Pack-a-Punch and perk
-swaps. **Almost every weapon can be overclocked — including the Mahem and Thundergun. The only
-one that can't is the Action Figure** (the Exo Suit scales your melee instead).
+swaps. **Most weapons can be overclocked — including the Mahem and Thundergun — but four can't:
+the Action Figure (the Exo Suit scales your melee instead), the Blast-O-Matic, the Fire Bow, and
+the Leviathan Axe.** Of the four wonder weapons, only the **Thundergun** is overclockable.
 
 **10 tiers**, shown on the HUD as **vN**. Each tier nudges all four effects up at once:
 
@@ -247,7 +250,7 @@ one that can't is the Action Figure** (the Exo Suit scales your melee instead).
 |---|---|---|---|
 | **Flat damage** | +12% | **+120%** | always on, every gun hit |
 | **Glitch piercing** | +15% | **+150%** | bonus damage vs glitch zombies only |
-| **Ammo refund** | +5% chance | **50% chance** | on a **headshot kill** — refunds a mag (inert on Thundergun/Mahem, which don't headshot) |
+| **Ammo refund** | +5% chance | **50% chance** | on a **headshot kill** — refunds a single round into the mag (inert on Thundergun/Mahem, which don't headshot) |
 | **Shield piercing** | partial restore | partial restore | punches through a Riot elite's frontal armor (below) |
 
 > **Shield piercing, in detail:** a Riot elite's front only lets **25%** of your damage through

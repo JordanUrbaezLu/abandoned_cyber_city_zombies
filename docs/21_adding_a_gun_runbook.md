@@ -11,9 +11,13 @@ reference are folded in here** (formerly the standalone docs/21, 30, 31, 39).
 > worked example used the BO2 `t6_ak47`, later swapped to the CW port) are both
 > full-auto conventional imports, so their wiring mirrors almost every other box gun.
 
-**Weapons are BOX-ONLY** — there are no wallbuys; the mystery box charges a fixed
-price and the box pool is flipped at runtime in GSC. The arsenal is large (Apex pack
-+ Skye ports + elemental bows + wonder specials), not a fixed shortlist.
+**Weapons are BOX-FED** — the mystery box charges a fixed price and the box pool is
+flipped at runtime in GSC. **Five** player-requested wall-buys are kept live, though —
+Five-Seven (Lab), Olympia (Bus Station), frag grenade (Spawn), the AK-47 (`t9_ak47`,
+Abyss Layer 4) and the M60 (`t9_m60`, Abyss Layer 5); `remove_all_wallbuys()`
+whitelists exactly those and strips every other stock wallbuy stub. The arsenal is
+large (Apex pack + Skye ports + elemental bows + wonder specials), not a fixed
+shortlist.
 
 ---
 
@@ -133,8 +137,9 @@ weaponVO, …, in_box(=TRUE), …, class, …`. AR example:
 t6_ak47,t6_ak47_up,,1250,rifle,,,,,TRUE,FALSE,FALSE,,,FALSE,TRUE,rifle,,,
 ```
 `in_box` value is cosmetic (the box pool is flipped at runtime in GSC); the row's
-real job is to load the weapon into `level.zombie_weapons`. `cost` is moot (no
-wallbuys; the box charges a fixed price). `weaponVO`/`class` = the `weaponClass`.
+real job is to load the weapon into `level.zombie_weapons`. `cost` is used by the 5 kept
+wall-buys (Five-Seven, Olympia, frag, AK-47, M60) but moot for box-only guns (the box charges a
+fixed price). (reconciled to code 2026-07-11) `weaponVO`/`class` = the `weaponClass`.
 
 ### 2. Zone weapon lines — `zone_source/zm_abandoned_cyber_city.zone`
 In the box-guns block: `weapon,<name>` and `weapon,<name>_up`. (Dual-wield pistols
@@ -219,8 +224,8 @@ Each weapon **category** has one live signature ability. To add a category:
 
 ### 6. Overclock family — `_acc_overclocks.gsc::weapon_name_to_family`
 Add the base name to the matching `*_list` (`ar_list`/`smg_list`/`sg_list`/…). The
-family **pools** (`build_family_pools`) are already populated for ar/smg/shotgun/
-sniper/lmg/special — no pool edit needed.
+family **pools** (`build_family_pools`) exist only for ar/smg/shotgun/sniper/lmg (no
+`special`/`pistol` pool), and are dead/unreferenced anyway — no pool edit needed.
 
 ### 7. Balance — `_acc_damage.gsc::acc_weapon_balance_mult`
 One substring line: `if (IsSubStr(weapon_name, "<name>")) return <mult>;`. This is a
@@ -253,7 +258,8 @@ shot is secretly N× stronger than `damage` implies.**
 ### 8–10. Perk twins (recoil / Speed Cola / gun-scoped implants)
 
 > **THE AXES (source of truth: `_acc_weapon_variants.gsc` `variant_dims()` +
-> `level.acc_variant_axes` + `form_bakes_suffix()`).** There are **4** axes:
+> `level.acc_variant_axes` + `form_bakes_suffix()`).** There are **5** axes
+> (`recoil`, `reload`, `turbo`, `lev_speed`, `brz`):
 > - **GLOBAL (every conventional gun): `recoil50`** (Deadshot Mega, recoil ×0.50 off the
 >   1.75× map base) × **`fastreload`** (Speed Cola Mega, `reloadTime` ×0.857 → ~+70% net).
 >   3 combos × 2 forms (base/`_up`) = **6 twins/gun**. A new conventional gun gets these 6.
@@ -262,6 +268,9 @@ shot is secretly N× stronger than `damage` implies.**
 > - **GUN-SCOPED `spd1/spd2/spd3`** (Leviathan Axe +10%-swing-per-PaP-tier), baked for
 >   **`leviathan` ONLY** — 3 tier forms (`base+spd1`, `_up+spd2`, `_up+spd3`); melee, so it
 >   bakes NO recoil/reload forms.
+> - **GUN-SCOPED `brz`** (Berzerker implant, boss item 11 → +35% axe swing), baked for
+>   **`leviathan` ONLY** — one `_brz` form per `spd` tier, stacking with the spd tiers; the
+>   trailing token so every non-Leviathan gun degrades cleanly to its other twins.
 > - **Fastreload-ONLY wonder/special tier:** Mahem / Thundergun / Fire Bow / War Machine
 >   bake *just* `_acc_fastreload` (Speed Cola Mega works on them; Deadshot deliberately
 >   does not — recoil is meaningless on a launcher/wind-cone/bow). Fire Bow has no `_up`

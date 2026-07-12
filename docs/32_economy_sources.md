@@ -32,7 +32,7 @@ dvars. Audited from the code; verify amounts in-game.
 | Source | Amount | Who | File |
 |---|---|---|---|
 | **Reactor Surge** | `reactor_reward()` | every player | `_acc_reactor.gsc:268` (`reactor`) |
-| **Hack Terminal** event | 2 (`ACC_HACK_REWARD_SHARDS`) | the player | `_acc_events_hack.gsc:139` (`hack_terminal`) |
+| **Hack Terminal** event | **0 by default** — the +2 (`ACC_HACK_REWARD_SHARDS`) grant is gated behind dvar `acc_hack_shard_drop` (default **0** = OFF, trench-only economy); set it to 1 to restore the +2 | the player | `_acc_events_hack.gsc:138-139` (`hack_terminal`) |
 | **Glitch Altar** gamble | jackpot `n` (`acc_altar_jackpot`, default 4) | the gambler | `_acc_glitch_altar.gsc:435` (`altar_jackpot`) |
 
 **Conversions / passive / refunds:**

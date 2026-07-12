@@ -196,7 +196,7 @@ function build_item_pool()
 {
     pool = [];
 
-    // num, id, display_name, model, slot, on_equip, on_unequip.
+    // num, id, display_name, desc, model, slot, on_equip, on_unequip.
     // Items 1-3 REUSE already-wired effects (speed / charged-shot / +points);
     // items 4-6 are new self-contained buffs (regen / max-health / shard income).
 
@@ -204,6 +204,7 @@ function build_item_pool()
         1,
         "gas_tank",
         "Gas Tank",
+        "Double-tap sprint: speed burst",
         "p7_zm_zod_nitrous_tank",
         -6,                             // floor lift (was +24, user: 30 lower)
         "feet",
@@ -219,6 +220,7 @@ function build_item_pool()
         2,
         "teddy_bear",
         "Loot Stash",
+        "Extra points on every kill",
         "p7_wes_money_bag",             // REAL locked money bag (T7 Assets carve 2026-07-08; was the gold brick)
         2,                              // floor lift (prop pivots at base, unlike the old orb pivots; tune live)
         "implant",
@@ -230,6 +232,7 @@ function build_item_pool()
         3,
         "repair_kit",
         "Repair Kit",
+        "Slowly regenerates health",
         "p7_spl_first_aid_box",          // REAL first-aid box (T7 Assets carve 2026-07-08 - the old "no zm-packable medkit exists" note is obsolete: the carve pipeline packs ANY dump model via acc_t7_props_items.gdt; was the carpenter power-up icon)
         2,
         "back",
@@ -241,6 +244,7 @@ function build_item_pool()
         4,
         "rocket_shield",
         "Rocket Shield",
+        "Longer slides, higher jumps",
         "wpn_t7_zmb_zod_rocket_shield_world",
         24,                             // floor lift (user: shield is good as-is)
         "chest",
@@ -252,6 +256,7 @@ function build_item_pool()
         5,
         "phase_serum",
         "Phase Serum",
+        "Slows all glitch types near you",
         "p7_zm_mob_vial_surgical_lrg",  // REAL MOTD surgical vial (T7 Assets carve 2026-07-08; was the generic perk bottle)
         2,                              // floor lift (small vial, base pivot; tune live)
         "implant",
@@ -264,10 +269,11 @@ function build_item_pool()
         6,
         "boots",
         "Boots",
+        "Move faster",
         "p7_boots_safehouse_01",        // safehouse boots (proven packable)
         4,
         "feet",
-        &apply_boots,                   // +8% move overall + IMMUNE to the Bus Station trench slow (walk normal in the pit)
+        &apply_boots,                   // +8% move overall (STALE-COMMENT FIX 2026-07-12: the old "immune to the trench slow" claim was never in code - only the Exo cancels the trench slow, docs/29)
         &remove_boots
     );
 
@@ -275,6 +281,7 @@ function build_item_pool()
         7,
         "lucky_clover",
         "Lucky Horseshoe",
+        "Luckier drops and box rolls",
         "p7_ra2_tool_vintage_horseshoe", // REAL vintage iron horseshoe (T7 Assets carve 2026-07-08; replaces the X2-orb "use the X2 for now" placeholder). No clover/charm model exists in ANY T7 source (dump + all community packs swept) - the horseshoe IS the luck icon, so the display name follows the model. Internal id + acc_clover_* dvars unchanged.
         2,                              // floor lift (flat prop, base pivot; tune live)
         "implant",
@@ -291,6 +298,7 @@ function build_item_pool()
         8,
         "turbocharger",
         "Turbocharger (Havoc)",         // display name flags it as Havoc-only in every UI/prompt
+        "Havoc charges instantly",
         "p7_ban_debris_car_carburetor", // REAL car carburetor engine part (T7 Assets carve 2026-07-08; was the Insta-Kill orb)
         4,                              // floor lift (engine part, base pivot; tune live)
         "implant",
@@ -306,6 +314,7 @@ function build_item_pool()
         9,
         "nuclear_energy",
         "Nuclear Energy",
+        "More explosive + energy damage",
         "p7_zm_power_up_nuke",
         16,                             // floor lift (power-up orb pivot; ~the X2's 18. tune live)
         "implant",
@@ -323,6 +332,7 @@ function build_item_pool()
         10,
         "battery",
         "Battery",
+        "Boss zaps give you a speed boost",
         "p7_zm_ctl_battery_ceramic",
         2,                              // floor lift (base pivot guess; tune live like the other carve props)
         "implant",
@@ -343,6 +353,7 @@ function build_item_pool()
         11,
         "berzerker",
         "Berzerker",
+        "Faster melee but drains some health",
         "rune_prison_death_skull",
         2,                              // floor lift (base pivot, minZ -0.2 measured from the bin; tune live)
         "implant",
@@ -354,12 +365,20 @@ function build_item_pool()
     return pool;
 }
 
-function item( num, id, display_name, model, model_z, slot, on_equip, on_unequip, model_scale )
+function item( num, id, display_name, desc, model, model_z, slot, on_equip, on_unequip, model_scale )
 {
     i = spawnstruct();
     i.num = num;             // stable display ID (1..6), shown in HUD + prompts
     i.id = id;
     i.display_name = display_name;
+    i.desc = desc;           // one-line WHAT-IT-DOES blurb (user 2026-07-11: "tell the player what the
+                             // implants are doing"). Shown on the pickup hint, grab/implant toasts, vault
+                             // withdraw and the IMPLANT HUD lines. RULES: vague wording per docs/31
+                             // (direction, NO magnitudes/numbers), and because it rides a SetHintString it
+                             // must NEVER contain the substrings "for"/"cost"/"buy"/"purchase"/"mystery"/
+                             // "rack"/"bottle"/"permanently"/"door"/"power" - the LUI cursor-hint router
+                             // (ZMCursorHintNew.lua) string-matches those and would hijack the pickup hint
+                             // into a blank weapon/perk card (memory lui-cursorhint-router-loose-weapon-matcher).
     i.model = model;         // world pickup model (unique per item)
     i.model_scale = ( isdefined( model_scale ) ? model_scale : 1 );   // optional world-model SetScale (user 2026-07-08: horseshoe/vial/carburetor read tiny at 1x). SetScale is script_model-safe (the 0xC0000005 crash is live-AI only - see scale_octobombs_watch).
     i.model_z = model_z;     // per-item floor lift (units) - each model's pivot differs
@@ -584,7 +603,9 @@ function spawn_pickup( item_struct, origin )
     t_use TriggerIgnoreTeam();
     t_use UseTriggerRequireLookAt();
     t_use SetCursorHint( "HINT_NOICON" );
-    t_use SetHintString( "Hold ^3[{+activate}]^7 to grab " + display_for( item_struct ) );
+    // Desc rides the hint so the player knows WHAT IT DOES before grabbing (user 2026-07-11). Router-safe:
+    // "to grab" has no "for" and item descs are banned from the hijack keywords (see item() desc comment).
+    t_use SetHintString( "Hold ^3[{+activate}]^7 to grab " + display_for( item_struct ) + " ^5- " + item_struct.desc );
     t_use.acc_model = pickup;
     t_use.acc_item_id = item_struct.id;
     t_use.acc_created_at = pickup.acc_created_at;
@@ -668,6 +689,7 @@ function watch_pickup()   // self = the hold-use trigger
         // Bench (first enable free; each swap costs ACC_BENCH_SWAP_COST points).
         player.acc_carried_item = item_struct.id;
         player iprintln( "Carrying: " + display_for( item_struct ) + " ^7- enable it at the Plaza bench" );
+        player iprintln( "^5" + item_struct.desc );
         acc_utility::drops_debug( "item CARRY player=" + player.name + " id=" + item_struct.id );
         player sync_items_hud();
         self notify( "acc_item_claimed" );
@@ -831,7 +853,10 @@ function sync_items_hud()   // self = player
             e.alpha = 0;
             continue;
         }
-        e SetText( "^5IMPLANT " + ( i + 1 ) + " ^7" + display_for( find_item( self.acc_equipped_items[ i ] ) ) );
+        // Name + the what-it-does blurb (user 2026-07-11: "tell the player what the implants are doing").
+        // String-cache safe: descs are a FIXED 11-string pool, so the distinct-SetText set stays bounded.
+        it = find_item( self.acc_equipped_items[ i ] );
+        e SetText( "^5IMPLANT " + ( i + 1 ) + " ^7" + display_for( it ) + " ^5- " + ( isdefined( it ) ? it.desc : "?" ) );
         e.alpha = 0.9;
     }
 
@@ -873,7 +898,7 @@ function destroy_items_hud( p )
 
 function apply_neural_boots()        { self.acc_item_neural_boots = true; setmovespeedscale_hook( self ); acc_utility::log( "equip: neural_boots" ); }
 function remove_neural_boots()       { self.acc_item_neural_boots = false; setmovespeedscale_hook( self ); acc_utility::log( "unequip: neural_boots" ); }
-function apply_boots()               { self.acc_item_boots = true;  acc_utility::crash_log( self, "apply_boots (equip)" );  setmovespeedscale_hook( self ); acc_utility::log( "equip: boots (+8% move + trench-slow immunity)" ); }
+function apply_boots()               { self.acc_item_boots = true;  acc_utility::crash_log( self, "apply_boots (equip)" );  setmovespeedscale_hook( self ); acc_utility::log( "equip: boots (+8% move)" ); }
 function remove_boots()              { self.acc_item_boots = false; acc_utility::crash_log( self, "remove_boots (unequip)" ); setmovespeedscale_hook( self ); acc_utility::log( "unequip: boots" ); }
 
 function apply_overclocked_gauntlets()   { self.acc_item_gauntlets = true; acc_utility::log( "equip: overclocked_gauntlets" ); }
@@ -1901,7 +1926,9 @@ function bench_use_loop()    // self = a bench pad trigger; self.acc_bench_slot 
         equip_slot( player, slot, carried );          // evicts the slot's old occupant (if any), then equips
         player.acc_carried_item = undefined;          // carry consumed (no scalar acc_active_item anymore)
         player PlaySound( "acc_item_implant" );        // implant stinger (docs/09; 48k wav at sound_assets\acc\fx\item_implant.wav)
-        player iprintln( ( is_free ? "^2Implanted (free): ^7" : "^2Replaced Slot " + ( slot + 1 ) + " (-" + ACC_BENCH_SWAP_COST + "): ^7" ) + display_for( find_item( carried ) ) );
+        it = find_item( carried );
+        player iprintln( ( is_free ? "^2Implanted (free): ^7" : "^2Replaced Slot " + ( slot + 1 ) + " (-" + ACC_BENCH_SWAP_COST + "): ^7" ) + display_for( it ) );
+        if ( isdefined( it ) ) player iprintln( "^5" + it.desc );   // what it does (user 2026-07-11)
         acc_utility::drops_debug( "bench IMPLANT player=" + player.name + " slot=" + slot + " id=" + carried + " free=" + is_free );
         player sync_items_hud();
         wait( 0.5 );

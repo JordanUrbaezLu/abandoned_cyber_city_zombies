@@ -4,18 +4,26 @@
 // opens onto a staircase that climbs EAST into the sealed east dead-space up to an
 // enclosed loft (the _acc_armory.gsc stations). docs/60.
 //
-// LAYOUT (user 2026-07-07 v3): "face the stairs east/west, start at the Plaza wall, add a
-//   buyable door (5k), put it where it CAN'T intercept the playable Plaza, and skin the walls
-//   like the Plaza." So: everything lives EAST of the x=213 Plaza wall (the sealed dead-space
-//   from gen_plaza_shrink's 75% east-shrink), reached ONLY through a bought door in that wall.
-//   Nothing touches the playable Plaza floor (x[-470,213]) except the door + its buy trigger.
+// LAYOUT (user 2026-07-07 v3; RESIZED + ROOFED 2026-07-11): "face the stairs east/west, start
+//   at the Plaza wall, add a buyable door, put it where it CAN'T intercept the playable Plaza,
+//   and skin the walls like the Plaza." So: everything lives EAST of the x=213 Plaza wall (the
+//   sealed dead-space from gen_plaza_shrink's 75% east-shrink), reached ONLY through a bought
+//   door in that wall. Nothing touches the playable Plaza floor (x[-470,213]) except the door +
+//   its buy trigger.
 //   - Door: a gap cut in the east wall (wall #5, y[-64,64] z[0,128]) + a slide-up slab
-//     (acc_door_armory) + a zombie_door trigger (enter_armory, 5000). Wired in the entry
+//     (acc_door_armory) + a zombie_door trigger (enter_armory, 10000). Wired in the entry
 //     script (zone_door_trigger_origin + zone_door_dest_name).
-//   - Staircase: 18 treads (16/16) climbing +X from x=234 (at the wall) to x=522 (z=288).
-//   - Loft: enclosed room x[522,922] y[-200,200], floor z=288, walls z[288,544], ceiling
-//     z[544,560], WEST-wall doorway for the stairs. Floats over the dead-space (in-zone via
-//     the tall start_zone volume z[-166,1041] -> no OOB; zombies path the 16/16 stairs).
+//   - Staircase: 16 treads (12/28, ~23deg - user 2026-07-11 "less steep", was 12/20 ~31deg)
+//     climbing +X from x=234 (at the wall) to x=682 (z=192). FULLY ENCLOSED: side walls to
+//     z=368 + a 4-segment STEPPED ROOF (>=160u headroom over every tread) - user 2026-07-11
+//     "it needs a roof" (the dead-space above is open night sky; the old rail-top stairwell
+//     showed raw sky).
+//   - Loft: enclosed room x[682,1074] y[-230,230] (392x460 = +25% floor area over the old
+//     360x400, user 2026-07-11), floor z=192 (LOWERED from 288 - the shallow stairs need the
+//     x-run and the loft east edge is HARD-capped at 1074 by the old arena east wall at
+//     x=1074.5, beyond which is the zombie spawn gulley), walls z[192,448], ceiling z[448,464],
+//     WEST-wall doorway for the stairs. Floats over the dead-space (in-zone via the start_zone
+//     volume x[-1165.5,1264.5] y[-1192,1104] z[-166,1041] -> no OOB; zombies path the stairs).
 //
 // MATERIALS (user: "model the walls with the plaza wall design"): the Plaza is re-skinned -
 //   walls = t7_concrete_wall_weathered_01_wet, floor/streets = t7_asphalt_damaged_dark_wet
@@ -71,23 +79,41 @@ const ORIG_EAST_WALL = [
 ];
 
 // ---- Staircase (climbs +X / EAST from the wall into the dead-space) -----------
-// Pitch (user 2026-07-07: "way too steep"): 12u rise / 20u run per tread => ~31deg (was 16/16 = 45deg,
-// a ladder). Rise <=16u also links the navmesh cleanly (docs/03). Longer run -> the loft shifts east.
-const RISE = 12, RUN = 20;
-const FLOOR_TOP = 288, FLOOR_TH = 16;      // loft floor top z=288
-const N_STEPS = FLOOR_TOP / RISE;          // 24 treads (288 / 12)
+// Pitch (user 2026-07-11 "less steep"): 12u rise / 28u run per tread => ~23deg (was 12/20 = ~31deg,
+// itself the fix from the 16/16 = 45deg ladder). Rise <=16u also links the navmesh cleanly (docs/03).
+// The loft floor is LOWERED 288 -> 192 so the shallower run still leaves a +25% loft inside the hard
+// x<=1074 east cap (the old arena east wall at x=1074.5; beyond it = the zombie spawn gulley).
+const RISE = 12, RUN = 28;
+const FLOOR_TOP = 192, FLOOR_TH = 16;      // loft floor top z=192 (was 288)
+const N_STEPS = FLOOR_TOP / RISE;          // 16 treads (192 / 12)
 const STAIR_Y1 = -DOOR_HALF, STAIR_Y2 = DOOR_HALF;   // 128u wide, aligned to the door
 const STAIR_BASE_X = EW_X2 + 1;            // 234 (just east of the wall)
-const STAIR_TOP_X = STAIR_BASE_X + RUN * N_STEPS;    // 234 + 480 = 714 (= loft west edge)
-const RAIL_TOP = FLOOR_TOP + 64;           // 352 (side-rail height)
+const STAIR_TOP_X = STAIR_BASE_X + RUN * N_STEPS;    // 234 + 448 = 682 (= loft west edge)
+
+// ---- Stairwell enclosure (user 2026-07-11: "it needs a roof") ------------------
+// The dead-space above is OPEN night sky (gen_room_roofs deliberately leaves the Plaza +
+// dead-space unroofed), so the old open-top stairwell showed raw sky. Enclose it: side walls
+// up to ROOF_TOP + a 4-segment STEPPED solid roof (each segment covers N_STEPS/4 treads, base =
+// highest tread in the segment + ROOF_HEADROOM, solid up to the common ROOF_TOP - a solid
+// stepped mass has no seams to leak). Segment 1 starts at x=232 (1u INTO the plaza wall face at
+// 233) and its base (208) sits below the wall top (256), so the west mouth is sealed against
+// the wall/lintel; the east end butts the loft west wall (top 448 > ROOF_TOP). No sloped
+// brushes - box() is axis-aligned only, and boxes are the proven bake-safe primitive here.
+const ROOF_HEADROOM = 160;                                   // clearance over the tallest tread per segment
+const ROOF_SEGS = 4;                                         // treads per segment = N_STEPS / ROOF_SEGS
+const ROOF_TOP = FLOOR_TOP + ROOF_HEADROOM + 16;             // 368 (common top of roof mass + side walls)
+const RAIL_TOP = ROOF_TOP;                                   // side walls reach the roof (was open-top +64 rails)
 
 // ---- Loft (enclosed room over the east dead-space) ----------------------------
-const LX1 = STAIR_TOP_X, LX2 = STAIR_TOP_X + 360;    // x[714,1074] (within the dead-space arena floor x<=1094.5)
-const LY1 = -200, LY2 = 200;               // y[-200,200]
+// +25% floor area (user 2026-07-11): 392 x 460 = 180,320 vs the old 360 x 400 = 144,000.
+// East edge HARD-capped at 1074 (old arena east wall inner face 1074.5). y[-230,230] verified
+// inside the start_zone volume (y[-1192,1104]) and clear of the east connector corridor (y>=380).
+const LX1 = STAIR_TOP_X, LX2 = 1074;       // x[682,1074] (392 deep)
+const LY1 = -230, LY2 = 230;               // y[-230,230] (460 wide)
 const WALL_TH = 20, ROOM_H = 256, CEIL_TH = 16;
-const FLOOR_BASE = FLOOR_TOP - FLOOR_TH;   // 272
-const WALL_TOP = FLOOR_TOP + ROOM_H;       // 544
-const CEIL_TOP = WALL_TOP + CEIL_TH;       // 560
+const FLOOR_BASE = FLOOR_TOP - FLOOR_TH;   // 176
+const WALL_TOP = FLOOR_TOP + ROOM_H;       // 448
+const CEIL_TOP = WALL_TOP + CEIL_TH;       // 464
 const LOFT_DOOR_H = 128;                   // west-wall doorway height above the loft floor
 
 // ---- Door (slab + trigger) ----------------------------------------------------
@@ -134,7 +160,7 @@ function lightEntity(tag, x, y, z, radius, intensity) {
 
 // ---- door entities (top-level; the map's custom acc_fix_zone_doors drives the buy) ----
 function doorTrigger() {
-  return ['// ACC ARMORY door trigger (enter_armory, 5000)',
+  return [`// ACC ARMORY door trigger (${DOOR_FLAG}, ${DOOR_COST})`,
     '{', ` guid "${guid()}"`,
     ' "classname" "trigger_use"',
     ' "targetname" "zombie_door"',
@@ -208,14 +234,26 @@ badd('east wall SOUTH jamb', box(EW_X1, EW_X2, EW_Y1, -DOOR_HALF, 0, EW_Z2, WALL
 badd('east wall NORTH jamb', box(EW_X1, EW_X2, DOOR_HALF, EW_Y2, 0, EW_Z2, WALL_MAT));
 badd('east wall LINTEL (over door)', box(EW_X1, EW_X2, -DOOR_HALF, DOOR_HALF, DOOR_H, EW_Z2, WALL_MAT));
 
-// Staircase: 18 treads climbing +X from the wall to the loft.
+// Staircase: N_STEPS treads climbing +X from the wall to the loft.
 for (let s = 1; s <= N_STEPS; s++) {
   const tx1 = STAIR_BASE_X + RUN * (s - 1), tx2 = STAIR_BASE_X + RUN * s, tz = RISE * s;
   badd(`stair tread ${s} (z=${tz})`, box(tx1, tx2, STAIR_Y1, STAIR_Y2, 0, tz, FLOOR_MAT));
 }
-// Stairwell side rails (full-height along the two long sides; open at the door + the loft).
-badd('stair rail south', box(STAIR_BASE_X, STAIR_TOP_X, STAIR_Y1 - WALL_TH, STAIR_Y1, 0, RAIL_TOP, WALL_MAT));
-badd('stair rail north', box(STAIR_BASE_X, STAIR_TOP_X, STAIR_Y2, STAIR_Y2 + WALL_TH, 0, RAIL_TOP, WALL_MAT));
+// Stairwell side walls (full height to the roof; open at the door + the loft). Start at x=232
+// (1u into the plaza wall face / jamb overlap) so no corner slit can leak sky.
+badd('stairwell side wall south', box(EW_X2 - 1, STAIR_TOP_X, STAIR_Y1 - WALL_TH, STAIR_Y1, 0, RAIL_TOP, WALL_MAT));
+badd('stairwell side wall north', box(EW_X2 - 1, STAIR_TOP_X, STAIR_Y2, STAIR_Y2 + WALL_TH, 0, RAIL_TOP, WALL_MAT));
+// Stairwell STEPPED ROOF (user 2026-07-11 "it needs a roof"): ROOF_SEGS solid segments, each
+// from (highest tread in segment + ROOF_HEADROOM) up to the common ROOF_TOP. Segment 1 extends
+// 1u west into the plaza wall face so the west mouth seals against the wall/lintel (roof base
+// 208 < wall top 256); the last segment butts the loft west wall (top 448 > ROOF_TOP 368).
+const TREADS_PER_SEG = N_STEPS / ROOF_SEGS;
+for (let j = 1; j <= ROOF_SEGS; j++) {
+  const rx1 = j === 1 ? EW_X2 - 1 : STAIR_BASE_X + RUN * TREADS_PER_SEG * (j - 1);
+  const rx2 = STAIR_BASE_X + RUN * TREADS_PER_SEG * j;
+  const rbase = RISE * TREADS_PER_SEG * j + ROOF_HEADROOM;
+  badd(`stairwell roof seg ${j} z[${rbase},${ROOF_TOP}]`, box(rx1, rx2, STAIR_Y1, STAIR_Y2, rbase, ROOF_TOP, WALL_MAT));
+}
 
 // Loft floor (single slab) + ceiling.
 badd(`loft floor z[${FLOOR_BASE},${FLOOR_TOP}]`, box(LX1, LX2, LY1, LY2, FLOOR_BASE, FLOOR_TOP, FLOOR_MAT));
@@ -229,8 +267,8 @@ badd('loft west wall SOUTH jamb', box(LX1, LX1 + WALL_TH, LY1 + WALL_TH, STAIR_Y
 badd('loft west wall NORTH jamb', box(LX1, LX1 + WALL_TH, STAIR_Y2, LY2 - WALL_TH, FLOOR_TOP, WALL_TOP, WALL_MAT));
 badd('loft west wall LINTEL (over stair doorway)', box(LX1, LX1 + WALL_TH, STAIR_Y1, STAIR_Y2, FLOOR_TOP + LOFT_DOOR_H, WALL_TOP, WALL_MAT));
 
-// Interior lights: 4 always-on at z=488 (200u above the loft floor).
-const LZ = FLOOR_TOP + 200, LR = 340, LI = 1.0;
+// Interior lights: 4 always-on 200u above the loft floor (radius 340 -> 360 for the +25% room).
+const LZ = FLOOR_TOP + 200, LR = 360, LI = 1.0;
 const lxs = [LX1 + 120, LX2 - 120], lys = [LY1 + 80, LY2 - 80];
 let ln = 0;
 for (const lx of lxs) for (const ly of lys) { lights.push(lightEntity(`acc_armory_light_${ln}`, Math.round(lx), Math.round(ly), LZ, LR, LI)); ln++; }

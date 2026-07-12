@@ -56,7 +56,7 @@ Inline images inside the description text. **This is where the "placeholders" go
 ## 2. Paste-ready description (BBCode)
 
 Copy this whole block into the Workshop item's description. The hero `[img]` (line 1 of the
-block) already carries a real Steam-CDN URL; the remaining **seven** `[img]` lines still carry
+block) already carries a real Steam-CDN URL; the remaining **six** `[img]` lines still carry
 obvious placeholder URLs (`REPLACE-WITH-STEAM-CDN-URL/...`) — swap each for a real Steam-CDN
 link (§1B). Any you forget will show visibly broken (a feature, not a bug — you'll notice).
 Shot details for each are in §3.
@@ -67,7 +67,7 @@ Shot details for each are in §3.
 [h1]ABANDONED CYBER CITY[/h1]
 [b]The neon never turned off. Neither did whatever's still down there.[/b]
 
-This isn't a normal challenge map. It's a [b]descent[/b]. Build a character from nothing, drop
+This isn't a normal zombies map. It's a [b]descent[/b]. Build a character from nothing, drop
 below the streets, and claw DOWN through an Abyss that gets deadlier every floor. The city
 reshuffles every match. The bottom is real — and almost nobody reaches it.
 
@@ -95,38 +95,52 @@ floors — if you live long enough to buy them.
 [h1]⚙ BUILD A MONSTER[/h1]
 Bank [b]Data Shards[/b] down in the trench and spend them on power that sticks: bolt an
 [b]Exo Suit[/b] onto your body, [b]Overclock[/b] your favorite gun tier by tier, unlock extra
-perk slots, and gamble at the Glitch Altar. Then chase [b]Mega perks[/b] — boss-tier upgrades
-that turn survival tools into win conditions. Triple-tier Pack-a-Punch on top.
+perk slots, and gamble at the Glitch Altar. Rip [b]cyber-implants[/b] out of dead bosses —
+an 11-item loot pool, 3 implant slots, endless build combos. Then chase [b]Mega perks[/b] —
+boss-tier upgrades that turn survival tools into win conditions. Triple-tier Pack-a-Punch
+on top of it all.
 
 [img]REPLACE-WITH-STEAM-CDN-URL/shot-04-progression-hud[/img]
 
 [h1]🔫 THE ARSENAL — SIX COD GAMES… AND APEX LEGENDS[/h1]
 Nearly 30 box weapons, every one Pack-a-Punchable and Overclock-ready — pulled from six Call of
-Duty games and a fresh squad ripped straight out of [b]Apex Legends[/b]:
+Duty games and a squad ripped straight out of [b]Apex Legends[/b]:
 [list]
 [*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Beam Rifle
-[*][b]Wonder & special:[/b] Thundergun · Blast-O-Matic · Fire Bow · Leviathan Axe · Action Figure melee
-[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · MORS railgun · Mahem launcher — and 15 more
+[*][b]Wonders & specials:[/b] Thundergun · Fire Bow · Leviathan Axe · Blast-O-Matic · Action Figure melee
+[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · M16 · HAMR · MORS railgun · Mahem launcher — and 15 more
 [/list]
 
 [img]REPLACE-WITH-STEAM-CDN-URL/shot-05-arsenal-apex[/img]
 
-[h1]☠ SIX BOSSES. NONE OF THEM PLAY FAIR.[/h1]
+[h1]☠ FIVE BOSSES. NONE OF THEM PLAY FAIR.[/h1]
 Boss rounds escalate in number and never roll the same twice:
 [list]
+[*][b]The Panzer[/b] — a sprinting mech with a flamethrower and an electro-claw.
 [*][b]The Trench Warden[/b] — a wall of armor that owns the trench.
 [*][b]The Phantom[/b] — a holographic cloaker that hunts you across the whole map.
 [*][b]The Rogue Protector[/b] — the city's own security, turned killer.
-[*][b]Avogadro[/b] — disables the team's perks and slowly wears you down.
-[*][b]The Panzer[/b] — the heaviest tank-tier walker on the roster.
-[*][b]The Glitch Stalker[/b] — a blinking, teleporting phantom you can't pin down.
+[*][b]Avogadro[/b] — a living storm that switches your perks OFF mid-fight.
 [/list]
+Every boss you drop leaves loot behind. Take it. You'll need it.
+
+And between boss rounds? [b]The Glitch Stalker[/b] — a blinking, teleporting mini-boss that
+hunts you every other round, in ever-growing numbers. You're never safe for long.
 
 [img]REPLACE-WITH-STEAM-CDN-URL/shot-06-boss-fight[/img]
 
-[h1]🌆 PARADISE — THE FLEX AT THE BOTTOM[/h1]
+[h1]🎖 PLAY AS THE ORIGINAL CREW[/h1]
+Dempsey. Nikolai. Takeo. Richtofen. The classic crew is back — dropped into a neon city that
+has never heard of them, with matching character portraits on a fully custom HUD.
+
+[h1]🌆 PARADISE — THE FINALE AT THE BOTTOM[/h1]
 Reach the bottom of the Trench and a door opens to [b]Paradise[/b]. A victory jingle. Clear air.
 Calm.
+
+It's a trap. Paradise is the map's final exam: a timed onslaught that throws [b]the entire
+boss roster at you at once[/b] in one sealed arena. Survive it and you don't just get a high
+round — [b]you WIN the match.[/b] Yes, this zombies map has an actual ending. Almost nobody
+has seen it.
 
 [img]REPLACE-WITH-STEAM-CDN-URL/shot-07-paradise-finale[/img]
 
@@ -136,8 +150,9 @@ Calm.
 [list]
 [*]Solo or 4-player co-op, tuned for a ceiling worth grinding toward
 [*]Per-run randomization — adapt or die
-[*]Deep progression: Data Shards, weapon Overclocks, multi-tier Pack-a-Punch, Mega perks
-[*]A true endgame with a real win condition
+[*]Deep progression: Data Shards, Overclocks, triple-tier Pack-a-Punch, Mega perks, boss implants
+[*]Built for teams: hand guns to teammates at the Armory, pool resources in the Exchange vault
+[*]A true endgame with a real win condition — and a jukebox
 [/list]
 
 [b]How deep can you get?[/b] Subscribe, drop in, and find your floor.
@@ -150,9 +165,12 @@ resubscribe to force an update.[/i]
 
 ## 3. Shot list — the seven in-description images + the gallery
 
-Stage clean shots by launching in the map's built-in **dev/test mode** (`+set acc_dev 1`): god
-mode, open map, power on, and boss test-spawns let you frame the bosses and Paradise without
-dying. Grab at **1920×1080**, then downscale in-description images to **≤627px** wide.
+Stage clean shots by launching in the map's built-in **dev/test mode** (`+set acc_dev 1`): open
+map and boss test-spawns let you frame the bosses and Paradise. Dev mode deliberately plays with
+real damage and does **not** auto power-on, so add `+set acc_god 1` (the standalone PLAY_GOD_MODE
+launch script) for god mode so you don't die while framing shots, and flip the Bus Station power
+switch yourself (or pass `+set acc_auto_power 1`). Grab at **1920×1080**, then downscale
+in-description images to **≤627px** wide. (reconciled to code 2026-07-11)
 
 | Slot | Section | What to shoot | Framing / tips |
 |---|---|---|---|
@@ -183,10 +201,21 @@ at a glance.
   → Six bosses → Paradise finale → CTA.
 - **Apex pulled into its own headline** ("SIX COD GAMES… AND APEX LEGENDS") and listed first — it's
   the differentiator, so it leads.
-- **Named all six bosses** with a one-line threat each (old copy said "and more"); the finale now
-  explicitly pays off "every boss at once." (The live roster is Trench Warden, Phantom, Rogue
-  Protector, Avogadro, Panzer, and the Glitch Stalker; the every-9 boss rounds deal from a
-  no-duplicate deck of Phantom/Protector/Avogadro/Panzer.)
+- **Named the bosses** with a one-line threat each (old copy said "and more"); the finale now
+  explicitly pays off "every boss at once." (The live roster is FIVE bosses — Trench Warden,
+  Phantom, Rogue Protector, Avogadro, Panzer; the every-9 boss rounds deal from a no-duplicate
+  deck of Phantom/Protector/Avogadro/Panzer. The Glitch Stalker is a frequent every-2nd-round
+  MINI-boss, not a roster boss — marketed as the between-rounds threat, never in the boss count.)
 - **Paradise reframed as the win condition + the brag** ("This map has a top") with the calm→lie
   fakeout, which is the map's best marketing beat.
 - **Seven image slots added inline**, plus a gallery/preview plan — the old page was text-only.
+- **2026-07-11 refresh (user: "simple, up to date, exaggerations that sell"):** arsenal list
+  reconciled to the live weapon table (G7 Scout out, CW M16 + HAMR in; wonders led by Fire Bow +
+  Leviathan Axe); boss section corrected to the FIVE true roster
+  bosses (Panzer / Trench Warden / Phantom / Rogue Protector / Avogadro — user 2026-07-11: "Glitch
+  Stalker is not a boss") with punchier one-liners + a "every boss drops loot" hook, and the Glitch
+  Stalker recast as the between-rounds mini-boss threat; NEW section "Play as the original crew"
+  (Ultimis body swap + HUD portraits, a top-tier zombies-fan draw); "Build a Monster" now sells the
+  11-item boss-implant pool (3 slots); Paradise rewritten to its real design — calm fakeout → timed
+  all-boss onslaught → an actual WIN condition; Drop In bullets add the Armory gun-sharing /
+  Exchange vault co-op hook and the jukebox.

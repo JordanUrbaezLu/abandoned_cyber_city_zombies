@@ -78,22 +78,22 @@ Cards live in one `AccPerkCards` table (index = `_acc_perk_info::perk_card_index
 | STAMIN-UP Mega `[5]` | `+15% move speed` | even faster → `Move even faster` |
 | MULE KICK base `[6]` | carry 3rd gun | mechanic → `Carry an extra gun` |
 | MULE KICK Mega `[6]` | `+20% reserve ammo/round` / `all buys 10% cheaper` | more / cheaper → `More ammo each round` / `Cheaper buys` |
-| DEADSHOT base `[7]` | `+1.4 headshot dmg` / aim-assist to head | more → `More headshot damage` / `Aims at the head` |
-| DEADSHOT Mega `[7]` | `+1.6 headshot dmg` / `-50% recoil` | even more / greatly reduced → `Even more headshot dmg` / `Much less recoil` |
+| DEADSHOT base `[7]` | `+1.3 headshot dmg` / aim-assist to head | more → `More headshot damage` / `Aims at the head` |
+| DEADSHOT Mega `[7]` | `+1.5 headshot dmg` / `-50% recoil` | even more / greatly reduced → `Even more headshot dmg` / `Much less recoil` |
 | WIDOW base `[8]` | web trap 16s (slow 12s) / restock 2/round | mechanic → `Grenades trap zombies` / `Webbing on melee` / `Refills each round` |
 | WIDOW Mega `[8]` | pool 6 / restock 4/round | more → `Scuttle fast when low` / `More spider drops` |
 | PHD base `[9]` | fall/blast immunity / explode-when-downed | mechanic → `No fall or blast damage` / `Explode when downed` |
-| PHD Mega `[9]` | `+20% explosive dmg` / `+20% move speed` / slide-to-explode | more / faster → `Slide to explode` / `Bigger explosions` / `Move faster` |
+| PHD Mega `[9]` | `+15% explosive dmg` / `+20% move speed` / slide-to-explode | more / faster → `Slide to explode` / `More explosive damage` / `Move faster` |
 | ELECTRIC CHERRY `[10]` | reload-zap (scales with empty mag) | mechanic → `Reload to zap zombies` / `Emptier mag = bigger zap` (+ Mega `Stronger, faster zap` / `Shrugs off boss zaps`) |
 
 ### 4b. Pack-a-Punch  (exact: `docs/04_weapons.md`)
 
 | Surface | location | Exact | Vague / shipped |
 |---|---|---|---|
-| PaP card `[11]` bullets | `acc_hud.lua:110-111` | `T1 +33% / T2 +100%+UPGRADE / T3 +150% MAX` | `T1: more damage` / `T2: much more damage` / `T3: max damage` |
-| `pap_tier_benefit(1/2/3)` | `acc_hud.lua:45-49` | `+33% / +100%+form / +150% MAX` | `more damage` / `much more + new form` / `max damage` |
+| PaP card `[11]` bullets | `acc_hud.lua:110-111` | `T1 +33% / T2 +66.66%+UPGRADE / T3 +100% MAX` | `T1: more damage` / `T2: much more damage` / `T3: max damage` |
+| `pap_tier_benefit(1/2/3)` | `acc_hud.lua:45-49` | `+33% / +66.66%+form / +100% MAX` | `more damage` / `much more + new form` / `max damage` |
 | next-tier line (render) | `acc_hud.lua:307,327` | — | `Max weapon damage` / `pap_tier_benefit(nextTier)` |
-| `tier_benefit(1/2/3)` (GSC) | `_acc_pap_levels.gsc:1497-1499` | `+33% / +100%+form / +150% MAX` | `more damage …` / `much more damage + upgraded form …` / `greatly increased damage (MAX)` — **currently unused** (no callers; the toast that showed it was removed, see below) |
+| `tier_benefit(1/2/3)` (GSC) | `_acc_pap_levels.gsc:1507` | `+33% / +66.66%+form / +100% MAX` | `more damage …` / `much more damage + upgraded form …` / `greatly increased damage (MAX)` — **currently unused** (no callers; the toast that showed it was removed, see below) |
 
 The old **PaP tier/benefit TOAST is REMOVED** (`_acc_pap_levels.gsc:732`, user 2026-06-22): a pack shows only the
 machine price, no benefit popup — so there is no magnitude to hide there anymore. This also left the GSC
@@ -110,9 +110,9 @@ Both cards already ship the vague wording; the tier readout (`vN/10`, `Tier N/10
 
 | Surface | line | Exact | Shipped vague |
 |---|---|---|---|
-| OC dmg/tier | `acc_hud.lua:220` | `+<tier*5>% weapon damage` | `More gun damage` |
-| OC glitch dmg | `acc_hud.lua:221` | `+<tier*25>% vs glitch zombies` | `More vs glitch zombies` |
-| OC ammo-back | `acc_hud.lua:222` | `<tier*10>% ammo back on headshot KILL` | `Headshot kills give ammo` |
+| OC dmg/tier | `acc_hud.lua:220` | `+<tier*12>% weapon damage` | `More gun damage` |
+| OC glitch dmg | `acc_hud.lua:221` | `+<tier*15>% vs glitch zombies` | `More vs glitch zombies` |
+| OC ammo-back | `acc_hud.lua:222` | `<tier*5>% ammo back on headshot KILL` | `Headshot kills give ammo` |
 | Exo resist | `acc_hud.lua:254,262` | `-<tier*6>% damage taken` (6%/tier, clamped -80%, user 2026-07-08) | `Take less damage` |
 | Exo melee | `acc_hud.lua:255,263` | `+<tier*30>% knife / melee damage` | `Stronger melee` |
 | Exo depth/next-tier | `acc_hud.lua:261,269` | `Full speed to layer N` + next-tier Data-Shard cost | shows `layer N` (kept) + shard price |

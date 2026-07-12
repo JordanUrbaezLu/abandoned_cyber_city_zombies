@@ -32,7 +32,7 @@ into a shared team pool; **any** teammate **withdraws**. No player-targeting (av
 
 ## The room — under the Plaza, down from the (enlarged) Implant Lab
 
-An enclosed vault at **z=-240** directly **under the spawn Plaza**, reached by an **enclosed
+An enclosed vault at **z=-160** directly **under the spawn Plaza**, reached by an **enclosed
 staircase** in the SW corner of the Implant Lab (the implant-bench side-room, [02_layout.md](02_layout.md)).
 
 > *History (user, 2026-06-27):* the first attempt was an open railed pit in a cramped room with a
@@ -41,13 +41,14 @@ staircase** in the SW corner of the Implant Lab (the implant-bench side-room, [0
 > x[-720,-40], and rebuilds the descent as an **enclosed staircase room** against the new west wall.
 
 - **Enlarged lab** ([`gen_plaza_shrink.js`](../tools/gen_plaza_shrink.js)): the Implant Lab is widened
-  WEST from x[-400,-40] to **x[-720,-40]** (west wall moved + the north wall extended); benches stay
+  WEST from x[-400,-40] to x[-720,-40], then EAST to **x[-720,180]** (2026-07-10, for the 3-bench relayout; west wall moved + the north wall extended); benches stay
   center, the plaza doorway stays north. The new SW area holds the staircase.
 - **Geometry** ([`gen_plaza_basement.js`](../tools/gen_plaza_basement.js)): the single stock
   arena-floor slab (`{219830C1…}`) is **carved** into a connected 4-chunk frame around a **stairwell
-  well** at **x[-720,-496] y[-440,-312]** (flush against the new west wall — the same strip-and-re-emit
-  the abyss does to the trench floor, the only way to hole a solid slab). A 14-tread 16/16 stairwell
-  descends z=0→-240 EAST(top)→WEST(bottom) into the vault (x[-720,300] y[-448,360]); the carved arena
+  well** at **x[-620,-380] y[-440,-312]** (deliberately NOT flush against the new west wall — the stairs
+  stop ~100u short, leaving an open vault landing at x[-720,-620]; the same strip-and-re-emit the abyss
+  does to the trench floor is the only way to hole a solid slab). A 15-tread 16-run/10-rise stairwell
+  descends z=0→-160 EAST(top)→WEST(bottom) into the vault (x[-720,300] y[-448,360]); the carved arena
   floor is the room **ceiling**. The stairs are wrapped in an **enclosed staircase room** — full-height
   (z[0,256]) N/S walls + the west lab wall + a **doorway on the EAST face** — so it reads as a basement
   stairwell, not a pen. Always-on lights. **LED-bake-gated** — passes (`tools/_bake_test.ps1` → BAKED).
@@ -58,10 +59,10 @@ staircase** in the SW corner of the Implant Lab (the implant-bench side-room, [0
   (`enter_vault` was already the corp/lab Vault door — this room is `enter_exchange`. The `.map` ships
   exactly one `acc_door_exchange` slab+trigger, so `acc_dedupe_exchange_door()` — still invoked from
   the entry script as a self-heal — is currently a harmless no-op.)
-- **Safe utility room**: it sits at z=-240 inside the trench OOB box, so it's **excluded from the
+- **Safe utility room**: its floor sits at z=-160 inside the trench OOB box (the veto box spans z(-260,0)), so it's **excluded from the
   trench amping** (no −20% slow / surge / danger HUD) via `origin_in_vault()` in `_acc_bus_trench.gsc`
   — but still **OOB-kill-vetoed** there (the second-part pattern: excluded from `underground_layer`,
-  vetoed in `acc_trench_oob_allow`). Zombies still path down the stairs (navmesh links the 16/16 run);
+  vetoed in `acc_trench_oob_allow`). Zombies still path down the stairs (navmesh links the 16-run/10-rise steps);
   it is not a turtle haven.
 
 ## The stations
@@ -70,7 +71,7 @@ Four terminals (script-spawned, no `.map` / `.zone` / LED-bake cost — the cano
 recipe), each flanked by a **DEPOSIT** pad and a **WITHDRAW** pad (one trigger per action = the
 Implant-Bench multi-pad idiom; BO3 use-triggers are single-button). Each press moves **one fixed
 increment** (the codebase's "how much" idiom — no in-game menu exists). Hints are **constant**
-(the 250-unique-`SetHintString` cap); the actual amount + running pool show via `hud_msg` on use.
+(the 250-unique-`SetHintString` cap); the actual per-press amount shows via `hud_msg` on use — the running pool total is shown only for Bottles + Items; Points/Shards toasts show just the bounded per-press amount (no pool total) to stay under the string-cache cap.
 
 | Station | Deposit (per press) | Withdraw (per press) | Notes |
 |---|---|---|---|

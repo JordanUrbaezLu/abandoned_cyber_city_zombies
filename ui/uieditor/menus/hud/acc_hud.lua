@@ -842,7 +842,8 @@ end
 --     fields must keep flowing anyway (the PaP/OC report cards read the same models), so the row
 --     just re-consumes them - NO clientuimodel pool growth (the pool is FULL, docs/42).
 --   * FLAG badges (on/off) share the ONE "acc_badges" toplayer->uimodel bitmask
---     (_zm_aetherium_hud::player_gun_badge_watch; bit 0 MULE, bit 1 TURBO, 4 spare bits).
+--     (_zm_aetherium_hud::player_gun_badge_watch; bit 0 MULE, bit 1 TURBO, bit 2 NUKE, bit 3 BRZ,
+--     2 spare bits).
 --
 -- TO ADD A BADGE: one entry in ACC_GUN_BADGES below (+ for a flag, OR its bit into the mask in
 -- player_gun_badge_watch). Chips auto-pack right-to-left; no per-badge positioning ever again.
@@ -889,6 +890,12 @@ local ACC_GUN_BADGES = {
     -- +15% damage buff reads). Art landed 2026-07-08 (user's badges_all_16.zip, gold "Damage+" atom).
     { id = "nuke",  model = "acc_badges", kind = "flag", bit = 2, w = 34,
       icon = { "i_acc_badge_nuclear" } },
+    -- BRZ (Berzerker, acc_badges bit 3): shows while the implant is in AND the held weapon is one it
+    -- speeds up (Leviathan Axe / Action Figure - _acc_gun_badges::pred_berzerker, same name tests as
+    -- the damage side's berzerker_melee_weapon; knife-bash surface deliberately not a trigger).
+    -- Art landed 2026-07-11 (user's badges_17_enhanced_v3.zip, bezerker.png -> i_acc_badge_berzerker).
+    { id = "brz",   model = "acc_badges", kind = "flag", bit = 3, w = 34,
+      icon = { "i_acc_badge_berzerker" } },
 }
 
 CoD.AccGunBadgeRow = InheritFrom(LUI.UIElement)

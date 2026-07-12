@@ -29,7 +29,7 @@ on 2026-07-10).
 | 06 | [Replayability](06_replayability.md) | The three tiers of run-to-run variance + the 11 modifiers |
 | 07 | [Milestones](07_milestones.md) | Build phases (historical → shipped) |
 | 08 | [Enemies](08_enemies.md) | Zombie speed curve, elites, the boss roster + cadence |
-| 09 | [Boss Items](09_boss_items.md) | The 10-item boss-drop pool, slots, shipped pickup models |
+| 09 | [Boss Items](09_boss_items.md) | The 11-item boss-drop pool, slots, shipped pickup models |
 | 10 | [Perks](10_perks.md) | All 10 perks + Megas, slot cap/costs, Lab-alcove rotation |
 | 11 | [Controls & HUD](11_controls_and_hud.md) | Input bindings + the shipped Aetherium HUD (bar, gun-badge row, etc.) |
 | 12 | [Co-op Rules](12_coop_rules.md) | Co-op scaling, revive, split-screen, shared vs per-player state |
@@ -48,6 +48,7 @@ on 2026-07-10).
 | 30 | [Abyss Descent](30_abyss_descent.md) | The vertical soul-box layers → Paradise |
 | 37 | [The Exchange](37_transfer_vault.md) | Player-to-player transfer vault |
 | 39 | [The Armory](39_armory.md) | Upper-room weapon rack + mega-bottle exchange |
+| 40 | [Leaderboard](40_leaderboard.md) | Trench leaderboard terminal + game-record persistence/upload (research + design) |
 
 ## Engineering reference
 | # | Doc | What it's for |

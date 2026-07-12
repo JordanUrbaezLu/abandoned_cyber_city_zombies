@@ -81,8 +81,26 @@
 },
 {
  "Type" : "ALIAS",
+ "Name" : "acc_ballistic_knife",
+ "Filename" : "acc_ballistic_knife.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
  "Name" : "_owens_weapons",
  "Filename" : "_owens_weapons.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "emox_t8_powerups_delayed_drop",
+ "Filename" : "emox_t8_powerups_delayed_drop.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "freezegun_sounds",
+ "Filename" : "freezegun_sounds.csv",
  "Specs" : [ ]
 },
 {

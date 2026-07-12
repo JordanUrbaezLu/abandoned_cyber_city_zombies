@@ -2,7 +2,7 @@
 
 ## Elevator Pitch
 
-**Abandoned Cyber City** is a custom Call of Duty: Black Ops III zombies map built around **mechanics, skill expression, and replayability**. Players extract "Data Shards" from elite enemies and spend them across a deep upgrade economy — the **Cyberware Weapon Overclock** terminal, extra perk slots, the Exo Suit — that reshapes how their weapons and perks behave for that run. Weapon **Overclocks** are pulled from randomized pools. (The original branching Cyberware skill tree is built but currently **disabled/dormant** in code — the Overclock terminal is the sole live weapon-upgrade path; see `03_progression_and_skills.md`.) Map state (power routing, Pack-a-Punch path, wallbuy pool, elite spawn mix) re-rolls each game. The result: every run asks different build questions, and strong players are rewarded with longer, cleaner runs - not just more loot.
+**Abandoned Cyber City** is a custom Call of Duty: Black Ops III zombies map built around **mechanics, skill expression, and replayability**. Players extract "Data Shards" from elite enemies and spend them across a deep upgrade economy — the **Cyberware Weapon Overclock** terminal, extra perk slots, the Exo Suit — that reshapes how their weapons and perks behave for that run. Weapon **Overclocks** are a flat tier ladder: each terminal tier-up raises the weapon's Overclock tier, and three fixed effects (flat damage, glitch piercing, ammo refund) scale off that tier — the old per-run random-pool draw is dead code (reconciled to code 2026-07-11). (The original branching Cyberware skill tree is built but currently **disabled/dormant** in code — the Overclock terminal is the sole live weapon-upgrade path; see `03_progression_and_skills.md`.) Only the Pack-a-Punch approach path re-rolls each game; power routing (always 'corp'), the wallbuy pool (a fixed set of 5) and the elite spawn mix (deterministic shielded-only, every 4th round) stay constant. The result: every run asks different build questions, and strong players are rewarded with longer, cleaner runs - not just more loot.
 
 Systems come first. The "cyber city" theme is the flavor wrapper; the design work is in the mechanics.
 
@@ -15,8 +15,8 @@ Systems come first. The "cyber city" theme is the flavor wrapper; the design wor
 ## Design Pillars (ranked)
 
 1. **Meaningful upgrading** - every currency spend is a decision. Data Shards are finite per run; the deep sinks (weapon Overclocks, perk slots, Exo Suit) all compete for the same slow income; Overclocks commit you to a playstyle.
-2. **Skill-based difficulty** - faster ramp than stock BO3, elite enemies from round 5+, a mini-boss debut at round 10 and full **boss rounds every 9 rounds from round 9** (the count scales: r9=1, r18=2, r27=3 bosses, dealt from a no-duplicate shuffled roster - see `08_enemies.md`). A lost run should trace to a decision, not RNG.
-3. **Replayability through randomization** - map *state* (not geometry) re-rolls per game: power routing, PaP path, wallbuy pool, elite cadence, Overclock pool. Geography and core objectives stay stable so muscle memory still pays off.
+2. **Skill-based difficulty** - faster ramp than stock BO3, elite enemies from round 4+, a mini-boss debut at round 5 and full **boss rounds every 9 rounds from round 9** (the count scales: r9=1, r18=2, r27=3 bosses, dealt from a no-duplicate shuffled roster - see `08_enemies.md`). A lost run should trace to a decision, not RNG.
+3. **Replayability through randomization** - the live per-run map-*state* roll (not geometry) is the Pack-a-Punch approach path (the blocked side re-rolls each game); power routing is always 'corp', the wallbuy pool is a fixed set of 5, elite cadence is deterministic (every 4th round), and the Overclock pool is fixed, so those no longer re-roll. Geography and core objectives stay stable so muscle memory still pays off. (reconciled to code 2026-07-11)
 4. **Multiple viable builds** - at least 3 distinct build archetypes reach the late game (e.g. Crit / AoE / Mobility) and the competing shard sinks force commitment, so runs feel different to play, not just to watch.
 5. **Skill over grind** - unlocks are gated by objectives and decisions, not raw time. No "shoot 10,000 zombies for X".
 
@@ -41,7 +41,7 @@ These were the launch targets set before the scope expanded; treat them as direc
 
 - 4-player co-op stable over a 2-hour run without persistent desync (co-op HP/spawn scaling lives in `_acc_coop_scaling.gsc`).
 - At least **3 viable build archetypes** reach round 50+ in solo when piloted well.
-- Map-state randomization produces meaningfully different openings (power routing x Overclock pool x wallbuy roll x Lab-alcove perk roll).
+- Map-state randomization produces different openings — the **PaP-blocked side** re-rolls per run and the Lab's **4-of-10 perk-door** set re-rolls each round (power routing is always `corp`, the Overclock pool is fixed/dead, and wallbuys are a fixed set of 5 — none of those re-roll). (reconciled to code 2026-07-11)
 - Median solo run length before avoidable death at round 30: **25+ minutes** (a measure of tension-without-cheap-deaths).
 - Workshop rating target: 4.5+ stars after 500 unique downloads, with reviews citing "build variety" or "replayability".
 
@@ -52,14 +52,14 @@ The founding open questions have all been answered in the shipped build:
 - **Solo vs co-op scaling** - both HP and spawn rate scale with player count; see `_acc_coop_scaling.gsc` and `03_progression_and_skills.md`.
 - **Target "beat the map" difficulty** - Ameliorama-hard: the boss cadence and shard economy are tuned for deep runs (round 50+), not a 25-30 accessible cap. See `05_mechanics.md` / `08_enemies.md`.
 - **Randomization ceiling** - the re-roll surfaces (state, not geometry) are enumerated in `06_replayability.md`.
-- **Wonder weapon identity** - settled and shipped: the Havoc charge gun plus the elemental bows are the wonder-weapon tier (all box-only). See `04_weapons.md`.
+- **Wonder weapon identity** - settled and shipped: the wonder-weapon tier is the Havoc charge gun, the Thundergun, the Blast-O-Matic, the Fire Bow, and the Leviathan Axe (all box-only). See `04_weapons.md`.
 
 ## Relationship to Other Docs
 
 - `01_toolchain.md` - how we build this thing (see also `BO3_MAPMAKING_KB.md`, the portable pipeline reference).
 - `02_layout.md` - physical map, gameplay-first (theme is flavor only).
 - `03_progression_and_skills.md` - Data Shard economy, weapon Overclocks, perk/Exo progression, difficulty curve (plus the dormant Cyberware skill tree, kept for reference).
-- `04_weapons.md` - arsenal (large, box-only pool: Apex + Skye ports + elemental bows), Overclocks, custom perks.
+- `04_weapons.md` - arsenal (large, box-only pool: Apex + Skye ports + the Fire Bow / Leviathan Axe), Overclocks, custom perks.
 - `05_mechanics.md` - round pacing, encounter design, economy math, feedback loops.
 - `06_replayability.md` - randomization systems, modifiers, build archetypes, hard mode.
 - `07_milestones.md` - phased deliverables with exit criteria.

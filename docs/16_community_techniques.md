@@ -617,6 +617,19 @@ Copy a stock script to identical path under usermap scripts/ (e.g. scripts/zm/_z
 
 - **Source:** zm_nuked zone_source/zm_nuked.zpkg:3,48-83; scripts/zm/zm_usermap.csc:95-97 (only diff vs stock); diff of _zm_perk_*.gsc/gsh vs stock
 - **For our map:** Our verified escape hatch when a stock hook doesn't exist (e.g. client-side weapon tables, perk FX) — safer than our riskier inline patches.
+- **zm_patch.csv DEDUPE TRAP (learned from eMoX T8 Delayed Powerup Drop, installed 2026-07-11):** if
+  the stock script you're overriding is listed in `<tools>\zone_source\all\assetlist\zm_patch.csv`
+  (e.g. `_zm_powerups.gsc` — the nuked examples above are NOT), the linker's already-in-a-parent-
+  fastfile dedupe SILENTLY SKIPS your zone's scriptparsetree line and the override never lands (no
+  error — the feature is just absent at runtime). Fix per the pack readme: comment out that line in
+  zm_patch.csv (install-side stock-file edit — backup `.acc-orig-backup`, documented in
+  `tools/external_assets_manifest.ps1`, re-apply after a Mod Tools reinstall). Verify the override
+  actually landed by finding `scripts/zm/_zm_powerups.gsc` in the linker log's compile list.
+- **Blocking-callers gotcha (same install):** an override that adds `wait()`s inside a function
+  stock guaranteed to return same-frame (eMoX adds ~1.6s inside `powerup_setup`) changes the
+  contract for every caller: entity-owned threads that die mid-wait (corpse delete) strand the
+  half-initialized powerup. Audit call sites for `level thread` vs self-thread/plain calls
+  (we fixed mechz_spiki + nsz_brutus, 2026-07-11).
 
 ### Repo layout + .zone anatomy for a heavily-modded map (no .map committed)
 
@@ -817,7 +830,7 @@ Queue per player: `level.pending_announcer_vox[entnum][]` appended by play_poole
 
 ### Stock Panzer/mechz in a usermap = ADVANCED, not drop-in (vs self-contained bosses)
 
-The BO3 Panzer is the stock `mechz` (DLC1 / Der Eisendrache). Adding it to a base usermap is the most failure-prone AI add: 10/11 clientfields are `VERSION_DLC1` (must be re-versioned to `VERSION_SHIP` in BOTH gsc+csc), the model/anim/FX assets aren't in a fresh install (come from Spiki's asset dump #3087 pw `Chungus4Prez`, or self-extract via Greyhound from the user's Origins/zm_tomb), a partial FX folder = FATAL linker abort, plus a documented attack-crash with no posted fix. The `set_zombie_var("mech_first_round")`/`can_spawn_mech()` API is a WaW/BO1 PORT name, NOT BO3 stock (native = `archetype "mechz"` + `zombie_utility::spawn_zombie`, which our `_acc_boss` already uses). Contrast: self-contained custom-aitype bosses (Spiki's **Brutus 2** #2875 = "drag and drop"; our NSZ Brutus = ~1 gdtdb run) are the EASY class. Full method + risk list: [research/BO3_Panzer_mechz_usermap_method.txt](research/BO3_Panzer_mechz_usermap_method.txt).
+The BO3 Panzer is the stock `mechz` (DLC1 / Der Eisendrache). Adding it to a base usermap is the most failure-prone AI add: 10/11 clientfields are `VERSION_DLC1` (must be re-versioned to `VERSION_SHIP` in BOTH gsc+csc), the model/anim/FX assets aren't in a fresh install (come from Spiki's asset dump #3087 pw `Chungus4Prez`, or self-extract via Greyhound from the user's Origins/zm_tomb), a partial FX folder = FATAL linker abort, plus a documented attack-crash with no posted fix. The `set_zombie_var("mech_first_round")`/`can_spawn_mech()` API is a WaW/BO1 PORT name, NOT BO3 stock (native = the stock `mechz` archetype; our Panzer boss `_acc_boss_panzer.gsc` spawns it via `SpawnActor("archetype_zm_mechz_genesis", ...)`, not `zombie_utility::spawn_zombie` — `_acc_boss.gsc` itself does not spawn a mechz). Contrast: self-contained custom-aitype bosses (Spiki's **Brutus 2** #2875 = "drag and drop"; our NSZ Brutus = ~1 gdtdb run) are the EASY class. Full method + risk list: [research/BO3_Panzer_mechz_usermap_method.txt](research/BO3_Panzer_mechz_usermap_method.txt).
 
 - **Source:** modme #3087 (Spiki dump) / #2875 (Brutus 2) / #3849 (FX fatal) / #3233 (XANIM fix) / #830 (clientfield parity); bo3explorer mechz_8gsc / version_8gsh; local stock `mechz.{gsc,csc,gsh}`.
 - **For our map:** If we want THE Panzer it's a multi-session, crash-debugging job (Spiki's dump is the cleanest route); if we want "a cool boss easily," prefer a self-contained custom-aitype pack like Brutus 2.
@@ -1059,6 +1072,13 @@ Commit compiled scripts/shared/xmodelalias_shared.gscc (binary) plus a 6-line st
 
 - **Source:** zm_nuked scripts/shared/xmodelalias_shared.gsc:1-6 (.gscc alongside); scripts/zm/zm_nuked.gsc:230-237; zpkg:147-152
 - **For our map:** Two takeaways: zm_spawner::add_custom_zombie_spawn_logic is the per-zombie-spawn hook for our cyber-zombie cosmetics, and scriptparsetree accepts precompiled .gscc.
+
+### Navmesh ignores ALL entity collision — script-placed props need DisconnectPaths() (2026-07-11)
+
+`radiant\configs\navmesh.json` (Mod Tools install) is the navmesh generator's config: its `exclusions` list names `misc_model`, `script_model`, `script_brushmodel`, `dyn_model` (plus `clip_player`/`clip_missile`/`clip_weapon`/`clip_vehicle`/`clip_physics`/triggers/volumes) — cod2map64 generates walkable navmesh STRAIGHT THROUGH all of them, no matter how solid their collision is at runtime. Only worldspawn brushes (`clip` and `clip_ai` are NOT excluded) cut the mesh at compile, plus the dedicated carver materials `clip_carver` / `clip_navmesh_carver` / `clip_navvolume_carver` (carve nav only, no player collision; `clip_navmesh_carver` + `static_navmesh` are literal strings in cod2map64.exe; shipped prefab precedent `_prefabs/mp/mp_sector/.../mp_sector_aquaculture_bdg_west` uses `clip_navvolume_carver`). Community also sets Radiant KVP `static_navmesh = true` on clip brushes over props (UGX). The runtime half: a solid entity is invisible to pathing until you call `<ent> DisconnectPaths()` — stock does this for EVERY placed collision: perk machines (`_zm_perks.gsc:1551-1555` spawns `zm_collision_perks1` + DisconnectPaths), Pack-a-Punch (`_zm_pack_a_punch.gsc:114-118`), door slabs auto-disconnect iff classname==script_brushmodel (`_zm_blockers.gsc:272-275`), dogs' round clips toggle Connect/DisconnectPaths (`_zm_ai_dogs.gsc:806/819`). Official API doc: script_brushmodels "must have DYNAMICPATH set" for DisconnectPaths (UGX help-desk #10603 = the runtime error when missing). NO other dynamic nav primitive exists in T7 (zero stock hits for NavTrace/SpawnNavObstacle/BlockNavmesh). Symptom of getting this wrong: zombie paths onto the prop's footprint, grinds against the invisible clip until the target moves — and stock `factory_closest_player` (zm_usermap_ai.gsc) NEVER re-picks a merely-unreachable target (only invalid ones); the only stock recovery is round_spawn_failsafe suiciding zombies that moved <24 units in 30s (`zombie_utility.gsc:1805-1903`).
+
+- **Source:** local install `radiant/configs/navmesh.json` + `bin/cod2map64.exe` strings + `map_source/zm/zm_giant.map` (worldspawn clip_ai precedent); tmp/bo3_stock_ref `_zm_perks.gsc`, `_zm_pack_a_punch.gsc`, `_zm_blockers.gsc`, `_zm_ai_dogs.gsc`, `zm_usermap_ai.gsc`, `zombie_utility.gsc`; UGX #13266/#13217/#10603; official API doc mirror marcogravbrot/bo3-mod-tools
+- **For our map:** THE fix for zombies stuck on our GSC-spawned stations/caches/benches: our 30 `acc_clip_*` script_brushmodel prop clips (tools/add_prop_clips.js `brushmodel:true`) + 6 `acc_box_clip_*` give collision but never DisconnectPaths → navmesh runs through them. Call DisconnectPaths() on them at init (mirror stock perks), pairing Connect/DisconnectPaths anywhere we toggle Solid/NotSolid (box moves). Worldspawn `clip` clips (exo_station/reactor_plinth/perk_slot_vendor) are already correct.
 
 ## TELEPORTERS
 
@@ -1413,15 +1433,18 @@ true)` in the menu Lua (OpenMenu alone doesn't grab input). 5 names must match e
   `scriptparsetree,scripts/zm/<f>.gsc` to the `.zone`. A deployed scriptparsetree at the
   STOCK path **shadows the base-game copy** (verified: builds + links clean with
   `_zm_perks`/`_zm_weapons`/`_zm_magicbox`/`_zm_pack_a_punch`/`_zm_pers_upgrades_functions`
-  vendored, 2026-06-14). Keep the file's original `#namespace`.
+  vendored, 2026-06-14 — but NONE of those five are vendored in the repo today; the vendoring was
+  reverted, so no `scripts/zm/<f>.gsc` copies or `scriptparsetree` zone lines for them exist.
+  reconciled to code 2026-07-11). Keep the file's original `#namespace`.
 - **Cycle trap:** a vendored stock file that needs an `_acc_*` value must read the FIELD
   directly (e.g. `player.acc_mega_perks["specialty_..."]`), NOT `#using` the `_acc_` module
   — those modules `#using` the stock files back, so importing them creates a `#using` cycle.
   Field access needs no `#using`.
-- **Applied (Armory 10% discount, docs/10):** the dormant `pers_double_points` cost hook
-  (`is_pers_double_points_active` / `pers_upgrade_double_points_cost`) is repurposed — every
-  ZM cost site already calls it, so overriding those two stubs discounts perks + stock-PaP
-  charge for free; wallbuy/box inline their own cost so those files were edited too.
+- **Not applied (Armory redesigned):** the `pers_double_points` cost-discount hook was never shipped.
+  `_acc_armory.gsc` is now a Mega-Bottle → random-implant exchange station (`acc_armory_bottle_cost`
+  empty Mega Bottles per exchange, consumed via `acc_mega_bottles::try_consume_bottle`) with no
+  `is_pers_double_points_active` / `pers_upgrade_double_points_cost` discount logic anywhere in
+  `scripts/`. (reconciled to code 2026-07-11)
 - **Cost↔display split (hard-won):** the CHARGE and the DISPLAYED price are computed in
   DIFFERENT code paths. Discounting only the charge leaves the shown price wrong. Wallbuy
   prices are client-filled by default (`level.weapon_cost_client_filled=true`) — flip it
@@ -1460,9 +1483,10 @@ true)` in the menu Lua (OpenMenu alone doesn't grab input). 5 names must match e
 - **Asset-name rule still applies separately:** for *assets* (materials/images/xmodels) the base
   zone wins a name collision (docs/20 — why the perk bar can't be recolored via image names). LUI
   *behavior* is overridable via the `LUI.createMenu.*` function table (code), which is the lever here.
-- **Applied (ACC round counter teal, docs/11/42):** `acc_round_status.lua` = the stock structure with
-  ONLY `CoD.RoundStatus.DefaultColor` dark-red→teal `(0.25,0.88,0.82)`; native chalk/round-up
-  animation preserved; all assets stock. Replaced an earlier overlay+mask hack (`CoD.AccRoundNum` +
-  a `world` clientfield), now removed. Needs L3akMod (custom-LUI linker), which we already run.
+- **Superseded (never shipped):** the `acc_round_status.lua` factory-wrap teal recolor was NOT applied —
+  no such file exists in the repo, and no `CoD.RoundStatus.DefaultColor` / `(0.25,0.88,0.82)` override
+  survives in any `.lua`. The round counter is now the Aetherium HUD widget
+  `ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumRoundCounter.lua` (Aetherium HUD adopted 2026-07-03,
+  after this 2026-06-17 section). (reconciled to code 2026-07-11)
 - **Reuse:** the same factory-wrap can restyle other stock HUD widgets the root builds (ammo, score,
   perks) — override their `LUI.createMenu.<name>` inside the same `T7Hud_zm_factory` wrapper.

@@ -41,7 +41,9 @@ function __init__()
 	clientfield::register( "toplayer", "elem_storm_whirlwind_rumble", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "elem_storm_bolt_fx", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "elem_storm_zap_ambient", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "elem_storm_shock_fx", VERSION_SHIP, 2, "int" );
+	// [acc] ACTOR clientfield DISABLED (2026-07-11): bow unobtainable in this map (only the FIRE
+	// bow ships) + the actor set hit its bit budget (Winter's Howl overflow). LOCKSTEP with .csc.
+	//clientfield::register( "actor", "elem_storm_shock_fx", VERSION_SHIP, 2, "int" );
 	callback::on_connect( &on_connect_bow_storm );
 }
 
