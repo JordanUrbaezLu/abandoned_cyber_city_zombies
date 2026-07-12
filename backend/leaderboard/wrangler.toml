@@ -1,0 +1,17 @@
+# Cloudflare Worker config for the Abandoned Cyber City leaderboard.
+# See README.md for the full deploy walkthrough.
+
+name = "acc-leaderboard"
+main = "worker.js"
+compatibility_date = "2026-07-11"
+
+# D1 binding. After `wrangler d1 create acc_leaderboard`, paste the printed
+# database_id here (it is NOT a secret - safe to commit).
+[[d1_databases]]
+binding = "DB"
+database_name = "acc_leaderboard"
+database_id = "b975e19e-5eb2-4111-aa95-735aa7f88862"
+
+# ACC_KEY (the shared write key) is NOT set here - set it as a secret so it
+# stays out of git:  wrangler secret put ACC_KEY
+# (Leave it unset to run an open board with no key check.)
