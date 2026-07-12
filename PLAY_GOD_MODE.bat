@@ -24,4 +24,9 @@ REM  (engine command, sticks), NOT "+set g_gametype zclassic" (resets to tdm ->
 REM  black screen). Keep BO3's Steam LAUNCH OPTIONS EMPTY (Steam doubles them).
 REM  Full reference: docs\34_flags_reference.md, docs\23_launch_runbook.md.
 REM ===========================================================================
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 0 +set acc_god 1"
+REM [acc] LEADERBOARD AGENT PRE-SPAWN (docs/40, user 2026-07-12 "do it silently"): spawn the
+REM hidden network agent BEFORE the game and pass +set acc_lb_agent 1 so the game skips its own
+REM spawn - NO terminal window ever appears. Helper is generated (tools/build_lb_lui.js); if it
+REM is missing the launch still works (the game falls back to its own minimized spawn).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\spawn_lb_agent.ps1"
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 0 +set acc_god 1 +set acc_lb_agent 1"

@@ -32,6 +32,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_jukebox;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leaderboard;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_doors;
@@ -202,6 +203,8 @@ function init()
     acc_emergency_drop::init();
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
     acc_jukebox::init();        // JUKEBOX (random song, 1 Data Shard + 1000 pts) in the NORTH trench room (the non-Overclock one)
+    acc_leaderboard::init();    // LEADERBOARD (docs/40) - end_game recorder (cloud POST, skipped in dev/god) + Plaza top-10 station
+
     acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/30)
     acc_exo::init();            // Exo Suit station: per-player depth-gate (cancels the per-layer trench slow; docs/29)
     acc_abyss_doors::init();    // Abyss descent = SOUL BOXES (100 kills/layer) + the communal Paradise gate (shards+points)

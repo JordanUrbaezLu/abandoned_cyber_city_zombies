@@ -73,7 +73,7 @@ the cherry vending machine from the **[West] Community Perk Collection v2.7** ex
 `tools/external_assets_manifest.ps1`), **force-packed** via `xmodel,electric_cherry_model` in the `.zone`
 (`:29`) because runtime `SetModel` assets need an explicit line. One model for both power states (the
 pack's convention; the powered glow is light FX owned by `_acc_perk_lights`). **No new GSC — the
-`p7_zm_vending_nuke` / lab-prop stand-in is retired.**
+`p7_lab_bio_machinery_01` lab-prop stand-in is retired.**
 
 **Why the BO2 rip was abandoned:** the stock `p6_zm_vending_electric_cherry_on/off` names are
 **catalog-listed but have NO packable source in any install** (rendered INVISIBLE, 2026-06-25) — so the

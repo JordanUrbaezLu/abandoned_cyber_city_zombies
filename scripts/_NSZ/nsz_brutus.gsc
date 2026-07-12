@@ -732,8 +732,11 @@ function new_death()
 	// [acc] NO drops during the Paradise final battle (user 2026-06-26): the paradise Brutus is a THREAT, not a
 	// loot pinata - suppress the last-Brutus power-up drop while the onslaught is running (the generic horde drops
 	// are blocked by acc_paradise::block_powerup_drop; this forced drop bypasses that hook, so gate it here too).
+	// [acc] 2026-07-11: level thread, was self-threaded. The eMoX delayed-drop override makes
+	// specific_powerup_drop block ~1.6s; a Brutus-owned thread dying mid-delay (corpse delete)
+	// would strand a model-less powerup. origin is captured at call time.
 	if( level.current_brutuses < 1 && !IS_TRUE( level.acc_paradise_onslaught ) )
-		thread zm_powerups::specific_powerup_drop( undefined, self.origin);
+		level thread zm_powerups::specific_powerup_drop( undefined, self.origin);
 	
 	self PlaySound( "brutus_helmet" ); 
 	self PlaySound( "brutus_defeated_0"+randomintrange(0,3) ); 

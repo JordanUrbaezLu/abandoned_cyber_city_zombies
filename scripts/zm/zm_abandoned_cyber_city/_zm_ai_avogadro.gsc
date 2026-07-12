@@ -408,7 +408,10 @@ function avogadro_damage_callback( inflictor, attacker, damage, flags, mod, weap
     // on an UNDEFINED attacker (a 2-arg DoDamage self-kill like the decontamination seal, or fall/
     // environmental damage) threw a runtime script error on the inline damage path. isdefined-guard it -
     // same guard _acc_elites::on_player_damaged and _acc_damage use for this exact read.
-    if( isdefined( attacker ) && attacker.targetname == "avogadro")
+    // [acc] 2026-07-11 (console_mp.log: "pair 'undefined' and 'avogadro' has unmatching types"): the
+    // 2026-07-04 guard checked attacker but NOT attacker.targetname - `undefined == "string"` THROWS in
+    // T7 (memory gsc-t7-runtime-traps), and most attackers (players, zombies) carry no targetname.
+    if( isdefined( attacker ) && isdefined( attacker.targetname ) && attacker.targetname == "avogadro")
     {
         // [acc] LIVE NOW (2026-07-06): the boss's zaps deal real chip damage with attacker=boss
         // (_acc_boss_avogadro::zap_damage), so this branch actually RUNS on every zap. The pack body was a

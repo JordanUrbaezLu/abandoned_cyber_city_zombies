@@ -38,8 +38,11 @@ SETUP_WINDOWS.md). Agents build the map headlessly with `tools/build_map.ps1`
 the Launcher GUI is not required. Launch/run runbook: [docs/17_launch_runbook.md](docs/17_launch_runbook.md).
 
 ### Phase 2 - Zombies Template plus Greybox — DONE
-All 7 zones from [docs/02_layout.md](docs/02_layout.md) are playable, with 8
-buyable doors, 3 inline mystery boxes, dual-switch power, perks, and Pack-a-Punch.
+All 7 zones from [docs/02_layout.md](docs/02_layout.md) are playable, with 13
+buyable doors, 6 inline mystery boxes, single-switch power (the custom dual-switch
+was stood down 2026-06-19 — `_acc_power` deletes the leftover `acc_power_switch`
+triggers and ships one stock wall switch; reconciled to code 2026-07-11), perks,
+and Pack-a-Punch.
 The map bakes again after the pre-stage3 geometry revert — ~157 light entities +
 ~15 reflection probes — so the Radiant LED bake is the gate and `-SkipLED` is a
 red flag, not the default. Source: `map_source/zm/zm_abandoned_cyber_city.map`.
@@ -69,7 +72,7 @@ The map's mechanical identity ships and is live in `_acc_main.gsc::init()`:
   `_zm_aetherium_hud.gsc/.csc` + `ui/uieditor/menus/hud/*.lua`), with round progress
   as a smooth bar (the radial ring was abandoned). The **gun-badge chip row**
   (`_acc_gun_badges`, PaP / OC / Mule / Turbo / Nuclear) shipped 2026-07-08.
-  Health bars (`_acc_health_bars`) and 5-tier Pack-a-Punch (`_acc_pap_levels`) ship.
+  Health bars (`_acc_health_bars`) and 3-tier Pack-a-Punch (`_acc_pap_levels`) ship.
 - **Perks:** 10 perks (Electric Cherry is the real 10th, finished from our side).
   Slot cap `ACC_PERK_SLOT_MAX = 10`; each extra slot costs more than the last
   (`_acc_perks.gsc`: base 4 + step 2 → 4/6/8/10/12/14 shards). The Lab perk-alcove
@@ -108,12 +111,14 @@ These were "planned/future" in earlier drafts and are now shipped, all wired in
 - **Exo Suit station** (`_acc_exo`) — per-player depth-gate that cancels the
   per-layer trench slow.
 - **Abyss Descent** (`_acc_abyss_doors` + `_acc_paradise`) — the underground is a
-  vertical soul-box descent (L2/L3/L5 layers, ~100 kills/layer) down to the
+  vertical soul-box descent (5 floors L1-L5 on a 240u pitch, gated by 4 descent
+  doors; soul cost scales with live player count — 125/player for the first gate,
+  50/player for deeper gates) down to the
   communal Paradise plaza, ending in a timed final-onslaught fight. (The old
   "Black Market" split-room design was never built.)
 - **Reactor Surge** climax event (`_acc_reactor`) in the pit.
 - **Glitch Altar** Data-Shard gamble (`_acc_glitch_altar`).
-- **Jukebox** (`_acc_jukebox`) — random song for 1 Data Shard + 1000 pts; replaced
+- **Jukebox** (`_acc_jukebox`) — random song for 2 Data Shards + 1000 pts; replaced
   the old EE-song teddy bears.
 - **The Exchange** transfer vault (`_acc_transfer`) — team point/shard/bottle/item
   transfers, under-Plaza room gated by `enter_exchange`.

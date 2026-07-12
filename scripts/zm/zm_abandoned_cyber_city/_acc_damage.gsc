@@ -571,14 +571,17 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
              && !IS_TRUE( self.acc_is_glitch_zombie )
              && isdefined( self.maxhealth ) && self.maxhealth > 0 )
         {
-            n = getdvarint( "acc_af_boss_hits", 30 );
+            n = getdvarint( "acc_af_boss_hits", 33 );   // USER 2026-07-11 -10% vs bosses (30 -> 33 hits) + swing 10% slower (GDT melee timing x1.1)
             if ( n < 1 ) n = 1;
-            dmg = int( self.maxhealth / n );                    // 1/30 of MAX health -> 30 hits to kill, any boss
+            dmg = int( self.maxhealth / n );                    // 1/33 of MAX health -> 33 hits to kill, any boss (was 1/30)
             if ( dmg < 1 ) dmg = 1;
             feed_dmg_number( attacker, dmg, false );
             return dmg;
         }
-        if ( !is_boss_or_elite( self ) )                        // regular zombie -> always one-knife
+        // [acc] 2026-07-11 review hardening: also exclude STOCK-flagged bosses (self.is_boss) - Brutus/
+        // Rogue Protector carry only the stock flag during their spawn window before the acc promotion
+        // lands (the is_non_regular() precedent); without this the figure one-knifed them in that window.
+        if ( !is_boss_or_elite( self ) && !IS_TRUE( self.is_boss ) )   // regular zombie -> always one-knife
         {
             // RETURN before the function-end damage-number feed, so feed it here (user 2026-06-23: "knife a
             // zombie and not see the damage").
@@ -586,6 +589,63 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
             return self.health + 1000;
         }
         // else: an ELITE -> fall through to normal melee handling below.
+    }
+
+    // -----------------------------------------------------------------------
+    // BALLISTIC KNIFE (user 2026-07-11): the thrown knife_ballistic / knife_ballistic_upgraded projectile.
+    //   (a) SHIELDED (Riot) elites -> DEFLECTS (0 dmg + clang), same as melee/Action Figure (spec: "no damage
+    //       to shielded zombies"). Returns BEFORE the OC shield-pierce layer, so even a maxed pierce knife can
+    //       NEVER hurt a Riot - intended.
+    //   (b) REGULAR zombies AND GLITCH zombies -> ONE-HIT (return self.health + 1000), any round, mirroring the
+    //       Action Figure regular one-knife. GLITCH-FIRST so it also one-shots the Glitch Stalker mini-boss
+    //       (user 2026-07-11, Leviathan-consistent).
+    //   (c) BOSSES / mini-bosses (non-glitch) / non-glitch elites / Apothicon Fury -> EXCLUDED: fall through to
+    //       the normal scaled chain + the 10% ACC_BOSS_PER_HIT_CAP_PCT per-hit cap = capped chip, never a delete.
+    // Matched by is_ballistic_knife_weapon (name substring - the pack GDT ships isBallisticKnife "0", see the
+    // helper) - covers base + PaP + the Berzerker _acc_brz twins with no MoD dependency. THE STAB TOO (user
+    // 2026-07-11 "its knife should do more damage"): the knife's own MELEE stab (meleeAnim/meleeDamage in the
+    // GDT) gets the same one-hit/deflect rules via a melee-gated HELD-weapon fallback - stock attributes a
+    // ballistic stab to the knife itself (_zm_spawner.gsc:1619 keys ballistic_knife_death on MOD_MELEE), but if
+    // it ever arrives as the melee-slot def instead (the Leviathan self-report lesson), the held check catches
+    // it. Melee-gated so a thrown-then-switched gun can never misattribute. The base knife has only 4 throws
+    // (PaP 9) + heavy retrieval friction, so the guaranteed one-hit is its identity vs the Action Figure's
+    // infinite melee; PaP's headline is the tier-2 Krauss revive (_zm_weap_ballistic_knife.gsc). Spike:
+    // docs/04_weapons.md.
+    // -----------------------------------------------------------------------
+    b_bk_hit = is_ballistic_knife_weapon( weapon );
+    if ( !b_bk_hit && b_melee && b_player_attacker )
+    {
+        bk_held = attacker GetCurrentWeapon();
+        if ( isdefined( bk_held ) && bk_held != level.weaponNone
+             && isdefined( bk_held.name ) && IsSubStr( bk_held.name, "knife_ballistic" ) )
+            b_bk_hit = true;   // stab attributed to the melee-slot def -> still the knife's melee
+    }
+    if ( b_player_attacker && b_bk_hit )
+    {
+        // (a) Shielded deflect (mirror the Riot melee block above; reuse the debounce field).
+        if ( IS_TRUE( self.acc_is_shielded ) )
+        {
+            if ( !isdefined( self.acc_riot_knife_cd ) || GetTime() >= self.acc_riot_knife_cd )
+            {
+                self.acc_riot_knife_cd = GetTime() + 250;
+                PlaySoundAtPosition( "zmb_rocketshield_imp", self.origin );
+            }
+            return 0;
+        }
+        // (b) One-hit regular + glitch (glitch-first -> includes the Glitch Stalker). Bosses / non-glitch
+        //     elites / Fury fall through to the capped-chip chain below. ALSO excludes stock-flagged
+        //     bosses (!self.is_boss): Brutus/Rogue Protector set stock is_boss during their spawn window
+        //     BEFORE the acc_is_mini_boss promotion lands (the is_non_regular() precedent at the bottom of
+        //     this file) - without this a knife thrown in that window would delete Brutus. The Glitch
+        //     Stalker never sets stock is_boss, so its intended one-shot is unaffected. (review 2026-07-11)
+        if ( ( IS_TRUE( self.acc_is_glitch_zombie ) || !is_boss_or_elite( self ) )
+             && !IS_TRUE( self.b_is_apothicon_fury )
+             && !IS_TRUE( self.is_boss ) )
+        {
+            if ( isdefined( self.health ) ) feed_dmg_number( attacker, self.health, false );
+            return self.health + 1000;
+        }
+        // else: boss / non-glitch elite / Fury -> normal chain (capped chip).
     }
 
     oc_flags = undefined;
@@ -672,6 +732,24 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
             reduction = reduction * getdvarfloat( "acc_blasto_shield_mult", 3.0 );
             b_modified = true;
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // 0c3) BALLISTIC KNIFE per-MoD damage scaling (user 2026-07-12): "2x the stab damage and throw
+    //      damage is 6x". Regular + glitch zombies are the scripted ONE-HIT (returned in the early
+    //      block above) and Shielded elites take 0 (deflect), so these multipliers ONLY shape the
+    //      fall-through targets - bosses / mini-bosses / Apothicon Fury / any non-shielded elite -
+    //      i.e. the knife's boss-chip tier (still backstopped by the 10% per-hit cap in 4d).
+    //      AMPLIFICATIONS (>1) in the reduction bucket, the Blast-O-Matic 0c2 precedent. The stab
+    //      (b_melee) additionally rides the Exo melee layer below; the throw rides it too as of the
+    //      same user request. b_bk_hit computed before the early block (name match + melee-gated
+    //      held fallback - covers base/PaP/brz twins). Live dvars acc_bk_stab_mult / acc_bk_throw_mult.
+    // -----------------------------------------------------------------------
+    if ( b_bk_hit )
+    {
+        if ( b_melee ) reduction = reduction * getdvarfloat( "acc_bk_stab_mult", 2.0 );   // stab x2
+        else           reduction = reduction * getdvarfloat( "acc_bk_throw_mult", 6.0 );  // throw x6
+        b_modified = true;
     }
 
     // -----------------------------------------------------------------------
@@ -834,7 +912,12 @@ function on_ai_damage( inflictor, attacker, damage, flags, meansofdeath, weapon,
         // the exo's "body" counterpart to the gun Overclock's flat damage (effect 1): guns get oc_tier (0 on
         // melee), melee gets exo_tier. Melee-ONLY (b_melee), so guns are untouched. Additive layer like the
         // rest. The Cyberware Amplifier deliberately skips melee (above); the Exo Suit IS the melee scaler.
-        if ( b_melee && isdefined( attacker.acc_exo_tier ) && attacker.acc_exo_tier > 0 )
+        // [acc] BALLISTIC KNIFE rides this layer for BOTH attacks (user 2026-07-12 "exo suit upgrades
+        // should impact the ballistic knife"): the stab is b_melee anyway; b_bk_hit extends it to the
+        // THROW (a thrown melee weapon - the knife's scaling path, since the scripted one-hit/deflect
+        // rules pre-empt Overclock effects on it). Like every bonus layer this only shapes the
+        // boss/Fury/elite fall-through - trash/glitch are one-hit before the chain runs.
+        if ( ( b_melee || b_bk_hit ) && isdefined( attacker.acc_exo_tier ) && attacker.acc_exo_tier > 0 )
         {
             bonus_sum += 1.0 + ( attacker.acc_exo_tier * getdvarfloat( "acc_exo_melee_per_tier", 0.30 ) );
             n_applied++;
@@ -1172,8 +1255,9 @@ function acc_weapon_balance_mult( weapon_name )
     if ( IsSubStr( weapon_name, "apex_alternator_up" ) ) return 0.646866;   // [A+] Alternator PaP: USER 2026-07-10 -10% DAMAGE (0.71874 -> 0.646866). Prior: 2026-07-06 +10% (0.54 -> 0.594 -> global +10% 0.71874). Also RoF -20% (fireTime 0.107->0.134) + clip 26->30 (GDT), PaP cost MID->BOT. The payoff gun.
     if ( IsSubStr( weapon_name, "apex_alternator" ) )       return 0.16335;   // [trash] Alternator BASE: USER 2026-07-10 -10% (0.1815 -> 0.16335). ~44/bullet at r1 - trash-but-shootable (0.05 = 16/bullet was broken-feeling). Covers base.
     if ( IsSubStr( weapon_name, "apex_peacekeeper" ) )      return 0.41624;  // [S] Peacekeeper (Apex 11->12-pellet lever SG): USER 2026-07-07 +10% DAMAGE on top of the global +10% (0.344 -> 0.3784 -> 0.41624). Prior: 2026-07-06 -20% ALL-SHOTGUN NERF (0.43 -> 0.344). POWER-FIRST top shotgun (user #6), DELIBERATELY not DPS-tuned ("one pump machine"). Headshot-excluded + pellet-boss-cut. Also RoF +25% (fireTime 0.2->0.16 GDT).
-    if ( IsSubStr( weapon_name, "apex_prowler" ) )          return 0.451;   // [B] Prowler (Apex full-auto SMG): 135 x 0.41 -> body T3 ~360, ~2375 sustained (was 0.21 = 1215, worst automatic on the map). Sits above Grav(B+ 2087), below AK-74u(A 2487).
-    if ( IsSubStr( weapon_name, "t9_m16" ) )                return 0.18;    // [B] M16 (CW burst->full-auto tactical rifle, user 2026-07-11): REPLACES the G7 Scout, slightly better than the MK14 (score 5.89 B- -> M16 6.30 B). raw _up 480 -> body T3 562, head 1405. Loc normalized install-side (tools/prep_m16_gdt.js, .acc-m16-orig): neck 1.0 so body = damage x bal x global x papMult. PaP _up full-auto clip 40 / reserve 280 / reload ~3.5s. IsSubStr covers base+_up+twins. docs/04/25.
+    if ( IsSubStr( weapon_name, "apex_prowler" ) )          return 0.54571;   // [B] Prowler USER 2026-07-11 +21% DMG (0.451 -> 0.54571 = SMG-wide +10% AND Prowler-specific +10%, compounding per user) + clip/reserve +10% & reload x0.9 (GDT). (Apex full-auto SMG): 135 x 0.41 -> body T3 ~360, ~2375 sustained (was 0.21 = 1215, worst automatic on the map). Sits above Grav(B+ 2087), below AK-74u(A 2487).
+    if ( IsSubStr( weapon_name, "t9_m16" ) )                return 0.18;    // [RETIRED 2026-07-11 - replaced by the Triple Take; unreachable, kept for easy restore] M16 (CW burst->full-auto tactical rifle): raw _up 480 -> body T3 562, head 1405. Loc normalized install-side (tools/prep_m16_gdt.js, .acc-m16-orig).
+    if ( IsSubStr( weapon_name, "apex_tripletake" ) )       return 0.281875;  // [B+] Triple Take (Apex 3-bolt ENERGY sniper, user 2026-07-11): REPLACES the M16 in the #19/MID slot. USER same-day +25% DAMAGE (0.2255 -> 0.281875, paired with +25% RoF fireTime 0.36->0.288 in the GDT). raw 500 x 3 bullets/trigger (shotCount 3) -> per-BULLET body T1/T2/T3 611/764/916 (head x2.5), per-TRIGGER 1832/2291/2748. ENERGY (is_energy_weapon below) so Nuclear Energy +15% lands the trigger at 2107/2634/3160 - now clearly above the MORS per-shot (1670/2087/2505; the original at-parity brief was superseded by the +25% buff). Energy muzzle FX + plasma tracers + pitch-shifted Havoc fire sfx: tools/prep_apex_tripletake_gdt.js. Locs normalized install-side (APEX_BO3.gdt.acc-tripletake-orig). IsSubStr covers base+_up+twins. docs/04/25.
     if ( IsSubStr( weapon_name, "apex_beam_rifle" ) )       return 0.39797;  // [A] Havoc (energy PROJECTILE rifle, full-auto): USER 2026-07-08 +10% DAMAGE (0.36179 -> 0.39797; 300 x 0.39797 -> body T3 ~776, head ~1164, ~4060 sustained). History: 0.21 -> 0.26 -> 0.299 -> 0.36179 -> 0.39797. Projectile -> no DT extra bullet; special OC; per-hit cap backstops bosses. IsSubStr covers base + _up + all 6 twins.
     if ( IsSubStr( weapon_name, "pistol_standard" ) ) return 1.10;  // [start] MR6/M1911 start pistol (level.start_weapon): was default 1.0 (uncut); +10% all-gun buff (user 2026-07-07). IsSubStr covers pistol_standard + _upgraded (laststand). Only >1.0 entry - an amplify, not a cut.
     if ( IsSubStr( weapon_name, "elemental_bow_demongate" ) ) return 1.0;  // [wonder] FIRE BOW (HB21 demongate, added 2026-07-07): pack-native damage x global 3.25; the boss per-hit cap backstops. PLAYTEST-TUNE HERE (charged-shot AoE is script DoDamage inside the pack's weap script - only the arrow hit routes through this mult).
@@ -1184,14 +1268,14 @@ function acc_weapon_balance_mult( weapon_name )
     if ( IsSubStr( weapon_name, "t6_olympia" ) )   return 0.41734;  // [C] Olympia (BO2 double-barrel SG): USER 2026-07-06 -20% ALL-SHOTGUN NERF (0.4743 -> 0.3794). Prior: SPREAD -3% worst-gun nerf (0.489 -> 0.4743, 2026-06-26) on the -50% max-scale fix (0.9775 -> 0.489, 2026-06-25). 110/pellet x ~8, 2-round clip + 3.9s reload = worst sustain. Headshot-excluded.
     if ( IsSubStr( weapon_name, "t9_streetsweeper" ) ) return 0.106392;  // [A] Streetsweeper (CW full-auto drum SG, 12 pellets PaP): USER 2026-07-06 -20% ALL-SHOTGUN NERF (0.0930 -> 0.0744). Prior: 2026-07-05 -15%, -10%, -10% (0.135 -> 0.1148 -> 0.1033 -> 0.0930). ALSO clip/mag -25% install-side (_up clip 18->14, maxAmmo 12->9, reserve 216->126). _up per-pellet T3 body ~294 (x12 = ~3528 point-blank). Score drops with the ammo cut (see compute_gun_tiers); still headshot-excluded + pellet-boss-cut. Tune HERE for power.
     if ( IsSubStr( weapon_name, "s1_cel3" ) )      return 0.432;    // [B] CEL-3 Cauterizer (AW triple-barrel full-auto spread SG, 12 pellets PaP): USER 2026-07-07 -20% DAMAGE (0.54 -> 0.432; EXCLUDED from the same-day global +10% gun buff). Prior: 2026-07-06 -20% ALL-SHOTGUN NERF (0.675 -> 0.54). Prior (2026-07-05): +100% then +25% (0.27 -> 0.54 -> 0.675). loc NORMALIZED install-side (torso 1.0) so per-pellet body = raw x bal x global. _up 200 raw -> per-pellet T3 body ~562 (x12 = ~6744 point-blank). Curated effDPS e=395 keeps the papScore label at B. Headshot-excluded + pellet-boss-cut. Tune HERE for power.
-    if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.29579;  // [S] AK-47 (200@0.08 = 2500 raw): USER 2026-07-06 +15% DAMAGE (0.2338 -> 0.2689). Prior: SPREAD +3% (0.227 -> 0.2338, 2026-06-26) on the AK swap (0.186 -> 0.227 -> TOP/S). Solid DPS + decent reload. Focus Fire ability.
-    if ( IsSubStr( weapon_name, "t9_xm4" ) )       return 0.231;    // [S] XM4 (CW full-auto AR, base 200@0.083 = 2410 raw): ADDED 2026-07-04. mult 0.21 -> effDPS e=506 -> papScore 7.86 = S (docs/33). _up 360 -> T3 body ~491, head ~1229 (in the S cohort: AK-47 410, PPSH 450, M60 589). Big 70-clip/750-RPM. Tune HERE for power.
+    if ( IsSubStr( weapon_name, "t9_ak47" ) )      return 0.266211;  // [S] AK-47 (200@0.08 = 2500 raw): USER 2026-07-11 -10% DAMAGE (0.29579 -> 0.266211). Prior: 2026-07-06 +15% DAMAGE (0.2338 -> 0.2689). Prior: SPREAD +3% (0.227 -> 0.2338, 2026-06-26) on the AK swap (0.186 -> 0.227 -> TOP/S). Solid DPS + decent reload. Focus Fire ability.
+    if ( IsSubStr( weapon_name, "t9_xm4" ) )       return 0.2079;    // [S] XM4 (CW full-auto AR, base 200@0.083 = 2410 raw): USER 2026-07-11 -10% DAMAGE (0.231 -> 0.2079). ADDED 2026-07-04. mult 0.21 -> effDPS e=506 -> papScore 7.86 = S (docs/33). _up 360 -> T3 body ~491, head ~1229 (in the S cohort: AK-47 410, PPSH 450, M60 589). Big 70-clip/750-RPM. Tune HERE for power.
     if ( IsSubStr( weapon_name, "t9_grav" ) )      return 0.165;    // [B+] Grav (CW full-auto AR): the GALIL's stats grafted onto the CW model/sfx (user 2026-07-05, t6_galil->t9_grav, same AK-47-style migration). Identical to the Galil: 220@0.08 = 2750 raw x 0.15 = ~412 DPS - mult + tier unchanged, only the model/anims/sounds are new.
-    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.341;    // [B] AE4 (AW energy AR, 160@0.12 = 1333 raw): ~413 DPS. Formula reads A- (6.8) but user-curated to B 2026-06-21 (mid DPS; fast reload + pierce + 25 clip + 200 reserve keep it top-B).    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
+    if ( IsSubStr( weapon_name, "s1_ae4" ) )       return 0.3069;    // [B] AE4 (AW energy AR, 160@0.12 = 1333 raw): USER 2026-07-11 -10% DAMAGE (0.341 -> 0.3069). ~413 DPS. Formula reads A- (6.8) but user-curated to B 2026-06-21 (mid DPS; fast reload + pierce + 25 clip + 200 reserve keep it top-B).    // +6 box guns (user, 2026-06-15). Mults land each near the ~500 eff-DPS box band
     // (raw DPS = damage/fireTime from the Skye GDTs). IsSubStr covers base + PaP + twins.
-    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.24475;  // [S] PPSH-41 (VG smg, 155@0.063 = 2460 raw): USER 2026-07-06 -10% DAMAGE (0.2472 -> 0.2225). Prior: SPREAD +3% (0.24 -> 0.2472, 2026-06-26) on the 2026-06-24 +20% buff. Clip 40/54. IsSubStr covers base + _up + all perk twins.
+    if ( IsSubStr( weapon_name, "s4_ppsh41" ) )    return 0.269225;  // [S] PPSH-41 USER 2026-07-11 +10% SMG-class DMG (0.24475 -> 0.269225) + reload x0.9 (GDT). (VG smg, 155@0.063 = 2460 raw): USER 2026-07-06 -10% DAMAGE (0.2472 -> 0.2225). Prior: SPREAD +3% (0.24 -> 0.2472, 2026-06-26) on the 2026-06-24 +20% buff. Clip 40/54. IsSubStr covers base + _up + all perk twins.
     if ( IsSubStr( weapon_name, "t6_chicom_cqb" ) ) return 0.28325;  // [S+] Chicom CQB (BO2 3-round-burst SMG, 130@0.048 within burst; ~512 sustained eff w/ the 0.1s burst delay): box's #1 gun. SPREAD +3% best-gun buff (0.25 -> 0.2575, user 2026-06-26, papScore ~8.18). clip 36/56, reserve 180/448 uncut. cu-curated. IsSubStr covers base + _up + twins.
-    if ( IsSubStr( weapon_name, "t9_ak74u" ) )     return 0.2024;  // [A] AK-74u (BO1 smg, 180@0.08 = 2250 raw): ~414 DPS. SWAPPED with AK-47 (user 2026-06-26): mult 0.23 -> 0.184 drops papScore ~7.90 -> ~7.04 = MID tier. Still fast/mobile, just less DPS. Clip 20/reserve 160.    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
+    if ( IsSubStr( weapon_name, "t9_ak74u" ) )     return 0.22264;  // [A] AK-74u USER 2026-07-11 +10% SMG-class DMG (0.2024 -> 0.22264) + reload x0.9 (GDT). (BO1 smg, 180@0.08 = 2250 raw): ~414 DPS. SWAPPED with AK-47 (user 2026-06-26): mult 0.23 -> 0.184 drops papScore ~7.90 -> ~7.04 = MID tier. Still fast/mobile, just less DPS. Clip 20/reserve 160.    // Paladin HB50 (t8_paladin_hb50): BO4 sniper, base dmg 1000 flat. The REAL "crazy strong"
     // cause (user, 2026-06-15) was the Skye rip's MP-inflated hit-location mults: locTorso 5.0
     // (PaP 9.0), limbs 4.0 (8.0), locHead 7.5 (10.0) - so at x1.0 even a BODY/limb shot one-shot
     // to ~r23 and a headshot to ~r33. FIX: the GDT's loc* mults were normalized to 1.0 install-side
@@ -1515,6 +1599,20 @@ function is_action_figure_weapon( weapon )
           || n == "t8_melee_figure_fast1_brz" || n == "t8_melee_figure_fast2_brz" || n == "t8_melee_figure_fast3_brz" );
 }
 
+// BALLISTIC KNIFE matcher (user 2026-07-11): true for the thrown knife - base knife_ballistic, PaP
+// knife_ballistic_upgraded, AND the Berzerker _acc_brz twins (substring covers all four).
+// *** THE NAME MATCH IS THE ONLY LIVE PATH - NEVER "SIMPLIFY" IT AWAY (review 2026-07-11). *** The pack
+// GDT deliberately ships isBallisticKnife "0" on BOTH defs (flag=1 reroutes the knife into the engine's
+// melee-slot handling - collides with the stock knife / Action Figure; 0 keeps it a primary-slot
+// projectile), so the flag clause below is permanently FALSE for our defs and exists only for
+// forward-compat with a future flagged port. Do NOT flip the GDT flag to 1.
+function is_ballistic_knife_weapon( weapon )
+{
+    if ( !isdefined( weapon ) ) return false;
+    if ( IS_TRUE( weapon.isBallisticKnife ) ) return true;   // dead for our defs (GDT ships 0) - see header
+    return ( isdefined( weapon.name ) && IsSubStr( weapon.name, "knife_ballistic" ) );
+}
+
 // BERZERKER (boss item 11): does this melee hit ride one of the item's three surfaces? The damage
 // `weapon` on a melee MOD is the swinging weapon for held melee (axe/figure) and the MELEE-SLOT
 // def for a knife bash (the Widow's-Wine web trigger proves the slot weapon attributes) - but the
@@ -1530,11 +1628,16 @@ function berzerker_melee_weapon( player, weapon )
     {
         if ( IsSubStr( weapon.name, "leviathan" ) )       return true;
         if ( IsSubStr( weapon.name, "t8_melee_figure" ) ) return true;
+        // Ballistic knife STAB (user 2026-07-11, 4th surface): the held knife's own melee (its GDT
+        // meleeAnim/meleeDamage stab, sped +35% by the _acc_brz twins) - the THROW is MOD_IMPACT, not
+        // melee, so throws never reach the tax block (this fn is only consulted on b_melee hits).
+        if ( IsSubStr( weapon.name, "knife_ballistic" ) ) return true;
         if ( weapon.name == "acc_berzerker_melee" )       return true;
     }
     held = player GetCurrentWeapon();
     if ( isdefined( held ) && isdefined( held.name )
-         && ( IsSubStr( held.name, "leviathan" ) || IsSubStr( held.name, "t8_melee_figure" ) ) )
+         && ( IsSubStr( held.name, "leviathan" ) || IsSubStr( held.name, "t8_melee_figure" )
+              || IsSubStr( held.name, "knife_ballistic" ) ) )
         return true;
     mw = player.current_melee_weapon;
     if ( isdefined( mw ) && isdefined( mw.name ) && mw.name == "acc_berzerker_melee" )
@@ -1625,7 +1728,9 @@ function is_energy_weapon( weapon_name )
     if ( IsSubStr( weapon_name, "s1_ae4" ) )              return true;   // AE4 (AW energy AR)
     if ( IsSubStr( weapon_name, "s1_rw1" ) )              return true;   // RW1 (AW directed-energy pistol)
     if ( IsSubStr( weapon_name, "t9_semiauto_cosplay" ) ) return true;   // Blast-O-Matic (CW energy blaster)
+    if ( IsSubStr( weapon_name, "s1_cel3" ) )             return true;   // CEL-3 Cauterizer (AW directed-energy/thermal spread SG, 2026-07-11) - a genuine energy gun like the Tac-19 shotgun; +15% Nuclear synergy on a B-tier gun
     if ( IsSubStr( weapon_name, "thundergun" ) )          return true;   // Thundergun (wonder energy cone)
+    if ( IsSubStr( weapon_name, "apex_tripletake" ) )     return true;   // Triple Take (Apex 3-bolt energy sniper, 2026-07-11) - Nuclear Energy is its signature synergy (docs/04)
     return false;
 }
 

@@ -28,6 +28,7 @@
 #using scripts\zm\_zm;
 #using scripts\zm\_zm_perks;
 #using scripts\zm\_zm_score;
+#using scripts\zm\_zm_weapons;   // zm_weapons::weapon_give() for the Fire Bow dev-start (box give path)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
@@ -89,10 +90,10 @@ function init()
     // in the file as the referenced HUD-waypoint recipe (see _acc_health_bars wallhack markers) but are no
     // longer threaded. Re-enable by restoring this line if a future build needs to locate unbought doors.
     // level thread dev_door_markers();
-    // DEV STARTING LOADOUT: start every player holding the BLAST-O-MATIC (user 2026-07-10: "in dev start me with
-    // the blastomatic gun"). Re-enabled after the 07-10 Fire-Bow retirement; dev_give_starting_guns hands over the
-    // CW DOA energy blaster (runtime name t9_semiauto_cosplay) each life. (History: Fire Bow 07-08/07-10, Havoc
-    // 07-08/07-06, Alternator 07-06, XM4 07-04, Blast-O-Matic 07-03, Thundergun 07-02.)
+    // DEV STARTING LOADOUT: start every player holding the FIRE BOW (user 2026-07-11: "start me with the fire bow
+    // when dev mode is enabled"). dev_give_starting_guns hands over the demon-gate bow (runtime name
+    // elemental_bow_demongate) each life via the box's own weapon_give path so it charges correctly. (History:
+    // Blast-O-Matic 07-10, Fire Bow 07-08/07-10, Havoc 07-08/07-06, Alternator 07-06, XM4 07-04, Thundergun 07-02.)
     level thread dev_starting_loadout();
 
     // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
@@ -352,14 +353,16 @@ function dev_give_starting_guns()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // BLAST-O-MATIC dev-start (user 2026-07-10: "in dev start me with the blastomatic gun"). RUNTIME name =
-    // "t9_semiauto_cosplay" (the CW DOA energy blaster, a wonder-class box gun already integrated on this map).
-    // Raw GiveWeapon is enough - it's a normal box weapon (no per-life watcher wiring like the Fire Bow needed).
-    // SILENT handover (no IPrintLnBold): the user wants a clean screen in hardcoded dev, and the gun appearing in
-    // hand IS the confirmation. Swap the runtime name below to test-start a different gun.
-    w = GetWeapon( "t9_semiauto_cosplay" );
+    // WINTER'S HOWL dev-start (user 2026-07-11: "give me this gun when dev mode is on" - supersedes the
+    // same-day Triple Take start). RUNTIME name = "freezegun" (the _zm trap: the GDT/zone id freezegun_zm
+    // registers as freezegun - same mode-suffix strip as the Apex guns). Given via zm_weapons::weapon_give
+    // (the box's own give path - keeps ammo/state bootstrap consistent). SILENT handover (no IPrintLnBold):
+    // the gun in hand IS the confirmation. Dev has unlimited money, so box/PaP a damage gun alongside it.
+    // Swap the runtime name below to test-start a different gun. (History: Triple Take 07-11, Fire Bow
+    // 07-11/07-10/07-08, Blast-O-Matic 07-10, Havoc 07-08/07-06, Alternator 07-06, XM4 07-04, Thundergun 07-02.)
+    w = GetWeapon( "freezegun" );
     if ( !isdefined( w ) || w == level.weaponNone ) return;
-    self GiveWeapon( w );
+    self zm_weapons::weapon_give( w, undefined, undefined, undefined, true );
     self SwitchToWeapon( w );
 }
 

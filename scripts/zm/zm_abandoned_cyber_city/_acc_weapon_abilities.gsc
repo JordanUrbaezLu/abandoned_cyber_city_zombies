@@ -137,7 +137,7 @@ function weapon_name_to_ability_category( weapon_name )
                           "apex_prowler", "apex_alternator" );  // Apex Prowler + Alternator (2026-07-06; Chicom removed)
     shotgun_list = array( "s1_tac19", "t6_olympia", "t9_streetsweeper", "s1_cel3", "apex_peacekeeper" ); // + Peacekeeper (Apex, 2026-07-06) -> Slug Round
     ar_list      = array( "t9_ak47", "s1_ae4", "t9_grav", "t9_xm4" );    // AK-47, AE4, Grav (CW model + Galil stats, 2026-07-05), XM4 -> Focus Fire
-    sniper_list  = array( "s1_mk14", "s1_mors", "t9_m16" );  // MK14 DMR + MORS railgun + M16 (CW tactical rifle, replaces G7 Scout 2026-07-11) -> Precision Mode
+    sniper_list  = array( "s1_mk14", "s1_mors", "apex_tripletake" );  // MK14 DMR + MORS railgun + Triple Take (Apex energy sniper, replaces the M16 2026-07-11; its 3 bullets/trigger each consume a crit charge = one Precision trigger is a 3-bolt crit burst) -> Precision Mode
     lmg_list     = array( "t9_m60", "t9_rpd", "t6_hamr" );      // M60, RPD (CW) + HAMR (BO2, 2026-07-10) -> Focus Fire
 
     if ( array::contains( pistol_list, weapon_name ) ) return "pistol";

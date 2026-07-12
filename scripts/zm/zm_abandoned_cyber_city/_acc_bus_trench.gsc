@@ -92,6 +92,20 @@
 #define ACC_VAULT_Z_TOP             0
 #define ACC_VAULT_Z_BOT             -260
 
+// OOB-KILL GRACE (user 2026-07-11 - the co-op "instant reset while reviving in the Lab" bug). The stock
+// player_out_of_playable_area_monitor (_zm.gsc:2035+) hard-kills - DisableInvulnerability / lives=0 /
+// DoDamage(health+1000) / bleedout_time=0 = INSTANT bleed-out -> our Comeback respawn (start pistol + money
+// reset) - any player its ~3s poll finds outside the enabled player_volumes, on the FIRST detection. That is
+// a false positive whenever normal play briefly parks a player in a zone-coverage gap: a revive PINS you
+// standing next to the downed body, and if that body fell in a gap the poll catches you a couple seconds
+// later = the exact report. Fix: require CONTINUOUS OOB for this long before allowing the kill. A reviver is
+// OOB for ~one poll; a genuinely escaped / noclipped player stays OOB for many, so they are still culled.
+// Live dvar acc_oob_grace_ms.
+#define ACC_OOB_GRACE_MS            12000
+// If acc_trench_oob_allow hasn't been called for longer than this, the player was back inside a valid area
+// between polls -> start a fresh streak. Just over the 3s poll so one in-bounds tick resets the grace.
+#define ACC_OOB_STREAK_RESET_MS     4000
+
 // Count a player as "in the trench" once their feet drop this far below the lip
 // (z=0). Past the first couple of stairs - so a stair-walker also flags "in",
 // but only a FAST entry is taxed (see ACC_TRENCH_FALL_VZ).
@@ -199,23 +213,58 @@ function solidify_corp_bridge()
 // spawns in the exchange room, they just cause issues"). The bank is now a safe-ish utility room; the
 // only zombies down there are the normal horde that follows a player down the stairs.
 
-// self = player. Stock OOB monitor kills only when this returns true (_zm.gsc:2066). Return
-// false while the player is in the trench so being legitimately below the corp_zone volume
-// is not treated as "left the map." Everyone/everywhere else keeps the normal OOB guard.
+// self = player. The stock OOB monitor kills only when this returns true (_zm.gsc:2066), and the kill
+// is INSTANT + brutal (DisableInvulnerability / lives=0 / DoDamage(health+1000) / bleedout_time=0 -> instant
+// bleed-out -> our Comeback respawn = start pistol + money reset). We (a) hard-veto every area that is
+// legitimately below/outside the player_volumes by design (trench + second part + vault), (b) surface the
+// exact origin of any OTHER OOB hit so a zone-coverage gap can be found and closed, and (c) apply a GRACE so
+// a player only BRIEFLY outside the volumes (a revive parked next to a body that fell in a gap - the
+// 2026-07-11 "instant reset in the Lab" bug) is not instantly reset; only a player who stays OOB across many
+// polls (truly escaped / noclipped) is culled.
 function acc_trench_oob_allow()
 {
-    // Veto the OOB kill anywhere in the underground footprint (trench + rooms + future
-    // floor), not just the trench band - else a player standing in a trench room at
-    // z=-240 (outside the band) takes the hard-kill. player_in_underground is a superset.
-    if ( player_in_underground( self ) )
+    // (0) Hard veto in every known-safe below-volume area (trench pit + rooms + Abyss floors; the "second
+    // part" hallway/plaza below the abyss; "The Exchange" vault under the Plaza). Standing here is legitimate,
+    // so the OOB kill must never fire - and being back in a safe area RESETS the grace streak below.
+    if ( player_in_underground( self ) || player_in_second_part( self ) || player_in_vault( self ) )
+    {
+        self.acc_oob_streak_t = undefined;
         return false;
-    // Same veto for the "second part" hallway/plaza below the abyss (it is below every player_volume too).
-    if ( player_in_second_part( self ) )
+    }
+
+    // Reaching here = the stock monitor flagged self OOB on the SURFACE (outside every enabled player_volume).
+    // Track how long this OOB episode has run. Time-gap reset: if we were last called more than one poll ago,
+    // the player was back in-bounds between ticks, so this starts a fresh streak. (|| short-circuits, so
+    // acc_oob_last_seen is only read once the streak field is already defined.)
+    now = GetTime();
+    b_new_streak = ( !isdefined( self.acc_oob_streak_t ) || ( now - self.acc_oob_last_seen ) > ACC_OOB_STREAK_RESET_MS );
+    if ( b_new_streak )
+        self.acc_oob_streak_t = now;
+    self.acc_oob_last_seen = now;
+
+    // (1) DIAGNOSTIC (2026-07-11 hunt): on the FIRST tick of an OOB episode, surface the exact origin to ALL
+    // players (IPrintLnBold; the logfile is dead on this box) so we can find + close the specific gap. Once
+    // per episode = no spam. Default-on dvar, TEMPORARY - flip acc_oob_debug 0 or remove once the gap is closed.
+    if ( b_new_streak && getdvarint( "acc_oob_debug", 1 ) == 1 )
+    {
+        org = self.origin;
+        rn  = ( isdefined( level.round_number ) ? level.round_number : 0 );
+        msg = "^1[OOB]^7 origin ( " + int( org[ 0 ] ) + ", " + int( org[ 1 ] ) + ", " + int( org[ 2 ] ) + " )  round " + rn;
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+            players[ i ] IPrintLnBold( msg );
+    }
+
+    // (2) GRACE: veto the kill until the player has been CONTINUOUSLY OOB past acc_oob_grace_ms. A reviver is
+    // OOB for ~one poll and is spared; a player who genuinely left the map stays OOB and is culled after the
+    // grace. This makes the co-op "instant reset" impossible without disabling the escape-hatch entirely.
+    if ( ( now - self.acc_oob_streak_t ) < getdvarint( "acc_oob_grace_ms", ACC_OOB_GRACE_MS ) )
+    {
+        acc_utility::log( "OOB flagged at " + self.origin + " - within grace, kill vetoed" );
         return false;
-    // Same veto for "The Exchange" transfer vault under the Plaza (below the start_zone volume; excluded from
-    // underground_layer above, so player_in_underground is FALSE there - it needs its OWN explicit veto).
-    if ( player_in_vault( self ) )
-        return false;
+    }
+
+    acc_utility::log( "OOB past grace at " + self.origin + " - allowing stock kill (Comeback reset)" );
     return true;
 }
 

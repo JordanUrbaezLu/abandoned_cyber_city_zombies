@@ -59,8 +59,11 @@ per-feature dev flags**; dev is all-or-nothing by design.
   Shards, topped-up Mega Bottles, the Glitch Stalker test-boss spawn
   (`acc_glitch_test`; Brutus and Phantom are **not** dev-driven — they keep
   their real round cadences, see below),
-  all perk slots, the weapon-variant debug readout, and the dev HUDs +
-  teleport / round-skip / open-doors console commands. **No god mode and no
+  all perk slots, and the dev HUDs +
+  teleport / round-skip / open-doors console commands (the weapon-variant swap
+  readout is **not** part of the dev sandbox — dev forces `acc_variants_debug` OFF;
+  it rides its own `+set acc_variants_debug 1` dvar only, reconciled to code
+  2026-07-11). **No god mode and no
   auto power-on** — you take regular damage and flip the Bus Station power
   switch yourself (`_acc_boss.gsc`, `zm_abandoned_cyber_city.gsc::acc_hardcoded_dev`).
   `acc_dev 0` (or omit) = clean normal play.
@@ -92,11 +95,13 @@ auto-opened** — dev simply has unlimited money so buying is trivial
 (`acc_fix_zone_doors` makes the `.map`-written triggers player-usable; the old
 `acc_hardcoded_open_map()` auto-unlock is no longer called —
 `zm_abandoned_cyber_city.gsc:262-267`). To walk the whole map instantly, type
-`set acc_open_doors 1` in the dev console: it opens all 8 buyable doors **and both
-per-run PaP blocker brushes** (`acc_pap_block_server` / `acc_pap_block_roof`).
-The randomizer leaves one PaP blocker solid each run; it is a bare
-`script_brushmodel` (no door trigger), so it is the lone barrier the door pass
-misses unless opened explicitly (`_acc_dev.gsc::dev_open_all_doors`).
+`set acc_open_doors 1` in the dev console: it opens all 13 buyable doors **and both
+PaP blocker brushes** (`acc_pap_block_server` / `acc_pap_block_roof`).
+The randomizer now opens **both** PaP blocker brushes every run (the per-run
+random path-block was removed 2026-06-22 — `blocked_side` is ignored), so neither
+is ever left solid; they are bare `script_brushmodel`s (no door trigger), which is
+why the door pass hides + unsolids them explicitly
+(`_acc_dev.gsc::dev_open_all_doors`). (reconciled to code 2026-07-11)
 
 ## Do NOT use the Mod Tools Launcher's "Run" checkbox
 

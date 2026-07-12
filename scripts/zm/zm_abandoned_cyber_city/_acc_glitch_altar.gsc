@@ -163,6 +163,11 @@ function spawn_paradise_box_at( origin )
 {
     box = spawn( "script_model", origin );
     box setmodel( "p7_zm_der_magic_box" );   // the iconic magic-box mesh (stock, packed - verified vs the surface box)
+    // der_magic_box ships a _col LOD (self-collides) but the navmesh cannot see entity collision, so zombies
+    // path through its footprint and grind on it. Stock pattern: DisconnectPaths() the collision entity at
+    // spawn (_zm_perks.gsc:1551-1555). Box is PERMANENT + STATIONARY, so a one-shot cut is safe (a moved
+    // entity would leave the cut behind - never move this without ConnectPaths() first). docs/16 navmesh entry.
+    box disconnectpaths();
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 72, 100 );
     t TriggerIgnoreTeam();          // REQUIRED for a script-spawned use trigger (stock _zm_perks.gsc:1523)

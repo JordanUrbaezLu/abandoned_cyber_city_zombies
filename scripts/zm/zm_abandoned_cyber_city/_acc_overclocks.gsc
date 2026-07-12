@@ -403,7 +403,7 @@ function weapon_name_to_family( weapon_name )
                       "apex_prowler", "apex_alternator" );  // Apex Prowler + Alternator (2026-07-06; Chicom removed)
     sg_list = array( "s1_tac19", "t6_olympia",      // Tac-19, Olympia (BO2, 2026-06-15)
                      "t9_streetsweeper", "s1_cel3", "apex_peacekeeper" ); // Streetsweeper, CEL-3, + Peacekeeper (Apex, 2026-07-06)
-    sr_list = array( "s1_mk14", "s1_mors", "t9_m16" ); // MK14 (AW DMR) + MORS (AW railgun) + M16 (CW tactical rifle, replaces G7 Scout 2026-07-11)
+    sr_list = array( "s1_mk14", "s1_mors", "apex_tripletake" ); // MK14 (AW DMR) + MORS (AW railgun) + Triple Take (Apex energy sniper, replaces the M16 2026-07-11)
     lmg_list = array( "t9_m60", "t9_rpd", "t6_hamr" );   // M60 + RPD (Cold War LMGs, 2026-06-26) + HAMR (BO2, 2026-07-10)
 
     // Pistols are NOW Overclock-able (user 2026-06-22: "every gun except wunderwaffe").

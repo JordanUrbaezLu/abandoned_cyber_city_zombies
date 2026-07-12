@@ -8,6 +8,7 @@
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\flag_shared;
 #using scripts\shared\fx_shared;
+#using scripts\shared\hud_util_shared;   // [acc] persistent on-screen void-diagnostic panel (dev only)
 #using scripts\shared\math_shared;
 #using scripts\shared\scene_shared;
 #using scripts\shared\spawner_shared;
@@ -27,6 +28,9 @@
 #insert scripts\shared\version.gsh;
 
 #precache( "model", "c_zom_chomper" );
+
+// [acc] Fire Bow void diagnostic panel: max lines kept in the rolling on-screen trace buffer (dev only).
+#define ACC_FB_DBG_MAX 16
 
 #namespace _zm_weap_elemental_bow_demongate;
 
@@ -51,6 +55,103 @@ function __init__()
 function __main__()
 {
 	callback::on_connect( &on_connect_bow_demongate );
+	// [acc] persistent on-screen void diagnostic panel (dev only). See the acc_firebow_dbg_* block below.
+	level thread acc_firebow_dbg_hud_loop();
+}
+
+// =============================================================================
+// [acc] FIRE BOW VOID DIAGNOSTIC PANEL + FILE LOG (user 2026-07-11: "write super comprehensive logs so I
+// can play, start a void, and you can see what's happening"; later same day: "Not UI logs but console
+// logs so i can test and you can just read the logs"). CORRECTION to the earlier "console_mp.log writes
+// NOTHING" belief: it DOES write on this box - the 2026-07-11 1:59 PM run produced a live log with
+// "[ SCRIPTER] [msg]..." lines from IPrintLn* (docs/17 was right; the apex-era note was wrong). So every
+// dbg line below is ALSO IPrintLn-mirrored into <game>\console_mp.log tagged "[BOW]" - after a test run,
+// read the log and the whole story is there. The on-screen panel additionally shows the rolling last
+// ACC_FB_DBG_MAX lines live. The chain, in order, should read:
+//   FIRED <def> hold=<ms>ms ...      (which def the engine fired + OUR measured trigger-hold time; a
+//                                     full draw says "ENGINE FULL" or "CUSTOM FULL" -> portal armed.
+//                                     Since the 2026-07-11 custom charge move, a long hold portals even
+//                                     when the engine fired a partial ..demongate/..2/..3 def)
+//   impact -> PORTAL branch          (the charged arrow registered an impact; "FALLBACK portal" instead
+//                                     means the impact event never came and the shadow tracker opened it)
+//   portal OPEN tier/r/frac/z        (portal entity spawned, DoT thread launched)
+//   DoT ENTER r/zband/zh             (the ticker started; zh = live round zombie health)
+//   tick N ai=.. near=.. r=.. hit=..xDMG  (per second: AI in level, nearest AI's dist to portal vs the
+//                                     ring radius, #hit x dmg; near > r every tick = nothing can ever
+//                                     be in range - placement/radius problem, not a damage problem)
+//    tN dmg -> <arch> hp=A take=D    (per target, first 3/tick: about to damage)
+//    tN dmg OK <arch> hp A->B        (damage LANDED; a "dmg ->" with no "OK" = that target's damage
+//                                     chain THREW - the child thread died containing it)
+//   DoT END after N ticks            (clean ticker exit; ticks stopping without this = the ticker died)
+// Dev-only; to remove, delete this block + its acc_firebow_dbg_log() calls and the __main__ thread line.
+// =============================================================================
+
+// Push one line into the rolling on-screen trace buffer (level-global; dev-only; no-op otherwise).
+function acc_firebow_dbg_log( s )
+{
+	if ( !IS_TRUE( level.acc_dev ) ) return;
+	// FILE MIRROR: IPrintLn lands in console_mp.log as "[ SCRIPTER] [msg][BOW] ..." (verified live
+	// 2026-07-11) - this line is for the agent reading the log post-run; the panel is for the player.
+	IPrintLn( "[BOW] " + s );
+	if ( !isdefined( level.acc_firebow_dbg_lines ) ) level.acc_firebow_dbg_lines = [];
+	if ( !isdefined( level.acc_firebow_dbg_seq ) ) level.acc_firebow_dbg_seq = 0;
+	level.acc_firebow_dbg_seq++;
+	level.acc_firebow_dbg_lines[ level.acc_firebow_dbg_lines.size ] = level.acc_firebow_dbg_seq + " " + s;
+	// Trim to the last ACC_FB_DBG_MAX (rebuild dropping the oldest - GSC has no shift).
+	if ( level.acc_firebow_dbg_lines.size > ACC_FB_DBG_MAX )
+	{
+		a_keep = [];
+		start = level.acc_firebow_dbg_lines.size - ACC_FB_DBG_MAX;
+		for ( i = start; i < level.acc_firebow_dbg_lines.size; i++ )
+			a_keep[ a_keep.size ] = level.acc_firebow_dbg_lines[ i ];
+		level.acc_firebow_dbg_lines = a_keep;
+	}
+}
+
+function acc_firebow_dbg_render_text()
+{
+	s = "^3== FIRE BOW VOID TRACE ==";
+	if ( isdefined( level.acc_firebow_dbg_lines ) )
+	{
+		for ( i = 0; i < level.acc_firebow_dbg_lines.size; i++ )
+			s = s + "\n^7" + level.acc_firebow_dbg_lines[ i ];
+	}
+	return s;
+}
+
+// Per-player: keep a single multi-line fontstring on the left edge showing the trace buffer. One elem per
+// player (co-op safe; pool-guarded per memory gsc-t7-runtime-traps - retry next tick if create* returns
+// undefined). Refreshes at 10 Hz so ticks appear live.
+function acc_firebow_dbg_hud_loop()
+{
+	level endon( "end_game" );
+	if ( !IS_TRUE( level.acc_dev ) ) return;
+	level flag::wait_till( "initial_blackscreen_passed" );
+	for ( ;; )
+	{
+		txt = acc_firebow_dbg_render_text();
+		players = GetPlayers();
+		for ( i = 0; i < players.size; i++ )
+		{
+			p = players[ i ];
+			if ( !isdefined( p ) || !isplayer( p ) ) continue;
+			p acc_firebow_dbg_ensure_hud();
+			if ( isdefined( p.acc_firebow_dbg_hud ) )
+				p.acc_firebow_dbg_hud setText( txt );
+		}
+		wait 0.1;
+	}
+}
+
+function acc_firebow_dbg_ensure_hud()
+{
+	if ( isdefined( self.acc_firebow_dbg_hud ) ) return;
+	self.acc_firebow_dbg_hud = self hud::createFontString( "default", 0.85 );
+	if ( !isdefined( self.acc_firebow_dbg_hud ) ) return;   // hudelem pool full - retry next tick
+	self.acc_firebow_dbg_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 8, 120 );
+	self.acc_firebow_dbg_hud.color = ( 0.6, 1.0, 0.7 );
+	self.acc_firebow_dbg_hud.alpha = 0.9;
+	self.acc_firebow_dbg_hud.hidewheninmenu = true;
 }
 
 function on_connect_bow_demongate()
@@ -71,25 +172,139 @@ function on_connect_bow_demongate()
 	// every death via the respawn loop below.
 	self thread bow_demongate_watchers_respawn_loop();
 	self thread acc_firebow_clip_watcher();
-	self thread bow_demongate_dev_fire_probe();
+
+	// [acc] CUSTOM CHARGE MOVE (user 2026-07-11, 6th charge report - "we need a custom solution"): stop
+	// trusting the engine's charge pipeline. These two threads measure the trigger HOLD TIME ourselves and
+	// guarantee the portal on any full-draw arrow, whatever charge-level def the engine actually fired and
+	// whether or not its projectile_impact event ever arrives. See the block comment above
+	// acc_firebow_hold_tracker for the full design + why. Both endon disconnect ONLY (survive death - the
+	// 2026-07-08 watcher lesson).
+	self thread acc_firebow_hold_tracker();
+	self thread acc_firebow_fire_watcher();
 }
 
-// [acc] dev fire probe (2026-07-08 "void does nothing" hunt, round 4): prints WHICH weapon def every
-// bow release actually fires. THE decisive breadcrumb for the charge question - a full charge fires
-// "elemental_bow_demongate4" (the portal def); a PARTIAL fires the base name or demongate2/3 (chomper
-// branch, NO portal - the exact failure documented 2026-07-07 when the charge threshold was wrong).
-// Survives death (endon disconnect only; missile_fire notifies on the player).
-function bow_demongate_dev_fire_probe()
+// =============================================================================
+// [acc] CUSTOM CHARGE MOVE (user 2026-07-11, sixth "charge move does nothing" report: "I genuinely think
+// we need a custom solution"). WHY: the pack's charge move rides a fragile ENGINE chain -
+//   hold -> engine charge levels 1..4 -> release fires the level's weapon def -> the def must be
+//   "elemental_bow_demongate4" -> its projectile must notify "projectile_impact" -> portal.
+// THREE of the five prior root causes were that chain silently breaking (full-charge threshold dvar,
+// SetWeaponAmmoClip writes mid-draw resetting the charge, watchers dead after bleed-out) - and ANY future
+// mid-draw weapon-state poke re-breaks it invisibly. A direct zombie-BODY hit can also eat the
+// projectile_impact event ("charge does nothing when zombies are near" while floor shots chomper fine).
+// THE HACK (hacky is good): bypass the engine's opinion entirely -
+//   1. acc_firebow_hold_tracker  - polls AttackButtonPressed while the bow is held and keeps the press
+//      START time on the player. OUR clock, immune to engine charge resets.
+//   2. acc_firebow_fire_watcher  - on every bow missile_fire, hold time = now - press start (read HERE,
+//      at the event, not in the poll loop - the missile fires the instant the trigger releases, so the
+//      press field is still set and there is no 50ms poll race). Hold >= acc_firebow_charge_hold_ms
+//      (default 1200, live-tunable) OR the def is ..4 = this arrow is CHARGED: mark the projectile
+//      (self.acc_fb_charged_proj) and shadow it with acc_firebow_charged_proj_tracker.
+//   3. bow_demongate_impact_explosion opens the PORTAL for a marked arrow no matter which def the engine
+//      fired (partial defs included); unmarked arrows keep the tap-chomper branch.
+//   4. If the impact event NEVER arrives, the shadow tracker opens the portal at the arrow's last
+//      tracked origin (poll till the projectile entity vanishes). acc_firebow_portal_gate_open()
+//      debounces so impact handler + tracker can never double-portal one arrow.
+// Engine full-charge (..4) still works and still costs its native 2 arrows; the custom path only ADDS
+// portals the engine wrongly withheld. GDT ground truth: chargeShotMaxLevel 4, chargeShotMaxTime 0.8,
+// fireType "Charge Shot" (wpn_t7_zmb_bow.gdt).
+// =============================================================================
+
+// The held-weapon family check (IsSubStr covers PaP-in-place + the _acc_fastreload twin).
+function acc_firebow_is_holding_bow()
+{
+	w = self GetCurrentWeapon();
+	return ( isdefined( w ) && w != level.weaponNone && isdefined( w.name ) && IsSubStr( w.name, "elemental_bow_demongate" ) );
+}
+
+// Maintain self.acc_fb_press_start (trigger-press start time while the bow is held). On release (or
+// weapon switch) the finished hold is parked in acc_fb_last_hold_ms/_time for 300ms - the fire watcher
+// reads whichever is live, so it never loses the measurement to poll-vs-notify frame ordering.
+function acc_firebow_hold_tracker()
 {
 	self endon( "disconnect" );
 	for ( ;; )
 	{
-		self waittill( "missile_fire", e_probe_proj, w_probe );
-		if ( !IS_TRUE( level.acc_dev ) ) continue;
-		if ( !isdefined( w_probe ) || !isdefined( w_probe.name ) ) continue;
-		if ( !IsSubStr( w_probe.name, "elemental_bow" ) ) continue;
-		// [BOW] FIRED dev print REMOVED 2026-07-10 (clean screen in hardcoded dev)
+		wait 0.05;
+		if ( self acc_firebow_is_holding_bow() && self AttackButtonPressed() )
+		{
+			if ( !isdefined( self.acc_fb_press_start ) )
+				self.acc_fb_press_start = GetTime();
+		}
+		else if ( isdefined( self.acc_fb_press_start ) )
+		{
+			self.acc_fb_last_hold_ms = GetTime() - self.acc_fb_press_start;
+			self.acc_fb_last_hold_time = GetTime();
+			self.acc_fb_press_start = undefined;
+		}
 	}
+}
+
+// On every bow shot: decide CHARGED by our own hold-time measurement (or the engine agreeing via ..4),
+// mark the projectile, and launch the no-impact-event fallback shadow. Also THE fire-chain dev line.
+function acc_firebow_fire_watcher()
+{
+	self endon( "disconnect" );
+	for ( ;; )
+	{
+		self waittill( "missile_fire", e_proj, w_fired );
+		if ( !isdefined( w_fired ) || !isdefined( w_fired.name ) ) continue;
+		if ( !IsSubStr( w_fired.name, "elemental_bow_demongate" ) ) continue;
+
+		n_hold_ms = 0;
+		if ( isdefined( self.acc_fb_press_start ) )
+			n_hold_ms = GetTime() - self.acc_fb_press_start;
+		else if ( isdefined( self.acc_fb_last_hold_time ) && isdefined( self.acc_fb_last_hold_ms )
+			 && ( GetTime() - self.acc_fb_last_hold_time ) <= 300 )
+			n_hold_ms = self.acc_fb_last_hold_ms;
+
+		n_need_ms = getdvarint( "acc_firebow_charge_hold_ms", 1200 );
+		if ( n_need_ms < 200 ) n_need_ms = 200;
+
+		b_engine_full = ( w_fired.name == "elemental_bow_demongate4" );
+		b_custom_full = ( n_hold_ms >= n_need_ms );
+		if ( ( b_engine_full || b_custom_full ) && isdefined( e_proj ) )
+		{
+			self.acc_fb_charged_proj = e_proj;
+			self thread acc_firebow_charged_proj_tracker( e_proj );
+		}
+		acc_firebow_dbg_log( "FIRED " + w_fired.name + " hold=" + n_hold_ms + "ms"
+			+ ( b_engine_full ? " ^2ENGINE FULL -> portal" : ( b_custom_full ? " ^2CUSTOM FULL (>=" + n_need_ms + ") -> portal" : " ^7tap" ) ) );
+	}
+}
+
+// Shadow a charged arrow to its end of life. If the engine's projectile_impact handler opened the portal
+// it clears acc_fb_charged_proj first - we stand down. If the event never arrived (e.g. the arrow died
+// on a zombie body), open the portal at the last tracked origin so a full draw ALWAYS produces the move.
+function acc_firebow_charged_proj_tracker( e_proj )
+{
+	self endon( "disconnect" );
+	if ( !isdefined( e_proj ) )
+		return;
+	v_last = e_proj.origin;
+	n_deadline = GetTime() + 4000;
+	while ( isdefined( e_proj ) && GetTime() < n_deadline )
+	{
+		v_last = e_proj.origin;
+		wait 0.05;
+	}
+	wait 0.1;   // give the same-frame impact handler first claim
+	if ( !isdefined( self.acc_fb_charged_proj ) )
+		return;   // impact handler consumed it - portal already open
+	self.acc_fb_charged_proj = undefined;
+	if ( !self acc_firebow_portal_gate_open() )
+		return;
+	acc_firebow_dbg_log( "^2FALLBACK portal (no impact event) z=" + int( v_last[ 2 ] ) );
+	self thread bow_demongate_open_portal( level.w_bow_demongate_charged, v_last, undefined, ( 0, 0, 1 ) );
+}
+
+// One portal per arrow: impact handler and shadow tracker both pass through here; 500ms per-shooter gate.
+function acc_firebow_portal_gate_open()
+{
+	if ( isdefined( self.acc_fb_portal_gate ) && GetTime() < self.acc_fb_portal_gate )
+		return false;
+	self.acc_fb_portal_gate = GetTime() + 500;
+	return true;
 }
 
 // [acc] Thread the pack's per-player bow watchers, and RE-thread them after every real death (they
@@ -144,14 +359,24 @@ function acc_firebow_clip_watcher()
 
 function bow_demongate_impact_explosion( weapon, position, radius, attacker, normal )
 {
-	// [acc] dev breadcrumb (2026-07-08 hunt): which branch did the impact take? (self = the shooter;
-	// `attacker` is actually the PROJECTILE - the pack misnamed the param.)
-	// [BOW] impact_explosion dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
-	// if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) ) self IPrintLnBold( "[BOW] impact_explosion ..." );
-	if ( weapon.name == "elemental_bow_demongate4" )
+	// [acc] CUSTOM CHARGE fork (2026-07-11; see the block above acc_firebow_is_holding_bow): the portal
+	// opens if EITHER the engine reached full charge (def ..4) OR this arrow was marked charged by OUR
+	// hold-time measurement (acc_fb_charged_proj) - so a full draw portals even when the engine's charge
+	// was silently reset and it fired a partial def. `attacker` is actually the PROJECTILE (the pack
+	// misnamed the param), which is exactly what the mark holds. Unmarked partials keep the tap chomper.
+	b_custom_charged = ( isdefined( self.acc_fb_charged_proj ) && isdefined( attacker )
+		 && attacker == self.acc_fb_charged_proj );
+	if ( weapon.name == "elemental_bow_demongate4" || b_custom_charged )
+	{
+		self.acc_fb_charged_proj = undefined;   // consumed: the shadow tracker stands down
+		if ( !self acc_firebow_portal_gate_open() )
+			return;
+		acc_firebow_dbg_log( "^2impact -> PORTAL branch (" + ( weapon.name == "elemental_bow_demongate4" ? "engine ..4" : "custom hold, def=" + weapon.name ) + ")" );
 		self thread bow_demongate_open_portal( weapon, position, attacker, normal );
+	}
 	else
 	{
+		acc_firebow_dbg_log( "^1impact -> chomper branch (" + weapon.name + ")" );
 		attacker clientfield::set( "elemental_bow_demongate" + "_arrow_impact_fx", 1 );
 		self thread bow_demongate_fire_chomper( position, attacker );
 	}
@@ -203,8 +428,12 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	}
 	if ( acc_tier < 0 ) acc_tier = 0;
 	if ( acc_tier > 3 ) acc_tier = 3;
-	// radius 50 / 65 / 80 / 95 by PaP tier (user 2026-07-07).
-	acc_aoe_radius   = getdvarint( "acc_firebow_aoe_radius_t" + acc_tier, ( acc_tier == 0 ? 50 : ( acc_tier == 1 ? 65 : ( acc_tier == 2 ? 80 : 95  ) ) ) );
+	// radius by PaP tier. WAS 50/65/80/95 (user 2026-07-07, spec'd for the original INSTANT blast);
+	// re-defaulted 110/140/170/200 on 2026-07-11 - the [BOW] log of the 2:16 PM run proved r=50 is
+	// practically unreachable for a 1s-tick DoT ZONE (tick after tick of near=67..197 r=50 hit=0:
+	// zombies chase the PLAYER, so they only clip the 1.3m disc for 1-2 ticks). Same ladder shape,
+	// +15/tier -> +30/tier. Old values restorable live via acc_firebow_aoe_radius_t0..3.
+	acc_aoe_radius   = getdvarint( "acc_firebow_aoe_radius_t" + acc_tier, ( acc_tier == 0 ? 110 : ( acc_tier == 1 ? 140 : ( acc_tier == 2 ? 170 : 200 ) ) ) );
 	// chompers 1 / 1 / 2 / 3 by PaP tier (user 2026-07-07).
 	acc_chomper_cap  = getdvarint( "acc_firebow_chompers_t"   + acc_tier, ( acc_tier == 0 ? 1  : ( acc_tier == 1 ? 1  : ( acc_tier == 2 ? 2  : 3   ) ) ) );
 	if ( acc_aoe_radius  < 1 ) acc_aoe_radius  = 1;
@@ -224,10 +453,10 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	if ( acc_dot_frac <= 0 ) acc_dot_frac = 0.20;
 	e_portal.acc_dot_on = 1;
 	e_portal thread bow_demongate_portal_dot( self, position, acc_aoe_radius, acc_dot_frac, acc_tier );
-	// [acc] dev breadcrumb (2026-07-08 hunt): open_portal reached the DoT launch (i.e. the tier block
-	// above did not throw) with these resolved values.
-	// [BOW] portal-OPEN dev print REMOVED 2026-07-10 (clean screen in hardcoded dev):
-	// if ( IS_TRUE( level.acc_dev ) && isdefined( self ) && isplayer( self ) ) self IPrintLnBold( "[BOW] portal OPEN ..." );
+	// [acc] dev breadcrumb (RE-ENABLED 2026-07-11): open_portal reached the DoT launch (i.e. the tier block
+	// above did not throw) with these resolved values. If this prints, the portal entity spawned and the DoT
+	// thread was launched - so any "nothing dies" is downstream in bow_demongate_portal_dot (watch the tick line).
+	acc_firebow_dbg_log( "^2portal OPEN tier=" + acc_tier + " r=" + acc_aoe_radius + " frac=" + acc_dot_frac + " z=" + int( position[ 2 ] ) );
 
 	// [acc] CHARGE COST = 3 ARROWS TOTAL (user 2026-07-08; was 5 for ~an hour same evening): the engine's
 	// full charge natively consumes 2; deduct 1 MORE from the clip here - the documented SAFE path
@@ -277,7 +506,12 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	if ( n_spawn_delay < 2 )
 		wait 2 - n_spawn_delay;
 	
-	wait 2.5;
+	// [acc] VOID LIFETIME (2026-07-11): this tail wait was the pack's flat 2.5s -> the whole void (FX+DoT)
+	// lived ~4.75s = max 5 ticks, so even an in-ring zombie rarely accumulated a kill (log-proven, 2:16 PM
+	// run). Now dvar-tunable; default 5.0 -> ~7.25s void, ~7 ticks - an entering zombie that lingers dies.
+	n_tail_secs = getdvarfloat( "acc_firebow_void_tail_secs", 5.0 );
+	if ( n_tail_secs < 0.5 ) n_tail_secs = 0.5;
+	wait n_tail_secs;
 	e_portal.acc_dot_on = 0;   // [acc] the DoT stops when the visual does (the closed notify is 2s later)
 	e_portal clientfield::set( "demongate_portal_fx", 0 );
 	wait 2;
@@ -309,11 +543,28 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 	// Live dvar acc_firebow_dot_max_targets.
 	n_max_targets = getdvarint( "acc_firebow_dot_max_targets", 20 );
 	if ( n_max_targets < 1 ) n_max_targets = 1;
+	// Same-floor vertical window for the HORIZONTAL radius check below (see the 2026-07-11 note in
+	// the sweep) - the portal center rides ~64u above the floor, so the band must clear that plus
+	// crawlers/ramps while still excluding zombies a full storey away. Live dvar acc_firebow_dot_zband.
+	n_zband = getdvarint( "acc_firebow_dot_zband", 160 );
+	if ( n_zband < 64 ) n_zband = 64;
+
+	// [acc] VOID SLOW (2026-07-11, the "kill zombies near it slowly" feel fix): zombies chase the PLAYER,
+	// not the portal - at walk/sprint they cross the ring in ~1-2 ticks and leave with 20-40% damage
+	// (log-proven). The demon gate now SLOWS normal zombies while they're inside (the pull fantasy):
+	// ASMSetAnimationRate below 1.0 = THE zombie slow lever (root motion scales cadence AND ground speed;
+	// the exact Widow's Wine mechanism, see _acc_zombie_speed.gsc header - SetMoveSpeedScale is
+	// player-only). acc_fb_void_slowed is honored by the speed keepalive's under_anim_slow() so the 1.5s
+	// sweep doesn't cancel it; a per-zombie watchdog restores rate 1.0 on ring-exit/portal-end (the WW
+	// expiry idiom - the keepalive re-asserts the round rate within 1.5s). Bosses/specials never slowed
+	// (they own their locomotion - the Brutus freeze lesson). Live dvar acc_firebow_void_slow_rate
+	// (default 0.4; 0 or >=1 disables).
+	n_slow_rate = getdvarfloat( "acc_firebow_void_slow_rate", 0.4 );
+	b_slow = ( n_slow_rate > 0 && n_slow_rate < 1 );
 
 	// [acc] dev breadcrumb (2026-07-08 hunt): the ticker STARTED (if [BOW] portal OPEN printed but this
 	// didn't, the thread died between launch and here). Also shows whether level.zombie_health is live.
-	if ( 0 )   // [BOW] DoT-ENTER dev print REMOVED 2026-07-10 (clean screen); restore IS_TRUE(acc_dev) && isplayer(e_shooter) to re-enable
-		e_shooter IPrintLnBold( "^2[BOW] DoT ENTER r=" + n_radius + " frac=" + n_frac + " zh=" + ( isdefined( level.zombie_health ) ? level.zombie_health : "UNDEFINED" ) );
+	acc_firebow_dbg_log( "^3DoT ENTER r=" + n_radius + " zband=" + n_zband + " zh=" + ( isdefined( level.zombie_health ) ? level.zombie_health : "UNDEF" ) + ( b_slow ? " slow=" + n_slow_rate : "" ) );
 
 	tick = 0;
 	while ( IS_TRUE( self.acc_dot_on ) )
@@ -323,13 +574,13 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 		n_zh = level.zombie_health;
 		if ( !isdefined( n_zh ) || n_zh <= 0 ) n_zh = level.zombie_vars[ "zombie_health_start" ];
 		n_dmg = int( n_zh * n_frac );
+		if ( n_dmg < ( n_zh * n_frac ) ) n_dmg++;   // ceil: N full ticks always finish the kill (int() left a sliver - e.g. 5x int(0.2*953) = 950 < 953)
 		if ( n_dmg < 1 ) n_dmg = 1;
 
 		n_hit = 0;
 		n_boss_hit = 0;
+		n_new_slow = 0;          // zombies newly slowed by the void this tick (dev diagnostic)
 		n_nearest = -1;          // dev diagnostic: distance of the CLOSEST alive AI to the portal
-		n_probe_pre = -1;        // dev diagnostic: first damaged target's health before/after
-		n_probe_post = -1;
 		// GetAITeamArray("axis") = the VERIFIED zombie-array idiom in this map (_acc_damage:1339). The
 		// first cut used a 2-arg GetAiSpeciesArray form nothing else here uses - if that returned
 		// undefined, .size threw and this thread died SILENTLY before its first tick (the "void does
@@ -341,9 +592,18 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 			if ( ( n_hit + n_boss_hit ) >= n_max_targets ) break;   // per-tick cap reached
 			z = a_ai[ i ];
 			if ( !isdefined( z ) || !isalive( z ) ) continue;
-			n_z_dist = Distance( z.origin, v_pos );
+			// [acc] HORIZONTAL radius + z-band (2026-07-11, THE "void kills nothing" root cause): the
+			// portal center sits ~64u ABOVE the floor (bow_demongate_get_impact_pos adds +normal[2]*64 on
+			// floor hits / floor-snap+64 on wall hits) while a zombie's origin is at its FEET, so the old
+			// 3D Distance() check gave tier 0/1 (radius 50/65) NO reachable volume at ground level
+			// (sqrt(h^2 + 64^2) > 50 for every h - the un-PaP'd void could never damage a standing zombie)
+			// and cut tier 2/3 (radius 80/95) to 48/70u of real reach. Same geometry killed the pack's
+			// original radiusDamage ("provably lands zero damage"). Measure the ring horizontally; gate
+			// height separately (same-floor band, acc_firebow_dot_zband).
+			n_z_dist = Distance2D( z.origin, v_pos );
 			if ( n_nearest < 0 || n_z_dist < n_nearest ) n_nearest = int( n_z_dist );
 			if ( n_z_dist > n_radius ) continue;
+			if ( abs( z.origin[ 2 ] - v_pos[ 2 ] ) > n_zband ) continue;
 
 			n_z_dmg = n_dmg;
 			if ( IS_TRUE( z.acc_is_boss ) || IS_TRUE( z.acc_is_mini_boss ) )
@@ -357,33 +617,93 @@ function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 			else
 			{
 				n_hit++;
+				// Demon-gate slow while inside the ring (normals only; see the VOID SLOW note above).
+				if ( b_slow && !IS_TRUE( z.acc_fb_void_slowed ) && ( z zombie_utility::is_zombie() ) )
+				{
+					z.acc_fb_void_slowed = 1;
+					z ASMSetAnimationRate( n_slow_rate );
+					z thread bow_demongate_void_slow_watchdog( self, v_pos, n_radius, n_zband );
+					n_new_slow++;
+				}
 			}
 
-			// EXACT damage mark (the thundergun_boss_blast side-channel, one-shot consumed by
-			// _acc_damage::on_ai_damage): without it the map's global x3.25 player-damage buff would
-			// scale every tick 3.25x past the user's spec fractions. The mark makes on_ai_damage
-			// return this VERBATIM value (bypasses multipliers + caps), so 1/5..1/2 and /80../40 land
-			// exactly as designed. Set immediately before our own DoDamage - no other hit can ride it.
-			z.acc_tg_exact_dmg = n_z_dmg;
-			if ( n_probe_pre < 0 && isdefined( z.health ) ) n_probe_pre = z.health;   // dev: first target's pre-hit health
-			if ( isdefined( e_shooter ) && isplayer( e_shooter ) )
-				z DoDamage( n_z_dmg, v_pos, e_shooter );   // proven idiom (the pack's chomper kill) - credits the shooter
-			else
-				z DoDamage( n_z_dmg, v_pos );              // shooter gone: environment damage
-			if ( n_probe_post < 0 )                        // dev: same target's post-hit health (DoDamage is synchronous)
-				n_probe_post = ( ( isdefined( z ) && isdefined( z.health ) ) ? z.health : 0 );
+			// Damage applied in a CHILD THREAD per target (2026-07-11 hardening, found via console_mp.log:
+			// pack AI damage handlers can THROW mid-chain - mechz_spiki's undefined-bool, avogadro's
+			// targetname compare, both fixed but the CLASS of bug recurs on every pack adoption). A throw
+			// inside our DoDamage call stack would kill THIS ticker with it; the child thread contains the
+			// blast to that one target, and the log shows its "dmg ->" line with no "dmg OK" after
+			// (= that target's damage chain threw). Mark + DoDamage details in the child.
+			self thread bow_demongate_dot_damage_one( z, n_z_dmg, v_pos, e_shooter, tick + 1, n_hit + n_boss_hit );
 		}
 
 		tick++;
-		// Dev tick print - ALWAYS in dev (2026-07-08 hunt: a zero-hit tick is itself diagnostic - the
-		// loop is alive but nothing is inside the radius / the array came back empty). `near` = closest
-		// alive AI's distance to the portal center (radius-vs-visual mismatch shows here even at 0 hits);
-		// `hp a->b` = first damaged target's health before/after DoDamage (proves the hit lands or is eaten).
-		if ( 0 )   // [PORTAL] tick dev print REMOVED 2026-07-10 (clean screen); restore IS_TRUE(acc_dev) && isplayer(e_shooter) to re-enable
-			e_shooter IPrintLnBold( "^5[PORTAL] tick " + tick + ": ai=" + a_ai.size + " near=" + n_nearest + " zombies " + n_hit + " x" + n_dmg + ", bosses " + n_boss_hit + " x1/" + n_boss_div + ( n_probe_pre >= 0 ? " hp " + n_probe_pre + "->" + n_probe_post : "" ) + ( ( n_hit + n_boss_hit ) >= n_max_targets ? " ^1CAPPED@" + n_max_targets : "" ) + " (r" + n_radius + ", tier " + n_tier + ")" );
+		// THE money line (2026-07-08 hunt, re-enabled 2026-07-11 into the persistent panel): a zero-hit tick is
+		// itself diagnostic. `ai` = alive AI in the level; `near` = closest AI's distance to the portal center
+		// vs `r` = the DoT ring radius (near > r = the portal is out of reach of every zombie = wrong
+		// placement/radius); `hit=NxDMG` = zombies damaged this tick x per-hit damage. Per-target hp
+		// before/after rides the child threads' "dmg ->"/"dmg OK" lines (first 3 targets per tick).
+		acc_firebow_dbg_log( "^5tick " + tick + " ai=" + a_ai.size + " near=" + n_nearest + " r=" + n_radius + " hit=" + n_hit + "x" + n_dmg + " boss=" + n_boss_hit + ( n_new_slow > 0 ? " slow+" + n_new_slow : "" ) + ( ( n_hit + n_boss_hit ) >= n_max_targets ? " CAP@" + n_max_targets : "" ) );
 
 		wait 1;
 	}
+	// Ticks that stop WITHOUT this line = the ticker thread died (an exception got past the child-thread
+	// containment) - that exact silent death was a 2026-07-08 root-cause class.
+	acc_firebow_dbg_log( "^3DoT END after " + tick + " ticks" );
+}
+
+// [acc] One tick's damage to ONE target, ALWAYS in its own thread (see the call site - exception
+// containment). The EXACT damage mark (thundergun_boss_blast side-channel, one-shot consumed by
+// _acc_damage::on_ai_damage) makes the tick land VERBATIM - without it the map's global x3.25 damage
+// buff would rescale the spec fractions past the user's design. Mark + DoDamage both run in this same
+// server frame (a spawned thread executes synchronously until its first wait), so no other hit can
+// ride the mark.
+function bow_demongate_dot_damage_one( z, n_dmg, v_pos, e_shooter, n_tick, n_idx )
+{
+	if ( !isdefined( z ) || !isalive( z ) )
+		return;
+	b_log = ( n_idx <= 3 );   // per-target detail for the first 3 targets each tick (log-volume cap)
+	n_pre = ( isdefined( z.health ) ? z.health : -1 );
+	str_arch = ( isdefined( z.archetype ) ? ( "" + z.archetype ) : "?" );
+	if ( b_log )
+		acc_firebow_dbg_log( " t" + n_tick + " dmg -> " + str_arch + " hp=" + n_pre + " take=" + n_dmg );
+	z.acc_tg_exact_dmg = n_dmg;
+	// Full 8-arg DoDamage = the pack's own chomper-vs-mechz idiom (this file, chomper_attack_mechz_target).
+	// The bare 3-arg form landed ZERO on the mechz (log-proven 2026-07-11: take=812, hp 65000->65000) -
+	// his hitloc-gated damage wrap drops MOD-less weaponless hits; MOD_PROJECTILE_SPLASH + the bow weapon
+	// pass his filters, and the exact-damage mark still forces the tick value on the normal-zombie path.
+	if ( isdefined( e_shooter ) && isplayer( e_shooter ) )
+		z DoDamage( n_dmg, v_pos, e_shooter, e_shooter, undefined, "MOD_PROJECTILE_SPLASH", 0, level.w_bow_demongate );
+	else
+		z DoDamage( n_dmg, v_pos, undefined, undefined, undefined, "MOD_PROJECTILE_SPLASH", 0, level.w_bow_demongate );
+	n_post = ( ( isdefined( z ) && isdefined( z.health ) ) ? z.health : 0 );
+	if ( b_log )
+		acc_firebow_dbg_log( " t" + n_tick + " dmg OK " + str_arch + " hp " + n_pre + "->" + n_post + ( ( isdefined( z ) && !isalive( z ) ) ? " ^2DEAD" : "" ) );
+}
+
+// [acc] VOID SLOW watchdog (self = a slowed zombie). Owns the restore END-TO-END so a slowed zombie can
+// never be stranded slow-mo (the notetrack-Ghost-pairs lesson: every scripted state change carries its
+// own timed restorer). Polls until the zombie leaves the ring or the portal's DoT ends, then hands the
+// anim rate back at 1.0 - the WW-expiry idiom; _acc_zombie_speed's keepalive re-asserts the proper round
+// rate within 1.5s (its under_anim_slow() honors acc_fb_void_slowed while we hold it).
+function bow_demongate_void_slow_watchdog( e_portal, v_pos, n_radius, n_zband )
+{
+	self endon( "death" );
+	while ( IS_TRUE( self.acc_fb_void_slowed ) )
+	{
+		if ( !isdefined( e_portal ) || !IS_TRUE( e_portal.acc_dot_on )
+			 || Distance2D( self.origin, v_pos ) > n_radius
+			 || abs( self.origin[ 2 ] - v_pos[ 2 ] ) > n_zband )
+			break;
+		wait 0.25;
+	}
+	self bow_demongate_void_unslow();
+}
+
+function bow_demongate_void_unslow()
+{
+	self.acc_fb_void_slowed = undefined;
+	if ( isalive( self ) )
+		self ASMSetAnimationRate( 1.0 );
 }
 
 function bow_demongate_portal_shake_players()

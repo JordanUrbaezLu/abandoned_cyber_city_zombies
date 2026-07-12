@@ -44,6 +44,9 @@
 #using scripts\zm\_zm_weap_elemental_bow_rune_prison;
 #using scripts\zm\_zm_weap_elemental_bow_wolf_howl;
 #using scripts\zm\_zm_weap_elemental_bow_demongate;
+// [acc] Winter's Howl freeze gun client twin (2026-07-11): the toggle_freezegun_* clientfield
+// registration must lockstep with the server .gsc (mismatch otherwise). Self-registers via autoexec.
+#using scripts\zm\_zm_weap_freezegun;
 
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
@@ -109,6 +112,14 @@ function main()
 	// framework boots. Dot-path matches ui/uieditor/menus/hud/acc_hud.lua and the
 	// GSC #precache("lui_menu","acc_hud") / OpenLUIMenu("acc_hud").
 	LuiLoad( "ui.uieditor.menus.hud.acc_hud" );
+
+	// [acc] Leaderboard LUI (docs/40): the end_game recorder, the Plaza station fetcher,
+	// and the background-agent boot (the fullscreen tab-out fix - the ONE process spawn,
+	// at map load), opened on demand by _acc_leaderboard.gsc. GENERATED files
+	// (tools/build_lb_lui.js) - hksc bytecode chunks (io/os) as \ddd strings, load(reader).
+	LuiLoad( "ui.uieditor.menus.hud.acc_lb_rec" );
+	LuiLoad( "ui.uieditor.menus.hud.acc_lb_board" );
+	LuiLoad( "ui.uieditor.menus.hud.acc_lb_boot" );
 
 	zm_usermap::main();
 

@@ -57,3 +57,6 @@ source_data/acc_perk_shaders/_images/i_acc_data_shard.png.acc-128-orig
 !.vscode/extensions.json
 
 .cursor/plans/
+
+# Leaderboard deployed endpoint + write key (baked into the game build, not tracked)
+backend/leaderboard/deployed.local.json

@@ -334,13 +334,26 @@ function variant_guns()
     // x0.90 per tier COMPOUNDING off the 0.48/0.52 base (spd1 0.432/0.468, spd2 0.389/0.421,
     // spd3 0.35/0.379; meleeTime = the REAL swing lever on a melee weapon - fireTime does nothing
     // there, the Action Figure speed twins proved it live). Was x0.95 (+5%) same day, user bumped to +10%.
+    // TRIPLE TAKE swapped in for the M16 2026-07-11 (user): apex_tripletake (RUNTIME name, no _zm -
+    // the twin GDT block ids put _zm LAST: apex_tripletake_acc_Y_zm -> runtime apex_tripletake_acc_Y).
+    // 6 twins baked by tools/oneshots/gen_tripletake_twins.js (removed the 6 t9_m16 twins, net 0).
     return array( "s1_tac19", "t6_fiveseven", "t9_ak47", "s1_ae4", "t9_semiauto_cosplay",
                   "s4_ppsh41_base", "t9_grav", "t6_olympia", "t9_ak74u",
                   "t9_m60", "t9_rpd", "t6_hamr", "s1_rw1", "s1_mk14", "s1_mors",
                   "t9_xm4", "t9_streetsweeper",
-                  "apex_peacekeeper", "apex_alternator", "apex_prowler", "t9_m16", "s1_cel3",
+                  "apex_peacekeeper", "apex_alternator", "apex_prowler", "apex_tripletake", "s1_cel3",
                   "apex_beam_rifle",
-                  "s1_mahem", "thundergun", "elemental_bow_demongate", "leviathan", "t6_war_machine" );
+                  "s1_mahem", "thundergun", "elemental_bow_demongate", "leviathan", "t6_war_machine",
+                  // Winter's Howl freeze gun (user 2026-07-11): fastreload-only wonder tier (base + _up),
+                  // projectileweapon _zm ids -> runtime freezegun_acc_fastreload. Hand-built clones in the
+                  // STANDALONE acc_freezegun_twins.gdt (tools/oneshots/gen_freezegun_twins.js).
+                  "freezegun",
+                  // Ballistic Knife (user 2026-07-11): BRZ-ONLY twins (Berzerker implant +35% STAB speed -
+                  // meleeTime/meleeChargeTime x1/1.35; the THROW cadence is untouched). Both forms bake ONE
+                  // _acc_brz twin each (form_bakes_suffix scopes it; irregular PaP name in variant_up_name).
+                  // projectileweapon _zm ids -> runtime knife_ballistic[_upgraded]_acc_brz. Hand-built clones
+                  // in the STANDALONE acc_ballistic_knife_twins.gdt (tools/oneshots/gen_ballistic_brz_twins.js).
+                  "knife_ballistic" );
 }
 
 // The PaP upgrade asset name for a base gun = "<base>_up" for every box gun, with ONE irregular:
@@ -349,6 +362,8 @@ function variant_guns()
 function variant_up_name( base_name )
 {
     if ( base_name == "thundergun" ) return "thundergun_upgraded";
+    if ( base_name == "freezegun" )  return "freezegun_upgraded";   // irregular PaP name (like the Thundergun; user 2026-07-11)
+    if ( base_name == "knife_ballistic" ) return "knife_ballistic_upgraded";   // irregular PaP name (pmr360 pack; user 2026-07-11)
     return base_name + "_up";
 }
 
@@ -450,13 +465,17 @@ function form_bakes_suffix( gun, form, suffix )
     // TURBO combos: HAVOC ONLY (8 hand-generated clones, 2026-07-08).
     if ( IsSubStr( suffix, "turbo" ) && gun != "apex_beam_rifle" ) return false;
 
-    // SPD (Leviathan PaP-tier swing) + BRZ (Berzerker implant) combos: LEVIATHAN ONLY, and only the
-    // EXACT tier forms (base: spd1 at tier 1; _up: spd2/spd3 at tiers 2/3 - 3 hand-generated clones,
-    // 2026-07-09; each of the 4 tier forms additionally bakes ONE _brz twin - tools/oneshots/
-    // gen_berzerker_twins.js, 2026-07-11 - so the +35% Berzerker swing stacks with every PaP tier).
-    // Any spd/brz combo on another gun, or a mixed combo (e.g. _acc_fastreload_spd1), is NOT baked.
+    // SPD (Leviathan PaP-tier swing) + BRZ (Berzerker implant) combos: LEVIATHAN + BALLISTIC KNIFE ONLY.
+    // Leviathan: only the EXACT tier forms (base: spd1 at tier 1; _up: spd2/spd3 at tiers 2/3 - 3
+    // hand-generated clones, 2026-07-09; each of the 4 tier forms additionally bakes ONE _brz twin -
+    // tools/oneshots/gen_berzerker_twins.js, 2026-07-11 - so the +35% Berzerker swing stacks with every
+    // PaP tier). Ballistic Knife (user 2026-07-11): pure "_acc_brz" ONLY, on BOTH forms (base +
+    // knife_ballistic_upgraded) - the Berzerker +35% STAB-speed twins (tools/oneshots/
+    // gen_ballistic_brz_twins.js); no spd tiers. Any spd/brz combo on another gun, or a mixed combo
+    // (e.g. _acc_fastreload_spd1), is NOT baked.
     if ( IsSubStr( suffix, "spd" ) || IsSubStr( suffix, "brz" ) )
     {
+        if ( gun == "knife_ballistic" ) return ( suffix == "_acc_brz" );
         if ( gun != "leviathan" ) return false;
         if ( form == gun ) return ( suffix == "_acc_spd1" || suffix == "_acc_brz" || suffix == "_acc_spd1_brz" );
         return ( suffix == "_acc_spd2" || suffix == "_acc_spd3"
@@ -464,12 +483,15 @@ function form_bakes_suffix( gun, form, suffix )
     }
     // The axe bakes NOTHING else - no recoil50/fastreload forms (melee: recoil + reload meaningless).
     if ( gun == "leviathan" ) return false;
+    // The ballistic knife bakes NOTHING else either - no recoil50/fastreload forms (a thrown knife has
+    // no recoil profile and its 1-round "reload" is the blade re-arm; user-scoped to the brz stab axis).
+    if ( gun == "knife_ballistic" ) return false;
 
     // FASTRELOAD-ONLY wonders/specials (user 2026-07-08): Mahem / Thundergun / Fire Bow bake JUST the
     // pure Speed-Cola combo - no recoil50 forms exist for them (recoil is meaningless on a wind cone /
     // launcher / bow, and the user explicitly scoped them to speed cola only). War Machine drum GL
     // joined the tier 2026-07-09 (same launcher logic; blocks in acc_war_machine_twins.gdt).
-    if ( gun == "s1_mahem" || gun == "thundergun" || gun == "elemental_bow_demongate" || gun == "t6_war_machine" )
+    if ( gun == "s1_mahem" || gun == "thundergun" || gun == "elemental_bow_demongate" || gun == "t6_war_machine" || gun == "freezegun" )
     {
         if ( suffix != "_acc_fastreload" ) return false;
         // The Fire Bow PaPs IN PLACE (CSV upgrade = self; tier lives in acc_firebow_tier) - there is
@@ -496,9 +518,9 @@ function on_player_connect( player )
 // but SKIPS SwitchToWeaponImmediate (was_equipped is false against the stale current weapon) -> the box's
 // pending switch target is removed with no re-switch -> the first-person view reverts to the OLD gun even
 // though the correct twin is in inventory. So DEFER reconcile across the grab, exactly like the is_drinking
-// guard in reconcile() and the proven box_grab_clear_watcher (_acc_pap_levels): stock magicbox fires the
-// player notify "user_grabbed_weapon" BEFORE the switch, so set the flag then, clear it once the give settles
-// (weapon_change_complete / 1s net), and poke a clean reconcile on the fully-equipped gun (invisible, same model).
+// guard in reconcile(): stock magicbox fires the player notify "user_grabbed_weapon" BEFORE the switch, so
+// set the flag then, clear it once the give GENUINELY settles (wait_box_give_settled below), and poke a
+// clean reconcile on the fully-equipped gun (invisible, same model).
 function box_grab_defer_watcher()   // self = player
 {
     self endon( "disconnect" );
@@ -506,10 +528,39 @@ function box_grab_defer_watcher()   // self = player
     {
         self waittill( "user_grabbed_weapon" );
         self.acc_box_grabbing = true;
-        self util::waittill_any_timeout( 1.0, "weapon_change_complete" );   // let the box give settle (mirrors box_grab_clear_watcher)
+        self wait_box_give_settled();
         self.acc_box_grabbing = false;
         self notify( "acc_variant_dirty" );   // reconcile the settled twin now, current weapon no longer transitional
     }
+}
+
+// self = player, call right after "user_grabbed_weapon". Block until the box give has GENUINELY
+// settled; returns the settled current weapon. GetCurrentWeapon() keeps returning the OLD gun for
+// the whole slow pull-out raise, so "settled" = the current weapon has CHANGED from its at-grab
+// value and held stable for two consecutive 0.25s ticks. The previous settle condition (ONE
+// weapon_change_complete OR a 1.0s cap - both this watcher and _acc_pap_levels'
+// box_grab_clear_watcher used it) was porous both ways: the at-limit give first weapon_take()s
+// the held gun, whose engine auto-switch churn can fire an EARLY weapon_change_complete while the
+// grabbed gun is still rising, and slow-raise guns blow straight through 1.0s. Either way the
+// deferred reconcile then ran MID-RAISE, saw was_equipped==false against the transitional old
+// gun, took the in-flight switch target with no re-switch, and the engine re-drew the twin from
+// scratch = the visible "I pull the gun out of the box, then draw it a second time for no reason"
+// (user 2026-07-11). Capped at 3s so a grab the engine never completes (or a player who instantly
+// switches back to their old gun and stays) can't wedge the defer flag on.
+function wait_box_give_settled()   // self = player; returns the settled current weapon
+{
+    old = self GetCurrentWeapon();
+    prev = undefined;
+    for ( t = 0; t < 12; t++ )   // 12 x 0.25s = 3.0s cap
+    {
+        wait 0.25;
+        cur = self GetCurrentWeapon();
+        if ( isdefined( cur ) && cur != level.weaponNone && cur != old
+             && isdefined( prev ) && cur == prev )
+            return cur;   // same non-old gun two ticks running = the raise is done
+        prev = cur;
+    }
+    return self GetCurrentWeapon();
 }
 
 // THUNDERGUN TWIN FIRE SHIM (2026-07-08, with the fastreload twin): the BO1-port Thundergun deals

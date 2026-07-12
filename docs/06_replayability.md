@@ -108,7 +108,7 @@ box-flagged weapons the player does not own *in any form* — base, Pack-a-Punch
 counts as owning the TAC-19). This covers the stock `keys[0]` fallback **and** the twin gap that stock
 `has_weapon_or_upgrade` misses. Only edge case: if you own every available box gun, the box falls back to
 a duplicate (max-ammo refill) — unavoidable since the box must give something. Draw is weighted per-gun
-tier (`acc_box_weight`; wonder weapons pinned to ~1% rolls, boosted by a Lucky Clover).
+tier (`acc_box_weight`; each wonder weapon pinned to ~0.3% per open — ~1.2% combined across the four — boosted by a Lucky Clover).
 
 ### Per-run variance summary
 
@@ -156,7 +156,7 @@ Mixed builds (e.g. Reflex Tier 1 + Subroutine Tier 2 + Overclock Tier 3) were le
 
 **Implementation status:** the framework and the following effects are **live** — Fragility (per-player HP
 cut, `on_player_connect`), Bleed Out (down-timer mult, consumed in `_acc_cyberware.gsc:878`), Sprint
-(`level.acc_mod_force_sprint`, consumed by `_acc_zombie_speed` / `_acc_early_round_pacing`), and Express
+(`level.acc_mod_force_sprint`, consumed by `_acc_zombie_speed` — both the round-1 speed clamp and the disable-early-boost effect live there), and Express
 (round-10 start + bonus, `express_start`). The others below set a `level.acc_mod_*` field that **no consumer
 reads yet** (Code Red HP/elite rate, Limited Liability no-jug, One Shot) or run **stub loops** with
 `TODO`s (Draft Mode, Shardless, Roguelike Lite). Treat the un-wired ones as design intent, not shipped.
@@ -179,7 +179,7 @@ reads yet** (Code Red HP/elite rate, Limited Liability no-jug, One Shot) or run 
 
 - **Express** (`acc_mod_express`): start at round 10 with 5000 Points + 5 Shards. **Live.**
 - **Sprint** (`acc_mod_sprint`): zombie speed locked at max from round 1; disables the early-round `setmovespeedscale` boost from [05_mechanics.md](05_mechanics.md). **Live** (`level.acc_mod_force_sprint`).
-- **Shortened Rounds** (`acc_mod_shortened_rounds`): zombies per round x0.6. *(field set; not yet consumed)*
+- **Shortened Rounds** (`acc_mod_shortened_rounds`): zombies per round x0.6. **Live** — the x0.6 multiplier is applied to the per-round spawn count via the `acc_max_zombie_override` in `_acc_early_round_pacing.gsc:71-72`. (reconciled to code 2026-07-11)
 
 ### Achievement / Score Interaction (planned, not built)
 

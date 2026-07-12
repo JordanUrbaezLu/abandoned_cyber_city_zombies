@@ -3,7 +3,9 @@
 > **Status: investigation record — its shipped outcome is the LOCKDOWN CHALLENGE (Glitch Purge).**
 > This doc captured the design study for a "punishing middle." What actually shipped out of it is the
 > **per-round red-alarm room lockdown** (§11, `_acc_lockdown.gsc`) that grew into a **full trap
-> challenge** — 30 confined Glitch Stalkers → clear the room → free boss item — now living in
+> challenge** — a round-scaled wave of confined Glitch Stalkers (AUTO count = current round × 2.0 by
+> default, `ACC_LDC_TOTAL_DEF 0` / `ACC_LDC_ROUND_MULT_DEF 2.0`, `_acc_lockdown_challenge.gsc:53-54`; was a
+> hardcoded 30) → clear the room → free boss item — now living in
 > `_acc_lockdown_challenge.gsc` and documented in full in **[26_lockdown_challenge_room.md](26_lockdown_challenge_room.md)**.
 > Both the lights and the purge are wired into `acc_main::init()` but are **hardcode-disabled by
 > default** (`acc_lockdown_challenge_on` defaults 0; enable with `+set acc_lockdown_challenge_on 1` —
@@ -83,7 +85,7 @@ rational because it pays for the team's next safe ascent.
 
 | Option | Pro | Con |
 |---|---|---|
-| **A. Free Overclock tier on held weapon** | Buildable now; value *scales* with how deep you already are (Overclocks cost 1/2/3/4/5 Shards/tier), so it stays meaningful late. | Risks **decaying** as portable Shards inflate; needs new redemption plumbing at the Lab Overclock terminal. |
+| **A. Free Overclock tier on held weapon** | Buildable now; value *scales* with how deep you already are (Overclocks cost a linear 4/8/12/16/20/24/28/32/36/40 Shards across 10 tiers — +4/tier, `_acc_overclocks.gsc:36-48`), so it stays meaningful late. | Risks **decaying** as portable Shards inflate; needs new redemption plumbing at the Lab Overclock terminal. |
 | **B. Perk-rotation re-roll token** | **Never goes stale** — re-rolling the Lab's 4-of-10 lineup is always valuable. | The rotation it re-rolls now **ships** — `_acc_perk_doors.gsc` opens a random 4-of-10 alcoves and re-rolls every round (`apply_round`, `_acc_perk_doors.gsc:187`). What's still unbuilt is a **player-triggered re-roll** (token/console) on top of that automatic per-round roll. |
 
 > **The judges' single most consistent criticism across all five concepts:** this bottom-pull is the
@@ -177,7 +179,9 @@ points + applies escalating pressure**; it dies to a PaP gun in 1–2s, and kill
 crossing window** (a risk/reward beat — kill it to cross safely, or sprint past and pay the toll).
 
 **How it controls the middle.** A near-pure clone of the proven **`_acc_boss_glitch.gsc`** scaffold —
-a promoted stock zombie reskinned to the **stock Giant body** (crash-safe, **zero new assets**), with
+a promoted stock zombie reskinned (as of 2026-07-02) to the Glitch's imported WetEgg toxic body
+(`c_sat_zmb_zombie_toxic_1`, `_acc_boss_glitch.gsc:295`; was the stock Giant body 2026-06-15 — so this
+clone brings one imported pack asset, not zero), with
 its own cadence/spawn/death-reward. Leashed to Corp via `SetGoal` on the Corp struct; aggro/tax gated
 on Corp-zone occupancy (same `IsTouching` pattern as A). The feasibility judge **verified every cited
 scaffold exists** — this scored the highest raw feasibility (8) of all five concepts.
@@ -220,7 +224,7 @@ avoids entirely.
 | **Can be kited to a pole?** | **No** | Yes (the core weakness) |
 | **Live-AI crash classes** | **None** (no AI) | Inherits all (mitigated by Glitch scaffold) |
 | **Adds bodies vs 24-cap** | No | Yes — must budget |
-| **New assets** | None | None (stock Giant reskin) |
+| **New assets** | None | Imported WetEgg toxic body (`c_sat_zmb_zombie_toxic_1`) — the Glitch scaffold's default skin since 2026-07-02; was the stock Giant reskin (reconciled to code 2026-07-11) |
 | **Build base** | `_acc_decontamination` engine | `_acc_boss_glitch` clone |
 | **Counterplay** | dash the safe window / time the cycle | kill it for a clean window / sprint past |
 | **Judge avg** | **7.0** (no killer flaw) | 6.7 (3 fixable issues) |

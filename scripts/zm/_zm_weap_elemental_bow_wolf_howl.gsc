@@ -36,9 +36,12 @@ function __init__()
 	clientfield::register( "toplayer", "wolf_howl_muzzle_flash", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "wolf_howl_arrow_charged_trail", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "wolf_howl_arrow_charged_spiral", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "wolf_howl_slow_snow_fx", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "zombie_hit_by_wolf_howl_charge", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "wolf_howl_zombie_explode_fx", VERSION_SHIP, 1, "counter" );
+	// [acc] ACTOR clientfields DISABLED (2026-07-11): bow unobtainable in this map (only the FIRE
+	// bow ships) + the actor set hit its bit budget (Winter's Howl overflow). LOCKSTEP with .csc
+	// (which also carried duplicate zombie_explode_fx registrations - all commented).
+	//clientfield::register( "actor", "wolf_howl_slow_snow_fx", VERSION_SHIP, 1, "int" );
+	//clientfield::register( "actor", "zombie_hit_by_wolf_howl_charge", VERSION_SHIP, 1, "int" );
+	//clientfield::register( "actor", "wolf_howl_zombie_explode_fx", VERSION_SHIP, 1, "counter" );
 	callback::on_connect( &on_connect_bow_wolf_howl );
 	zm_spawner::register_zombie_damage_callback( &bow_wolf_howl_damage_callback );
 }

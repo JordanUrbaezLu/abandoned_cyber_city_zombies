@@ -63,8 +63,9 @@ function init()
 // machines, the box uses PER-PLAYER unitriggers (unitrigger_force_per_player_triggers),
 // and both its charge (box.zombie_cost) and its shown price (trigger_target.zombie_cost)
 // resolve to the same box-entity field - so we wrap each box's prompt func to set that
-// field, then run the stock prompt. Skips fire sales (don't fight that powerup, and a 10%
-// cut of the 10-point sale price would round to free).
+// field, then run the stock prompt. During a FIRE SALE this hook OWNS the sale price too
+// (sets it to the stock 10), because our per-frame write is the authoritative writer of
+// box.zombie_cost - see acc_box_prompt.
 function armory_box_pricing()
 {
     level endon( "end_game" );
@@ -103,15 +104,33 @@ function install_box_prompt_hooks()
 function acc_box_prompt( player )
 {
     box = self.stub.trigger_target;
-    if ( isdefined( box ) && !box_firesale_active() )
+    if ( isdefined( box ) )
     {
-        base = ( isdefined( box.old_cost ) ? box.old_cost : box.zombie_cost );
-        if ( isdefined( base ) )
+        if ( box_firesale_active() )
         {
-            if ( all_in_range_have_armory( box.origin, ACC_BOX_RANGE_SQ ) )
-                box.zombie_cost = armory_discounted( base );
-            else
-                box.zombie_cost = base;
+            // FIRE SALE: force the stock 10-point sale price here. Stock
+            // _zm_powerup_fire_sale::toggle_fire_sale_on() is supposed to set every valid
+            // chest to 10, but on this map that value does not survive on the box the
+            // player actually uses (it kept showing the base 950) - and since our per-frame
+            // prompt is the AUTHORITATIVE writer of box.zombie_cost (armory_box_pricing owns
+            // it), the only reliable place to land the sale price is right here. Capture the
+            // real cost into old_cost first (stock magicbox init already sets old_cost, so
+            // this is just belt-and-suspenders) so the non-sale branch below restores it the
+            // instant the sale ends. No Armory discount on a 10-point sale (would round free).
+            if ( !isdefined( box.old_cost ) )
+                box.old_cost = box.zombie_cost;
+            box.zombie_cost = 10;
+        }
+        else
+        {
+            base = ( isdefined( box.old_cost ) ? box.old_cost : box.zombie_cost );
+            if ( isdefined( base ) )
+            {
+                if ( all_in_range_have_armory( box.origin, ACC_BOX_RANGE_SQ ) )
+                    box.zombie_cost = armory_discounted( base );
+                else
+                    box.zombie_cost = base;
+            }
         }
     }
     return self zm_magicbox::boxtrigger_update_prompt( player );
@@ -457,7 +476,7 @@ function gun_card_index( weapon )
     if ( IsSubStr( n, "t9_m60" ) )          return 14;
     if ( IsSubStr( n, "t9_rpd" ) )          return 15;
     if ( IsSubStr( n, "t6_hamr" ) )         return 9;    // HAMR (BO2 LMG, 2026-07-10; reuses a freed card slot)
-    if ( IsSubStr( n, "t9_m16" ) )          return 10;   // M16 (CW tactical rifle, replaces G7 Scout 2026-07-11; freed card slot)
+    if ( IsSubStr( n, "apex_tripletake" ) ) return 10;   // Triple Take (Apex energy sniper, replaces the M16 2026-07-11; reuses its card slot)
     if ( IsSubStr( n, "thundergun" ) )      return 16;
     if ( IsSubStr( n, "t9_semiauto_cosplay" ) ) return 17;   // Blast-O-Matic (user 2026-07-03)
     return 18;

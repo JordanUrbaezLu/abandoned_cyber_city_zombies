@@ -25,7 +25,7 @@ const BASE = 't8_melee_figure';
 // timings x0.8 (0.65/0.16/0.2 -> 0.52/0.128/0.16). The twins are cloned from this faster base, so
 // every PaP tier is 25% faster than before too. The base entry itself is edited in the GDT (this
 // tool only writes the _fast twins); keep these constants == the GDT base or a re-run desyncs.
-const BASE_MELEE_TIME = 0.52, BASE_CHARGE_DELAY = 0.128, BASE_CHARGE_TIME = 0.16;   // the base entry's (now +25%-faster) values
+const BASE_MELEE_TIME = 0.572, BASE_CHARGE_DELAY = 0.1408, BASE_CHARGE_TIME = 0.176;   // base entry's values (user 2026-07-11 swing 10% SLOWER: 0.52/0.128/0.16 x1.1 -> 0.572/0.1408/0.176)
 const TIERS = [
   { name: BASE + '_fast1', mult: 1.33 },   // PaP tier 1: +33%
   { name: BASE + '_fast2', mult: 1.66 },   // PaP tier 2: +66%
@@ -66,9 +66,9 @@ for (const t of TIERS) {
   const ct = (BASE_CHARGE_TIME * f).toFixed(4);
   clones.push(...block.map(l => l
     .replace(`"${BASE}" ( "bulletweapon.gdf" )`, `"${t.name}" ( "bulletweapon.gdf" )`)
-    .replace('"meleeTime" "0.52"', `"meleeTime" "${mt}"`)
-    .replace('"meleeChargeDelay" "0.128"', `"meleeChargeDelay" "${cd}"`)
-    .replace('"meleeChargeTime" "0.16"', `"meleeChargeTime" "${ct}"`)));
+    .replace('"meleeTime" "0.572"', `"meleeTime" "${mt}"`)
+    .replace('"meleeChargeDelay" "0.1408"', `"meleeChargeDelay" "${cd}"`)
+    .replace('"meleeChargeTime" "0.176"', `"meleeChargeTime" "${ct}"`)));
   console.log(`  ${t.name}: ${t.mult}x -> meleeTime ${mt}  (chargeDelay ${cd}, chargeTime ${ct})`);
 }
 

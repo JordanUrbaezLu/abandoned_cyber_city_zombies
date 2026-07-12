@@ -18,9 +18,9 @@ A custom **Call of Duty: Black Ops III** zombies map focused on **mechanics, ski
 
 - **Cyberware skill tree** with mutually-exclusive tiers. Every run commits to a build.
 - **Weapon Overclocks** drawn from randomized per-run pools.
-- **Map state randomization** - power routing, PaP approach, wallbuy pool, perk pool re-roll each game.
+- **Map state randomization** - power routing, PaP approach, and initial mystery-box placement re-roll each game (wall-buys are removed, not randomized; the perk rotation re-rolls per round, not per game). (reconciled to code 2026-07-11)
 - **Two currencies** - Points for the basics, Data Shards for the systems.
-- **Vertical "Abyss Descent"** - soul-box layers below the city (L2/L3/L5) that open the Paradise plaza, plus trench-only stations (Exo Suit, Reactor Surge, Glitch Altar, Jukebox).
+- **Vertical "Abyss Descent"** - soul-box descent gates below the city (four gates through a five-floor stack, L1 down to L5) that open the Paradise plaza, plus trench-only stations (Exo Suit, Reactor Surge, Glitch Altar, Jukebox).
 - **Optional risk/reward events** (Hack Terminal).
 - **No Easter Egg mega-quest. No persistent meta-progression.** The loop is the product.
 
@@ -108,7 +108,7 @@ When synced into the Mod Tools on Windows (`tools\sync_to_modtools.ps1`), `scrip
 - All custom GSC module **files** use the `_acc_` prefix ("abandoned cyber city") to separate them from stock `_zm_*` scripts. Their **GSC namespaces drop the leading underscore** (`_acc_main.gsc` declares `#namespace acc_main;`, called as `acc_main::`), mirroring the stock convention (`_zm_utility.gsc` → `zm_utility::`).
 - Per-player state is stored on `self.acc_*` fields; level state on `level.acc_*`.
 - Custom events use the `acc_*` namespace (e.g. `acc_round_start`, `acc_shards_changed`).
-- **Dev/test mode is ONE hardcoded flag.** `acc_dev` resolves once (in `acc_main::acc_resolve_dev_flags()`) into `level.acc_dev`; every module gates on `IS_TRUE( level.acc_dev )`. There is no runtime dev console — never "set dvar X to test".
+- **Dev/test mode is ONE hardcoded flag.** `acc_dev` resolves once (in `acc_resolve_dev_flags()`, defined in the entry script `zm_abandoned_cyber_city.gsc`) into `level.acc_dev`; every module gates on `IS_TRUE( level.acc_dev )`. There is no runtime dev console — never "set dvar X to test".
 - BO3 GSC syntax, not WaW/BO1: `function` keyword on every definition, `&func` function pointers, entry scripts in `scripts/zm/` (not `maps/zm/`), `zm_usermap::main()` bootstrap (there is no `_zm::main()` in BO3).
 
 ## Systems (all built)
@@ -118,7 +118,7 @@ Orchestrated by `acc_main::init()` (`scripts/zm/zm_abandoned_cyber_city/_acc_mai
 - **Economy & progression**: Data Shards, Cyberware tree, Weapon Overclocks, per-run map randomizer.
 - **Weapons**: box-only arsenal (Apex + Skye ports + elemental bows), Pack-a-Punch tiers, gun-badge chip HUD row.
 - **Perks**: 10 perks (stock + custom incl. Electric Cherry), escalating shard-cost perk slots (cap 10), a live 4-of-10 Lab-alcove rotation.
-- **Enemies & bosses**: elites/trench skins; a mini-boss debut at round 10, then full boss rounds every 9 from round 9 (count scales), boss types dealt from a no-duplicate shuffled deck. Roster: Brutus, Glitch, Phantom, Avogadro, Panzer (mechz), and the Rogue/Civil Protector.
+- **Enemies & bosses**: elites/trench skins; early mini-bosses (Glitch Stalker from round 4, Trench Warden/Brutus from round 5), then full boss rounds every 9 from round 9 (count scales), boss types dealt from a no-duplicate shuffled deck. Roster: Brutus, Glitch, Phantom, Avogadro, Panzer (mechz), and the Rogue/Civil Protector.
 - **Underground**: the vertical Abyss Descent (soul-box layers → Paradise plaza), Exo Suit station, Reactor Surge, Glitch Altar, Jukebox, The Exchange transfer vault, the Armory upper room.
 - **Presentation**: the Aetherium LUI HUD (shipped base) with a smooth round-progress bar, custom atmosphere/fog, and a full Radiant LED lightmap bake (~157 lights + ~15 reflection probes).
 

@@ -323,6 +323,7 @@ function withdraw_item( player )
     istruct = acc_boss_items::find_item( id );
     nm = ( isdefined( istruct ) ? istruct.display_name : id );
     player ok( "Withdrew ^7" + nm + "^7 - enable it at an Implant Bench  (vault items: " + level.acc_vault_items.size + ")" );
+    if ( isdefined( istruct ) ) player iprintln( "^5" + istruct.desc );   // what it does (user 2026-07-11; desc set is fixed -> string-cache safe)
 }
 
 // First occupied implant slot (0 or 1), or -1 if both empty. acc_equipped_items is a fixed 2-array

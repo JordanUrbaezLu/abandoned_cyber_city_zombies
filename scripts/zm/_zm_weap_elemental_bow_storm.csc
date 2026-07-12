@@ -34,7 +34,9 @@ function __init__()
 	clientfield::register( "toplayer", "elem_storm_whirlwind_rumble", VERSION_SHIP, 1, "int", &elem_storm_whirlwind_rumble, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "elem_storm_bolt_fx", VERSION_SHIP, 1, "int", &elem_storm_bolt_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "elem_storm_zap_ambient", VERSION_SHIP, 1, "int", &elem_storm_zap_ambient, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "elem_storm_shock_fx", VERSION_SHIP, 2, "int", &elem_storm_shock_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	// [acc] ACTOR clientfield DISABLED (2026-07-11) - LOCKSTEP with the .gsc twin (bow
+	// unobtainable; actor bit budget full - see the .gsc comment).
+	//clientfield::register( "actor", "elem_storm_shock_fx", VERSION_SHIP, 2, "int", &elem_storm_shock_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	level._effect[ "elem_storm_ambient_bow" ] = "dlc1/zmb_weapon/fx_bow_storm_ambient_1p_zmb";
 	level._effect[ "elem_storm_arrow_impact" ] = "dlc1/zmb_weapon/fx_bow_storm_impact_zmb";
 	level._effect[ "elem_storm_arrow_charged_impact" ] = "dlc1/zmb_weapon/fx_bow_storm_impact_ug_zmb";

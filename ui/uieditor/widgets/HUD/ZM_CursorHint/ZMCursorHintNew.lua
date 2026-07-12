@@ -340,7 +340,30 @@ CoD.ZMCursorHintNew.new = function ( menu, controller )
 		end
 		
 		local lowerHint = string.lower(hintText)
-		
+
+		-- ACC (2026-07-11 buyable-UI audit): the permanent perk-door UNLOCK hint reads
+		-- "Hold [{+activate}] Open <perk> permanently for N Mega Bottles" (_acc_perk_doors::unlock_hint).
+		-- It has "hold"+"for" and NO buy/cost/mystery keyword, so the loose pattern below falsely
+		-- classified it as a MYSTERY-BOX WEAPON PICKUP - getWeaponFromHint then took the text after
+		-- " for " and tried to render a weapon named "N Mega Bottles" (the blank "Weapon" card the user
+		-- saw). "permanently"/"bottle" are unique to Mega-Bottle transactions and never a box weapon, so
+		-- bail here and let the hint fall through to the plain DefaultHint (readable unlock text). Mirrors
+		-- the identical guard in getPerkFromHint above.
+		if string.find(lowerHint, "permanently") or string.find(lowerHint, "bottle") then
+			return false
+		end
+
+		-- ACC (2026-07-11 armory-UI audit): the Armory weapon-rack pad hints read
+		-- "Hold [{+activate}] RACK your held weapon for a teammate" (_acc_armory::update_rack_hints).
+		-- That is "hold"+"for" with no buy/cost/mystery keyword, so this loose pattern classified it
+		-- as a MYSTERY-BOX WEAPON PICKUP and rendered a weapon card named "a teammate" (the buggy
+		-- blank card the user saw on the rack trigger). "rack" appears in EVERY rack-pad hint (RACK /
+		-- racked / Rack OCCUPIED / Rack EMPTY) and in no box-weapon name, so bail and let them fall
+		-- through to the plain DefaultHint (readable literal text).
+		if string.find(lowerHint, "rack") then
+			return false
+		end
+
 		-- Check for "hold f for" pattern (weapon pickup from mystery box)
 		-- Mystery box weapons don't have "buy" or "cost" keywords
 		if string.find(lowerHint, "hold") and string.find(lowerHint, "for") and not string.find(lowerHint, "mystery") then

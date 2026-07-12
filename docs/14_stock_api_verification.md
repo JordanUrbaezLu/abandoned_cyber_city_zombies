@@ -3,7 +3,7 @@
 **What this is.** The canonical, citation-backed record of how the *stock*
 Treyarch BO3 zombies API actually behaves — every touchpoint our code leans on,
 verified against the real script sources. On 2026-06-11 every stock-API
-touchpoint in the codebase (20 GSC files at the time; ~48 active `_acc_` modules
+touchpoint in the codebase (20 GSC files at the time; 62 active `_acc_` modules
 now) was verified against a local clone of the stock `share/raw/scripts` mirror
 by a multi-agent review: one verifier per script file plus four external-evidence
 researchers, with every non-clean finding re-checked by an independent

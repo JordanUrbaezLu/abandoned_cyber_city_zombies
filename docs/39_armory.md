@@ -50,11 +50,16 @@ X axis spans the two flanking pads at ±55, `spawn_rack_station`).
 - **Visible contents (2026-07-10)**: the racked gun's **world model displays on the cabinet top**
   — the magicbox idiom (`UseBuildKitWeaponModel`, same engine call as
   `zm_utility::spawn_buildkit_weapon_model`, spawn-guarded), so the model wears the **depositor's
-  buildkit variant + PaP camo** when upgraded. Layout (`rack_slot_origin`): guns lie **across** the
-  cabinet (yaw 90 off its long X axis, like rifles on a bench) at +6u hover (worldModel origins vary
-  per gun; a slight float beats a buried receiver). The row **self-centers for the configured cap**:
-  the shipped cap 1 puts the single gun dead-center; a raised `acc_armory_rack_max` fans up to 8 per
-  row at 17u pitch across the 138u top, wrapping +16z per row. A withdraw deletes slot 0's model and
+  buildkit variant + PaP camo** when upgraded. Layout (`rack_slot_origin` / `spawn_rack_display`): a
+  single racked gun lies **along** the cabinet's long X axis (yaw 0), resting lengthwise like a rifle
+  on a rack, at `acc_armory_rack_hover` (default 6u) above the `+48` top face (worldModel origins vary
+  per gun; a slight float beats a buried receiver). **Fixed 2026-07-11** ("gun sticks through the
+  holder"): the old fixed yaw 90 laid the gun *across* the cabinet, which is only **18u deep** (bounds
+  137.8×18.1×48.1, `xmodel_bin_inspect`-verified), so a ~50u rifle jutted ~15u out both narrow faces.
+  The row **self-centers for the configured cap**: the shipped cap 1 puts the single gun dead-center;
+  a raised `acc_armory_rack_max` fans up to 8 per row at 17u pitch across the 138u top (default yaw
+  flips to 90 for that side-by-side row), wrapping +16z per row. The display angle
+  (`acc_armory_rack_yaw`/`_pitch`/`_roll`) and hover are **live-tunable dvars**. A withdraw deletes slot 0's model and
   **MoveTo-glides** any survivors forward (0.3s). Rack entries are structs `{ wpn, model }` (single
   array = gun/display can never desync; duplicate weapon objects — two players racking the same gun
   class — stay distinct entries). Dual-wields show the right-hand model only. Ent-pool-full spawn
@@ -84,6 +89,16 @@ the cabinet-top **world model is the gun's identity**. Internal names go to `acc
 Sounds: every ✅ plays `zmb_cha_ching`, every ❌ plays `zmb_no_purchase`. A player already aiming at a pad
 picks a hint change up on the engine's next hint refresh (worst case: re-aim).
 
+**⚠ Cursor-hint ROUTER trap (fixed 2026-07-11 — the "UI buggy on trigger" report):** these hints are also
+string-matched by the Aetherium cursor-hint router (`ui/uieditor/widgets/HUD/ZM_CursorHint/ZMCursorHintNew.lua`).
+Its loose `isMysteryBoxWeapon` matcher (`hold`+`for`, no buy/cost/mystery keyword) hijacked the **deposit pad**
+hint into the Mystery-Box *weapon-pickup card* for a "weapon" named literally *"a teammate"*, and the **bottle
+exchange** hint into one named *"a random Implant"*. Guards now bail that matcher on `bottle`, `permanently`,
+and (new) **`rack`** — every rack-pad hint contains "rack"/"racked", no box weapon does — so all Armory hints
+fall through to the readable `DefaultHint` card. **Any new Armory hint string must keep one of those guard
+words (or get its own guard) — re-check `ZMCursorHintNew.lua` on every `SetHintString` change** (memory:
+`lui-cursorhint-router-loose-weapon-matcher`).
+
 ## Station 2 — Mega-Bottle Exchange (1 bottle → random implant)
 
 Mesh: **`p7_zm_vending_wonder`** (the stock Wonderfizz chassis — reads as "bottle → a random reward",
@@ -110,8 +125,9 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
 - [`_acc_armory.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_armory.gsc) — `acc_armory::init()`
   + `spawn_stations()` + rack (`deposit_gun`/`withdraw_gun`) + exchange (`bottle_loop`/`deliver_reward`).
 - Wired in `_acc_main.gsc` (`#using` + `acc_armory::init()` after `acc_transfer`), `.zone` (`scriptparsetree`).
-- **Dvars** in [docs/22](22_flags_reference.md): only `acc_armory_rack_max` (**1** — one gun at a
-  time, user 2026-07-10; was 8) + `acc_armory_bottle_cost` (1).
+- **Dvars** in [docs/22](22_flags_reference.md): `acc_armory_rack_max` (**1** — one gun at a
+  time, user 2026-07-10; was 8), `acc_armory_bottle_cost` (1), and the rack-display tuning knobs
+  `acc_armory_rack_hover` (6), `acc_armory_rack_yaw`/`_pitch`/`_roll` (gun lie; yaw cap-aware).
 
 ## Build / test
 
@@ -122,12 +138,28 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
   immediately. Co-op check: second client withdraws a racked gun (lands on the remote player, no view-yank);
   a full-slot presser is **refused**, not robbed. Disconnect mid-transaction → no lobby CTD.
 
-## The upper room geometry (BUILT 2026-07-07)
+## The upper room geometry (BUILT 2026-07-07; RESIZED + ROOFED 2026-07-11)
 
 Generator: [`tools/gen_upper_room.js`](../tools/gen_upper_room.js) — a bake-safe vertical generator cloned
 from [`gen_abyss_layer.js`](../tools/gen_abyss_layer.js) (same proven `box()` filler-winding + hex GUID +
 `PRIMARY_OMNI` lights). Idempotent (strips its own `-AC50-` brushes) and `--revert`-able. Re-run + FULL bake
-to move/retune; all placement lives in the `LOFT_`/`STAIR_` constants at the top.
+to move/retune; all placement lives in the `LOFT_`/`STAIR_`/`ROOF_` constants at the top.
+
+**2026-07-11 rebuild (user: "stairs less steep, room ~25% bigger, needs a roof"):**
+- **Staircase**: 16 treads, **12-rise / 28-run (~23°)** — was 12/20 (~31°), originally 16/16 (45°). Climbs
+  EAST x[234,682]. The stairwell is now **fully enclosed**: side walls up to z=368 + a **4-segment stepped
+  solid roof** (segment bases 208/256/304/352 → common top 368; ≥160u headroom over every tread). The
+  dead-space above is open night sky (gen_room_roofs deliberately leaves the Plaza + dead-space unroofed),
+  so the old open-top rail stairwell showed raw sky — the "it needs a roof" report. Seg 1 starts 1u inside
+  the plaza wall face (base 208 < wall top 256 → sealed mouth); seg 4 butts the loft west wall (top 448).
+- **Loft**: **x[682,1074] y[-230,230]** = 392×460 = **+25.2% floor area** (was x[714,1074] y[-200,200] =
+  360×400). Floor **z=192** (walls z[192,448], ceiling z[448,464]) — **lowered from 288** because the
+  shallower run needs x-length and the east edge is HARD-capped at x=1074 (old arena east wall inner face
+  1074.5; the zombie spawn gulley is beyond — never extend east). y-extent verified clear of the east
+  connector corridor (y≥380) and inside the start_zone volume **x[-1165.5,1264.5] y[-1192,1104]
+  z[-166,1041]** (no OOB-monitor exposure). Stations follow: `spawn_stations()` origins (878, ∓100, 192).
+- Note: `acc_roof_light_plaza_13` (gen_room_roofs Plaza safe-haven grid, no-shadowmap omni at (930,80,200))
+  now sits just above the lowered loft floor; it already shone through the old floor (noshadowmap), harmless.
 
 - **Access = a BUYABLE DOOR (10000) in the EAST Plaza wall** (user 2026-07-07/08). The generator **cuts a
   doorway** (y[-64,64] z[0,128]) into east wall #5 (re-emitting it as 2 jambs + a lintel) + a door slab
@@ -138,14 +170,16 @@ to move/retune; all placement lives in the `LOFT_`/`STAIR_` constants at the top
   diamond-plate METAL, `DOOR_MAT`), NOT the wall material — every buyable door on this map uses this so the
   doorway reads as an industrial shutter vs the concrete wall (there is no door model/prefab/FX; the *material*
   IS the "this is a door" cue). v1's slab used the wall material and looked like blank concrete (fixed 2026-07-08).
-- **Staircase**: 24 treads, **12-rise / 20-run** (~31°; user 2026-07-07 "way too steep" fix from the old
-  16/16 = 45° ladder — and ≤16u risers link the navmesh, docs/02), climbing **EAST (+X)** from
-  **x[234,714] y[-64,64]** — starts right at the wall/door, runs into the dead-space, tops at the loft's WEST
-  wall doorway. Full-height side rails. Longer run → the loft sits further east.
-- **Loft**: enclosed room **x[714,1074] y[-200,200]**, floor z=288, walls z[288,544], ceiling z[544,560] —
-  floats over the east dead-space (arena floor reaches x=1094.5). **4 always-on `PRIMARY_OMNI` lights**.
+- **Staircase**: 16 treads, **12-rise / 28-run** (~23°; user 2026-07-11 "less steep" — was 12/20 ≈31°,
+  itself the fix from the 16/16 = 45° ladder; ≤16u risers link the navmesh, docs/02), climbing **EAST (+X)**
+  from **x[234,682] y[-64,64]** — starts right at the wall/door, runs into the dead-space, tops at the loft's
+  WEST wall doorway. **Enclosed**: side walls to z=368 + a stepped solid roof (see the 2026-07-11 rebuild
+  section below).
+- **Loft**: enclosed room **x[682,1074] y[-230,230]** (+25% area, 2026-07-11), floor z=192, walls z[192,448],
+  ceiling z[448,464] — floats over the east dead-space (arena floor reaches x=1094.5). **4 always-on
+  `PRIMARY_OMNI` lights**.
 - **Materials (user: "model the walls with the Plaza wall design")**: re-skinned to the Plaza's own re-skin —
-  walls/ceiling/slab = **`t7_concrete_wall_weathered_01_wet`**, floor/stairs = **`t7_asphalt_damaged_dark_wet`**.
+  walls/ceiling = **`t7_concrete_wall_weathered_01_wet`**, floor/stairs/loft-floor slab = **`t7_asphalt_damaged_dark_wet`** (the door slab is the canonical metal `DOOR_MAT`, above — no slab is concrete).
   Both are STOCK (ship free, **no `.zone` line** — docs/20). (v1/v2 used greybox `script_wall` = the checker.)
 - **Nothing intercepts the playable Plaza**: the *only* thing on playable floor is the door + its buy trigger;
   the stairs + loft are entirely in the sealed **east** dead-space (x>233), which is inside the tall

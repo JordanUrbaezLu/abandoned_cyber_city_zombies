@@ -57,7 +57,7 @@ Stock BO3 kill awards are **replaced** (not modified) by our own table:
 | Headshot kill | 110 |
 | Knife / melee kill | 100 |
 
-Stock BO3 per-hit points (10 per damaging hit) are kept unchanged.
+Stock BO3 per-hit points (10 per damaging hit) are **suppressed by default** (kill-only economy, user 2026-06-18) — `score_per_hit` returns 0 unless the `acc_hit_points` dvar is set to 1. (reconciled to code 2026-07-11)
 
 ### Why these numbers
 
@@ -86,8 +86,9 @@ nearest 10.
 **replace** the stock kill award (our `register_score_event` callback returns 0),
 the stock score path where Double Points applies its ×2 (`_zm_score::get_points_multiplier`)
 never sees our points. So `award_player` re-applies the same team-scoped
-`zombie_point_scalar` the powerup sets (×2 while active) **before** the Payroll
-Ledger's +10%, so the two stack multiplicatively (×2.2 with both). Any future
+`zombie_point_scalar` the powerup sets (×2 while active), and the Payroll Ledger
+bonus is then added as a **flat +10 AFTER** that scaling (`ACC_LEDGER_KILL`; Double
+Points does NOT boost it — no ×2.2 multiplicative stack). Any future
 points-affecting powerup that works through the stock score-event path will
 likewise need re-applying here. (Bug history: Double Points silently did nothing
 on kills until this was added, 2026-06-23.)
@@ -155,12 +156,12 @@ add**: whatever they kept through the death is wiped and replaced with the floor
 
 ### Stock-Award Override Status (built)
 
-The override is **wired and live**. `_acc_points::init()` registers `suppress_stock_kill_score` on the stock `"death"` and `"ballistic_knife_death"` score events (`zm_score::register_score_event`, `_acc_points.gsc:104-105`), and that callback **returns 0** (`:204`) so stock never awards its own 60/100/130 — `_acc_points` owns 100% of kill awards. The per-hit `"damage"` events are left on stock (register `score_per_hit`, `:111-113`). No double-award.
+The override is **wired and live**. `_acc_points::init()` registers `suppress_stock_kill_score` on the stock `"death"` and `"ballistic_knife_death"` score events (`zm_score::register_score_event`, `_acc_points.gsc:104-105`), and that callback **returns 0** (`:204`) so stock never awards its own 60/100/130 — `_acc_points` owns 100% of kill awards. The per-hit `"damage"` events are **also overridden by us** (register our own `score_per_hit`, `:111-113`), and that callback **returns 0 by default** (`:211`), so per-hit points are removed — not left on stock (see the kill-only economy note above). No double-award.
 
 ### Design Interaction Notes
 
-- **Widow's Wine perk** (see [10_perks.md](10_perks.md)): grenade damage boost applies to the grenade owner, so splash kills via Widow's-boosted frags still feed the 70/30 split normally. The perk doesn't bypass the split; it just makes those grenades more likely to land the final blow.
-- **Deadshot perk** (see [10_perks.md](10_perks.md)): the 1.4x headshot bonus is per-player — only applies to the shooter's damage, not the share others earn from a Deadshot player's kill.
+- **Widow's Wine perk** (see [10_perks.md](10_perks.md)): its base grenade **damage boost was removed** (`_acc_damage.gsc` no longer grants frag damage), so there is no "Widow's-boosted frag" damage layer — but any grenade splash kill still feeds the 70/30 split normally. The perk doesn't bypass the split. (reconciled to code 2026-07-11)
+- **Deadshot perk** (see [10_perks.md](10_perks.md)): the 1.3x headshot bonus is per-player — only applies to the shooter's damage, not the share others earn from a Deadshot player's kill.
 - **Meltdown capstone** (AoE kills from the Cyberware tier-3 Overclock branch — a **dormant** node while the Cyberware tree is disabled by default): the AoE kill from Meltdown still counts as "the caster's kill" for point purposes (the AoE source is the weapon; the player who fired is the killer).
 - **Multi-kill bonus (+50 per extra zombie killed within 0.5s)**: previously part of this doc's Point Economy section - **cut for now** to keep the point system surface area small. The 2x headshot multiplier plus the precision weapon tier (FAL, Drakon, Intervention) already rewards the playstyle a multi-kill bonus was targeting. Re-add as a modifier in `_acc_modifiers.gsc` if playtest feedback wants it.
 
@@ -222,8 +223,8 @@ Layer on the full Cyberware/Overclock/PaP stack (all summed into the bonus facto
 ### Synergistic Overclocks
 
 - **Adaptive Aim (AR)**: headshots refund one round to the magazine. The 2.5x headshot damage + ammo refund makes clean aim functionally infinite at range.
-- **Thermal Lock (Sniper)**: 0.5s aim guarantees a headshot hitbox. Cashes in our 2.5x cleanly.
-- **Reactive Powder (Sniper)**: headshots deal 50% AoE damage - AoE is of the *buffed* headshot damage, so it scales with our multiplier too.
+- **Overpressure (Sniper)**: there is no "Thermal Lock" OC — the actual sniper Overclock pool is Reactive Powder / Overpressure / Adaptive Aim. Overpressure's ADS-damage boost cashes in our 2.5x cleanly. (reconciled to code 2026-07-11)
+- **Reactive Powder (Sniper)**: the Overclock still exists as a flag, but its 50% headshot-AoE damage effect is **no longer wired** in `_acc_damage` (the `reactive_powder_aoe` layer is legacy/unused). (reconciled to code 2026-07-11)
 
 ### Implementation
 
@@ -259,14 +260,16 @@ flowchart LR
 
 - **SOURCE — Pit Data Caches:** two caches sit on the open trench-pit floor (the amped-horde danger zone,
   reached for free off the stairs — no door). Each pays once per round to the first looter, then shows
-  "depleted" and re-arms next round. Yield **scales with the round** (`cache_yield`: base + 1 per
-  `acc_cache_scale_rounds`, capped at `acc_cache_yield_max`) so the faucet keeps pace with rising costs.
-- **SOURCE — Trench Warden:** the recurring trench boss grants `acc_warden_shard_reward` shards to every
-  player on death.
+  "depleted" and re-arms next round. Yield is **effectively FLAT** (base count 3): the `cache_yield` formula
+  (`base + int( round / acc_cache_scale_rounds )`, capped at `acc_cache_yield_max`) still exists, but
+  `acc_cache_scale_rounds` defaults to **9999**, so the scaling term is 0 for all normal rounds and caches pay a
+  flat count (round scaling removed, user 2026-06-19). (reconciled to code 2026-07-11)
+- **SOURCE — Trench Warden:** the recurring trench boss grants `int( round / acc_boss_shards_round_div )` shards
+  (default divisor **3**) to every player on death — the shared boss-death reward, not a fixed `acc_warden_shard_reward` (no such dvar exists).
 - **SOURCE — Glitch Altar:** the jackpot boon (net-negative EV — see below).
 - **SOURCE — Passive trench income (user, 2026-06-26):** simply *standing in a trench layer* pays **1 Data
-  Shard every N seconds**, where N shrinks with depth — **L1 (Bus Station pit) 50s, L2 34s, L3 22s, L4 14s,
-  L5 10s** — so deeper = more reward for the greater risk. **Per-player** (each player who braves the pit
+  Shard every N seconds**, where N shrinks with depth — **L1 (Bus Station pit) 45s, L2 31s, L3 20s, L4 12s,
+  L5 7s** — so deeper = more reward for the greater risk. **Per-player** (each player who braves the pit
   earns their own; no shared pool). The clock counts only while underground (it does NOT tick on the surface
   or in Paradise) and resets the instant you leave the trench; it carries across layer changes (paid at the
   current layer's rate). Cap-clamped by the shard cap, so it stops at the cap and resumes after spending.
@@ -303,7 +306,7 @@ stateDiagram-v2
     Available --> Active: player interacts (cost 500 points)
     Active --> Success: complete 3 stages<br/>(Breach → Survive trace → Confirm)
     Active --> Failed: miss a stage timer
-    Success --> Consumed: reward 2 Data Shards
+    Success --> Consumed: reward 2 Data Shards<br/>(off by default)
     Failed --> Locked: penalty wave (8 zombies)
     Locked --> [*]
     Consumed --> [*]
@@ -313,7 +316,7 @@ stateDiagram-v2
 - **Stage 2 "Survive"**: survive the trace window; any player's zombie kills purge the trace early (team-wide, counted via the verified zombie-death callback).
 - **Stage 3 "Confirm"**: return to the terminal and hold `[USE]` again in time.
 
-Cost **500 points** (`ACC_HACK_ACTIVATION_COST_POINTS`), reward **2 Data Shards** (`ACC_HACK_REWARD_SHARDS`). Each stage runs back-to-back; fail any stage and the terminal locks for the run (penalty wave of 8 zombies). **Parallel Processing** (Cyberware sr2a, `self.acc_cw_events_retry`) would grant **one** retry whose tuning rotates — longer hold, longer trace, and headshot-only purge kills at round 11+ — so it isn't a replay; the retry code still ships but is **dormant** while the Cyberware tree is disabled (`acc_cyberware_on 0`).
+Cost **500 points** (`ACC_HACK_ACTIVATION_COST_POINTS`). The **2 Data Shard** reward (`ACC_HACK_REWARD_SHARDS`) is gated behind `acc_hack_shard_drop` (default **0 = OFF**), so a successful hack grants **0 shards by default** — this topside objective's shard reward is off in the trench-only economy; flip the dvar on to restore it. Each stage runs back-to-back; fail any stage and the terminal locks for the run (penalty wave of 8 zombies). **Parallel Processing** (Cyberware sr2a, `self.acc_cw_events_retry`) would grant **one** retry whose tuning rotates — longer hold, longer trace, and headshot-only purge kills at round 11+ — so it isn't a replay; the retry code still ships but is **dormant** while the Cyberware tree is disabled (`acc_cyberware_on 0`).
 
 > **Design vs shipped.** The interim stage set exists because stage 2 originally required reliable Shielded-elite uptime that the elite density can't yet guarantee. `_acc_events_hack.gsc` carries a `TODO(acc-design)` to restore the original kill-stage set — **10 kills / 40s**, **3 Shielded elites / 60s**, **15 headshots / 45s** — once the elite pressure pulses are validated.
 
@@ -340,7 +343,7 @@ Hard rules for any fight in the map:
 
 - Stock BO3 behavior preserved: down -> bleed out in 30s -> die or be revived.
 - **Subroutine Caching** (a Cyberware `sr2b` node) would double bleed to 60s, but it is **dormant** — the Cyberware tree is disabled by default (`acc_cyberware_on 0`), so **30s** is the live bleed-out. The effect code still ships (`_acc_cyberware.gsc`, `ACC_CW_BLEEDOUT_MULT 2.0`); re-enable the tree to reach it.
-- **Self-revive** (when carried): 1-time use, 10s revive animation. Purchase cost 4000 points + 2 Data Shards. (Caching would halve the Shard cost, but it is dormant — see the note above.)
+- **Self-revive purchase:** not implemented in code — no self-revive purchase trigger or cost (4000 points + 2 Data Shards) exists. A Cyberware discount flag (`acc_cw_selfrevive_shard_discount = 0.5`, `_acc_cyberware.gsc`) is reserved for a *future* self-revive module but is currently unused (Caching would have halved that Shard cost). (reconciled to code 2026-07-11)
 - **PhD Flopper perk** (see `10_perks.md`) isn't a save — but a dive-to-prone nova explosion clears nearby zombies, giving you a repositioning window before a second hit lands. Not a "downed prevention" layer but a "recovery option" layer.
 - **Ghost Shroud boss item** is the clutch 1-HP save; stacks independently with Jugger-Nog's doubled HP pool to maximize survival time before the save is even needed.
 

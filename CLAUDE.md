@@ -34,7 +34,7 @@ a binary **normal play vs dev mode**, baked in GSC. They do **NOT** want a runti
 experiments are still fine — this rule is specifically about the DEV/TEST-mode UX.) Pass this to any subagent.
 
 **THE MECHANISM (use it — do not add flags):** `acc_dev` is resolved ONCE in
-`zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` (first thing in `main()`) into the global bool
+`zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` (called from `main()`, after the dedupe hooks and `zm_usermap::main()`) into the global bool
 **`level.acc_dev`** — the canonical gate every module reads via `IS_TRUE( level.acc_dev )` — which also
 `SetDvar`s the legacy sub-dvars off that one flag. Default 0 = ship-safe normal play; the launch scripts pass
 just `+set acc_dev 1`. **To add a dev behavior: branch on `IS_TRUE( level.acc_dev )` and hardcode the value (or
@@ -88,9 +88,9 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
 
 ## Code map (one line each)
 
-- `map_source/zm/*.map` — Radiant source; 7-zone greybox + 8 buyable doors (script_flag enter_*), 3 inline mystery boxes (acc_box_*), 2 power switches (script_string corp/vault), all interaction triggers (kiosk/terminals/overload/boss spawn/PaP blockers). Generators in tools/ are ONE-SHOT (refuse re-apply); visual design: docs/map_design.svg (+png), regen via tools/gen_map_design.js. Tracker: docs/15_requirements_checklist.md; blockers: MISSING_REQUIREMENTS.md.
+- `map_source/zm/*.map` — Radiant source; 7-zone greybox + 13 buyable doors (script_flag enter_*), 6 inline mystery-box spawn locations (acc_box_*), 1 stock power switch (script_string corp), all interaction triggers (kiosk/terminals/overload/boss spawn/PaP blockers). Generators in tools/ are ONE-SHOT (refuse re-apply); visual design: docs/map_design.svg (+png), regen via tools/gen_map_design.js. Tracker: docs/15_requirements_checklist.md; blockers: MISSING_REQUIREMENTS.md.
 - `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 4 `[acc]` hooks).
-- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 21 custom modules; orchestrated by `acc_main` (exception: `_acc_perk_electric_cherry` is called directly from the entry script — it finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline, see docs/10_perks.md Implementation Status).
+- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 62 custom modules (4 also have `.csc` twins); orchestrated by `acc_main` (exception: `_acc_perk_phd_flopper` is called directly from the entry script — it hijacks/finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline; `_acc_perk_electric_cherry` is now a separate from-scratch perk that self-registers via autoexec, see docs/10_perks.md Implementation Status).
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).
 - `sound/zoneconfig/*.szc`, `zone/` — sound config + workshop publish assets.
 - `tools/sync_to_modtools.ps1` — repo ↔ Mod Tools sync (run on Windows).
@@ -317,7 +317,7 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
 
 CHANGELOG.md (newest first). Current state: **fully built, in active
 balance/polish.** First clean compile + link landed 2026-06-12; since then all
-~48 `_acc_` modules + entry compile and run, and the map ships the Aetherium
+62 `_acc_` modules + entry compile and run, and the map ships the Aetherium
 LUI HUD + gun-badge row, the multi-boss roster, Abyss Descent, and the
 Exo/Armory/Reactor/Jukebox/Exchange systems. Loop: build
 (`.\tools\build_map.ps1`) → Run Game (docs/17_launch_runbook.md) → test

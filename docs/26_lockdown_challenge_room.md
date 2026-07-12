@@ -115,16 +115,18 @@ These are the bugs the adversarial pass caught, each now live in code.
    teleport to the *corridor* side of the seal, stranding a stalker that can never path back. **Fix
    (implemented):** each challenge zombie is tagged `self.acc_ldc` and stocked with the room's interior
    **spawn anchors** (`<zone>_spawners`) on `self.acc_ldc_anchors` at spawn. Three layers, all no-op
-   off-challenge: (a) `_acc_boss_glitch::glitch_blink_loop` blinks challenge zombies to a **random
-   in-room anchor** (`ldc_random_anchor_nav`); (b) charge steps skip any nav point **not within
+   off-challenge: (a) `_acc_boss_glitch::glitch_blink_loop` blinks challenge zombies **toward the in-room
+   player** via `ldc_aggressive_blink` (small in-room-checked offsets, with `ldc_random_anchor_nav` only
+   the fallback when no near-player point is in-room); (b) charge steps skip any nav point **not within
    `acc_lockdown_challenge_bounds_margin` (default 300u) of any anchor** (`ldc_in_room`); (c)
    `ldc_keep_in_room` polls each zombie at 1 Hz and force-teleports any escapee back to an anchor.
    (rooms.json was stale and zones overlap, so anchors — not an AABB — are the in-room proof.)
 
-6. **N-items bug.** `_acc_boss_glitch::glitch_death_watch` drops a boss-item + Mega Bottle on **every**
-   stalker death. The challenge wave uses its **own `ldc_death_watch`** (guarded on `self.acc_ldc`) and
-   grants the reward **once** when `killed >= total`. Challenge kills never route through
-   `glitch_death_watch` / `on_boss_death`.
+6. **N-items bug (historical premise).** `_acc_boss_glitch::glitch_death_watch` now just grants the
+   killer **1 Data Shard** on a normal stalker death — it **no longer drops a boss-item or Mega Bottle**
+   (`_acc_boss_glitch.gsc:790-794`). The challenge wave still uses its **own `ldc_death_watch`** (guarded
+   on `self.acc_ldc`) and grants the reward **once** when `killed >= total`. Challenge kills never route
+   through `glitch_death_watch` / `on_boss_death`. (reconciled to code 2026-07-11)
 
 7. **Teardown thread leak / double-resolve.** When teardown culls survivors, each survivor's death
    watch would re-increment the counter (spurious clear + unearned reward). **Fix (implemented):** a
@@ -142,9 +144,10 @@ These are the bugs the adversarial pass caught, each now live in code.
    shared hudelem pool is full — the 4p condition, when the pool is most saturated).
 
 9. **Blink glitches on the sound/goal builtins.** `play2d` is not a builtin → `zm_utility::play_sound_2D`.
-   `SetGoalVolume` does not exist → plain `SetGoal(centroid)`. `ignore_round_spawn_failsafe = true` is
-   harmless but **redundant** (the failsafe is only threaded by stock `round_spawning`, which these
-   direct spawns never use) — kept belt-and-suspenders, but don't rely on the "would be culled" reasoning.
+   `SetGoalVolume` does not exist → plain `SetGoal(centroid)`. `ignore_round_spawn_failsafe` is
+   **deliberately NOT set** on these glitches — the spawn code explicitly declines to pin it because the
+   moving boss is never failsafe-culled anyway (`_acc_boss_glitch.gsc:267-268` "it is never failsafe-culled
+   and must NOT be pinned"). Only `ignore_enemy_count = true` is set. (reconciled to code 2026-07-11)
 
 10. **Four helpers were net-new code, not "reuse verbatim":** `_acc_boss_glitch`'s glitch-buff body is
     **copied inline** into `spawn_challenge_glitch` (minus `glitch_death_watch`) rather than refactored

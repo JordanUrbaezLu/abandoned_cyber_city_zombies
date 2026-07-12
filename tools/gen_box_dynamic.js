@@ -61,8 +61,8 @@ const RANK = [
   { d: 'AE4',           box: 's1_ae4',              key: 's1_ae4' },
   { d: 'RW1',           box: 's1_rw1',              key: 's1_rw1' },
   { d: 'CEL-3',         box: 's1_cel3',             key: 's1_cel3', price: 'TOP' },   // user 2026-07-07 BOT->TOP; swapped with AK-74u 2026-07-09 (rarer)
-  { d: 'M16',           box: 't9_m16',              key: 't9_m16', price: 'MID' },   // CW M16 (user 2026-07-11): B-tier burst->full-auto tactical rifle, slightly better than the MK14 -> one notch RARER; MID price. REPLACES the G7 Scout.
-  { d: 'MK14',          box: 's1_mk14',             key: 's1_mk14', price: 'MID' },   // user 2026-07-07 BOT->MID; swapped with Grav 2026-07-09 (rarer)
+  { d: 'Triple Take',   box: 'apex_tripletake',     key: 'apex_tripletake', price: 'MID' },   // Apex tri-bolt energy sniper (user 2026-07-11): B tier, took the retired M16's EXACT slot (#19, MID price, weight 182) - Nuclear Energy synergy gun.
+  { d: 'MK14',          box: 's1_mk14',             key: 's1_mk14', price: 'BOT' },   // user 2026-07-11 MID->BOT (3000/4500/6000 cheapest PaP); box rarity unchanged. Prior: 2026-07-07 BOT->MID; swapped with Grav 2026-07-09
   { d: 'Tac-19',        box: 's1_tac19',            key: 's1_tac19' },   // demoted S -> A-
   { d: 'AK-74u',        box: 't9_ak74u',            key: 't9_ak74u', price: 'MID' },   // swapped with Prowler 2026-07-10 (now #21, rarer); price PINNED MID (2026-07-09 CEL-3 swap; rank-21 band is MID anyway)
   { d: 'Prowler',       box: 'apex_prowler',     key: 'apex_prowler', price: 'BOT' },   // Apex - B SMG; user 2026-07-07 MID->BOT; swapped with AK-74u 2026-07-10 (now #22, commoner)

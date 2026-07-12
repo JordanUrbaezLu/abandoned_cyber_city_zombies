@@ -24,7 +24,10 @@
 // east-wall door + east staircase + loft) is separate; stations placed at the loft in spawn_stations().
 //
 // Live dvars: acc_armory_rack_max (1 - shared rack capacity: ONE gun at a time, user 2026-07-10),
-//             acc_armory_bottle_cost (1 - Empty Mega Bottles per exchange for a random implant).
+//             acc_armory_bottle_cost (1 - Empty Mega Bottles per exchange for a random implant),
+//             acc_armory_rack_hover (6 - u the racked gun floats above the cabinet top face),
+//             acc_armory_rack_yaw / _pitch / _roll (display gun angle; yaw default is cap-aware:
+//               0 = laid ALONG the 138u cabinet length for a single gun, 90 = side-by-side row).
 // =============================================================================
 
 #using scripts\zm\_zm_utility;
@@ -71,13 +74,14 @@ function spawn_stations()
     level endon( "end_game" );
     wait 1;   // after mega_bottles + data_shards init (their accessors + pools ready)
 
-    // The Armory loft floor is z=288, footprint x[714,1074] y[-200,200] (tools/gen_upper_room.js).
-    // Reached via the buyable EAST-wall door + the east-climbing staircase. Stations sit in the
-    // east half, clear of the WEST-wall stair doorway (x=714 @ y[-64,64]).
-    spawn_rack_station( ( 870, -100, 288 ) );   // team weapon rack (deposit + withdraw pads)
-    spawn_bottle_station( ( 870, 100, 288 ) );  // mega-bottle exchange
+    // The Armory loft floor is z=192, footprint x[682,1074] y[-230,230] (tools/gen_upper_room.js;
+    // 2026-07-11 resize: +25% floor area, floor lowered 288->192 for the shallower 12/28 stairs).
+    // Reached via the buyable EAST-wall door + the enclosed east-climbing staircase. Stations sit
+    // at the room center, clear of the WEST-wall stair doorway (x=682 @ y[-64,64]).
+    spawn_rack_station( ( 878, -100, 192 ) );   // team weapon rack (deposit + withdraw pads)
+    spawn_bottle_station( ( 878, 100, 192 ) );  // mega-bottle exchange
 
-    acc_utility::log( "armory: stations spawned (weapon rack + bottle exchange) [loft z=288]" );
+    acc_utility::log( "armory: stations spawned (weapon rack + bottle exchange) [loft z=192]" );
 }
 
 // ---------------------------------------------------------------------------
@@ -249,9 +253,9 @@ function is_primary_owned( player, wpn )
 // ---------------------------------------------------------------------------
 
 // Slot `index` -> a world origin on the cabinet top. The cabinet mesh is 138 (X) x 18 x 48
-// tall with its origin at the base (docs/09 bounds table), so the top face is +48; guns
-// float +6 above it because worldModel origins vary per gun (a slight hover always reads
-// better than a half-buried receiver). The row SELF-CENTERS for the configured capacity:
+// tall with its origin at the base (bounds VERIFIED via xmodel_bin_inspect 2026-07-11), so the top
+// face is +48; guns float acc_armory_rack_hover (default 6) above it because worldModel origins vary
+// per gun (a slight hover always reads better than a half-buried receiver). The row SELF-CENTERS:
 // shipped cap = 1 (ONE gun at a time, user 2026-07-10) puts the single gun dead-center;
 // raising acc_armory_rack_max fans up to 8 per row at 17u pitch across the 138u length,
 // wrapping +16 z per row, so a tuned-up cap can't run guns off the end.
@@ -262,7 +266,11 @@ function rack_slot_origin( index )
     if ( per_row > 8 ) per_row = 8;
     row = int( index / per_row );
     col = index % per_row;
-    return level.acc_armory_rack_base.origin + ( ( col - ( per_row - 1 ) * 0.5 ) * 17, 0, 54 + row * 16 );
+    // Cabinet TOP face = z+48 (model bounds: origin at base, size 137.8 x 18.1 x 48.1 - VERIFIED
+    // via tools/xmodel_bin_inspect 2026-07-11). Gun hovers acc_armory_rack_hover (default 6) above
+    // the top face (worldModel origins vary per gun; a slight float beats a half-buried receiver).
+    hover = getdvarint( "acc_armory_rack_hover", 6 );
+    return level.acc_armory_rack_base.origin + ( ( col - ( per_row - 1 ) * 0.5 ) * 17, 0, 48 + hover + row * 16 );
 }
 
 // The magicbox display idiom (docs/39): a script_model wearing the weapon's WORLD model via
@@ -270,7 +278,9 @@ function rack_slot_origin( index )
 // with the spawn guarded (ent-pool full returns undefined = no display, never a crash) since
 // the stock helper derefs its own spawn unguarded. `player` = the depositor, so the model
 // wears THEIR buildkit variant; upgraded guns get the PaP camo exactly like the box read.
-// Guns lie across the cabinet (yaw 90 off its long X axis) like rifles on a bench rack;
+// A single gun lies ALONG the cabinet's long X axis (yaw 0) so it rests lengthwise like a rifle on
+// a rack (the 18u-deep cabinet can't hold a gun laid across it - it would jut out both faces); a
+// raised cap fans guns into a side-by-side row (yaw 90). angle+hover are live-tunable (see header).
 // dual-wields show the right-hand model only (a per-slot pair would double the footprint).
 function spawn_rack_display( player, wpn, index )
 {
@@ -278,7 +288,15 @@ function spawn_rack_display( player, wpn, index )
 
     mdl = spawn( "script_model", rack_slot_origin( index ) );
     if ( !isdefined( mdl ) ) return undefined;
-    mdl.angles = ( 0, 90, 0 );
+    // ORIENTATION (fixed 2026-07-11 - "gun sticks through the holder"): the cabinet is only 18u DEEP
+    // (Y) but 138u LONG (X) (xmodel_bin bounds). The old fixed yaw 90 laid the gun ACROSS the depth,
+    // so a ~50u rifle jutted ~15u out of BOTH narrow faces. Lay it ALONG the long X axis (yaw 0) so a
+    // single centered gun rests lengthwise on the cabinet like a rifle on a rack. A raised
+    // acc_armory_rack_max (multi-gun row) still reads best side-by-side, so the default yaw is
+    // cap-aware; pitch/yaw/roll are all live-tunable dvars so the exact lie can be dialed in-game.
+    cap = getdvarint( "acc_armory_rack_max", 1 );
+    def_yaw = ( cap <= 1 ? 0 : 90 );
+    mdl.angles = ( getdvarint( "acc_armory_rack_pitch", 0 ), getdvarint( "acc_armory_rack_yaw", def_yaw ), getdvarint( "acc_armory_rack_roll", 0 ) );
 
     upgraded = zm_weapons::is_weapon_upgraded( wpn );
     camo = undefined;

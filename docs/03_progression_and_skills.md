@@ -27,7 +27,7 @@ All amounts are the shipped defaults (each has a live dvar for tuning).
 - **Data Caches** (`_acc_data_shards.gsc::spawn_cache_at`, placed by `_acc_glitch_altar` at the pit west/east): a flat count per round, first player to loot it takes it, re-arms each round. Two caches, 3 each by default (`acc_cache_w_count` / `acc_cache_e_count`).
 - **Glitch Altar jackpot** (`_acc_glitch_altar.gsc`): a gamble — the `shard_jackpot` outcome pays +4 (`acc_altar_jackpot`).
 - **Shielded ("Riot") elite kill** in the trench: flat **2 Shards** to the killer (`_acc_elites.gsc::shielded_death_reward`, source `riot_elite`). Reactor/glitch-purge shielded grant nothing (survive-the-gauntlet threat, not a farm).
-- **Boss round**: `int( round / 3 )` Shards to **every player independently** (`_acc_boss.gsc:376`, `acc_boss_shards_round_div`) — e.g. 3 at round 9, 6 at round 18, 9 at round 27. Boss rounds land every 9 from round 9; a mini-boss (Brutus) first appears at round 10. Types come from a no-duplicate shuffled roster (see [08_enemies.md](08_enemies.md)).
+- **Boss round**: `int( round / 3 )` Shards to **every player independently** (`_acc_boss.gsc:376`, `acc_boss_shards_round_div`) — e.g. 3 at round 9, 6 at round 18, 9 at round 27. Boss rounds land every 9 from round 9; a mini-boss (Brutus) first appears at round 5 (once Bus Station power is on and round >= `acc_warden_first_round`, default 5). Types come from a no-duplicate shuffled roster (see [08_enemies.md](08_enemies.md)).
 - **Glitch boss kill**: +1 Shard to the killer (`_acc_boss_glitch.gsc:802`).
 - **Boss-item duplicate**: a duplicate boss-item pickup converts to **3 Shards** (`ACC_ITEM_DUPLICATE_SHARD_CONVERT`, `_acc_boss_items.gsc:33`) — a legitimate economy supplement in long co-op runs (see [09_boss_items.md](09_boss_items.md)). Boss-item salvage pays +1.
 
@@ -46,7 +46,7 @@ Per-run competition for a limited budget.
 | Sink | Cost | Module |
 |---|---|---|
 | **Perk slots** (start at 4, buy up to 10) | 4 / 6 / 8 / 10 / 12 / 14 (54 total for all 6 extra) | `_acc_perks.gsc` — Neural Expansion Bay (underground) |
-| Weapon Overclock terminal (the sole weapon-upgrade path) | per-tier (1/2/3/4/5 Shards) | `_acc_overclocks.gsc` — Tier 1–5 terminal (in-game label "CYBERWARE OVERCLOCK") |
+| Weapon Overclock terminal (the sole weapon-upgrade path) | per-tier, linear +4/tier: 4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 36 / 40 Shards (220 to max one gun) | `_acc_overclocks.gsc` — Tier 1–10 terminal (in-game label "CYBERWARE OVERCLOCK") |
 | Exo Suit station | deep multi-tier sink | `_acc_exo.gsc` |
 | Emergency Drop | 3 Shards (`ACC_EMERGENCY_COST_SHARDS`) | `_acc_emergency_drop.gsc` |
 | Jukebox (song swap) | 2 Shards + points | `_acc_jukebox.gsc` |
@@ -70,7 +70,7 @@ flowchart TD
     T1[Tier 1: Core Implant<br/>cost 2 Shards]
     T1 --> OC1[Overclock:<br/>+15% weapon damage]
     T1 --> SR1[Subroutine:<br/>+1 Shard/2min regen passive]
-    T1 --> RX1[Reflex:<br/>+10% sprint + 15% stamina regen]
+    T1 --> RX1[Reflex:<br/>+10% move speed]
 
     OC1 --> T2OC[Tier 2 Overclock] --> T3OC[Tier 3: Meltdown]
     SR1 --> T2SR[Tier 2 Subroutine] --> T3SR[Tier 3: Recursion]
@@ -79,7 +79,7 @@ flowchart TD
 
 - **Overclock** (damage): T1 +15% weapon damage → T2 Overload (+crit) / Fission (free elemental OC slot) → T3 **Meltdown** (kills explode for AoE, no chain).
 - **Subroutine** (economy): T1 +1 Shard/2min passive → T2 Parallel Processing / Caching → T3 **Recursion** (every 5th elite kill drops a random pickup). The T1 passive-regen ticker (`subroutine_passive_regen_loop`) still runs but grants nothing while no node is owned.
-- **Reflex** (mobility): T1 +10% sprint/+15% stamina → T2 Phase Step (slide-teleport) / Ghost Protocol (stand-still un-target) → T3 **Overdrive** (ramping sprint damage buff).
+- **Reflex** (mobility): T1 +10% move speed (only the move-speed half is implemented — `acc_cw_rx1_speed` → ×1.10 in `_acc_utility.gsc::recompute_move_speed`; the "+15% stamina regen" half has no code) → T2 Phase Step (slide-teleport) / Ghost Protocol (stand-still un-target) → T3 **Overdrive** (ramping sprint damage buff).
 
 ## Difficulty Curve
 
@@ -89,14 +89,14 @@ Zombie **HP** scales slightly faster than stock; the **speed** curve lives in `_
 
 | Round band | Notes |
 |---|---|
-| 1–4 | Base-game spawn counts and opener pacing. Elites hold off. |
-| 5+ | Elites begin (Shielded / trench specials); the stock-derived speed curve ramps per `_acc_zombie_speed.gsc`. |
-| 9, 18, 27, … | **Boss rounds every 9 from round 9** (count scales: 1 at r9, 2 at r18, 3 at r27), types dealt from a no-duplicate shuffled roster — Brutus, Glitch, Phantom, Avogadro, Panzer, Rogue/Civil Protector. |
-| 10 | First **mini-boss** appears (Brutus). |
+| 1–3 | Base-game spawn counts and opener pacing. Topside elites hold off. |
+| 4+ | Topside Shielded elites begin on shield rounds (every 4 from r4: `round >= 4 && round % 4 == 0`); trench depth-shielded elites can spawn any round underground. The stock-derived speed curve ramps per `_acc_zombie_speed.gsc`. |
+| 9, 18, 27, … | **Boss rounds every 9 from round 9** (count scales: 1 at r9, 2 at r18, 3 at r27), types dealt from a no-duplicate shuffled 4-type roster — Phantom, Avogadro, Panzer, Rogue/Civil Protector. (Brutus and Glitch are separate mini-bosses, not part of this roster.) |
+| 5 | First **mini-boss** appears (Brutus) — once Bus Station power is on and round >= `acc_warden_first_round` (default 5). |
 | Endgame | Scaling chaff + constant elite/special pressure; training becomes essential. |
 
 - Elite spawn rate is floor-based ("guarantee at least N elites per round past round X"), not purely additive.
-- Solo vs co-op scaling: regular-zombie HP +100% per extra player (stock); spawn rate follows the base game (no custom multiplier); Data Shard drops go to the killing player; **boss Shards go to every player in full, independently** (not split). So 4-player co-op yields 4× boss Shards but the trench income and caches are still per-player-per-round — solo is intentionally competitive on the slow trench income.
+- Solo vs co-op scaling: regular-zombie HP +20% per extra player (1p 1.0 / 2p 1.2 / 3p 1.4 / 4p 1.6, `ACC_COOP_REGULAR_HP_PER_EXTRA 0.2` — the old +100%/extra was retired as "too tanky"); a custom spawn-count multiplier of +30% per extra player (1p 1.0 / 2p 1.3 / 3p 1.6 / 4p 1.9, `ACC_COOP_SPAWN_PER_EXTRA 0.3` via `level.max_zombie_func` override in `_acc_coop_scaling.gsc`); Data Shard drops go to the killing player; **boss Shards go to every player in full, independently** (not split). So 4-player co-op yields 4× boss Shards but the trench income and caches are still per-player-per-round — solo is intentionally competitive on the slow trench income.
 
 ## Design Notes
 

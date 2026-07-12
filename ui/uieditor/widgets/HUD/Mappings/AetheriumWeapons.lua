@@ -154,11 +154,12 @@ CoD.AetheriumWeaponData = {
 		icon = "i_weapon_vm_ar_t9standard_wall_chalk_c",   -- LOOKALIKE (XM4 chalk; burst PDW)
 		description = "Burst PDW"
 	},
-	["t9_m16"] = {
-		ingame_name = "M16",
-		icon = "i_t6_wpn_ar_m14_wall_chalk_c",   -- LOOKALIKE (MK14 marksman chalk; M16 replaces the G7 Scout, 2026-07-11)
-		description = "Burst tactical rifle"
+	["apex_tripletake"] = {
+		ingame_name = "Triple Take",
+		icon = "i_t8_wpn_sniper_sdm_wall_chalk_c",   -- LOOKALIKE (SDM sniper chalk; Triple Take replaces the M16, 2026-07-11)
+		description = "Tri-bolt energy sniper"
 	},
+	-- ["t9_m16"] M16 RETIRED 2026-07-11 (replaced by the Triple Take) - was i_t6_wpn_ar_m14_wall_chalk_c "Burst tactical rifle"
 	["thundergun"] = {
 		ingame_name = "Thundergun",
 		icon = "i_wpn_t5_asl_thundergun_wall_chalk_c",

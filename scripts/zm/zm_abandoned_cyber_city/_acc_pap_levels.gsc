@@ -371,9 +371,11 @@ function pap_price_bucket( weapon_name )
     if ( IsSubStr( weapon_name, "t9_semiauto_cosplay" ) )   return "WONDER";   // #2 Blast-O-Matic (special)
     if ( IsSubStr( weapon_name, "elemental_bow_demongate" ) ) return "WONDER";   // #3 Fire Bow (special)
     if ( IsSubStr( weapon_name, "leviathan" ) )             return "WONDER";   // #4 Leviathan Axe (special)
+    if ( IsSubStr( weapon_name, "freezegun" ) )             return "WONDER";   // Winter's Howl (utility freeze wonder, 2026-07-11; is_aat_exempt FALSE in CSV so tier-3 PaP stays visible - no thundergun-style fix needed)
 
     // TOP  (5000 / 7500 / 10000)
     if ( IsSubStr( weapon_name, "t8_melee_figure" ) )       return "TOP";   // #5 Action Figure (special)
+    if ( IsSubStr( weapon_name, "knife_ballistic" ) )       return "TOP";   // Ballistic Knife (utility special, AF-adjacent - review 2026-07-11: unlisted = silent BOT; tier 2 = the _upgraded transform that unlocks the Krauss revive, price it like the AF)
     if ( IsSubStr( weapon_name, "t9_xm4" ) )                return "TOP";   // #6 XM4
     if ( IsSubStr( weapon_name, "apex_peacekeeper" ) )      return "TOP";   // #7 Peacekeeper
     if ( IsSubStr( weapon_name, "t9_ak47" ) )               return "TOP";   // #8 AK-47
@@ -388,8 +390,7 @@ function pap_price_bucket( weapon_name )
     // MID  (4000 / 6000 / 8000)
     if ( IsSubStr( weapon_name, "s1_ae4" ) )                return "MID";   // #16 AE4
     if ( IsSubStr( weapon_name, "s1_rw1" ) )                return "MID";   // #17 RW1
-    if ( IsSubStr( weapon_name, "t9_m16" ) )                return "MID";   // #19 M16
-    if ( IsSubStr( weapon_name, "s1_mk14" ) )               return "MID";   // #20 MK14
+    if ( IsSubStr( weapon_name, "apex_tripletake" ) )       return "MID";   // #19 Triple Take (took the retired M16's slot, 2026-07-11)
     if ( IsSubStr( weapon_name, "s1_tac19" ) )              return "MID";   // #21 Tac-19
     if ( IsSubStr( weapon_name, "t9_ak74u" ) )              return "MID";   // #22 AK-74u
     if ( IsSubStr( weapon_name, "t6_hamr" ) )               return "MID";   // #25 HAMR
@@ -397,6 +398,7 @@ function pap_price_bucket( weapon_name )
 
     // BOT  (3000 / 4500 / 6000)
     if ( IsSubStr( weapon_name, "apex_alternator" ) )       return "BOT";   // #15 Alternator
+    if ( IsSubStr( weapon_name, "s1_mk14" ) )               return "BOT";   // #20 MK14 (user 2026-07-11: MID->BOT, 3000/4500/6000)
     if ( IsSubStr( weapon_name, "apex_prowler" ) )          return "BOT";   // #23 Prowler
     if ( IsSubStr( weapon_name, "t9_streetsweeper" ) )      return "BOT";   // #24 Streetsweeper
     if ( IsSubStr( weapon_name, "t6_olympia" ) )            return "BOT";   // #27 Olympia
@@ -1411,10 +1413,14 @@ function box_grab_clear_watcher()
     for ( ;; )
     {
         self waittill( "user_grabbed_weapon" );
-        self util::waittill_any_timeout( 1.0, "weapon_change_complete" ); // let the box give settle
+        // Robust settle (2026-07-11): the old "one weapon_change_complete / 1.0s cap" could fire
+        // MID-RAISE (early _complete from the at-limit take churn, or a slow-raise gun blowing
+        // the cap), making this read the OLD gun and miss the tier clear -> the re-boxed copy
+        // kept a stale PaP tier. wait_box_give_settled polls until the current weapon actually
+        // changed + held stable, and returns it.
+        w = self acc_weapon_variants::wait_box_give_settled();
         if ( !isdefined( self ) ) return;
 
-        w = self GetCurrentWeapon();
         if ( !isdefined( w ) || w == level.weaponNone ) continue;
         // A box gun is always a BASE form (the box never rolls our "_up" twins). Only clear base
         // forms so a rare BGB crate-power box upgrade isn't wrongly zeroed.

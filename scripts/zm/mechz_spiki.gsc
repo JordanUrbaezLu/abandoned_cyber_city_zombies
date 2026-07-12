@@ -423,7 +423,12 @@ function private function_ed70c868(einflictor, eattacker, iDamage, iDFlags, sMea
 */
 function function_58655f2a()
 {
-	if(!isdefined(self.stun) && self.stun && self.stumble_stun_cooldown_time < GetTime())
+	// [acc] DECOMPILER ARTIFACT FIX x3 (this fn + the two below, 2026-07-11): `!isdefined(x) && x`
+	// reads the field EXACTLY when undefined -> "cannot cast undefined to bool". THIS one is a
+	// polled stun-condition, so it was the 10Hz exception spam in the 2:41 PM run log (816 throws
+	// over one Panzer's lifetime). Restored stock's `!IS_TRUE(self.stun)` shape (ai/mechz.gsc) +
+	// isdefined-guarded the cooldown compare (undefined < int also throws).
+	if(!(isdefined(self.stun) && self.stun) && isdefined(self.stumble_stun_cooldown_time) && self.stumble_stun_cooldown_time < GetTime())
 	{
 		return 1;
 	}
@@ -443,7 +448,8 @@ function function_9bac2f00(e_player, gib)
 {
 	self endon("death");
 	self function_b8e0ce15(e_player);
-	if(!isdefined(self.stun) && self.stun && self.stumble_stun_cooldown_time < GetTime())
+	// [acc] artifact fix (see function_58655f2a)
+	if(!(isdefined(self.stun) && self.stun) && isdefined(self.stumble_stun_cooldown_time) && self.stumble_stun_cooldown_time < GetTime())
 	{
 		self.stun = 1;
 	}
@@ -462,7 +468,8 @@ function function_19b9b682(e_player, gib)
 {
 	self endon("death");
 	self function_b8e0ce15(e_player);
-	if(!isdefined(self.stun) && self.stun && self.stumble_stun_cooldown_time < GetTime())
+	// [acc] artifact fix (see function_58655f2a)
+	if(!(isdefined(self.stun) && self.stun) && isdefined(self.stumble_stun_cooldown_time) && self.stumble_stun_cooldown_time < GetTime())
 	{
 		self.stun = 1;
 	}
@@ -676,7 +683,14 @@ function function_bbdc1f34(var_678a2319)
 			dist_sq = distancesquared(player.origin, var_678a2319);
 			if(dist_sq <= var_f0dad551)
 			{
-				if(!isdefined(player.is_burning) && player.is_burning && zombie_utility::is_player_valid(player, 0))
+				// [acc] DECOMPILER ARTIFACT FIX (2026-07-11, found via console_mp.log): the shipped source
+				// dropped the parens off !IS_TRUE(is_burning), leaving `!isdefined(x) && x` - which reads
+				// the field EXACTLY when it is undefined -> "cannot cast undefined to bool" thrown at 10Hz
+				// (this wait(0.1) loop) AND the ground-fire could never ignite anyone (condition was
+				// unsatisfiable). Later same day: field renamed to the self-expiring acc_mechz_burn_until
+				// latch (is_burning on players trips stock's missing-asset lava_small shellshock - see
+				// function_3389e2f3 for the full story).
+				if(!(isdefined(player.acc_mechz_burn_until) && GetTime() < player.acc_mechz_burn_until) && zombie_utility::is_player_valid(player, 0))
 				{
 					player function_3389e2f3(self);
 				}
@@ -713,9 +727,21 @@ function function_b804eb62(ai_zombie)
 */
 function function_3389e2f3(mechz)
 {
-	if(!isdefined(self.is_burning) && self.is_burning && zombie_utility::is_player_valid(self, 1))
+	// [acc] 2026-07-11 rework, three fixes in one (self = the player being ignited):
+	// 1. ARTIFACT: the pack's `!isdefined(x) && x` guard threw AND never let the body run (players
+	//    could never be ignited by the ground fire).
+	// 2. FIELD RENAME is_burning -> acc_mechz_burn_until: stock _zm_utility.gsc:3776 requests the
+	//    shellshock assets "lava"/"lava_small" whenever a player with is_burning takes explosive
+	//    damage - those assets are NOT in any fastfile this map loads (no shellshock GDF exists to
+	//    author them) -> "shellshock 'lava_small' was not precached" throw that KILLS the stock
+	//    per-player damage-feedback loop (seen live 2:41 PM log). No other system on this map reads
+	//    player.is_burning (burnplayer never touches it), so renaming removes the crash path wholesale.
+	// 3. SELF-EXPIRING MUTEX (time-based, replaces the wait/reset pair): the old shape left the latch
+	//    stuck ON if the player died mid-wait (stock cleans is_burning up in _zm.gsc:3327 - a rename
+	//    loses that), and the inline wait(1.5) stalled the caller's 0.1s ground-fire sweep.
+	if(!(isdefined(self.acc_mechz_burn_until) && GetTime() < self.acc_mechz_burn_until) && zombie_utility::is_player_valid(self, 1))
 	{
-		self.is_burning = 1;
+		self.acc_mechz_burn_until = GetTime() + 1500;   // matches the 1.5s SetPlayerBurning duration
 		if(!self hasPerk("specialty_armorvest"))
 		{
 			self burnplayer::SetPlayerBurning(1.5, 0.5, 30, mechz, undefined);
@@ -724,8 +750,6 @@ function function_3389e2f3(mechz)
 		{
 			self burnplayer::SetPlayerBurning(1.5, 0.5, 20, mechz, undefined);
 		}
-		wait(1.5);
-		self.is_burning = 0;
 	}
 }
 
@@ -1472,11 +1496,15 @@ function private function_fa513ca0()
 		players = GetPlayers();
 		foreach(player in players)
 		{
-			if(!(isdefined(player.is_burning) && player.is_burning))
+			// [acc] 2026-07-11: renamed to the self-expiring acc_mechz_burn_until latch (see
+			// function_3389e2f3 - player.is_burning trips stock's missing lava_small shellshock).
+			if(!(isdefined(player.acc_mechz_burn_until) && GetTime() < player.acc_mechz_burn_until))
 			{
 				if(player istouching(self.flameTrigger))
 				{
-					player thread MechzBehavior::playerFlameDamage(self);
+					// [acc] was MechzBehavior::playerFlameDamage(self) - replaced with our
+					// scaled twin (user 2026-07-11: flamethrower +20%). See acc_player_flame_damage.
+					player thread acc_player_flame_damage(self);
 				}
 			}
 		}
@@ -1484,6 +1512,39 @@ function private function_fa513ca0()
 	}
 }
 
+// [acc] scaled twin of stock MechzBehavior::playerFlameDamage (mechz.gsc:835) - the flame damage
+// constants are stock #defines (MECHZ_FT_PLAYER_DAMAGE 30 / _JUGG 20, 0.5s ticks over a 1.5s burn
+// = ~3 ticks) inside a stock function we can't edit, so the flame loop above calls this instead.
+// Jugg branch, burnplayer::SetPlayerBurning (already #using'd). Per-tick damage
+// x acc_panzer_flame_mult. DEFAULT BACK TO 1.0 (user 2026-07-11): the same-day "+20%" (1.2) was
+// tuned while the burn path was secretly dead (decompiler artifact) - once fixed, 1.2 made ONE
+// ignite total 108 = a guaranteed no-Jugg down (the DoT runs to completion once tagged). At 1.0
+// an ignite totals 90 - same severity as a melee swing / the ground fire, survivable without Jugg
+// (the user's melee-tuning line). Live-tunable if the +20% is ever wanted back.
+// MUTEX 2026-07-11: acc_mechz_burn_until (self-expiring time latch) REPLACED the is_burning
+// wait/reset latch - is_burning on a player triggers stock _zm_utility's "lava_small" shellshock
+// on explosive hits, an asset NOT in our fastfiles = a throw that kills the stock damage-feedback
+// loop (full story at function_3389e2f3). The old "shared with stock flame sources" mutex argument
+// is moot: this map has no other player-burn source.
+function acc_player_flame_damage(mechz)   // self = the player
+{
+	self endon("death");
+	self endon("disconnect");
+
+	if(!(isdefined(self.acc_mechz_burn_until) && GetTime() < self.acc_mechz_burn_until) && zombie_utility::is_player_valid(self, 1))
+	{
+		self.acc_mechz_burn_until = GetTime() + 1500;   // matches the 1.5s SetPlayerBurning duration
+		mult = getdvarfloat("acc_panzer_flame_mult", 1.0);
+		if(!self hasPerk("specialty_armorvest"))
+		{
+			self burnplayer::SetPlayerBurning(1.5, 0.5, int(30 * mult), mechz, undefined);
+		}
+		else
+		{
+			self burnplayer::SetPlayerBurning(1.5, 0.5, int(20 * mult), mechz, undefined);
+		}
+	}
+}
 
 function private stop_ft(entity)
 {
@@ -2883,11 +2944,17 @@ function function_a2a11991()
 function function_2a2bfc25()
 {
 	self waittill("hash_46c1e51d");
-	if(level flag::get("zombie_drop_powerups") && (!isdefined(self.no_powerups) && self.no_powerups))
+	// [acc] artifact fix (2026-07-11, see function_58655f2a): the dropped parens made this drop check
+	// UNSATISFIABLE (and a throw when no_powerups is undefined) - these specials never dropped their
+	// powerup since integration. Restored `!IS_TRUE(self.no_powerups)`.
+	if(level flag::get("zombie_drop_powerups") && !(isdefined(self.no_powerups) && self.no_powerups))
 	{
 		var_d54b1ec = array("double_points", "insta_kill", "full_ammo", "nuke");
 		str_type = array::random(var_d54b1ec);
-		zm_powerups::specific_powerup_drop(str_type, self.origin);
+		// [acc] 2026-07-11: level thread, was a plain call on the mech. The eMoX delayed-drop
+		// override makes specific_powerup_drop block ~1.6s; a mech-owned thread dying mid-delay
+		// (corpse delete) would strand a model-less powerup. origin is captured at call time.
+		level thread zm_powerups::specific_powerup_drop(str_type, self.origin);
 	}
 }
 

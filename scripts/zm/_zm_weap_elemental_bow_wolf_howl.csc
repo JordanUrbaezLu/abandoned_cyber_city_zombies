@@ -35,11 +35,15 @@ function __init__(  )
 	clientfield::register( "toplayer", "wolf_howl_muzzle_flash", VERSION_SHIP, 1, "int", &wolf_howl_muzzle_flash, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "wolf_howl_arrow_charged_trail", VERSION_SHIP, 1, "int", &wolf_howl_arrow_charged_trail, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "wolf_howl_arrow_charged_spiral", VERSION_SHIP, 1, "int", &wolf_howl_arrow_charged_spiral, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "wolf_howl_slow_snow_fx", VERSION_SHIP, 1, "int", &wolf_howl_slow_snow_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "zombie_hit_by_wolf_howl_charge", VERSION_SHIP, 1, "int", &zombie_hit_by_wolf_howl_charge, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "zombie_explode_fx", VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "zombie_explode_fx", -VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
-	clientfield::register( "actor", "wolf_howl_zombie_explode_fx", VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	// [acc] ACTOR clientfields DISABLED (2026-07-11) - LOCKSTEP with the .gsc twin (bow
+	// unobtainable; actor bit budget full - see the .gsc comment). NOTE the pack shipped
+	// zombie_explode_fx registered TWICE + wolf_howl_zombie_explode_fx (3 counter regs for one
+	// event) - all dead weight on the client actor budget, all commented.
+	//clientfield::register( "actor", "wolf_howl_slow_snow_fx", VERSION_SHIP, 1, "int", &wolf_howl_slow_snow_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "zombie_hit_by_wolf_howl_charge", VERSION_SHIP, 1, "int", &zombie_hit_by_wolf_howl_charge, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "zombie_explode_fx", VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "zombie_explode_fx", -VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	//clientfield::register( "actor", "wolf_howl_zombie_explode_fx", VERSION_SHIP, 1, "counter", &wolf_howl_zombie_explode_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	level._effect[ "wolf_howl_ambient_bow" ] = "dlc1/zmb_weapon/fx_bow_wolf_ambient_1p_zmb";
 	level._effect[ "wolf_howl_arrow_impact" ] = "dlc1/zmb_weapon/fx_bow_wolf_impact_zmb";
 	level._effect[ "wolf_howl_arrow_charged_impact" ] = "dlc1/zmb_weapon/fx_bow_wolf_impact_ug_zmb";

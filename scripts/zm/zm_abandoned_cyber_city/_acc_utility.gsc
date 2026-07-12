@@ -418,7 +418,7 @@ function recompute_move_speed( player )
     }
     if ( isdefined( player.acc_item_boots ) && player.acc_item_boots )
     {
-        n_scale = n_scale * getdvarfloat( "acc_boots_mult", 1.08 ); // Boots boss item: +8% move overall + trench-slow immunity (user 2026-06-18, docs/09)
+        n_scale = n_scale * getdvarfloat( "acc_boots_mult", 1.08 ); // Boots boss item: +8% move overall (user 2026-06-18, docs/09; trench-slow immunity was never in code - Exo only)
     }
     if ( isdefined( player.acc_cw_rx1_speed ) && player.acc_cw_rx1_speed )
     {

@@ -115,7 +115,7 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
   four slim **wide-axis (X-running) center stairwells** that step off the bottom into open interior floor
   (never a wall), alternating south/north (D1 XS, D2 XN, D3 XS, D4 XN) so a floor's down-well is never
   where the stairs from above land. Every floor stays a connected surface (West–Bridge–East, never
-  bisected); each room has 6 always-dim lights. Builds clean **with the LED bake** (fresh `.ff` + regenerated
+  bisected); each room bakes pitch black (`lightsForLayer=0`). Builds clean **with the LED bake** (fresh `.ff` + regenerated
   navmesh) and is deployed. The whole **Paradise finale (below) is built on top of the descent**, so L5 is
   reached in play every run. **Regression-watch on any geometry change:** descend to L5 and confirm no
   fall-through, no OOB death, lights at every depth, the trench paths normally up top, and zombies disperse
@@ -135,10 +135,10 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
     **no PaP version** (melee/equipment/no-pack specials) **can't be serviced** — the crate says so and charges nothing.
     The "is it PaP'd" gate is stock `is_weapon_upgraded`; "does it have a PaP version" is `level.zombie_weapons[base].upgrade`
     (same test as `_acc_weapon_variants`). `_acc_ammo_crate.gsc`, spawned by `_acc_glitch_altar::spawn_altars`. **Solid** —
-    same model + **56×56×48 clip** as the Data Cache shards crate, via `tools/add_prop_clips.js` `ammo_crate` (which gained
-    a per-prop `bot` so the clip sits on the L2 floor z=-480, not the hardcoded z=-240 pit; **needs a full LED bake**, not `-GscOnly`).
+    the `p7_zm_sha_crate_ammo_closed_sml_stack_full` stack model (NOT the Data Cache's `p7_cai_stacking_cargo_crate`), with a **78×20×21 clip** via `tools/add_prop_clips.js` `ammo_crate_l2` (which carries
+    a per-prop `bot` so the clip sits on the L2 floor z=-480, not the hardcoded z=-240 pit; **needs a full LED bake**, not `-GscOnly`) (reconciled to code 2026-07-11).
   - **L3 (z=-720):** **Glitch Altar** gamble — `(-400, 1948, -720)` (now **solid** — `add_prop_clips.js` `glitch_altar_l3`,
-    48×18×64 thin slab matching the reactor/perk-vendor sign kiosk; the floating core orb stays decorative/no-clip).
+    a 162×66×58 clip for the `p7_ram_altar` stone altar; the floating core orb stays decorative/no-clip) (reconciled to code 2026-07-11).
   - **L4 (z=-960):** **AK-47 wall-buy** — `script_struct` `weapon_upgrade` `zombie_weapon_upgrade "t9_ak47"` at `(-400, 1725, -904)`
     on the south wall face (model `wpn_t9_ak47_world`, `.map` entity 9007, user 2026-06-26). An **S-tier** wall-buy dropped down the pit
     to pull players deeper; **1500 pts** from `zm_levelcommon_weapons.csv`. Survives `remove_all_wallbuys()` via its `t9_ak47` whitelist
@@ -149,8 +149,9 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
     wall-buy** — `weapon_upgrade` `zombie_weapon_upgrade "t9_m60"` at `(-400, 1725, -1144)` on the south wall's west jamb (model
     `wpn_t9_m60_world`, `.map` entity 9009, user 2026-06-27): the S-tier bottom-floor gun right before the Paradise door, **1500 pts**,
     whitelisted past `remove_all_wallbuys()`.
-  - **Foundry under-room (L1, z=-240):** **Exo Suit** station — `(230, 1450, -240)` (room relocated EAST to
-    center x=350 on 2026-06-25 so the door clears the abyss well; was the freed Overclock spot at `(-120,1450,-240)`).
+  - **Foundry under-room (L1, z=-240):** **Exo Suit** station — `(-120, 1550, -240)` (WEST side of the Foundry
+    under-room; the Exo station and the Neural Expansion Bay vendor sit on opposite sides the long way — Exo WEST,
+    vendor EAST at `(120,1550)`; user 2026-06-28) (reconciled to code 2026-07-11).
     The room is a shallow niche whose front wall IS the trench's south wall (floors flush at z=-240) — opening its
     buyable door (`enter_under_plaza`, doorway `x[462,542]`) fuses it with the full-width pit, so it reads as huge.
 
@@ -182,7 +183,7 @@ the `acc_abyss_hub_door` slab). OOB-safe + trench-NEUTRAL via `acc_bus_trench::p
 boss-item bench + a **permanent mystery box** + a **2nd Pack-a-Punch** (`acc_glitch_altar::spawn_paradise`),
 plus **all 10 perks** as `.map` entities (`tools/gen_paradise_props.js`). The four Paradise kiosks (Altar / Overclock /
 Exo / perk vendor, all at z=-1200) are **solid** — `add_prop_clips.js` `paradise_*`, clipped at the Paradise floor via
-per-prop `bot` (user 2026-06-27), reusing each model's snug dims (ticket-kiosk 60×68×80, work-table 60×36×80, sign-kiosk 48×18×64).
+per-prop `bot` (user 2026-06-27), each with its remodeled model's snug dims (altar 162×66×58, overclock 48×34×78, exo 58×52×114, perk vendor 50×44×71; the stations were remodeled 2026-07-09) (reconciled to code 2026-07-11).
 
 **The 2nd Pack-a-Punch is a STANDALONE GSC vendor, NOT a 2nd stock machine** (`_acc_pap_levels::spawn_paradise_pap_at`,
 at `(0,-1700,-1200)`). Stock supports exactly one PaP: `spawn_init` renames every `zm_pack_a_punch` zbarrier to the

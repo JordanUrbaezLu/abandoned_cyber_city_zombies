@@ -37,9 +37,15 @@ function __init__()
 	clientfield::register( "scriptmover", "runeprison_rock_fx", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "runeprison_explode_fx", VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "runeprison_lava_geyser_fx", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "runeprison_lava_geyser_dot_fx", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "runeprison_zombie_charring", VERSION_SHIP, 1, "int" );
-	clientfield::register( "actor", "runeprison_zombie_death_skull", VERSION_SHIP, 1, "int" );
+	// [acc] ACTOR clientfields DISABLED (2026-07-11): only the FIRE bow (demongate) ships in this
+	// map - this bow is unobtainable, so these zombie-FX fields can never be set, and the actor
+	// clientfield set hit its bit budget (Winter's Howl's 4 new fields overflowed it: "actor is
+	// out of space" at stock cherry's tesla_shock_eyes_fx). Commented IN LOCKSTEP with the .csc
+	// twin - restore BOTH if this bow is ever added. (toplayer/missile/scriptmover sets are
+	// separate budgets - untouched.)
+	//clientfield::register( "actor", "runeprison_lava_geyser_dot_fx", VERSION_SHIP, 1, "int" );
+	//clientfield::register( "actor", "runeprison_zombie_charring", VERSION_SHIP, 1, "int" );
+	//clientfield::register( "actor", "runeprison_zombie_death_skull", VERSION_SHIP, 1, "int" );
 	callback::on_connect( &on_connect_bow_rune_prison );
 }
 
