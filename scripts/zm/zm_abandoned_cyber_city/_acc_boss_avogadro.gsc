@@ -10,10 +10,10 @@
 //     GDT notetrack self-notifies "avo_send_bolt" at the throw frame (frame 20); bolt_listener catches
 //     it and launches a VISIBLE electric bolt (script_model + its own acc_avo_bolt_fx clientfield =
 //     crackle cloud + tesla arc stacked, throw bark at launch / warp-out at impact, all client-side AT
-//     the bolt) that flies to the target and applies the 30% slow + acc_avo_shot_damage (5) ON IMPACT
+//     the bolt) that flies to the target and applies the 30% slow + acc_avo_shot_damage (6) ON IMPACT
 //     (dodgeable - step aside and it misses). Cadence = acc_avo_bolt_cd (0.75s) + the throw anim.
 //     Anim + SFX + bolt + stun + log are ONE event. Point-blank (<220u, inside the bolt's 150u minimum)
-//     aura_loop direct-zaps (same slow, acc_avo_aura_damage 5) so hugging him still means stun-lock.
+//     aura_loop direct-zaps (same slow, acc_avo_aura_damage 10) so hugging him still means stun-lock.
 //     bolt_watchdog falls back to direct zaps ONLY if the BT bolt starves on a bug (logs the reason).
 //   - HACK ability: walks up to a machine and disables it for 30s; max 2 at once PER boss; PRIORITIZES
 //     perks. Targets: Pack-a-Punch, Jugg, Quick Revive, Stamin-Up, Electric Cherry, Widow's Wine. FULL disable
@@ -28,8 +28,10 @@
 // acc_avo_goal_pos fields (a tiny early-out we added to zm_ai_avogadro::avogadrotargetservice).
 //
 // CADENCE: joins the shared boss roster as a 3rd type ("avogadro", widened coin flip in
-// _acc_civil_protector::boss_roster) - a debt-director like the Rogue Protector. DEV mode instead runs
-// a repeating test-spawn loop for easy iteration. Toggle live: acc_avo_enable 0. Trace: acc_avo_debug 1.
+// _acc_civil_protector::boss_roster) - a debt-director like the Rogue Protector. Dev runs the SAME
+// real roster cadence (the repeating dev test-spawn was disabled 2026-07-12). Toggle live:
+// acc_avo_enable 0. Trace via a dev build (debug prints ride level.acc_dev; the acc_avo_debug dvar
+// was removed 2026-07-16).
 // =============================================================================
 
 #using scripts\shared\clientfield_shared;
@@ -57,9 +59,10 @@
 #precache( "fx", "zombie/fxt/fx_tesla_bolt_secondary_zmb" );   // visible zap FX played at the target
 
 // [acc] TEST MODE (user 2026-07-05: "just hardcode for now, we test as hardcoded"). 1 = force him to
-// spawn EARLY (on the host player) + log every step, in ANY launcher (PLAY_NORMAL / PLAY_TEST_MAP), so a
-// hardcoded test run always shows him - no acc_dev, no flags. 0 = SHIP behaviour (dev = round-1 on-player,
-// normal play = round-9 shared-roster boss, dev-gated logging). *** FLIP TO 0 BEFORE SHIP. ***
+// spawn EARLY (on the host player) + log every step, with the standard launcher (PLAY_NORMAL.bat is
+// the ONLY play script), so a hardcoded test run always shows him - no acc_dev, no flags. 0 = SHIP
+// behaviour (dev AND normal play both run the real round-9 shared-roster cadence; logging rides
+// level.acc_dev). *** FLIP TO 0 BEFORE SHIP. ***
 #define ACC_AVO_TEST_MODE         0
 #define ACC_AVO_TEST_ROUND        5     // TEST (user 2026-07-05): first spawns at round 5, ALWAYS in the Lab, respawns if killed - "test like a real game". Later he moves to the shared boss roster.
 
@@ -80,11 +83,12 @@
 function dbg( msg )
 {
     // HARDCODED to dev (user 2026-07-05: "we don't use flags, we test as hardcoded"): the KEY [AVO]
-    // events (spawn / hack / restore / drops) fire whenever level.acc_dev is on, so the normal dev launch
-    // (PLAY_TEST_MAP.bat, acc_dev 1) logs them to console_mp.log (as [SCRIPTER]) with NO extra flag. These
-    // are infrequent (a few per boss), so no screen spam. The per-2.5s position HEARTBEAT stays behind
-    // acc_avo_debug (opt-in via run_avo_test.bat) so it doesn't clutter normal dev play.
-    if ( ACC_AVO_TEST_MODE == 0 && getdvarint( "acc_avo_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [AVO] rides acc_avo_debug now)
+    // events (spawn / hack / restore / drops) fire whenever level.acc_dev is on, so a dev build
+    // (level.acc_dev hardcoded true + rebuild, launched via PLAY_NORMAL.bat) logs them to console_mp.log
+    // (as [SCRIPTER]) with NO extra flag. These are infrequent (a few per boss), so no screen spam. The
+    // per-2.5s position HEARTBEAT rides the same gate (ACC_AVO_TEST_MODE / level.acc_dev - the
+    // acc_avo_debug dvar and its run_avo_test.bat launcher were removed 2026-07-16).
+    if ( ACC_AVO_TEST_MODE == 0 && !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
         return;
     acc_utility::log( "[AVO] " + msg );
     players = GetPlayers();
@@ -125,13 +129,12 @@ function init()
         dbg( "TEST MODE (hardcoded ACC_AVO_TEST_MODE) - unconditional early spawn loop in ANY launcher" );
         level thread dev_test_spawn();
     }
-    else if ( IS_TRUE( level.acc_dev ) )
-    {
-        dbg( "DEV mode - running repeating test-spawn loop" );
-        level thread dev_test_spawn();
-    }
     else
     {
+        // DEV early test-spawn DISABLED (user 2026-07-12: same rule as the Panzer - no more
+        // auto boss spam in dev). Dev runs the REAL roster cadence like normal play (Avogadro
+        // takes his shared-roster slots - _acc_civil_protector no longer re-homes them in dev).
+        // For an iteration burst, flip the hardcoded ACC_AVO_TEST_MODE above.
         level thread round_watch();
         level thread director();
     }
@@ -216,6 +219,20 @@ function host_player()
 
 function spawn_boss()
 {
+    // KILL-SWITCH GATE (added 2026-07-15 audit). init() returns at :104 when acc_avo_enable is 0,
+    // BEFORE it seeds level.acc_avo_next_id (:115) and the hack tables - but
+    // _acc_paradise::maybe_spawn_avogadro only checks acc_paradise_avo_on, never acc_avo_enable, so it
+    // called straight in here and hit `level.acc_avo_next_id++` (:297) on an UNDEFINED value, which
+    // throws. The roster already re-homes "avogadro" slots correctly (_acc_civil_protector:238);
+    // Paradise was the one path that ignored the toggle.
+    // Callers all handle undefined (paradise logs "Avogadro spawn returned none"), and the module's own
+    // cadence loops never reach here when disabled, so this gate is a no-op in normal play.
+    if ( getdvarint( "acc_avo_enable", ACC_AVO_ENABLE_DEF ) != 1 )
+    {
+        dbg( "spawn_boss called while acc_avo_enable 0 - refusing (kill-switch honoured)" );
+        return undefined;
+    }
+
     // SPAWN ORIGIN: ALWAYS the LAB (user 2026-07-05: "always spawn in at the lab" - the acc_boss_spawn
     // struct @ (19,3648,0)). He then chases the nearest player from there. Fall back to a player only if
     // the Lab struct is somehow missing.
@@ -259,7 +276,8 @@ function spawn_boss()
         org = p.origin; ang = ( 0, p.angles[ 1 ], 0 ); where = "player (no Lab struct)";
     }
 
-    // HP = the Phantom's EXACT scale (base 65k, anchor 5, Phantom exponent) x the log coop mult.
+    // HP = the Phantom's EXACT scale (base 65k, anchor 5, Phantom exponent) x the coop boss-HP table
+    // (boss_hp_player_mult: 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user 2026-07-15, was a log curve).
     // Set level.avogadro_hp BEFORE the pack setup so avogadro_spawn() applies it as health+maxhealth.
     rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
     hp = int( acc_boss_phantom::scale_phantom_hp( rn, getdvarfloat( "acc_phantom_hp_exp", 1.06 ) ) * acc_coop_scaling::boss_hp_player_mult() );
@@ -299,6 +317,7 @@ function spawn_boss()
     boss.is_boss          = true;   // _acc_zombie_speed skips is_boss (no ASM stomp/freeze)
     boss.acc_is_boss      = true;
     boss.acc_is_mini_boss = true;   // boss headshot / corpse-skip handling
+    boss.acc_is_avogadro  = true;   // boss-weakness identity (melee +20%, _acc_damage 0c5)
     boss.acc_boss_custom_speed = true;
     boss.ignore_enemy_count = true; // fights ALONGSIDE the wave, never gates round end
     boss.ignore_nuke        = true;
@@ -317,9 +336,9 @@ function spawn_boss()
     boss.health    = hp;
 
     dbg( "spawned @ " + org + " (" + where + ") - round " + rn + ", " + hp + " hp, gait=" + boss.zombie_move_speed );
-    // DEV: always tell every player he's live (regardless of acc_avo_debug), so a test can never "miss"
+    // TEST MODE: always tell every player he's live (regardless of the dev debug gate), so a test can never "miss"
     // a spawn that happened across the map. Normal play stays silent (the nameplate + music are the tell).
-    if ( ACC_AVO_TEST_MODE == 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen): no dev "ACTIVE + hp" banner; the 3D nameplate + boss music below are the tell
+    if ( ACC_AVO_TEST_MODE == 1 )   // no dev "ACTIVE + hp" banner - ACC_AVO_TEST_MODE is a compile-only test const (0 in ship, inert); the 3D nameplate + boss music are the tell
         announce( "^5AVOGADRO ACTIVE^7 (" + where + ") - " + hp + " hp" );
 
     // --- presentation: 3D nameplate + shared boss music ---
@@ -343,7 +362,7 @@ function boss_life( boss )
     boss thread aura_loop();
     boss thread bolt_watchdog();
     boss thread hack_director();
-    dbg( "boss_life ACTIVE - bolt_listener + aura_loop + bolt_watchdog + hack_director threaded @ " + boss.origin );   // co-op inert-boss diag (user 2026-07-05): if this DOESN'T log, spawn_boss aborted before here (pack setup threw); if it DOES, the threads ran (issue is downstream - unreachable machines / no target). Launch the co-op test with +set acc_avo_debug 1.
+    dbg( "boss_life ACTIVE - bolt_listener + aura_loop + bolt_watchdog + hack_director threaded @ " + boss.origin );   // co-op inert-boss diag (user 2026-07-05): if this DOESN'T log, spawn_boss aborted before here (pack setup threw); if it DOES, the threads ran (issue is downstream - unreachable machines / no target). Run the co-op test on a dev build (this diag rides level.acc_dev; the acc_avo_debug dvar was removed 2026-07-16).
 
     // Wait for death. Poll isalive and keep the PER-BOSS last origin (M3, review 2026-07-04: do NOT read
     // level.avogadro_death_origin - it's a single global the pack overwrites, so with 2 Avogadros alive
@@ -387,8 +406,8 @@ function boss_life( boss )
 // ---------------------------------------------------------------------------
 
 // Every zap now CHIPS real damage (user 2026-07-06 ladder: pure-stun 0 -> 1 -> "make it 5" for BOTH the
-// bolt and the aura). `dmg` optional - defaults to the BOLT/shot damage (acc_avo_shot_damage); the aura
-// passes its own acc_avo_aura_damage (both default 5).
+// bolt and the aura). `dmg` optional - defaults to the BOLT/shot damage (acc_avo_shot_damage 6); the aura
+// passes its own acc_avo_aura_damage (10). [acc] user 2026-07-18 +25% all-Avogadro damage (5/8 -> 6/10).
 // Attacker = the boss actor: proper damage direction indicator + kill attribution, and it trips the pack's
 // perk-damage override (electric shellshock + overlay tell, fixed stock-safe in _zm_ai_avogadro). NOT the
 // victim as attacker - stock DROPS self-attacker damage on un-whitelisted MODs (memory
@@ -397,7 +416,7 @@ function boss_life( boss )
 function zap_damage( t, boss, dmg )
 {
     if ( !isdefined( dmg ) )
-        dmg = getdvarint( "acc_avo_shot_damage", 5 );
+        dmg = getdvarint( "acc_avo_shot_damage", 6 );   // [acc] user 2026-07-18 +25% all-Avogadro damage: 5 -> 6 (6.25 rounded down - integer dvar)
     if ( dmg <= 0 || !isdefined( t ) )
         return;
     if ( isdefined( boss ) )
@@ -526,11 +545,21 @@ function aura_loop()
     for ( ;; )
     {
         wait getdvarfloat( "acc_avo_fire_interval", ACC_AVO_FIRE_INTERVAL_DEF );
+        // DEAD-BUT-RISING GUARD (2026-07-15): the "avogadro_death" endon above is SECONDS too late. The
+        // pack's death() sets is_alive=0 AT GROUND (_zm_ai_avogadro.gsc:856) and only notifies at :876 -
+        // AFTER AnimScripted("exit_anim") + DoNoteTracks("exit_anim") have BLOCKED for the whole departure
+        // rise - and allowdeath stays false through it, so engine isalive() is STILL TRUE the entire time
+        // (the same trap boss_life's poll documents at :351). A killed boss therefore kept zapping players
+        // stood at his corpse as it lifted away. Break on the pack's own flag: the earliest reliable "he is
+        // dead" signal, and the exact one boss_life hands the drops + hack-restore off on. Keep BOTH endons -
+        // they're what keeps these threads off the entity once death() Delete()s it.
+        if ( isdefined( self.is_alive ) && self.is_alive == 0 )
+            return;
         t = pick_fire_target( getdvarfloat( "acc_avo_aura_range", ACC_AVO_AURA_RANGE_DEF ) );
         if ( !isdefined( t ) )
             continue;
         t acc_elites::acc_avogadro_zap();
-        zap_damage( t, self, getdvarint( "acc_avo_aura_damage", 5 ) );   // aura damage, own dvar (user 2026-07-06: 5)
+        zap_damage( t, self, getdvarint( "acc_avo_aura_damage", 10 ) );   // aura damage, own dvar (user 2026-07-12: 5 -> 8/tick; user 2026-07-18 +25% all-Avogadro damage: 8 -> 10)
         acc_boss_nameplate::zap_pulse( self );
         if ( GetTime() >= hb )                           // throttled log
         {
@@ -555,6 +584,8 @@ function bolt_watchdog()
     for ( ;; )
     {
         wait 2;
+        if ( isdefined( self.is_alive ) && self.is_alive == 0 )
+            return;                                      // dead-but-rising: see aura_loop's guard (avogadro_death fires seconds late) - else the corpse falls back to direct 1500u zaps
         starve_ms = int( ( getdvarfloat( "acc_avo_bolt_cd", 0.75 ) * 3 + 8 ) * 1000 );
         last = ( isdefined( self.acc_avo_last_bolt_ms ) ? self.acc_avo_last_bolt_ms : 0 );
         if ( GetTime() - last <= starve_ms )
@@ -802,6 +833,15 @@ function hack_director()
     {
         wait getdvarfloat( "acc_avo_hack_think", 0.4 );
 
+        // DEAD-BUT-RISING GUARD (2026-07-15) - see aura_loop for the full why. Worse here than a stray zap:
+        // boss_life breaks its poll on this SAME is_alive==0 and has ALREADY run restore_boss_hacks( my_id )
+        // (+ clear_all_hacks on the last boss), so a re-hack from the rising corpse lands with its owner
+        // dead and NOTHING left to restore it - the perk stays dark until the 30s expire timer, breaking the
+        // module header's "restores when the owner dies" promise and clear_all_hacks' "a perk/PaP must NEVER
+        // stay stuck OFF as a bug" contract.
+        if ( isdefined( self.is_alive ) && self.is_alive == 0 )
+            return;
+
         // PARADISE (user 2026-07-09 parity pass): hacking now WORKS during the onslaught - target_origin()
         // serves the arena's own duplicate perk row / PaP (the paradise twin cache) instead of the
         // unreachable Lab machines, so he behaves exactly like a normal-round Avogadro down there.
@@ -887,7 +927,7 @@ function hack_director()
         // path = engine PathMode; gait = zombie_move_speed (drives the locomotion blackboard); enemy =
         // distance to .enemy (must ~always be set - "none" = target-service bug); bolt = the BT attack
         // gate reason from avoShouldShootBolt ("none"=ready/firing, cooldown/range/los legit) + cooldown.
-        if ( ( ACC_AVO_TEST_MODE == 1 || getdvarint( "acc_avo_debug", 0 ) == 1 ) && GetTime() >= hb_next )   // acc_dev DECOUPLED 2026-07-10 (clean screen; heartbeat rides acc_avo_debug now)
+        if ( ( ACC_AVO_TEST_MODE == 1 || IS_TRUE( level.acc_dev ) ) && GetTime() >= hb_next )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
         {
             hb_next = GetTime() + 2500;
             gd = ( isdefined( goal ) ? int( Distance( self.origin, goal ) ) : -1 );

@@ -57,6 +57,7 @@
 #using scripts\shared\ai\zombie_utility;
 #using scripts\shared\ai\systems\gib;
 #using scripts\shared\ai_shared;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_elites;   // [acc] apply_player_mitigations (Exo/Savior armor on Panzer melee, audit 2026-07-12)
 
 
 
@@ -386,11 +387,17 @@ function private function_ed70c868(einflictor, eattacker, iDamage, iDFlags, sMea
 {
 	if(isdefined(eattacker) && eattacker.archetype === "mechz" && sMeansOfDeath === "MOD_MELEE")
 	{
-		// [acc] was a hardcoded 150 (= instadown at base 100 HP). 90 default: hits VERY hard but
-		// survivable without Jugg. Live-tunable. Registered in __init__ (dead in the pack).
+		// [acc] was a hardcoded 150 (= instadown at base 100 HP). 99 default (user 2026-07-18 +10%
+		// Panzer damage, was 90): hits VERY hard but survivable without Jugg. Live-tunable.
+		// Registered in __init__ (dead in the pack).
 		// Returning a value ends the stock callback chain (first != -1 wins) - correct here, the
 		// mechz melee IS the final say on its own hit.
-		dmg = getdvarint("acc_panzer_melee_damage", 90);
+		dmg = getdvarint("acc_panzer_melee_damage", 99);
+		// [acc] EXO/SAVIOR mitigation (audit 2026-07-12): because this callback SHORT-CIRCUITS
+		// _acc_elites::on_player_damaged (below), Panzer melee is the ONLY boss melee that would ignore the
+		// Exo Suit / Savior damage reduction. Apply the SAME shared mitigation here, in the same order
+		// on_player_damaged uses (mitigate first, THEN the demigod clamp), so armor protects vs Panzer too.
+		dmg = self acc_elites::apply_player_mitigations(dmg);
 		// [acc] DEMIGOD clamp (user 2026-07-08): this callback registered at REGISTER_SYSTEM time =
 		// FIRST in the chain, so its return SHORT-CIRCUITS _acc_elites::on_player_damaged - the god
 		// handler - entirely (this exact hit was killing godded players; memory
@@ -1534,7 +1541,7 @@ function acc_player_flame_damage(mechz)   // self = the player
 	if(!(isdefined(self.acc_mechz_burn_until) && GetTime() < self.acc_mechz_burn_until) && zombie_utility::is_player_valid(self, 1))
 	{
 		self.acc_mechz_burn_until = GetTime() + 1500;   // matches the 1.5s SetPlayerBurning duration
-		mult = getdvarfloat("acc_panzer_flame_mult", 1.0);
+		mult = getdvarfloat("acc_panzer_flame_mult", 1.21);   // [acc] FLAMETHROWER +10% (user 2026-07-12: 1.0 -> 1.1), then +10% all-Panzer damage (user 2026-07-18: 1.1 -> 1.21)
 		if(!self hasPerk("specialty_armorvest"))
 		{
 			self burnplayer::SetPlayerBurning(1.5, 0.5, int(30 * mult), mechz, undefined);

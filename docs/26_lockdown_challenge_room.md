@@ -326,8 +326,9 @@ Data Shards). Gated on `acc_lockdown_reward` (default 1). **Item only, no Mega B
 | `acc_lockdown_challenge_max_rounds` | 2 | SOFT round cap (fires only if no kill in the round that just ended). |
 | `acc_lockdown_challenge_hard_grace` | 4 | HARD cap = soft + this (2+4=6 rounds), fires unconditionally. |
 | `acc_lockdown_reward` | 1 | Guaranteed reward drop on clear. |
-| `acc_lockdown_challenge_debug` | 0 | On-screen `[ldc]` debug banners (set 1 to enable — DECOUPLED from `level.acc_dev` 2026-07-10; `ldc_debug()` gates on this dvar only). |
-| `acc_lockdown_challenge_force "<zone>"` | — | Dev: force-start a challenge without springing the trap. |
+| `acc_lockdown_challenge_force "<zone>"` | — | Dev console command (polled only while the feature is enabled): force-start a challenge without springing the trap. |
+
+(the per-feature debug/test dvars were removed 2026-07-16 — the `[ldc]` debug banners now ride the one `acc_dev` flag; see docs/22 §E + memory `debug-banners-gated-by-acc-dev-only`)
 
 Also reuses `acc_lockdown_lock_doors` (1 — gates the door seal) and the `acc_glitch_*` per-zombie buff
 knobs. (The old `_challenge_tint` / `_challenge_drop_lifetime` dvars from the design sketch were never

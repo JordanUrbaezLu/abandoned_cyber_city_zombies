@@ -49,7 +49,44 @@ function watch_power_triggers()
 
     for ( i = 0; i < triggers.size; i++ )
     {
+        triggers[ i ] thread emergency_prompt_gate();
         triggers[ i ] thread emergency_loop();
+    }
+}
+
+// PROMPT GATE - a HARD PROGRESSION BLOCK guard (2026-07-15). The emergency trigger now sits ON
+// the stock power switch (its box is built around the switch's own use trigger so the clutch
+// button is where the switch is). emergency_loop below gates the ACTION on "power_on" - but a
+// trigger_use PROMPTS from map load regardless of what its script thread does with the notify.
+// So pre-power there were TWO overlapping trigger_use ents on the breaker: if the engine picked
+// ours, [F] fired our notify, we `continue`d (power is off), and THE PLAYER COULD NEVER TURN THE
+// POWER ON = unwinnable run. Gating the action is NOT enough; the PROMPT itself must not exist
+// until power is on. After power-on there is no conflict to gate: stock _zm_power::electric_switch
+// delete()s use_elec_switch (our prefab sets no script_noteworthy "allow_power_off").
+//
+// Re-enable is LIVE-SIDE ONLY: _acc_map_randomizer::disable_dead_side_emergency_triggers()
+// triggerenable(false)s the dead side's copy every run, so a blanket re-enable here would
+// RESURRECT it. We read level.acc_map_state.power_switch_side at power-on time (long after the
+// randomizer has run) and leave a dead-side trigger disabled forever, which is also exactly what
+// emergency_loop's own "only the POWER-ACTIVE side offers emergency drops" comment intends.
+function emergency_prompt_gate()    // self = an emergency trigger (either side)
+{
+    self endon( "death" );
+
+    if ( !level flag::get( "power_on" ) )
+    {
+        self triggerenable( false );
+        level flag::wait_till( "power_on" );
+    }
+
+    live_side = "corp";
+    if ( isdefined( level.acc_map_state ) && isdefined( level.acc_map_state.power_switch_side ) )
+        live_side = level.acc_map_state.power_switch_side;
+
+    if ( self.targetname == "acc_power_" + live_side )
+    {
+        self triggerenable( true );
+        acc_utility::log( "emergency_drop: prompt armed on " + self.targetname + " (power on)" );
     }
 }
 
@@ -96,7 +133,6 @@ function pick_drop_type( round_number )
             weighted( 20, "max_ammo" ),
             weighted( 30, "insta_kill" ),
             weighted( 15, "double_points" ),
-            weighted( 10, "overclock_scroll" ),
             weighted( 25, "random_perk" )
         ) );
     }
@@ -107,7 +143,6 @@ function pick_drop_type( round_number )
             weighted( 30, "max_ammo" ),
             weighted( 15, "insta_kill" ),
             weighted( 25, "double_points" ),
-            weighted( 15, "overclock_scroll" ),
             weighted( 15, "random_perk" )
         ) );
     }
@@ -136,15 +171,14 @@ function deliver_drop( player, drop_type )
         level thread zm_powerups::specific_powerup_drop( "double_points", player.origin );
         break;
 
-    case "overclock_scroll":
-        // Set a flag so next Overclock apply/reroll is free.
-        player.acc_oc_free_scrolls = ( isdefined( player.acc_oc_free_scrolls ) ? player.acc_oc_free_scrolls : 0 ) + 1;
-        break;
-
     case "random_perk":
         // VERIFIED(acc): give_random_perk() takes zero params, called ON the
         // player (_zm_perks.gsc:1093; caller _zm_powerup_free_perk.gsc:69).
         player zm_perks::give_random_perk();
+        // Kortifex "Random perk!" line - nil-guarded fn-pointer so this module
+        // needs NO #using on _acc_kortifex (absent/killed = silent no-op).
+        if ( isdefined( level.acc_kx_announce_random_perk ) )
+            [[ level.acc_kx_announce_random_perk ]]();
         break;
     }
 }

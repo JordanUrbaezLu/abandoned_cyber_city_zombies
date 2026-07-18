@@ -213,6 +213,6 @@ if ($warnings.Count -gt 0) {
 } else {
     Write-Info "machine restored - no outstanding items."
 }
-Write-Info "next: .\tools\build_map.ps1   (full build incl. LED bake)  then PLAY_TEST_MAP.bat"
+Write-Info "next: .\tools\build_map.ps1   (full build incl. LED bake)  then PLAY_NORMAL.bat"
 if ($warnings.Count -gt 0) { exit 1 }
 exit 0

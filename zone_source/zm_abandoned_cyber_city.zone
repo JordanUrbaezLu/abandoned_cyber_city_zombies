@@ -49,6 +49,11 @@ rawfile,vision/acc_grade_dark.vision
 // NEUTRAL near-black crush (vkRM 0.08, R=G=B, no hue) applied per trench depth to defeat the abyss
 // IBL/tonemap baseline that point-light dimming can't reach (_acc_atmosphere::apply_vision, 2026-06-22).
 rawfile,vision/acc_grade_abyss_dark.vision
+// ABYSS SOUL-DEFEAT LIT grade (user 2026-07-13 "the lights are still too dim; I cant tell the place
+// is more lit"): a per-player exposure/black-point LIFT applied when a player stands on a DEFEATED
+// floor (_acc_abyss_deco::abyss_floor_vision_watcher via SetVisionSetForPlayer). Whole-room brighten
+// that the 6 omni lamps alone couldn't achieve. Live-swap: acc_abyss_lit_grade.
+rawfile,vision/acc_grade_abyss_lit.vision
 // Even darker neutral (~5%) used as the START of the power-on light WARM-UP: applied instantly when power
 // comes on, then lerped to "default" over ~10s so the baked lights swell up instead of snapping on (2026-06-22).
 rawfile,vision/acc_grade_blackout.vision
@@ -93,6 +98,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_kortifex.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_exo.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_abyss_doors.gsc
@@ -105,11 +111,21 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_glitch.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_phantom.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_items.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_mega_bottles.gsc
+// Global slide feel for EVERY player: slide-jump momentum carry + steering + sustain. docs/05.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_movement.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_transfer.gsc
+// LAB <-> EXCHANGE teleporter: two Der Eisendrache pads, 90s shared cooldown, door-independent. docs/44.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_teleporter.gsc
 // "The Armory" upper room: team weapon rack (pooled give-to-teammate) + mega-bottle exchange. docs/60.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_armory.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_variants.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_havoc_charge.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_tripletake.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_tripletake.csc
+// Interactable-station holo shimmer: 1-bit scriptmover CF -> duplicate-render cyan holo (AW box mtl). docs/11.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_interact_glow.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_interact_glow.csc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_leviathan_swing.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
@@ -141,6 +157,9 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_health_bars.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_pap_levels.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_gun_badges.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_abyss_deco.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_abyss_hazards.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_surface_deco.gsc
 // Perk machine + Pack-a-Punch glow on power-on. Server (.gsc) sets a colour-index
 // clientfield on the power_on flag; client (.csc, listed below by _acc_lui.csc) PlayFX's
 // the glow. The .csc is the render half (server-side PlayFX does not render in this build).
@@ -175,6 +194,38 @@ aitype,archetype_zm_avogadro
 aitype,spawner_zm_avogadro
 fx,zombie/fx_avogadro_linger
 fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
+// [acc] De-rez teleport burst (docs/44 workstream A; audio pass 2 + BANK CACHE NUKE 2026-07-17;
+// audio pass 3 same night: +acc_scientist_numbers_lp synth loop (row FileSpec re-baked after a shell formfeed mangle);
+// audio pass 4: hum wav swapped to the AUTHENTIC BO1 numbers broadcast (num_04 via prep_scientist_numbers_from_rip.js, install-side only) - this comment edit is the bank-regen trigger -
+// this comment edit FORCES a sound-bank rebuild after the CachedBanks corruption incident: a bank
+// regen ran while BO3 was open holding the .sabs locks -> poisoned incremental cache -> every
+// later build re-emitted corrupt banks -> hard crash mid-DB-load, varying points, no error.
+// Fix = delete CachedBanks + zone/snd + *.sz outputs AND bump this zone comment, game CLOSED.
+// See memory sound-bank-rebuild-zone-trigger): cyan-tinted clone of coolyer's BO1
+// numbers FX (repo share/raw/fx/_custom/acc, regen tools/tint_numbers_efx.js; needs the
+// numbers pack MATERIAL gfx_fxt_misc_nixnumbers_bo1 installed) + an HB21-library Giant
+// teleporter zap. Played by acc_utility::derez_burst (Glitch blink + Phantom warps).
+fx,_custom/acc/fx_acc_derez_blink
+fx,_custom/acc/fx_acc_derez_blink_phantom   // NEON-YELLOW variant - matches the Phantom's accPhantomAura colour (boss colour language: cyan=Glitch, yellow=Phantom, red=Scientist docs/44)
+fx,_custom/acc/fx_acc_derez_blink_red       // RED burst - The Scientist (Pentagon Thief homage, docs/44 workstream B)
+fx,_custom/acc/fx_acc_scientist_trail       // RED numbers aura - continuous BO1 tech_trail recipe on a linked tag_origin
+fx,dlc0/factory/fx_teleporter_elec_strike_os
+fx,dlc0/factory/fx_teleporter_elec_strike_sparks_os   // extra sparks layer on PHANTOM warps only - the real boss hits harder
+fx,dlc0/factory/fx_teleporter_beam_factory            // idle pad BEAM for the Lab<->Exchange teleporter (_acc_teleporter.gsc; HB21 lib, verified on disk)
+// Teleporter KINO wind-up sequence FX (_acc_teleporter.gsc, user 2026-07-17) - all stock, on disk (HB21 lib):
+fx,dlc4/genesis/fx_sophia_elec_charge_teleporter      // the CHARGE windup
+fx,dlc1/castle/fx_elec_teleport_flash_lg              // the bright DISCHARGE flash
+fx,dlc5/theater/fx_teleport_flashback_kino            // the Kino arrival "materialize" beam
+// [acc] The Scientist boss body (docs/44 workstream B): Ninjamanny ZC-Ascension labcoat body +
+// the 5 cosmo heads (SetModel+Detach+Attach idiom - the labcoat GIB set is deliberately NOT
+// zoned, the boss sets no_gib). Models install via the manifest ninja pack (Required).
+xmodel,p7_zm_dlchd_cosmo_labcoat_body
+xmodel,p7_zm_dlchd_cosmo_cosmo_head1
+xmodel,p7_zm_dlchd_cosmo_cosmo_head2
+xmodel,p7_zm_dlchd_cosmo_cosmo_head3
+xmodel,p7_zm_dlchd_cosmo_cosmo_head4
+xmodel,p7_zm_dlchd_cosmo_cosmo_head5
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_boss_scientist.gsc
 // Vendored control + driver scripts (REGISTER_SYSTEM registers the AI; _acc_boss_avogadro drives spawns).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_zm_ai_avogadro.csc
@@ -197,6 +248,10 @@ aitype,archetype_zm_mechz_genesis
 // README item 6) - cosmetic, build_map.ps1 already treats it as non-fatal.
 fx,dlc4/genesis/fx_mech_spawn
 fx,dlc4/genesis/fx_elec_trap_body_shock
+// ABYSS soul-defeat floor lights (user 2026-07-12): stock full-bright UN-CULLED omni that casts
+// REAL light on the walls (accPerkGlow index 14, _acc_perk_lights.csc + _acc_abyss_deco spawn_lamp).
+fx,light/fx_light_lantern_factory_zmb
+fx,light/fx_light_candle_ramses   // BRIGHT abyss soul-defeat lamp - clean white NO-SHADOW omni intensity 5000/radius 200 (accPerkGlow index 15; user 2026-07-13 "brighter, light the room more")
 fx,dlc5/tomb/fx_tomb_mech_death
 fx,dlc1/castle/fx_mech_dmg_sparks
 fx,dlc1/castle/fx_mech_dmg_steam
@@ -262,6 +317,9 @@ scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.gsc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_wolf_howl.csc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.gsc
 scriptparsetree,scripts/zm/_zm_weap_elemental_bow_demongate.csc
+// THE CYBERJACK (docs/43 M1, 2026-07-17) - server module (L-STAR chassis; bolts reuse the
+// Triple Take CF/csc, so no .csc twin of its own).
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_cyberjack.gsc
 // [acc] BALLISTIC KNIFE (pmr360 pack over the stock t7 loot asset, 2026-07-11): our override REPLACES the
 // stock 116-byte _zm_weap_ballistic_knife.gsc stub (its zm_patch.csv scriptparsetree line is commented
 // install-side so the linker uses THIS one - see memory stock-override-zm-patch-dedupe). Adds the PaP
@@ -294,6 +352,59 @@ fx,dlc5/zmb_weapon/fx_freezegun_shatter
 fx,dlc5/zmb_weapon/fx_freezegun_shatter_upg
 fx,dlc5/zmb_weapon/fx_freezegun_freeze_torso
 material,mc/c_t8_freezegun_mtl
+// [acc] AW 3D Printer Mystery Box (PLANET pack, 2026-07-12) - THE map's mystery box (stock
+// zbarrier chest deleted from the .map). Lines inlined from the pack's aw_mystery_box.zpkg
+// (no install-side zpkg; everything stays in git). The scriptbundle carries the 4 machine
+// xanims the driver plays via animation::play (explicit xanim lines added belt-and-
+// suspenders); the machine xmodels also pack via the placed .map entities; the holo
+// duplicate-render material + 3 FX are script-referenced (#precache'd in the driver).
+// Driver scripts vendored + [acc]-shimmed at scripts/planet/_aw/. External rip - binary
+// assets gitignored via the manifest (marker source_data\_planet_aw\aw_mysterbox.gdt).
+scriptparsetree,scripts/planet/_aw/_zm_aw_mysterybox.gsc
+scriptparsetree,scripts/planet/_aw/_zm_aw_mysterybox.csc
+scriptbundle,aw_magic_box_bundle
+xmodel,dlc_weapon_mystery_box_01
+xmodel,dlc_weapon_mystery_box_01_static
+xanim,dlc_weapon_mystery_box_01_open
+xanim,dlc_weapon_mystery_box_01_open_idle
+xanim,dlc_weapon_mystery_box_01_close
+xanim,dlc_weapon_mystery_box_01_malfunction
+// [acc] Pre-composed "_full" display meshes for the box weapon cycle (2026-07-16): the Skye
+// CW (t9_) / VG (s4_) worldModels are bare RECEIVERS - mag/stock/barrel are separate
+// worldClipModel/attachWorldModel parts the engine only composes on an EQUIPPED weapon, so the
+// box's raw SetModel showed strip-downs ("RPD tiny", "PPSH/Grav wrong", "Streetsweeper missing
+// a part"). The packs ship complete wm_*_full meshes; acc_map_randomizer::box_display_model
+// swaps them in (AW printer + Paradise Box). Nothing else references them -> explicit lines
+// (GSC #precache does NOT pack assets).
+xmodel,wm_t9_ak47_full
+xmodel,wm_t9_xm4_full
+xmodel,wm_t9_ak74u_full
+xmodel,wm_t9_grav_full
+xmodel,wm_t9_m60_full
+xmodel,wm_t9_rpd_full
+xmodel,wm_t9_streetsweeper_full
+xmodel,wm_s4_ppsh41_drum_full
+// The PARADISE Box (_acc_glitch_altar) still wears the classic p7_zm_der_magic_box mesh -
+// it used to pack via the (now deleted) surface zbarrier chests, so it needs an explicit
+// line or the finale box renders missing (GSC #precache does NOT pack assets).
+xmodel,p7_zm_der_magic_box
+material,mc/dr_fx_holo
+// GOLD wonder-pull holo (user 2026-07-12): dr_fx_holo cloned with the cg02 tint constant
+// swapped cyan->gold (source_data\_planet_aw\acc_aw_holo_gold.gdt); shown when the box
+// prints one of the 5 wonder weapons (clientfield value 2).
+material,mc/dr_fx_holo_gold
+// GREEN knife-to-share holo (user 2026-07-13): dr_fx_holo cloned with the cg02 tint swapped
+// cyan->green (source_data\_planet_aw\acc_aw_holo_green.gdt); shown when a NON-buyer knifes the
+// floating printed gun to share it (clientfield value 3).
+material,mc/dr_fx_holo_green
+// Interact-glow DIM holo (2026-07-17 v4): dr_fx_holo clone with cg02 ("SceneTint") + colorTint
+// scaled x0.35 - the PROVEN ghost-techset color path (gold/green box recolors); scaleRGB/flicker/
+// colorMap edits are inert-or-unverified on this techset (techsetdef dig, _acc_interact_glow.csc).
+// Pulse = SERVER blinks the CF (.gsc). source_data\_planet_aw\acc_aw_holo_dim.gdt.
+material,mc/acc_dr_fx_holo_dim
+fx,_custom/atlas/aw_magicbox_open
+fx,_custom/atlas/aw_idle_box_fx
+fx,_custom/atlas/aw_idle_box_off_fx
 include,hb21_elemental_bows
 // ROGUE PROTECTOR round-20 hostile boss driver (user 2026-07-02; was the round-1 ally test).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_civil_protector.gsc
@@ -391,6 +502,19 @@ fx,electric/fx_elec_sparks_burst_xsm_omni_blue_os
 fx,light/fx_light_flashing_red_factory_zmb
 fx,light/fx_glow_blink_red_5
 
+// Ambient haze + steam vents (_acc_atmosphere::apply_fx level._effect acc_haze/acc_steam) AND every
+// Abyss hazard telegraph that reuses them (_acc_abyss_hazards: the L3 spore-pod + L4 vent HISS TELLS).
+// Stock ZM .efx, sources present in <tools>\share\raw\fx\{dirt,steam}\ (verified 2026-07-15).
+// A GSC #precache + PlayFX is NOT enough on its own - these need the explicit line like every other
+// stock FX above. PROOF (console_mp.log, the runtime oracle): with no zone line both logged
+//   Error: Could not find fx "dirt/fx_dust_linger_int_sector".
+//   Error: Could not find fx "steam/fx_steam_leak_md_factory_zmb".
+// while EVERY zone-listed stock FX here logs zero such errors. They are NOT free from zm_levelcommon.
+// fx_at() only guards isdefined(level._effect[key]) - which stays TRUE - so the PlayFX silently
+// no-op'd: the hazard tells rendered nothing and players ate untelegraphed damage (docs/30 §Hazards).
+fx,dirt/fx_dust_linger_int_sector
+fx,steam/fx_steam_leak_md_factory_zmb
+
 // Perk/PaP power-on glow FX (_acc_perk_lights.csc PlayFX's these client-side, one per perk
 // colour). Recoloured clones of the proven green power-up aura, generated by
 // tools/gen_perk_glow_fx.js into <tools>\share\raw\fx\acc\light\ (NOT in git - regenerate
@@ -475,11 +599,12 @@ xmodel,c_t8_zmb_mob_zombie_head4
 //   p7_fxanim_zm_stal_ray_gun_ball_mod = Data Shard drop (_acc_data_shards.gsc)
 // Boss Cyberware items - one distinct model each (_acc_boss_items build_item_pool).
 // As of the 2026-07-08 T7-carve swap EVERY item model is packed via an explicit line
-// (this block + the T7-carve block below) - the old "Repair Kit = runtime-loaded icon,
-// no line needed" note is OBSOLETE (it now packs p7_spl_first_aid_box below). Only
-// Nuclear Energy still rides a runtime-loaded stock orb (p7_zm_power_up_nuke, kept on
-// purpose - no line needed). (zombie_zapper_handle + p6_power_lever were tried and
-// FAILED to link - "xmodel missing", not in ZM-common fastfiles - so they were swapped.)
+// (this block + the T7-carve blocks below) - the old "Repair Kit = runtime-loaded icon,
+// no line needed" note is OBSOLETE (it now packs p7_spl_first_aid_box below), and as of
+// the 2026-07-15 items2 carve NO item rides a runtime-loaded stock orb anymore (the
+// nuke/max-ammo orbs + ray-gun ball placeholders are all swapped for real props).
+// (zombie_zapper_handle + p6_power_lever were tried and FAILED to link - "xmodel
+// missing", not in ZM-common fastfiles - so they were swapped.)
 //   nitrous_tank=Gas Tank, octobomb=Li'l Arnie, teddybear=Teddy Bear,
 //   rocket_shield=Rocket Shield, monkey_bomb=Monkey Bomb
 xmodel,p7_fxanim_zm_stal_ray_gun_ball_mod
@@ -503,11 +628,29 @@ xmodel,p7_ban_debris_car_carburetor
 // source_data\p7_zm_ctl_battery_ceramic.gdt (complete: xmodel + materials + images +
 // model_export\black_ops_3\p7_zm_ctl_battery_ceramic\ bin on disk).
 xmodel,p7_zm_ctl_battery_ceramic
+// Plasma Generator / High Caliber Rounds / Warhead Bomber REAL pickup models (T7 Assets
+// V2.7 carve 2026-07-15, install-side slice source_data\acc_t7_props_items2.gdt; bins
+// under model_export\_midgetblaster\props\{p7_zm_castle,p7_zm_stalingrad}\ - both map
+// dirs already ride the manifest's deco/stations slice paths):
+//   deathray_sphere_coil=Plasma Generator (was the ray-gun ball, which stays zone-listed
+//   above as the Data Shard model), ammo_flak_bullet_01=High Caliber Rounds (was the
+//   runtime max-ammo orb), amws_missile=Warhead Bomber (was the runtime nuke orb).
+xmodel,p7_zm_ctl_ammo_flak_bullet_01
+xmodel,p7_zm_ctl_deathray_sphere_coil
+xmodel,projectile_t7_drone_amws_missile
 // Berzerker (item 11, 2026-07-11): the Wolf Bow death skull - ALREADY registered install-side by
 // the HB21 bow dependency packs (source_data\rune_prison_death_skull.gdt +
 // model_export\black_ops_3\rune_prison_death_skull\ bin on disk) - no new carve needed.
 // Small prop (9.7x6.7x8.2u, base pivot) -> ships x4 scale like the horseshoe/vial/carburetor.
 xmodel,rune_prison_death_skull
+// Hive Node (item 14, MODEL SWAP 2026-07-17): the Zetsubou bio-specimen EGG/pod - an organic
+// "hive node" read that's visually DISTINCT from Repair Kit's white med box (they shared
+// p7_spl_first_aid_box before - "same as repair kit and very confusing", user). NO new carve:
+// the _egg is ALREADY carved+installed in the abyss-deco slice (source_data\acc_t7_props_deco.gdt
+// + model_export\_midgetblaster\props\p7_zm_island\), and it's STATIC-rigid (tag_origin only, no
+// j_ joint) so it converts as a rigid prop - unlike the SKINNED specimen_container_mutant vats
+// that fail (see the deco block below, line ~700). 51x54x60u, base pivot -> model_z 2, SetScale 0.7 (~42u).
+xmodel,p7_zm_isl_specimen_container_egg
 // Trench JUKEBOX machine (2026-07-09, replaces the 3 teddy bears): IW cp_town_jukebox from the
 // eMoX "Jukebox Menu" pack - MODEL-ONLY lift (install-side source_data\iw_jukebox.gdt +
 // model_export\infinite_warfare\**; the pack's LUI menu/GSC/sounds are NOT installed).
@@ -598,8 +741,79 @@ xmodel,p7_ris_generator_lg_01_blue            // Reactor Surge Arm Plinth (Rise 
 xmodel,p7_con_cargo_train_armory_cabinet      // Armory weapon-rack station (Conduit armory cabinet 138x18x48)
 xmodel,p7_zm_vending_wonder                   // Armory mega-bottle exchange (Wonderfizz chassis - STOCK, packs from gdtDB, probe-verified)
 xmodel,p7_out_monitor_atm                     // Transfer Vault stations x4 (ATM totem 37x34x103; spawn -80 to the -240 floor)
-xmodel,p7_zm_sha_crate_ammo_closed_sml_stack_full // Ammo Crate (Shangri-La ammo-crate stack 78x20x21)
+xmodel,west_ammo_crate_model                  // Ammo Crate ([West] Ammo Crates pack, ZeRoY S4 crate 29x33x25 - replaced the Shangri-La stack 2026-07-12)
 xmodel,p7_zm_sta_computer_tower_01            // Data Cache (Gorod computer tower 24x30x72; origin mesh-centered -> +36 spawn lift)
+// TELEPORTER pads (_acc_teleporter.gsc): the ASSEMBLED Der Eisendrache teleporter (Program115-style,
+// user 2026-07-18) - 4 stock p7_zm_der_teleporter fragment models tiled radially + blue/red wire
+// pieces + glass dome, all SetScale 2.5 in GSC. Stock t7_props_zombie models (pack from gdtDB); no
+// Program115 asset ships. (The mech-spawn discs stay zoned above for the abyss fault-pad deco.)
+xmodel,p7_zm_der_teleporter
+xmodel,p7_zm_der_teleporter_pad_wires_blue
+xmodel,p7_zm_der_teleporter_pad_wires_red
+xmodel,p7_zm_der_teleporter_pad_glass
+// INFECTED DESCENT abyss deco (docs/30 enhancement, 2026-07-12): _acc_abyss_deco.gsc
+// Phase-0 L4 "Specimen Vault" readability probe. Carve slice: source_data\
+// acc_t7_props_deco.gdt + model_export\_midgetblaster\props\p7_zm_island\* (the _egg
+// variant is carved+installed but not zoned until Phase 2 uses it). TRAP (2026-07-12):
+// the mutant vats (specimen_container_mutant/_2/_3) are SKINNED (junk j_ joints in the
+// Greyhound bins) -> linker "failed to convert" as rigid carves; STATIC variants only.
+xmodel,p7_zm_isl_specimen_container_lg        // Zetsubou LARGE specimen tank (63x65x120, origin at base; glass+silhouette+interior; clip in Phase 3)
+xmodel,p7_zm_ctl_light_cage_emissive          // Castle cage lamp (3.6x3.6x7.6) - the SOUL-DEFEAT dim wall lights (_acc_abyss_deco::floor_lights_on + set_glow 13 dim amber)
+// Phase-2 deco pass (2026-07-12; TRIMMED 2026-07-16 - build-size cleanup): one line per model
+// _acc_abyss_deco ACTUALLY spawns across L2-L5 (46 models, acc_t7_props_deco.gdt + the zod glyph
+// from its standalone GDT). 39 sibling/variant models were carved+zoned up front but NEVER placed
+// by spawn_l2..l5() - they packed dead texture+geometry into the .xpak (the 4.1->7.1 GB build-size
+// audit, docs/30), so they were removed. The full carve LIBRARY is still installed (the GDT is
+// untouched); to place one in a later phase, add its spawn_prop() call in _acc_abyss_deco.gsc AND
+// re-add its xmodel line here - git history has the former full list (commit that trimmed this).
+// Oversize set-pieces (apothicon statue/head, apoth shells, giant chamber tubes) remain carved
+// but NOT zoned - measured arena-scale.
+xmodel,p7_con_containment_vessel
+xmodel,p7_con_containment_vessel_cylinder
+xmodel,p7_con_containment_vessel_decor
+xmodel,p7_cry_cryogen_pod_frosted
+xmodel,p7_cry_interrogation_console_01_no_mount_green
+xmodel,p7_cry_interrogation_console_02
+xmodel,p7_cry_warning_light
+xmodel,p7_foliage_vines_hanging_ledge_192_long_dead
+xmodel,p7_out_mech_spawn_pad_light_green
+xmodel,p7_out_mech_spawn_pad_light_red
+xmodel,p7_ram_snake_column_01
+xmodel,p7_ram_snake_corridor_arch_01
+xmodel,p7_ram_snake_egg_niche_base
+xmodel,p7_ram_snake_egg_niche_nest
+xmodel,p7_ram_snake_sconce_left
+xmodel,p7_ram_snake_sconce_right
+xmodel,p7_ram_snake_fountain_01_jade
+xmodel,p7_ram_statue_snake_base_jade
+xmodel,p7_ris_generator_lg_01
+xmodel,p7_zm_asc_light_cage_warning_red
+xmodel,p7_zm_asc_wire_bundle_straight_256
+xmodel,p7_zm_gen_apoth_int_boils_01_128x128a_emissive
+xmodel,p7_zm_gen_apoth_int_boils_01_64x64a_backlit
+xmodel,p7_zm_gen_apoth_int_intestine_pile_01
+xmodel,p7_zm_gen_apoth_int_mem_hanging_01
+xmodel,p7_zm_gen_apoth_int_mem_hanging_03
+xmodel,p7_zm_gen_apoth_int_mem_hanging_05
+xmodel,p7_zm_gen_apoth_int_membrane_01
+xmodel,p7_zm_gen_apoth_int_membrane_02
+xmodel,p7_zm_gen_apoth_int_nerve_vine_01
+xmodel,p7_zm_gen_apoth_int_nerve_vine_02
+xmodel,p7_zm_gen_foliage_tree_twisted_root_lrg_01_lod
+xmodel,p7_zm_gen_foliage_tree_twisted_root_lrg_02_lod
+xmodel,p7_zm_gen_rune_2_purple
+xmodel,p7_zm_gen_rune_4_purple
+xmodel,p7_zm_gen_rune_7_purple
+xmodel,p7_zm_isl_cage_trap
+xmodel,p7_zm_isl_foliage_mutated_root_wall_01
+xmodel,p7_zm_isl_foliage_mutated_root_wall_02
+xmodel,p7_zm_isl_signage_hanging_01_specimen_01
+xmodel,p7_zm_isl_signage_hanging_01_specimen_03
+xmodel,p7_zm_isl_spore_rock
+xmodel,p7_zm_ori_monolith_base_crystal_01
+xmodel,p7_zm_ori_monolith_base_crystal_02
+xmodel,p7_zm_ver_powerbreaker
+xmodel,p7_zm_zod_symbol_96_apothicon_purple_emissive
 // Cymbal Monkey (cymbal_monkey_zm) + Octobomb / Li'l Arnie (octobomb_zm) are
 // granted by boss items. Both weapon DEFS already ship in zm_levelcommon (every
 // usermap loads it at runtime - assetlist lines 6175 + 6225), so we do NOT add a
@@ -619,6 +833,9 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lui.csc
 // by tools/build_lb_lui.js (hksc bytecode chunks embedded as \ddd strings - THE
 // WORKING RECIPE); edit tools/lui_chunks/, never the generated files.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_leaderboard.gsc
+// Weapon-usage tracking (docs/41): per-player held-time sampler -> anonymous gun blob
+// in the leaderboard POST. Dev-only transport-probe menu is a plain-source rawfile.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_usage.gsc
 // Client half of the perk/PaP power-on glow (REGISTER_SYSTEM mirror + PlayFX render).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_lights.csc
 // Client half of the Phantom holographic glow aura (accPhantomAura clientfield -> PlayFXOnTag).
@@ -702,8 +919,41 @@ image,i_acc_oc_tier9
 image,i_acc_oc_tier10
 image,i_acc_badge_mule
 image,i_acc_badge_turbo
-image,i_acc_badge_nuclear
+image,i_acc_badge_plasma
 image,i_acc_badge_berzerker
+image,i_acc_badge_high_caliber
+image,i_acc_badge_warhead
+// Implant HUD art (user pack cyber_city_implant_hud, 2026-07-12; docs/09): 3 slot
+// cards (1024x256, baked IMPLANT N labels + EMPTY state) + 12 emblem chips (256x256,
+// alpha hexagons) overlaid on the card's right-side window when a slot is filled.
+// Drawn by CoD.AccImplantRow (acc_hud.lua) + the pause-menu panel (AetheriumStartMenu.lua),
+// both fed by the existing acc_implants toplayer clientfield - no new pool cost.
+image,i_acc_implant_slot1
+image,i_acc_implant_slot2
+image,i_acc_implant_slot3
+image,i_acc_emblem_gas_tank
+image,i_acc_emblem_loot_stash
+image,i_acc_emblem_repair_kit
+image,i_acc_emblem_rocket_shield
+image,i_acc_emblem_phase_serum
+image,i_acc_emblem_boots
+image,i_acc_emblem_lucky_horseshoe
+image,i_acc_emblem_turbocharger
+image,i_acc_emblem_plasma_generator
+image,i_acc_emblem_battery
+image,i_acc_emblem_berzerker
+image,i_acc_emblem_high_caliber
+image,i_acc_emblem_warhead_bomber
+image,i_acc_emblem_hive_node
+image,i_acc_emblem_dark_magic
+// V2 pack (2026-07-12): _dim = unequipped-state cards (35% desat / 60% bright / 50% alpha BAKED
+// IN - state change is a pure image swap, NO code alpha on top or it compounds to 25%);
+// holding = the 4th "carrying an implant" card (same emblem-window geometry as the slots).
+image,i_acc_implant_slot1_dim
+image,i_acc_implant_slot2_dim
+image,i_acc_implant_slot3_dim
+image,i_acc_implant_holding
+image,i_acc_implant_holding_dim
 
 // ============================================================================
 // AETHERIUM HUD (Owen-C137 BO7-remake kit, adopted 2026-07-03; docs/22, docs/49)
@@ -1024,26 +1274,137 @@ weapon,apex_alternator_zm
 weapon,apex_alternator_up_zm
 weapon,apex_prowler_zm
 weapon,apex_prowler_up_zm
-// Triple Take (Apex 3-bolt ENERGY sniper, user 2026-07-11): REPLACES the CW M16 in the #19/MID
-// marksman slot. shotCount 3 = the horizontal tri-bolt; is_energy_weapon -> Nuclear Energy +15%
-// lands its per-trigger at/above the MORS per-shot. Base block prepped in zeroy/APEX_BO3.gdt +
-// _up (legendary_02 skin) in acc_apex_up.gdt by tools/prep_apex_tripletake_gdt.js; fire sounds
-// retargeted to the pack's own wpn_apex_tripletake_fire_* (the shipped wpn_bo4_paladin_* refs
-// exist nowhere = silent-gun trap; alias rows hand-fixed into sound/aliases/acc_apex_weapons.csv).
+// THE CYBERJACK (docs/43, 2026-07-17): the unused pack L-STAR as the signature-wonder
+// chassis (displayName renamed in APEX_BO3.gdt). QUEST-ONLY - never a box entry; no _up
+// (in-place PaP tiers, the Fire Bow pattern). NOTE (sound-bank rebuild trigger, 2026-07-17):
+// the linker only regenerates zone/snd/*.sabs when THIS ZONE FILE changes - alias-CSV or
+// szc edits alone are silently skipped; bump this zone (any content change) to force it.
+// (bump 2: 2026-07-17 lstar fire aliases -> one-shot; the pack never shipped auto_loop/auto_stop/loop_lfe wavs)
+// (bump 3: 2026-07-17 v4.5 - whiter bolt efx regen + legendary_01 skin swap; zone bump = fx/sound cache invalidation)
+// (bump 4: 2026-07-18 jukebox songs 4-6 banked - acc_ee_song_4/5/6 alias rows in acc_audio.csv need a bank regen)
+// (bump 5: 2026-07-18 same day - song 7 "The Gift" (acc_ee_song_7) + the 115 Remaster wav replacing acc\music\115.wav (+0.83dB reboost applied, fresh .preamp-orig))
+weapon,apex_lstar_zm
+// THE CYBERJACK perk twins (user 2026-07-17 "create all the twins with no flaws"): BASE-ONLY
+// (no _up - in-place PaP like the Fire Bow), the full set recoil50 (Deadshot Mega) /
+// fastreload (Speed Cola Mega) / combo. Blocks in acc_weapon_variants.gdt; _zm-last runtime
+// names (apex trap) -> runtime apex_lstar_acc_recoil50 etc.
+weaponfull,apex_lstar_acc_recoil50_zm
+weaponfull,apex_lstar_acc_fastreload_zm
+weaponfull,apex_lstar_acc_recoil50_fastreload_zm
+// Triple Take (Apex ENERGY sniper, user 2026-07-11; replaced the CW M16 in the #19/MID slot).
+// v2 VOLLEY REWORK (user 2026-07-16): the def is a *projectileweapon.gdf* grafted onto the
+// Havoc's chassis (tools/oneshots/prep_apex_tripletake_gdt.js) - fast flat plasma bolts
+// (projSpeed 3500, direct-hit dmg, no falloff/penetration), fireTime 0.1728 base /
+// 0.13824 PaP, clip 9/15, reserve 117/180. Bolt visual = 1.25x-size acc CLONES of the
+// Blast-O-Matic's glowing DOA geotrail (share/raw/fx/acc/acc_ttk_geotrail_{blue,red}.efx,
+// derived by the prep script - sizeGraph scalars x1.25; the owens originals stay untouched)
+// + its impact splash; all pack transitively via the weapon refs (round-2/4 visibility passes).
+// A trigger pull = 3 bolts / 3 rounds: 1 native center bolt + 2 script side bolts + the <3
+// fire gate in scripts/zm/zm_abandoned_cyber_city/_acc_tripletake.gsc. is_energy_weapon ->
+// Plasma Generator +10%. Fire sounds acc_ttk_energy_fire_* (the shipped wpn_bo4_paladin_*
+// refs exist nowhere = silent-gun trap; alias rows in sound/aliases/acc_apex_weapons.csv).
 weapon,apex_tripletake_zm
 weapon,apex_tripletake_up_zm
+// Triple Take bolt-visual geotrails (1.5x acc clones of the Blast-O-Matic orb, derived by the
+// prep script into share/raw/fx/acc/). Explicit lines (perk-glow precedent): the weapon-def
+// projTrailEffect refs that also pull these are INERT at runtime (the def fires hitscan) and
+// may be cleaned up someday - the _acc_tripletake.csc client_fx precache must never dangle.
+fx,acc/acc_ttk_geotrail_blue
+fx,acc/acc_ttk_geotrail_red
+// THE CYBERJACK shot bolt (v4.4, 2026-07-17): the blue geotrail recolored violet-white to
+// match the DE lightning palette (share/raw/fx/acc/acc_cj_bolt_violet.efx; CF value 3 on
+// the ttk 3-bit scriptmover field). The DE orb fx was a dead end for a MOVING projectile -
+// fx_bow_storm_orb_zmb emits its crackle in WORLD space, so the visual hung at the muzzle.
+fx,acc/acc_cj_bolt_violet
+// THE CYBERJACK PaP trail (v5.12, 2026-07-17): a richer-violet clone (RGB 0.75/0.42/1.0 vs the
+// base 0.85/0.62/1.0) shown when the gun is Pack-a-Punched (tier >= 1; CF value 4). Repo-vendored
+// under share/raw/fx/_custom/acc (portable, unlike the deployed-only base bolt). User: "bullet
+// trails should be more purple when papped, just a bit more."
+fx,_custom/acc/acc_cj_bolt_violet_pap
+// (v5.3: the projectile ball MODEL was removed per user - the light-purple trail IS the
+// projectile now; the 3 fxuse sphere xmodel lines were dropped with it.)
 // weapon,t9_m16      // M16 RETIRED 2026-07-11 (user: replaced by the Triple Take) - uncomment to restore (+ CSV/GSC rosters/twins)
 // weapon,t9_m16_up
-// HAVOC wind-up is ENGINE-NATIVE only (v3, user 2026-07-06): fireDelay 1.25 + riser + shake anim in the
-// base/_up defs - re-winds every trigger pull (the actual Apex Havoc). NO charge-twin defs are packed:
-// both scripted persistence attempts (quarter-steps, 2s spool twin) swapped defs on a HELD weapon, which
-// visibly yanks the viewmodel every burst - see _acc_havoc_charge.gsc (dead file, not compiled) + CHANGELOG.
+// HAVOC wind-up is ENGINE-NATIVE for the FIRE FEEL (v3, user 2026-07-06): fireDelay 1.25 + riser + shake
+// anim in the base/_up defs - re-winds every trigger pull (the actual Apex Havoc). NO charge-TWIN weapon
+// defs are packed: both scripted def-swap persistence attempts (quarter-steps, 2s spool twin) yanked the
+// viewmodel on a HELD weapon. But _acc_havoc_charge.gsc is NOT dead - it is the LIVE v5 script-owned charge
+// TIMER (zone scriptparsetree above; #used + init'd in _acc_main.gsc; the gun-badge + Turbocharger twin
+// axes read its self.acc_havoc_gated). Do NOT delete it; only the charge-twin *weapon defs* are unpacked.
 // Apex ammo-counter UI3D meshes - REQUIRED by the pack Readme ("Weapon names + LUA for Zone Source").
 // Every apex gun attaches one via attachViewModel1 (alternator/peacekeeper=glass_ammo, prowler=glass_ammo_bigger).
 // (The Readme's two AmmocounterZM *.lua rawfiles are the optional WIP ammo-counter UI - intentionally NOT shipped.)
 xmodel,glass_ammo
 xmodel,glass_ammo_smaller
 xmodel,glass_ammo_bigger
+// SURFACE DECO - Bus Station TRANSIT-TERMINAL revamp (_acc_surface_deco.gsc, 2026-07-16 redesign).
+// BO2 TranZit prop pack (p7_zm_tra_*); install model_export	7_props_dlczmdlc5zm_transit* + per-prop
+// GDTs (manifest "BO2 TranZit props" + CREDITS row). 40 distinct models: ticket office, departure board,
+// seating concourse, boarding queues/bays, baggage claim, restroom, concession, maintenance. EVERY floor
+// prop gets a worldspawn clip (add_prop_clips.js "BUS STATION SURFACE").
+xmodel,p7_zm_tra_ashtray_tall
+xmodel,p7_zm_tra_bench_wood
+xmodel,p7_zm_tra_booth_chair
+xmodel,p7_zm_tra_cash_register
+xmodel,p7_zm_tra_coffee_maker_full
+xmodel,p7_zm_tra_debris_rubble_02
+xmodel,p7_zm_tra_fence_quarantine
+xmodel,p7_zm_tra_frame_window_wood
+xmodel,p7_zm_tra_light_cage_ceiling
+xmodel,p7_zm_tra_light_sconce_motel_lit
+xmodel,p7_zm_tra_mirror_wall_dmg
+xmodel,p7_zm_tra_monitor_support_02
+xmodel,p7_zm_tra_payphone_wall
+xmodel,p7_zm_tra_pneumatic_dolly
+xmodel,p7_zm_tra_post_stanchion
+xmodel,p7_zm_tra_power_panel
+xmodel,p7_zm_tra_shelve_oilrack
+xmodel,p7_zm_tra_sign_metal_bank
+xmodel,p7_zm_tra_sign_neon_bar
+xmodel,p7_zm_tra_sign_please_wait
+xmodel,p7_zm_tra_sink_bathroom
+xmodel,p7_zm_tra_sink_standing
+xmodel,p7_zm_tra_stepladder_lrg
+xmodel,p7_zm_tra_stool_counter
+xmodel,p7_zm_tra_stove_kitchen
+xmodel,p7_zm_tra_street_lamp_full
+xmodel,p7_zm_tra_suitcase_lrg
+xmodel,p7_zm_tra_suitcase_med
+xmodel,p7_zm_tra_suitcase_med_clothes
+xmodel,p7_zm_tra_table_kitchen_long
+xmodel,p7_zm_tra_table_rustic_wood_sml
+xmodel,p7_zm_tra_table_wood_lrg_broken
+xmodel,p7_zm_tra_traffic_street_barrier
+xmodel,p7_zm_tra_traffic_street_cone
+xmodel,p7_zm_tra_tv_vintage_on
+xmodel,p7_zm_tra_urinal_bathroom
+xmodel,p7_zm_tra_vault_bank_door
+xmodel,p7_zm_tra_vault_bank_frame
+xmodel,p7_zm_tra_window_teller
+// SURFACE ZONES pass 2 (2026-07-16): Alley/Market/Vault/Helipad TranZit models (Vault also reuses
+// the already-zoned T7 station tech props). _acc_surface_deco.gsc spawn_alley/market/vault/helipad().
+xmodel,p7_zm_tra_barrel_wood
+xmodel,p7_zm_tra_planter_stone
+xmodel,p7_zm_tra_bike_destroyed
+xmodel,p7_zm_tra_cage_animal_med
+xmodel,p7_zm_tra_couch_floral
+xmodel,p7_zm_tra_counter_kitchen_cabinet
+xmodel,p7_zm_tra_counter_kitchen_shelf
+xmodel,p7_zm_tra_counter_kitchen_table
+xmodel,p7_zm_tra_debris_rubble_pile_01
+xmodel,p7_zm_tra_fence_quarantine_tarp_01
+xmodel,p7_zm_tra_gas_pump
+xmodel,p7_zm_tra_mannequin_full
+xmodel,p7_zm_tra_outhouse
+xmodel,p7_zm_tra_pipes_garage_1x128
+xmodel,p7_zm_tra_pipes_garage_1x256
+xmodel,p7_zm_tra_pipes_metal_hold
+xmodel,p7_zm_tra_radiator_vintage
+xmodel,p7_zm_tra_sign_biohazard
+xmodel,p7_zm_tra_sign_building_gas
+xmodel,p7_zm_tra_tank_chemical
+xmodel,p7_zm_tra_water_tower
+xmodel,p7_zm_tra_wheelbarrow_full
 // China Lake (BO1 t5_china_lake) = pump-action GRENADE LAUNCHER (user 2026-07-05). EXEMPT explosive special
 // like the Mahem (projectileweapon, NO twins); empty altWeapon so no _zm_zm Com_ERROR; is_aat_exempt CSV
 // flag -> needs make_china_lake_pap_visible_to_tier3. Stock rocket explosion FX (fx_exp_rocket_default_sm).

@@ -41,8 +41,14 @@
 #define ACC_COOP_MAX_PLAYERS 4
 #define ACC_COOP_REGULAR_HP_PER_EXTRA 0.2   // regular zombie HP +20%/extra player (user 2026-06-24): 1p 1.0 / 2p 1.2 / 3p 1.4 / 4p 1.6. Was 1.0 (+100%/extra = 2/3/4x - too tanky).
 #define ACC_COOP_SPECIAL_HP_PER_EXTRA 0.5
-#define ACC_COOP_SPAWN_PER_EXTRA 0.3         // zombie COUNT +30%/extra player, VS SOLO (user 2026-06-24, re-added; had been removed earlier same day): 1p 1.0 / 2p 1.3 / 3p 1.6 / 4p 1.9. Applied by acc_coop_max_zombie_override on the solo-equivalent count.
-#define ACC_COOP_BOSS_HP_LOG_K 0.5    // boss (Phantom/Brutus) log-HP strength: 1 + k*log2(n); k=0.5 -> +50% per doubling (1/1.5/1.79/2.0). User 2026-06-24: was LINEAR xN.
+#define ACC_COOP_ELITE_COUNT_LOG_K 0.5       // elite COUNT log-player strength: 1 + k*log2(n); k=0.5 -> 1p 1.0 / 2p 1.5 / 3p 1.79 / 4p 2.0 (user 2026-07-15; elite counts were PLAYER-BLIND before). Live dvar acc_elite_count_log_k.
+#define ACC_COOP_SPAWN_PER_EXTRA 0.3        // zombie COUNT +30%/extra player, VS SOLO (user 2026-06-24, re-added; had been removed earlier same day): 1p 1.0 / 2p 1.3 / 3p 1.6 / 4p 1.9. Applied by acc_coop_max_zombie_override on the solo-equivalent count.
+// BOSS co-op HP, EXPLICIT PER-COUNT TABLE (user 2026-07-15: 1.00 / 1.70 / 2.30 / 2.60). Replaced the
+// 1 + k*log2(n) curve (ACC_COOP_BOSS_HP_LOG_K 0.5 -> 1/1.5/1.79/2.0, user 2026-06-24) - see
+// boss_hp_player_mult() for WHY no k can express these numbers. Solo is not listed: it is always 1.0.
+#define ACC_COOP_BOSS_HP_2P 1.7   // +70% vs solo
+#define ACC_COOP_BOSS_HP_3P 2.3   // +60% over 2p
+#define ACC_COOP_BOSS_HP_4P 2.6   // +30% over 3p (curve decelerates - see boss_hp_player_mult)
 
 #namespace acc_coop_scaling;
 
@@ -90,7 +96,7 @@ function init()
 // +100/round through 9, +10% compounding from round 10; var defaults
 // _zm.gsc:1209-1211). The full doc multiplier is therefore the delta we add.
 
-// Regular zombies: 1p 1.0 / 2p 2.0 / 3p 3.0 / 4p 4.0 (of the solo value).
+// Regular zombies: 1p 1.0 / 2p 1.2 / 3p 1.4 / 4p 1.6 (of the solo value; +20%/extra player).
 function regular_hp_mult()
 {
     return 1.0 + ( ACC_COOP_REGULAR_HP_PER_EXTRA * ( player_count() - 1 ) );
@@ -105,14 +111,56 @@ function special_hp_mult()
     return 1.0 + ( ACC_COOP_SPECIAL_HP_PER_EXTRA * ( player_count() - 1 ) );
 }
 
-// BOSSES (Phantom / Brutus) - LOGARITHMIC player scaling (user 2026-06-24: the old
-// LINEAR x-player-count made 4p HP 4x = "crazy" tanky). multiplier = 1 + k * log2(n),
-// k = acc_boss_coop_hp_log_k (default ACC_COOP_BOSS_HP_LOG_K=0.5) -> each DOUBLING of
-// players adds 50% HP, NOT a flat xN:  1p 1.00 / 2p 1.50 / 3p 1.79 / 4p 2.00 (vs linear
-// 1/2/3/4). Solo unchanged. GSC has no log builtin and player_count() clamps to 1..4, so
-// log2(n) is a switch over the only valid counts. Apply on the SOLO boss baseline (the
-// absolute boss number), like special_hp_mult. Used by _acc_boss (Brutus) + _acc_boss_phantom.
+// BOSSES - EXPLICIT PER-COUNT TABLE (user 2026-07-15): 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60.
+// Consumed by EVERY boss (Brutus, Phantom, Rogue Protector, Avogadro, Panzer + the Paradise mini-boss)
+// - this one function is the single co-op boss-HP authority, so retuning it retunes all six.
+//
+// WHY A TABLE, NOT A CURVE: this REPLACED 1 + k*log2(n) (k = 0.5 -> 1/1.5/1.79/2.0, user 2026-06-24).
+// The requested numbers are NOT logarithmic and NO k reproduces them - fitting 2p = 1.70 forces k = 0.70,
+// which then yields 2.11 at 3p and 2.40 at 4p, not 2.30/2.60. Since player_count() clamps to 1..4 there
+// are only ever three values to state, so a table is the honest shape; a curve here would have to LIE
+// about at least one player count. (The old code already hardcoded a log2 switch for the same reason -
+// GSC has no log builtin - so this is strictly less indirection, not more.)
+//
+// The 2026-06-24 rationale STILL HOLDS and this still honors it: the old LINEAR xN made 4p "crazy" tanky,
+// and this curve remains far under linear (2.60 vs 4.00 at 4p) and still DECELERATES per added player
+// (+0.70 / +0.60 / +0.30) because 4p is not 4x the DPS. It is simply tuned tankier than the old log.
+//
+// Every value is a LIVE dvar (acc_boss_coop_hp_2p/_3p/_4p) - retune mid-session, no rebuild. Solo has no
+// dvar: it is the 1.0 baseline by definition. Apply on the SOLO boss baseline (the absolute boss number),
+// like special_hp_mult - never on a health that already carries a co-op mult.
 function boss_hp_player_mult()
+{
+    n = player_count(); // already clamped 1..ACC_COOP_MAX_PLAYERS
+    switch ( n )
+    {
+        case 2:  m = getdvarfloat( "acc_boss_coop_hp_2p", ACC_COOP_BOSS_HP_2P ); break;
+        case 3:  m = getdvarfloat( "acc_boss_coop_hp_3p", ACC_COOP_BOSS_HP_3P ); break;
+        case 4:  m = getdvarfloat( "acc_boss_coop_hp_4p", ACC_COOP_BOSS_HP_4P ); break;
+        default: m = 1.0; break; // 1p (or any out-of-range) -> the solo baseline, never scaled
+    }
+    if ( m < 1.0 ) m = 1.0; // a bad slider must never make a co-op boss WEAKER than its solo self
+    return m;
+}
+
+// ELITE/SPECIAL *COUNT* per-player multiplier (user 2026-07-15) - LOGARITHMIC, like the bosses' HP
+// used to be: 1 + k*log2(n), k = acc_elite_count_log_k (ACC_COOP_ELITE_COUNT_LOG_K 0.5) ->
+// 1p 1.00 / 2p 1.50 / 3p 1.79 / 4p 2.00. Consumed by BOTH elite count curves:
+// _acc_elites::elite_quota_for_round (Shielded) and _acc_boss_glitch::glitch_count_for_round.
+//
+// Before this, elite counts were PLAYER-BLIND: a 4p lobby saw the exact same number of Shielded and
+// Glitch Stalkers as a solo run, while the regular horde grew +30%/player (spawn_rate_mult). Elites
+// were therefore silently DILUTED in co-op - a shrinking share of the wave as the lobby grew.
+//
+// WHY LOG AND NOT LINEAR: elites are the expensive actors. Both count curves are also log-in-ROUND
+// (see either module), and the two logs COMPOUND - at 4p this doubles the round term, so the round
+// term has to stay flat late or the pair overruns ACC_AI_LIMIT (50). Concretely, the REJECTED design
+// (linear-in-round counts x this mult) produced 78 elites at r40 4p: past the cap, so the wave would
+// have been elites-only with normal zombies starved out of the budget entirely.
+//
+// player_count() clamps 1..4, so log2(n) is a 3-literal switch (no acc_utility::acc_log2 needed here -
+// that exists for the UNBOUNDED round term). Solo is 1.0 by definition: never scaled.
+function elite_count_player_mult()
 {
     n = player_count(); // already clamped 1..ACC_COOP_MAX_PLAYERS
     switch ( n )
@@ -122,7 +170,8 @@ function boss_hp_player_mult()
         case 4:  l2 = 2.0;   break;
         default: l2 = 0.0;   break; // 1p (or any out-of-range) -> 1.0x
     }
-    k = getdvarfloat( "acc_boss_coop_hp_log_k", ACC_COOP_BOSS_HP_LOG_K );
+    k = getdvarfloat( "acc_elite_count_log_k", ACC_COOP_ELITE_COUNT_LOG_K );
+    if ( k < 0 ) k = 0; // a negative k would make co-op spawn FEWER elites than solo
     return 1.0 + ( k * l2 );
 }
 

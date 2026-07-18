@@ -228,13 +228,13 @@ function safe_sn( t )
     return "<none>";
 }
 
-// Diagnostic: always to console_mp.log; on-screen only when acc_perk_lights_debug 1 (default
-// OFF now that the colours are locked - flip it on to re-read the live specialty -> index map
-// + PaP detection without a rebuild).
+// Diagnostic: always to console_mp.log; on-screen only in a dev build (rides level.acc_dev - the
+// acc_perk_lights_debug dvar was removed 2026-07-16). Build dev to re-read the live
+// specialty -> index map + PaP detection.
 function dbg( msg )
 {
     acc_utility::log( "perk_lights: " + msg );
-    if ( getdvarint( "acc_perk_lights_debug", 0 ) == 0 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_perk_lights_debug now)
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
     players = GetPlayers();
     foreach ( p in players )
         p IPrintLnBold( "[perklight] " + msg );

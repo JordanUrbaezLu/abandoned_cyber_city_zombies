@@ -416,19 +416,33 @@ CoD.AetheriumPlayerInfo.new = function ( menu, controller )
 			
 			-- Subscribe to shield health (riot shield)
 			if controllerModel then
-				local shieldHealthModel = Engine.GetModel( controllerModel, "zmInventory.shield_health" )
+				-- [acc] WIRED UP properly 2026-07-15 (second pass - user first saw this bar only
+			-- INTERMITTENTLY as "a gold bar above health" and then asked to keep shield health
+			-- visible): as shipped by the kit it half-worked, because GetModel on
+			-- zmInventory.shield_health is the dead-node trap (no node until the server bridge's
+			-- first write, so the HUD-build subscription bound dead) - it only came alive when a
+			-- clientNum rebind happened to re-fire AFTER the shield existed (first down/revive).
+			-- Engine.CreateModel pre-creates the node the bridge later writes (the working
+			-- acc_shards/acc_mb/acc_exo/acc_maxhp pattern in this file). The gun-HUD slot in
+			-- AetheriumLoadout.lua and the teammate mini-bars in AetheriumPartyPlayers.lua are
+			-- the other two shield surfaces.
+			local shieldHealthModel = Engine.CreateModel( controllerModel, "zmInventory.shield_health" )
+			local shieldDpadModel = Engine.CreateModel( controllerModel, "hudItems.showDpadDown" )
 			
 			-- Remove old shield subscription if it exists
 			if self.shieldSubscription ~= nil then
 				self:removeSubscription( self.shieldSubscription )
 			end
 			
-			-- Subscribe to shield health model
-			self.shieldSubscription = self:subscribeToModel( shieldHealthModel, function ( model )
-				local shieldHealth = Engine.GetModelValue( model )
+			-- [acc] One refresh reads BOTH cached models and runs on EITHER change: stock's
+			-- shield-DESTROY path writes ONLY showDpadDown=0 (shield_health untouched), so a
+			-- shield-health-only subscription could show but never hide the bar. Also called
+			-- once directly below for the initial paint (mid-run HUD rebuild / rejoin).
+			local RefreshShield = function ()
+				local shieldHealth = Engine.GetModelValue( shieldHealthModel ) or 0
 				if shieldHealth then
 					-- Check if shield is actually equipped (showDpadDown > 0 means shield is held)
-					local showDpadDown = Engine.GetModelValue( Engine.GetModel( controllerModel, "hudItems.showDpadDown" ) )
+					local showDpadDown = Engine.GetModelValue( shieldDpadModel )
 					
 					-- Shield health is 0-1 range (0 = no shield, 1 = full shield)
 					-- Only show if shield is equipped AND has health
@@ -479,7 +493,16 @@ CoD.AetheriumPlayerInfo.new = function ( menu, controller )
 				self.downedIcon:setLeftRight(true, false, 223, 253)
 				end
 				end
-			end )
+			end
+
+			-- [acc] re-subscription guard for the dpad sub (mirror of the shieldSubscription
+			-- guard above - this clientNum link can re-fire on roster change / fastRestart).
+			if self.shieldDpadSubscription ~= nil then
+				self:removeSubscription( self.shieldDpadSubscription )
+			end
+			self.shieldSubscription = self:subscribeToModel( shieldHealthModel, RefreshShield )
+			self.shieldDpadSubscription = self:subscribeToModel( shieldDpadModel, RefreshShield )
+			RefreshShield()   -- initial paint
 			end
 		end
 	end )

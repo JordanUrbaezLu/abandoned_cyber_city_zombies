@@ -80,12 +80,13 @@ proven to build, load, and play from a real Workshop subscription.
   captured (so future publishes update the same item; see A6). `zone/previewimage.png` is
   **512×512** (the prep-script thumbnail gate passes). `CREDITS.md` carries the IP sign-off gate.
 - ⚠️ **Dev/god hardcode = VOLATILE (read the code, not this line).** `acc_resolve_dev_flags()` in
-  `scripts/zm/zm_abandoned_cyber_city.gsc` resolves both flags from `getdvarint("acc_dev"/"acc_god", 0)`
-  (default **0** = normal play); the `level.acc_dev = true;` (line 376) and `level.acc_god = true;` (line 416)
-  hardcode lines directly below **force both ON when uncommented**. The user flips these **ON for local
-  testing / OFF (commented) for publish, often several times a day across parallel sessions** — so a dated
-  "currently ON/OFF" here is unreliable; **lines 375-376 / 415-416 in the code are the live truth.** Either
-  way the publish is safe: `prep_release.ps1` Gate 0 FAILs if either hardcode line is active. (2026-07-11)
+  `scripts/zm/zm_abandoned_cyber_city.gsc` **hardcodes both flags as compile-time booleans** — ship state
+  is `level.acc_dev = false;` / `level.acc_god = false;`, test state flips them to `= true;` + rebuild.
+  (The `getdvarint` dvar resolution was REMOVED 2026-07-16 — there is no dvar/launch-flag path.) The user
+  flips these **ON (`= true;`) for local testing / back to `= false;` for publish, often several times a
+  day across parallel sessions** — so a dated "currently ON/OFF" here is unreliable; **the assignments in
+  the code are the live truth.** Either way the publish is safe: `prep_release.ps1` Gate 0 FAILs if either
+  flag is `= true;` (and if an `acc_dev`/`acc_god` dvar read reappears). (2026-07-16)
 - ✅ **LED bake passes.** After the pre-stage3 geometry revert the map bakes again
   (~157 light entities); `build_map.ps1` runs the LED bake **by default** and `-SkipLED`
   is a RED FLAG. The bake can occasionally crash *transiently* with exit `-1073741819`
@@ -111,10 +112,11 @@ cd c:\Users\Jordan Urbaez\Repositories\abandoned_cyber_city_zombies
 - **Gate 0 "ship-safe flags" (added 2026-07-08):** FAILS Track A if the entry script still
   carries an active `level.acc_dev = true;` **or** `level.acc_god = true;` test hardcode in
   `acc_resolve_dev_flags()` (an invulnerable full-dev build must never publish — even
-  Private). **Comment out / delete both hardcode lines** in
-  `scripts/zm/zm_abandoned_cyber_city.gsc` so the flags fall back to their `getdvarint(…, 0)`
-  resolution (ship-safe default 0) before a publish run. **These hardcode lines are toggled ON/OFF frequently
-  (local testing vs publish) — check the code (lines 376/416), not a date; Gate 0 enforces OFF at publish.**
+  Private). **Set both lines back to `level.acc_dev = false;` / `level.acc_god = false;`** in
+  `scripts/zm/zm_abandoned_cyber_city.gsc` before a publish run — there is no dvar fallback
+  (the `getdvarint` resolution was removed 2026-07-16, and Gate 0 also FAILS if a dvar read
+  reappears). **These hardcode lines are toggled true/false frequently
+  (local testing vs publish) — check the code, not a date; Gate 0 enforces OFF at publish.**
 - It does **not** pass `-SkipLED` — the LED bake is the gate and currently passes.
 - Want only the readiness report (no ~15-min rebuild, reuse the existing `.ff`)?
   `.\tools\prep_release.ps1 -NoBuild`.
@@ -143,6 +145,19 @@ success = a *fresh, >1 MB* `.ff`, never the linker exit code — it prints waive
    unreleasable IP until Track B. (See A8 for why **not** "Private/Hidden".)
 6. **Upload.** Save the Workshop URL.
 
+> 🧹 **Folder-size sanity before upload (2026-07-16).** The Launcher uploads the **whole**
+> `usermaps\zm_abandoned_cyber_city\zone\` folder — nothing filters it. A **healthy build is
+> ~3.7 GB**; the bulk is `zm_abandoned_cyber_city.xpak` (~3.15 GB streamed textures) + `.ff`
+> (~0.12 GB) + `snd\` (~0.24 GB). If the folder is **~7 GB**, an **orphaned `*~lk` lock-temp
+> file** (the linker/sound-bank leaves a multi-GB `.xpak~lk`/`.sabl~lk` behind after an
+> interrupted build) is inflating it — and would upload into the item.
+> **This is now gated automatically: `prep_release.ps1` gate 4c (publish-folder hygiene) hard-FAILs
+> the publish — even Track A — if any `*~lk` is in the upload folder, and `build_map.ps1` sweeps
+> them before every link.** If you built by other means (Launcher GUI) and skipped `prep_release`,
+> check manually:
+> `Get-ChildItem "<tools>\usermaps\zm_abandoned_cyber_city\zone" -Recurse -File | ? { $_.Name.EndsWith('~lk') } | Remove-Item -Force`.
+> `~lk` files are never real assets — the engine loads `.ff`/`.xpak`/`.sab*` only.
+
 ### A6. Capture the PublisherID back into the repo — ALREADY DONE
 
 This step was completed on the first publish (2026-06-24 captured **PublisherID
@@ -159,7 +174,7 @@ git commit -m "chore: capture Workshop PublisherID"
 
 ### A7. Subscribe-and-play verification
 
-Open the URL → **Subscribe** → launch BO3 normally (`PLAY_TEST_MAP.bat`, **not** the
+Open the URL → **Subscribe** → launch BO3 normally (`PLAY_NORMAL.bat`, **not** the
 Launcher Run checkbox) → Zombies → Custom Games → load and survive a round. That's the
 end-to-end proof: repo → build → publish → subscribe → play.
 
@@ -341,4 +356,4 @@ What can go wrong (and the fix):
   path (dev-box-specific, fine for this single-box repo). Hit + fixed on the first publish,
   2026-06-24.
 - **Steam Launch Options must be EMPTY** and launch uses `+set_gametype zclassic`
-  (handled by `PLAY_TEST_MAP.bat`) — see [17_launch_runbook.md](17_launch_runbook.md).
+  (handled by `PLAY_NORMAL.bat`) — see [17_launch_runbook.md](17_launch_runbook.md).

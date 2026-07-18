@@ -6,7 +6,7 @@ outside world via **curl HTTPS**, so this Worker exposes two endpoints it hits:
 | Method | Path | What |
 |---|---|---|
 | `POST` | `/games` | record a finished game (JSON body; dedup by `session`) |
-| `GET`  | `/top10.txt` | the top 10 as plain text, one row per line: `round\|name1,name2,…` (Lua parses this with no JSON lib) |
+| `GET`  | `/top10.txt` | the top 10 as plain text, one row per line: `round\|name1,name2,…` (Lua parses this with no JSON lib). With `?v2=N` a LAST line `T\|<games>\|<wins>` carries the board's map-wide totals footer (all games ever recorded / Paradise wins — GLOBAL, never filtered by the `v2=N` lobby-size ladder) |
 | `GET`  | `/top10.json` | same data as JSON (web/debug) |
 | `GET`  | `/health` | liveness check |
 
@@ -69,6 +69,34 @@ curl -X POST "$URL/games" -H "content-type: application/json" \
 #   -> {"ok":true}
 curl "$URL/top10.txt"                               # -> 42|Alice,Bob
 ```
+
+## Cleanup: split-session dedupe (`npm run cleanup`)
+
+`session_id` is the games PRIMARY KEY, so literal duplicate ids cannot exist — but the
+SAME GAME can land under TWO ids if the game's session-dvar read hiccups mid-match and
+mints a fresh one (the GSC re-asserts the dvar every record since 2026-07-18, so this
+mainly concerns historic rows). `cleanup.js` drives the Worker's `/admin/dedupe`:
+
+```bash
+# one-time setup: a SEPARATE admin secret (never shipped in the game - the extractable
+# ACC_KEY must never authorize deletes), then redeploy worker.js
+npx wrangler secret put ADMIN_KEY        # or dashboard Variables
+# put the same value in deployed.local.json as "admin_key" (or $ACC_LB_ADMIN_KEY)
+
+npm run cleanup                          # REPORT ONLY - never writes
+npm run cleanup -- --apply               # merge clusters verdicted "mergeable"
+npm run cleanup -- --sessions=a,b --apply  # manual: delete exactly these ids
+npm run cleanup -- --gap=6               # widen the cluster window (default 3h)
+```
+
+Detection is conservative: a cluster = identical roster CSV with client_ts gaps under
+the window; it is auto-**mergeable** only if every consecutive pair looks like a
+continuation of one match (round never decreases, every shared player's
+kills/downs/revives component-wise grows — stock counters only grow within a match; a
+real new game resets them). Anything else is reported as **suspect** for a human —
+same-crew back-to-back games look similar and must never auto-merge. Merges keep the
+max-round row, MAX-merge `player_stats`, OR in `paradise_winner`. The anonymous `gun_*`
+tables are untouched (`game_key` is an HMAC of the session — deliberately unjoinable).
 
 ## Notes
 

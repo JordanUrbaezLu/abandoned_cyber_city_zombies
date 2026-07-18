@@ -1,8 +1,10 @@
 // =============================================================================
-// _acc_dev.gsc - test/dev harness gated on the `acc_dev` dvar - EXCEPT the crosshair damage NUMBERS, which
-// are an ALWAYS-ON game FEATURE (set up at the top of init() before the dev gate, user 2026-06-22)
+// _acc_dev.gsc - test/dev harness gated on level.acc_dev (the hardcoded dev flag) - EXCEPT the crosshair
+// damage NUMBERS, which are an ALWAYS-ON game FEATURE (set up at the top of init() before the dev gate,
+// user 2026-06-22)
 //
-// `+set acc_dev 1` (run_game.ps1 sets it by default) turns on a sandbox so the
+// Dev mode (hardcode `level.acc_dev = true;` in acc_resolve_dev_flags() + rebuild - there is NO
+// dvar/launch-flag path, 2026-07-16) turns on a sandbox so the
 // whole map can be exercised in one sitting:
 //   - Unlimited money: every player's points are topped back up to ~1,000,000
 //     whenever they drop below a floor (buy any wallbuy, spam the box, PaP).
@@ -13,7 +15,7 @@
 //     door (the doors stay closed - this just makes them findable). The marker
 //     is destroyed once that door's script_flag is set (i.e. it's been bought).
 //
-// Everything no-ops when acc_dev != 1, so this module is inert in normal play.
+// Everything no-ops when level.acc_dev is false, so this module is inert in normal play.
 // Marker shader is the engine built-in "white" (always present) tinted via
 // .color, so it can never introduce a missing-asset build error.
 // =============================================================================
@@ -46,7 +48,8 @@
 function init()
 {
     // [acc] Crosshair damage NUMBERS: ALWAYS ON (user 2026-06-22), NOT gated on acc_dev. The user tests
-    // balance in the NON-dev god/normal modes (PLAY_GOD_MODE / PLAY_NORMAL) and needs to see the damage
+    // balance in the NON-dev god/normal builds (level.acc_god hardcoded true, or a clean build - both
+    // launched via PLAY_NORMAL.bat, the only play script) and needs to see the damage
     // dealt, so the feed hook is set BEFORE the dev gate. _acc_damage feeds this from INSIDE its own
     // actor-damage callback (a separate callback does NOT work - stock dispatch short-circuits on the first
     // non -1 return, _zm.gsc:5824, and _acc_damage runs first + returns the modified hit). The rest of the
@@ -76,7 +79,13 @@ function init()
     if ( !IS_TRUE( level.acc_dev ) )
         return;
 
-    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + 200 shards + all perk slots" );
+    // "1000" MUST track ACC_DEV_SHARDS (_acc_data_shards.gsc:39) - the ONE authority for the dev starting
+    // count and the raised dev cap. It is spelled as a literal here ON PURPOSE: #define is FILE-LOCAL in
+    // this GSC dialect, so ACC_DEV_SHARDS is not in scope in this module and naming it would not compile.
+    // Corrected 2026-07-15 (audit): this line said "200 shards" and had never matched the code - three
+    // different numbers were in circulation for one value (200 here, 25 in an entry-script comment, and
+    // the real 1000). If the count changes, change it there FIRST, then this string.
+    acc_utility::log( "DEV MODE ON (acc_dev 1): unlimited money + 1000 shards + all perk slots" );
 
     // Perk cap is owned per-player by acc_perks::acc_perk_slot_limit (the level.get_player_perk_purchase_limit
     // hook), which returns the MAX while IS_TRUE(level.acc_dev) - so every machine is buyable in dev without
@@ -98,6 +107,10 @@ function init()
 
     // (Damage numbers + the room-name banner are now set up ABOVE the dev gate - they are permanent game
     // FEATURES, always on for every player, not dev tools. See the top of init().)
+
+    // [LEVBUG-TEMP] Leviathan double-PaP forensics (user 2026-07-15): per-player weapon-state
+    // tracer -> console_mp.log. Remove with the other LEVBUG-TEMP blocks once the bug is fixed.
+    level thread levbug_forensics();
 
     // Round skip (Machina-style "start the next round"): console `acc_skip_round 1`.
     level thread dev_round_skip_watcher();
@@ -353,17 +366,92 @@ function dev_give_starting_guns()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // WINTER'S HOWL dev-start (user 2026-07-11: "give me this gun when dev mode is on" - supersedes the
-    // same-day Triple Take start). RUNTIME name = "freezegun" (the _zm trap: the GDT/zone id freezegun_zm
-    // registers as freezegun - same mode-suffix strip as the Apex guns). Given via zm_weapons::weapon_give
-    // (the box's own give path - keeps ammo/state bootstrap consistent). SILENT handover (no IPrintLnBold):
-    // the gun in hand IS the confirmation. Dev has unlimited money, so box/PaP a damage gun alongside it.
-    // Swap the runtime name below to test-start a different gun. (History: Triple Take 07-11, Fire Bow
-    // 07-11/07-10/07-08, Blast-O-Matic 07-10, Havoc 07-08/07-06, Alternator 07-06, XM4 07-04, Thundergun 07-02.)
-    w = GetWeapon( "freezegun" );
+    // THE CYBERJACK dev-start (docs/43 M1, chassis swap 2026-07-17): the L-STAR plasma LMG
+    // (user: "the part I don't really like is that it's a bow"), QUEST-ONLY in public play
+    // (decision 2 - never in the box), so this dev grant is the ONLY acquisition until the M4
+    // ICEBREAKER COMPILE ships. RUNTIME name = "apex_lstar" (zone/GDT id apex_lstar_zm - the apex
+    // _zm strip). Given via zm_weapons::weapon_give (the box give path). SILENT handover.
+    // Dev has unlimited money, so PaP the in-place tiers (acc_pap_cyberjack) at will.
+    // Swap the runtime name below to test-start a different gun. (History: CYBERJACK storm-bow
+    // M0 07-17, Triple Take 07-16, Leviathan Axe 07-15, Winter's Howl 07-11, Fire Bow
+    // 07-11/07-10/07-08, Blast-O-Matic 07-10, Havoc 07-08/07-06, Alternator 07-06, XM4 07-04.)
+    w = GetWeapon( "apex_lstar" );
     if ( !isdefined( w ) || w == level.weaponNone ) return;
     self zm_weapons::weapon_give( w, undefined, undefined, undefined, true );
     self SwitchToWeapon( w );
+}
+
+// ---------------------------------------------------------------------------
+// [LEVBUG-TEMP] Leviathan double-PaP forensics (user 2026-07-15). Three probes, all
+// timestamped through acc_utility::levbug -> IPrintLnBold -> [ SCRIPTER] console_mp.log lines:
+//   1. STATE  - 50ms poll of current weapon + melee-slot pointer + full primaries list;
+//               logs ONLY on change, so the log is a clean ordered timeline.
+//   2. NOTIFY - stock script-API events (weapon_give/weapon_take/new_melee_weapon/
+//               zmb_lost_knife/downs). A weapon vanishing WITHOUT one of these = raw
+//               engine TakeWeapon by someone; WITH one = a stock zm_weapons/melee path.
+//   3. Tagged call-site logs in _acc_pap_levels + _acc_weapon_variants (transform/draw/swap).
+// Any STATE transition NOT bracketed by our tagged lines = the hidden external actor.
+// REMOVE all LEVBUG-TEMP blocks once the axe bug is fixed.
+// ---------------------------------------------------------------------------
+
+function levbug_forensics()
+{
+    level endon( "end_game" );
+    callback::on_connect( &levbug_player_on_connect );
+}
+
+function levbug_player_on_connect()
+{
+    self thread levbug_state_watch();
+    self thread levbug_notify_watch( "weapon_give" );
+    self thread levbug_notify_watch( "weapon_take" );
+    self thread levbug_notify_watch( "new_melee_weapon" );
+    self thread levbug_notify_watch( "zmb_lost_knife" );
+    self thread levbug_notify_watch( "player_downed" );
+    self thread levbug_notify_watch( "player_revived" );
+    self thread levbug_notify_watch( "spawned_player" );
+}
+
+function levbug_state_watch()
+{
+    self endon( "disconnect" );
+    prev = "";
+    for ( ;; )
+    {
+        snap = "cur=" + acc_utility::levbug_wname( self GetCurrentWeapon() )
+             + " melee=" + acc_utility::levbug_wname( self.current_melee_weapon )
+             + " prims=" + self levbug_prims();
+        if ( snap != prev )
+        {
+            acc_utility::levbug( self, "STATE " + snap );
+            prev = snap;
+        }
+        wait 0.05;
+    }
+}
+
+function levbug_prims()
+{
+    guns = self GetWeaponsListPrimaries();
+    s = "[";
+    for ( i = 0; i < guns.size; i++ )
+    {
+        if ( i > 0 ) s = s + ",";
+        s = s + acc_utility::levbug_wname( guns[ i ] );
+    }
+    return s + "]";
+}
+
+function levbug_notify_watch( note )
+{
+    self endon( "disconnect" );
+    for ( ;; )
+    {
+        self waittill( note, arg );
+        nm = "";
+        if ( isdefined( arg ) && isdefined( arg.name ) ) nm = " arg=" + arg.name;
+        acc_utility::levbug( self, "NOTIFY " + note + nm );
+    }
 }
 
 // APEX WEAPON DIAGNOSTIC - REMOVED 2026-07-06 after serving its purpose. It was a persistent dev-HUD

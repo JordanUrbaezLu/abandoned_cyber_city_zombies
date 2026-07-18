@@ -263,10 +263,10 @@ function ensure_player_bar( p )
     // WIDTH scales with max HP and its GREEN SHADE deepens with the Jug tier (see make_player_bar / hp_bar_color).
 }
 
-// Player max HP (Jug etc. update p.maxhealth; default 100 before it's set).
+// Player max HP (Jug etc. update p.maxhealth; default = base player_base_health before it's set).
 function player_maxhp( p )
 {
-    if ( !isdefined( p.maxhealth ) || p.maxhealth <= 0 ) return 100;
+    if ( !isdefined( p.maxhealth ) || p.maxhealth <= 0 ) return 125;   // base health buffed 100 -> 125 (acc_perks, 2026-07-16)
     return p.maxhealth;
 }
 
@@ -330,6 +330,11 @@ function update_player_bar( p )
 function hp_bar_color( player, frac )
 {
     if ( frac <= 0.33 ) return ( 0.90, 0.20, 0.55 );                                 // critical - about to go down (cyber magenta)
+    // PARADISE WINNER (user 2026-07-12): a survivor of the Paradise finale (acc_paradise::grant_paradise_reward
+    // set player.acc_paradise_reward) gets a GOLD bar while at FULL HP - the visible mark of the enhanced-Jug
+    // reward. Recolours every poll (update_player_bar), so it goes gold the instant HP tops out and reverts the
+    // moment they take a hit. Checked before the Jug tiers so it wins when full.
+    if ( IS_TRUE( player.acc_paradise_reward ) && frac >= 1.0 ) return ( 1.0, 0.84, 0.0 );   // Paradise gold
     if ( isdefined( player.acc_mega_perks ) && IS_TRUE( player.acc_mega_perks[ "specialty_armorvest" ] ) )
         return ( 0.06, 0.45, 0.50 );                                                 // Mega Jug - deepest teal
     if ( player HasPerk( "specialty_armorvest" ) )
@@ -531,7 +536,8 @@ function ensure_roster_row( p, i )
     // HUDELEM POOL DIAGNOSTIC (user 2026-06-28): the roster is the #1 pool consumer (now 5 elems x N rows x N clients,
     // down from 7 - EXO/MB + perks cut). In a full 4-player lobby the per-client pool can still fill mid-row, so some
     // of these 5 come back UNDEFINED and the row silently won't show. Count what allocated, track the live high-water,
-    // and log if THIS row came up short. Gated on-screen by acc_hudelem_debug. Logs once per row (rows are lazy).
+    // and log if THIS row came up short. On-screen via he_log, which rides level.acc_dev (the
+    // acc_hudelem_debug dvar was removed 2026-07-16). Logs once per row (rows are lazy).
     n_ok = 0;
     if ( isdefined( row.name ) )     n_ok++;
     if ( isdefined( row.bar_base ) ) n_ok++;
@@ -626,13 +632,12 @@ function update_roster( p )
     }
 
     // CO-OP-MOCK roster: rows 1..3 are fake teammates so the 4-row co-op HUD is testable solo (rows reuse fixed
-    // mock stats; row 0 = the real YOU). Mocks are DEV-ONLY again (user 2026-06-29: reverted the non-dev force so a
-    // clean solo game - dev off, no mocks - can isolate the implant-UI display). Normal play shows ONLY connected
-    // players (lazy rows -> pool-frugal). To re-force mocks in non-dev for a co-op-HUD test, set this back to `true`.
-    // MOCKS OFF EVERYWHERE (user 2026-07-02: "only dev mode and god mode on - player mocks off").
-    // Dev now shows only REAL connected players too. To re-force the 4-row co-op-HUD test, set `true`.
-    // (Avogadro test mocks reverted 2026-07-05 for the real non-dev publish run.)
-    force_mocks = false;
+    // mock stats; row 0 = the real YOU). Normal play shows ONLY connected players (lazy rows -> pool-frugal).
+    // History: dev-gated (2026-06-29) -> OFF EVERYWHERE (user 2026-07-02: "player mocks off"; Avogadro test
+    // mocks reverted 2026-07-05 for the real non-dev publish run) -> DEV-GATED again (user 2026-07-12 evening:
+    // "enable mock data" - checking the new PNG implant slot cards against the 4-row co-op HUD for overlap).
+    // Ship-safe either way: acc_dev 0 = no mocks. To kill mocks while KEEPING dev, set `false`.
+    force_mocks = false;   // MOCKS OFF (user 2026-07-13 "turn off mocks"). true / IS_TRUE(level.acc_dev) = the solo 4-row co-op-HUD test roster (retired pre-Aetherium path; the live mocks are ACC_MOCK_PARTY in AetheriumHud.lua).
     shown = ( force_mocks ? 4 : ordered.size );
     if ( shown > 4 ) shown = 4;
 

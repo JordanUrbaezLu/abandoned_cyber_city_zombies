@@ -30,7 +30,8 @@
 // Live knobs: acc_lockdown_challenge_on (0 = HARDCODE-DISABLED default, user 2026-07-04 - the whole Glitch
 //   Purge is OFF in every version until you `+set acc_lockdown_challenge_on 1`) / _total (50) / _concurrent (8) / _stagger (0.6) /
 // _stagger_initial (0.3, fast fill at start) / _grace (1.5) / _confine (0) / acc_lockdown_reward (1) /
-// _challenge_debug (0) / _challenge_force "<zone>" (dev start without the trap). Seal: acc_lockdown_lock_doors (1).
+// _challenge_force "<zone>" (dev start without the trap). Seal: acc_lockdown_lock_doors (1). (The
+// _challenge_debug dvar was removed 2026-07-16 - debug rides the one acc_dev flag; docs/22 §E.)
 // =============================================================================
 
 #using scripts\codescripts\struct;
@@ -1135,7 +1136,7 @@ function ldc_announce( party, msg )
 function ldc_debug( msg )
 {
     acc_utility::log( "ldc: " + msg );
-    if ( getdvarint( "acc_lockdown_challenge_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_lockdown_challenge_debug now)
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
     players = GetPlayers();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )

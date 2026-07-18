@@ -26,7 +26,7 @@ All amounts are the shipped defaults (each has a live dvar for tuning).
 - **Trench passive income** (`_acc_bus_trench.gsc`): +1 Shard per interval while you stand in a trench layer; deeper layers pay faster. `acc_trench_income_amount` (default 1).
 - **Data Caches** (`_acc_data_shards.gsc::spawn_cache_at`, placed by `_acc_glitch_altar` at the pit west/east): a flat count per round, first player to loot it takes it, re-arms each round. Two caches, 3 each by default (`acc_cache_w_count` / `acc_cache_e_count`).
 - **Glitch Altar jackpot** (`_acc_glitch_altar.gsc`): a gamble — the `shard_jackpot` outcome pays +4 (`acc_altar_jackpot`).
-- **Shielded ("Riot") elite kill** in the trench: flat **2 Shards** to the killer (`_acc_elites.gsc::shielded_death_reward`, source `riot_elite`). Reactor/glitch-purge shielded grant nothing (survive-the-gauntlet threat, not a farm).
+- **Shielded ("Riot") elite kill** in the trench: flat **3 Shards** to the killer (user 2026-07-13, was 2) (`_acc_elites.gsc::shielded_death_reward`, source `riot_elite`). Reactor/glitch-purge shielded grant nothing (survive-the-gauntlet threat, not a farm).
 - **Boss round**: `int( round / 3 )` Shards to **every player independently** (`_acc_boss.gsc:376`, `acc_boss_shards_round_div`) — e.g. 3 at round 9, 6 at round 18, 9 at round 27. Boss rounds land every 9 from round 9; a mini-boss (Brutus) first appears at round 5 (once Bus Station power is on and round >= `acc_warden_first_round`, default 5). Types come from a no-duplicate shuffled roster (see [08_enemies.md](08_enemies.md)).
 - **Glitch boss kill**: +1 Shard to the killer (`_acc_boss_glitch.gsc:802`).
 - **Boss-item duplicate**: a duplicate boss-item pickup converts to **3 Shards** (`ACC_ITEM_DUPLICATE_SHARD_CONVERT`, `_acc_boss_items.gsc:33`) — a legitimate economy supplement in long co-op runs (see [09_boss_items.md](09_boss_items.md)). Boss-item salvage pays +1.
@@ -37,7 +37,7 @@ All amounts are the shipped defaults (each has a live dvar for tuning).
 - **Hack Terminal** (Bus Station): +2 Shards, gated by `acc_hack_shard_drop 1` (default 0; `_acc_events_hack.gsc:138`).
 - **Vault Overload**: **RETIRED** 2026-07-07 — the side event is commented out in `_acc_main.gsc:199`.
 
-**Shard cap.** `ACC_SHARDS_MAX = 500` (`_acc_data_shards.gsc:38`) — finite to block infinite hoarding, but high enough to bank toward the deep multi-tier sinks (Exo Suit + per-gun Overclocks; see [29_exo_suit_plan.md](29_exo_suit_plan.md)). Dev mode (`acc_dev 1`) starts each player with **1000** and raises the cap to match (`ACC_DEV_SHARDS`, one-time grant in `on_player_connect`, `_acc_data_shards.gsc:39,106`).
+**Shard cap.** `ACC_SHARDS_MAX = 500` (`_acc_data_shards.gsc:38`) — finite to block infinite hoarding, but high enough to bank toward the deep multi-tier sinks (Exo Suit + per-gun Overclocks; see [29_exo_suit_plan.md](29_exo_suit_plan.md)). Dev mode (`level.acc_dev`, hardcoded in `acc_resolve_dev_flags()`) starts each player with **1000** and raises the cap to match (`ACC_DEV_SHARDS`, one-time grant in `on_player_connect`, `_acc_data_shards.gsc:39,106`).
 
 ## Where Shards Get Spent
 

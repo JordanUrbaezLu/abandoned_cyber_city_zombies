@@ -55,6 +55,25 @@ function card_show( title, title_color, price_text, lines )
     card_lines( self, n );
 
     body_y0 = ACC_UI_PAD + ACC_UI_TITLE_H + ( has_price ? ACC_UI_PRICE_H : 0 );
+
+    // RESIZE FIRST, position children SECOND (user 2026-07-12: "the card doesn't fill
+    // the entire leaderboard"). hud::setPoint anchors children off the PARENT'S
+    // SCRIPT-SIDE .height field (hud_util_shared.gsc:206-227 offset math); SetShader
+    // only resizes the DRAWN quad and never updates that field, so children were
+    // anchored as if the panel were its create-time 10px tall - the title floated
+    // mid-panel and rows spilled below it (invisible on 2-4 line cards, glaring on the
+    // 10-row leaderboard). Sync .width/.height, THEN setPoint everything.
+    h = body_y0 + n * ACC_UI_LINE_H + ACC_UI_PAD;
+    self.acc_card_bg setShader( "white", ACC_UI_W, h );
+    self.acc_card_bg.width = ACC_UI_W;
+    self.acc_card_bg.height = h;
+    self.acc_card_strip setShader( "white", 3, h );
+
+    // title/price were positioned at create-time with the stale height - re-anchor now
+    self.acc_card_title hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD );
+    if ( has_price )
+        self.acc_card_price hud::setPoint( "TOP_LEFT", "TOP_LEFT", ACC_UI_PAD, ACC_UI_PAD + ACC_UI_TITLE_H );
+
     for ( i = 0; i < self.acc_card_lines.size; i++ )
     {
         if ( !isdefined( self.acc_card_lines[ i ] ) ) continue;   // pool-full: this line didn't allocate
@@ -69,11 +88,6 @@ function card_show( title, title_color, price_text, lines )
             self.acc_card_lines[ i ].alpha = 0;
         }
     }
-
-    // createIcon w/h are fixed at create; resize the DRAWN quad via setShader.
-    h = body_y0 + n * ACC_UI_LINE_H + ACC_UI_PAD;
-    self.acc_card_bg setShader( "white", ACC_UI_W, h );
-    self.acc_card_strip setShader( "white", 3, h );
 
     self.acc_card_bg.alpha = 0.6;
     self.acc_card_strip.alpha = 0.9;

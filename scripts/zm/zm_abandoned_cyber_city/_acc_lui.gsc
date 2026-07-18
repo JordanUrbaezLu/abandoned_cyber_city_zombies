@@ -26,6 +26,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_doors;   // souls_needed() = the live descent/Maw soul quotas (objective detail line)
 
 #precache( "lui_menu", "acc_hud" );
 
@@ -278,6 +279,7 @@ function player_lui_init()
         self notify( "acc_lui_life" );
         self thread perk_state_watch();          // owned/mega masks - feed the (rewired) Aetherium perk row, or CoD.AccPerkBar pre-Aetherium
         self thread round_ring_watch();           // upper-right round-progress bar
+        self thread objective_watch();            // pause-menu "what next" run-phase index (acc_objective)
 
         // AETHERIUM: the four threads below only serve the PRE-Aetherium HUD. With the kit on:
         // the stock perk bar / ammo block don't exist (T7Hud_zm_factory replaced, so no zeroing
@@ -296,6 +298,195 @@ function player_lui_init()
 
         self waittill( "spawned_player" );        // next death->respawn -> rebuild the overlay
     }
+}
+
+// PAUSE-MENU OBJECTIVE TRACKER (2026-07-12; re-landed within the toplayer budget 2026-07-15): a
+// "what next" run-phase hint surfaced in the pause menu (AetheriumStartMenu.lua). TWO transports
+// after the 2026-07-15 toplayer-pool overflow broke map load (Com_ERROR "visionset_lerp ... out of
+// space" - the pool is effectively FULL, docs/19):
+//   1. The PHASE index (0..12, incl. one state per trench descent gate) rides the 4-bit
+//      "acc_objective" toplayer clientfield - correct for EVERY co-op client. Its 1 extra bit over
+//      the original 3 is PAID FOR by shaving acc_badges 6->4 + acc_box_gun 6->5 (net -2 vs the
+//      last-known-loading layout).
+//   2. The soft progress numbers (souls %, shards/points left, gather counts) ride the
+//      "acc_obj_detail" DVAR (packed+1 so 0 = no data) - the proven GSC->LUI dvar channel
+//      (memory retail-lui-io-os / weapon-usage). Host-accurate; a REMOTE co-op client never sees
+//      the server dvar and cleanly renders nothing (better than wrong numbers). NO clientfield
+//      bits. The boss-round warning + perk count moved fully CLIENT-side (AetheriumStartMenu.lua
+//      reads gameScore.roundsPlayed + accOwnedMask), so they cost nothing and work for everyone.
+// The index is LEVEL-global but rides the per-player toplayer field, so we push it to self.
+// Re-threaded each life off "acc_lui_life" with a forced first push (last = -1) so the reopened
+// menu repaints. Change-guarded. self = player.
+function objective_watch()
+{
+    self endon( "disconnect" );
+    self endon( "acc_lui_life" );
+
+    self.acc_objective_last        = -1;   // force the first push into the freshly (re)opened menu
+    self.acc_objective_detail_last = -1;
+    for ( ;; )
+    {
+        idx    = acc_compute_objective();
+        detail = acc_compute_objective_detail( idx ) + 1;   // +1: dvar 0 = "no data" (remote clients)
+        // Detail FIRST, phase second: the Lua repaint reads the dvar when the phase model fires,
+        // so the phase callback always sees fresh detail data.
+        if ( self.acc_objective_detail_last != detail )
+        {
+            SetDvar( "acc_obj_detail", detail );
+            self.acc_objective_detail_last = detail;
+        }
+        if ( self.acc_objective_last != idx )
+        {
+            self clientfield::set_to_player( "acc_objective", idx );
+            self.acc_objective_last = idx;
+        }
+        wait 1;
+    }
+}
+
+// Resolve the current run phase to an objective index (mirrored as strings in AetheriumStartMenu.lua
+// ACC_OBJECTIVE_INFO). Highest-priority phase wins; everything reads level state (paradise flags:
+// _acc_paradise.gsc; soul doors / hub pools: _acc_abyss_doors.gsc; power_on: stock ZM flag -
+// flag::exists guards flag::get, never wait_till a gameplay flag here) so the phase can't disagree
+// between players. MILESTONE LADDER (2026-07-15): descent gets ONE STATE PER TRENCH GATE (user:
+// "specific state for each trench level") so the imperative line names the door being opened even
+// for remote co-op clients (the dvar detail channel is host-only); once all 4 descent gates are
+// open the Paradise-gate pipeline (Maw souls -> pay -> gather) drives the phase off the REAL
+// door/hub state. LADDER: 0 none | 1 power | 2 loadout | 3-6 descend (open Trench Level idx-1) |
+// 7 Maw souls | 8 pay | 9 gather | 10 gate open | 11 onslaught | 12 won. 4 bits (0..15).
+function acc_compute_objective()
+{
+    if ( IS_TRUE( level.acc_paradise_won ) )        return 12;   // finale beaten
+    if ( IS_TRUE( level.acc_paradise_onslaught ) )  return 11;   // Paradise battle live
+    if ( IS_TRUE( level.acc_paradise_open ) )       return 10;   // gate opened - step through
+
+    if ( !( level flag::exists( "power_on" ) && level flag::get( "power_on" ) ) )
+        return 1;   // power still off
+
+    // Paradise-gate pipeline: only meaningful once EVERY descent gate is open (L5 reachable).
+    if ( abyss_doors_all_open() )
+    {
+        if ( !IS_TRUE( level.acc_hub_souls_complete ) ) return 7;   // bank the Maw soul quota
+        if ( !hub_gate_paid() )                         return 8;   // pay Shards + points
+        return 9;                                                   // paid - gather everyone
+    }
+
+    rnd = 1;
+    if ( isdefined( level.round_number ) ) rnd = level.round_number;
+    opened = abyss_open_door_count();
+    if ( rnd < 8 && opened == 0 ) return 2;   // early: build the loadout
+
+    // Descend: one state per gate - opening Trench Level (opened+2), i.e. gate (opened+1).
+    if ( opened > 3 ) opened = 3;             // 4th gate open is handled by the pipeline above
+    return 3 + opened;                        // 3 = open L2 ... 6 = open L5
+}
+
+// Phase-specific soft progress numbers for the pause menu's dim second line: packed a + b*128,
+// published on the acc_obj_detail DVAR (+1 at the push site; NO clientfield bits - the toplayer
+// pool is full, see objective_watch). Decoded by AetheriumStartMenu.lua's AccObjectiveDetailText
+// against the SAME phase index. All level-global (the perk count moved client-side onto
+// accOwnedMask, so nothing per-player remains).
+function acc_compute_objective_detail( idx )
+{
+    a = 0;
+    b = 0;
+    switch ( idx )
+    {
+        case 2:   // loadout: a = zones opened (of the 7 surface zones)
+            a = enabled_zone_count();
+            break;
+
+        case 3:   // descend (one state per gate): a = souls % toward the gate being filled
+        case 4:
+        case 5:
+        case 6:
+            door = next_soul_door();
+            if ( isdefined( door ) )
+            {
+                need = acc_abyss_doors::souls_needed( door.acc_layer );
+                if ( need > 0 ) a = Int( door.acc_souls * 100 / need );
+                if ( a > 100 ) a = 100;
+            }
+            break;
+
+        case 7:   // Maw soul quota: a = % banked (same cost as gate 4 - _acc_abyss_doors::on_zombie_death_souls)
+            need  = acc_abyss_doors::souls_needed( 4 );
+            souls = ( isdefined( level.acc_hub_souls ) ? level.acc_hub_souls : 0 );
+            if ( need > 0 ) a = Int( souls * 100 / need );
+            if ( a > 100 ) a = 100;
+            break;
+
+        case 8:   // pay the gate: a = Shards remaining, b = points remaining in 1000s (both pools <= 125/125k)
+            a   = ( isdefined( level.acc_hub_shards_rem ) ? level.acc_hub_shards_rem : 0 );
+            pts = ( isdefined( level.acc_hub_points_rem ) ? level.acc_hub_points_rem : 0 );
+            b   = Int( ( pts + 999 ) / 1000 );
+            break;
+
+        case 9:   // gather: a = survivors inside the gather radius, b = survivors alive (hub_gather_watch publishes)
+            a = ( isdefined( level.acc_hub_gather_near )  ? level.acc_hub_gather_near  : 0 );
+            b = ( isdefined( level.acc_hub_gather_alive ) ? level.acc_hub_gather_alive : 0 );
+            break;
+    }
+
+    if ( a < 0 ) a = 0;
+    if ( a > 127 ) a = 127;
+    if ( b < 0 ) b = 0;
+    if ( b > 127 ) b = 127;
+    return a + b * 128;
+}
+
+// Count of surface zones the team has opened (stock zonemgr: level.zones[name].is_enabled,
+// _zm_zonemgr.gsc:497). The abyss sits below every zone volume, so this is surface-only by nature.
+function enabled_zone_count()
+{
+    n = 0;
+    if ( !isdefined( level.zones ) ) return 0;
+    keys = GetArrayKeys( level.zones );
+    for ( i = 0; i < keys.size; i++ )
+    {
+        z = level.zones[ keys[ i ] ];
+        if ( isdefined( z ) && IS_TRUE( z.is_enabled ) ) n++;
+    }
+    return n;
+}
+
+// How many of the 4 abyss descent gates (soul boxes, _acc_abyss_doors) are open.
+function abyss_open_door_count()
+{
+    n = 0;
+    if ( !isdefined( level.acc_soul_doors ) ) return 0;
+    foreach ( door in level.acc_soul_doors )
+        if ( isdefined( door ) && IS_TRUE( door.acc_open ) ) n++;
+    return n;
+}
+
+// True once EVERY spawned descent gate is open (L5 / the Maw is reachable).
+function abyss_doors_all_open()
+{
+    if ( !isdefined( level.acc_soul_doors ) || level.acc_soul_doors.size == 0 ) return false;
+    return ( abyss_open_door_count() == level.acc_soul_doors.size );
+}
+
+// The next gate the team is filling = the shallowest unopened one (gates fill sequentially -
+// kills only bank on reachable layers).
+function next_soul_door()
+{
+    best = undefined;
+    if ( !isdefined( level.acc_soul_doors ) ) return undefined;
+    foreach ( door in level.acc_soul_doors )
+    {
+        if ( !isdefined( door ) || IS_TRUE( door.acc_open ) ) continue;
+        if ( !isdefined( best ) || door.acc_layer < best.acc_layer ) best = door;
+    }
+    return best;
+}
+
+// Both Paradise-gate currency pools drained (mirrors _acc_abyss_doors::hub_paid, read directly
+// off the level vars so no cross-module call is needed for a bool).
+function hub_gate_paid()
+{
+    return ( isdefined( level.acc_hub_shards_rem ) && level.acc_hub_shards_rem <= 0 &&
+             isdefined( level.acc_hub_points_rem ) && level.acc_hub_points_rem <= 0 );
 }
 
 // Per-player loop: track which perks the player OWNS and which are Mega'd and push BOTH

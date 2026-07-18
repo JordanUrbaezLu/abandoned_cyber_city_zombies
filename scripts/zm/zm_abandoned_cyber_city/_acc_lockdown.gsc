@@ -33,7 +33,8 @@
 //   set acc_lockdown_emitters 6    max red emitters per room
 //   set acc_lockdown_force_zone vault_zone   pin ONE room every round (test); "" = rotate
 //   set acc_lockdown_lock_doors 0  red light WITHOUT sealing (no-op anyway until seals exist)
-//   set acc_lockdown_debug 0       silence the on-screen "[lockdown] round N -> <zone>" text
+//   (the per-feature debug/test dvars were removed 2026-07-16 - the on-screen "[lockdown]" trace
+//   rides the one acc_dev flag; see docs/22 §E + memory debug-banners-gated-by-acc-dev-only)
 //
 // Public API:
 //   init()  - roll the per-run room order + start the round watcher. Call ONCE from
@@ -245,11 +246,12 @@ function on_defcon_failed( round_number )
     ld_debug( "DEFCON failed at round " + round_number + " - lights off, next DEFCON round " + level.acc_lockdown_next_round );
 }
 
-// On-screen debug (acc_lockdown_debug 1) + the [acc] dev log, so the owner can watch the rotation pick
-// a room each round. DEFAULT OFF for release (user 2026-06-25); set acc_lockdown_debug 1 to show it.
+// On-screen debug (rides level.acc_dev; the acc_lockdown_debug dvar was removed 2026-07-16) + the
+// [acc] dev log, so the owner can watch the rotation pick a room each round. Silent in a ship
+// build (user 2026-06-25); build dev to show it.
 function ld_debug( msg )
 {
-    if ( getdvarint( "acc_lockdown_debug", 0 ) == 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [lockdown] rides acc_lockdown_debug now)
+    if ( ( isdefined( level.acc_dev ) && level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
     {
         iprintlnbold( "[lockdown] " + msg );
     }

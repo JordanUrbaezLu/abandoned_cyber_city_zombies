@@ -12,10 +12,12 @@
 //             and the dog-round announcer ("fetch me their souls" = stock zmb_dog_round_start) howls.
 //   PHASE 3 - DREAD (acc_paradise_dread_sec, 10s): just the fog closing in, the trickle continuing. Tension.
 //   PHASE 4 - BATTLE (acc_paradise_survive_sec, 225s = 3:45): the arena SEALS, the "115" anthem
-//             (acc_paradise_music) drops, and 1 of EACH boss storms in ALONGSIDE the horde (x4 spawn rate +
-//             shield/glitch gauntlet): Trench Warden (Brutus) + Phantom + Rogue Protector + Avogadro (user
-//             2026-07-05, cap 1 of each) + Apothicon Fury + Panzer (user 2026-07-09). EVERY MINUTE the whole battle escalates IN LOCKSTEP: the boss wave tops
-//             back up to 1 of each (a killed boss is replaced next minute), the wave-baseline horde trench-buff steps
+//             (acc_paradise_music) drops, and the bosses storm in ALONGSIDE the horde (x4 spawn rate +
+//             shield/glitch gauntlet) on a STAGED ROSTER (user 2026-07-12 nerf - was 1 of each all at once):
+//             3:45 Trench Warden (Brutus) + Phantom -> 2:45 +Rogue Protector -> 1:45 +Panzer ->
+//             0:45 +Avogadro (cap 1 of each; the Apothicon Fury is DROPPED from the wave - not in the
+//             user's schedule). EVERY MINUTE the whole battle escalates IN LOCKSTEP: the boss wave tops
+//             the UNLOCKED roster back up to 1 of each (a killed boss is replaced next minute), the wave-baseline horde trench-buff steps
 //             up a layer (L2 minute 0-1 -> L3 -> L4 -> L5 final wave), and a UI alert fires ("The horde is getting
 //             stronger", or "You will never escape!" on the final L5 step). Four waves: L2/L3/L4 are
 //             60s each, the FINAL L5 wave is 45s (3:00 -> 3:45). ON TOP of the wave, EVERY ZOMBIE individually
@@ -49,6 +51,9 @@
 #using scripts\shared\ai\zombie_utility;
 
 #using scripts\zm\_zm_utility;   // play_sound_2D() - the proven "music for the whole lobby" path (same as the EE song)
+#using scripts\zm\_zm_perks;     // give_perk + perk_set_max_health_if_jugg (Paradise-win reward: all perks + 350 HP Jug)
+#using scripts\zm\_zm_weapons;   // weapon_give (Paradise-win reward: wonder-weapon ground pickups)
+#using scripts\zm\_zm_powerups;  // specific_powerup_drop (the scripted 1:45 max-ammo, user 2026-07-13)
 
 #insert scripts\shared\shared.gsh;
 
@@ -61,7 +66,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;   // spawn_one_paradise / paradise_warden_think
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;  // spawn_phantom (returns the host)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;          // scale_mini_boss_hp (paradise Brutus HP, consistent with the trench warden)
-#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;  // boss_hp_player_mult (log coop HP)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;  // boss_hp_player_mult (coop boss-HP table)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_civil_protector; // spawn_boss (Rogue Protector - lands in front of a living player, reaches the arena)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_avogadro;   // spawn_boss (Avogadro - has a paradise branch that spawns him in the arena)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_fury;            // spawn_paradise_fury (Apothicon Fury - meteor-drops onto a player in the arena, user 2026-07-09)
@@ -84,11 +89,21 @@
 #define ACC_PARADISE_PHANTOM_MAX_DEF      1     // concurrent paradise Phantom cap
 #define ACC_PARADISE_RP_MAX_DEF           1     // concurrent paradise Rogue Protector cap
 #define ACC_PARADISE_AVO_MAX_DEF          1     // concurrent paradise Avogadro cap
-#define ACC_PARADISE_FURY_MAX_DEF         1     // concurrent paradise Apothicon Fury cap (user 2026-07-09: joins the 1-of-each wave)
-#define ACC_PARADISE_PANZER_MAX_DEF       1     // concurrent paradise Panzer cap (user 2026-07-09: joins the 1-of-each wave)
+#define ACC_PARADISE_FURY_MAX_DEF         1     // concurrent paradise Apothicon Fury cap (DROPPED from the wave 2026-07-12 - kept for a re-add)
+#define ACC_PARADISE_PANZER_MAX_DEF       1     // concurrent paradise Panzer cap (user 2026-07-09: joins the wave)
+// STAGED BOSS INTRO (user 2026-07-12, "Paradise needs to be nerfed"): each boss UNLOCKS at a battle
+// minute (escalation tick). Minute 0 = battle start (3:45 on the countdown): Brutus + Phantom only;
+// minute 1 (2:45) +Rogue Protector; minute 2 (1:45) +Panzer; minute 3 (0:45) +Avogadro. Live dvars
+// acc_paradise_{rp,panzer,avo}_unlock_min.
+#define ACC_PARADISE_RP_UNLOCK_MIN        1     // Rogue Protector joins at the 2:45 escalation tick
+#define ACC_PARADISE_PANZER_UNLOCK_MIN    2     // Panzer joins at 1:45
+#define ACC_PARADISE_AVO_UNLOCK_MIN       3     // Avogadro joins at 0:45 (the final wave)
 #define ACC_PARADISE_BOSS_INTERVAL_DEF    60.0  // seconds between escalation ticks (+1 Brutus +1 Phantom + buff step + alert each "minute")
 #define ACC_PARADISE_BUFF_START_DEF       2     // world-wide horde trench-buff layer for the FIRST battle minute (0-1 min)
 #define ACC_PARADISE_BUFF_MAX_DEF         5     // deepest horde layer (reached at the 3:00 step, held for the final 45s wave)
+// WIN REWARD (user 2026-07-12: Paradise no longer ENDS the run - beating it rewards + continues).
+#define ACC_PARADISE_REWARD_SEC_DEF       60    // the plaza reward window: wonder-weapon loot lifetime + time before the auto-return to the surface
+#define ACC_PARADISE_HP_BOOST_DEF         50   // PERMANENT +50 HP boost on Paradise win (user 2026-07-13, was 100): base 100 -> 150, so a Jug'd survivor = 100 + 150 Jug + 50 = 300 (n_player_health_boost, survives downs)
 // (The Paradise HORDE BUFF anti-camp/anti-kite - TWO escalation vectors (user 2026-07-09 restored the second):
 //  (1) the WAVE clock: one trench-equivalent layer that steps L2 -> L3 -> L4 -> L5 on the BATTLE CLOCK, +1 each
 //      minute, in lockstep with the boss escalation + the UI alert below - fresh spawns open at the current wave;
@@ -116,6 +131,7 @@ function init()
     level.acc_paradise_avo_count     = 0;    // live paradise Avogadro count (cap 1; separate from the module's acc_avo_alive, which may include a stranded Lab test-spawn)
     level.acc_paradise_fury_count    = 0;    // live paradise Apothicon Fury count (cap 1; user 2026-07-09)
     level.acc_paradise_panzer_count  = 0;    // live paradise Panzer count (cap 1; user 2026-07-09; separate from the module's acc_panzer_alive)
+    level.acc_paradise_battle_minute = 0;    // escalation minutes elapsed since battle start - gates the staged boss roster (user 2026-07-12)
     level.acc_paradise_horde_layer   = 0;    // world-wide horde trench-buff layer (0 outside the battle); set to L2 at start_battle, +1/min in escalation_loop
 
     // NO power-up drops during the battle (user 2026-06-26): claim the stock powerup_drop override hook
@@ -211,9 +227,10 @@ function start_battle()
     foreach ( p in GetPlayers() )
         if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^1THE PARADISE ONSLAUGHT^7 - SURVIVE 3:45!" );
 
-    // Initial bosses: 1 of EACH storms in with the horde (user 2026-07-05) - Trench Warden (Brutus) + Phantom +
-    // Rogue Protector + Avogadro + Apothicon Fury + Panzer (2026-07-09). The same wave repeats every escalation
-    // minute (escalation_loop) to top back up.
+    // Opening bosses (STAGED roster, user 2026-07-12): only Trench Warden (Brutus) + Phantom at 3:45.
+    // Each escalation minute unlocks the next boss (RP -> Panzer -> Avogadro) and tops the unlocked
+    // roster back up to 1 of each (spawn_paradise_boss_wave reads level.acc_paradise_battle_minute).
+    level.acc_paradise_battle_minute = 0;
     spawn_paradise_boss_wave();
 
     level thread ai_pressure();         // raise the AI cap for the x4 horde
@@ -373,10 +390,19 @@ function light_trickle_loop()
 // PHASE 4 horde: x4 regular surge + shield/glitch specials
 // ---------------------------------------------------------------------------
 
+// UNWIND TRAP (review 2026-07-15) - this loop deliberately does NOT endon "acc_paradise_end", unlike every
+// other driver in this module. It OWNS mutable LEVEL state (the +12 on zombie_ai_limit) and the endon would
+// kill the thread mid-raise, before the "!occupied && raised" branch below could give the 12 back: win()
+// fires that very notify (:1015) while the battle is still occupied, so the subtract would never run. Since
+// win() no longer end_game's (the run CONTINUES, user 2026-07-12), the leak is PERMANENT - the surface horde
+// cap would sit at ACC_AI_LIMIT 50 + a stranded 12 = 62 for the rest of the run, pushing at the 64 engine
+// ceiling. win() clears level.acc_paradise_onslaught one line AFTER the notify (:1016), so occupied goes
+// false on the next 0.5s tick and the subtract below IS the cleanup. Same proven shape as
+// _acc_bus_trench::trench_ai_pressure, whose only endon is end_game for exactly this reason. Keeping the
+// end_game endon is safe: the run is over, so the level state is discarded with it.
 function ai_pressure()
 {
     level endon( "end_game" );
-    level endon( "acc_paradise_end" );
 
     raised  = false;
     applied = 0;
@@ -552,7 +578,7 @@ function spawn_shielded()
 }
 
 // ---------------------------------------------------------------------------
-// PHASE 4 bosses: 2 Brutus + 1 Phantom at start, then +1 of each every minute
+// PHASE 4 bosses: STAGED roster - Brutus+Phantom at 3:45, +RP 2:45, +Panzer 1:45, +Avogadro 0:45
 // ---------------------------------------------------------------------------
 
 // Every acc_paradise_boss_interval (a "minute"), the WHOLE battle escalates IN LOCKSTEP (user 2026-06-26): the
@@ -576,6 +602,11 @@ function escalation_loop()
     {
         wait interval;
         if ( !any_player_in_paradise() ) continue;
+
+        // Advance the battle minute - unlocks the next staged boss (user 2026-07-12: RP at min 1,
+        // Panzer at min 2, Avogadro at min 3; spawn_paradise_boss_wave reads it).
+        if ( !isdefined( level.acc_paradise_battle_minute ) ) level.acc_paradise_battle_minute = 0;
+        level.acc_paradise_battle_minute++;
 
         // Step the world-wide horde buff one layer (capped) and ANNOUNCE it - synced to this minute's boss wave.
         if ( !isdefined( level.acc_paradise_horde_layer ) )
@@ -607,6 +638,11 @@ function horde_buff_alert( msg, col )
 // Reads only level state (no self dependency - powerup_drop invokes it as [[ ]]( drop_point )). user 2026-06-26.
 function block_powerup_drop( drop_point )
 {
+    // The scripted 1:45 MAX AMMO (user 2026-07-13) sets acc_paradise_force_drop for its one call so it
+    // passes even though the battle otherwise blocks all drops. Belt-and-suspenders: specific_powerup_drop
+    // may bypass this hook anyway (it is a direct named-spawn, not the on-kill random path), but the flag
+    // guarantees the drop lands.
+    if ( IS_TRUE( level.acc_paradise_force_drop ) ) return false;
     return IS_TRUE( level.acc_paradise_onslaught );
 }
 
@@ -712,18 +748,26 @@ function phantom_death_watch()
         level.acc_paradise_phantom_count--;
 }
 
-// The Paradise boss wave (user 2026-07-05; +Apothicon Fury 2026-07-09): ONE of each boss, each self-gated by
-// its own cap-1. Threaded so the five spawns (some carry a ground-tell wait) run concurrently, not serially.
-// Called at battle start and every escalation minute; a boss that is still alive simply skips (cap 1) until it
-// is killed, then the next minute replaces it - a rolling "one of each" pressure rather than an ever-growing pile.
+// The Paradise boss wave - STAGED roster (user 2026-07-12 nerf; was 1-of-each from the opening bell):
+// each boss joins the wave only once the battle reaches its unlock minute, then the wave keeps topping
+// the UNLOCKED set back up to 1 of each (each spawn self-gated by its cap-1). Threaded so the spawns
+// (some carry a ground-tell wait) run concurrently, not serially. Called at battle start (minute 0:
+// Brutus + Phantom only) and every escalation minute; a boss still alive simply skips (cap 1) until it
+// is killed, then the next minute replaces it - a rolling "one of each unlocked" pressure.
+// The Apothicon Fury is DROPPED from the wave (not in the user's 2026-07-12 schedule);
+// maybe_spawn_fury stays below for a future re-add.
 function spawn_paradise_boss_wave()
 {
-    level thread maybe_spawn_brutus();            // Trench Warden
-    level thread maybe_spawn_phantom();
-    level thread maybe_spawn_rogue_protector();
-    level thread maybe_spawn_avogadro();
-    level thread maybe_spawn_fury();              // Apothicon Fury (user 2026-07-09)
-    level thread maybe_spawn_panzer();            // Panzer (user 2026-07-09)
+    minute = ( isdefined( level.acc_paradise_battle_minute ) ? level.acc_paradise_battle_minute : 0 );
+
+    level thread maybe_spawn_brutus();            // Trench Warden - from the opening bell (3:45)
+    level thread maybe_spawn_phantom();           // Phantom - from the opening bell (3:45)
+    if ( minute >= getdvarint( "acc_paradise_rp_unlock_min", ACC_PARADISE_RP_UNLOCK_MIN ) )
+        level thread maybe_spawn_rogue_protector();   // 2:45
+    if ( minute >= getdvarint( "acc_paradise_panzer_unlock_min", ACC_PARADISE_PANZER_UNLOCK_MIN ) )
+        level thread maybe_spawn_panzer();            // 1:45
+    if ( minute >= getdvarint( "acc_paradise_avo_unlock_min", ACC_PARADISE_AVO_UNLOCK_MIN ) )
+        level thread maybe_spawn_avogadro();          // 0:45 (the final wave)
 }
 
 // Spawn ONE Panzer IN PARADISE if under the cap (user 2026-07-09). acc_boss_panzer::spawn_boss already
@@ -892,6 +936,10 @@ function survival_timer_loop()
     while ( remaining > 0 )
     {
         update_timer_hud( remaining );
+        // Scripted MAX AMMO at 1:45 on the countdown (user 2026-07-13): one guaranteed full_ammo
+        // mid-battle (regular drops are blocked the whole finale). Default 105s = 1:45 remaining.
+        if ( remaining == getdvarint( "acc_paradise_maxammo_at_sec", 105 ) )
+            level thread paradise_drop_max_ammo();
         wait 1;
         remaining--;
     }
@@ -901,6 +949,26 @@ function survival_timer_loop()
     // Survived to 0 with the team NOT wiped (a wipe would have endon'd this loop via end_game) -> WIN.
     if ( any_player_alive() )
         level thread win();
+}
+
+// One scripted MAX AMMO at the 1:45 mark (user 2026-07-13). Drops at the gather point (plaza centre);
+// acc_paradise_force_drop lets it through block_powerup_drop. specific_powerup_drop MUST be level thread
+// (memory stock-override-zm-patch-dedupe: eMoX's delayed-drop makes the call block ~1.6s).
+function paradise_drop_max_ammo()
+{
+    level endon( "end_game" );
+    level endon( "acc_paradise_end" );
+
+    spot = paradise_gather_point();
+    if ( !isdefined( spot ) ) spot = ( 0, -1300, -1200 );
+
+    level.acc_paradise_force_drop = true;
+    level thread zm_powerups::specific_powerup_drop( "full_ammo", spot );
+    wait 0.5;
+    level.acc_paradise_force_drop = false;
+
+    foreach ( p in GetPlayers() )
+        if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^3MAX AMMO^7 dropped - grab it!" );
 }
 
 function update_timer_hud( remaining )
@@ -937,7 +1005,13 @@ function ensure_timer_hud( p )
 }
 
 // ---------------------------------------------------------------------------
-// WIN: the documented BO3 end-game sequence (docs/16): banner -> freeze -> fade -> purge -> notify("end_game").
+// WIN (user 2026-07-12: Paradise no longer ENDS the run - it REWARDS and CONTINUES).
+// Sequence: latch the win flag (-> leaderboard "(Paradise Winner)" tag + gold health bar)
+// -> celebrate (banner + fanfare) -> grant every survivor ALL perks + enhanced Jug (350 HP)
+// -> drop the 5 wonder weapons on the plaza floor for a 60s reward window -> teleport the
+// survivors back to the surface (carefully, no down) -> restore normal round spawning ->
+// RETURN (no end_game). The run ends later on death/quit; the recorder reads the latched
+// level.acc_paradise_won at THAT end. A team WIPE still ends via stock game-over (a loss).
 // ---------------------------------------------------------------------------
 
 function win()
@@ -945,37 +1019,252 @@ function win()
     level endon( "end_game" );
 
     if ( IS_TRUE( level.acc_paradise_won ) ) return;
-    level.acc_paradise_won = true;
+    level.acc_paradise_won = true;              // latched: read by the leaderboard recorder + the gold-bar hook
 
-    level notify( "acc_paradise_end" );        // stop the surge / boss / timer drivers
-    level.acc_paradise_onslaught = false;
+    level notify( "acc_paradise_end" );         // stop the surge / boss / timer / escalation drivers
+    // KEEP THIS CLEAR: it is not only cosmetic state - it is the ONLY thing that unwinds ai_pressure's
+    // +12 on level.zombie_ai_limit (that loop is notify-immune BY DESIGN; see the comment on it).
+    level.acc_paradise_onslaught = false;       // -> restores powerup drops (block_powerup_drop), boss HUD/music
 
-    acc_utility::log( "paradise: TEAM SURVIVED THE ONSLAUGHT - WIN" );
+    acc_utility::log( "paradise: TEAM SURVIVED THE ONSLAUGHT - WIN (run CONTINUES + reward, user 2026-07-12)" );
 
-    acc_atmosphere::paradise_fog_off();   // LIFT the fog (move it off the map - user 2026-06-25)
+    acc_atmosphere::paradise_fog_off();         // LIFT the fog (move it off the map)
 
-    // Victory banner + lock the survivors + the Mario fanfare again (the REAL win this time). There is no
-    // separate "victory" screen in zombies, so the banner + fanfare are what tell the team they WON vs died.
+    // CLEAN SLATE: purge the finale horde AND remove the finale bosses so the reward window /
+    // continued run is a calm plaza. purge_zombies() SKIPS bosses BY DESIGN (its other caller,
+    // start_battle, must not cull a pre-existing boss), so it can't do this itself. win() no
+    // longer end_game's (user 2026-07-12: the run continues), so a boss still alive at 0:00 would
+    // otherwise survive purge_zombies, keep attacking the unfrozen looters through the reward
+    // window, and - once unseal_arena reconnects the navmesh + players teleport up - roam the whole
+    // map for the rest of the run. Remove them here in the same clean-slate frame (review 2026-07-15).
+    purge_zombies();
+    remove_paradise_bosses();
+
+    // ---- CELEBRATE: banner + fanfare, NO control freeze (user 2026-07-13: "your character freezes
+    // when you win and that can cause you to die if there is a zombie alive - remove the freeze").
+    // purge_zombies() above already clears the horde, but a straggler mid-spawn could survive a frame;
+    // leaving the player IN CONTROL means they can fight/run instead of dying frozen. ----
     foreach ( p in GetPlayers() )
     {
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
         if ( isdefined( p.acc_paradise_timer ) ) { p.acc_paradise_timer hud::destroyElem(); acc_utility::he_free( 1 ); p.acc_paradise_timer = undefined; }
-        p FreezeControls( true );
         p show_win_banner();
-        p PlayLocalSound( "acc_paradise_calm" );   // the victory fanfare again
+        p PlayLocalSound( "acc_paradise_calm" );   // the victory fanfare
         p IPrintLnBold( "^2YOU SURVIVED PARADISE^7 - victory!" );
     }
 
-    wait 5;   // let the fanfare play + the win land
+    wait 5;   // let the banner + fanfare land (players stay in control)
 
-    fade_all_to_black( 2.0 );
-    wait 2.4;
+    // ---- REWARD: every SURVIVOR gets all perks + enhanced Jug (350 HP / gold bar), then can roam ----
+    foreach ( p in GetPlayers() )
+    {
+        if ( !isdefined( p ) || !isplayer( p ) || !isalive( p ) ) continue;
+        grant_paradise_reward( p );
+    }
 
-    purge_zombies();   // documented end-game step: nothing mid-attack at the cut
-    wait 1.5;
+    // ---- LOOT: the 5 wonder weapons on the plaza floor for the reward window ----
+    level thread spawn_paradise_wonder_loot();
+    level thread clear_win_banners();   // the banner fades a few seconds into the reward window (user 2026-07-12: it never disappeared)
 
-    // The single stock-recognized signal that ends the BO3 zombies match (-> post-game scoreboard).
-    level notify( "end_game" );
+    reward_sec = getdvarint( "acc_paradise_reward_sec", ACC_PARADISE_REWARD_SEC_DEF );
+    foreach ( p in GetPlayers() )
+        if ( isdefined( p ) && isplayer( p ) )
+            p IPrintLnBold( "^3GRAB THE WONDER WEAPONS^7 - returning to the surface in " + reward_sec + "s..." );
+
+    wait reward_sec;
+
+    // ---- RETURN: clear un-grabbed loot, reopen the gate, teleport up, resume rounds ----
+    level notify( "acc_paradise_reward_end" );   // tears down any un-grabbed wonder pickups
+    unseal_arena();                              // reopen the abyss gate + reconnect its navmesh
+    return_players_to_surface();                 // fan-out ring teleport up (OOB grace covers it; no down)
+    if ( getdvarint( "acc_paradise_spawn_lockdown", 1 ) == 1 )
+        level flag::set( "spawn_zombies" );      // RESUME stock round spawning (start_battle cleared it)
+
+    acc_utility::log( "paradise: reward window over - survivors returned to the surface, rounds resume (run continues)" );
+    // NO notify("end_game"): the run continues.
+}
+
+// ---------------------------------------------------------------------------
+// WIN REWARD helpers (user 2026-07-12)
+// ---------------------------------------------------------------------------
+
+// self-less: grant one survivor the full Paradise reward - ALL perks + a permanent enhanced Jug (350 HP).
+function grant_paradise_reward( p )
+{
+    p.acc_paradise_reward = true;   // gates the GOLD health bar at full HP (_acc_health_bars::hp_bar_color)
+
+    // ALL perks: the map's 10-perk registry (level.acc_perk_door_specs, set by acc_perk_doors::init).
+    // give_perk is the stock grant (real perk + HP + machine thread) - the same call dev mode uses; it
+    // drives the custom PhD/Electric-Cherry give-threads too. Read the level var (no _acc_perk_doors #using
+    // needed -> no cross-module cycle risk). give_perk(spec, false): false = not a bottle/vending give.
+    specs = level.acc_perk_door_specs;
+    if ( isdefined( specs ) )
+        for ( i = 0; i < specs.size; i++ )
+            if ( isdefined( specs[ i ] ) && !( p HasPerk( specs[ i ] ) ) )
+                p zm_perks::give_perk( specs[ i ], false );
+
+    // ENHANCED JUG -> 350 HP. n_player_health_boost is the ONLY field the stock health_reboot recompute
+    // adds, and that recompute re-runs on every revive, so the bonus SURVIVES DOWNS (same proven mechanism
+    // as Mega Jug's Ultimate Tank, _acc_mega_bottles.gsc:710). perk_set_max_health_if_jugg needs Jug present
+    // - the give_perk loop above guarantees specialty_armorvest, so it always takes. USER 2026-07-13:
+    //   the Paradise HP reward is a PERMANENT +50 (base 100 -> 150), so a Jug'd survivor = 100 + 150 Jug
+    //   + 50 = 300 (was +100/350). "for the rest of the game" = n_player_health_boost survives downs.
+    p.n_player_health_boost = getdvarint( "acc_paradise_hp_boost", ACC_PARADISE_HP_BOOST_DEF );
+    p zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
+    p.health = p.maxhealth;   // top off to the new cap
+
+    p IPrintLnBold( "^2PARADISE'S BLESSING^7 - all perks + " + p.maxhealth + " HP" );
+}
+
+// Reverse of seal_arena(): reopen the abyss gate + reconnect its navmesh so the survivors aren't trapped and
+// the surface is reachable again. ConnectPaths PAIRS the seal's DisconnectPaths (memory
+// navmesh-excludes-entities-disconnectpaths).
+function unseal_arena()
+{
+    door = GetEnt( "acc_abyss_hub_door", "targetname" );
+    if ( !isdefined( door ) ) return;
+    door connectpaths();
+    door notsolid();
+    door hide();
+    acc_utility::log( "paradise: arena UNsealed (gate reopened, navmesh reconnected)" );
+}
+
+// Teleport every live survivor (incl. downed - so nobody is left below the map) up to the surface start area,
+// fanned onto a deterministic ring so they never stack (memory coop-teleport-fan-out-not-one-point). The OOB
+// monitor's 12s continuous-OOB grace (acc_trench_oob_allow) means a single warp CANNOT down them.
+function return_players_to_surface()
+{
+    dest = ( -291, -316, 32 );   // surface start/spawn area (the dev "spawn" warp target, _acc_dev.gsc)
+
+    survivors = [];
+    foreach ( p in GetPlayers() )
+        if ( isdefined( p ) && isplayer( p ) && isalive( p ) )
+            survivors[ survivors.size ] = p;
+
+    for ( i = 0; i < survivors.size; i++ )
+    {
+        ang = i * 360 / survivors.size;
+        off = ( cos( ang ) * 48, sin( ang ) * 48, 0 );   // 48u ring (no capsule-stack eject)
+        survivors[ i ] FreezeControls( false );          // belt-and-braces: never leave anyone frozen up top
+        survivors[ i ] SetOrigin( dest + off );
+        survivors[ i ] IPrintLnBold( "^2Returned to the surface^7 - the run continues!" );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// WONDER-WEAPON LOOT (the plaza reward pickups)
+// ---------------------------------------------------------------------------
+
+// Drop all 5 wonder weapons as hold-USE ground pickups fanned around the plaza centre. They live for the reward
+// window (torn down on "acc_paradise_reward_end") so the team can grab whichever they want before the return.
+function spawn_paradise_wonder_loot()
+{
+    level endon( "end_game" );
+    if ( getdvarint( "acc_paradise_wonder_loot", 1 ) != 1 ) return;
+
+    // Drop the reward loot around the PARADISE PACK-A-PUNCH (user 2026-07-13: "drop all the rewards
+    // near the Pack a Punch machine once the team has beaten it"). The 2nd PaP is at (0,-1700,-1200)
+    // (spawn_paradise_pap_at); a 120u ring keeps the pickups clear of the machine's own footprint.
+    center = ( 0, -1700, -1200 );
+
+    // The 5 wonders, runtime base names (verified _acc_map_randomizer.gsc box specials).
+    // THE CYBERJACK (apex_lstar) is DELIBERATELY EXCLUDED (user 2026-07-17, docs/43 decision 2:
+    // QUEST-ONLY - Paradise handing it out would bypass the ICEBREAKER COMPILE). Don't add it in a sweep.
+    wonders = array( "thundergun", "t9_semiauto_cosplay", "elemental_bow_demongate", "leviathan", "freezegun" );
+    for ( i = 0; i < wonders.size; i++ )
+    {
+        ang = i * 360 / wonders.size;
+        org = center + ( cos( ang ) * 120, sin( ang ) * 120, 0 );   // 120u ring around the PaP
+        level thread spawn_one_wonder_pickup( wonders[ i ], org );
+    }
+}
+
+// One wonder-weapon ground pickup: script_model + hold-[+activate] trigger_radius_use (the proven data-shard /
+// boss-item pickup recipe), granting the weapon via the box's own weapon_give path. One-shot; self-cleans on
+// grab or at the reward-window close.
+function spawn_one_wonder_pickup( wname, origin )
+{
+    level endon( "end_game" );
+
+    w = GetWeapon( wname );
+    if ( !isdefined( w ) ) return;
+
+    origin = acc_utility::drop_floor_origin( origin );
+
+    m = spawn( "script_model", origin + ( 0, 0, getdvarint( "acc_drop_model_z", 24 ) ) );
+    if ( isdefined( w.worldModel ) )
+        m setmodel( w.worldModel );
+
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 56, 72 );
+    t TriggerIgnoreTeam();            // any player may grab (public pickup) - REQUIRED for a script-spawned use trigger
+    t UseTriggerRequireLookAt();      // can't grab through a wall
+    t SetCursorHint( "HINT_NOICON" );
+    t SetHintString( "Hold ^3[{+activate}]^7 for " + w.displayName );
+    t.acc_wonder_model = m;
+
+    t thread wonder_pickup_reward_end_cleanup();   // deletes model+trigger when the reward window closes
+
+    t endon( "acc_wonder_gone" );
+    for ( ;; )
+    {
+        t waittill( "trigger", player );
+        if ( !isdefined( player ) || !isplayer( player ) || !isalive( player ) )
+            continue;
+        player zm_weapons::weapon_give( w, undefined, undefined, undefined, true );   // box's give path (ammo/state bootstrap)
+        player PlayLocalSound( "zmb_box_weapon_grab" );
+        player IPrintLnBold( "^3Paradise reward:^7 " + w.displayName );
+        break;
+    }
+
+    // grabbed: tear the pickup down. DELETE, no notify - the old `t notify("acc_wonder_gone")` here
+    // fired THIS thread's own `t endon` above and killed it BEFORE the deletes ran, so a grabbed
+    // weapon's model + trigger stayed in the world forever (user 2026-07-12 "it needs to disappear
+    // once someone takes it"). Deleting t also ends the reward-end cleanup thread (it runs ON t).
+    if ( isdefined( m ) ) m delete();
+    if ( isdefined( t ) ) t delete();
+}
+
+// self = the trigger. Tears the pickup down when the reward window closes (or match end). Notifies
+// "acc_wonder_gone" FIRST so the grab loop's endon kills that thread, THEN deletes. This thread
+// deliberately has NO matching endon of its own - the old self-endon meant its own notify killed
+// this thread before the deletes ran, so un-grabbed pickups survived the reward-window close too
+// (same self-notify-vs-own-endon bug as the grab path). The grab path never needs to kill this
+// thread explicitly: deleting the trigger (self) ends it.
+function wonder_pickup_reward_end_cleanup()
+{
+    level endon( "end_game" );
+    level waittill( "acc_paradise_reward_end" );
+    self notify( "acc_wonder_gone" );
+    if ( isdefined( self.acc_wonder_model ) ) self.acc_wonder_model delete();
+    if ( isdefined( self ) ) self delete();
+}
+
+// Fade out + destroy every player's win banner a few seconds into the reward window (user 2026-07-12:
+// "the winning UI never disappears" - nothing ever destroyed what show_win_banner created, so the
+// green text sat on screen for the rest of the run). Runs ~5s after the reward window opens (the
+// 5s celebration freeze already elapsed), 2s alpha fade, then a real destroyElem so the hudelem
+// slot is freed. Live dvar acc_paradise_win_banner_sec.
+function clear_win_banners()
+{
+    level endon( "end_game" );
+
+    wait getdvarfloat( "acc_paradise_win_banner_sec", 5 );
+
+    foreach ( p in GetPlayers() )
+    {
+        if ( !isdefined( p ) || !isplayer( p ) || !isdefined( p.acc_paradise_win_txt ) ) continue;
+        p.acc_paradise_win_txt fadeovertime( 2 );
+        p.acc_paradise_win_txt.alpha = 0;
+    }
+
+    wait 2.1;   // let the fade land before freeing the elems
+
+    foreach ( p in GetPlayers() )
+    {
+        if ( !isdefined( p ) || !isplayer( p ) || !isdefined( p.acc_paradise_win_txt ) ) continue;
+        p.acc_paradise_win_txt hud::destroyElem();
+        p.acc_paradise_win_txt = undefined;
+    }
 }
 
 function show_win_banner()   // self = player
@@ -1036,4 +1325,34 @@ function purge_zombies()
         if ( IS_TRUE( z.acc_is_boss ) || IS_TRUE( z.acc_is_mini_boss ) ) continue;
         z DoDamage( z.health + 666, z.origin );
     }
+}
+
+// Force-REMOVE every finale boss (Brutus / Phantom / Rogue Protector / Panzer / Avogadro / Fury) so the
+// win() reward window and the continued run are a calm plaza (review 2026-07-15 - the win()==continue-the-run
+// change turned purge_zombies()'s intentional boss-skip into a "boss survives + roams" regression). Delete()
+// is deliberate over DoDamage: the Panzer/mechz body damage floors at stock's 0.1x scale (a DoDamage(health+666,
+// origin) body hit does NOT one-shot it - _acc_boss_panzer.gsc:570), and the Avogadro's death rises via an
+// allowdeath=false exit anim so DoDamage leaves isalive() TRUE mid-rise. Delete() bypasses all of that in one
+// frame. It is safe: self-bound boss think/death-watch threads are torn down with the actor; the level-threaded
+// paradise_boss_count_watch polls isdefined() (and is already endon'd by the acc_paradise_end notify win() fired
+// just above), so nothing hangs; and no "death" notify means no death drops / rise anim in the calm window. The
+// GetAITeamArray snapshot is a copy, so Deleting while iterating it is safe. Zero the caps for a clean state.
+function remove_paradise_bosses()
+{
+    team = ( isdefined( level.zombie_team ) ? level.zombie_team : "axis" );
+    zs = GetAITeamArray( team );
+    for ( i = 0; i < zs.size; i++ )
+    {
+        b = zs[ i ];
+        if ( !isdefined( b ) ) continue;
+        if ( !IS_TRUE( b.acc_is_boss ) && !IS_TRUE( b.acc_is_mini_boss ) ) continue;
+        b Delete();
+    }
+
+    level.acc_paradise_brutus_count  = 0;
+    level.acc_paradise_phantom_count = 0;
+    level.acc_paradise_rp_count      = 0;
+    level.acc_paradise_avo_count     = 0;
+    level.acc_paradise_panzer_count  = 0;
+    level.acc_paradise_fury_count    = 0;
 }

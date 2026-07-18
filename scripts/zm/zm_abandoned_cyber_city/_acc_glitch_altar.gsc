@@ -12,8 +12,8 @@
 // acc_data_shards::spawn_pickup_at) at a fixed origin inside the Plaza-facing trench
 // room - no .map entity, no geometry, ships -GscOnly with ZERO LED-bake risk.
 //
-// Live dvars: acc_altar_cost (4), acc_altar_cooldown (6 s), acc_altar_jackpot (7),
-//             acc_altar_surge (5), acc_altar_drain (6).
+// Live dvars: acc_altar_cost (2), acc_altar_cooldown (6 s), acc_altar_jackpot (4),
+//             acc_altar_surge (5), acc_altar_drain (2).
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -33,16 +33,18 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_armory;         // Paradise gets a 2nd (independent) weapon rack + bottle exchange (user 2026-07-13)
 #using scripts\zm\_zm_weapons;
 #using scripts\zm\_zm_score;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_map_randomizer;   // Paradise box: reuse the surface box pool/weights
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;       // Paradise PaP: standalone custom vendor (not a 2nd stock machine)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;    // cyan "usable" holo on altar slab + Paradise box
 
 // Altar base model (a Cyber City interactive sign kiosk - corrupted-tech pedestal; stock t7_props, proven packable).
 // STATION REMODEL (user 2026-07-09, docs/09): Citadel stone altar (162x66x58, T7-dump carve)
 // as the gamble-altar base - the ray-gun core orb (+72) now hovers ~14u above the slab top.
 #precache( "model", "p7_ram_altar" );
-#precache( "model", "p7_zm_der_magic_box" );   // Paradise Mystery Box mesh (stock; verified packed via the surface box, xmodel.csv)
+#precache( "model", "p7_zm_der_magic_box" );   // Paradise Mystery Box mesh (stock; packs via the explicit zone xmodel line since the 2026-07-12 AW-box swap deleted the surface zbarriers it used to ride)
 
 #namespace acc_glitch_altar;
 
@@ -122,13 +124,21 @@ function spawn_paradise()
     pz = -1200;   // Paradise floor top. Perk row is at y=-820 (north); 2nd PaP at (0,-1700). Spread the
                   // kiosks to the mid/south SIDES and put the bench (left) + box (right) along the south.
 
-    spawn_altar_at( ( -850, -1350, pz ) );                           // Glitch Altar (west-mid)
+    // Glitch Altar + in-arena Ammo Crate REMOVED from Paradise (user 2026-07-13). The finale is a
+    // survive-the-onslaught fight, not a shop run - the gamble altar + the refill crate are gone
+    // (their clips also pulled from add_prop_clips.js). Max ammo now arrives as a scripted powerup
+    // at 1:45 on the battle countdown instead (_acc_paradise::paradise_drop_max_ammo).
+    // spawn_altar_at( ( -850, -1350, pz ) );                        // Glitch Altar - REMOVED
     acc_overclocks::spawn_terminal_at( ( 850, -1350, pz ), 0 );      // Cyberware Weapon Overclock (east-mid)
     acc_exo::spawn_station_at( ( -850, -1950, pz ), 0 );             // Exo Suit station (west-south)
     acc_perks::spawn_perk_slot_vendor_at( ( 850, -1950, pz ), 0 );   // Neural Expansion Bay / perk slots (east-south)
-    acc_ammo_crate::spawn_crate_at( ( 850, -1650, pz ), 0 );         // AMMO CRATE #3 (user 2026-07-09) - east wall between the OC and the
-                                                                     // Neural Bay, so the onslaught has an in-arena refill (same GSC crate
-                                                                     // as the two abyss bookends; trigger is a radius, yaw is cosmetic)
+    // acc_ammo_crate::spawn_crate_at( ( 850, -1650, pz ), 0 );      // AMMO CRATE #3 - REMOVED
+
+    // ARMORY STATIONS IN PARADISE (user 2026-07-13): the two Armory-loft stations, on the west wall as a
+    // pair. The rack is a SEPARATE, INDEPENDENT pool from the loft rack (spawn_rack_station is now
+    // per-station, so it does NOT clobber the loft's) - the loft is unreachable once you descend anyway.
+    acc_armory::spawn_rack_station( ( -850, -1350, pz ) );           // team weapon rack (west-mid, mirrors the Overclock at +850,-1350)
+    acc_armory::spawn_bottle_station( ( -850, -1650, pz ) );         // mega-bottle -> random Implant exchange (west, between the rack and the Exo)
 
     // Boss-item Implant Bench: 3 pads = the 3 implant slots (2 -> 3, user 2026-07-09), side by side
     // along X at the same 160u spacing as the Plaza lab row, south-LEFT of center (row spans
@@ -145,7 +155,7 @@ function spawn_paradise()
     // what broke the surface PaP before). Reuses the SAME player-scoped tier path, so tier never resets.
     acc_pap_levels::spawn_paradise_pap_at( ( 0, -1700, pz ), 0 );
 
-    acc_utility::log( "paradise: GSC amenities spawned (altar/overclock/exo/perk-slot/ammo-crate/bench/box/pap)" );
+    acc_utility::log( "paradise: GSC amenities spawned (overclock/exo/perk-slot/bench/box/pap/armory-rack/armory-bottle)" );
 }
 
 // ---------------------------------------------------------------------------
@@ -162,12 +172,13 @@ function paradise_box_cost() { return getdvarint( "acc_paradise_box_cost", 950 )
 function spawn_paradise_box_at( origin )
 {
     box = spawn( "script_model", origin );
-    box setmodel( "p7_zm_der_magic_box" );   // the iconic magic-box mesh (stock, packed - verified vs the surface box)
+    box setmodel( "p7_zm_der_magic_box" );   // the iconic magic-box mesh (stock; packs via the explicit zone line - the surface box is the AW 3D Printer since 2026-07-12)
     // der_magic_box ships a _col LOD (self-collides) but the navmesh cannot see entity collision, so zombies
     // path through its footprint and grind on it. Stock pattern: DisconnectPaths() the collision entity at
     // spawn (_zm_perks.gsc:1551-1555). Box is PERMANENT + STATIONARY, so a one-shot cut is safe (a moved
     // entity would leave the cut behind - never move this without ConnectPaths() first). docs/16 navmesh entry.
     box disconnectpaths();
+    acc_interact_glow::glow_on( box );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 72, 100 );
     t TriggerIgnoreTeam();          // REQUIRED for a script-spawned use trigger (stock _zm_perks.gsc:1523)
@@ -209,6 +220,7 @@ function paradise_box_loop()   // self = the box trigger
 
         player zm_score::minus_to_player_score( cost );
         self.acc_spinning = true;
+        acc_interact_glow::glow_off( self.acc_box_model );   // points actually spent = successful use
 
         // [acc] VISIBLE SPIN (user 2026-07-06: "it just takes your points without spinning through
         // guns"): the old 0.75s bare wait gave zero feedback. Recreate the stock box read - a floating
@@ -233,8 +245,11 @@ function paradise_box_loop()   // self = the box trigger
         }
         if ( isdefined( dsp ) )
         {
-            if ( isdefined( wpn.worldModel ) )
-                dsp SetModel( wpn.worldModel );   // the settled "this is your gun" beat
+            // [acc] 2026-07-16: display via the shared resolver - the raw worldModel is a bare
+            // mag-less receiver on the CW/VG guns (see acc_map_randomizer::box_display_model).
+            mdl_settle = acc_map_randomizer::box_display_model( wpn );
+            if ( isdefined( mdl_settle ) )
+                dsp SetModel( mdl_settle );   // the settled "this is your gun" beat
             wait 0.7;
             dsp Delete();
         }
@@ -271,8 +286,11 @@ function paradise_box_display_models( wpn_final )
         if ( !isdefined( level.zombie_weapons[ w ].is_in_box ) || !level.zombie_weapons[ w ].is_in_box ) continue;
         if ( acc_map_randomizer::is_box_tactical( w ) ) continue;
         if ( isdefined( wpn_final ) && w == wpn_final ) continue;
-        if ( !isdefined( w.worldModel ) ) continue;
-        models[ models.size ] = w.worldModel;
+        // [acc] 2026-07-16: shared resolver - complete _full mesh where the raw worldModel is a
+        // bare mag-less receiver (CW/VG ports); falls through to worldModel for everything else.
+        mdl = acc_map_randomizer::box_display_model( w );
+        if ( !isdefined( mdl ) ) continue;
+        models[ models.size ] = mdl;
     }
     return models;
 }
@@ -319,17 +337,25 @@ function spawn_altar_at( origin )
     // above it (STATION REMODEL 2026-07-09 - was the shared sign kiosk).
     base = spawn( "script_model", origin );
     base setmodel( "p7_ram_altar" );
+    acc_interact_glow::glow_on( base );
 
     core = spawn( "script_model", origin + ( 0, 0, 72 ) );
     core setmodel( level.acc_shards_pickup_model );   // glowing energy ball
     core thread spin_core();
 
     // Hold-USE trigger (radius/height args ARE the volume - no Radiant brush / zone line).
-    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 72, 100 );
+    // RADIUS = 110, NOT 72 (user 2026-07-12 "trigger only appears on one side"): the STATION REMODEL
+    // (2026-07-09) swapped the small shared kiosk for the 162x66 p7_ram_altar slab, but the trigger
+    // radius stayed 72 - the leftover from the kiosk. The slab's long (X) axis half-extent is 81
+    // (matches the hx:81 collision clip in add_prop_clips.js), so a radius-72 cylinder can't reach the
+    // two X-ends without standing INSIDE the solid slab -> the hint only showed from a long Y-face
+    // (one accessible side). 110 clears the 81 half-slab + the player's ~15u stand-off from every face.
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 110, 100 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
     t SetHintString( "Hold ^3[{+activate}]^7  ^5GLITCH ALTAR^7 - gamble ^5" + cost + " Data Shards^7 (mostly boons, real glitch risk)" );
     t.acc_core = core;
+    t.acc_base_model = base;   // glow_off target on first successful gamble (user 2026-07-17)
     t thread altar_loop();
 
     acc_utility::log( "glitch_altar: spawned at " + origin + " (cost " + cost + ")" );
@@ -379,6 +405,7 @@ function altar_loop()    // self = the altar trigger
         }
 
         self.acc_cooldown = true;
+        acc_interact_glow::glow_off( self.acc_base_model );   // shards actually spent = successful use
         self resolve_gamble( player );
         wait altar_cooldown();
         self.acc_cooldown = false;
@@ -434,6 +461,9 @@ function deliver_outcome( player, outcome )
     case "random_perk":
         altar_msg( player,"^2GLITCH ALTAR: ^7Free Perk!" );
         player zm_perks::give_random_perk();
+        // Kortifex "Random perk!" line (nil-guarded - see _acc_emergency_drop).
+        if ( isdefined( level.acc_kx_announce_random_perk ) )
+            [[ level.acc_kx_announce_random_perk ]]();
         break;
     case "shard_jackpot":
         n = getdvarint( "acc_altar_jackpot", 4 );   // 7 -> 3 -> 4 (+4 shards, user 2026-06-24; still net-negative EV vs the 15% odds at cost 2)

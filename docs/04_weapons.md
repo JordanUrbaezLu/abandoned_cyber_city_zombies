@@ -8,15 +8,15 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > only the chosen set. **Live box (28 draw candidates + 2 fixed-odds tacticals — authoritative roster + all PaP
 > stats in [docs/25](25_weapon_stats_table.md) + [docs/33](33_pap_pricing_tiers.md); this list is the exact
 > `box_weapons` array):**
-> - **Pistols:** Five-Seven `t6_fiveseven` (also the starting pistol), RW1 `s1_rw1` (AW directed-energy).
+> - **Pistols:** Five-Seven `t6_fiveseven` (also the starting pistol), RW1 `s1_rw1` (AW directed-energy skin, but **classified BULLET 2026-07-14** so High Caliber buffs it, not Plasma).
 > - **SMGs:** PPSH-41 `s4_ppsh41_base`, AK-74u `t9_ak74u`, Alternator `apex_alternator` (Apex; trash base / A+ PaP), Prowler `apex_prowler` (Apex burst SMG).
 > - **ARs:** AK-47 `t9_ak47`, XM4 `t9_xm4`, AE4 `s1_ae4` (energy), Grav `t9_grav` (CW model + Galil stats), Havoc `apex_beam_rifle` (Apex energy-projectile rifle, classed a special).
-> - **Shotguns:** Tac-19 `s1_tac19` (energy), Olympia `t6_olympia`, Streetsweeper `t9_streetsweeper`, CEL-3 `s1_cel3` (AW directed-energy — Nuclear Energy-buffed since 2026-07-11), Peacekeeper `apex_peacekeeper` (Apex lever, power-first top shotgun — ballistic, NOT energy).
-> - **Marksman / snipers:** MK14 `s1_mk14`, MORS `s1_mors` (charge railgun), Triple Take `apex_tripletake` (Apex 3-bolt ENERGY sniper, replaces the M16 2026-07-11 — **A-/MID after the same-day user +25% damage + 25% RoF buff** (bal 0.281875, fireTime 0.288): per-trigger T3 2748, and the **Nuclear Energy implant's +15% pushes it to 3160** — clearly above the MORS per-shot; energy muzzle FX + plasma tracers + a pitch-shifted Havoc fire zap layered over its own crack).
+> - **Shotguns:** Tac-19 `s1_tac19` (energy), Olympia `t6_olympia`, Streetsweeper `t9_streetsweeper`, CEL-3 `s1_cel3` (AW directed-energy — Plasma Generator-buffed; **−10% base damage 2026-07-14** (bal 0.432→0.3888)), Peacekeeper `apex_peacekeeper` (Apex lever, power-first top shotgun — **classified ENERGY 2026-07-14** so the Plasma Generator implant buffs it, not High Caliber).
+> - **Marksman / snipers:** MK14 `s1_mk14`, MORS `s1_mors` (charge railgun), Triple Take `apex_tripletake` (Apex ENERGY sniper, replaces the M16 2026-07-11; **VOLLEY REWORK user 2026-07-16, v3 final after 8 live rounds** — every trigger deals **3 HITSCAN hits** (1 native center + 2 `_acc_tripletake.gsc` MagicBullet side lines, spread dvar `acc_ttk_spread_deg` 4°/side, **pen LARGE** — the round-8 pierce upgrade) and **COSTS 3 ROUNDS — under 3 rounds the gun will not fire**; the *visible* volley is **3 plasma-orb MOVERS** flying the same lines (`acc_ttk_bolt_fx` scriptmover clientfield → 1.5× geotrail clones `fx/acc/acc_ttk_geotrail_{blue,red}`, blue base / **RED PaP**, dvar `acc_ttk_bolt_vis_speed` 4500, birth point offset off the camera toward the on-screen barrel). **The def is back to bulletweapon.gdf with `shotCount 1`** (the v2 projectileweapon graft provably never changed the firing model — kill-timing test — and cost the pen/falloff fields). Clip 9/15 (3 / 5 volleys per mag), reserve 117/180, fireTime 0.1728 base / **0.110592 PaP (+56% rate vs base after the round-9 +25%)**, **damage buffed twice 07-16 (+10% then +15%, bal 0.356571875)**: per-hit T3 ~1159, per-trigger ~3477, **Plasma Generator +10% → ~3825**; plasma hitscan tracers + a pitch-shifted Havoc fire zap layered over its own crack).
 > - **LMGs:** M60 `t9_m60`, RPD `t9_rpd` (both Cold War), HAMR `t6_hamr` (BO2 — B tier, between the M60 and RPD).
-> - **Explosive specials:** Mahem `s1_mahem` (molten-metal rocket) + War Machine `t6_war_machine` (BO2 6-round drum GL, IMPACT detonation — GDT-native `fuseTime 0`; PaP "Dystopic Demolisher" = 12-rd full-auto drum; ~2000 direct/shot, below the Mahem per-shot — the drum burst is the appeal; Speed-Cola-only fastreload twins).
-> - **Wonder weapons** (all claim-capped 1 player/match, `wonder_cap_key()`): Thundergun `thundergun` (wind-blast, `is_limited=1`), Blast-O-Matic `t9_semiauto_cosplay` (CW DOA energy blaster), Fire Bow `elemental_bow_demongate` (HB21 demon-gate), Leviathan Axe `leviathan` (GoW melee), Winter's Howl `freezegun` (GCPeinhardt BO1 freeze ray — a **UTILITY** wonder: slows bosses 35%/5s, **one-hits the Glitch Stalker**, ×2 vs the Phantom, ×3 vs the Shielded elite, freeze→iceover→shatter on regular zombies; NOT a damage gun. Move ×1.07, fastreload wonder twins, PaP model at tier 2. Detail block below; full stats docs/25).
-> - **Tacticals** (fixed pre-roll, `acc_box_tactical_preroll()`): Monkey Bomb `cymbal_monkey` 1% · Li'l Arnie `octobomb` 0.5%.
+> - **Explosive specials:** Mahem `s1_mahem` (molten-metal rocket) + War Machine `t6_war_machine` (BO2 6-round drum GL, IMPACT detonation — GDT-native `fuseTime 0`; PaP "Dystopic Demolisher" = 12-rd full-auto drum; ~2420 direct/shot after two +10% buffs (2026-07-12, 2026-07-16), still just below the Mahem's 2500 per-shot — the drum burst is the appeal; Speed-Cola-only fastreload twins).
+> - **Wonder weapons** (all claim-capped 1 player/match, `wonder_cap_key()`): Thundergun `thundergun` (wind-blast, `is_limited=1`), Blast-O-Matic `t9_semiauto_cosplay` (CW DOA energy blaster), Fire Bow `elemental_bow_demongate` (HB21 demon-gate), Leviathan Axe `leviathan` (GoW melee), Winter's Howl `freezegun` (GCPeinhardt BO1 freeze ray — a **UTILITY** wonder: slows bosses 17.5%/5s, **one-hits the Glitch Stalker**, ×2 vs the Phantom, ×3 vs the Shielded elite, freeze→iceover→shatter on regular zombies; NOT a damage gun. Move ×1.07, fastreload wonder twins, PaP model at tier 2. Detail block below; full stats docs/25).
+> - **Tacticals** (fixed pre-roll, `acc_box_tactical_preroll()`): Monkey Bomb `cymbal_monkey` 1% · Li'l Arnie `octobomb` 0.5%. Granted into the **tactical slot only** — never trades a gun (fix 2026-07-17: the box driver skips the stock primary `weapon_give` for these; `acc_boss_items::watch_box_tactical_grab` owns the grant).
 >
 > **REMOVED guns (entries kept inert in code for easy restore — do NOT re-list them as live):** the **Apex
 > migration 2026-07-06** replaced four guns — **Chicom CQB `t6_chicom_cqb` → Prowler**, **China Lake
@@ -27,7 +27,7 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > unreachable.) Earlier, 2026-06-23, **Ripper, Nail Gun, PDW-57, M1911** were cut for being un-twinnable.
 >
 > Plus the **Ballistic Knife** `knife_ballistic` (added 2026-07-11, pmr360 pack over STOCK-cooked t7 art;
-> class `special`, box-only, 0.80% AF-adjacent odds) — a knife on both ends: **thrown retrievable blade**
+> class `special`, box-only, **~1.8% box odds** (user 2026-07-12)) — a knife on both ends: **thrown retrievable blade**
 > (stick → glow → walk-over pickup refills ammo; base 4 knives / PaP 9) AND its **own melee stab**. Throw
 > and stab both **ONE-HIT regular + glitch zombies (incl. the Glitch Stalker)**, **deflect off Shielded
 > elites (0 dmg)**, and only **chip bosses** (10% per-hit cap). PaP (**tier 2** = the `_upgraded`
@@ -98,7 +98,10 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > Blast-O-Matic `_up`, Thundergun)** = `maxAmmo`/`startAmmo` are **ABSOLUTE ROUNDS** (reserve = `maxAmmo`,
 > do NOT multiply by clip). Setting a clipRel-0 block's `maxAmmo` to a small "magazine" number sets the
 > literal round reserve — that is what collapsed the Blast-O-Matic PaP to 6 reserve. Two special cases:
-> **Olympia** (double-barrel, `clipSize 2` floor) takes its 30% off `maxAmmo` instead (clip stays 2); the
+> **Olympia** (double-barrel) took its 30% off `maxAmmo` instead of the clip; the clip is **4** since the
+> clip doubling (2→4 base + `_up`) — and as of 2026-07-12 the 6 variant twins match again
+> (`tools/oneshots/fix_olympia_twin_clip.js` healed the clip-2-era twin drift that made a box pull
+> "switch to the old GDT": any recoil50/fastreload swap restored the stale 2-round clip); the
 > **PDW akimbo-PaP** shipped a broken `maxAmmo 920` (Skye data error, clamped to 18 ≈ 306 reserve).
 > Approx live reserves — autos ~130-225 base / ~280-420 PaP; shotguns/snipers/pistols ~26-84 (low
 > by design). Tune in that one tool; re-run + `gdtdb /update` + linker.
@@ -122,8 +125,9 @@ The arsenal, the Overclock system, custom perks, and the wonder weapon candidate
 > was *always* true via stock `add_zombie_weapon`, so the upgrade-table fixes prior agents tried were no-ops.)
 > **Fix:** `_acc_pap_levels::make_mahem_pap_visible_to_tier3()` drops `s1_mahem_up` from
 > `level.aat_exemptions`. AAT is globally OFF (`level.aat_in_use=false`), so this grants no alt-ammo — it only
-> restores machine visibility so `acc_pap_validate` runs the in-place tier-3 pack. Verify with `+set acc_dev 1`
-> → the dev log prints `was_aat_exempt=1 is_weapon_upgraded=1`, and the 3rd pack reaches **tier 3/3**.
+> restores machine visibility so `acc_pap_validate` runs the in-place tier-3 pack. Verify with a dev build
+> (`level.acc_dev = true;` in `acc_resolve_dev_flags()` + rebuild) → the dev log prints
+> `was_aat_exempt=1 is_weapon_upgraded=1`, and the 3rd pack reaches **tier 3/3**.
 
 Enemies are in a separate doc: [08_enemies.md](08_enemies.md).
 
@@ -185,6 +189,8 @@ The "Thundergun does ~200k to a boss" report is a **systemic** issue: any **mult
 
 Both are live dvars — dial the exact boss damage without a rebuild. To protect a future multi-hit special, add its root name to `boss_nuke_mult()`.
 
+**Explosive-vs-boss AMPLIFIER (user 2026-07-16):** the counter-lever to the cuts above — `acc_explosive_boss_mult` (default **1.5**, block `0c4`) multiplies **explosive** damage vs bosses/mini-bosses by ×1.5 (a true multiplicative amp in the reduction bucket, so it's ×1.5 of the final hit regardless of the other layers). "Explosive" is the Warhead-Bomber gate (`is_explosive_mod` minus energy weapons and the three unbuffed wonders): frags, Monkey Bomb, Li'l Arnie, the Mahem, the War Machine. It **stacks with** the launcher boss-cut — a Mahem/War Machine rocket nets `0.50 × 1.5 = 0.75` of its uncut boss damage (i.e. the launchers now do 1.5× what they did to bosses before this change); thrown explosives, which have no launcher cut, get the full ×1.5. The **10%/hit boss cap (below) still backstops it**, so it raises explosive boss DPS without ever enabling a one-shot.
+
 #### Deeper audit (2026-06-24, adversarial workflow) — the name-keyed cut is NOT enough; a hard cap is
 
 An adversarial 19-agent audit found the weapon-name boss cuts above are **structurally defeated** in several ways, so they were backstopped with a **final per-hit boss-damage cap** (`ACC_BOSS_PER_HIT_CAP_PCT`, dvar `acc_boss_per_hit_cap_pct`, default **0.10** = a single player hit deals at most 10 % of a boss's maxhealth → ≥10 hits to kill). It clamps `final_damage` **after every multiplier** (global ×3.25 **and** insta-kill ×6), so it survives every bypass below. Applies to the **heavyweight bosses only** (marker-gated on `acc_is_boss`/`acc_is_mini_boss`, so it covers Brutus, The Phantom, and every roster boss) — the Glitch Stalker (`acc_is_glitch_zombie`) is excluded so it still dies fast.
@@ -195,7 +201,7 @@ Why the name-keyed cut alone failed (all confirmed in code):
 3. **Insta-Kill ×6** is applied *after* the boss cut + global, re-inflating a cut weapon past the one-shot line during the powerup window. Capped now.
 4. **Investment stacking** (PaP T3 + Overclock T10 — the **Overclock Terminal** is the live upgrade path; a "Cyberware Amplifier" would also add here, but the Cyberware tree is **disabled by default** (`acc_cyberware_on 0`) so it's dormant) lives in the *bonus_sum* bucket, a different bucket than the cut's *reduction* — so a fully-kitted weapon multiplies right past the cut (~130k/blast even at ×0.20). The advertised "~28k/blast" only held for a zero-investment gun. Capped now.
 5. **Ability auto-crit** (Precision Mode +4.0 / Focus Fire / Slug +3.0) adds a flat bonus on bosses that the headshot-negation (`ACC_BOSS_HEADSHOT_MULT 0.8`) does **not** cover — biggest on the uncut snipers **MORS (`s1_mors`)** and **MK14 (`s1_mk14`)**. Capped now.
-6. **Melee** (Action Figure, Bowie) has no balance entry and scales with the Exo melee layer (now +30 %/tier to T10) → ~10k/swing maxed; single-target/point-blank, low severity, but also capped now.
+6. **Melee** (Action Figure, Bowie) has no balance entry and scales with the Exo melee layer (+15 %/tier to T10 — halved from +30% by user 2026-07-18) → ~5k/swing maxed; single-target/point-blank, low severity, but also capped now.
 
 The `boss_nuke_mult` cuts (Thundergun/Mahem/Paladin) are **kept** — they shape the baseline feel *below* the cap. The cap only removes the one-shot ceiling-break. `acc_boss_per_hit_cap_pct 0` disables it.
 
@@ -230,7 +236,7 @@ How good the gun is *when you roll it* — the box-roll quality.
 | **B+** | 6.5 | ASM1 | SMG | ~401 | 22 | 132 | 2.1s | 1.0 | med | Low DPS saved by fast reload + clip + pierce. |
 | **B+** | 6.5 | Grav | AR | ~412 | 25 | 225 | 2.9s | 0.95 | med | Galil stats grafted onto the CW Grav model/sfx (2026-07-05). |
 | **B** | 5.9 | MK14 | DMR | ~81/shot | 14 | 168 | 2.0s | 0.95 | med | Semi-auto marksman (AW): hard per-shot, ~3× headshot, **curated** single-target DPS. **−10% dmg** (×0.291→0.2619 on 2026-06-27; **current mult ×0.28809** after a later +10% global) — tier kept. |
-| **A-** | 7.3 | Triple Take | Sniper (3-bolt) | ~1374/trigger | 5 | 55 | 2.6s | 0.93 | large | Apex tri-bolt ENERGY sniper (user 2026-07-11, **replaces the M16**; same-day **+25% dmg + 25% RoF** buff + **UNLIMITED RANGE, no falloff**): 3 plasma bolts/trigger (~458/bolt base, head ×2.5, fireTime 0.288, full damage at any distance); **Nuclear Energy +15% pushes its per-trigger clearly above the MORS per-shot**. |
+| **A-** | 7.3 | Triple Take | Sniper (3-bolt volley) | ~1512/trigger | 9 | 117 | 2.6s | 0.93 | large | Apex ENERGY sniper (2026-07-11, replaces the M16). **VOLLEY REWORK (user 2026-07-16, v3 final):** bulletweapon def (shotCount 1), every trigger = **3 HITSCAN hits costing 3 rounds** (1 native + 2 script side lines; <3 rounds = no shot; clip 9 = 3 volleys), spread `acc_ttk_spread_deg` 4°/side, **pen LARGE** (round-8 pierce upgrade — collateral through the line), with **3 plasma-orb mover visuals** flying the lines (blue; RED PaP); **dmg buffed twice 07-16 (+10% then +15%; bal 0.356571875, ~580/hit base, head ×2.5)** + **fireTime 0.288→0.1728 (interval −40%; PaP 0.110592 after two +25% rate passes)**; flat damage at any distance (v1 falloff-flat fields). **Plasma Generator +10% pushes its per-trigger past the MORS per-shot**. |
 | **B** | 6.2 | HAMR | LMG | ~470 | 80 | 400 | 6.0s | 0.86 | large | BO2 LMG placed **between the M60 and RPD** (user 2026-07-10). Fast 6s reload is its comfort; mult 0.208, loc + ammo normalized install-side. **Move 0.8 → 0.86 to match the M60/RPD LMG standard (user 2026-07-11).** |
 | **C** | 5.5 | RPD | LMG | ~421 | 60 | 240 | 7.5s | 0.8 | large | +25% damage buff (user 2026-06-25, mult 0.10→0.125, ~337→~421); tier/PaP-price/box-odds NOT recomputed. Big clip, slow move. |
 | **C** | 5.5 | Five-Seven | Pistol (start) | ~52/shot | 14 | **56** | 1.8s | 1.0 | small | Weak starter; reserve cut to land it at C. |
@@ -293,7 +299,7 @@ uniformly at T3 (so the DPS order barely moves); the reshuffle vs base comes fro
 | **B** | 6.3 | HAMR | 100 | 500 | BO2 LMG, one notch above the RPD (user 2026-07-10); body 527 T3, DPS 3764 — both between the RPD and M60. Fast 6s reload keeps sustain up. |
 | **B** | 6.0 | RPD | 100 | 400 | Big belt, but low DPS ceiling. |
 | **B** | 6.0 | MK14 | 12 | 240 | Per-shot doubles (79→158 body) + more reserve; stays a precise marksman, not a sprayer. **−10% dmg** user 2026-06-27 — tier kept. |
-| **A-** | 7.5 | Triple Take | 7 | 84 | Per-bolt 916 T3 (×3 bolts = 2748/trigger, head ×2.5); **+ Nuclear Energy ×1.15 = 3160/trigger, clearly above MORS T3 2505** (the original at-parity brief superseded by the user +25% buff). Replaces the M16 (user 2026-07-11). |
+| **A-** | 7.5 | Triple Take | 15 | 180 | Per-hit ~1159 T3 (×3-hit volley = ~3477/trigger, head ×2.5; **each volley costs 3 rounds** — PaP clip 15 = 5 volleys); **PaP fires 56% faster than base** (fireTime 0.110592 after two +25% rate passes) and the orbs go **RED**. **+ Plasma Generator ×1.10 = ~3825/trigger, far above MORS T3 2505**. Volley rework (user 2026-07-16, 9 rounds); replaces the M16 (2026-07-11). |
 | **C** | 5.2 | Olympia | 2 | 42 | 2-round clip — PaP can't fix the sustain. |
 
 > **Reading the two lists:** the base list is your *roll quality*; the PaP list is your *investment ceiling*.
@@ -370,7 +376,7 @@ damage. Fires a freeze **cone** (`_zm_weap_freezegun.gsc`); every hit adds a slo
 regular zombie down to a crawl → **iceover → shatter** (the authentic Winter's Howl). Deliberately **not a
 one-hit** on regular zombies at higher rounds. The `[acc]` combat rules (all `acc_freeze_*` dvar-tunable):
 
-- **Bosses → 35% move-slow for 5s** per hit (`acc_freeze_boss_slow_rate` 0.65 / `_sec` 5; a re-hit **resets** the 5s timer, and the slow **never stacks** — the rate is set, not multiplied — user 2026-07-11) — the headline
+- **Bosses → 17.5% move-slow for 5s** per hit (`acc_freeze_boss_slow_rate` 0.825 / `_sec` 5; **HALVED from 35% by user 2026-07-18** — the tier-2 "Winter Fury" boss slow was halved in lockstep, 50% → 25% / `acc_freeze_boss_slow_rate_fury` 0.75; a re-hit **resets** the 5s timer, and the slow **never stacks** — the rate is set, not multiplied — user 2026-07-11) — the headline
   use. Modest capped damage (the 10%-per-hit boss cap applies); no iceover/shatter on bosses. The slow works
   best on the zombie-type bosses (Phantom / Rogue Protector / Brutus); custom-archetype bosses (Panzer /
   Avogadro) are `ASMSetAnimationRate`-safe but may reassert their own gait.
@@ -379,14 +385,15 @@ one-hit** on regular zombies at higher rounds. The `[acc]` combat rules (all `ac
 - **Shielded "Riot" elite → ×3 damage** (`acc_freeze_vs_shielded`) — the freeze AoE ignores the front armor.
 - **PaP scales the freeze damage +50% per tier** (user 2026-07-11; `acc_freeze_pap_per_tier` 0.5): the
   freeze cone is script-driven so it bypasses the normal PaP multiplier — we scale it off the base cone vars
-  (**inner 1000 / outer 500**) by `1 + 0.5×tier`. Per-tier point-blank / far-edge cone damage:
+  (**inner 1035 / outer 518** — the +15% 2026-07-13 buff ×0.9 all-wonder nerf 2026-07-18) by `1 + 0.5×tier`.
+  Per-tier point-blank / far-edge cone damage (live ladder = generated docs/25):
 
   | PaP tier | Mult | Point-blank | Far edge |
   |---|--:|--:|--:|
-  | **T0** (unpacked) | ×1.0 | 1000 | 500 |
-  | **T1** | ×1.5 | 1500 | 750 |
-  | **T2** (transforms) | ×2.0 | 2000 | 1000 |
-  | **T3** (max) | ×2.5 | 2500 | 1250 |
+  | **T0** (unpacked) | ×1.0 | 1035 | 518 |
+  | **T1** | ×1.5 | 1552 | 777 |
+  | **T2** (transforms) | ×2.0 | 2070 | 1036 |
+  | **T3** (max) | ×2.5 | 2587 | 1295 |
 
   On top of the tier damage: **Shielded ×3**, **Phantom ×2** (capped at 10% boss HP/hit), **Glitch one-hit**.
   The **model transform lands at tier 2** like every gun — it also widens the cone/shatter range (the "PaP
@@ -405,8 +412,8 @@ one-hit** on regular zombies at higher rounds. The `[acc]` combat rules (all `ac
 ### Ballistic Knife (`knife_ballistic`) — the co-op revive utility special (2026-07-11)
 
 pmr360 pack over the **stock-cooked** t7 loot asset (all art/anims/camo already in base fastfiles — the
-manifest carries the pack's GDTs/wavs/raw tree). Box-only, 0.80% AF-adjacent odds, class `special`,
-**primary slot** (weaponClass pistol / weaponType projectile).
+manifest carries the pack's GDTs/wavs/raw tree). Box-only, **~1.8% box odds** (user 2026-07-12; `acc_box_weight`
+weight 92), class `special`, **primary slot** (weaponClass pistol / weaponType projectile).
 
 - **Two attacks:** the **thrown blade** (fireTime 0.5, clip 1 — throw, blade auto re-arms) and its **own
   melee stab** (dedicated `meleeAnim`, meleeTime 0.65). Base = 500 dmg / **4 knives**; PaP
@@ -416,15 +423,20 @@ manifest carries the pack's GDTs/wavs/raw tree). Box-only, 0.80% AF-adjacent odd
   (`level.ballistic_knife_autorecover=1`). Stock registers the watcher names; our override registers the
   two brz-twin names too (autoexec). Boss hits **bounce off** instead of sticking (no orphaned pickup on
   a culled boss). Hint = `ZM_AETHERIUM_BK_PICKUP` ("Retrieve Ballistic Knife" — router-safe words).
-- **Damage rules** (throw AND stab, `_acc_damage.gsc`): **one-hit** regular + glitch zombies **including
-  the Glitch Stalker** (glitch-first, Leviathan-consistent); **0 damage to Shielded/Riot** (clang deflect;
-  even max OC shield-pierce never helps — intended hard wall); bosses/mini/Fury → normal chain, 10% cap
-  chip. Stock `is_boss` also excluded (Brutus spawn-window hardening). MOD-agnostic name matcher — the
-  GDT ships `isBallisticKnife "0"` (primary-slot design) so the name substring is the ONLY live path.
-- **Boss-chip tier (user 2026-07-12): stab ×2 / throw ×6** (`acc_bk_stab_mult` / `acc_bk_throw_mult`,
-  0c3 block) — because trash/glitch are one-hit and Riots take 0, these mults exist purely to shape the
-  boss/Fury chip: base throw ~9.8k, PaP-T2 throw ~32k/hit pre-cap (the 10% per-hit cap governs). The
-  **Exo Suit melee layer (+30%/tier) applies to BOTH knife attacks** — the stab natively (melee), the
+- **Damage rules** (throw AND stab, `_acc_damage.gsc`): **glitch zombies incl. the Glitch Stalker =
+  one-hit at ANY round** (glitch-first, Leviathan-consistent — the knife's glitch-counter role);
+  **regular zombies = one-hit only through a ROUND GATE** (user 2026-07-12 "shouldn't one-hit the whole
+  game"): base ≤ `acc_bk_onehit_round` (12), PaP ≤ `acc_bk_onehit_round_pap` (24) — past the gate the
+  hit rides the normal scaled chain (stab ×2 / throw ×6 + Exo melee = strong knife, not a delete);
+  **0 damage to Shielded/Riot** (clang deflect; even max OC shield-pierce never helps — intended hard
+  wall); bosses/mini/Fury → normal chain, 10% cap chip. Stock `is_boss` also excluded (Brutus
+  spawn-window hardening). MOD-agnostic name matcher — the GDT ships `isBallisticKnife "0"`
+  (primary-slot design) so the name substring is the ONLY live path.
+- **Boss-chip + late-game tier (user 2026-07-12): stab ×2 / throw ×6** (`acc_bk_stab_mult` /
+  `acc_bk_throw_mult`, 0c3 block) — shapes the boss/Fury chip AND (since the round gate) regular
+  zombies past the one-hit rounds: base throw ~9.8k, PaP-T2 throw ~32k/hit pre-cap (the 10% per-hit
+  cap governs vs bosses). The
+  **Exo Suit melee layer (+15%/tier, halved 2026-07-18) applies to BOTH knife attacks** — the stab natively (melee), the
   throw via the same request — making Exo the knife's scaling path (Overclocks are pre-empted on it).
 - **THE HEADLINE — Krauss Refibrillator revive (PaP TIER 2 = the `_upgraded` transform; user: tier-2
   gated by design):** stick a **downed teammate** — or land within ~128u of them (proximity fallback for
@@ -565,7 +577,7 @@ Every weapon **category** has one signature ability, hotkey-triggered with coold
 | SMG | PPSH-41, AK-74u, Prowler, Alternator | **Whirlwind** | 20s | 360° AoE: insta-kill chaff within 96u (elites take 1000 flat; bosses excluded) |
 | Shotgun | Tac-19, Olympia, Streetsweeper, CEL-3, Peacekeeper | **Slug Round** | 20s | Next shot **3×** single-target (the 2×-range / tight-cone half is a Phase-4 GDT override) |
 | AR | AK-47, AE4, Grav, XM4 | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
-| Sniper / marksman | MK14, MORS, Triple Take | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) — NB the Triple Take's 3 bolts each consume a charge: one Precision trigger pull = a 3-bolt crit burst |
+| Sniper / marksman | MK14, MORS, Triple Take | **Precision Mode** | 30s | Next **3** shots auto-crit (4×, ignore hit-loc) — NB the Triple Take's 3 volley bolts each consume a charge (unchanged by the 2026-07-16 projectile rework: 1 native + 2 MagicBullet side bolts = 3 damage events): one Precision trigger pull = a 3-bolt crit burst |
 | LMG | M60, RPD, HAMR | **Focus Fire** | 25s | Next **6** shots auto-crit (4×, ignore hit-loc) |
 | Wonder / special | Thundergun, Blast-O-Matic, Fire Bow, Leviathan Axe, Mahem, Havoc, War Machine | *(intrinsic — no ability slot)* | — | Wonder/launcher power is built-in |
 

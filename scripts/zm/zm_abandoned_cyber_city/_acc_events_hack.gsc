@@ -137,8 +137,6 @@ function terminal_loop()
             // Set `acc_hack_shard_drop 1` to restore the +2 (e.g. if you want hack as a surface source).
             if ( getdvarint( "acc_hack_shard_drop", 0 ) )
                 acc_data_shards::grant_player( player, ACC_HACK_REWARD_SHARDS, "hack_terminal" );
-            // TODO(acc-oc): grant a free Overclock roll voucher as documented
-            // once the overclock voucher system exists.
             level.acc_hack_state = "consumed";
         }
         else

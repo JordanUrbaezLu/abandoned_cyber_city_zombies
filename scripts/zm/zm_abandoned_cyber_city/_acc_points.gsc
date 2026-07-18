@@ -249,6 +249,17 @@ function on_zombie_death( attacker ) // self = the killed zombie
 
     // Kinetic Battery accrual (docs/09): every 10 kills charges the battery;
     // _acc_damage consumes the charge (3x next shot) and resets the counter.
+    //
+    // DORMANT BY DESIGN - do NOT "wire this up" (annotated 2026-07-15 audit). The gate
+    // attacker.acc_item_battery is never set by any reachable code, so this whole block, the 3x
+    // consume in _acc_damage.gsc:1071 and apply_kinetic_battery()/remove_kinetic_battery() in
+    // _acc_boss_items.gsc:939-949 are all inert. That is INTENTIONAL: the Kinetic Battery is the
+    // LEGACY v1 boss item, superseded by the Volt Battery, which deliberately rides a SEPARATE flag
+    // (acc_item_volt_battery) precisely so it does not wake this one - see the explicit warnings at
+    // _acc_boss_items.gsc:343 ("NOT the legacy Kinetic Battery (dormant v1 item above)") and :956
+    // ("reusing it would wake the [dormant item]"), and _acc_elites.gsc:791.
+    // Setting acc_item_battery anywhere re-activates a retired item on top of the live Volt Battery.
+    // Leave the accrual here (it is free - the gate is false) unless the user asks to retire v1 fully.
     if ( isdefined( attacker ) && isplayer( attacker )
          && isdefined( attacker.acc_item_battery ) && attacker.acc_item_battery
          && !( isdefined( attacker.acc_item_battery_charged ) && attacker.acc_item_battery_charged ) )

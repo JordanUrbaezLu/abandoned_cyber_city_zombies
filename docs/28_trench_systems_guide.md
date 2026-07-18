@@ -16,11 +16,11 @@ survive the next twenty.
   danger zone. The **Foundry room** opens off the pit through a buyable door (1500).
 
 ## The danger (why it's a risk)
-While anywhere underground you get **amped zombies** (faster + hit harder + tankier, scaling **+4% move / +30% health / +6 HP melee per layer** the deeper you go), a **−20% move slow**, a
+While anywhere underground you get **amped zombies** (faster + hit harder + tankier, scaling **+3% move / +25% health / +4 HP melee per layer** the deeper you go), a **−20% move slow**, a
 **spawn surge that erupts at YOUR current layer** (on entry, on descending to a new layer, and a continuous drip while you stay down — so the deeper layers populate as you reach them, not just the pit), and a small **fall tax** if you dive in. The reward has to be worth it —
 that's everything below.
 
-> Per-layer numbers (N = layer 1–5): move **+4%·N**, health **+30%·N** (**stacks on top of** round + co-op HP, so final = (round curve × player-count mult) × (1 + 0.30·N) — both scale, user 2026-07-04), melee **+6·N flat HP** (base 45 → 51/57/63/69/75). Dvars: `acc_trench_layer_speed_pct` (4), `acc_trench_layer_hp_pct` (30), `acc_trench_layer_dmg_add` (6). Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
+> Per-layer numbers (N = layer 1–5): move **+3%·N**, health **+25%·N** (**stacks on top of** round + co-op HP, so final = (round curve × player-count mult) × (1 + 0.25·N) — both scale, user 2026-07-04; per-layer HP nerfed 30→27→25, user 2026-07-16), melee **+4·N flat HP** (base 45 → 49/53/57/61/65). Dvars: `acc_trench_layer_speed_pct` (3), `acc_trench_layer_hp_pct` (25), `acc_trench_layer_dmg_add` (4) — speed 4→3, HP 30→25, melee 6→4, user 2026-07-16. Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
 
 ## The things in the trench
 
@@ -32,7 +32,7 @@ All numbers are tight and even.
 |---|---|---|---|
 | **Data Caches** ×2 | Exposed pit | Main shard **source** — **+3 each** (user 2026-06-25: 2→3), once per round, to whoever loots it first (re-arms each round). **CO-OP anti-hog (user 2026-06-25; per-group since 2026-07-11): a player can loot only ONE of the two TRENCH caches per round — grab one and the other must go to a teammate — but this cap is separate from the plaza crates (looting a plaza cache does NOT lock you out of a trench cache, and vice-versa)** (`acc_cache_one_per_player`; **solo is exempt** so the 2nd cache isn't wasted). A **dim white glow** on each crate = "shards available this round"; it **switches off the instant the cache is looted** and **comes back when it re-arms at round start** — an at-a-glance indicator (user 2026-06-24). | **+3** each |
 | **Trench Warden** (Brutus) | Near the trench | The signature mini-boss; killing him grants the **unified boss reward** (identical for every boss, user 2026-07-05) to **every player**: **int(round ÷ 3) shards** + **round × 180 points** + **1 guaranteed boss item** (dupes convert to shards at pickup) + **1 Mega Bottle**. Round-scaling, so the debut kill pays more the later it lands (e.g. round 9 → 3 shards + 1,620 pts). (`acc_boss::grant_unified_boss_reward`; tunables `acc_boss_shards_round_div` = 3, `acc_boss_score_per_round` = 180.) | **int(rnd/3)** all |
-| **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Fire Sale** (user 2026-06-27, was an Insta-Kill). The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
+| **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Fire Sale** (user 2026-06-27, was an Insta-Kill) **+ 1 random Implant world drop at the armer** (user 2026-07-16; free-for-all, same dupe→shards pickup as a boss drop). The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
 | **Neural Expansion Bay** | Foundry (east) | The marquee buy: **+1 perk slot** (start at 4, up to 10 — so 6 buyable slots). | spend (4/6/8/10/12/14) |
 | **Glitch Altar** | Abyss **floor 3** (west) | **Gamble 2 shards/spin** for a weighted result: usually a boon (Max Ammo / Insta-Kill / Double Points / free perk / +4 shard jackpot / rare ~2% Mega Win = Free Perk + Insta-Kill), sometimes a curse (surge / −2 drain / dud). ~65% boon / ~35% curse; net-negative, can't be farmed. | spend (2/spin) |
 | **Cyberware Weapon Overclock** | Abyss **floor 2** (west) | **Upgrade the gun you're holding** (per-gun) across 10 tiers. Each tier gives a **small boost to 4 effects at once** — flat damage, glitch piercing (vs glitch zombies), headshot ammo-refund, and shield piercing (vs the Riot's front armor) — minimal at T1, full at T10. | spend (4/8/12/16/20/24/28/32/36/40) |
@@ -44,12 +44,16 @@ All numbers are tight and even.
 > the west side at `(-150, 2240, -240)` (moved 2026-07-10 to spread it away from the reactor plinth; was
 > `(-140, 2350)`) — it **replaced the 3 teddy bears** (2026-07-09). Holding [activate]
 > charges **2 Data Shards + 1000 points** and plays a **RANDOM song** from the playlist (never the same one
-> twice in a row) 2D for the whole lobby, with the same **5-min cooldown** between plays; it is never
+> twice in a row) 2D for the whole lobby, then stays **busy for exactly the picked song's length**
+> (engine-queried `SoundGetPlaybackTime`, replaced the fixed 5-min cooldown 2026-07-18; `acc_jukebox_cooldown`
+> is now only the fallback if the query fails); it is never
 > consumed (repeatable all game). A **`NOW PLAYING <title>`** banner shows the song's name to **all
-> players**. Launch playlist = the 3 old bear songs: "Cyber Dreams" (Lilex), "Night Groove", "I Want To
-> Stay At Your House" (aliases `acc_ee_song`/`_2`/`_3`, all wavs banked). Adding a song = bank the wav +
+> players**. Playlist (7 songs): "Cyber Dreams" (Lilex), "Night Groove", "I Want To
+> Stay At Your House" (aliases `acc_ee_song`/`_2`/`_3`; ~180s/168s/247s) + the 2026-07-18 additions
+> "Dead Again", "Beauty of Annihilation", "Can You Hear Me? Come In", "The Gift" (`_4`-`_7`, 48k stereo;
+> ~289s/268s/359s/270s — copyrighted CoD EE songs, TEST-ONLY licence like `_3`, CREDITS.md). Adding a song = bank the wav +
 > one `add_song()` line in `_acc_jukebox.gsc::init()`. Code: `_acc_jukebox.gsc` (disable live with
-> `acc_jukebox_on 0`; tunables `acc_jukebox_cost_points/_cost_shards/_cooldown`). The two under-rooms
+> `acc_jukebox_on 0`; tunables `acc_jukebox_cost_points/_cost_shards`, fallback `_cooldown`). The two under-rooms
 > are baked by `add_under_room.js` (SOUTH = Foundry, NORTH = the jukebox room).
 
 ## Cyberware Weapon Overclock — exact effects
@@ -87,7 +91,7 @@ HUD shows your tier as **EXO SUIT N/10**. Three augments scale with tier:
 |---|---|---|---|
 | **Depth-speed gate** — normal walk speed down to layer = your tier | +1 layer | layers 1–5 | layers 1–5 * |
 | **Damage resistance** (`acc_exo_resist_per_tier` 0.06, clamp −80%; user 2026-07-08: 0.05 → 0.06) | −6% | −30% | **−60%** |
-| **Melee damage** (`acc_exo_melee_per_tier` 0.30) | +30% | +150% | **+300%** |
+| **Melee damage** (`acc_exo_melee_per_tier` 0.15; user 2026-07-18 halved from 0.30) | +15% | +75% | **+150%** |
 
 **\* The abyss only has 5 built layers.** The depth gate maxes at **L5**, so tiers 6–10 add **only resist +
 melee** until layers 6–10 exist (a geometry + LED-bake job, not GSC). The depth-slow it cancels: at any layer
@@ -111,7 +115,7 @@ no longer cancel the slow — only the Exo Suit does.*
 tier.** Every shard is earned and spent underground — that's the pull into the trench.
 
 ## Tuning (for testing)
-- Real economy (not the dev firehose): `acc_dev_shards 0`, `acc_dev_perks 0`.
+- Real economy (not the dev firehose): use a normal (non-dev) build — `level.acc_dev = false;` in `acc_resolve_dev_flags()` + rebuild.
 - All trench feedback text height: `acc_msg_y` (smaller = higher), `acc_msg_sec` = how long it holds.
 - Per-thing knobs live in each module (`acc_cache_*`, `acc_altar_*`, `acc_perk_slot_*`, `acc_reactor_*`;
   the Trench Warden / all-boss reward is `acc_boss_shards_round_div` + `acc_boss_score_per_round` in

@@ -48,6 +48,12 @@
 // registration must lockstep with the server .gsc (mismatch otherwise). Self-registers via autoexec.
 #using scripts\zm\_zm_weap_freezegun;
 
+// [acc] AW 3D Printer Mystery Box client twin (2026-07-12): registers the
+// exo_magicbox_dr_holo scriptmover clientfield + the dr_fx_holo duplicate-render filter -
+// MUST lockstep with the server .gsc registration (Clientfield Mismatch otherwise).
+// Self-registers via REGISTER_SYSTEM_EX("aw_mbox").
+#using scripts\planet\_aw\_zm_aw_mysterybox;
+
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
@@ -99,6 +105,12 @@
 // [acc] Client half of the Avogadro electric boss (its "avogadro_fx" scriptmover clientfield +
 // the linger/tesla FX). Must match the entry .gsc #using or the clientfield registration mismatches.
 #using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
+// Triple Take bolt visual (2026-07-16): acc_ttk_bolt_fx scriptmover clientfield -> plasma
+// geotrail on the server's bolt movers (the gun's damage is hitscan; the orbs ARE the volley).
+#using scripts\zm\zm_abandoned_cyber_city\_acc_tripletake;
+// [acc] Interactable-station holo shimmer (2026-07-17): acc_interact_glow scriptmover
+// clientfield -> duplicate-render cyan holo (the AW box material) on tagged station meshes.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;
 
 // [acc] Client half of the PANZER (Spiki mechz port, 2026-07-08). Registers the pack's
 // 6 mechz clientfields AND mirror-registers the 11 stock server-side mechz fields (the one-sided

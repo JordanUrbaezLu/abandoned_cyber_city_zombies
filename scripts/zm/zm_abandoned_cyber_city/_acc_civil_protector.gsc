@@ -110,7 +110,8 @@ function init()
 	level thread round_watch();
 	level thread director();
 
-	// [acc] damage-diagnostic probe (dvar acc_protector_debug) - logs when a player is hit by
+	// [acc] damage-diagnostic probe (file-only LogPrint via rp_diag; the acc_protector_debug dvar
+	// was removed 2026-07-16) - logs when a player is hit by
 	// his bullet, so we can tell "firing but no damage lands" from "not firing" (user 2026-07-04).
 	zm::register_player_damage_callback( &rp_damage_probe );
 
@@ -120,8 +121,8 @@ function init()
 		level thread dev_force_spawn_watcher();
 
 	dbg( "init ok - dev=" + ( IS_TRUE( level.acc_dev ) ? "1" : "0" )
-	     + " boss round every " + getdvarint( "acc_boss_interval", ( IS_TRUE( level.acc_dev ) ? ACC_BOSS_INTERVAL_DEV : ACC_BOSS_INTERVAL_DEF ) )
-	     + " from " + getdvarint( "acc_boss_first_round", ( IS_TRUE( level.acc_dev ) ? ACC_BOSS_FIRST_DEV : ACC_BOSS_FIRST_DEF ) )
+	     + " boss round every " + getdvarint( "acc_boss_interval", ACC_BOSS_INTERVAL_DEF )
+	     + " from " + getdvarint( "acc_boss_first_round", ACC_BOSS_FIRST_DEF )
 	     + " (count scales: round 9=1, 18=2, 27=3, ... types dealt no-duplicate from the 4-boss deck; first repeat = slot 5/round 45)" );
 }
 
@@ -131,8 +132,8 @@ function init()
 function dbg( msg )
 {
 	acc_utility::log( "protector: " + msg );
-	// acc_dev DECOUPLED 2026-07-10 (clean screen in hardcoded dev): the [RP] on-screen line rides acc_protector_debug (default 0) now; the console log above is unaffected.
-	if ( getdvarint( "acc_protector_debug", 0 ) != 1 )
+	// re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
+	if ( !IS_TRUE( level.acc_dev ) )
 		return;
 	players = GetPlayers();
 	if ( players.size > 0 && isdefined( players[ 0 ] ) && isplayer( players[ 0 ] ) )
@@ -197,9 +198,12 @@ function dev_force_spawn_watcher()
 // How many bosses TOTAL this round? 0 if not a boss round; else slot+1 (round 9->1, 18->2, 27->3).
 function boss_count( round_number )
 {
-	dev      = IS_TRUE( level.acc_dev );
-	first    = getdvarint( "acc_boss_first_round", ( dev ? ACC_BOSS_FIRST_DEV    : ACC_BOSS_FIRST_DEF ) );
-	interval = getdvarint( "acc_boss_interval",    ( dev ? ACC_BOSS_INTERVAL_DEV : ACC_BOSS_INTERVAL_DEF ) );
+	// DEV fast cadence (every ACC_BOSS_INTERVAL_DEV from ACC_BOSS_FIRST_DEV) DISABLED
+	// (user 2026-07-12: "stop the bosses spawning early in dev - annoying"): dev uses the
+	// REAL 9/9 schedule. The dvars still override in EITHER mode for a manual fast burst
+	// (`+set acc_boss_first_round 3 +set acc_boss_interval 3`).
+	first    = getdvarint( "acc_boss_first_round", ACC_BOSS_FIRST_DEF );
+	interval = getdvarint( "acc_boss_interval",    ACC_BOSS_INTERVAL_DEF );
 	if ( interval < 1 ) interval = 1;
 	if ( round_number < first ) return 0;
 	if ( ( ( round_number - first ) % interval ) != 0 ) return 0;
@@ -229,8 +233,11 @@ function boss_roster( round_number )
 	// exact gate (_acc_boss_phantom.gsc). The Rogue Protector has no such disable toggle, so it always
 	// absorbs. Default ships enabled, so normal play still gets the full random mix.
 	phantom_off = ( getdvarint( "acc_phantom_enable", 1 ) != 1 && !IS_TRUE( level.acc_dev ) );
-	avo_off     = ( getdvarint( "acc_avo_enable", 1 ) != 1 || IS_TRUE( level.acc_dev ) );   // DEV spawns Avogadro via its own dev_test_spawn, not the roster - re-home its slots so the boss count is still filled (L4)
-	panzer_off  = ( getdvarint( "acc_panzer_enable", 1 ) != 1 || IS_TRUE( level.acc_dev ) );   // PANZER (2026-07-08): same dev rule as Avogadro - _acc_boss_panzer runs its own dev_test_spawn loop, so dev re-homes his slots too
+	// DEV re-home REMOVED (user 2026-07-12): Avogadro + Panzer no longer run dev_test_spawn
+	// loops in dev - dev uses the real roster directors - so their slots stay theirs in both
+	// modes. Only an explicit enable-0 dvar re-homes them now.
+	avo_off     = ( getdvarint( "acc_avo_enable", 1 ) != 1 );
+	panzer_off  = ( getdvarint( "acc_panzer_enable", 1 ) != 1 );
 
 	roster = [];
 	deck   = [];
@@ -442,7 +449,8 @@ function spawn_boss()
 
 	// HP: the SHARED boss scale (base 65k + anchor 5, scale_phantom_hp) but with the Rogue
 	// Protector's OWN exponent - the TIER between Brutus and the Phantom (user 2026-07-08: Brutus/Panzer
-	// 1.12 > Rogue 1.09 > Phantom 1.06). Then the SAME log coop multiplier. No cap.
+	// 1.12 > Rogue 1.09 > Phantom 1.06). Then the SAME coop boss-HP table (boss_hp_player_mult:
+	// 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user 2026-07-15, was a log curve). No cap.
 	// Rogue solo: r5 65k / r10 100k / r20 237k / r30 561k / r40 1.33M (anchor r5, exp 1.09; user 2026-07-08).
 	rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
 	hp = int( acc_boss_phantom::scale_phantom_hp( rn, getdvarfloat( "acc_protector_hp_exp", ACC_PROTECTOR_HP_EXP ) ) * acc_coop_scaling::boss_hp_player_mult() );
@@ -488,7 +496,8 @@ function spawn_boss()
 
 	dbg( "spawned OK - round " + rn + ", " + hp + " hp" );
 
-	// [acc] spawn-time damage diagnostic (dvar acc_protector_debug). These four answer most of
+	// [acc] spawn-time damage diagnostic (file-only LogPrint via rp_diag; the acc_protector_debug
+	// dvar was removed 2026-07-16). These four answer most of
 	// "why no damage": team must be axis (allies = friendly fire = ZERO player dmg), god must be
 	// off (dev god zeroes all incoming), the fire weapon must resolve, and its playerDamage.
 	w_diag = GetWeapon( "ar_standard_upgraded_companion_zm" );
@@ -643,7 +652,7 @@ function dev_boss_status()
 {
 	self endon( "death" );
 	level endon( "end_game" );
-	if ( getdvarint( "acc_protector_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; HB console log rides acc_protector_debug now)
+	if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 		return;
 
 	for ( i = 0; i < 12; i++ )
@@ -818,7 +827,7 @@ function mahem_shot( target, v_muzzle, v_aim, w )
 	}
 
 	// FALLBACK ONLY (s1_mahem unresolvable): the pre-2026-07-09 invisible-but-exact scripted blast.
-	dmg    = getdvarint( "acc_protector_mahem_dmg", 55 );
+	dmg    = getdvarint( "acc_protector_mahem_dmg", 69 );   // [acc] RP ROCKET +25% (user 2026-07-12: 55 -> 69; matches the _acc_elites cap)
 	radius = getdvarint( "acc_protector_mahem_radius", 180 );
 	dmg_min = int( dmg / 3 );
 	RadiusDamage( v_aim, radius, dmg, dmg_min, self, "MOD_PROJECTILE_SPLASH", w );

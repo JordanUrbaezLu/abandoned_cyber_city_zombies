@@ -50,10 +50,10 @@ function init()
 	level thread diag_heartbeat();
 
 	// Reusable PLAYER-DAMAGE debug logger (user 2026-07-04: "add logs on how players are damaged
-	// if we ever have to debug something, inside console_mp.log"). Off by default; enable live
-	// with `set acc_dmg_debug 1`. Logs EVERY hit a player takes - attacker, weapon, raw damage,
-	// mod, hit location, resulting HP - the exact data we lacked when the Rogue Protector was
-	// "one-shotting" / doing zero. See dmg_debug_probe for the channel rationale.
+	// if we ever have to debug something, inside console_mp.log"). Rides level.acc_dev (a dev
+	// build logs, ship is silent - only dev/god/mock flags exist, 2026-07-16). Logs big hits a
+	// player takes - attacker, weapon, raw damage, mod, hit location, resulting HP - the exact
+	// data we lacked when the Rogue Protector was "one-shotting" / doing zero.
 	zm::register_player_damage_callback( &dmg_debug_probe );
 }
 
@@ -61,17 +61,15 @@ function init()
 // observes). Routes via IPrintLnBold because that is the ONLY channel that reliably reaches
 // console_mp.log (as "[ SCRIPTER] ..."); LogPrint goes to games_mp.log (needs +set g_log, which
 // the play launchers don't all set) and the /# println #/ dev block doesn't route reliably -
-// same rationale as _acc_utility's acc_drops_debug channel. Gated so it's silent in normal play.
+// same rationale as _acc_utility's drops logger. Gated so it's silent in normal play.
 function dmg_debug_probe( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, weapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
-	// DEFAULT OFF (user 2026-07-04 - it was wrongly shipped default-ON and its IPrintLnBold spammed
-	// "[DMG] ..." ON-SCREEN in production whenever a player took a big hit, e.g. when a boss spawned
-	// and landed one). Silent unless you EXPLICITLY enable it with `set acc_dmg_debug 1` for a debug
-	// session (then it logs a hit >= acc_dmg_debug_min (40); acc_dmg_debug_min 0 = every hit). This
-	// was the temporary alarm for the Rogue Protector one-shot bug, now resolved.
-	if ( getdvarint( "acc_dmg_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [DMG] rides acc_dmg_debug now)
+	// Silent in ship (it once shipped default-ON and spammed "[DMG] ..." on-screen whenever a
+	// player took a big hit - user 2026-07-04). Dev builds log hits >= the threshold below; the
+	// old acc_dmg_debug/acc_dmg_debug_min dvar levers were removed 2026-07-16.
+	if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 		return -1;
-	if ( iDamage < getdvarint( "acc_dmg_debug_min", 40 ) )
+	if ( iDamage < 40 )   // log threshold (was the acc_dmg_debug_min dvar; hardcoded 2026-07-16 - no per-feature levers)
 		return -1;
 
 	atk = "world";

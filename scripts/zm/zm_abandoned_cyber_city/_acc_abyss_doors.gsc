@@ -38,6 +38,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;   // set_glow() = the proven client glow pipeline (soul orb)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_deco;    // floor_lights_on() = soul-defeat dim lamps (user 2026-07-12)
 
 #insert scripts\shared\shared.gsh;
 
@@ -45,7 +46,9 @@
 #define ACC_SOUL_DOOR_COST_FIRST  125   // souls PER PLAYER to open the FIRST descent gate (trench / layer 1) -
                                         // higher because everyone roams the trench early. x player count =
                                         // 125 solo .. 500 at a full 4-player lobby (user 2026-06-25).
-#define ACC_SOUL_DOOR_COST        50    // souls PER PLAYER to open each DEEPER descent gate (layers 2+); 50 solo .. 200 at 4p.
+#define ACC_SOUL_DOOR_COST        50    // BASE souls PER PLAYER for the first DEEP gate (L2->L3); deeper gates add STEP.
+#define ACC_SOUL_DOOR_COST_STEP   25    // per-floor INCREASE for each gate below L2 (user 2026-07-12 "make it 125,50,75,100").
+                                        // Deep gate cost/player = 50 + 25*(layer-2): L2 50 / L3 75 / L4 100. All x player count.
 
 // Moving "soul light" (user 2026-06-25): a glowing orb that flies from each soul-banking kill INTO the box.
 #define ACC_SOUL_TRAVEL_DEF  0.8     // seconds for a soul to fly from the kill spot to the box
@@ -83,7 +86,14 @@ function souls_needed( layer )
     if ( n < 1 ) n = 1;
     if ( isdefined( layer ) && layer == 1 )
         return getdvarint( "acc_soul_door_cost_first", ACC_SOUL_DOOR_COST_FIRST ) * n;
-    return getdvarint( "acc_soul_door_cost", ACC_SOUL_DOOR_COST ) * n;
+    // DEEP gates (L2/L3/L4) ESCALATE (user 2026-07-12): base + step per floor below L2.
+    // deep = layer-2 -> L2:0  L3:1  L4:2 steps. Per-player: 50 / 75 / 100 (defaults). All
+    // costs auto-scale by live GetPlayers().size below (re-evaluated per soul-bank check).
+    base = getdvarint( "acc_soul_door_cost", ACC_SOUL_DOOR_COST );
+    step = getdvarint( "acc_soul_door_cost_step", ACC_SOUL_DOOR_COST_STEP );
+    deep = 0;
+    if ( isdefined( layer ) && layer > 2 ) deep = layer - 2;   // guard: undefined/L2 = 0 steps
+    return ( base + step * deep ) * n;
 }
 
 // Info-trigger origin: stands by the door in the well's WEST entry (x ~ -112). Centered on the well's Y,
@@ -229,6 +239,26 @@ function on_zombie_death_souls( attacker )
                 if ( isdefined( p ) ) p IPrintLnBold( "^5Souls ^7" + door.acc_souls + " / " + need + "  (Layer " + ( door.acc_layer + 1 ) + " descent)" );
         return;
     }
+
+    // No descent gate matched -> if this was an L5 (the Maw) kill, bank it to the PARADISE hub SOUL
+    // phase (user 2026-07-13). Same cost as gate 4 (souls_needed(4)); unlocks the currency payment.
+    if ( layer >= 5 && isdefined( level.acc_hub_souls ) && !IS_TRUE( level.acc_hub_souls_complete ) )
+    {
+        need_hub = souls_needed( 4 );
+        level.acc_hub_souls++;
+        PlaySoundAtPosition( "acc_soul_steal", self.origin );
+        level thread spawn_soul_light( self.origin, ( 0, ACC_HUB_APPROACH_Y, ACC_HUB_FLOOR_Z + 40 ) );
+        if ( level.acc_hub_souls >= need_hub )
+        {
+            level.acc_hub_souls_complete = true;
+            if ( isdefined( level.acc_hub_trigger ) ) hub_set_hint( level.acc_hub_trigger );
+            foreach ( p in GetPlayers() )
+                if ( isdefined( p ) ) p IPrintLnBold( "^5The PARADISE gate is UNLOCKED ^7- now pay to open it" );
+        }
+        else if ( ( level.acc_hub_souls % 25 ) == 0 )
+            foreach ( p in GetPlayers() )
+                if ( isdefined( p ) ) p IPrintLnBold( "^5Souls ^7" + level.acc_hub_souls + " / " + need_hub + "  (PARADISE gate)" );
+    }
 }
 
 // A glowing "soul" that flies from the kill spot INTO the soul box (user 2026-06-25). Reuses the PROVEN client
@@ -280,6 +310,11 @@ function open_soul_door( door )
     door notsolid();
     door connectpaths();           // reconnect the descent navmesh (players AND zombies)
     door.acc_open = true;
+
+    // Soul-defeat DIM LIGHTS (user 2026-07-12): filling a floor's soul door = "you
+    // defeated the floor" -> its dim wall lamps wake up. Layer 1 = the lit trench
+    // (floor_lights_on ignores <2); the Paradise gate lights L5 (see the hub-open path).
+    acc_abyss_deco::floor_lights_on( door.acc_layer );
 
     foreach ( p in GetPlayers() )
     {
@@ -338,6 +373,14 @@ function setup_hub_door()
     door disconnectpaths();
     door.acc_open = false;
 
+    // SOUL PHASE (user 2026-07-13 "the last door needs a soul box too before you even start paying;
+    // make it same as the 4th floor souls"): before ANY currency, the team banks souls on L5 = the
+    // SAME cost as the L4->L5 descent gate (souls_needed(4) = 100/player, scaled live). L5 kills bank
+    // via on_zombie_death_souls; the currency payment (hub_door_loop) is LOCKED until souls complete.
+    // Dev keeps the cheap souls_needed override (flat 10) so it stays testable.
+    level.acc_hub_souls = 0;
+    level.acc_hub_souls_complete = false;
+
     // [acc] DOOR BEACON (user 2026-07-06: the final gate is "so hard to see people don't even know
     // it's a door"): a small glow light on the player-side door face. Same tag_origin + accPerkGlow
     // clientfield recipe as spawn_soul_light above; BLUE (6) = the descent-gate soul colour, so the
@@ -380,6 +423,14 @@ function hub_paid()
 
 function hub_set_hint( t )
 {
+    if ( !IS_TRUE( level.acc_hub_souls_complete ) )
+    {
+        // SOUL PHASE hint - bounded value (souls_needed(4) = 100/200/300/400 by count), so <=4
+        // distinct strings = triggerstring-cache-safe (re-set by hub_cost_watcher on a count change).
+        t SetHintString( "^5SOUL BOX^7  -  slay the horde here to UNLOCK the gate to PARADISE  ^2[bank " +
+            souls_needed( 4 ) + " souls]" );
+        return;
+    }
     if ( hub_paid() )
     {
         t SetHintString( "^5All survivors must gather here to enter PARADISE" );
@@ -444,6 +495,13 @@ function hub_door_loop( door )
         t waittill( "trigger", player );
         if ( !isdefined( player ) || !isplayer( player ) ) continue;
         if ( IS_TRUE( door.acc_open ) ) break;
+
+        // SOUL PHASE gate (user 2026-07-13): no currency accepted until the L5 soul quota is banked.
+        if ( !IS_TRUE( level.acc_hub_souls_complete ) )
+        {
+            player acc_utility::hud_msg( "Bank " + souls_needed( 4 ) + " souls first - slay the horde on this floor" );
+            continue;
+        }
 
         if ( hub_paid() )
         {
@@ -532,16 +590,20 @@ function hub_gather_watch( door, t )
 
         all_near = true;
         any_alive = false;
+        near  = 0;   // published for the pause-menu objective detail line ("Survivors at the gate: a/b",
+        alive = 0;   // _acc_lui::acc_compute_objective_detail phase 6) - full count, no early break
         foreach ( p in GetPlayers() )
         {
             if ( !zm_utility::is_player_valid( p ) ) continue;   // skip downed/spectator
             any_alive = true;
+            alive++;
             if ( Distance( p.origin, center ) > radius )
-            {
                 all_near = false;
-                break;
-            }
+            else
+                near++;
         }
+        level.acc_hub_gather_near  = near;
+        level.acc_hub_gather_alive = alive;
 
         if ( any_alive && all_near )
         {
@@ -554,6 +616,9 @@ function hub_gather_watch( door, t )
             // condition starts once the team drops into paradise (user 2026-06-25).
             level.acc_paradise_open = true;
             level notify( "acc_paradise_open" );
+
+            // The bottom floor is "defeated" when the Paradise gate opens -> L5's dim lamps.
+            acc_abyss_deco::floor_lights_on( 5 );
 
             foreach ( p in GetPlayers() )
                 if ( isdefined( p ) ) p IPrintLnBold( "^5Welcome to PARADISE" );

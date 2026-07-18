@@ -2,15 +2,31 @@
 -- Source of truth: tools/lui_chunks/acc_lb_board_chunk.lua (the io/os fetch logic,
 -- hksc-compiled into the BC string below) + acc_lb_board_outer.tpl.lua (this shell).
 --
--- LEADERBOARD FETCHER (docs/40): _acc_leaderboard.gsc opens this menu when a player
--- uses the Plaza station (and for the dev fetch probe). It draws NOTHING - it fires a
--- background curl GET ("go"), then a 400ms UITimer polls the result file ("read")
--- until the rows land in dvars acc_lb_r1..r10 + acc_lb_done, falling back to the
--- machine-local records ("local") if the net fetch errors or times out. GSC renders
--- the card and closes the menu. Timer hygiene per memory lui-uitimer-leaks-state-pool:
--- one handle, closed inside its own handler on every exit path.
+-- LEADERBOARD FETCH + PANEL (docs/40): _acc_leaderboard.gsc opens this menu when a
+-- player uses the Plaza station (and, silently, for the auto-fetch + dev probe -
+-- dvar acc_lb_board_show "0"). The bytecode chunk fires the background curl GET
+-- ("go"), a 400ms UITimer polls the result file ("read") until it returns the
+-- structured rows table (round + roster + per-player kills/downs/revives), falling
+-- back to the machine-local records ("local") on error/timeout. The chunk still
+-- pushes the legacy dvars acc_lb_r1..r10 + acc_lb_done for the GSC fallback card;
+-- THIS shell renders the real UI: the PER-LOBBY-SIZE ladder (REQUIREMENT, user
+-- 2026-07-15: a solo lobby sees the top 10 SOLO rounds - ?v2=N in the chunk) with
+-- per-player KILLS/REVIVES/DOWNS columns. Render success/failure is reported on
+-- dvar acc_lb_lui ("ok:N"/"err") so GSC can fall back to the old acc_ui card if the
+-- panel ever errors. GSC owns the menu's lifetime (walk-away / 12s close).
+--
+-- LAYOUT RULE (the round-2 "board looks janky" fix): LUI setScale scales an element
+-- around its CENTER, so two labels in the same column with different scales get
+-- different effective left/right edges. Every header + data cell therefore uses ONE
+-- scale (SC) and per-column boxes shared by ALL row types; headers differ by color/
+-- alpha only. Never mix scales inside a column. Rosters are truncated to the PLAYER
+-- column - nothing may bleed under the number columns.
+--
+-- Timer hygiene per memory lui-uitimer-leaks-state-pool: one handle, closed inside
+-- its own handler on every exit path AND on menu close (OverrideFunction hook).
 -- This OUTER file must stay whitelist-clean: never name io/os/_G/getfenv/loadstring
--- here (docs/19 L3akMod global whitelist).
+-- here (docs/19 L3akMod global whitelist). LUI/CoD/Engine/Enum/string/table are fine
+-- (every shipped UI file uses them).
 
 local BC = "@@ACC_LUI_BYTECODE@@"
 
@@ -27,6 +43,225 @@ local function runChunk(mode, ctrl)
 	return res
 end
 
+-- ===== the board panel =======================================================
+-- Palette mirrors acc_hud.lua ACC_PAL (docs/49 HUD identity) - keep in sync.
+local COL_GLASS  = { 0,    0.035, 0.085 }
+local COL_CYAN   = { 0.2,  0.75,  1.0   }
+local COL_TEAL   = { 0.20, 0.95,  0.85  }
+local COL_VIOLET = { 0.72, 0.45,  1.0   }
+local COL_AMBER  = { 1.0,  0.88,  0.25  }
+local COL_DANGER = { 0.90, 0.20,  0.55  }
+local COL_TEXT   = { 0.86, 0.90,  0.95  }
+local COL_TITLE  = { 0.55, 0.85,  1.0   }
+-- podium rank colors: gold / silver / bronze, then cyan for 4..10
+local RANKC = { { 1.0, 0.85, 0.30 }, { 0.75, 0.80, 0.88 }, { 0.85, 0.55, 0.35 } }
+
+local PANEL_W = 620
+local PAD = 24
+-- column layout (panel-local px): rank | ROUND | player | KILLS | REVIVES | DOWNS.
+-- The SAME boxes are used by the header and every row type (see LAYOUT RULE above).
+local X_RANK, X_ROUND, X_PLAYER = PAD, 62, 190
+local P1 = 374                -- player column right edge
+local K0, K1 = 380, 452
+local R0, R1 = 458, 534
+local D0, D1 = 540, PANEL_W - PAD
+
+local SC = 0.8                -- ONE text scale for header + all data cells
+local GAME_H, PLAYER_H, GAP, MORE_H = 24, 20, 4, 18
+local FOOT_H = 22             -- map-wide totals line under the ladder (net board only)
+local Y_TOP = 78              -- below title band + column header + rule
+local Y_MAX = 544             -- content floor: caps the panel at ~560px tall
+
+local function trunc(s, n)
+	s = tostring(s or "")
+	if string.len(s) > n then return string.sub(s, 1, n - 2) .. ".." end
+	return s
+end
+
+local function renderBoard(Hud, InstanceRef, res)
+	local rows = res.rows or {}
+	-- map-wide totals footer (user 2026-07-15): games recorded vs Paradise wins. Present
+	-- only on the NET board (the chunk sends no tot offline - the local records file can't
+	-- answer a global question). GLOBAL by design: it counts every lobby size, not just
+	-- the ladder on screen, so the number does not move when you open it solo vs in a quad.
+	local tot = res.tot
+
+	-- measure pass: how many game blocks fit under the height cap
+	local blocks = {}
+	local shown = 0
+	local y = Y_TOP
+	local footReserve = 0
+	if tot ~= nil then footReserve = FOOT_H end
+	for i = 1, #rows do
+		local n = #(rows[i].st)
+		local h = GAME_H
+		if n >= 2 then h = h + n * PLAYER_H end
+		local reserve = footReserve
+		if i < #rows then reserve = reserve + MORE_H end   -- keep room for the "+N more" line
+		if y + h + reserve > Y_MAX then break end
+		blocks[i] = { y = y, h = h }
+		y = y + h + GAP
+		shown = i
+	end
+	local hidden = #rows - shown
+	local yMore = y
+	if hidden > 0 then y = y + MORE_H end
+	if #rows == 0 then y = y + 48 end
+	local yFoot = y
+	if tot ~= nil then y = y + FOOT_H end
+	local H = y + 12
+
+	local panel = LUI.UIElement.new()
+	panel:setLeftRight(false, false, -PANEL_W / 2, PANEL_W / 2)
+	panel:setTopBottom(false, false, -H / 2, H / 2)
+	Hud:addElement(panel)
+	Hud.accLbPanel = panel
+
+	local function box(x0, x1, y0, y1, c, a)
+		local e = CoD.TextWithBg.new(Hud, InstanceRef)
+		e:setLeftRight(true, false, x0, x1)
+		e:setTopBottom(true, false, y0, y1)
+		e.Text:setText("")
+		e.Bg:setRGB(c[1], c[2], c[3])
+		e.Bg:setAlpha(a)
+		panel:addElement(e)
+		return e
+	end
+	local function label(x0, x1, y0, h, scale, txt, c, a, right)
+		local t = LUI.UIText.new()
+		t:setLeftRight(true, false, x0, x1)
+		t:setTopBottom(true, false, y0, y0 + h)
+		if right then
+			t:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_RIGHT)
+		else
+			t:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+		end
+		t:setScale(scale)
+		t:setText(txt)
+		t:setRGB(c[1], c[2], c[3])
+		t:setAlpha(a or 1)
+		panel:addElement(t)
+		return t
+	end
+	-- one row of stat cells - the ONLY place the number columns are drawn, so every
+	-- row type gets identical boxes/scale (kills white, revives teal, downs pink)
+	local function statCells(yy, hh, k, rv, d, dim)
+		local a = 0.92
+		if dim then a = 0.55 end
+		label(K0, K1, yy, hh, SC, tostring(k), COL_TEXT, a, true)
+		label(R0, R1, yy, hh, SC, tostring(rv), COL_TEAL, a, true)
+		label(D0, D1, yy, hh, SC, tostring(d), COL_DANGER, a, true)
+	end
+
+	-- plate: glass panel framed by the house cyan strips (AccPerkCard recipe)
+	box(0, PANEL_W, 0, H, COL_GLASS, 0.84)
+	box(0, PANEL_W, 0, 4, COL_CYAN, 0.9)
+	box(0, PANEL_W, H - 4, H, COL_CYAN, 0.9)
+
+	-- title: lobby-size ladder label (REQUIREMENT: solo lobby = top 10 SOLO rounds),
+	-- counted client-side from the same PlayerList models the fetch uses
+	local pc = 0
+	pcall(function()
+		local c = Engine.GetLocalClientNum()
+		for i = 0, 3 do
+			local nm = Engine.GetModelValue(Engine.GetModel(Engine.GetModelForController(c), "PlayerList." .. i .. ".playerName"))
+			if nm ~= nil and tostring(nm) ~= "" then pc = pc + 1 end
+		end
+	end)
+	local lbl = { "SOLO", "DUO", "TRIO", "QUADS" }
+	local title = "LEADERBOARDS"
+	if lbl[pc] ~= nil then title = lbl[pc] .. " LEADERBOARDS" end
+	label(PAD, 400, 12, 30, 1.1, title, COL_TITLE, 1)
+
+	-- source tag (user 2026-07-15 "remove the LIVE"): the healthy cloud board shows NO
+	-- tag; amber OFFLINE appears only when the net fetch failed and the machine-local
+	-- records are on screen - a degraded view worth signalling
+	if res.src ~= "net" then
+		label(400, PANEL_W - PAD, 19, 20, 0.7, "OFFLINE", COL_AMBER, 0.9, true)
+	end
+
+	-- the totals line sits under whatever the ladder drew (rows, "+N more", or the
+	-- empty-board text), separated by the same cyan rule as the column header
+	local function drawFoot()
+		if tot == nil then return end
+		box(PAD - 8, PANEL_W - PAD + 8, yFoot - 5, yFoot - 4, COL_CYAN, 0.25)
+		-- violet = the Paradise/winner color language used by the rows above
+		label(PAD, PANEL_W - PAD, yFoot + 2, 16, 0.65,
+			tostring(tot.w) .. " / " .. tostring(tot.g) .. " GAMES HAVE MADE IT TO THE BOTTOM OF THE TRENCH",
+			COL_VIOLET, 0.85)
+	end
+
+	if #rows == 0 then
+		label(PAD, PANEL_W - PAD, Y_TOP, 22, 0.9, "No runs on the board yet.", COL_TEXT, 0.95)
+		label(PAD, PANEL_W - PAD, Y_TOP + 24, 20, 0.8, "Finish a match to claim a slot.", COL_CYAN, 0.8)
+		drawFoot()
+		return
+	end
+
+	-- column header + rule (same boxes/scale as the data cells - LAYOUT RULE)
+	label(X_RANK, 60, 48, 18, SC, "#", COL_CYAN, 0.7)
+	label(X_ROUND, 185, 48, 18, SC, "ROUND", COL_CYAN, 0.7)
+	label(X_PLAYER, P1, 48, 18, SC, "PLAYER", COL_CYAN, 0.7)
+	label(K0, K1, 48, 18, SC, "KILLS", COL_CYAN, 0.7, true)
+	label(R0, R1, 48, 18, SC, "REVIVES", COL_CYAN, 0.7, true)
+	label(D0, D1, 48, 18, SC, "DOWNS", COL_CYAN, 0.7, true)
+	box(PAD - 8, PANEL_W - PAD + 8, 70, 71, COL_CYAN, 0.35)
+
+	for i = 1, shown do
+		local row = rows[i]
+		local b = blocks[i]
+		local st = row.st or {}
+
+		-- zebra stripe behind every other game block
+		if i % 2 == 0 then
+			box(10, PANEL_W - 10, b.y - 2, b.y + b.h + 2, COL_CYAN, 0.05)
+		end
+
+		local rankc = RANKC[i] or COL_CYAN
+		label(X_RANK, 60, b.y + 3, GAME_H, SC, tostring(i), rankc, 1)
+
+		-- a Paradise-winner run reads violet instead of amber (the reward tier color)
+		local roundc = COL_AMBER
+		if row.w then roundc = COL_VIOLET end
+		label(X_ROUND, 185, b.y + 3, GAME_H, SC, "ROUND " .. tostring(row.r), roundc, 1)
+
+		if #st == 0 then
+			-- game with no per-player stats (recorded pre-2026-07-14 or on the published
+			-- Workshop build, which predates the tracking): roster in the PLAYER column
+			-- ONLY (truncated - never bleeds under the numbers) + dim "-" placeholders
+			local namec = COL_TEXT
+			if row.w then namec = COL_VIOLET end
+			label(X_PLAYER, P1, b.y + 3, GAME_H, SC, trunc(row.names, 26), namec, 0.95)
+			statCells(b.y + 3, GAME_H, "-", "-", "-", true)
+		elseif #st == 1 then
+			-- solo run: merge the single player onto the game row
+			local s = st[1]
+			local namec = COL_TEXT
+			if row.w then namec = COL_VIOLET end
+			label(X_PLAYER, P1, b.y + 3, GAME_H, SC, trunc(s.n, 24), namec, 0.95)
+			statCells(b.y + 3, GAME_H, s.k, s.rv, s.d, false)
+		else
+			-- co-op run: game header row (winner chip only - the ladder is already
+			-- per-size so no squad tag needed), then one indented row per player
+			if row.w then
+				label(X_PLAYER, P1, b.y + 3, GAME_H, SC, "PARADISE WINNERS", COL_VIOLET, 0.9)
+			end
+			for j = 1, #st do
+				local s = st[j]
+				local py = b.y + GAME_H + (j - 1) * PLAYER_H
+				label(X_PLAYER + 12, P1, py + 1, PLAYER_H, SC, trunc(s.n, 22), COL_TEXT, 0.92)
+				statCells(py + 1, PLAYER_H, s.k, s.rv, s.d, false)
+			end
+		end
+	end
+
+	if hidden > 0 then
+		label(X_ROUND, D1, yMore + 2, 14, 0.65, "+ " .. tostring(hidden) .. " more runs on the ladder", COL_CYAN, 0.6)
+	end
+
+	drawFoot()
+end
+
 function LUI.createMenu.acc_lb_board(InstanceRef)
 	local Hud = CoD.Menu.NewForUIEditor("acc_lb_board")
 	Hud:setOwner(InstanceRef)
@@ -35,6 +270,30 @@ function LUI.createMenu.acc_lb_board(InstanceRef)
 
 	runChunk("go", InstanceRef)
 
+	local function XE(cmd)
+		pcall(function() Engine.Exec(Engine.GetLocalClientNum(), cmd) end)
+	end
+
+	local rendered = false
+	local function serve(res)
+		if rendered then return end
+		rendered = true
+		if type(res) ~= "table" then
+			XE('set acc_lb_lui "err"')
+			return
+		end
+		if res.show == false then return end   -- silent fetch (auto-fetch / dev probe)
+		-- pcall so a render error can NEVER pop the UI Error box: GSC sees no "ok"
+		-- on acc_lb_lui and falls back to the legacy acc_ui card (rows are already
+		-- in the acc_lb_r* dvars).
+		local ok = pcall(renderBoard, Hud, InstanceRef, res)
+		if ok then
+			XE('set acc_lb_lui "ok:' .. tostring(#(res.rows or {})) .. '"')
+		else
+			XE('set acc_lb_lui "err"')
+		end
+	end
+
 	local ticks = 0
 	if Hud.accLbTimer then Hud.accLbTimer:close() end
 	Hud.accLbTimer = LUI.UITimer.new(400, "acc_lb_tick", false)
@@ -42,13 +301,39 @@ function LUI.createMenu.acc_lb_board(InstanceRef)
 	Hud:registerEventHandler("acc_lb_tick", function(element, event)
 		ticks = ticks + 1
 		local res = runChunk("read", InstanceRef)
+		-- CO-OP PEER LANE (2026-07-16, "non host players cant see the UI"): a peer
+		-- machine has no curl agent and no local records, so "read" stays "again"
+		-- forever. GSC relays the HOST's fetched rows over the accLbR* controller
+		-- models (show_board_peer); the chunk's "feed" mode rebuilds the board from
+		-- them. Empty relay -> "none" -> the normal 8s local fallback still applies.
+		-- On the HOST the models are never pushed, so feed returns "none" and the
+		-- io lane keeps sole ownership there.
+		if type(res) ~= "table" then
+			local feed = runChunk("feed", InstanceRef)
+			if type(feed) == "table" then
+				res = feed
+			end
+		end
 		-- ~20 ticks x 400ms = 8s net budget (agent poll ~1s + curl -m 5)
-		if res == "done" or res == "neterr" or ticks >= 20 then
-			if res ~= "done" then runChunk("local", InstanceRef) end
+		if type(res) == "table" or res == "neterr" or ticks >= 20 then
+			if type(res) ~= "table" then
+				res = runChunk("local", InstanceRef)
+			end
+			serve(res)
 			if element.accLbTimer then
 				element.accLbTimer:close()
 				element.accLbTimer = nil
 			end
+		end
+	end)
+
+	-- GSC can close this menu at ANY moment (walk-away mid-fetch) - make sure the
+	-- poll timer dies with the menu (memory lui-uitimer-leaks-state-pool; the
+	-- OverrideFunction close hook is the stock UIEditor pattern, AetheriumHud.lua:352).
+	LUI.OverrideFunction_CallOriginalSecond(Hud, "close", function(element)
+		if element.accLbTimer then
+			element.accLbTimer:close()
+			element.accLbTimer = nil
 		end
 	end)
 

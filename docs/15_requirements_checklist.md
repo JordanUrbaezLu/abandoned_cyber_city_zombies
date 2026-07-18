@@ -421,13 +421,12 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Reset player.acc_shards_elite_count_round to 0 on each acc_round_start (add a level listener in _acc_data_shards.gsc)
 - [ ] **boss-shards-direct** `scaffolded` — Boss round end grants Shards directly to every player (2 at r10 mini, 3 at r20 mini, 4 at r30+ full) instead of dropping pickups.
   - *Next:* Implement spawn_juggernaut_host/spawn_subroutine_core as real AI actors and place the acc_boss_spawn struct in Radiant
-- [ ] **hack-success-reward** `scaffolded` — Hack success grants 2 Data Shards plus 1 free Overclock roll, then consumes the terminal.
-  - *Next:* Grant player.acc_oc_free_scrolls += 1 on hack success and make _acc_overclocks consume it (see emergency-oc-scroll task)
+- [ ] **hack-success-reward** `scaffolded` — Hack success grants 2 Data Shards (off by default; `acc_hack_shard_drop 1` restores it), then consumes the terminal. *(The old "1 free Overclock roll" bonus was cut 2026-07-12 — the OC-voucher feature was never built.)*
 - [x] **hack-parallel-processing** `implemented` *(closed 2026-06-12 second ultracode pass)* — Parallel Processing (Subroutine T2) allows exactly one second Hack attempt whose stages rotate (different elite types / zombie counts) so it is not a replay.
   - *Next:* Pass level.acc_hack_attempts_used into build_stages and vary stage counts/elite flavors on attempt 2
 - [x] **overload-hold-mechanic** `implemented` *(closed 2026-06-12 second ultracode pass)* — Vault Overload is a 90-second hold within a 96u radius point where leaving the point for more than 8s fails the event, and leaving the point pauses progress.
   - *Next:* Only increment elapsed while is_player_on_point() is true so leaving pauses progress, per docs/05_mechanics.md
-- [ ] **emergency-drop-types** `scaffolded` — The drop is one of: max ammo (all players), insta-kill, double points, Overclock scroll, or a random full perk granted to the caller, delivered at the closest safe zone.
+- [ ] **emergency-drop-types** `scaffolded` — The drop is one of: max ammo (all players), insta-kill, double points, or a random full perk granted to the caller, delivered at the closest safe zone.
   - *Next:* Either update docs to 'drops at the caller's position' or add a safe-zone struct lookup for the drop spot
 - [ ] **headshot-stacking-cyberware** `stubbed` — The headshot bonus stacks ADDITIVELY with Cyberware damage buffs (Amplifier T1 +15% weapon damage = 1.15; Overload T2 +30% crit damage = 1.30) — all bonuses are summed into the bonus factor (2026-06-14), not multiplied.
   - *Next:* In _acc_damage.gsc::on_ai_damage, add attacker.acc_cw_damage_mult and (on headshots) attacker.acc_cw_crit_damage_mult into bonus_sum when defined
@@ -441,8 +440,6 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Hook the laststand bleed timer (player.bleedout_time / _zm_laststand interface) and scale it by acc_cw_bleed_multiplier when a player goes down
 - [ ] **ghost-shroud-save** `stubbed` — Ghost Shroud boss item performs a clutch 1-HP save that stacks independently with Jugger-Nog's HP pool.
   - *Next:* Register a player damage callback that, when acc_item_shroud is equipped and damage would be lethal, clamps health to 1 and starts the item cooldown
-- [ ] **emergency-oc-scroll** `stubbed` — The Overclock scroll drop lets the player apply an Overclock to any weapon for free.
-  - *Next:* In _acc_overclocks.gsc purchase/reroll paths, check player.acc_oc_free_scrolls > 0 first, decrement it, and skip the shard try_spend
 - [x] **meltdown-kill-attribution** `implemented` *(closed 2026-06-12 second ultracode pass)* — Meltdown (Cyberware T3) AoE kills count as the caster's kill for point purposes.
   - *Next:* When implementing the Meltdown AoE, deal the AoE damage with the caster as attacker so _acc_points::record_damage and the death callback attribute it
 - [ ] **lab-perk-machines** `map-missing` — Four Lab perk machines with targetnames acc_lab_perk_a/b/c/d receive the rotation and dispense rotation[index]'s specialty.

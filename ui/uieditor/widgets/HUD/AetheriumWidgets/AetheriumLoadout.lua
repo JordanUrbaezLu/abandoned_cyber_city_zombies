@@ -547,6 +547,121 @@ CoD.AetheriumLoadout.new = function ( menu, controller )
 		end
 	end)
 
+	-- ============================================================================
+	-- [acc] SHIELD EQUIPMENT SLOT (2026-07-15, user: "we have a riot shield but the hud
+	-- doesnt show it... I was expecting somewhere in gun HUD"). A SATELLITE slot on the
+	-- loadout orb's rim: the grenade (lethal) slot owns the upper-right rim, the AAT icon
+	-- + gun-badge row own the lower-left, so the shield takes the LOWER-RIGHT, plate
+	-- tilted to follow the rim tangent (screenshot pass 1 2026-07-15: the first flat
+	-- placement at 1117..1184/603..662 landed ON the orb - user: "rotate it and place it
+	-- at the edge of the circle, may take multiple tries"). Shows while the Rocket Shield
+	-- implant's native zod_riotshield is granted (_acc_boss_items::apply_rocket_shield);
+	-- the icon tint IS the shield's remaining health (blue -> orange -> red, the kit's
+	-- own thresholds). While the shield is DESTROYED but the implant is still benched
+	-- (the 60s regrant window) the slot shows the empty plate + dim icon instead of
+	-- vanishing - "it's coming back".
+	--
+	-- WIRING (docs/19; memory riot-shield-native-give-recipe): zmInventory.shield_health
+	-- and hudItems.showDpadDown are server set_player_uimodel bridges with NO client node
+	-- until their first write -> must Engine.CreateModel (NEVER GetModel) or the
+	-- subscription never fires (the kit's PlayerInfo shield bar shipped dead on exactly
+	-- that). Stock's shield-DESTROY path (_zm_weap_riotshield UpdateRiotShieldModel)
+	-- writes ONLY showDpadDown=0 and leaves shield_health untouched, so ONE refresh is
+	-- subscribed to EVERY gate model. acc_implants = the implant slot cards' 16-bit
+	-- toplayer nibble wire (bits 0-11 = the 3 active slots); Rocket Shield = item 4
+	-- (_acc_boss_items build_item_pool), decoded by floor-division (no bit ops in HKS
+	-- Lua 5.1 - the AccImplantRow math). Plate art reuses the tactical slot's images -
+	-- already registered above, zero new assets.
+	-- PLACEMENT CONSTANTS - the whole geometry derives from these; every screenshot-pass
+	-- iteration is a 1-2 number tweak + `.\tools\build_map.ps1 -GscOnly` (~1 min). The orb
+	-- center comes from the weapon_icon anchor box (1055..1165 / 599..664); the visible
+	-- ring reads as ~r90 in-game.
+	-- Pass 3 (user 2026-07-15 screenshot: "to the right of grenades along the circle's
+	-- edge like grenades and cymbal monkeys"): continue the equipment arc CLOCKWISE past
+	-- the grenade slot - monkey, grenade, then shield wrapping down the upper-right rim.
+	-- Grenade slot center sits at roughly -57 deg / r~71 from the orb center; the next
+	-- stop clockwise is ~-22 deg, radius pushed to ~103 so the plate clears the grenade
+	-- box (ends x 1184) and its "+4" counter (1153..1180 / 567..579).
+	local SHIELD_ORB_CX = 1112     -- loadout orb center, virtual 1280x720
+	local SHIELD_ORB_CY = 630
+	-- Pass 5 (user: "bigger jump in rotation and more to left"): the key insight from the
+	-- pass-4 screenshot - the GRENADE plate center sits at r~71 from the orb center, but
+	-- the shield was out at r=87, so it floated OFF the ring. Radius pulled to 72 (same
+	-- orbit as the grenade = moves left at this position, same height), and the tilt
+	-- doubled to -60 so the plate lies ALONG the ring edge, extending clockwise off the
+	-- grenade slot.
+	local SHIELD_ANGLE = -20       -- degrees from 3 o'clock; NEGATIVE = above horizontal (grenade ~ -57), positive = below
+	local SHIELD_RADIUS = 72       -- orb center -> plate center (grenade plate orbits at ~71)
+	local SHIELD_PLATE_W = 56      -- tactical plate scaled down (~0.84) so it reads as a rim tab
+	local SHIELD_PLATE_H = 49
+	local SHIELD_PLATE_ROT = -60   -- setZRot degrees; plate long-axis along the ring edge at this spot.
+	                               -- Same sign as pass 4 (user asked for MORE, not the other way).
+	local SHIELD_ICON_S = 26       -- icon square; kept UPRIGHT for readability (setZRot it too if preferred)
+
+	local shieldRad = math.rad( SHIELD_ANGLE )
+	local shieldCX = SHIELD_ORB_CX + SHIELD_RADIUS * math.cos( shieldRad )
+	local shieldCY = SHIELD_ORB_CY + SHIELD_RADIUS * math.sin( shieldRad )
+
+	self.shield_bg = LUI.UIImage.new()
+	self.shield_bg:setLeftRight( true, false, shieldCX - SHIELD_PLATE_W / 2, shieldCX + SHIELD_PLATE_W / 2 )
+	self.shield_bg:setTopBottom( true, false, shieldCY - SHIELD_PLATE_H / 2, shieldCY + SHIELD_PLATE_H / 2 )
+	self.shield_bg:setImage( RegisterImage( "i_mtl_ui_hud_tactical_empty" ) )
+	self.shield_bg:setZRot( SHIELD_PLATE_ROT )
+	self.shield_bg:setRGB( 1, 1, 1 )
+	self.shield_bg:setAlpha( 0 )
+	self:addElement( self.shield_bg )
+
+	self.shield_icon = LUI.UIImage.new()
+	self.shield_icon:setLeftRight( true, false, shieldCX - SHIELD_ICON_S / 2, shieldCX + SHIELD_ICON_S / 2 )
+	self.shield_icon:setTopBottom( true, false, shieldCY - SHIELD_ICON_S / 2, shieldCY + SHIELD_ICON_S / 2 )
+	self.shield_icon:setImage( RegisterImage( "riotshield_zm_icon" ) )
+	self.shield_icon:setAlpha( 0 )
+	self:addElement( self.shield_icon )
+
+	local shieldControllerModel = Engine.GetModelForController( controller )
+	local shieldHealthModel = Engine.CreateModel( shieldControllerModel, "zmInventory.shield_health" )
+	local shieldDpadModel = Engine.CreateModel( shieldControllerModel, "hudItems.showDpadDown" )
+	local shieldImplantModel = Engine.CreateModel( shieldControllerModel, "acc_implants" )
+
+	local RefreshShieldSlot = function ()
+		local health = Engine.GetModelValue( shieldHealthModel ) or 0
+		local dpad = Engine.GetModelValue( shieldDpadModel ) or 0
+		local nibbles = Engine.GetModelValue( shieldImplantModel ) or 0
+		local implanted = false
+		for s = 1, 3 do
+			if math.floor( nibbles / ( 16 ^ ( s - 1 ) ) ) % 16 == 4 then implanted = true end
+		end
+
+		if dpad > 0 and health > 0 then
+			-- Shield carried: lit plate, icon tinted by remaining shield health
+			self.shield_bg:setImage( RegisterImage( "i_mtl_ui_hud_tactical" ) )
+			self.shield_bg:setAlpha( 1 )
+			self.shield_icon:setAlpha( 1 )
+			if health <= 0.33 then
+				self.shield_icon:setRGB( 1, 0.4, 0.4 )      -- Red: nearly broken
+			elseif health <= 0.66 then
+				self.shield_icon:setRGB( 1, 0.8, 0.4 )      -- Orange: damaged
+			else
+				self.shield_icon:setRGB( 0.4, 0.7, 1 )      -- Blue: healthy
+			end
+		elseif implanted then
+			-- Destroyed, but the implant regrants in 60s: empty plate + dim icon
+			self.shield_bg:setImage( RegisterImage( "i_mtl_ui_hud_tactical_empty" ) )
+			self.shield_bg:setAlpha( 1 )
+			self.shield_icon:setAlpha( 0.35 )
+			self.shield_icon:setRGB( 0.6, 0.6, 0.6 )
+		else
+			-- No shield and no implant: slot hidden entirely
+			self.shield_bg:setAlpha( 0 )
+			self.shield_icon:setAlpha( 0 )
+		end
+	end
+
+	self:subscribeToModel( shieldHealthModel, RefreshShieldSlot )
+	self:subscribeToModel( shieldDpadModel, RefreshShieldSlot )
+	self:subscribeToModel( shieldImplantModel, RefreshShieldSlot )
+	RefreshShieldSlot()   -- initial paint (mid-run HUD rebuild / rejoin)
+
 	-- Note: Hero weapon display now handled by official ZmAmmo_DpadMeterSword and ZmAmmo_DpadIconPistolFactory widgets
 	-- These are added directly in AetheriumHud.lua for better compatibility and full feature support
 

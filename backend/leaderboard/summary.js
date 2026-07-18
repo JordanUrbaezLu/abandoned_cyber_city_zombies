@@ -1,0 +1,225 @@
+#!/usr/bin/env node
+// =============================================================================
+// Abandoned Cyber City - leaderboard/analytics SUMMARY
+//
+//   npm run summary            (from backend/leaderboard/)
+//
+// Zero-dependency (Node 18+ global fetch). Pulls the LIVE read endpoints of the
+// deployed Cloudflare Worker (worker.js) and prints a comprehensive, human-readable
+// report: per-squad-size record boards + the full weapon-usage telemetry
+// (share, availability-adjusted preference index, box take-rate, retention) plus
+// auto-flagged balance outliers and data-quality issues.
+//
+// Base URL resolution (first hit wins):
+//   1. $ACC_LB_URL env var
+//   2. deployed.local.json "url"  (gitignored; the normal path on the dev box)
+//   3. the hardcoded fallback below
+//
+// Only the PUBLIC GET endpoints are used (no write key needed), so this is safe
+// to run anywhere. Pass --json to dump the raw aggregated object instead.
+// =============================================================================
+
+const fs = require("fs");
+const path = require("path");
+
+const FALLBACK_URL = "https://acc-leaderboard.jordana-urbaez.workers.dev";
+const TIMEOUT_MS = 15000;
+const JSON_OUT = process.argv.includes("--json");
+
+function resolveBaseUrl() {
+  if (process.env.ACC_LB_URL) return process.env.ACC_LB_URL.replace(/\/+$/, "");
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, "deployed.local.json"), "utf8"));
+    if (cfg && cfg.url) return String(cfg.url).replace(/\/+$/, "");
+  } catch { /* not deployed locally - fall through */ }
+  return FALLBACK_URL;
+}
+
+async function getJSON(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+async function getText(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.text();
+}
+
+// ---- tiny formatting helpers ------------------------------------------------
+const COUNT_LABEL = { 1: "SOLO", 2: "DUO", 3: "TRIO", 4: "QUADS" };
+const pct = n => `${n.toFixed(1)}%`;
+const secsToHM = s => {
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+function pad(s, n) { s = String(s); return s.length >= n ? s : s + " ".repeat(n - s.length); }
+function padL(s, n) { s = String(s); return s.length >= n ? s : " ".repeat(n - s.length) + s; }
+function hr(ch = "-") { return ch.repeat(74); }
+function h1(t) { return `\n${hr("=")}\n  ${t}\n${hr("=")}`; }
+
+// ---- looks-suspicious gamertag detector (data-quality flag) -----------------
+function suspiciousName(n) {
+  if (!n) return "empty";
+  if (/^userdata:/i.test(n)) return "raw LUI userdata handle (name-capture glitch)";
+  if (n === "?" ) return "unnamed (sanitized to '?')";
+  if (/^0+$/.test(n)) return "all-zero id";
+  return null;
+}
+
+async function main() {
+  const BASE = resolveBaseUrl();
+
+  // liveness
+  let health;
+  try { health = (await getText(`${BASE}/health`)).trim(); }
+  catch (e) { console.error(`\nBackend unreachable at ${BASE}\n  ${e.message}\n`); process.exit(1); }
+
+  // fetch everything in parallel. BOARD_LIMIT pulls the FULL round history from the /top10.*
+  // endpoints (user 2026-07-13: "get all the round-based data, not just top 10"). The endpoints
+  // default to 10 for the in-game board; the Worker clamps our request to its BOARD_LIMIT_MAX.
+  const BOARD_LIMIT = 5000;
+  const [top10, guns, byPref, players, ...boards] = await Promise.all([
+    getJSON(`${BASE}/top10.json?limit=${BOARD_LIMIT}`),
+    getJSON(`${BASE}/stats/guns.json`),
+    getJSON(`${BASE}/stats/guns.json?sort=pref`),
+    // per-player kills/downs/revives (docs/40). Tolerate an old Worker that lacks the
+    // endpoint (404) so the summary still runs before the backend is redeployed.
+    getJSON(`${BASE}/stats/players.json?sort=kills`).catch(() => ({ players: [] })),
+    ...[1, 2, 3, 4].map(n => getText(`${BASE}/top10.txt?players=${n}&limit=${BOARD_LIMIT}`)),
+  ]);
+  const playerStats = (players && Array.isArray(players.players)) ? players.players : [];
+
+  const perCount = {};
+  [1, 2, 3, 4].forEach((n, i) => {
+    perCount[n] = boards[i].trim()
+      ? boards[i].trim().split("\n").map(line => {
+          const bar = line.indexOf("|");
+          const round = parseInt(line.slice(0, bar), 10);
+          let names = line.slice(bar + 1);
+          const winner = names.startsWith("* ");
+          if (winner) names = names.slice(2);
+          return { round, names, winner };
+        })
+      : [];
+  });
+
+  if (JSON_OUT) {
+    console.log(JSON.stringify({ base: BASE, health, top10, perCount, guns, playerStats }, null, 2));
+    return;
+  }
+
+  // === header ===============================================================
+  console.log(h1("ABANDONED CYBER CITY - ANALYTICS SUMMARY"));
+  console.log(`  Backend : ${BASE}  (health: ${health})`);
+  console.log(`  Games with weapon telemetry : ${guns.total_games}`);
+  console.log(`  Total held-gun time         : ${guns.all_seconds.toLocaleString()} s  (${secsToHM(guns.all_seconds)})`);
+
+  // === record boards ========================================================
+  console.log(h1("RECORD BOARDS - ALL GAMES (round reached, by squad size)"));
+  for (const n of [1, 2, 3, 4]) {
+    const rows = perCount[n];
+    console.log(`\n  ${COUNT_LABEL[n]}  (${rows.length} recorded)`);
+    if (!rows.length) { console.log("    -- no games recorded --"); continue; }
+    rows.forEach((r, i) => {   // ALL rows (user 2026-07-13: was capped at .slice(0,10))
+      const star = r.winner ? " *PARADISE WINNER*" : "";
+      console.log(`    ${padL(i + 1, 3)}. ${padL("R" + r.round, 4)}  ${r.names}${star}`);
+    });
+  }
+
+  const paradiseWins = top10.filter(r => r.paradise_winner).length;
+  console.log(`\n  Paradise-finale wins (all ${top10.length} recorded games): ${paradiseWins}`);
+
+  // === per-player stats (kills / downs / revives) ===========================
+  console.log(h1("PLAYER STATS - kills / downs / revives (all games, by kills)"));
+  if (!playerStats.length) {
+    console.log("  -- no per-player stats recorded yet --");
+    console.log("     (added 2026-07-14; games recorded before the new .ff ships have none)");
+  } else {
+    console.log(`  ${pad("Player", 22)}${padL("kills", 8)}${padL("downs", 7)}${padL("revives", 9)}${padL("games", 7)}${padL("k/game", 8)}${padL("best", 6)}`);
+    console.log(`  ${hr("-").slice(0, 68)}`);
+    for (const p of playerStats.slice(0, 25)) {
+      console.log(
+        `  ${pad(p.name, 22)}${padL(p.kills.toLocaleString(), 8)}${padL(p.downs, 7)}` +
+        `${padL(p.revives, 9)}${padL(p.games, 7)}${padL(p.kills_per_game, 8)}${padL("R" + p.best_round, 6)}`
+      );
+    }
+    const totK = playerStats.reduce((a, p) => a + p.kills, 0);
+    const totR = playerStats.reduce((a, p) => a + p.revives, 0);
+    console.log(`\n  ${playerStats.length} players tracked · ${totK.toLocaleString()} total kills · ${totR.toLocaleString()} total revives`);
+  }
+
+  // === weapon telemetry =====================================================
+  const named = guns.guns.filter(g => g.id !== 0);
+
+  console.log(h1("WEAPON USAGE - ALL GUNS (by held-time share)"));
+  console.log(`  ${pad("Gun", 18)}${padL("share", 7)}${padL("pref", 7)}${padL("pick%", 7)}${padL("take", 7)}${padL("repl", 7)}  verdict`);
+  console.log(`  ${hr("-").slice(0, 70)}`);
+  for (const g of guns.guns) {
+    const pref = g.pref_index == null ? "  -" : g.pref_index.toFixed(2);
+    const take = g.take_rate == null ? "  -" : pct(g.take_rate * 100).replace(".0", "");
+    const repl = g.replace_rate == null ? "  -" : pct(g.replace_rate * 100).replace(".0", "");
+    const tag = g.is_starting ? "(starting)" : g.verdict;
+    console.log(
+      `  ${pad(g.name, 18)}${padL(pct(g.share_pct), 7)}${padL(pref, 7)}` +
+      `${padL(pct(g.pick_rate * 100).replace(".0", ""), 7)}${padL(take, 7)}${padL(repl, 7)}  ${tag}`
+    );
+  }
+  console.log(`\n  Legend: share = % of all held-time · pref = held-share / box-offer-share`);
+  console.log(`          (>1.3 over-performs, <0.6 under-performs) · take = box take-rate`);
+  console.log(`          repl = replace-rate (higher = ditched faster) · '-' = no data yet`);
+
+  // === auto-flagged outliers ================================================
+  const overPerformers = named.filter(g => !g.is_starting && g.pref_index != null && g.pref_index >= 1.3)
+    .sort((a, b) => b.pref_index - a.pref_index);
+  const underPerformers = named.filter(g => !g.is_starting && g.pref_index != null && g.pref_index <= 0.6)
+    .sort((a, b) => a.pref_index - b.pref_index);
+  // "over-offered dead weight": offered a lot but low preference
+  const overOffered = named.filter(g => g.box_share_pct != null && g.box_share_pct >= 4 && g.pref_index != null && g.pref_index < 0.8)
+    .sort((a, b) => b.box_share_pct - a.box_share_pct);
+  const stickiest = [...named].sort((a, b) => b.secs_per_pick - a.secs_per_pick).slice(0, 5);
+
+  console.log(h1("BALANCE OUTLIERS (auto-flagged)"));
+  console.log(`\n  Over-performers (sought out - pref >= 1.3):`);
+  overPerformers.length
+    ? overPerformers.forEach(g => console.log(`    + ${pad(g.name, 18)} pref ${g.pref_index.toFixed(2)}  (${g.secs_per_pick}s/pick, ${g.games_picked} games)`))
+    : console.log("    -- none --");
+
+  console.log(`\n  Under-performers (offered but dropped - pref <= 0.6):`);
+  underPerformers.length
+    ? underPerformers.forEach(g => console.log(`    - ${pad(g.name, 18)} pref ${g.pref_index.toFixed(2)}  (box share ${pct(g.box_share_pct)})`))
+    : console.log("    -- none --");
+
+  console.log(`\n  Over-offered dead weight (box share >= 4% but pref < 0.8) - rebalance candidates:`);
+  overOffered.length
+    ? overOffered.forEach(g => console.log(`    ! ${pad(g.name, 18)} offered ${pct(g.box_share_pct)} of box, pref only ${g.pref_index.toFixed(2)}`))
+    : console.log("    -- none --");
+
+  console.log(`\n  Stickiest guns (highest seconds held per pick):`);
+  stickiest.forEach(g => console.log(`    * ${pad(g.name, 18)} ${g.secs_per_pick}s/pick`));
+
+  // === data-quality flags ===================================================
+  const nameIssues = [];
+  const seen = new Set();
+  const allNames = [
+    ...top10.flatMap(r => r.players),
+    ...[1, 2, 3, 4].flatMap(n => perCount[n].flatMap(r => r.names.split(","))),
+  ].map(s => s.trim());
+  for (const nm of allNames) {
+    const why = suspiciousName(nm);
+    if (why && !seen.has(nm)) { seen.add(nm); nameIssues.push({ nm, why }); }
+  }
+  const emptyBoards = [1, 2, 3, 4].filter(n => !perCount[n].length).map(n => COUNT_LABEL[n]);
+
+  console.log(h1("DATA-QUALITY FLAGS"));
+  if (!nameIssues.length && !emptyBoards.length) {
+    console.log("  None detected.");
+  } else {
+    nameIssues.forEach(({ nm, why }) => console.log(`  ! gamertag "${nm}" - ${why}`));
+    if (emptyBoards.length) console.log(`  ! no games recorded for: ${emptyBoards.join(", ")}`);
+  }
+
+  console.log(`\n${hr("=")}\n  Tip: 'npm run summary -- --json' dumps the raw aggregated data.\n`);
+}
+
+main().catch(e => { console.error(`\nError: ${e.message}\n`); process.exit(1); });

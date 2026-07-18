@@ -212,21 +212,24 @@ running to play this game" popup, then exits), even with Steam running and
 `steam_appid.txt` present. Launch **through Steam** instead:
 
 ```powershell
-.\tools\run_game.ps1            # full dev sandbox: dev + open map + test boss
-.\tools\run_game.ps1 -NoDev     # clean consumer game (no sandbox, closed map)
+.\tools\run_game.ps1            # engine args only — dev vs clean rides the BUILD
+                                # (the level.acc_dev/acc_god hardcodes; the legacy
+                                # -NoDev/-ClosedMap/... switches are no-ops)
 ```
 
-It calls `steam://run/311210//<dev args>` and waits for load (~30-60 s; RAM climbs
-to ~5 GB). `PLAY_TEST_MAP.bat` in the repo root is a double-click equivalent.
+It calls `steam://run/311210//<engine args>` and waits for load (~30-60 s; RAM climbs
+to ~5 GB). `PLAY_NORMAL.bat` in the repo root is a double-click equivalent.
 
-**Dev mode is ONE hardcoded flag.** `run_game.ps1` passes just `+set acc_dev 1`,
-which the entry script resolves ONCE in `acc_resolve_dev_flags()` into the global
-`level.acc_dev` (unlimited money, 25 starting Data Shards, all perk slots, open map,
-the Glitch test spawn forced on — Avogadro/Panzer ride their own dev spawn loops while
-Brutus/Phantom run their real dev-accelerated cadence). Dev also forces the debug HUDs
-**OFF** (`acc_variants_debug`/`acc_hudelem_debug` = 0) and the green DEV banner was
-removed (reconciled to code 2026-07-11). **There is no runtime dev console — never "set
-dvar X to test".** `-NoDev` = clean normal play. Default 0 = ship-safe. Design: CLAUDE.md
+**Dev mode is ONE hardcoded flag.** `level.acc_dev` is a compile-time boolean set in
+`acc_resolve_dev_flags()` (`scripts/zm/zm_abandoned_cyber_city.gsc`): ship state =
+`level.acc_dev = false;`, test session = flip it to `true;` + rebuild. There is NO
+dvar/launch-flag path — `+set acc_dev 1` does nothing (the dvar resolution was removed
+2026-07-16). A dev build gives unlimited money, 25 starting Data Shards, all perk slots,
+and the Mega-Bottle top-up; bosses run their **real** cadence (the early test spawns were
+removed 2026-07-16), and debug prints ride `level.acc_dev` (the per-feature debug dvars
+were deleted the same day). **There is no runtime dev console — never "set dvar X to
+test".** Clean normal play = a build with the `= false;` ship lines (`prep_release.ps1`
+Gate 0 enforces them, and FAILS if a dvar read reappears). Design: CLAUDE.md
 (dev-mode section).
 
 **CRITICAL #1 — the gametype must be `+set_gametype zclassic` (engine command), NOT
@@ -240,7 +243,7 @@ The repo launchers pass `+set_gametype zclassic`.
 **CRITICAL #2 — Steam Launch Options must be EMPTY** when using `steam://run//<args>`
 or the `.bat`. Steam *appends* Launch Options to the inline args → a **doubled
 command line** that re-corrupts the gametype back to `tdm`. Pick ONE arg source:
-Launch Options empty + the `.bat`/`run_game.ps1`, OR full dev args in Launch Options
+Launch Options empty + the `.bat`/`run_game.ps1`, OR the engine args in Launch Options
 launched from Steam's **Play** button — never both.
 
 Steam must be running and logged in. **console_mp.log is the runtime oracle** (needs
@@ -250,7 +253,7 @@ noise, not the failure.
 
 ## 6. Test In-Game
 
-1. Spawn in; with `acc_dev 1` you get the full sandbox. Walk the systems loop from
+1. Spawn in; with a dev build (`level.acc_dev = true;`) you get the full sandbox. Walk the systems loop from
    the test session guide ([docs/18_test_session.md](docs/18_test_session.md)) and
    the player guide ([docs/36_player_guide.md](docs/36_player_guide.md)): buy doors,
    flip power, buy/upgrade perks at the Neural Expansion Bay, hit the box, ride the

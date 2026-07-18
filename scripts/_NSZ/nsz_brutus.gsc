@@ -36,8 +36,8 @@
 
 function nsz_iprintlnbold( string )
 {
-	if( ( isDefined(level.nsz_debug) && level.nsz_debug ) )   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides nsz_debug now)
-		iprintlnbold( "^6NSZ Debug:^7 "+string ); 
+	if( ( isDefined(level.acc_dev) && level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
+		iprintlnbold( "^6NSZ Debug:^7 "+string );
 }
 
 function init()
@@ -60,9 +60,8 @@ function init()
 
 function main()
 {
-	level flag::wait_till( "all_players_connected" ); 
-	// level.nsz_debug = true; 
-	level activate_brutus_spawns(); 
+	level flag::wait_till( "all_players_connected" );
+	level activate_brutus_spawns();
 	// [acc] stage 2: _acc_boss drives Brutus spawns at r10/r20; disable the native cadence.
 	if ( !IS_TRUE( level.acc_brutus_external_spawns ) )
 		level thread brutus_spawn_logic();
@@ -201,6 +200,7 @@ function spawn_brutus()
 	// him in place (valid path, moved=0). is_boss is re-set later at its original site too (idempotent).
 	brutus.is_boss = true;
 	brutus.acc_boss_custom_speed = true;
+	brutus.acc_is_brutus = true;   // [acc] 2026-07-16 boss-weakness identity (snipers +20%, _acc_damage 0c5) - set at THE spawn chokepoint every Brutus path routes through (trench + paradise)
 	brutus attach_helmet();
 	brutus attach_light(); 
 	brutus thread zombie_spawn_init();
@@ -685,7 +685,7 @@ function note_tracker()
 				{
 					Earthquake( .25, 3, player.origin, 50 ); 
 					player shellShock( "frag_grenade_mp", 1 ); 
-					player DoDamage( 75, player.origin, self ); 
+					player DoDamage( getdvarint( "acc_warden_melee_damage", 85 ), player.origin, self ); // [acc] BRUTUS MELEE 75->85 (user 2026-07-12; live dvar acc_warden_melee_damage) 
 				}
 			}
 		}

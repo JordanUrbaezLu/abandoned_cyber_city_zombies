@@ -115,6 +115,36 @@ local PostLoadFunc = function ( self, controller )
 				end )
 			end
 
+			-- ACC (2026-07-15): teammate riot-shield mini-bar (world player_shield_<clientNum>,
+			-- 0 = none / 1..31 = health). CreateModel like the lanes above (the model may not
+			-- exist until the first broadcast). Value cached in self.currentShieldV so the
+			-- state handler below can restore/hide the bar on alive/dead transitions.
+			if self.shieldSubscription ~= nil then
+				self:removeSubscription( self.shieldSubscription )
+			end
+			local shieldModel = Engine.CreateModel( Engine.GetModelForController( controller ), "player_shield_" .. clientNum )
+			if shieldModel ~= nil and self.shield_fill ~= nil then
+				self.shieldSubscription = self:subscribeToModel( shieldModel, function ( model )
+					local v = Engine.GetModelValue( model )
+					if v == nil then return end
+					self.currentShieldV = v
+					if v > 0 and self.isPlayerSlotOccupied and self.currentPlayerState ~= 2 then
+						local frac = ( v - 1 ) / 30
+						self.shield_fill:setShaderVector( 0, frac, 0, 0, 0 )
+						if frac <= 0.33 then
+							self.shield_fill:setRGB( 1, 0.4, 0.4 )      -- red: nearly broken
+						elseif frac <= 0.66 then
+							self.shield_fill:setRGB( 1, 0.8, 0.4 )      -- orange: damaged
+						else
+							self.shield_fill:setRGB( 0.4, 0.7, 1 )      -- blue: healthy
+						end
+						self.shield_fill:setAlpha( 1 )
+					else
+						self.shield_fill:setAlpha( 0 )
+					end
+				end )
+			end
+
 			-- Subscribe to player state model (the key detection)
 			local stateModel = Engine.GetModel( Engine.GetModelForController( controller ), "player_state_" .. clientNum )
 			if stateModel then
@@ -136,8 +166,12 @@ local PostLoadFunc = function ( self, controller )
 								self.health_border:setAlpha(1)
 								self.essence_icon:setAlpha(1)
 								self.points:setAlpha(1)
+								-- ACC: restore the shield mini-bar if this teammate carries one
+								if self.shield_fill and ( self.currentShieldV or 0 ) > 0 then
+									self.shield_fill:setAlpha(1)
+								end
 							end
-							
+
 							-- Set initial health bar value when becoming alive
 							if self.currentHealth then
 								self.health_fill:setShaderVector( 0,
@@ -183,6 +217,10 @@ local PostLoadFunc = function ( self, controller )
 							self.essence_icon:setAlpha(0)
 							self.points:setAlpha(0)
 							self.downedIcon:setAlpha(0)
+							-- ACC: hide the shield mini-bar with the row's other bars
+							if self.shield_fill then
+								self.shield_fill:setAlpha(0)
+							end
 							self.portrait:setRGB(0.3, 0.3, 0.3)
 							self.name:setRGB(1, 0.2, 0.2)
 						end
@@ -245,6 +283,26 @@ CoD.AetheriumPartyPlayers.new = function ( menu, controller, playerIndex )
 	self.name:setAlignment( Enum.LUIAlignment.LUI_ALIGNMENT_LEFT )
 	self.name:setAlpha( 0 )
 	self:addElement( self.name )
+
+	-- ACC (2026-07-15, user: "good to know if your teammates have one and the health of the
+	-- shield"): thin riot-shield bar directly ABOVE this teammate's health bar - the same
+	-- above-health language as the local player's card. Fed by the world
+	-- player_shield_<clientNum> broadcast (0 = none / 1..31 = health, _zm_aetherium_hud);
+	-- blue -> orange -> red with the shared thresholds. Hidden while the teammate has no
+	-- shield (and on DEAD, with the row's other bars).
+	local shieldFillTop = bgTop + 41
+	self.shield_fill = LUI.UIImage.new()
+	self.shield_fill:setLeftRight(true, false, 108, 221)
+	self.shield_fill:setTopBottom(true, false, shieldFillTop, shieldFillTop + 3)
+	self.shield_fill:setImage( RegisterImage( "i_mtl_ui_hud_party_health_bar_fill" ) )
+	self.shield_fill:setRGB( 0.4, 0.7, 1 )
+	self.shield_fill:setMaterial( LUI.UIImage.GetCachedMaterial( "uie_wipe_normal" ) )
+	self.shield_fill:setShaderVector( 0, 1, 0, 0, 0 )
+	self.shield_fill:setShaderVector( 1, 0, 0, 0, 0 )
+	self.shield_fill:setShaderVector( 2, 1, 0, 0, 0 )
+	self.shield_fill:setShaderVector( 3, 0, 0, 0, 0 )
+	self.shield_fill:setAlpha( 0 )
+	self:addElement( self.shield_fill )
 
 	-- Health Fill (offset from BG top) - 1px insets
 	local healthFillTop = bgTop + 45

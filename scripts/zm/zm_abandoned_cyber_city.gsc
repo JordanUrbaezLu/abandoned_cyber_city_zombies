@@ -84,6 +84,16 @@
 // clientfield lockstep). External rip - assets gitignored via the manifest.
 #using scripts\zm\_zm_weap_freezegun;
 
+// [acc] AW 3D Printer Mystery Box (PLANET pack, 2026-07-12) - THE map's mystery box,
+// replacing the stock zbarrier chest (its treasure_chest_use structs are deleted from the
+// .map, which makes stock treasure_chest_init a clean no-op). Self-registers via
+// REGISTER_SYSTEM_EX("aw_mbox") - this #using pulls it into the compile. Vendored +
+// [acc]-shimmed (user_grabbed_weapon notify, firesale/Armory pricing, per-run weighted
+// draw); machines spawn at the 7 aw_exo_mysterybox_location structs in the .map (plaza =
+// starting_loc). Matching #using in the entry .csc REQUIRED (exo_magicbox_dr_holo
+// clientfield lockstep). External rip - binary assets gitignored via the manifest.
+#using scripts\planet\_aw\_zm_aw_mysterybox;
+
 //Powerups
 #using scripts\zm\_zm_powerup_double_points;
 #using scripts\zm\_zm_powerup_carpenter;
@@ -243,18 +253,23 @@ function main()
 	// poll covers the case it registers a beat after main(); it applies long before round 1's first drop.
 	level thread acc_disable_minigun_powerup();
 
-	// [acc] Optional dev/test sandbox - ALL OFF by default, so a launch with no
-	// dvars is a clean consumer game (closed map, earn your own money, decon hazard
-	// live). The launch scripts (PLAY_TEST_MAP.bat / tools/run_game.ps1) set these
-	// for test sessions. Full reference: docs/22_flags_reference.md.
-	//   +set acc_dev 1      -> unlimited money + Data Shards + Mega Bottles + dev banner
+	// [acc] Optional dev/test sandbox - OFF in a ship build, so a normal build is a
+	// clean consumer game (closed map, earn your own money). Test sessions arm dev/god
+	// via the HARDCODE lines in acc_resolve_dev_flags()
+	// + rebuild (user 2026-07-15: launch flags are NOT the workflow; PLAY_NORMAL.bat is
+	// the only launcher and passes engine args only). Full reference: docs/22_flags_reference.md.
+	//   level.acc_dev = true; -> unlimited money + Data Shards + Mega Bottles + dev banner
 	//                          (and enables the _acc_dev module: perk cap 18, dev HUDs,
-	//                          teleport / round-skip / open-doors console cmds). Power is NO
-	//                          longer auto-on - flip the Bus Station switch (or `acc_auto_power 1`).
-	//   +set acc_open_map 1 -> open every buyable door + both PaP blockers on spawn so
-	//                          the whole map is walkable, AND disable the decontamination
-	//                          zone-seal hazard (lethal to a player roaming a fully-open
-	//                          map). Decon flag read by _acc_decontamination.
+	//                          teleport / round-skip / open-doors console cmds). Boss cadence in
+	//                          dev (user 2026-07-17, supersedes the 07-16 "real cadence" doctrine):
+	//                          2 Glitch Stalkers EVERY round + one Phantom on round 3; everything
+	//                          else (Brutus/roster r9/18/27) runs REAL. Power is NO longer
+	//                          auto-on - flip the Bus Station switch (or `acc_auto_power 1`,
+	//                          a live-balance dvar).
+	//   acc_open_map        -> NOT a launch opt-in: acc_resolve_dev_flags() SetDvars it 1/0 off
+	//                          level.acc_dev as the internal relay for dvar-reading modules -
+	//                          never set it by hand. (The decon zone-seal hazard the old dev
+	//                          open-map disabled was removed outright - see _acc_decontamination.)
 	// DEV MODE - ONE FLAG (user 2026-06-22). `acc_dev` is the ONLY dev switch: 1 = the full hardcoded
 	// dev sandbox, 0 (the SHIP DEFAULT) = normal play. acc_resolve_dev_flags() resolves it ONCE here
 	// (before any module reads it) into level.acc_dev and drives the legacy sub-dvars off that one flag,
@@ -348,83 +363,81 @@ function main()
 	// [acc] Avogadro "cyberhacker" boss (user 2026-07-04): fast electric harasser - stun-locks players
 	// (0-dmg shots that apply the 25% slow) + hacks Lab machines (disables perks/PaP + kills their glow
 	// for 30s, max 2). Spawns in the Lab, HP = Phantom's. Joins the shared boss roster as a 3rd type;
-	// DEV mode runs a repeating test spawn. Toggle live: acc_avo_enable 0. See _acc_boss_avogadro.gsc.
+	// dev runs the same REAL roster cadence (early dev test-spawn removed 2026-07-12). Toggle live:
+	// acc_avo_enable 0. See _acc_boss_avogadro.gsc.
 	level thread acc_boss_avogadro::init();
 
-	// [acc] ROGUE PROTECTOR round-20 hostile boss (user 2026-07-02). Owed+director cadence like
-	// the Phantom (dev = round 2 / every 5 via the one dev flag); the Phantom yields his rounds.
+	// [acc] ROGUE PROTECTOR hostile boss (user 2026-07-02). Owed+director cadence like the
+	// Phantom, on the shared every-9-rounds roster - dev runs the SAME real 9/9 schedule (the
+	// dev fast cadence was disabled 2026-07-12).
 	level thread acc_civil_protector::init();
 
 	// [acc] PANZER boss (user 2026-07-08): the heaviest roster walker - TANK-tier HP
 	// (exp 1.12 on the shared scale, tied with Brutus at the top of the ladder; both 1.12),
 	// hard melee (acc_panzer_melee_damage 90), stock mechz flame/grenade BT attacks. 4th
-	// shared-roster type; DEV keeps one alive from round 3 for iteration. Toggle live:
+	// shared-roster type; dev runs the same REAL roster cadence (the keep-one-alive dev
+	// test-spawn loop was disabled 2026-07-12). Toggle live:
 	// acc_panzer_enable 0. See _acc_boss_panzer.gsc + scripts/zm/mechz_spiki.gsc headers.
 	level thread acc_boss_panzer::init();
 }
 
-// [acc] DEV MODE - the SINGLE switch (user 2026-06-22). Reads `acc_dev` ONCE, caches it in level.acc_dev
-// (the canonical gate every module reads), then DRIVES the legacy sub-dvars off that one flag so modules
-// that still read their own dvar (perk doors / boss-test / auto-power / variant-debug) follow dev with no
-// per-feature flag to set. THIS is the place to hardcode dev values: add a SetDvar
+// [acc] DEV MODE - the SINGLE switch (user 2026-06-22; hardcode-only since 2026-07-16). Sets the
+// COMPILE-TIME boolean level.acc_dev (the canonical gate every module reads), then DRIVES the one
+// surviving legacy sub-dvar off it (acc_open_map, for the perk-door module) so there is no
+// per-feature flag to set. (The other dvar-reading holdout, acc_auto_power, is a live-balance knob
+// NOT driven by dev.) THIS is the place to hardcode dev values: add a SetDvar
 // here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
 // in main(), before any consumer reads them. docs/22.
 //
-// PUBLISH-SAFE (user 2026-06-29): both flags restored to their dvar GATES (default 0 = normal play). The shipped .ff
-// plays normally; the launch scripts can still flip them on for testing (+set acc_dev 1 / the PLAY_GOD_MODE script's
-// +set acc_god 1). Mocks are dev-gated (force_mocks = IS_TRUE(level.acc_dev)) so they're off in ship too.
+// PUBLISH-SAFE: both flags are COMPILE-TIME booleans - hardcode `true` + rebuild to arm a test session,
+// restore `false` + rebuild to ship. There is NO dvar/launch-flag path AT ALL (user 2026-07-16 "even the
+// dev flag is not used as a launch flag - we hardcode on and rebuild"): the old `getdvarint("acc_dev",0)`
+// ship resolution was removed because it let any Workshop subscriber arm the full dev sandbox with
+// `+set acc_dev 1`. prep_release.ps1 Gate 0 fails a publish while a hardcode-true is active AND if a
+// dvar read ever reappears here. Mocks are dev-gated (force_mocks = IS_TRUE(level.acc_dev)).
 function acc_resolve_dev_flags()
 {
-	// Resolved from the acc_dev dvar (default 0 = ship-safe normal play; the dev launch scripts pass +set acc_dev 1).
-	// This is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/22.
-	// SHIP-SAFE (user 2026-07-08 publish prep: "make sure dev mode and god mode are hardcoded off"):
-	// dvar-driven, default 0 = OFF for every Workshop player; PLAY_TEST_MAP still passes +set acc_dev 1.
-	level.acc_dev = ( getdvarint( "acc_dev", 0 ) == 1 );
-	//level.acc_dev = true;   // <- OFF FOR PUBLISH (user 2026-07-12): commented out so the dvar line ABOVE rules (default 0 = OFF for every Workshop player; the dev launch script's +set acc_dev 1 still enables it for testing). Was HARDCODED ON (2026-07-11) for the
-	// Winter's Howl freeze-gun test). Overrides the dvar line above: EVERY launch runs the full dev sandbox
-	// (unlimited money/shards, all perk slots + buyable, boss test spawns from round 2, the freeze-gun dev
-	// start, etc.; god via acc_god below). SHIP PATH = comment this one line out (the dvar line then rules,
-	// default 0 = normal play). prep_release.ps1 FAILS on this active line so an invulnerable full-dev build
-	// can never reach a publish.
+	// level.acc_dev is the canonical gate every module reads via IS_TRUE( level.acc_dev ). docs/22.
+	// SHIP state = `false` (OFF for every Workshop player, not overridable at launch); TEST state = flip
+	// this line to `true` + rebuild (the ONLY arming path - launch flags/dvars are NOT the workflow).
+	// Restore `false` before any publish build; prep_release.ps1 Gate 0 enforces it.
+	level.acc_dev = false;   // SHIP STATE (user 2026-07-18 publish prep: "Dev mode and god mode should be off hardcoded off" - the Scientist release build). To arm a test session: set `true` + rebuild (docs/22; NO dvar/launch-flag path exists).
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
-	SetDvar( "acc_glitch_test",   v );   // _acc_boss_glitch (Glitch Stalker dev test spawn)
-	SetDvar( "acc_variants_debug","0" ); // DEBUG UI OFF in dev (user 2026-07-10: "remove the random debug UI, keep the screen clean"). The on-screen weapon-variant swap readout rides ONLY its own dvar now (default 0); +set acc_variants_debug 1 to opt back in.
-	// PERK DOORS: dev mode now runs the REAL per-round 4-of-10 rotation, EXACTLY like normal play (user
-	// 2026-07-07: "dev and non-dev should work the same, only 4 open per round"). We intentionally do NOT
-	// force acc_perk_doors_all_open here anymore (that was the 2026-06-26 dev-all-open behavior, now removed).
-	// To still test a walled-off perk in dev, use the permanent-unlock buy trigger (_acc_perk_doors): dev tops
-	// you up to a big Mega Bottle stash (_acc_mega_bottles::dev_unlimited_bottles) so you can just buy any
-	// closed door open. The manual `set acc_perk_doors_all_open 1` escape hatch still works on its own in
-	// either mode (dev_all_open() reads it) - it's simply no longer auto-set by dev.
-	// HUDELEM POOL DIAGNOSTIC (user 2026-06-28): dev auto-enables the on-screen hudelem-pool logger
-	// (acc_utility::he_check / he_log) so the 4-player mock roster surfaces "<widget> did NOT allocate -
-	// POOL FULL" + the live high-water count. Normal play (acc_dev 0) leaves it off; `set acc_hudelem_debug 1` also works.
-	SetDvar( "acc_hudelem_debug", "0" ); // DEBUG UI OFF in dev (user 2026-07-10: "remove the random debug UI"). hudelem-pool logger rides ONLY its own dvar now (default 0); +set acc_hudelem_debug 1 to opt back in.
-	// NOT driven by dev, so dev plays like the real game for these (user 2026-06-22):
-	//   acc_auto_power   - flip the Bus Station power switch yourself
-	//   acc_test_boss    - Brutus follows his real round-5 power cadence (brutus_power_watch), no early spawn
-	//   acc_phantom_test - the Phantom ("Reaper") follows its real round-10 cadence (its master gate is
-	//                      dev-bypassed in _acc_boss_phantom so the cadence still runs in dev)
-	// All three stay default-off; pass them manually if you want the early test spawns.
+	// ONE-FLAG DOCTRINE (user 2026-07-16, final form): only acc_dev / acc_god / the Lua ACC_MOCK_PARTY
+	// exist. The per-feature acc_*_debug / acc_*_test dvar levers were REMOVED that day - every debug
+	// print now rides IS_TRUE( level.acc_dev ) directly, and the early-boss-spawn test levers
+	// (acc_test_boss / acc_glitch_test / acc_phantom_test) were deleted outright. Boss cadence in dev
+	// (user 2026-07-17, supersedes 07-16): 2 Glitch Stalkers EVERY round (cadence_hits +
+	// glitch_count_for_round dev branches) + one Phantom on round 3 (phantom_due_count dev branch,
+	// above the roster consult); Brutus + the r9/18/27 roster still run REAL - all hardcoded on
+	// IS_TRUE( level.acc_dev ), NOT dvars.
+	// Do NOT re-introduce a per-feature toggle here or anywhere - hardcode the dev behavior behind
+	// IS_TRUE( level.acc_dev ) (or a SetDvar line above for dvar-reading modules). docs/22 + memory
+	// debug-banners-gated-by-acc-dev-only.
+	// PERK DOORS: dev mode runs the REAL per-round 4-of-10 rotation, EXACTLY like normal play (user
+	// 2026-07-07: "dev and non-dev should work the same, only 4 open per round"). To test a walled-off
+	// perk in dev, buy it open - dev tops you up with a big Mega Bottle stash
+	// (_acc_mega_bottles::dev_unlimited_bottles). Live-balance dvars (acc_perk_doors_all_open etc.)
+	// still work standalone - balance knobs are not debug levers.
+	// NOT driven by dev, so dev plays like the real game: acc_auto_power stays off - flip the Bus
+	// Station power switch yourself (user 2026-06-22).
 
-	acc_utility::log( "DEV MODE = " + ( level.acc_dev ? "ON (acc_dev 1)" : "off - normal play" ) );
+	acc_utility::log( "DEV MODE = " + ( level.acc_dev ? "ON (hardcoded)" : "off - normal play" ) );
 
 	// [acc] GOD MODE - a SEPARATE test flag from acc_dev (which deliberately has NO god, so it plays with
-	// real damage). `+set acc_god 1` (the standalone PLAY_GOD_MODE launch script) makes every player
-	// invulnerable so the user can test NORMAL gameplay - real perks/economy/progression, closed map -
-	// without dying. Default 0; INDEPENDENT of acc_dev; changes NO existing dev/normal behavior. See
-	// acc_god_watch(). This is the user's explicit "non-dev god test" ask (user 2026-06-22).
-	// Resolved from the acc_god dvar (default 0 = off; the standalone PLAY_GOD_MODE launch script passes +set acc_god 1).
+	// real damage). Makes every player effectively invulnerable so the user can test gameplay - perks/
+	// economy/progression - without dying. INDEPENDENT of acc_dev; changes NO other dev/normal behavior.
+	// See acc_god_watch(). Origin: the "non-dev god test" ask (user 2026-06-22); armed the same way as
+	// dev since 2026-07-15 (hardcode + rebuild; the PLAY_GOD_MODE launcher was deleted).
 	// GOD = DEMIGOD since 2026-07-08: real damage lands but health floors at 1 HP
 	// (_acc_elites::on_player_damaged clamp; effects still fire).
-	// SHIP-SAFE (user 2026-07-08 publish prep): dvar-driven, default 0 = OFF for every Workshop player.
-	level.acc_god = ( getdvarint( "acc_god", 0 ) == 1 );
-	//level.acc_god = true;   // <- OFF FOR PUBLISH (user 2026-07-12): commented out so the dvar line ABOVE rules (default 0 = OFF). Was HARDCODED ON (2026-07-11), paired with
-	// acc_dev above). Demigod: real damage lands but health floors at 1 HP (effects still fire). SHIP PATH =
-	// comment this one line out (the dvar line then rules, default 0 = off). prep_release.ps1 FAILS on this line.
-	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (acc_god 1)" : "off" ) );
+	// SHIP state = `false` (not overridable at launch - the getdvarint resolution was removed 2026-07-16,
+	// same as acc_dev above: hardcode `true` + rebuild is the ONLY arming path). Restore `false` before
+	// any publish build; prep_release.ps1 Gate 0 enforces it.
+	level.acc_god = false;   // SHIP STATE (user 2026-07-18 publish prep, with acc_dev above). To arm a god test session: set `true` + rebuild.
+	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (hardcoded)" : "off" ) );
 }
 
 // [acc] God mode no longer uses a per-player EnableInvulnerability loop (removed 2026-06-27). It is enforced by a
@@ -583,7 +596,7 @@ function acc_spawn_plaza_props()
 	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1, "plaza" );   // plaza_cache_1
 	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1, "plaza" );   // plaza_cache_2
 	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1, "plaza" );   // plaza_cache_3
-	acc_data_shards::spawn_cache_at( ( -300, 460, 0 ), 1, "plaza" );   // plaza_cache_4 (western approach to Market door - 4-player coverage). MOVED off (-420,460) 2026-07-10: that spot pocketed a boss between the crate clip and the L-wall corner (N-S wall x=-480 y[-260,400] + W-E wall y=390); -300 sits in the OPEN main plaza (x[-380,1095]) ~180u clear of any wall.
+	acc_data_shards::spawn_cache_at( ( -360, 460, 0 ), 1, "plaza" );   // plaza_cache_4 (western approach to Market door - 4-player coverage). MOVED off (-420,460) 2026-07-10 (pocketed a boss vs the L-wall corner x=-480/y=390), then off (-300,460) 2026-07-12: the crate's east edge (x-268) sat inside the plaza window-barricade planks (barricade_reciever_wood zbarrier at (-227.5,446), planks ~x[-280,-175]). -360 clears the barricade by ~48u and keeps ~78u to the x=-470 doorway jamb (no boss pocket; gap >> zombie width).
 	acc_utility::log( "plaza props: 4 crate Data Caches spawned (1 shard each, refill/round)" );
 }
 function acc_spawn_prop( model, org, yaw )
@@ -771,14 +784,15 @@ function zone_door_trigger_origin( d )
 //   - dist drops near 0 but NO prompt  -> the trigger is there but not usable (different bug)
 //   - dist stays large at the door     -> the hardcoded coord is wrong / trigger spawned elsewhere
 //   - "0 buy-triggers spawned"         -> acc_fix_zone_doors found no doors / all skipped (no org)
-// Toggle off with `acc_door_debug 0`. REMOVE this once the doors are confirmed working.
+// Rides IS_TRUE( level.acc_dev ) - visible in a dev build, silent in ship (the acc_door_debug dvar
+// was removed 2026-07-16). REMOVE this once the doors are confirmed working.
 function zone_door_debug()
 {
 	level endon( "end_game" );
 	for ( ;; )
 	{
 		wait 2;
-		if ( getdvarint( "acc_door_debug", 1 ) != 1 )
+		if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 			continue;
 		players = GetPlayers();
 		if ( players.size == 0 )

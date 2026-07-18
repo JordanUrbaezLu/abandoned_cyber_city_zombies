@@ -105,12 +105,14 @@ const GUNS = [
   // e=400 + PaP clip 12 / reserve 240 -> papScore ~5.99 (B); base 14 / 168 -> ~5.90 (B). Body loc clean (no normalize).
   { d: 'MK14',         w: 's1_mk14',         c: 'DMR',     e: 388, cl: 14,  rs: 168, rl: 2.0,  mv: 0.95, p: 'medium', h: 'semi',      cu: true,  pc: 12,  pr: 240, prl: 2.0,   t: 'none', pe: null, boxForce: 29, force: 'BOT' },   // USER 2026-07-11 force:BOT -> PaP 3000/4500/6000 (cheapest tier). boxForce 29 keeps MID box rarity. SPREAD -3% worst-gun nerf (e 400->388, mult 0.30->0.291, user 2026-06-26)
   // M16 RETIRED 2026-07-11 (user): replaced by the Apex Triple Take below in the same #19/MID slot.
-  // Triple Take (Apex apex_tripletake): 3-bolt ENERGY sniper (shotCount 3 = 3 bullets/trigger), placed AS GOOD AS the
-  // retired M16 (target papScore ~6.30 B); with the Nuclear Energy implant (+15%, is_energy_weapon) its per-trigger
-  // lands at/slightly above the MORS per-shot at every PaP tier (bal 0.2255, _acc_damage). cu single-target (a sniper -
-  // per-trigger 3-bolt burst). Locs/ammo/sounds normalized install-side (tools/prep_apex_tripletake_gdt.js): base
-  // clip 5 / reserve 55, PaP _up clip 7 / reserve 84 / reload ~3.4, move 0.93, pen large.
-  { d: 'Triple Take',  w: 'apex_tripletake', c: 'Marksman', e: 650, cl: 5,  cs: 3, rs: 55, rl: 2.6,  mv: 0.93, p: 'large', h: 'semi',  cu: true,  pc: 7,   pr: 84,  prl: 3.4,   t: 'none', pe: null },   // e 520 -> 650 (user 2026-07-11 +25% dmg + RoF buff, same day it was added)
+  // Triple Take (Apex apex_tripletake): ENERGY sniper. v2 VOLLEY REWORK (user 2026-07-16): the def is a
+  // PROJECTILEWEAPON (Havoc-graft, prep_apex_tripletake_gdt.js) - a trigger = 3 flat plasma bolts COSTING
+  // 3 ROUNDS (1 native + 2 _acc_tripletake.gsc side hits - all HITSCAN, bulletweapon def shotCount 1;
+  // the plasma-orb "projectiles" are cosmetic movers), fireTime 0.1728 base / 0.13824 PaP (+25% rate),
+  // +10% dmg (bal 0.3100625). clip 9 base / 15 PaP = 3 / 5 volleys per mag; reserve 117 / 180 (39 / 60
+  // triggers) - NB the cl/rs raw-round columns overstate sustain 3x vs a 1-round-per-shot gun.
+  // pen LARGE (v3, round-8 "piercing needs to be upgraded"). cu single-target (per-trigger 3-hit burst).
+  { d: 'Triple Take',  w: 'apex_tripletake', c: 'Marksman', e: 822, cl: 9,  cs: 3, rs: 117, rl: 2.6,  mv: 0.93, p: 'large', h: 'semi',  cu: true,  pc: 15,  pr: 180, prl: 3.4,   t: 'none', pe: null },   // e 520 -> 650 (07-11 +25%) -> 715 (07-16 +10% volley rework) -> 822 (07-16 round-9 +15%)
   // MORS (AW s1_mors): charge-up railgun sniper. cu single-target (one-shot rail). RESERVE CUT 50% (user 2026-06-25):
   // 120/180 -> 60/90 (gameplay ammo nerf, reduce_base_ammo MAXAMMO_FIX). That drops its reserve score, so papScore
   // falls ~7.90 -> ~7.60 (just under the S cutoff). force:'TOP' PINS its PaP price + box weight at TOP so the cut is a

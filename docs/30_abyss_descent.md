@@ -135,10 +135,14 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
     **no PaP version** (melee/equipment/no-pack specials) **can't be serviced** — the crate says so and charges nothing.
     The "is it PaP'd" gate is stock `is_weapon_upgraded`; "does it have a PaP version" is `level.zombie_weapons[base].upgrade`
     (same test as `_acc_weapon_variants`). `_acc_ammo_crate.gsc`, spawned by `_acc_glitch_altar::spawn_altars`. **Solid** —
-    the `p7_zm_sha_crate_ammo_closed_sml_stack_full` stack model (NOT the Data Cache's `p7_cai_stacking_cargo_crate`), with a **78×20×21 clip** via `tools/add_prop_clips.js` `ammo_crate_l2` (which carries
+    the `west_ammo_crate_model` ([West] Ammo Crates pack, ZeRoY S4 crate — remodeled 2026-07-12; NOT the Data Cache's `p7_cai_stacking_cargo_crate`), with a **30×34×26 clip** (center = spawn x−5; the model's x-bounds are off-origin) via `tools/add_prop_clips.js` `ammo_crate_l2` (which carries
     a per-prop `bot` so the clip sits on the L2 floor z=-480, not the hardcoded z=-240 pit; **needs a full LED bake**, not `-GscOnly`) (reconciled to code 2026-07-11).
   - **L3 (z=-720):** **Glitch Altar** gamble — `(-400, 1948, -720)` (now **solid** — `add_prop_clips.js` `glitch_altar_l3`,
     a 162×66×58 clip for the `p7_ram_altar` stone altar; the floating core orb stays decorative/no-clip) (reconciled to code 2026-07-11).
+    Its `trigger_radius_use` is **radius 110** (bumped from the kiosk-era 72, user 2026-07-12): the 2026-07-09 remodel grew
+    the base to a 162-long slab (X half-extent 81) but left the trigger at 72, so the hint couldn't reach the two X-ends
+    without standing inside the slab — it only showed from one long Y-face. 110 clears the 81 half-slab + player stand-off,
+    prompting from every walkable side (applies to the Paradise altar too — same `spawn_altar_at` helper).
   - **L4 (z=-960):** **AK-47 wall-buy** — `script_struct` `weapon_upgrade` `zombie_weapon_upgrade "t9_ak47"` at `(-400, 1725, -904)`
     on the south wall face (model `wpn_t9_ak47_world`, `.map` entity 9007, user 2026-06-26). An **S-tier** wall-buy dropped down the pit
     to pull players deeper; **1500 pts** from `zm_levelcommon_weapons.csv`. Survives `remove_all_wallbuys()` via its `t9_ak47` whitelist
@@ -195,16 +199,26 @@ shared `vending_packapunch`, then `vending_weapon_upgrade()` does a singular `Ge
 targetname, so stock's singleton is untouched and the surface PaP is safe. `gen_paradise_props.js` no longer injects a
 stock 2nd PaP; `acc_dedupe_pack_a_punch()` neutralizes any leftover from an older `.map`.
 
+Its price prompt is our own nearest-player keeper (`paradise_pap_hint_loop` → `paradise_pap_hint_text`), since the stock
+cost machinery doesn't apply to a custom trigger: it shows the **real next-tier charge** (`^2[cost]`) or `Pack-a-Punch - MAX`
+at tier 3. Its "can this tier up" gate passes a weapon that is `pap_weapon_packable` **or** already `is_upgraded_safe` —
+mirroring the surface keeper — because a bare `_up` gun (no `_acc` twin = any player without a Mega perk) is *not*
+`pap_weapon_packable`: `packed_form` returns it unchanged, which previously hid the price and made `MAX` unreachable while
+the Use-hold still charged tier 3 (fixed 2026-07-15).
+
 ### The descent gates are SOUL BOXES (user 2026-06-25)
 
 The 4 abyss descent doors (`acc_abyss_door_1..4`, `_acc_abyss_doors.gsc`) **no longer cost currency** — each opens
 when the team banks souls (one per kill on that door's layer). Costs are **per-layer AND scale with the live player
 count** (user 2026-06-25): the **first gate** (layer 1, the trench, where everyone roams early) needs **125 souls
-per player**; each **deeper gate** needs **50 per player** — i.e. 125/50 solo up to **500/200 at a full 4-player
-lobby**. `souls_needed(layer)` multiplies the per-player base by `GetPlayers().size`, evaluated **live** so the
-per-kill bank check auto-rescales on a dis/connect, and the floating hint **re-syncs to that live value whenever the
-player count changes** (`soul_hint_watcher`, user 2026-06-27) so the displayed goal always matches the requirement. Tuning
-dvars: `acc_soul_door_cost_first` (125/player) + `acc_soul_door_cost` (50/player); dev mode is a cheap flat 10.
+per player**; the **deeper gates ESCALATE per floor** (user 2026-07-12 "make it 125,50,75,100 ... factor in players
+automatically"): **50 per player at L2→L3, then +25/floor → 75 at L3→L4, 100 at L4→L5**. Per-player descent totals
+**125 / 50 / 75 / 100** — i.e. solo 350 to reach the bottom, ×player count in co-op (a full 4-player lobby = 500 /
+200 / 300 / 400). `souls_needed(layer)` = `(base + step·max(0,layer−2)) × GetPlayers().size`, evaluated **live** so
+the per-kill bank check auto-rescales on a dis/connect, and the floating hint **re-syncs to that live value whenever
+the player count changes** (`soul_hint_watcher`, user 2026-06-27) so the displayed goal always matches the requirement.
+Tuning dvars: `acc_soul_door_cost_first` (125/player) + `acc_soul_door_cost` (50 base) + `acc_soul_door_step` (25/floor);
+dev mode is a cheap flat 10.
 
 **The soul-box hint shows the fixed GOAL, not the live count (triggerstring-cap fix, 2026-06-25).** The first
 cut of `soul_update_hint` embedded the live `door.acc_souls` counter and re-set the hint on **every** soul-banking
@@ -234,7 +248,9 @@ literal.
 
 ## Paradise = the FINAL ONSLAUGHT + the WIN condition (user 2026-06-25)
 
-Paradise is the **end of the map**: surviving a scripted timed finale **WINS the match**. Module
+Paradise is the map's **climax**: surviving a scripted timed finale **WINS** — and, since 2026-07-12
+(user), **winning no longer ends the run** — it REWARDS the survivors and normal play resumes on the
+surface, so a Paradise win is a mid-run trophy you can build a high round on top of. Module
 `_acc_paradise.gsc` (orchestrated by `acc_main`); armed by `_acc_abyss_doors` setting `level.acc_paradise_open` when
 the gate opens, and it starts the instant the team drops into the plaza. The sequence (all `acc_paradise_*` live dvars):
 
@@ -243,13 +259,156 @@ the gate opens, and it starts the instant the team drops into the plaza. The seq
 | **1 — CALM** | `acc_paradise_calm_sec` 60 | One-shot **victory fanfare** (`acc_paradise_calm`, the Mario stage-win jingle), clear air, a **very light trickle** (`acc_paradise_trickle_sec` 12). A fakeout. |
 | **2 — OMEN** | instant | **Fog rolls back in** (`acc_atmosphere::paradise_fog_on` → re-runs the map's `set_fog_from_dvars` haze every tick, overriding the power-on settle) + a **"fetch me their souls" omen cue** — a **CUSTOM** alias `acc_paradise_omen` (`play_fetch_souls` → `PlayLocalSound`, user 2026-06-25). It replaced the stock dog-round announcer `zmb_dog_round_start`, which was SILENT here because that alias lives in a dog-round sound bank this map never loads. |
 | **3 — DREAD** | `acc_paradise_dread_sec` 10 | Fog closing in, trickle continues. |
-| **4 — BATTLE** | `acc_paradise_survive_sec` 225 (**3:45**, user 2026-06-27) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume) plays; **1 of EACH boss** (user 2026-07-05) — **Trench Warden (Brutus) + Phantom + Rogue Protector + Avogadro + Apothicon Fury + Panzer** (Fury + Panzer added 2026-07-09; the Fury meteor-drops onto a player via the trench below-zone spawn path, boss-flagged + below-world-cull-immune) — + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): the **boss wave tops back up to 1 of each** (concurrent cap **1 each**: `acc_paradise_brutus_max`/`_phantom_max`/`_rp_max`/`_avo_max`/`_fury_max`/`_panzer_max`, so a killed boss is replaced the next minute), the **wave-baseline horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final wave; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer` as the floor), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the L5 step at 3:00). **Four waves**: L2/L3/L4 are **60s** each, the **final L5 wave is 45s** (3:00 → 3:45). **ON TOP of the wave, every zombie individually ages +1 tier per 30s it stays ALIVE** (`acc_paradise_age_step_sec` 30, 0 = ramp off, capped at `acc_paradise_buff_max` L5 — the per-zombie anti-kite ramp restored 2026-07-09; stamped + computed in `paradise_buff_layer`, effective layer = max(wave, birth wave + age steps)): kiting instead of killing outscales the wave clock 2:1 — a wave-1 zombie a runner never kills is L5 by 1:30. **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
-| **WIN** | — | Banner → replay the fanfare → **lift the fog** (`paradise_fog_off` = `disable_fog`, planes pushed off-map) → fade → purge horde → `level notify("end_game")` (docs/16 end-game recipe). **LOSE** = team wipe ends the match normally. |
+| **4 — BATTLE** | `acc_paradise_survive_sec` 225 (**3:45**, user 2026-06-27) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume — wav +10% louder 2026-07-12 via `tools/amplify_wav.js --loudness-db 0.83`) plays; the bosses arrive on a **STAGED roster** (user 2026-07-12 nerf — was 1 of each from the opening bell): **3:45 Trench Warden (Brutus) + Phantom → 2:45 +Rogue Protector → 1:45 +Panzer → 0:45 +Avogadro** (unlock minutes `acc_paradise_rp/panzer/avo_unlock_min` on `level.acc_paradise_battle_minute`; the **Apothicon Fury is DROPPED from the wave** — `maybe_spawn_fury` kept for a re-add) — + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): the **boss wave tops the UNLOCKED roster back up to 1 of each** (concurrent cap **1 each**: `acc_paradise_brutus_max`/`_phantom_max`/`_rp_max`/`_avo_max`/`_panzer_max`, so a killed boss is replaced the next minute), the **wave-baseline horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final wave; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer` as the floor), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the L5 step at 3:00). **Four waves**: L2/L3/L4 are **60s** each, the **final L5 wave is 45s** (3:00 → 3:45). **ON TOP of the wave, every zombie individually ages +1 tier per 30s it stays ALIVE** (`acc_paradise_age_step_sec` 30, 0 = ramp off, capped at `acc_paradise_buff_max` L5 — the per-zombie anti-kite ramp restored 2026-07-09; stamped + computed in `paradise_buff_layer`, effective layer = max(wave, birth wave + age steps)): kiting instead of killing outscales the wave clock 2:1 — a wave-1 zombie a runner never kills is L5 by 1:30. **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
+| **WIN (run continues, user 2026-07-12)** | reward window `acc_paradise_reward_sec` 60 | Latch `level.acc_paradise_won` → banner + fanfare → **lift the fog** → **purge horde** → **reward every survivor**: **all perks** (`level.acc_perk_door_specs` via `zm_perks::give_perk`) + **enhanced Jug = 350 HP** (`n_player_health_boost` 100 + `perk_set_max_health_if_jugg`, survives downs; `acc_paradise_hp_boost`) + a **gold health bar at full HP** (`_acc_health_bars::hp_bar_color`, gated on `player.acc_paradise_reward`) → **drop the 5 wonder weapons** as hold-`[+activate]` plaza-floor pickups for the window (`acc_paradise_wonder_loot`; 2026-07-12 fix: a grabbed pickup now actually vanishes and un-grabbed ones clear at window close — both teardown paths used to notify their own endon and die before their deletes ran) → the **win banner fades out** ~5s into the window (`acc_paradise_win_banner_sec`; it used to stay on screen for the rest of the run) → **teleport survivors to the surface** `(-291,-316,32)` (fan-out ring, OOB 12s grace = no down) → `flag::set("spawn_zombies")` **resumes stock rounds** + `unseal_arena()` reopens the gate (`ConnectPaths`). **NO `end_game`** — the run ends later on death/quit, and the recorder tags that entry **(Paradise Winner)** (docs/40) via the latched flag. **LOSE** = team wipe ends the match normally (stock game-over). |
 
 **Boss-HUD / music suppression**: `_acc_health_bars::boss_bar_listener`/`boss_bar_track` skip + self-destroy bars
 while `level.acc_paradise_onslaught`; `_acc_boss::boss_music` returns early on the same flag (the "115" anthem owns
 the audio). **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
 `_acc_boss_brutus::spawn_one_paradise` + `paradise_warden_think` (the trench-warden twin, paradise-tethered).
+
+## Enhancement — the "Infected Descent" (LOCKED plan 2026-07-12; Phase 0 BUILT)
+
+The per-layer escalation + unique per-floor geometry deferred above is now a **locked, phased plan**
+(user choices 2026-07-12: **Abyssal Horror** direction, 4 distinct themed floors, **ramp-in** difficulty,
+mezzanines): the shaft is *infected* — **L2 Faltering Grid → L3 Corruption Bloom → L4 Specimen Vault →
+L5 The Maw** — every floor gets a verified-in-library T7 prop palette (9 carve batches), a twist
+(L2/L3 **spatial only**: rolling brownout / spore-fog bursts; L4/L5 **damaging**: pod-rupture vents /
+a south-sweeping corrosive tide that always leaves a safe lane at the Paradise mouth — all
+`DoDamage(undefined attacker, MOD_UNKNOWN)`, **never a move-slow** on top of the Exo layer slow, PhD
+bypassed by default via `acc_abyss_l4/l5_phd_immune 0`), and two **mezzanine decks on the damaging
+floors only** (their hazard is the anti-camp): the **L4 "Gantry"** (N wall, floor+112, 7-tread stair —
+universal high ground) and the **L5 "Overlook"** (W wall, floor+80, double-jump perch, Phase 3).
+**Footprint expansion = NO-GO** (verified: Y is welded to the Bus-Station surface geometry; an X widen
+strands the un-owned base-map pit end walls → unsealed lip + bake-crash risk). Construction rule:
+decor = runtime `script_model` (bake-neutral), collision/decks = `acc_clip_*` `script_brushmodel`
+(LED-exempt, auto-navmesh-cut by the prefix sweep), lights = bake-gated `lightEntity()` only.
+Full plan: memory `abyss-horror-enhancement-plan` + the plan artifact linked there.
+
+- **Phase 0 (BUILT 2026-07-12, awaiting the in-game readability verdict):** the L4 **Gantry**
+  (`tools/oneshots/gen_abyss_mezzanine.js`, marker `-ACB5-`, idempotent + `--revert`; deck
+  x[140,780] y[2013,2173] top z=-848, 3 rails, stair x[140,220] from y=1901, all visible
+  `script_brushmodel`s in `t7_metal_diamond_plate_worn_wet` + **2 baked deck lights** at 0.15) and
+  the two probe props via NEW **`_acc_abyss_deco.gsc`** (kill-switch `acc_abyss_deco`): the carved
+  **LARGE specimen tank** `p7_zm_isl_specimen_container_lg` (install
+  `source_data\acc_t7_props_deco.gdt`, manifest "deco slice"; 63x65x120, glass + body-silhouette,
+  **no `_col`** — clip in Phase 3; ⚠ the *mutant* vats are SKINNED — junk `j_` joints → linker
+  convert-fail as rigid carves, static variants only, and strip any stock-named material like
+  `global_invisible` the carve tool re-authors) at (-400,1948) and a **cryo pod** (400,1948,+63
+  mid-body lift). **THE TEST:** at L4 with
+  power on — does the vat read at all / do the lights carry the deck? If dark: intensity → 0.25
+  re-bake, else swap the hero to a proven emissive (boils panel / runes / red cage light).
+  Zombies **cannot** path onto the deck (brushmodels are off-navmesh) — its anti-camp vent hazard
+  is Phase 5, so the Gantry is a *known temporary free camp* until then. **(SUPERSEDED 2026-07-13 —
+  see Phase 8: the Gantry deck+stairs were rebuilt as WORLDSPAWN geometry so zombies path up; it is
+  no longer a brushmodel / no longer a free camp.)**
+- **Phase 1 (DONE 2026-07-12, validation link pending):** all 9 batches carved — **171 xmodels /
+  317 materials / 130 shipped images** in the regenerated install `acc_t7_props_deco.gdt`, gdtdb
+  green. Per-model joint inspection first (the skinned trap): 2 dropped (`pustule_01`,
+  `rune_portal` — jointed at every LOD), 3 LOD1-laddered (`snake_throne_arch` + 2 scaffold
+  crossbeams, ladders capped at their real deepest LOD); the lotus3 **hung androids inspect
+  static** (carvable). Dedupe lesson: gdtdb collides vs ALL install GDTs incl. `texture_assets`
+  and derived `"name" [ "parent" ]` entries — global-sweep the carve GDT (34 stripped; the zod
+  glyph already ships as its own standalone install GDT from a parallel session). The next
+  `-GscOnly` link is the conversion oracle for the 171. Manifest deco Paths += asylum /
+  cosmodrome / castle / lotus3.
+- **Phases 2-5 (BUILT 2026-07-12 — "finish all floors then I'll test", one build):**
+  - **Phase 2 deco:** ~105 placements across all four floors in `_acc_abyss_deco.gsc`
+    (`spawn_l2..l5`; origins computed from bounds-measured dims — standing z = floor+lift,
+    hanging z = ceiling−(H−lift); 88 zone `xmodel,` lines). Oversize set-pieces CUT by
+    measurement (apothicon statue 2130×1085×1001 / its head / apoth shells / giant chamber
+    tubes = arena-scale); the Maw hero = the 416-wide snake hatchery. TWO placements
+    RELOCATED off the Overlook footprint they punched through (hatchery −600→−380 N wall;
+    crystal monolith −700,1870→−540,1790).
+    - **ZONE TRIM (2026-07-16, build-size audit):** the Phase-2 block zoned the whole carve
+      library up front, but `spawn_l2..l5()` only actually place **46** of the **85** models —
+      the other **39** (rune/membrane/boils/signage variant-siblings, the CUT snake hero/teeth/
+      wings, and the fusebox/zapper/light-panel cluster dropped from the L2 first draft) packed
+      dead geometry (+ any unshared textures) for nothing and rendered nothing. They were **removed
+      from `zone_source`** (154 → 115 `xmodel,` lines) after verifying each has zero active spawn/
+      placement anywhere, then confirmed clean with a `-GscOnly` rebuild. **Measured saving was small**
+      — `.ff` 122.9 → 118.7 MB (their geometry/LOD), `.xpak` **flat** (the trimmed props are
+      variant-siblings that share streamed textures with kept props, so little unique image data
+      dropped). So the trim is a **correctness / manifest-hygiene** win, not a size win — the real
+      *4.1 → 7.1 GB* scare was a stale `*~lk` lock file inflating the build folder (see CHANGELOG
+      2026-07-16 + docs/34); this trim is the small, tidy other half. The **carve GDT is untouched**: to place any trimmed model in a
+      later phase, add its `spawn_prop()` call **and** re-add its `xmodel,` zone line (git has
+      the former full list). Rule going forward: **zone a deco model only when you place it.**
+  - **Phase 3 obstacles + Overlook:** 9 mid-floor pillar obstacles (L2 2× powerbreaker
+    slabs / L3 2-root+rock slalom / L4 2× containment cylinders / L5 crystal monolith +
+    jade snake fountain) + hero clips for the lg tank + hatchery — 11 new
+    `acc_clip_pillar_*`/`deco_*` brushmodels in `add_prop_clips.js` (auto navmesh-cut).
+    **L5 "Overlook"** added to `gen_abyss_mezzanine.js`: W-wall deck x[−781,−621]
+    y[1783,2113] top z=−1120 (floor+80), east interior rail, floor+40 step-hop at the SE
+    corner (double-jump access, heights tunable), 2 dim deck lights (0.10).
+  - **Phase 4 lights:** `gen_abyss_layer.js::lightsForLayer` flipped `0` →
+    `Math.max(0,5−n)` (L2:3 / L3:2 / L4:1 / **L5:0 by design** — the Maw's glow budget is
+    its runes/beacon/deck lights) + the generator's oneshots-move path bug fixed (`'..'`
+    one short). Full abyss regen: 105 `-ACA2-` brushes + 6 lights, all mezz/clip markers
+    survived.
+  - **Phase 5 hazards:** NEW `_acc_abyss_hazards.gsc` (ramp-in: **L2 rolling brownout** =
+    rumble + conduit haze swells, spatial only — a true baked-light dim is impossible at
+    runtime (lighting states are map-global), so the haze IS the obscurant, csc
+    dynamic-light flicker deferred; **L3 spore bursts** = round-robin pod tell → lingering
+    fog-wall clouds, spatial only; **L4 pod-rupture vents** = 7 anchors incl. one ON the
+    Gantry deck (its anti-camp), 1.5s steam tell → 2.5s vent, ~18/0.5s tick in a 96u
+    Distance2D+z-band ring; **L5 corrosive tide** = 2s rumble+haze tell → a 4-column haze
+    line sweeping N→S at 90u/s (under sprint), ~22/0.5s tick while north of it, ALWAYS
+    stops at y=1880 = a permanent safe lane at the Paradise mouth, sweeps the Overlook's
+    Y band = the perch's anti-camp). **Proven-FX-only** (`acc_haze`/`acc_steam` +
+    `Earthquake` — zero new FX registrations); damage idiom `DoDamage(amt, origin,
+    undefined, undefined, 0, "MOD_UNKNOWN")` (PhD-bypass by design,
+    `acc_abyss_l4/l5_phd_immune` 0); downed/spectating players never damaged; dev runs
+    honor `acc_abyss_godsafe` (visuals still fire). NO hazard applies a move-slow (the
+    Exo/trench slow already stacks). Master kill `acc_abyss_hazards`; all cadences/damage
+    live-dvar-tunable (`acc_abyss_l2_brownout_* / l3_spore_* / l4_vent_* / l5_tide_*`).
+  - Gates: xref lint green; fast `_bake_test` **BAKED** (LED 64.5s) with the Overlook +
+    clips + lights in; full build → the user's single all-floors test run.
+- **Phase 6 (test-feedback pass, 2026-07-13):** per-floor playtest verdicts folded in:
+  - **Soul-defeat lights** — the vision-grade "tint" the user rejected was pulled
+    (`acc_abyss_lit` default `0`); floor lights now = REAL FX omnis spawned by
+    `floor_lights_on()` when a floor's soul door fills. FX walked up from a dim/culled
+    lantern → `fx_light_zm_fire_omni_12` → **`fx_light_candle_ramses`** (clean white
+    `PRIMARY_OMNI`, intensity 5000 / radius 200, `PRIMARY_NOSHADOWMAP` = fills the bay
+    evenly and is cheaper than a shadowed omni). Lamp count `6→10` (added S/N depth rows)
+    for the "a bit brighter" ask. `accPerkGlow` index **15** = the bright lamp.
+  - **L4/L5 clip audit** (user "models on the stairs, invisible clips in many places"):
+    deterministic cross-check of every L4/L5 clip vs the descent-well / stair-landing / door
+    coords. `l4_vessel_s` moved `300→500` (was in the D3 landing); `l5_column` moved
+    `240→470` off the D4 landing + clip shrunk `106×166 → 96×96` (dropped the sparse
+    snake-tail half); **`deco_l5_hatchery` 416-wide clip REMOVED** (wall-flush hero = a huge
+    invisible wall; the N wall already blocks). Re-audit: zero clips in any stair/well/door
+    landing.
+  - **Publish build:** `acc_dev` + `acc_god` defaults reverted `1→0` (ship-safe); full build
+    (cod2map + LED bake + linker) green. Still gated on the CREDITS.md IP/music review before
+    a **Public** listing.
+  - **L4 Gantry BALCONY GIFT** (user 2026-07-13): the raised deck is player-only high ground
+    (navmesh excludes it), so it now hands out **one random Implant/boss-item every game** as a
+    climb-up reward — `_acc_boss_items::spawn_abyss_balcony_gift` seats a PERSISTENT pickup center-
+    east of the deck at `(600,2093,-848)` (floor-snapped onto the deck brushmodel). "Persistent" =
+    `spawn_pickup(...,true)` skips the 60s `watch_lifetime`, so it waits on the deck until grabbed
+    (free-for-all, one per game, no respawn). Kill switch `acc_abyss_balcony_gift`.
+- **Phase 8 (playtest bug pass, 2026-07-13):** three abyss playtest bugs folded in (full LED bake
+  re-verified **BAKED** 61.5s + fresh `.ff`):
+  - **L4 Gantry rebuilt as WORLDSPAWN** (user chose "real geometry" over a camp-drain): the deck +
+    7 stairs + 3 rails are now `-ACB5-` box() brushes injected INSIDE the worldspawn entity by
+    `gen_abyss_mezzanine.js` (no longer `script_brushmodel` entities), so cod2map generates navmesh
+    over the 16/16 stairs + deck and **zombies path up to threaten balcony campers** (the gift still
+    seats at `(600,2093,-848)`). Proves **deep worldspawn is NOT universally bake-fatal** — a SOLID
+    staircase+platform (no enclosed void / dead-end pocket) at z=-848 baked fine; the `brush.cpp:1860`
+    crash is specifically enclosed-void/dead-end geometry, not depth per se. Revert: `--revert`.
+    ⚠ Zombie-pathing-up still needs an in-game confirmation.
+  - **L5 Overlook REMOVED** (user: the west-wall perch near the L5 ammo crate was a zombie-proof
+    safe camp with no reward). Deck + rail + step deleted from `gen_abyss_mezzanine.js`; the tide's
+    safe-lane-vs-perch overlap is moot now. (The deco keep-clear + hazard comments still name it as a
+    spatial landmark — harmless; that W-wall band is just open floor now.)
+  - **L5 snake hatchery hero REMOVED** (user: "random model with no clip on the stairs to the 5th
+    floor"): it sat at the top of the D4 descent (`(-380,2140,-977)`, y inside the well band) with
+    its clip already stripped in Phase 6, so it floated walk-through beside the stairs. Dropped from
+    `_acc_abyss_deco::spawn_l5`.
+
+- **Phase 7 (pending):** further balance-pass the hazard dvars, decide `acc_sparks` + csc
+  light-flicker polish.
 
 **Paradise boss audit fixes (user 2026-07-09):** the **Phantom** and the **Glitch Stalker** never landed a melee
 swing in the arena — both are stock-zombie-BT hosts that spawn TOPSIDE and blink to players, so warping below
@@ -264,8 +423,12 @@ wall, between the Overclock and the Neural Bay) so the onslaught has a refill wi
 the onslaught flag anywhere. The **Avogadro keeps hacking in the arena** — his seek now targets the arena's own
 duplicate perk row / PaP via a **paradise twin cache** + dimension-aware `target_origin()` (the old
 pause-hacking-in-paradise fallback is gone; `do_hack`/`perk_pause` were always per-specialty across both
-dimensions). The **Rogue Protector's death reward is now suppressed** in the arena like every other boss
-(it was the lone exception to the survive-not-farm finale). Deliberate finale-only deltas that remain
+dimensions). The **Rogue Protector's death reward is now suppressed** in the arena like every other boss.
+The **Avogadro pack's `death_rewards`** (1000 pts + a forced `full_ammo`) was the **last** unguarded exception —
+guarded 2026-07-15 (review): `specific_powerup_drop` spawns directly and never consults
+`level.custom_zombie_powerup_drop`, so `block_powerup_drop` could not stop it and a wave-Avogadro kill handed out
+a free Max Ammo mid-finale. Every forced drop now carries the `level.acc_paradise_onslaught` guard. (Reward-path
+only — the parity rule above is intact: no *damage* number reads the flag.) Deliberate finale-only deltas that remain
 (presentation/economy, not behavior): boss HUD + music suppressed, all drops/power-ups/shards blocked, and the
 paradise Brutus rides the same trench-warden tether he uses topside.
 
@@ -276,6 +439,12 @@ paradise Brutus rides the same trench-warden tether he uses topside.
 the public Workshop** (CREDITS.md IP review). **Real wavs in place since 2026-07-09** — they are gitignored
 (licensing) so they never migrated to the new box, which had been silently shipping placeholder copies (the Brutus
 track as "115", the nuke SFX as the "win fanfare"); resample any re-download with `tools/resample48k.js`. **Regression-watch in-game:** fog actually renders at the
-paradise depth (z≈−1200, below the haze base height) and the win→`end_game` flow fires cleanly. (The multi-boss
+paradise depth (z≈−1200, below the haze base height); and — TOP watch for the 2026-07-12 win-continues change —
+that after a win **stock rounds resume cleanly on the surface** (the finale cleared `spawn_zombies` + froze the
+round; `win()` must re-`flag::set` it and the teleport must land everyone up top without an OOB down) **and that the
+finale's AI-cap bump actually unwinds** — `level.zombie_ai_limit` must be back to the base **50** (`ACC_AI_LIMIT`) once
+the trench's +14 also releases, not 62. `ai_pressure()` therefore does **not** `endon("acc_paradise_end")`: `win()` fires
+that notify mid-battle, which would kill the loop before it gives the +12 back, and since the run *continues* the leak
+would be permanent (a 2026-07-15 review fix; the unwind now rides `win()` clearing `acc_paradise_onslaught`). (The multi-boss
 arena was stabilised by the 2026-07-09 boss audit above — Phantom/Glitch melee lockout fixed via
 `force_playable_emergence`, and concurrent caps cut to 1-of-each.)

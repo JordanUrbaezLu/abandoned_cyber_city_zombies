@@ -398,7 +398,7 @@ node tools/lint_gsc_xref.js                       # GSC cross-refs resolve
   new error adds another 1,000,000 *and* names your gun.
 - **FF** at `usermaps\zm_abandoned_cyber_city\zone\zm_abandoned_cyber_city.ff` — confirm
   a fresh `LastWriteTime` and a size bump.
-- In-game (`PLAY_TEST_MAP.bat`, `+set_gametype zclassic`): spin the box, confirm the gun
+- In-game (`PLAY_NORMAL.bat`, `+set_gametype zclassic`): spin the box, confirm the gun
   appears, **fires with sound**, PaPs, its ability fires on the ADS+melee chord, and — if
   twinned — Deadshot/Speed-Cola Mega visibly swap its recoil/reload profile.
 

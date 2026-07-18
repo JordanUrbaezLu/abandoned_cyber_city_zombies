@@ -82,6 +82,18 @@ function __init__()
 		clientfield::register( "world", "player_exo_" + i, VERSION_SHIP, 4, "int" );
 	}
 
+	// ACC (2026-07-15, user: "good to know if your teammates have one and the health of the
+	// shield"): per-player riot-shield state BROADCAST world-scope for the party widgets.
+	// 5 bits: 0 = no shield; 1..31 = remaining shield health (1 = nearly broken, 31 = full;
+	// ~3% steps, plenty for the teammate mini-bar). Appended AFTER player_exo - the .csc MUST
+	// register in this EXACT order/width or the world-scope bit layout desyncs. (World scope
+	// has headroom unlike the FULL toplayer pool - docs/42; if a map-load "out of space" ever
+	// blames a world field, shave these to 3 bits first.)
+	for( i = 0; i < 4; i++ )
+	{
+		clientfield::register( "world", "player_shield_" + i, VERSION_SHIP, 5, "int" );
+	}
+
 	// ACC CURRENCIES -> the base HUD (2026-07-03, user: "incorporate all our currencies").
 	// Data Shards + Mega Bottles (+ EXO tier) ride TOPLAYER-scope clientfields - per-player
 	// private, a SEPARATE pool from both the FULL clientuimodel pool (docs/22) and the world
@@ -107,9 +119,67 @@ function __init__()
 	//   bit 0 = MULE    (held gun is the one Mule Kick removes on a down; was the 1-bit acc_mule
 	//                    field 2026-07-06..08 - REPLACED in-place, .csc updated in lockstep)
 	//   bit 1 = TURBO   (Turbocharger implanted AND the held gun is a Havoc, _acc_boss_items item 8)
-	//   bit 2 = NUKE    (Nuclear Energy implanted AND held weapon is one it buffs, item 9)
+	//   bit 2 = PLASMA  (Plasma Generator implanted AND held weapon is an energy gun, item 9)
+	//   bit 3 = BRZ     (Berzerker implanted AND held weapon is a melee it speeds up, item 11)
+	//   bit 4 = HICAL   (High Caliber implanted AND held weapon is a bullet gun, item 12)
+	//   bit 5 = WARHD   (Warhead Bomber implanted AND held weapon is an explosive gun, item 13)
 	// Appended LAST in the toplayer scope - MUST match the .csc order.
+	// !! DO NOT SHAVE THIS BELOW 6 AGAIN (2026-07-15 regression, fixed same day). The overflow
+	// hot-fix shaved it 6 -> 4 on a WRONG audit ("only 3 badge bits are live") - six were live, so
+	// bits 4 (HICAL) + 5 (WARHD) could never survive the wire: badge_watch pushes masks up to 63,
+	// a 4-bit field caps at 15, and both chips were silently dead while their art/predicates/zone
+	// lines were all correct. RESTORED to 6. THE BUDGET ARITHMETIC (the shave was never needed -
+	// acc_objective's 3->4 widen costs +1 and acc_box_gun's 6->5 already paid -1, i.e. net ZERO):
+	//   acc_* toplayer = shards 10 + mb 5 + exo 4 + maxhp 9 + badges 6 + implants 16 + objective 4
+	//                    + box_gun 5 = 59 bits
+	// which is EXACTLY the 11:11 2026-07-15 build's total (same 8 fields; badges 6 + box_gun 6 +
+	// objective 3 = 59) - the last build known to LOAD (CHANGELOG "the morning build predated the
+	// detail field and loaded fine"). The layout that BROKE load was 76 bits (that 59 + objective's
+	// +1 + the 16-bit acc_objective_detail). Same field count, same total as a proven-loading set.
+	// The pool is still FULL: pay for any future bit by shaving our own fields (docs/19), and NEVER
+	// register a bit here without checking the highest bit _acc_gun_badges::init registers.
 	clientfield::register( "toplayer", "acc_badges", VERSION_SHIP, 6, "int" );
+
+	// ACC IMPLANT PANEL (2026-07-12, user: pause-menu implant descriptions): the local player's
+	// equipped/carried boss-item ids, packed as four 4-bit nibbles of item.num (1..11, 0 = empty):
+	// bits 0-3 Slot 1, 4-7 Slot 2, 8-11 Slot 3, 12-15 carried. COMPUTED + PUSHED by
+	// _acc_boss_items.gsc::push_implants_clientfield (called from sync_items_hud, the single item
+	// sync point); this file only REGISTERS the field for toplayer bit-layout lockstep. Bridged to
+	// the "acc_implants" UI model (same set_ui_model_value path as acc_shards) and decoded by
+	// AetheriumStartMenu.lua's implant panel. Appended LAST - MUST match the .csc order.
+	clientfield::register( "toplayer", "acc_implants", VERSION_SHIP, 16, "int" );
+
+	// ACC PAUSE-MENU OBJECTIVE TRACKER (2026-07-12; milestone ladder RE-LANDED WITHIN BUDGET
+	// 2026-07-15): the current run PHASE 0..12 (1 power | 2 loadout | 3-6 descend, one state per
+	// trench gate | 7 Maw souls | 8 pay gate | 9 gather | 10 open | 11 onslaught | 12 won).
+	// COMPUTED + PUSHED by _acc_lui.gsc::objective_watch; this file only REGISTERS for toplayer
+	// bit-layout lockstep. Bridged to the "acc_objective" UI model and decoded by
+	// AetheriumStartMenu.lua. 4 bits (widened from 3 for the 13-state ladder).
+	// !! TOPLAYER BUDGET (2026-07-15 incident, map would not LOAD): this pool is FULL. The original
+	// +17-bit version of this feature (4-bit phase + a 16-bit acc_objective_detail field) overflowed
+	// the set - Com_ERROR "register ClientField visionset_lerp ... toplayer is out of space" (the
+	// blamed stock field is the INNOCENT LAST registrant - memory actor-clientfield-bit-budget).
+	// RE-LAND: this +1 widen is paid for by shaving acc_box_gun 6->5 (net 0 vs the last-known-loading
+	// layout); the detail payload moved OFF clientfields onto the acc_obj_detail DVAR (see
+	// _acc_lui.gsc::objective_watch). NEVER grow this pool without shrinking elsewhere.
+	// (The re-land ALSO shaved acc_badges 6->4, but that 2 bits was SURPLUS - and it orphaned the
+	// HICAL/WARHD chips at bits 4/5, so acc_badges is back to 6. See its note above.)
+	clientfield::register( "toplayer", "acc_objective", VERSION_SHIP, 4, "int" );
+
+	// ACC MYSTERY-BOX GUN CARD (2026-07-13, user: the box weapon card showed "Weapon"/blank because the
+	// take-hint is a CONSTANT string - see _zm_aw_mysterybox reveal - so the LUI router had no gun name to
+	// render). Instead of per-gun hint strings (which burn PERMANENT BG-cache triggerstring slots, cap 250 -
+	// the very leak removed 2026-07-12), the box pushes the printed gun's STABLE weapon-usage id
+	// (acc_weapon_usage::acc_gun_id, 0..31; docs/41) over this toplayer field; PromptMysteryBox.lua maps
+	// id -> codename -> AetheriumWeaponData for the name/desc/ENERGY-EXPLOSIVE tag/icon.
+	// SHAVED 6 -> 5 bits 2026-07-15 (toplayer pool overflow incident): ids are 0..31, which 5 bits
+	// covers EXACTLY - the value range is unchanged so no decoder is touched. This shave ALONE pays
+	// for acc_objective's +1 widen. Appended LAST - MUST match the .csc order.
+	clientfield::register( "toplayer", "acc_box_gun", VERSION_SHIP, 5, "int" );
+
+	// (2026-07-15) NO acc_objective_detail clientfield: the 16-bit version overflowed the FULL
+	// toplayer pool and broke map load. The objective's soft progress numbers ride the
+	// acc_obj_detail DVAR instead - see _acc_lui.gsc::objective_watch for the transport note.
 
 	// Register on_connect callback to start per-player health monitoring
 	callback::on_connect( &on_player_connect );
@@ -147,6 +217,13 @@ function __main__()
 	// MOCK PARTY FEED REMOVED FROM DEV 2026-07-10 (user: "remove the random debug UI, keep the screen clean") - dev is
 	// now hardcoded ON, so this drove FAKE co-op teammate rows onto the party HUD every session. Re-thread to test the
 	// co-op HUD roster. (Also the crash-hunt clientfield-spam suspect - memory crash-hunt-2026-07-10-state.)
+	// [acc] RE-DISABLED 2026-07-15 (user publish prep: "player mocks hardcoded off") - the QA pass this was
+	// re-enabled for (teammate shield mini-bars solo) is done, so the thread is commented out again per its
+	// own restore note. Left dormant rather than deleted: uncomment + flip ACC_MOCK_PARTY true in
+	// AetheriumHud.lua (the Lua half) to test the co-op roster solo, then revert BOTH halves. Commented
+	// rather than left acc_dev-gated because dev sessions are armed by hardcoding level.acc_dev = true, so a
+	// gated thread would drive fake teammate rows onto the party HUD in every dev session (the 2026-07-10
+	// complaint). Ship safety does not depend on this line - the Lua half is the one that can actually leak.
 	// if ( IS_TRUE( level.acc_dev ) )
 	//     level thread mock_party_feed();
 }
@@ -205,6 +282,22 @@ function mock_party_feed()
 				level clientfield::set( "player_exo_" + i, i + 1 );
 				sent[ "e" + i ] = i + 1;
 			}
+			// Fake riot-shield state (2026-07-15, teammate shield mini-bar demo): slot 1 =
+			// full (steady blue), slot 2 = NO shield (verifies the bar stays hidden), slot 3
+			// = slides full -> broken over 5s with its health (a live blue->orange->red
+			// sweep). Change-guarded like everything else: slots 1/2 write once, slot 3 only
+			// on real 4Hz ticks.
+			if ( i == 1 )
+				sv = 31;
+			else if ( i == 2 )
+				sv = 0;
+			else
+				sv = 1 + Int( 30 * ( 1 - ( ( GetTime() % 5000 ) / 5000 ) ) );
+			if ( !isdefined( sent[ "sh" + i ] ) || sent[ "sh" + i ] != sv )
+			{
+				level clientfield::set( "player_shield_" + i, sv );
+				sent[ "sh" + i ] = sv;
+			}
 		}
 	}
 }
@@ -250,6 +343,7 @@ function player_currency_watch()
 	last_mb = -1;
 	last_exo = -1;
 	last_mhp = -1;
+	last_shv = -1;   // riot-shield broadcast (0 = none / 1..31 = health)
 	while( true )
 	{
 		wait 0.25;
@@ -295,6 +389,35 @@ function player_currency_watch()
 		{
 			self clientfield::set_to_player( "acc_maxhp", mhp );
 			last_mhp = mhp;
+		}
+
+		// [acc] TEAMMATE RIOT SHIELD (2026-07-15): 0 = no shield; 1..31 = remaining health.
+		// THE READ HACK: the engine shield pool (GDT weaponstarthitpoints, burned by
+		// DamageRiotShield) has NO getter - but DamageRiotShield( 0 ) applies zero damage
+		// and RETURNS the remaining pool, so a 0-damage call is a free poll. The fraction is
+		// effective-HP-hack-invariant: acc_shield_damage (_acc_boss_items) scales hits inside
+		// the SAME pool, so remaining/full needs no correction.
+		shv = 0;
+		if ( IS_TRUE( self.hasRiotShield ) )
+		{
+			full = level.weaponRiotshield.weaponstarthitpoints;
+			if ( isdefined( self.weaponRiotshield ) && self.weaponRiotshield != level.weaponNone )
+				full = self.weaponRiotshield.weaponstarthitpoints;
+			cur = self DamageRiotShield( 0 );
+			frac = 1;
+			if ( isdefined( cur ) && isdefined( full ) && full > 0 )
+				frac = cur / full;
+			if ( frac < 0 ) frac = 0;
+			if ( frac > 1 ) frac = 1;
+			shv = 1 + Int( frac * 30 + 0.5 );
+			if ( shv > 31 ) shv = 31;
+		}
+		if ( shv != last_shv )
+		{
+			// BROADCAST my shield state so every client's party widget shows it.
+			if ( entnum < 4 )
+				level clientfield::set( "player_shield_" + entnum, shv );
+			last_shv = shv;
 		}
 	}
 }

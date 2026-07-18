@@ -121,7 +121,7 @@ Four independent gotchas; all four must be satisfied to get a playable match:
 3. **Gametype = `+set_gametype zclassic`, NOT `+set g_gametype zclassic`.** `g_gametype` is a dvar the engine **resets to the session default** (`callbacks_shared.gsc`: `zclassic` for ZM, `tdm` for MP), so a plain `+set` never survives → falls back to `tdm` → `Com_ERROR: Script file not found: 'scripts/zm/gametypes/tdm.gsc'` → **black screen**. `set_gametype` is the engine command the Launcher itself uses (its "Set a gametype to load with map" knob); it sticks.
 4. **Steam Launch Options must be EMPTY** when using `steam://run//<args>` — Steam *appends* them, producing a **doubled command line** that re-corrupts the gametype. Pick ONE arg source.
 
-**Canonical launch:** see §0. Repo wraps it in `PLAY_TEST_MAP.bat` / `tools\run_game.ps1`.
+**Canonical launch:** see §0. Repo wraps it in `PLAY_NORMAL.bat` / `tools\run_game.ps1`.
 
 **Steam launch-jam (automation hazard):** force-killing `BlackOps3.exe` (`Stop-Process`) + rapid `steam://run` relaunches makes Steam **silently ignore** launch requests (no process, no log). Fix: fully restart Steam (`steam.exe -shutdown`, relaunch, wait for full connect). Interactive user launches are unaffected. Don't hammer relaunches in a loop.
 
@@ -244,7 +244,7 @@ Carve gotchas (all reusable):
 
 ## 7. Dev/test mode (ONE hardcoded flag, not a console)
 
-Bake the whole test sandbox behind **a single flag resolved once at map init into a global bool** — not a pile of per-feature dvars, and never a runtime console the user has to poke. In this repo: `acc_resolve_dev_flags()` (first thing in entry `main()`) reads the `acc_dev` dvar ONCE into **`level.acc_dev`** (default `0` = ship-safe normal play; the launch scripts pass `+set acc_dev 1`) and drives the legacy sub-dvars off that one flag. To add a dev behavior, branch on `IS_TRUE(level.acc_dev)` and hardcode the value — never introduce a new toggle. **Never tell the user to "set dvar X in the console" to test something.**
+Bake the whole test sandbox behind **a single flag resolved once at map init into a global bool** — not a pile of per-feature dvars, and never a runtime console the user has to poke. In this repo: `acc_resolve_dev_flags()` (first thing in entry `main()`) hardcodes **`level.acc_dev`** as a **compile-time boolean** (ship = `level.acc_dev = false;`; arming a test session = flip it to `= true;` + rebuild — there is NO dvar/launch-flag path since 2026-07-16, and the launch scripts pass engine args only) and drives the legacy sub-dvars off that one flag. To add a dev behavior, branch on `IS_TRUE(level.acc_dev)` and hardcode the value — never introduce a new toggle. **Never tell the user to "set dvar X in the console" to test something.**
 
 **Put proof-of-life in the ENTRY script `main()`** — it provably runs (the map loads) independent of any module init, so a banner/effect there isolates "build live?" from "module init failed?". Set `level.acc_init_complete = true` at the end of your orchestrator `init()` and show it in the entry banner to distinguish "module chain finished" from "a module init threw."
 
@@ -256,7 +256,7 @@ Reusable dev behaviors (all gated on `level.acc_dev`):
 - **Damage indicators:** register a read-only `zm::register_actor_damage_callback` (returns `-1`), accumulate per-player DPS, render to a HUD on a 0.2s loop.
 - **Zone signage:** poll `player IsTouching` each `level.zones[z].volumes`; on change, set a top HUD + `IPrintLnBold` with the zone's display name.
 - **Disable lethal hazards for free-roam:** a decontamination/zone-seal that `DoDamage`s players will kill you on an open map. Gate it off in dev; still emit any "complete" notifies downstream systems depend on.
-- **Test boss on demand:** spawn a buffed normal zombie early (**announce it** with `IPrintLnBold` — it looks normal), drop reward currency in bulk on its death.
+- **Test boss on demand:** spawn a buffed normal zombie early (**announce it** with `IPrintLnBold` — it looks normal), drop reward currency in bulk on its death. (Portable technique for a NEW map's bring-up — THIS map deleted its early test spawns 2026-07-16; dev here runs the real boss cadence.)
 
 ---
 
@@ -302,7 +302,7 @@ Reusable dev behaviors (all gated on `level.acc_dev`):
 - `tools/preflight_windows.ps1` — ~25 readiness checks (run any time).
 - `tools/lint_gsc_xref.js` — static GSC cross-reference/dialect lint.
 - `tools/validate_rooms.js` — asserts every duplicated room-footprint copy agrees with `source_data/rooms.json`.
-- `tools/run_game.ps1` / `PLAY_TEST_MAP.bat` — DRM-safe launch (the canonical command).
+- `tools/run_game.ps1` / `PLAY_NORMAL.bat` — DRM-safe launch (the canonical command).
 - `tools/check_external_assets.ps1` — must be all-green before a build (game-rip packs aren't in git).
 - Model carve: `tools/xmodel_bin_inspect.js`, `tools/gen_t7_carve_gdt.js`, `tools/add_prop_clips.js` (§6).
 - Atmosphere: `tools/gen_reflection_probes.js`, `tools/gen_neon_lights.js`.

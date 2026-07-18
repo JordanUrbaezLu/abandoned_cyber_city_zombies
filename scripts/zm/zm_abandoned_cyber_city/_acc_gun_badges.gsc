@@ -42,7 +42,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_weapons;   // is_weapon_included / is_weapon_upgraded (MULE stock-filter replica) + get_player_weapondata (revive bookkeeping)
-#using scripts\zm\_zm_perk_additionalprimaryweapon;   // &on_laststand - the stock take we UNREGISTER + replace with a swap-stable one
+#using scripts\zm\_zm_perk_additionalprimaryweapon;   // &on_laststand - the stock take we UNREGISTER + replace with a swap-stable one (its perk-thread take twin is overwritten in init)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;   // true_base() - twin/PaP-invariant weapon identity
@@ -63,8 +63,10 @@ function init()
     // bit number is the contract.
     register_badge( 0, &pred_mule );      // MULE  - held gun is the one Mule Kick removes on a down
     register_badge( 1, &pred_turbo );     // TURBO - Turbocharger implant + holding a Havoc
-    register_badge( 2, &pred_nuclear );   // NUKE  - Nuclear Energy implant + holding a weapon it buffs
+    register_badge( 2, &pred_plasma );    // PLASMA- Plasma Generator implant + holding an energy weapon
     register_badge( 3, &pred_berzerker ); // BRZ   - Berzerker implant + holding a melee weapon it speeds up
+    register_badge( 4, &pred_high_caliber ); // HICAL - High Caliber implant + holding a bullet gun it buffs
+    register_badge( 5, &pred_warhead );   // WARHD - Warhead Bomber implant + holding an explosive weapon
 
     acc_utility::log( "gun_badges init (" + level.acc_gun_badge_defs.size + " flag badges)" );
 
@@ -72,7 +74,8 @@ function init()
     // take_additionalprimaryweapon picks the LAST qualifying primary in GetWeaponsListPrimaries()
     // (give-order); every GiveWeapon/TakeWeapon we do for a twin (_acc_weapon_variants) or a PaP pack
     // (_acc_pap_levels) re-appends a gun to the tail of that engine list, so the "3rd gun" flip-flops.
-    // Fix: UNREGISTER stock's laststand handler and run our own that removes the DESIGNATED at-risk gun
+    // Fix: UNREGISTER stock's laststand handler (and overwrite its perk-thread take twin - second block
+    // below; BOTH legs must agree or the badge lies) and run our own that removes the DESIGNATED at-risk gun
     // (mule_desired_at_risk_base): the gun that filled the 3rd slot keeps the designation until IT leaves
     // the loadout (replaced -> its replacement inherits; down -> cleared). Identity = acc_weapon_variants::
     // true_base (twin/_up forms of a gun are the same logical gun => our swaps never move it), and the
@@ -85,6 +88,26 @@ function init()
     if ( isdefined( level._callbacks ) && isdefined( level._callbacks[ #"on_player_laststand" ] ) )
         callback::remove_callback( #"on_player_laststand", &zm_perk_additionalprimaryweapon::on_laststand, undefined );
     callback::on_laststand( &acc_mule_on_laststand );
+
+    // ...AND the PERK-THREAD leg (2026-07-15). Stock registers the take on TWO INDEPENDENT hooks -
+    // callback::on_laststand (swapped above) AND zm_perks::register_perk_threads
+    // (_zm_perk_additionalprimaryweapon.gsc:46 + :57). Swapping only the first left the second running
+    // stock's give-order pick, and our boss reaches it TWICE: phase-3 EMP (_acc_boss::disable_perks_for ->
+    // perk_pause_all_perks) and phase-2 power-off (disable_power_for -> stock perk_power_off -> perk_pause,
+    // _zm_power.gsc:718). Both land on perk_pause, which UnsetPerks the owner then threads
+    // player_thread_take( true ) (_zm_perks.gsc:1249-1255) -> take_additionalprimaryweapon() = LAST in
+    // GetWeaponsListPrimaries(). So the EMP removed a DIFFERENT gun than the MULE badge advertised - the
+    // exact "no idea which gun they will lose" complaint the sticky slot exists to kill - and stock's
+    // unpause give thread is EMPTY, so that wrongly-picked gun is gone for good. Same class of bug as the
+    // bare-HasPerk gate just fixed in _acc_mega_bottles (has_active_mega_perk / owns_or_paused): a perk
+    // path that only considered the DOWN case and ignored perk_pause.
+    // We OVERWRITE the struct field rather than re-register: register_perk_threads only writes when the
+    // field is UNSET (_zm_perks.gsc:1933), so a re-register would silently no-op. Stock's __init__ is a
+    // REGISTER_SYSTEM autoexec, so it has always run by the time acc_main calls us - the same ordering the
+    // remove_callback above already depends on - but we guard anyway (same safe-by-construction rule: if
+    // the struct is ever missing we simply leave stock's behavior in place instead of throwing).
+    if ( isdefined( level._custom_perks ) && isdefined( level._custom_perks[ "specialty_additionalprimaryweapon" ] ) )
+        level._custom_perks[ "specialty_additionalprimaryweapon" ].player_thread_take = &acc_mule_on_perk_take;
 }
 
 function register_badge( bit, pred )
@@ -351,6 +374,70 @@ function acc_mule_on_laststand()   // self = player
          ( isdefined( self._retain_perks_array ) && IS_TRUE( self._retain_perks_array[ "specialty_additionalprimaryweapon" ] ) ) )
         return;   // stock retains the perk + its guns on this down
 
+    // [acc] 2026-07-12: a down landing INSIDE a pack's take-all window (replay_pack_draw dwells
+    // 2 server frames EMPTY-HANDED under acc_pap_busy) made the force=true resolve below run
+    // against an empty primaries list - the whole mule order got wiped, NO gun was taken this
+    // down, and the sticky designation re-rolled arbitrarily afterwards (a later down then took
+    // an unexpected gun). Defer the take past the transaction - threaded so the laststand
+    // callback chain never blocks; the window is ~2 frames, the 0.5s cap is pure paranoia.
+    if ( IS_TRUE( self.acc_pap_busy ) )
+    {
+        self thread mule_take_when_pack_settles();
+        return;
+    }
+    self mule_take_at_risk_guns();
+}
+
+// Replaces stock take_additional_primary_weapon_perk on the PERK-THREAD leg (overwritten in init) so the
+// perk-EMP removes the gun the badge marked instead of the give-order tail. Mirrors stock's trigger
+// condition EXACTLY (_zm_perk_additionalprimaryweapon.gsc:105-111) and then routes the take through
+// mule_take_at_risk_guns - the same sticky source as the badge + the down path. Two live callers:
+//   perk_pause -> ( true )                    - boss phase-3 EMP + phase-2 power-off (_zm_perks.gsc:1255)
+//   perk_think -> ( false, perk_str, result ) - a real perk loss (_zm_perks.gsc:947)
+// NO double-take on a down: perk_think's `result` is "player_downed"/"death"/"fake_death", never perk_str
+// (= "<perk>_stop"), so this leg no-ops there and acc_mule_on_laststand alone owns the down. NO double-take
+// from our TWO mule vending triggers either (Lab + Paradise twin -> perk_pause_all_perks calls perk_pause
+// once per trigger, and perk_pause re-fires the take because disabled_perks stays set): the second pass
+// sees < 3 qualifying and no-ops, exactly how stock's own `while ( pwtcbt >= 3 )` count gate absorbs it.
+function acc_mule_on_perk_take( b_pause, str_perk, str_result )   // self = player
+{
+    // Stock's `if ( b_pause || str_result == str_perk )`, arg-guarded. perk_pause passes ONE arg, leaving
+    // str_perk/str_result UNDEFINED - stock only survives that because `||` short-circuits past the
+    // comparison (a bare `string == undefined` THROWS in T7). Keep the short-circuit AND isdefined() them.
+    if ( !IS_TRUE( b_pause ) &&
+         !( isdefined( str_perk ) && isdefined( str_result ) && str_result == str_perk ) )
+        return;
+
+    // HasPerk is deliberately NOT gated here (unlike acc_mule_on_laststand): perk_pause UnsetPerks the
+    // player BEFORE threading this (_zm_perks.gsc:1249 then :1255), so it is already false by construction
+    // and a bare HasPerk would make this whole override a no-op. Stock's take_additionalprimaryweapon
+    // doesn't check it either - only _retain_perks (:117), which we mirror.
+    if ( IS_TRUE( self._retain_perks ) ||
+         ( isdefined( self._retain_perks_array ) && IS_TRUE( self._retain_perks_array[ "specialty_additionalprimaryweapon" ] ) ) )
+        return;
+
+    // Same pack-window deferral as the down path: a force=true resolve inside replay_pack_draw's
+    // empty-handed dwell wipes the mule order and takes nothing (see acc_mule_on_laststand).
+    if ( IS_TRUE( self.acc_pap_busy ) )
+    {
+        self thread mule_take_when_pack_settles();
+        return;
+    }
+    self mule_take_at_risk_guns();
+}
+
+function mule_take_when_pack_settles()   // self = player
+{
+    self endon( "disconnect" );
+    // Cap raised 10 -> 40 ticks (2026-07-15): acc_pap_busy now also spans _acc_pap_levels::
+    // wait_pack_settled (up to 1.5s on its timeout path), so the old 0.5s cap could fire mid-pack.
+    for ( t = 0; t < 40 && IS_TRUE( self.acc_pap_busy ); t++ )
+        wait 0.05;
+    self mule_take_at_risk_guns();
+}
+
+function mule_take_at_risk_guns()   // self = player (the deferred body of acc_mule_on_laststand)
+{
     self.weapons_taken_by_losing_specialty_additionalprimaryweapon = [];
     last_taken = level.weaponNone;
 
@@ -398,20 +485,27 @@ function pred_turbo( cur )
     return ( IsSubStr( cur.name, "apex_beam_rifle" ) );
 }
 
-// NUKE (Nuclear Energy, _acc_boss_items item 9): +15% to ENERGY + EXPLOSIVE damage while implanted.
-// The badge shows while implanted AND the held weapon is one Nuclear buffs. Energy guns come straight
-// from acc_damage::is_energy_weapon (the SINGLE source of truth the damage side reads - keep them in
-// sync automatically). The explosive half of the buff is MOD-based at damage time (grenades / monkeys /
-// projectiles), which isn't a held "gun" - the one explosive PRIMARY is the Mahem launcher, so we add
-// it explicitly. `acc_item_nuclear` is a plain field set by _acc_boss_items::apply_nuclear_energy.
-function pred_nuclear( cur )
+// PLASMA (Plasma Generator, _acc_boss_items item 9): +10% ENERGY-weapon damage while implanted. The badge
+// shows while implanted AND the held weapon is an energy gun - straight from acc_damage::is_energy_weapon
+// (the SINGLE source of truth the damage side reads, kept in sync automatically). The ENERGY half of the
+// old Nuclear item. `acc_item_plasma` is a plain field set by _acc_boss_items::apply_plasma.
+function pred_plasma( cur )
 {
-    if ( !IS_TRUE( self.acc_item_nuclear ) ) return false;
+    if ( !IS_TRUE( self.acc_item_plasma ) ) return false;
     if ( !isdefined( cur ) || cur == level.weaponNone || !isdefined( cur.name ) ) return false;
-    if ( acc_damage::is_energy_weapon( cur.name ) ) return true;
-    if ( IsSubStr( cur.name, "s1_mahem" ) ) return true;   // Mahem launcher = explosive primary
-    if ( IsSubStr( cur.name, "t6_war_machine" ) ) return true;   // War Machine drum GL = explosive primary (user 2026-07-09)
-    return false;
+    return acc_damage::is_energy_weapon( cur.name );
+}
+
+// WARHD (Warhead Bomber, _acc_boss_items item 13): +20% EXPLOSIVE damage while implanted. The badge shows
+// while implanted AND the held weapon is an explosive PRIMARY (the launchers + projectile bows) - from
+// acc_damage::weapon_is_explosive_gun. The buff itself is MOD-based (is_explosive_mod), so it ALSO covers
+// thrown grenades / monkey / octobomb, which aren't a held "gun" and so don't light this held-weapon
+// badge (same as the old Nuclear explosive note). `acc_item_warhead` set by _acc_boss_items::apply_warhead.
+function pred_warhead( cur )
+{
+    if ( !IS_TRUE( self.acc_item_warhead ) ) return false;
+    if ( !isdefined( cur ) || cur == level.weaponNone || !isdefined( cur.name ) ) return false;
+    return acc_damage::weapon_is_explosive_gun( cur.name );
 }
 
 // BRZ (Berzerker, _acc_boss_items item 11): +35% melee swing speed at 5% max HP per connecting
@@ -431,4 +525,16 @@ function pred_berzerker( cur )
     if ( IsSubStr( cur.name, "t8_melee_figure" ) ) return true;  // Action Figure, base/fast/_brz ladders
     if ( IsSubStr( cur.name, "knife_ballistic" ) ) return true;  // Ballistic Knife (user 2026-07-11): its held STAB is a real melee the item speeds (+35% via the _acc_brz twins) + taxes - base/PaP/twins via substring
     return false;
+}
+
+// HICAL (High Caliber Rounds, _acc_boss_items item 12): +25% BULLET-gun damage while implanted. Like
+// NUKE/BRZ, the badge shows while the implant is in AND the held weapon is one it buffs - the ballistic
+// guns, from acc_damage::weapon_is_bullet_gun (the SINGLE source of truth mirroring the damage gate's
+// b_bullet && !is_energy_weapon; energy guns are Nuclear's domain, melee/launcher/bow/projectile-wonders
+// never carry a bullet MOD). `acc_item_high_caliber` is a plain field set by _acc_boss_items::apply_high_caliber.
+function pred_high_caliber( cur )
+{
+    if ( !IS_TRUE( self.acc_item_high_caliber ) ) return false;
+    if ( !isdefined( cur ) || cur == level.weaponNone || !isdefined( cur.name ) ) return false;
+    return acc_damage::weapon_is_bullet_gun( cur.name );
 }

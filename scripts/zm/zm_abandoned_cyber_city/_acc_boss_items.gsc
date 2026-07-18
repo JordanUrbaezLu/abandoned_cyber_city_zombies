@@ -3,16 +3,18 @@
 //
 // Design reference: docs/09_boss_items.md.
 //
-// Bosses drop random items from a 6-item pool on death. Players have 2 item
-// slots. Duplicates auto-convert to 3 Data Shards.
+// Bosses drop random items from an 11-item pool on death. Players have 3 item
+// slots (ACC_ITEM_SLOTS_PER_PLAYER). Implanted duplicates are refused; loose-carried
+// duplicates auto-convert to Data Shards.
 //
-// Status: STUB. Item table + drop/equip plumbing is in place; effect
-// implementations are stubbed with TODOs for Phase 4 authoring.
+// Status: LIVE. Item table, drop/equip plumbing, and all effect implementations
+// are authored (apply_/remove_ per item).
 // =============================================================================
 
 #using scripts\shared\array_shared;
 #using scripts\shared\util_shared;
 #using scripts\shared\hud_util_shared;
+#using scripts\shared\clientfield_shared;   // acc_implants toplayer push (pause-menu implant panel, docs/09)
 
 #using scripts\codescripts\struct;
 
@@ -20,12 +22,20 @@
 #using scripts\zm\_zm_score;
 #using scripts\zm\_zm_spawner;     // register_zombie_death_event_callback (per-zombie drop rolls)
 #using scripts\zm\_zm_powerups;    // specific_powerup_drop (Lucky Clover bonus power-up)
+#using scripts\zm\_zm_equipment;   // buy/take (Rocket Shield item grants the NATIVE zod_riotshield equipment)
+#using scripts\zm\_zm_weap_riotshield;   // player_take_riotshield (clean stock removal on unequip)
+#using scripts\zm\_zm_weap_rocketshield; // player_damage_rocketshield (our 750-HP scaler delegates to it, keeping ZNS's explosive x3)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;   // grant_bottle (killer-only zombie Mega Bottle drop)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;    // set_glow (client-side loot glow on every dropped item)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;  // cyan "usable" holo on the Implant Bench
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants; // request_reconcile (Turbocharger implant -> instant Havoc turbo-twin swap; no cycle - variants never #usings this module)
+#using scripts\shared\laststand_shared;   // player_is_in_laststand (Hive Node Bloom: which teammates are downed vs healed)
+#using scripts\zm\_zm_laststand;          // remote_revive (Hive Node Bloom: ranged revive of a downed teammate; safe no-op on the healthy)
+#using scripts\zm\_zm_weapons;            // weapon_give (Dark Magic: restore the dead carrier's guns on respawn)
+#using scripts\zm\_zm_perks;              // give_perk (Dark Magic: keep first-4 perks on revive + regrant Juggernog on death-respawn)
 
 #define ACC_ITEM_SLOTS_PER_PLAYER 3     // THREE active "implanted" items, one per bench pad (Slot 1/2/3; 2 -> 3 user 2026-07-09)
 #define ACC_ITEM_PICKUP_RADIUS 64
@@ -64,12 +74,32 @@
 #define ACC_GAS_BAR_W       120   // NITRO bar width  (matches the HP bar)
 #define ACC_GAS_BAR_H       9     // NITRO bar height
 
+// Hive Node (item 14, user 2026-07-16): a co-op SUPPORT beacon - the pool's only team-support item. PASSIVE
+// aura (ACC_HIVE_RADIUS) REGENERATES + SHIELDS every player in range (the carrier INCLUDED, so it's a solid
+// self-sustain solo). ACTIVE "Bloom" burst (double-tap JUMP, ACC_HIVE_CD lockout) full-heals + RANGED-REVIVES
+// teammates in range and drops a strong short shield. REWARD-THE-MEDIC loop pays the carrier for it: a per-kill
+// point commission for a covered teammate's kill (hive_on_kill) + shards/points per teammate the Bloom saves -
+// so a support player is PAID for the slot. The DR is read by _acc_elites::apply_player_mitigations off the
+// self-expiring timestamps acc_hive_covered_until (aura) / acc_hive_bubble_until (burst). Every value = live dvar.
+#define ACC_HIVE_RADIUS        300   // aura + burst radius (units)
+#define ACC_HIVE_REGEN         15    // aura HP/sec regen to every player in range (Repair Kit is 10; this ALSO heals teammates)
+#define ACC_HIVE_DR            0.15  // aura passive damage reduction for players in range (0..1); read in _acc_elites
+#define ACC_HIVE_BUBBLE_DR     0.50  // active Bloom-burst damage reduction (0..1); read in _acc_elites
+#define ACC_HIVE_BUBBLE_SEC    5     // active Bloom-burst shield duration (s)
+#define ACC_HIVE_CD            60    // active Bloom cooldown (s) after the burst
+#define ACC_HIVE_COMMISSION    10    // points paid to each in-aura Hive carrier per covered teammate KILL
+#define ACC_HIVE_REVIVE_SHARDS 2     // Data Shards paid to the carrier per teammate the Bloom REVIVES
+#define ACC_HIVE_REVIVE_PTS    250   // points paid to the carrier per teammate the Bloom REVIVES
+#define ACC_HIVE_HEAL_PTS      50    // points paid to the carrier per living teammate the Bloom HEALS
+
 // Pickup world models - one per item (see build_item_pool). Each is a distinct
 // stock prop, packed via an xmodel,<name> line in the .zone; build errorlog
 // confirmed clean (2026-06-17). Name reads on the ground; see docs/09.
 #precache( "model", "p7_zm_zod_nitrous_tank" );            // 1 Gas Tank
 #precache( "model", "p7_ban_debris_car_carburetor" );      // 8 Turbocharger (REAL carburetor engine part - T7 Assets carve 2026-07-08, .zone xmodel line + acc_t7_props_items.gdt; was the Insta-Kill orb)
-#precache( "model", "p7_zm_power_up_nuke" );               // 9 Nuclear Energy (stock nuke power-up orb - runtime-loaded, no zone line; the radioactive orb genuinely reads "nuclear", kept on purpose)
+#precache( "model", "projectile_t7_drone_amws_missile" );  // 13 Warhead Bomber (REAL BO3 AMWS drone missile - T7 Assets carve 2026-07-15, acc_t7_props_items2.gdt + .zone xmodel line; was the stock nuke power-up orb placeholder)
+#precache( "model", "p7_zm_ctl_deathray_sphere_coil" );    // 9 Plasma Generator (REAL Der Eisendrache death-ray sphere-coil apparatus - T7 Assets carve 2026-07-15, acc_t7_props_items2.gdt + .zone xmodel line; was the ray-gun energy ball placeholder, which stays live as the Data Shard model in _acc_data_shards)
+#precache( "model", "p7_zm_ctl_ammo_flak_bullet_01" );     // 12 High Caliber Rounds (REAL Der Eisendrache flak AA round - a giant brass bullet; T7 Assets carve 2026-07-15, acc_t7_props_items2.gdt + .zone xmodel line; was the stock max-ammo power-up orb placeholder)
 #precache( "model", "p7_zm_teddybear" );                   // 3 Teddy Bear
 #precache( "model", "p7_spl_first_aid_box" );              // 3 Repair Kit (REAL first-aid box - T7 Assets carve 2026-07-08; was the carpenter power-up icon)
 #precache( "model", "wpn_t7_zmb_zod_rocket_shield_world" );// 5 Rocket Shield
@@ -80,7 +110,9 @@
 #precache( "model", "p7_boots_safehouse_01" );             // 8 Boots (safehouse boots - proven packable)
 #precache( "model", "p7_ra2_tool_vintage_horseshoe" );     // 7 Lucky Horseshoe (REAL vintage iron horseshoe - T7 Assets carve 2026-07-08; was the X2 orb placeholder for "Lucky Clover" - no clover/charm model exists in any T7 source, the horseshoe is the luck icon)
 #precache( "model", "p7_zm_ctl_battery_ceramic" );         // 10 Battery (REAL Der Eisendrache ceramic battery - carve GDT p7_zm_ctl_battery_ceramic.gdt already installed; .zone xmodel line)
+#precache( "model", "p7_zm_isl_specimen_container_egg" ); // 14 Hive Node (MODEL SWAP 2026-07-17: Zetsubou bio-specimen EGG/pod - an organic "hive node" that reads distinct from Repair Kit's med box; the two heal items shared p7_spl_first_aid_box before and were "very confusing", user. NO new carve - the _egg is already carved+installed STATIC-rigid in acc_t7_props_deco.gdt, .zone xmodel line added; 51x54x60u base pivot -> SetScale 0.7 ~42u, user "cut size 30%")
 #precache( "model", "rune_prison_death_skull" );           // 11 Berzerker (Wolf Bow death skull - already registered install-side by the HB21 bow dep packs, .zone xmodel line; 9.7x6.7x8.2u base pivot -> x4 scale)
+#precache( "model", "p7_zm_zod_symbol_96_apothicon_purple_emissive" ); // 15 Dark Magic (SoE Apothicon purple-emissive glyph - ALREADY packed: .zone xmodel line :799, live as L4 abyss decor in _acc_abyss_deco; the Aether/dark-magic sigil, distinct from every other pickup. Flat ~96u glyph.)
 
 // VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
 // it terminates the directive preamble; a #using after it is a compile
@@ -98,21 +130,37 @@ function init()
     acc_utility::log( "boss_items init (pool=" + level.acc_item_pool.size + ", slots=" +
                        ACC_ITEM_SLOTS_PER_PLAYER + ")" );
     level thread spawn_bench();
+    level thread spawn_abyss_balcony_gift();   // L4 "Gantry" balcony: ONE persistent random-Implant gift per game (user 2026-07-13)
     // Plaza item-scatter QA (user 2026-07-08): full item grid RETIRED after the T7-carve models passed
     // the visual test; currently re-enabled FILTERED (space-separated id list) to the Turbocharger (user,
     // same day: "add the turbocharger back on the floor in plaza. Need to test it" - Havoc no-wind-up
     // functional test) + the new Battery (2026-07-08: model QA + grab-and-implant for the zap-surge test).
     // Pass no arg for the full-grid model QA; comment the line out to retire again.
     // RETIRED 2026-07-10 (user, publish prep: "remove the items that spawn on the ground in plaza").
-    // Left dev-gated + commented so a future QA pass can re-enable one line; ships with NO Plaza scatter.
-    // if ( isdefined( level.acc_dev ) && level.acc_dev )   // (IS_TRUE not #insert'd in this file - explicit test, same as player_has_ledger)
-    //     level thread dev_scatter_items( "turbocharger battery" );
+    // RE-ENABLED 2026-07-15 (user: "Place all items in the plaza so i can test, put this behind dev mode
+    // being on") - dev-gated FULL grid (NO id filter = every pool item, all 13). Ships OFF: level.acc_dev
+    // defaults 0 for every Workshop subscriber, so this whole scatter is inert in a normal game. Comment
+    // the two lines out again (or re-add a filter) for the next publish build.
+    if ( isdefined( level.acc_dev ) && level.acc_dev )   // (IS_TRUE not #insert'd in this file - explicit test, same as player_has_ledger)
+        level thread dev_scatter_items();   // no arg = the full item grid (all 13 items) in the Plaza
     level thread scale_octobombs_watch();   // shrink Li'l Arnie (octobomb) visuals (user 2026-06-18)
+
+    // Register octobomb as a LEVEL tactical grenade (2026-07-17, "box Arnie traded my gun" bug): stock
+    // zm_usermap registers ONLY cymbal_monkey, so zm_utility::is_tactical_grenade() (and therefore
+    // is_offhand_weapon()) was FALSE for the octobomb - any zm_weapons::weapon_give of it ran the PRIMARY
+    // flow: take_fallback_weapon + the at-weapon-limit weapon_take of the HELD GUN. The box driver now
+    // skips the stock give for tacticals entirely (watch_box_tactical_grab owns the grant), but this
+    // registration makes EVERY other give path offhand-safe too. Idempotent (register checks first).
+    zm_utility::register_tactical_grenade_for_level( "octobomb" );
 
     // Per-zombie drop rolls: every regular (non-boss) zombie death has a small chance to drop a random item
     // and/or grant the KILLER a Mega Bottle (user 2026-06-27). See on_zombie_death_drop. This stock hook
     // supports multiple registrants (also used by _acc_elites + _acc_mega_bottles).
     zm_spawner::register_zombie_death_event_callback( &on_zombie_death_drop );
+
+    // Hive Node (item 14): the reward-the-medic per-kill COMMISSION - a covered teammate's kill pays each Hive
+    // carrier whose aura covers the killer. Same multi-registrant stock hook as the drop rolls above.
+    zm_spawner::register_zombie_death_event_callback( &hive_on_kill );
 }
 
 // Loot Stash / Payroll Ledger points bonus is owned by _acc_points.gsc: a FLAT per-kill add to the KILLER -
@@ -138,6 +186,19 @@ function on_player_connect( player )
     player thread reapply_move_speed_on_spawn();
     player thread watch_box_tactical_grab();   // box-rolled Monkey Bomb / Li'l Arnie finalizer (user 2026-06-24)
     player thread lose_implants_on_bleed_out(); // die out -> lose BOTH implants (user 2026-06-26)
+
+    // Dark Magic (item 15) trackers - armed for EVERY player from connect so the first-4-perks history
+    // exists retroactively (a player can implant Dark Magic AFTER already buying perks). The revive /
+    // death / respawn watchers no-op cheaply unless Dark Magic is actually implanted. The gun-loadout
+    // latch is per-implant (started in apply_dark_magic). See the Dark Magic section at end of module.
+    player.acc_dm_perk_order          = [];
+    player.acc_dm_saved_weapons       = [];
+    player.acc_dm_saved_tiers         = [];
+    player.acc_dm_death_restore_pending = false;
+    player thread dark_magic_track_perks();    // record the first 4 bought perks (Quick Revive excluded), in order
+    player thread dark_magic_revive_watch();   // on revive: keep those perks if Dark Magic is implanted
+    player thread dark_magic_death_watch();    // on real death: arm the gun+Jugg restore if Dark Magic is implanted
+    player thread dark_magic_respawn_watch();  // on next spawn: perform the armed restore
 }
 
 // DIE OUT -> LOSE YOUR IMPLANTS (user 2026-06-26): a real death is a setback. Bleeding out wipes BOTH implant
@@ -163,6 +224,11 @@ function lose_implants_on_bleed_out()
         {
             if ( self.acc_equipped_items[ slot ] != "" )
             {
+                // Dark Magic (item 15) is DEATH INSURANCE - it MUST survive your own bleed-out so the
+                // guns+Jugg-on-respawn keeps working across repeated deaths (user 2026-07-17). Every other
+                // implant is lost. To make Dark Magic one-shot instead, delete this two-line skip.
+                if ( self.acc_equipped_items[ slot ] == "dark_magic" )
+                    continue;
                 had_any = true;
                 unequip_slot( self, slot );   // clears the slot + runs on_unequip (buff off, tactical hand-off, HUD)
             }
@@ -244,11 +310,11 @@ function build_item_pool()
         4,
         "rocket_shield",
         "Rocket Shield",
-        "Longer slides, higher jumps",
+        "Longer slides, higher jumps, riot shield",
         "wpn_t7_zmb_zod_rocket_shield_world",
         24,                             // floor lift (user: shield is good as-is)
         "chest",
-        &apply_rocket_shield,           // 1.75x slide speed + slide distance + 2x jump height (user 2026-07-05)
+        &apply_rocket_shield,           // 2x slide speed + slide lunge + 2x jump height + the NATIVE riot shield equipment (user 2026-07-15 rework)
         &remove_rocket_shield
     );
 
@@ -307,19 +373,22 @@ function build_item_pool()
         4.0                             // model scale (user 2026-07-08: 1.75 still too small -> "make all of them 4x original size")
     );
 
-    // Nuclear Energy (item 9, user 2026-07-07): +15% damage to EXPLOSIVE + ENERGY weapons. Passive flag
-    // read by _acc_damage (is_explosive_mod OR is_energy_weapon -> +15% bonus layer). Model = the stock
-    // nuke power-up orb (runtime-loaded, no zone line - same family as the carpenter/X2 models). See docs/09.
+    // Plasma Generator (item 9, user 2026-07-14): +10% ENERGY-weapon damage. The ENERGY half of the old
+    // Nuclear Energy item (split into Plasma + Warhead so energy/explosive are tuned separately). Passive
+    // flag read by _acc_damage (is_energy_weapon -> +10% bonus layer). Model = the REAL Der Eisendrache
+    // death-ray sphere-coil apparatus (tesla ball on a coil column - T7 Assets carve 2026-07-15,
+    // acc_t7_props_items2.gdt; was the ray-gun energy ball placeholder). See docs/09.
     pool[ pool.size ] = item(
         9,
-        "nuclear_energy",
-        "Nuclear Energy",
-        "More explosive + energy damage",
-        "p7_zm_power_up_nuke",
-        16,                             // floor lift (power-up orb pivot; ~the X2's 18. tune live)
+        "plasma_generator",
+        "Plasma Generator",
+        "More energy damage",
+        "p7_zm_ctl_deathray_sphere_coil",
+        2,                              // floor lift (base pivot, minZ 0.0 measured from the bin; tune at the Plaza dev-scatter)
         "implant",
-        &apply_nuclear_energy,          // sets self.acc_item_nuclear -> +15% explosive + energy damage
-        &remove_nuclear_energy
+        &apply_plasma,                  // sets self.acc_item_plasma -> +10% energy-weapon damage
+        &remove_plasma,
+        1.5                             // model scale (18.7x18.7x24.8u native - x1.5 ~= 37u tall, pickup-readable without dwarfing the bench)
     );
 
     // Battery (item 10, user 2026-07-08): boss-zap ABSORBER. While implanted, ANY boss zap (Phantom chain /
@@ -362,18 +431,106 @@ function build_item_pool()
         4.0                             // model scale (small 9.7u skull - x4 like the horseshoe/vial/carburetor)
     );
 
+    // High Caliber Rounds (item 12, user 2026-07-14): +25% BULLET-gun damage while implanted. The ballistic
+    // counterpart to Nuclear Energy (item 9) - designed to push build variety toward conventional bullet
+    // guns; deliberately EXCLUDES energy weapons so the two items cover disjoint weapon classes (a gun is
+    // boosted by exactly one, never both). Passive flag read by _acc_damage (b_bullet && !is_energy_weapon
+    // -> +25% layer) and mirrored by the gun-badge chip. Model = a REAL Der Eisendrache flak AA round -
+    // a literal giant brass bullet (T7 Assets carve 2026-07-15, acc_t7_props_items2.gdt; was the stock
+    // max-ammo power-up orb placeholder). See docs/09.
+    pool[ pool.size ] = item(
+        12,
+        "high_caliber",
+        "High Caliber Rounds",
+        "More bullet gun damage",
+        "p7_zm_ctl_ammo_flak_bullet_01",
+        2,                              // floor lift (base pivot, minZ 0.0 measured from the bin - the old +10 was for the center-pivot orb; tune at the Plaza dev-scatter)
+        "implant",
+        &apply_high_caliber,            // sets self.acc_item_high_caliber -> +25% bullet damage
+        &remove_high_caliber,
+        4.0                             // model scale (tiny 2x2x9u native round - x4 = a 36u-tall standing bullet, same treatment as the horseshoe/vial/skull)
+    );
+
+    // Warhead Bomber (item 13, user 2026-07-14): +20% EXPLOSIVE damage. The EXPLOSIVE half of the old
+    // Nuclear Energy item (split into Plasma + Warhead). Passive flag read by _acc_damage (is_explosive_mod
+    // -> +20% bonus layer; covers thrown grenades + launchers + projectile weapons). Model = the REAL BO3
+    // AMWS drone missile lying on its side - an actual finned warhead, on-theme for the cyber city's drone
+    // tech (T7 Assets carve 2026-07-15, acc_t7_props_items2.gdt; was the stock nuke power-up orb
+    // placeholder). See docs/09.
+    pool[ pool.size ] = item(
+        13,
+        "warhead_bomber",
+        "Warhead Bomber",
+        "More explosive damage",
+        "projectile_t7_drone_amws_missile",
+        4,                              // floor lift (horizontal missile, pivot on the centerline 0.8u above the belly -> x4 scale = ~3.2u; tune at the Plaza dev-scatter)
+        "implant",
+        &apply_warhead,                 // sets self.acc_item_warhead -> +20% explosive damage
+        &remove_warhead,
+        4.0                             // model scale (9.3u-long native projectile - x4 = a ~37u missile, pickup-readable)
+    );
+
+    // Hive Node (item 14, user 2026-07-16): the pool's co-op SUPPORT beacon. Passive aura heals + shields
+    // everyone in range (you included); double-tap JUMP fires the "Bloom" burst (full-heal + ranged-revive +
+    // strong short shield); a reward-the-medic loop pays the carrier so support is worth a slot. Effect owned by
+    // apply_hive/hive_aura_loop/hive_bloom_burst/hive_on_kill; DR read in _acc_elites::apply_player_mitigations.
+    // Model = Zetsubou bio-specimen EGG/pod (MODEL SWAP 2026-07-17). Was p7_spl_first_aid_box - the SAME
+    // model as Repair Kit, which read as "very confusing" on the ground (user). The egg is an organic
+    // "hive node" silhouette, 100% distinct from the white med box, and needs NO new carve: it's already
+    // carved+installed STATIC-rigid in acc_t7_props_deco.gdt (tag_origin only, no j_ joint - unlike the
+    // SKINNED mutant vats that fail rigid conversion), .zone xmodel line added. 51x54x60u base pivot ->
+    // SetScale 0.7 (user 2026-07-17 "cut the size down 30%") -> ~42u tall. See docs/09.
+    pool[ pool.size ] = item(
+        14,
+        "hive_node",
+        "Hive Node",
+        "Heals allies; double-tap jump to revive",   // pickup hint: vague + router-safe (no banned substrings for/cost/buy/power/etc); numbers live in ACC_IMPLANT_INFO
+        "p7_zm_isl_specimen_container_egg",   // Zetsubou bio-specimen egg/pod - organic "hive node", distinct from Repair Kit (carved static-rigid in acc_t7_props_deco.gdt)
+        2,                                    // floor lift (base pivot, minZ~0; SetScale 0.7 shrinks about the base pivot so it stays floor-seated - no scale_lift_add needed)
+        "implant",
+        &apply_hive,
+        &remove_hive,
+        0.7                                   // model scale (user 2026-07-17 "cut the size down 30%"): 60u @1x -> ~42u @0.7x. Base-pivot shrink stays seated on the floor.
+    );
+
+    // Dark Magic (item 15, user 2026-07-17): DEATH-INSURANCE self-implant. While carried: a DOWN you
+    // recover from keeps the first 4 perks you bought (Quick Revive EXCLUDED - "skips over quick revive"),
+    // and a real DEATH returns your guns (with PaP tier) + Juggernog on respawn. Works solo (Quick Revive
+    // self-revive) + co-op. Effect + trackers live in apply_dark_magic / dark_magic_* at the bottom of this
+    // module; it UNIQUELY survives your own bleed-out (lose_implants_on_bleed_out skips it) so the insurance
+    // keeps working across deaths. Model = the SoE Apothicon purple-emissive glyph, ALREADY packed (zone
+    // xmodel line :799; live as L4 abyss decor in _acc_abyss_deco) - the Aether/dark-magic sigil, distinct
+    // from every other pickup; a flat glyph, so it lies as a glowing floor sigil under the loot glow. docs/09.
+    pool[ pool.size ] = item(
+        15,
+        "dark_magic",
+        "Dark Magic",
+        "Cheat death: keep your perks and guns",   // pickup hint: router-safe (no banned substrings); real numbers live in ACC_IMPLANT_INFO
+        "p7_zm_zod_symbol_96_apothicon_purple_emissive",
+        2,                                         // floor lift (flat glyph, base pivot ~0; tune live via acc_drop_model_z / acc_drop_scale_lift_add)
+        "implant",
+        &apply_dark_magic,
+        &remove_dark_magic,
+        1.0                                        // model scale (~96u glyph reads well at 1x; tune at the Plaza dev-scatter)
+    );
+
     return pool;
 }
 
 function item( num, id, display_name, desc, model, model_z, slot, on_equip, on_unequip, model_scale )
 {
     i = spawnstruct();
-    i.num = num;             // stable display ID (1..6), shown in HUD + prompts
+    i.num = num;             // stable numeric ID (1..11). NO LONGER shown in any player-facing string
+                             // (user 2026-07-12); it is the acc_implants clientfield nibble value the
+                             // pause-menu implant panel decodes (push_implants_clientfield). 4-bit cap:
+                             // nums must stay <= 15 or the nibble packing truncates.
     i.id = id;
     i.display_name = display_name;
     i.desc = desc;           // one-line WHAT-IT-DOES blurb (user 2026-07-11: "tell the player what the
-                             // implants are doing"). Shown on the pickup hint, grab/implant toasts, vault
-                             // withdraw and the IMPLANT HUD lines. RULES: vague wording per docs/31
+                             // implants are doing"). Shown on the pickup hint and the PAUSE-MENU implant
+                             // panel (user 2026-07-12 - REMOVED from the in-game IMPLANT HUD lines; the
+                             // Lua panel mirrors these strings in ACC_IMPLANT_INFO, AetheriumStartMenu.lua
+                             // - keep BOTH in sync on any wording change). RULES: vague wording per docs/31
                              // (direction, NO magnitudes/numbers), and because it rides a SetHintString it
                              // must NEVER contain the substrings "for"/"cost"/"buy"/"purchase"/"mystery"/
                              // "rack"/"bottle"/"permanently"/"door"/"power" - the LUI cursor-hint router
@@ -388,12 +545,14 @@ function item( num, id, display_name, desc, model, model_z, slot, on_equip, on_u
     return i;
 }
 
-// Unified "<id> - <name>" label used by the pickup prompt, the pickup message,
-// and the equipped-items HUD.
+// Unified item label used by the pickup prompt, the pickup message, and the
+// equipped-items HUD. Just the display name - the numeric id was dropped from
+// every player-facing string (user 2026-07-12: "Implant 1 - Loot Stash", not
+// "Implant 1 2 - Loot Stash"); item.num lives on as the pause-menu clientfield id.
 function display_for( item_struct )
 {
     if ( !isdefined( item_struct ) ) return "?";
-    return item_struct.num + " - " + item_struct.display_name;
+    return item_struct.display_name;
 }
 
 function find_item( item_id )
@@ -453,6 +612,28 @@ function grant_challenge_reward( origin )
     picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
     spawn_pickup( picked, origin );
     acc_utility::log( "boss_items: challenge reward drop id=" + picked.id + " at " + origin );
+}
+
+// L4 "Gantry" BALCONY GIFT (user 2026-07-13): the raised deck you climb a stair to reach (docs/30;
+// gen_abyss_mezzanine.js - deck top z=-848, footprint x[140,780] y[2013,2173]) is player-only high
+// ground zombies can't path onto, so it gets ONE random-Implant gift every game as a climb-up reward.
+// PERSISTENT: spawn_pickup(...,true) skips the 60s despawn watcher, so it sits on the deck until a
+// player grabs it (free-for-all, grab-to-carry, then enable at any Implant Bench). One per game - no
+// respawn once claimed. Live kill switch: acc_abyss_balcony_gift (1=on).
+function spawn_abyss_balcony_gift()
+{
+    level endon( "end_game" );
+    if ( getdvarint( "acc_abyss_balcony_gift", 1 ) != 1 ) return;
+
+    wait 2;   // let the world settle (BulletTrace floor-snap needs the BSP; pool built synchronously in init)
+    if ( !isdefined( level.acc_item_pool ) || level.acc_item_pool.size == 0 )
+        { acc_utility::log( "boss_items: balcony gift - empty item pool, no gift" ); return; }
+
+    // Seat it center-east of the deck, clear of the west stair mouth (x[140,228]) and the deck's
+    // warning-light prop (~x460); drop_floor_origin snaps it onto the deck brushmodel surface.
+    picked = level.acc_item_pool[ acc_utility::acc_rand_int( level.acc_item_pool.size ) ];
+    spawn_pickup( picked, ( 600, 2093, -848 ), true );   // true = PERSISTENT (no despawn timer)
+    acc_utility::log( "boss_items: L4 balcony gift = " + picked.id + " (persistent, no despawn)" );
 }
 
 // ---------------------------------------------------------------------------
@@ -525,7 +706,7 @@ function drop_clover_powerup_at( origin )
 // Pickup entity
 // ---------------------------------------------------------------------------
 
-function spawn_pickup( item_struct, origin )
+function spawn_pickup( item_struct, origin, persistent )
 {
     // [acc] FLOOR-SNAP the drop origin (user 2026-07-07 "killed the Rogue Protector, got no item";
     // REWORKED 2026-07-08 "items STILL floating - the glow is airborne too"). The hovering bosses (Rogue
@@ -615,7 +796,10 @@ function spawn_pickup( item_struct, origin )
 
     // Watchers run ON THE TRIGGER (self = trigger); model via self.acc_model.
     t_use thread watch_pickup();
-    t_use thread watch_lifetime();
+    // A PERSISTENT gift (the L4 balcony reward, user 2026-07-13) skips the 60s despawn watcher -
+    // it sits until a player grabs it (or end_game). Every other drop keeps its lifetime timer.
+    if ( !isdefined( persistent ) || !persistent )
+        t_use thread watch_lifetime();
 
     // Returned for callers that need to manage the pickup after the fact (dev_scatter_items
     // kills the 60s despawn on its QA items via the acc_item_claimed notify). All original
@@ -725,9 +909,9 @@ function watch_lifetime()   // self = the hold-use trigger
 // Equip / unequip
 // ---------------------------------------------------------------------------
 
-// A fresh 2-slot inventory: both slots empty ("" sentinel, .size == 2). Using a defined sentinel
-// instead of undefined keeps the slot indices STABLE (a plain compacting array would shift Slot 2
-// down to index 0 when Slot 1 is cleared, breaking the pad->slot mapping).
+// A fresh inventory of ACC_ITEM_SLOTS_PER_PLAYER (3) empty slots ("" sentinel). Using a defined sentinel
+// instead of undefined keeps the slot indices STABLE (a plain compacting array would shift a later slot
+// down to index 0 when an earlier one is cleared, breaking the pad->slot mapping).
 function empty_slots()
 {
     a = [];
@@ -791,101 +975,45 @@ function sync_items_hud()   // self = player
 {
     if ( !isdefined( self.acc_equipped_items ) ) self.acc_equipped_items = empty_slots();
 
-    // CONDITIONAL (user 2026-06-29): only hold the IMPLANT/CARRYING hudelems (~3 per client) while you actually have
-    // something to show. Nothing equipped + nothing carried -> DESTROY them to free the pool; recreated by the
-    // lazy-create block below on the next equip/carry (sync_items_hud is called on every item change). Same
-    // destroy-on-idle pattern as the buy card + area banner.
-    show_any = false;
-    for ( si = 0; si < self.acc_equipped_items.size; si++ )
-        if ( self.acc_equipped_items[ si ] != "" ) { show_any = true; break; }
-    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
-        show_any = true;
-    if ( !show_any )
-    {
-        destroy_items_hud( self );
-        return;
-    }
-
-    // Stacked, ONE PER LINE (user 2026-06-25: the old single concatenated line ran off the left edge
-    // into the CENTER of the screen where gameplay happens). Left HUD stack: HEALTH 16 / bar 32 /
-    // DATA SHARDS 50 / EXO SUIT 74 / MEGA BOTTLES 98 sit ABOVE; below them, one element per implant slot
-    // then the carry line on its OWN line: IMPLANT 1 = 146 / IMPLANT 2 = 168 / IMPLANT 3 = 190 /
-    // CARRYING = 212 (3rd slot 2026-07-09; all define-driven). (The GAS label/bar that once sat at
-    // 214/232 in ensure_gas_bar are DISABLED no-ops, so nothing collides below the stack.)
-    if ( !isdefined( self.acc_items_hud_lines ) )
-    {
-        self.acc_items_hud_lines = [];
-        for ( i = 0; i < ACC_ITEM_SLOTS_PER_PLAYER; i++ )
-        {
-            e = self hud::createFontString( "default", 1.1 );
-            // [acc] COOP CRASH GUARD: createFontString returns undefined when the shared hudelem pool
-            // is full (4p exhaustion) - the setPoint/field writes below would throw. Skip this line
-            // (the consumer loop already tolerates a missing slot via its isdefined check).
-            if ( !isdefined( e ) )
-                continue;
-            e hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 146 + ( i * 22 ) );
-            e.alignX = "left";
-            e.alignY = "top";
-            e.color = ( 0.80, 0.65, 1.0 ); // cyber-purple (vs shards' cyan)
-            e.hidewheninmenu = true;
-            e.alpha = 0;
-            self.acc_items_hud_lines[ i ] = e;
-        }
-        self.acc_carry_hud = self hud::createFontString( "default", 1.1 );
-        if ( isdefined( self.acc_carry_hud ) )   // [acc] COOP CRASH GUARD: pool-full undefined; skip the field writes
-        {
-            self.acc_carry_hud hud::setPoint( "TOP_LEFT", "TOP_LEFT", 16, 146 + ( ACC_ITEM_SLOTS_PER_PLAYER * 22 ) );
-            self.acc_carry_hud.alignX = "left";
-            self.acc_carry_hud.alignY = "top";
-            self.acc_carry_hud.color = ( 1.0, 0.82, 0.25 ); // amber - the "carried but not yet enabled" line
-            self.acc_carry_hud.hidewheninmenu = true;
-            self.acc_carry_hud.alpha = 0;
-        }
-    }
-
-    // One IMPLANT line per slot, each on its OWN line. Empty slot -> that line hidden.
-    for ( i = 0; i < self.acc_equipped_items.size && i < self.acc_items_hud_lines.size; i++ )
-    {
-        e = self.acc_items_hud_lines[ i ];
-        if ( !isdefined( e ) ) continue;   // pool-full: this line didn't allocate
-        if ( self.acc_equipped_items[ i ] == "" )
-        {
-            e.alpha = 0;
-            continue;
-        }
-        // Name + the what-it-does blurb (user 2026-07-11: "tell the player what the implants are doing").
-        // String-cache safe: descs are a FIXED 11-string pool, so the distinct-SetText set stays bounded.
-        it = find_item( self.acc_equipped_items[ i ] );
-        e SetText( "^5IMPLANT " + ( i + 1 ) + " ^7" + display_for( it ) + " ^5- " + ( isdefined( it ) ? it.desc : "?" ) );
-        e.alpha = 0.9;
-    }
-
-    // CARRYING on its OWN line - shown only when the carried item is NOT already implanted in either slot.
-    if ( isdefined( self.acc_carry_hud ) )
-    {
-        if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
-        {
-            self.acc_carry_hud SetText( "^3CARRYING ^7" + display_for( find_item( self.acc_carried_item ) ) + " ^3(enable at bench)" );
-            self.acc_carry_hud.alpha = 0.9;
-        }
-        else
-        {
-            self.acc_carry_hud.alpha = 0;
-        }
-    }
+    // PNG IMPLANT HUD (user 2026-07-12: "just placing pngs on top of the implant pngs" - art pack
+    // cyber_city_implant_hud): the in-game display is now pure LUI - CoD.AccImplantRow (acc_hud.lua)
+    // draws 3 always-on slot-card PNGs + per-item emblem overlays (+ a dimmed carry chip), and the
+    // pause-menu panel (AetheriumStartMenu.lua) draws the same cards beside the kept name/desc text.
+    // BOTH read the acc_implants nibble pack pushed here, so this clientfield write IS the whole
+    // sync now. The old per-player "IMPLANT N"/"CARRYING" hudelem text lines (and their lazy-create/
+    // destroy-on-idle pool dance) are GONE - up to 4 per-client hudelems freed, and their y 146-212
+    // band in the left GSC stack is open for future use.
+    self push_implants_clientfield();
 }
 
-// Free the IMPLANT/CARRYING hudelems (user 2026-06-29) - called from sync_items_hud when the player holds no items;
-// recreated by sync_items_hud's lazy-create block on the next equip/carry. Frees ~3 per-client slots while item-less.
-function destroy_items_hud( p )
+// IMPLANT HUD bridge (pause panel 2026-07-12, PNG slot cards same day). Packs the player's implant
+// state into ONE 16-bit toplayer clientfield - "acc_implants", registered in
+// _zm_aetherium_hud.gsc/.csc in lockstep, bridged to the same-named UI model by set_ui_model_value -
+// as four 4-bit nibbles of item.num (1..11, 0 = empty): bits 0-3 Slot 1, 4-7 Slot 2, 8-11 Slot 3,
+// bits 12-15 the carried-but-not-implanted item. TWO Lua consumers decode the nibbles against their
+// mirrored item tables (only ids cross the wire - no string transport): CoD.AccImplantRow
+// (acc_hud.lua, in-game slot cards + emblem overlays) and the pause-menu panel
+// (AetheriumStartMenu.lua, cards + name/desc text). Change-guarded like every other toplayer feeder
+// (set_to_player resends are wasted bandwidth). self = player.
+function push_implants_clientfield()
 {
-    if ( isdefined( p.acc_items_hud_lines ) )
+    packed = 0;
+    for ( i = 0; i < self.acc_equipped_items.size && i < ACC_ITEM_SLOTS_PER_PLAYER; i++ )
     {
-        for ( i = 0; i < p.acc_items_hud_lines.size; i++ )
-            if ( isdefined( p.acc_items_hud_lines[ i ] ) ) p.acc_items_hud_lines[ i ] Destroy();
-        p.acc_items_hud_lines = undefined;
+        if ( self.acc_equipped_items[ i ] == "" ) continue;
+        it = find_item( self.acc_equipped_items[ i ] );
+        if ( isdefined( it ) ) packed = packed | ( it.num << ( i * 4 ) );
     }
-    if ( isdefined( p.acc_carry_hud ) ) { p.acc_carry_hud Destroy(); p.acc_carry_hud = undefined; }
+    // Carried nibble mirrors the CARRYING hud line's condition: only a carry that is NOT already
+    // implanted in a slot (an implanted id can't also be a loose carry worth showing).
+    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
+    {
+        it = find_item( self.acc_carried_item );
+        if ( isdefined( it ) ) packed = packed | ( it.num << 12 );
+    }
+    if ( isdefined( self.acc_implants_cf_last ) && self.acc_implants_cf_last == packed ) return;
+    self.acc_implants_cf_last = packed;
+    self clientfield::set_to_player( "acc_implants", packed );
 }
 
 // ---------------------------------------------------------------------------
@@ -898,7 +1026,7 @@ function destroy_items_hud( p )
 
 function apply_neural_boots()        { self.acc_item_neural_boots = true; setmovespeedscale_hook( self ); acc_utility::log( "equip: neural_boots" ); }
 function remove_neural_boots()       { self.acc_item_neural_boots = false; setmovespeedscale_hook( self ); acc_utility::log( "unequip: neural_boots" ); }
-function apply_boots()               { self.acc_item_boots = true;  acc_utility::crash_log( self, "apply_boots (equip)" );  setmovespeedscale_hook( self ); acc_utility::log( "equip: boots (+8% move)" ); }
+function apply_boots()               { self.acc_item_boots = true;  acc_utility::crash_log( self, "apply_boots (equip)" );  setmovespeedscale_hook( self ); acc_utility::log( "equip: boots (+10% move)" ); }
 function remove_boots()              { self.acc_item_boots = false; acc_utility::crash_log( self, "remove_boots (unequip)" ); setmovespeedscale_hook( self ); acc_utility::log( "unequip: boots" ); }
 
 function apply_overclocked_gauntlets()   { self.acc_item_gauntlets = true; acc_utility::log( "equip: overclocked_gauntlets" ); }
@@ -996,11 +1124,24 @@ function remove_turbocharger()
     // if ( isdefined( level.acc_dev ) && level.acc_dev ) self IPrintLnBold( "^3[TURBO] flag OFF - Havoc charge gate re-enabled" );
 }
 
-// Nuclear Energy (item 9, user 2026-07-07): passive flag. While set, _acc_damage adds a +15% bonus layer to
-// the carrier's EXPLOSIVE (is_explosive_mod) and ENERGY (is_energy_weapon) hits - read cross-module via
-// self.acc_item_nuclear (payroll_ledger / lucky_clover pattern; no #using needed on the reader side).
-function apply_nuclear_energy()      { self.acc_item_nuclear = true;  acc_utility::log( "equip: nuclear_energy (+15% explosive + energy dmg)" ); }
-function remove_nuclear_energy()     { self.acc_item_nuclear = false; acc_utility::log( "unequip: nuclear_energy" ); }
+// Plasma Generator (item 9, user 2026-07-14): passive flag. While set, _acc_damage adds a +10% bonus layer
+// to the carrier's ENERGY-weapon hits (is_energy_weapon) - read cross-module via self.acc_item_plasma. The
+// ENERGY half of the old Nuclear Energy item (split into Plasma + Warhead so each is tuned separately).
+function apply_plasma()              { self.acc_item_plasma = true;  acc_utility::log( "equip: plasma_generator (+10% energy dmg)" ); }
+function remove_plasma()             { self.acc_item_plasma = false; acc_utility::log( "unequip: plasma_generator" ); }
+
+// Warhead Bomber (item 13, user 2026-07-14): passive flag. While set, _acc_damage adds a +20% bonus layer
+// to the carrier's EXPLOSIVE hits (is_explosive_mod - grenades / launchers / projectiles) - read via
+// self.acc_item_warhead. The EXPLOSIVE half of the old Nuclear Energy item, at a higher rate.
+function apply_warhead()             { self.acc_item_warhead = true;  acc_utility::log( "equip: warhead_bomber (+20% explosive dmg)" ); }
+function remove_warhead()            { self.acc_item_warhead = false; acc_utility::log( "unequip: warhead_bomber" ); }
+
+// High Caliber Rounds (item 12, user 2026-07-14): passive flag. While set, _acc_damage adds a +25% bonus
+// layer to the carrier's BULLET hits from non-energy guns (b_bullet && !is_energy_weapon) - read
+// cross-module via self.acc_item_high_caliber (same plain-field pattern as nuclear). The bullet-gun
+// counterpart to Nuclear; the two items EXCLUDE each other's weapon classes by design.
+function apply_high_caliber()        { self.acc_item_high_caliber = true;  acc_utility::log( "equip: high_caliber (+25% bullet dmg)" ); }
+function remove_high_caliber()       { self.acc_item_high_caliber = false; acc_utility::log( "unequip: high_caliber" ); }
 
 // ---------------------------------------------------------------------------
 // Berzerker (item 11, user 2026-07-11): +35% melee swing speed on the THREE melee surfaces
@@ -1091,6 +1232,25 @@ function berzerker_af_reconcile()    // self = player
 // A berzerker carrier who acquires the Action Figure LATER (box pull) gets the normal base form -
 // nothing else re-reconciles it (the AF is outside the variant engine's 3s net), so keep a light
 // poll while implanted. 0.5s is far coarser than this file's 20Hz bar loops; ends with the item.
+//
+// TRANSACTION DEFER (2026-07-15): reconcile below give/take/re-switches, so this free-running tick
+// must never land inside ANOTHER system's weapon transaction - the same defer set
+// _acc_weapon_variants::reconcile carries (:662-695). The live one is the MYSTERY BOX: the AF is a
+// real box roll (t8_melee_figure, _acc_map_randomizer weight 40) and stock fires "user_grabbed_weapon"
+// BEFORE its slow SwitchToWeapon, so for the 0.5-3.0s box_grab_defer_watcher holds acc_box_grabbing
+// the figure is ALREADY in GetWeaponsListPrimaries() while GetCurrentWeapon() still reports the OLD
+// gun. This poll would read held=false against that stale current weapon, GiveWeapon the _brz twin,
+// SKIP the re-switch, then TakeWeapon the base = deleting the box's pending switch target -> the view
+// snaps back to the old gun with the brz figure holstered (the 2026-07-10 "the gun you pull from the
+// box isn't the gun you keep" bug, _acc_weapon_variants.gsc:528-537). Deferring costs nothing: the
+// poll is idempotent and re-converges on the next un-frozen tick, exactly how box_grab_defer_watcher
+// hands off via acc_variant_dirty.
+// Guarding the POLL rather than berzerker_af_reconcile itself is DELIBERATE: remove_berzerker calls
+// reconcile DIRECTLY while self.laststand is still true (stock notifies "bled_out" mid-laststand,
+// _zm_laststand.gsc:580 - it only clears laststand later in bleed_out(), :706) and ends this thread
+// via acc_berzerker_removed, so a guard inside reconcile would skip that removal with nothing left
+// running to re-converge the figure off the _brz ladder.
+// (IS_TRUE is not #insert'd in this file - explicit tests, same as player_has_ledger.)
 function berzerker_af_watch()    // self = player
 {
     self endon( "disconnect" );
@@ -1099,6 +1259,10 @@ function berzerker_af_watch()    // self = player
     {
         wait( 0.5 );
         if ( !isdefined( self.acc_item_berzerker ) || !self.acc_item_berzerker ) return;
+        if ( isdefined( self.acc_box_grabbing ) && self.acc_box_grabbing ) continue;   // mystery-box give in flight (above)
+        if ( isdefined( self.acc_pap_busy ) && self.acc_pap_busy ) continue;           // PaP pack's raw give/take/switch in flight (acc_pap_actionfigure does NOT set this flag, and it already packs UP the _brz ladder, so the AF's own pack never self-blocks)
+        if ( isdefined( self.laststand ) && self.laststand ) continue;                 // downed: the laststand flow owns primaries
+        if ( isdefined( self.is_drinking ) && self.is_drinking > 0 ) continue;         // stock perk-drink captures original_weapon + switches back to it
         self berzerker_af_reconcile();
     }
 }
@@ -1270,6 +1434,170 @@ function salvage_income_loop()   // self = player
     }
 }
 
+// ---------------------------------------------------------------------------
+// Item 14: HIVE NODE -> co-op SUPPORT beacon (user 2026-07-16).
+//   PASSIVE aura (hive_aura_loop): every 0.25s, every player within ACC_HIVE_RADIUS
+//     of the carrier (self INCLUDED) is REGENERATED (ACC_HIVE_REGEN hp/s) and marked
+//     for DAMAGE REDUCTION (ACC_HIVE_DR, applied in _acc_elites::apply_player_mitigations).
+//   ACTIVE Bloom burst (hive_watch double-tap JUMP -> hive_bloom_burst, ACC_HIVE_CD
+//     lockout): full-heals everyone in range, RANGED-REVIVES any downed teammate
+//     (zm_laststand::remote_revive - a no-op on the healthy), and drops a strong
+//     ACC_HIVE_BUBBLE_DR shield for ACC_HIVE_BUBBLE_SEC.
+//   REWARD-THE-MEDIC: hive_on_kill pays a covering carrier a point commission per
+//     covered teammate kill; the Bloom pays shards+points per teammate it saves.
+// Coverage + bubble ride SELF-EXPIRING timestamps (no cleanup thread): the aura
+// stamps acc_hive_covered_until each tick; the burst stamps acc_hive_bubble_until
+// once. Both are read by gettime() comparisons here and in _acc_elites.
+// ---------------------------------------------------------------------------
+function apply_hive()    // self = player
+{
+    self.acc_item_hive = true;
+    self thread hive_aura_loop();
+    self thread hive_watch();
+    acc_utility::log( "equip: hive_node (support aura + Bloom burst)" );
+}
+function remove_hive()
+{
+    self.acc_item_hive = false;
+    self notify( "acc_hive_removed" );   // ends hive_aura_loop + hive_watch (and any in-progress Bloom cooldown thread)
+    self.acc_hive_bubble_until = 0;      // drop any active burst shield immediately
+    self.acc_hive_cooldown = false;      // clear the lockout (its burst thread just died) so a re-implant re-arms clean - mirrors remove_gas_tank
+    acc_utility::log( "unequip: hive_node" );
+}
+
+// PASSIVE aura: cover + heal every alive player within ACC_HIVE_RADIUS of the carrier (self included).
+// Coverage is a self-expiring stamp read by the DR consumer in _acc_elites; regen tops HP toward max.
+function hive_aura_loop()    // self = player (the carrier)
+{
+    self endon( "disconnect" );
+    self endon( "acc_hive_removed" );
+    for ( ;; )
+    {
+        wait( 0.25 );
+        if ( !( isdefined( self.acc_item_hive ) && self.acc_item_hive ) ) return;
+        if ( !acc_data_shards::is_player_alive( self ) ) continue;   // no aura while the carrier is down/dead
+        radius = getdvarint( "acc_hive_radius", ACC_HIVE_RADIUS );
+        regen  = getdvarint( "acc_hive_regen", ACC_HIVE_REGEN );
+        heal   = int( regen * 0.25 + 0.5 );   // per-tick heal (regen hp/s spread over the 0.25s tick)
+        players = GetPlayers();
+        for ( i = 0; i < players.size; i++ )
+        {
+            p = players[ i ];
+            if ( !isdefined( p ) || !isplayer( p ) ) continue;
+            if ( Distance( self.origin, p.origin ) > radius ) continue;
+            p.acc_hive_covered_until = gettime() + 350;   // > the 250ms tick, so the DR stays continuous
+            // regen only a standing/alive player (a DOWNED teammate is saved by the Bloom burst, not healed)
+            if ( acc_data_shards::is_player_alive( p ) && isdefined( p.maxhealth ) && p.health < p.maxhealth )
+            {
+                p.health += heal;
+                if ( p.health > p.maxhealth ) p.health = p.maxhealth;
+            }
+        }
+    }
+}
+
+// ACTIVE trigger: double-tap JUMP fires the Bloom burst (mirrors gas_tank_watch's sprint double-tap; JUMP is a
+// distinct input from Gas Tank's Sprint so two active items never collide). JumpButtonPressed() = verified stock
+// builtin (_helicopter_gunner.gsc / scene_shared.gsc; our slide-jump carry uses it too).
+function hive_watch()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_hive_removed" );
+    dtap_ms = getdvarint( "acc_hive_dtap_ms", 350 );
+    last = 0;
+    was_down = false;
+    for ( ;; )
+    {
+        wait( 0.05 );
+        down = self JumpButtonPressed();
+        if ( down && !was_down )   // rising edge of a jump tap
+        {
+            now = gettime();
+            if ( ( now - last ) <= dtap_ms && !( isdefined( self.acc_hive_cooldown ) && self.acc_hive_cooldown ) )
+            {
+                last = 0;
+                self thread hive_bloom_burst();
+            }
+            else
+            {
+                last = now;
+            }
+        }
+        was_down = down;
+    }
+}
+
+// The Bloom: full-heal everyone in range, ranged-revive downed teammates, drop the shield bubble, pay the medic.
+function hive_bloom_burst()    // self = player (the carrier)
+{
+    self endon( "disconnect" );
+    self endon( "acc_hive_removed" );
+    if ( !acc_data_shards::is_player_alive( self ) ) return;   // can't Bloom while down/dead
+
+    self.acc_hive_cooldown = true;
+    radius     = getdvarint( "acc_hive_radius", ACC_HIVE_RADIUS );
+    bubble_sec = getdvarint( "acc_hive_bubble_sec", ACC_HIVE_BUBBLE_SEC );
+    revived = 0;
+    healed  = 0;
+
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( Distance( self.origin, p.origin ) > radius ) continue;
+
+        p.acc_hive_bubble_until = gettime() + bubble_sec * 1000;   // shield everyone caught in the Bloom
+
+        if ( p != self && p laststand::player_is_in_laststand() )
+        {
+            p zm_laststand::remote_revive( self );   // ranged revive; credits the carrier
+            revived++;
+        }
+        else if ( acc_data_shards::is_player_alive( p ) )
+        {
+            if ( isdefined( p.maxhealth ) ) p.health = p.maxhealth;   // full heal
+            if ( p != self ) healed++;
+        }
+    }
+
+    self PlaySound( "acc_jingle_revive" );   // support/revive jingle (acc_audio.csv, same file as evt_nuke_flash - loaded) - fits the heal+revive Bloom
+    self iprintln( "^5Nanite Bloom!" );
+
+    // REWARD-THE-MEDIC: shards + points per teammate REVIVED, points per living teammate HEALED. Solo (no others
+    // in range) pays nothing - the value there is your own full-heal + shield above.
+    if ( revived > 0 )
+    {
+        acc_data_shards::grant_player( self, revived * getdvarint( "acc_hive_revive_shards", ACC_HIVE_REVIVE_SHARDS ), "hive_revive" );
+        self zm_score::add_to_player_score( revived * getdvarint( "acc_hive_revive_pts", ACC_HIVE_REVIVE_PTS ) );
+    }
+    if ( healed > 0 )
+        self zm_score::add_to_player_score( healed * getdvarint( "acc_hive_heal_pts", ACC_HIVE_HEAL_PTS ) );
+
+    wait( getdvarint( "acc_hive_cd", ACC_HIVE_CD ) );   // lockout AFTER the burst (live dvar)
+    self.acc_hive_cooldown = false;
+}
+
+// REWARD-THE-MEDIC per-kill commission. Registered via zm_spawner::register_zombie_death_event_callback in init()
+// (self = the killed zombie, attacker = the killer). Pays each OTHER Hive carrier whose aura covers the killer.
+function hive_on_kill( attacker )
+{
+    if ( !isdefined( attacker ) || !isplayer( attacker ) ) return;
+    commission = getdvarint( "acc_hive_commission", ACC_HIVE_COMMISSION );
+    if ( commission <= 0 ) return;
+    radius = getdvarint( "acc_hive_radius", ACC_HIVE_RADIUS );
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        c = players[ i ];
+        if ( !isdefined( c ) || !isplayer( c ) || c == attacker ) continue;   // the killer doesn't pay themselves
+        if ( !( isdefined( c.acc_item_hive ) && c.acc_item_hive ) ) continue;  // only Hive carriers earn
+        if ( !acc_data_shards::is_player_alive( c ) ) continue;
+        if ( Distance( c.origin, attacker.origin ) > radius ) continue;        // the killer must be inside the carrier's aura
+        c zm_score::add_to_player_score( commission );
+    }
+}
+
 // ===========================================================================
 // REDESIGNED item buffs (2026-06-17) + the Plaza Implant Bench.
 // Detection uses POLLING (GetStance/IsSprinting/IsOnGround/velocity), NOT the
@@ -1295,6 +1623,7 @@ function remove_gas_tank()
     self notify( "acc_gas_tank_removed" );   // ends gas_tank_watch + gas_bar_loop
     self.acc_gas_burst    = false;
     self.acc_gas_cooldown = false;           // clear any in-progress lockout (the burst thread just died) so re-equip is ready
+    acc_utility::speed_fade_cancel( self );  // unequipping mid-fade must not leave the fade running
     acc_utility::recompute_move_speed( self );
     self destroy_gas_bar();
     acc_utility::log( "unequip: gas_tank" );
@@ -1336,10 +1665,20 @@ function gas_tank_burst()    // self = player
     self.acc_gas_cooldown    = true;          // locked until fully regenerated
     self.acc_gas_burst       = true;
     self.acc_gas_burst_start = gettime();     // timestamp the NITRO bar reads (gas_charge_frac)
+    // Kill any fade still running from a PREVIOUS burst before the 2x flag goes on, or the
+    // flag and the fade would multiply (the speed_fade_release contract). The 60s regen
+    // lockout normally makes this unreachable - but remove_gas_tank clears the lockout, so
+    // an unequip/re-equip/double-tap inside the fade window can reach it.
+    acc_utility::speed_fade_cancel( self );
     acc_utility::recompute_move_speed( self );
     self iprintln( "^2Nitro!" );
     wait( ACC_GAS_BURST_SEC );                // full duration; by design not cancellable
     self.acc_gas_burst = false;
+    // SMOOTH RELEASE (user 2026-07-15 "gas tank should work with these as well"): burst-end
+    // snapped 2x -> 1x in one tick. A fade is CORRECT here (unlike for a slide ending):
+    // nitro is a TIMED buff expiring on its own clock, so easing it out reads as intended
+    // rather than as ice - see the speed_fade_release header for why the slides do NOT use it.
+    acc_utility::speed_fade_release( self, getdvarfloat( "acc_gas_burst_mult", 2.0 ) );
     acc_utility::recompute_move_speed( self );
     wait( getdvarfloat( "acc_gas_regen_sec", ACC_GAS_REGEN_SEC ) );   // regen lockout AFTER the burst ends (live dvar)
     self.acc_gas_cooldown = false;
@@ -1570,46 +1909,150 @@ function scale_octobombs_watch()
     }
 }
 
-// --- Item 5: Rocket Shield -> mobility. (a) +75% (1.75x) move speed while sliding,
-//     (b) a forward distance impulse on slide-start (engine has NO slide-DURATION
-//     lever), (c) ~2x jump HEIGHT via a per-player velocity multiply (NOT the global
-//     jump_height dvar; apex height ~ velocity^2, so x1.42 velocity = double height).
+// --- Item 5: Rocket Shield -> mobility + the REAL shield (user 2026-07-15 rework).
+//     (a) +100% (2x) move speed while sliding (carries through a slide-JUMP until
+//     landing - momentum mechanic, user 2026-07-15), (b) a forward distance impulse on
+//     slide-start (engine has NO slide-DURATION lever), (c) ~2x jump HEIGHT via a
+//     per-player velocity multiply (NOT the global jump_height dvar; apex height ~
+//     velocity^2, so x1.42 velocity = double height), (d) the NATIVE ZNS rocket shield
+//     equipment ("zod_riotshield"): stows on the back and blocks ALL damage from behind,
+//     blocks in front while held, melee-power = rocket-boost bash. NO new pipeline was
+//     needed for (d): stock zm_usermap.gsc already #usings _zm_weap_rocketshield, whose
+//     autoexec registers the equipment (zm_equipment::register/include, ammo-driven boost
+//     charges) and pulls in _zm_weap_riotshield's damage-absorb callback + shield-health
+//     clientuimodel (zmInventory.shield_health - the Aetherium HUD kit already ships the
+//     bar + icon); every weapon asset ships in zm_levelcommon. So the grant is the stock
+//     ZNS path: zm_equipment::buy. Shield HP: effectively acc_rocket_shield_hp (750,
+//     user 2026-07-15; stock is 1850) via acc_shield_damage below - the pool itself is
+//     GDT-baked (weaponstarthitpoints, engine DamageRiotShield) with NO runtime setter,
+//     so we scale every blocked hit UP by (1850/750) instead. When zombies chew through
+//     it the item regrants a fresh one after acc_rocket_shield_regrant_sec (60s, user
+//     2026-07-15 "regen after 1 minute"; respawns regrant too, octobomb_regrant_on_spawn
+//     idiom - GiveWeapon does NOT survive revive).
 //     Tunable dvars: acc_rocket_slide_kick (lunge), acc_rocket_slide_mult (+speed),
-//     acc_rocket_jump_mult (jump). Slide detection is IsSliding() now (acc_rocket_slide_thresh unused).
+//     acc_rocket_jump_mult (jump), acc_rocket_shield_hp (effective shield HP),
+//     acc_rocket_shield_regrant_sec (destroyed-shield regrant delay). Slide detection is
+//     IsSliding() now (acc_rocket_slide_thresh unused).
 function apply_rocket_shield()    // self = player
 {
     self.acc_item_rocket_shield = true;
     self thread rocket_shield_watch();
-    acc_utility::log( "equip: rocket_shield (slide/jump mobility)" );
+    self give_riot_shield();
+    self thread riot_shield_regrant_on_spawn();
+    self thread riot_shield_regrant_on_destroy();
+    acc_utility::log( "equip: rocket_shield (slide/jump mobility + riot shield)" );
 }
 function remove_rocket_shield()
 {
     self.acc_item_rocket_shield = false;
+    // This notify ends rocket_shield_watch AND both regrant threads BEFORE the take
+    // below fires the stock "destroy_riotshield" notify - so unequip never re-grants.
     self notify( "acc_rocket_shield_off" );
     self.acc_rocket_slide_speed = false;
     acc_utility::recompute_move_speed( self );
+    if ( isdefined( self.hasRiotShield ) && self.hasRiotShield )
+    {
+        // Stock removal path: switches away if currently held, clears the back-stow +
+        // dpad HUD, zm_equipment::take. (Threaded - it can waittill "weapon_change".)
+        self thread riotshield::player_take_riotshield();
+    }
+    self.player_shield_apply_damage = &rocketshield::player_damage_rocketshield;   // restore the stock damage fn (hygiene - no shield left to protect)
     acc_utility::log( "unequip: rocket_shield" );
+}
+function give_riot_shield()    // self = player
+{
+    // (Re)install the effective-HP damage scaler FIRST, even on the already-has-shield
+    // early return: rocketshield::on_player_spawned re-stomps player_shield_apply_damage
+    // to the stock fn on EVERY spawn, and our regrant thread runs 0.1s after
+    // spawned_player, so this reinstall always wins that race.
+    self.player_shield_apply_damage = &acc_shield_damage;
+    if ( isdefined( self.hasRiotShield ) && self.hasRiotShield ) return;
+    // Stock ZNS grant (string form has shipped precedent: _zm_weap_rocketshield.gsc:194
+    // buys "zod_riotshield_upgraded" the same way). buy() -> give() puts it in the
+    // equipment slot ([Dpad-down] inventory, NOT a gun slot) and resets shield HP full.
+    self zm_equipment::buy( "zod_riotshield" );
+    acc_utility::log( "rocket_shield: riot shield granted" );
+}
+// Effective shield HP = acc_rocket_shield_hp (default 750, user 2026-07-15). The real pool
+// is the zod_riotshield weapon def's weaponstarthitpoints (1850), burned engine-side by
+// DamageRiotShield with NO runtime setter - so we shrink it the hacky way: scale every
+// BLOCKED hit up by (weaponstarthitpoints / acc_rocket_shield_hp) before delegating to the
+// stock ZNS damage fn (which keeps its explosive x3, then DamageRiotShield + the HUD
+// clientuimodel). The bar stays linear: full -> empty over exactly acc_rocket_shield_hp of
+// real damage. Shield-BASH self-costs (fling 100 / knockdown 15) deliberately stay on stock
+// routing (riotshield_melee calls player_damage_shield DIRECTLY, not this hook), so bashing
+// costs the same fraction of the bar as stock - only zombie damage burns the smaller pool.
+function acc_shield_damage( iDamage, bHeld, fromCode = false, smod = "MOD_UNKNOWN" )    // self = player
+{
+    hp   = getdvarfloat( "acc_rocket_shield_hp", 750 );
+    full = level.weaponRiotshield.weaponstarthitpoints;
+    if ( isdefined( self.weaponRiotshield ) && self.weaponRiotshield != level.weaponNone )
+    {
+        full = self.weaponRiotshield.weaponstarthitpoints;
+    }
+    scaled = iDamage;
+    if ( hp > 0 && isdefined( full ) && full > 0 )
+    {
+        scaled = int( iDamage * full / hp );
+    }
+    self rocketshield::player_damage_rocketshield( scaled, bHeld, fromCode, smod );
+}
+function riot_shield_regrant_on_spawn()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_rocket_shield_off" );
+    for ( ;; )
+    {
+        self waittill( "spawned_player" );
+        wait( 0.1 );
+        if ( isdefined( self.acc_item_rocket_shield ) && self.acc_item_rocket_shield )
+        {
+            self give_riot_shield();
+        }
+    }
+}
+function riot_shield_regrant_on_destroy()    // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_rocket_shield_off" );
+    for ( ;; )
+    {
+        self waittill( "destroy_riotshield" );   // stock notify from riotshield::player_take_riotshield (shield HP hit 0)
+        regrant_sec = getdvarfloat( "acc_rocket_shield_regrant_sec", 60 );   // 1 min (user 2026-07-15, was 30)
+        if ( regrant_sec < 0.05 ) regrant_sec = 0.05;
+        wait( regrant_sec );
+        if ( isdefined( self.acc_item_rocket_shield ) && self.acc_item_rocket_shield )
+        {
+            self give_riot_shield();
+        }
+    }
 }
 function rocket_shield_watch()    // self = player
 {
     self endon( "disconnect" );
     self endon( "acc_rocket_shield_off" );
-    run_thresh = getdvarint( "acc_rocket_slide_thresh", 200 );
-    slide_kick = getdvarint( "acc_rocket_slide_kick", 200 );
+    slide_kick = getdvarint( "acc_rocket_slide_kick", 250 );   // slide-start lunge (user 2026-07-15 rework: slight slide boost, was 200)
     jump_mult  = getdvarfloat( "acc_rocket_jump_mult", 1.42 );   // ~2x apex: jump height ~ velocity^2, so x1.42 velocity = double height
     was_ground = true;
     sliding    = false;
     for ( ;; )
     {
         wait( 0.05 );
-        v        = self GetVelocity();
-        spd_sq   = v[ 0 ] * v[ 0 ] + v[ 1 ] * v[ 1 ];
         onground = self IsOnGround();
 
         // (a)+(b) SLIDE = the engine's dedicated slide state, grounded. GetStance() NEVER
         // returns a "slide" value (only stand/crouch/prone) and a BO3 slide is entered from
         // sprint=stand, so the old ==\"crouch\" gate basically never latched. IsSliding() is
         // true for the whole slide (verified stock: _behavior_tracker.gsc / challenges_shared.gsc).
+        //
+        // THE FLAG IS SLIDE-ONLY ON PURPOSE - DO NOT ADD A GRACE WINDOW OR A RELEASE RAMP
+        // HERE. Both were tried (2026-07-15) and both were rejected on feel: this is a
+        // SetMoveSpeedScale flag, which scales INPUT-driven movement, so keeping it up (or
+        // decaying it) past the slide just makes the player WALK at 2x - reads as ice, and
+        // leaks a free 2x walk after every slide. The slide-JUMP momentum carry is a
+        // VELOCITY mechanic and lives in _acc_movement.gsc (global, all players, records
+        // actual velocity so this 2x is already baked into what it preserves). Full
+        // rationale: the header of _acc_movement.gsc.
         now_slide = ( self IsSliding() && onground );
         if ( now_slide && !sliding )
         {
@@ -1620,16 +2063,19 @@ function rocket_shield_watch()    // self = player
         if ( now_slide != sliding )
         {
             sliding = now_slide;
-            self.acc_rocket_slide_speed = now_slide;   // +75% (1.75x) via recompute_move_speed
+            self.acc_rocket_slide_speed = now_slide;   // +100% (2x) via recompute_move_speed
             acc_utility::crash_log( self, "rocket_shield_watch: slide " + ( now_slide ? "ON" : "off" ) );
             acc_utility::recompute_move_speed( self );
         }
 
-        // (c) JUMP = ground->air rising edge with upward velocity (ADD to keep horizontal).
+        // (c) JUMP = ground->air rising edge with upward velocity. Z ONLY - the horizontal
+        // component is _acc_movement's business. GetVelocity() is read FRESH here (not from
+        // the top of the loop) so that if acc_movement's carry writes velocity in this same
+        // server frame, the two compose (each reads the other's result) instead of clobbering.
+        v = self GetVelocity();
         if ( was_ground && !onground && v[ 2 ] > 10 )
         {
-            jv = self GetVelocity();
-            self SetVelocity( ( jv[ 0 ], jv[ 1 ], jv[ 2 ] * jump_mult ) );
+            self SetVelocity( ( v[ 0 ], v[ 1 ], v[ 2 ] * jump_mult ) );
         }
         was_ground = onground;
     }
@@ -1706,22 +2152,34 @@ function monkey_regrant_on_spawn()    // self = player
 
 // Box-rolled tactical finalizer (user 2026-06-24): Monkey Bomb + Li'l Arnie are no longer boss-item implants -
 // they are rare MYSTERY-BOX rolls (1% / 0.5%; _acc_map_randomizer::acc_box_only_weapon_keys sets
-// self.acc_box_pending_tactical and floats the tactical when the pre-roll hits). The stock box give
-// (zm_weapons::weapon_give) already dispatches the thrown-grenade callback, but we re-assert via give_* to
-// guarantee the ACTIVE tactical slot + ammo (4) are set exactly like the old implant. Fires on the stock
-// "user_grabbed_weapon" player notify (_zm_magicbox.gsc:809). One-shot: the flag is consumed on grab and the
-// box pre-roll clears it whenever a GUN is rolled, so a normal gun grab never triggers this.
+// self.acc_box_pending_tactical and floats the tactical when the pre-roll hits). This finalizer OWNS the
+// tactical grant (2026-07-17): the AW box driver SKIPS zm_weapons::weapon_give for a floated tactical (it
+// treated octobomb as a PRIMARY - never in level.zombie_tactical_grenade_list - so at the 2-gun limit it
+// weapon_take()'d the held gun: the "box monkey/Arnie traded my gun" bug); give_* here does the COMPLETE
+// give (active tactical slot + ammo 4 + thrown callback dispatch). Fires on the stock-shape
+// "user_grabbed_weapon" player notify (_zm_magicbox.gsc:809). One-shot: the flag is consumed on grab and
+// the box pre-roll clears it whenever a GUN is rolled, so a normal gun grab never triggers this. The
+// notify ARG covers the knife-to-share grab (grabber != buyer, so the GRABBER's pending flag is unset -
+// the floated tactical weapon object itself identifies the grant); the pending flag still covers the
+// pre-roll-hit-but-couldn't-float case (a gun floats, the tactical is granted on grab anyway).
 function watch_box_tactical_grab()    // self = player
 {
     self endon( "disconnect" );
     level endon( "end_game" );
     for ( ;; )
     {
-        self waittill( "user_grabbed_weapon" );
+        self waittill( "user_grabbed_weapon", w_grabbed );
         pend = self.acc_box_pending_tactical;
         self.acc_box_pending_tactical = undefined;   // consume
+        if ( !isdefined( pend ) && isdefined( w_grabbed ) && isdefined( w_grabbed.name ) )
+        {
+            // shared-float grab: a teammate took the BUYER's floated tactical - no flag on the
+            // grabber, but the grabbed weapon object says exactly what to grant.
+            if ( w_grabbed.name == "cymbal_monkey" )   pend = "monkey_bomb";
+            else if ( w_grabbed.name == "octobomb" )   pend = "lil_arnie";
+        }
         if ( !isdefined( pend ) ) continue;
-        wait( 0.05 );                                // let stock weapon_give settle, then assert our setup
+        wait( 0.05 );                                // let the grab flow settle, then do our give
         if ( pend == "monkey_bomb" )    self give_monkey_bomb();
         else if ( pend == "lil_arnie" ) self give_octobomb();
     }
@@ -1875,6 +2333,7 @@ function spawn_bench_pad( org, slot )   // slot = fixed target index (0-based; o
 {
     bench = spawn( "script_model", org );
     bench setmodel( "p7_zm_isl_table_operating" ); // Implant Bench: Zetsubou operating table (surgical install read)
+    acc_interact_glow::glow_on( bench );
 
     t = spawn( "trigger_radius_use", org + ( 0, 0, 40 ), 0, getdvarint( "acc_bench_pad_radius", 40 ), 80 );
     t TriggerIgnoreTeam();
@@ -1882,6 +2341,7 @@ function spawn_bench_pad( org, slot )   // slot = fixed target index (0-based; o
     t SetCursorHint( "HINT_NOICON" );
     t SetHintString( "Hold ^3[{+activate}]^7 implant ^5Slot " + ( slot + 1 ) + "^7 (free if empty, else " + ACC_BENCH_SWAP_COST + ")" );
     t.acc_bench_slot = slot;
+    t.acc_bench_model = bench;   // glow_off target on first successful implant (user 2026-07-17)
     acc_utility::log( "bench: pad Slot " + ( slot + 1 ) + " spawned at " + org );
     t thread bench_use_loop();
 }
@@ -1925,6 +2385,7 @@ function bench_use_loop()    // self = a bench pad trigger; self.acc_bench_slot 
 
         equip_slot( player, slot, carried );          // evicts the slot's old occupant (if any), then equips
         player.acc_carried_item = undefined;          // carry consumed (no scalar acc_active_item anymore)
+        acc_interact_glow::glow_off( self.acc_bench_model );   // implant actually installed -> THIS pad stops flashing
         player PlaySound( "acc_item_implant" );        // implant stinger (docs/09; 48k wav at sound_assets\acc\fx\item_implant.wav)
         it = find_item( carried );
         player iprintln( ( is_free ? "^2Implanted (free): ^7" : "^2Replaced Slot " + ( slot + 1 ) + " (-" + ACC_BENCH_SWAP_COST + "): ^7" ) + display_for( it ) );
@@ -1965,4 +2426,294 @@ function setmovespeedscale_hook( player )
     // Boots, Cyberware Reflex T1, and The Flash Mega stack there.
     // TODO(acc-verify): boots should only apply when holding a primary.
     acc_utility::recompute_move_speed( player );
+}
+
+// =============================================================================
+// Dark Magic (item 15) - DEATH-INSURANCE self-implant (user 2026-07-17).
+//
+// The effect lives ENTIRELY on the HOLDER (self-benefit; solo + co-op alike):
+//   * DOWN -> REVIVE (Quick Revive self-revive solo, or a teammate in co-op):
+//     you KEEP the FIRST 4 perks you bought. Quick Revive is SKIPPED - it never
+//     counts as one of the 4 ("that perks selection skips over quick revive").
+//     The engine strips perks at player_downed; we re-grant them at player_revived.
+//   * REAL DEATH (bleed out) -> RESPAWN: you come back with your GUNS (with their
+//     Pack-a-Punch tier) + Juggernog.
+//
+// Unlike every other implant, Dark Magic SURVIVES the holder's own bleed-out
+// (lose_implants_on_bleed_out skips it), so the insurance keeps working across
+// repeated deaths.
+//
+// Per-player state (see on_player_connect - all armed from connect so the perk
+// history is retroactive):
+//   .acc_dm_perk_order            - ordered list of the first 4 tracked perks bought
+//   .acc_dm_saved_weapons/_tiers  - parallel snapshot of the gun loadout + PaP tiers
+//   .acc_dm_death_restore_pending - armed at bled_out, consumed at the next spawn
+// =============================================================================
+
+function apply_dark_magic()   // self = player
+{
+    self.acc_item_dark_magic = true;
+    self dark_magic_capture_loadout();     // immediate snapshot - an instant death still restores the current guns
+    self thread dark_magic_gun_latch();    // keep that snapshot fresh while carried
+    acc_utility::log( "equip: dark_magic" );
+}
+
+function remove_dark_magic()  // self = player
+{
+    self.acc_item_dark_magic = false;
+    self notify( "acc_dark_magic_removed" );   // ends dark_magic_gun_latch
+    acc_utility::log( "unequip: dark_magic" );
+}
+
+// The 9 buyable perks Dark Magic restores on revive. Quick Revive
+// (specialty_quickrevive) is deliberately EXCLUDED ("skips over quick revive",
+// user 2026-07-17) - it is the revive MECHANISM, not one of the four you keep.
+// Every internal / non-buyable specialty is ignored. (Specialty list verified
+// against _acc_perk_info / _acc_mega_bottles - the map's 10 buyable perks.)
+function dark_magic_is_tracked_perk( perk )
+{
+    return ( perk == "specialty_armorvest" ||               // Juggernog
+             perk == "specialty_fastreload" ||              // Speed Cola
+             perk == "specialty_doubletap2" ||              // Double Tap 2.0
+             perk == "specialty_staminup" ||                // Stamin-Up
+             perk == "specialty_additionalprimaryweapon" || // Mule Kick
+             perk == "specialty_deadshot" ||                // Deadshot
+             perk == "specialty_widowswine" ||              // Widow's Wine
+             perk == "specialty_electriccherry" ||          // PhD Flopper (hijacks the electric-cherry specialty)
+             perk == "specialty_combat_efficiency" );       // Electric Cherry (from-scratch perk)
+}
+
+function dark_magic_list_has( arr, val )
+{
+    if ( !isdefined( arr ) ) return false;
+    for ( i = 0; i < arr.size; i++ )
+        if ( arr[ i ] == val ) return true;
+    return false;
+}
+
+// FIRST-4-PERKS tracker (every player, from connect). Hooks "perk_bought" - it
+// fires ONLY on a genuine machine purchase, never on our programmatic
+// give_perk(perk,false), so our own revive re-grants never pollute the order.
+// Frozen at the first 4 distinct tracked perks.
+function dark_magic_track_perks()   // self = player
+{
+    self endon( "disconnect" );
+    if ( !isdefined( self.acc_dm_perk_order ) ) self.acc_dm_perk_order = [];
+
+    for ( ;; )
+    {
+        self waittill( "perk_bought", perk );
+        if ( !isdefined( perk ) ) continue;
+        if ( !dark_magic_is_tracked_perk( perk ) ) continue;                  // skips Quick Revive + internals
+        if ( dark_magic_list_has( self.acc_dm_perk_order, perk ) ) continue;  // dedupe a rebuy
+        if ( self.acc_dm_perk_order.size >= 4 ) continue;                     // first 4 only, frozen
+        self.acc_dm_perk_order[ self.acc_dm_perk_order.size ] = perk;
+    }
+}
+
+// KEEP-YOUR-PERKS-ON-REVIVE. Perks were unset by the engine at player_downed; if
+// Dark Magic is implanted when you get back up, re-grant your first-4. give_perk(
+// perk, false ) = no cost / no drink anim / no VO, does NOT fire perk_bought (so
+// the tracker is untouched), and still applies Jugg's +health via the perk's
+// registered give thread + re-threads perk_think (so it strips again next down).
+function dark_magic_revive_watch()   // self = player
+{
+    self endon( "disconnect" );
+
+    for ( ;; )
+    {
+        self waittill( "player_revived" );
+        if ( !isdefined( self ) ) continue;
+        if ( !player_has_item( self, "dark_magic" ) ) continue;
+        if ( !isdefined( self.acc_dm_perk_order ) || self.acc_dm_perk_order.size == 0 ) continue;
+
+        wait( 0.1 );   // let the revive settle before touching perk clientfields
+        if ( !acc_data_shards::is_player_alive( self ) ) continue;
+
+        restored = 0;
+        for ( i = 0; i < self.acc_dm_perk_order.size; i++ )
+        {
+            perk = self.acc_dm_perk_order[ i ];
+            if ( !isdefined( perk ) ) continue;
+            if ( self HasPerk( perk ) ) continue;
+            self zm_perks::give_perk( perk, false );
+            restored++;
+        }
+        if ( restored > 0 ) self IPrintLnBold( "^5DARK MAGIC^7 - your first perks endure" );
+    }
+}
+
+// ARM the gun+Jugg restore on a REAL death. Dark Magic persists through bleed-out
+// (lose_implants_on_bleed_out skips it), so player_has_item is reliable here
+// regardless of thread order. A down that gets revived never fires bled_out, so
+// this arms only on a genuine death.
+function dark_magic_death_watch()   // self = player
+{
+    self endon( "disconnect" );
+
+    for ( ;; )
+    {
+        self waittill( "bled_out" );
+        if ( !isdefined( self ) ) continue;
+        if ( !player_has_item( self, "dark_magic" ) ) continue;
+        self.acc_dm_death_restore_pending = true;
+    }
+}
+
+// Perform the restore on the next spawn after a real death.
+function dark_magic_respawn_watch()   // self = player
+{
+    self endon( "disconnect" );
+
+    for ( ;; )
+    {
+        self waittill( "spawned_player" );
+        if ( !isdefined( self ) ) continue;
+        if ( !isdefined( self.acc_dm_death_restore_pending ) || !self.acc_dm_death_restore_pending ) continue;
+        self.acc_dm_death_restore_pending = false;
+        self thread dark_magic_do_death_restore();
+    }
+}
+
+function dark_magic_do_death_restore()   // self = player
+{
+    self endon( "disconnect" );
+
+    // Latch the saved loadout NOW, BEFORE the settle-wait. The gun latch keeps running through the
+    // respawn (death doesn't end it), and during the wait the player holds only the excluded start
+    // pistol - so a latch tick could refresh these fields to an empty capture. Reading into locals here
+    // (plus the empty-guard in dark_magic_capture_loadout) makes the restore immune to that race.
+    saved_weps  = self.acc_dm_saved_weapons;
+    saved_tiers = self.acc_dm_saved_tiers;
+
+    wait( 0.5 );   // run AFTER stock give_start_weapons + zm_usermap::giveCustomCharacters on this spawn tick
+    if ( !acc_data_shards::is_player_alive( self ) ) return;
+
+    // Juggernog back (give_perk applies the +max-health via the registered give thread).
+    if ( !self HasPerk( "specialty_armorvest" ) )
+        self zm_perks::give_perk( "specialty_armorvest", false );
+
+    if ( isdefined( saved_weps ) && saved_weps.size > 0 )
+    {
+        // Restore the weapon-SLOT capacity if the saved NORMAL guns need it. A real death strips Mule Kick,
+        // so a 3-normal-gun (Mule) loadout would overflow the base 2-slot limit and evict a gun. Hero/wonder
+        // weapons (Fire Bow, Thundergun, ...) ride a SEPARATE slot and don't count against the primary limit,
+        // so size the need by the NON-hero count. Grant Mule back only when actually needed (no cost/anim/VO).
+        normal_ct = 0;
+        for ( i = 0; i < saved_weps.size; i++ )
+            if ( isdefined( saved_weps[ i ] ) && !zm_utility::is_hero_weapon( saved_weps[ i ] ) )
+                normal_ct++;
+        limit = self zm_utility::get_player_weapon_limit( self );
+        if ( normal_ct > limit && !self HasPerk( "specialty_additionalprimaryweapon" ) )
+            self zm_perks::give_perk( "specialty_additionalprimaryweapon", false );
+
+        // Drop the throwaway respawn pistol first so the restored guns land in a clean inventory
+        // (no over-limit auto-take churn - weapon_give at the cap silently takes the held gun).
+        if ( isdefined( level.start_weapon ) && self HasWeapon( level.start_weapon ) )
+            self TakeWeapon( level.start_weapon );
+
+        for ( i = 0; i < saved_weps.size; i++ )
+        {
+            w = saved_weps[ i ];
+            if ( !isdefined( w ) || w == level.weaponNone ) continue;
+            self zm_weapons::weapon_give( w, false, false, true, false );   // nosound, no auto-switch
+
+            // Re-stamp the custom PaP tier AFTER the give (the gun is now in primaries, so the next
+            // possession-prune spares it). Tier 1 has no _up asset, so this write is the ONLY way to
+            // restore it; tier 2/3 already ride the _up object but we set the record straight too.
+            base = acc_weapon_variants::true_base( w );
+            tier = 0;
+            if ( isdefined( saved_tiers ) && i < saved_tiers.size && isdefined( saved_tiers[ i ] ) )
+                tier = saved_tiers[ i ];
+            if ( tier > 0 )
+            {
+                if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
+                self.acc_pap_tier[ base ] = tier;
+            }
+
+            self GiveMaxAmmo( w );
+        }
+
+        // Switch to a gun the player ACTUALLY holds now (guard against any over-limit eviction), skipping
+        // a surviving base pistol; fall back to the start weapon only if somehow left with no primary.
+        prims = self GetWeaponsListPrimaries();
+        switched = false;
+        for ( i = 0; i < prims.size; i++ )
+        {
+            if ( !isdefined( prims[ i ] ) ) continue;
+            if ( isdefined( level.start_weapon ) && prims[ i ].rootWeapon == level.start_weapon ) continue;
+            self SwitchToWeapon( prims[ i ] );
+            switched = true;
+            break;
+        }
+        if ( !switched && isdefined( level.start_weapon ) && !self HasWeapon( level.start_weapon ) )
+            self GiveWeapon( level.start_weapon );   // safety: never leave the player with no primary
+    }
+
+    // Dark Magic uniquely survived this death, so its slot is still set - but the toplayer acc_implants
+    // clientfield can go stale across a respawn (the ZERO_ON_NEW_ENT class). Force a re-push (clear the
+    // change-guard) so the Dark Magic emblem still shows on the revived HUD/pause panel.
+    self.acc_implants_cf_last = undefined;
+    self sync_items_hud();
+
+    self IPrintLnBold( "^5DARK MAGIC^7 - your guns and Juggernog return" );
+}
+
+// Keep the loadout snapshot fresh while Dark Magic is carried. Only samples while
+// up + alive + not downed + not mid-transaction, so it never latches the downed
+// pistol or a transient box/PaP swap. Parallel PLAIN arrays (no spawnstruct) so a
+// once-a-second rebuild over a long game does not leak structs.
+function dark_magic_gun_latch()   // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_dark_magic_removed" );
+
+    for ( ;; )
+    {
+        wait( 1.0 );
+        if ( !acc_data_shards::is_player_alive( self ) ) continue;
+        if ( isdefined( self.laststand ) && self.laststand ) continue;                 // never snapshot the downed pistol
+        if ( isdefined( self.acc_pap_busy ) && self.acc_pap_busy ) continue;           // mid-PaP transaction
+        if ( isdefined( self.acc_box_grabbing ) && self.acc_box_grabbing ) continue;   // mid-box grab
+        self dark_magic_capture_loadout();
+    }
+}
+
+// Snapshot the player's real GUNS (excludes the starting pistol / melee / grenades /
+// tacticals / equipment / riot shield) + each gun's PaP tier, into parallel arrays.
+function dark_magic_capture_loadout()   // self = player
+{
+    weps  = [];
+    tiers = [];
+
+    primaries = self GetWeaponsListPrimaries();
+    for ( i = 0; i < primaries.size; i++ )
+    {
+        w = primaries[ i ];
+        if ( !isdefined( w ) || w == level.weaponNone ) continue;
+        // ALL weapons are restored "no matter what" (user 2026-07-17) - so NO is_offhand_weapon filter:
+        // GetWeaponsListPrimaries already omits grenades/melee/tacticals, and we INTENTIONALLY keep
+        // HERO / wonder weapons (Fire Bow, Thundergun, etc.) that is_offhand_weapon would have excluded.
+        if ( isdefined( w.isriotshield ) && w.isriotshield ) continue;            // riot/rocket shield = equipment; the Rocket Shield item regrants it on spawn (avoid a double-grant)
+        if ( isdefined( level.start_weapon ) && w.rootWeapon == level.start_weapon ) continue;  // base start pistol - respawn re-gives it (a PaP'd pistol has a different rootWeapon, so it's kept)
+
+        base = acc_weapon_variants::true_base( w );
+        tier = 0;
+        if ( isdefined( self.acc_pap_tier ) && isdefined( self.acc_pap_tier[ base ] ) )
+            tier = self.acc_pap_tier[ base ];
+
+        weps[ weps.size ]   = w;
+        tiers[ tiers.size ] = tier;
+    }
+
+    // NEVER overwrite a real snapshot with an empty (pistol-only) capture. The latch keeps running
+    // through death -> respawn, and during the respawn window the player holds only the excluded start
+    // pistol -> an empty capture here would clobber the loadout the death-restore is about to read
+    // (~half of real-death respawns). Empty = keep the last good snapshot; a pistol-only player has no
+    // guns worth restoring anyway.
+    if ( weps.size == 0 )
+        return;
+
+    self.acc_dm_saved_weapons = weps;
+    self.acc_dm_saved_tiers   = tiers;
 }

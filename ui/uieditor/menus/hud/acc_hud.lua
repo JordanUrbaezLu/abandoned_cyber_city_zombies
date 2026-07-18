@@ -529,7 +529,7 @@ function CoD.AccPerkBar.new(HudRef, InstanceRef)
 
     -- Bottom-left row. These 4 numbers position the whole bar - tune in-game.
     local SIZE = 44     -- icon width/height (virtual px)
-    local PITCH = 48    -- spacing >= SIZE so icons no longer overlap (was 38; docs/49)
+    local PITCH = 50    -- spacing >= SIZE so icons no longer overlap (was 38 -> 48; +2 gap, user 2026-07-15)
     local START_X = 106 -- left offset of the first icon (was 96; +10 right so it clears the round
                         -- counter at bottom-left, user 2026-06-17)
     local BOTTOM = 26   -- gap from the bottom edge
@@ -885,17 +885,31 @@ local ACC_GUN_BADGES = {
       icon = { "i_acc_badge_mule" } },
     { id = "turbo", model = "acc_badges", kind = "flag", bit = 1, w = 34,
       icon = { "i_acc_badge_turbo" } },
-    -- NUKE (Nuclear Energy, acc_badges bit 2): shows while the item is implanted AND the held gun is one
-    -- Nuclear buffs (energy guns + the Mahem launcher; _acc_gun_badges::pred_nuclear = the same list the
-    -- +15% damage buff reads). Art landed 2026-07-08 (user's badges_all_16.zip, gold "Damage+" atom).
-    { id = "nuke",  model = "acc_badges", kind = "flag", bit = 2, w = 34,
-      icon = { "i_acc_badge_nuclear" } },
+    -- PLASMA (Plasma Generator, acc_badges bit 2): shows while implanted AND the held gun is an energy
+    -- weapon (_acc_gun_badges::pred_plasma = acc_damage::is_energy_weapon, the +10% energy buff's list).
+    -- The ENERGY half of the old Nuclear item. Real art landed 2026-07-15 (cyber_city_final (1).zip
+    -- FINAL v6, plasma_energy.png -> i_acc_badge_plasma).
+    { id = "plasma", model = "acc_badges", kind = "flag", bit = 2, w = 34,
+      icon = { "i_acc_badge_plasma" } },
     -- BRZ (Berzerker, acc_badges bit 3): shows while the implant is in AND the held weapon is one it
     -- speeds up (Leviathan Axe / Action Figure - _acc_gun_badges::pred_berzerker, same name tests as
     -- the damage side's berzerker_melee_weapon; knife-bash surface deliberately not a trigger).
     -- Art landed 2026-07-11 (user's badges_17_enhanced_v3.zip, bezerker.png -> i_acc_badge_berzerker).
     { id = "brz",   model = "acc_badges", kind = "flag", bit = 3, w = 34,
       icon = { "i_acc_badge_berzerker" } },
+    -- HICAL (High Caliber Rounds, acc_badges bit 4): shows while the implant is in AND the held weapon is a
+    -- bullet gun it buffs (_acc_gun_badges::pred_high_caliber = acc_damage::weapon_is_bullet_gun, mirroring
+    -- the +25% damage gate). Real art landed 2026-07-15 (cyber_city_final (1).zip FINAL v6,
+    -- high_caliber_round.png -> i_acc_badge_high_caliber).
+    { id = "hical", model = "acc_badges", kind = "flag", bit = 4, w = 34,
+      icon = { "i_acc_badge_high_caliber" } },
+    -- WARHD (Warhead Bomber, acc_badges bit 5): shows while implanted AND the held gun is an explosive
+    -- weapon (_acc_gun_badges::pred_warhead = acc_damage::weapon_is_explosive_gun - launchers + bows). The
+    -- EXPLOSIVE half of the old Nuclear item. Real art landed 2026-07-15 (cyber_city_final (1).zip FINAL
+    -- v6, warhead_bomber.png -> i_acc_badge_warhead). Bit 5 is the LAST bit of the 6-bit acc_badges
+    -- clientfield - a 7th badge needs a widen.
+    { id = "warhead", model = "acc_badges", kind = "flag", bit = 5, w = 34,
+      icon = { "i_acc_badge_warhead" } },
 }
 
 CoD.AccGunBadgeRow = InheritFrom(LUI.UIElement)
@@ -1026,6 +1040,180 @@ function CoD.AccGunBadgeRow.new(HudRef, InstanceRef)
             end)
         end
     end
+
+    return self
+end
+
+-- TOUCHPOINT 4e - IMPLANT SLOT CARDS (2026-07-12, user: "replace our implant system with pngs -
+-- place the emblem png over the implant png to show it's enabled"). CoD.AccImplantRow. Three
+-- always-on slot cards on the left HUD (art pack cyber_city_implant_hud, v4 "compact" set): each
+-- card (962x176 bar, big readable "IMPLANT N" title only - the old tiny "CYBERNETIC AUGMENT" sub-
+-- line was dropped because it minified below readability, docs/19) gets one glyph-only emblem
+-- overlay UIImage; when the slot's item id is non-zero its 256x256 glyph draws over the bar's right
+-- window (v4 README: glyph = 92% of bar height, x-center at 90.1% of bar width). A 4th HOLDING bar
+-- = carried-but-not-benched.
+--
+-- DATA: the EXISTING 16-bit "acc_implants" toplayer->uimodel nibble pack (bits 0-3 Slot 1 /
+-- 4-7 Slot 2 / 8-11 Slot 3 / 12-15 carried; _acc_boss_items::push_implants_clientfield) - the
+-- same wire the pause-menu panel reads. NO new clientfield/model/hudelem anywhere; this widget
+-- REPLACED the GSC "IMPLANT N" hudelem text lines (sync_items_hud), freeing ~4 per-client slots.
+-- CreateModel-not-GetModel: toplayer models have no node until the first server write (the
+-- turbocharger-badge lesson, see AccGunBadgeRow's ACCESSOR CHOICE note above).
+--
+-- GEOMETRY (virtual 1280x720): the upper-left band y45..406 is clear - HEALTH/shards/EXO/MB moved
+-- into the BOTTOM Aetherium PlayerInfo panel (y~595-710), only the Round counter sits top-left
+-- (~y45). Cards start at y220; the 4-bar stack ends y406, ~33px above the co-op party panels
+-- (y439+). The pause-menu panel (AetheriumStartMenu) mirrors these exact coords to OVERLAP these
+-- bars while paused. TUNE IN-GAME like every chip before it.
+local ACC_IMPLANT_CARD_W   = 184   -- v4 bars at -20% (user 2026-07-12: "reduce size 20%"); 184/34 = 5.41 ~ 962x176 (5.466:1)
+local ACC_IMPLANT_CARD_H   = 34    -- was 42; scaled 0.8
+local ACC_IMPLANT_LEFT     = 32    -- left edge (GSC x16 -> LUI x32, same column as the old lines)
+local ACC_IMPLANT_TOP      = 220   -- first card's top edge
+local ACC_IMPLANT_GAP      = 6     -- vertical gap between cards (stride 34+6 = 40)
+local ACC_IMPLANT_EMB_FRAC = 0.92  -- emblem glyph = 92% of bar height (v4 README)
+local ACC_IMPLANT_EMB_CX   = 0.901 -- emblem x-center at 90.1% of bar width (v4 README)
+-- STATE = PURE IMAGE SWAP (V2 pack, 2026-07-12). Every card ships two PNGs: lit (occupied) and
+-- _dim (unoccupied - 35% desat / 60% bright / 50% ALPHA BAKED INTO THE ART per the pack README).
+-- Do NOT layer a code setAlpha on the dim state: baked 50% x code 50% = 25%, near-invisible.
+-- The 4th HOLDING card (i_acc_implant_holding[_dim]) shows the carried-but-not-benched item with
+-- the same emblem-window geometry as the slots.
+
+-- Item num (1..13, _acc_boss_items build_item_pool / ACC_IMPLANT_INFO in AetheriumStartMenu.lua)
+-- -> emblem image. KEEP IN SYNC with both on any item add/renumber (num must stay <= 15, 4-bit).
+local ACC_IMPLANT_EMBLEMS = {
+    [1]  = "i_acc_emblem_gas_tank",
+    [2]  = "i_acc_emblem_loot_stash",
+    [3]  = "i_acc_emblem_repair_kit",
+    [4]  = "i_acc_emblem_rocket_shield",
+    [5]  = "i_acc_emblem_phase_serum",
+    [6]  = "i_acc_emblem_boots",
+    [7]  = "i_acc_emblem_lucky_horseshoe",
+    [8]  = "i_acc_emblem_turbocharger",
+    [9]  = "i_acc_emblem_plasma_generator",  -- was nuclear_energy; split into Plasma (9) + Warhead (13) 2026-07-14
+    [10] = "i_acc_emblem_battery",
+    [11] = "i_acc_emblem_berzerker",
+    [12] = "i_acc_emblem_high_caliber",   -- real art 2026-07-15 (zip file emblem_13_high_caliber_round - zip numbering differs, map by NAME)
+    [13] = "i_acc_emblem_warhead_bomber", -- real art 2026-07-15 (zip file emblem_12_warhead_bomber - zip numbering differs, map by NAME)
+    [14] = "i_acc_emblem_hive_node",      -- real art 2026-07-16 (emblem_14_healing_hive.png, bicubic 256->96 to match the 96x96 emblem convention)
+    [15] = "i_acc_emblem_dark_magic",     -- Dark Magic (item 15, 2026-07-17): PLACEHOLDER art (copy of hive_node) until the user's emblem drops in; swap the PNG only, no code change
+}
+
+CoD.AccImplantRow = InheritFrom(LUI.UIElement)
+
+function CoD.AccImplantRow.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccImplantRow)
+    self.id = "AccImplantRow"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Register every emblem material ONCE; Refresh just swaps pre-registered handles
+    -- (the countryside PerkImage setImage idiom, docs/19). Iterate the table by pairs so
+    -- EVERY defined emblem gets a handle - a hardcoded upper bound silently drops any item
+    -- added past it (bug 2026-07-15: the loop was `1, 11` so High Caliber (12) + Warhead (13)
+    -- had nil handles and never rendered in-game, yet the pause panel - which pairs()-iterates
+    -- ACC_IMPLANT_INFO - showed them, producing "shows when paused, not in the HUD").
+    local handles = {}
+    for num, img in pairs(ACC_IMPLANT_EMBLEMS) do
+        handles[num] = RegisterImage(img)
+    end
+
+    -- Emblem quad inside a card, from the pack README's ratios (188/256 of the card height,
+    -- centered on the hex window at 888/1024 of the width).
+    local embS = ACC_IMPLANT_CARD_H * ACC_IMPLANT_EMB_FRAC
+    local embL = ACC_IMPLANT_LEFT + ACC_IMPLANT_CARD_W * ACC_IMPLANT_EMB_CX - embS / 2
+    local embT = (ACC_IMPLANT_CARD_H - embS) / 2
+
+    -- Per-card image handles: lit = occupied, dim = unoccupied (baked-alpha art, see above).
+    local cardImgs = {}
+    for s = 1, 3 do
+        cardImgs[s] = {
+            lit = RegisterImage("i_acc_implant_slot" .. s),
+            dim = RegisterImage("i_acc_implant_slot" .. s .. "_dim"),
+        }
+    end
+    local holdImgs = {
+        lit = RegisterImage("i_acc_implant_holding"),
+        dim = RegisterImage("i_acc_implant_holding_dim"),
+    }
+
+    local cards = {}
+    local overlays = {}
+    for s = 1, 3 do
+        local top = ACC_IMPLANT_TOP + (s - 1) * (ACC_IMPLANT_CARD_H + ACC_IMPLANT_GAP)
+
+        local card = LUI.UIImage.new()
+        card:setLeftRight(true, false, ACC_IMPLANT_LEFT, ACC_IMPLANT_LEFT + ACC_IMPLANT_CARD_W)
+        card:setTopBottom(true, false, top, top + ACC_IMPLANT_CARD_H)
+        card:setImage(cardImgs[s].dim)   -- starts empty
+        self:addElement(card)
+        cards[s] = card
+
+        local emb = LUI.UIImage.new()
+        emb:setLeftRight(true, false, embL, embL + embS)
+        emb:setTopBottom(true, false, top + embT, top + embT + embS)
+        emb:hide()
+        self:addElement(emb)
+        overlays[s] = emb
+    end
+
+    -- HOLDING card (4th row): the carried-but-not-benched item - "go enable it at a bench".
+    -- Mirrors the old amber CARRY line's condition (the server only packs a carry nibble when
+    -- the item isn't already implanted). Empty hands = the dim holding card.
+    local carryTop = ACC_IMPLANT_TOP + 3 * (ACC_IMPLANT_CARD_H + ACC_IMPLANT_GAP)
+    local holdCard = LUI.UIImage.new()
+    holdCard:setLeftRight(true, false, ACC_IMPLANT_LEFT, ACC_IMPLANT_LEFT + ACC_IMPLANT_CARD_W)
+    holdCard:setTopBottom(true, false, carryTop, carryTop + ACC_IMPLANT_CARD_H)
+    holdCard:setImage(holdImgs.dim)
+    self:addElement(holdCard)
+
+    local carry = LUI.UIImage.new()
+    carry:setLeftRight(true, false, embL, embL + embS)
+    carry:setTopBottom(true, false, carryTop + embT, carryTop + embT + embS)
+    carry:hide()
+    self:addElement(carry)
+
+    -- Nibble decode by floor-division (no bit ops in HKS Lua 5.1; 16 bits is exact in the
+    -- 32-bit float mantissa) - same math as AetheriumStartMenu's AccRefreshImplantPanel.
+    local function Refresh(raw)
+        local v = tonumber(raw) or 0
+        for s = 1, 3 do
+            local h = handles[math.floor(v / (16 ^ (s - 1))) % 16]
+            if h then
+                overlays[s]:setImage(h)
+                overlays[s]:show()
+                cards[s]:setImage(cardImgs[s].lit)   -- occupied = lit card
+            else
+                overlays[s]:hide()
+                cards[s]:setImage(cardImgs[s].dim)   -- empty = dim card (alpha baked in the art)
+            end
+        end
+        local ch = handles[math.floor(v / 4096) % 16]
+        if ch then
+            carry:setImage(ch)
+            carry:show()
+            holdCard:setImage(holdImgs.lit)
+        else
+            carry:hide()
+            holdCard:setImage(holdImgs.dim)
+        end
+    end
+
+    local implantsModel = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "acc_implants")
+    self:subscribeToModel(implantsModel, function(model)
+        Refresh(Engine.GetModelValue(model))
+    end)
+    Refresh(Engine.GetModelValue(implantsModel))   -- initial paint (rejoin/HUD rebuild mid-run)
+
+    -- HIDE WHILE THE PAUSE MENU IS OPEN (user 2026-07-12: the transparent pause menu showed the
+    -- implants twice - these cards AND the pause panel's copies). Same BIT_UI_ACTIVE hide the
+    -- Aetherium kit uses on all its panels (AetheriumHud.lua); the pause panel is the implant
+    -- surface while any fullscreen UI is up.
+    self:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef),
+        "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_UI_ACTIVE), function(model)
+        local v = Engine.GetModelValue(model)
+        self:setAlpha((v and v ~= 0) and 0 or 1)
+    end)
 
     return self
 end
@@ -1501,6 +1689,12 @@ function LUI.createMenu.acc_hud(Instance)
     local BadgeRow = CoD.AccGunBadgeRow.new(Hud, Instance)
     Hud:addElement(BadgeRow)
     Hud.accGunBadgeRow = BadgeRow
+
+    -- IMPLANT SLOT CARDS (2026-07-12): three left-side slot-card PNGs + emblem overlays riding
+    -- the acc_implants nibble wire; replaced the GSC "IMPLANT N" hudelem text lines (docs/09).
+    local ImplantRow = CoD.AccImplantRow.new(Hud, Instance)
+    Hud:addElement(ImplantRow)
+    Hud.accImplantRow = ImplantRow
 
     -- (AccPerkCard retired 2026-07-03 -> no accCard:close() override needed; re-add with it.)
 

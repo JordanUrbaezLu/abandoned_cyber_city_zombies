@@ -193,6 +193,36 @@ if (-not $GscOnly) {
 }
 
 # ===========================================================================
+# 4b. sweep orphaned build LOCK-temp files (*~lk) from the output zone folder.
+#     A '.xpak~lk' / '.sabl~lk' is scratch the linker / sound-bank build streams
+#     to, then renames to the real .xpak/.sabl and deletes on its OWN success. An
+#     INTERRUPTED or superseded build leaves a MULTI-GB orphan that nothing ever
+#     cleans (the tool only cleans its own good run) - it silently doubles the
+#     folder and, since publishing is a whole-folder Launcher upload, would ship
+#     into the Workshop item (the 4.1->7.1 GB build-size finding, 2026-07-16).
+#     No build is writing one now (the linker below has not started; the sound
+#     bank ran under cod2map64 above), so any ~lk here is stale -> remove it.
+if (-not $DryRun -and (Test-Path $FfDir)) {
+    Step "sweep stale build locks (*~lk)"
+    $locks = @(Get-ChildItem -Path $FfDir -Recurse -File -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name.EndsWith('~lk') })
+    if ($locks.Count -gt 0) {
+        $mb = ($locks | Measure-Object -Property Length -Sum).Sum / 1MB
+        foreach ($f in $locks) {
+            try {
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                Info ("  removed {0} ({1:N1} MB)" -f $f.Name, ($f.Length / 1MB))
+            } catch {
+                Warn ("  could NOT remove {0} - a build may be running? ({1})" -f $f.Name, $_.Exception.Message)
+            }
+        }
+        Info ("reclaimed {0:N0} MB of stale lock scratch" -f $mb)
+    } else {
+        Info "no stale *~lk files (folder clean)"
+    }
+}
+
+# ===========================================================================
 # 5. linker - compile GSC + pack the .ff (reuses the fresh BSP/navmesh)
 # ===========================================================================
 Step "linker (compile GSC + pack .ff)"
@@ -253,7 +283,7 @@ if (-not $DryRun) {
     Info ("size:     {0:N2} MB" -f ($ffAfter.Length / 1MB))
     Info ("written:  {0}" -f $ffAfter.LastWriteTime)
     Write-Host ""
-    Write-Host "[build] READY TO TEST -> .\tools\run_game.ps1   (test boss spawns from round 2; real Brutus round 4)" -ForegroundColor Green
+    Write-Host "[build] READY TO TEST -> .\tools\run_game.ps1   (dev boss cadence 2026-07-17: 2 Glitch Stalkers EVERY round + one Phantom on round 3; Brutus + r9/18/27 roster run REAL)" -ForegroundColor Green
 }
 
 # ===========================================================================

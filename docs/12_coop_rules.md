@@ -25,7 +25,7 @@ Every player has their own copy of these:
 - **Points** - personal currency.
 - **Data Shards** - personal.
 - **Weapons** (weapon tiers, PaP levels, Overclocks slotted).
-- **Overclock Terminal upgrades** - independent per player; player A's weapon Overclock tiers don't affect player B. (The old **Cyberware skill tree** is **disabled by default** — `_acc_cyberware.gsc` init only spawns the kiosk / allows node purchase when `acc_cyberware_on` is 1, default 0 — so the Overclock Terminal is the sole live per-player upgrade path.)
+- **Overclock Terminal upgrades** - independent per player; player A's weapon Overclock tiers don't affect player B. (The old **Cyberware skill tree** is **disabled by default** — `_acc_cyberware.gsc` init only spawns the kiosk / allows node purchase when `acc_cyberware_on` is 1, default 0 — so the Overclock Terminal is the sole live per-player upgrade path.) The kiosk **card** is per-player too, as of 2026-07-15: `SetHintString` is one string on the single shared trigger entity, so `terminal_loop` writing it per interaction **latched the last presser's** private per-gun tier/price onto the team (a teammate holding a Tier-0 gun was told "Tier 10/10 MAX"). `_acc_overclocks::terminal_hint_loop` now owns the card and composes it from the **nearest live player's** held gun — the same nearest-player keeper the Paradise PaP uses (`_acc_pap_levels::paradise_pap_hint_loop`), and the standing rule for any shared trigger showing per-player values (`_acc_perk_info.gsc`: "the shown price can't be per-player on a shared trigger").
 - **Perks** - each player buys their own.
 - **Boss items** - per-player inventory (3 slots each; `ACC_ITEM_SLOTS_PER_PLAYER` 3 in `_acc_boss_items.gsc`).
 - **Weapon abilities** - each player has their own cooldowns.
@@ -56,16 +56,18 @@ Stock BO3 does **NOT** scale zombie HP per player (HP is purely round-based, `zo
 |---|---|---|---|---|
 | Regular zombie | 150 (round 1) | 1.20× | 1.40× | 1.60× |
 | Shielded elite | 4× a normal zombie's current HP (any player count) | — | — | — |
-| **Round / mini bosses** (Brutus, Phantom, Rogue Protector, Avogadro, Panzer) | 65,000 at the round-5 anchor, compounding per round | **1.50×** | **1.79×** | **2.00×** |
+| **Round / mini bosses** (Brutus, Phantom, Rogue Protector, Avogadro, Panzer) | 65,000 at the round-5 anchor, compounding per round | **1.70×** | **2.30×** | **2.60×** |
 | Glitch (special-round boss) | 1.5× the round's normal zombie HP | inherits regular scaling | | |
 
 **Key deltas from stock**:
 
 - **Regular zombies** scale **+20% per extra player** (user 2026-06-24: 1.2 / 1.4 / 1.6×; was +100% = 2/3/4× — too tanky). `ACC_COOP_REGULAR_HP_PER_EXTRA` (0.2), `regular_hp_mult()`. Stock itself adds **zero** per-player HP — this whole multiplier is ours.
 - **Shielded elites** are a **flat 4× a normal (already co-op-scaled) zombie's health at any player count** (`promote_to_shielded` in `_acc_elites.gsc`, `base_hp × 4`; user 2026-07-04: 5×→4×). Their per-player scaling therefore comes entirely from the regular zombie's baked-in +20%/extra — they do **not** apply a separate `special_hp_mult()`. Shielded is the only live elite (Teleporter + EMP were removed 2026-06-22; `elite_quota_for_round()`).
-- **All roster bosses scale LOGARITHMICALLY** (user 2026-06-24): `boss_hp_player_mult() = 1 + 0.5·log₂(n)` — each *doubling* of players adds 50% HP, so 4p is **2.0×** (not 4.0×). Live-tunable via `acc_boss_coop_hp_log_k` (default `ACC_COOP_BOSS_HP_LOG_K` 0.5). This log curve replaced a LINEAR ×N that hit 200k/400k at 4p — "scaling linearly is crazy."
+- **All roster bosses share one explicit per-count table** (user 2026-07-15): `boss_hp_player_mult()` → **1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60**. Live-tunable via `acc_boss_coop_hp_2p` / `_3p` / `_4p` (defaults `ACC_COOP_BOSS_HP_2P/3P/4P`). Solo has no dvar — it is the 1.0 baseline by definition.
+  - **Why a table, not a curve.** This replaced `1 + k·log₂(n)` (k = 0.5 → 1/1.5/1.79/2.0, user 2026-06-24). The requested numbers are **not logarithmic** and no `k` reproduces them: fitting 2p = 1.70 forces k = 0.70, which then yields **2.11** at 3p and **2.40** at 4p, not 2.30/2.60. Since player count clamps to 1..4 there are only three values to state, so a table is the honest shape — a curve would have to lie about at least one count. (The old code already hardcoded a log₂ switch anyway, since GSC has no `log` builtin, so this is *less* indirection, not more.)
+  - **The 2026-06-24 rationale still holds.** The original point was that a LINEAR ×N (200k/400k at 4p) was "crazy" tanky. The table stays far under linear (**2.60 vs 4.00** at 4p) and still *decelerates* per added player (+0.70 / +0.60 / +0.30) — it is simply tuned tankier than the old log.
 
-**Boss base-HP model (all roster bosses share it):** solo base **65,000** at the round-5 anchor (`ACC_BOSS_MINI_HP` / `ACC_PHANTOM_HP`, both 65000, user 2026-07-05: 56000→65000), then **compounds per round** by a per-boss exponent, *then* × the log co-op mult above:
+**Boss base-HP model (all roster bosses share it):** solo base **65,000** at the round-5 anchor (`ACC_BOSS_MINI_HP` / `ACC_PHANTOM_HP`, both 65000, user 2026-07-05: 56000→65000), then **compounds per round** by a per-boss exponent, *then* × the co-op table above:
 
 | Boss | Per-round exponent | Solo HP examples |
 |---|---|---|
@@ -75,9 +77,21 @@ Stock BO3 does **NOT** scale zombie HP per player (HP is purely round-based, `zo
 | Phantom | 1.06 (softest tier) | r5 65k / r10 87k / r20 156k |
 | Avogadro | 1.06 (shares Phantom's) | — |
 
-(Exponents: `ACC_BOSS_MINI_HP_EXP` / `ACC_PHANTOM_HP_EXP` / `ACC_PROTECTOR_HP_EXP` / `acc_panzer_hp_exp` / `acc_avogadro`-via-`scale_phantom_hp`. Anchor `*_HP_ANCHOR` = 5, user 2026-07-08: all boss scaling now starts at round 5; roster bosses first spawn at round 9 = base × exp⁴.) **Glitch** is the exception — its HP is `acc_glitch_hp_mult` × the round's normal zombie health (default 1.5×, `_acc_boss_glitch.gsc`), so it rides regular-zombie co-op scaling, not the log curve.
+(Exponents: `ACC_BOSS_MINI_HP_EXP` / `ACC_PHANTOM_HP_EXP` / `ACC_PROTECTOR_HP_EXP` / `acc_panzer_hp_exp` / `acc_avogadro`-via-`scale_phantom_hp`. Anchor `*_HP_ANCHOR` = 5, user 2026-07-08: all boss scaling now starts at round 5; roster bosses first spawn at round 9 = base × exp⁴.) **Glitch** is the exception — its HP is `acc_glitch_hp_mult` × the round's normal zombie health (default 1.5×, `_acc_boss_glitch.gsc`), so it rides regular-zombie co-op scaling, not the boss table.
 
-Rationale: a single boss takes ~N× the team's fire in 4p, but **not** a clean 4× effective DPS (shared aggro, target overlap, downs), so a flat ×N HP made the fight an HP-sponge slog. A log curve keeps 4p time-to-kill close to solo while still rewarding more guns. In 4p, boss *density* / spawns scale too (boss rounds land more bosses — see cadence below), so raw boss HP doesn't need to be 4×.
+**Worked example — Panzer HP by round × player count** (exp 1.09; only boss rounds shown, since that is when a Panzer can be dealt). Same shape for any boss — swap the exponent:
+
+| Round | 1p | 2p | 3p | 4p |
+|---|---|---|---|---|
+| 9 | 91,752 | 155,978 | 211,029 | 238,555 |
+| 18 | 199,277 | 338,770 | 458,337 | 518,120 |
+| 27 | 432,809 | 735,775 | 995,460 | 1,125,303 |
+| 36 | 940,015 | 1,598,025 | 2,162,034 | 2,444,039 |
+| 45 | 2,041,612 | 3,470,740 | 4,695,707 | 5,308,191 |
+
+Note the **round axis is the aggressive one** — ×2.17 per boss round (1.09⁹) — while 1p→4p only ever multiplies by 2.60. Late-round difficulty is driven by the exponent, not the lobby size.
+
+Rationale: a single boss takes ~N× the team's fire in 4p, but **not** a clean 4× effective DPS (shared aggro, target overlap, downs), so a flat ×N HP made the fight an HP-sponge slog. A sub-linear, decelerating curve keeps 4p time-to-kill sane while still rewarding more guns. In 4p, boss *density* / spawns scale too (boss rounds land more bosses — see cadence below), so raw boss HP doesn't need to be 4×.
 
 ## Boss Cadence & Roster
 
@@ -142,7 +156,7 @@ See [05_mechanics.md](05_mechanics.md#co-op-kill-point-split-70--30) for full de
 
 ## Data Shard Distribution in Co-op
 
-- **Elite kill**: the live (Shielded) elite grants **2 Shards directly to the killer** on death (`shielded_death_reward` in `_acc_elites.gsc:362-370`) — no pickup entity, no corpse walk. (The generic pickup path `spawn_pickup_at` is gated by `acc_elite_shard_drop`, default 0 = OFF.)
+- **Elite kill**: the live (Shielded) elite grants **3 Shards directly to the killer** on death (user 2026-07-13, was 2) (`shielded_death_reward` in `_acc_elites.gsc`) — no pickup entity, no corpse walk. (The generic pickup path `spawn_pickup_at` is gated by `acc_elite_shard_drop`, default 0 = OFF.)
 - **Shared damage on an elite**: no automatic split. The direct 2-Shard grant always goes to the player credited with the kill (`attacker`); there is no pickup to collect or despawn.
 - **Boss shard grant**: independent per-player (the round-scaled boss Shard amount goes to every player on a boss kill, not shared).
 - **Objective Shard rewards** (Hack): go to the player who activated and saw the event through. In 4p, if 3 players help but one player activated the Hack, only the activator gets the 2 Shards.
@@ -188,7 +202,7 @@ See [05_mechanics.md](05_mechanics.md#co-op-kill-point-split-70--30) for full de
 
 4p co-op is intentionally the easiest configuration:
 
-- Boss fights: ~4× damage output vs **2.0× boss HP** → much faster time-to-kill than solo (the log curve, above).
+- Boss fights: ~4× damage output vs **2.6× boss HP** → faster time-to-kill than solo (the co-op boss table, above).
 - Elite pressure spread across 4 players.
 - 4 independent Shard pickups per elite.
 - 1 boss item per boss kill (any player claims it) — but boss *rounds* land more bosses in 4p (count scales per slot), so more total items across a boss round.
@@ -213,7 +227,9 @@ Solo is the hardest configuration. **This is intentional.** Zombies is a co-op g
 ## Tuning Levers
 
 - **Regular zombie HP**: `ACC_COOP_REGULAR_HP_PER_EXTRA` (0.2 = +20%/extra player).
-- **Boss HP in co-op**: `acc_boss_coop_hp_log_k` (default 0.5 → 4p 2.0×). Raise for tankier bosses, lower for faster kills.
+- **Boss HP in co-op**: `acc_boss_coop_hp_2p` / `_3p` / `_4p` (defaults 1.7 / 2.3 / 2.6). Raise for tankier bosses, lower for faster kills. Solo is always 1.0 and has no dvar. (Replaced `acc_boss_coop_hp_log_k`, retired 2026-07-15 with the log curve.)
+- **Elite counts in co-op**: `acc_elite_count_log_k` (default 0.5 → 1p 1.0 / 2p 1.5 / 3p 1.79 / 4p 2.0). Multiplies both the Shielded shield-round quota and the Glitch Stalker per-round count.
+- **Elite count round curves**: `acc_shielded_count_log_k` / `_log_c` (2.5 / 3.0) and `acc_glitch_count_log_k` / `_log_c` (2.0 / 3.0) — `int(k·log₂(round) − c)`. Raise `k` for a steeper late game; raise `c` to shift the whole curve down.
 - **Spawn count**: `ACC_COOP_SPAWN_PER_EXTRA` (0.3 = +30%/extra player, vs solo). Dial down if 4p reads as chaos.
 - **Boss per-round HP exponents**: `acc_boss_mini_hp_exp` / `acc_phantom_hp_exp` / `acc_protector_hp_exp` / `acc_panzer_hp_exp` (per-boss round compounding).
 - **Shard rewards in 4p**: if players feel they progress too fast in 4p, adjust `acc_boss_shards_round_div` (currently 3) to change the per-player boss Shard payout.

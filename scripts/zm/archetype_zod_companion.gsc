@@ -790,7 +790,11 @@ function private zodcompaniongibdamageoverride( inflictor, attacker, damage, fla
 		return damage;
 	
 	GibServerUtils::ToggleSpawnGibs( entity, 1 );
-	isExplosive = isInArray( array( "MOD_GRENADE", "MOD_GRENADE_SPLASH", "MOD_PROJECTILE", "MOD_PROJECTIVLE_SPLASH", "MOD_EXPLOSIVE" ), meansOfDeath );
+	// VERIFIED(acc) 2026-07-15: was "MOD_PROJECTIVLE_SPLASH" - the PACK AUTHOR's typo (the string exists
+	// nowhere in the stock scripts; stock spells it MOD_PROJECTILE_SPLASH, e.g. mp\gametypes\
+	// _globallogic_player.gsc:1892). The misspelt entry could never match a real meansOfDeath, so projectile
+	// splash never counted as explosive for gibbing. Do NOT "correct" this back on a pack re-vendor.
+	isExplosive = isInArray( array( "MOD_GRENADE", "MOD_GRENADE_SPLASH", "MOD_PROJECTILE", "MOD_PROJECTILE_SPLASH", "MOD_EXPLOSIVE" ), meansOfDeath );
 	_tryGibbingHead( entity, damage, hitLoc, isExplosive );
 	_tryGibbingLimb( entity, damage, hitLoc, isExplosive );
 	_tryGibbingLegs( entity, damage, hitLoc, isExplosive, attacker );

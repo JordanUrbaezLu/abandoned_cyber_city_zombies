@@ -69,6 +69,18 @@
 },
 {
  "Type" : "ALIAS",
+ "Name" : "vg_kortifex_ann",
+ "Filename" : "west/vg_kortifex_ann.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "acc_kortifex_extra",
+ "Filename" : "acc_kortifex_extra.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
  "Name" : "t5_thundergun_sounds",
  "Filename" : "t5_thundergun_sounds.csv",
  "Specs" : [ ]
@@ -101,6 +113,12 @@
  "Type" : "ALIAS",
  "Name" : "freezegun_sounds",
  "Filename" : "freezegun_sounds.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "acc_aw_magicbox",
+ "Filename" : "acc_aw_magicbox.csv",
  "Specs" : [ ]
 },
 {

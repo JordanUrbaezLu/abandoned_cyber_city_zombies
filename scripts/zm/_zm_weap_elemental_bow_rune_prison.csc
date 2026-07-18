@@ -17,7 +17,12 @@
 #precache( "client_fx", "dlc1/zmb_weapon/fx_bow_rune_impact_aoe_zmb" );
 #precache( "client_fx", "dlc1/zmb_weapon/fx_bow_rune_fire_torso_zmb" );
 
-#namespace _zm_weap_elemental_bow_storm;
+// VERIFIED(acc) 2026-07-15: was "#namespace _zm_weap_elemental_bow_storm;" - a copy-paste collision with
+// _zm_weap_elemental_bow_storm.csc. Both files declared the SAME namespace while each defines its own
+// __init__(), and this file's namespace also disagreed with its own .gsc twin
+// (_zm_weap_elemental_bow_rune_prison.gsc:25). Safe to correct: every function here is reached only as a
+// file-local &pointer (clientfield callbacks + REGISTER_SYSTEM_EX), so nothing addressed them by namespace.
+#namespace _zm_weap_elemental_bow_rune_prison;
 
 REGISTER_SYSTEM_EX( "_zm_weap_elemental_bow_rune_prison", &__init__, undefined, undefined )
 

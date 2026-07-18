@@ -41,7 +41,8 @@ function test_loop()
         level waittill( "acc_round_start", round_number );
         // ISOLATION (2026-06-14): gated OFF by default so it can't confound the base
         // Brutus crash hunt (it auto-spawned round 2, the round before Brutus). Set
-        // dvar `acc_panzer_test 1` to re-enable the round-2 test spawn.
+        // dvar `acc_panzer_test 1` to re-enable the round-2 test spawn (dvar removed
+        // 2026-07-16; stash copy, not compiled - the live module runs the real cadence).
         if ( getdvarint( "acc_panzer_test", 0 ) != 1 ) continue;
         if ( round_number != 2 ) continue;
 

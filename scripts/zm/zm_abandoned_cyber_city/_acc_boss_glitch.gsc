@@ -15,7 +15,8 @@
 // FULLY SELF-CONTAINED + DECOUPLED: this module owns its own cadence (it listens to
 // "acc_round_start" like the panzer test loop), spawn, promotion, ability, and
 // death->reward. _acc_boss.gsc is NOT edited. To disable the whole boss live:
-// `acc_glitch_enable 0`. To trace it live: `acc_glitch_debug 1`. Every stat is an
+// `acc_glitch_enable 0`. To trace it: use a dev build (debug prints ride level.acc_dev;
+// the acc_glitch_debug dvar was removed 2026-07-16). Every stat is an
 // `acc_glitch_*` dvar read LIVE (no rebuild to tune) - see docs/22_flags_reference.md.
 //
 // CRASH-SAFETY (deliberate, see docs/08 + CLAUDE.md hard-won facts):
@@ -50,17 +51,27 @@
 //     contract. Mirror each row in docs/22_flags_reference.md. ---
 #define ACC_GLITCH_ENABLE_DEF            1      // master on/off (set 0 to disable the boss entirely - gates real cadence + test spawn)
 #define ACC_GLITCH_HP_MULT_DEF              1.5 // HP = this x the round's NORMAL zombie health (user 2026-06-23: 3 -> 1.5, 3x too tanky)
-#define ACC_GLITCH_FIRST_ROUND_DEF          4   // first round it spawns (user 2026-06-23: 2->8->4, difficulty cut)
+#define ACC_GLITCH_FIRST_ROUND_DEF          6   // first round it spawns (user 2026-06-23: 2->8->4; 2026-07-15: 4->6 - CODIFIES REALITY, see below)
+// ^ WHY 6 (user 2026-07-15, "I actually like the first round being 6"): r4 NEVER produced a Stalker.
+// The frame-0 spawn refusal (see run_glitch_wave) ate the first spawn of every wave, and r4's count was
+// exactly 1, so r4 delivered ZERO for the module's entire life while r6 delivered 1. "First glitch at
+// round 6" IS the shipped game the user has been playing; setting first_round=6 makes the CODE honest
+// about that rather than changing the feel. The spawn fix would otherwise have silently ADDED a brand
+// new r4 Stalker that no one ever play-tested.
 #define ACC_GLITCH_INTERVAL_DEF             2   // every 2nd round from first (user 2026-06-23: was EVERY round, 4, now 2) - count scales, see glitch_count_for_round
 #define ACC_GLITCH_TEST_ROUND_DEF           2   // dev/test path: first round it spawns (matches first_round, user 2026-06-22)
-#define ACC_GLITCH_BLINK_CD_MIN_DEF         1.33 // min seconds between blinks (user 2026-06-23: 1.0->1.33, 25% fewer blinks = 25% less aggressive)
-#define ACC_GLITCH_BLINK_CD_MAX_DEF         2.22 // max seconds between blinks (user 2026-06-23: 1.665->2.22, 25% fewer blinks)
+#define ACC_GLITCH_BLINK_CD_MIN_DEF         1.55 // min seconds between blinks (user 2026-07-17: 1.77->1.55, cut the 07-16 pass in half - "too passive now"; 2026-07-16: 1.33->1.77; 2026-06-23: 1.0->1.33)
+#define ACC_GLITCH_BLINK_CD_MAX_DEF         2.59 // max seconds between blinks (user 2026-07-17: 2.96->2.59, cut the 07-16 pass in half; 2026-07-16: 2.22->2.96; 2026-06-23: 1.665->2.22)
 #define ACC_GLITCH_BLINK_DIST_DEF         300   // flank offset (units) from the target
 #define ACC_GLITCH_RECOVERY_SEC_DEF         1.2 // post-blink vulnerability window (s) (was 1.5; the window now ALSO only fires on a real flank blink, never on a commit/pounce - see glitch_blink_loop)
 #define ACC_GLITCH_RECOVERY_DMG_MULT_DEF    2.0 // damage multiplier while vulnerable (damage IT takes - not the damage it deals)
 #define ACC_GLITCH_MELEE_DMG_MULT_DEF       0.45 // melee damage DEALT to players vs a stock zombie (user 2026-06-22: 25% less than the prior 0.6 -> 0.45)
-#define ACC_GLITCH_SPEED_MULT_DEF           1.15 // move speed vs the round's normal zombies (1.15 = +15%, user 2026-06-15)
-#define ACC_GLITCH_COUNT_DEF                3   // bosses spawned per scheduled round (acc_glitch_count, user 2026-06-17)
+#define ACC_GLITCH_SPEED_MULT_DEF           1.005 // anim rate vs the round's normal zombies - ONE lever drives BOTH chase speed AND melee-swing speed (ASMSetAnimationRate scales the whole state machine). 1.005 (user 2026-07-17: 0.86 -> 1.005, cut the 07-16 -25% pass in half - "too passive now"; now ~horde speed, the BLINK is its mobility; 2026-07-16: 1.15 -> 0.86, x0.75 "they swing too fast" fix). Was +15% (2026-06-15).
+#define ACC_GLITCH_COUNT_DEF                3   // bosses spawned per scheduled round (acc_glitch_count, user 2026-06-17) - UNUSED, superseded by glitch_count_for_round
+#define ACC_GLITCH_SPAWN_STAGGER_DEF        1.5 // seconds between Stalker spawns AND before the FIRST one. The "before the first" part is load-bearing: spawning on frame 0 of the round FAILS (see run_glitch_wave). Live dvar acc_glitch_spawn_stagger.
+#define ACC_GLITCH_SPAWN_RETRIES            3   // attempts per Stalker before giving up. A single SpawnFromSpawner refusal used to silently cost a whole Stalker (user-verified 2026-07-15).
+#define ACC_GLITCH_COUNT_LOG_K              2.0 // count curve: int(k*log2(round) - c), k=2.0 (user 2026-07-15, replaced LINEAR (round-2)/2). Live dvar acc_glitch_count_log_k.
+#define ACC_GLITCH_COUNT_LOG_C              4.0 // count curve offset; c=4.0 anchors r6 -> 1 = the DELIVERED count the user actually played (user 2026-07-15: was 3.0, which anchored to NOMINAL counts that the frame-0 bug never delivered). Live dvar acc_glitch_count_log_c.
 
 // Subroutine Core full-boss cadence (mirror of _acc_boss.gsc ACC_BOSS_FULL_* ) - the
 // Glitch Stalker yields on these rounds so it never piles onto the sealed Core fight.
@@ -102,35 +113,31 @@ function maybe_spawn_for_round( round_number )
     level endon( "acc_round_end" );
 
     // Master gate: acc_glitch_enable 0 disables the boss ENTIRELY (real + test).
-    if ( getdvarint( "acc_glitch_enable", ACC_GLITCH_ENABLE_DEF ) != 1 ) return;
+    if ( getdvarint( "acc_glitch_enable", ACC_GLITCH_ENABLE_DEF ) != 1 )
+        return;
 
     // A lockdown CHALLENGE (set by _acc_lockdown_challenge) owns the shared actor budget for
     // its sealed room. Suppress the scheduled glitch wave while one is active so the two
     // glitch waves don't stack on the engine actor cap. Undefined in normal play -> no effect.
-    if ( isdefined( level.acc_ldc_active ) ) return;
-
-    // Dev/test spawn: fires when acc_glitch_test 1 OR the dev sandbox is on (level.acc_dev, the
-    // one dev switch resolved in the entry script). Spawns from acc_glitch_test_round (default 1).
-    test = getdvarint( "acc_glitch_test", 0 );
-    dev  = ( IS_TRUE( level.acc_dev ) ? 1 : 0 );
-    if ( ( test == 1 || dev == 1 ) && round_number >= getdvarint( "acc_glitch_test_round", ACC_GLITCH_TEST_ROUND_DEF ) )
-    {
-        wait 5; // let the round get going
-        run_glitch_wave( round_number );
+    if ( isdefined( level.acc_ldc_active ) )
         return;
-    }
 
-    if ( !cadence_hits( round_number ) ) return;
+    // (Test-spawn lever removed 2026-07-16: dev runs the real boss cadence like every other boss -
+    // no separate acc_glitch_test opt-in. Only acc_dev/acc_god/mock flags exist.)
+    if ( !cadence_hits( round_number ) )
+        return;
     // (Subroutine Core removed 2026-06-22 - no full-boss round to yield to, so the Stalker spawns every round.)
 
     run_glitch_wave( round_number );
 }
 
-// self = the boss. Make it ~25% faster than the round's NORMAL zombies. Zombie movement is
+// self = the boss. Drive its anim rate off the horde's round curve. Zombie movement is
 // anim-driven (the same lever the horde's _acc_zombie_speed uses), so we lock the SAME gait
 // the horde is on this round (acc_zombie_speed::tier_for_round) and set the anim playback rate
-// to acc_glitch_speed_mult x the horde's rate (acc_zombie_speed::rate_for_round). Same gait +
-// 1.25x rate = exactly +25% ground speed. We flag self.acc_boss_custom_speed so the global
+// to acc_glitch_speed_mult x the horde's rate (acc_zombie_speed::rate_for_round). The rate also
+// scales its melee-SWING speed (whole-ASM playback), which is why the mult is now 1.005 - about
+// the SAME as the horde (user 2026-07-17 cut the 07-16 "they swing too fast" pass in half; the blink is its mobility).
+// We flag self.acc_boss_custom_speed so the global
 // _acc_zombie_speed keep-alive SKIPS this actor (else the two writers fight -> speed flicker).
 // Re-asserted on a cadence because round/state changes can clobber the gait override.
 function glitch_speed_think()
@@ -180,8 +187,21 @@ function run_glitch_wave( round_number )
 
     for ( i = 0; i < count; i++ )
     {
+        // STAGGER FIRST, SPAWN SECOND (fixed 2026-07-15, verified in game via the [CNT] probes).
+        // This wait used to sit AFTER spawn_glitch, so the FIRST Stalker of EVERY wave was
+        // attempted on frame 0 of the round - the same frame stock threads
+        // [[level.round_spawn_func]] (_zm.gsc:4431, one line before "start_of_round") - and
+        // SpawnFromSpawner refuses there, so stock spawn_zombie returned undefined
+        // (zombie_utility.gsc:1469-1482). That silently cost one Stalker on EVERY glitch round;
+        // at r4 count==1, so the entire wave WAS that lost spawn -> ZERO Stalkers at r4, ever
+        // (user: "I never see a glitch on round 4" - correct, and this was why).
+        // PROOF the delay is the fix, not the spawner: in the SAME round-4 log, the Shielded
+        // elites spawned fine from the SAME single spawner - _acc_elites::spawn_elites_over_round
+        // waits at the TOP of its loop, so its first spawn lands 3s in, never on frame 0. The
+        // test path's `wait 5; // let the round get going` was this same workaround, applied
+        // only there. Retry backstop lives in spawn_promoted_zombie.
+        wait( getdvarfloat( "acc_glitch_spawn_stagger", ACC_GLITCH_SPAWN_STAGGER_DEF ) );
         spawn_glitch( round_number );
-        wait 1.5;
     }
 }
 
@@ -189,6 +209,11 @@ function run_glitch_wave( round_number )
 // (not `round % interval`) so `first` can be ANY value, e.g. first 12 -> 12, 22, 32.
 function cadence_hits( round_number )
 {
+    // DEV: a wave EVERY round from round 1 (user 2026-07-17 - supersedes 2026-07-12's "no early
+    // boss spam in dev"; the de-rez blink FX/SFX pass needs on-demand Stalkers to eyeball).
+    // Count is dev-pinned to 2 in glitch_count_for_round.
+    if ( IS_TRUE( level.acc_dev ) ) return true;
+
     first    = getdvarint( "acc_glitch_first_round", ACC_GLITCH_FIRST_ROUND_DEF );
     interval = getdvarint( "acc_glitch_interval", ACC_GLITCH_INTERVAL_DEF );
     if ( interval < 1 ) interval = 1; // guard a bad slider (avoid mod-by-zero)
@@ -197,13 +222,45 @@ function cadence_hits( round_number )
     return ( ( round_number - first ) % interval ) == 0;
 }
 
-// How many Glitch Stalkers spawn this round (user 2026-06-23): count = floor((round-2)/2), clamped >=1.
-// With first-spawn round 4 + interval 2 that's r4 -> 1, r6 -> 2, r8 -> 3, r10 -> 4, ... (+1 each spawn
-// round). Clamped >=1. acc_glitch_count is no longer used (superseded by this scaling).
+// How many Glitch Stalkers spawn this round. LOG IN ROUND x LOG IN PLAYERS (user 2026-07-15).
+//
+//   count = max( 1, int( k*log2(round) - c ) )  x  acc_coop_scaling::elite_count_player_mult()
+//   k = acc_glitch_count_log_k (2.0), c = acc_glitch_count_log_c (4.0)
+//
+// Replaces the LINEAR floor((round-2)/2) (user 2026-06-23), which grew forever: r30 = 14, r50 = 24
+// Glitch Stalkers - and that was the PLAYER-BLIND count, identical solo and 4p.
+//
+// ANCHORED TO *DELIVERED* COUNTS, NOT NOMINAL ONES (user 2026-07-15, re-anchored after the frame-0
+// spawn bug was found). This curve's first version used c=3.0 to match the old formula's r4/r6/r8 =
+// 1/2/3 - but that bug ate the first spawn of EVERY wave, so what the game actually PRODUCED was
+// 0/1/2. Matching the nominal numbers would have silently made every glitch round +1 harder than
+// anything ever play-tested. c=4.0 + first_round=6 anchors r6 -> 1 and r8 -> 2: exactly what the user
+// has been playing, now delivered honestly instead of by accident. Lesson: after fixing a spawn bug,
+// re-tune against MEASURED counts - a formula's output was never evidence of what reached the world.
+//
+// The two logs COMPOUND (4p doubles the round term), which is WHY the round term must stay flat late:
+// the rejected linear-round x log-player design hit 78 elites at r40 4p vs ACC_AI_LIMIT 50 - an
+// elites-only wave with normal zombies starved out of the actor budget.
+//
+// acc_utility::acc_log2 exists because GSC HAS NO log BUILTIN and round is unbounded (the player mult
+// dodges it with a 3-literal switch - only 1..4 are legal there). Both k and c are live dvars.
+// acc_glitch_count is still unused (superseded).
 function glitch_count_for_round( round_number )
 {
-    if ( round_number < 2 ) return 1;
-    n = int( ( round_number - 2 ) / 2 );   // user 2026-06-23: dropped the +1 so it starts at 1 (r4=1, r6=2, r8=3, ...)
+    // DEV: exactly 2 per round, curve + coop mult SKIPPED (user 2026-07-17 "2 glitches spawn
+    // every round when dev mode is enabled") - deterministic count for FX eyeballing. Sits above
+    // the round<2 early-return so dev round 1 also delivers 2.
+    if ( IS_TRUE( level.acc_dev ) ) return 2;
+
+    if ( !isdefined( round_number ) || round_number < 2 ) return 1;
+
+    k = getdvarfloat( "acc_glitch_count_log_k", ACC_GLITCH_COUNT_LOG_K );
+    c = getdvarfloat( "acc_glitch_count_log_c", ACC_GLITCH_COUNT_LOG_C );
+
+    n = int( ( k * acc_utility::acc_log2( round_number ) ) - c );
+    if ( n < 1 ) n = 1;   // floor BEFORE the player mult so 1p never drops below one Stalker
+
+    n = int( n * acc_coop_scaling::elite_count_player_mult() );
     if ( n < 1 ) n = 1;
     return n;
 }
@@ -241,12 +298,22 @@ function spawn_glitch( round_number )
     host.acc_is_glitch_zombie = true;
 
     // HP = acc_glitch_hp_mult x the round's NORMAL zombie health (user 2026-06-23, default 1.5x; was 3x).
-    // level.zombie_health is the stock per-round normal-zombie HP (the actor's post-init maxhealth
-    // equals it - fallback below). Written AFTER the init-gate so stock zombie_spawn_init can't
-    // clobber it. Live-tunable, no rebuild. Scales with the round automatically (no separate curve).
+    // Read host.maxhealth, NOT level.zombie_health (fixed 2026-07-15): spawn_promoted_zombie() returns
+    // only AFTER the init gate, so host.maxhealth is the round HP WITH acc_coop_scaling's regular_hp_mult()
+    // (+20%/extra player) already baked in by the level.zombie_init_done hook. level.zombie_health is the
+    // SOLO value and NEVER carries that mult, so reading it made a 4p Stalker 1.5x a SOLO zombie = 0.94x a
+    // 4p zombie - SOFTER than the trash it spawns among. The old comment here asserted "the actor's post-init
+    // maxhealth equals it", which stopped being true when the co-op HP hook landed (2026-06-12) and is the
+    // reason this went unnoticed: at 1p regular_hp_mult() is exactly 1.0, so the two are identical in every
+    // solo test. A FLAT multiply on the post-init base keeps it a clean 1.5x a normal zombie at ANY player
+    // count - the same contract the Shielded elite uses (_acc_elites.gsc:311-318). Do NOT multiply
+    // special_hp_mult() on top: that DOUBLE-counts co-op (_acc_coop_scaling.gsc:99-106).
+    // Ordering note: host.acc_is_mini_boss is set ABOVE but AFTER spawn_promoted_zombie() returned, so the
+    // init hook still saw a regular zombie and applied the mult (it skips acc_is_mini_boss - coop:172).
+    // Written AFTER the init-gate so stock zombie_spawn_init can't clobber it. Live-tunable, no rebuild.
     mult = getdvarfloat( "acc_glitch_hp_mult", ACC_GLITCH_HP_MULT_DEF );  // float so fractional mults (1.5) work
     if ( mult < 1.0 ) mult = 1.0;
-    normal_hp = ( isdefined( level.zombie_health ) ? level.zombie_health : host.maxhealth );
+    normal_hp = ( isdefined( host.maxhealth ) ? host.maxhealth : level.zombie_health );
     if ( !isdefined( normal_hp ) || normal_hp < 1 ) normal_hp = 100;
     host.maxhealth = int( normal_hp * mult );
     host.health = host.maxhealth;
@@ -319,7 +386,7 @@ function spawn_glitch( round_number )
 
     // Behaviours.
     host thread glitch_blink_loop();      // self-endons on "death"
-    host thread glitch_speed_think();     // ~25% faster than the round's normal zombies
+    host thread glitch_speed_think();     // anim rate = horde x acc_glitch_speed_mult (1.005 - about the same as the horde; the blink is its mobility)
     host thread glitch_death_watch();     // waits ON "death"
     // Phase Serum cloak: hide acc_cloak_glitch players from this boss's CORE follow+melee
     // AI (not just blink/charge). Stock get_closest_valid_player consults this per-AI
@@ -414,13 +481,33 @@ function spawn_promoted_zombie()
     // pre-power, when it kept landing in a different open zone than the one you're standing in (user
     // 2026-06-23: "no glitch zombies in the Plaza"). Nearest-to-a-player puts it where the fight is; falls
     // back to a random active spawner if there's no living player.
-    spawner = nearest_spawner_to_player();
-    if ( !isdefined( spawner ) )
-        spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
-    core = zombie_utility::spawn_zombie( spawner );
+    // RETRY a TRANSIENT spawn refusal (added 2026-07-15). We used to take ONE shot: stock
+    // spawn_zombie returns undefined whenever SpawnFromSpawner refuses (zombie_utility.gsc:1469-1482,
+    // e.g. at round-start frames), and that single failure silently cost a whole Stalker with no
+    // trace in normal play. run_glitch_wave's leading stagger is the ROOT-CAUSE fix; this is the
+    // backstop, because the exact frame threshold where the engine starts accepting spawns is not
+    // documented anywhere and we should not depend on having guessed it right. Re-picks the spawner
+    // each attempt (a living player may have moved zones). Bounded, and every attempt is ~0.5s, so
+    // worst case is well inside a round; endon("acc_round_end") still cuts it if the round clears.
+    core    = undefined;
+    spawner = undefined;
+    for ( attempt = 0; attempt < ACC_GLITCH_SPAWN_RETRIES; attempt++ )
+    {
+        if ( attempt > 0 )
+            wait 0.5;
+
+        spawner = nearest_spawner_to_player();
+        if ( !isdefined( spawner ) )
+            spawner = level.zombie_spawners[ acc_utility::acc_rand_int( level.zombie_spawners.size ) ];
+
+        core = zombie_utility::spawn_zombie( spawner );
+        if ( isdefined( core ) )
+            break;
+    }
+
     if ( !isdefined( core ) )
     {
-        acc_utility::log( "boss_glitch: spawn_zombie returned undefined (spawner missing script_forcespawn?)" );
+        acc_utility::log( "boss_glitch: spawn_zombie returned undefined after " + ACC_GLITCH_SPAWN_RETRIES + " attempts" );
         return undefined;
     }
 
@@ -508,7 +595,12 @@ function glitch_blink_loop()
         }
         if ( !isdefined( flank_pos ) ) continue; // no valid navmesh point -> skip this blink
 
+        // [acc] de-rez burst at BOTH ends of the blink (docs/44 workstream A) - the departure
+        // burst is the tell that it moved, the arrival burst is the "where". Combat blinks only;
+        // the hidden spawn-drive forceteleport (~L668) stays FX-less so the reveal isn't spoiled.
+        acc_utility::derez_burst( self.origin );
         self forceteleport( flank_pos );
+        acc_utility::derez_burst( self.origin );
         // [acc] teleport "warp" SFX EMITTED BY the zombie. `self PlaySound` attaches the sound to the
         // AI entity (the same call the Brutus pack uses for its vocals), so it is a true 3D world sound
         // that originates at the zombie and follows him - inaudible when he's far, louder up close,
@@ -552,7 +644,7 @@ function glitch_phase_in()
     self Ghost(); // vanish the instant we blink in - the whole re-path standstill happens HIDDEN
 
     cap        = getdvarfloat( "acc_glitch_phasein_max", 2.5 );  // hard invisibility failsafe (s)
-    charge_spd = getdvarint( "acc_glitch_charge_speed", 675 );   // units/sec the hidden charge closes the gap (user 2026-06-23: 900->675, -25% = closes 25% slower)
+    charge_spd = getdvarint( "acc_glitch_charge_speed", 591 );   // units/sec the hidden charge closes the gap (user 2026-07-17: 506->591, cut the 07-16 pass in half - "too passive now"; 2026-07-16: 675->506; 2026-06-23: 900->675)
     reveal_d   = getdvarint( "acc_glitch_reveal_dist", 140 );    // reveal/hand back to the AI this close to a player. 140 (was 240) = INSIDE the engage range so it actually presses the attack instead of un-hiding far out and re-blinking before contact (user 2026-06-18). Live dvar.
     if ( charge_spd < 0 ) charge_spd = 0;
     step     = charge_spd * 0.05; // distance per 20Hz tick
@@ -677,7 +769,7 @@ function pounce_point( from, to )
 // needed - a dead/teleported pouncer never holds the slot.
 function claim_pounce( target )
 {
-    cd = getdvarint( "acc_glitch_pounce_cooldown", 1600 );   // ms (user 2026-06-23: 1200->1600, pounces a camper ~25% less often)
+    cd = getdvarint( "acc_glitch_pounce_cooldown", 1867 );   // ms (user 2026-07-17: 2133->1867, cut the 07-16 pass in half - "too passive now"; 2026-07-16: 1600->2133; 2026-06-23: 1200->1600)
     if ( isdefined( target.acc_glitch_last_pounce ) && ( gettime() - target.acc_glitch_last_pounce ) < cd )
         return false;
     target.acc_glitch_last_pounce = gettime();
@@ -814,11 +906,12 @@ function cleanup_glitch_corpse()
 // Debug
 // ---------------------------------------------------------------------------
 
-// On-screen trace for live debugging without the console. Gated on `acc_glitch_debug 1`
-// (default off). Mirrors the acc_variants_debug pattern (docs/22 §E).
+// On-screen trace for live debugging without the console. Rides IS_TRUE( level.acc_dev ) -
+// visible in a dev build, silent in ship (the acc_glitch_debug / acc_variants_debug dvars
+// were removed 2026-07-16; docs/22 §E).
 function gdebug( msg )
 {
-    if ( getdvarint( "acc_glitch_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [GLITCH] rides acc_glitch_debug now)
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 
     for ( i = 0; i < level.players.size; i++ )
     {

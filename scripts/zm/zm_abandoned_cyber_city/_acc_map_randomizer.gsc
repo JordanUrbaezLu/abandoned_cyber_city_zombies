@@ -43,14 +43,13 @@ function pre_init()
     state.power_switch_side = roll_power_switch_side();
     state.pap_approach = roll_pap_approach();
     state.mystery_box_initial = roll_mystery_box_initial();
-    // VERIFIED(acc): the initial box location must be set HERE, not at
-    // blackscreen time - stock treasure_chest_init runs ~0.05s after magicbox
-    // init (_zm_magicbox.gsc:96) reading level.start_chest_name (default
-    // "start_chest", :58), matched against chest script_noteworthy via
-    // IsSubStr (:223). Radiant chests need script_noteworthy acc_box_market /
-    // acc_box_corp / acc_box_roof / acc_box_plaza / acc_box_lab / acc_box_vault
-    // (six chests; roll_mystery_box_initial only ever returns plaza|lab so the
-    // START node always has a chest).
+    // [acc] 2026-07-12 AW 3D Printer box swap: the stock zbarrier chests are GONE from the
+    // .map, so this level.start_chest_name write is a harmless no-op (stock
+    // treasure_chest_init finds zero "treasure_chest_use" structs and returns immediately -
+    // that empty-return IS the clean stock-box disable; never touch level.enable_magic, it
+    // also gates perks + fire sale). The plaza-start guarantee now lives in the AW driver:
+    // the plaza's aw_exo_mysterybox_location struct carries script_noteworthy "starting_loc"
+    // (scripts/planet/_aw/_zm_aw_mysterybox.gsc::__main__). Kept for the state log.
     level.start_chest_name = "acc_box_" + state.mystery_box_initial;
     // Perk rotation is rolled PER ROUND, not per run. See roll_perk_rotation
     // below and the hookup in init() / apply_state_when_ready().
@@ -203,6 +202,9 @@ function register_mystery_box_pool()
         // bosses 25%/3s (the headline use) + super-effective vs Shielded/Glitch. projectileweapon _zm asset,
         // claim-capped 1, self-registers via autoexec (_zm_weap_freezegun). Combat logic in that file's [acc] block.
         "freezegun",                 // Winter's Howl (freeze utility wonder weapon)
+        // THE CYBERJACK (apex_lstar) is DELIBERATELY ABSENT from this array (user 2026-07-17,
+        // docs/43 decision 2: QUEST-ONLY, NEVER in the box - the ICEBREAKER COMPILE is the only public
+        // acquisition; dev-grant rides _acc_dev). Do NOT "helpfully" add it here in a wonder-roster sweep.
         // Action Figure (BO4 t8 melee port by T0nic; TEST-ONLY rip, see CREDITS). A fun handheld swing weapon.
         // Source installed in the Mod Tools (gitignored); .zone + CSV + GDT wired 2026-06-23. Melee = "special"
         // class like the Thundergun, so it rides the same is_in_box flip below (degrades to "not in box" if the
@@ -285,6 +287,7 @@ function wonder_cap_key( w )   // weapon object -> claim key, or undefined = unc
     if ( IsSubStr( w.name, "elemental_bow_demongate" ) ) return "firebow";       // HB21 fire bow (2026-07-07)
     if ( IsSubStr( w.name, "leviathan" ) )               return "leviathanaxe";  // GoW Leviathan Axe (covers _up)
     if ( IsSubStr( w.name, "freezegun" ) )               return "freezegun";     // Winter's Howl (covers freezegun_upgraded)
+    if ( IsSubStr( w.name, "apex_lstar" ) )              return "cyberjack";     // THE CYBERJACK (L-STAR chassis, docs/43) - QUEST-ONLY, never in the box (chassis swap bow->L-STAR 2026-07-17)
     return undefined;
 }
 
@@ -296,6 +299,7 @@ function wonder_cap_limit( key )
     if ( key == "firebow" )      return getdvarint( "acc_cap_firebow", 1 );
     if ( key == "leviathanaxe" ) return getdvarint( "acc_cap_leviathanaxe", 1 );
     if ( key == "freezegun" )    return getdvarint( "acc_cap_freezegun", 1 );
+    if ( key == "cyberjack" )    return getdvarint( "acc_cap_cyberjack", 1 );
     return 0;
 }
 
@@ -512,51 +516,103 @@ function is_box_tactical( wpn )
     return ( wpn.name == "cymbal_monkey" || wpn.name == "octobomb" );
 }
 
+// [acc] BOX DISPLAY MODEL resolver (user 2026-07-16, "~25% of the box cycle models are wrong").
+// The Skye Cold War (t9_) + Vanguard (s4_) ports are built like their source games: the weapon's
+// worldModel is the bare RECEIVER, and the mag / stock / barrel ship as separate
+// worldClipModel/attachWorldModel parts the ENGINE only composes onto an equipped weapon. A raw
+// `SetModel( weapon.worldModel )` (AW printer idle cycle, Paradise Box flicker) therefore showed
+// strip-downs: RPD/M60 without their drums ("RPD looks tiny"), PPSH/Grav/AK-47/XM4/AK-74u without
+// mags ("just look wrong"), Streetsweeper missing stock+barrel+drum ("missing a part"). Every such
+// pack ALSO ships a pre-composed `wm_*_full` display mesh (xmodel entries verified in the install
+// GDTs 2026-07-16; bounds via tools/xmodel_bin_inspect.js prove they're the complete guns) - this
+// returns THAT for display. NOT free: the _full models are referenced by nothing else, so they get
+// explicit `xmodel,` .zone lines + the #precache block below (precache does NOT pack, zone lines
+// don't precache - both are required). The Armory rack doesn't need this (UseBuildKitWeaponModel
+// = the engine composer); these two boxes SetModel on a bare script_model with no player context,
+// where the _full override is the deterministic fix. Every OTHER pool gun's worldModel is already
+// a complete mesh (older Skye/Apex/AW ports bake one) and falls through unchanged.
+#precache( "model", "wm_t9_ak47_full" );
+#precache( "model", "wm_t9_xm4_full" );
+#precache( "model", "wm_t9_ak74u_full" );
+#precache( "model", "wm_t9_grav_full" );
+#precache( "model", "wm_t9_m60_full" );
+#precache( "model", "wm_t9_rpd_full" );
+#precache( "model", "wm_t9_streetsweeper_full" );
+#precache( "model", "wm_s4_ppsh41_drum_full" );
+function box_display_model( wpn )   // weapon OBJECT -> xmodel name to display (undefined = nothing to show)
+{
+    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return undefined;
+    switch ( wpn.name )
+    {
+        case "t9_ak47":          return "wm_t9_ak47_full";
+        case "t9_xm4":           return "wm_t9_xm4_full";
+        case "t9_ak74u":         return "wm_t9_ak74u_full";
+        case "t9_grav":          return "wm_t9_grav_full";
+        case "t9_m60":           return "wm_t9_m60_full";
+        case "t9_rpd":           return "wm_t9_rpd_full";
+        case "t9_streetsweeper": return "wm_t9_streetsweeper_full";
+        case "s4_ppsh41_base":   return "wm_s4_ppsh41_drum_full";   // the iconic drum silhouette (a stick-mag _full also ships)
+    }
+    return wpn.worldModel;   // may be undefined (pack oddities) - callers already guard
+}
+
 // Per-gun mystery-box weight (docs/33; ranked on PaP-form power). HIGHER weight = COMMONER roll,
 // so the best packed guns are the rarest finds. GENERATED by tools/gen_box_dynamic.js - do NOT
 // hand-edit between the markers; edit that script's RANK/curve + re-run (rare specials are
 // FIXED-% targets there: wonders 0.3% / Action Figure 0.8% / Havoc 1.2%). Matched by EXACT
 // box-pool name; re-normalizes live as you collect (the box never repeats a gun you own).
-// <<< BEGIN GENERATED (tools/gen_box_dynamic.js - CURATED dynamic power-rank curve; user 2026-07-09:
-//     wonders pinned 0.3%, Havoc pinned 1.2%, gun curve steepened 1.09->1.11 (top guns rarer);
-//     same-day rarity SWAPS: XM4<->M60, Peacekeeper<->PPSH, CEL-3<->AK-74u, MK14<->Grav, Olympia<->Five-Seven.
-//     Per-open % = weight/total x 0.985 after the Monkey Bomb 1.0% + Li'l Arnie 0.5% tactical pre-roll. >>>
+// <<< BEGIN GENERATED (tools/gen_box_dynamic.js) + HAND-TUNED 2026-07-16 (user: box odds ~16% top / 36% mid /
+//     48% bad of the conventional-gun pool). The conventional-gun band is a GENTLE MONOTONIC curve, split by
+//     price tier into three weight BUDGETS: TOP guns (XM4..MORS, ranks 6-14) = 16% of the conventional pool,
+//     MID (Alternator..Tac-19, ranks 15-21) = 36%, BOT/"bad" (AK-74u..Five-Seven, ranks 22-29) = 48% - each
+//     band a gentle rising gradient (rarer -> commoner). Bad guns stay the commonest pull but far less
+//     dominant than the old geometric curve (was ~58%). Pool total held at 4993 so the specials keep their
+//     tuned %; as RAW per-open odds that conventional 16/36/48 reads ~15% / 34% / 45% (wonders/specials take
+//     the other ~6.5%). Specials (wonders 12/0.24%, freezegun 12, Action Figure 40, Ballistic Knife 92,
+//     Havoc 60) stay hand-tuned PAST the generator; gen_box_dynamic.js reproduces this curve but a naive
+//     regen still needs the special hand-edits re-applied (see the wonder/knife notes below).
+//     Per-open % = weight/4993 x 0.985. >>>
 function acc_box_weight( wpn )
 {
-    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 52;   // default = a mid gun
+    if ( !isdefined( wpn ) || !isdefined( wpn.name ) ) return 245;   // default = a mid gun (MID band)
     n = wpn.name;
-    if ( n == "thundergun" )            return 15;   // 0.30% - #1 Thundergun
-    if ( n == "t9_semiauto_cosplay" )   return 15;   // 0.30% - #2 Blast-O-Matic
-    if ( n == "elemental_bow_demongate" ) return 15;   // 0.30% - #3 Fire Bow
-    if ( n == "leviathan" )             return 15;   // 0.30% - #4 Leviathan Axe
-    if ( n == "freezegun" )             return 15;   // 0.30% - Winter's Howl utility wonder (hand-added 2026-07-11; re-run gen_box_dynamic.js RANK to re-sync the printed %)
+    // WONDER WEAPONS NERFED to ~0.25% EACH (user 2026-07-13 "so many of them now"): weight 15->12
+    // (12/4993 = 0.24%, the closest integer to the 0.25% target vs the unchanged non-wonder pool).
+    // Worker GUN_BOX_WEIGHT (pref_index only) was RESYNCED to this table on 2026-07-16 via tools/gen_gun_ids.js
+    // (covers these 5 wonders AND the 16/36/48 band reshape below); REDEPLOY the leaderboard Worker for the live
+    // pref_index to pick up the new weights (worker.js source is updated).
+    if ( n == "thundergun" )            return 12;   // 0.24% - #1 Thundergun
+    if ( n == "t9_semiauto_cosplay" )   return 12;   // 0.24% - #2 Blast-O-Matic
+    if ( n == "elemental_bow_demongate" ) return 12;   // 0.24% - #3 Fire Bow
+    if ( n == "leviathan" )             return 12;   // 0.24% - #4 Leviathan Axe
+    if ( n == "freezegun" )             return 12;   // 0.24% - Winter's Howl utility wonder
     if ( n == "t8_melee_figure" )       return 40;   // 0.80% - #5 Action Figure
-    if ( n == "knife_ballistic" )       return 40;   // 0.80% - Ballistic Knife (co-op revive utility special; hand-added 2026-07-11, re-run gen_box_dynamic.js RANK to re-sync the printed %)
-    if ( n == "t9_xm4" )                return 52;   // 1.05% - #6 XM4
-    if ( n == "apex_peacekeeper" )      return 58;   // 1.17% - #7 Peacekeeper
-    if ( n == "t9_ak47" )               return 64;   // 1.29% - #8 AK-47
-    if ( n == "t9_m60" )                return 71;   // 1.43% - #9 M60
-    if ( n == "s4_ppsh41_base" )        return 79;   // 1.59% - #10 PPSH-41
-    if ( n == "apex_beam_rifle" )       return 60;   // 1.21% - #11 Havoc
-    if ( n == "s1_mahem" )              return 88;   // 1.77% - #12 Mahem
-    if ( n == "t6_war_machine" )        return 97;   // 1.95% - #13 War Machine
-    if ( n == "s1_mors" )               return 108;   // 2.17% - #14 MORS
-    if ( n == "apex_alternator" )       return 120;   // 2.41% - #15 Alternator
-    if ( n == "s1_ae4" )                return 133;   // 2.67% - #16 AE4
-    if ( n == "s1_rw1" )                return 148;   // 2.97% - #17 RW1
-    if ( n == "s1_cel3" )               return 164;   // 3.30% - #18 CEL-3
-    if ( n == "apex_tripletake" )       return 182;   // 3.66% - #19 Triple Take (took the retired M16's exact slot, 2026-07-11)
-    if ( n == "s1_mk14" )               return 202;   // 4.06% - #20 MK14
-    if ( n == "s1_tac19" )              return 224;   // 4.50% - #21 Tac-19
-    if ( n == "t9_ak74u" )              return 249;   // 5.00% - #22 AK-74u
-    if ( n == "apex_prowler" )          return 276;   // 5.55% - #23 Prowler
-    if ( n == "t9_streetsweeper" )      return 307;   // 6.17% - #24 Streetsweeper
-    if ( n == "t6_hamr" )               return 340;   // 6.83% - #25 HAMR
-    if ( n == "t9_rpd" )                return 378;   // 7.60% - #26 RPD
-    if ( n == "t6_olympia" )            return 419;   // 8.42% - #27 Olympia
-    if ( n == "t9_grav" )               return 465;   // 9.35% - #28 Grav
-    if ( n == "t6_fiveseven" )          return 517;   // 10.39% - #29 Five-Seven
-    return 52;   // unknown -> a mid gun
+    if ( n == "knife_ballistic" )       return 92;   // ~1.8% - Ballistic Knife (user 2026-07-12: 40->92, the integer weight closest to a 1.8% pull at the current pool = 1.81%; hand-added special, re-run gen_box_dynamic.js RANK to re-sync the printed %)
+    if ( n == "t9_xm4" )                return 64;   // 1.26% - #6 XM4 (TOP band = 16% of the conventional pool)
+    if ( n == "apex_peacekeeper" )      return 71;   // 1.40% - #7 Peacekeeper
+    if ( n == "t9_ak47" )               return 79;   // 1.56% - #8 AK-47
+    if ( n == "t9_m60" )                return 87;   // 1.72% - #9 M60
+    if ( n == "s4_ppsh41_base" )        return 97;   // 1.91% - #10 PPSH-41
+    if ( n == "apex_beam_rifle" )       return 60;   // 1.18% - #11 Havoc (special - unchanged)
+    if ( n == "s1_mahem" )              return 108;   // 2.13% - #12 Mahem
+    if ( n == "t6_war_machine" )        return 120;   // 2.37% - #13 War Machine
+    if ( n == "s1_mors" )               return 133;   // 2.62% - #14 MORS (last of the TOP band)
+    if ( n == "apex_alternator" )       return 230;   // 4.54% - #15 Alternator (MID band = 36% of the conventional pool)
+    if ( n == "s1_ae4" )                return 234;   // 4.62% - #16 AE4
+    if ( n == "s1_rw1" )                return 239;   // 4.71% - #17 RW1
+    if ( n == "s1_cel3" )               return 244;   // 4.81% - #18 CEL-3
+    if ( n == "apex_tripletake" )       return 249;   // 4.91% - #19 Triple Take
+    if ( n == "s1_mk14" )               return 253;   // 4.99% - #20 MK14
+    if ( n == "s1_tac19" )              return 259;   // 5.11% - #21 Tac-19 (last of the MID band)
+    if ( n == "t9_ak74u" )              return 256;   // 5.05% - #22 AK-74u (BOT/"bad" band = 48%, still the commonest tier)
+    if ( n == "apex_prowler" )          return 264;   // 5.21% - #23 Prowler
+    if ( n == "t9_streetsweeper" )      return 271;   // 5.35% - #24 Streetsweeper
+    if ( n == "t6_hamr" )               return 280;   // 5.52% - #25 HAMR
+    if ( n == "t9_rpd" )                return 288;   // 5.68% - #26 RPD
+    if ( n == "t6_olympia" )            return 297;   // 5.86% - #27 Olympia
+    if ( n == "t9_grav" )               return 306;   // 6.04% - #28 Grav
+    if ( n == "t6_fiveseven" )          return 312;   // 6.16% - #29 Five-Seven (worst gun = commonest)
+    return 245;   // unknown -> a mid gun (MID band)
 }
 // <<< END GENERATED >>>
 
@@ -687,17 +743,11 @@ function apply_perk_rotation_to_machines( rotation )
 function roll_mystery_box_initial()
 {
     // FIRST box location is ALWAYS the PLAZA (start room) - deterministic, every
-    // run (user, 2026-06-18). After this initial spawn the stock _zm_magicbox
-    // teddy-bear move rotates the single box randomly among ALL six chests in the
-    // map (market/corp/roof/plaza/lab/vault) - that wider pool is NOT constrained
-    // here, only the START node is pinned.
-    //
-    // CONTRACT: the node returned here MUST have a matching acc_box_<node> chest
-    // pair (script_struct targetname "treasure_chest_use" + zbarrier
-    // "<node>_zbarrier") in map_source/.../zm_abandoned_cyber_city.map, or stock
-    // _zm_magicbox finds no start match and HIDES ALL boxes (silent no-box, see
-    // docs/research/BO3_Mystery_Box_Radiant_anatomy_multi_.txt Â§C gotcha). The
-    // acc_box_plaza chest exists (added with the +3-spots change).
+    // run (user, 2026-06-18). Since the 2026-07-12 AW 3D Printer swap the actual
+    // enforcement is the plaza aw_exo_mysterybox_location struct's script_noteworthy
+    // "starting_loc" (read by scripts/planet/_aw/_zm_aw_mysterybox.gsc::__main__);
+    // after the start, the AW driver's own teddy/move logic rotates the box among
+    // all seven machine locations. This roll is log-only now.
     return "plaza";
 }
 
@@ -958,11 +1008,12 @@ function apply_mystery_box_initial( node_name )
 
 function box_clip_nodes()
 {
-    // One entry per real acc_box_<node> chest in the .map (the six box spots). A
-    // node with no acc_box_clip_<node> brushmodel just no-ops in set_active_box_clip
-    // (none are placed yet - the MagicBox model is walk-through on every spot today),
-    // so this list is only load-bearing once collision clips are authored.
-    return array( "market", "corp", "roof", "plaza", "lab", "vault" );
+    // One entry per real acc_box_<node> chest in the .map (SEVEN spots since 2026-07-12:
+    // "trench" = the reactor/jukebox under-room chest, z=-240, added with the against-wall
+    // repositioning pass). A node with no acc_box_clip_<node> brushmodel just no-ops in
+    // solidify_all_box_clips, so this list is only load-bearing for authored clips
+    // (tools/align_box_clips.js authors all seven).
+    return array( "market", "corp", "roof", "plaza", "lab", "vault", "trench", "alley" );
 }
 
 // Make EVERY box node's clip solid (user 2026-06-26). Every node ALWAYS shows a box model - the
@@ -1033,6 +1084,25 @@ function solidify_deep_prop_clips()
             clips[ c ] show();
             solid_count++;
         }
+    }
+
+    // PREFIX SWEEP (2026-07-12, Infected Descent L2 pass - user "nothing you added has
+    // clips"): explicit-solid EVERY acc_clip_* / acc_box_clip_* script_brushmodel, exactly
+    // like the navmesh sweep below (cut_navmesh_under_prop_clips). "Solid by author
+    // default" is no longer trusted as the only guarantee; new clip labels from
+    // add_prop_clips.js re-runs are covered with zero script edits (the hardcoded list
+    // above stays for its debug tally). Double-solid on the legacy 4 is harmless.
+    bms = GetEntArray( "script_brushmodel", "classname" );
+    for ( i = 0; i < bms.size; i++ )
+    {
+        tn = bms[ i ].targetname;
+        if ( !isdefined( tn ) )
+            continue;
+        if ( !IsSubStr( tn, "acc_clip_" ) && !IsSubStr( tn, "acc_box_clip_" ) )
+            continue;
+        bms[ i ] solid();
+        bms[ i ] show();
+        solid_count++;
     }
     return solid_count;
 }
@@ -1116,13 +1186,10 @@ function box_clip_dbg( msg )
 // Helpers
 // ---------------------------------------------------------------------------
 
-function weighted( w, v )
-{
-    s = spawnstruct();
-    s.weight = w;
-    s.value = v;
-    return s;
-}
+// REMOVED 2026-07-15 (audit): `function weighted( w, v )` lived here and was DEAD - zero callers in this
+// module. It was one of three byte-identical copies across the codebase; the other two still have callers
+// in their own modules, so only this orphan was dropped. If this module ever needs weighted picks again,
+// call the surviving helper rather than re-adding a fourth copy.
 
 function log_state( state )
 {

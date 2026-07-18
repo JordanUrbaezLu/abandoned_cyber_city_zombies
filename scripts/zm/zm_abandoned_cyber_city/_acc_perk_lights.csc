@@ -45,6 +45,19 @@
 #precache( "client_fx", "acc/light/fx_perk_glow_magenta" );
 #precache( "client_fx", "acc/light/fx_perk_glow_white_dim" );
 #precache( "client_fx", "acc/light/fx_perk_glow_amber_dim" );
+// Index 14 (user 2026-07-12): the ABYSS SOUL-DEFEAT floor lights. Unlike the fx_perk_glow_*
+// SPRITES (self-lit billboards whose embedded omni is dimmed 40% + distance-culled at 75/150
+// so it never reaches the walls - the "lights don't light the room" the user saw), this is a
+// STOCK full-bright, UN-CULLED PRIMARY_OMNI dynamic light (radius 125, _color 1 0.46 0.16,
+// culling_cutoff 0) that casts REAL light on the geometry. Same ClientSide-omni engine path
+// the map already runs on every perk glow (proven CTD-safe - NOT the baked-light crash path).
+#precache( "client_fx", "light/fx_light_lantern_factory_zmb" );
+// Index 15 = the BRIGHT abyss soul-defeat lamp (user 2026-07-13 "make them brighter so they light up
+// the room more"). fx_light_candle_ramses = a CLEAN white PRIMARY_OMNI at intensity 5000 / radius 200,
+// NO fire particles, and PRIMARY_NOSHADOWMAP 1 (no-shadow) = fills the bay EVENLY and is actually
+// CHEAPER than the previous shadowed omni_12 (251). A real bright light that casts on the geometry
+// (the vision-grade "tint" was pulled). 15 = the LAST accPerkGlow slot.
+#precache( "client_fx", "light/fx_light_candle_ramses" );
 
 #namespace acc_perk_lights;
 
@@ -67,6 +80,8 @@ function __init__()
     level._effect[ "acc_glow_11" ] = "acc/light/fx_perk_glow_magenta";    // lockdown "purge" room lights (user 2026-06-24, was red)
     level._effect[ "acc_glow_12" ] = "acc/light/fx_perk_glow_white_dim";  // trench shard-bank "has shards" indicator (dim white)
     level._effect[ "acc_glow_13" ] = "acc/light/fx_perk_glow_amber_dim";  // dropped-ITEM loot glow (user 2026-07-08: dimmed to 40% - index 5 full amber stays on Mule Kick)
+    level._effect[ "acc_glow_14" ] = "light/fx_light_lantern_factory_zmb"; // ABYSS soul-defeat floor lights - REAL un-culled full-bright omni (casts on geometry, user 2026-07-12)
+    level._effect[ "acc_glow_15" ] = "light/fx_light_candle_ramses"; // BRIGHT abyss soul-defeat lamp - clean white NO-SHADOW omni, intensity 5000 / radius 200 (user 2026-07-13 "brighter, light the room more")
 
     // MUST match _acc_perk_lights.gsc EXACTLY. !CF_CALLBACK_ZERO_ON_NEW_ENT so the
     // latched value replays for clients that join AFTER power-on (the callback fires on

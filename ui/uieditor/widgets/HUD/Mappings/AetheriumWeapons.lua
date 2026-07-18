@@ -9,6 +9,22 @@
 -- To give a gun real art later: add ["<weapon_codename>"] = { ingame_name, icon, description }
 -- (the lookup strips _upgraded/_upg/_zm/_up suffixes) - the kit wiki's How-To-Add-Weapons flow.
 CoD.AetheriumWeaponData = {
+	-- [acc] BOSS-ITEM ELIGIBILITY TAGS (user 2026-07-13): the description carries a bracket tag for
+	-- every WEAPON-GATED boss-item/implant synergy, so the mystery-box card tells players at a glance
+	-- which implant helps a rolled gun. Weapon-TYPE tags (mirror the predicate in _acc_damage.gsc /
+	-- the item's gate in _acc_boss_items.gsc):
+	--   [ENERGY]    -> Plasma Generator (item 9, +10%)  = is_energy_weapon  (Havoc/Tac-19/AE4/
+	--                  Blast-O-Matic/CEL-3/Triple Take/Peacekeeper)  [RW1+Thundergun moved OUT 2026-07-14]
+	--   [EXPLOSIVE] -> Warhead Bomber  (item 13, +20%)  = is_explosive_mod  (Mahem/War Machine launchers +
+	--                  the elemental bows)  [was Nuclear Energy; split 2026-07-14]
+	--   [MELEE]     -> Berzerker (item 11, +35% swing) = the melee-WEAPON surfaces (Leviathan Axe /
+	--                  Action Figure / Ballistic Knife STAB; the universal knife-BASH leg is on every
+	--                  gun so it is NOT a per-gun tag)
+	--   [TURBO]     -> Turbocharger (item 8, 0s charge) = Havoc-ONLY (apex_beam_rifle)
+	-- High Caliber Rounds (item 12, +25% bullet) gets NO tag - it buffs nearly every gun, so a [BULLET]
+	-- tag would be noise (same call as Berzerker's universal knife-bash leg). Only NARROW weapon-type
+	-- synergies get tags; the utility items (Gas Tank/Loot Stash/Repair Kit/Rocket Shield/Phase Serum/
+	-- Boots/Horseshoe/Battery) don't. Add a new tag when a future item keys off a weapon type. docs/09/19.
 	-- ============ ACC box/wall guns (2026-07-03, user: every gun needs a 2D HUD image) ============
 	-- Icons are the ports' own wall-CHALK drawings (white outline art, shipped in each pack's
 	-- source_data GDT, gdtdb-indexed, zone-listed in the AETHERIUM block). Four guns have NO
@@ -22,12 +38,12 @@ CoD.AetheriumWeaponData = {
 	["t9_semiauto_cosplay"] = {
 		ingame_name = "Blast-O-Matic",
 		icon = "i_semiauto_cosplay_chaulk_new_c",
-		description = "DOA energy blaster"
+		description = "DOA energy blaster [ENERGY]"
 	},
 	["s1_tac19"] = {
 		ingame_name = "Tac-19",
 		icon = "i_uts_19_wall_chalk_c",
-		description = "Full-auto shotgun"
+		description = "Full-auto shotgun [ENERGY]"
 	},
 	["t9_ak47"] = {
 		ingame_name = "AK-47",
@@ -37,7 +53,7 @@ CoD.AetheriumWeaponData = {
 	["s1_ae4"] = {
 		ingame_name = "AE4",
 		icon = "i_dear_wall_chalk_c",
-		description = "Directed-energy assault rifle"
+		description = "Directed-energy AR [ENERGY]"
 	},
 	["s4_ppsh41_base"] = {
 		ingame_name = "PPSh-41",
@@ -80,7 +96,7 @@ CoD.AetheriumWeaponData = {
 	["s1_cel3"] = {
 		ingame_name = "CEL-3 Cauterizer",
 		icon = "i_weapon_vm_sh_t9fullauto_wall_chalk_c",   -- LOOKALIKE (reuses the Streetsweeper full-auto shotgun chalk; no CEL-3 art in the AW pack), user 2026-07-05
-		description = "Triple-barrel spread shotgun"
+		description = "Triple-barrel spread SG [ENERGY]"
 	},
 	["t6_chicom_cqb"] = {
 		ingame_name = "Chicom CQB",
@@ -125,24 +141,24 @@ CoD.AetheriumWeaponData = {
 	["s1_mahem"] = {
 		ingame_name = "MAHEM",
 		icon = "t7_icon_weapon_launcher_standard_kf",   -- STOCK-NAME GUESS (no launcher chalk exists) - needs in-game verify
-		description = "Guided launcher"
+		description = "Guided launcher [EXPLOSIVE]"
 	},
 	["t6_war_machine"] = {
 		ingame_name = "War Machine",
 		icon = "t7_icon_weapon_launcher_standard_kf",   -- same launcher icon as the Mahem (no GL chalk art exists)
-		description = "Drum grenade launcher"
+		description = "Drum grenade launcher [EXPLOSIVE]"
 	},
 	-- Apex Legends guns (user 2026-07-06 migration). LOOKALIKE chalk icons (Apex pack ships no 2D chalk art);
 	-- all reuse icons from guns still in the roster (guaranteed packed). Keyed by the base _zm name.
 	["apex_peacekeeper"] = {
 		ingame_name = "Peacekeeper",
 		icon = "i_weapon_vm_sh_t9fullauto_wall_chalk_c",   -- LOOKALIKE (Streetsweeper shotgun chalk)
-		description = "Lever-action shotgun"
+		description = "Lever-action shotgun [ENERGY]"
 	},
 	["apex_beam_rifle"] = {
 		ingame_name = "Havoc",
 		icon = "i_weapon_vm_ar_t9standard_wall_chalk_c",   -- LOOKALIKE (XM4 AR chalk)
-		description = "Havoc energy rifle (1s charge-up)"
+		description = "Energy charge rifle [ENERGY] [TURBO]"   -- [TURBO] = Turbocharger (Havoc-only) removes the wind-up
 	},
 	["apex_alternator"] = {
 		ingame_name = "Alternator",
@@ -157,7 +173,7 @@ CoD.AetheriumWeaponData = {
 	["apex_tripletake"] = {
 		ingame_name = "Triple Take",
 		icon = "i_t8_wpn_sniper_sdm_wall_chalk_c",   -- LOOKALIKE (SDM sniper chalk; Triple Take replaces the M16, 2026-07-11)
-		description = "Tri-bolt energy sniper"
+		description = "Tri-bolt volley sniper - 3 rounds per shot [ENERGY]"   -- v2 projectile volley rework 2026-07-16
 	},
 	-- ["t9_m16"] M16 RETIRED 2026-07-11 (replaced by the Triple Take) - was i_t6_wpn_ar_m14_wall_chalk_c "Burst tactical rifle"
 	["thundergun"] = {
@@ -175,10 +191,31 @@ CoD.AetheriumWeaponData = {
 	["leviathan"] = {
 		ingame_name = "Leviathan Axe",
 		icon = "blacktransparent",
-		description = "The frost of Midgard, thrown and returned"
+		description = "Throwing frost axe [MELEE]"
 	},
-	-- t8_melee_figure (Action Figure) intentionally unmapped: no 2D art exists in its pack
-	-- (hashed ximage_* textures only) -> falls to ["default"] blank + name text.
+	-- [acc] 2026-07-13: the mystery-box CARD (PromptMysteryBox.lua) resolves the printed gun by id ->
+	-- codename -> THIS table, so EVERY box-reachable gun needs an entry or the card shows a bare
+	-- "WEAPON". These three were previously unmapped (a blank loadout icon was acceptable, but the box
+	-- card needs a name + description). No 2D chalk art exists for any of them -> blacktransparent
+	-- (blank icon + name text, the kit's ["default"] treatment). Winter's Howl is a cryo UTILITY wonder
+	-- (NOT is_energy_weapon) so it carries no tag; the Action Figure AND the Ballistic Knife are both
+	-- Berzerker melee surfaces -> [MELEE] (the Ballistic Knife's held STAB rides the knife_ballistic
+	-- _acc_brz twins, +35% swing + HP tax, wired 2026-07-11 - see _acc_gun_badges.gsc:456).
+	["freezegun"] = {
+		ingame_name = "Winter's Howl",
+		icon = "blacktransparent",
+		description = "Cryo freeze cannon"
+	},
+	["t8_melee_figure"] = {
+		ingame_name = "Action Figure",
+		icon = "blacktransparent",
+		description = "Fun swing weapon [MELEE]"
+	},
+	["knife_ballistic"] = {
+		ingame_name = "Ballistic Knife",
+		icon = "blacktransparent",
+		description = "Ranged revive blade [MELEE]"
+	},
 
 	-- Pistols
 	["pistol_standard"] = {

@@ -30,7 +30,8 @@ function guid() {
 }
 
 // Box-shaped clip centered on (ox,oy), oriented by yaw. VERBATIM winding from place_boxes_against_walls.js.
-function clipModel(node, ox, oy, yaw) {
+// oz = the struct's floor z (2026-07-12: no longer hardcoded 0 - the trench chest sits at z=-240).
+function clipModel(node, ox, oy, yaw, oz) {
   const t = 'clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0';
   // Magic-box footprint (stock buyable_magic_box_start.map clip: 101 long x 34 deep) + a little margin.
   const HALF_LONG = 52, HALF_SHORT = 19;       // 104 x 38
@@ -38,7 +39,7 @@ function clipModel(node, ox, oy, yaw) {
   const longX = (y === 0 || y === 180);        // 0/180 -> long axis on X; 90/270 -> long axis on Y
   const hx = longX ? HALF_LONG : HALF_SHORT;
   const hy = longX ? HALF_SHORT : HALF_LONG;
-  const [x1, x2, y1, y2, z1, z2] = [ox - hx, ox + hx, oy - hy, oy + hy, 0, 64];
+  const [x1, x2, y1, y2, z1, z2] = [ox - hx, ox + hx, oy - hy, oy + hy, oz, oz + 64];
   return [
     '{',
     `guid "${guid()}"`,
@@ -73,7 +74,7 @@ function entities() {
 }
 
 // 1. read every box's CURRENT origin + yaw from its treasure_chest_use struct --
-const boxes = {}; // node -> [x,y,yaw]
+const boxes = {}; // node -> [x,y,yaw,z]
 for (const e of entities()) {
   const nw = e.kv['script_noteworthy'];
   if (!nw || !/^acc_box_[a-z]+$/.test(nw)) continue;
@@ -81,7 +82,7 @@ for (const e of entities()) {
   const m = e.kv['origin'] && e.kv['origin'].match(/^(-?[\d.]+) (-?[\d.]+) (-?[\d.]+)$/);
   if (!m) continue;
   const yaw = e.kv['angles'] ? parseFloat(e.kv['angles'].split(' ')[1] || '0') : 0;
-  boxes[nw.replace('acc_box_', '')] = [parseFloat(m[1]), parseFloat(m[2]), yaw];
+  boxes[nw.replace('acc_box_', '')] = [parseFloat(m[1]), parseFloat(m[2]), yaw, parseFloat(m[3])];
 }
 const nodes = Object.keys(boxes);
 if (!nodes.length) { console.error('align_box_clips: NO acc_box_* structs found - aborting.'); process.exit(1); }
@@ -98,7 +99,7 @@ for (;;) {
 // 3. append fresh clips centered on each box's real origin ---------------------
 while (lines.length && lines[lines.length - 1] === '') lines.pop();
 const out = ['// ACC mystery-box clips, snapped to live box origins + box-shaped (tools/align_box_clips.js)'];
-for (const n of nodes) out.push(clipModel(n, boxes[n][0], boxes[n][1], boxes[n][2]));
+for (const n of nodes) out.push(clipModel(n, boxes[n][0], boxes[n][1], boxes[n][2], boxes[n][3]));
 lines.push(...out, '');
 
 fs.writeFileSync(MAP, lines.join('\n'));
@@ -106,5 +107,5 @@ console.log(`align_box_clips: clipsRemoved=${removed} clipsAdded=${nodes.length}
 for (const n of nodes) {
   const y = ((Math.round(boxes[n][2]) % 360) + 360) % 360;
   const o = (y === 0 || y === 180) ? 'long-X (104x38)' : 'long-Y (38x104)';
-  console.log(`  ${n.padEnd(8)} clip @ (${boxes[n][0]}, ${boxes[n][1]}) yaw ${y} -> ${o}`);
+  console.log(`  ${n.padEnd(8)} clip @ (${boxes[n][0]}, ${boxes[n][1]}, z${boxes[n][3]}) yaw ${y} -> ${o}`);
 }

@@ -445,12 +445,14 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	// level.zombie_health, ...), which provably lands ZERO kills on this map (portal opened, ammo
 	// consumed, nothing died at pack-stock radius 96) - and the brief 2026-07-08 instant-kill sweep.
 	// Ticks 1/s while the portal FX is live: normals + elites take frac x level.zombie_health (fractions
-	// 0.20 / 0.25 / 0.3333 / 0.50 by tier, dvars acc_firebow_dot_frac_t0..3); BOSSES/mini-bosses take
-	// maxhealth/div (80 / 65 / 50 / 40 by tier, dvars acc_firebow_dot_boss_div_t0..3 - under the 10%
+	// 0.117 / 0.14625 / 0.19498 / 0.2925 by tier, dvars acc_firebow_dot_frac_t0..3); BOSSES/mini-bosses take
+	// maxhealth/div (137 / 111 / 86 / 69 by tier, dvars acc_firebow_dot_boss_div_t0..3 - under the 10%
 	// per-hit cap at every tier). See bow_demongate_portal_dot. Note: the DoT carries no weapon ref, so
 	// the Fury bow-one-shot branch keys off the ARROW hit only.
-	acc_dot_frac = getdvarfloat( "acc_firebow_dot_frac_t" + acc_tier, ( acc_tier == 0 ? 0.20 : ( acc_tier == 1 ? 0.25 : ( acc_tier == 2 ? 0.3333 : 0.50 ) ) ) );
-	if ( acc_dot_frac <= 0 ) acc_dot_frac = 0.20;
+	// USER 2026-07-13 -35% ALL AROUND: charged-shot portal DoT vs normals x0.65 (0.20/0.25/0.3333/0.50 -> 0.13/0.1625/0.216645/0.325).
+	// USER 2026-07-18 all-wonder -10%: x0.9 again (0.13/0.1625/0.216645/0.325 -> 0.117/0.14625/0.1949805/0.2925).
+	acc_dot_frac = getdvarfloat( "acc_firebow_dot_frac_t" + acc_tier, ( acc_tier == 0 ? 0.117 : ( acc_tier == 1 ? 0.14625 : ( acc_tier == 2 ? 0.1949805 : 0.2925 ) ) ) );
+	if ( acc_dot_frac <= 0 ) acc_dot_frac = 0.117;
 	e_portal.acc_dot_on = 1;
 	e_portal thread bow_demongate_portal_dot( self, position, acc_aoe_radius, acc_dot_frac, acc_tier );
 	// [acc] dev breadcrumb (RE-ENABLED 2026-07-11): open_portal reached the DoT launch (i.e. the tier block
@@ -458,11 +460,14 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 	// thread was launched - so any "nothing dies" is downstream in bow_demongate_portal_dot (watch the tick line).
 	acc_firebow_dbg_log( "^2portal OPEN tier=" + acc_tier + " r=" + acc_aoe_radius + " frac=" + acc_dot_frac + " z=" + int( position[ 2 ] ) );
 
-	// [acc] CHARGE COST = 3 ARROWS TOTAL (user 2026-07-08; was 5 for ~an hour same evening): the engine's
-	// full charge natively consumes 2; deduct 1 MORE from the clip here - the documented SAFE path
-	// (raising the engine threshold dvar bg_zm_dlc1_chargeShotMultipleBulletsForFullCharge makes full
-	// charge UNREACHABLE, see the 2026-07-07 note in on_connect_bow_demongate). This runs ONLY on a real
-	// full-charge portal; partial/tap shots keep costing 1. Clamped at 0.
+	// [acc] CHARGE COST = 5 ARROWS TOTAL (user 2026-07-13 "charge shot should take 5 shots now"; was 4 /
+	// extra 2, history 5 -> 3 -> 4 -> 5): the engine's full charge natively
+	// consumes 2; deduct acc_firebow_charge_extra MORE from the clip here (default 2) - the documented
+	// SAFE path (raising the engine threshold dvar bg_zm_dlc1_chargeShotMultipleBulletsForFullCharge
+	// makes full charge UNREACHABLE, see the 2026-07-07 note in on_connect_bow_demongate; and a
+	// SetWeaponAmmoClip mid-DRAW resets the charge, so this deduction must stay POST-portal). Runs ONLY
+	// on a real full-charge portal; partial/tap shots keep costing 1. Clamped at 0. Live-tunable after
+	// three retunes (5 -> 3 -> 4): acc_firebow_charge_extra = arrows on TOP of the engine's 2.
 	if ( isdefined( self ) && isplayer( self ) )
 	{
 		acc_w_held = self GetCurrentWeapon();
@@ -470,7 +475,7 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 			 && isdefined( acc_w_held.name ) && IsSubStr( acc_w_held.name, "elemental_bow_demongate" ) )
 		{
 			acc_clip = self GetWeaponAmmoClip( acc_w_held );
-			acc_extra = 1;
+			acc_extra = getdvarint( "acc_firebow_charge_extra", 3 );   // USER 2026-07-13: charge = 5 ARROWS TOTAL (engine 2 + 3); was 4 (extra 2)
 			if ( acc_clip < acc_extra ) acc_extra = acc_clip;
 			if ( acc_extra > 0 ) self SetWeaponAmmoClip( acc_w_held, acc_clip - acc_extra );
 		}
@@ -527,16 +532,18 @@ function bow_demongate_open_portal( weapon, position, attacker, normal )
 // Per tick, everything within n_radius takes:
 //   - normal zombies + elites: n_frac x level.zombie_health (min 1) - normals die in ~1/frac seconds.
 //   - BOSSES + mini-bosses (user: "some damage to bosses too"): their OWN maxhealth / n_boss_div -
-//     divisors 80 / 65 / 50 / 40 by PaP tier (live dvars acc_firebow_dot_boss_div_t0..3). The proven
+//     divisors 137 / 111 / 86 / 69 by PaP tier (live dvars acc_firebow_dot_boss_div_t0..3). The proven
 //     thundergun_boss_blast maxhealth-fraction pattern; every tier sits well under the 10% boss
-//     per-hit cap (max tier = 2.5%/s), so the ticks are never clamped.
+//     per-hit cap (max tier ~1.4%/s), so the ticks are never clamped.
 // Dev-mode prints per tick (only when something is in range).
 function bow_demongate_portal_dot( e_shooter, v_pos, n_radius, n_frac, n_tier )
 {
 	self endon( "death" );
 	self endon( "demongate_portal_closed" );
 
-	n_boss_div = getdvarint( "acc_firebow_dot_boss_div_t" + n_tier, ( n_tier == 0 ? 80 : ( n_tier == 1 ? 65 : ( n_tier == 2 ? 50 : 40 ) ) ) );
+	// USER 2026-07-13 -35% ALL AROUND: boss DoT = maxhealth/div, so divisors INCREASED /0.65 to cut ~35% (80/65/50/40 -> 123/100/77/62).
+	// USER 2026-07-18 all-wonder -10%: divisors /0.9 again, rounded (123/100/77/62 -> 137/111/86/69).
+	n_boss_div = getdvarint( "acc_firebow_dot_boss_div_t" + n_tier, ( n_tier == 0 ? 137 : ( n_tier == 1 ? 111 : ( n_tier == 2 ? 86 : 69 ) ) ) );
 	if ( n_boss_div < 1 ) n_boss_div = 1;
 	// Per-tick target cap (user 2026-07-08: "the void can only hit 20 enemies max at once") - counts
 	// zombies + bosses combined; anything beyond the cap inside the radius is untouched that tick.

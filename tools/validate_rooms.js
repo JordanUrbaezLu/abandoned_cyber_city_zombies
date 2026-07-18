@@ -215,7 +215,10 @@ for (const [zone, s] of Object.entries(sot.genRoomsShells || {})) {
 // 5. PaP origin: 2 literals must equal SoT papOrigin
 const pap = sot.papOrigin;
 {
-  const am = read('tools/apply_entity_moves.js');
+  // Path corrected 2026-07-15 (audit): the generator was moved to tools/oneshots/ but this read()
+  // still pointed at tools/ - an ENOENT throw that failed the whole room-geometry lint (and so
+  // preflight) on every run.
+  const am = read('tools/oneshots/apply_entity_moves.js');
   const m = am.match(/'122366A5-BD0F-46AD-B3E5-59AF52D4A611':\s*\{\s*origin:\s*'(-?[\d.]+) (-?[\d.]+) (-?[\d.]+)'/);
   if (!m) err('apply_entity_moves.js: could not find the PaP-prefab move origin');
   else if (eq(+m[1], pap.x) && eq(+m[2], pap.y) && eq(+m[3], pap.z)) ok('apply_entity_moves.js PaP origin');

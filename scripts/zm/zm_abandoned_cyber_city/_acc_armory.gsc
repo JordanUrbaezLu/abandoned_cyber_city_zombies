@@ -37,6 +37,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;       // grant_challenge_reward (bottle -> random implant)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_map_randomizer;   // wonder_cap_key (rack exclusion)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;  // true_base - the PaP-tier ledger key (rack_tier_of)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;    // cyan "usable" holo on cabinet + bottle exchange
 
 // STATION REMODEL (user 2026-07-09, docs/09): distinct meshes per station - the weapon rack is
 // the Conduit armory cabinet (138 LONG in X x 18 x 48; T7-dump carve, its long axis spans the
@@ -53,17 +55,21 @@
 
 function init()
 {
-    // Shared team weapon rack: a FIFO list of STRUCT entries { wpn, model }. wpn = the
+    // Shared team weapon rack: a FIFO list of STRUCT entries { wpn, model, tier }. wpn = the
     // weapon OBJECT (persistent level.weapons entry, so re-giving a stored one is always
     // valid); model = its world-model display on the cabinet top (undefined only if the
-    // ent-pool spawn failed - the rack still works, just undisplayed). One array keyed by
+    // ent-pool spawn failed - the rack still works, just undisplayed); tier = the PaP tier the
+    // gun was racked at, which has to travel WITH the gun because it lives in a per-player
+    // ledger the depositor loses the instant they hand the gun over (see rack_tier_of). One array keyed by
     // slot = wpn+model can never desync, and duplicate weapon objects (two players rack
     // the same gun class -> the SAME level.weapons singleton twice) stay distinct entries.
     // Level-side = the only shared store; a weapon is a per-player inventory item with no
     // shared field, so the rack has to be our own level var. A depositor's disconnect
     // loses nothing - the deposit transfers the gun to the level immediately (same
     // ownership model as The Exchange).
-    level.acc_armory_rack = [];
+    // PER-STATION 2026-07-13: each rack station now owns its own pool in station.pool (see
+    // spawn_rack_station) so a 2nd INDEPENDENT rack in Paradise never clobbers the loft's - no
+    // level-global pool anymore.
 
     acc_utility::log( "armory init" );
     level thread spawn_stations();
@@ -88,28 +94,36 @@ function spawn_stations()
 // Team weapon rack (pooled deposit / withdraw - the _acc_transfer idiom)
 // ---------------------------------------------------------------------------
 
+// A rack STATION is self-contained (user 2026-07-13: a 2nd INDEPENDENT rack lives in Paradise).
+// Its gun pool (station.pool), display cabinet (station.base) and pad triggers (station.pads) all
+// hang off a struct, NOT level globals, so N racks never clobber one another. Each pad back-refs
+// its station (t.acc_rack) and rack_loop routes deposits/withdraws to that pool. Returns the station.
 function spawn_rack_station( origin )
 {
-    base = spawn( "script_model", origin );
-    base setmodel( "p7_con_cargo_train_armory_cabinet" );   // long weapons cabinet - pads sit at its two ends
-    level.acc_armory_rack_base = base;   // display-slot anchor (rack_slot_origin)
+    station = SpawnStruct();
+    station.base = spawn( "script_model", origin );
+    station.base setmodel( "p7_con_cargo_train_armory_cabinet" );   // long weapons cabinet - pads sit at its two ends
+    acc_interact_glow::glow_on( station.base );
+    station.pool = [];    // FIFO { wpn, model } entries (was level.acc_armory_rack)
+    station.pads = [];    // { deposit, withdraw } triggers (was level.acc_armory_rack_pads)
 
     // DEPOSIT pad (west of the kiosk) + WITHDRAW pad (east). One trigger per action - BO3
     // use-triggers are single-button (the Exchange's multi-pad idiom). Pads are 110u apart,
     // radius 40, so they never overlap.
-    level.acc_armory_rack_pads = [];
-    spawn_rack_pad( "deposit",  origin + ( -55, 0, 0 ) );
-    spawn_rack_pad( "withdraw", origin + (  55, 0, 0 ) );
-    update_rack_hints();   // initial (empty-rack) hints
+    spawn_rack_pad( station, "deposit",  origin + ( -55, 0, 0 ) );
+    spawn_rack_pad( station, "withdraw", origin + (  55, 0, 0 ) );
+    update_rack_hints( station );   // initial (empty-rack) hints
+    return station;
 }
 
-function spawn_rack_pad( op, origin )
+function spawn_rack_pad( station, op, origin )
 {
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 40, 90 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable
     t SetCursorHint( "HINT_NOICON" );
     t.acc_op = op;
-    level.acc_armory_rack_pads[ op ] = t;   // hint text lives in update_rack_hints (state-aware)
+    t.acc_rack = station;    // back-ref: rack_loop uses this to find the pool
+    station.pads[ op ] = t;   // hint text lives in update_rack_hints (state-aware)
     t thread rack_loop();
 }
 
@@ -118,13 +132,13 @@ function spawn_rack_pad( op, origin )
 // weapon" on an empty rack / "RACK your held weapon" on an occupied one). Call after every
 // rack mutation. 4-6 CONSTANT strings total => configstring-cache safe. A player already
 // aiming at a pad picks the new text up on the next hint refresh (worst case: re-aim).
-function update_rack_hints()
+function update_rack_hints( station )
 {
-    if ( !isdefined( level.acc_armory_rack_pads ) ) return;
-    stored = level.acc_armory_rack.size;
+    if ( !isdefined( station ) || !isdefined( station.pads ) ) return;
+    stored = station.pool.size;
     cap = getdvarint( "acc_armory_rack_max", 1 );
 
-    pad = level.acc_armory_rack_pads[ "deposit" ];
+    pad = station.pads[ "deposit" ];
     if ( isdefined( pad ) )
     {
         if ( stored >= cap )
@@ -133,13 +147,13 @@ function update_rack_hints()
             pad SetHintString( "Hold ^3[{+activate}]^7  ^2RACK^7 your held weapon for a teammate" );
     }
 
-    pad = level.acc_armory_rack_pads[ "withdraw" ];
+    pad = station.pads[ "withdraw" ];
     if ( isdefined( pad ) )
     {
         if ( stored <= 0 )
             pad SetHintString( "Rack ^3EMPTY^7 - ^2RACK^7 a weapon at the other end to share it" );
         else
-            pad SetHintString( ( stored == 1 ? "Hold ^3[{+activate}]^7  ^5TAKE^7 the racked weapon" : "Hold ^3[{+activate}]^7  ^5TAKE^7 the next racked weapon" ) );
+            pad SetHintString( ( stored == 1 ? "Hold ^3[{+activate}]^7  ^5TAKE^7 the racked weapon ^7(swaps your held gun if full)" : "Hold ^3[{+activate}]^7  ^5TAKE^7 the next racked weapon" ) );
     }
 }
 
@@ -154,17 +168,18 @@ function rack_loop()   // self = the pad trigger
         if ( !isdefined( player ) || !zm_utility::is_player_valid( player ) )
             continue;   // gate both ends (downed/spectating can't transact; disconnected = undefined)
 
-        if ( self.acc_op == "deposit" ) deposit_gun( player );
-        else                            withdraw_gun( player );
+        station = self.acc_rack;
+        if ( self.acc_op == "deposit" ) deposit_gun( station, player );
+        else                            withdraw_gun( station, player );
 
         wait 0.4;   // per-press debounce (one hold must not double-fire)
     }
 }
 
-function deposit_gun( player )
+function deposit_gun( station, player )
 {
     cap = getdvarint( "acc_armory_rack_max", 1 );   // ONE gun at a time (user 2026-07-10)
-    if ( level.acc_armory_rack.size >= cap )
+    if ( station.pool.size >= cap )
     {
         player deny( ( cap == 1 ? "the rack already holds a weapon - take it first" : "the team rack is full" ) );
         return;
@@ -181,61 +196,163 @@ function deposit_gun( player )
     if ( !is_primary_owned( player, wpn ) )
         { player deny( "hold a primary weapon to rack it" ); return; }
 
-    // Exclude capped wonder weapons: racking one could let a second player claim it and
-    // slip past the per-match wonder claim cap (wonder_claims_watch registers any holder).
-    if ( isdefined( acc_map_randomizer::wonder_cap_key( wpn ) ) )
-        { player deny( "wonder weapons can't be racked" ); return; }
+    // WONDER WEAPONS ARE NOW RACKABLE (user 2026-07-13): the old wonder_cap_key exclusion was
+    // removed - sharing a wonder via the rack IS the intent (a teammate taking it past the box
+    // claim cap is the desired co-op sharing, not an exploit; the box cap still gates BOX rolls).
+
+    // Snapshot the PaP tier BEFORE the take - it rides the entry and is stamped back on withdraw
+    // (rack_tier_of: the tier is a per-player ledger entry that prune_lost_tiers zeroes the moment
+    // the player stops carrying the base, so without this the rack silently un-packs the gun).
+    tier = rack_tier_of( player, wpn );
 
     player zm_weapons::weapon_take( wpn );
     entry = SpawnStruct();
     entry.wpn = wpn;
+    entry.tier = tier;
     // Display BEFORE any yield: spawn_rack_display derefs `player` (buildkit/PaP camo owner)
     // and the trigger context guarantees validity only until the next wait.
-    entry.model = spawn_rack_display( player, wpn, level.acc_armory_rack.size );
-    level.acc_armory_rack[ level.acc_armory_rack.size ] = entry;
-    update_rack_hints();
+    entry.model = spawn_rack_display( station, player, wpn, station.pool.size );
+    station.pool[ station.pool.size ] = entry;
+    update_rack_hints( station );
+    acc_interact_glow::glow_off( station.base );   // first successful deposit ends the discovery flash
     // NO gun name in the toast (UI pass 2026-07-10): wpn.name is the INTERNAL class name
     // ("ar_accurate", not "ICR-1") and IString(wpn.displayname) localization can't be
     // verified across the pack guns offline - the cabinet-top world model IS the identity.
     player ok( "weapon racked - a teammate can ^5TAKE^7 it at the other end" );
-    acc_utility::log( "armory rack: deposit " + wpn.name + " (stored " + level.acc_armory_rack.size + ")" );
+    acc_utility::log( "armory rack: deposit " + wpn.name + " (stored " + station.pool.size + ")" );
 }
 
-function withdraw_gun( player )
+function withdraw_gun( station, player )
 {
-    if ( level.acc_armory_rack.size <= 0 ) { player deny( "the rack is empty" ); return; }
+    if ( station.pool.size <= 0 ) { player deny( "the rack is empty" ); return; }
 
-    // FREE-SLOT GATE (mandatory): weapon_give at the player's weapon limit silently
-    // weapon_take's their held gun (_zm_weapons.gsc) - destroying a teammate's weapon.
-    // Refuse instead. get_player_weapon_limit reads self, so call it ON the player.
-    if ( player GetWeaponsListPrimaries().size >= player zm_utility::get_player_weapon_limit( player ) )
-        { player deny( "no free weapon slot - buy Mule Kick or drop a gun" ); return; }
-
-    wpn = level.acc_armory_rack[ 0 ].wpn;
+    wpn = station.pool[ 0 ].wpn;
+    // OBJECT-IDENTITY BY DESIGN - do NOT "upgrade" this to a true_base comparison (considered and
+    // REJECTED, 2026-07-15 audit). An audit flagged the raw HasWeapon as twin-unaware: it is FALSE for a
+    // player holding a plain t9_ak47 when the rack holds t9_ak47_acc_fastreload (a Mega-perk twin) or
+    // t9_ak47_up (a PaP form), so the same gun CLASS can be withdrawn twice. That is TRUE - and it is the
+    // INTENDED behaviour, because the rack exists to SHARE a gun, tier and all:
+    //   - docs/39_armory.md:50 "The PaP tier travels WITH the racked gun (fixed 2026-07-15)" - racking a
+    //     TIERED gun so a teammate can take it is a headline feature, not an accident.
+    //   - docs/39_armory.md:84 "duplicate weapon objects - two players racking the same gun class - stay
+    //     distinct entries" - same-class duplicates are explicitly designed for.
+    // Swapping in acc_map_randomizer::player_owns_box_weapon (true_base) would DENY the central co-op
+    // flow: teammate racks their PaP'd/tiered AK, you carry the base AK, bases match -> refused. The
+    // guard's real job is only to stop a no-op take of the EXACT weapon you already hold, which is
+    // exactly what HasWeapon does. Leave it.
     if ( player HasWeapon( wpn ) )
         { player deny( "you already carry the racked weapon" ); return; }
+    take_tier = ( isdefined( station.pool[ 0 ].tier ) ? station.pool[ 0 ].tier : 0 );   // stamped on after the give
+
+    // SWAP WHEN FULL (user 2026-07-13: "swap the gun in your hand for the gun on the rack").
+    // weapon_give at the weapon limit silently weapon_take's the held gun (_zm_weapons.gsc),
+    // destroying it - the old code refused instead. Now: if the player is FULL, do a real SWAP -
+    // take their HELD PRIMARY and put it ON the rack in place of the gun they're taking. With a
+    // free slot, the old behavior stands (just take, keep all your guns).
+    swap_held = undefined;
+    swap_tier = 0;
+    if ( player GetWeaponsListPrimaries().size >= player zm_utility::get_player_weapon_limit( player ) )
+    {
+        held = player GetCurrentWeapon();
+        if ( !isdefined( held ) || held == level.weaponNone || held == wpn
+             || zm_utility::is_melee_weapon( held ) || zm_utility::is_placeable_mine( held )
+             || !is_primary_owned( player, held ) )
+            { player deny( "slots full - hold the primary you want to swap out, then TAKE" ); return; }
+        swap_held = held;
+        swap_tier = rack_tier_of( player, held );   // snapshot BEFORE the take (same reason as deposit_gun)
+        player zm_weapons::weapon_take( held );   // frees the slot for the give below
+    }
 
     // pop index 0 (FIFO), matching the Exchange item locker; its display model dies with it
-    if ( isdefined( level.acc_armory_rack[ 0 ].model ) )
-        level.acc_armory_rack[ 0 ].model Delete();
+    if ( isdefined( station.pool[ 0 ].model ) )
+        station.pool[ 0 ].model Delete();
     rest = [];
-    for ( i = 1; i < level.acc_armory_rack.size; i++ )
-        rest[ rest.size ] = level.acc_armory_rack[ i ];
-    level.acc_armory_rack = rest;
-
-    // slide the surviving displays forward one slot (a short glide, not a teleport)
-    for ( i = 0; i < level.acc_armory_rack.size; i++ )
-        if ( isdefined( level.acc_armory_rack[ i ].model ) )
-            level.acc_armory_rack[ i ].model MoveTo( rack_slot_origin( i ), 0.3 );
-
-    update_rack_hints();
+    for ( i = 1; i < station.pool.size; i++ )
+        rest[ rest.size ] = station.pool[ i ];
+    station.pool = rest;
+    acc_interact_glow::glow_off( station.base );   // first successful withdraw counts too
 
     // is_upgrade=false, magic_box=false, nosound=false, b_switch_weapon=false (no mid-fight
-    // view-yank) - which means the gun lands SILENTLY in the loadout, so the toast MUST say
-    // where it went or the take looks like a no-op (UI pass 2026-07-10).
+    // view-yank) - the gun lands SILENTLY in the loadout, so the toast MUST say where it went.
     player zm_weapons::weapon_give( wpn, false, false, false, false );
+    // The tier rode the rack entry - stamp it on the taker now the gun is in their primaries list
+    // (AFTER the give: the prune only spares a base the player already carries). In co-op the taker
+    // inherits the tier the depositor racked the gun at, which IS the intended share.
+    rack_restore_tier( player, wpn, take_tier );
+
+    // SWAP: the taken-off gun goes ONTO the rack in place of the one taken. Slide the SURVIVING
+    // displays forward one slot FIRST (same glide as the non-swap path below), THEN append the
+    // swapped-out gun at the end. Without the slide, a raised acc_armory_rack_max (pool holds >1)
+    // leaves the survivors parked at their old slot origins, so the swapped-in gun is placed on top
+    // of a survivor and slot 0 is left empty (review 2026-07-15). Harmless at the shipped default
+    // rack_max=1 (the pool empties to size 0 before the append), but correct for any raised cap.
+    if ( isdefined( swap_held ) )
+    {
+        for ( i = 0; i < station.pool.size; i++ )
+            if ( isdefined( station.pool[ i ].model ) )
+                station.pool[ i ].model MoveTo( rack_slot_origin( station, i ), 0.3 );
+
+        entry = SpawnStruct();
+        entry.wpn = swap_held;
+        entry.tier = swap_tier;
+        entry.model = spawn_rack_display( station, player, swap_held, station.pool.size );
+        station.pool[ station.pool.size ] = entry;
+        update_rack_hints( station );
+        player ok( "swapped - the racked weapon is yours; your held gun is now on the rack" );
+        acc_utility::log( "armory rack: SWAP give " + wpn.name + " / rack " + swap_held.name );
+        return;
+    }
+
+    // slide the surviving displays forward one slot (a short glide, not a teleport)
+    for ( i = 0; i < station.pool.size; i++ )
+        if ( isdefined( station.pool[ i ].model ) )
+            station.pool[ i ].model MoveTo( rack_slot_origin( station, i ), 0.3 );
+
+    update_rack_hints( station );
     player ok( "took the racked weapon - it's in your loadout (switch to it)" );
-    acc_utility::log( "armory rack: withdraw " + wpn.name + " (stored " + level.acc_armory_rack.size + ")" );
+    acc_utility::log( "armory rack: withdraw " + wpn.name + " (stored " + station.pool.size + ")" );
+}
+
+// ---------------------------------------------------------------------------
+// PaP tier rides the rack entry (fix 2026-07-15)
+// ---------------------------------------------------------------------------
+
+// A PaP tier is NOT a property of the weapon object - it's a per-player ledger entry
+// (player.acc_pap_tier[ true_base ], _acc_pap_levels). A deposit weapon_take's the gun, so
+// prune_lost_tiers (a 0.25s poll that zeroes the tier of any base the player no longer carries
+// ANY form of) wiped it while the gun sat on the rack: rack a tier-3 gun, take it back at tier 0
+// (or 2 for an "_up" form, via get_tier's is_weapon_upgraded clamp) and the PaP re-charges you
+// the packs you already paid for.
+// NOT fixed by exempting the rack from the prune: the prune is RIGHT - the instant a gun is
+// racked it belongs to the LEVEL, not the depositor (the Exchange ownership model, see init()).
+// A "parked, still owned" exemption would leave the depositor a phantom tier to cash in on a
+// fresh wallbuy of the same base, AND still hand a teammate who takes the gun a tier-0 copy.
+// So the TIER RIDES THE ENTRY: snapshot at deposit, stamp back on withdraw. That also makes the
+// co-op share coherent - the taker inherits the tier the gun was racked at.
+// RAW-FIELD access (no _acc_pap_levels #using) is the established idiom for reaching this ledger
+// from outside - see _acc_weapon_variants::axis_lev_speed and _zm_weap_freezegun's tier read.
+// Deliberately the RAW ledger and NOT acc_pap_levels::get_tier: get_tier's Fire Bow / Action
+// Figure branches read their own separate counters, which the prune never touches (so they need
+// no rescue here and must not be written through this key), and its is_weapon_upgraded clamp
+// rides the weapon OBJECT, so it re-applies for free on withdraw.
+function rack_tier_of( player, wpn )
+{
+    if ( !isdefined( player.acc_pap_tier ) ) return 0;
+    base = acc_weapon_variants::true_base( wpn );   // twin-aware: the key survives recoil/fast twin swaps
+    if ( !isdefined( base ) || base == level.weaponNone || !isdefined( player.acc_pap_tier[ base ] ) ) return 0;
+    return player.acc_pap_tier[ base ];
+}
+
+// Stamp a racked gun's tier onto whoever took it. MUST run AFTER the weapon_give - the prune only
+// spares a base the player already carries. Safe against the poll because weapon_give/weapon_take
+// are synchronous (no yield - VERIFIED in stock _zm_weapons.gsc), so give-then-stamp is atomic.
+function rack_restore_tier( player, wpn, tier )
+{
+    if ( !isdefined( tier ) || tier <= 0 ) return;   // tier 0 = nothing to restore (prune already agrees)
+    base = acc_weapon_variants::true_base( wpn );
+    if ( !isdefined( base ) || base == level.weaponNone ) return;
+    if ( !isdefined( player.acc_pap_tier ) ) player.acc_pap_tier = [];
+    player.acc_pap_tier[ base ] = tier;
 }
 
 // True if `wpn` is a primary weapon the player currently owns (excludes pistol/melee/equipment).
@@ -259,7 +376,7 @@ function is_primary_owned( player, wpn )
 // shipped cap = 1 (ONE gun at a time, user 2026-07-10) puts the single gun dead-center;
 // raising acc_armory_rack_max fans up to 8 per row at 17u pitch across the 138u length,
 // wrapping +16 z per row, so a tuned-up cap can't run guns off the end.
-function rack_slot_origin( index )
+function rack_slot_origin( station, index )
 {
     per_row = getdvarint( "acc_armory_rack_max", 1 );
     if ( per_row < 1 ) per_row = 1;
@@ -270,7 +387,7 @@ function rack_slot_origin( index )
     // via tools/xmodel_bin_inspect 2026-07-11). Gun hovers acc_armory_rack_hover (default 6) above
     // the top face (worldModel origins vary per gun; a slight float beats a half-buried receiver).
     hover = getdvarint( "acc_armory_rack_hover", 6 );
-    return level.acc_armory_rack_base.origin + ( ( col - ( per_row - 1 ) * 0.5 ) * 17, 0, 48 + hover + row * 16 );
+    return station.base.origin + ( ( col - ( per_row - 1 ) * 0.5 ) * 17, 0, 48 + hover + row * 16 );
 }
 
 // The magicbox display idiom (docs/39): a script_model wearing the weapon's WORLD model via
@@ -282,11 +399,11 @@ function rack_slot_origin( index )
 // a rack (the 18u-deep cabinet can't hold a gun laid across it - it would jut out both faces); a
 // raised cap fans guns into a side-by-side row (yaw 90). angle+hover are live-tunable (see header).
 // dual-wields show the right-hand model only (a per-slot pair would double the footprint).
-function spawn_rack_display( player, wpn, index )
+function spawn_rack_display( station, player, wpn, index )
 {
     if ( !isdefined( wpn.worldModel ) ) return undefined;   // nothing to show (pack oddities)
 
-    mdl = spawn( "script_model", rack_slot_origin( index ) );
+    mdl = spawn( "script_model", rack_slot_origin( station, index ) );
     if ( !isdefined( mdl ) ) return undefined;
     // ORIENTATION (fixed 2026-07-11 - "gun sticks through the holder"): the cabinet is only 18u DEEP
     // (Y) but 138u LONG (X) (xmodel_bin bounds). The old fixed yaw 90 laid the gun ACROSS the depth,
@@ -314,6 +431,7 @@ function spawn_bottle_station( origin )
 {
     base = spawn( "script_model", origin );
     base setmodel( "p7_zm_vending_wonder" );   // Wonderfizz chassis - bottles-for-a-random-reward read
+    acc_interact_glow::glow_on( base );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 48, 90 );
     t TriggerIgnoreTeam();
@@ -324,6 +442,7 @@ function spawn_bottle_station( origin )
     cost = getdvarint( "acc_armory_bottle_cost", 1 );
     qty = ( cost == 1 ? "a Mega Bottle" : cost + " Mega Bottles" );
     t SetHintString( "Hold ^3[{+activate}]^7  ^6EXCHANGE^7 " + qty + " for a random ^6Implant^7" );
+    t.acc_bottle_base = base;   // glow_off target on first successful exchange
     t thread bottle_loop();
 }
 
@@ -346,6 +465,7 @@ function bottle_loop()   // self = the pad trigger
 
         // No yield between the validity gate above and deliver_reward (try_consume_bottle does
         // not wait), so `player` is still valid here - safe to deref for the payout.
+        acc_interact_glow::glow_off( self.acc_bottle_base );   // bottle actually consumed = successful use
         deliver_reward( player );
         wait 0.4;
     }

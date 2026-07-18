@@ -99,29 +99,36 @@ function __main__()
 	level._effect[ "freezegun_crumple_upgraded" ]		= FX_FREEZEGUN_CRUMPLE_UPGRADED;
 	level._effect[ "freezegun_reload" ] 				= "dlc5/zmb_weapon/fx_freezegun_reload_smoke";
 
+	// [acc] user 2026-07-18 all-wonder -10% nerf: every cone/shatter var x0.9, BOTH branches (the else
+	// branch is the ACTIVE set - gen_weapon_stats.js parses it; the t8 set is nerfed in lockstep so a
+	// future use_t8_damage_set flip doesn't silently restore the old numbers).
 	if( IS_TRUE( level.use_t8_damage_set ) )
 	{
-		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1500 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage",					750 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			750 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			500 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1350 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage",					675 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			675 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			450 );
 
-		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			3000 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			1500 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	1500 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	750 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			2700 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			1350 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	1350 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	675 );
 	}
 	else
 	{
-		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1000 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage",					500 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			500 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			250 );
+		// [acc] SLIGHT DAMAGE BUFF +15% (user 2026-07-13 "slight buff on the winters howl"): cone + shatter,
+		// base + upgraded. The cone is a weaponless DoDamage so acc_weapon_balance_mult can't reach it - the
+		// tuning lives here in the zombie_vars (see gen_weapon_stats.js note). History: 1000/500/500/250 ->
+		// +15% 2026-07-13 = 1150/575/575/288 -> x0.9 all-wonder nerf 2026-07-18 = current.
+		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1035 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage",					518 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			518 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			259 );
 
-		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			1500 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			750 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	750 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	500 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			1553 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			777 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	777 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	518 );
 	}
 
 	// [acc] range bumped ~33% (user 2026-07-11, "increase the range a bit"): outer reach + cone width + inner
@@ -428,13 +435,25 @@ function freezegun_do_damage( upgraded, player, dist_ratio )
 		damage = Int( damage * acc_dmg_mult );
 	}
 
-	// [acc] utility slow: bosses = the headline slow (35%/5s, user 2026-07-11); Shielded/Glitch also get a freeze slow.
-	// A re-hit RESETS the 5s timer (acc_freeze_apply_ai_slow refreshes acc_freeze_slow_until); the slow NEVER stacks
-	// (the rate is SET to a fixed value, not multiplied - two hits = still 35%, just a fresh timer).
+	// [acc] utility slow: bosses = the headline slow (17.5%/5s; user 2026-07-18 HALVED the boss speed
+	// reduction, was 35%/5s from 2026-07-11); Shielded/Glitch also get a freeze slow.
+	// A re-hit RESETS the timer (acc_freeze_apply_ai_slow refreshes acc_freeze_slow_until); the slow NEVER stacks
+	// (the rate is SET, not multiplied). WINTER FURY (2nd PaP tier, pap_tier >= 2; user 2026-07-13 "buff a few
+	// things, not damage"): the freeze gun's crowd-control identity deepens at tier 2 - the slow lasts LONGER
+	// (x1.4 duration) AND is STRONGER (boss 17.5% -> 25% - also halved 2026-07-18, was 35% -> 50%; elite
+	// 50% -> 65% untouched). Pure utility, no damage change. All
+	// live-tunable. pap_tier from the damage block above.
+	fury_dur = ( ( pap_tier >= 2 ) ? getdvarfloat( "acc_freeze_fury_dur_mult", 1.4 ) : 1.0 );
 	if ( self acc_freeze_is_boss() )
-		self acc_freeze_apply_ai_slow( getdvarfloat( "acc_freeze_boss_slow_sec", 5.0 ), getdvarfloat( "acc_freeze_boss_slow_rate", 0.65 ) );
+	{
+		boss_rate = ( ( pap_tier >= 2 ) ? getdvarfloat( "acc_freeze_boss_slow_rate_fury", 0.75 ) : getdvarfloat( "acc_freeze_boss_slow_rate", 0.825 ) );
+		self acc_freeze_apply_ai_slow( getdvarfloat( "acc_freeze_boss_slow_sec", 5.0 ) * fury_dur, boss_rate );
+	}
 	else if ( ( self acc_freeze_is_shielded() ) || ( self acc_freeze_is_glitch() ) )
-		self acc_freeze_apply_ai_slow( getdvarfloat( "acc_freeze_elite_slow_sec", 3.0 ), getdvarfloat( "acc_freeze_elite_slow_rate", 0.5 ) );
+	{
+		elite_rate = ( ( pap_tier >= 2 ) ? getdvarfloat( "acc_freeze_elite_slow_rate_fury", 0.35 ) : getdvarfloat( "acc_freeze_elite_slow_rate", 0.5 ) );
+		self acc_freeze_apply_ai_slow( getdvarfloat( "acc_freeze_elite_slow_sec", 3.0 ) * fury_dur, elite_rate );
+	}
 
 	self DoDamage( damage, player.origin, player, undefined, "projectile" );
 	
@@ -581,15 +600,28 @@ function freezegun_death_callback( attacker )
 function setup_iceblock( player, weap )
 {
 	wait( 3 );
+	// [acc] FIX pass 2 (2026-07-12, live "undefined is not an entity" storm): the frozen corpse
+	// can be REAPED (round cleanup / corpse cap) during the 3s wait - every self deref below then
+	// threw and killed the thread. Return BEFORE the radius-damage latch is set (nothing to
+	// unlatch); same guard again before the +1s Delete.
+	if ( !isdefined( self ) )
+		return;
 	SetPlayerIgnoreRadiusDamage( true );
 	self Hide();
 
-	upgraded = (weap == "freezegun_upgraded");
+	// [acc] FIX (2026-07-12, live SCRIPTERROR storm): weap = self.damageweapon is a weapon
+	// OBJECT - comparing it to a string THROWS in T7 ("pair 'entity' and 'freezegun_upgraded'
+	// has unmatching types 'pointer' and 'string'"), killing this thread 3s after EVERY
+	// freezegun kill: the iceblock never shattered (no radiusDamage) and never Delete()d, and
+	// the exception spammed console_mp.log. Compare by NAME, substring like the fire path
+	// (:175) so the _acc_fastreload twin's upgraded form counts as upgraded too.
+	upgraded = ( isdefined( weap ) && isdefined( weap.name ) && IsSubStr( weap.name, "freezegun_upgraded" ) );
 	self radiusDamage( self.origin, freezegun_get_shatter_range( upgraded ), freezegun_get_shatter_inner_damage( upgraded ), freezegun_get_shatter_outer_damage( upgraded ), player, "MOD_EXPLOSIVE", weap );
 
 	SetPlayerIgnoreRadiusDamage( false );
 	wait( 1 );
-	self Delete();
+	if ( isdefined( self ) )
+		self Delete();
 }
 
 

@@ -111,7 +111,7 @@ multi-tier sinks, finite so you can't hoard forever.
 | **Data Caches** (×4, up top) | The open plaza (surface) | **+1 each**, once per round, first-come; they re-arm every round. Separate pool from the pit caches — you can grab one plaza cache *and* one pit cache each round (the anti-hog cap is per group). |
 | **Data Caches** (×2, in the pit) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
 | **Any boss kill** | Boss rounds (see below) | **Every boss pays the same guaranteed reward** to every player: **round × 180 points + ⌊round ÷ 3⌋ shards**, plus a **boss item** and a **Mega Bottle**. (Round 9 = ~1,620 points + 3 shards; round 18 = ~3,240 + 6.) This covers the **Trench Warden** (Brutus), **Phantom**, **Avogadro**, **Panzer**, and the **Rogue Protector** alike — they were unified 2026-07-05, no more per-boss differences. *(Bosses spawned during the Paradise finale pay nothing — that fight is survive-don't-farm.)* |
-| **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards and a shared Fire Sale.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
+| **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards, a shared Fire Sale, and 1 random Implant drops at the plinth.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
 | **Glitch Altar** | Deep underground (Abyss Layer 3) | A **2-Shard gamble**, not a faucet — see below. |
 | **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** — no boss item, no Mega Bottle (it spawns on **even rounds from round 4** — 1 at round 4, 2 at round 6, 3 at round 8, then 4+ from round 10 on, uncapped — so those stay exclusive to the rare Brutus/Phantom). |
 
@@ -151,9 +151,9 @@ zombies scale up:
 
 | Per layer DEEPER | Effect |
 |---|---|
-| Move speed | **+4%** |
-| Health | **+30%** (one-way — they keep it as they descend) |
-| Melee damage | **+6 HP** (a flat add, not a percent) |
+| Move speed | **+3%** |
+| Health | **+25%** (one-way — they keep it as they descend) |
+| Melee damage | **+4 HP** (a flat add, not a percent) |
 
 So a zombie on Layer 3 is roughly +12% speed, +90% health, and hits for +18 over a surface
 zombie. Going deeper is pure risk-for-reward.

@@ -1,0 +1,16 @@
+{
+  "name": "acc-leaderboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abandoned Cyber City leaderboard/analytics backend (Cloudflare Worker + D1) and reporting tools.",
+  "scripts": {
+    "summary": "node summary.js",
+    "summary:json": "node summary.js --json",
+    "cleanup": "node cleanup.js",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
