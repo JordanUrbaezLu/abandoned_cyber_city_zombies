@@ -8,19 +8,26 @@
 //   - QR revive: base 2.0s / Savior 1.0s     (qr_revive_time + qr_revive_watcher)
 //   - Savior (QR Mega) +15% speed  (savior_speed_watcher + recompute term in
 //                                   _acc_utility::recompute_move_speed)
+//   - Widow's Wine base 50% nerf   (ww_nerf_install + ww_duration_watchdog; user 2026-07-17)
 //
 // Wired from _acc_main: acc_perks::init() in init(); on_player_connect /
 // on_player_spawned dispatched from the matching acc_main hooks.
 // =============================================================================
 
+#using scripts\shared\callbacks_shared;   // callback::on_ai_spawned (Widow's web-duration watchdog)
+#using scripts\shared\clientfield_shared; // clear the widows_wine_wrapping FX on forced web expiry
 #using scripts\shared\flag_shared;
 #using scripts\shared\laststand_shared;
+#using scripts\shared\util_shared;        // util::waittill_any (web re-application listener)
+
+#using scripts\zm\_zm_perk_widows_wine;   // pointer refs + delegation targets for the Widow's nerf wrappers
 
 #using scripts\shared\ai\zombie_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the Neural Expansion console
 
 #insert scripts\shared\shared.gsh;
 
@@ -29,12 +36,21 @@
 // - a screen-covered tech console for the Neural Expansion read; kills the 6-way sign-kiosk reuse.
 #precache( "model", "p7_zm_sta_drop_pod_console_blue" );
 
-// --- Jug hit model (melee ~45 dmg/hit, stock GDT, unchangeable) ---------------
-// player_base_health = 100 (stock _zm.gsc:1229) -> no-Jug downs on the 3rd melee.
-// with-Jug HP = 100 + jugg add; docs/10: base Jug = 250 HP -> down on the 6th.
-// Tuning lever: change ONLY this to move the with-Jug hit count.
-#define ACC_JUGG_HEALTH_ADD          150
-#define ACC_JUGG_HEALTH_ADD_UPGRADE  150  // stock persistent-upgrade var mirror
+// --- Player base health + Jug hit model (melee ~45 dmg/hit, stock GDT, unchangeable) ----------
+// STARTING HEALTH BUFF (user 2026-07-16): player_base_health 100 -> 125, but JUG AND MEGA JUG STAY AT
+// THEIR PRIOR TOTALS (user follow-up: "starting health is 125 but jug stays at 250 and mega jug stays at
+// 300"). player_base_health is the base the Jug/health_reboot recompute reads, so the Jug ADD is cut
+// 150 -> 125 to ABSORB the +25 base and land Jug back on 250 (125 base + 125 add); Ultimate Tank stays 300
+// (250 + the unchanged +50 Mega boost, _acc_mega_bottles.gsc). Net effect = ONLY the no-perk floor moved:
+//   no-Jug        = 125 HP (still ~3 melee hits, but soaks +25 of chip/bullet damage before downing)
+//   with Jug      = 125 + 125 = 250 HP (unchanged; down on the 6th melee)
+//   Ultimate Tank = 250 +  50 = 300 HP (unchanged; down on the 7th)
+// player_base_health is set in init() (NOT flag-gated) so it lands BEFORE the first spawn's health_reboot;
+// the Jug add is set in tune_jugg_health() (flag-gated, fine since perks aren't buyable pre-blackscreen).
+// Tuning levers: ACC_PLAYER_BASE_HEALTH moves the no-perk floor; ACC_JUGG_HEALTH_ADD moves the with-Jug total.
+#define ACC_PLAYER_BASE_HEALTH       125  // stock 100 (user 2026-07-16 starting-health buff)
+#define ACC_JUGG_HEALTH_ADD          125  // 150 -> 125 so Jug stays 250 with the 125 base (user 2026-07-16)
+#define ACC_JUGG_HEALTH_ADD_UPGRADE  125  // stock persistent-upgrade var mirror
 
 // --- Quick Revive regen: base 20% sooner, Savior Mega 40% sooner (docs/10; user 2026-06-21) ---
 #define ACC_QR_REGEN_DELAY_BASE   0.80   // base QR: regen delay x0.80 (=20% sooner -> ~1.92s; was 0.85/15%)
@@ -61,16 +77,55 @@
 #define ACC_PERK_SLOT_COST_BASE   4
 #define ACC_PERK_SLOT_COST_STEP   2
 
+// --- Widow's Wine base 50% nerf (user 2026-07-17: "too good at preventing you from dying...
+//     50% nerf all around"). Stock's numbers are #defines a usermap can't edit, but every
+//     lever has a script-side seam (same doctrine as the spider-drop economy takeover in
+//     _acc_mega_bottles). Three axes, each halved:
+//   * CONTACT AUTO-WEB (the death-preventer: stock detonates a free web on EVERY AI melee
+//     while you carry >0 web grenades). Its handler is a plain pointer in the
+//     level.perk_damage_override array (_zm.gsc:5231-5240); ww_nerf_install SWAPS the stock
+//     pointer for ww_contact_web_wrapper, which coin-flips before delegating. A denied
+//     proc = you take the melee like anyone else (no grenade spent).
+//   * MELEE WEB (stock: 50% cocoon chance per Widow's-knife hit, WW_MELEE_COCOON_CHANCE -
+//     compile-time, unreachable). Same swap trick on level.zombie_damage_callbacks
+//     (_zm_spawner.gsc:2102-2108): ww_melee_web_wrapper pre-rolls on the MELEE path only
+//     -> net 25%. Grenade webs (thrown + contact bursts) pass through untouched.
+//   * WEB DURATIONS (stock cocoon 16s @ 0.1 anim rate / slow 12s @ 0.7). Durations are
+//     #defines too, but stock's effect threads endon their own extend-notifies and reset
+//     state at expiry (_zm_perk_widows_wine.gsc:453-464/504-515) - so a per-AI watchdog
+//     (spawn-hooked, like mww_suppress_stock_spider_drop) force-fires that exact expiry at
+//     HALF time. Web STRENGTH (the 0.1/0.7 rates) is deliberately untouched - the nerf is
+//     uptime, not identity. _acc_zombie_speed's keepalive re-adopts the zombie on its next
+//     sweep once the b_widows_wine_* flags drop, exactly as after a natural expiry.
+//     The spider-DROP economy is already ours (base BELOW stock) and is NOT part of this nerf.
+#define ACC_WW_CONTACT_PROC_CHANCE  0.50   // stock: 1.0 (every melee procs the auto-web)
+#define ACC_WW_MELEE_PREROLL        0.50   // x stock's internal 0.50 -> net 25% melee-web chance
+#define ACC_WW_COCOON_DURATION      8.0    // stock WIDOWS_WINE_COCOON_DURATION 16.0
+#define ACC_WW_SLOW_DURATION        6.0    // stock WIDOWS_WINE_SLOW_DURATION 12.0
+
 #namespace acc_perks;
 
 function init()
 {
     acc_utility::log( "perks init" );
 
+    // STARTING HEALTH BUFF (user 2026-07-16): player_base_health 100 -> 125 (docs/10). Written HERE (init,
+    // during load, before any player spawns) - NOT in the flag-gated tune_jugg_health() below - because the
+    // initial spawn health is a health_reboot recompute off this var (_globallogic_spawn.gsc:492) that fires
+    // DURING the blackscreen, before initial_blackscreen_passed. Stock set it to 100 at _zm.gsc:1229 (already
+    // run by the time acc_main::init reaches us), and nothing rewrites it after, so this override sticks and
+    // cascades to no-Jug (125), Jug (275) and every revive/round recompute.
+    zombie_utility::set_zombie_var( "player_base_health", ACC_PLAYER_BASE_HEALTH );
+
     // Per-player perk-slot limit hook (the stock-sanctioned override, _zm_utility.gsc:5879). The base
     // cap is level.perk_purchase_limit (4, set in the entry script); this hook adds each player's
     // shard-bought bonus on top. Installed here so it is live before any perk machine is used.
     level.get_player_perk_purchase_limit = &acc_perk_slot_limit;
+
+    // Widow's Wine base 50% nerf (user 2026-07-17). Stock's REGISTER_SYSTEM __init__ populated both
+    // callback arrays long before acc_main::init reaches us, so the swap is safe to do inline here.
+    ww_nerf_install();
+    callback::on_ai_spawned( &ww_watchdog_on_ai_spawned );
 
     level thread tune_jugg_health();
     level thread force_perk_machine_facing();
@@ -170,6 +225,7 @@ function spawn_perk_slot_vendor_at( origin, yaw )
     m = spawn( "script_model", origin );
     m setmodel( "p7_zm_sta_drop_pod_console_blue" );   // Gorod drop-pod console (screens + blue glow = neural-tech read)
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+    acc_interact_glow::glow_on( m );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523). Without it you walk up and get no usable prompt.
@@ -210,6 +266,7 @@ function perk_slot_vendor_loop()   // self = the vendor trigger
         }
 
         player.acc_perk_slot_bonus += 1;
+        acc_interact_glow::glow_off( self.acc_vendor_model );   // slot actually bought = successful use (user 2026-07-17)
         player PlaySound( "acc_shard_pickup" );
         player acc_utility::hud_msg( "^5NEURAL EXPANSION^7 - perk capacity now ^2" + ( base + player.acc_perk_slot_bonus ) + " ^7slots" );
         wait 0.4;
@@ -429,4 +486,127 @@ function savior_revive_damage_mult( player )
     if ( !acc_mega_bottles::has_mega_perk( player, "specialty_quickrevive" ) ) return 1.0;
     if ( !( isdefined( player.is_reviving_any ) && player.is_reviving_any > 0 ) ) return 1.0;
     return ACC_SAVIOR_REVIVE_DMG_TAKEN;
+}
+
+// ---------------------------------------------------------------------------
+// Widow's Wine base 50% nerf (design rationale + all four tuning knobs: see the
+// ACC_WW_* define block up top; docs/10_perks.md #8).
+// ---------------------------------------------------------------------------
+
+// Swap the two stock Widow's handlers for our rate-limiting wrappers, IN PLACE (array order -
+// and therefore dispatch order vs PhD / Avogadro / freezegun callbacks - is preserved).
+// Pointer-compare on function refs is the stock-sanctioned idiom (_zm_perk_widows_wine.gsc:202).
+function ww_nerf_install()
+{
+    if ( !isdefined( level.w_widows_wine_grenade ) )
+    {
+        acc_utility::log( "ww nerf: stock widow's wine never registered - skipped" );
+        return;
+    }
+
+    if ( isdefined( level.perk_damage_override ) )
+    {
+        for ( i = 0; i < level.perk_damage_override.size; i++ )
+        {
+            if ( level.perk_damage_override[ i ] == &zm_perk_widows_wine::widows_wine_damage_callback )
+                level.perk_damage_override[ i ] = &ww_contact_web_wrapper;
+        }
+    }
+
+    if ( isdefined( level.zombie_damage_callbacks ) )
+    {
+        for ( i = 0; i < level.zombie_damage_callbacks.size; i++ )
+        {
+            if ( level.zombie_damage_callbacks[ i ] == &zm_perk_widows_wine::widows_wine_zombie_damage_response )
+                level.zombie_damage_callbacks[ i ] = &ww_melee_web_wrapper;
+        }
+    }
+}
+
+// self = the damaged PLAYER (level.perk_damage_override slot). Coin-flip gate in front of the
+// stock contact auto-web. Signature = the stock dispatch (_zm.gsc:5235); a defined return
+// REPLACES iDamage, undefined leaves it alone.
+function ww_contact_web_wrapper( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
+{
+    // Stock rule preserved UNCONDITIONALLY: your own (or a teammate's) web explosion never hurts you.
+    if ( isdefined( sWeapon ) && sWeapon == level.w_widows_wine_grenade )
+        return 0;
+
+    // The nerf: half the procs are denied outright - the melee lands like you have no perk,
+    // and no grenade is spent. (Irrelevant damage events the stock func would ignore anyway
+    // lose nothing by being denied here.)
+    if ( RandomFloat( 1.0 ) > ACC_WW_CONTACT_PROC_CHANCE )
+        return;
+
+    return self zm_perk_widows_wine::widows_wine_damage_callback( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime );
+}
+
+// self = the damaged ZOMBIE (level.zombie_damage_callbacks slot). Pre-roll ONLY the melee-web
+// path (stock then rolls its own 50% -> net 25%); web-grenade hits always delegate so thrown
+// grenades + contact bursts keep webbing everything they catch (their nerf is the duration cap).
+// Returning false = web denied, dispatch falls through to normal damage handling, same as when
+// stock declines a hit.
+function ww_melee_web_wrapper( str_mod, str_hit_location, v_hit_origin, e_player, n_amount, w_weapon, direction_vec, tagName, modelName, partName, dFlags, inflictor, chargeLevel )
+{
+    b_web_grenade_hit = isdefined( self.damageweapon ) && self.damageweapon == level.w_widows_wine_grenade;
+
+    if ( !b_web_grenade_hit && IS_EQUAL( str_mod, "MOD_MELEE" ) && RandomFloat( 1.0 ) > ACC_WW_MELEE_PREROLL )
+        return false;
+
+    return self zm_perk_widows_wine::widows_wine_zombie_damage_response( str_mod, str_hit_location, v_hit_origin, e_player, n_amount, w_weapon, direction_vec, tagName, modelName, partName, dFlags, inflictor, chargeLevel );
+}
+
+// self = a freshly spawned AI (callback::on_ai_spawned).
+function ww_watchdog_on_ai_spawned()
+{
+    self thread ww_web_apply_listener();
+    self thread ww_duration_watchdog();
+}
+
+// self = an AI. Stamps the LAST web application: stock re-fires these two notifies on EVERY
+// (re-)application as its extend mechanism (_zm_perk_widows_wine.gsc:420/473), so a fresh
+// grenade on an already-webbed zombie re-arms the half-time clock instead of being eaten by it.
+// (Our own forced-expiry notifies also land here - harmless, the flags are already down.)
+function ww_web_apply_listener()
+{
+    self endon( "death" );
+    for ( ;; )
+    {
+        self util::waittill_any( "widows_wine_cocoon", "widows_wine_slow" );
+        self.acc_ww_web_applied_ms = GetTime();
+    }
+}
+
+// self = an AI. Force-expires an active web at half the stock duration by firing stock's OWN
+// extend/expiry notifies (endon-kills the stock effect threads, so their full-length timers can
+// never fire later) and replaying stock's exact expiry cleanup (_zm_perk_widows_wine.gsc:458-464).
+function ww_duration_watchdog()
+{
+    self endon( "death" );
+
+    for ( ;; )
+    {
+        wait 0.25;
+
+        if ( !IS_TRUE( self.b_widows_wine_cocoon ) && !IS_TRUE( self.b_widows_wine_slow ) )
+            continue;
+
+        // Cocoon outranks slow (a mid-window slow->cocoon upgrade re-fired the cocoon notify,
+        // so the listener already restarted the clock for the stronger effect).
+        cap_sec = ( IS_TRUE( self.b_widows_wine_cocoon ) ? ACC_WW_COCOON_DURATION : ACC_WW_SLOW_DURATION );
+
+        if ( !isdefined( self.acc_ww_web_applied_ms ) )
+            self.acc_ww_web_applied_ms = GetTime();   // flag seen before any notify (belt & braces)
+
+        if ( GetTime() - self.acc_ww_web_applied_ms < int( cap_sec * 1000 ) )
+            continue;
+
+        self notify( "widows_wine_cocoon" );
+        self notify( "widows_wine_slow" );
+        self notify( "widows_wine_cocoon_zombie_score" );   // the webbed point-drip stops at expiry too
+        self ASMSetAnimationRate( 1.0 );
+        self clientfield::set( "widows_wine_wrapping", 0 );
+        self.b_widows_wine_cocoon = false;
+        self.b_widows_wine_slow = false;
+    }
 }

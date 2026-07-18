@@ -48,9 +48,54 @@ changed and why.
 - `ffscan_kf.js` — kill-feed .ff string verifier (superseded by `tools/ff_grep.js`,
   kept for its ZM_AETHERIUM_KF_* needle list).
 - `chalk_sheet.js` — chalk-icon contact-sheet auditor (companion to
-  `tools/whiten_chalk_icons.js`).
+  `whiten_chalk_icons.js`, archived here 2026-07-12).
 
 **CONVENTION going forward (the lesson):** any scratchpad script that WRITES repo
 or install state gets copied into `tools/oneshots/` in the same session that ran
 it. Scratchpads are temp storage — treat a writer script left there as data loss
 in progress.
+
+---
+
+## 2026-07-12 audit archive — spent MAP-GEOMETRY + weapon-GDT one-shots (96 files)
+
+Moved out of `tools/` root by the full-repo audit (see `docs/42_code_audit_2026-07-12.md`). Every one
+WROTE durable state that is **already baked** into `map_source/zm/zm_abandoned_cyber_city.map`
+(geometry / lights / entities / materials) or into the install-side GDTs (`source_data/` + the
+external-assets zip). **None is invoked by any `.ps1` pipeline** (verified by a basename grep across all
+`*.ps1` before the move) and no kept root tool `require()`s any of them — they are one-shot construction
+*records*, kept for provenance + disaster recovery, not maintained tools. `git log --follow` on any file
+recovers its exact history. Families moved:
+
+- **Geometry adders:** `add_avogadro_spawn`, `add_ceilings`, `add_corp_trench`, `add_ec_right_wall`,
+  `add_lockdown_seals`, `add_perk_alcoves`, `add_pit_room`, `add_power_switches`, `add_room_boxes`,
+  `add_trench_bridge`, `add_trench_floor`, `add_trench_rooms`, `add_under_room`, `add_vault_ceiling`.
+- **Geometry / light / interactive generators:** `gen_abyss_doors`, `gen_abyss_layer`, `gen_corp_trench`,
+  `gen_descent_hub`, `gen_neon_lights`, `gen_paradise_props`, `gen_plaza_basement`, `gen_plaza_shrink`,
+  `gen_relocate_exo_room`, `gen_room_cover`, `gen_room_roofs`, `gen_trench_walls`, `gen_underground_lights`,
+  `gen_upper_room`, `gen_interactives`, `gen_t9_attach_mats`, `_gate_sealed_lights`, `_grade_abyss_lights`.
+- **apply / carve / paint / remove / normalize map mutators:** `apply_entity_moves`, `apply_room_shrink`,
+  `apply_zone_greybox`, `apply_zone_materials`, `carve_arena_wing`, `carve_south_concourse`, `carve_wing`,
+  `paint_doors`, `paint_plaza_walls`, `paint_region`, `paint_walls`, `remove_guard_rails`, `remove_obstacles`,
+  `remove_walls_in_region`, `normalize_box_brushes`, `normalize_gun_loc`, `normalize_mors_loc`,
+  `normalize_sniper_loc`.
+- **One-shot geometry fixes + the bridge/trench-build saga:** `fix_box_positions`, `fix_bridge_material`,
+  `fix_led_safe_geometry`, `fix_paladin_loc`, `fix_perk_facing`, `fix_perk_facing_flanks`,
+  `fix_twin_attachments`, `fix_twin_ammo_drift`, `fix_inverted_gunkick_pitch`, `fix_pdw_akimbo_ammo`,
+  `fix_cw_shell_eject_fx`, `bisect_brushes`, `bridge_v2`, `convert_bridge_to_brushmodel`, `levers_onto_bridge`,
+  `clean_plane_points`, `dedup_guids`, `expand_core`, `fill_trench_rooms`, `single_wall_switch`, `strip_blocks`,
+  `strip_entities`, `strip_lighting_entities`, `pack_lightmap_uvs`, `place_boxes_against_walls`,
+  `respace_perk_alcoves_10`, `regen_trench_stairs`.
+- **Install-side weapon / GDT / alias one-shots:** `prep_apex_tripletake_gdt`, `prep_hamr_gdt`, `prep_m16_gdt`,
+  `scale_hipspread_by_class`, `scale_sniper_hipspread`, `symmetrize_cw_recoil`, `rebalance_pap_forms`,
+  `reduce_base_ammo`, `graft_cw_weapon_stats`, `restore_cw_mag`, `trim_cw_aliases`, `gen_weapon_variant_gdt`,
+  `gen_actionfigure_speed_twins`, `gen_box_dynamic`, `gen_box_weapon_sounds`, `gen_cw_box_aliases`,
+  `whiten_chalk_icons`, `remove_ppsh_pap_optic`.
+- **`gen_reflection_probes` (special):** archived like the rest, **but** reflection probes are conceptually
+  re-derivable (unlike pure geometry). If probe placement ever changes, regenerate with this script AND run a
+  FULL `build_map.ps1` **with the LED bake** (per CLAUDE.md's bake gate) — a `-GscOnly` build will not re-bake them.
+
+**Kept in `tools/` root despite matching names** (do NOT archive): `gen_rooms` / `gen_zone_greybox`
+(referenced by `preflight_windows.ps1`), the restore-chain regenerators (`gen_perk_glow_fx`,
+`apply_recoil_overhaul`, `gen_t7_carve_gdt`, `fix_actionfigure_port`), the maintenance re-run tools
+(`add_prop_clips`, `align_box_clips`, `add_rpd_pap_sight`), and all repeatable diagnostics/audits/generators.

@@ -219,9 +219,9 @@ function pap_cost_display_keeper()
                     tier = get_tier( np, w );
             }
 
-            if ( is_actionfigure( w ) || is_firebow( w ) )
+            if ( is_actionfigure( w ) || is_firebow( w ) || is_cyberjack( w ) )
             {
-                // Action Figure + Fire Bow PaP IN PLACE (no _up form) - drive the price off their own tier.
+                // Action Figure + Fire Bow + CYBERJACK PaP IN PLACE (no _up form) - drive the price off their own tier.
                 // TRAP (user 2026-07-07): both are is_weapon_upgraded at their packed tiers - the AF SPEED TWINS
                 // (fast1/2/3), and the Fire Bow's demon-gate form at EVERY tier - and the stock machine prompt
                 // reads self.AAT_COST for an upgraded weapon (self.cost only for a NON-upgraded base). The old AF
@@ -370,6 +370,7 @@ function pap_price_bucket( weapon_name )
     if ( IsSubStr( weapon_name, "thundergun" ) )            return "WONDER";   // #1 Thundergun (special)
     if ( IsSubStr( weapon_name, "t9_semiauto_cosplay" ) )   return "WONDER";   // #2 Blast-O-Matic (special)
     if ( IsSubStr( weapon_name, "elemental_bow_demongate" ) ) return "WONDER";   // #3 Fire Bow (special)
+    if ( IsSubStr( weapon_name, "apex_lstar" ) )              return "WONDER";   // THE CYBERJACK (L-STAR chassis, quest-only wonder - docs/43; chassis swap 2026-07-17)
     if ( IsSubStr( weapon_name, "leviathan" ) )             return "WONDER";   // #4 Leviathan Axe (special)
     if ( IsSubStr( weapon_name, "freezegun" ) )             return "WONDER";   // Winter's Howl (utility freeze wonder, 2026-07-11; is_aat_exempt FALSE in CSV so tier-3 PaP stays visible - no thundergun-style fix needed)
 
@@ -507,6 +508,61 @@ function acc_pap_firebow()
     // [dev] Fire-Bow PaP-tier on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)
 }
 
+// THE CYBERJACK (apex_lstar / L-STAR chassis, docs/43; chassis swap from the storm bow 2026-07-17
+// - user: "the part I don't really like is that it's a bow") - the Fire Bow's in-place-PaP template:
+// no "_up" asset (CSV upgrade=self), so it owns its tier in a dedicated counter
+// (player.acc_cyberjack_tier, 0..3) driven by acc_pap_cyberjack. QUEST-ONLY - never in the box
+// (decision 2); acquisition = the ICEBREAKER COMPILE (M4) / _acc_dev grant until then.
+function is_cyberjack( w )
+{
+    if ( !isdefined( w ) || w == level.weaponNone || !isdefined( w.name ) ) return false;
+    return IsSubStr( w.name, "apex_lstar" );
+}
+
+function cyberjack_tier( player )
+{
+    if ( !isdefined( player ) || !isdefined( player.acc_cyberjack_tier ) ) return 0;
+    t = player.acc_cyberjack_tier;
+    if ( t < 0 ) t = 0;
+    if ( t > 3 ) t = 3;
+    return t;
+}
+
+// self = player. One-off in-place PaP for the CYBERJACK: charge the WONDER price tier, bump acc_cyberjack_tier,
+// refill + replay the pack draw for feedback. NO transform (there is no packed form). Mirrors acc_pap_firebow.
+function acc_pap_cyberjack()
+{
+    self endon( "disconnect" );
+    if ( isdefined( self.acc_tier_cd ) && GetTime() < self.acc_tier_cd )
+        return;
+    self.acc_tier_cd = GetTime() + int( ACC_PAP_PACK_DEBOUNCE * 1000 );
+
+    w = self GetCurrentWeapon();
+    if ( !is_cyberjack( w ) ) return;
+
+    cur = cyberjack_tier( self );
+    if ( cur >= ACC_PAP_MAX_TIER )
+        return;                                            // maxed (tier 3); the machine price already reads 0
+    next = cur + 1;
+
+    cost = self armory_discount( weapon_tier_cost( w, next ) );   // WONDER tier: 10000 / 15000 / 20000
+    if ( !( self zm_score::can_player_purchase( cost ) ) )
+    {
+        self acc_pap_play_on_machine( "zmb_perks_packa_deny" );
+        self IPrintLnBold( "^1Not enough points ^7(need " + cost + ")" );
+        return;
+    }
+
+    self acc_pap_play_on_machine( "zmb_perks_packa_upgrade" );
+    self zm_score::minus_to_player_score( cost );
+
+    self.acc_cyberjack_tier = next;   // M1+ behavior (hops/slow/harvest) reads this live via get_tier -> cyberjack_tier
+    self replay_pack_draw( w );       // in-place: same weapon, just the pack animation for feedback
+    self fill_full_ammo( w );
+
+    self acc_pap_play_on_machine( "zmb_perks_packa_ready" );
+}
+
 // The Action Figure's current PaP tier = which SPEED-TWIN form is held (base=0, fast1/2/3=1/2/3). This is the
 // source of truth (survives re-boxing), NOT a stored counter. Each tier swaps to a twin with a faster meleeTime.
 function actionfigure_tier_of( w )
@@ -528,6 +584,7 @@ function pap_weapon_packable( w )
     if ( !isdefined( w ) || w == level.weaponNone ) return false;
     if ( is_actionfigure( w ) ) return true;   // Action Figure: in-place PaP (no _up) - see acc_pap_actionfigure
     if ( is_firebow( w ) ) return true;        // Fire Bow: in-place PaP (no _up, upgrade=self) - see acc_pap_firebow
+    if ( is_cyberjack( w ) ) return true;      // CYBERJACK: in-place PaP (no _up, upgrade=self) - see acc_pap_cyberjack
     packed = acc_weapon_variants::packed_form( w );
     return isdefined( packed ) && packed != level.weaponNone && packed != w;
 }
@@ -553,6 +610,8 @@ function acc_pap_validate( player )   // self = the PaP machine trigger
     w = player GetCurrentWeapon();
     if ( !isdefined( w ) || w == level.weaponNone ) return false;
 
+    acc_utility::levbug( player, "validate w=" + acc_utility::levbug_wname( w ) + " tier=" + get_tier( player, w ) );   // [LEVBUG-TEMP]
+
     // Action Figure melee: one-off in-place PaP (no _up form) - handle it entirely on its own so the gun
     // pack/transform flow below is never touched. user 2026-06-23.
     if ( is_actionfigure( w ) )
@@ -566,6 +625,13 @@ function acc_pap_validate( player )   // self = the PaP machine trigger
     if ( is_firebow( w ) )
     {
         player thread acc_pap_firebow();
+        return false;
+    }
+
+    // THE CYBERJACK: same shape as the Fire Bow (in-place, dedicated tier counter). docs/43, M0 2026-07-17.
+    if ( is_cyberjack( w ) )
+    {
+        player thread acc_pap_cyberjack();
         return false;
     }
 
@@ -643,6 +709,7 @@ function acc_do_first_pack( w, cost )
     base = acc_weapon_variants::true_base( w );   // tier keyed by the true base
     if ( !isdefined( self.acc_pap_tier ) ) self.acc_pap_tier = [];
     self.acc_pap_tier[ base ] = 1;
+    acc_utility::levbug( self, "first_pack w=" + acc_utility::levbug_wname( w ) + " base=" + acc_utility::levbug_wname( base ) );   // [LEVBUG-TEMP]
     // DEV verify (acc_dev only): confirm the per-pack tier (user 2026-06-25, "Mahem only packs twice" - prove
     // the uniform 3-tier flow runs for every gun incl. launchers). No effect in normal play.
     // [dev] PaP tier-1 on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)
@@ -654,9 +721,14 @@ function acc_do_first_pack( w, cost )
     self.acc_pap_busy = true;
     if ( getdvarint( "acc_pap_tier_anim", 1 ) != 0 )
         self replay_pack_draw( w );
-    self.acc_pap_busy = false;
 
     self fill_full_ammo( w );   // 100% full clip+reserve (akimbo-aware: fills BOTH dual-wield mags)
+
+    // [acc] SETTLE GATE (user 2026-07-15) - see acc_do_tier_up: keep the reconcile defer up until the
+    // engine actually has the packed gun raised, so the tier-1 spd1 twin swap re-switches correctly
+    // instead of landing holstered against a stale GetCurrentWeapon (the draw's frag/knife dwell).
+    self wait_pack_settled( w );
+    self.acc_pap_busy = false;
 
     self acc_pap_play_on_machine( "zmb_perks_packa_ready" );          // no aat::acquire -> NO alt-ammo
     // PaP tier/benefit TOAST removed (user 2026-06-22): PaP shows NO display/indication - only the machine price.
@@ -664,6 +736,36 @@ function acc_do_first_pack( w, cost )
     // Leviathan spd axis (user 2026-07-09): a tier change can change the axe's desired speed twin -
     // poke the variant reconcile so the swap is immediate (harmless no-op for every other gun).
     acc_weapon_variants::request_reconcile( self );
+}
+
+// self = player. Block until the engine's CURRENT weapon really is `w` (two consecutive 50ms polls),
+// capped at 1.5s (a player who instantly switches off, or a hold the engine never raises, must not
+// wedge acc_pap_busy on). Same problem class as _acc_weapon_variants::wait_box_give_settled: right
+// after a raw give/immediate-switch, GetCurrentWeapon() keeps reporting the pre-swap hold for a few
+// frames (during replay_pack_draw's empty dwell it can read the FRAG/knife), and any consumer acting
+// on that stale value mis-routes. user 2026-07-15 ("switch back to the axe after packing").
+function wait_pack_settled( w )
+{
+    if ( !isdefined( w ) || w == level.weaponNone ) return;
+    stable = 0;
+    for ( i = 0; i < 30; i++ )   // 30 x 0.05s = 1.5s cap
+    {
+        if ( ( self GetCurrentWeapon() ) == w )
+        {
+            stable++;
+            if ( stable >= 2 )
+            {
+                acc_utility::levbug( self, "pack settled on " + acc_utility::levbug_wname( w ) + " after " + ( i * 50 ) + "ms" );   // [LEVBUG-TEMP]
+                return;
+            }
+        }
+        else
+        {
+            stable = 0;
+        }
+        wait 0.05;
+    }
+    acc_utility::levbug( self, "pack settle TIMEOUT waiting for " + acc_utility::levbug_wname( w ) );   // [LEVBUG-TEMP]
 }
 
 // self = player. Charge + bump the held gun's tier (2 or 3), INSTANT + in place.
@@ -694,6 +796,7 @@ function acc_do_tier_up( w )
     }
 
     next = cur + 1;
+    acc_utility::levbug( self, "tier_up IN w=" + acc_utility::levbug_wname( w ) + " cur=" + cur + " next=" + next );   // [LEVBUG-TEMP]
     cost = self armory_discount( weapon_tier_cost( w, next ) );   // per-gun price tier (TOP/MID/BOT) x 10% Armory
     if ( !( self zm_score::can_player_purchase( cost ) ) )
     {
@@ -705,17 +808,20 @@ function acc_do_tier_up( w )
     self acc_pap_play_on_machine( "zmb_perks_packa_upgrade" );   // PaP "cook" sound = plasma-gun-fire wav, 3D on the machine (user 2026-06-22)
     self.acc_pap_busy = true;
     did_transform = false;
+    w_expect = w;   // the gun that must end up in the player's hands when the pack settles
     if ( next == 2 )
     {
         // TIER 1 -> 2: the real transform. Swap the held base gun for its packed "_up" form (or matching
         // packed twin). acc_do_transform fills the packed form to 100% ammo ITSELF (on the
         // known packed weapon). Bail WITHOUT charging if no packed form resolves (first pack proved one).
-        if ( !acc_do_transform( w, base ) )
+        packed = acc_do_transform( w, base );
+        if ( !isdefined( packed ) )
         {
             self.acc_pap_busy = false;
             return;
         }
         did_transform = true;
+        w_expect = packed;
     }
     else
     {
@@ -727,18 +833,26 @@ function acc_do_tier_up( w )
     self zm_score::minus_to_player_score( cost );
     self.acc_pap_tier[ base ] = next;
     // [dev] PaP tier-N on-screen print REMOVED 2026-07-10 (clean screen in hardcoded dev)   // user 2026-06-25 Mahem pack-count verify
-    self.acc_pap_busy = false;
     // Tier 2 is already full (filled inside the transform on the reliable packed ref). Tier 3 keeps the
     // SAME "_up" gun in hand (replay_pack_draw re-gives it), so fill THAT via the original w - NOT the
     // timing-sensitive GetCurrentWeapon (user 2026-06-22: Galil tier-2 wasn't getting full ammo).
     if ( !did_transform )
         self fill_full_ammo( w );
+
+    // [acc] SETTLE GATE (user 2026-07-15 "sometimes you need to switch back to the axe after packing"):
+    // hold acc_pap_busy - which reconcile() now defers on - until the engine's current weapon really IS
+    // the packed gun. GetCurrentWeapon() lags the raw give/switch by a few frames (during the draw's
+    // empty-handed dwell it can even read the FRAG), so an instant reconcile poke saw a stale equipped,
+    // swap_weapon skipped its re-switch (was_equipped false), and the tier twin landed HOLSTERED. Only
+    // the axe surfaced it because only its desired twin changes with the tier (spd axis).
+    self wait_pack_settled( w_expect );
+    self.acc_pap_busy = false;
     self acc_pap_play_on_machine( "zmb_perks_packa_ready" ); // no aat::acquire -> NO alt-ammo
     // PaP tier/benefit TOAST removed (user 2026-06-22): no display/indication - only the machine price.
 
     // Leviathan spd axis (user 2026-07-09): tiers 2/3 change the axe's desired speed twin (the tier-2
-    // transform lands on the PLAIN _up first - packed_form has no spd-combo baked - and this poke
-    // re-twins it to _acc_spd2 immediately; tier 3 re-twins spd2 -> spd3). No-op for other guns.
+    // transform lands its packed spd twin directly since the packed_form routing fix, and tier 3
+    // re-twins spd2 -> spd3 here). No-op for other guns. Runs on SETTLED state (gate above).
     acc_weapon_variants::request_reconcile( self );
 }
 
@@ -910,6 +1024,10 @@ function paradise_pap_use_loop()
         {
             player thread acc_pap_firebow();   // dedicated in-place Fire Bow tier (see acc_pap_validate)
         }
+        else if ( is_cyberjack( w ) )
+        {
+            player thread acc_pap_cyberjack(); // dedicated in-place CYBERJACK tier (see acc_pap_validate)
+        }
         else if ( get_tier( player, w ) <= 0 )
         {
             cost = player armory_discount( weapon_tier_cost( w, 1 ) );   // per-gun first-pack price (TOP/MID/BOT)
@@ -955,9 +1073,22 @@ function paradise_pap_hint_loop()
     }
 }
 
+// The hint must ask the TIER question, not the ASSET question (user 2026-07-15). pap_weapon_packable is an
+// "is there an upgrade ASSET" test, and for a BARE "_up" gun - no _acc twin, i.e. every player WITHOUT a Mega
+// perk after the tier-1->2 transform - packed_form returns the weapon ITSELF (_acc_weapon_variants.gsc:1095,
+// "stem already packed"), so packable read FALSE and this early-returned the PRICE-LESS generic string even
+// though paradise_pap_use_loop happily routes the same gun to acc_do_tier_up and charges tier 3. Same gate also
+// made the MAX string below UNREACHABLE for a bare _up, so a maxed gun still advertised a Use-hold that
+// acc_do_tier_up silently no-ops (cur >= ACC_PAP_MAX_TIER). A Mega-twin holder HID the bug (packed_form -> the
+// bare _up != the held twin -> packable TRUE -> correct price), which is why it only ever reads as "no price on
+// normal guns, only after tier 2, only without a Mega". FIX: let an already-upgraded gun through as well,
+// mirroring the surface keeper's is_upgraded_safe branch (:234). get_tier already clamps an _up gun to >= 2
+// (:1563) with the SAME rule acc_do_tier_up charges by (:727), so hint == charge for every form. The Action
+// Figure / Fire Bow are unaffected - pap_weapon_packable still short-circuits both in-place packers (:529-530).
 function paradise_pap_hint_text( player, w )
 {
-    if ( !isdefined( player ) || !isdefined( w ) || w == level.weaponNone || !pap_weapon_packable( w ) )
+    if ( !isdefined( player ) || !isdefined( w ) || w == level.weaponNone ||
+         ( !pap_weapon_packable( w ) && !is_upgraded_safe( w ) ) )
         return "Hold ^3[{+activate}]^7  Pack-a-Punch";
 
     tier = get_tier( player, w );
@@ -1029,13 +1160,17 @@ function fill_full_ammo( w )
 // (Gold PaP camo option removed 2026-06-27 - the "_up" form is given with no camo.)
 function acc_do_transform( w, base )
 {
-    if ( !isdefined( w ) || w == level.weaponNone ) return false;
+    if ( !isdefined( w ) || w == level.weaponNone ) return undefined;
 
     packed = acc_weapon_variants::packed_form( w );
-    if ( !isdefined( packed ) || packed == level.weaponNone || packed == w ) return false;
+    if ( !isdefined( packed ) || packed == level.weaponNone || packed == w ) return undefined;
+
+    // [LEVBUG-TEMP] forensics (see _acc_dev levbug_forensics)
+    acc_utility::levbug( self, "transform IN w=" + acc_utility::levbug_wname( w ) + " packed=" + acc_utility::levbug_wname( packed ) );
 
     self GiveWeapon( packed );
     self SwitchToWeaponImmediate( packed );
+    acc_utility::levbug( self, "transform gave+switched " + acc_utility::levbug_wname( packed ) );   // [LEVBUG-TEMP]
 
     // PaP = 100% full ammo (user 2026-06-22). Fill the PACKED form DIRECTLY here, while we hold a reliable
     // reference to it - NOT via the caller's GetCurrentWeapon(), which can still report the pre-swap weapon
@@ -1045,8 +1180,17 @@ function acc_do_transform( w, base )
     self fill_full_ammo( packed );
 
     self TakeWeapon( w );
+    acc_utility::levbug( self, "transform took " + acc_utility::levbug_wname( w ) );   // [LEVBUG-TEMP]
 
-    return true;
+    // (LEVIATHAN melee-slot sync REMOVED 2026-07-15: the axe is NOT a melee-slot weapon at runtime -
+    // writing it into current_melee_weapon made Widow's Wine eat the axe + clobbered the Berzerker
+    // knife. See _acc_weapon_variants::swap_weapon removal note; the real Five-Seven-reset fix is the
+    // stale-equipped HasWeapon guards there.)
+
+    acc_utility::levbug( self, "transform OUT" );   // [LEVBUG-TEMP]
+    // Return the PACKED weapon (2026-07-15; was a bool) so the caller can settle-wait on the exact
+    // gun that must end up in the player's hands. undefined = no transform (caller must not charge).
+    return packed;
 }
 
 // self = player. Replay the first-pack "gun comes out" draw on a tier-up (user 2026-06-15).
@@ -1096,6 +1240,8 @@ function replay_pack_draw( w )
     self zm_utility::increment_is_drinking();
     self zm_utility::disable_player_move_states( true );
 
+    acc_utility::levbug( self, "draw IN w=" + acc_utility::levbug_wname( w ) + " taking " + saved_w.size + " prims" );   // [LEVBUG-TEMP]
+
     // Take EVERY primary - now the held gun has nothing to auto-switch onto when removed.
     for ( i = 0; i < saved_w.size; i++ )
         self TakeWeapon( saved_w[ i ] );
@@ -1110,6 +1256,11 @@ function replay_pack_draw( w )
     // option (gold PaP camo removed 2026-06-27) - the base / "_up" gun is re-given as-is.
     self GiveWeapon( w );
     self SwitchToWeaponImmediate( w );
+    acc_utility::levbug( self, "draw regave+switched " + acc_utility::levbug_wname( w ) );   // [LEVBUG-TEMP]
+
+    // (LEVIATHAN melee-slot sync REMOVED 2026-07-15 - see _acc_weapon_variants::swap_weapon removal
+    // note: the axe never legitimately occupies current_melee_weapon; syncing it there broke Widow's
+    // Wine + the Berzerker knife.)
 
     // Restore the rest (ammo for all), WITHOUT switching, so the packed gun stays in hand.
     for ( i = 0; i < saved_w.size; i++ )
@@ -1124,6 +1275,7 @@ function replay_pack_draw( w )
 
     self zm_utility::enable_player_move_states();
     self zm_utility::decrement_is_drinking();
+    acc_utility::levbug( self, "draw OUT" );   // [LEVBUG-TEMP]
 }
 
 function pap_tier_machine_watcher()
@@ -1167,6 +1319,7 @@ function pap_tier_machine_watcher()
 
     make_actionfigure_packable();   // let the stock machine SHOW for the no-_up Action Figure (user 2026-06-24 fix)
     make_firebow_packable();        // same fix for the no-_up Fire Bow (upgrade=self + is_weapon_upgraded) (user 2026-07-07)
+    make_cyberjack_packable();      // same fix for THE CYBERJACK (apex_lstar / L-STAR chassis, same no-_up shape) (docs/43, 2026-07-17)
     make_mahem_pap_visible_to_tier3();   // un-exempt the launcher from AAT so its machine stays visible past pack 2 (user 2026-06-26)
     make_war_machine_pap_visible_to_tier3();   // same un-exempt for the War Machine drum GL (user 2026-07-09; its CSV row also ships is_aat_exempt TRUE)
     make_havoc_pap_visible_to_tier3();   // Havoc (Apex energy special, replaces China Lake): always-safe un-exempt (no-op if not aat-exempt), same gate as the Mahem (user 2026-07-06)
@@ -1258,6 +1411,24 @@ function make_firebow_packable()
     acc_utility::log( "pap_levels: Fire Bow marked packable (self-upgrade + un-exempt)" );
 }
 
+// THE CYBERJACK PaP-visibility fix - the Fire Bow's exact fix on the L-STAR chassis (docs/43;
+// chassis swap 2026-07-17): no "_up" asset (CSV upgrade=self) so can_upgrade_weapon() is false and the
+// machine HIDES, plus a possible pack AAT exemption. Both nets: .upgrade at ITSELF + un-exempt.
+// Stock never swaps - acc_pap_validate intercepts (is_cyberjack) and does the in-place bump.
+function make_cyberjack_packable()
+{
+    w = GetWeapon( "apex_lstar" );   // the HELD form GetCurrentWeapon returns at the PaP
+    if ( !isdefined( w ) || w == level.weaponNone ) return;
+
+    if ( isdefined( level.zombie_weapons ) && isdefined( level.zombie_weapons[ w ] ) && !isdefined( level.zombie_weapons[ w ].upgrade ) )
+        level.zombie_weapons[ w ].upgrade = w;    // self-upgrade: satisfies the visibility gate only; real pack is in-place
+
+    if ( isdefined( level.aat_exemptions ) && isdefined( level.aat_exemptions[ w ] ) )
+        level.aat_exemptions[ w ] = undefined;    // un-exempt so weapon_supports_aat also keeps the machine visible
+
+    acc_utility::log( "pap_levels: CYBERJACK marked packable (self-upgrade + un-exempt)" );
+}
+
 // THE Mahem "only packs TWICE" fix (user 2026-06-26 - after MANY failed attempts that all chased the
 // wrong table). FULL trace through stock _zm_pack_a_punch.gsc + aat_shared.gsc + _zm_weapons.gsc:
 //   - Packs 1+2 work: you HOLD the base s1_mahem at tier 0/1, then acc_do_transform swaps you to the
@@ -1294,7 +1465,7 @@ function make_mahem_pap_visible_to_tier3()
 
     // Proof-of-fix log (kept, since this bug ate many sessions): the two conditions weapon_supports_aat
     // needs. Expect "was_aat_exempt=1 is_weapon_upgraded=1" -> after this, the machine shows at tier 2 and
-    // the dev print "[dev] PaP s1_mahem_up -> tier 3/3" fires on the third pack (with +set acc_dev 1).
+    // the dev print "[dev] PaP s1_mahem_up -> tier 3/3" fires on the third pack (in a dev build).
     upgraded = zm_weapons::is_weapon_upgraded( up );
     acc_utility::log( "pap_levels: Mahem PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " is_weapon_upgraded=" + upgraded + " (machine now stays visible past pack 2)" );
 }
@@ -1412,13 +1583,21 @@ function box_grab_clear_watcher()
 
     for ( ;; )
     {
-        self waittill( "user_grabbed_weapon" );
-        // Robust settle (2026-07-11): the old "one weapon_change_complete / 1.0s cap" could fire
-        // MID-RAISE (early _complete from the at-limit take churn, or a slow-raise gun blowing
-        // the cap), making this read the OLD gun and miss the tier clear -> the re-boxed copy
-        // kept a stale PaP tier. wait_box_give_settled polls until the current weapon actually
-        // changed + held stable, and returns it.
-        w = self acc_weapon_variants::wait_box_give_settled();
+        // The AW driver passes the granted weapon OBJECT on the notify (2026-07-12 mule-kick fix):
+        // that IS the box gun, definitively - no settle wait needed, and immune to the at-limit
+        // take churn that could park GetCurrentWeapon() on ANOTHER owned gun (with Mule Kick the
+        // legacy settle then cleared the WRONG base's tier). Bare stock-shape notify (arg
+        // undefined) falls back to the settle poll.
+        self waittill( "user_grabbed_weapon", w );
+        if ( !isdefined( w ) )
+        {
+            // Robust settle (2026-07-11): the old "one weapon_change_complete / 1.0s cap" could fire
+            // MID-RAISE (early _complete from the at-limit take churn, or a slow-raise gun blowing
+            // the cap), making this read the OLD gun and miss the tier clear -> the re-boxed copy
+            // kept a stale PaP tier. wait_box_give_settled polls until the current weapon actually
+            // changed + held stable, and returns it.
+            w = self acc_weapon_variants::wait_box_give_settled();
+        }
         if ( !isdefined( self ) ) return;
 
         if ( !isdefined( w ) || w == level.weaponNone ) continue;
@@ -1478,6 +1657,8 @@ function get_tier( player, weapon )
     // Fire Bow: dedicated in-place tier counter (its demon-gate form is statically "upgraded", which would
     // otherwise trip the is_weapon_upgraded bump below and read tier 2 at base). user 2026-07-07.
     if ( is_firebow( weapon ) ) return firebow_tier( player );
+    // THE CYBERJACK (L-STAR chassis): in-place PaP, no _up form - its tier is the dedicated counter. docs/43.
+    if ( is_cyberjack( weapon ) ) return cyberjack_tier( player );
     if ( !isdefined( player.acc_pap_tier ) ) return 0;
     base = acc_weapon_variants::true_base( weapon );   // twin-aware: tier follows recoil/fire swaps
     stored = ( isdefined( player.acc_pap_tier[ base ] ) ? player.acc_pap_tier[ base ] : 0 );

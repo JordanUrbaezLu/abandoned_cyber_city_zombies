@@ -47,6 +47,26 @@ X axis spans the two flanking pads at ±55, `spawn_rack_station`).
 - **Free** (giving up the gun *is* the cost — untaxed, like the Exchange item locker).
 - **Balance**: a gifted gun auto-tunes — `acc_weapon_balance_mult` is name-keyed / owner-agnostic
   (`_acc_damage.gsc`), so no per-give work.
+- **The PaP tier travels WITH the racked gun** (fixed 2026-07-15). A PaP tier is not a property of the
+  weapon object — it's a per-player ledger entry (`player.acc_pap_tier[ true_base ]`, `_acc_pap_levels`),
+  and `prune_lost_tiers` (a 0.25s poll) zeroes the tier of any base the player no longer carries. So the
+  deposit's `weapon_take` used to silently **un-pack** the gun: rack a tier-3 gun, take it back at tier 2
+  (`get_tier`'s `is_weapon_upgraded` clamp) or a tier-1 gun back at **tier 0** (tier 1 is damage-only, so
+  the held asset is still the base form), and the PaP re-charged the packs you'd already bought. Fix:
+  `rack_tier_of` snapshots the tier onto the rack entry **before** the take and `rack_restore_tier` stamps
+  it back **after** the `weapon_give`. The rack is deliberately **not** exempted from the prune — the prune
+  is right, a racked gun belongs to the *level*, not the depositor (the Exchange ownership model), and a
+  "parked, still owned" exemption would leave the depositor a phantom tier to cash in on a fresh wallbuy of
+  the same base *and* still hand the teammate who takes it a tier-0 copy. Consequence: **the
+  taker inherits the tier the gun was racked at**, so the rack shares the packs too. **This is a
+  RATIFIED DESIGN DECISION, not a leftover — do not "fix" it (user 2026-07-15, asked explicitly and
+  chose it over restricting the restore to the depositor).** It means the rack is a deliberate co-op
+  tier-sharing channel: one player can pack a gun to tier 3 (~10k+ points) and hand the packs to a
+  teammate for free — the same "giving up the gun *is* the cost" logic as the free withdraw above, and
+  consistent with the rack belonging to the level rather than the depositor. Twin-safe — the entry
+  is keyed by `acc_weapon_variants::true_base`, so the tier follows recoil/fast twin swaps. The Fire Bow and
+  Action Figure keep their own separate tier counters (`acc_firebow_tier` / the held speed-twin form), which
+  the prune never touches, so they need no rescue and are not written through this key.
 - **Visible contents (2026-07-10)**: the racked gun's **world model displays on the cabinet top**
   — the magicbox idiom (`UseBuildKitWeaponModel`, same engine call as
   `zm_utility::spawn_buildkit_weapon_model`, spawn-guarded), so the model wears the **depositor's
@@ -60,7 +80,7 @@ X axis spans the two flanking pads at ±55, `spawn_rack_station`).
   a raised `acc_armory_rack_max` fans up to 8 per row at 17u pitch across the 138u top (default yaw
   flips to 90 for that side-by-side row), wrapping +16z per row. The display angle
   (`acc_armory_rack_yaw`/`_pitch`/`_roll`) and hover are **live-tunable dvars**. A withdraw deletes slot 0's model and
-  **MoveTo-glides** any survivors forward (0.3s). Rack entries are structs `{ wpn, model }` (single
+  **MoveTo-glides** any survivors forward (0.3s). Rack entries are structs `{ wpn, model, tier }` (single
   array = gun/display can never desync; duplicate weapon objects — two players racking the same gun
   class — stay distinct entries). Dual-wields show the right-hand model only. Ent-pool-full spawn
   failure = that slot just goes undisplayed, never a crash.
@@ -99,6 +119,13 @@ fall through to the readable `DefaultHint` card. **Any new Armory hint string mu
 words (or get its own guard) — re-check `ZMCursorHintNew.lua` on every `SetHintString` change** (memory:
 `lui-cursorhint-router-loose-weapon-matcher`).
 
+**⚠ Mystery-box weapon card is PER-PLAYER (fixed 2026-07-14):** `_zm_aw_mysterybox::acc_set_box_gun` pushes
+the `acc_box_gun` toplayer clientfield **only to the buyer** (`self.grabber`) — everyone else is forced to
+id 0 (the generic "Printed Weapon" card) — so a non-buyer standing at the box no longer reads the buyer's
+gun on their own card. On **knife-to-share** (`box_unlock_for_all` sets `anyone_can_take`) the card is
+re-broadcast to all players. Any per-entity card text belongs on a targeted clientfield, never a shared
+push (memory: `box-gun-card-via-clientfield-not-hint`).
+
 ## Station 2 — Mega-Bottle Exchange (1 bottle → random implant)
 
 Mesh: **`p7_zm_vending_wonder`** (the stock Wonderfizz chassis — reads as "bottle → a random reward",
@@ -111,6 +138,24 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
 
 > History: v1 dropped weighted **powerups** (Max Ammo / Insta-Kill / …) — a misread of "a random item".
 > User 2026-07-07: "it should be dropping implants instead." Now it drops implants.
+
+## Both stations ALSO in Paradise (user 2026-07-13)
+
+The finale arena gets its own copy of **both** stations (`_acc_glitch_altar::spawn_paradise`): the weapon
+rack at **`(-850,-1350)`** (west-mid) and the bottle exchange at **`(-850,-1650)`** (west), a west-wall
+amenity pair so you don't have to leave the fight. The bottle exchange is stateless, so it just spawns a
+second time. The rack needed a refactor first:
+
+- **Per-station state (was level globals).** `spawn_rack_station()` used to write single-station level
+  globals (`level.acc_armory_rack` pool / `_base` display anchor / `_pads`) — a second call would clobber
+  the loft's display + hints. It now builds a **`station` struct** (`station.pool` / `.base` / `.pads`),
+  each pad back-refs its station (`pad.acc_rack`), and every rack fn (`deposit_gun` / `withdraw_gun` /
+  `rack_slot_origin` / `spawn_rack_display` / `update_rack_hints`) takes the station. `spawn_rack_station()`
+  returns it. N independent racks now coexist with zero cross-talk.
+- **The Paradise rack is an INDEPENDENT pool** from the loft rack — deliberately. The loft is unreachable
+  once you descend the abyss, so a shared pool would be pointless; each rack is standalone.
+- Both Paradise stations are clipped (`add_prop_clips.js` `paradise_armory_rack` / `paradise_armory_bottle`,
+  deep brushmodels) for parity with the loft + the other Paradise stations.
 
 ## Co-op crash-safety (this branch = `fix/coop-crash-hardening`)
 
@@ -134,7 +179,7 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
 - **Stations = pure GSC** (script-spawned `trigger_radius_use` pads + `#precache`d station models) →
   `.\tools\build_map.ps1 -GscOnly` (linker only, **zero LED-bake risk**). Built + linked clean 2026-07-07;
   the 2026-07-09 station-mesh remodel is likewise `-GscOnly` (both station models pack from the stock gdtDB).
-- **Dev mode** (`acc_dev 1`) gives money + bottles + open map, so both stations are reachable + affordable
+- **Dev mode** (a `level.acc_dev = true;` build) gives money + bottles + open map, so both stations are reachable + affordable
   immediately. Co-op check: second client withdraws a racked gun (lands on the remote player, no view-yank);
   a full-slot presser is **refused**, not robbed. Disconnect mid-transaction → no lobby CTD.
 

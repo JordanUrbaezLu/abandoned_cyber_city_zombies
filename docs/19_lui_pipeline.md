@@ -251,12 +251,45 @@ registered-but-unused **24-bit** `accProbe24` clientuimodel field **failed to lo
   flipping 0→1. **Bit-pack** low-range counts.
 - **Reuse retired slots** — `accOcTier` repurposed the dead `accLuiTest` slot
   in-place (same width, same registration order → bit layout unchanged, no overflow).
-- **When a private per-player field is genuinely needed, use a DIFFERENT scope** (the
-  clientuimodel pool is the only full one). The **`toplayer`** scope is a separate,
-  near-empty pool — bridged to a same-named UI model by
-  `_zm_aetherium_hud.csc::set_ui_model_value` (registered `&set_ui_model_value` on
-  every toplayer field). This "escape hatch" carries `acc_shards` / `acc_mb` /
-  `acc_exo` / `acc_maxhp` / **`acc_badges`** (the 6-bit gun-badge flag mask). The
+- **When a private per-player field is genuinely needed, use a DIFFERENT scope** — but
+  know that **the `toplayer` pool is now FULL too** (2026-07-15 incident: growing it +17
+  bits made the STOCK `visionset_lerp` registration fail with `Com_ERROR ... toplayer is
+  out of space` and the **map stopped loading** — the overflow always blames the innocent
+  LAST registrant, memory `actor-clientfield-bit-budget`). **Never add/widen a toplayer
+  field without shaving an equal number of bits from our existing ones** (precedent: the
+  4-bit `acc_objective` widen was paid for by `acc_box_gun` 6→5); for
+  new payloads prefer a zero-bit transport (a dvar read from LUI, client-side derivation
+  from already-shipped models, or the phase index itself). **SHAVE ONLY WHAT IS ACTUALLY
+  SPARE** — the same incident's hot-fix also shaved `acc_badges` 6→4 on a wrong audit
+  ("only 3 badge bits are live"; six were), which silently orphaned the HICAL + WARHD chips
+  at bits 4/5 until it was restored to 6 later that day. **Before shaving a mask field,
+  check the highest bit its owning module actually registers.** The current acc_* toplayer
+  total is **59 bits** (= the last known-loading build's total, same 8 fields). The toplayer
+  scope is bridged
+  to a same-named UI model by `_zm_aetherium_hud.csc::set_ui_model_value` (registered
+  `&set_ui_model_value` on every toplayer field) and carries `acc_shards` (10) / `acc_mb`
+  (5) / `acc_exo` (4) / `acc_maxhp` (9) / **`acc_badges`** (6-bit gun-badge mask, bits 0..5
+  all live) /
+  **`acc_implants`** (16-bit pause implant nibbles) / **`acc_objective`** (4-bit pause
+  "what next" run-phase, 0..12 milestone ladder incl. per-trench-gate descent states;
+  pushed by `_acc_lui::objective_watch`) / **`acc_box_gun`** (5-bit mystery-box
+  weapon-usage id 0..31, pushed by `_zm_aw_mysterybox::acc_set_box_gun` on box reveal;
+  `PromptMysteryBox.lua` maps id→codename→card — see the triggerstring note below).
+  The objective's soft progress numbers ride the **`acc_obj_detail` dvar** (host-only by
+  nature — remote co-op clients render nothing) and its boss warning + perk count are
+  fully client-side — see docs/11.
+  **TOPLAYER = THE POV ENTITY'S PLAYERSTATE, AND SPECTATE MOVES IT (2026-07-16).** While a
+  dead player spectates a teammate, every toplayer field delivers the SPECTATED player's
+  values (their badges/currency on the spectator's HUD — inherent engine behavior, fine).
+  The trap is the way back: per the stock `clientfield::register` doc, the engine only
+  "generates callbacks for a value of 0, when the entity is new" if the field registered
+  with **`CF_CALLBACK_ZERO_ON_NEW_ENT`**. Our fields originally registered with
+  `!CF_CALLBACK_ZERO_ON_NEW_ENT`, so on respawn (POV back to self = a NEW ent) a true value
+  of 0 never fired a callback and the UI model kept the spectated player's value forever —
+  the "spectator keeps the other guy's badges after respawn" + "gun randomly has all the
+  badges" bug pair. **Every acc_* toplayer field must register WITH
+  `CF_CALLBACK_ZERO_ON_NEW_ENT`** (client-only arg — not part of the bit layout, gsc/csc
+  lockstep unaffected). The
   **`world`** scope (broadcast to all clients) carries the co-op party fields
   (`player_health_N` / `player_states_packed` / `player_shards_N` / `player_mb_N` /
   `player_exo_N`). Both scopes still register gsc↔csc in lockstep. See docs/11 for
@@ -292,6 +325,21 @@ verified live and applied across `_acc_health_bars.gsc` / `_acc_data_shards.gsc`
   `"Round " + N`, change-guarded), tier 0-10, shards alone (~501 distinct, safe by
   itself). This is the SERVER-side twin of the `triggerstring` 250-cap `SetHintString`
   rule (memories `string-cache-setvalue-not-settext` + `triggerstring-cap-hint-strings`).
+- **Mystery-box weapon card = the `triggerstring`-safe pattern in action (2026-07-13).**
+  The box take-hint MUST stay a CONSTANT string (`"Hold [+activate] for Printed Weapon"`) —
+  appending the gun's display name per roll burned one permanent `triggerstring` slot per
+  distinct gun (~50/session, tipped the 250 cap). But the LUI cursor-hint router
+  (`ZMCursorHintNew.lua`) normally derives the box card's weapon by *parsing the name out of
+  that hint*, so a constant hint left it on the "Unknown weapon" blank card. FIX: drive the
+  card off the **`acc_box_gun` clientfield integer** instead of any string. `PromptMysteryBox.lua`
+  subscribes to the model (`self:subscribeToModel(Engine.CreateModel(...,"acc_box_gun"))`),
+  maps the id → weapon codename (a table mirroring `tools/gun_ids.json`) →
+  `CoD.GetWeaponDataByName` for the name/desc/icon, and shows a clean generic card at id 0.
+  The card desc also carries **boss-item eligibility tags** (`AetheriumWeapons.lua` header comment):
+  `[ENERGY]` → Plasma Generator / `[EXPLOSIVE]` → Warhead Bomber, `[MELEE]` → Berzerker (Leviathan Axe / Action Figure /
+  Ballistic Knife stab), `[TURBO]` → Turbocharger (Havoc) — one per weapon-gated implant (docs/09). **General rule: any
+  per-gun/per-entity card text belongs on a clientfield int, never a per-value `SetHintString`.**
+  Memory `box-gun-card-via-clientfield-not-hint`.
 
 ## The 4-file contract (one menu)
 
@@ -392,10 +440,15 @@ retired in place as the restore path).
 - **Row model:** the registry `ACC_GUN_BADGES` in acc_hud.lua, in PRIORITY order — entry `[1]`
   renders rightmost, later entries pack LEFT. Chips are fixed-width, uniform height 47. `Layout()`
   re-packs on every model change, so the row is always gap-free.
-- **Pennant art (user PNGs, 2026-07-08):** every live badge is a 5:7 pennant card with its own
+- **Pennant art (user PNGs, 2026-07-08; latest = `cyber_city_final (1).zip` FINAL v6, 2026-07-15):**
+  every live badge is a 5:7 pennant card with its own
   baked background — PaP I/II/III (replaced the Ronan hex shields **in place**, same
   `i_acc_pap_tier{1,2,3}` asset names; old PNGs kept as `*.acc-hexshield-orig`), `i_acc_oc_tier1..10`
-  (Lv1–Lv10), `i_acc_badge_mule`, `i_acc_badge_turbo`, `i_acc_badge_nuclear`, `i_acc_badge_berzerker`.
+  (Lv1–Lv10), `i_acc_badge_mule`, `i_acc_badge_turbo`, `i_acc_badge_plasma`, `i_acc_badge_berzerker`, `i_acc_badge_high_caliber`, `i_acc_badge_warhead`.
+  The FINAL v6 pack regenerated all 19 badges (chevron crest removed, icons auto-fit to the pennant at
+  max size) and replaced the last 3 placeholders (plasma / warhead / high-caliber) with real art;
+  `i_acc_badge_nuclear` is dead art since the 07-14 Nuclear→Plasma+Warhead item split (GDT block kept,
+  no zone line, no Lua reference).
   Icon chips draw the art **full-bleed with NO plate** (a rectangle would show at the pennant notch);
   text-chip defs (future badges without art yet) still get the navy plate. Since the "enhanced" packs
   (badges_16/17_enhanced, 2026-07-10/11) the 400×560 masters ship **AS-IS** — the old pre-resize to
@@ -404,6 +457,11 @@ retired in place as the restore path).
   badge art: drop the 400×560 (or any 5:7) RGBA PNG in `source_data/acc_perk_shaders/_images/` as
   `i_acc_badge_<x>.png`, clone an `image.gdf` GDT block + zone `image,` line, run
   `tools/deploy_perk_shaders.ps1` (copies to install + `gdtdb /update`) before linking.
+  **`noMipMaps 1` is LOAD-BEARING for HUD images, not just a crispness choice (2026-07-12):**
+  flipping it to 0 moves the image to the STREAMED pool — its assetinfo payload collapses to a
+  ~276-byte header and the HUD draws the black/default image. For sharper art use
+  `compressionMethod uncompressed` (kills the DXT mush on thin lines/text; proven combo =
+  `i_acc_data_shard` and the 19 implant images) and keep `noMipMaps 1`.
 - **Data (two lanes, one row):**
   - *Tier badges* (int value): ride the **existing** clientuimodels `accPapTier` (0..3) and
     `accOcTier` (0..10) — those keep flowing anyway (the PaP/OC report cards read the same models), so
@@ -412,7 +470,7 @@ retired in place as the restore path).
     same-named UI model (`&set_ui_model_value`, the acc_shards escape hatch above). **bit 0 = MULE**
     (held gun is the one Mule Kick removes on a down — absorbed the former 1-bit `acc_mule` field,
     replaced in-place in gsc+csc lockstep), **bit 1 = TURBO** (Turbocharger implanted and the held gun
-    is a Havoc), **bit 2 = NUKE** (Nuclear Energy implanted and holding a weapon it buffs), **bit 3 =
+    is a Havoc), **bit 2 = PLASMA** (Plasma Generator implanted and holding an energy weapon), **bit 3 =
     BRZ** (Berzerker implanted and holding a melee weapon it speeds up — Leviathan Axe / Action
     Figure; the knife-bash surface is deliberately not a trigger or the badge would pin on
     permanently), 2 spare bits.
@@ -429,7 +487,7 @@ retired in place as the restore path).
     AND for the held-gun match — so an active perk/PaP twin can't drop the count below 3 and blink the
     badge off, and holding a twin of the 3rd gun still lights it. Naturally hides while downed (held =
     laststand pistol) and when Mule is lost/`_retain_perks`.
-  - *Nuclear*: reuses `acc_damage::is_energy_weapon` (single source of truth for the buff list) + the
+  - *Plasma*: reuses `acc_damage::is_energy_weapon` (single source of truth for the buff list) + the
     two explosive primaries (Mahem launcher `s1_mahem` and War Machine drum GL `t6_war_machine`), so
     the badge and the damage buff can never disagree.
 - **Adding a badge:** (1) write a `pred_x(cur)` in `_acc_gun_badges.gsc`, (2) `register_badge(bit,
@@ -440,6 +498,45 @@ retired in place as the restore path).
   (AetheriumLoadout.lua: reserve x 968..1057 / y 629..638). CAVEAT: the AAT ammo-mod icon occupies
   x 1037..1061 / y 641..665 when an AAT is rolled — if they collide in-game, raise `ACC_GUN_BADGE_BOTTOM`
   or grow `ACC_GUN_BADGE_RIGHT`. Tune in-game.
+
+## Implant slot cards — `CoD.AccImplantRow` (+ the pause-menu panel twin)
+
+Left-HUD implant display, full PNG since 2026-07-12 (user pack `cyber_city_implant_hud`, v3 holo
+set; replaced the GSC `IMPLANT N`/`CARRYING` hudelem text lines — up to 4 per-client hudelems
+freed, `_acc_boss_items::sync_items_hud` is now just the clientfield push).
+
+- **Art (21 images, the badge recipe above verbatim; v4 "compact" pack 2026-07-12 late; emblems
+  refreshed by `cyber_city_final (1).zip` FINAL 2026-07-15 — 13 real emblems, the high-caliber +
+  warhead placeholders replaced; zip slot bars were byte-identical, unchanged):**
+  `i_acc_implant_slot1..3` (+`_dim` twins) = **962×176** bars (5.47:1) with a big readable
+  `IMPLANT N` title ONLY — the tiny sub-line was dropped (minified below readability); `i_acc_implant_holding[_dim]`
+  = the 4th "carrying" bar; `i_acc_emblem_<item>` ×13 = **glyph-only** 256×256 chips (no hex frame).
+  NAME-MAP TRAP: the zip numbers warhead=12 / high-caliber=13, our tables number high-caliber=12 /
+  warhead=13 — always map zip files by ITEM NAME, never by index. `i_acc_emblem_nuclear_energy` is
+  dead art (item removed 07-14).
+  **State = PURE IMAGE SWAP**: lit bar when occupied, `_dim` when not — the dim art bakes in 35%
+  desat / 60% bright / **50% alpha**, so never layer a code `setAlpha` on top (compounds to 25%).
+  Overlay geometry from the v4 README: glyph = **92% of bar height**, x-center at **90.1% of bar
+  width** (shared named constants across both files) — same window on the holding bar.
+- **Widget:** 4 bar `UIImage`s (3 slots + HOLDING, always visible) + one emblem overlay each.
+  All 13 emblem materials are `RegisterImage`d ONCE into a num-keyed handle table; refresh just
+  `setImage`s pre-registered handles (the countryside PerkImage idiom). Bars draw **230×42** at
+  x 32 from y 220, stride 48. Tune in-game.
+- **Data:** the EXISTING 16-bit `acc_implants` toplayer→uimodel nibble pack (bits 0-3/4-7/8-11 =
+  Slot 1/2/3, 12-15 = carried; `push_implants_clientfield`) — **zero new pool cost of any kind**.
+  Subscribed via `Engine.CreateModel` (the toplayer no-node-until-first-write trap, see the badge
+  row's ACCESSOR CHOICE note) + an explicit initial `Refresh` for mid-run HUD rebuilds. Nibble
+  decode is floor-division (no bit ops in HKS Lua 5.1).
+- **Pause-menu twin** (`AetheriumStartMenu.lua`): the same 4 bars + overlays at the **EXACT same
+  coords as the in-game bars** (x32 / y220 / 230×42 / stride 48) so pausing OVERLAPS and covers the
+  in-game duplicates (user 2026-07-12: "the menu needs to overlap the in game HUD"). The pause
+  menu's full-screen DarkOverlay dims the in-game HUD; the opaque bars cover the copies; the
+  name/desc text sits to the right (x274→790, clearing the x868 button column) — `ACC_IMPLANT_INFO`
+  carries each item's name/desc/`emblem`. New elements are wired into the menu's teardown `:close()`
+  block — mandatory (LUI leak class).
+- **Adding/renumbering an item:** update `build_item_pool()` (GSC) + `ACC_IMPLANT_INFO`
+  (AetheriumStartMenu.lua) + `ACC_IMPLANT_EMBLEMS` (acc_hud.lua) + drop the new
+  `i_acc_emblem_<item>.png` through the badge asset recipe. `item.num` must stay ≤ 15.
 
 ## HOSTILES threat bar — `CoD.AccRoundRing` (legacy name, renders a BAR)
 

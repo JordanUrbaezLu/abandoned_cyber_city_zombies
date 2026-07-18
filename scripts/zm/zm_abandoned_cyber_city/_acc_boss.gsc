@@ -30,6 +30,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_cyberjack;   // Brutus CYBERJACK gun-drop (docs/43, 2026-07-17)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
@@ -44,8 +45,9 @@
 #define ACC_BOSS_INTERVAL 10
 
 // Brutus mini-boss HP + cadence (user request). (The +50% size / +25% speed buffs were removed
-// 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think is unneeded now
-// that he charges natively - see CHANGELOG. Re-add deliberately if a bigger/faster Brutus is wanted.)
+// 2026-06-15: size via SetScale is a confirmed live-AI CTD, and the speed think was unneeded then
+// as he charges natively - see CHANGELOG. A SMALL +3% speed was re-added 2026-07-12 via a SAFE bare
+// ASMSetAnimationRate - acc_boss_brutus::warden_speed_think, dvar acc_warden_anim_rate; SetScale stays banned.)
 // UNIFIED BOSS SCALE (user 2026-07-04; base 56000 -> 65000 user 2026-07-05): Brutus now rides the SAME base (65000) + anchor (5) as the
 // Phantom/Rogue Protector/Avogadro, differing ONLY by exponent - the TOP tier: Brutus 1.12 > Rogue 1.09 >
 // Phantom 1.06 (Avogadro shares the Phantom's 1.06). NO cap (the pack's linear 3500*round / 85k-cap code is dead - overwritten here every
@@ -74,36 +76,9 @@ function init()
     level.acc_brutus_kill_round = undefined;
     level thread brutus_power_watch();
 
-    // Dev/test loop: a low-HP test Brutus every round from round 2 so the Mega-Bottle ->
-    // perk-upgrade loop is testable without surviving to the real boss rounds.
-    level thread test_boss_loop();
-}
-
-function test_boss_loop()
-{
-    level endon( "end_game" );
-
-    for ( ;; )
-    {
-        level waittill( "acc_round_start", round_number );
-        // MANUAL opt-in ONLY (+set acc_test_boss 1): a low-HP test Brutus every round from round 2 for the
-        // fast Mega-Bottle/perk loop. NOT triggered by dev anymore - in the dev sandbox Brutus follows his
-        // REAL round-5 power cadence (brutus_power_watch), with NO early override, like normal play
-        // (user 2026-06-22: "Brutus spawns round 5, shouldn't be any override").
-        if ( getdvarint( "acc_test_boss", 0 ) != 1 ) continue;
-        if ( round_number < 2 ) continue;
-
-        wait 10; // let the round get going
-        acc_utility::log( "TEST BOSS (Brutus) spawning" );
-        players = GetPlayers();
-        for ( pi = 0; pi < players.size; pi++ )
-        {
-            if ( isdefined( players[ pi ] ) )
-                players[ pi ] IPrintLnBold( "^1BRUTUS INBOUND ^7- kill it for ^310 Mega Bottles" );
-        }
-        // Low HP override + bulk Mega Bottle drop (10) so the perk loop is testable fast.
-        spawn_brutus_miniboss( 1500, 10 );
-    }
+    // (test_boss_loop removed 2026-07-16: it was an acc_test_boss-gated dev lever that spawned an
+    // early low-HP Brutus for the Mega-Bottle/perk loop. Dev now runs the REAL round-5 Brutus
+    // cadence like normal play (user 2026-06-22) - no per-feature test dvar; only acc_dev/god/mock.)
 }
 
 function round_hook_loop()
@@ -270,10 +245,11 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     if ( isdefined( n_bottle_count ) ) host.acc_bottle_drop = n_bottle_count;
     if ( isdefined( n_health_override ) ) host.maxhealth = n_health_override;
     // ROUND scaling (scale_mini_boss_hp - COMPOUNDS x1.12/round from the round-5 anchor, the TOP TANK tier)
-    // THEN LOGARITHMIC coop scaling by player count (the old LINEAR xN -> 200k at 4p was "crazy").
-    // boss_hp_player_mult() = 1 + 0.5*log2(n) -> x1 / 1.5 / 1.79 / 2.0 for 1-4p. So a round-10 solo Warden
-    // = 115k; a round-30 solo = 1.11M; a round-30 4p = 1.11M x2.0 = 2.22M. Tune live: acc_boss_mini_hp_exp /
-    // acc_boss_mini_hp_anchor / acc_boss_coop_hp_log_k. (4p isn't a clean 4x DPS, so log keeps TTK sane.)
+    // THEN coop scaling by player count (the old LINEAR xN -> 200k at 4p was "crazy"; still far under it).
+    // boss_hp_player_mult() = an explicit table, 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 (user 2026-07-15;
+    // was 1 + 0.5*log2(n) = 1/1.5/1.79/2.0). So a round-10 solo Warden = 115k; a round-30 solo = 1.11M;
+    // a round-30 4p = 1.11M x2.6 = 2.89M. Tune live: acc_boss_mini_hp_exp / acc_boss_mini_hp_anchor /
+    // acc_boss_coop_hp_2p|_3p|_4p. (4p isn't a clean 4x DPS, so the table stays sub-linear to keep TTK sane.)
     else
     {
         rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
@@ -283,6 +259,12 @@ function spawn_brutus_miniboss( n_health_override, n_bottle_count )
     host DisableAimAssist();
     host.disableAmmoDrop = true;
     host thread watch_mini_boss_death();                // Mega-Bottle / boss-item drops
+
+    // SPEED BUFF (user 2026-07-12): +3% ground speed via a bare ASMSetAnimationRate (acc_warden_anim_rate,
+    // default 1.03). Safe because the pack flags him acc_boss_custom_speed so the global speed keep-alive
+    // skips him (no writer fight) - the SANCTIONED lever, unlike the SetScale / run-cycle-override that
+    // historically crashed/froze him. See acc_boss_brutus::warden_speed_think.
+    host thread acc_boss_brutus::warden_speed_think();
 
     // Brutus is DOWN-LEVELED to a regular mini-boss (user 2026-06-18): he KEEPS the HP (above)
     // but gets NO boss health bar and NO boss music - those now belong to the Phantom (the real
@@ -364,11 +346,15 @@ function boss_music( host )
 // round 18 (x2 bosses) -> 6 shards + $3,240 EACH; round 30 -> 10 shards + $5,400. Paradise-suppressed
 // (the finale is survive-don't-farm). Call: acc_boss::grant_unified_boss_reward( drop_origin ).
 // ---------------------------------------------------------------------------
-function grant_unified_boss_reward( drop_origin )
+function grant_unified_boss_reward( drop_origin, b_skip_item )
 {
     if ( IS_TRUE( level.acc_paradise_onslaught ) )
         return;
-    acc_boss_items::grant_challenge_reward( drop_origin );   // 1 item, guaranteed (dupes -> shards)
+    // b_skip_item (Brutus CYBERJACK gun-drop, user 2026-07-17 "either an item OR the gun,
+    // never both"): the gun replaces the item; points/shards/bottle still granted. Every
+    // other boss caller passes nothing -> undefined -> item granted as before.
+    if ( !IS_TRUE( b_skip_item ) )
+        acc_boss_items::grant_challenge_reward( drop_origin );   // 1 item, guaranteed (dupes -> shards)
     kill_round = ( isdefined( level.round_number ) ? level.round_number : 1 );
     score  = kill_round * getdvarint( "acc_boss_score_per_round", 180 );   // user 2026-07-07: -40% boss cash (was 300)
     shards = int( kill_round / getdvarint( "acc_boss_shards_round_div", 3 ) );
@@ -421,9 +407,11 @@ function watch_mini_boss_death()
         // that also documents the intent (user 2026-06-29: "Paradise Brutus should not give any of this").
         if ( !no_reward && isdefined( drop_origin ) )
         {
-            // Shared boss reward (user 2026-07-05: EVERY boss identical, no differences) - 1 item + 1 bottle +
-            // round*300 pts + int(round/3) shards, to every player. (Was: 3 FLAT shards + 3000 FLAT pts + 50% bottle.)
-            grant_unified_boss_reward( drop_origin );
+            // BRUTUS (Trench Warden) CYBERJACK gun-drop (user 2026-07-17): 25% drop THE CYBERJACK
+            // on the ground (if not already in rotation) / else the normal boss item - NEVER both.
+            // The roll spawns the pickup itself; b_gun=true tells the reward to skip the item.
+            b_gun = acc_cyberjack::try_brutus_gun_drop( drop_origin );
+            grant_unified_boss_reward( drop_origin, b_gun );
         }
     }
     else

@@ -27,19 +27,37 @@ possible (docs/14, docs/16), but absence of precedent is not a blocker — inven
 ## Dev/test mode — ONE flag, HARDCODED (user, 2026-06-21; built 2026-06-22)
 
 The user wants a single `acc_dev` flag that, when enabled, **hardcodes everything the way they want for
-testing** (god / unlimited shards / all perks + slots / open map / power on / test boss spawns / etc.) —
-a binary **normal play vs dev mode**, baked in GSC. They do **NOT** want a runtime-tweakable dev console.
+testing** (unlimited shards / money / all perk slots / dev console commands / dev-gated debug output) —
+a binary **normal play vs dev mode**, baked in GSC. (God is the separate `acc_god` flag. Dev boss cadence
+since 2026-07-17: **2 Glitch Stalkers EVERY round + one Phantom on round 3** — hardcoded
+`IS_TRUE( level.acc_dev )` branches, docs/44; Brutus + the r9/18/27 roster run REAL. The
+2026-07-16 removal of the test-spawn *dvar levers* still stands — these are compile-time branches.) They do **NOT** want a runtime-tweakable dev console.
 **Never tell the user to "set dvar X in the console"** to test something, and **never add a new dev dvar** —
 **even though a runtime dvar is the "normal" practice.** (Live-balance tuning dvars for the user's own
 experiments are still fine — this rule is specifically about the DEV/TEST-mode UX.) Pass this to any subagent.
 
-**THE MECHANISM (use it — do not add flags):** `acc_dev` is resolved ONCE in
-`zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` (called from `main()`, after the dedupe hooks and `zm_usermap::main()`) into the global bool
-**`level.acc_dev`** — the canonical gate every module reads via `IS_TRUE( level.acc_dev )` — which also
-`SetDvar`s the legacy sub-dvars off that one flag. Default 0 = ship-safe normal play; the launch scripts pass
-just `+set acc_dev 1`. **To add a dev behavior: branch on `IS_TRUE( level.acc_dev )` and hardcode the value (or
-add a `SetDvar` line in `acc_resolve_dev_flags()`) — NEVER introduce a new `acc_dev_*` / `acc_*` toggle.** Full
-design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
+**THE MECHANISM (use it — do not add flags):** `level.acc_dev` / `level.acc_god` are **compile-time
+booleans** set in `zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()` (called from `main()`, after the
+dedupe hooks and `zm_usermap::main()`). `level.acc_dev` is the canonical gate every module reads via
+`IS_TRUE( level.acc_dev )` (it also `SetDvar`s `acc_open_map` for the one dvar-reading module). **To add a
+dev behavior: branch on `IS_TRUE( level.acc_dev )` and hardcode the value — NEVER introduce a new
+`acc_dev_*` / `acc_*` toggle, and NEVER a per-feature `acc_*_debug`/`acc_*_test` dvar (all ~26 of those
+levers were REMOVED 2026-07-16; debug output rides `acc_dev` too; temp diagnostics get DELETED once done,
+not given a dvar).** The only flags in the project: `acc_dev`, `acc_god`, and the Lua `ACC_MOCK_PARTY`.
+Full design + rationale: docs/22. Memories: `dev-mode-hardcoded-not-console`,
+`debug-banners-gated-by-acc-dev-only`.
+
+**HOW TEST SESSIONS ARE ARMED (user, 2026-07-15 "this is the way we test... we don't use launch flags and
+this keeps happening"; re-affirmed 2026-07-16 "even the dev flag is not used as a launch flag — we hardcode
+on and rebuild"):** when the user asks to enable dev and/or god mode for testing, **HARDCODE the booleans
+in `acc_resolve_dev_flags()`** (`level.acc_dev = true;` / `level.acc_god = true;`) **and rebuild** — that
+IS the toggle. The ship state is `level.acc_dev = false;` / `level.acc_god = false;` — **there is NO dvar
+or launch-flag path at all** (the old `getdvarint("acc_dev",0)` ship resolution was removed 2026-07-16: it
+let any Workshop subscriber arm the dev sandbox with `+set acc_dev 1`). **Never point the user at launch
+flags, `+set` args, or launcher scripts to arm a test session** (they keep getting suggested; stop).
+Restore the hardcoded-`false` lines before any publish build — `prep_release.ps1` Gate 0 FAILs on a
+hardcode-`true` AND on any reappearing `acc_dev`/`acc_god` dvar read. Memory:
+`all-dev-features-ride-acc-dev-only`.
 
 ## Hard constraints
 
@@ -90,7 +108,7 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
 
 - `map_source/zm/*.map` — Radiant source; 7-zone greybox + 13 buyable doors (script_flag enter_*), 6 inline mystery-box spawn locations (acc_box_*), 1 stock power switch (script_string corp), all interaction triggers (kiosk/terminals/overload/boss spawn/PaP blockers). Generators in tools/ are ONE-SHOT (refuse re-apply); visual design: docs/map_design.svg (+png), regen via tools/gen_map_design.js. Tracker: docs/15_requirements_checklist.md; blockers: MISSING_REQUIREMENTS.md.
 - `scripts/zm/zm_abandoned_cyber_city.gsc|.csc` — entry scripts (stock template structure + 4 `[acc]` hooks).
-- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 62 custom modules (4 also have `.csc` twins); orchestrated by `acc_main` (exception: `_acc_perk_phd_flopper` is called directly from the entry script — it hijacks/finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline; `_acc_perk_electric_cherry` is now a separate from-scratch perk that self-registers via autoexec, see docs/10_perks.md Implementation Status).
+- `scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc` — 68 custom modules (5 also have `.csc` twins; counts verified 2026-07-15 — `ls scripts/zm/zm_abandoned_cyber_city/_acc_*.gsc | wc -l`, don't trust this number, re-count it); orchestrated by `acc_main` (exception: `_acc_perk_phd_flopper` is called directly from the entry script — it hijacks/finishes the stock-but-unfinished `_zm_perk_electric_cherry` pipeline; `_acc_perk_electric_cherry` is now a separate from-scratch perk that self-registers via autoexec, see docs/10_perks.md Implementation Status).
 - `zone_source/*.zone` — linker manifest (scriptparsetree lines for every script).
 - `sound/zoneconfig/*.szc`, `zone/` — sound config + workshop publish assets.
 - `tools/sync_to_modtools.ps1` — repo ↔ Mod Tools sync (run on Windows).
@@ -207,14 +225,22 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
   `unexpected TOKEN_CONDITIONAL, expecting TOKEN_SEMICOLON`. Stock always
   wraps the whole expression (util_shared.gsc:1425 `( IsVec(x) ? x : x.origin )`).
   `tools/preflight_windows.ps1` now has a paren-aware lint for this.
-- **GSC directive order: `#namespace` MUST come after every `#using` /
-  `#insert` / `#define` / `#precache`.** `#namespace` terminates the directive
+- **GSC directive order: `#namespace` MUST come after every `#using` and
+  `#insert` — and ONLY those two.** `#namespace` terminates the *import*
   preamble; a `#using` after it errors `unexpected TOKEN_USING, expecting
   $end`. (`_acc_boss_items.gsc` had `#namespace` on line 13 above its usings.)
-  `tools/preflight_windows.ps1` now lints this on all modules — the
-  brace/paren lint alone does NOT catch it. The linker compiles modules in the
-  order `_acc_main` `#using`s them and STOPS at the first error, so a clean run
-  validates everything before the break point.
+  **`#define` and `#precache` are NOT order-sensitive — both are legal after
+  `#namespace`** (CORRECTED 2026-07-15; this bullet previously named all four,
+  which was wrong). Counted over the stock mirror (`tmp/bo3_stock_ref`, 699
+  files with a `#namespace`): `#using` **0** and `#insert` **0** ever appear
+  after it, vs `#define` **684** (`mp\bots\_bot.gsc:212`) and `#precache`
+  **363** (`mp\gametypes\_globallogic.gsc:93`) that do. Our own shipping tree
+  agrees — 21 `#define` + 40 `#precache` sit after `#namespace` and compile.
+  `#using_animtree( ... )` is a DIFFERENT directive and is also legal after
+  (`mechz_spiki.gsc:74`). `tools/preflight_windows.ps1` lints the real rule —
+  the brace/paren lint alone does NOT catch it. The linker compiles modules in
+  the order `_acc_main` `#using`s them and STOPS at the first error, so a clean
+  run validates everything before the break point.
 - **Stock zm-template `volume_sun` ships MP sky settings** → hard link error
   `xmodel 'skybox_mp_havoc_override' is missing`. The template's sun volume
   has `ssi1`/`ssi2` = `mp_havoc` + `ssi1_runtime_override` = `mp_havoc_overide`
@@ -264,7 +290,10 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
   re-corrupts the gametype to `tdm`. Use ONE arg source.
 - **Do NOT use the Mod Tools Launcher's "Run" checkbox** on this split install
   (it launches the raw exe → DRM popup / silent exit). Build with Run unchecked,
-  then `PLAY_TEST_MAP.bat` / `.\tools\run_game.ps1` (canonical args in docs/17).
+  then `PLAY_NORMAL.bat` / `.\tools\run_game.ps1` (canonical args in docs/17).
+  **`PLAY_NORMAL.bat` is the ONLY play script** (user 2026-07-15; PLAY_TEST_MAP /
+  PLAY_GOD_MODE / run_avo_test deleted) — it passes engine args only; dev/god
+  state is whatever the current build hardcodes (see dev-mode section above).
 - **console_mp.log is the runtime oracle** (`<game>\console_mp.log`, needs
   `+set logfile 1`): the LAST lines are the fatal error; the wall of "Could not
   find material/fx" (margwa/mech/DLC/`*_zm` weapon-table entries) is NORMAL
@@ -317,7 +346,7 @@ design + rationale: docs/22. Memory: `dev-mode-hardcoded-not-console`.
 
 CHANGELOG.md (newest first). Current state: **fully built, in active
 balance/polish.** First clean compile + link landed 2026-06-12; since then all
-62 `_acc_` modules + entry compile and run, and the map ships the Aetherium
+68 `_acc_` modules + entry compile and run, and the map ships the Aetherium
 LUI HUD + gun-badge row, the multi-boss roster, Abyss Descent, and the
 Exo/Armory/Reactor/Jukebox/Exchange systems. Loop: build
 (`.\tools\build_map.ps1`) → Run Game (docs/17_launch_runbook.md) → test

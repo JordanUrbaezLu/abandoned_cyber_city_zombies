@@ -7,14 +7,360 @@ view as soon as they load into the map") shows the global top 10 on interact.
 **The as-built system is documented in "✅ SHIPPED" right below; everything after
 that is the research/iteration history that got us here.**
 
+## ➕ UPDATE 2026-07-18 — LEAVE FLUSH: pause-menu quit/restart records before exiting
+
+**The hole (user: "it only sends when players die and game ends"):** a deliberate
+**Leave Game / Restart Level** from the pause menu tears the server VM down **without
+firing `end_game`**, so a run ended that way was never recorded or POSTed. The 07-17
+Paradise win-time record fixed one instance of this; this fixes the general case,
+**host-only** (user: "should only have to override for the host" — a peer's quit doesn't
+end the session, the host still records it at `end_game`; and only the host machine has
+the record/agent lanes anyway).
+
+**The flow (Lua ⇄ GSC handshake, all proven bridges):**
+
+1. **Arm** — `boot_agents` writes the **`accLbLeaveHook` controller UI model** (the
+   docs/16 Wonderfizz bridge; per-player, fresh each match — deliberately NOT a dvar, a
+   dvar would go stale across sessions on a machine that hosts then joins as peer):
+   explicit `"0"` for every player, `"1"` for the HOST unless dev/god (assisted runs
+   store nothing, so their Leave stays instant).
+2. **Intercept** — `AetheriumStartMenu.lua`'s Leave Game AND Restart Level actions run
+   through `AccLbFlushThen`: reads the model; unarmed = the exact old instant exit.
+   Armed: **unpause first** (`cl_paused 0` — the solo pause freezes server GSC, so the
+   watcher could never answer while paused; the menu still covers the screen), Exec-set
+   `acc_lb_leave_req 1`, poll `acc_lb_leave_ack` on a 100ms UITimer, **4s hard cap**
+   (never strand the player on a wedged bridge), then run the original exit. Timer
+   follows `lui-uitimer-leaks-state-pool` (close-before-create + dies on menu close);
+   ESC mid-flush just cancels the leave — the early record is a harmless upsert.
+3. **Record** — GSC `leave_flush_watch` (threaded from init, **no** `endon("end_game")`
+   so a post-game Leave still acks): same gates as `record_at_end_game`
+   (dev/god/consent/`acc_lb_recorded`), then `publish_and_open_rec` and ALWAYS ack.
+   **No agent boot on this path** — `boot_agent_verified` is up to ~15s of retries
+   against a player waiting on a click; a down agent leaves the record + POST trigger
+   queued on disk and the **next live agent sends the queue** (fix #4 below). Typical
+   ack <1s.
+4. **Survive the exit** — the POST rides the **detached** curl agent, so it lands after
+   the game closes; repeat records per match land as ONE board row because the **Worker
+   upserts by session id** (`round = MAX`, stats tables MAX-merge — fix #5's mechanism).
+
+**PER-ROUND RECORD (same day, user: "lets go"):** `record_every_round()` closes the
+**crash** hole too — a **baseline record ~30s in** (so even a round-1 crash/instant-quit
+lands a row and the map-wide totals count every real game), then a record at **every
+round transition** (the `round_number` poll pattern from `_acc_lui.gsc`, not the
+`between_round_over` notify, so a missed notify can't end the lane mid-marathon). Zero
+backend changes — each POST upserts the same session row at `MAX(round)`; a crash
+mid-round N loses only that round's stats deltas, never the run. Costs: one POST per
+round (Worker rate gate 20/min/IP; rounds are minutes apart — a 40-round game is ~40
+POSTs over hours, and D1's free tier absorbs hundreds of such games daily) + one
+local-records line per round, which forced a **dedup-by-session pass in the board
+chunk's `local` mode** (keep highest round per session, later line wins ties for
+freshest stats — without it one 40-round game filled the whole offline board).
+Supporting changes: `publish_and_open_rec` gained a **record-lane lease** (timed,
+self-expiring — four lanes call it now: end_game, Paradise win, leave flush, per-round;
+the per-round lane SKIPS when busy since the next round re-records, the last-chance
+lanes WAIT), and the pause-menu flush cap went 4s → 6s to cover waiting out a
+just-fired round record. The leave flush stays valuable on top of per-round records:
+it re-posts at quit time with the freshest stats/guns/duration.
+
+**SPLIT-SESSION HARDENING + DB CLEANUP (same day):** the one dupe vector the session
+upsert can't absorb is the rec chunk minting a SECOND id mid-match (its
+`acc_lb_session` dvar read transiently failing — per-round posting gives it ~40 chances
+per game instead of 2), splitting one run into two board rows. Prevention: GSC captures
+the minted id (`capture_session_id`) and **re-asserts the dvar before every record**.
+Historic/residual splits: `POST /admin/dedupe` on the Worker (gated on a separate
+`ADMIN_KEY` secret, never shipped in the game; 404 until set) driven by
+`backend/leaderboard/cleanup.js` — report-first, conservative continuation heuristic,
+manual override for "suspect" clusters. Full runbook: backend README §Cleanup.
+
+## 🚨 UPDATE 2026-07-17 — OUTAGE FIX: verified agent spawn, host-pinned recorder, win-time record, ladder-count fix
+
+**The 2026-07-16 23:37 Workshop republish shipped a broken record/post lane — ZERO games posted
+worldwide afterward** (last DB row = 22:30 that night; a 4-player Paradise-win game was lost).
+Post-mortem: memory `lb-pipeline-outage-2026-07-16-republish`. Root exposure: the 07-14 auto
+opt-in moved the agent spawn to a single UNVERIFIED `acc_lb_boot` open on the exact
+`initial_blackscreen_passed` frame — on the pure Workshop launch (no launcher pre-spawn) that
+open silently did nothing (no agent `.bat` written; the board menu 3s later worked), and every
+dev-box game had masked the lane via `run_game.ps1`'s pre-spawned agent. Fixes (all live):
+
+1. **Verified agent spawn** — `boot_agent_verified()`: settle 2s after blackscreen, then up to
+   3 spawn attempts, each CONFIRMED via the chunk's `acc_lb_boot_trace` Exec (`spawn1`);
+   `level.acc_lb_agent_up` is set only on confirmation, so record paths retry at their turn.
+2. **Host-pinned recorder** — `pick_recorder()` (IsHost() scan, players[0] fallback) replaces
+   the bare `players[0]` pick everywhere: the rec/boot menus do machine-local io on whatever
+   client they open on, so a peer at index 0 stranded the record on a box with no agent.
+3. **De-race waits** — every `SetDvar` batch now gets `wait 0.1–0.2` before its `OpenLUIMenu`
+   so the chunk's createMenu never reads a not-yet-landed dvar.
+4. **Self-healing POST queue** — the boot chunk no longer deletes `acc_lb_do_post.txt` on
+   agent spawn: a queued POST from a session whose agent never ran is SENT by the next live
+   agent (Worker upserts by session, so re-sends are safe).
+5. **Paradise WIN-TIME record** — `record_on_paradise_win()`: the moment the win latches, the
+   full record runs (same dev/god/consent gates). A winning crew that quits to menu (which
+   fires NO `end_game`) is no longer lost. The rec chunk parks its session id on the
+   `acc_lb_session` dvar (cleared per load) so the win-time and final end_game posts upsert
+   ONE Worker row (every table is `ON CONFLICT … MAX()` — verified).
+6. **Ladder-count fix** (user: "quads leaderboard was showing duos") — the board chunk now
+   reads the GSC-published `acc_lb_players` dvar FIRST (server truth; fetches are host-only
+   where the dvar round-trips) and falls back to the client-side PlayerList count, which can
+   undercount on unresolved slots and used to pick the wrong ladder.
+7. **Durable breadcrumbs** — boot + rec chunks append every open/outcome to
+   `players\acc_lb_boot_log.txt` / `acc_lb_rec_log.txt` (dvar traces die with the session and
+   plain Steam launches have no console_mp.log; the lost quad was un-post-mortemable).
+
+**Needs a Workshop republish to reach subscribers.** Recovery: if a machine holds a stranded
+`acc_lb_post.json` (e.g. a peer that recorded under the old players[0] pick), a manual
+`curl -X POST -H "x-acc-key: <key>" --data @acc_lb_post.json <url>/games` lands it.
+
+## ⚠️ UPDATE 2026-07-14 — AUTO OPT-IN (supersedes the 2026-07-13 consent prompt below)
+
+The per-player consent PROMPT is **gone**. `boot_agents()` now **auto opt-ins the HOST** so every non-dev
+game posts, spawns the host agent (the one accepted console tab-out) or reuses the launcher pre-spawn,
+**auto-fetches + caches the board at match start** (`auto_fetch_board()`) so any player reads the top-10
+instantly at the Plaza, and holds the pre-game zombie-spawn buffer at **20s** (`zombie_spawn_grace()`, was
+10s). **Why:** the launcher path (`+set acc_lb_agent 1`) returned before ever running `consent_flow`, so
+`level.acc_lb_consent` stayed unset and `record_at_end_game`'s opt-out gate silently skipped the POST — real
+host games sent no data. `consent_flow` / `prompt_consent` / `dev_prompt_test` remain in-file but are
+**superseded (uncalled)**, kept for reference. **Dev/god still never POST** (that user rule is unchanged).
+The 2026-07-13 opt-in design below is retained as history.
+
+## ➕ UPDATE 2026-07-14 — PER-PLAYER kills / downs / revives
+
+Recorded games now carry **per-player kills, downs and revives** next to the round + roster. `npm run
+summary` prints a **PLAYER STATS** board; the raw feed is `GET /stats/players.{json,txt}`.
+
+- **NAMED, not anonymous.** These attach to the `games` posture (which already stores gamertags) — the
+  new `player_stats` D1 table stores the gamertag keyed by `(session_id, name)`. This is deliberately
+  *unlike* the anonymous `gun_*` telemetry (docs/41), because the ask was explicitly per-player.
+- **Source = the STOCK scoreboard fields** `player.kills` / `player.downs` / `player.revives`, which the
+  engine already maintains (verified vs stock ref: `_zm_spawner.gsc:2286` `attacker.kills++`,
+  `_zm_laststand.gsc:149` `self.downs++`, `:1383/:1442` `reviver.revives++`). So there is **no new
+  death/down/revive callback or per-player thread** — `_acc_leaderboard::serialize_stats()` just READS
+  the three fields at end_game (undefined→0 guarded). Lowest-risk possible integration.
+- **Transport** = the same host-local dvar as the gun blob: GSC publishes `acc_lb_stats` =
+  `"name:kills:downs:revives,..."` (gamertag `StrTok`-scrubbed of `: , ; | " ' \` so it can't break the
+  record/field split or the rec chunk's `([^:,]+):(%d+):(%d+):(%d+)` parse). The rec chunk appends a
+  `stats` array to the POST. dev/god never reach the publish (existing `record_at_end_game` gate).
+- **Worker** stores it in its own best-effort try/catch (a not-yet-migrated `player_stats` never 500s the
+  game row) and exposes the aggregate endpoint (`?sort=kills|downs|revives|kpg|games|best_round`).
+- **Rollout 2026-07-14:** D1 migrated (idempotent `schema.sql`), Worker deployed, `.ff` rebuilt
+  (`-GscOnly`); round-trip POST→store→read verified live (test rows deleted). Games recorded on an OLDER
+  `.ff` have no stats — the summary section notes it. Alignment is by GSC `player.name`, self-describing,
+  so it needs no PlayerList-slot agreement with the roster.
+
+## 🎨 UPDATE 2026-07-15 — BOARD UI v2: LUI panel with per-player KILLS / REVIVES / DOWNS
+
+The Plaza terminal's board is no longer the 300px `acc_ui` hudelem card — it is a real **LUI panel**
+rendered by the `acc_lb_board` menu shell itself (which used to draw nothing): a centered ~620px
+glass plate in the map's HUD identity (acc_hud `ACC_PAL` navy/cyan/teal/amber/violet), with a
+**SOLO/DUO/TRIO/QUADS LEADERBOARDS** title, an **OFFLINE-only source tag** (user 2026-07-15 "remove
+the LIVE" — the healthy cloud board shows no tag; amber OFFLINE appears only when the net fetch
+failed and the machine-local records are showing), a column header, and per
+game: rank (gold/silver/bronze top 3), **ROUND N** (violet for a Paradise-winner run), then the
+per-player **KILLS / REVIVES / DOWNS** columns — solo runs merge the single player onto the game row;
+co-op runs nest one indented row per player (kills-sorted). Old games with no stats rows show the
+roster CSV as before. Game blocks are zebra-striped; if the height cap truncates the list a
+"+N more runs on the ladder" line says so.
+
+- **Data**: `GET /top10.txt?v2=N` — ONE param carries both the v2 marker and the player-count filter
+  (N=1..4, 0=global) so the agent `.bat`'s delayed-expansion GET suffix never needs a `&`. v2 rows
+  append a third field `|name:kills:downs:revives,...` (the `player_stats` table joined by session,
+  kills-sorted; names belt-and-braces scrubbed of `:,|`). `/top10.json` now always includes a `stats`
+  array per row (additive). Old clients keep the 2-field format; stats join is skipped for
+  `?limit>100` analytics pulls (bind-limit + summary.js reads `player_stats` directly).
+  **Needs `wrangler deploy`** — pre-deploy, a v2 client just gets stats-less rows (names-only panel)
+  and the per-count filter is ignored (old worker doesn't read `v2`). Deploy closes both.
+- **Local records** (`players/acc_lb_records.txt`) gained a 5th field: the raw `acc_lb_stats` blob —
+  the offline board shows the same columns. Old 4-field lines still parse.
+- **Chunk contract**: `read`/`local` still push the legacy dvars `acc_lb_r1..r10`+`acc_lb_done`
+  (unchanged format) but now RETURN a structured rows table `{src, show, rows={{r,w,names,st={{n,k,d,rv}}}}}`
+  to the outer shell, which renders the panel (pcall-guarded — a render error can never pop the UI
+  Error box) and reports `acc_lb_lui "ok:N"`/`"err"`.
+- **GSC** (`show_board`): always opens the menu (the on-disk result file is now the per-session cache —
+  `acc_lb_use_cache 1` makes the chunk skip the curl on a same-lobby-size re-open), holds it open for
+  the 12s/walk-away display window, and **falls back to the legacy card** if the Exec→dvar bridge works
+  (`acc_lb_done` landed) but no `"ok"` arrived on `acc_lb_lui` — the station can never show nothing.
+  Silent fetch paths (`auto_fetch_board`, dev probe) set `acc_lb_board_show 0`; an unreadable flag
+  (co-op peer client) defaults to SHOW, which is correct because the silent paths are host-only.
+  Since 2026-07-17 the silent and visible lanes are mutually excluded by the **board lane lease**
+  (next block) — a silent lane can no longer clobber a visible session's dvars mid-fetch.
+- **CO-OP PEER LANE (2026-07-16, user: "non host players cant see the UI for the Leaderboards").**
+  The 2026-07-15 claim that "peers get the full board client-side" was WRONG: every data lane is
+  host-machine-only (the curl agent boots only on the host, `players/acc_lb_records.txt` exists only
+  on the recording machine, and a server `SetDvar` never replicates to a remote client), so a peer's
+  shell polled an empty file for 8s and rendered the empty local fallback. The fix relays the HOST's
+  fetched rows through the server to the peer over **per-player controller UI models**
+  (`SetControllerUIModelValue` — the docs/16 Wonderfizz bridge / docs/19 M2, the only replicated
+  GSC→LUI string channel):
+  1. the host chunk's `push_rows` now Exec-pushes stats + totals too (`acc_lb_st1..10`,
+     `acc_lb_tot`) — the host's Exec lands in the SERVER dvar table, so GSC holds the full v2 board;
+  2. `show_board` branches non-`IsHost()` players to `show_board_peer()`: writes `accLbR1..10`
+     (= "round|names|stats"), `accLbTot`, `accLbSrc` on that player (all 12 written every open, so
+     stale relays can't linger; 12 `lui_menu_data` precaches), opens the same shell, skips the
+     `acc_lb_done` wait (a peer's Exec can't move a server dvar) and keeps the 12s/walk-away window;
+  3. the chunk's new `"feed"` mode rebuilds `{src, show, rows, tot}` from those models (reusing
+     `parse_rows`), and the outer's tick consults feed whenever the io lane has nothing — a peer
+     renders at tick 1 (~0.5s). On the host the models are never pushed → feed returns `"none"` →
+     io lane untouched. Peer freshness = the host's last fetch (auto-fetch at match start + every
+     host station use). If the host never fetched (agent dead), the peer degrades to the old empty
+     local fallback.
+- Regenerate with `node tools/build_lb_lui.js` after touching the chunks/shell; `.ff` rebuild is
+  `-GscOnly` (no geometry).
+
+**BOARD LANE LEASE (2026-07-17, user: "I went to leaderboard and saw the old leaderboard UI... How
+did the code go down that path at all"):** the visible station session and the two SILENT fetch
+lanes (`auto_fetch_board` at match start, `dev_fetch_probe` at blackscreen+15s in dev builds) all
+drive the SAME menu + dvar channel (`acc_lb_board_show` / `acc_lb_use_cache` / `acc_lb_done` /
+`acc_lb_lui` / `acc_lb_r*`/`st*`/`tot`) and had no mutual exclusion. Live capture (console_mp.log):
+station open t=64.9s → dev probe t=65.1s → its `clear_board_dvars()` wiped the in-flight handshake
+and its `acc_lb_board_show "0"` made the visible shell's `serve()` take the silent-fetch
+early-return — no `acc_lb_lui "ok"` ever landed, so the GSC handshake (working as designed) closed
+the healthy panel and drew the **legacy card**. The next station use hit the cache with no silent
+lane running and rendered the panel — i.e. "old UI once, new UI after", exactly the reported bug.
+Fix (`_acc_leaderboard.gsc`): a **timed lane lease** (`level.acc_lb_lane_until`, GetTime-based —
+NOT a boolean, because `endon(disconnect/end_game)` can kill a holder mid-lease and a stranded flag
+would jam the station; a lease expires). Rules: `show_board` waits out a held lease (bounded
+13s) then holds it through fetch + render handshake, releasing before the 12s display window;
+`show_board_peer` only waits (its dvar-read→model-push relay has no waits, so it's atomic once the
+channel is quiet); `auto_fetch_board` and `dev_fetch_probe` **skip** when the lease is held (a
+visible fetch fills the same cache the pre-warm would; the probe is log-only). The legacy card
+itself stays — it is the panel-failure safety net, not dead code.
+
+**LIVE-TEST FIX ROUND (2026-07-15, user screenshot):** the first in-game test showed the panel
+rendering but with the GLOBAL rows under a SOLO title and no stats — root cause: the Worker deploy
+had not run yet (the game side was already v2; the old Worker ignores `?v2`). User deployed;
+curl-verified `?v2=1` = solo-only rows and `?v2=2` = the round-22 duo with full
+`name:kills:downs:revives` fields (cross-checked against `/stats/players` totals). Two follow-up
+fixes shipped in the same pass:
+- **Stat-less games render dashes, not blanks** (shell): a solo roster with no stats shows the name
+  in PLAYER + dim `-` in each stat column ("no data recorded"); multi-name stat-less rosters keep
+  the CSV span. Stats exist only for games recorded on the 2026-07-14+ LOCAL build — pre-tracking
+  games never backfill, and **Workshop-subscriber games carry no stats until the next publish**
+  (their published build predates the pipeline; add to the publish checklist).
+- **Station hint no longer bleeds through the panel** (GSC): hint is blanked while the board is up
+  and restored to idle on every exit (walk-away-mid-fetch, fallback card, panel close). A
+  mid-display disconnect leaves it blank until the next use self-heals it (accepted edge).
+
+**TOTALS FOOTER (2026-07-15, user):** one line under the ladder — *"`0 / 465` GAMES HAVE MADE IT TO
+THE BOTTOM OF THE TRENCH"* (violet, the panel's winner-color language, under a cyan rule): games
+recorded vs Paradise wins.
+- **GLOBAL on purpose, NOT filtered by the `?v2=N` ladder above it.** It is a fact about the MAP
+  (every run ever recorded, every lobby size), so the denominator does not move when the same player
+  opens the board solo vs in a quad. This is the ONE place the per-lobby-size requirement above does
+  not apply — it is a footnote, not a ladder. (One `WHERE` clause away if that ever changes.)
+- **Wire**: the Worker appends a v2-only FOOTER line `T|<games>|<wins>` — always LAST, from
+  `SELECT COUNT(*), SUM(paradise_winner) FROM games` (unfiltered), in its own try/catch (a totals
+  failure = no footer, never a broken board; same graceful posture as the winner column). The leading
+  `T` can't collide with a data row (those start with the round DIGITS), so the chunk's `^(%d+)|`
+  gmatch and the GSC fallback skip it untouched; v1 clients never get it at all. Last-line placement
+  is deliberate: the agent `.bat`'s `echo ACCEOF_OK>>` glues the marker onto the last line and the
+  chunk strips both markers before parsing (so the footer pattern is unanchored at the tail).
+- **Chunk contract**: `parse_rows` returns `rows, tot` (`{g=games, w=wins}` or nil) and `read` puts it
+  on the result table as `res.tot`; the shell reserves `FOOT_H` in the measure pass and draws the line
+  (also on the empty-ladder path — an empty SOLO ladder still gets the global footnote).
+- **No footer OFFLINE** (`tot` stays nil): the local records file holds only THIS machine's games and
+  never stored the Paradise flag, so any count built from it would be a wrong claim about a global
+  stat. **Needs `wrangler deploy`** — pre-deploy the game just draws no footer.
+
+**SECOND + THIRD LIVE-TEST ROUNDS (2026-07-15) — REQUIREMENT LOCKED: the board is PER-LOBBY-SIZE.**
+User, round 3, explicit: *"The requirement is that I should see top 10 solo rounds"* (solo lobby →
+SOLO ladder; duo → DUO; etc — the original 2026-07-13 per-count design). The board was briefly
+switched to the GLOBAL `?v2=0` ladder that same day (a misread of round 2's "not the correct data")
+and reverted hours later — **do not flip it back to global**; the global view stays available
+Worker-side (`?v2=0` / `?players` absent) for web/analytics. What round 2's complaint actually was:
+the user's own best solo runs are missing from the solo ladder because they were **dev/god sessions,
+which never post** (the 2026-07-11 user rule) — the ladder itself was correct. Kept from the global
+detour: dash alpha 0.55 (0.4 was near invisible in-game).
+
+**"Board looks janky" fix (round 3) — THE LUI COLUMN LAYOUT RULE:** `setScale` scales an element
+around its CENTER, so two labels in the same column with different scales get different effective
+left/right edges — the board's mixed scales (0.65 header / 0.78 nested / 0.8 span / 0.85 solo) made
+every row type land at slightly different x. The shell now uses **ONE scale (`SC=0.8`) for the
+column header and every data cell**, per-column boxes shared by all row types (`statCells()` is the
+only place number cells are drawn), headers differentiated by dim cyan instead of size. Rosters are
+**truncated to the PLAYER column** (stat-less games show dashes) — nothing may bleed under the
+number columns (long trio CSVs used to). Reuse this rule for any future LUI table.
+
+**Map-isn't-loading incident (same day, resolved — NOT the board):** two launches died at the
+frontend with an unprompted clean `quitting...` ~50s in, no map-load attempt, no error. Root cause =
+the **Steam stale-stop jam** (game-spawned LB agent lingering in the process tree → Steam stuck at
+"Stopping" → the NEXT launch receives the pending stop and self-quits). Cure: kill stale agents +
+FULL Steam restart (docs/17); prevention = the same-day agent game-liveness exit (see memory
+`lb-agent-game-liveness-exit`). Log fingerprints for next time: args provably arrived (fs_game in
+search path, logfile on), "ModLoad done" then config execs then `quitting...`; the
+"Could not find navvolume" error right after the map ff's frontend registration pass is
+**pre-existing noise** (navvolume.hkt is 0 bytes since 2026-07-01; present in healthy boots too).
+
 ## ✅ SHIPPED (2026-07-11) — the as-built system
+
+> **✅ LIVE IN NON-DEV (2026-07-13, user "enable in non dev mode").** Real subscribers run
+> `consent_flow()` (host/solo): default **ON**, prompted **once** + persisted in
+> `players\acc_lb_consent.txt`. Enable → helper spawns now (the accepted one-time flash) + board works;
+> a RETURNING enabled player spawns invisibly at end_game (zero gameplay console). Disable → nothing
+> runs, ever; the `record_at_end_game` **opt-out gate** (`!IS_TRUE(level.acc_lb_consent)`) stores
+> nothing. `dev_prompt_test()` stays the DEV harness (card every launch, spawns on Enable to demo the
+> flash, never persists/POSTs). **v1 co-op scope:** host-driven (only bridge that round-trips + the
+> recorder); peers passive; host's record covers the game. Fully per-player co-op (each enabled client
+> posts a host-broadcast shared session, Worker dedups) = the next step if wanted.
+>
+> **OPT-IN CONSENT — the fullscreen tab-out fix v2 (2026-07-13, user).** v1 still fired the agent's
+> `os.execute` at **every match start for every player** (a console flash that yanks exclusive
+> fullscreen: *"it tabs us out… players may think the map is hacking them"*). The flash is
+> irreducible — retail LUI's only network primitive is `os.execute`, which always runs through
+> `cmd.exe` (a console app), and in exclusive fullscreen any new window forces a mode-switch. So the
+> fix is **when/whether we spawn**, reworked to **opt-in, default OFF**:
+> - **Never opted in ⇒ nothing spawns.** No console, no tab-out, no local file, no POST. Clean map for
+>   everyone by default.
+> - **One-time prompt at spawn-in** (`prompt_consent`, an `acc_ui::card_show` panel) with **two explicit
+>   choices** (user 2026-07-13): **Hold [Melee] = Enable (Recommended)** / **Hold [Aim] = Disable**
+>   (~1s hold each, live "Enabling…/Disabling…" feedback). Both non-[Use] (no wallbuy conflict); Enable
+>   needs the deliberate Melee hold, an accidental Aim-hold only ever Disables (safe default). **Zombie
+>   spawning is PAUSED ~12s while deciding** (`zombie_spawn_grace()` re-clears the stock `spawn_zombies`
+>   flag each tick on a disconnect-proof LEVEL thread with a hard cap; resumes on choice or cap). When
+>   promoted, persisted in **`players\acc_lb_consent.txt`** (`"1"`/`"0"`/absent) → asked exactly **once**
+>   (the current dev-gated `dev_prompt_test` does NOT persist — shows every launch for iteration).
+> - **Opted-in players no longer spawn at blackscreen either.** The boot menu's **"check"** mode only
+>   *reports* the saved choice to GSC; the agent is spawned at **end_game** ("spawn" mode) where a
+>   console flash is invisible on the game-over screen. Opted-in players get **zero gameplay-time
+>   console**. The one in-play `os.execute` is the instant they hold [Melee] to enable ("set1" spawns
+>   immediately so the board works that session).
+> - **Boot chunk modes** (dvar `acc_lb_boot_cmd`): `check` (report only), `set1` (force 1 + spawn),
+>   `set0` (write 0, never clobbering an existing 1 — so a co-op re-prompt can't silently turn a board
+>   off), `spawn` (spawn only: dev + end_game).
+> - **Gating**: `record_at_end_game` returns unless `recorder.acc_lb_consent` (same "assisted runs
+>   store nothing" spirit as the dev/god rule). **Dev** (no launcher) auto-spawns silently, no prompt,
+>   no consent file (`boot_dev_spawn`) → terminal fetch + dev probe still work. **Launcher**
+>   (`acc_lb_agent 1`) unchanged, fully silent.
+> - **v1 co-op scope**: only the host/solo runs the flow (the only Exec→dvar bridge that round-trips,
+>   and the recorder). Co-op peers spawn nothing — clean by default. A peer's terminal view just falls
+>   back to the local/offline board.
+> - **NEEDS AN IN-GAME HUMAN TEST** (a scripted launch parks at the ENTER splash and never reaches the
+>   prompt — see the 2026-07-12 lesson below): load a NON-dev, non-launcher build, confirm the card
+>   appears at spawn, hold [Melee] → the agent spawns + `players\acc_lb_consent.txt` = `1`; reload →
+>   no prompt; finish a game → row in D1. A fresh box (no consent file) is the undecided case.
+
+> **PER-PLAYER-COUNT BOARDS (2026-07-13, player request).** Separate solo/duo/trio/quad
+> ladders. **NO schema change** — the count is derived from the existing `games.players`
+> CSV: the Worker's `cleanName()` strips commas from every gamertag, so `commas + 1` = the
+> roster size. Wiring:
+> - **Worker** `GET /top10.txt?players=N` (N=1..4) adds
+>   `WHERE (LENGTH(players) - LENGTH(REPLACE(players,',','')) + 1) = N`; no param = the global
+>   board (backward compatible). **Must `wrangler deploy` for the filter to go live** (old
+>   worker ignores the param → global board, so the game never breaks pre-deploy).
+> - **GSC** (`_acc_leaderboard.gsc`) publishes the lobby size on `acc_lb_players` before opening
+>   the board menu, caches the board PER COUNT (`acc_lb_cache_pc`), and prefixes the card title
+>   **SOLO / DUO / TRIO / QUADS** (`acc_lb_count_label`).
+> - **Board chunk** reads `acc_lb_players` (the `readdvar` forms) and writes the query suffix
+>   `?players=N` as the CONTENT of the `acc_lb_do_get.txt` trigger; the **agent `.bat`** (both
+>   generators) now `setlocal EnableDelayedExpansion` + `set /p ACCQ=<acc_lb_do_get.txt` and
+>   appends `!ACCQ!` to the GET URL. Regenerate with `node tools/build_lb_lui.js`.
 
 > **REWORKED SAME EVENING — the BACKGROUND AGENT (fullscreen tab-out fix).** The
 > user's first live test found every `os.execute` spawning a console window that
 > yanked exclusive fullscreen ("tabs us out + freezes", on interact AND at game
 > end — the end-game POST also *blocked* the UI thread). Fix: all curl work moved
 > to a hidden agent (`players\acc_lb_agent_<tok>.bat`, URL+key baked; polls ~1s
-> via `ping -n 2` for ~2h then self-deletes) serving trigger files. The rec/board
+> via `ping -n 2` for ~8h then self-deletes — sized up from 2h in the 2026-07-12
+> pre-publish hardening so a marathon high-round run can't outlive its agent and
+> silently lose the end-game POST) serving trigger files. The rec/board
 > chunks are **pure io**: they write `acc_lb_do_post.txt` / `acc_lb_do_get.txt`
 > and the agent runs curl off-process — no window, no focus steal, no block, on
 > any hot path. A RUNNING .bat must never be overwritten (cmd re-reads it from
@@ -25,17 +371,26 @@ that is the research/iteration history that got us here.**
 > `start /b` the agent *shared* that console, so a terminal window appeared (and
 > could linger) at every match start (user: "it just starts up my terminal every
 > time... do it silently"). Shipped fix, zero in-game load-path changes:
-> - **All three `PLAY_*.bat` + `run_game.ps1`** call **`tools/spawn_lb_agent.ps1`**
+> - **`PLAY_NORMAL.bat` (the only launcher) + `run_game.ps1`** call **`tools/spawn_lb_agent.ps1`**
 >   (GENERATED by `build_lb_lui.js`, URL/key spliced — same source as the chunk):
 >   it liveness-checks (ping/pong; reuses a running agent) and otherwise spawns the
 >   agent via PowerShell **`-WindowStyle Hidden` = no window, ever** (4h lifetime),
 >   then the launcher passes **`+set acc_lb_agent 1`** — `boot_agents()` reads the
->   dvar (the acc_dev idiom) and **skips the in-game spawn entirely**. Verified
+>   dvar (the launch-dvar idiom) and **skips the in-game spawn entirely**. Verified
 >   shell-side: hidden spawn → answers ping → 0 visible cmd windows; second run →
 >   "already alive - reusing".
-> - **Workshop players** (no launcher) keep the in-game boot, changed `start /b` →
->   **`start /min`**: the agent gets its own MINIMIZED console (taskbar item) —
->   never a window over the game.
+> - **Workshop players** (no launcher; user 2026-07-12: "dont want to open up
+>   random programs for my subscribers") get a **WSH hidden trampoline**: the boot
+>   chunk writes a tiny self-deleting `.vbs` and `os.execute`s
+>   `wscript //B //Nologo` it; the vbs `WScript.Shell.Run(bat, 0, False)` launches
+>   the agent with window-style **0 = SW_HIDE** — no window, no taskbar item, Task
+>   Manager only. The vbs derives the bat path from its own `ScriptFullName`
+>   (cwd-independent) and deletes itself. Shell-verified via the exact os.execute
+>   path: the agent's startup marker was written with **0 visible windows** and no
+>   lingering wscript. Only artifact left for subscribers = os.execute's own
+>   sub-second cmd flash under the load fade (inherent; only the launcher path
+>   removes even that). If WSH is policy-disabled, the agent just doesn't start and
+>   the board falls back to offline — the game is unaffected.
 > - History for the next agent: two in-game hide-it attempts (a UITimer-polled
 >   handshake; an early `spawned_player` two-menu ping/pong) were REVERTED as
 >   unverifiable — a scripted `steam -applaunch` parks at the "Press ENTER to
@@ -45,20 +400,35 @@ that is the research/iteration history that got us here.**
 >   synchronous in `createMenu`; don't open the boot menu before
 >   blackscreen-passed. end_game keeps the >100-min marathon-guard boot.
 
+> **AGENT LIFETIME — the Steam stuck-at-"Stopping" fix (2026-07-15, user report: "when I close the
+> game it just gets stuck at Stopping on Steam; I have to close Steam entirely to launch again").**
+> Root cause: an agent spawned BY THE GAME (os.execute → wscript → cmd) is a DESCENDANT of
+> BlackOps3.exe, and Steam waits on the game's whole process tree before marking it stopped — the old
+> agent looped ~8h with no exit condition, so Steam sat at "Stopping" until Steam was restarted.
+> (Live evidence: a game-child agent from the same morning still running, parent PID dead, + 35
+> orphaned `acc_lb_agent_*.bat` since 7/12 — one per session.) Fix (both generators, LOCKSTEP:
+> `spawn_lb_agent.tpl.ps1` + `acc_lb_boot_chunk.lua`): the agent `.bat` now checks `tasklist` for
+> `BlackOps3.exe` every ~10s and EXITS + self-deletes once the game has been seen and then gone for
+> 2 consecutive checks (~20-30s after close; Steam then clears on its own), or after ~200s if the game
+> never appears (aborted launch). The ~8h loop cap stays as a backstop only. Back-to-back games in one
+> app session are unaffected (the game process persists between maps). Verified out-of-game 2026-07-15:
+> fresh pre-spawn answered ping/pong, then self-exited + self-deleted with no game present.
+
 ```
  [GSC] _acc_leaderboard.gsc
    ├─ map load ──(every player)── OpenLUIMenu "acc_lb_boot"  → write+spawn the HIDDEN agent (the ONLY exec)
    ├─ end_game ──(players[0])──── OpenLUIMenu "acc_lb_rec"   (SKIPPED if dev OR god - user rule)
-   ├─ Plaza station trigger ───── OpenLUIMenu "acc_lb_board" ── card_show(rows)
-   └─ dev fetch probe (acc_dev, log-only, GET-only)
+   ├─ Plaza station trigger ───── OpenLUIMenu "acc_lb_board" ── LUI panel (fallback: card_show)
+   └─ dev fetch probe (acc_dev, log-only, GET-only, acc_lb_board_show 0)
  [LUI] acc_lb_boot/rec/board.lua   (GENERATED - hksc bytecode in \ddd strings; PURE IO after boot)
    ├─ boot:  write players\acc_lb_agent_<tok>.bat → spawn hidden (popen|start /b) → agent polls:
    │           acc_lb_do_post.txt → curl POST acc_lb_post.json → acc_lb_post_result.txt
-   │           acc_lb_do_get.txt  → curl GET → acc_lb_top10.txt + ACCEOF_OK/ERR marker
+   │           acc_lb_do_get.txt  → curl GET (suffix ?v2=N) → acc_lb_top10.txt + ACCEOF_OK/ERR marker
    ├─ rec:   roster = PlayerList.<i>.playerName models · round = gameScore.roundsPlayed - 1
-   │         session/ts = os.time → append players\acc_lb_records.txt → write post.json + POST trigger
-   └─ board: truncate result + write GET trigger → UITimer 400ms polls the file (marker)
-             → rows -> dvars acc_lb_r1..r10 + acc_lb_done → net-fail/timeout = local-records fallback
+   │         session/ts = os.time → append players\acc_lb_records.txt (round|names|ts|stats) + POST trigger
+   └─ board: truncate result + write GET trigger (skipped on acc_lb_use_cache 1) → UITimer 400ms polls
+             → rows -> dvars acc_lb_r1..r10 + acc_lb_done (legacy) + rows TABLE -> the shell's panel
+             (KILLS/REVIVES/DOWNS columns; acc_lb_lui "ok:N") → net-fail/timeout = local-records fallback
  [cloud] backend/leaderboard/ Worker + D1 (deployed; see "CLOUD BACKEND LIVE" below)
 ```
 
@@ -84,8 +454,8 @@ that is the research/iteration history that got us here.**
   map regen + FULL build. Hint text is cursor-hint-router-safe (NO
   "for"/"buy"/"cost"/"upgrade weapon" substrings — memory
   `lui-cursorhint-router-loose-weapon-matcher`). Card rows read
-  `1.  Round 4   Name, Name` (user UI pass), and the "syncing" hint restores the
-  moment the fetch resolves.
+  `1.  Round 4   Name, Name` (user UI pass), and the busy ("loading top 10…") hint
+  restores to idle the moment the fetch resolves.
 - **Round source**: `gameScore.roundsPlayed` UI model reads **round_number + 1**
   (probe-verified live: raw=2 at round 1) → the chunk posts `raw - 1`.
 - **Verified live (2026-07-11)**: dev probe = menu loads, background curl GET hits
@@ -102,7 +472,10 @@ that is the research/iteration history that got us here.**
 - **Known limits (v1)**: quits/crashes mid-game aren't recorded (only a real
   end_game posts; per-round checkpoint upserts are the UEM-style future upgrade);
   co-op non-host machines don't get local-file rows (the host's POST covers the
-  global board); the card shows the top 10 with no paging/tabs (LUI panel = v2).
+  global board, and since 2026-07-16 the peer's TERMINAL view is served by the
+  host-relay lane above, not the local file); the board shows the top 10 with no
+  paging/tabs (the 2026-07-15 LUI panel upgraded the RENDER — see "BOARD UI v2"
+  above — but not the depth).
 
 > Research below (3 parallel passes, 2026-07-11): retail-BO3 I/O channels,
 > community precedent, and in-repo building blocks. Verdict up front: **the
@@ -148,7 +521,7 @@ vector is **`os.execute`/`io.popen` + `curl.exe`** (ships with Win10+). This is
 | Archived dvars / `seta` | **Dead** — T7 `config.ini` is whitelist-only; script dvars die with the process |
 | Playerdata / `SetDStat` | Per-mod local `.cgp` DOES persist (`players\mods\<map>\stats_zm_offline_0.cgp`), but fixed DDL schema, per-player scalars only — no roster strings, no custom DDL for usermaps. Fallback for "personal best round" only |
 | Inbound at runtime | **Impossible** (no rcon for customs, no GSC file read, no push) |
-| Inbound at launch | `+set acc_lb_data …` / exec'd cfg → `GetDvarString` works (the `acc_dev` idiom) — companion-app fallback only |
+| Inbound at launch | `+set acc_lb_data …` / exec'd cfg → `GetDvarString` works (the launch-dvar idiom, e.g. `acc_lb_agent`) — companion-app fallback only |
 | Steam leaderboards API | Unreachable from mods (engine is DemonWare anyway) |
 | Workshop republish | Auto-propagates to subscribers (slow, ~daily, full redownload) — viable "baked top-10" fallback |
 | In-game leaderboard-at-an-object precedent | **Nobody has shipped one** — UEM's boards are web-side; challenge maps keep "leaderboards" as Workshop-description text; zwr.gg / codzombiestracker.com are manual video submission. Ours would be a first |
@@ -430,7 +803,27 @@ because **LUI can read every player's name client-side**: the Aetherium scoreboa
 already does `Engine.GetModelValue( Engine.GetModel( Engine.GetModelForController(
 controller ), "PlayerList.<i>.playerName" ) )` for `i=0..3`
 (`AetheriumScoreboard.lua:467`). So the LUI bytecode chunk gathers the roster
-itself. Only **numerics** cross GSC→LUI, via the existing clientfield pipeline:
+itself.
+
+> **GOTCHA — resolve `playerName` through `Engine.Localize`, never `tostring()` (fixed
+> 2026-07-14).** A `PlayerList.<i>.playerName` model value is NOT always a Lua string: an
+> empty/stale slot returns a **userdata reference** to a localized-string entry, and
+> `tostring(userdata)` yields the raw handle `"userdata: 0000..."`. The scoreboard resolves it
+> via `Engine.Localize` before `setText` (`AetheriumScoreboard.lua:468`) — the record chunk
+> now does the same (`resolve_name()`). Belt-and-braces: the chunk's `clean()` and
+> the Worker's `cleanName()` both reject `userdata:`-prefixed values. Symptom before the fix:
+> `npm run summary` flagged `userdata: 00000000000000` roster entries (13 DB rows repaired).
+>
+> **LADDER COROLLARY — scrub the NAME, never the SLOT (fixed 2026-07-15).** The 07-14 fix also
+> *dropped* every unresolvable tag, and the Worker filtered `"?"` a second time — but a userdata
+> playerName is a **real teammate** whose tag didn't resolve, not an empty slot (empty slots give
+> `nil`/`""`; proof: 97 solo games recorded exactly ONE name under the same guard). Since lobby
+> size is stored as the roster **entry count** (`commas + 1`) while the board *asks* for its
+> ladder with a PlayerList **slot** count (`acc_lb_board_chunk.lua`, matching `GetPlayers().size`),
+> dropping an entry filed a quad under the TRIO ladder — invisible to its own `?v2=4` board and
+> outranking real trios. Both stages now **keep the slot and store `"?"`** (exactly what the 13
+> repaired rows carry), so write-count and read-count agree. Same lesson as that repair: **never
+> change the entry count.** Only **numerics** cross GSC→LUI, via the existing clientfield pipeline:
 `session_id` (host-minted number, broadcast so all clients agree), `round`, an
 `is_recorder` flag (host only), and a `do_record` trigger. Timestamp = `os.time()`
 in LUI. So the full data path uses ONLY proven mechanisms:

@@ -384,7 +384,8 @@ coords.
 | `acc_lockdown_fail_cooldown` | `1` | Rounds after a *failed* challenge before the next lights (≥1 breather). |
 | `acc_lockdown_force_zone` | `""` | TEST pin: a zone name (e.g. `vault_zone`) locks the lockdown to ONE room, bypassing rotation. |
 | `acc_lockdown_lock_doors` | `1` | Door seal (see below). `0` = light only. |
-| `acc_lockdown_debug` | `0` | On-screen `[lockdown]` rotation trace. `1` = show (decoupled from `level.acc_dev` 2026-07-10, `_acc_lockdown.gsc:252` — clean screen in dev; the `[acc]` dev log still fires either way). |
+
+(the per-feature debug/test dvars were removed 2026-07-16 — the `[lockdown]` rotation trace now rides the one `acc_dev` flag; see docs/22 §E + memory `debug-banners-gated-by-acc-dev-only`)
 
 ### Door locking — stock buyable-door reuse, NOT seal brushes
 

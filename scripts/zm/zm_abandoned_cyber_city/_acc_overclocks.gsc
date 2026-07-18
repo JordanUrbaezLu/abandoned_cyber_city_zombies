@@ -1,19 +1,19 @@
 // =============================================================================
 // _acc_overclocks.gsc - weapon Tier progression + Overclock slots
 //
-// Design reference: docs/04_weapons.md (Weapon Progression - Tier 1-5).
+// Design reference: docs/04_weapons.md (Weapon Progression).
 //
-// Tier model:
-//   - Each weapon tracks a TIER from 0 (base) to 5 (max) per player.
-//   - Each tier-up unlocks ONE Overclock slot, filled with a random roll from
-//     the weapon's family pool (no duplicates per weapon).
-//   - Tier advancement costs 1/2/3/4/5 Shards respectively (1 to reach T1,
-//     2 more to reach T2, etc; 15 total to max a weapon).
-//   - Re-rolling an existing tier's Overclock costs 1 Shard.
+// Tier model (LIVE; see the ACC_TIER_* defines and _acc_damage::get_oc_tier):
+//   - Each weapon tracks a TIER from 0 (base) to ACC_TIER_MAX (10) per player.
+//   - There is NO per-tier random Overclock ROLL any more. A tier-up simply
+//     raises progress.tier; three FIXED effects (flat damage / glitch-pierce /
+//     ammo-back) scale off the tier in _acc_damage. roll_new_overclock_for_weapon
+//     and progress.overclocks[] are vestigial/unused (kept only to avoid churn).
+//   - Tier advancement costs a LINEAR +4/tier ladder (4 / 8 / ... / 40 = 220 to
+//     max a gun), SHARED with the Exo Suit; re-roll cost is dead alongside the roll.
 //
-// This module replaces the previous "3 active per family, 2 Shards to apply"
-// design. Pools are NOT re-rolled per run; randomization comes from the
-// tier-up draw and the re-roll mechanic.
+// This module replaced the older "3 active per family, 2 Shards to apply" and the
+// "random roll per tier" designs. Pools are NOT re-rolled per run.
 // =============================================================================
 
 #using scripts\shared\array_shared;
@@ -27,6 +27,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the OC terminal
 
 // Tier costs per level. ACC_TIER_MAX 5 -> 10 (user 2026-06-24): both the gun Overclock and the Exo Suit
 // now go to 10 tiers. The 4 effects scale off the tier in _acc_damage (get_oc_tier, no internal clamp),
@@ -48,6 +49,12 @@
 #define ACC_TIER_COST_T10 40
 #define ACC_OC_REROLL_COST_SHARDS 1
 
+// The kiosk's resting card - shown when nobody is standing at it (and during the empty-handed frames of
+// the post-purchase re-draw). terminal_hint_loop composes every other state from the NEAREST player.
+// Router-safe (memory lui-cursorhint-router-loose-weapon-matcher): contains "hold" but NOT "for", so
+// neither the wallbuy ("hold"+" for ") nor the perk ("hold"+"for") matcher hijacks the card.
+#define ACC_OC_HINT_IDLE "Hold ^3[{+activate}]^7  ^5CYBERWARE OVERCLOCK^7 - boost your held gun: +damage / glitch-pierce / +ammo (Data Shards)"
+
 // Overclock terminal world model (a theatre ticket kiosk - on-theme tech read; xmodel-listed in the .zone).
 // STATION REMODEL (user 2026-07-09, docs/09): Gorod dragon-network data terminal (48x34x78,
 // T7-dump carve) - a real tech terminal instead of the thematically-wrong THEATRE ticket kiosk.
@@ -61,7 +68,7 @@
 
 function init()
 {
-    acc_utility::log( "overclocks init (Tier 1-5 model)" );
+    acc_utility::log( "overclocks init (Tier 0..10, fixed-effect model)" );
 
     level.acc_oc_pools = build_family_pools();
     // Active-3-per-family roll REMOVED in new design - pools are visible in
@@ -77,10 +84,11 @@ function init()
 
 function on_player_connect( player )
 {
-    // Per-player, per-weapon tier + Overclock state.
+    // Per-player, per-weapon tier state.
     // Shape: player.acc_weapon_progress[ weapon_name ] = struct {
-    //   tier (int 0..5),
-    //   overclocks (array of overclock_id strings, length = tier)
+    //   tier (int 0..ACC_TIER_MAX/10),
+    //   overclocks (VESTIGIAL empty array - the per-tier roll was retired; effects
+    //               scale off tier alone, so nothing reads this)
     // }
     player.acc_weapon_progress = [];
 
@@ -89,7 +97,7 @@ function on_player_connect( player )
     player thread oc_hud_loop( player );
 }
 
-// Resolve the held weapon's Overclock tier (0..5), mirroring _acc_damage::get_oc_tier: held-object
+// Resolve the held weapon's Overclock tier (0..ACC_TIER_MAX/10), mirroring _acc_damage::get_oc_tier: held-object
 // first, then the true-base fallback (progress is keyed by true_base since the 2026-06-21 fix).
 function held_oc_tier( player )
 {
@@ -245,6 +253,7 @@ function watch_terminal_trigger()
             continue;
         }
         triggers[ i ] thread terminal_loop();
+        triggers[ i ] thread terminal_hint_loop();   // per-player card keeper (see terminal_hint_loop)
         level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = triggers[ i ].origin;
     }
 }
@@ -257,18 +266,21 @@ function spawn_terminal_at( origin, yaw )
     m = spawn( "script_model", origin );
     m setmodel( "p7_zm_sta_dragon_network_data_terminal" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+    acc_interact_glow::glow_on( m );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
+    t.acc_terminal_model = m;   // glow_off target on first successful overclock (user 2026-07-17)
     // Buyable-UI audit fix (2026-07-03): "upgrade"+"weapon" made the Aetherium router show the
     // PACK-A-PUNCH card at this kiosk. "boost your held gun" avoids every router token ->
     // clean DefaultHint card with this text verbatim. Costs are DATA SHARDS (audit typo fix).
-    // The kiosk's live tier/cost/result feedback ALSO lives in this hint now (terminal_loop
-    // updates it per interaction) - the old floating hud_msg popups are gone (user 2026-07-03:
-    // "remove the original display UI when you trigger things").
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE OVERCLOCK^7 - boost your held gun: +damage / glitch-pierce / +ammo (Data Shards)" );
+    // The kiosk's live tier/cost/result feedback ALSO lives in this hint now - the old floating
+    // hud_msg popups are gone (user 2026-07-03: "remove the original display UI when you trigger
+    // things"). terminal_hint_loop (not terminal_loop) owns every update since the co-op fix below.
+    t SetHintString( ACC_OC_HINT_IDLE );
     t thread terminal_loop();
+    t thread terminal_hint_loop();
     if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
     level.acc_oc_kiosk_origins[ level.acc_oc_kiosk_origins.size ] = origin;
     acc_utility::log( "overclocks: terminal spawned at " + origin );
@@ -283,21 +295,18 @@ function terminal_loop()
         self waittill( "trigger", player );
 
         // FEEDBACK CHANNEL REWORK (user 2026-07-03: "remove the original display UI when you
-        // trigger things"): every hud_msg popup below became a TRIGGER HINT update - the
+        // trigger things"): every hud_msg popup here became a TRIGGER HINT update - the
         // Aetherium default card re-renders live from cursorHintText, so the card itself is
-        // the feedback. All hint strings are BOUNDED (state x tier <= ~25) - cap-safe.
+        // the feedback. CO-OP FIX (2026-07-15): those updates used to be written HERE, per
+        // interaction, which latched the pressing player's private per-gun state onto the ONE
+        // shared trigger entity for the whole team. terminal_hint_loop now owns the card and
+        // composes it from the NEAREST player, so this loop is purely TRANSACTIONAL - do not
+        // re-add a SetHintString below (it would fight the keeper and re-introduce the latch).
         current = player getcurrentweapon();
         family = weapon_name_to_family( current );
-        if ( family == "unknown" )
+        if ( family == "unknown" || family == "none" )
         {
-            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - this weapon is not supported" );
-            wait( 0.5 );
-            continue;
-        }
-        if ( family == "none" )
-        {
-            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - this weapon class cannot be tiered" );
-            wait( 0.5 );
+            wait( 0.5 );   // debounce; the keeper is already showing the not-supported / not-tierable card
             continue;
         }
 
@@ -313,10 +322,15 @@ function terminal_loop()
         // Each tier gives a SMALL boost to ALL THREE overclock effects at once (user 2026-06-19) -
         // the magnitudes scale with progress.tier in _acc_damage (get_oc_tier), so the terminal just
         // raises the tier. No more random per-effect roll. PER-GUN (tracked on the true-base weapon).
+        // FAIL ACK (user 2026-07-15 "restore a fail message") - mirrors _acc_exo::station_use_loop, full
+        // rationale there. Short version: the nearest-player hint keeper made a failed press COMPLETELY
+        // silent, so the ack goes back on hud_msg (a PER-PLAYER hudelem - the shared hint structurally
+        // cannot address just the presser, which is the co-op bug the keeper fixed). Does NOT undo the
+        // 2026-07-03 popup rework, which removed the SUCCESS display, not failure feedback.
         if ( progress.tier >= ACC_TIER_MAX )
         {
-            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + ACC_TIER_MAX + "/" + ACC_TIER_MAX + " MAX ^7(damage / glitch-pierce / ammo all +)" );
-            wait( 0.5 );
+            player acc_utility::hud_msg( "^5OVERCLOCK^7 - this weapon is already Tier " + ACC_TIER_MAX + "/" + ACC_TIER_MAX + " MAX" );
+            wait( 0.5 );   // debounce; the keeper is already showing this player's MAX card
             continue;
         }
 
@@ -324,12 +338,13 @@ function terminal_loop()
         cost = tier_cost( next_tier );
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
-            self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + " costs ^5" + cost + " Data Shards^7 - hold ^3[{+activate}]^7 to boost" );
-            wait( 0.5 );
+            player acc_utility::hud_msg( "^5OVERCLOCK^7 - Tier " + next_tier + " needs ^5" + cost + "^7 Data Shards" );
+            wait( 0.5 );   // debounce; the keeper is already quoting THIS player's next-tier price
             continue;
         }
 
         progress.tier = next_tier;
+        acc_interact_glow::glow_off( self.acc_terminal_model );   // tier actually bought = successful use
 
         // Feedback (user 2026-06-21): a zap SFX + the SAME PaP "gun comes out" re-draw animation, so
         // overclocking FEELS like you just enhanced the weapon. replay_pack_draw re-gives the held gun
@@ -346,10 +361,89 @@ function terminal_loop()
         if ( !isdefined( player ) )
             continue;
 
-        self SetHintString( "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + "/" + ACC_TIER_MAX +
-                            " ^7(damage / glitch-pierce / ammo all +) - hold ^3[{+activate}]^7 to boost again" );
+        // No success SetHintString: the keeper re-reads progress.tier within 0.25s and re-quotes the NEW
+        // next-tier price (or MAX) on its own. The zap SFX + the PaP re-draw above are the "it worked" beat.
         wait( 0.5 );
     }
+}
+
+// self = the Overclock terminal trigger. CO-OP CARD KEEPER (2026-07-15).
+// WHY: SetHintString is a property of the ONE shared trigger entity, but the overclock TIER is
+// per-player AND per-gun. terminal_loop used to write the card per interaction, so it LATCHED whoever
+// pressed last: player A maxing their ICR-1 left "Tier 10/10 MAX" on the kiosk, and player B walked up
+// holding a Tier-0 Haymaker and was told their gun was already maxed (with no price). Invisible solo -
+// with one player the latched string is always your own truth.
+// FIX (same shape as _acc_pap_levels::paradise_pap_hint_loop, the proven in-repo precedent for exactly
+// this constraint - see also _acc_perk_info.gsc:55 "the shown price can't be per-player on a shared
+// trigger"): poll the NEAREST live player and compose the card from THEIR held gun's true-base tier.
+// This also stops the kiosk contradicting the per-player OC report card (_acc_perk_info), which was
+// already correct - a teammate used to get two conflicting readouts at the same terminal.
+function terminal_hint_loop()
+{
+    self endon( "death" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        ht = terminal_hint_text( nearest_terminal_player( self.origin ) );
+        // Change-guard (mirrors paradise_pap_hint_loop's acc_last_pap_hint). The string set is BOUNDED -
+        // 10 tier prices + MAX + unsupported + not-tierable + idle = ~14 - so the 250-triggerstring cache
+        // is safe; but an un-guarded 4x/sec SetHintString re-registers the same string every tick for
+        // nothing (memory triggerstring-cap-hint-strings: interpolate ONLY small bounded values).
+        if ( !isdefined( self.acc_last_oc_hint ) || self.acc_last_oc_hint != ht )
+        {
+            self SetHintString( ht );
+            self.acc_last_oc_hint = ht;
+        }
+        wait 0.25;
+    }
+}
+
+// Nearest LIVE player to the kiosk. Mirrors _acc_pap_levels::nearest_pap_player but scoped to this
+// terminal's own 64u use-trigger (+ margin, so the card is already right as you walk in) and filtered to
+// valid players - a DOWNED teammate bleeding out next to the kiosk must not drive the card, since they
+// cannot buy. undefined = nobody there -> the idle discovery string.
+function nearest_terminal_player( origin )
+{
+    best = 10000;   // 100u squared
+    np = undefined;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( !acc_data_shards::is_player_alive( p ) ) continue;
+        d = DistanceSquared( p.origin, origin );
+        if ( d < best ) { best = d; np = p; }
+    }
+    return np;
+}
+
+// The kiosk card text for `player` (undefined = nobody near). READ-ONLY on purpose: resolves the tier via
+// held_oc_tier, NOT get_or_init_progress - the latter MUTATES player.acc_weapon_progress, and a 4x/sec
+// display poll must never allocate progress structs for every gun a player happens to walk up holding.
+// held_oc_tier keys off the held object then falls back to true_base, matching terminal_loop's tier key.
+function terminal_hint_text( player )
+{
+    if ( !isdefined( player ) ) return ACC_OC_HINT_IDLE;
+
+    current = player getcurrentweapon();
+    // EMPTY-HANDED GUARD: replay_pack_draw (the post-purchase re-draw) has a multi-frame window with no
+    // weapon held, and weaponNone falls through weapon_name_to_family to "unknown" - without this the card
+    // would flash "this weapon is not supported" for a tick right after a SUCCESSFUL tier-up.
+    if ( !isdefined( current ) || current == level.weaponNone ) return ACC_OC_HINT_IDLE;
+
+    family = weapon_name_to_family( current );
+    if ( family == "unknown" ) return "^5CYBERWARE OVERCLOCK^7 - this weapon is not supported";
+    if ( family == "none" ) return "^5CYBERWARE OVERCLOCK^7 - this weapon class cannot be tiered";
+
+    tier = held_oc_tier( player );
+    if ( tier >= ACC_TIER_MAX )
+        return "^5CYBERWARE OVERCLOCK^7 - Tier " + ACC_TIER_MAX + "/" + ACC_TIER_MAX + " MAX ^7(damage / glitch-pierce / ammo all +)";
+
+    next_tier = tier + 1;
+    return "^5CYBERWARE OVERCLOCK^7 - Tier " + next_tier + " costs ^5" + tier_cost( next_tier ) +
+           " Data Shards^7 - hold ^3[{+activate}]^7 to boost";
 }
 
 // Pick a random Overclock from the family pool that isn't already active
@@ -413,7 +507,8 @@ function weapon_name_to_family( weapon_name )
     // launcher + Thundergun WW gain the damage + vs-glitch tiers (the headshot->ammo effect is inert on them -
     // explosions / wind-blast don't headshot - but harmless). "special" is just the overclockable gate; the OC
     // effects are tier-based and family-agnostic, so the value string beyond none/unknown doesn't change them.
-    special_list = array( "s1_mahem", "apex_beam_rifle", "thundergun", "t6_war_machine" );   // Mahem + Apex Havoc energy special (replaces China Lake, user 2026-07-06) + Thundergun + War Machine drum GL (user 2026-07-09)
+    special_list = array( "s1_mahem", "apex_beam_rifle", "thundergun", "t6_war_machine",
+                          "apex_lstar" );   // Mahem + Apex Havoc + Thundergun + War Machine + THE CYBERJACK (L-STAR plasma LMG, docs/43 - user 2026-07-17 "this gun should be able to overclock"; energy special, OC damage+vs-glitch tiers, family-agnostic)
 
     // The ONLY weapon that CANNOT Overclock is the Action Figure melee (the Exo Suit scales melee instead),
     // plus the non-box held things that were never tier-able (laststand pistol, knife, grenade) -> "none"
@@ -439,16 +534,14 @@ function weapon_name_to_family( weapon_name )
     return "unknown";
 }
 
-// Resolve a (possibly PaP'd) weapon OBJECT to its base weapon NAME string.
-// VERIFIED(acc): BO3 PaP mapping is table-driven, not suffix-based -
-// zm_weapons::get_base_weapon (_zm_weapons.gsc:1624) resolves via
-// level.zombie_weapons_upgraded and handles non-upgraded weapons too.
-// Returning .name gives the string the family lists compare against.
-function strip_pap_suffix( weapon )
-{
-    base = zm_weapons::get_base_weapon( weapon );
-    return base.name;
-}
+// REMOVED 2026-07-15 (audit): `function strip_pap_suffix( weapon )` lived here and was DEAD - zero
+// callers anywhere. It resolved a weapon via zm_weapons::get_base_weapon, which is NOT twin-aware: it
+// strips the PaP mapping but NOT our _acc variant-twin suffix, the exact failure this file's own note at
+// :508 records ("strip_pap_suffix (get_base_weapon) alone does NOT strip the _acc twin suffix, so a twin
+// fell ..."). Leaving a dead, known-twin-unsafe resolver in the file was a ready-made regression for the
+// next caller who reached for the obvious name. Use acc_weapon_variants::true_base for weapon identity.
+// (NOTE: _acc_damage.gsc:1998 has an unrelated LIVE strip_pap_suffix( name ) that takes a STRING - it is
+// a different function in a different namespace; this removal does not touch it.)
 
 // ---------------------------------------------------------------------------
 // Effect implementations (stubs - flesh out in Phase 3/4)

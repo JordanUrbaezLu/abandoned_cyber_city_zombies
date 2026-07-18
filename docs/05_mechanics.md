@@ -298,6 +298,8 @@ weapon-upgrade sink; re-enable the tree with `acc_cyberware_on 1`.)
 
 ### Hack Terminal (Bus Station)
 
+**Location:** the `acc_hack_terminal` trigger is at `x[319,383] y[1980,2044] z[-240,-144]` — **down in the corp trench**, on the trench floor (top `z=-240`), east side by the pit cache. The trench is a pit cut into the Bus Station room (`corp_zone` x[-781,819] y[1148,2748]), so this is still "Bus Station" — but you drop in / take the stairs to reach it, you do **not** find it on the main floor. It sat at `z[0,96]` until 2026-07-15 (`gen_interactives.js`'s `useTrigger()` hardcodes `z[0,96]` and predates the trench cut, which replaced the z=0 slab under it), leaving it 168u over a standing player's head and the event uncallable in every run.
+
 State machine — the **greybox stage set** (channel / survive / channel), the interim shipped in `_acc_events_hack.gsc`:
 
 ```mermaid
@@ -329,6 +331,80 @@ The "Vault Overload" 90-second hold event was **retired 2026-07-07** (user): `ac
 - It **gates Shards behind optional burst pressure**, keeping the base (trench-only) Data Shard economy tight.
 - Failing it has a real penalty (locked terminal + spawn wave), not just "try again later".
 
+## Player Movement / Slide Feel (`_acc_movement.gsc`)
+
+Base movement feel is a **global** mechanic — every player, no item or perk gate. It lives in
+its own module (`acc_movement::init` from `acc_main`, `on_player_spawned` dispatched like the
+other modules, exactly one watcher per player via a stop-notify) because it is the layer
+principle #4 below ("movement solves most problems") actually rests on.
+
+- **Slide-jump momentum carry (user 2026-07-15).** Jumping out of a slide keeps the slide's
+  speed instead of dropping to a walk. Two `SetVelocity` writes: a **pre-jump top-up** when the
+  jump button is pressed while still grounded inside `acc_slide_jump_grace` (0.5s after the
+  slide), and a **liftoff restore** on the ground→air edge as a fallback for a tap the 20Hz poll
+  missed. Both preserve the player's own heading (no rubber-banding) and their z. Floored at
+  half the slide speed, so a player who braked out of a slide stays braked.
+- **It is item-agnostic by construction.** It records your **actual velocity** on the last
+  sliding tick, so whatever was live during the slide (Rocket Shield ×2.0, PhD Slider ×1.75,
+  nitro burst, Boots, Stamin-Up — already 2.2×-capped) is simply what gets preserved. It writes
+  only velocity and never a speed flag, so it cannot cancel or be cancelled by any speed system
+  (full matrix: [09_boss_items.md](09_boss_items.md) "Stacking and Interaction Notes"). It also
+  only ever RAISES speed, so it cannot cancel a boss fling or knockback.
+
+### Engine slide tuning — duration + steering (`apply_engine_slide_tuning`)
+
+**BO3 ships a 62-dvar `slide_*` engine family** (recovered 2026-07-15 from the Treyarch string
+table in `<tools>\bin\cod2map64.exe`, descriptions verbatim; independently corroborated by the
+[T7Overcharged dvar hash list](https://github.com/JariKCoding/T7Overcharged) — the two sources
+are provably non-circular). These are **global** (all-players), set once from `init()`:
+
+| Dvar | Treyarch's description | Ours |
+|---|---|---|
+| `slide_maxTimeBase` / `slide_maxTime` / `slide_maxTimeReduced` | "The max time in ms the player is allowed to slide for" (base / — / reduced state) | **×1.25** (`acc_slide_duration_scale`) |
+| `slide_enable_tweak_left_right` | "Allow the player to adjust their velocity to the left/right while sliding" | **1** (was off → "you basically can't turn") |
+| `slide_friction_amount` | "The amount of friction to apply while sliding" | untouched (`acc_slide_friction_scale` 1.0) |
+| `slide_min_continue_velocity` | "Required speed a player must sliding to continue sliding" | untouched |
+| `slide_deadzoneTweek` | "The threshold the amount of right or left movement must overcome for it to be applied" | untouched (steering sensitivity, if needed) |
+
+- **Setting engine movement dvars from GSC is stock practice, not a hack:** `_zm.gsc:215-225`
+  ("New movement disabled for Zombies") does exactly this unconditionally in the ZM path with no
+  `sv_cheats` gate; shipped community precedent for an engine *gameplay* dvar is ColDog's Deadshot
+  (`setDvar("perk_weapSpreadMultiplier", .4225)`); our own is `bg_fallDamageMinHeight`. Nothing in
+  stock reads or writes any `slide_*` dvar, and `acc_main::init()` runs after `zm_usermap::main()`,
+  so our write lands last. (Known *negative* results — UGX's `setClientDvar("player_sprintSpeedScale")`
+  and kelson8's `SetDvar("noclip")` — are **per-player client dvars / cheat-protected**, a different
+  class; they do not apply to a global engine dvar.)
+- **THE SLIDE IS DUAL-GATED** — it ends at whichever fires first: the `slide_maxTime*` **timer** or
+  the `slide_min_continue_velocity` **speed floor** that `slide_friction_amount` drives you toward.
+  **If the slide doesn't feel ~25% longer, that is the diagnosis** — the speed gate is binding and
+  the timer is slack; the next lever is `acc_slide_friction_scale` → 0.8, not a bigger timer.
+- **Two traps the code is built around** (don't simplify them away): `SetDvar` on an **unregistered**
+  dvar silently creates a dead script dvar and no-ops — failure looks identical to success, so the
+  code **probes with `getdvarstring(name,"")` first** and skips + logs if absent. And **dvars persist
+  across map loads** within a Steam session, so `SetDvar(x, getdvarfloat(x)*1.25)` would **compound**
+  (1.25 → 1.56 → 1.95…) on every restart; the code captures the pristine default once per session
+  into its own `acc_slide_orig_*` dvar and always scales from that (idempotent).
+- **Why the dvar and not a script velocity-rotation loop for steering** (rejected on evidence):
+  **GSC cannot read the movement stick** — T7 exposes only boolean button states
+  (`JumpButtonPressed`, …); `GetNormalizedMovement` does not exist. A script loop could only steer
+  toward **view yaw** (look-steering — a different, worse feel), and the server caps at **20 Hz**
+  (`shared.gsh:263` `SERVER_FRAME .05`; there is no faster server wait — `waitframe()` does not
+  exist), so it would be 20 discrete velocity steps/sec = steppy, i.e. exactly the jank we are
+  removing. The engine dvar reads the real analog stick at engine tick rate.
+
+**THE RULE (three attempts to learn it, 2026-07-15 — see CHANGELOG):**
+**`SetMoveSpeedScale` is not a momentum lever. Momentum is velocity.** The scale multiplies
+*input-driven* movement, so holding a slide's boost past the slide, or decaying it, just makes
+the player **walk** fast — which reads as ice, not momentum (and leaked a free ~1s of 2× walking
+after every slide). Slide speed FLAGS are therefore ON only while `IsSliding()` is literally
+true. Once airborne the engine does not decelerate horizontal velocity, and on landing its own
+ground friction bleeds the excess off: **the engine already does the smoothing** a ramp was
+trying to fake. A release fade is only right for a *timed* buff expiring on its own clock (the
+Gas Tank burst — `acc_utility::speed_fade_release`), never for a slide ending, which is a
+movement-state change. Why polling and not events: the engine's `slide_begin`/`slide_end`/`jump`
+notifies are **MP-only and never fire in ZM**, so `IsSliding()` at 20Hz is the only channel —
+which is exactly why the pre-jump top-up (catching the *button*) has to exist at all.
+
 ## Encounter Design Principles
 
 Hard rules for any fight in the map:
@@ -349,12 +425,13 @@ Hard rules for any fight in the map:
 
 ## Emergency Drop System
 
-Spend 3 Data Shards at any power switch to call an **emergency drop** - a random Care Package-style drop at the closest safe zone. Drop can be one of:
+Spend 3 Data Shards at the power switch to call an **emergency drop** - a random Care Package-style drop at the closest safe zone. Drop can be one of:
+
+> **Where:** the map has exactly ONE power switch — the Bus Station breaker at `(-752, 2250, 1)` (`script_string "corp"`, north-west, on the west wall). Its `acc_power_corp` trigger is `x[-761,-697] y[2218,2282] z[0,96]`, i.e. the floor you stand on to flip the breaker. The `acc_power_vault` copy is `triggerenable(false)`d every run by `_acc_map_randomizer::disable_dead_side_emergency_triggers()` (`roll_power_switch_side()` is hardcoded `"corp"` since the vault switch prefab was removed), so `acc_power_corp` is the only live one — hence "the" switch, not "any". Until 2026-07-15 that trigger was stranded at the generator's original `x[735,799] y[1950,2014]` spot ("beside corp switch") after the switch prefab was relocated away in 2026-06-18 and the trench turned that spot into open air over the east stairs — so the clutch button was uncallable in every run. **Prompt conflict — the trap this box walked into (2026-07-15):** the new footprint **fully contains** the switch's own `use_elec_switch` (world `x[-747,-728] y[2242,2259] z[39,61]`) on all three axes. `emergency_loop` gating on the `power_on` flag does **not** save you: it checks the flag *after* `waittill("trigger")`, so it gates the **action**, while the `trigger_use` **prompts from map load** regardless. Pre-power that left two overlapping `trigger_use` ents on the breaker — if the engine picked the emergency one, `[F]` fired our notify, we no-op'd (power is off), and **the power could never be turned on: an unwinnable run.** The real guard is `_acc_emergency_drop::emergency_prompt_gate` — `triggerenable(false)` until the `power_on` flag, then re-armed **live-side only** (a blanket re-enable would resurrect the dead-side copy the randomizer disabled). Only the *pre-power* window ever conflicts: stock `_zm_power` `delete()`s `use_elec_switch` on power-on. **Any future trigger placed on top of another trigger needs this same prompt-level gate — action-level gating is not enough.**
 
 - Max ammo (all players)
 - 2 minute insta-kill
 - 2 minute double points
-- Random Overclock scroll (apply to any weapon for free)
 - Full perk (random) granted to caller
 
 Weights are biased by round: early rounds lean economy (double points, max ammo), late rounds lean survival (full perk, insta-kill).

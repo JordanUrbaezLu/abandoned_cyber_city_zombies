@@ -40,7 +40,11 @@ if (fs.existsSync(cfgPath)) {
 } else {
   console.warn('[build_lb_lui] WARN: no backend/leaderboard/deployed.local.json - building LOCAL-ONLY (no cloud POST/GET)');
 }
-if (/[\\"']/.test(url) || /[\\"']/.test(key)) die('url/key contain quote-ish chars - would break the Lua splice');
+// Reject quote-ish chars (would break the Lua splice) AND cmd-special ! / % - since the
+// agent .bat runs under `setlocal EnableDelayedExpansion` (for the ?players=N GET suffix,
+// docs/40), a `!` or `%` in the URL/key would be eaten as a variable and silently corrupt
+// the x-acc-key POST header. Fail the build loudly instead.
+if (/[\\"'!%]/.test(url) || /[\\"'!%]/.test(key)) die('url/key contain quote-ish or cmd-special (! %) chars - would break the Lua splice or the delayed-expansion agent .bat');
 const mapv = new Date().toISOString().slice(0, 10);
 
 function compileChunk(chunkFile) {

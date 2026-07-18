@@ -68,6 +68,14 @@ function init()
 // box.zombie_cost - see acc_box_prompt.
 function armory_box_pricing()
 {
+    // [acc] RETIRED 2026-07-12 (AW 3D Printer box swap): the stock zbarrier box is gone from
+    // the .map (level.chests is always empty), so this stub-hook installer has nothing to
+    // attach to. The firesale $10 + Armory 10%-off now live INSIDE the AW driver
+    // (scripts/planet/_aw/_zm_aw_mysterybox.gsc::acc_box_effective_cost), which calls this
+    // module's still-live helpers: box_firesale_active / all_in_range_have_armory /
+    // armory_discounted. Early-return instead of delete so the old wiring stays documented.
+    return;
+
     level endon( "end_game" );
     level flag::wait_till( "initial_blackscreen_passed" );
 

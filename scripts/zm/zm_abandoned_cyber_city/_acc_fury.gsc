@@ -10,8 +10,12 @@
 //
 //   - HEALTH: flat 12x the current round's zombie health (acc_fury_health_mult), OVERRIDING
 //     the pack's 1.2/1.5/1.7 round tiers (its threaded health_init runs first; we re-set
-//     after our post-spawn wait, so ours wins).
-//   - SPEED: matches the round zombies' GAIT - run before acc_zspeed_sprint_round (17),
+//     after our post-spawn wait, so ours wins). The 12x is against a CO-OP-SCALED zombie at any
+//     player count - but unlike our promoted-factory-zombie elites (Shielded/Glitch), this actor is
+//     SpawnActor'd, so stock zombie_spawn_init + acc_coop_scaling's level.zombie_init_done hook NEVER
+//     run on it and fury_tune must apply regular_hp_mult() BY HAND (fixed 2026-07-15 - see fury_tune).
+//   - SPEED: matches the round zombies' GAIT - run before acc_zspeed_sprint_round (15,
+//     read via acc_zombie_speed::sprint_start_round() - never re-inline the default here),
 //     sprint from it (the horde's exact speed is a per-zombie xanim playback rate from
 //     _acc_zombie_speed that a different archetype can't share; gait is the same knob the
 //     stock fury uses, ai::set_behavior_attribute("move_speed")).
@@ -36,6 +40,8 @@
 #using scripts\zm\zm_genesis_apothicon_fury;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;   // underground_layer (trench-layer gate)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;  // regular_hp_mult() - the fury is SpawnActor'd, so it never gets the co-op HP hook (see fury_tune)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;  // sprint_start_round() - the ONE sprint-round authority (see gait below)
 
 #insert scripts\shared\shared.gsh;
 
@@ -68,8 +74,8 @@ function init()
 function dbg( msg )
 {
     acc_utility::log( "fury: " + msg );
-    // acc_dev DECOUPLED 2026-07-10 (clean screen in hardcoded dev): the [FURY] on-screen line rides acc_fury_debug (default 0) now; the console log above is unaffected.
-    if ( getdvarint( "acc_fury_debug", 0 ) != 1 )
+    // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
+    if ( !IS_TRUE( level.acc_dev ) )
         return;
     players = GetPlayers();
     if ( players.size > 0 && isdefined( players[ 0 ] ) && isplayer( players[ 0 ] ) )
@@ -327,14 +333,30 @@ function fury_tune()
     wait 1;
     self.zombie_think_done = 1;  // hunt immediately (pack sets this only on its own spawn paths)
 
+    // CO-OP: apply regular_hp_mult() BY HAND (fixed 2026-07-15). The Shielded elite and the Glitch Stalker
+    // are both PROMOTED FACTORY ZOMBIES - stock zombie_spawn_init runs on them, so acc_coop_scaling's
+    // level.zombie_init_done hook bakes the +20%/extra-player mult into maxhealth and a flat multiply on
+    // that base is co-op-correct for free. The fury is NOT one of those: it is SpawnActor'd from the pack's
+    // own spawner (spawn_fury below), so zombie_spawn_init - and with it the co-op hook - NEVER runs on it.
+    // That makes BOTH obvious bases wrong: self.maxhealth here is the PACK's health_init tier (1.2/1.5/1.7x),
+    // not a scaled zombie, and level.zombie_health is the SOLO round HP. So multiply explicitly, or a 4p fury
+    // is 12x a SOLO zombie = only 7.5x a 4p zombie. Went unnoticed because at 1p the mult is exactly 1.0 -
+    // identical in every solo test. Do NOT use special_hp_mult(): that double-counts co-op and breaks parity
+    // with the Shielded's "clean multiple of a normal zombie at any player count" contract
+    // (_acc_elites.gsc:311-318, _acc_coop_scaling.gsc:99-106).
     n_zombie_health = level.zombie_health;
     if ( !isdefined( n_zombie_health ) || n_zombie_health <= 0 )
         n_zombie_health = level.zombie_vars[ "zombie_health_start" ];
-    self.maxhealth = int( n_zombie_health * getdvarfloat( "acc_fury_health_mult", ACC_FURY_HEALTH_MULT_DEF ) );
+    n_normal_hp = int( n_zombie_health * acc_coop_scaling::regular_hp_mult() );
+    if ( n_normal_hp < 1 ) n_normal_hp = 1;
+    self.maxhealth = int( n_normal_hp * getdvarfloat( "acc_fury_health_mult", ACC_FURY_HEALTH_MULT_DEF ) );
     self.health = self.maxhealth;
 
     // Same gait as the round's horde: run pre-sprint-round, sprint from it (_acc_zombie_speed's tier knob).
-    sprint_round = getdvarint( "acc_zspeed_sprint_round", 17 );
+    // Read the round through acc_zombie_speed::sprint_start_round() - NEVER re-inline the dvar+default here.
+    // A local copy of the default drifts: this line carried a stale 17 after the 2026-07-09 curve shift moved
+    // the real default to 15 (ACC_ZSPEED_SPRINT_ROUND_DEF), so the Fury jogged at R15-16 while the horde sprinted.
+    sprint_round = acc_zombie_speed::sprint_start_round();
     gait = ( ( level.round_number >= sprint_round ) ? "sprint" : "run" );
     self ai::set_behavior_attribute( "move_speed", gait );
 }

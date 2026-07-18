@@ -16,7 +16,10 @@
 #   players\acc_lb_ping.txt    -> del + echo pong>acc_lb_pong.txt   (liveness)
 #   players\acc_lb_do_post.txt -> curl POST acc_lb_post.json -> acc_lb_post_result.txt
 #   players\acc_lb_do_get.txt  -> curl GET top10 -> acc_lb_top10.txt + ACCEOF marker
-# Launcher agents live ~4h (vs the in-game 2h) so long sessions stay covered.
+# LIFETIME (2026-07-15): agents exit ~20-30s after BlackOps3.exe closes (game-liveness
+# watch - the Steam stuck-at-"Stopping" fix) or after ~200s if the game never appears;
+# the old ~8h loop cap remains only as a backstop. Back-to-back games in ONE app session
+# stay covered (the game process never exits between them); a NEW launch pre-spawns fresh.
 
 $ErrorActionPreference = 'SilentlyContinue'
 try {
@@ -43,11 +46,22 @@ try {
     # unique filename: NEVER overwrite a possibly-running .bat (cmd re-reads from disk)
     $tok = -join (1..6 | ForEach-Object { [char](Get-Random -InputObject (48..57 + 97..122)) })
     $bat = Join-Path $players "acc_lb_agent_ps_$tok.bat"
+    # GAME-LIVENESS EXIT (2026-07-15, the Steam stuck-at-"Stopping" fix): an agent spawned BY THE GAME
+    # (os.execute descendant) is inside the process tree Steam watches - while it lives, Steam shows the
+    # game "Stopping" until Steam itself is restarted (user report; agents used to run the full ~8h loop
+    # unconditionally). Every ~10s the agent now checks tasklist for BlackOps3.exe: once the game has been
+    # SEEN and then GONE for 2 consecutive checks (~20-30s) it exits + self-deletes; if the game never
+    # appears within ~200s of the pre-spawn (launch aborted) it also exits. The 28800-iteration (~8h) cap
+    # stays as a backstop. KEEP IN LOCKSTEP with acc_lb_boot_chunk.lua's spawn_agent() bat lines.
     $lines = @(
         '@echo off',
+        'setlocal EnableDelayedExpansion',
         'rem ACC leaderboard agent - pre-spawned HIDDEN by spawn_lb_agent.ps1 (docs/40).',
         'cd /d "%~dp0"',
-        'for /l %%i in (1,1,14400) do (',
+        'set /a ACCT=0',
+        'set /a ACCSEEN=0',
+        'set /a ACCGONE=0',
+        'for /l %%i in (1,1,28800) do (',
         '  if exist acc_lb_ping.txt (',
         '    del acc_lb_ping.txt >nul 2>&1',
         '    echo pong>acc_lb_pong.txt',
@@ -57,11 +71,27 @@ try {
         "    curl.exe -s -m 6 -X POST -H `"content-type: application/json`" -H `"x-acc-key: $k`" --data @acc_lb_post.json -o acc_lb_post_result.txt $u/games",
         '  )',
         '  if exist acc_lb_do_get.txt (',
+        '    set "ACCQ="',
+        '    set /p ACCQ=<acc_lb_do_get.txt',
         '    del acc_lb_do_get.txt >nul 2>&1',
-        "    curl.exe -s -m 5 -o acc_lb_top10.txt $u/top10.txt && echo ACCEOF_OK>>acc_lb_top10.txt || echo ACCEOF_ERR>>acc_lb_top10.txt",
+        "    curl.exe -s -m 5 -o acc_lb_top10.txt $u/top10.txt!ACCQ! && echo ACCEOF_OK>>acc_lb_top10.txt || echo ACCEOF_ERR>>acc_lb_top10.txt",
+        '  )',
+        '  set /a ACCT+=1',
+        '  if !ACCT! geq 10 (',
+        '    set /a ACCT=0',
+        '    tasklist /fi "IMAGENAME eq BlackOps3.exe" 2>nul | find /i "BlackOps3.exe" >nul 2>&1',
+        '    if not errorlevel 1 (',
+        '      set /a ACCSEEN=1',
+        '      set /a ACCGONE=0',
+        '    ) else (',
+        '      set /a ACCGONE+=1',
+        '      if !ACCSEEN! geq 1 if !ACCGONE! geq 2 goto accbye',
+        '      if !ACCSEEN! leq 0 if !ACCGONE! geq 20 goto accbye',
+        '    )',
         '  )',
         '  ping -n 2 127.0.0.1 >nul',
         ')',
+        ':accbye',
         'del "%~f0"'
     )
     Set-Content -Path $bat -Value ($lines -join "`r`n") -Encoding ascii

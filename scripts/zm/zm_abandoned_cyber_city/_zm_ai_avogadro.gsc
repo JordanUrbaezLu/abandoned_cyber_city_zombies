@@ -97,6 +97,11 @@
 #using scripts\shared\ai\archetype_utility;
 #using scripts\shared\ai\systems\blackboard;
 
+// [acc] The ONLY _acc_ dep in this vendored pack file - avogadro_damage_override needs the canonical
+// Action-Figure name matcher so the knife counter can't swallow the wonder-melee weapons (see there).
+// No using-cycle: nothing _acc_damage pulls in (transitively) #usings this file - verified 2026-07-15.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
+
 #precache( "fx", "zombie/fx_avogadro_linger" );
 #precache( "model", "c_zom_t7_avogadro" );
 
@@ -494,10 +499,11 @@ function choose_a_spawn()
 // pinpoint exactly which spawn step a CTD dies on. Silence with `level.avo_no_log = true`.
 function avo_log( msg )
 {
-	// DEV-ONLY (user 2026-07-05): the on-screen [AVO] spawn diagnostics show ONLY in dev mode (acc_dev) or with
-	// `acc_avo_debug 1`. level.avo_no_log was never assigned anywhere, so this used to IPrintLnBold ~7 lines to
+	// DEV-ONLY (user 2026-07-05): the on-screen [AVO] spawn diagnostics show ONLY in dev mode
+	// (level.acc_dev - the acc_avo_debug dvar was removed 2026-07-16). level.avo_no_log was never
+	// assigned anywhere, so this used to IPrintLnBold ~7 lines to
 	// EVERY player on each Avogadro spawn in normal play. acc_dev is the one flag that gates it now.
-	if ( getdvarint( "acc_avo_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; rides acc_avo_debug now)
+	if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 		return;
 	players = GetPlayers();
 	for ( i = 0; i < players.size; i++ )
@@ -785,6 +791,36 @@ function avogadro_damage_override( inflictor, attacker, damage, flags, mod, weap
 	    {
 	    	//IPrintLnBold("damn it failed");
 	    }
+    	// [acc] WONDER-MELEE PASS-THROUGH (review 2026-07-15) - MUST stay above the knife counter.
+    	// Stock REPLACES our actor-damage callback's value with this function's return (_zm.gsc:5633 runs
+    	// check_actor_damage_callbacks, then :5748 does `final_damage = [[ self.actor_damage_func ]]( ... )`),
+    	// so the counter below - which DISCARDS the incoming `damage` by design - was also swallowing the two
+    	// melee weapons that already carry their OWN designed per-boss hits-to-kill out of
+    	// acc_damage::on_ai_damage: the Leviathan Axe (maxhealth/17|14|12|8 by PaP tier) and the Action Figure
+    	// (maxhealth/acc_af_boss_hits, 33). Both collapsed to 100 hits here, which INVERTED the whole design -
+    	// the deliberately melee-WEAK boss became the melee weapons' WORST target (axe: 8 hits on every other
+    	// boss, 100 on him) - and lied on the HUD, since on_ai_damage had already fed the crosshair the real
+    	// (up to 12.5x larger) number before we overwrote the HP it actually removed. Return theirs untouched.
+    	// NOT excluded (deliberate): the bare knife, the Berzerker knife and the ballistic-knife STAB. They ARE
+    	// knives - exactly what the counter is for (docs/22: "weak to melee") - and none has a designed boss
+    	// hits-to-kill (acc_damage routes the ballistic stab to the capped-chip chain like any other boss), so
+    	// there is no design to void; the flat 1/100 IS their intent on this boss.
+    	// The Leviathan needs the DUAL-SURFACE resolve that acc_damage:429-436 documents: a fireType-Melee
+    	// weapon's swing does NOT reliably report itself as the damage-event `weapon`, so also check the
+    	// attacker's HELD weapon (melee-gated - we're already inside the MOD_MELEE branch, so offhands, whose
+    	// throws never change GetCurrentWeapon, can't be misattributed to the axe in hand).
+    	if ( acc_damage::is_action_figure_weapon( weapon ) )
+    		return damage;
+    	if ( isdefined( weapon ) && isdefined( weapon.name ) && IsSubStr( weapon.name, "leviathan" ) )
+    		return damage;
+    	if ( isdefined( attacker ) && isplayer( attacker ) )
+    	{
+    		lev_held = attacker GetCurrentWeapon();
+    		if ( isdefined( lev_held ) && lev_held != level.weaponNone && isdefined( lev_held.name )
+    		     && IsSubStr( lev_held.name, "leviathan" ) )
+    			return damage;
+    	}
+
     	// [acc] KNIFE COUNTER (user 2026-07-05): he is WEAK to knifing - each knife does a FLAT 1/100 of his
     	// MAX health, so EXACTLY acc_avo_knife_hits (100) knives kill him at ANY round (independent of the
     	// incoming knife damage or his scaled HP). High-risk close-range counter (you eat the stun-lock to get in).
@@ -901,6 +937,19 @@ function death()
 
 function death_rewards(attacker)
 {
+	// [acc] NO rewards during the Paradise final battle (review 2026-07-15, rule from user 2026-06-26): the
+	// wave Avogadro (_acc_paradise::maybe_spawn_avogadro) is a THREAT, not a loot pinata. The generic horde
+	// drops are blocked by acc_paradise::block_powerup_drop, but that hook is only consulted on the random
+	// on-kill path - zm_powerups::specific_powerup_drop spawns DIRECTLY and bypasses it, so this forced drop
+	// has to be gated here, exactly like nsz_brutus.gsc:738 and _acc_elites::drop_recursion_powerup_at. This
+	// was the last forced drop in the codebase still missing the guard: a free Max Ammo trivially defeated
+	// the finale's ammo-scarcity pressure (the whole point of the single scripted 1:45 Max Ammo in
+	// _acc_paradise). The 1000 points go with it - suppressing boss POINTS on the onslaught is what the
+	// sibling reward paths already do (_acc_boss::grant_unified_boss_reward and this boss's own
+	// _acc_boss_avogadro::grant_drops both early-return on the same flag). Self-clears on win/wipe.
+	if ( IS_TRUE( level.acc_paradise_onslaught ) )
+		return;
+
 	self zm_score::add_to_player_score( 1000 );
 	powerup = zm_powerups::get_valid_powerup();
 	power_up_origin = level.avogadro_death_origin;

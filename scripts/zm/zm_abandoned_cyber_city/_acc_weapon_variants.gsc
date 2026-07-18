@@ -53,13 +53,15 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\_zm_weapons;
+#using scripts\zm\_zm_utility;           // (kept for future stock-utility needs; the 07-14 set_player_melee_weapon sync it was added for was REMOVED 2026-07-15 - see swap_weapon's removal note)
 #using scripts\zm\_zm_weap_thundergun;   // thundergun_fired - the fling driver our twin fire shim re-triggers (stock's own watcher is ==-object gated and misses twins)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 
 // Default ON (2026-06-14): the recoil twins are baked + the 2.1x-base skill theme
 // is a core feature, so the system runs by default. Set dvar `acc_weapon_variants 0`
-// to disable. `acc_variants_debug 1` prints each swap to the player (proof-of-life).
+// to disable. Proof-of-life swap prints ride level.acc_dev (dev build only; the
+// acc_variants_debug dvar was removed 2026-07-16).
 #define ACC_VARIANTS_DEFAULT 1
 
 // NOTE: Pack-a-Punch now packs the held gun IN PLACE via _acc_pap_levels (instant swap to
@@ -188,6 +190,19 @@ function register_special_upgrades()
         base = keys[ i ];
         if ( !isdefined( base ) || base == level.weaponNone ) continue;
         if ( zm_weapons::is_weapon_upgraded( base ) ) continue;   // this IS an _up form, not a base
+
+        // [acc] NEVER process our own twin rows (2026-07-12 - THE "leviathan axe randomly loses
+        // guns/the axe after packing" root cause). register_twin_box_weapons puts every BASE twin
+        // into level.zombie_weapons, and the AXE rows' .upgrade falls back to the PLAIN
+        // leviathan_up (no _up+spd1/brz twins are baked). This loop then hit the :198 idempotence
+        // check with get_base_weapon(leviathan_up)==leviathan != <the twin row> -> fell through ->
+        // register_upgrade_key CLOBBERED zombie_weapons_upgraded[leviathan_up] = <base twin>.
+        // From the tier-2 pack on (the first time you HOLD an _up form), true_base() drifted to
+        // the twin object: prune_lost_tiers zeroed the axe tier (pack "reverts"), the mule sticky
+        // slot re-rolled (a down TOOK the axe), and the box re-offered an owned axe (a grab at the
+        // weapon limit ate a gun). Regular guns' twin rows clobbered only their _up-TWIN keys
+        // (latent, same class). Twins are fully handled by register_twin_upgrades - skip them all.
+        if ( isdefined( base.name ) && IsSubStr( base.name, "_acc_" ) ) continue;
 
         up = level.zombie_weapons[ base ].upgrade;
         if ( !isdefined( up ) || up == level.weaponNone || up == base ) continue;   // no real upgrade form
@@ -343,6 +358,10 @@ function variant_guns()
                   "t9_xm4", "t9_streetsweeper",
                   "apex_peacekeeper", "apex_alternator", "apex_prowler", "apex_tripletake", "s1_cel3",
                   "apex_beam_rifle",
+                  // THE CYBERJACK (apex_lstar / L-STAR plasma LMG, docs/43; user 2026-07-17 "create all
+                  // the twins"): FULL recoil50/fastreload/combo twins, BASE-ONLY (no _up - in-place PaP,
+                  // the Fire Bow pattern; scoped in form_bakes_suffix). Blocks in acc_weapon_variants.gdt.
+                  "apex_lstar",
                   "s1_mahem", "thundergun", "elemental_bow_demongate", "leviathan", "t6_war_machine",
                   // Winter's Howl freeze gun (user 2026-07-11): fastreload-only wonder tier (base + _up),
                   // projectileweapon _zm ids -> runtime freezegun_acc_fastreload. Hand-built clones in the
@@ -498,6 +517,12 @@ function form_bakes_suffix( gun, form, suffix )
         // no "_up" weapon at all, so only its BASE form bakes a twin.
         if ( gun == "elemental_bow_demongate" && form != gun ) return false;
     }
+
+    // THE CYBERJACK (apex_lstar, docs/43): FULL recoil50/fastreload/combo twins (a bulletweapon LMG -
+    // both Deadshot Mega + Speed Cola Mega apply), but BASE-ONLY - it PaPs IN PLACE (no _up form), the
+    // Fire Bow pattern. user 2026-07-17 "create all the twins with no flaws".
+    if ( gun == "apex_lstar" && form != gun ) return false;
+
     return true;
 }
 
@@ -526,28 +551,37 @@ function box_grab_defer_watcher()   // self = player
     self endon( "disconnect" );
     for ( ;; )
     {
-        self waittill( "user_grabbed_weapon" );
+        // The AW driver passes the granted weapon OBJECT as the notify arg (2026-07-12); undefined
+        // from any bare stock-shape sender -> the settle falls back to its change-based test.
+        self waittill( "user_grabbed_weapon", w_grabbed );
         self.acc_box_grabbing = true;
-        self wait_box_give_settled();
+        self wait_box_give_settled( w_grabbed );
         self.acc_box_grabbing = false;
         self notify( "acc_variant_dirty" );   // reconcile the settled twin now, current weapon no longer transitional
     }
 }
 
 // self = player, call right after "user_grabbed_weapon". Block until the box give has GENUINELY
-// settled; returns the settled current weapon. GetCurrentWeapon() keeps returning the OLD gun for
-// the whole slow pull-out raise, so "settled" = the current weapon has CHANGED from its at-grab
-// value and held stable for two consecutive 0.25s ticks. The previous settle condition (ONE
-// weapon_change_complete OR a 1.0s cap - both this watcher and _acc_pap_levels'
-// box_grab_clear_watcher used it) was porous both ways: the at-limit give first weapon_take()s
-// the held gun, whose engine auto-switch churn can fire an EARLY weapon_change_complete while the
-// grabbed gun is still rising, and slow-raise guns blow straight through 1.0s. Either way the
-// deferred reconcile then ran MID-RAISE, saw was_equipped==false against the transitional old
-// gun, took the in-flight switch target with no re-switch, and the engine re-drew the twin from
-// scratch = the visible "I pull the gun out of the box, then draw it a second time for no reason"
-// (user 2026-07-11). Capped at 3s so a grab the engine never completes (or a player who instantly
-// switches back to their old gun and stays) can't wedge the defer flag on.
-function wait_box_give_settled()   // self = player; returns the settled current weapon
+// settled; returns the settled current weapon.
+//
+// TWO MODES (2026-07-12):
+//   w_expected DEFINED (the AW box passes the granted weapon object on the notify) -> "settled" =
+//   the current weapon IS that exact gun, stable for two consecutive 0.25s ticks. This is the only
+//   airtight test: with MULE KICK at 3/3 guns the at-limit give first weapon_take()s the held gun
+//   and the engine AUTO-SWITCHES to another owned gun - a real, completed switch that the legacy
+//   changed-from-old test read as "settled" while the box gun was still rising. The defer then
+//   lifted mid-raise, reconcile twin-swapped the rising gun with no re-switch (was_equipped false
+//   against the auto-switch gun), and the engine re-drew it = the mule-kick "double swap" (user
+//   2026-07-12; same visible symptom as the 2026-07-11 bug, new trigger).
+//   w_expected UNDEFINED (bare stock-shape notify) -> legacy fallback: current weapon CHANGED from
+//   its at-grab value and held stable two ticks. The previous settle condition (ONE
+//   weapon_change_complete OR a 1.0s cap - both this watcher and _acc_pap_levels'
+//   box_grab_clear_watcher used it) was porous both ways: early _complete from the at-limit take
+//   churn, and slow-raise guns blowing straight through 1.0s (user 2026-07-11).
+//
+// Capped at 3s so a grab the engine never completes (or a player who instantly switches off the
+// box gun and stays) can't wedge the defer flag on.
+function wait_box_give_settled( w_expected )   // self = player; returns the settled current weapon
 {
     old = self GetCurrentWeapon();
     prev = undefined;
@@ -555,9 +589,17 @@ function wait_box_give_settled()   // self = player; returns the settled current
     {
         wait 0.25;
         cur = self GetCurrentWeapon();
-        if ( isdefined( cur ) && cur != level.weaponNone && cur != old
+        if ( isdefined( w_expected ) )
+        {
+            // exact-gun mode: only the granted weapon itself, held two ticks, counts as settled.
+            if ( isdefined( cur ) && cur == w_expected && isdefined( prev ) && cur == prev )
+                return cur;
+        }
+        else if ( isdefined( cur ) && cur != level.weaponNone && cur != old
              && isdefined( prev ) && cur == prev )
-            return cur;   // same non-old gun two ticks running = the raise is done
+        {
+            return cur;   // legacy: same non-old gun two ticks running = the raise is done
+        }
         prev = cur;
     }
     return self GetCurrentWeapon();
@@ -655,6 +697,14 @@ function reconcile( force )
     // reconcile once it settles. Same class as the is_drinking guard above.
     if ( IS_TRUE( self.acc_box_grabbing ) ) return;
 
+    // Don't reconcile mid-PACK either (user 2026-07-15 "sometimes you need to switch back to the axe
+    // after packing"): the pack flows raw-give/take + immediate-switch, and a poke landing before the
+    // engine settles reads a stale GetCurrentWeapon (even the draw's frag/knife dwell) -> swap_weapon
+    // sees was_equipped=false, skips its re-switch, and the tier twin lands HOLSTERED. _acc_pap_levels
+    // holds this flag through the whole pack INCLUDING a settle wait (wait_pack_settled), then pokes a
+    // clean reconcile on settled state. Same defer class as the box/drink guards above.
+    if ( IS_TRUE( self.acc_pap_busy ) ) return;
+
     // Active variant tokens (canonical axis order), derived LIVE from perks. Empty = hold
     // the plain base gun. No Pack-a-Punch proximity suppression: PaP packs the held gun IN
     // PLACE (twin or base alike, via _acc_pap_levels), so the gun never has to revert to
@@ -670,7 +720,11 @@ function reconcile( force )
     // always in GetWeaponsListPrimaries, so add it (deduped) - otherwise Deadshot
     // wouldn't touch the gun you're holding. Non-gun holds (knife/grenade/bottle)
     // have no twin and no-op safely.
-    if ( isdefined( equipped ) && equipped != level.weaponNone )
+    // HasWeapon gate (2026-07-15, the leviathan double-PaP fix - see swap_weapon's stale-from
+    // guard): same-frame after a raw swap, GetCurrentWeapon() can still report the JUST-TAKEN
+    // weapon. Never evaluate a gun the player no longer owns - it resolves against live tier/perk
+    // state and manufactures a phantom give.
+    if ( isdefined( equipped ) && equipped != level.weaponNone && self HasWeapon( equipped ) )
     {
         b_have = false;
         for ( i = 0; i < guns.size; i++ ) { if ( guns[ i ] == equipped ) b_have = true; }
@@ -710,6 +764,24 @@ function swap_weapon( w_from, w_to, equipped )
 {
     self endon( "disconnect" );
 
+    // [acc] STALE-FROM GUARD (2026-07-15 - THE leviathan double-PaP root cause, PROVEN by the
+    // [LEVBUG] forensic timeline): reconcile() can be woken (request_reconcile / weapon_change)
+    // in the SAME server frame as a PaP transform's raw give/switch/take, while GetCurrentWeapon()
+    // still returns the JUST-TAKEN old form (engine weapon state settles between frames; inventory
+    // - HasWeapon/GetWeaponsListPrimaries - updates immediately). Reconcile then passed that dead
+    // weapon in as w_from: the TakeWeapon(w_from) below no-ops, but GiveWeapon(w_to) MANUFACTURES
+    // a gun the player must not have. On the axe that gave a bare stock-registered `leviathan`
+    // alongside the fresh leviathan_up_acc_spd2 (tier-2 desired resolves to bare base - the BASE
+    // form bakes only spd1) = 3 primaries + the melee-slot pointer clobbered onto the phantom ->
+    // stock stripped the inventory gun by gun and force-gave the Five-Seven ("resets your
+    // character"). NEVER swap FROM a weapon the player does not actually hold; the next reconcile
+    // (weapon_change_complete / 3s net) re-evaluates on settled state and does the right swap.
+    if ( !( self HasWeapon( w_from ) ) )
+    {
+        acc_utility::levbug( self, "swap SKIP stale from=" + acc_utility::levbug_wname( w_from ) + " (not held)" );   // [LEVBUG-TEMP]
+        return;
+    }
+
     // Mute reconcile while we swap: GiveWeapon/SwitchToWeapon raise our OWN
     // weapon_change notify, which would otherwise re-wake the manager mid-swap and
     // fight us. reconcile() early-returns while this is set.
@@ -718,6 +790,26 @@ function swap_weapon( w_from, w_to, equipped )
     clip  = self GetWeaponAmmoClip( w_from );
     stock = self GetWeaponAmmoStock( w_from );
     was_equipped = ( w_from == equipped );
+    // [acc] LIVE EQUIP RECHECK (2026-07-15, belt to the reconcile pap/box defers): the caller's
+    // `equipped` is a snapshot; if the engine's CURRENT weapon is w_from by the time we swap, the
+    // re-switch below must happen regardless of what the snapshot said, or the new form lands
+    // holstered and the engine falls back to another gun ("switch back to the axe after packing").
+    if ( !was_equipped && ( self GetCurrentWeapon() ) == w_from ) was_equipped = true;
+
+    // [LEVBUG-TEMP] forensics (see _acc_dev levbug_forensics)
+    acc_utility::levbug( self, "swap " + acc_utility::levbug_wname( w_from ) + " -> " + acc_utility::levbug_wname( w_to ) + " equipped=" + was_equipped );
+
+    // [acc] LEVIATHAN MELEE-SLOT SYNC REMOVED (2026-07-15, proven by the [LEVBUG] forensic log). The
+    // 07-14 theory was WRONG: the axe is NOT a stock melee-slot weapon at runtime - after
+    // zm_weapons::weapon_give(leviathan) the slot stays "knife" and NO new_melee_weapon notify fires
+    // (is_melee_weapon() keys level.zombie_melee_weapon_list, which only wallbuy/WW inits populate -
+    // the CSV "melee" column does not register it). The sync here was the ONLY writer ever putting the
+    // axe into player.current_melee_weapon, and doing so BROKE the knife systems that legitimately own
+    // that slot: Widow's Wine perk-activate takes the slot weapon (= it ATE the held axe, live log
+    // 155850), and the Berzerker fast-bash knife got clobbered right after its implant (live log 72550).
+    // The "Five-Seven reset" this sync tried to cure was actually the stale-equipped phantom give (see
+    // the STALE-FROM GUARD at the top of this function). The axe is a plain primary; never touch the
+    // melee slot for it.
 
     // Re-give the twin with no options. (Gold PaP camo removed 2026-06-27 - there is no longer a
     // camo option to preserve across a Deadshot / Speed Cola perk-twin swap; the PaP
@@ -742,10 +834,14 @@ function swap_weapon( w_from, w_to, equipped )
     self SetWeaponAmmoClip( w_to, new_clip );
     self TakeWeapon( w_from );
 
-    // Proof-of-life: `acc_variants_debug 1` shows each swap on-screen so you can
+    // (melee-slot retarget REMOVED 2026-07-15 - see the removal note above; the slot belongs to the
+    // knife systems, the axe never legitimately occupies it.)
+
+    // Proof-of-life: a dev build shows each swap on-screen (rides level.acc_dev; the
+    // acc_variants_debug dvar was removed 2026-07-16) so you can
     // confirm Deadshot/Mega is actually changing the weapon (recoil is invisible
-    // otherwise). Off by default.
-    if ( getdvarint( "acc_variants_debug", 0 ) == 1 )   // DECOUPLED from level.acc_dev (user 2026-07-10: clean screen in hardcoded dev) - dvar-only now
+    // otherwise). Silent in a ship build.
+    if ( IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
         self iprintln( "^3[variants]^7 " + w_from.name + " ^2->^7 " + w_to.name );
 
     self.acc_swapping = false;
@@ -966,6 +1062,35 @@ function packed_form( weapon )
     if ( !isdefined( weapon ) || weapon == level.weaponNone ) return weapon;
 
     stem = logical_stem_name( weapon.name );
+
+    // [acc] LEVIATHAN tier-1->2 transform gap (user 2026-07-15, CONFIRMED root cause of "PaP tier 2 makes
+    // you lose all your guns one at a time + get the Five-Seven back, in place"; user's own read: "at PaP
+    // tier 2 it reaches its limit and something happens" + "the melee speed is causing an issue" - both
+    // exactly right). The axe is the ONLY weapon whose BASE-tier twin suffix (_acc_spd1) has NO matching _up
+    // twin baked: form_bakes_suffix bakes spd1 on the BASE form and spd2/spd3 on the _up form, never
+    // spd1_up. So the generic resolution below can't find leviathan_up_acc_spd1 and falls through to the
+    // stock get_upgrade_weapon = the BARE `leviathan_up`. That bare _up is the ONE axe form STOCK's melee
+    // machinery recognizes and reacts to: leviathan/leviathan_up are zombie-weapons-TABLE rows (box weapon +
+    // upgrade -> in stock's melee/limit bookkeeping), while our _acc twins are GDT clones of those very defs
+    // (gen_leviathan_spd_twins.js copies leviathan_up_zm verbatim bar fireTime/meleeTime) deliberately NOT
+    // table-registered - invisible to stock. Raw-giving the recognized _up at the transform trips stock's
+    // melee-slot/weapon-limit bookkeeping -> guns peel off one at a time and the starting pistol comes back
+    // (the down/mule cascade adds the money loss + announcer sting); the twins never trip it because stock
+    // never sees them - which is why tiers 1/3 (twin-only) never broke. EVERY other
+    // gun's base twin has a matching _up twin, so its transform lands directly on a controlled twin and
+    // never touches a bare _up - which is why only the Leviathan, only at tier 2, breaks. FIX: route the
+    // Leviathan's tier-1->2 pack STRAIGHT to its tier-2 melee-GDT twin (leviathan_up_acc_spd2[_brz]) so the
+    // player stays on a proper melee-class clone through the whole transform, exactly like tier 1 and 3
+    // (which never break). stem=="leviathan" matches EVERY base-tier axe form (base + spd1 + brz combos);
+    // an already-packed leviathan_up_* has stem "leviathan_up" and is untouched. Falls through harmlessly
+    // (old behavior) if the spd2 twin isn't baked in this build.
+    if ( stem == "leviathan" )
+    {
+        lev_brz = ( IsSubStr( weapon.name, "brz" ) ? "_brz" : "" );   // preserve a Berzerker (_brz) combo across the pack
+        lev_up = try_resolve_twin( "leviathan_up_acc_spd2" + lev_brz );
+        if ( isdefined( lev_up ) ) return lev_up;
+    }
+
     if ( stem != weapon.name )
     {
         // A twin: "<stem>_acc_<combo>". Its packed form is "<upgrade-of-stem>_acc_<combo>" - via
@@ -1009,6 +1134,18 @@ function true_base( weapon )
     w = GetWeapon( stem );
     if ( !isdefined( w ) || w == level.weaponNone ) w = weapon;
     base = zm_weapons::get_base_weapon( w );
+
+    // [acc] TWIN-OBJECT HARDENING (2026-07-12, the register_special_upgrades clobber class of bug):
+    // if the stock upgraded-table ever hands back one of OUR twins as a "base" (a corrupted
+    // zombie_weapons_upgraded entry), re-resolve through the twin's stem so the PaP-tier / mule /
+    // box-ownership identity NEVER keys off a twin object. Runs BEFORE the _up strip below so an
+    // _up-twin result degrades stem-first (X_up_acc_Y -> X_up -> X).
+    if ( isdefined( base ) && base != level.weaponNone && isdefined( base.name ) && IsSubStr( base.name, "_acc_" ) )
+    {
+        destemmed = GetWeapon( logical_stem_name( base.name ) );
+        if ( isdefined( destemmed ) && destemmed != level.weaponNone )
+            base = destemmed;
+    }
 
     // NAME-BASED FALLBACK (Mahem-class robustness, user 2026-06-26). get_base_weapon strips an _up via the
     // stock zombie_weapons_upgraded table; if a ported gun's _up isn't resolved there (or normalizes to a

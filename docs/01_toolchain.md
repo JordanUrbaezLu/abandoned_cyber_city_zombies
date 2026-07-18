@@ -96,7 +96,7 @@ flowchart LR
 
 - **`.\tools\build_map.ps1`** — full geometry build: asset-gate → sync → `cod2map64` (BSP+navmesh, cwd=bin) → Radiant **LED bake** → linker → verify a fresh `.ff` landed. Run this after any brush / entity / material / sky change.
 - **`.\tools\build_map.ps1 -GscOnly`** — fast path for GSC/CSC/`.zone`/`.csv`-only changes: sync → linker only (reuses the last BSP+navmesh). Seconds, not minutes.
-- **`.\tools\build_map.ps1 -Run`** — build then launch on success. Or launch separately with **`.\tools\run_game.ps1`** / `PLAY_TEST_MAP.bat` (launches through Steam — `steam://run/311210` — to satisfy BO3's DRM; the Launcher's own "Run" trips the DRM popup on this split install).
+- **`.\tools\build_map.ps1 -Run`** — build then launch on success. Or launch separately with **`.\tools\run_game.ps1`** / `PLAY_NORMAL.bat` (launches through Steam — `steam://run/311210` — to satisfy BO3's DRM; the Launcher's own "Run" trips the DRM popup on this split install).
 - **The LED bake is the gate.** Run the full build **with** the LED bake (no `-SkipLED`) after geometry/material/sky changes — the map bakes again since the pre-stage3 revert (~157 light entities + ~15 reflection probes). `-SkipLED` is a red flag that hides a lightmapper regression; the fast gate is `.\tools\_bake_test.ps1 <map.path>` (prints BAKED / CRASHED).
 - **Build success = a FRESH `.ff` was written, not the linker exit code.** The linker prints `ERROR:` for user-waived missing materials yet still packs a valid `.ff`; `build_map.ps1` waives those and fails only if no fresh `.ff` lands.
 

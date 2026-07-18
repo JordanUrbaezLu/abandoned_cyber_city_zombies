@@ -244,8 +244,14 @@ function acc_trench_oob_allow()
 
     // (1) DIAGNOSTIC (2026-07-11 hunt): on the FIRST tick of an OOB episode, surface the exact origin to ALL
     // players (IPrintLnBold; the logfile is dead on this box) so we can find + close the specific gap. Once
-    // per episode = no spam. Default-on dvar, TEMPORARY - flip acc_oob_debug 0 or remove once the gap is closed.
-    if ( b_new_streak && getdvarint( "acc_oob_debug", 1 ) == 1 )
+    // per episode = no spam. DEFAULT 0 (2026-07-15): this shipped default-ON, so a published game splashed a red
+    // [OOB] banner with raw XYZ at every player the moment anyone tripped the monitor - the "TEMPORARY" note
+    // above never got actioned because the gap was never closed, which is exactly how a hunt diagnostic ships by
+    // accident. The per-feature acc_*_debug dvars (incl. acc_oob_debug) were removed 2026-07-16; this banner
+    // now rides IS_TRUE( level.acc_dev ) - build dev to resume the hunt. This IPrintLnBold is the only OOB readout that survives a
+    // normal build - the acc_utility::log calls in (2)/(3) below are /# #/ devmode-only, hence the banner (not
+    // the log) was the hunt channel in the first place. Memory: debug-banners-gated-by-acc-dev-only.
+    if ( b_new_streak && IS_TRUE( level.acc_dev ) )
     {
         org = self.origin;
         rn  = ( isdefined( level.round_number ) ? level.round_number : 0 );
@@ -296,10 +302,6 @@ function watch_connections()
         player thread trench_fall_watcher();
         player thread trench_shard_income();    // passive Data Shard income while standing in a trench layer (deeper = faster)
         player thread bridge_drain_watcher();   // anti-camp: bleed health on the zombie-unreachable bridge
-        // DEV bridge coord/on-bridge readout REMOVED 2026-07-10 (clean screen in hardcoded dev; the "no damage on the
-        // bridge" bug it debugged is long fixed - memory stock-self-damage-mod-whitelist). Re-thread to debug the bridge.
-        // if ( IS_TRUE( level.acc_dev ) )
-        //     player thread bridge_debug_readout();
         player thread trench_damage_logger();   // TEMP: name the exact cause of any trench death
         player thread trench_player_navlog();   // TEMP diag: log player nav state while underground
     }
@@ -360,7 +362,7 @@ function trench_income_interval( layer )
     return 0;
 }
 
-// TEMP DIAGNOSTIC (acc_trench_dbg, default 0 - set 1 to re-enable) - log the EXACT damage that hits a player
+// TEMP DIAGNOSTIC (rides level.acc_dev; the acc_trench_dbg dvar was removed 2026-07-16) - log the EXACT damage that hits a player
 // WHILE in the trench: amount, means-of-death (MOD_MELEE = zombies, MOD_FALLING = floor/
 // void), and what dealt it. So a death names its own cause instead of us guessing. The
 // player "damage" notify is the stock player-damage signal (5th arg = MOD).
@@ -372,7 +374,7 @@ function trench_damage_logger()   // self = player
     {
         self waittill( "damage", amount, attacker, dir, point, mod );
 
-        if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) continue;
+        if ( !IS_TRUE( level.acc_dev ) ) continue;
         if ( !player_in_trench( self ) ) continue;
 
         who = "world/self";
@@ -473,11 +475,11 @@ function trench_fall_watcher()
             // (the slow drop is handled by the per-poll layer tracking above - exiting = layer 0 - docs/29)
         }
 
-        // TEMP DIAGNOSTIC (acc_trench_dbg, default 0 - set 1 to re-enable) - find out WHAT kills a player in
+        // TEMP DIAGNOSTIC (rides level.acc_dev; the acc_trench_dbg dvar was removed 2026-07-16) - find out WHAT kills a player in
         // the trench. Live HP+Z readout (updates in place ~5x/s); an IMMEDIATE alert if z
         // drops below the floor (trench floor is -288, so z < -300 = fell THROUGH into the
         // void = instant death the fall-damage dvar can't stop). Remove once confirmed.
-        if ( getdvarint( "acc_trench_dbg", 0 ) == 1 )
+        if ( IS_TRUE( level.acc_dev ) )
         {
             hp = int( self.health );
             z  = int( self.origin[ 2 ] );
@@ -606,7 +608,7 @@ function trench_melee_scaled( player, n_damage )
     if ( getdvarint( "acc_trench_aggro_melee", 1 ) != 1 ) return n_damage;
     layer = underground_layer( player.origin );
     if ( layer <= 0 ) return n_damage;
-    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 6 ) ); // +6 HP/layer (flat) (user 2026-06-27, was 10 -> 8 -> 6)
+    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 4 ) ); // +4 HP/layer (flat) (user 2026-07-16, was 10 -> 8 -> 6 -> 5 -> 4; L5 +20)
 }
 
 function apply_fall_tax( player )
@@ -659,21 +661,6 @@ function player_on_bridge( player )
 // if detection is the problem (never says ON-BRIDGE = box/geometry mismatch) or the damage is (says
 // ON-BRIDGE but HP doesn't drop). Only shows when OFF normal ground (elevated deck z>20, or in the trench
 // z<-30) so it never spams surface play. IPrintLnBold refreshes one line (not spam). REMOVE once pinned.
-function bridge_debug_readout()   // self = player
-{
-    self endon( "disconnect" );
-    level endon( "end_game" );
-    for ( ;; )
-    {
-        wait 0.25;
-        if ( !zm_utility::is_player_valid( self ) ) continue;
-        o = self.origin;
-        if ( o[ 2 ] > -30 && o[ 2 ] < 20 ) continue;   // normal ground - stay quiet
-        on = ( player_on_bridge( self ) ? "^2ON-BRIDGE (should bleed)" : "^1off box" );
-        self IPrintLnBold( "^3[BRIDGE] x " + int( o[ 0 ] ) + "  y " + int( o[ 1 ] ) + "  z " + int( o[ 2 ] ) + "   " + on );
-    }
-}
-
 // Per-player: while standing on the zombie-unreachable bridge, bleed a % of MAX health every
 // second so camping there is never worth it. MOD_UNKNOWN so NO perk negates it - we deliberately
 // do NOT want PhD Flopper (which zeroes MOD_FALLING, see _acc_perk_phd_flopper) to make the camp
@@ -905,7 +892,7 @@ function spawn_corp_surge( n )
             z.acc_trench_zombie = true;     // flat low payout on kill (_acc_points::on_zombie_death)
             z.acc_spawn_origin = ( isdefined( loc ) ? loc.origin : z.origin ); // TEMP diag: where it erupted
             z thread tag_trench_zombie();   // low-payout flag + emergence fix (melee on any layer)
-            z thread debug_surge_navmesh(); // TEMP diag: print on-mesh/enemy state (acc_trench_dbg)
+            z thread debug_surge_navmesh(); // TEMP diag: print on-mesh/enemy state (rides level.acc_dev)
             spawned++;
         }
         wait 0.15;   // small stagger so the burst doesn't pop the same frame
@@ -922,7 +909,8 @@ function spawn_corp_surge( n )
 // TRENCH-MELEE DIAGNOSTIC SUITE (user 2026-06-22). The bug ("zombies that spawn IN the pit never hit me,
 // walk-down ones do") survived a single-slab pit floor + a full navmesh bake, ruling OUT the carve theory.
 // So we LOG the runtime truth and read console_mp.log after a play session instead of guessing. All lines
-// are tagged "[acctr]" (grep the log). Gated by acc_trench_dbg (default 0 - set 1 to re-enable). IPrintLnBold routes to
+// are tagged "[acctr]" (grep the log). Rides IS_TRUE( level.acc_dev ) - visible in a dev build only
+// (the acc_trench_dbg dvar was removed 2026-07-16). IPrintLnBold routes to
 // console_mp.log as "[ SCRIPTER] [acctr]..." (run_game.ps1 launches with +set logfile 1). Remove this whole
 // suite once the cause is found. The four streams: RISER (spawn-point mesh), SURGE# (per-zombie lifecycle),
 // PLAYER (your mesh state in the pit), CENSUS (zombies near you: on-mesh? in melee range? surge vs walk-down).
@@ -931,7 +919,7 @@ function spawn_corp_surge( n )
 // Host-only console logger (avoid coop screen-spam xN). Read after play: grep console_mp.log for "[acctr]".
 function tlog( msg )
 {
-    if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) return;
+    if ( !IS_TRUE( level.acc_dev ) ) return;
     if ( !isdefined( level.players ) || level.players.size == 0 ) return;
     p = level.players[ 0 ];
     if ( isdefined( p ) ) p IPrintLnBold( "[acctr] " + msg );
@@ -942,7 +930,7 @@ function tlog( msg )
 function debug_surge_navmesh()
 {
     self endon( "death" );
-    if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) return;
+    if ( !IS_TRUE( level.acc_dev ) ) return;
     id = acc_utility::acc_rand_int( 1000 );
     tlog( "SURGE#" + id + " SPAWNED at " + self.origin );
     for ( s = 0; s < 8; s++ )
@@ -969,7 +957,7 @@ function trench_player_navlog()
     for ( ;; )
     {
         wait 2.0;
-        if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) continue;
+        if ( !IS_TRUE( level.acc_dev ) ) continue;
         if ( !player_in_underground( self ) ) continue;
         on = IsPointOnNavMesh( self.origin, 16 );
         tlog( "PLAYER onMesh=" + ( on ? "Y" : "N" ) + " z=" + int( self.origin[ 2 ] ) + " org=" + self.origin +
@@ -988,7 +976,7 @@ function trench_zombie_census()
     for ( ;; )
     {
         wait 2.0;
-        if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) continue;
+        if ( !IS_TRUE( level.acc_dev ) ) continue;
         p = undefined;
         foreach ( pl in GetPlayers() )
             if ( isalive( pl ) && player_in_underground( pl ) ) { p = pl; break; }
@@ -1028,7 +1016,7 @@ function trench_melee_window_logger()
     for ( ;; )
     {
         wait 0.4;
-        if ( getdvarint( "acc_trench_dbg", 0 ) != 1 ) { prev_p = undefined; continue; }
+        if ( !IS_TRUE( level.acc_dev ) ) { prev_p = undefined; continue; }
         p = undefined;
         foreach ( pl in GetPlayers() )
             if ( isalive( pl ) && player_in_underground( pl ) ) { p = pl; break; }
@@ -1155,7 +1143,7 @@ function get_trench_risers()
             risers[ i ].origin = snapped;
             used = true;
         }
-        // DIAG (acc_trench_dbg): tells us if the pit-floor risers are actually on the navmesh after the bake.
+        // DIAG (rides level.acc_dev via tlog): tells us if the pit-floor risers are actually on the navmesh after the bake.
         tlog( "RISER " + i + " raw=" + o + " rawOnMesh=" + ( raw_on ? "Y" : "N" ) +
               " snap=" + ( isdefined( snapped ) ? ( "" + snapped + " dz=" + int( snapped[ 2 ] - o[ 2 ] ) ) : "NONE" ) +
               " usedSnap=" + ( used ? "Y" : "N" ) );

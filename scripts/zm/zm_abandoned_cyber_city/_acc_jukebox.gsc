@@ -11,8 +11,10 @@
 //   RANDOM PICK: uniformly random from level.acc_jukebox_songs, but never the SAME song twice in a row
 //   (when >1 song is banked). REPEATABLE all game - the jukebox is never consumed.
 //
-//   5-MINUTE COOLDOWN between plays (global, carried over from the bear system, user 2026-06-25 rule:
-//   let the song play out). Tunable: acc_jukebox_cooldown (sec).
+//   SONG-LENGTH HOLD between plays (global; user 2026-07-18 - replaced the fixed 5-min cooldown):
+//   the jukebox stays busy for exactly the PICKED song's duration, engine-queried via
+//   SoundGetPlaybackTime (ms; stock precedent _zm_audio.gsc:1112 on streamed mus_* aliases). If the
+//   query fails (<=0/undefined), falls back to acc_jukebox_cooldown (sec, default 300).
 //
 // ADDING A SONG (manual, user 2026-07-09): bank the wav (48k/16-bit, sound_assets\acc\music\ +
 // sound/aliases/acc_audio.csv STREAMED/2D/NONLOOPING row + GAME-CLOSED full build), then add ONE
@@ -37,6 +39,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // try_spend / get_count (the shard half of the price)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;          // single music channel: a jukebox song stops boss music etc.
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;  // cyan "usable" holo on the jukebox
 
 #insert scripts\shared\shared.gsh;   // IS_TRUE
 
@@ -44,7 +47,7 @@
 
 #define ACC_JUKEBOX_ORIGIN        ( -150, 2240, -240 )   // NORTH under-room, SOUTH-WEST (user 2026-07-10: spread it away from the reactor plinth at the north wall (0,2493) - was (-140,2350), only ~200u apart). Back to the west wall, faces +x into the room, clear of the south doorway (x[-96,96]). Clip mirrors in add_prop_clips.js (label 'jukebox').
 #define ACC_JUKEBOX_YAW           0                      // face +x = into the room (retune in-game if the IW model's forward differs)
-#define ACC_JUKEBOX_COOLDOWN_SEC  300                 // seconds between plays (lets a song play out) - dvar acc_jukebox_cooldown
+#define ACC_JUKEBOX_COOLDOWN_SEC  300                 // FALLBACK hold (sec) if SoundGetPlaybackTime fails; the real hold = song length - dvar acc_jukebox_cooldown
 #define ACC_JUKEBOX_COST_POINTS   1000                // points per play      - dvar acc_jukebox_cost_points
 #define ACC_JUKEBOX_COST_SHARDS   2                   // Data Shards per play - dvar acc_jukebox_cost_shards (settled 2 after 1/3 same-day, user 2026-07-09)
 
@@ -55,7 +58,7 @@ function init()
     if ( getdvarint( "acc_jukebox_on", 1 ) != 1 )
         return;
 
-    level.acc_jukebox_cooldown_until = 0;          // GetTime() ms; no play before this (the 5-min gate)
+    level.acc_jukebox_cooldown_until = 0;          // GetTime() ms; no play before this (the song-length hold)
     level.acc_jukebox_last = undefined;            // alias of the last song played (no same-song-twice rule)
 
     // -------- PLAYLIST (add songs HERE - one line each; see the header recipe) --------
@@ -63,6 +66,13 @@ function init()
     add_song( "acc_ee_song",   "Cyber Dreams" );                    // by Lilex (the old CENTER bear)
     add_song( "acc_ee_song_2", "Night Groove" );                    // (the old LEFT bear)
     add_song( "acc_ee_song_3", "I Want To Stay At Your House" );    // (the old RIGHT bear) - TEST-ONLY licence, CREDITS.md
+    // Songs 4-6 (user wavs 2026-07-18, resampled 44.1k stereo -> 48k stereo via tools/resample48k.js;
+    // stereo is fine - 115/main_theme/brutus are all banked 2ch). CoD-zombies EE songs = COPYRIGHTED,
+    // same TEST-ONLY licence bucket as ee_song_3 (CREDITS.md) - resolve before the Workshop item goes Public.
+    add_song( "acc_ee_song_4", "Dead Again" );                      // Kevin Sherwood / Malukah (BO4 Blood of the Dead), ~289s
+    add_song( "acc_ee_song_5", "Beauty of Annihilation" );          // Elena Siegman (WaW Der Riese), ~268s
+    add_song( "acc_ee_song_6", "Can You Hear Me? Come In" );        // Kevin Sherwood ft. Megan Rice, ~359s
+    add_song( "acc_ee_song_7", "The Gift" );                        // Malukah / Kevin Sherwood (BO3 Revelations), ~270s
 
     level thread spawn_jukebox();
 }
@@ -83,6 +93,7 @@ function spawn_jukebox()
     jb = spawn( "script_model", ACC_JUKEBOX_ORIGIN );
     jb setmodel( "cp_town_jukebox" );
     jb.angles = ( 0, ACC_JUKEBOX_YAW, 0 );
+    acc_interact_glow::glow_on( jb );
 
     // Trigger MUST be made usable via TriggerIgnoreTeam (stock _zm_perks.gsc:1523) - a script-spawned
     // use-trigger has no team otherwise. Raised origin gives the use-cursor something to land on.
@@ -101,7 +112,7 @@ function spawn_jukebox()
         t waittill( "trigger", player );
         if ( !isdefined( player ) || !isplayer( player ) ) continue;
 
-        // 5-MINUTE GATE: a song is still playing / on cooldown -> deny.
+        // HOLD GATE: the last song is still playing (hold = its length) -> deny.
         now = GetTime();
         if ( now < level.acc_jukebox_cooldown_until )
         {
@@ -135,16 +146,24 @@ function spawn_jukebox()
         if ( pts > 0 )
             player zm_score::minus_to_player_score( pts );
         player PlaySound( "zmb_cha_ching" );
+        acc_interact_glow::glow_off( jb );   // song actually bought = successful use (user 2026-07-17)
 
         song = pick_song();
         level.acc_jukebox_last = song.alias;
-        level.acc_jukebox_cooldown_until = GetTime() + ( getdvarint( "acc_jukebox_cooldown", ACC_JUKEBOX_COOLDOWN_SEC ) * 1000 );
+
+        // Busy for exactly THIS song's length (user 2026-07-18). SoundGetPlaybackTime returns ms and
+        // works on streamed aliases server-side (stock _zm_audio.gsc:1112); guard the <=0/undefined
+        // fail case like stock does and fall back to the old fixed cooldown.
+        hold_ms = SoundGetPlaybackTime( song.alias );
+        if ( !isdefined( hold_ms ) || hold_ms <= 0 )
+            hold_ms = getdvarint( "acc_jukebox_cooldown", ACC_JUKEBOX_COOLDOWN_SEC ) * 1000;
+        level.acc_jukebox_cooldown_until = GetTime() + hold_ms;
         refresh_hint();
 
         // Through the single MUSIC CHANNEL: stops boss music / the theme first (one song at a time,
         // user 2026-06-25 override rule), then plays 2D for the whole lobby. NONLOOPING.
         acc_music::play( song.alias, false );
-        acc_utility::log( "jukebox: PLAYING " + song.alias + " (" + song.title + ") for " + pts + "pts + " + shards + " shard(s)" );
+        acc_utility::log( "jukebox: PLAYING " + song.alias + " (" + song.title + ") for " + pts + "pts + " + shards + " shard(s), hold " + int( hold_ms / 1000 ) + "s" );
 
         // NOW-PLAYING banner to EVERY player (whole lobby hears the song, whole lobby sees the title).
         // IPrintLnBold = engine built-in, all-clients, hudelem-pool-FREE (the proven bear-era choice).

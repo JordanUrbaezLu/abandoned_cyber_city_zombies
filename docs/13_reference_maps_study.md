@@ -59,7 +59,7 @@ The "most advanced custom zombies map" per several youtube reviews. Cyber / indu
 
 - **Boss-drop item system.** Bosses drop random passive-buff items. Players equip; effects apply while implanted; late runs assemble interesting combinations. **This is the single biggest pattern we took** — our `_acc_boss_items.gsc` is directly inspired.
 - **Custom wonder weapons with unique boss synergy.** In Machin[a] one weapon excels against one specific boss. We **considered** this (early docs named a "Signal Staff" / "Vibro Cleaver") but **never shipped boss-specific wonder weapons** — they don't exist in `gamedata/weapons/zm/zm_levelcommon_weapons.csv`. Our arsenal is **box-only** and large (Apex ports + Skye ports + elemental bows) rather than a small counter-weapon set. See "did NOT take" below.
-- **Integrated theme-mechanic alignment.** Machine/cyber theme shows up in WEAPON BEHAVIOR (not just art). Energy guns behave differently from gunpowder guns. **We shipped this**: energy weapons (Havoc beam rifle, Tac-19, AE4, RW1, Blast-O-Matic, Thundergun) are flagged by `_acc_damage::is_energy_weapon()` and interact with the Nuclear Energy boss item (+15% energy/explosive damage). The **Tac-19** is our headline example: `is_weapon_headshot_excluded()` drops its headshot multiplier and it trades that for a bumped base damage in its GDT, making it the crowd-control gun (`_acc_damage.gsc:1620` `is_energy_weapon` / `:1639` `is_weapon_headshot_excluded`, Tac-19 at `:1652`).
+- **Integrated theme-mechanic alignment.** Machine/cyber theme shows up in WEAPON BEHAVIOR (not just art). Energy guns behave differently from gunpowder guns. **We shipped this**: energy weapons (Havoc beam rifle, Tac-19, AE4, Blast-O-Matic, CEL-3, Triple Take, Peacekeeper) are flagged by `_acc_damage::is_energy_weapon()` and buffed by the Plasma Generator (+10% energy) implant; explosive weapons get Warhead Bomber (+20%); bullet guns get High Caliber Rounds (+25%). RW1 is bullet; Fire Bow / Thundergun / Winter's Howl are none. The **Tac-19** is our headline example: `is_weapon_headshot_excluded()` drops its headshot multiplier and it trades that for a bumped base damage in its GDT, making it the crowd-control gun (`_acc_damage.gsc:1620` `is_energy_weapon` / `:1639` `is_weapon_headshot_excluded`, Tac-19 at `:1652`).
 - **Multi-stage upgrade for weapons.** Weapons upgrade through multiple tiers with visible external changes. Our PaP L1–3 (`_acc_pap_levels.gsc`, `ACC_PAP_MAX_TIER = 3`) + Overclocks (`_acc_overclocks.gsc`) drive weapon-state escalation.
 
 ### What we took
@@ -67,7 +67,7 @@ The "most advanced custom zombies map" per several youtube reviews. Cyber / indu
 | Machin[a] idea | Our equivalent |
 |---|---|
 | Boss-drop passive items | Our 10-item pool in `_acc_boss_items.gsc::build_item_pool()`: Gas Tank, Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger (Havoc), Nuclear Energy, Battery. Fixed 3-slot implant bench (docs/09). |
-| Energy weapon = different damage rules | Tac-19 no-headshot-mult + bumped base damage; energy-weapon family gets the Nuclear Energy +15% layer. |
+| Energy weapon = different damage rules | Tac-19 no-headshot-mult + bumped base damage; energy-weapon family gets the Plasma Generator +10% layer (explosive gets Warhead Bomber +20%). |
 | Multi-stage weapon upgrade | PaP L1–3 + Overclocks. |
 
 ### What we explicitly did NOT take

@@ -80,7 +80,7 @@ const ROSTER = [
   { d: 'MK14',        cls: 'DMR',     sec: 'Marksman & Sniper', balKey: 's1_mk14',  gdt: 'skye_s1_mk14.gdt',        up: 's1_mk14_up',        tier: 'B-', price: 'BOT', score: 5.89 },   // PaP price BOT (user 2026-07-11: 3000/4500/6000, down from MID)
   { d: 'Olympia',     cls: 'Shotgun', sec: 'Shotgun',     balKey: 't6_olympia',     gdt: 'skye_t6_olympia.gdt',     up: 't6_olympia_up',     tier: 'C',  price: 'BOT', score: 4.27, pellet: true },
   // M16 RETIRED 2026-07-11 (user): replaced by the Apex Triple Take (below) in the same #19/MID marksman slot.
-  { d: 'Triple Take', cls: 'Sniper (3-bolt energy, no falloff)', sec: 'Marksman & Sniper', balKey: 'apex_tripletake', gdt: 'acc_apex_up.gdt', up: 'apex_tripletake_up_zm', tier: 'A-', price: 'MID', score: 7.47, shots: 3 },   // Apex tri-bolt ENERGY sniper (user 2026-07-11): shotCount 3 = 3 bullets/trigger (headshots APPLY, unlike pellet shotguns). Same-day user +25% dmg (bal 0.281875) + 25% RoF (fireTime 0.288) -> B 6.39 became A- 7.47, price PINNED MID (the deliberately-good-deal roll). Nuclear Energy +15% lands its per-trigger clearly above the MORS per-shot. Energy muzzle/tracers/sfx + locs normalized install-side (prep_apex_tripletake_gdt.js).
+  { d: 'Triple Take', cls: 'Sniper (3-bolt volley)', sec: 'Marksman & Sniper', balKey: 'apex_tripletake', gdt: 'acc_apex_up.gdt', up: 'apex_tripletake_up_zm', tier: 'A-', price: 'MID', score: 7.47, shots: 3 },   // Apex ENERGY sniper (user 2026-07-11). v2 VOLLEY REWORK (user 2026-07-16): PROJECTILEWEAPON def (Havoc-graft, prep_apex_tripletake_gdt.js) - a trigger = 3 flat plasma bolts (1 native + 2 _acc_tripletake.gsc side bolts) COSTING 3 ROUNDS; <3 rounds = no shot. +10% dmg (bal 0.3100625) + fireTime 0.1728 base / 0.13824 PaP (+25% rate, round 2); clip 9/15 (3 / 5 volleys per mag), reserve 117/180 (+20% round 2) - the raw clip/reserve columns overstate sustain 3x (3 rounds per trigger). Bolts = Blast-O-Matic DOA geotrail (blue/RED) at projSpeed 3500 (round 3 -50%). Headshots still APPLY (engine locs on projectile direct hits, Havoc-verified); no penetration, no DT extra bullet (projectile). Tier/price left PINNED A-/MID.
   { d: 'Alternator',  cls: 'SMG (PaP power)', sec: 'SMG', balKey: 'apex_alternator_up', gdt: 'acc_apex_up.gdt', up: 'apex_alternator_up_zm', tier: 'A', price: 'BOT', score: 7.20, box: 'apex_alternator' },   // Apex - trash base, A+ PaP (user 2026-07-06); balKey = the _up bal line (RUNTIME name, no _zm); up = GDT BLOCK id; box = acc_box_weight key (no _up)
   { d: 'Mahem',       cls: 'Launcher', sec: 'Launcher', balKey: 's1_mahem', gdt: 'skye_s1_mahem.gdt',      up: 's1_mahem_up',       tier: '-',  price: 'TOP', score: null, special: 'explosive (direct + splash)' },
   { d: 'War Machine', cls: 'Launcher', sec: 'Launcher', balKey: 't6_war_machine', gdt: 'skye_t6_war_machine.gdt', up: 't6_war_machine_up', tier: 'A',  price: 'TOP', score: null, special: 'explosive drum GL (impact detonation; PaP = 12-rd full-auto)' },   // user 2026-07-09
@@ -205,6 +205,74 @@ const FIREBOW_FURY_ONEHIT = (dmgSrc.match(/acc_firebow_fury_onehit",\s*1/) ? 1 :
 // defaults in the _acc_damage 0c3 block, parsed live so the doc can't drift on a retune.
 const BK_STAB_MULT  = parseFloat((dmgSrc.match(/acc_bk_stab_mult",\s*([\d.]+)/)  || [])[1] || '2');
 const BK_THROW_MULT = parseFloat((dmgSrc.match(/acc_bk_throw_mult",\s*([\d.]+)/) || [])[1] || '6');
+// Ballistic Knife regular-zombie one-hit ROUND GATE (user 2026-07-12 "shouldn't be doing one hit the whole
+// game"): base one-hit only through round acc_bk_onehit_round, PaP through acc_bk_onehit_round_pap; glitch
+// stays one-hit at any round. (\bround\b anchored so the _pap variant isn't captured by the base regex.)
+const BK_ONEHIT_RD     = parseInt((dmgSrc.match(/acc_bk_onehit_round",\s*(\d+)/)     || [])[1] || '12', 10);
+const BK_ONEHIT_RD_PAP = parseInt((dmgSrc.match(/acc_bk_onehit_round_pap",\s*(\d+)/) || [])[1] || '24', 10);
+// Cyberware Weapon Overclock flat damage per tier (effect 1/3), and Action Figure boss hits-to-kill - both
+// parsed so the "layers not shown" line + AF note track live retunes (both drifted: OC 0.10->0.12 2026-07-08,
+// AF 30->33 2026-07-11).
+const OC_DMG_PER_TIER = parseFloat((dmgSrc.match(/#define\s+ACC_OC_DMG_PER_TIER\s+([\d.]+)/) || [])[1] || '0.12');
+const AF_BOSS_HITS    = parseInt((dmgSrc.match(/acc_af_boss_hits",\s*(\d+)/) || [])[1] || '33', 10);
+
+// -----------------------------------------------------------------------------
+// Fire Bow + Winter's Howl live tuning, parsed from the weapon scripts so the wonder notes can't drift on a
+// retune (user 2026-07-17 doc-accuracy pass: the hand-typed notes still carried the PRE-2026-07-13 numbers -
+// Fire Bow -35% DoT/divisor pass, Winter's Howl +15% cone buff). Same doctrine as the parses above.
+// -----------------------------------------------------------------------------
+const BOW_GSC    = path.join(REPO, 'scripts/zm/_zm_weap_elemental_bow_demongate.gsc');
+const FREEZE_GSC = path.join(REPO, 'scripts/zm/_zm_weap_freezegun.gsc');
+const bowSrc    = fs.existsSync(BOW_GSC)    ? fs.readFileSync(BOW_GSC, 'utf8')    : die('bow gsc missing: ' + BOW_GSC);
+const freezeSrc = fs.existsSync(FREEZE_GSC) ? fs.readFileSync(FREEZE_GSC, 'utf8') : die('freezegun gsc missing: ' + FREEZE_GSC);
+
+// Pull the 4 per-tier values out of a `getdvar*( "<dvar>" + <tiervar>, ( <tiervar> == 0 ? A : ( == 1 ? B : ( == 2 ? C : D ) ) ) )` ladder.
+function tier4(src, dvar, isFloat, what) {
+  const re = new RegExp(dvar + '"\\s*\\+\\s*\\w+,\\s*\\(\\s*\\w+\\s*==\\s*0\\s*\\?\\s*([\\d.]+)\\s*:\\s*\\(\\s*\\w+\\s*==\\s*1\\s*\\?\\s*([\\d.]+)\\s*:\\s*\\(\\s*\\w+\\s*==\\s*2\\s*\\?\\s*([\\d.]+)\\s*:\\s*([\\d.]+)');
+  const m = src.match(re);
+  if (!m) die('could not parse ' + (what || dvar) + ' tier ladder from ' + dvar);
+  return [1, 2, 3, 4].map(i => isFloat ? parseFloat(m[i]) : parseInt(m[i], 10));
+}
+const fmtN = x => (Number.isInteger(x) ? String(x) : String(parseFloat(x.toFixed(4))));   // trim trailing zeros
+// Replace an EXACT anchor phrase in a note, aborting if the anchor is gone (a note edit changed it). Keeps a
+// stale hardcoded number from silently surviving a note rewrite: the anchor is the OLD text, the value is LIVE.
+function reqReplace(str, find, repl, what) {
+  if (str.indexOf(find) < 0) die('note anchor missing (' + what + '): "' + find + '" - the note text drifted, update gen_weapon_stats.js');
+  return str.split(find).join(repl);
+}
+
+const FB_DOT_FRAC = tier4(bowSrc, 'acc_firebow_dot_frac_t',     true,  'Fire Bow DoT frac');       // [0.13, 0.1625, 0.2166, 0.325]
+const FB_BOSS_DIV = tier4(bowSrc, 'acc_firebow_dot_boss_div_t', false, 'Fire Bow boss divisor');   // [123, 100, 77, 62]
+const FB_RADIUS   = tier4(bowSrc, 'acc_firebow_aoe_radius_t',   false, 'Fire Bow void radius');    // [110, 140, 170, 200]
+const FB_CHOMPERS = tier4(bowSrc, 'acc_firebow_chompers_t',     false, 'Fire Bow chompers');       // [1, 1, 2, 3]
+const FB_CHARGE_EXTRA = parseInt((bowSrc.match(/acc_firebow_charge_extra",\s*(\d+)/) || [])[1] || '3', 10);
+const FB_CHARGE_TOTAL = 2 + FB_CHARGE_EXTRA;   // engine full charge natively eats 2, the portal deducts the extra
+const FB_BAL = balSoft('elemental_bow_demongate');   // 0.65 (direct arrow / TAP hit; the DoT is exact-marked and exempt)
+
+// Winter's Howl ACTIVE (non-t8) cone damage vars + the +50%/tier PaP ladder (freezegun_do_damage:420-422:
+// point-blank = Int(base_inner * (1 + per*tier)) off the BASE vars). Sliced from the `else` (non-t8) branch.
+const _fzElseIdx = freezeSrc.indexOf('else', freezeSrc.indexOf('use_t8_damage_set'));
+const _fzElse    = _fzElseIdx >= 0 ? freezeSrc.slice(_fzElseIdx, _fzElseIdx + 900) : '';
+const FZ_INNER    = parseInt((_fzElse.match(/freezegun_inner_damage",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_OUTER    = parseInt((_fzElse.match(/freezegun_outer_damage",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_INNER_UP = parseInt((_fzElse.match(/freezegun_inner_damage_upgraded",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_OUTER_UP = parseInt((_fzElse.match(/freezegun_outer_damage_upgraded",\s*(\d+)/) || [])[1] || '0', 10);
+if (!FZ_INNER || !FZ_OUTER) die('could not parse freezegun base cone damage (inner/outer) from the non-t8 branch');
+const FZ_PAP_PER  = parseFloat((freezeSrc.match(/acc_freeze_pap_per_tier",\s*([\d.]+)/) || [])[1] || '0.5');
+const FZ_LADDER_IN  = [0, 1, 2, 3].map(t => Math.floor(FZ_INNER * (1 + FZ_PAP_PER * t)));   // point-blank inner by PaP tier
+const FZ_LADDER_OUT = [0, 1, 2, 3].map(t => Math.floor(FZ_OUTER * (1 + FZ_PAP_PER * t)));   // far-edge outer by PaP tier
+// Winter's Howl boss move-slow, parsed from the getdvarfloat defaults (user 2026-07-18 halved it: rate
+// 0.825 = 17.5% reduction, tier-2 fury 0.75 = 25%) so the boss column + note can't drift on a slow retune.
+const FZ_BOSS_SLOW = parseFloat((freezeSrc.match(/acc_freeze_boss_slow_rate",\s*([\d.]+)/) || [])[1] || '0');
+const FZ_BOSS_SEC  = parseFloat((freezeSrc.match(/acc_freeze_boss_slow_sec",\s*([\d.]+)/)  || [])[1] || '5');
+if (!(FZ_BOSS_SLOW > 0 && FZ_BOSS_SLOW < 1)) die('could not parse acc_freeze_boss_slow_rate default from _zm_weap_freezegun.gsc');
+const FZ_SLOW_PCT = fmtN((1 - FZ_BOSS_SLOW) * 100);   // e.g. 0.825 -> 17.5
+// t8 alternate damage set (informational - what use_t8_damage_set would swap TO; parsed from the if-branch).
+const _fzT8 = freezeSrc.slice(freezeSrc.indexOf('use_t8_damage_set'), _fzElseIdx >= 0 ? _fzElseIdx : undefined);
+const FZ_T8_INNER    = parseInt((_fzT8.match(/freezegun_inner_damage",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_T8_OUTER    = parseInt((_fzT8.match(/freezegun_outer_damage",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_T8_INNER_UP = parseInt((_fzT8.match(/freezegun_inner_damage_upgraded",\s*(\d+)/) || [])[1] || '0', 10);
+const FZ_T8_OUTER_UP = parseInt((_fzT8.match(/freezegun_outer_damage_upgraded",\s*(\d+)/) || [])[1] || '0', 10);
 
 // -----------------------------------------------------------------------------
 // GUN TIER SCORE (user 2026-07-11 redesign). REPLACES the old compute_gun_tiers.js hand table (which
@@ -463,7 +531,8 @@ for (const grp of Object.values(bySec)) {
 // -----------------------------------------------------------------------------
 // Emit the doc.
 // -----------------------------------------------------------------------------
-const stamp = process.env.ACC_GEN_DATE || '(run date not injected)';
+// Real run date by default (the doc's "verified on" stamp); ACC_GEN_DATE overrides for reproducible output.
+const stamp = process.env.ACC_GEN_DATE || new Date().toISOString().slice(0, 10);
 function hs(v) { return v == null ? 'excluded*' : String(v); }
 
 let md = '';
@@ -494,13 +563,13 @@ md += '- **Body/Head columns** are the tier-ladder result (T1..T3). Shotguns are
 md += '- **DPS** = max-PaP (T3) body damage per second, averaged over emptying a full clip plus one reload (so big clips and fast reloads both help; shell-loaders use their per-shell reload time, which flatters them slightly).\n';
 md += '- **Move** = run speed while holding the gun (GDT `moveSpeedScale`; **×1 = full player speed**, e.g. ×0.95 = 5% slower). Read from the PaP `_up` entry.\n';
 md += '- **Recoil (control)** = an at-a-glance rating of ADS **view-kick** severity: **🟢 Very Low → 🔴 Very High** (lower/greener = steadier, easier to control; red = wild). It buckets the total per-shot kick **↑+↔**: ≤60 🟢 Very Low · ≤90 🟢 Low · ≤120 🟡 Medium · ≤160 🟠 High · >160 🔴 Very High. The precise kick follows the dot — **↑** = vertical climb `(pitchMax+pitchMin)/2`, **↔** = horizontal shake `|yawMax−yawMin|/2`, in degrees (GDT `adsViewKick*`). All numbers **include the map\'s ×1.75 base-recoil "skill theme"** (`apply_recoil_overhaul.js`) and are **halved at runtime by Mega Deadshot** (the `recoil50` twin, ×0.5), which drops most guns ~1–2 tiers. Hip view-kick is ~identical, so ADS stands in for both.\n';
-md += '- Layers NOT shown (stack on top at runtime): Cyberware Weapon Overclock (+10%/tier), Deadshot crit, Double Tap, boss per-hit cap ' + Math.round(BOSS_CAP * 100) + '% maxHP/hit, pellet/launcher/sniper vs-boss cuts.\n\n';
+md += '- Layers NOT shown (stack on top at runtime): Cyberware Weapon Overclock (+' + Math.round(OC_DMG_PER_TIER * 100) + '%/tier, always-on gun damage), Deadshot crit, Double Tap (NOT a flat bonus - base is fire-rate only: the engine\'s free extra bullet nets ~1.86x DPS while a x0.7 per-hit cut offsets it; Mega "Gun Slinger" eases the cut to x0.9, ~2.39x DPS), boss per-hit cap ' + Math.round(BOSS_CAP * 100) + '% maxHP/hit, pellet/launcher/sniper vs-boss cuts.\n\n';
 
 // Sectioned emission (user 2026-07-09): Wonders & specials FIRST, then one table per gun type
 // (SECTION_ORDER), rows within each section sorted by box rarity (rarest pull first).
 md += '## Wonders & specials (special damage models - no standard hitscan tier ladder)\n\n';
 md += '- **Raw dmg** = the per-hit damage that matters for that weapon: GDT `meleeDamage` (melee) / `damage` (projectile), OR the script-driven number for wonders whose damage lives in GSC not the GDT — **Winter\'s Howl** = the freeze-cone `zombie_var` (inner/outer, point-blank→far-edge), **Fire Bow** = the TAP arrow\'s fixed impact blast (inner/outer). The pure fling (Thundergun) and per-enemy-fraction (Leviathan) models have no flat number (`—`) — see the **vs Boss** column + per-wonder notes.\n';
-md += '- **Eff/hit** = the actual on-target damage of one hit where a number applies: raw x bal x global(' + GLOBAL + ') for the standard-damage specials (Blast-O-Matic), OR the script value for the freeze cone. **Winter\'s Howl** shows the PaP ladder (T0 base → T3, +50%/tier off the base cone; the cone is a weaponless DoDamage so it skips bal/global) — on top of that, Shielded x3 / Phantom x2 (boss-cap 10%/hit) / Glitch one-hit.\n';
+md += '- **Eff/hit** = the actual on-target damage of one hit where a number applies: raw x bal x global(' + GLOBAL + ') for the standard-damage specials (Blast-O-Matic), OR the script value for the freeze cone. **Winter\'s Howl** shows the cone PaP ladder (T0 base → T3, +' + Math.round(FZ_PAP_PER * 100) + '%/tier off the base cone): the cone is a weaponless DoDamage, so it skips the per-gun **bal** reduction — but a player-attributed hit STILL takes the global x' + GLOBAL + ' (weapon-agnostic), so the on-target number is ~' + GLOBAL + 'x the ladder value shown. On top of that: Shielded x3 / Phantom x2 (boss-cap ' + Math.round(BOSS_CAP * 100) + '%/hit) / Glitch one-hit.\n';
 md += '- **vs Boss** = how it behaves against heavyweight bosses (each wonder has its own boss rule, not the plain hitscan cap).\n\n';
 md += '| Gun | Class | Box % | PaP cost T1/T2/T3 | Cap | Raw dmg | bal | Eff/hit | Clip / Reserve | fireTime | Move | vs Boss |\n';
 md += '|---|---|--:|--|:--:|--:|--:|--:|--|--:|--:|---|\n';
@@ -531,20 +600,61 @@ for (const s of SPECIALS) {
   let bossStr = s.boss;
   if (s.perEnemy) bossStr = 'hits-to-kill: zombie ' + LEVI_ENEMY.zombie + ' · glitch ' + LEVI_ENEMY.glitch + ' · shielded ' + LEVI_ENEMY.shield + '→' + LEVI_ENEMY_PAP2.shield + ' · Fury ' + LEVI_ENEMY.fury + '→' + LEVI_ENEMY_PAP2.fury + ' (→ = at 2nd PaP+) · **boss ' + LEVI_HITS.join('/') + '** (t0/T1/T2/T3)';
   if (s.knife) bossStr = 'capped CHIP only (never a delete): normal chain × throw ×' + BK_THROW_MULT + ' / stab ×' + BK_STAB_MULT + ' + the Exo melee layer (both attacks), then the ' + Math.round(BOSS_CAP * 100) + '% maxHP/hit cap (≥' + Math.round(1 / BOSS_CAP) + ' hits). The one-hit does NOT apply to bosses/mini-bosses/Fury.';
+  // Live-parsed overrides for the wonders whose numbers drift on a retune (user 2026-07-17 doc-accuracy pass).
+  if (s.d === 'Fire Bow') {
+    const fbIn = fieldNumSoft(blk, 'explosionInnerDamage'), fbOut = fieldNumSoft(blk, 'explosionOuterDamage');
+    if (fbIn != null && fbOut != null) rawStr = 'TAP ' + fbIn + '/' + fbOut + ' blast';
+    bossStr = 'Charged portal = DAMAGE-OVER-TIME zone (2026-07-08): zombies/elites frac×roundHP/s (frac ' + fmtN(FB_DOT_FRAC[0]) + '→' + fmtN(FB_DOT_FRAC[3]) + ' by tier), BOSSES maxHP/div/s (÷' + FB_BOSS_DIV[0] + '→÷' + FB_BOSS_DIV[3] + ' by tier) + chompers. Furies: arrow hit = guaranteed one-shot.';
+  }
+  if (s.d === "Winter's Howl") {
+    rawStr = FZ_INNER + '/' + FZ_OUTER + ' cone (in/out)';
+    effStr = 'T0 ' + FZ_LADDER_IN[0] + '/' + FZ_LADDER_OUT[0] + ' · T3 ' + FZ_LADDER_IN[3] + '/' + FZ_LADDER_OUT[3] + ' (×' + GLOBAL + ' global on top)';
+    bossStr = FZ_SLOW_PCT + '% MOVE SLOW for ' + fmtN(FZ_BOSS_SEC) + 's per hit (the headline UTILITY use; acc_freeze_boss_slow_rate ' + fmtN(FZ_BOSS_SLOW) + ' / _sec ' + fmtN(FZ_BOSS_SEC) + '; a re-hit RESETS the timer, never stacks) - NOT a damage boss-killer (modest cone damage, ' + Math.round(BOSS_CAP * 100) + '% per-hit boss cap still backstops it; no iceover/shatter on bosses).';
+  }
+  if (s.d === 'Action Figure') bossStr = '1/' + AF_BOSS_HITS + ' maxHP/hit (~' + AF_BOSS_HITS + ' hits, acc_af_boss_hits)';
   const gMove = fieldNumSoft(blk, 'moveSpeedScale') || 1;
   md += `| **${s.d}** | ${s.cls} | ${bp.toFixed(2)}% | ${PRICE_COST[tier]} | ${cap == null ? '—' : cap + '/game'} | ${rawStr} | ${bal == null ? '—' : bal} | ${effStr} | ${clipRes} | ${gFt != null ? gFt + 's' : '—'} | ×${gMove} | ${bossStr} |\n`;
 }
 md += '\n**Per-wonder notes:**\n';
 for (const s of SPECIALS) {
   let note = s.note;
-  if (s.perEnemy) note = "WetEgg God of War melee (2026-07-07). **NO fixed damage number** - each hit deals a FRACTION of the target's max HP, so it kills in a set number of hits **configured per enemy**: normal zombie **" + LEVI_ENEMY.zombie + "** (a one-hit knife) · glitch **" + LEVI_ENEMY.glitch + "** · shielded **" + LEVI_ENEMY.shield + "** · Apothicon Fury **" + LEVI_ENEMY.fury + "** · heavyweight boss **" + LEVI_HITS.join('/') + "** by PaP tier (t0/T1/T2/T3). **At 2nd PaP and beyond (tier ≥ 2) the anti-elite counts sharpen: shielded " + LEVI_ENEMY.shield + "→**" + LEVI_ENEMY_PAP2.shield + "** and Apothicon Fury " + LEVI_ENEMY.fury + "→**" + LEVI_ENEMY_PAP2.fury + "** (one-shot).** Live dvars acc_leviathan_hits_{zombie,glitch,shield,shield_pap2,fury,fury_pap2,t0..t3}. Replaces the normal damage formula + boss cap for this weapon. **Swing speed also scales +10% per PaP tier** (user 2026-07-09): the spd twin axis swaps the axe to a faster GDT clone each tier (meleeTime 0.52 → 0.468/0.421/0.379, fireTime 0.48 → 0.432/0.389/0.35).";
+  if (s.perEnemy) note = "WetEgg God of War melee (2026-07-07). **NO fixed damage number** - each hit deals a FRACTION of the target's max HP, so it kills in a set number of hits **configured per enemy**: normal zombie **" + LEVI_ENEMY.zombie + "** (a one-hit knife) · glitch **" + LEVI_ENEMY.glitch + "** · shielded **" + LEVI_ENEMY.shield + "** · Apothicon Fury **" + LEVI_ENEMY.fury + "** · heavyweight boss **" + LEVI_HITS.join('/') + "** by PaP tier (t0/T1/T2/T3). **At 2nd PaP and beyond (tier ≥ 2) the anti-elite counts sharpen: shielded " + LEVI_ENEMY.shield + "→**" + LEVI_ENEMY_PAP2.shield + "** and Apothicon Fury " + LEVI_ENEMY.fury + "→**" + LEVI_ENEMY_PAP2.fury + "** (one-shot).** Live dvars acc_leviathan_hits_{zombie,glitch,shield,shield_pap2,fury,fury_pap2,t0..t3}. Replaces the normal damage formula + boss cap for this weapon. **Swing speed also scales +10% per PaP tier** (user 2026-07-09): the spd twin axis swaps the axe to a faster GDT clone each tier. **All 9 axe defs took a flat -8% swing-speed nerf 2026-07-17** (user; fireTime+meleeTime ×1.08 across base + spd + _brz twins, `tools/oneshots/gdt_leviathan_swing_nerf_0717.js`): meleeTime 0.5616 → 0.5054/0.4547/0.4093, fireTime 0.594 → 0.5378/0.4871/0.4417 (t0 → T1/T2/T3).";
   if (s.knife) note = "pmr360 pack over the STOCK-cooked t7 loot asset (box-only special, **not** claim-capped, TOP PaP price). Two attacks: a THROWN retrievable blade (stick → glow → walk-over pickup refills a knife; base 4 / PaP 9) AND its OWN melee stab (dedicated meleeAnim). **Damage is 100% SCRIPTED** (`_acc_damage.gsc`), so the GDT damage/meleeDamage only feed the boss-chip fall-through:\n" +
-        "  - **regular + glitch zombies (INCLUDING the Glitch Stalker):** guaranteed **one-hit**, any round, throw or stab (glitch-first, Leviathan-consistent).\n" +
+        "  - **glitch zombies (INCLUDING the Glitch Stalker):** guaranteed **one-hit at ANY round**, throw or stab (glitch-first, Leviathan-consistent).\n" +
+        "  - **regular zombies:** one-hit only through round **" + BK_ONEHIT_RD + "** (base) / round **" + BK_ONEHIT_RD_PAP + "** (PaP) — ROUND-GATED (user 2026-07-12 \"shouldn't be doing one hit the whole game\", dvars acc_bk_onehit_round / _pap); past the gate the hit falls through to the scaled chain below (throw ×" + BK_THROW_MULT + " / stab ×" + BK_STAB_MULT + " + Exo melee layer).\n" +
         "  - **Shielded / Riot elites:** **0 damage** — the blade deflects with a clang (even a maxed OC shield-pierce never gets through — intended hard wall).\n" +
         "  - **bosses / mini-bosses / Apothicon Fury:** normal multiplier chain with **throw ×" + BK_THROW_MULT + " / stab ×" + BK_STAB_MULT + "** (dvars acc_bk_throw_mult / acc_bk_stab_mult) **+ the Exo Suit melee layer on BOTH attacks**, backstopped by the " + Math.round(BOSS_CAP * 100) + "% per-hit boss cap = **capped chip** (≥" + Math.round(1 / BOSS_CAP) + " hits — NOT a boss-killer).\n" +
         "  - **PaP TIER 2 = the \"Krauss Refibrillator\":** stick (or land within ~128u of) a **DOWNED teammate** → **instant full revive** (jugg health, weapons restored, shooter credited, unlimited range). Base form never revives; tier 1 = damage bump only. Zero solo value (no revive target) — the CO-OP roll.\n" +
         "  - **Berzerker item:** the stab is a true melee → **BRZ badge** shows, connecting stabs pay the **5% max-HP blood tax**, and the implant grants **+35% stab speed** via the `_acc_brz` twins (`meleeTime` 0.65→0.48; throws untaxed / cadence unchanged).\n" +
         "  GDT ships `isBallisticKnife 0` (primary-slot projectile design) so the **name substring is the only live damage matcher**. Override `scripts/zm/_zm_weap_ballistic_knife.gsc` (needs the install `zm_patch.csv` dedupe). External pack — assets via `tools/external_assets_manifest.ps1`.";
+  // Live-value fixups on the static notes for the wonders whose numbers/wording drifted (user 2026-07-17
+  // doc-accuracy pass). reqReplace FAILS LOUD if the anchor phrase is gone (a note edit changed it) - so a
+  // future note rewrite can't silently strand a stale number; the parsed value keeps the doc correct across
+  // dvar retunes without re-touching the note.
+  if (s.d === 'Fire Bow') {
+    note = reqReplace(note, '1/5 / 1/4 / 1/3 / 1/2', FB_DOT_FRAC.map(fmtN).join(' / '), 'FB DoT frac');
+    note = reqReplace(note, 'div **80 / 65 / 50 / 40**', 'div **' + FB_BOSS_DIV.join(' / ') + '**', 'FB boss div');
+    note = reqReplace(note, '÷80..÷40', '÷' + FB_BOSS_DIV[0] + '..÷' + FB_BOSS_DIV[3], 'FB boss div range');
+    note = reqReplace(note, 'void **radius 110 / 140 / 170 / 200**', 'void **radius ' + FB_RADIUS.join(' / ') + '**', 'FB void radius');
+    note = reqReplace(note, 'chompers 1 / 1 / 2 / 3', 'chompers ' + FB_CHOMPERS.join(' / '), 'FB chompers');
+    note = reqReplace(note, '**Charged shot costs 3 arrows** (engine full-charge eats 2, the portal deducts 1 more post-fire',
+                      '**Charged shot costs ' + FB_CHARGE_TOTAL + ' arrows** (engine full-charge eats 2, the portal deducts ' + FB_CHARGE_EXTRA + ' more post-fire', 'FB charge cost');
+    note = reqReplace(note, 'bal 1.0.', 'bal ' + FB_BAL + ' (direct arrow / TAP hit; the DoT is exact-marked so it is exempt).', 'FB bal');
+    note = reqReplace(note, 'HOLD (charged demon-gate), 3 arrows = the real weapon', 'HOLD (charged demon-gate), ' + FB_CHARGE_TOTAL + ' arrows = the real weapon', 'FB hold-arrows');
+  }
+  if (s.d === "Winter's Howl") {
+    note = reqReplace(note, 'inner 1000 / outer 500; upgraded 1500 / 750; use_t8_damage_set doubles',
+                      'inner ' + FZ_INNER + ' / outer ' + FZ_OUTER + '; upgraded ' + FZ_INNER_UP + ' / ' + FZ_OUTER_UP + '; use_t8_damage_set swaps to an alt set (' + FZ_T8_INNER + '/' + FZ_T8_OUTER + ', upgraded ' + FZ_T8_INNER_UP + '/' + FZ_T8_OUTER_UP + ')', 'WH cone vars');
+    note = reqReplace(note, 'NOT scaled by acc_weapon_balance_mult, but the 10% per-hit boss cap still applies to bosses',
+                      'NOT scaled by acc_weapon_balance_mult (weaponless), but a player hit STILL takes the global ×' + GLOBAL + ' (weapon-agnostic), and the ' + Math.round(BOSS_CAP * 100) + '% per-hit boss cap still applies to bosses', 'WH global/cap');
+    note = reqReplace(note, 'off base vars 1000/500 = point-blank 1000->1500->2000->2500',
+                      'off base vars ' + FZ_INNER + '/' + FZ_OUTER + ' = point-blank ' + FZ_LADDER_IN.join('->'), 'WH PaP ladder');
+    note = reqReplace(note, 'BOSSES: 35%/5s move slow', 'BOSSES: ' + FZ_SLOW_PCT + '%/' + fmtN(FZ_BOSS_SEC) + 's move slow', 'WH boss slow');
+  }
+  if (s.d === 'Action Figure') {
+    note = reqReplace(note, 'each tier adds +1 cleave target',
+                      'each PaP tier scales SWING SPEED (fast1/2/3 twins); the old +1-cleave-target was REMOVED 2026-06-27', 'AF cleave->swing');
+  }
   md += `- **${s.d}:** ${note}\n`;
 }
 // DERIVED wonder list (user 2026-07-12 "no misinfo"): the WONDER-tier specials, straight from pap_price_bucket,

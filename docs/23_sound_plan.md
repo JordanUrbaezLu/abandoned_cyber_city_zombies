@@ -77,8 +77,8 @@ and the ambient city bed (`acc_amb_city_bed`) — those are SFX/ambience meant t
 | `acc_brutus_music` | Boss battle LOOP. "The Final Boss Battle" (alperomeresin, Pixabay #158700). Name is historical — Brutus itself is music-less | `_acc_boss.gsc::boss_music()` (Phantom), dvar `acc_boss_music_on` |
 | `acc_paradise_calm` | PHASE-1 victory-fakeout fanfare (one-shot) | [`_acc_paradise.gsc:249`](../scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc#L249) |
 | `acc_paradise_omen` | Pre-onslaught omen sting (`PlayLocalSound` per player) | [`_acc_paradise.gsc:260`](../scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc#L260) |
-| `acc_paradise_music` | The "115" battle anthem at max volume (overrides + stops boss music) | [`_acc_paradise.gsc:270`](../scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc#L270) |
-| `acc_ee_song` / `_2` / `_3` | Jukebox songs (random pick; the old CENTER/LEFT/RIGHT bears) | [`_acc_jukebox.gsc:63-65`](../scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc#L63) |
+| `acc_paradise_music` | The "115" battle anthem at max volume (overrides + stops boss music). Wav = the **115 Remaster** since 2026-07-18 (user-supplied, replaced the 2026-06 rip; 44.1k→48k stereo) with the **+10%** boost re-applied (`tools/amplify_wav.js --loudness-db 0.83` tanh soft-clip — "final boss battle is meant to be loud and intense"; fresh backup `115.wav.preamp-orig` = the clean remaster; needs a game-closed sound build) | [`_acc_paradise.gsc:270`](../scripts/zm/zm_abandoned_cyber_city/_acc_paradise.gsc#L270) |
+| `acc_ee_song` / `_2` .. `_7` | Jukebox songs (random pick, hold = song length; 1-3 = the old CENTER/LEFT/RIGHT bears, 4-7 added 2026-07-18: Dead Again / Beauty of Annihilation / Can You Hear Me? Come In / The Gift — 🚫 TEST-ONLY, CREDITS.md) | [`_acc_jukebox.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc) |
 | `mus_roundstart1_intro` / `mus_roundend1_intro` | Kino/WaW round-change stingers (WetEgg pack, aliases only). Layered on their own emitter — theme keeps playing under | `_acc_music::round_stinger_loop` hooks stock `start_of_round` / `end_of_round` |
 | `mus_gameover_intro` | Game-over song; routes through the channel (stops the theme) | `_acc_music::gameover_song_watcher` on `end_game` |
 | `mus_dogstart1_intro` / `mus_dogend1_intro` | In the CSV but **unhooked** — this map has no dog rounds | — |
@@ -120,9 +120,37 @@ vs `_acc_perk_lights::perk_color_index`): PhD Flopper = `specialty_electriccherr
 `nsz_brutus.csv` (Brutus boss), `mechz_spiki.csv` (Panzer), `acc_skye_box_weapons.csv`
 + `acc_apex_weapons.csv` + `_owens_weapons.csv` + `t5_thundergun_sounds.csv` (box guns),
 `elemental_bow_sounds.csv` (bows), `zm_ai_zod_companion.csv` / `zm_ai_apothicon_fury.csv`
-(companion + Fury elite). **Game-rip packs are gitignored and NOT publish-cleared** (§4).
+(companion + Fury elite), `west/vg_kortifex_ann.csv` + `acc_kortifex_extra.csv`
+(Kortifex announcer, §1f). **Game-rip packs are gitignored and NOT publish-cleared** (§4).
 Stock starter `user_aliases.csv` + `ambient_mod` (AMBIENT `mpl_mod`) resolve from the
 tools install — keep them.
+
+### 1f. THE ANNOUNCER — Kortifex the Deathless (2026-07-12, full VO migration)
+
+The map announcer is the Vanguard Zombies **Kortifex** VO ([West] Kortifex Announcer
+pack, Westchief596; 46 wavs, 40 wired). Everything rides the STOCK announcer engine
+(`zm_audio::sndAnnouncerPlayVox` — 2D, one-line-at-a-time via `level.zmAnnouncerTalking`;
+an overlapping line is DROPPED, never queued). Two layers:
+
+- **Stock alias overrides (zero code)** — the pack CSV redefines `vox_zmba_*`:
+  powerup grabs (Insta-Kill / Double Points / Nuke "Kaboom" / Max Ammo / Fire Sale /
+  Death Machine "Full Power" / Bonus Points), the AW box **"bye bye"** (`boxmove`),
+  the Apothicon Fury **"fetch me their souls"** sendoff (`dogstart`), and the
+  `zmb_laugh_child` game-over laugh. CSV lives INSTALL-SIDE
+  (`share\raw\sound\aliases\west\vg_kortifex_ann.csv`, manifest-tracked).
+- **[`_acc_kortifex.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_kortifex.gsc)** —
+  extends the same registry (`sndAnnouncerVoxAdd`, public; prefix `vox_zmba_`) with the
+  29 repo aliases in `sound/aliases/acc_kortifex_extra.csv` (regen:
+  `tools/oneshots/gen_kortifex_extra_aliases.js`): **multikill medals** (chain ladder
+  8→30 Carnage/Slaughter/Butcher/Massacre/Bloodbath/Extermination, one-blast Big Bang /
+  Excessive Force, headshot-chain Deadeye, moving-chain Jackrabbit; ONE line per 25s),
+  **boss sendoff + roar** (`acc_boss_spawned`), **"Random perk!"** (both
+  `give_random_perk` sites via the nil-guarded `level.acc_kx_announce_random_perk`
+  fn-pointer), **eliminations** (`bled_out`), **down/revive quips** and **rare
+  round-start taunts** (VG holiday-event lines; `acc_kortifex_taunt_pct`, default 25,
+  0 = taunts off). Module kill-switch: `acc_kortifex_on` (default 1).
+- **Unwired (6, no matching mechanic):** timer frozen, cranked, time extended, gun
+  game, max armor, ammo mod.
 
 ---
 
@@ -291,7 +319,7 @@ repoint · `NONE` = no `PlaySound` call exists yet → add call + alias ·
 | Data Cache EXTRACTED | `_acc_data_shards.gsc:268` | **LIVE** | `acc_shard_pickup` |
 | **Powerup drop + grab (ALL sources)** | stock `_zm_powerups.gsc` via `specific_powerup_drop` | **LIVE** | `zmb_spawn_powerup` + `zmb_powerup_grabbed` — one pair covers Max Ammo / Insta-Kill / Nuke / Double Points / Fire Sale / Carpenter / Free Perk **and** every Altar/Emergency/Reactor/elite drop |
 | Nuke screen-clear whoomp | stock `_zm_powerup_nuke.gsc` | **LIVE** | `evt_nuke_flash` |
-| Announcer VO (Max Ammo!/Nuke!/…) | stock powerups | SILENT(stock) | `vox_zmba_powerup_*` not authored |
+| Announcer VO (Max Ammo!/Nuke!/…) | stock powerups + `_acc_kortifex.gsc` | **LIVE** | Kortifex migration (§1f): pack CSV overrides `vox_zmba_powerup_*`; medals/boss/perk/elim/taunt lines via `acc_kortifex_extra.csv` |
 | Powerup IDLE beacon loop | `_zm_powerups.gsc:833` | SILENT(stock) | `zmb_spawn_powerup_loop` |
 | Reactor STABILIZED success | `_acc_reactor.gsc:189-191` | **LIVE** | `acc_shard_pickup` (+ wants a fanfare) |
 | Implant Bench item ENABLED | `_acc_boss_items.gsc:1716` | **LIVE** | `acc_item_implant` |
@@ -395,8 +423,8 @@ stock alias** (§0), no code edit:
    (`zmb_laststand_down`/`heartbeat_loop`/`revive_start`/`revive_finished`).
 5. **Points blip + generic purchase cha-ching** — the constant dopamine loop
    (`zmb_cha_ching` / `zmb_points_gain`).
-6. **Announcer powerup VO** — the drop ding/grab already play (§5.2); add
-   `vox_zmba_powerup_*` for Max Ammo/Insta-Kill/Nuke/Double Points/Fire Sale/Carpenter.
+6. ~~**Announcer powerup VO**~~ — **DONE 2026-07-12**: Kortifex migration (§1f) —
+   pack CSV overrides `vox_zmba_powerup_*`, plus medals/boss/perk/elim/taunt lines.
 7. **Boss telegraphs** — generic boss spawn surge + death sting + Glitch Stalker
    wave-inbound / vuln-window (makes the signature bosses readable by ear).
 8. **Event alarms** — Decon countdown beeps + seal slam, Hack success/fail, Reactor

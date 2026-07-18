@@ -68,19 +68,23 @@ Shot details for each are in §3.
 [b]The neon never turned off. Neither did whatever's still down there.[/b]
 
 This isn't a normal zombies map. It's a [b]descent[/b]. Build a character from nothing, drop
-below the streets, and claw DOWN through an Abyss that gets deadlier every floor. The city
-reshuffles every match. The bottom is real — and almost nobody reaches it.
+below the streets, and claw DOWN through an Abyss that gets deadlier every floor. The bottom
+is real — and almost nobody reaches it.
 
 [b]Think you can?[/b]
 
 [hr][/hr]
 
+[img]https://images.steamusercontent.com/ugc/10310496277133168107/8E87FAE510213BA88A64EC6E93A1854ED8C6C0DD/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
+
 [h1]⬢ THE CITY THAT FIGHTS BACK[/h1]
-A dead neon metropolis that re-randomizes every run — no memorized route survives twice. Turn
+A dead neon metropolis of busted power and cyber-tech gone dark. Turn
 the power on, crack the doors, and find the trench cut straight through its heart. Because the
 only way forward is [b]down[/b].
 
-[img]REPLACE-WITH-STEAM-CDN-URL/shot-02-city-street[/img]
+[hr][/hr]
+
+[img]https://images.steamusercontent.com/ugc/15737522797851495934/E93CCD85371B5C6B10FA366B0377EA9103EC42E7/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]⬇ THE DESCENT — FIVE FLOORS OF ABYSS[/h1]
 Below the streets the map drops into a vertical Abyss. [b]Five layers. Each one deeper is
@@ -90,7 +94,9 @@ floors — if you live long enough to buy them.
 
 [b]Risk it, or stay shallow and stay weak.[/b]
 
-[img]REPLACE-WITH-STEAM-CDN-URL/shot-03-abyss-descent[/img]
+[hr][/hr]
+
+[img]https://images.steamusercontent.com/ugc/12597091942071439659/48528BF20F3CBBB241083367CDF8B90CB21FF38B/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]⚙ BUILD A MONSTER[/h1]
 Bank [b]Data Shards[/b] down in the trench and spend them on power that sticks: bolt an
@@ -100,18 +106,23 @@ an 11-item loot pool, 3 implant slots, endless build combos. Then chase [b]Mega 
 boss-tier upgrades that turn survival tools into win conditions. Triple-tier Pack-a-Punch
 on top of it all.
 
-[img]REPLACE-WITH-STEAM-CDN-URL/shot-04-progression-hud[/img]
+[hr][/hr]
+
+[img]https://images.steamusercontent.com/ugc/14813031108365527832/3F2066C0F4400C28E2FB124F7C677C273CDCBC78/?imw=2048&imh=1152&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img]
 
 [h1]🔫 THE ARSENAL — SIX COD GAMES… AND APEX LEGENDS[/h1]
-Nearly 30 box weapons, every one Pack-a-Punchable and Overclock-ready — pulled from six Call of
-Duty games and a squad ripped straight out of [b]Apex Legends[/b]:
+Over 30 box weapons pulled from six Call of Duty games and a squad ripped straight out of
+[b]Apex Legends[/b] — most Pack-a-Punchable and Overclock-ready, topped with FIVE wonder weapons:
 [list]
-[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Beam Rifle
-[*][b]Wonders & specials:[/b] Thundergun · Fire Bow · Leviathan Axe · Blast-O-Matic · Action Figure melee
-[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · M16 · HAMR · MORS railgun · Mahem launcher — and 15 more
+[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Triple Take · Havoc Beam Rifle
+[*][b]Five wonder weapons:[/b] Thundergun · Blast-O-Matic · Fire Bow · God of War's Leviathan Axe · Winter's Howl freeze gun
+[*][b]Melee & utility:[/b] Action Figure swing · Ballistic Knife (Krauss teammate revive)
+[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · HAMR · MORS railgun · Mahem launcher — and a dozen more
 [/list]
 
-[img]REPLACE-WITH-STEAM-CDN-URL/shot-05-arsenal-apex[/img]
+[hr][/hr]
+
+[img]https://images.steamusercontent.com/ugc/14596091217832613525/494DAEB94307F07A7D20E0F8E2280E37DE16B0D5/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]☠ FIVE BOSSES. NONE OF THEM PLAY FAIR.[/h1]
 Boss rounds escalate in number and never roll the same twice:
@@ -127,7 +138,9 @@ Every boss you drop leaves loot behind. Take it. You'll need it.
 And between boss rounds? [b]The Glitch Stalker[/b] — a blinking, teleporting mini-boss that
 hunts you every other round, in ever-growing numbers. You're never safe for long.
 
-[img]REPLACE-WITH-STEAM-CDN-URL/shot-06-boss-fight[/img]
+[hr][/hr]
+
+[img]https://images.steamusercontent.com/ugc/16786685705177830828/43E1767E508C71DBCFF3512CD7CB59F6C54F86A6/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]🎖 PLAY AS THE ORIGINAL CREW[/h1]
 Dempsey. Nikolai. Takeo. Richtofen. The classic crew is back — dropped into a neon city that
@@ -149,7 +162,7 @@ has seen it.
 [h1]DROP IN[/h1]
 [list]
 [*]Solo or 4-player co-op, tuned for a ceiling worth grinding toward
-[*]Per-run randomization — adapt or die
+[*]Fresh every round: a rotating 4-of-10 perk lineup, a weighted mystery box, and a no-repeat boss deck
 [*]Deep progression: Data Shards, Overclocks, triple-tier Pack-a-Punch, Mega perks, boss implants
 [*]Built for teams: hand guns to teammates at the Armory, pool resources in the Exchange vault
 [*]A true endgame with a real win condition — and a jukebox
@@ -165,12 +178,12 @@ resubscribe to force an update.[/i]
 
 ## 3. Shot list — the seven in-description images + the gallery
 
-Stage clean shots by launching in the map's built-in **dev/test mode** (`+set acc_dev 1`): open
-map and boss test-spawns let you frame the bosses and Paradise. Dev mode deliberately plays with
-real damage and does **not** auto power-on, so add `+set acc_god 1` (the standalone PLAY_GOD_MODE
-launch script) for god mode so you don't die while framing shots, and flip the Bus Station power
-switch yourself (or pass `+set acc_auto_power 1`). Grab at **1920×1080**, then downscale
-in-description images to **≤627px** wide. (reconciled to code 2026-07-11)
+Stage clean shots in the map's built-in **dev/test mode**: hardcode `level.acc_dev = true;` +
+`level.acc_god = true;` in `acc_resolve_dev_flags()` and rebuild (the 2026-07-15 test workflow —
+launch flags are not used; docs/22), then launch `PLAY_NORMAL.bat`. Dev gives the open economy and
+test spawns to frame the bosses and Paradise; god (demigod) keeps you alive while framing. Flip
+the Bus Station power switch yourself. Grab at **1920×1080**, then downscale in-description
+images to **≤627px** wide. (reconciled to the single-launcher workflow 2026-07-15)
 
 | Slot | Section | What to shoot | Framing / tips |
 |---|---|---|---|

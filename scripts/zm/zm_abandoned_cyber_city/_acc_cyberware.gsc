@@ -41,6 +41,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the kiosk table
 
 // Cyberware kiosk world model (the "implant bench"; stock t7 prop, also xmodel-listed
 // in the .zone). Same white metal workbench as the Plaza Implant Bench.
@@ -418,11 +419,13 @@ function spawn_kiosk_at( origin, yaw )
     m = spawn( "script_model", origin );
     m setmodel( "p7_cai_work_table_metal_03_white" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+    acc_interact_glow::glow_on( m );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
     t SetHintString( "Hold ^3[{+activate}]^7  ^5CYBERWARE^7 - buy node (crouch = respec)" );
+    t.acc_kiosk_model = m;   // glow_off target on first successful node buy
     t thread kiosk_loop();
     acc_utility::log( "cyberware: kiosk spawned at " + origin );
 }
@@ -458,6 +461,7 @@ function kiosk_loop()
             {
                 try_purchase( player, node.id );
                 bought_something = true;
+                acc_interact_glow::glow_off( self.acc_kiosk_model );   // first successful buy (undefined-safe on Radiant kiosks)
                 break;
             }
         }

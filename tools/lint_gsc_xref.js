@@ -67,7 +67,11 @@ function fnsOf(code) {
 }
 
 // --- build our-module index ----------------------------------------------------
-const ourFiles = fs.readdirSync(ourDir).filter(f => f.endsWith('.gsc')).map(f => path.join(ourDir, f));
+// .csc twins are linted too (2026-07-15 audit): they are compiled via the same zone manifest as the
+// .gsc modules, so an unresolved xref in one is just as fatal - but this glob used to take '.gsc' only,
+// leaving every authored client twin (_acc_lui.csc, _acc_perk_lights.csc, _acc_boss_nameplate.csc,
+// _acc_boss_phantom.csc, _zm_ai_avogadro.csc) silently unlinted.
+const ourFiles = fs.readdirSync(ourDir).filter(f => f.endsWith('.gsc') || f.endsWith('.csc')).map(f => path.join(ourDir, f));
 const allFiles = [...ourFiles, entryGsc, entryCsc];
 const mods = allFiles.map(f => {
   const code = strip(fs.readFileSync(f, 'utf8'));

@@ -8,6 +8,9 @@
 #   4. fast-file check       (a fresh, non-corrupt .ff exists in the usermap)
 #   4b. LED-bake check        (lightmaps fresh: .led NEWER than .d3dbsp - catches the
 #                              brush.cpp:1860 bake crash that build_map only WARNs about)
+#   4c. publish-folder hygiene (no orphan '*~lk' build-lock temp files in the upload
+#                              folder - the Launcher ships the WHOLE zone dir, so a stale
+#                              multi-GB .xpak~lk would upload; + total upload-size sanity)
 #   5. workshop.json check   (release metadata present + not still "dev build")
 #   6. presentation check    (thumbnail 512x512, >=5 screenshots)
 #   7. IP / CREDITS check     (the per-asset clearance gate for going PUBLIC)
@@ -92,13 +95,17 @@ function Get-PngSize($path) {
 }
 
 # ===========================================================================
-# 0. ship-safe flag gate - the dev/god hardcode MUST be flipped back to the
-#    dvar resolution before ANY publish (review fix 2026-07-08: the temporary
-#    `level.acc_dev = true` / `level.acc_god = true` test hardcodes in
-#    acc_resolve_dev_flags() ship an invulnerable full-dev build, and nothing
-#    else in this script looked at that line).
+# 0. ship-safe flag gate - the dev/god hardcodes MUST be flipped back to
+#    `false` before ANY publish (review fix 2026-07-08: a shipped
+#    `level.acc_dev = true` / `level.acc_god = true` is an invulnerable
+#    full-dev build). TIGHTENED 2026-07-16 (user: "even the dev flag is not
+#    used as a launch flag - we hardcode on and rebuild"): the SHIP state is
+#    now `level.acc_dev = false;` / `level.acc_god = false;` - the old
+#    getdvarint() ship resolution was REMOVED because it let any subscriber
+#    arm the dev sandbox with `+set acc_dev 1`. This gate now also FAILS if
+#    a dvar read of acc_dev/acc_god ever reappears in the entry script.
 # ===========================================================================
-Step "ship-safe flags (acc_dev / acc_god not hardcoded)"
+Step "ship-safe flags (acc_dev / acc_god hardcoded false, no dvar path)"
 $entryGsc = Join-Path $RepoRoot "scripts\zm\$MapName.gsc"
 if (-not (Test-Path $entryGsc)) {
     Record 'ship-safe flags' 'WARN' 'any' "entry script not found at $entryGsc - cannot verify"
@@ -106,10 +113,73 @@ if (-not (Test-Path $entryGsc)) {
     $entrySrc = Get-Content $entryGsc -Raw
     # an ACTIVE (uncommented) hardcode of either flag to a truthy literal
     $hardcoded = @([regex]::Matches($entrySrc, '(?m)^\s*level\.acc_(dev|god)\s*=\s*(true|1)\s*;') | ForEach-Object { $_.Groups[1].Value })
+    # any launch-flag/dvar resolution path for either flag (forbidden since 2026-07-16);
+    # (?!\s*//) skips comment lines - a backtrackable char-class negation would false-positive on them
+    $dvarRead  = @([regex]::Matches($entrySrc, '(?im)^(?!\s*//).*getdvar\w*\(\s*"acc_(dev|god)"') | ForEach-Object { $_.Groups[1].Value })
     if ($hardcoded.Count -gt 0) {
-        Record 'ship-safe flags' 'FAIL' 'any' ("HARDCODED ON in acc_resolve_dev_flags(): {0} - restore the getdvarint() resolution (default 0) before publishing" -f (($hardcoded | Sort-Object -Unique) -join ', '))
+        Record 'ship-safe flags' 'FAIL' 'any' ('HARDCODED ON in acc_resolve_dev_flags(): {0} - restore the hardcoded-false ship line(s) before publishing' -f (($hardcoded | Sort-Object -Unique) -join ', '))
+    } elseif ($dvarRead.Count -gt 0) {
+        Record 'ship-safe flags' 'FAIL' 'any' ('acc_resolve_dev_flags() reads the acc_{0} dvar - the launch-flag path is forbidden (user 2026-07-16); ship state is a hardcoded false' -f (($dvarRead | Sort-Object -Unique) -join ', '))
     } else {
-        Record 'ship-safe flags' 'PASS' 'any' 'acc_dev / acc_god resolve from dvars (ship-safe default 0)'
+        Record 'ship-safe flags' 'PASS' 'any' 'acc_dev / acc_god hardcoded false (no dvar/launch-flag arming path)'
+    }
+}
+
+# ===========================================================================
+# 0b. party-mock gate (added 2026-07-15). ACC_MOCK_PARTY in AetheriumHud.lua is
+#     the ONE test-force that is NOT acc_dev-gated - Lua cannot read level.acc_dev,
+#     so a `true` here ships to every subscriber and MASKS real teammates' party
+#     slots with fake players. It was found ON during this publish prep while
+#     gate 0 (dev/god) passed, which is exactly why it needs its own check.
+# ===========================================================================
+Step "ship-safe flags (party mocks off)"
+$hudLua = Join-Path $RepoRoot "ui\uieditor\menus\hud\AetheriumHud.lua"
+if (-not (Test-Path $hudLua)) {
+    Record 'party mocks' 'WARN' 'any' "AetheriumHud.lua not found at $hudLua - cannot verify"
+} else {
+    $hudSrc = Get-Content $hudLua -Raw
+    # an ACTIVE (non-comment) assignment of the mock flag to true; Lua comments start with --
+    if ([regex]::IsMatch($hudSrc, '(?m)^\s*(?!--)\s*local\s+ACC_MOCK_PARTY\s*=\s*true\b')) {
+        Record 'party mocks' 'FAIL' 'any' 'ACC_MOCK_PARTY = true in AetheriumHud.lua - fake party members would REPLACE real teammates for every player. Set it false before publishing.'
+    } else {
+        Record 'party mocks' 'PASS' 'any' 'ACC_MOCK_PARTY off (real co-op party slots)'
+    }
+}
+
+# ===========================================================================
+# 0c. no-per-feature-lever gate (TIGHTENED 2026-07-16; was "debug channels
+#     default OFF", added 2026-07-15). The doctrine is now stronger: per-feature
+#     debug/test dvar gates must not EXIST at all (user: only acc_dev / acc_god /
+#     ACC_MOCK_PARTY). All ~26 acc_*_debug/_dbg/_test levers were removed
+#     2026-07-16 - debug rides IS_TRUE(level.acc_dev). This gate fails if any
+#     such dvar gate reappears in live code, regardless of its default - the
+#     old default-0 form was exactly how the lever plague grew back last time.
+#     (Live-balance dvars are unaffected: the pattern only matches names ending
+#     in debug/dbg/test, not _enable/_mult/_round etc.)
+# ===========================================================================
+Step "no per-feature debug/test dvar levers (only acc_dev/acc_god/mock exist)"
+$levers = @()
+$scriptDir = Join-Path $RepoRoot 'scripts'
+if (-not (Test-Path $scriptDir)) {
+    Record 'no debug/test levers' 'WARN' 'any' "script tree not found at $scriptDir - cannot verify"
+} else {
+    foreach ($f in (Get-ChildItem -Path $scriptDir -Recurse -Include '*.gsc', '*.csc')) {
+        # the stash under tools/ is not compiled; scripts/ only
+        $ln = 0
+        foreach ($line in (Get-Content $f.FullName)) {
+            $ln++
+            # skip commented-out code - only an ACTIVE gate is a lever
+            if ($line -match '^\s*//') { continue }
+            $m = [regex]::Match($line, 'getdvar\w*\(\s*"([a-z0-9_]*(?:debug|dbg|test))"')
+            if ($m.Success) {
+                $levers += ("{0} ({1}:{2})" -f $m.Groups[1].Value, $f.Name, $ln)
+            }
+        }
+    }
+    if ($levers.Count -gt 0) {
+        Record 'no debug/test levers' 'FAIL' 'any' ("per-feature debug/test dvar gate(s) found - the doctrine allows ONLY acc_dev/acc_god/ACC_MOCK_PARTY; gate the behavior on IS_TRUE(level.acc_dev) or delete it: {0}" -f (($levers | Sort-Object -Unique) -join '; '))
+    } else {
+        Record 'no debug/test levers' 'PASS' 'any' 'no per-feature debug/test dvar gates in live code (debug rides acc_dev)'
     }
 }
 
@@ -192,6 +262,38 @@ if (-not (Test-Path $BspPath) -or -not (Test-Path $LedPath)) {
 }
 
 # ===========================================================================
+# 4c. publish-folder hygiene - the Launcher uploads the WHOLE usermaps\<map>\zone
+#     folder with NO filter, so orphaned build LOCK-temp files ('*~lk') would ship
+#     into the Workshop item. The linker/sound build streams to '.xpak~lk'/'.sabl~lk'
+#     then renames on its OWN success; an interrupted/superseded build leaves a
+#     MULTI-GB orphan nothing auto-cleans (the 2026-07-16 "4.1->7.1 GB" scare was a
+#     3.04 GB zm_....xpak~lk left in the folder). build_map.ps1 (gate 3) now sweeps
+#     these before every link, so a normal full-build prep run is already clean here -
+#     this gate is the belt-and-suspenders for the -NoBuild / Launcher-GUI-build paths.
+#     A healthy upload folder is ~3.7 GB (.ff ~120MB + .xpak ~3.2GB streamed textures
+#     + snd ~0.24GB). Read-only, per this script's contract - it reports the fix, never
+#     deletes. Track 'any': a stale multi-GB orphan should block EVEN a private publish.
+# ===========================================================================
+Step "publish-folder hygiene (no orphan *~lk; upload size sane)"
+if (-not (Test-Path $FfDir)) {
+    Record 'publish-folder hygiene' 'WARN' 'any' "zone output folder not found at $FfDir - run a build first"
+} else {
+    $orphans  = @(Get-ChildItem -Path $FfDir -Recurse -File -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name.EndsWith('~lk') })
+    $folderGB = ((Get-ChildItem -Path $FfDir -Recurse -File -ErrorAction SilentlyContinue |
+                  Measure-Object -Property Length -Sum).Sum / 1GB)
+    if ($orphans.Count -gt 0) {
+        $oMb   = ($orphans | Measure-Object -Property Length -Sum).Sum / 1MB
+        $names = ($orphans | ForEach-Object { "{0} ({1:N0} MB)" -f $_.Name, ($_.Length / 1MB) }) -join ', '
+        Record 'publish-folder hygiene' 'FAIL' 'any' ("orphan build-lock temp file(s) totalling {0:N0} MB WOULD SHIP into the Workshop item (whole-folder upload): {1}. Fix - re-run a full build (auto-sweeps) OR delete manually: Get-ChildItem `"{2}`" -Recurse -File | ? {{ `$_.Name.EndsWith('~lk') }} | Remove-Item -Force" -f $oMb, $names, $FfDir)
+    } elseif ($folderGB -gt 5) {
+        Record 'publish-folder hygiene' 'WARN' 'public' ("no orphan *~lk, but the upload folder is {0:N2} GB (healthy ~3.7 GB) - inspect for other stray/duplicate files before uploading" -f $folderGB)
+    } else {
+        Record 'publish-folder hygiene' 'PASS' 'any' ("no orphan *~lk; upload folder {0:N2} GB" -f $folderGB)
+    }
+}
+
+# ===========================================================================
 # 5. workshop.json - release metadata present and not still a dev placeholder
 # ===========================================================================
 Step "workshop.json (publish metadata)"
@@ -236,18 +338,56 @@ if (-not (Test-Path $wsPath)) {
 # 6. presentation assets - thumbnail + screenshots
 # ===========================================================================
 Step "presentation assets (thumbnail + screenshots)"
-$thumb = Join-Path $ZoneDir 'previewimage.png'
+# TWO DIFFERENT SURFACES - do not conflate them (2026-07-18):
+#   previewimage.png  = the IN-GAME map card (bottom-left of map select). The engine
+#                       reads it off disk per-usermap; stock LUI MapNameToMapImage()
+#                       falls through to Engine.UpdateModPreviewImage(<ugcName>) for
+#                       usermaps. Launcher template spec = 600x340 (ZM + MP templates
+#                       both ship exactly that). NOT a fastfile asset - no .zone line.
+#   workshopimage.png = the STEAM WORKSHOP web thumbnail, pointed at by the absolute
+#                       "Thumbnail" path in workshop.json. Steam wants square/512.
+# A single file cannot serve both: 512x512 in the 600x340 card slot renders stretched.
+$card = Join-Path $ZoneDir 'previewimage.png'
+if (-not (Test-Path $card)) {
+    Record 'map card' 'FAIL' 'public' "no zone\previewimage.png (in-game map-select card)"
+} else {
+    $sz = Get-PngSize $card
+    if ($sz -and $sz.W -eq 600 -and $sz.H -eq 340) {
+        Record 'map card' 'PASS' 'public' "previewimage.png is 600x340 (Launcher template spec)"
+    } elseif ($sz) {
+        Record 'map card' 'WARN' 'public' ("previewimage.png is {0}x{1} - in-game card wants 600x340; other ratios render stretched" -f $sz.W, $sz.H)
+    } else {
+        Record 'map card' 'WARN' 'public' "previewimage.png present (could not read size)"
+    }
+}
+
+$thumb = Join-Path $ZoneDir 'workshopimage.png'
 if (-not (Test-Path $thumb)) {
-    Record 'thumbnail' 'FAIL' 'public' "no zone\previewimage.png"
+    Record 'thumbnail' 'FAIL' 'public' "no zone\workshopimage.png (workshop.json Thumbnail points here)"
 } else {
     $sz = Get-PngSize $thumb
     if ($sz -and $sz.W -eq 512 -and $sz.H -eq 512) {
-        Record 'thumbnail' 'PASS' 'public' "previewimage.png is 512x512"
+        Record 'thumbnail' 'PASS' 'public' "workshopimage.png is 512x512"
     } elseif ($sz) {
-        Record 'thumbnail' 'WARN' 'public' ("previewimage.png is {0}x{1} - Steam recommends 512x512 for a crisp Workshop thumbnail" -f $sz.W, $sz.H)
+        Record 'thumbnail' 'WARN' 'public' ("workshopimage.png is {0}x{1} - Steam recommends 512x512 for a crisp Workshop thumbnail" -f $sz.W, $sz.H)
     } else {
-        Record 'thumbnail' 'WARN' 'public' "previewimage.png present (could not read size)"
+        Record 'thumbnail' 'WARN' 'public' "workshopimage.png present (could not read size)"
     }
+}
+
+# The publisher uploads the whole zone\ folder VERBATIM - anything parked here ships to
+# subscribers. Caught 2026-07-18: a stale greybox screenshot (previewimage.png.acc-orig-
+# landscape, 965 KB) and workshop.json.example were both live in the published item.
+$zoneAllowed = @(
+    'previewimage.png', 'workshopimage.png', 'loadingimage.png', 'workshop.json'
+)
+$strays = Get-ChildItem $ZoneDir -File -ErrorAction SilentlyContinue | Where-Object {
+    $_.Extension -notin @('.ff', '.xpak') -and $_.Name -notin $zoneAllowed
+}
+if ($strays.Count -gt 0) {
+    Record 'zone strays' 'WARN' 'public' ("zone\ ships verbatim to subscribers - remove: {0}" -f (($strays | ForEach-Object { $_.Name }) -join ', '))
+} else {
+    Record 'zone strays' 'PASS' 'public' "no stray files in zone\ (only publish artifacts + presentation assets)"
 }
 # screenshots: zone\screenshot_*.png (any case) or a zone\screenshots\ folder
 $shots = @()

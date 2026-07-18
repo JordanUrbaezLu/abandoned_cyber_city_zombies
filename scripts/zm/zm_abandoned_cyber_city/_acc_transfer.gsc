@@ -11,9 +11,15 @@
 // out. No player-targeting (avoids the closest_player_override hazards) - anyone on
 // the team can withdraw what anyone deposited. In SOLO it is a personal stash.
 //
-// THE ROOM (tools/gen_plaza_basement.js): an enclosed vault at z=-240 directly UNDER
-// the spawn Plaza, reached by a stairwell carved DOWN from the Implant Lab and gated
-// by the buyable "enter_exchange" door (1500, wired in zm_abandoned_cyber_city.gsc).
+// THE ROOM (tools/gen_plaza_basement.js): an enclosed vault with its FLOOR AT z=-160
+// (CORRECTED 2026-07-17 - this header said "-240" for weeks and the stale claim made the
+// v1 teleporter pad spawn 80u under the floor + drop riders into the void; ground truth =
+// the tagged "vault floor slab" brush, .map ~L2603: top -160, room x[-720,300] y[-448,360],
+// ceiling -16) directly UNDER the spawn Plaza, reached by a stairwell carved DOWN from the
+// Implant Lab and gated by the buyable "enter_exchange" door (1500, wired in
+// zm_abandoned_cyber_city.gsc). NOTE the -240 belief also shaped spawn_station(): ATM bases
+// spawn at origin+(0,0,-80) = z=-240, i.e. 80u UNDER the real floor - only the totem's top
+// ~23u shows (it reads as a low pedestal in-game; left as-is 2026-07-17, user's call to raise).
 // It is excluded from the trench amping + OOB-kill via origin_in_vault() in
 // _acc_bus_trench.gsc (a SAFE utility room).
 //
@@ -43,6 +49,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the vault ATMs
 
 // Terminal mesh: the Cyber City interactive kiosk (stock t7 prop, proven-packing - same
 // model the Glitch Altar uses).
@@ -71,9 +78,11 @@ function init()
 }
 
 // Each station = a terminal model + a DEPOSIT pad + a WITHDRAW pad, laid out in the vault
-// room (gen_plaza_basement.js: room x[-360,300] y[-420,360], floor z=-240). The usable hall
-// is EAST of the stairwell well (x[-340,-116]); terminals sit at x~80 in a north-south row,
-// clear of the stairs and each other (pad radius 40, pads >=80u apart).
+// room (map ground truth 2026-07-17: room x[-720,300] y[-448,360], floor z=-160 - the old
+// "-240 floor / x[-360..]" numbers here were stale). The stair landing is the room's WEST
+// end (well x[-620,-380] y[-440,-312]); terminals sit at x~80 in a north-south row, clear
+// of the stairs and each other (pad radius 40, pads >=80u apart). The teleporter RED disc
+// (_acc_teleporter) sits far west (-640,40) - keep new stations east of x~-400.
 function spawn_stations()
 {
     level endon( "end_game" );
@@ -91,13 +100,14 @@ function spawn_station( kind, origin )
 {
     base = spawn( "script_model", origin + ( 0, 0, -80 ) );   // ATM origin is at its base - drop to the -240 floor
     base setmodel( "p7_out_monitor_atm" );
+    acc_interact_glow::glow_on( base );
 
     // DEPOSIT pad (west of the terminal) + WITHDRAW pad (east of the terminal).
-    spawn_pad( kind, "deposit",  origin + ( -55, 0, 0 ) );
-    spawn_pad( kind, "withdraw", origin + (  55, 0, 0 ) );
+    spawn_pad( kind, "deposit",  origin + ( -55, 0, 0 ), base );
+    spawn_pad( kind, "withdraw", origin + (  55, 0, 0 ), base );
 }
 
-function spawn_pad( kind, op, origin )
+function spawn_pad( kind, op, origin, base_model )
 {
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 40, 90 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger (memory script-trigger-needs-ignoreteam)
@@ -105,6 +115,7 @@ function spawn_pad( kind, op, origin )
     t SetHintString( pad_hint( kind, op ) );   // CONSTANT string (8 total) - dodges the 250-unique-hint cap
     t.acc_kind = kind;
     t.acc_op   = op;
+    t.acc_station_base = base_model;   // glow_off target on this station's first successful transaction
     t thread pad_loop();
 }
 
@@ -145,6 +156,14 @@ function pad_loop()
         if ( !isdefined( player ) || !zm_utility::is_player_valid( player ) )
             continue;   // gate BOTH ends with is_player_valid (downed/spectating can't transact)
 
+        // Success detection (user 2026-07-17 "successful trigger" stops the glow): the op helpers
+        // deny() internally with no return value, so snapshot the four pools and compare - any
+        // pool change means the transaction actually went through.
+        pre_p = level.acc_vault_points;
+        pre_s = level.acc_vault_shards;
+        pre_b = level.acc_vault_bottles;
+        pre_i = level.acc_vault_items.size;
+
         is_deposit = ( self.acc_op == "deposit" );
         switch ( self.acc_kind )
         {
@@ -161,6 +180,9 @@ function pad_loop()
             if ( is_deposit ) deposit_item( player );    else withdraw_item( player );
             break;
         }
+        if ( level.acc_vault_points != pre_p || level.acc_vault_shards != pre_s ||
+             level.acc_vault_bottles != pre_b || level.acc_vault_items.size != pre_i )
+            acc_interact_glow::glow_off( self.acc_station_base );   // pool changed = successful transaction
         wait 0.4;   // per-press debounce (one hold must not double-fire)
     }
 }
@@ -193,7 +215,13 @@ function deposit_points( player )
 
     net = after_tax( n );   // pool gets ~90% (the 10% tax is destroyed)
     if ( net <= 0 ) { player deny( "too few Points to deposit after tax" ); return; }
+    // Snapshot around the debit: the Shopping Free gobblegum makes minus_to_player_score a NO-OP (deducts
+    // nothing), yet we would still credit the vault = minted points (audit 2026-07-12). Only proceed if the
+    // points were actually removed. GSC is single-threaded across these two reads (no wait), so no race.
+    before = ( isdefined( player.score ) ? player.score : 0 );
     player zm_score::minus_to_player_score( n );
+    after = ( isdefined( player.score ) ? player.score : 0 );
+    if ( ( before - after ) < n ) { player deny( "deposit blocked - no Points were spent" ); return; }
     level.acc_vault_points += net;
     player ok( "Deposited ^3" + n + " Points^7 (tax ^1-" + ( n - net ) + "^7)" );   // vault total dropped - see ok() (string-cache)
 }
@@ -264,7 +292,10 @@ function withdraw_bottle( player )
 // Deposit the loose CARRIED item if any; else UN-IMPLANT the first occupied slot (unequip_slot runs
 // on_unequip = the buff/flag/watcher actually stop, and recompute_move_speed re-runs for the giver).
 // Withdraw drops the oldest vaulted item into the recipient's CARRY slot - they enable it at an
-// Implant Bench (upstairs), exactly like a fresh pickup (the bench handles a duplicate -> shards).
+// Implant Bench (upstairs), exactly like a fresh pickup. An item you already have IMPLANTED is
+// REFUSED at the withdraw pad and stays in the vault for a teammate - the ground grab's exact
+// semantics (docs/09; the bench does NOT convert an implanted duplicate to shards - it refuses it,
+// so handing one to the carry slot would strand it: see withdraw_item).
 function deposit_item( player )
 {
     // capacity check BEFORE any mutation, so a full locker never strips the item off the player.
@@ -312,6 +343,18 @@ function withdraw_item( player )
     if ( isdefined( player.acc_carried_item ) ) { player deny( "enable your carried item at a bench first" ); return; }
 
     id = level.acc_vault_items[ 0 ];
+    // ALREADY IMPLANTED (any slot) -> refuse and LEAVE it in the vault for a teammate, mirroring the
+    // ground grab (acc_boss_items::watch_pickup refuses an implanted duplicate instead of consuming it).
+    // MUST be checked BEFORE the pop, or the withdraw JAMS the player three ways: the bench refuses to
+    // implant a duplicate (never converts it), push_implants_clientfield hides an already-implanted carry
+    // so the CARRYING card stays EMPTY (no on-screen explanation), and the carry gate above then denies
+    // every FURTHER withdrawal - telling them to bench the one item the bench will not take.
+    if ( acc_boss_items::player_has_item( player, id ) )
+    {
+        player deny( "you already have that implanted - it stays in the vault" );
+        return;
+    }
+
     // pop index 0 (FIFO)
     rest = [];
     for ( i = 1; i < level.acc_vault_items.size; i++ )
@@ -326,8 +369,9 @@ function withdraw_item( player )
     if ( isdefined( istruct ) ) player iprintln( "^5" + istruct.desc );   // what it does (user 2026-07-11; desc set is fixed -> string-cache safe)
 }
 
-// First occupied implant slot (0 or 1), or -1 if both empty. acc_equipped_items is a fixed 2-array
-// with "" sentinel for empty (set in acc_boss_items::on_player_connect).
+// First occupied implant slot, or -1 if all are empty. acc_equipped_items is a fixed
+// ACC_ITEM_SLOTS_PER_PLAYER-element array (3 since 2026-07-09) with "" sentinel for empty (set in
+// acc_boss_items::on_player_connect) - the loop is size-driven, so it needs no slot-count constant.
 function first_filled_slot( player )
 {
     if ( !isdefined( player.acc_equipped_items ) ) return -1;

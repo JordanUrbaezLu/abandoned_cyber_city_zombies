@@ -100,20 +100,36 @@ The bus_trench watcher writes the player's current layer to **`player.acc_trench
   every spawn, so the exo/trench slow must be re-applied after death/revive) + `sync_exo_hud(p)`.
 - `spawn_station()` / `spawn_station_at(origin, yaw)` — model + `trigger_radius_use` **+
   `TriggerIgnoreTeam()`** (the script-trigger lesson, memory `script-trigger-needs-ignoreteam`) +
-  `station_loop`. Records `origin` in `level.acc_exo_station_origins` for the proximity card (§10).
+  `station_loop` **+ `station_hint_loop`**. Records `origin` in `level.acc_exo_station_origins` for the
+  proximity card (§10).
 - `station_loop()` — on use: alive-check → if `tier < ACC_EXO_MAX`, `acc_data_shards::try_spend( cost )`
-  → `tier++` → `PlaySound( "acc_shard_pickup" )` → `recompute_move_speed` + `sync_exo_hud`. Live
-  feedback is written into the **trigger hint string** (no popups — user 2026-07-03): `"EXO SUIT -
-  Tier N/10 - faster, tougher, stronger melee …"`, the too-poor prompt, and the `"Tier 10/10 MAX -
-  fully augmented"` line.
+  → `tier++` → `PlaySound( "acc_shard_pickup" )` → `recompute_move_speed` + `sync_exo_hud`. It
+  **writes no hint** — see below.
+- `station_hint_loop()` / `station_hint_text(p)` / `nearest_station_player(origin)` — the **nearest-player
+  keeper** that owns the hint. Live feedback still rides the **trigger hint string** (no popups — user
+  2026-07-03): `"EXO SUIT - Tier N/10 - faster, tougher, stronger melee - next costs X Data Shards …"`
+  and the `"Tier 10/10 MAX - fully augmented"` line — but composed from the player **at the pod**, polled
+  at 0.25s and change-guarded on `self.acc_last_exo_hint`.
+  **Why (co-op fix 2026-07-15):** `acc_exo_tier` is per-player but `SetHintString` is one *entity-global*
+  string, so writing it from the transaction latched the last buyer's private tier as the whole team's
+  prompt — a Tier-10 player's press left `"Tier 10/10 MAX - fully augmented"` pinned for a teammate at
+  Tier 0, hiding the map's core body sink and quoting them no price. The buy was always correct
+  (`station_loop` reads `player`), so this was purely a display leak, and **invisible solo**. Same
+  constraint `_acc_perk_info` documents for the perk wall ("the shown price can't be per-player on a
+  shared trigger"); same keeper shape as `acc_pap_levels::paradise_pap_hint_loop`. String set stays
+  bounded (10 tier lines + MAX + the idle discovery line = 12), well under the 250-triggerstring cap, and
+  no hint carries `hold`+`for` without a cost keyword (memory `lui-cursorhint-router-loose-weapon-matcher`).
 
 **Station model + placement.** A **cryogen stasis pod** (`p7_cry_cryogen_pod_exterior`, T7-dump carve,
 docs/09 remodel 2026-07-09) — a body-augmentation chamber. The pod origin is mid-body, so it spawns
-`+63 z` or it sinks into the floor. It lives **inside the Foundry under-room** (interior `x[−192,192]
-y[1379,1723]`, floor `z=−240`; buyable door = the WEST front gap `x[−192,−112]`), on the **WEST** side
-at `(−120, 1550, −240)`. The Neural Expansion Bay vendor sits on the **EAST** side at `(120, 1550)` (the
-two face opposite ends the long way). This realises the loop: earn shards in the pit → buy Exo tiers up
-top → descend → spend at the deeper sinks (Overclock, Glitch Altar — docs/30, `_acc_glitch_altar.gsc`).
+`+63 z` or it sinks into the floor. **MOVED to the PLAZA start room (user 2026-07-13)** — it previously
+lived in the Foundry under-room in the bus-station trench at `(−120, 1550, −240)`. It now sits on the open
+spawn-band floor of the Plaza (interior `x[−470,213] y[−240,720]`, floor `z=0`) at `(−200, −100, 0)`, yaw 0
+— front-left of a spawning player (spawns are `x[−120,40] y[−90,−130]`), immediately discoverable, and clear
+of the start box `(100,−150)`, the leaderboard terminal `(−340,−210)`, and all four plaza caches. Its `.map`
+collision clip is a shallow `z=0` worldspawn clip (`tools/add_prop_clips.js` `exo_station`; navmesh auto-cut,
+no LED risk). Buying tiers up top before descending still realises the loop: earn shards → buy Exo tiers →
+descend → spend at the deeper sinks (Overclock, Glitch Altar — docs/30, `_acc_glitch_altar.gsc`).
 
 **`_acc_utility.gsc::recompute_move_speed`** — reads `player.acc_trench_layer` + `player.acc_exo_tier`
 and applies the depth-aware slow (§2). Boots do NOT cancel it (they still give +8% overall via
@@ -122,7 +138,7 @@ and applies the depth-aware slow (§2). Boots do NOT cancel it (they still give 
 ## 8. Dvars (all live)
 `acc_exo_on` (1) · `acc_exo_cost_t1..t10` (4/8/12/16/20/24/28/32/36/40) · `acc_exo_slow_first` (0.20) ·
 `acc_exo_slow_step` (0.10) · `acc_trench_slow_on` (1) · **`acc_exo_resist_per_tier`** (0.06 = −6%/tier
-damage taken) · **`acc_exo_melee_per_tier`** (0.30 = +30%/tier knife/melee) · `acc_boots_mult` (1.08).
+damage taken) · **`acc_exo_melee_per_tier`** (0.15 = +15%/tier knife/melee; user 2026-07-18 halved from 0.30) · `acc_boots_mult` (1.08).
 Layer detection is hardcoded (ACC_UNDER_Z / ACC_LAYER_PITCH / ACC_LAYER_MAX), **not** dvar-driven.
 
 ## 9. The three augments + risks
@@ -132,7 +148,8 @@ Each tier stacks **THREE per-tier effects** (the body counterpart to the gun Ove
    `(1 - exo_tier * acc_exo_resist_per_tier)`, **clamped at −80%**, floored so a hit always deals ≥1
    (−30% at T5, −60% at T10 with the 0.06 default).
 3. **Knife/melee damage** — `_acc_damage.gsc::on_ai_damage` (~L816, melee-only; guns untouched): adds
-   `exo_tier * acc_exo_melee_per_tier` to the player's melee hits (+150% at T5, +300% at T10).
+   `exo_tier * acc_exo_melee_per_tier` to the player's melee hits (+75% at T5, +150% at T10 with the
+   0.15 default — user 2026-07-18 halved it from 0.30).
 
 Standing risks / gotchas:
 - **Move-speed reapply on spawn** — the #1 trap; the slow vanishes after death unless `recompute_move_speed`

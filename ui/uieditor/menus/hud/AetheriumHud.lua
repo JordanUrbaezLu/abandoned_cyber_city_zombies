@@ -137,7 +137,7 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	-- _zm_aetherium_hud.gsc::mock_party_feed drives for UNOCCUPIED slots in dev mode.
 	-- !!! While true, REAL teammates' slots are overridden by the mocks - FLIP TO false FOR
 	-- REAL CO-OP (this is the Lua half; the GSC feed self-limits to empty slots).
-	local ACC_MOCK_PARTY = false   -- SHIP: real teammates only (user 2026-07-03, publishing). true = dev/QA 4-player mocks. (Reverted 2026-07-04 for real co-op testing - mocks mask real teammates.)
+	local ACC_MOCK_PARTY = false   -- SHIP-SAFE / real co-op (user 2026-07-15 publish prep: "player mocks hardcoded off"). This is NOT dev-gated - Lua has no level.acc_dev - so `true` ships to every subscriber and MASKS real teammates. Set true only for a solo QA pass, and flip back before any publish build. GSC feed half: _zm_aetherium_hud.gsc mock_party_feed (that one IS acc_dev-gated).
 	local ACC_MOCK_NAMES = { "GhostByte_99", "ZombieJuggler", "NeonNomad" }
 
 	self.PartyPlayers = {}

@@ -10,7 +10,7 @@
 // charging ALONGSIDE the normal wave (his native ignore_enemy_count - he does not
 // gate round end), with the perk/box LOCK mechanic dropped (lock_machines=false in
 // the vendored copy). _acc_boss promotes each spawned actor with our health bar +
-// over-boss marker + 5x HP + +25% speed + Mega-Bottle/boss-item rewards.
+// over-boss marker + compounding boss HP + a small +3% speed (warden_speed_think) + Mega-Bottle/boss-item rewards.
 //
 // init() disables the pack's own min/max-round spawn cadence (it only sets up the
 // spawn-point structs); spawn_one() then spawns a single Brutus on demand and returns
@@ -104,9 +104,11 @@ function relocate_spawn_points_to_trench()
 //
 // SAFETY (Brutus's long crash/freeze history - memory brutus-miniboss-integration):
 //   - NO SetScale (the confirmed 0xC0000005 live-AI crasher).
-//   - NO PathMode change and NO speed setter on him - the _acc_zombie_speed keep-alive must
-//     keep skipping this actor via the is_boss/acc_boss_custom_speed guard, or his custom ASM
-//     gets stomped and he freezes (valid path, moved=0). We never touch his speed/anim-rate.
+//   - NO PathMode change here, and NO run-cycle override / SetScale EVER - the _acc_zombie_speed
+//     keep-alive must keep skipping this actor via the is_boss/acc_boss_custom_speed guard, or his
+//     custom ASM gets stomped and he freezes (valid path, moved=0). This tether loop writes NO speed;
+//     the ONLY speed write is a single bare ASMSetAnimationRate at spawn (warden_speed_think, +3%),
+//     safe precisely because the keep-alive skips him so nothing fights that one writer.
 //   - EVERY teleport/goal is GetClosestPointOnNavMesh-clamped first (off-mesh = HasPath()
 //     false = frozen), matching the pack's own clamp (nsz_brutus.gsc:247-251).
 //   - v_zombie_custom_goal_pos is NEVER left undefined / off-mesh, so he never stalls.
@@ -270,12 +272,13 @@ function warden_patrol_step( risers )   // self = Brutus
     self.v_zombie_custom_goal_pos = self.acc_warden_patrol_goal;
 }
 
-// On-screen trace (acc_warden_debug 1), throttled to ~0.5s. Watch: hasPath=Y + moving = no
+// On-screen trace (rides level.acc_dev - the acc_warden_debug dvar was removed 2026-07-16),
+// throttled to ~0.5s. Watch: hasPath=Y + moving = no
 // freeze; tgt flips Y only when a player is in the pit; inTrench=Y = he stayed down.
 function warden_debug()   // self = Brutus
 {
     self.acc_warden_dbg_tick++;
-    if ( getdvarint( "acc_warden_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [WARDEN] rides acc_warden_debug now)
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
     if ( ( self.acc_warden_dbg_tick % 10 ) != 0 ) return;
 
     tgt  = ( isdefined( self.brutus_enemy ) ? "Y" : "N" );
@@ -437,5 +440,39 @@ function paradise_warden_think()
         warden_debug();
 
         wait 0.05;
+    }
+}
+
+// =============================================================================
+// WARDEN SPEED (user 2026-07-12): a small +3% ground-speed buff for Brutus.
+//
+// SAFE NOW, unlike the 2026-06-15 speed think that was pulled: the ONLY documented Brutus
+// speed crashers are SetScale (0xC0000005) and set_zombie_run_cycle_override_value on his custom
+// ASM (the historical freeze). A BARE ASMSetAnimationRate is the sanctioned lever - it is exactly
+// how the other custom-ASM boss (Panzer, _acc_boss_panzer.gsc:462) scales its run gait, and the
+// freezegun already applies ASMSetAnimationRate to Brutus as a slow (proof it does NOT crash him).
+// No writer fight: the pack flags him acc_boss_custom_speed (nsz_brutus.gsc:203) so the global
+// _acc_zombie_speed keep-alive skips him, leaving THIS as the sole speed writer. Threaded once from
+// _acc_boss::spawn_brutus_miniboss.
+//
+// Re-asserted across the spawn window (NOT a permanent second writer): his %brutus_spawn rise anim
+// + the warden drop-in ForceTeleports can transiently reset the ASM rate, so we re-apply for a few
+// seconds, then stop. Rate is a live dvar acc_warden_anim_rate (default 1.03); <= 0 disables.
+// =============================================================================
+function warden_speed_think()   // self = the live Brutus
+{
+    self endon( "death" );
+    level endon( "end_game" );
+
+    rate = getdvarfloat( "acc_warden_anim_rate", 1.03 );
+    if ( rate <= 0 ) return;   // disabled -> leave his native gait untouched
+
+    // Re-assert across the spawn choreography (rise anim + drop-in teleports), then stop so we
+    // never become a permanent second ASM writer. ~6s covers the ~3s telegraph + drop-in retries.
+    for ( i = 0; i < 12; i++ )
+    {
+        if ( !isalive( self ) ) return;
+        self ASMSetAnimationRate( rate );
+        wait 0.5;
     }
 }

@@ -32,6 +32,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_jukebox;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_kortifex;   // Kortifex announcer (medals/boss/quips; stock vox_zmba_* overridden by the pack CSV)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_leaderboard;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_exo;
@@ -42,14 +43,20 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_brutus;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_glitch;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_scientist;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_movement;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_transfer;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_teleporter;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_armory;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_abilities;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_havoc_charge;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_tripletake;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_cyberjack;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leviathan_swing;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_points;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_corpse_cleanup;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_damage;
@@ -64,7 +71,11 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_health_bars;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_gun_badges;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_usage;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_deco;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_surface_deco;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_hazards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_power;
@@ -149,6 +160,17 @@ function init()
     // sky + wet-ground re-skin + reflection probes are Radiant edits (see doc).
     acc_atmosphere::init();
 
+    // Infected Descent abyss decoration + per-floor twist hazards (docs/30
+    // enhancement, all four floors dressed 2026-07-12; ramp-in: L2/L3 spatial,
+    // L4/L5 damaging. Kill-switches: acc_abyss_deco / acc_abyss_hazards).
+    acc_abyss_deco::init();
+    acc_abyss_hazards::init();
+
+    // Surface-zone static prop dressing (topside twin of the abyss deco). PILOT:
+    // Bus Station transit-concourse (BO2 TranZit props). Walk-through look pass -
+    // bake/navmesh-neutral. Kill-switch: acc_surface_deco.
+    acc_surface_deco::init();
+
     // Perk machine + Pack-a-Punch glow on power-on (the base-zombies "machines light
     // up when you turn the power on" look). Server sets a per-machine colour clientfield
     // on the power_on flag; the .csc renders the glow client-side (the path that works
@@ -203,6 +225,7 @@ function init()
     acc_emergency_drop::init();
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
     acc_jukebox::init();        // JUKEBOX (random song, 1 Data Shard + 1000 pts) in the NORTH trench room (the non-Overclock one)
+    acc_kortifex::init();       // KORTIFEX announcer (VG VO, [West] pack): medals + boss sendoff/roar + eliminations + taunts; kill-switch acc_kortifex_on
     acc_leaderboard::init();    // LEADERBOARD (docs/40) - end_game recorder (cloud POST, skipped in dev/god) + Plaza top-10 station
 
     acc_reactor::init();        // Reactor Surge climax event in the pit (needs data_shards + bus_trench; docs/30)
@@ -215,6 +238,9 @@ function init()
     acc_boss_glitch::init();
     // Phantom mini-boss (script-only holographic cloaker; the ~round-10 rotation-boss slot).
     acc_boss_phantom::init();
+    // The Scientist - Pentagon Thief homage (weapon-stealing labcoat sprinter, own thief-round
+    // cadence r7/every-6; docs/44 workstream B). AFTER phantom (borrows its promote factory).
+    acc_boss_scientist::init();
     // Paradise FINAL ONSLAUGHT: a timed 5-min survival fight (x4 spawns + Brutus/Phantom every minute +
     // shield/glitch gauntlet) that ENDS THE GAME on a win. After the boss modules it drives (brutus/glitch/
     // phantom) + abyss_doors (which arms it on Paradise open). docs/30.
@@ -234,6 +260,10 @@ function init()
     // After data_shards + mega_bottles + boss_items so their accessors are live; stations spawn in the
     // under-Plaza room (tools/gen_plaza_basement.js), gated by the enter_exchange door. docs/37.
     acc_transfer::init();
+    // LAB <-> EXCHANGE teleporter: two Der Eisendrache pads (Lab PaP room <-> the Exchange vault),
+    // 90s shared cooldown, usable regardless of door state (docs/44). After transfer so the vault room
+    // it drops into is set up; depends only on acc_utility (derez FX / warp SFX / hud_msg).
+    acc_teleporter::init();
     // "The Armory" upper room: shared team WEAPON RACK (pooled deposit/withdraw - give
     // guns to teammates) + a MEGA-BOTTLE EXCHANGE (1 bottle -> random reward item). After
     // mega_bottles + data_shards so their accessors are live; stations spawn pure-GSC
@@ -250,6 +280,18 @@ function init()
     // and the clip is pulsed to 0 through the latch window so the tap-latched shot dry-fires. NO def
     // swaps (v1/v2 lesson: held-weapon def swaps visibly yank the viewmodel - banned in that file).
     acc_havoc_charge::init();
+    // Triple Take volley rework (user 2026-07-16): the def is now a projectileweapon (1 native
+    // center bolt); this fires the 2 SIDE bolts per trigger (MagicBullet of the held weapon object,
+    // view-plane spread dvar acc_ttk_spread_deg), charges the 3-round volley cost, and folds any
+    // sub-3 clip to 0 - the one engine lever that blocks the trigger ("no 3 rounds = no shot").
+    acc_tripletake::init();
+    // THE CYBERJACK (docs/43 M1, L-STAR chassis): jack-in chain + corruption DoT + decompile
+    // harvest. Its chain bolts REUSE the Triple Take's acc_ttk_bolt_fx CF/csc (zero new bits).
+    acc_cyberjack::init();
+    // Leviathan hold-to-auto-swing (user 2026-07-15): fireType-Melee swings are engine-edge-gated,
+    // so the engine keeps the first press swing and this loop deals the follow-up MOD_MELEE hits
+    // (with the axe as the damage weapon = same _acc_damage fractional path) while attack is held.
+    acc_leviathan_swing::init();
     // Points must init before damage so record_damage is available on the first hit.
     acc_points::init();
     // Zombie-corpse cleanup: bodies linger ~5s then hide + de-collide (registers its
@@ -266,6 +308,11 @@ function init()
     // docs/08_enemies.md.
     acc_zombie_speed::init();
 
+    // GLOBAL player slide feel (momentum carry / steering / sustain) for EVERY player -
+    // not item-gated. Owns nothing another module owns: it reads velocity and writes
+    // velocity, never a speed FLAG, so it cannot cancel any boost. docs/05.
+    acc_movement::init();
+
     // Perk benefit descriptions (base + Mega) shown at the machine.
     acc_perk_info::init();
 
@@ -275,9 +322,14 @@ function init()
     // 5-tier Pack-a-Punch (tier damage ladder + HUD + benefit text).
     acc_pap_levels::init();
 
-    // Gun-HUD badge registry (flag badges: Mule / Turbo / Nuclear). After pap_levels + damage +
+    // Gun-HUD badge registry (flag badges: Mule / Turbo / Plasma / Berzerker / High Caliber / Warhead). After pap_levels + damage +
     // weapon_variants (its predicates call true_base + is_energy_weapon). docs/19.
     acc_gun_badges::init();
+
+    // Weapon-usage tracking (docs/41): per-player held-time sampler + end_game
+    // serialize; ships the gun blob in the leaderboard POST. Skipped in dev/god.
+    // After weapon_variants (fold) + gun_badges (shares the held-gun read pattern).
+    acc_weapon_usage::init();
 
     // Dev/test harness LAST so it can override caps (perk limit) set earlier. Self-gates on the `acc_dev`
     // dvar - the DEV tools no-op in normal play, but two FEATURES set up above that gate ship to everyone:
@@ -356,7 +408,8 @@ function on_player_connect()
     acc_weapon_abilities::on_player_connect( self );
     acc_exo::on_player_connect( self );
     acc_points::on_player_connect( self );   // arm the bleed-out watcher for the comeback bonus
-    acc_gun_badges::on_player_connect( self );   // per-player gun-HUD flag-badge watch (Mule/Turbo/Nuclear)
+    acc_gun_badges::on_player_connect( self );   // per-player gun-HUD flag-badge watch (Mule/Turbo/Plasma/Berzerker/HiCal/Warhead)
+    acc_weapon_usage::on_player_connect( self );  // per-player held-time sampler (docs/41; no-op in dev/god)
 }
 
 // Fires on every respawn (round start, revive, map load).
@@ -371,10 +424,16 @@ function on_player_spawned()
         acc_utility::log_player( self, "first spawn" );
     }
 
+    // Kill any timed-buff speed fade left mid-ramp by the death/revive (the engine already
+    // reset SetMoveSpeedScale to 1 on this spawn; a surviving fade field would re-apply a
+    // stale multiplier on the first recompute below). Before every dispatch that recomputes.
+    acc_utility::speed_fade_cancel( self );
+
     acc_data_shards::on_player_spawned( self );
     acc_cyberware::on_player_spawned( self );
     acc_perks::on_player_spawned( self );
     acc_exo::on_player_spawned( self );   // re-apply move speed (exo slow) after spawn
+    acc_movement::on_player_spawned( self );   // (re)start the single global slide watcher
     acc_points::on_player_spawned( self );   // comeback bonus: set money to 500 * round on a full-death respawn
 }
 

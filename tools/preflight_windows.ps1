@@ -56,17 +56,30 @@ $moduleFiles = Get-ChildItem (Join-Path $RepoRoot "scripts\zm\zm_abandoned_cyber
 $unlisted = @($moduleFiles | Where-Object { $zoneLines -notcontains $_ })
 Check "all $($moduleFiles.Count) _acc_ modules listed in zone" ($unlisted.Count -eq 0) ("add scriptparsetree lines for: " + ($unlisted -join ', '))
 
-# GSC directive ordering: #namespace must come AFTER every #using/#insert/
-# #define/#precache, or the compiler errors "unexpected TOKEN_USING,
-# expecting $end" (first-compile finding 2026-06-12). Cheap static check
-# that the plain brace/paren lint misses.
+# GSC directive ordering: #namespace must come AFTER every '#using ' / '#insert',
+# or the compiler errors "unexpected TOKEN_USING, expecting $end" (first-compile
+# finding 2026-06-12). Cheap static check that the plain brace/paren lint misses.
+#
+# SCOPE CORRECTED 2026-07-15 (audit): '#define' and '#precache' are NOT order-sensitive and
+# must NOT be checked here - the old pattern included them and produced 4 FALSE FAILs, which
+# forced this whole script to exit 1 on a tree that builds and ships. Evidence (counted over
+# the stock mirror tmp/bo3_stock_ref, 699 files carrying a #namespace):
+#     #using    ->   0 occurrences after #namespace   (order-sensitive - CHECK)
+#     #insert   ->   0 occurrences after #namespace   (order-sensitive - CHECK)
+#     #define   -> 684 occurrences after #namespace   (LEGAL - e.g. mp\bots\_bot.gsc:212)
+#     #precache -> 363 occurrences after #namespace   (LEGAL - e.g. mp\gametypes\_globallogic.gsc:93)
+# Our own shipping tree agrees: 21 #define + 40 #precache sit after #namespace and compile.
+#
+# The pattern deliberately requires WHITESPACE after '#using' so it does not match
+# '#using_animtree( "generic" );', which is a DIFFERENT directive and IS legal after
+# #namespace (34 stock occurrences; 2 in our tree - mechz_spiki.gsc:74, _zm_aw_mysterybox.gsc:50).
 $gscFiles = Get-ChildItem (Join-Path $RepoRoot "scripts\zm\zm_abandoned_cyber_city") -Filter "_acc_*.gsc"
 $ordering = @()
 foreach ($g in $gscFiles) {
     $lines = Get-Content $g.FullName
     $nsIdx = ($lines | Select-String -Pattern '^#namespace' | Select-Object -First 1).LineNumber
     if ($null -eq $nsIdx) { $ordering += "$($g.Name): no #namespace"; continue }
-    $dirIdxs = ($lines | Select-String -Pattern '^(#using|#insert|#define|#precache)' | ForEach-Object { $_.LineNumber })
+    $dirIdxs = ($lines | Select-String -Pattern '^(#using\s|#insert\s)' | ForEach-Object { $_.LineNumber })
     $lastDir = ($dirIdxs | Measure-Object -Maximum).Maximum
     if ($lastDir -and $nsIdx -lt $lastDir) { $ordering += "$($g.Name): #namespace(L$nsIdx) before directive(L$lastDir)" }
 }
@@ -74,22 +87,45 @@ Check "GSC directive ordering (#namespace last) on $($gscFiles.Count) modules" (
 
 # GSC ternary must be FULLY wrapped: '( cond ? a : b )' (stock-proven form).
 # Unwrapped '= ( cond ) ? a : b' or bare '= cond ? a : b' / 'return cond ? a : b'
-# fail to compile ("unexpected TOKEN_CONDITIONAL"). Paren-aware scan: for each
-# code line containing a ternary '?', strip strings + comments, then walk the
-# chars - a '?' at paren-depth 0 is an unwrapped (broken) ternary.
+# fail to compile ("unexpected TOKEN_CONDITIONAL"). Paren-aware scan: strip strings +
+# comments, then walk the chars - a '?' at paren-depth 0 is an unwrapped (broken) ternary.
+#
+# STATEFUL ACROSS LINES since 2026-07-15 (audit). $depth used to be reset INSIDE the per-line
+# loop, which threw away the depth carried in from earlier lines - so any LEGAL multi-line
+# ternary whose '?' opens a continuation line false-FAILed and forced this script to exit 1.
+# Live example that tripped it (_acc_fury.gsc:152-154) - the '(' is on the PREVIOUS line:
+#     delay = ( b_first
+#               ? getdvarfloat( "acc_fury_arm_sec", 8 )
+#               : getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF ) );
+# Depth now persists per FILE (reset once per file, below). A genuine paren imbalance would
+# skew it, but the dedicated brace/paren lint already fails that case first.
+#
+# Block comments are stripped across lines too (the old '//.*$' only caught line comments, so a
+# '?' inside a /* */ block was a latent false positive). NOTE: '/# ... #/' dev blocks are NOT
+# stripped - that is real code the compiler emits in dev builds, so it must stay in scope.
 $allGsc = Get-ChildItem (Join-Path $RepoRoot "scripts\zm") -Recurse -Include "*.gsc","*.csc"
 $ternBad = @()
 foreach ($g in $allGsc) {
     $ln = 0
+    $depth = 0        # per-FILE, not per-line (see note above)
+    $inBlock = $false # inside a /* */ block comment
     foreach ($raw in Get-Content $g.FullName) {
         $ln++
-        $code = ($raw -replace '//.*$', '') -replace '"[^"]*"', '""'  # drop line-comment + string literals
-        if ($code -notmatch '\?') { continue }
-        $depth = 0
+        $code = $raw
+        # strip /* */ block comments, honouring state carried in from previous lines
+        $out = ''
+        for ($i = 0; $i -lt $code.Length; $i++) {
+            if ($inBlock) {
+                if ($i -lt $code.Length - 1 -and $code[$i] -eq '*' -and $code[$i+1] -eq '/') { $inBlock = $false; $i++ }
+            } elseif ($i -lt $code.Length - 1 -and $code[$i] -eq '/' -and $code[$i+1] -eq '*') {
+                $inBlock = $true; $i++
+            } else { $out += $code[$i] }
+        }
+        $code = ($out -replace '//.*$', '') -replace '"[^"]*"', '""'  # drop line-comment + string literals
         for ($i = 0; $i -lt $code.Length; $i++) {
             $ch = $code[$i]
             if ($ch -eq '(') { $depth++ }
-            elseif ($ch -eq ')') { $depth-- }
+            elseif ($ch -eq ')') { $depth--; if ($depth -lt 0) { $depth = 0 } }
             elseif ($ch -eq '?' -and $depth -le 0) { $ternBad += "$($g.Name):$ln"; break }
         }
     }

@@ -179,13 +179,16 @@ function havoc_charge_loop()
     }
 }
 
-// Give the gated ammo back. MAX-AMMO SAFE: a refill landing while gated wrote a bigger stock than
-// we saved - never clobber it (take the larger). Clip refills don't exist mid-hold, restore as saved.
+// Give the gated ammo back. MAX-AMMO SAFE: a Max Ammo landing while gated refills BOTH the clip and the
+// reserve past what we saved at the press edge - never clobber it, take the LARGER of current-vs-saved for
+// EACH (audit 2026-07-12: the clip was previously restored as-saved, discarding a mid-charge Max Ammo's clip
+// refill; in the ordinary case current clip is 0 while gated, so max(0, saved) restores the saved value).
 function restore_gate( w, clip, stock )
 {
     self.acc_havoc_gated = false;   // gate over (every teardown path funnels here) - reconcile may swap again
     if ( !isdefined( w ) || w == level.weaponNone || !( self HasWeapon( w ) ) ) return;
+    cur_clip  = self GetWeaponAmmoClip( w );
     cur_stock = self GetWeaponAmmoStock( w );
-    self SetWeaponAmmoClip( w, clip );
+    self SetWeaponAmmoClip( w, ( cur_clip > clip ? cur_clip : clip ) );
     self SetWeaponAmmoStock( w, ( cur_stock > stock ? cur_stock : stock ) );
 }

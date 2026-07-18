@@ -28,7 +28,8 @@
 // frame end), acc_boss_custom_speed (the _acc_zombie_speed keep-alive skips it - no ASM
 // stomp/freeze), ignore_enemy_count (fights ALONGSIDE the wave, never gates round end /
 // starves the 24-AI budget). Owns its own cadence off "acc_round_start" so _acc_boss.gsc is
-// NOT edited. Disable live: `acc_phantom_enable 0`. Trace: `acc_phantom_debug 1`.
+// NOT edited. Disable live: `acc_phantom_enable 0`. Trace via a dev build (debug prints
+// ride level.acc_dev; the acc_phantom_debug dvar was removed 2026-07-16).
 //
 // CADENCE (user 2026-06-18: a boss every ~10 rounds, random pick): a ROUND-BOSS ROTATION
 // slot fires every acc_phantom_interval rounds from acc_phantom_first_round and randomly
@@ -78,7 +79,7 @@
 #define ACC_PHANTOM_HP                65000  // BASE solo HP at the round-5 anchor (user 2026-07-05: 56000 -> 65000). Shared by Phantom + Rogue + Avogadro (+ Panzer). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
 #define ACC_PHANTOM_HP_EXP            1.06   // per-round COMPOUNDING exponent (user 2026-07-04: 1.1 -> 1.08 -> 2026-07-08 1.06 after the anchor moved to r5). TIERED BOSS SCALE, all sharing base 65000 + anchor 5, differing ONLY by exponent: Brutus/Panzer 1.12 > Rogue Protector 1.09 > Phantom 1.06 (Phantom is the SOFTEST; Avogadro shares this). Phantom solo r5 65k / r10 87k / r20 156k / r30 279k / r40 500k. Live dvar acc_phantom_hp_exp.
 #define ACC_PHANTOM_HP_ANCHOR         5      // round the BASE HP applies + compounding STARTS (user 2026-07-08: 10 -> 5, so ALL bosses scale from round 5; they first spawn at round 9 = base x exp^4). Live dvar acc_phantom_hp_anchor.
-#define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). DEV mode = 4 (cadence_hits branches on level.acc_dev).
+#define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). (Stale "DEV mode = 4" note removed 2026-07-17: that fast cadence was disabled 2026-07-12; the CURRENT dev accelerator is the one-shot round-3 spawn in phantom_due_count.)
 #define ACC_PHANTOM_INTERVAL_DEF      10    // LEGACY-FALLBACK cadence only (used if the shared roster pointer isn't published yet). Live rotation is the every-9 multi-boss roster in _acc_civil_protector. DEV fallback = every 4.
 #define ACC_PHANTOM_TEST_ROUND_DEF    8     // dev/test first round
 // AGGRESSION MODEL (user 2026-06-24): jumpscary TELEPORTING HARASSER, not a camper and not a murderer. The
@@ -180,9 +181,15 @@ function phantom_due_count( round_number )
     if ( getdvarint( "acc_phantom_enable", ACC_PHANTOM_ENABLE_DEF ) != 1 && !IS_TRUE( level.acc_dev ) )
         return 0;
 
-    // MANUAL test opt-in (+set acc_phantom_test 1): owe ONE every round from acc_phantom_test_round on.
-    test = getdvarint( "acc_phantom_test", 0 );
-    if ( test == 1 && round_number >= getdvarint( "acc_phantom_test_round", ACC_PHANTOM_TEST_ROUND_DEF ) )
+    // (acc_phantom_test manual opt-in removed 2026-07-16: dev runs the real roster cadence like
+    // normal play - no per-feature test dvar; only acc_dev/acc_god/mock flags exist.)
+
+    // DEV: ONE Phantom on round 3 (user 2026-07-17 "have a phantom spawn on round 3" - an early
+    // eyeball spawn for the yellow de-rez burst + deep warp voice). MUST sit ABOVE the roster
+    // consult: the roster owns phantom scheduling in real play and returns 0 for round 3, so a
+    // branch in the cadence_hits fallback would never fire. Rounds 9/18/27 still run the real
+    // roster below, dev and ship alike.
+    if ( IS_TRUE( level.acc_dev ) && round_number == 3 )
         return 1;
 
     // UNIFIED MULTI-BOSS ROSTER (user 2026-07-03): the per-round roster (owned by
@@ -238,9 +245,11 @@ function phantom_director()
 // rotation is the shared roster in _acc_civil_protector (boss_count/boss_roster).
 function cadence_hits( round_number )
 {
-    dev      = IS_TRUE( level.acc_dev );
-    first    = getdvarint( "acc_phantom_first_round", ( dev ? 4 : ACC_PHANTOM_FIRST_ROUND_DEF ) );
-    interval = getdvarint( "acc_phantom_interval",    ( dev ? 4 : ACC_PHANTOM_INTERVAL_DEF ) );
+    // DEV fast cadence (4/4) DISABLED (user 2026-07-12: no early boss spam in dev): dev uses
+    // the real 10/10 fallback. Manual override in either mode: +set acc_phantom_first_round /
+    // acc_phantom_interval.
+    first    = getdvarint( "acc_phantom_first_round", ACC_PHANTOM_FIRST_ROUND_DEF );
+    interval = getdvarint( "acc_phantom_interval",    ACC_PHANTOM_INTERVAL_DEF );
     if ( interval < 1 ) interval = 1;
     if ( round_number < first ) return false;
     return ( ( round_number - first ) % interval ) == 0;
@@ -307,9 +316,10 @@ function spawn_phantom( round_number )
 
     // ROUND scaling (scale_phantom_hp - user 2026-06-27: the Phantom did NOT scale at all before, fixed
     // 56k every round = "dies easy late"; now COMPOUNDS x1.1/round, matching zombies) THEN the
-    // LOGARITHMIC player mult (boss_hp_player_mult() = 1 + 0.5*log2(n) -> 1p 1.0 / 2p 1.5 / 3p 1.79 / 4p
-    // 2.0; the old LINEAR 100k*pc -> 400k at 4p was "crazy"). Tune live: acc_phantom_hp_exp /
-    // acc_boss_coop_hp_log_k. Written AFTER the init-gate (stock clobbers HP).
+    // player mult (boss_hp_player_mult() = an explicit table, 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user
+    // 2026-07-15, was 1 + 0.5*log2(n) = 1/1.5/1.79/2.0; the old LINEAR 100k*pc -> 400k at 4p was "crazy",
+    // and 2.60 stays well under that). Tune live: acc_phantom_hp_exp / acc_boss_coop_hp_2p|_3p|_4p.
+    // Written AFTER the init-gate (stock clobbers HP).
     host.maxhealth = int( scale_phantom_hp( round_number ) * acc_coop_scaling::boss_hp_player_mult() );
     host.health = host.maxhealth;
 
@@ -570,7 +580,26 @@ function materialize_scare( ent )
     if ( isdefined( ent.acc_phantom_last_screech ) && ( now - ent.acc_phantom_last_screech ) < getdvarint( "acc_phantom_screech_cd", 1200 ) )
         return;
     ent.acc_phantom_last_screech = now;
-    ent PlaySound( "acc_glitch_warp" );
+    // [acc] 2026-07-17: the Phantom's OWN voice - acc_phantom_warp = the same warp wav pitched
+    // DOWN 3.5-5 semitones + louder + longer range (acc_audio.csv). It no longer borrows the
+    // Glitch's alias, so the two bosses are sonically distinct: high warp = Glitch, deep = Phantom.
+    ent PlaySound( "acc_phantom_warp" );
+}
+
+// Departure-side warp SFX with its own 0.8s cooldown (review 2026-07-17): chain hops warp
+// back-to-back (~0.7-1.1s dwell, up to 4 hops) and the pitched-down wav plays ~25% LONGER than
+// the source, so ungated departures stack into mud - the alias row ships no LimitCount, nothing
+// engine-side caps it. Emitter life 3s (the wav is short) instead of play_sound_at_origin's 12s
+// jingle default, so a phantom at warp cadence holds ~1 emitter, not 6 (see acc_emitter_cleanup).
+function phantom_warp_snd( ent )
+{
+    if ( !isdefined( ent ) ) return;
+    if ( getdvarint( "acc_phantom_warp_snd", 1 ) == 0 ) return;
+    now = GetTime();
+    if ( isdefined( ent.acc_phantom_last_warp_snd ) && ( now - ent.acc_phantom_last_warp_snd ) < 800 )
+        return;
+    ent.acc_phantom_last_warp_snd = now;
+    acc_utility::play_sound_at_origin( ent.origin, "acc_phantom_warp", 3 );
 }
 
 // Drive the gait every sweep (the global keep-alive skips mini-bosses). Clone of
@@ -756,8 +785,22 @@ function phantom_blink_to( target )
     if ( !isdefined( strike ) )
         strike = GetClosestPointOnNavMesh( target.origin, 140, 50 );
     if ( !isdefined( strike ) ) return;
+    // [acc] de-rez burst at both ends of the warp (docs/44 workstream A) - fires on the normal
+    // strike AND every chain hop (this fn is the shared warp primitive). The departure burst is
+    // deliberate even while cloaked: it telegraphs "incoming" without showing WHERE, arrival + screech do.
+    // "phantom" style = NEON-YELLOW numbers (matches its aura) + sparks layer; departure spot also gets
+    // the deep pitched-down warp SFX as a STATIC emitter (play_sound_at_origin - a self PlaySound would
+    // teleport WITH the boss, collapsing both ends into one sound at the arrival).
+    phantom_warp_snd( self );
+    acc_utility::derez_burst( self.origin, "phantom" );
     self forceteleport( strike );
-    materialize_scare( self );   // arrival screech (cooldownned; shared with the cloak-reveal scare)
+    acc_utility::derez_burst( self.origin, "phantom" );
+    // [acc] audio pass 2 (user 2026-07-17 "can't really hear the teleport"): the ARRIVAL is the
+    // near-player moment, so it plays UNCONDITIONALLY on the boss ent every warp - it was riding
+    // materialize_scare's 1.2s cooldown, which silently ate chain-hop arrivals. materialize_scare
+    // stays for the cloak-reveal path only (same voice, so reveals + warps still sound identical).
+    if ( getdvarint( "acc_phantom_warp_snd", 1 ) != 0 )
+        self PlaySound( "acc_phantom_warp" );
 }
 
 // Hit-and-run back-off after a NORMAL strike: warp away from the struck player so the Phantom never camps (the
@@ -768,7 +811,14 @@ function phantom_back_off( target )
     if ( getdvarint( "acc_phantom_retreat", ACC_PHANTOM_RETREAT_DEF ) != 1 ) return;
     retreat = GetClosestPointOnNavMesh( phantom_retreat_point( target.origin ), 160, 50 );
     if ( isdefined( retreat ) )
+    {
+        // [acc] de-rez the hit-and-run exit too (docs/44) - departure burst + warp SFX only. No
+        // arrival burst: the retreat point is where it re-cloaks, and marking it would hand the
+        // player a free tracking beacon on a boss whose identity is "you lost it".
+        phantom_warp_snd( self );
+        acc_utility::derez_burst( self.origin, "phantom" );
         self forceteleport( retreat );
+    }
 }
 
 // All currently-valid (alive, spawned, NOT downed/laststand, not spectating) players - the teleport targets.
@@ -922,7 +972,7 @@ function cleanup_phantom_corpse()
 
 function pdebug( msg )
 {
-    if ( getdvarint( "acc_phantom_debug", 0 ) != 1 ) return;   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PHANTOM] rides acc_phantom_debug now)
+    if ( !IS_TRUE( level.acc_dev ) ) return;   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
     for ( i = 0; i < level.players.size; i++ )
     {
         p = level.players[ i ];

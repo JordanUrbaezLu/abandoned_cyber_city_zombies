@@ -2,18 +2,20 @@
 // _acc_reactor.gsc - the "Reactor Surge": the underground CLIMAX event (docs/30).
 //
 // OWNER SPLIT (docs/30): the SYSTEM (this module) owns the event LOGIC + the Arm
-// Plinth interactable + the tier-dialed payout. The GEOMETRY agent owns the Core
+// Plinth interactable + the payout. The GEOMETRY agent owns the Core
 // room, the seal door, and the FX seam. INTERFACE: the §3 anchor (Plinth at
 // 0,2120,-240, on the existing pit floor at the Core entrance) + a named seal
 // entity "acc_reactor_seal" (OPTIONAL - the surge runs OPEN in the pit until that
 // geometry lands; it is still a real "survive the horde" challenge because the
 // spawned zombies persist and hunt the armer).
 //
-// LOOP: pay shards at the Plinth -> a timed, escalating zombie SURGE erupts from
+// LOOP: arm the Plinth (FREE) -> a timed, escalating zombie SURGE erupts from
 // the pit floor (reusing acc_bus_trench::spawn_corp_surge - tagged low-payout /
 // ignore_enemy_count, so it never disturbs the round count) -> survive it -> a
-// TIER-DIALED payout (shards + Fire Sale + a Mega Bottle). Each completion raises
-// the tier: the next Surge costs more and pays more. You don't farm it - you raid it.
+// FLAT payout to everyone (acc_reactor_reward Data Shards each, default 5) + a
+// Fire Sale + ONE random boss-pool Implant world drop (user 2026-07-16), then a
+// few-round COOLDOWN before it can be re-armed. There is no tier/cost
+// escalation and no Mega Bottle - you raid it, you don't farm it.
 //
 // All GSC, no geometry. Dvar acc_reactor_on (default 1) gates the whole feature.
 // =============================================================================
@@ -28,7 +30,8 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_elites;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_glitch;
-#using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;   // grant_challenge_reward (random Implant drop on survive, user 2026-07-16)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow; // cyan "usable" holo on the Arm Plinth
 
 // Plinth model: a Cyber City interactive sign kiosk (industrial/power read for the Reactor; stock t7_props, proven packable). Placed in
 // the pit, far from the perk vendor, with a distinct red REACTOR prompt - no player confusion.
@@ -127,6 +130,7 @@ function spawn_plinth_at( origin, yaw )
     m = spawn( "script_model", origin );
     m setmodel( "p7_ris_generator_lg_01_blue" );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
+    acc_interact_glow::glow_on( m );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 90 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
@@ -155,7 +159,7 @@ function reactor_hint_round_refresh()   // self = the plinth trigger
 }
 
 // ---------------------------------------------------------------------------
-// Cost / reward dial (scale with the completed-Surge tier).
+// Reward (flat, per player).
 // ---------------------------------------------------------------------------
 
 // FREE to activate, then a few-round COOLDOWN (acc_reactor_cooldown, default 3); survive the surge ->
@@ -171,9 +175,10 @@ function reactor_set_hint()   // self = the plinth trigger
     else
         // Buyable-UI audit fix (2026-07-03): "survive for" tripped the router's "hold"+"for"
         // mystery-box weapon-pickup mode (it displayed "5 Data Shards each + Fire Sale" as a
-        // WEAPON name). "survive it:" carries no router token -> DefaultHint.
+        // WEAPON name). "survive it:" carries no router token -> DefaultHint. ("+ Implant"
+        // added 2026-07-16 - also no router token.)
         self SetHintString( "Hold ^3[{+activate}]^7  ^1REACTOR SURGE^7 - survive it: ^5" + reactor_reward() +
-                            " Data Shards^7 each + Fire Sale" );
+                            " Data Shards^7 each + Fire Sale + Implant" );
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +209,7 @@ function reactor_loop()   // self = the plinth trigger
         }
 
         // FREE to activate (it's a reward event now, not a paid sink).
+        acc_interact_glow::glow_off( self.acc_plinth_model );   // surge actually started = successful use (user 2026-07-17)
         self thread run_surge( player );
         wait 0.4;
     }
@@ -263,14 +269,18 @@ function run_surge( player )   // self = the plinth trigger
         return;
     }
 
-    // Success: EVERYONE gets reactor_reward() shards + a shared FIRE SALE (user 2026-06-27: was a shared Insta-Kill).
+    // Success: EVERYONE gets reactor_reward() shards + a shared FIRE SALE (user 2026-06-27: was a shared
+    // Insta-Kill) + ONE random boss-pool Implant world drop (user 2026-07-16: "drops a random item on top
+    // of firesale"). grant_challenge_reward = the armory/lockdown recipe: free-for-all pickup at the armer,
+    // floor-snapped, per-grabber dupe handling (an owner who grabs it gets shards), 60s despawn.
     reward = reactor_reward();
     players = level.players;
     for ( i = 0; i < players.size; i++ )
         acc_data_shards::grant_player( players[ i ], reward, "reactor" );
     level thread zm_powerups::specific_powerup_drop( "fire_sale", player.origin );
+    acc_boss_items::grant_challenge_reward( player.origin );
     player PlaySound( "acc_shard_pickup" );
-    player acc_utility::hud_msg( "^2REACTOR STABILIZED^7 - everyone +" + reward + " Data Shards + Fire Sale!" );
+    player acc_utility::hud_msg( "^2REACTOR STABILIZED^7 - everyone +" + reward + " Data Shards + Fire Sale + a random Implant!" );
 }
 
 // ---------------------------------------------------------------------------

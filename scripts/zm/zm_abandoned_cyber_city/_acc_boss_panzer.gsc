@@ -5,7 +5,8 @@
 // walker - the TANK of the roster. Tier ladder on the shared 65k/anchor-5 scale_phantom_hp
 // scale: PANZER 1.09 (= the Rogue Protector tier, user 2026-07-08 final; earlier
 // walked 1.12->1.13->1.14->1.12->1.09) - ladder Brutus 1.12 > Rogue/Panzer 1.09 > Phantom/Avogadro 1.06. Melee hits VERY hard
-// (acc_panzer_melee_damage, default 90) + the stock
+// (acc_panzer_melee_damage, default 99 - user 2026-07-18 +10% all-Panzer damage, was 90; flame
+// acc_panzer_flame_mult 1.21, electroball explosion acc_panzer_explosive_mult 1.1 in _acc_elites) + the stock
 // mechz flamethrower/grenade BT attacks ride along from the pack.
 //
 // HISTORY: previously WORKED in-game 2026-06-19, dropped in the 2026-06-22 WIP sync, rebuilt
@@ -26,9 +27,10 @@
 //
 // CADENCE: joins the shared boss roster as the 4th type ("panzer" in the no-duplicate deck deal,
 // _acc_civil_protector::boss_roster - a repeat of any type first appears at the forced 5th slot,
-// round 45) - a debt director like the other three. DEV mode instead runs a repeating test-spawn
-// loop (Avogadro pattern; the roster re-homes "panzer" slots in dev). Toggle live:
-// acc_panzer_enable 0. Trace: acc_panzer_debug 1.
+// round 45) - a debt director like the other three. Dev runs the SAME real roster cadence
+// (the repeating dev test-spawn loop was disabled 2026-07-12). Toggle live:
+// acc_panzer_enable 0. Trace via a dev build (debug prints ride level.acc_dev; the
+// acc_panzer_debug dvar was removed 2026-07-16).
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -58,9 +60,9 @@
 function dbg( msg )
 {
 	// Same contract as the Avogadro's dbg: key [PANZER] events log whenever level.acc_dev is on
-	// (lands in console_mp.log as [SCRIPTER] via acc_utility::log + on-screen), opt-in via
-	// acc_panzer_debug 1 outside dev. Normal play = silent.
-	if ( getdvarint( "acc_panzer_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PANZER] rides acc_panzer_debug now)
+	// (lands in console_mp.log as [SCRIPTER] via acc_utility::log + on-screen). Normal play =
+	// silent (the acc_panzer_debug dvar was removed 2026-07-16 - debug rides acc_dev only).
+	if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 		return;
 	acc_utility::log( "[PANZER] " + msg );
 	players = GetPlayers();
@@ -116,16 +118,13 @@ function init()
 	// watcher covers every Panzer's grenades (see electroball_watch).
 	level thread electroball_watch();
 
-	if ( IS_TRUE( level.acc_dev ) )
-	{
-		dbg( "DEV mode - running repeating test-spawn loop (roster re-homes panzer slots)" );
-		level thread dev_test_spawn();
-	}
-	else
-	{
-		level thread round_watch();
-		level thread director();
-	}
+	// DEV early test-spawn DISABLED (user 2026-07-12: "stop the panzer from spawning on round 2
+	// in dev mode - it's annoying"): dev now runs the REAL roster cadence exactly like normal play
+	// (Panzer takes his shared-roster slots from round 9 - _acc_civil_protector no longer re-homes
+	// them in dev). dev_test_spawn() is KEPT below unreferenced - re-thread it here when Panzer
+	// himself is the thing under iteration.
+	level thread round_watch();
+	level thread director();
 }
 
 // ---------------------------------------------------------------------------
@@ -138,8 +137,9 @@ function init()
 // halves script-side:
 //   1. IMPACT: force-Detonate on the first surface contact ("grenade_bounce", the stock
 //      proximity-grenade recipe); the GDT fuse stays as the stray fallback.
-//   2. ZAP: on explosion, every valid player inside acc_panzer_zap_radius (200 = the GDT
-//      explosionRadius) gets the SHARED boss zap slow via acc_elites::acc_protector_zap -
+//   2. ZAP: on explosion, every valid player inside acc_panzer_zap_radius (default 220 = +10%
+//      over the 200-unit GDT explosionRadius; the explosion DAMAGE itself stays GDT-side at 200)
+//      gets the SHARED boss zap slow via acc_elites::acc_protector_zap -
 //      the EXACT applicator every boss uses (user: "all bosses have it"): Battery boss item
 //      absorbs it, Mega Electric Cherry Power Surge softens it to -10%, 3s refreshing window,
 //      lands under god mode so dev tests always show it.
@@ -177,7 +177,7 @@ function electroball_impact()   // self = the grenade
 	self waittill( "explode", pos );
 	if ( !isdefined( pos ) )
 		return;
-	r = getdvarfloat( "acc_panzer_zap_radius", 200 );
+	r = getdvarfloat( "acc_panzer_zap_radius", 220 );   // [acc] ELECTROBALL +10% blast area (user 2026-07-12: 200 -> 220; explosion damage itself is the engine 115-grenade / GDT-side)
 	zapped = 0;
 	players = GetPlayers();
 	for ( i = 0; i < players.size; i++ )
@@ -328,6 +328,19 @@ function pick_spawn_point( anchor )
 
 function spawn_boss()
 {
+	// KILL-SWITCH GATE (added 2026-07-15 audit). init() returns at :80 when acc_panzer_enable is 0,
+	// BEFORE it seeds this module's level state - but _acc_paradise::maybe_spawn_panzer only checks
+	// acc_paradise_panzer_on, never acc_panzer_enable, so it called straight in here and consumed
+	// state that was never seeded. The roster already re-homes "panzer" slots correctly
+	// (_acc_civil_protector:239); Paradise was the one path that ignored the toggle.
+	// Callers all handle undefined (paradise logs "Panzer spawn returned none"), and the module's own
+	// cadence loops never reach here when disabled, so this gate is a no-op in normal play.
+	if ( getdvarint( "acc_panzer_enable", ACC_PANZER_ENABLE_DEF ) != 1 )
+	{
+		dbg( "spawn_boss called while acc_panzer_enable 0 - refusing (kill-switch honoured)" );
+		return undefined;
+	}
+
 	if ( !isdefined( host_player() ) )
 	{
 		dbg( "no valid player - retrying" );
@@ -357,7 +370,8 @@ function spawn_boss()
 	// defined-but-never-called in the pack -> HP undefined without this; round-gated inside).
 	mechz_spiki::mechz_health_increases();
 
-	// HP: the SHARED boss scale with the Panzer's own TANK-tier exponent x the log coop mult.
+	// HP: the SHARED boss scale with the Panzer's own TANK-tier exponent x the coop boss-HP table
+	// (boss_hp_player_mult: 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user 2026-07-15, was a log curve).
 	// level.mechz_health must carry the SAME number: acc_setup_mechz copies it onto the actor,
 	// and the live mechz-damage formulas (vendored elemental bows, Thundergun function_b8e0ce15)
 	// all read level.mechz_health - an out-of-sync value skews every special-weapon hit.
@@ -449,6 +463,7 @@ function spawn_boss()
 	boss.is_boss               = true;
 	boss.acc_is_boss           = true;
 	boss.acc_is_mini_boss      = true;
+	boss.acc_is_panzer         = true;   // boss-weakness identity (explosive + energy +20%, _acc_damage 0c5)
 	boss.acc_boss_custom_speed = true;   // _acc_zombie_speed skips him (no ASM stomp); his rate is OURS below
 	boss.ignore_enemy_count    = true;   // fights ALONGSIDE the wave, never gates round end
 	boss.ignore_nuke           = true;   // (mechzSpawnSetup also sets this - explicit for the audit greps)
@@ -474,7 +489,7 @@ function spawn_boss()
 	level thread acc_boss::boss_music( boss );
 
 	level thread boss_life( boss );
-	boss thread dev_status();     // [PANZER] HB console logs (dev / acc_panzer_debug) - the movement diagnostic
+	boss thread dev_status();     // [PANZER] HB console logs (rides level.acc_dev) - the movement diagnostic
 	boss thread goal_driver();    // no-path self-correction (see the function header)
 	boss thread retarget_loop();  // closest-player targeting (see the function header)
 
@@ -485,10 +500,13 @@ function spawn_boss()
 // Hit-location damage wrapper - body rebuff + headshot bonus (user 2026-07-11)
 // ---------------------------------------------------------------------------
 //
-// TWO tunings live here (both bullet-only; explosives/projectiles keep stock handling):
+// TWO tunings live here (bullets + MOD_PROJECTILE direct hits; splash-only mods keep stock handling;
+// MELEE passes through untouched - acc_damage::on_ai_damage's fractional value is FINAL, see inline):
 //   1. BODY REBUFF - stock scales torso/limb hits to 10%; we rebuff to acc_panzer_body_scale (0.35).
+//      (Bullets only - projectile body hits keep stock's flat 0.5x.)
 //   2. HEADSHOT - stock gates the head weak spot behind the (on our map, fat) faceplate; we make the
-//      head a weak spot for every bullet and pay acc_panzer_head_scale (1.25x). See the inline notes.
+//      head a weak spot for every AIMED shot (bullet or projectile direct) and pay
+//      acc_panzer_head_scale (0.9x; radius 36 around j_faceplate + head/helmet/neck hitlocs). See inline.
 //
 // WHY: stock MechzServerUtils::mechzDamageCallback scales EVERY body/limb hit to 10%
 // (MECHZ_BODY_DAMAGE_SCALE 0.1) while a head hit + the exposed power core stay at 100% and
@@ -517,34 +535,68 @@ function acc_mechz_damage_wrap( inflictor, attacker, damage, dFlags, mod, weapon
 	if ( !isdefined( result ) || result <= 0 )
 		return result;   // flyin-gate / elemental-bow / no-damage returns - untouched
 
-	// EXPLOSIVE / PROJECTILE weapons take their OWN stock path (flat 0.5 explosive, or the MOD_PROJECTILE
-	// tag-proximity block with its own head/core checks) - leave those exactly stock; our head + body
-	// tuning is for BULLET guns, the thing the player actually aims with.
-	if ( acc_mechz_is_splash_mod( mod ) )
+	// SPLASH mods keep their stock path (flat 0.5 explosive family) - but a MOD_PROJECTILE DIRECT hit is
+	// head-eligible below (user 2026-07-12: "a lot of guns cant even hit him in the head" - the projectile-
+	// class guns, Thundergun/Blast-O-Matic/energy launchers, are MOD_PROJECTILE, and STOCK gives them NO
+	// head path at all while the faceplate exists + only a 12u tag_eye window after; the old early-return
+	// here locked that in. Splash-only mods still can't headshot - correct, you don't aim splash).
+	projectile_direct = ( isdefined( mod ) && mod == "MOD_PROJECTILE" );
+	if ( acc_mechz_is_splash_mod( mod ) && !projectile_direct )
 		return result;
+
+	// MELEE PASS-THROUGH (audit fix 2026-07-15): this wrapper is BULLET-scoped by design (see the header;
+	// the originating change shipped "bullet-only"), but MOD_MELEE is neither a bullet NOR a splash mod, so
+	// it fell through the guard above into the body path - and stock _zm.gsc runs actor_damage_func (:5748)
+	// AFTER check_actor_damage_callbacks (:5633), so we were silently RE-SCALING a value acc_damage::
+	// on_ai_damage had already declared FINAL. The Leviathan Axe and Action Figure deal a FRACTION of MAX
+	// health (maxhealth/N = "N hits to kill ANY boss regardless of HP" - docs/04, docs/08): stock's switch
+	// DEFAULTs a melee hitLoc into the 0.1x body family and our rebuff paid it back to only 0.35x, so a
+	// tier-3 axe took ~23 swings instead of its designed 8 and the figure ~94 instead of 33 - while
+	// feed_dmg_number had already shown the player the DESIGNED number. Return the INCOMING damage so
+	// on_ai_damage's value stands verbatim (stock ran above, so its side effects - part destruction,
+	// faceplate chip, hit marker, pain audio, scoring - are all intact; we only refuse its SCALE). This
+	// also deliberately skips the head block below: melee NEVER headshots on this map (_acc_damage.gsc,
+	// user 2026-06-23). Knife/bowie ride the normal scaled chain and stay backstopped by the map-wide 10%
+	// ACC_BOSS_PER_HIT_CAP_PCT per-hit boss cap, so undoing the 0.1x here can't cheese him.
+	// acc_panzer_melee_scale = live rollback lever (1.0 = honour on_ai_damage; 0.1 ~= old stock feel).
+	// NOTE: distinct from acc_panzer_melee_damage, which is damage the Panzer DEALS to players.
+	if ( isdefined( mod ) && IsSubStr( mod, "MELEE" ) )
+		return damage * getdvarfloat( "acc_panzer_melee_scale", 1.0 );
 
 	ref = acc_mechz_weapon_mod( damage, weapon );   // stock's post-weapon-modifier base, pre hit-scale
 	if ( ref <= 0 )
 		return result;
 
-	// HEADSHOT (user 2026-07-11): stock gates the head weak spot BEHIND the faceplate, and OUR faceplate
-	// is a fat pool (level.var_fa14536d 1500+, vs stock's 50), so a weak gun can never break the helmet
-	// to expose the head => "some guns can't headshot" (the t9_grav report - it's the helmet, NOT PaP).
-	// We make the head a weak spot for EVERY bullet, faceplate or not: a face hit is the engine "head"
-	// hitLoc OR proximity to the j_faceplate tag (the exact tag stock uses; height-guarded so a missing
-	// tag falling back to the feet origin can't false-positive a leg shot). Pays acc_panzer_head_scale
-	// (default 1.25x). Stock still chips the faceplate as a side effect, so the helmet visually breaks -
-	// it's just no longer a hard gate on landing headshots.
-	is_head = ( isdefined( hitLoc ) && hitLoc == "head" );
+	// HEADSHOT (user 2026-07-11; RE-TUNED 2026-07-12: "weak headshot damage + a lot of guns can't hit the
+	// head"): stock gates the head weak spot BEHIND the faceplate, and OUR faceplate is a fat pool
+	// (level.var_fa14536d 1500+, vs stock's 50), so with the helmet ON the engine never even reports
+	// hitLoc "head" - face hits come in as torso_upper (stock tracks plate chip there) or helmet/neck
+	// (stock switch DEFAULTs those to the 0.1x body family!). We make the head a weak spot for every
+	// aimed shot, faceplate or not:
+	//   - hitLoc head/helmet/neck counts directly (helmet/neck ARE the head the player aimed at);
+	//   - else proximity to the j_faceplate tag (the exact tag stock uses). RADIUS 36 (was 21): the tag
+	//     is the INTERIOR head joint but impact points land on the helmet SURFACE, 10-25u out - 21 only
+	//     caught dead-center face shots (jaw/side/top-of-helmet hits fell through to 0.1x = the "can't
+	//     hit his head" report). 36 covers the whole helmet, still well clear of chest/shoulder tags.
+	//     Height-guarded so a missing tag falling back to the feet origin can't false-positive a leg shot.
+	// Pays acc_panzer_head_scale (default 0.9x - user 2026-07-12 "make the headshot damage 0.9",
+	// dialed down from the 2.0 set earlier the same session; still ~2.6x a body shot, so the head
+	// stays the best target). Stock still chips the faceplate as a side effect, so the helmet
+	// visually breaks - it's just no longer a hard gate on landing headshots.
+	is_head = ( isdefined( hitLoc ) && ( hitLoc == "head" || hitLoc == "helmet" || hitLoc == "neck" ) );
 	if ( !is_head )
 	{
 		face = self GetTagOrigin( "j_faceplate" );
-		hr   = getdvarfloat( "acc_panzer_head_radius", 21 );   // 18 -> 21 (+~15%, user 2026-07-11: headshots felt too tight)
+		hr   = getdvarfloat( "acc_panzer_head_radius", 36 );
 		if ( isdefined( face ) && ( face[ 2 ] - self.origin[ 2 ] ) > 20 && DistanceSquared( face, point ) <= hr * hr )
 			is_head = true;
 	}
 	if ( is_head )
-		return ref * getdvarfloat( "acc_panzer_head_scale", 1.25 );   // 1.25x base = ~3.6x a body shot
+		return ref * getdvarfloat( "acc_panzer_head_scale", 0.9 );
+
+	// Projectile DIRECT body hit: leave stock's 0.5x untouched (only the head window above is new for them).
+	if ( projectile_direct )
+		return result;
 
 	// BODY: rebuff the stock 0.1 family up to acc_panzer_body_scale; leave the exposed-core weak spot
 	// (0.5/1.0) stock. The 0.1 family maxes at 0.1, the next family (0.5) floors at 0.25 -> a 0.2 cut is clean.
@@ -705,7 +757,7 @@ function dev_status()
 {
 	self endon( "death" );
 	level endon( "end_game" );
-	if ( getdvarint( "acc_panzer_debug", 0 ) != 1 )   // acc_dev DECOUPLED 2026-07-10 (clean screen; [PANZER] rides acc_panzer_debug now)
+	if ( !IS_TRUE( level.acc_dev ) )   // re-coupled to acc_dev 2026-07-16 (only dev/god/mock flags exist)
 		return;
 	last = self.origin;
 	for ( ;; )

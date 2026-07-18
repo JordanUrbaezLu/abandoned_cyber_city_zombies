@@ -134,9 +134,10 @@ These were "planned/future" in earlier drafts and are now shipped, all wired in
 
 There is exactly ONE hardcoded `acc_dev` flag, resolved once into `level.acc_dev`
 (in `zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()`); it hardcodes god /
-unlimited shards / all perks + slots / open map / power on / test spawns for
-testing. It is **not** a runtime console — never "set dvar X to test" (see the
-dev-mode section of CLAUDE.md).
+unlimited shards / all perks + slots / open map / power on for testing (bosses run
+their **real** cadence — the dev test spawns were removed 2026-07-16). It is
+**not** a runtime console — never "set dvar X to test" (see the dev-mode section
+of CLAUDE.md).
 
 ## Post-1.0 (tracked, not promised)
 

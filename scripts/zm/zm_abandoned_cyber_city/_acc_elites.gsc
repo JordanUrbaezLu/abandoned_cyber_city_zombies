@@ -46,6 +46,12 @@
 
 #define ACC_ELITE_SHARD_REWARD 1
 
+// Shielded shield-round COUNT curve: int(k*log2(round) - c), then x elite_count_player_mult().
+// User 2026-07-15 (replaced LINEAR round/2, which ran to 24 shields by r48). k=2.5 / c=3.0 anchor the
+// early game to the old curve exactly (r4 -> 2, r8 -> 4). Live dvars acc_shielded_count_log_k / _log_c.
+#define ACC_SHIELDED_COUNT_LOG_K 2.5
+#define ACC_SHIELDED_COUNT_LOG_C 3.0
+
 // EMP elite on-hit debuff (docs/08_enemies.md "Elite: EMP (Surge)").
 #define ACC_ELITE_EMP_HIT_POINT_DRAIN 200
 #define ACC_ELITE_EMP_HIT_DISABLE_SEC 5
@@ -118,6 +124,7 @@ function acc_depth_shielded_roll()
     self.acc_is_elite = true;
     self.acc_elite_class = "shielded";
     promote_to_shielded( self );
+    level.acc_elite_active_count += 1;   // symmetry with spawn_elite; on_elite_zombie_death decrements for any elite (audit 2026-07-12)
 }
 
 // user 2026-06-25: deeper abyss = a higher % of zombies spawn Shielded. Surface + L1 (the pit) = 0 (the
@@ -179,12 +186,37 @@ function elite_quota_for_round( round_number )
 {
     // SHIELDED-ONLY EVENT ROUNDS (user 2026-06-22): the Teleporter + EMP elites are removed; the only
     // elite left is the Shielded zombie. It spawns on a "shield round" every 4 rounds from r4
-    // (r4, r8, r12, ...), and the COUNT that round = the round number / 2 (r4 -> 2, r8 -> 4, r12 -> 6, ...).
-    // Every other round spawns zero elites. (round is a multiple of 4 here, so /2 is always a whole number.)
-    // CAVEAT: at high rounds that's still a chunk of shields vs the ~24-AI cap - they're spread across the
-    // round (spawn_elites_over_round) and the cap throttles concurrent live ones; revisit if it feels heavy.
+    // (r4, r8, r12, ...); every other round spawns zero elites. The CADENCE is unchanged.
+    //
+    // The COUNT is now LOG IN ROUND x LOG IN PLAYERS (user 2026-07-15):
+    //   count = max( 2, int( k*log2(round) - c ) )  x  acc_coop_scaling::elite_count_player_mult()
+    //   k = acc_shielded_count_log_k (2.5), c = acc_shielded_count_log_c (3.0)
+    //
+    // Replaces the LINEAR round/2 (r20 -> 10, r40 -> 20, r48 -> 24 shields, forever). That linear curve
+    // is what the OLD comment here flagged as "still a chunk of shields vs the ~24-AI cap ... revisit if
+    // it feels heavy" - this IS that revisit, and the cap is now ACC_AI_LIMIT 50 (_acc_main.gsc:98), not
+    // 24 (the old note was stale). Constants anchor the EARLY GAME bit-identical to the old curve at 1p
+    // (r4 = 2, r8 = 4) and only flatten once it ran away (r20: 7 vs 10, r48: 10 vs 24).
+    //
+    // The count was also PLAYER-BLIND before: a 4p lobby got the same shield count as solo while the
+    // regular horde grew +30%/player, so Shielded were a shrinking share of the wave as the lobby grew.
+    // The two logs COMPOUND (4p doubles the round term) - hence the flat late round term; the rejected
+    // linear-round x log-player design reached 78 elites at r40 4p vs the 50-AI cap (elites-only wave).
+    //
+    // NOTE this is only ONE of three Shielded sources - the depth roll (promote_on_spawn) and the reactor
+    // surge (_acc_reactor) spawn Shielded independently and are NOT bounded by this quota.
     if ( round_number >= 4 && ( round_number % 4 ) == 0 )
-        return int( round_number / 2 );
+    {
+        k = getdvarfloat( "acc_shielded_count_log_k", ACC_SHIELDED_COUNT_LOG_K );
+        c = getdvarfloat( "acc_shielded_count_log_c", ACC_SHIELDED_COUNT_LOG_C );
+
+        n = int( ( k * acc_utility::acc_log2( round_number ) ) - c );
+        if ( n < 2 ) n = 2;   // floor BEFORE the player mult: a shield round is never worth < 2 at 1p
+
+        n = int( n * acc_coop_scaling::elite_count_player_mult() );
+        if ( n < 2 ) n = 2;
+        return n;
+    }
     return 0;
 }
 
@@ -353,11 +385,11 @@ function promote_to_shielded( z )
     z.acc_boss_custom_speed = true;
     z thread shielded_speed_think();
 
-    // Reward (user 2026-06-22): killing the "Riot" (Shielded) elite gives the KILLER 2 Data Shards.
+    // Reward (user 2026-06-22; 2 -> 3 shards user 2026-07-13): killing the "Riot" (Shielded) elite gives the KILLER 3 Data Shards.
     z thread shielded_death_reward();
 }
 
-// self = a Shielded ("Riot") elite. The player who lands the kill gets 2 Data Shards (user 2026-06-22).
+// self = a Shielded ("Riot") elite. The player who lands the kill gets 3 Data Shards (user 2026-07-13, was 2).
 // "riot_elite" source = a FLAT grant (not the diminishing "elite_kill" tag). #using _acc_data_shards present.
 function shielded_death_reward()
 {
@@ -367,7 +399,7 @@ function shielded_death_reward()
     if ( isdefined( self.acc_no_shard_reward ) && self.acc_no_shard_reward )
         return;
     if ( isdefined( attacker ) && isplayer( attacker ) )
-        acc_data_shards::grant_player( attacker, 2, "riot_elite" );
+        acc_data_shards::grant_player( attacker, 3, "riot_elite" );
 }
 
 // self = a Shielded elite. A HEAVY, half-pace lumberer. The naive way to do "50% slower" - lock the round's
@@ -534,11 +566,13 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         {
             // ROCKET CAP: keep the engine's blast falloff shape but never exceed the design value
             // (s1_mahem raw playerDamage would one-shot; the old invisible scripted RadiusDamage was 50).
-            mahem_dmg = getdvarint( "acc_protector_mahem_dmg", 55 );
+            mahem_dmg = getdvarint( "acc_protector_mahem_dmg", 69 );   // [acc] RP ROCKET +25% (user 2026-07-12: 55 -> 69)
             if ( final > mahem_dmg ) final = mahem_dmg;
             if ( final < 1 ) final = 1;
             // KNOCKBACK (user 2026-07-09): the rocket blast shoves you hard away from the boss.
-            self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_mahem_knockback", 320 ), 110 );
+            // [acc] user 2026-07-18 +25% RP knockback: 320 -> 400 (bullets 160 -> 200 below; the fixed
+            // z_pop lift is deliberately NOT scaled - it only exists to defeat ground friction).
+            self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_mahem_knockback", 400 ), 110 );
         }
         else if ( sMeansOfDeath != "MOD_GRENADE_SPLASH" )
         {
@@ -567,32 +601,27 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         if ( final > max_dmg ) final = max_dmg;   // *** THE CAP: max 60, never a one-shot ***
         if ( final < 1 ) final = 1;
         // KNOCKBACK (user 2026-07-09: "add knock back to his shots"): a light shove per bullet.
-        self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_knockback", 160 ), 45 );
+        self thread rp_knockback( eAttacker, getdvarfloat( "acc_protector_knockback", 200 ), 45 );
         }
     }
 
-    // EXO SUIT - damage resistance (user 2026-06-22): each Exo Suit tier reduces ALL incoming damage by
-    // acc_exo_resist_per_tier (default 6%/tier -> -30% at T5, -60% at T10; user 2026-07-08: 5% -> 6%). The exo's
-    // "body" counterpart to the gun Overclock - the 3rd of its 3 augments (speed-gate + this + the melee scaler in
-    // _acc_damage). Applied AFTER the trench melee bump so it resists the bumped value too. Capped (0.80) + floored at 1 (always killable).
-    exo_tier = ( isdefined( self.acc_exo_tier ) ? self.acc_exo_tier : 0 );
-    if ( exo_tier > 0 )
+    // PANZER +10% (user 2026-07-18 "buff Panzer damage by 10%"): his ELECTROBALL explosion damage is
+    // engine/GDT-side (the 115 grenade - _acc_boss_panzer only owns the impact-detonate + zap slow), so
+    // the +10% for that lane is applied HERE, before mitigations - same spot the RP lanes shape their
+    // damage. Melee rides acc_panzer_melee_damage (90 -> 99, mechz_spiki callback) and the flamethrower
+    // acc_panzer_flame_mult (1.1 -> 1.21) - this lane covers the one engine-side source.
+    if ( isdefined( eAttacker ) && IS_TRUE( eAttacker.acc_is_panzer ) && isdefined( sMeansOfDeath )
+         && IsSubStr( sMeansOfDeath, "GRENADE" ) )
     {
-        resist = exo_tier * getdvarfloat( "acc_exo_resist_per_tier", 0.06 );
-        if ( resist > 0.80 ) resist = 0.80;
-        final = int( final * ( 1.0 - resist ) );
+        final = int( final * getdvarfloat( "acc_panzer_explosive_mult", 1.1 ) );
         if ( final < 1 ) final = 1;
     }
 
-    // SAVIOR (Mega Quick Revive) - take 50% damage while you are reviving a teammate (user 2026-06-26). Read
-    // live (no poll lag) from the stock reviving state; applied AFTER exo so the two resistances stack
-    // multiplicatively. Floored at 1 (always killable). See acc_perks::savior_revive_damage_mult + docs/10.
-    savior_dr = acc_perks::savior_revive_damage_mult( self );
-    if ( savior_dr < 1.0 )
-    {
-        final = int( final * savior_dr );
-        if ( final < 1 ) final = 1;
-    }
+    // EXO SUIT resistance + SAVIOR (Mega Quick Revive) revive DR. Extracted to apply_player_mitigations() so
+    // any EARLY-chain damage override that short-circuits this function (the mechz/Panzer melee callback)
+    // applies the SAME armor - otherwise that boss's melee silently ignores the Exo/Savior progression
+    // (audit 2026-07-12). Applied AFTER the trench melee bump so it resists the bumped value too.
+    final = self apply_player_mitigations( final );
 
     // GOD MODE = DEMIGOD (user 2026-07-08, refactor of the 2026-06-27 zero-damage god): damage LANDS
     // FOR REAL - you see and feel exactly what every zombie/boss hit deals - but health is FLOORED AT
@@ -623,6 +652,58 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
         return final;
 
     return -1; // unchanged
+}
+
+// Shared player-damage mitigations: EXO SUIT resistance + SAVIOR (Mega Quick Revive) revive DR.
+// self = the hit PLAYER; returns the mitigated damage (both capped/floored at 1 so you stay killable).
+// Exo: each tier reduces ALL incoming damage by acc_exo_resist_per_tier (default 4%/tier, cap 0.80;
+// user 2026-07-13 nerf 6% -> 4%).
+// Savior: 50% damage while reviving a teammate; stacks multiplicatively with Exo (applied second).
+// EXTRACTED 2026-07-12 (audit): any damage callback registered EARLIER in the chain than on_player_damaged
+// (the mechz/Panzer MOD_MELEE override) short-circuits that function, so it must call THIS to give the player
+// the same armor - otherwise Panzer melee alone ignores the Exo/Savior investment. Apply BEFORE any demigod clamp.
+function apply_player_mitigations( dmg )
+{
+    exo_tier = ( isdefined( self.acc_exo_tier ) ? self.acc_exo_tier : 0 );
+    if ( exo_tier > 0 )
+    {
+        resist = exo_tier * getdvarfloat( "acc_exo_resist_per_tier", 0.04 );
+        if ( resist > 0.80 ) resist = 0.80;
+        dmg = int( dmg * ( 1.0 - resist ) );
+        if ( dmg < 1 ) dmg = 1;
+    }
+
+    savior_dr = acc_perks::savior_revive_damage_mult( self );
+    if ( savior_dr < 1.0 )
+    {
+        dmg = int( dmg * savior_dr );
+        if ( dmg < 1 ) dmg = 1;
+    }
+
+    // HIVE NODE (boss item 14, user 2026-07-16): a support carrier's aura shields everyone inside it, and its
+    // active "Bloom" burst drops a strong short shield. Both ride SELF-EXPIRING timestamps set in _acc_boss_items
+    // (acc_hive_covered_until = passive aura, acc_hive_bubble_until = burst) - plain self fields, no cross-module
+    // call. Stacked multiplicatively with Exo + Savior (applied last), each floored at 1 so you stay killable.
+    if ( isdefined( self.acc_hive_covered_until ) && gettime() < self.acc_hive_covered_until )
+    {
+        hive_dr = getdvarfloat( "acc_hive_dr", 0.15 );
+        if ( hive_dr > 0 )
+        {
+            dmg = int( dmg * ( 1.0 - hive_dr ) );
+            if ( dmg < 1 ) dmg = 1;
+        }
+    }
+    if ( isdefined( self.acc_hive_bubble_until ) && gettime() < self.acc_hive_bubble_until )
+    {
+        hive_bubble = getdvarfloat( "acc_hive_bubble_dr", 0.50 );
+        if ( hive_bubble > 0 )
+        {
+            dmg = int( dmg * ( 1.0 - hive_bubble ) );
+            if ( dmg < 1 ) dmg = 1;
+        }
+    }
+
+    return dmg;
 }
 
 // PHANTOM CHAIN-special on-hit zap (user 2026-06-24; called from _acc_boss_phantom::phantom_chain since 2026-06-25).

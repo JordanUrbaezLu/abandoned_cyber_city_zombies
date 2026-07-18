@@ -51,8 +51,8 @@ dvars. Audited from the code; verify amounts in-game.
 > node) never trigger. The live weapon-upgrade path is the **Cyberware Weapon Overclock** terminal
 > (`_acc_overclocks.gsc`).
 
-**Dev only:** each player starts with **1,000 shards** (`ACC_DEV_SHARDS`) in `acc_dev 1`
-(`_acc_data_shards.gsc:106`, `on_player_connect`); the shard cap is also raised to 1,000 in dev.
+**Dev only:** each player starts with **1,000 shards** (`ACC_DEV_SHARDS`) in a dev build (`level.acc_dev`;
+`_acc_data_shards.gsc:106`, `on_player_connect`); the shard cap is also raised to 1,000 in dev.
 
 > **Retired:** the **Vault Overload** side-event (`_acc_events_overload.gsc`, `overload` tag, 3 shards)
 > was removed 2026-07-07 — `init()` is commented out in `_acc_main.gsc:199` and its `.map` trigger deleted.

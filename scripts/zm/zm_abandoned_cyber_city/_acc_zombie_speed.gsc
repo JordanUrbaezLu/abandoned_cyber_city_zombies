@@ -216,7 +216,7 @@ function apply_speed_for_round( round )
 
     if ( layer > 0 )
     {
-        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 4 ) / 100.0 ); // +4%/layer (user 2026-06-27, was 5)
+        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 3 ) / 100.0 ); // +3%/layer (user 2026-07-16, was 4 -> 3.5 -> 3; L5 +15%)
         rate = rate * spd;
     }
     self apply_baseline_melee();
@@ -251,9 +251,9 @@ function apply_speed_for_round( round )
 // Trench per-layer scaling (user 2026-06-21). A zombie standing IN the trench is deadlier, scaling with
 // how deep it is (the layer, via acc_bus_trench::underground_layer). Master gate acc_trench_aggro
 // (default 1). THREE per-layer levers:
-//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 4) - here, in apply_speed_for_round.
-//   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 30) - apply_trench_health (one-way).
-//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 6, flat) - added to the player's INCOMING
+//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 3, was 4 -> 3.5 -> 3 - user 2026-07-16) - here, in apply_speed_for_round.
+//   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 25, was 30 -> 27 -> 25 - user 2026-07-16) - apply_trench_health (one-way).
+//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 4, flat - was 6 -> 5 -> 4, user 2026-07-16) - added to the player's INCOMING
 //     damage in acc_bus_trench::trench_melee_scaled, because open-field zombie melee uses the engine
 //     Melee() weapon, NOT self.meleeDamage (a per-zombie meleeDamage write never lands).
 // NO forced sprint, NO beeline. Gated on the ZOMBIE'S OWN position, NOT its target - surface = stock.
@@ -345,7 +345,7 @@ function apply_baseline_melee()   // self = zombie
 function apply_trench_health( layer )   // self = zombie
 {
     if ( getdvarint( "acc_trench_aggro", 1 ) != 1 ) return;
-    pct = getdvarint( "acc_trench_layer_hp_pct", 30 );   // +30% max health per layer (user 2026-06-27, was 50)
+    pct = getdvarint( "acc_trench_layer_hp_pct", 25 );   // +25% max health per layer (user 2026-07-16, was 30 -> 27 -> 25; L5 +125%). Prior: 50 -> 30 (2026-06-27).
     if ( pct <= 0 || layer <= 0 ) return;
 
     if ( !isdefined( self.acc_base_health ) ) self.acc_base_health = self.maxhealth;   // round-scaled base
@@ -406,6 +406,8 @@ function under_anim_slow()
     if ( IS_TRUE( self.b_widows_wine_cocoon ) ) return true;  // Widow's Wine cocoon
     if ( IS_TRUE( self.acc_fb_void_slowed ) )   return true;  // Fire Bow demon-gate void slow (2026-07-11, _zm_weap_elemental_bow_demongate - its watchdog restores rate 1.0 on exit)
     if ( IS_TRUE( self.acc_freeze_slowed ) )    return true;  // Winter's Howl freezegun slow (2026-07-11, _zm_weap_freezegun - watchdog restores rate 1.0 on expiry)
+    if ( IS_TRUE( self.acc_cj_corrupted ) )     return true;  // CYBERJACK corruption flicker-slow (2026-07-17, _acc_cyberjack - live expiry restores rate 1.0 + clears the flag; the flag survives DEATH on purpose for the harvest hook)
+    if ( IS_TRUE( self.acc_cj_storm_slow_on ) ) return true;  // CYBERJACK tornado 50% radius slow (2026-07-17, _acc_cyberjack::tornado_slow_refresh - watchdog restores on leaving the radius/storm end; applies to bosses too, freezegun precedent)
     if ( isdefined( self.a_n_slowdown_timeouts ) &&
          getarraykeys( self.a_n_slowdown_timeouts ).size > 0 )
         return true;                                          // generic trap slowdown

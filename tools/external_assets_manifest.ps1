@@ -314,6 +314,30 @@ $ExternalAssetPacks = @(
         )
     },
     @{
+        Name     = 'West Ammo Crates (ammo-crate station model)'
+        Author   = 'Westchief596 ([West] Ammo Crates pack); crate model + textures ZeRoY; tester Shidouri'
+        Provides = 'xmodel west_ammo_crate_model + 1 material + 2 textures (ZeRoY S4 ammo crate, 29x33x25) - the 3 buyable Ammo Crate stations (_acc_ammo_crate.gsc; replaced the stock Shangri-La stack 2026-07-12). MODEL-ONLY lift - the pack GSC/sounds/prefab are NOT installed (we keep our own buy logic). NO _col LOD -> clip-dependent (add_prop_clips.js ammo_crate_l2/_l5/paradise_ammo_crate).'
+        Required = $true   # the .zone has xmodel,west_ammo_crate_model -> a fresh clone link-errors without it
+        Marker   = 'source_data\acc_west_ammo_crate.gdt'
+        Link     = '"[West] Ammo Crates.zip" (user download 2026-07-12). Install: pack GDT -> source_data\acc_west_ammo_crate.gdt (xmodel filename is ..\_custom\...-relative, so the GDT must sit at source_data ROOT, not a subfolder) + the 2 pngs/XMODEL_BIN -> _custom\westchief596\ammo_crate; gdtdb /update.'
+        Paths    = @(
+            'source_data\acc_west_ammo_crate.gdt',
+            '_custom\westchief596\ammo_crate'
+        )
+    },
+    @{
+        Name     = 'CW power-direction arrows (dogcanary wall decals)'
+        Author   = 'DOGCANARY (rip pack "Images arrow coldwar dogcanary"); art Treyarch (BOCW dark-aether wall scrawls)'
+        Provides = '11 materials arrow_power_coldwar[1-10] + 11 images (lit_emissive_scroll_transparent - glowing animated scroll): directional arrows (blank=right, 4=left, 2=up-right) + words (1=POWER, 5=ENGINE, 6=VENT, 7=STAIRS, 8=ASSEMBLE, 9=PASSWORD, 3=FAMILY, 10=STOLEN). Used as inline worldspawn chalk-recipe meshes pointing at the Bus Station power switch (map ACC POWER-DIRECTION ARROWS section, render test 2026-07-12).'
+        Required = $true   # the .map worldspawn meshes reference arrow_power_coldwar1/4 -> cod2map fails "missing material" without it
+        Marker   = 'model_export\codimages\arrow_coldwar_dogcanary\arrow_power_coldwar_dogcanary.gdt'
+        Link     = '"Images arrow coldwar dogcanary.rar" (user download 2026-07-12). Install: drop the pack model_export\codimages + model_export\_modelos_dogcanary folders into the tools-root model_export (both gdtdb-scanned as-is); gdtdb /update.'
+        Paths    = @(
+            'model_export\codimages\arrow_coldwar_dogcanary',
+            'model_export\_modelos_dogcanary\arrow_coldwar_power'
+        )
+    },
+    @{
         Name     = 'SAT Toxic Zombies (boss skins, model-only lift)'
         Author   = 'WetEgg (SAT Toxic Zombies pack; FX assist Rayjiun)'
         Provides = 'xmodels c_sat_zmb_zombie_toxic_1/_2 (+8 materials/39 images) - Glitch Stalker + Phantom boss skins. The pack AI system is NOT installed.'
@@ -380,6 +404,18 @@ $ExternalAssetPacks = @(
         )
     },
     @{
+        Name     = 'Kortifex Announcer (Vanguard VO, full announcer migration)'
+        Author   = 'westchief596 ([West] pack; rip tools dest1yo Cordycep; VO Treyarch/Activision)'
+        Provides = '46 Kortifex announcer wavs + the stock vox_zmba_* override alias CSV (share\raw\sound\aliases\west\vg_kortifex_ann.csv). Extra 29 aliases = repo sound/aliases/acc_kortifex_extra.csv; engine = _acc_kortifex.gsc.'
+        Required = $true   # szc references west/vg_kortifex_ann.csv + acc_kortifex_extra.csv FileSpecs point at these wavs
+        Marker   = 'sound_assets\west\ann\kortifex'
+        Link     = 'user download "[West] Kortifex Announcer.zip"'
+        Paths    = @(
+            'sound_assets\west\ann\kortifex',
+            'share\raw\sound\aliases\west\vg_kortifex_ann.csv'
+        )
+    },
+    @{
         Name     = 'Ultimate Round Sounds Pack (Kino/t5_theater stingers)'
         Author   = 'WetEgg (music info MidgetBlaster; tools Scobalula/DTZxPorter/Dest1yo/echo000; refs Booris, Peppergogo)'
         Provides = 'Kino round-start/round-end/game-over stinger wavs (t4/t5 rips) - aliased by repo sound/aliases/acc_round_sounds.csv, hooked in _acc_music.gsc. Pack GSC system NOT installed.'
@@ -416,14 +452,15 @@ $ExternalAssetPacks = @(
         )
     },
     @{
-        Name     = 'MidgetBlaster T7 Assets V2.7 (items slice - 5 boss-item pickup models)'
+        Name     = 'MidgetBlaster T7 Assets V2.7 (items slice - 8 boss-item pickup models)'
         Author   = 'MidgetBlaster (T7 rips; tools: Spiki, Scobalula, Serious)'
-        Provides = 'REAL boss-item pickup xmodels replacing the placeholder orbs/brick (docs/09_boss_items.md, 2026-07-08): p7_spl_first_aid_box (Repair Kit), p7_wes_money_bag (Loot Stash), p7_ra2_tool_vintage_horseshoe (Lucky Horseshoe), p7_zm_mob_vial_surgical_lrg (Phase Serum), p7_ban_debris_car_carburetor (Turbocharger). Same carve pipeline as the pilot slice: LOD0-3 xmodel_bin + shipped PNG maps; missing colormaps reference their stock i_mtl names (resolve from fastfiles, errorlog-verified).'
-        Required = $true   # zone has all 5 xmodel lines; _acc_boss_items precaches + spawns them
+        Provides = 'REAL boss-item pickup xmodels replacing the placeholder orbs/brick (docs/09_boss_items.md, 2026-07-08): p7_spl_first_aid_box (Repair Kit), p7_wes_money_bag (Loot Stash), p7_ra2_tool_vintage_horseshoe (Lucky Horseshoe), p7_zm_mob_vial_surgical_lrg (Phase Serum), p7_ban_debris_car_carburetor (Turbocharger). EXTENDED 2026-07-15 (acc_t7_props_items2.gdt, second GDT same slice): p7_zm_ctl_ammo_flak_bullet_01 (High Caliber Rounds), p7_zm_ctl_deathray_sphere_coil (Plasma Generator), projectile_t7_drone_amws_missile (Warhead Bomber) - their bins ride the castle/stalingrad map dirs already packed by the deco/stations slices. Same carve pipeline as the pilot slice: LOD xmodel_bins + shipped PNG maps; missing colormaps reference their stock i_ names (resolve from fastfiles, errorlog-verified).'
+        Required = $true   # zone has all 8 xmodel lines; _acc_boss_items precaches + spawns them
         Marker   = 'source_data\acc_t7_props_items.gdt'
         Link     = 'User rar "T7 Assets V2.7.rar" (Downloads) - keep compressed as the prop library; extract per-prop slices on demand (spike report 2026-07-02)'
         Paths    = @(
             'source_data\acc_t7_props_items.gdt',
+            'source_data\acc_t7_props_items2.gdt',
             'model_export\_midgetblaster\props\p7_mp_waterpark',
             'model_export\_midgetblaster\props\p7_mp_wes',
             'model_export\_midgetblaster\props\p7_mp_rome',
@@ -448,6 +485,25 @@ $ExternalAssetPacks = @(
             'model_export\_midgetblaster\props\p7_mp_conduit',
             'model_export\_midgetblaster\props\p7_mp_rise',
             'model_export\_midgetblaster\props\p7_zm_temple'
+        )
+    },
+    @{
+        Name     = 'MidgetBlaster T7 Assets V2.7 (deco slice - Infected Descent abyss props)'
+        Author   = 'MidgetBlaster (T7 rips; tools: Spiki, Scobalula, Serious)'
+        Provides = 'INFECTED DESCENT abyss-floor decoration xmodels (docs/30 enhancement, locked plan 2026-07-12). Phase 0: p7_zm_isl_specimen_container_lg (L4 "Specimen Vault" hero - Zetsubou LARGE specimen tank 63x65x120, glass+interior+body-silhouette materials + the 2 shipped _images PNGs) + _egg (Phase-2 clutter). NO _col LOD -> clip via add_prop_clips when placed in a lane. CARVE TRAPS (2026-07-12): the mutant vats (specimen_container_mutant/_2/_3) are SKINNED (junk j_ joints in the Greyhound bins) -> linker convert-fail as rigid carves, STATIC variants only; and strip stock-named materials the carve tool re-authors (global_invisible -> gdtdb "Duplicate material"). Grows batch-by-batch as Phases 1-2 carve the remaining L2/L3/L5 palettes (batches A-I in the locked plan). GDT auto-generated by tools/gen_t7_carve_gdt.js; the island model folders land inside the stations slice''s pack path (props\p7_zm_island), so only NEW props\<map> dirs need adding here.'
+        Required = $true   # zone has xmodel,p7_zm_isl_specimen_container_lg; _acc_abyss_deco spawns it
+        Marker   = 'source_data\acc_t7_props_deco.gdt'
+        Link     = 'User rar "T7 Assets V2.7.rar" (Downloads) - keep compressed as the prop library; extract per-prop slices on demand (staging: Downloads\_t7x - short path, the 260-char rar trap)'
+        Paths    = @(
+            'source_data\acc_t7_props_deco.gdt',
+            # Phase-1 batches (2026-07-12): 4 map dirs no other slice packs. The rest of the
+            # deco models ride existing slice paths (stations: island/citadel/cryogen/city/
+            # conduit/rise/temple/stalingrad; items: genesis/banzai/wes/rome/waterpark;
+            # pilot: moon/crucible).
+            'model_export\_midgetblaster\props\p7_zm_asylum',
+            'model_export\_midgetblaster\props\p7_zm_cosmodrome',
+            'model_export\_midgetblaster\props\p7_zm_castle',
+            'model_export\_midgetblaster\props\p7_cairo_lotus3'
         )
     },
     @{
@@ -634,7 +690,13 @@ $ExternalAssetPacks = @(
             'model_export\apex',
             'xanim_export\apex',
             'sound_assets\apex',
-            'share\raw\sound\aliases\zm_apex_weapons.csv'
+            'share\raw\sound\aliases\zm_apex_weapons.csv',
+            # ACC-CUSTOM weapon-bolt FX (git-AUTHORED, deployed install-side; ride this bundle so a fresh
+            # install links). acc_cj_bolt_violet = THE CYBERJACK shot bolt (apex_lstar chassis, docs/43);
+            # the ttk geotrails share the acc_ttk_bolt_fx clientfield (Blast-O-Matic + Triple Take + CYBERJACK).
+            'share\raw\fx\acc\acc_cj_bolt_violet.efx',
+            'share\raw\fx\acc\acc_ttk_geotrail_blue.efx',
+            'share\raw\fx\acc\acc_ttk_geotrail_red.efx'
         )
     },
     @{
@@ -649,15 +711,19 @@ $ExternalAssetPacks = @(
         # Edgerunners) but had leaked into git (commit 90aa25b) and rode NO manifest
         # entry. Untracked + gitignored to match its siblings; now carried by this zip.
         Name     = 'Copyrighted placeholder music (COPYRIGHTED - private transfer only)'
-        Author   = '115 = Treyarch/Kevin Sherwood; paradise_calm = Nintendo (Mario Stage Win); ee_song_3 = Rosa Walton/Hallie Coggins (Cyberpunk: Edgerunners, CD PROJEKT RED)'
-        Provides = 'sound_assets\acc\music\115.wav + paradise_calm.wav (finale) + ee_song_3.wav (jukebox song #3) — the gitignored copyrighted placeholder tracks the szc/alias CSVs reference; sound-bank build fails without files at these paths'
+        Author   = '115 = Treyarch/Kevin Sherwood (Remaster since 2026-07-18); paradise_calm = Nintendo (Mario Stage Win); ee_song_3 = Rosa Walton/Hallie Coggins (Cyberpunk: Edgerunners, CD PROJEKT RED); ee_song_4/5/6/7 = Kevin Sherwood et al. (CoD-zombies EE songs: Dead Again / Beauty of Annihilation / Can You Hear Me? Come In / The Gift)'
+        Provides = 'sound_assets\acc\music\115.wav + paradise_calm.wav (finale) + ee_song_3..7.wav (jukebox songs #3-#7, 4-7 added 2026-07-18) — the gitignored copyrighted placeholder tracks the szc/alias CSVs reference; sound-bank build fails without files at these paths'
         Required = $true
         Marker   = 'sound_assets\acc\music\115.wav'
         Link     = 'No download link (copyrighted rips) — teammate zip only. Any 48k/16-bit stereo wav at these paths satisfies the build if the real ones are unavailable (tools/resample48k.js converts).'
         Paths    = @(
             'sound_assets\acc\music\115.wav',
             'sound_assets\acc\music\paradise_calm.wav',
-            'sound_assets\acc\music\ee_song_3.wav'
+            'sound_assets\acc\music\ee_song_3.wav',
+            'sound_assets\acc\music\ee_song_4.wav',
+            'sound_assets\acc\music\ee_song_5.wav',
+            'sound_assets\acc\music\ee_song_6.wav',
+            'sound_assets\acc\music\ee_song_7.wav'
         )
     },
     @{
@@ -676,6 +742,94 @@ $ExternalAssetPacks = @(
             'share\raw\fx\_mori2\t8_powerup_pre_drop_pop.efx',
             'share\raw\fx\_mori2\t8_powerup_pre_drop_pop_solo.efx',
             'share\raw\sound\aliases\emox_t8_powerups_delayed_drop.csv'
+        )
+    },
+    @{
+        Name     = 'BO2 TranZit props (Zombie115201 static-xmodel pack)'
+        Author   = 'Zombie115201 (export/setup); rip tools Scobalula/DTZxPorter/Ultra/Blakintosh/Eric Maynard/ID-Daemon / Treyarch (orig BO2 Green Run art)'
+        Provides = '80 BO2 TranZit (Green Run: bus depot / town / diner / farm) STATIC prop xmodels (prefix p7_zm_tra_*, grouped as per-prop GDTs under model_export). Surface set-dressing for the plain zones; PILOT = Bus Station transit concourse (_acc_surface_deco.gsc, 20 models zoned). Model-only lift - install the model_export tree; the pack `optional\` folder (a MidgetBlaster DUDV-image correction + fxanim/character extras) is NOT installed. TRAP: some props share textures with the MidgetBlaster T7 dump - p7_zm_tra_bookshelf_wood_dmg misses its Verruckt materials, so it is deliberately NOT zoned (drop or carve the 3 mtl_p7_zm_ver_bookshelf_* materials to use it).'
+        Required = $true   # zone references xmodel,p7_zm_tra_* -> a fresh clone link-errors without it
+        Marker   = 'model_export\t7_props_dlc\zm\dlc5\zm_transit\p7_zm_tra_bench\p7_zm_tra_bench.gdt'
+        Link     = 'p7_zm_transit_assets.zip (444 MB, user download 2026-07-16). Install: drag the archive''s model_export\* into the tools-root model_export (SKIP the optional\ folder), then TOUCH the per-prop *.gdt mtimes under model_export\t7_props_dlc\zm\dlc5\zm_transit (rip timestamps predate gdt.db -> gdtdb''s incremental scan skips them otherwise), then gdtdb /update. Personal/testing - CREDITS/IP review before any public Workshop release.'
+        Paths    = @(
+            'model_export\t7_props_dlc\zm\dlc5\zm_transit'
+        )
+    },
+    @{
+        Name     = 'AW 3D Printer Mystery Box (PLANET)'
+        Author   = 'Planet (port + scripts) / Scobalula (export tools) / Sledgehammer-Activision (orig AW Exo Zombies art)'
+        Provides = 'The map''s mystery box: dlc_weapon_mystery_box_01 rigged door-rig xmodel + _static base + fx_aw_scanner_laser, 5 xanims (activate/open/close/open_idle/malfunction), aw_mysterbox.gdt (26 assets incl. mc/dr_fx_holo duplicate-render holo material + aw_magic_box_bundle scriptbundle), 3 holo/idle .efx, 4x 48k wavs. Driver scripts are VENDORED in git (scripts/planet/_aw/_zm_aw_mysterybox.gsc/.csc with [acc] shims); alias CSV vendored as sound/aliases/acc_aw_magicbox.csv (normalized to 102 cols).'
+        Required = $true   # zone references the scriptbundle/material/fx + map places the xmodels -> a fresh clone link-errors without it
+        Marker   = 'source_data\_planet_aw\aw_mysterbox.gdt'
+        Link     = 'AW_MAGICBOX.rar (31 MB, user download 2026-07-12; MEGA mega.nz/file/RNUTBaRI#2xEwNgTQROAjv5KfOaqLPNzN3yWblCj_KdrZQfRMKRo). Extract model_export\_aw + xanim_export\_aw + share\raw\fx\_custom\atlas + sound_assets\planet into the tools root; GDT goes to source_data\_planet_aw\ (moved out of the pack''s model_export home) - TOUCH its mtime before gdtdb /update (rar timestamps predate gdt.db). The pack''s share\raw\scripts + sound alias CSV + zpkg are NOT installed (vendored in repo / inlined in the .zone). Credit Planet + Scobalula in CREDITS before any public Workshop release.'
+        Paths    = @(
+            'source_data\_planet_aw\aw_mysterbox.gdt',
+            'source_data\_planet_aw\acc_aw_holo_gold.gdt',   # [acc]-authored GOLD wonder-holo material (dr_fx_holo clone, cg02 tint cyan->gold) - rides this pack since it derives from the pack entry
+            'source_data\_planet_aw\acc_aw_holo_green.gdt',  # [acc]-authored GREEN knife-to-share holo (dr_fx_holo clone, cg02 tint cyan->green, user 2026-07-13) - regenerate: clone acc_aw_holo_gold.gdt, rename dr_fx_holo_gold->green, set cg02 0.0/1.0/0.15
+            'source_data\_planet_aw\acc_aw_holo_dim.gdt',    # [acc]-authored interact-glow DIM holo (acc_dr_fx_holo_dim; cg02+colorTint x0.35 = the proven ghost-techset dimmer - _acc_interact_glow.csc, v4 2026-07-17)
+            'source_data\_planet_aw\acc_aw_holo_dim2.gdt',   # [acc]-authored SPARE deep clone (acc_dr_fx_holo_dim2, currently un-zoned/unused - kept for a future two-level pulse)
+            'model_export\_aw',
+            'xanim_export\_aw',
+            'sound_assets\planet\aw\mysterybox',
+            'share\raw\fx\_custom\atlas\aw_magicbox_open.efx',
+            'share\raw\fx\_custom\atlas\aw_idle_box_fx.efx',
+            'share\raw\fx\_custom\atlas\aw_idle_box_off_fx.efx'
+        )
+    },
+    @{
+        Name     = 'Ninjamanny Ascension Zombies (labcoat scientist boss body)'
+        Author   = 'Ninjamanny829 (porting) / Raptroes+Aimless (testing) / Scobalula (Greyhound/Hydrax/Gameimageutil) / DTZxPorter (Darkiris) / Treyarch (orig ZC Ascension art)'
+        Provides = 'ZC Ascension zombie bodies on the STOCK T7 zombie rig - 3 body types (labcoat / cosmo spacesuit / spetznaz) as full-LOD XMODEL_BINs + gib variants (beheaded/blegsoff/...) + 3 Radiant spawner prefabs + dlchd_ascension_zombies.gdt (1.1MB). p7_zm_dlchd_cosmo_labcoat_body = the SCIENTIST BOSS body (docs/44 - promoted-zombie SetModel path, zero rigging). NOTE: pack zip bundles _images incl. i_c_gen_char_* commons, but the devraw DB row says the pack REQUIRES Ninjamanny Material Common (mega.nz/file/iMIBCbqK#aho0tRTo86fbuGLv6-UeWSCS4ilEWi5wDLywRXS6WdA) - VERIFY at first link (grep build log for missing i_c_gen_*/char_base_fabric images) and install the common pack if they miss.'
+        Required = $true   # zone has xmodel,p7_zm_dlchd_cosmo_labcoat_body + 5 cosmo heads (The Scientist boss, docs/44) -> fresh clone link-errors without it
+        Marker   = 'source_data\_ninjaman_models\bo3\dlchd_ascension_zombies.gdt'
+        Link     = 'ninja_dlchd_ascension_zombies.zip (143 MB, user download 2026-07-17; devraw DB "Ascension Zombie Pack" mega.nz/file/rdwDjBaA#izfzrxL4GMP_bHwlxGCTmYacbrT84tB4fWK2w9YWuNs). Install: unzip into tools root (model_export + map_source\_prefabs + source_data), move howtouse/credits txts into source_data\_ninjaman_models\, TOUCH the GDT, gdtdb /update. Credit Ninjamanny829+Scobalula+DTZxPorter+Treyarch in CREDITS before any public Workshop release.'
+        Paths    = @(
+            'source_data\_ninjaman_models\bo3\dlchd_ascension_zombies.gdt',
+            'model_export\_ninjaman_models\t7\dlchd_ascension_zombies',
+            'map_source\_prefabs\zm\_ninjaman_zombie_spawners'
+        )
+    },
+    @{
+        Name     = 'HB21 BO3 FX Library v2.1.0 (de-rez / teleporter / electric FX arsenal)'
+        Author   = 'HarryBo21 (compilation) / Treyarch (orig BO2+BO3+WaW FX) - the devraw DB "BO3 FX Library" entry'
+        Provides = '6,542 .efx (share\raw\fx: BO2+BO3+WaW libraries) + fx-use model_export trees + texture_assets + 64 source_data GDTs (~1,700 assets). Headliners for the boss work (docs/44): dlc0\nuketown\fx_de_rez_ambient/_grey/_vista_beam (the digital-dissolve GLITCH language), dlc0\factory\fx_teleporter_elec_strike(+_os,+sparks)/fx_teleporter_beam_factory, p7_fxp_electric_arc pack, BO2 portal air/elec/fire/ice. Inert until zone-referenced.'
+        Required = $true   # zone has fx,dlc0/factory/fx_teleporter_elec_strike_os (de-rez blink zap, docs/44) -> fresh clone link-errors without it
+        Marker   = 'source_data\p7_fxp_electric_arc.gdt'
+        Link     = 'hb21_black_ops_3_fx_library_v2.1.0.rar (490 MB, user download 2026-07-17; devraw DB mega.nz/file/6WYARBxB#-NUWhmjzCySBXx9FCBpTy_wvjhe5FsyBec7nPKYwOl0). Install (INSTALL-SIDE EDITS REQUIRED, 2026-07-17): 7z-extract, merge share/model_export/texture_assets/source_data into tools root, move README+CHANGELOG to source_data\_hb21_fx_library\, then (1) DELETE source_data\p7_zm_sta_temp_heroes_pose.gdt (Gorod hero statues - mass image collision with wawmodels.gdt/Ultimis) and (2) STRIP 4 duplicate blocks from source_data\black_ops_3_fx.gdt: images fxt_lightning_beam_trail2_specialty / fxt_smk_trail_tracer_chaser / fxt_smk_trail_wispy + material gfx_sam_trail_smk_em (collide with pre-existing bo3_gfx.gdt; scratch gdt_dedupe.js recipe in CHANGELOG 2026-07-17) - then TOUCH all pack GDTs + gdtdb /update (expect ~65 GDTs / ~1,796 assets clean). Credit HarryBo21+Treyarch in CREDITS before any public Workshop release.'
+        Paths    = @(
+            'source_data\p7_fxp_electric_arc.gdt',
+            'source_data\black_ops_3_fx.gdt',
+            'share\raw\fx\dlc0\nuketown\fx_de_rez_ambient.efx',
+            'share\raw\fx\dlc0\factory\fx_teleporter_elec_strike_os.efx',          # zone-referenced (derez blink zap)
+            'share\raw\fx\dlc0\factory\fx_teleporter_elec_strike_sparks_os.efx',   # zone-referenced (phantom sparks layer)
+            'model_export\black_ops_3\p7_fxp_electric_arc'
+        )
+    },
+    @{
+        Name     = 'BO1 Nixie Numbers FX (coolyer) - Pentagon Thief trail base'
+        Author   = 'coolyer (BO3 rebuild, help Rayjiun, upscaled textures Oblight) / Treyarch (orig BO1 fx_misc_nix_numbers)'
+        Provides = '3 BO3-native iwfx-3 .efx (fx/misc/numbers_fx/fx_misc_nix_numbers_{normal,random,random_directions}) + material gfx_fxt_misc_nixnumbers_bo1 (GDT + i_fxt_misc_nixnumbers.tif/_r + upscaled up2/up_r2 tiffs). The authentic BO1 115-numbers particle effect - base for the Pentagon Thief red aura (clone normal.efx -> red colorGraph, PlayFxOnTag on a linked tag_origin = BO1 fx_zombie_tech_trail pattern; plan docs/44).'
+        Required = $true   # zone has fx,_custom/acc/fx_acc_derez_blink whose material gfx_fxt_misc_nixnumbers_bo1 lives in this pack's GDT -> fresh clone link-errors without it
+        Marker   = '_custom\_coolyer\numbers_fx\numbers_fx.gdt'
+        Link     = 'numbers_fx.zip (96 KB, user download 2026-07-17; github.com/coolyer/t6_numbers_fx - BO3 release; the t6_numbers_fx-1.0.zip sibling is the BO2 version, NOT needed). Install: drag share\ + _custom\ into the tools root, TOUCH the GDT mtime, gdtdb /update, THEN copy the repo-vendored [acc] tinted clones share\raw\fx\_custom\acc\*.efx into the tools share\raw\fx\_custom\acc\ (regen recipe: tools/tint_numbers_efx.js - cyan de-rez blink 0.25/0.95/1 from the random_directions variant; the red Scientist trail rides docs/44 workstream B). colorGraph ships white 1-1-1 (tint lives in the texture). Credit coolyer/Rayjiun/Oblight in CREDITS before any public Workshop release.'
+        Paths    = @(
+            '_custom\_coolyer\numbers_fx',
+            'share\raw\fx\misc\numbers_fx',
+            'share\raw\fx\_custom\acc\fx_acc_derez_blink.efx',           # [acc]-authored vendored clone, cyan (repo share/raw/fx/_custom/acc)
+            'share\raw\fx\_custom\acc\fx_acc_derez_blink_phantom.efx',   # [acc]-authored vendored clone, neon yellow (zone-referenced, phantom warps)
+            'share\raw\fx\_custom\acc\fx_acc_derez_blink_red.efx',       # [acc]-authored vendored clone, red burst (The Scientist, docs/44)
+            'share\raw\fx\_custom\acc\fx_acc_scientist_trail.efx'        # [acc]-authored vendored clone, red CONTINUOUS aura (from the normal counting variant)
+        )
+    }
+    @{
+        Name     = 'BO1 campaign sounds rip (numbers-station audio for the Scientist hum)'
+        Author   = 'unknown ripper (user download 2026-07-17) / Treyarch (orig BO1 campaign audio)'
+        Provides = 'BO1Sounds.7z: 605 campaign wavs (radio/interr/numbers/other). USED: numbers\New foldernum_04_d_PCM.wav (the pack author glued "New folder" into filenames) -> prepped by tools/prep_scientist_numbers_from_rip.js (stereo 47991Hz -> mono 48k, -3dB peak, 150ms seam xfade) OVERWRITING the tools-root sound_assets\acc\fx\scientist_numbers_lp.wav. The repo keeps the SYNTH fallback (tools/gen_scientist_numbers_wav.js) so fresh clones build + sound without the rip; installing this = the authentic BO1 numbers broadcast.'
+        Required = $false  # repo synth fallback keeps a fresh clone green; this rip only upgrades the sound
+        Marker   = 'sound_assets\acc\fx\scientist_numbers_lp.wav'
+        Link     = 'BO1Sounds.7z (279 MB, user Downloads 2026-07-17). Re-prep: 7z-extract the numbers folder, run tools/prep_scientist_numbers_from_rip.js on numbers\New foldernum_04_d_PCM.wav targeting the tools-root sound_assets\acc\fx\scientist_numbers_lp.wav, bump a .zone comment, rebuild game-CLOSED. RIP stays OUT of git. Credit Treyarch in CREDITS before any public Workshop release.'
+        Paths    = @(
+            'sound_assets\acc\fx\scientist_numbers_lp.wav'
         )
     }
 )

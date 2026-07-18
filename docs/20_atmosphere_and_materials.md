@@ -395,6 +395,7 @@ legally redistributable.
 | MP-only sky reintroduced | high | only `default_night`/`default_black`/`skybox_zm_factory`/our `acc_ssi_night_dim80`; `grep` the `.map` for `havoc` after any sky edit |
 | Reusing alien `black1_plaster`/`ayz_floor`/etc. as "stock" | high | custom + unlicensed; use `t7_*` names (§4) |
 | Adding a `material,` `.zone` line for a stock face material | high | wrong — face materials auto-resolve; a line forces a techset compile that can fail (§14) |
+| **Omitting an `fx,` `.zone` line for a stock FX** (the INVERSE of the material rule above — do not generalise "stock = free") | high | FX do **NOT** auto-resolve and are **not** free from `zm_levelcommon`: a `#precache("fx",X)` + `PlayFX` with no `fx,X` line logs `Could not find fx "X"` and the `PlayFX` **silently no-ops** (`fx_at()` only guards `isdefined(level._effect[key])`, which stays true). Bit `acc_haze`/`acc_steam` — 2026-07-15, ambient + every Abyss hazard tell invisible. Every zone-listed stock FX logs zero such errors = the control. Audit: each `#precache("fx"\|"client_fx",X)` needs a matching `fx,X` |
 | Sky/probe/face/light change not relit | high | any BSP-baked change MUST go through `cod2map64` + LED before linker (`build_map.ps1`, LED default) |
 | `-SkipLED` used | high | RED FLAG — hides the `brush.cpp:1860` lightmapper regression; never the default |
 | Server `PlayFX` from a `.gsc` | high | doesn't render — drive FX from a `.csc` clientfield (§7d) |

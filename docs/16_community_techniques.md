@@ -338,6 +338,12 @@ GSC: clientfield::register("scriptmover","debug_enable_keyline",VERSION_SHIP,1,"
 
 - **Source:** ohm-nabar/zm_building scripts/Sphynx/commands/_zm_commands.csc:19-33,74-100; _zm_commands.gsc:86-92,897-1003; zone_source/zm_building.zone:610-611
 - **For our map:** Ideal for greybox QA on our 7 zones: outline all wallbuy structs/perk machines/spawners through walls when verifying placements in-game.
+- **ADOPTED (2026-07-17):** the same clientfield→duplicate-render pattern now ships as the
+  interactable-station holo shimmer (`_acc_interact_glow.gsc/.csc`, docs/11) — FRAMEBUFFER_DUPLICATE
+  overlay of the AW box's `mc/dr_fx_holo` on 13 station meshes instead of the offscreen keyline
+  (through-wall X-ray was too gamey for normal play; the shimmer is depth-drawn on the mesh like
+  the box's reveal flash). Stock outline materials for a future debug pass: `mc/hud_outline_model_{red,green,orange,white}`
+  + `_z_` through-wall variants (grep antipersonnelguidance.csc / _gadget_vision_pulse.gsh).
 
 ### Trials system (4 judges) granting tiered gobblegum rewards
 
@@ -837,7 +843,7 @@ The BO3 Panzer is the stock `mechz` (DLC1 / Der Eisendrache). Adding it to a bas
 
 ### Drop-in custom-archetype boss (NSZ Brutus, BO2 port) for usermaps
 
-NateSmithZombies' "NSZ BO2 Pack: Zombie Boss - Brutus" - a FULL custom archetype (model + anims + behavior tree + FX + GDT + sound + GSC) that, unlike stock `mechz`, ships its own redistributable assets and therefore spawns/fights in a usermap. API: `#using scripts\_NSZ\nsz_brutus;`, `brutus::init()` (own round-spawn loop), `brutus::spawn_brutus()` (manual spawn); config via `level.min_brutus_round` / `max_brutus_round` / `max_brutus` / `brutus_lock_machines` / `nsz_debug`. Known issues: usermaps-only, PaP abilities disabled while alive, traversal nodes must be marked to ignore him, co-op high-round spawn crashes without spawn-delay staggering. Full dossier + audit checklist (used during our now-complete adoption): [research/NateSmithZombies_Brutus_BO2_boss_pack.txt](research/NateSmithZombies_Brutus_BO2_boss_pack.txt).
+NateSmithZombies' "NSZ BO2 Pack: Zombie Boss - Brutus" - a FULL custom archetype (model + anims + behavior tree + FX + GDT + sound + GSC) that, unlike stock `mechz`, ships its own redistributable assets and therefore spawns/fights in a usermap. API: `#using scripts\_NSZ\nsz_brutus;`, `brutus::init()` (own round-spawn loop), `brutus::spawn_brutus()` (manual spawn); config via `level.min_brutus_round` / `max_brutus_round` / `max_brutus` / `brutus_lock_machines` (the upstream pack also has a `level.nsz_debug` trace toggle — removed from our vendored copy 2026-07-16, debug rides `level.acc_dev`). Known issues: usermaps-only, PaP abilities disabled while alive, traversal nodes must be marked to ignore him, co-op high-round spawn crashes without spawn-delay staggering. Full dossier + audit checklist (used during our now-complete adoption): [research/NateSmithZombies_Brutus_BO2_boss_pack.txt](research/NateSmithZombies_Brutus_BO2_boss_pack.txt).
 
 - **Source:** modme thread #765 (forum.modme.co/wiki/threads/765.html) + UGX mod #10676; download via the MEGA link there. v1.0.4 stable.
 - **For our map:** ADOPTED and live — Brutus is one of our boss roster types (`_acc_boss_brutus.gsc` drives it; the pack ships at `scripts/_NSZ/nsz_brutus.gsc`). We call its spawn through the actor-only seam and drive it through OUR health bar / Mega-Bottle / boss-item / speed / HP pipeline (shared roster `level.acc_boss_roster_fn`), leaving its own round/lock/reward logic inert. The old SetModel-reskin fallback is moot.

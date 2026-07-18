@@ -66,7 +66,51 @@ No custom keys; the interaction is the world trigger you look at.
 > struct) was removed 2026-07-07 — `acc_events_overload::init()` is commented out in
 > `_acc_main.gsc:199`. Do not document it as an interaction.
 
-## HUD architecture
+### Interactable-station holo shimmer (2026-07-17, `_acc_interact_glow`)
+
+**Every custom station mesh carries an animated cyan hologram shimmer rendered ON the model**
+— the "you can USE this" affordance (user: players couldn't tell station props from decoration;
+item drops already glow via FX, stations needed better). Not an FX: the engine's
+**duplicate-render** pass re-draws the tagged entity's mesh with a holo material, the exact
+mechanism behind the AW box's cyan reveal flash — so *cyan holo = interactable* is one language
+map-wide, box included. v4 state (2026-07-17, after a techset deep-dig —
+`share\raw\techsetdefs_stable\specialty\ghost.techsetdef` is the shader's ground truth):
+
+- **Dim:** custom clone `mc/acc_dr_fx_holo_dim` (`acc_aw_holo_dim.gdt`, install-side next to
+  the gold/green box clones) with `cg02` ("SceneTint") + `colorTint` scaled **×0.35** — the
+  proven ghost-techset color path (it's how the box's gold/green recolors work). `scaleRGB`,
+  `flicker*`, and `colorMap` swaps are **inert/unread** on this techset (v2+v3 live tests) —
+  don't retry them.
+- **Pulse:** the **server blinks the `acc_interact_glow` clientfield** — resting state is NO
+  glow; every 4.0s the station gives one brief 0.7s holo flash (user 2026-07-17: "No glow for
+  4 seconds"; random phase per station). The box holo's own live-proven CF transition path; no
+  material-side pulse lever exists. Timing = the two `ACC_GLOW_*_TIME` defines in the `.gsc`.
+- **Discovery semantics:** the flash is a "you haven't used this yet" beacon — it **stops
+  permanently (run-scoped, team-global) on the station's first SUCCESSFUL use** (user
+  2026-07-17: implant actually installed, tier actually bought, pool actually changed...).
+  Denied presses don't clear it. Each owning module calls `acc_interact_glow::glow_off(model)`
+  in its success branch; the Implant Bench clears per PAD, the vault per 4-pool station
+  (pre/post pool snapshot because its op helpers deny internally with no return value).
+- **Known limit (Exo pod lower half):** the ghost techset is `"lit transparent"` — scene
+  lighting (plus possibly baked vertex AO) modulates the additive holo, so a shadowed lower
+  body shows ~nothing. Intrinsic to the family; `hud_outline_*`/`sonar_rim` (replace-blend
+  keyline-buffer shaders) and `hacked` (also lit) are unusable in-scene. Real fixes if wanted:
+  swap the exo station to a mesh that reads well with top-weighted glow, or author an unlit
+  `emissive_passthrough_transparent(_scroll)` overlay material (scrolling scanline texture =
+  holo look without the lighting dependency).
+
+- Recipe: 1-bit `scriptmover` clientfield `acc_interact_glow` (GSC sets it on the station's
+  `script_model`) → `.csc` callback flips the ent's DR flag on filter id **20**
+  (`set_dr_filter_framebuffer_duplicate`; ids 9/10/30-32 taken). LOCKSTEP registration in both
+  VMs, `_acc_tripletake` autoexec pattern.
+- Tagging is **explicit** — `acc_interact_glow::glow_on( ent )` at the spawn site (13 sites, 11
+  modules). A model-name scan was rejected: the deco modules spawn the *same* meshes as scenery
+  (5 deco generators, deco pod/terminals/ATM), which would false-shimmer. `glow_off( ent )` exists
+  for consumed/disabled stations (unused v1).
+- Shimmering stations: Exo pod, Implant Benches, Cyberware kiosk, Armory cabinet + Bottle
+  Exchange, Glitch Altar slab + Paradise box, Leaderboard terminal, Neural Expansion console,
+  Overclock terminal, 4 Exchange ATMs, Reactor plinth, Jukebox. Deliberately NOT tagged: perk
+  machines / PaP (recognizable vending affordance), AW box (own holo states), wallbuys, doors.
 
 Three cooperating layers draw the combat HUD:
 
@@ -102,6 +146,32 @@ Three cooperating layers draw the combat HUD:
   counter teal by overriding `RoundStatus.lua`" plan was **abandoned** — no such file ships,
   and overriding a stock HUD *menu* risks a non-loadable `.ff` (docs/19).
 - **Weapon / ammo / equipment** — `AetheriumLoadout`, bottom-right plate.
+- **Riot-shield equipment slot** — `AetheriumLoadout` (added 2026-07-15): a satellite slot
+  on the loadout **orb's lower-right rim**, plate tilted via `setZRot` to follow the curve
+  (the grenade slot owns the upper-right rim; AAT icon + badge row own the lower-left). All
+  geometry derives from the `SHIELD_*` constants block (orb center / angle / radius /
+  rotation) — screenshot-pass tuning is a 1–2 number tweak + `-GscOnly` rebuild. Visible
+  while the
+  Rocket Shield implant's `zod_riotshield` is granted — lit plate + `riotshield_zm_icon`
+  tinted by remaining shield health (blue → orange → red); while the shield is **destroyed
+  but the implant is still benched** (60s regrant window) it shows the empty plate + dim
+  icon instead of vanishing; hidden entirely with no implant. Wiring (the part the kit
+  shipped broken — its `AetheriumPlayerInfo` shield bar is dead code, left dead on purpose):
+  `zmInventory.shield_health` / `hudItems.showDpadDown` are server `set_player_uimodel`
+  bridges with **no client node until first write**, so consumers must `Engine.CreateModel`
+  (never `GetModel`); stock's destroy path writes ONLY `showDpadDown=0`, so one refresh
+  subscribes to every gate model (+ `acc_implants` nibble decode for the regrant state).
+- **Riot-shield health bars** (2026-07-15, user: "good to know if your teammates have one
+  and the health of the shield"): three shield surfaces total. (a) The gun-HUD slot above;
+  (b) the **own player card's** blue→gold→red shield bar above the HP bar
+  (`AetheriumPlayerInfo` — the kit shipped it half-dead, now on the fixed dual-model
+  wiring); (c) **teammate mini-bars** — a thin bar above each party row's health bar
+  (`AetheriumPartyPlayers`), fed by a new world-scope broadcast `player_shield_0..3`
+  (5 bits: 0 = none, 1..31 = health; registered in gsc+csc lockstep after `player_exo`,
+  pushed by `player_currency_watch`). Server reads shield health via the
+  **`DamageRiotShield(0)` hack** — a zero-damage call returns the remaining engine pool,
+  which has no other getter. Shield data is otherwise personal-scope, so without this
+  broadcast teammates could never see it.
 
 ### Currencies (Data Shards / Mega Bottles / Exo Suit)
 
@@ -128,7 +198,7 @@ and go. Two data lanes feed one row:
 - **Flag badges** (on/off) share ONE `acc_badges` toplayer bitmask
   (`_acc_gun_badges.gsc`, 6 bits): **bit 0 = MULE** (the gun Mule Kick removes on a down —
   swap-stable via the acquisition-order override), **bit 1 = TURBO** (Turbocharger implant +
-  holding a Havoc), **bit 2 = NUKE** (Nuclear Energy implant + holding a weapon it buffs),
+  holding a Havoc), **bit 2 = PLASMA** (Plasma Generator implant + holding an energy weapon),
   **bit 3 = BRZ** (Berzerker implant + holding a melee weapon it speeds up — Leviathan Axe /
   Action Figure; the knife-bash surface deliberately doesn't light it, it would pin on always).
   A per-player 0.25s poll (`badge_watch`) recomputes the whole mask from a **predicate
@@ -189,12 +259,50 @@ snapping — the same motion grammar as the HOSTILES bar.
 
 ### Equipped boss-item indicator
 
-A separate top-left **server hudelem stack** (cyber-purple `hud::createFontString`,
-`_acc_boss_items::sync_items_hud`): one line per implant slot (**3 slots** since 2026-07-09)
-plus a "CARRYING" line, each `<id> - <name>` from the shared `display_for()` helper (also
-used by the pickup prompt + message). Created lazily and **destroyed while empty** to free
-the shared hudelem pool (a real co-op crash guard — all `createFontString` returns are
-null-checked). This is the persistent sign of what you're holding.
+**Full PNG since 2026-07-12** (user pack `cyber_city_implant_hud`, v4 962×176 "compact" bars): the
+left HUD draws **four always-on bars** (3 slots + a HOLDING bar; big `IMPLANT N` title only) with
+each item's **glyph emblem overlaid** on the bar's right window when filled — the LUI widget
+`CoD.AccImplantRow` (`acc_hud.lua`, bars 230×42 at x 32 from y 220, stride 48; full recipe docs/19).
+The **pause-menu Implant Panel** (`AetheriumStartMenu.lua`) draws the same bars at the **exact same
+coords so it OVERLAPS/covers the in-game bars while paused**, with the name/desc text kept to the
+right of each, and the amber CARRYING line. Both decode the 16-bit `toplayer` clientfield
+`acc_implants` (four 4-bit `item.num` nibbles slot1/2/3/carried, pushed by
+`_acc_boss_items::push_implants_clientfield`, registered in `_zm_aetherium_hud.gsc/.csc`, see
+docs/09). `display_for()` (pickup prompt + messages) stays name-only. The old **server hudelem
+stack is GONE** (`sync_items_hud` is now just the clientfield push) — up to 4 per-client
+hudelems returned to the shared pool, a real co-op win. This is the persistent sign of what
+you're holding.
+
+### Pause-menu OBJECTIVE tracker + PERK reference (2026-07-13; milestone ladder 2026-07-15)
+
+Below the implant panel, the pause menu (`AetheriumStartMenu.lua`) uses its free left column
+(x32-790, y392-682) for two glance panels the space-starved in-game HUD can't fit:
+- **OBJECTIVE** — a "what next" run-phase hint plus a dynamic progress line and a red boss
+  warning. The phase ladder is **milestone-driven** (2026-07-15, replaced the plain round-8
+  split): power off → build loadout ("prepare for the Round 9 BOSS") → **one state per trench
+  descent gate** ("Bank souls below to open the door to Trench Level 2/3/4/5", indices 3-6) →
+  **Maw soul quota → pay the Paradise gate → gather at the gate** → gate open → onslaught →
+  complete (indices 1-12). Rides the 4-bit `acc_objective` **toplayer** clientfield, computed
+  level-globally by `_acc_lui::acc_compute_objective` from `acc_paradise_open/onslaught/won`, the
+  `power_on` flag, the **real `_acc_abyss_doors` state** (soul-door open count,
+  `acc_hub_souls_complete`, the shards/points pools) and round — correct for every co-op client.
+  **TOPLAYER-BUDGET NOTE (2026-07-15 incident):** the first version of this feature added a 16-bit
+  `acc_objective_detail` toplayer field and **broke map load** (the toplayer pool is FULL — stock
+  `visionset_lerp` failed to register, docs/19). Re-landed with zero pool growth: the 4-bit widen
+  is paid for by `acc_box_gun` 6→5 (the hot-fix ALSO shaved `acc_badges` 6→4, but that was surplus
+  — and it orphaned the HICAL/WARHD chips at bits 4/5, so `acc_badges` is back to 6), and the
+  **detail line** now reads the
+  `acc_obj_detail` **dvar** (`a + b*128`, +1 so 0 = no data): loadout = zones opened (+ perk count
+  bit-counted client-side from `accOwnedMask`); descent = souls % toward the gate; Maw = soul
+  quota %; pay = Shards + points remaining; gather = survivors at the gate a/b (published by
+  `hub_gather_watch`). Host-accurate; remote co-op clients see only the client-side parts (never
+  wrong numbers). The **red BOSS-round warning** ("BOSS ROUND NEXT - gear up NOW" / "BOSS ROUND -
+  it is hunting you") is fully client-side off the `gameScore.roundsPlayed` model (= round + 1):
+  fires on rounds ≡ 8/0 mod 9 (the roster cadence 9/9 hardcoded in `AccBossWarnState`; the cadence
+  dvars are manual test knobs only), suppressed once Paradise opens (phase ≥ 10). The perks block
+  shifted down (header y494) to keep the section gap.
+- **PERKS** — your owned perks and what each does; Mega'd perks show the Mega upgrade in teal. Reuses
+  `CoD.AetheriumPerks` + the `accOwnedMask`/`accMegaMask` masks — no new data wire.
 
 ### Kill feed
 

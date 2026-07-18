@@ -974,7 +974,8 @@ function apothiconBamfLand( entity )
 	
 	if( IsDefined( entity.enemy ) && IsPlayer(entity.enemy) && DistanceSquared( entity.enemy.origin, entity.origin ) <= SQR( FURY_BAMF_MELEE_RANGE ) )
 	{
-		entity.enemy DoDamage( 25, entity.origin, entity, entity, undefined, "MOD_MELEE" );		
+		// [acc] FURY DAMAGE 2x (user 2026-07-12): base 25 x live dvar acc_fury_dmg_mult (default 2.0 = 50).
+		entity.enemy DoDamage( int( 25 * getdvarfloat( "acc_fury_dmg_mult", 2.0 ) ), entity.origin, entity, entity, undefined, "MOD_MELEE" );
 	}
 	
 	PhysicsExplosionSphere( entity.origin, FURY_BAMF_MELEE_DAMAGE_MAX, FURY_BAMF_MELEE_DAMAGE_MIN, 10 );	

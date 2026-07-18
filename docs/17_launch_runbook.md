@@ -1,9 +1,12 @@
 # 17 — Launch Runbook (how to actually open the built map)
 
 > **TL;DR:** Build in the Launcher with **Run unchecked**, make sure BO3's Steam
-> **Launch Options are empty**, then double-click **`PLAY_TEST_MAP.bat`** (or run
-> `.\tools\run_game.ps1`). The single non-obvious requirement is the gametype
-> token: **`+set_gametype zclassic`**, NOT `+set g_gametype zclassic`.
+> **Launch Options are empty**, then double-click **`PLAY_NORMAL.bat`** — the ONLY
+> play script (user 2026-07-15; PLAY_TEST_MAP / PLAY_GOD_MODE deleted) — or run
+> `.\tools\run_game.ps1`. Dev/god are NOT launch flags: they're hardcoded in the
+> build (`acc_resolve_dev_flags()`, docs/22). The single non-obvious launch
+> requirement is the gametype token: **`+set_gametype zclassic`**, NOT
+> `+set g_gametype zclassic`.
 
 This map is a **split install** (Mod Tools in `...Black Ops III 455130`, game in
 `...Black Ops III`). Getting the built fastfile to actually open as a playable
@@ -19,6 +22,8 @@ diagnosable in minutes instead of an afternoon.
 | 2 | **"Steam must be running to play this game"** popup, then exits | BO3 Steam DRM rejects a raw-exe launch | `steam_appid.txt` = `311210` next to `BlackOps3.exe` **and** launch **through Steam** (`steam://run/311210//<args>`), not the raw exe |
 | 3 | **Black screen**, log ends `Com_ERROR: Script file not found: 'scripts/zm/gametypes/tdm.gsc'` | Gametype resolves to the MP default **tdm**; a plain `+set g_gametype zclassic` is **reset to the session default by the engine** (`callbacks_shared.gsc`) and never sticks | Pass the **engine command** `+set_gametype zclassic` (what the Mod Tools Launcher uses). It sticks. |
 | 4 | Same `tdm.gsc` black screen even after #3 | Steam **appends** the game's **Launch Options** to the `steam://run//<args>`, producing a **doubled command line** that re-corrupts the gametype | Keep Steam **Launch Options EMPTY**; use exactly ONE arg source |
+| 5 | Launch **silently ignored** (no process, no log write) right after a game **crash** | Steam's stale launch-handler jam (see CLAUDE.md): after a CTD + rapid retries Steam drops `steam://run` requests | Fully restart Steam (`steam.exe -shutdown`, wait for exit, relaunch, wait for login) — then see #6 |
+| 6 | Launch still silently ignored **after a Steam restart** — `console_log.txt` (Steam's `logs\` folder) shows `LaunchApp waiting for user response to ShowGameArgs` | After a Steam restart, **EVERY** `steam://run//<args>` launch pops an **in-Steam launch-arguments confirmation dialog** and waits for a click (verified live 2026-07-17: re-prompted at 20:48 after a 20:35 approval); headless/scripted launches hang on it, and a follow-up `-applaunch` queues behind the pending action. Pre-restart launches were silent, so some approval state persists per Steam session until a restart clears it | **Click OK/Allow in the Steam window** (a human step — scripts can't dismiss it; tick "don't ask again" if offered). The queued launch then fires with the right args. Agents: after launching headless, if the process doesn't appear in ~30s, check `Steam\logs\console_log.txt` (grep `311210`) and ask the user to click — do NOT stack more launch requests |
 
 ## The gametype detail (the subtle one — gotcha #3)
 
@@ -41,47 +46,43 @@ holds. Verified 2026-06-13: `+set_gametype zclassic` → clean load to ~4.7 GB, 
 ## Canonical launch (copy-paste)
 
 ```
-steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1 +set acc_dev 1
+steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1
 ```
 
-Equivalently: `PLAY_TEST_MAP.bat` (double-click) or `.\tools\run_game.ps1`.
-The engine args before `+set acc_dev 1` (`fs_game` / `set_gametype` / `devmap` /
-`developer` / `logfile` / `g_log` / `g_logSync`) are required to load the map, not
-dev toggles. `g_log games_mp.log` + `g_logSync 1` enable the engine GAME log where
-the `[ACCDIAG]` 30s diagnostics census lands (`_acc_diag.gsc`, file-only); `logfile 1`
-covers `console_mp.log` separately.
+Equivalently: `PLAY_NORMAL.bat` (double-click) or `.\tools\run_game.ps1`. Every
+arg (`fs_game` / `set_gametype` / `devmap` / `developer` / `logfile` / `g_log` /
+`g_logSync`) is an ENGINE arg required to load the map — there are no gameplay
+toggles on the command line. `g_log games_mp.log` + `g_logSync 1` enable the
+engine GAME log where the `[ACCDIAG]` 30s diagnostics census lands
+(`_acc_diag.gsc`, file-only); `logfile 1` covers `console_mp.log` separately.
 
-**ONE dev flag** (user 2026-06-22). `+set acc_dev 1` is the ENTIRE dev switch —
-`acc_resolve_dev_flags()` (first thing in `main()`) resolves it once into
-`level.acc_dev` and drives every legacy sub-dvar off it. There are **no
-per-feature dev flags**; dev is all-or-nothing by design.
-- `acc_dev 1` — the full hardcoded sandbox: unlimited money, 25 starting Data
-  Shards, topped-up Mega Bottles, the Glitch Stalker test-boss spawn
-  (`acc_glitch_test`; Brutus and Phantom are **not** dev-driven — they keep
-  their real round cadences, see below),
-  all perk slots, and the dev HUDs +
-  teleport / round-skip / open-doors console commands (the weapon-variant swap
-  readout is **not** part of the dev sandbox — dev forces `acc_variants_debug` OFF;
-  it rides its own `+set acc_variants_debug 1` dvar only, reconciled to code
-  2026-07-11). **No god mode and no
-  auto power-on** — you take regular damage and flip the Bus Station power
-  switch yourself (`_acc_boss.gsc`, `zm_abandoned_cyber_city.gsc::acc_hardcoded_dev`).
-  `acc_dev 0` (or omit) = clean normal play.
-- `run_game.ps1` still accepts `-NoBoss` / `-ClosedMap` / `-NoVarDebug` /
-  `-NoAmbient` / `-NoLockdown`, but they **no longer affect the launch** (kept
-  only for call compatibility). Only `-NoDev` is functional — it drops
-  `+set acc_dev 1` for a clean consumer game.
+**DEV / GOD ARE BUILD STATE, NOT LAUNCH FLAGS** (user 2026-07-15 "this is the
+way we test in this repo... we don't use launch flags"; ONE-flag design user
+2026-06-22). `acc_resolve_dev_flags()` (first thing in `main()`) owns the two
+booleans `level.acc_dev` / `level.acc_god`; every module gates on
+`IS_TRUE( level.acc_dev )` — no per-feature dev flags, dev is all-or-nothing.
+- **Test session:** hardcode `level.acc_dev = true;` (and `level.acc_god = true;`
+  when wanted) in that function + rebuild (`-GscOnly`). `prep_release.ps1` FAILS
+  on those lines, so a publish build can't ship them.
+- **Publish:** restore `level.acc_dev = false;` / `level.acc_god = false;` +
+  rebuild (ship-safe for every Workshop subscriber). There is no dvar fallback —
+  the `getdvarint` resolution was removed 2026-07-16, and `prep_release.ps1`
+  Gate 0 FAILS if a dvar read reappears.
+- **Dev sandbox** (`level.acc_dev`) = unlimited money, 25 starting Data Shards,
+  topped-up Mega Bottles, the full 13-item Plaza scatter, all perk slots, and
+  the dev HUDs + teleport / round-skip / open-doors console commands. Bosses
+  keep their real round cadences; no auto power-on — flip the Bus Station switch
+  yourself (`_acc_boss.gsc`, `zm_abandoned_cyber_city.gsc::acc_hardcoded_dev`).
+- **God** (`level.acc_god`) = demigod: real damage lands but HP floors at 1;
+  per-hit effects still fire (`_acc_elites::on_player_damaged`). Independent of
+  dev.
+- `run_game.ps1` still accepts `-NoBoss` / `-NoDev` / `-ClosedMap` /
+  `-NoVarDebug` / `-NoAmbient` / `-NoLockdown`, but they **no longer affect the
+  launch at all** (kept only for call compatibility).
 
-**Separate manual test flags** (not part of the canonical launch, pass them
-yourself if you want them):
-- `acc_god 1` — invulnerability (demigod: real damage lands but HP floors at 1;
-  effects still fire). Independent of `acc_dev`, which deliberately has NO god.
-  The standalone `PLAY_GOD_MODE.bat` passes it.
-- `acc_test_boss 1` — a **low-HP test Brutus every round from round 2**, drops
-  10 Mega Bottles, so the Mega-Bottle → perk-upgrade loop is testable without
-  surviving to the real boss rounds (`_acc_boss.gsc::test_boss_loop`, lines
-  89-105). NOT triggered by dev — in the dev sandbox Brutus follows his real
-  round-5 power cadence.
+(The old `acc_test_boss` manual test flag + `_acc_boss.gsc::test_boss_loop`
+were removed 2026-07-16 along with all per-feature debug/test dvars — dev tops
+up Mega Bottles directly and Brutus follows his real round-5 power cadence.)
 
 **Zombie-speed tuning** — in-game console (`~`, enabled by `+set developer 1`):
 the speed curve is live-tunable, e.g. `acc_zspeed_sprint_round 12` (break into

@@ -1,33 +1,34 @@
 @echo off
 REM ===========================================================================
-REM  PLAY_NORMAL.bat - double-click to launch Abandoned Cyber City as a CLEAN,
-REM  NORMAL game (what a Workshop player gets), THROUGH Steam.
+REM  PLAY_NORMAL.bat - THE play script. Double-click to launch Abandoned Cyber
+REM  City THROUGH Steam. This is the ONLY launcher (user 2026-07-15: "remove all
+REM  the play scripts except the Normal play script" - PLAY_TEST_MAP.bat /
+REM  PLAY_GOD_MODE.bat / tools\run_avo_test.bat deleted the same day).
 REM
-REM  NO dev sandbox, NO god mode: real perks, real Data Shard economy, real
-REM  progression, CLOSED map (flip the Bus Station power switch + buy doors
-REM  yourself), and REAL DAMAGE (you can go down + die). This is the honest
-REM  playtest of balance + difficulty.
+REM  DEV / GOD MODE DO NOT LIVE HERE (user 2026-07-15: "this is the way we test
+REM  in this repo... we don't use launch flags"). They are HARDCODED in the
+REM  build: scripts\zm\zm_abandoned_cyber_city.gsc::acc_resolve_dev_flags()
+REM  (ship lines are hardcoded "= false;"; flip to "= true;" + rebuild for a test
+REM  session, restore "= false;" before publish - prep_release Gate 0 enforces
+REM  it). Whatever the current build hardcodes is what this script launches.
+REM  Full doctrine: CLAUDE.md "HOW TEST SESSIONS ARE ARMED" +
+REM  docs\22_flags_reference.md.
 REM
-REM    +set acc_dev 0  = NOT dev mode (no unlimited money / open map / test bosses)
-REM    +set acc_god 0  = NOT god mode (you take real damage)
+REM  Build FIRST (.\tools\build_map.ps1, or -GscOnly for script-only changes),
+REM  THEN double-click this. Steam must be running + logged in. Loading takes
+REM  ~40-60 seconds.
 REM
-REM  The three play scripts:
-REM    PLAY_TEST_MAP.bat  = DEV sandbox (acc_dev 1): unlimited money, open map, test bosses, all slots.
-REM    PLAY_GOD_MODE.bat  = regular play + GOD (acc_dev 0, acc_god 1): real game, can't die.
-REM    PLAY_NORMAL.bat    = regular play, REAL DAMAGE (acc_dev 0, acc_god 0): this file.
-REM
-REM  Build FIRST (Link only; Run unchecked), THEN double-click this. Steam must be
-REM  running + logged in. Loading takes ~40-60 seconds.
-REM
-REM  Engine args (required to load the map, NOT toggles): fs_game / set_gametype /
-REM  devmap / developer / logfile. THE GAMETYPE FIX: pass "+set_gametype zclassic"
-REM  (engine command, sticks), NOT "+set g_gametype zclassic" (resets to tdm ->
-REM  black screen). Keep BO3's Steam LAUNCH OPTIONS EMPTY (Steam doubles them).
-REM  Full reference: docs\34_flags_reference.md, docs\23_launch_runbook.md.
+REM  Engine args below (required to load the map, NOT toggles): fs_game /
+REM  set_gametype / devmap / developer / logfile / g_log. THE GAMETYPE FIX: pass
+REM  "+set_gametype zclassic" (engine command, sticks), NOT "+set g_gametype
+REM  zclassic" (resets to tdm -> black screen). Keep BO3's Steam LAUNCH OPTIONS
+REM  EMPTY (Steam doubles them). g_log/g_logSync = engine game log
+REM  (games_mp.log) for the [ACCDIAG] 30s census; logfile 1 = console_mp.log.
+REM  Full reference: docs\17_launch_runbook.md.
 REM ===========================================================================
 REM [acc] LEADERBOARD AGENT PRE-SPAWN (docs/40, user 2026-07-12 "do it silently"): spawn the
 REM hidden network agent BEFORE the game and pass +set acc_lb_agent 1 so the game skips its own
 REM spawn - NO terminal window ever appears. Helper is generated (tools/build_lb_lui.js); if it
 REM is missing the launch still works (the game falls back to its own minimized spawn).
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\spawn_lb_agent.ps1"
-start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set acc_dev 0 +set acc_god 0 +set acc_lb_agent 1"
+start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1 +set acc_lb_agent 1"

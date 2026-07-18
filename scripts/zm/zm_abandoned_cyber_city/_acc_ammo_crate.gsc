@@ -40,10 +40,13 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;   // hud_msg / log
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels; // pap_price_bucket (the WONDER-tier gun list, single source of truth)
 
-// STATION REMODEL (user 2026-07-09, docs/09): literal ammo-crate stack (78x20x21, T7-dump
-// carve, Shangri-La set) - reads AMMO at a glance; the cargo crate now belongs to nothing
-// (the Data Cache became a computer tower), killing the 2-way crate reuse.
-#precache( "model", "p7_zm_sha_crate_ammo_closed_sml_stack_full" );
+// STATION REMODEL v2 (user 2026-07-12): [West] Ammo Crates pack (Westchief596; ZeRoY's S4
+// ammo-crate model + textures) - MODEL-ONLY lift, same recipe as the EC machine (memory
+// ec-machine-model-west-pack): GDT = install source_data\acc_west_ammo_crate.gdt, assets under
+// _custom\westchief596\ammo_crate\. Replaced the stock Shangri-La stack (78x20x21); new bounds
+// 28.9x33.3x25.2, floor-flush, x NOT origin-centered (min -19.6 / max +9.3) - the
+// add_prop_clips.js clips mirror that offset. NO _col LOD -> stays clip-dependent.
+#precache( "model", "west_ammo_crate_model" );
 
 #namespace acc_ammo_crate;
 
@@ -51,10 +54,24 @@
 function spawn_crate_at( origin, yaw )
 {
     m = spawn( "script_model", origin );
-    m setmodel( "p7_zm_sha_crate_ammo_closed_sml_stack_full" );
+    m setmodel( "west_ammo_crate_model" );
+    // 2.5x VISUAL scale (user 2026-07-12: "these tiny boxes you have to look down to even see" -
+    // the West model is only ~29x33x25 units, knee-high; was 3x same day, user tuned down to 2.5x).
+    // SetScale is the AW-box-proven visual-only scaler: the model has NO _col LOD, so collision
+    // comes from the .map prop clips - which are BAKED AT 2.5x TO MATCH (user 2026-07-12
+    // "clips must align with the actual model size"; acc_clip_ammo_crate_l2/_l5 +
+    // acc_clip_paradise_ammo_crate scaled about each model origin in the .map). The dvar below is
+    // still live-tunable for a quick visual experiment, but a PERMANENT scale change must re-size
+    // those three clip brushes too (geometry -> full build + LED bake).
+    scale = getdvarfloat( "acc_ammo_crate_scale", 2.5 );
+    if ( scale > 0 && scale != 1 ) m SetScale( scale );
     if ( isdefined( yaw ) ) m.angles = ( 0, yaw, 0 );
 
-    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 64, 80 );
+    // Use-radius grows with the crate so the prompt still reaches from the enlarged face
+    // (64 was flush against the 1x footprint).
+    r = int( 64 + ( scale - 1 ) * 24 );
+    if ( r < 64 ) r = 64;
+    t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, r, 80 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
     // CONSTANT hint - both prices baked in (prices stay numeric per the vague-UI rule). The LIVE cost can't go
@@ -62,7 +79,7 @@ function spawn_crate_at( origin, yaw )
     // the per-use result is shown via hud_msg (chat-style, cache-free) instead. Memory triggerstring-cap-hint-strings.
     // Buyable-UI audit fix (2026-07-03): "Pack-a-Punched" + "weapon" made the Aetherium router
     // show the PACK-A-PUNCH card here. "PaP'd" + "gun" avoid every router token -> DefaultHint.
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held gun  ^2[1000 base / 5000 PaP'd / 10000 wonder]" );
+    t SetHintString( "Hold ^3[{+activate}]^7  ^5AMMO CRATE^7 - refill held gun  ^2[2000 base / 10000 PaP'd / 20000 wonder]" );
     t thread crate_loop();
 
     acc_utility::log( "ammo crate spawned at " + origin );
@@ -106,8 +123,9 @@ function crate_loop()
     }
 }
 
-// The price for refilling `weapon`: 5000 if PaP'd, 1000 if a base gun that HAS a PaP version, 0 (= not
+// The price for refilling `weapon`: 10000 if PaP'd, 2000 if a base gun that HAS a PaP version, 0 (= not
 // serviceable) for no weapon or a weapon with no real PaP form. Live dvars acc_ammo_crate_base / _pap.
+// Prices DOUBLED 2026-07-13 (user "cost of buying ammo needs a nerf, double the current costs").
 function crate_cost( weapon )
 {
     if ( !isdefined( weapon ) || weapon == level.weaponNone )
@@ -131,12 +149,12 @@ function crate_cost( weapon )
         if ( IsSubStr( weapon.name, "leviathan" ) )
             return 0;   // melee wonder - no ammo to refill
         if ( acc_pap_levels::pap_price_bucket( weapon.name ) == "WONDER" )
-            return getdvarint( "acc_ammo_crate_wonder", 10000 );
+            return getdvarint( "acc_ammo_crate_wonder", 20000 );
     }
 
     // Already Pack-a-Punched -> the 5k tier.
     if ( zm_weapons::is_weapon_upgraded( weapon ) )
-        return getdvarint( "acc_ammo_crate_pap", 5000 );
+        return getdvarint( "acc_ammo_crate_pap", 10000 );
 
     // Base form: does this gun even HAVE a PaP version? (Same test as _acc_weapon_variants line 180.)
     base = zm_weapons::get_base_weapon( weapon );
@@ -148,5 +166,5 @@ function crate_cost( weapon )
     if ( !isdefined( up ) || up == level.weaponNone || up == base )
         return 0;                                  // no real upgrade form -> can't be serviced
 
-    return getdvarint( "acc_ammo_crate_base", 1000 );
+    return getdvarint( "acc_ammo_crate_base", 2000 );
 }

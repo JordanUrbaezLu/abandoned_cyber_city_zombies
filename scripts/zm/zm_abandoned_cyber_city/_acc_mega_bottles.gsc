@@ -692,7 +692,7 @@ function try_apply_mega( player, specialty_string )
 //     Spiderman (web-grenade clip fill -> 6).
 //   IMPLEMENTED elsewhere, read live from the Mega flag each frame/hit/reconcile:
 //     American Sniper (headshot _acc_damage + -50% recoil twin), Gun Slinger
-//     (extra-bullet damage temper eases x0.6 -> x0.8 in _acc_damage - NO twin, reworked
+//     (extra-bullet damage temper eases x0.7 -> x0.9 in _acc_damage - NO twin, reworked
 //     2026-07-04; was a +fire-rate/-swap "fastfire" twin), Sleight of Hand Expert
 //     (+75% reload twin) via _acc_weapon_variants; The Armory (+20% round-start reserve
 //     refill, ACC_ARMORY_ROUND_REFILL, runtime not a twin - was 0.35 until 2026-06-21);
@@ -708,11 +708,12 @@ function apply_mega_effects( player, specialty_string )
     switch ( specialty_string )
     {
     case "specialty_armorvest":
-        // Ultimate Tank: docs/10 = 300 HP. VERIFIED(acc): n_player_health_boost is
+        // Ultimate Tank: +50 on top of Jug. VERIFIED(acc): n_player_health_boost is
         // the only field the stock "health_reboot" recompute adds
         // (_zm_perks.gsc:828-831), and that recompute re-runs at every revive - so
         // the bonus survives downs. A bare SetMaxHealth would be wiped by the next
-        // recompute. base Jug = 100 + 150 = 250; +50 -> 300 HP (down on the 7th @ ~45).
+        // recompute. base Jug = 125 + 125 = 250 (base 100->125 but Jug add 150->125 to KEEP Jug at 250,
+        // user 2026-07-16); +50 -> 300 HP (down on the 7th @ ~45).
         player.n_player_health_boost = 50;
         player zm_perks::perk_set_max_health_if_jugg( "health_reboot", true, false );
         break;
@@ -751,7 +752,7 @@ function apply_mega_effects( player, specialty_string )
 
     case "specialty_doubletap2":
         // Gun Slinger (REWORKED 2026-07-04): Mega Double Tap's ONLY effect is now a DAMAGE buff -
-        // the base DT extra-bullet temper eases from x0.6 -> x0.8 (acc_doubletap_mega_dmg_mult),
+        // the base DT extra-bullet temper eases from x0.7 -> x0.9 (acc_doubletap_mega_dmg_mult),
         // applied live in _acc_damage::on_ai_damage via has_mega_perk. The old fire-rate/swap
         // "fastfire" weapon-variant twin was REMOVED entirely (docs/10, docs/21). There is no DT
         // twin to swap to anymore, so nothing to reconcile here - the damage path handles it live.
@@ -782,6 +783,12 @@ function apply_mega_effects( player, specialty_string )
         // the misleading "pending implementation" log below.
         break;
 
+    case "specialty_quickrevive":
+        // Quick Revive Mega ("Savior") has NO instant on-acquire effect: its deltas (regen, revive time, +15% move
+        // speed, damage reduction) are all read LIVE off the Mega flag in _acc_perks.gsc via has_mega_perk(...,
+        // "specialty_quickrevive"). Explicit no-op so Savior does NOT fall through to the "pending implementation" log.
+        break;
+
     default:
         acc_utility::log( "mega effect pending implementation: " + specialty_string );
         break;
@@ -807,7 +814,7 @@ function apply_mega_flopper_speed()
     self notify( "acc_mega_flopper_watch_stop" );
     self.acc_mega_flopper_speed = false;
     self thread mega_flopper_slide_watch();
-    if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
+    if ( IS_TRUE( level.acc_dev ) ) self iprintln( "^5PhD Slider: slide-watcher STARTED" );
 }
 
 function mega_flopper_slide_watch()    // self = player
@@ -820,18 +827,36 @@ function mega_flopper_slide_watch()    // self = player
     {
         wait( 0.05 );
 
-        // Lost the Mega Flopper (downed-out / round loss)? clear the bonus and stop.
-        if ( !( self HasPerk( "specialty_electriccherry" ) && has_mega_perk( self, "specialty_electriccherry" ) ) )
+        // Stop (and clear) only on a GENUINE loss (downed-out / round loss).
+        //
+        // has_active_mega_perk, NOT a bare HasPerk (BUG FIX 2026-07-15, found by the full-code
+        // audit; two independent finders + the pattern this file already documents). A bare
+        // HasPerk is FALSE for the whole 60s boss EMP window (_acc_boss::disable_perks_for ->
+        // zm_perks::perk_pause_all_perks -> UnsetPerk on every owner), so the watcher hit this
+        // `return` and DIED PERMANENTLY: the 1.75x slide speed never came back for the rest of
+        // the run (only a respawn restarts it, via the spawn re-apply gate at :190). That also
+        // contradicted the design - Megas are SUPPOSED to survive the EMP debuff (see
+        // owns_or_paused: "paused-but-owned" reads as owned precisely so megas ride out that
+        // boss attack). has_active_mega_perk = has_mega_perk && owns_or_paused, which stays
+        // TRUE while EMP-paused-but-owned and goes false only on a real loss. Mirrors
+        // mww_stance_speed_watch, the watcher that already got this right.
+        if ( !has_active_mega_perk( self, "specialty_electriccherry" ) )
         {
             if ( sliding )
             {
                 self.acc_mega_flopper_speed = false;
                 acc_utility::recompute_move_speed( self );
             }
-            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
+            if ( IS_TRUE( level.acc_dev ) ) self iprintln( "^1PhD Slider: watcher STOPPED (no perk or not Mega'd)" );
             return;
         }
 
+        // THE FLAG IS SLIDE-ONLY ON PURPOSE - DO NOT ADD A GRACE WINDOW OR A RELEASE RAMP
+        // HERE (both tried + rejected on feel 2026-07-15: a SetMoveSpeedScale flag held past
+        // the slide just makes you WALK at 1.75x, which reads as ice). The slide-JUMP
+        // momentum carry is a VELOCITY mechanic owned globally by _acc_movement.gsc for
+        // every player - it records ACTUAL velocity, so this 1.75x is already baked into
+        // what it preserves, with no wiring here. Full rationale: _acc_movement.gsc header.
         now_slide = ( self IsSliding() && self IsOnGround() );
         if ( now_slide != sliding )
         {
@@ -839,7 +864,7 @@ function mega_flopper_slide_watch()    // self = player
             self.acc_mega_flopper_speed = now_slide;   // 1.75x via recompute_move_speed
             acc_utility::crash_log( self, "mega_flopper_slide_watch: slide " + ( now_slide ? "ON" : "off" ) );
             acc_utility::recompute_move_speed( self );
-            if ( getdvarint( "acc_mega_flopper_debug", 0 ) == 1 )
+            if ( IS_TRUE( level.acc_dev ) )
             {
                 if ( now_slide ) self iprintln( "^2PhD Slider: SLIDE BOOST ON (x" + getdvarfloat( "acc_mega_flopper_slide_mult", 1.75 ) + ")" );
                 else self iprintln( "^7PhD Slider: slide boost off" );
