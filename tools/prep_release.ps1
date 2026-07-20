@@ -467,7 +467,9 @@ Write-Host @"
   1. Start Steam and log in. Close BO3 if it is running.
   2. Open Launcher (Steam -> Library -> Tools -> BO3 Mod Tools).
   3. Select $MapName -> File -> Publish Mod/Map.
-  4. Confirm Title / Description / Tags(Map,Zombies) / Thumbnail(zone\previewimage.png).
+  4. Confirm Title / Description / Tags(Map,Zombies) / Thumbnail(zone\workshopimage.png).
+     NOTE: the Thumbnail is the STEAM WEB image (square). zone\previewimage.png is a
+     DIFFERENT asset - the in-game map card (600x340). Do not point Thumbnail at it.
   5. Visibility:  PRIVATE for Track A.  PUBLIC only when Track B is READY.
   6. Upload, then copy the Workshop URL.
   7. Pull the PublisherID back into the repo:  .\tools\sync_to_modtools.ps1 -Reverse

@@ -401,7 +401,7 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (OFF for every Workshop player, not overridable at launch); TEST state = flip
 	// this line to `true` + rebuild (the ONLY arming path - launch flags/dvars are NOT the workflow).
 	// Restore `false` before any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_dev = false;   // SHIP STATE (user 2026-07-18 publish prep: "Dev mode and god mode should be off hardcoded off" - the Scientist release build). To arm a test session: set `true` + rebuild (docs/22; NO dvar/launch-flag path exists).
+	level.acc_dev = false;   // SHIP STATE (user 2026-07-20: "turn off dev mode" mid Cyberjack-drop debug; god stays armed below). To arm dev: set `true` + rebuild (docs/22; NO dvar/launch-flag path exists).
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
@@ -436,7 +436,7 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (not overridable at launch - the getdvarint resolution was removed 2026-07-16,
 	// same as acc_dev above: hardcode `true` + rebuild is the ONLY arming path). Restore `false` before
 	// any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_god = false;   // SHIP STATE (user 2026-07-18 publish prep, with acc_dev above). To arm a god test session: set `true` + rebuild.
+	level.acc_god = false;   // SHIP STATE (user 2026-07-20: "turn off hardcode off dev and god mode" - full ship flags with acc_dev above). To arm a god test session: set `true` + rebuild.
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (hardcoded)" : "off" ) );
 }
 

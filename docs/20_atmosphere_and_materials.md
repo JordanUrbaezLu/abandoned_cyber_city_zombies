@@ -150,13 +150,15 @@ Actual per-face materials are applied by `tools/apply_zone_materials.js` +
 
 | Zone | Mood | Walls / floors | Neon accent |
 |---|---|---|---|
-| **Plaza** | dead transit plaza, first breath of the ruin | grimed concrete + wet asphalt; cyber cable-panel wall accents | one dead **cyan** district sign |
-| **Market** | drowned neon bazaar gone to rot | worn dirty brick + wet asphalt | densest zone — **magenta** dead stall signage |
-| **Alley** | claustrophobic wet utility corridor | dirty black painted metal + wet asphalt | one failing **sodium/red** hazard light |
+| **Plaza** | dead transit plaza, first breath of the ruin | **P1 (BO6):** walls `t10_concrete_base_wall_02_dirty`, floor tops `t10_concrete_pavement_01` (+ crack/leak decal accents; Armory upper room repainted with it) | one dead **cyan** district sign |
+| **Market** | drowned neon bazaar gone to rot | **P1 (BO6):** walls `t10_brick_worn_modern_01`, floor tops `t10_linoleum_tile_dirty_03`; **FB3:** ceiling underside `t10_ceiling_tile_01_dirty` (was left rust metal — the odd-one-out, §14f) | densest zone — **magenta** signage + the P1 synth-**pink** N-wall strip |
+| **Alley** | claustrophobic wet utility corridor | walls KEEP `t7_metal_painted_wall_dirty_black` (hazard identity); **P1 (BO6):** floor tops `t10_asphalt_crack_02_worn` | the P1 synth-**red** E-wall edge strip |
 | **Bus Station** (hub) | lobby of a fallen tech megacorp | stainless steel panels + broken glass read | **cyan** corporate logo wall |
-| **Vault** | cold sealed data-fortress | dirty-grey painted metal + metal grate floor | **cyan+amber** rack LEDs |
-| **Helipad** | exposed to the dead sky | weathered concrete + wet asphalt pad | distant amber edge lights |
-| **Lab / Paradise** | clandestine cyberware lab (+ the deep Paradise plaza) | clean **hex tile** (Der Eisendrache) + brushed steel | richest **live cyan+magenta** machine glows |
+| **Vault** | cold sealed data-fortress | walls keep brushed stainless; **P2 (BO6):** floor tops `t10_stone_marble_black_01` (black marble server-hall read) | **cyan+amber** rack LEDs |
+| **Helipad** | exposed to the dead sky | walls keep poured concrete; **P2 (BO6):** floor tops `t10_asphalt_mid_01` + the 3-quad painted-line **H pad mark** (ACCC0013–15) | distant amber edge lights |
+| **Lab** | clandestine cyberware lab | **REVERTED to pre-sweep uniform `t7_zm_der_tile_hexagon` (walls + fins + ceiling + floor; §14f)** — the white/panel experiment is dead (user flagged it twice); the W corridor is back to its HEAD poured-concrete grey, lab_e keeps the stainless vault threshold | P2 synth-**cyan** perk-row crown + synth-**purple** PaP-corner strip (KEPT — accents on hex) |
+| **Paradise** | the deep open-air plaza | walls + hall keep hex; **P2:** the whole arena floor = **`mwiii_vertigo_retro_synth_cyan` EMISSIVE neon grid** | the arena floor IS the neon + the purple hall-mouth trim |
+| **Abyss L2–L5** | infected descent (iron stays dominant) | **P2 partial bands** (coincidence-free walls only): L2 grey aluminum panels, L3 rock cave (+1 `_reveal` test face), L4 peeling plaster by the gantry, L5 stone cliff framing the Paradise door | none added (pitch-black by design) |
 
 Fog is uniform globally (single `SetVolFog` authority); readability is managed by
 the low fog base height, not per-zone fog volumes.
@@ -264,6 +266,33 @@ set acc_fog_settle_step 200   // units the base sinks per nudge; smaller = slowe
 ```
 When the look is locked, bake the numbers into the `#define` defaults in
 `_acc_atmosphere.gsc` (REQUIREMENTS.md "no silent tuning" rule) so they ship.
+
+**Ambient FX loops (FX pass, 2026-07-19):** `apply_fx()` (same file, existing
+`acc_atmo_fx` gate, bare server `PlayFX` at fixed origins post-blackscreen — the
+proven pattern; the original 7 haze/steam loops render in-game) now also places
+**17 per-zone accent loops** (16 unique `.efx`, HB21 library, verified installed in
+`<tools>\share\raw\fx\`). Every one has BOTH the `#precache("fx",…)` AND a
+`fx,` line in `zone_source` — FX are the INVERSE of face materials: a precache
+without the zone line = PlayFX **silently no-ops** (proof block in the `.zone`).
+Origins hug the `_acc_surface_deco`/`_acc_abyss_deco` prop layout (plumes rise from
+vents/machines/wreckage), off doorway aprons + lane centers. The set: **Plaza**
+`dirt/fx_dust_fall_line_sm` over the fountain; **Market**
+`light/fx_light_flickering_hat_light_sodium` under the stall-row cage light +
+`steam/fx_steam_aircond` at the W-wall kitchen corner; **Alley**
+`water/fx_water_drip_line_25` mid-corridor ceiling +
+`electric/fx_elec_gp_wire_sparking_xsml_anim_loop` atop the E-wall AC unit;
+**Bus Station** `steam/fx_steam_manhole_cover` S-hall floor +
+`steam/fx_steam_vent_floor_line_100` along the S trench rim; **Vault**
+`dirt/fx_dust_fall_ceiling_veiled` under the N cage light + `dirt/fx_dust_fall_lg_lit`
+over the server island; **Helipad** `fog/fx_fog_ground_wind_lt_sm` across the pad
+(clear of the bomber) + `electric/fx_elec_spark_loop_sm` on the field generator;
+**Lab** `fog/fx_fog_coolant_vent_md` at the test chamber +
+`light/fx_light_sgen_dayroom_rectangle_flicker` over the medical row; **Trench
+mouth** `fog/fx_fog_ground_low_rolling_stairs` down the W stair channel; **Abyss**
+(no lights/glow by design) `zombie/fx_fungus_pod_ambient_md_zod_zmb` ×2 (L3
+tentacle mass + L5 hive; the plain `fx_fungus_pod_ambient_md` name doesn't exist —
+only the `_zod_zmb`-suffixed ZNS variant ships) + `water/fx_water_drip_ceiling` on
+the L4 ceiling. Kill-switch: `set acc_atmo_fx 0` (pre-existing; nothing new added).
 
 **Grade:** a global `VisionSetNaked` colour grade, applied at runtime with no
 lightmap bake — but it ships **OFF** (base game colours). See §7b.
@@ -534,6 +563,244 @@ tokens, no `.zone` line**.
 > (2026-06-13) was wrong: it conflated "you can't `.zone`-list a face material"
 > (true) with "you can't paint one" (false). The 2026-06-28/29 repaint proved stock
 > face-token painting ships clean.
+
+### 14b. P0 texture-phase pilot (2026-07-18) — BO6 `t10_*` repaint + 3 mechanism tests, ALL PASS
+
+The Bus Station (corp zone) is the pilot for the map-wide texture phase, repainted
+off the freshly installed packs (`source_data/t10_materials.gdt` = MadGaz BO6,
+`source_data/vk_gdt/material/vk_pbr_pk*.gdt` = VK PBR, `source_data/_emox/
+emox_mwiii_vertigo_assets.gdt` = eMoX Vertigo synth). One-shot:
+`tools/oneshots/paint_bus_station_t10.js` (marker-guarded; walls whole-brush,
+floor/ceiling **face-level** so the under-level stays dark). Corp now wears:
+walls `t10_metal_aluminum_composite_wall_paneling_01`, z0 floor
+`t10_concrete_epoxy_flooring_01_gray_dirty`, trench stairs
+`t10_stairs_concrete_clean`, ceiling underside `t10_ceiling_tile_01_dirty`.
+The POWER-decal breadcrumb walls (y1703/y2173/x687/y2193) keep their graphite/iron
+faces. Full build + LED bake GREEN; zero linker errors name any new material.
+
+Mechanism verdicts (each de-risks a texture-phase technique):
+
+1. **Decal-on-face REFUTED 2026-07-19 — NEVER put a Decal-category material on a
+   brush face.** The P0 verdict ("LEGAL": cod2map + linker accept it, no gdtDB
+   error) only proved the TOOLCHAIN swallows it. In-game a `materialCategory
+   "Decal"` / `lit_decal_plus` face produces **no solid floor geometry**: the P1
+   copy of the pattern onto the implant-room S arena-slab z0 top face rendered as
+   a HOLE and dropped the player into the void = the 2026-07-19 "falls to death"
+   bug. The P0 test face (E trench-rim z0 strip x[799,819]) never got walked on,
+   which is why it slipped through. ALL FOUR sweep decal faces (crack_asphalt x2,
+   `t10_dirt_grunge_leaking_02` lintel, `t10_dirt_roots_01_reveal` D1 rail) were
+   repainted back to Geometry-class materials 2026-07-19. **Decal accents go on
+   `contents nonColliding` inline patch MESHES only** (the helipad H-mark /
+   ACCC0013-15 recipe) — that mechanism is proven and stays legal.
+2. **Emissive mesh material CONVERTS.** `mwiii_vertigo_retro_synth_cyan_tinted`
+   (`lit_emissive_advanced`) on an inline worldspawn chalk-mesh quad (the proven
+   power-arrow recipe, guid `ACCC0010`, 352×28u strip 2u proud of the corp S wall
+   face y1168, z[204,232], above the departure-board TVs; +y normal = cols
+   Xmax→Xmin) links + bakes clean. This is the template for neon sign bands.
+3. **VK PBR materials CONVERT — but provenance is PER-MATERIAL.** Shipped pick:
+   `pbr_white_rough_plaster_01_mtl` on the restroom-nook W wall segment — its
+   `baseImage`s live in `texture_assets\vk_mtl\pbr\texturehaven_white_rough_
+   plaster_1K\` = **TextureHaven (Poly Haven), CC0 — ship-safe** (§8). ⚠️ The VK
+   library is a **mixed bag**: the `pbr\` folders are honestly named
+   (`cgbookcase_*` / `texturehaven_*` = CC0 ✅, `TexturesCom_*` = 🚫), but pbr2/
+   pbr3/pbr6/pbr7 sets carry Textures.com-style names (`TexturesCom_Bunker
+   Concrete_4x4_*`, `Asphalt_Road_*`, `RoadMarking_*`) — e.g. the plausible-
+   looking `pbr_concrete_bunker_wall_1_mtl` is Textures.com and **must not
+   ship**. RULE: before painting any `pbr_*`/vk material, trace its `baseImage`
+   folder in the GDT and clear the source library.
+
+Cost note (watched risk): the ~6 new materials' 4K image stacks grew the xpak by
+**+86 MB** (4978.6 → 5064.6); `.ff` +0.07 MB; build time unchanged (2:21). Budget
+roughly 10–15 MB per new 4K material for the full texture phase.
+
+One structural limit hit: **token swaps cannot split a face**, so the wainscot
+idea (`t10_concrete_wall_striped_03_trim` low band on the walls) is only possible
+where separate low wall brushes already exist — in corp those are exactly the
+excluded POWER parapets, so the wainscot was SKIPPED. A future wainscot needs its
+own thin trim brushes (new geometry → full bake gate).
+
+### 14c. P1 texture batch (2026-07-18) — PLAZA + MARKET + ALLEY, one bake-gated build
+
+One-shot `tools/oneshots/paint_p1_zones_t10.js` (marker-guarded, token-keyed AND
+region-bounded on paint_region.js's zone AABBs; snapshot byte-diff verified —
+exactly 298 single-token face swaps + 2 inserted meshes, nothing else changed):
+
+- **Plaza** — walls 227 faces `t7_concrete_wall_weathered_01_wet` →
+  `t10_concrete_base_wall_02_dirty` (38 brushes, z band extended to 500 to take
+  the **Armory upper room WITH it** — same token family; armory stair treads +
+  floor keep their global-asphalt look). Floors face-level: 3 arena z0 tops →
+  `t10_concrete_pavement_01`. **Region-bounding kills the Plaza/Helipad
+  shared-token problem** (the Helipad floor wears the same weathered token at
+  y≥2255, untouched). Decal accents on the only 2 small distinct faces that
+  exist: the S arena slab z0 top (240×120, spawn stub) →
+  `t10_terrain_decal_crack_asphalt_03`, and the shrink-wall lintel y-240 face
+  (80×128, over the spawn→plaza doorway) → `t10_dirt_grunge_leaking_02`. The
+  FRAG-chalk wallbuy's backing brush (the whole 2150u N wall) was repainted —
+  the chalk mesh floats 2u proud and renders over any wall (P0's POWER-wall
+  exclusions were a breadcrumb design choice, not a mechanism need).
+- **Market** — walls 60 faces `t7_metal_paint_rust_brown` →
+  `t10_brick_worn_modern_01` (vertical brushes only; the 3 ceiling slabs keep
+  rust as a corrugated-roof read). Floor tops (main + 2 corridor slabs) →
+  `t10_linoleum_tile_dirty_03`. Glazed `t10_brick_wall_tile_01_red` band
+  SKIPPED — no separate stall-front low brushes exist (stalls are props; the
+  §14b wainscot limit). Emissive strip guid `ACCC0011`:
+  `mwiii_vertigo_retro_synth_pink_tinted` on the N wall (face y1476, quad @
+  y1474, x[-2010,-1730] z[200,228], above the kiosk island; −y normal = cols
+  Xmin→Xmax per the ACCC0006 donors; 170u clear of the nearest M3 sign).
+- **Alley** — walls KEEP `t7_metal_painted_wall_dirty_black` (hazard
+  identity). Floor tops (main + c_sp_al + c_al_corp corridor slabs, the global
+  asphalt) → `t10_asphalt_crack_02_worn`. Oil-stain decal SKIPPED — no small
+  distinct floor face exists. Emissive strip guid `ACCC0012`:
+  `mwiii_vertigo_retro_synth_red_tinted_edge` (the `_tinted_edge` variant,
+  verified in the emox GDT) on the E wall — NOTE the real E-wall plane is
+  **x2179.5** (the M3 "E wall" prop origins all sit at x≤1966, so the face is
+  bare); quad @ x2177.5, y[440,720] z[192,220]; −x normal = cols Ymax→Ymin per
+  the ACCC000B donors.
+- **VK option declined** — every VK pick needs per-material `baseImage`
+  provenance tracing (§14b rule); the P0-proven BO6 t10 set covers all three
+  zones cohesively.
+
+Build: FULL pipeline GREEN (cod2map + navmesh + **LED bake PASSED** + linker),
+fresh 133.75 MB `.ff` (+0.08), errors = exactly the known 94 waived (zero name
+any new material). **xpak 5064.6 → 5186.3 MB (+121.7 MB)** for the 7 newly
+referenced 4K materials (~17 MB each — above the 10–15 budget line; the
+`t10_terrain_decal_crack_asphalt_03` accent was free, already P0-referenced).
+
+### 14d. P2 FINAL texture batch (2026-07-18) — VAULT + HELIPAD + LAB + PARADISE + ABYSS bands
+
+One-shot `tools/oneshots/paint_p2_zones_t10.js` (marker-guarded; **signature-exact**
+brush bounds — a step stricter than P1's region boxes — plus token-key, per-zone
+centroid asserts, and worldspawn-only). Snapshot byte-diff verified: exactly **146
+single-token face swaps + 6 inserted chalk meshes**, nothing else changed.
+
+- **Vault** — 3 floor slab z0 tops (main + both corridors)
+  `t7_metal_diamond_plate_worn_wet` → `t10_stone_marble_black_01`; walls keep
+  stainless. **Diamond-token safety proof:** global count 192 → 189 (exactly −3);
+  the other diamond wearers (13 buyable doors, corp bridge, soul doors = entities;
+  L4 gantry = worldspawn but z[-960,-808]) verified untouched by the byte-diff.
+- **Helipad** — 3 floor tops → `t10_asphalt_mid_01`. **Finding: no asphalt-pad
+  brush exists anywhere in the roof region** (the briefed "pad keeps its token"
+  was vacuous) — the pad is *drawn* instead: 3 flat 1u-proud chalk quads (z1, +z
+  normal winding cols Xmin→Xmax / rows Ymin→Ymax) forming an **H** at
+  x[-1344,-1184] y[2400,2560] — `ACCC0013/14`
+  `t10_terrain_decal_painted_line_solid_single_01` uprights + `ACCC0015`
+  `t10_terrain_decal_painted_line_thick_02` crossbar. ⚠️ The briefed
+  `*_painted_line_solid_thick_02` name does **not** exist in `t10_materials.gdt`
+  (`..._line_thick_02` is the real entry). Clearances verified vs every roof
+  clip + unclipped prop (bomber E edge x-1425: 81u; crates y2575: 15u; dry weed
+  x-1360: 16u; E wall x-1139: 45u). Parapet striped band **SKIPPED** — no
+  separate parapet brushes exist (all walls single z[0,256] brushes; §14b limit).
+- **Lab** — 90 wall faces (6 perimeter brushes + 9 alcove fins) hex →
+  `t10_concrete_painted_01_white`; floor + ceiling keep hex. The five-seven
+  chalk (ACCC0001) floats proud of the white S wall (P1 FRAG precedent); the 10
+  `acc_perk_door_*` + `acc_ec_right_wall` are entities and stay hex (doors read
+  distinct). Strips: `ACCC0016` `mwiii_vertigo_retro_synth_cyan_tinted` crowning
+  the perk row (N wall face y4228, quad y4226, x[-604,604] z[200,228]; fins top
+  z150, doors ≤z140, machines ~128 — all verified below), `ACCC0017`
+  `mwiii_vertigo_retro_synth_purple_tinted` at the PaP corner (W wall face
+  x-761, quad x-759, y[3580,3860] z[200,228]; PaP prefab at (-700,3700) is 39u
+  off the wall and ~130 tall; the lab Overclock trigger was REMOVED 2026-06-25).
+  New winding datum: **+x normal ⇒ cols Ymin→Ymax** (the du×dv rule's 4th case).
+- **Paradise** — the arena floor slab's z-1200 top face hex →
+  **`mwiii_vertigo_retro_synth_cyan` (BASE emissive, its own GDT block — not
+  `_tinted`)** = the full neon-grid arena floor; slab sides/bottom, hall, and
+  all walls keep hex. `ACCC0018` purple_tinted trim crowns the north hall-mouth
+  (face y-600, quad y-602, x[-96,96] z[-996,-968]; mouth tops at z-1000).
+  **Emissive-as-floor verdict: converts + bakes clean** (same lit_emissive_
+  advanced class as the P0 strip, now on a walkable 2040×1640 face).
+- **Abyss bands** (iron dominant; trench/L1 untouched; zero lights) —
+  **structural constraint found by scan:** every N/S long perimeter wall shares
+  a coplanar center band x[-112,112] with an iron stairwell seal/rail brush
+  (e.g. L2 N wall vs the D2 seal [-112,112,2173,2193,-720,-256]) — painting one
+  would z-fight two materials on one plane. Bands therefore ride the
+  coincidence-free walls: **L2** W+E → `t10_metal_aluminum_painted_01_panels_
+  grey` (a *derived* GDT entry `[parent t10_metal_aluminum_painted_01_panels]`
+  + grey tint — derived face-material entries CONVERT, new datum); **L3** W+E →
+  `t10_me_rock_cave_wall_01_tile`; **L4** E wall only →
+  `t10_plaster_peeling_04_white_dirty` (the gantry flank; the N wall behind the
+  gantry is the D4-coincidence wall — skipped; deck keeps diamond); **L5** S
+  wall jambs + lintel → `t10_stone_cliff_wall_01` (frames the Paradise doorway;
+  M60 chalk ACCC0005 floats proud — P1 precedent).
+- **`_reveal` mechanism test — REVERTED 2026-07-19 (see the P0 verdict-1
+  refutation):** `t10_dirt_roots_01_reveal` is `materialCategory "Decal"`
+  (`lit_decal_reveal_plus`) — link-time acceptance proved nothing; Decal-class
+  face tokens produce no solid geometry (the implant-room death hole). The D3
+  (a.k.a. D1-band) stairwell E-rail x132 face was repainted back to
+  `t7_metal_worn_iron_dark` before the reveal look was ever eyeballed. If a
+  roots accent is wanted there, use a nonColliding patch mesh over the face.
+- **VK option declined** again — all picks are verified stock-BO6/emox GDT
+  entries; no provenance tracing needed.
+
+Build: FULL pipeline GREEN (cod2map + navmesh + **LED bake PASSED** — fresh
+80.13 MB `.led`, ~53 s, normal window — + linker), fresh 133.73 MB `.ff`,
+errors = exactly the known 94 waived (zero name any of the ~12 new materials).
+**xpak 5186.3 → 5343.4 MB (+157.2 MB)** for ~10 newly referenced 4K image
+stacks (~15.7 MB each — on the ~17 MB/material trend; the cyan_tinted strip was
+free, already P0-referenced). The texture phase is now COMPLETE — every zone
+repainted (P0 corp, P1 plaza/market/alley, P2 the rest).
+
+### 14e. P3 LAB consistency batch (2026-07-19, FIX BATCH 2 issue 5) — **SUPERSEDED by 14f (lab reverted to full hex)**
+
+User: "lab walls don't match the floor and ceiling anymore… we lost some
+consistency." Face audit of the whole lab region (scratch `lab_faces.js`,
+x[-960,980] y[3040,4260]) found exactly two offenders left behind by P2 —
+one-shot `tools/oneshots/paint_p3_lab_ceiling.js` (marker-guarded,
+signature-exact AABB+uniform-token brush matching, asserts exactly 24 swaps):
+
+- **Lab CEILING** (brush z[256,272], the visible BOT face) was still
+  `t7_zm_der_tile_hexagon` over the new white walls → repainted
+  **`t10_metal_aluminum_painted_01_panels`** (`materialCategory "Geometry
+  Plus"`, t10_materials.gdt:211963; the `_grey` derivative already converts for
+  abyss L2 so the family is proven). **Why panels, not white:** all-white
+  walls+ceiling blur into one surface; a paneled aluminum drop-ceiling is the
+  clinical-facility read and keeps three distinct planes — white walls / panel
+  ceiling / deliberate hex floor — one system.
+- **`lab_w` door-corridor** (x[-1119,-781]) still wore the roof zone's
+  `t7_concrete_wall_poured_thick_01_wet` on both walls **and** its ceiling —
+  grey patchwork seen through the W mouth from inside the white lab → walls →
+  white, corridor ceiling → panels (the lab system extends to the roof door).
+  Corridor floor keeps `t10_asphalt_mid_01` (floors deliberately differ per
+  zone).
+- **`lab_e` corridor KEPT stainless + marble** — that is the VAULT's deliberate
+  threshold palette (brushed-stainless airlock into the vault), not patchwork.
+- Per the corrected P0 verdict: **no Decal-category tokens** were used.
+
+### 14f. FIX BATCH 3 (2026-07-19) — LAB REVERTED TO FULL HEX + map-wide zone-coherence audit
+
+**Lab revert.** The user flagged the lab walls **twice** — the room must read as ONE material
+system with its hex floor. The whole white/panel experiment (P2 walls+fins AND the 14e P3
+ceiling/corridor batch) is reverted by one-shot
+`tools/oneshots/revert_lab_hex_market_ceiling.js` (marker-guarded): every face in the lab
+super-region (x[-1150,1150] y[3040,4470]) carrying a sweep token
+(`t10_concrete_painted_01_white` / `t10_metal_aluminum_painted_01_panels`) was restored to its
+**per-face HEAD token**, matched by brush AABB + face plane (plane-point TEXT is generator-
+templated and NOT unique — a text-signature match fails; the AABB+plane key is the reusable
+mechanism). Byte-diff proof: exactly **114 lab faces restored (96 → `t7_zm_der_tile_hexagon`,
+18 → `t7_concrete_wall_poured_thick_01_wet` = the W corridor's HEAD grey) + 1 market swap +
+the marker line, nothing else** — 114 = P2's 90 lab wall faces + P3's 24 swaps, a perfect 1:1.
+The `lab_e` corridor was HEAD-stainless (never painted) and is untouched; the **ACCC0016/0017
+emissive strips are KEPT** (separate chalk meshes — accents on hex are fine).
+
+**Zone-coherence audit** (user: "few areas you edited make the map textures inconsistency like
+the lab"). Full wall/floor/ceiling token census per repainted zone (scratch `fb3_census.js`,
+brush-orientation classified):
+
+| Zone | Walls | Floor | Ceiling | Verdict |
+|---|---|---|---|---|
+| Plaza | t10 concrete base dirty | t10 pavement + t7 asphalt | (open / corridor slabs pre-sweep) | coherent civic-concrete set |
+| Market | t10 brick worn | t10 linoleum dirty | **was rust metal → FIXED `t10_ceiling_tile_01_dirty`** | fixed this batch (the flagged odd-one-out; underside face of the one full-zone slab) |
+| Alley | t7 black painted metal (kept) | t10 asphalt crack | t7 black painted metal | coherent black-metal hazard gut |
+| Bus Station | t10 aluminum paneling (+ graphite POWER-decal parapets, deliberate) | t10 epoxy | t10 ceiling tile dirty | coherent t10 transit set |
+| Vault | t7 stainless | t10 black marble | t7 stainless | deliberate contrast — stays |
+| Helipad | t7 poured concrete | t10 asphalt mid | t7 poured concrete | coherent outdoor pad |
+| Lab | **hex (reverted)** | hex | **hex (reverted)** | uniform hex room restored |
+| lab_w corr | poured concrete (HEAD) | t10 asphalt mid | poured concrete | HEAD transition tube restored |
+| lab_e corr | t7 stainless (HEAD) | t10 black marble | t7 stainless | deliberate vault threshold — stays |
+| Paradise / Abyss bands | (P2, user-approved) | emissive cyan arena | — | deliberate — stays |
+
+Borderline calls left for the user (NOT churned): the bus station's graphite parapet walls
+(they back the POWER decals — deliberate exclusion), and the plaza→corp connector ceiling
+being asphalt (pre-sweep, dark transition tube).
 
 ---
 

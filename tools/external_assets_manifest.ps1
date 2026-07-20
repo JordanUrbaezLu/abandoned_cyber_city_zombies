@@ -427,14 +427,23 @@ $ExternalAssetPacks = @(
         )
     },
     @{
-        Name     = 'BO6 materials pilot (OPTIONAL - feasibility only, NOT zoned)'
-        Author   = 'MadGaz (_mg_bo6_materials)'
-        Provides = 'ONE pilot material t10_brick_stone_wall_rough_dark + images (docs/20_atmosphere_and_materials.md face-techset trap verdict: LIKELY-TRAP; not on any face, cannot affect builds)'
-        Required = $false
-        Marker   = 'source_data\acc_bo6_mat_pilot.gdt'
-        Link     = 'devraw - user rar "_mg_bo6_materials.rar" (full 413-material GDT NOT installed)'
+        # UPGRADED 2026-07-18 (visual-enhancement sweep install session): was the
+        # one-material feasibility pilot (acc_bo6_mat_pilot.gdt, installed 2026-07-02).
+        # The FULL pack is now installed as source_data\t10_materials.gdt; the pilot
+        # GDT is RENAMED install-side to acc_bo6_mat_pilot.gdt.acc-superseded-by-t10_materials
+        # - NEVER restore it while t10_materials.gdt exists (gdtdb duplicate-asset abort;
+        # the full GDT contains the pilot's t10_brick_stone_wall_rough_dark block).
+        # SHARING: texture_assets\_bo6 = this pack's material TIF sources ONLY; the two
+        # MadGaz BO6 MODEL packs below split model_export\_bo6 instead (props\ = libfall,
+        # Foliage\ = foliage) - pack/unpack per-path so shared parents MERGE, never mirror.
+        Name     = 'MadGaz BO6 materials (_mg_bo6_materials - FULL t10_ face-material pack)'
+        Author   = 'MadGaz (_mg_bo6_materials) / Treyarch-Activision (orig BO6 art)'
+        Provides = '444 drag-in t10_* brush-face materials (t10_materials.gdt) + texture_assets\_bo6 TIF sources - the visual sweep''s wall/floor palette (zone-distinct identities incl. the locked Abyss per-floor bands). ZERO emissives (those ride the VK PBR pack). NOT yet face/zone-referenced (sweep pending); docs/20 face-techset caution stands - the sweep''s P0 pilot must prove one t10_ token on a baked face before mass application.'
+        Required = $true   # not faced YET - Required so the manifest zip carries the ~sweep substrate (asset-portability-rules); the sweep wires it next
+        Marker   = 'source_data\t10_materials.gdt'
+        Link     = 'devraw - user rar "_mg_bo6_materials.rar" (FULL pack installed 2026-07-18; the 2026-07-02 install was a 1-material pilot slice, now superseded). Install: full GDT -> source_data\t10_materials.gdt + texture trees -> texture_assets\_bo6; TOUCH the GDT mtime (rar timestamps predate gdt.db), gdtdb /update. Credit MadGaz + Treyarch/Activision (BO6) before Public.'
         Paths    = @(
-            'source_data\acc_bo6_mat_pilot.gdt',
+            'source_data\t10_materials.gdt',
             'texture_assets\_bo6'
         )
     },
@@ -830,6 +839,140 @@ $ExternalAssetPacks = @(
         Link     = 'BO1Sounds.7z (279 MB, user Downloads 2026-07-17). Re-prep: 7z-extract the numbers folder, run tools/prep_scientist_numbers_from_rip.js on numbers\New foldernum_04_d_PCM.wav targeting the tools-root sound_assets\acc\fx\scientist_numbers_lp.wav, bump a .zone comment, rebuild game-CLOSED. RIP stays OUT of git. Credit Treyarch in CREDITS before any public Workshop release.'
         Paths    = @(
             'sound_assets\acc\fx\scientist_numbers_lp.wav'
+        )
+    },
+    # =========================================================================
+    # 2026-07-18 visual-enhancement sweep install session (8 packs, ~25 GB, all
+    # gdtdb-green; plus the FULL _mg_bo6_materials upgrade of the pilot entry
+    # above). NONE of these are zone/face-referenced yet - the sweep batches wire
+    # them. Required=$true anyway so pack_external_assets.ps1 carries the installs
+    # same-day (asset-portability-rules memory); flip any entry to $false only if
+    # the sweep ultimately rejects the pack.
+    # =========================================================================
+    @{
+        # This entry OWNS the shared t8_* texture/decal paths that p8_zm_white
+        # (next entry) also resolves images from - one pack claims a shared path,
+        # pack/unpack MERGE, never mirror. Test-convert gate PASSED 2026-07-18 on
+        # the p8_zm_off_console_* group with ONE cosmetic gap: material
+        # mtl_p7_zm_kin_console_electric_decal is referenced but not shipped (the
+        # consoles' small electric-decal surface renders untextured; waived).
+        Name     = 'BO4 office props (p8_zm_office_assets - Classified/Pentagon)'
+        Author   = 'Zombie115201 (export/setup) / Treyarch (orig BO4 Classified/Pentagon art)'
+        Provides = 'BO4 Classified (Pentagon office) static prop xmodels (p8_zm_off_*, model_export\t8_props\p8_zm_office) + the SHARED t8_* texture/decal GDTs both p8 packs need (texture_assets\t8_materials tree, t8_decal_blood/tech, veh_t7_dlc_detail_materials). Visual-sweep set-dressing; NOT yet zone-referenced.'
+        Required = $true
+        Marker   = 'source_data\p8_zm_office.gdt'
+        Link     = 'p8_zm_office_assets.zip (user download 2026-07-18; a duplicate "(1)" copy in Downloads is safe to delete). Install: drag model_export/source_data/texture_assets into the tools root, TOUCH GDT mtimes (rip timestamps predate gdt.db), gdtdb /update. Known cosmetic gap: mtl_p7_zm_kin_console_electric_decal missing (p8_zm_off_console_* decal surface untextured; waived). Credit Zombie115201 + Treyarch (BO4) before Public.'
+        Paths    = @(
+            'source_data\p8_zm_office.gdt',
+            'model_export\t8_props\p8_zm_office',
+            'model_export\veh_t7_dlc_detail_materials.gdt',
+            'texture_assets\t8_decal_blood.gdt',
+            'texture_assets\t8_decal_tech.gdt',
+            'texture_assets\t8_materials'
+        )
+    },
+    @{
+        Name     = 'BO4 white props (p8_zm_white_assets - Alpha Omega/Nuketown)'
+        Author   = 'Zombie115201 (export/setup) / Treyarch (orig BO4 Alpha Omega/Nuketown art)'
+        Provides = 'BO4 Alpha Omega (Nuketown) static prop xmodels (p8_zm_whi_*, model_export\t8_props\p8_zm_white). Its t8_* texture/decal GDT dependencies are SHARED with - and OWNED by - the p8_zm_office entry above (install/unpack both on a fresh machine). Visual-sweep set-dressing; NOT yet zone-referenced.'
+        Required = $true
+        Marker   = 'source_data\p8_zm_white.gdt'
+        Link     = 'p8_zm_white_assets.zip (user download 2026-07-18). Same install recipe as p8_zm_office_assets (drag-in + TOUCH GDT + gdtdb /update); test-convert gate passed 2026-07-18 on the whi_fence_chainlink group. Credit Zombie115201 + Treyarch (BO4) before Public.'
+        Paths    = @(
+            'source_data\p8_zm_white.gdt',
+            'model_export\t8_props\p8_zm_white'
+        )
+    },
+    @{
+        # model_export\_bo6 is SHARED between the two MadGaz BO6 model packs: this
+        # entry claims _bo6\props, the foliage entry claims _bo6\Foliage - so the
+        # pack/unpack scripts MERGE the shared parent instead of mirroring it.
+        Name     = 'MadGaz BO6 Liberty Falls props (_mg_bo6_libfall_props)'
+        Author   = 'MadGaz (rips) / Treyarch-Activision (orig BO6 Liberty Falls art)'
+        Provides = '334 BO6 Liberty Falls static prop xmodels (bo6_props.gdt; circular bank-vault door set = the Vault anchor, ~30-sign storefront suite = Market). Visual-sweep set-dressing; NOT yet zone-referenced.'
+        Required = $true
+        Marker   = 'source_data\bo6_props.gdt'
+        Link     = '_mg_bo6_libfall_props.rar (user download 2026-07-18). Install: GDT -> source_data, models -> model_export\_bo6\props; TOUCH GDT, gdtdb /update. Credit MadGaz + Treyarch/Activision (BO6) before Public.'
+        Paths    = @(
+            'source_data\bo6_props.gdt',
+            'model_export\_bo6\props'
+        )
+    },
+    @{
+        Name     = 'MadGaz BO6 foliage pack (_mg_bo6_foliage_pack)'
+        Author   = 'MadGaz (rips) / Treyarch-Activision (orig BO6 art)'
+        Provides = '734 BO6 foliage xmodels (bo6_foliage.gdt; ivy wall kit etc. - BulletCollisionLOD None = NON-SOLID, clip via add_prop_clips if ever placed in a lane). model_export\_bo6\Foliage = this entry''s half of the shared _bo6 tree (props half = the libfall entry above). Visual-sweep set-dressing; NOT yet zone-referenced.'
+        Required = $true
+        Marker   = 'source_data\bo6_foliage.gdt'
+        Link     = '_mg_bo6_foliage_pack.rar (user download 2026-07-18; a duplicate "(1)" copy in Downloads is safe to delete). Install: GDT -> source_data, models -> model_export\_bo6\Foliage; TOUCH GDT, gdtdb /update. Credit MadGaz + Treyarch/Activision (BO6) before Public.'
+        Paths    = @(
+            'source_data\bo6_foliage.gdt',
+            'model_export\_bo6\Foliage'
+        )
+    },
+    @{
+        Name     = 'BO3 MP russianbase2 props (p7_mp_russianbase2_assets)'
+        Author   = 'Zombie115201 (export/setup) / Treyarch (orig BO3 MP DLC art)'
+        Provides = 'Native-T7 static prop xmodels from MP DLC mp_russianbase2 (p7_rus_*; per-prop GDTs under model_export, same layout as the TranZit pack - no cross-game texture risk). The sweep plan flags the ~15 snow-covered props as skip-at-PLACEMENT (they are installed like the rest). NOT yet zone-referenced.'
+        Required = $true
+        Marker   = 'model_export\t7_props_dlc\mp\hd\mp_russianbase2\p7_rus_air_conditioner\p7_rus_air_conditioner.gdt'
+        Link     = 'p7_mp_russianbase2_assets.zip (user download 2026-07-18). Install like the TranZit pack: drag model_export in, TOUCH the per-prop GDT mtimes under model_export\t7_props_dlc\mp\hd\mp_russianbase2 (rip timestamps predate gdt.db), gdtdb /update. Credit Zombie115201 + Treyarch before Public.'
+        Paths    = @(
+            'model_export\t7_props_dlc\mp\hd\mp_russianbase2'
+        )
+    },
+    @{
+        Name     = 'eMoX MWIII Synth assets (Vertigo neon/emissive set)'
+        Author   = 'eMoX (rips/setup); 3 PaP camo PNGs by midgetblaster / Infinity Ward-Activision (orig MWIII Vertigo art)'
+        Provides = 'MWIII Vertigo asset set: retro_synth_* neon-grid emissive face materials (the sweep''s Paradise identity + trim; _tinted_edge exists ONLY in blue/green/orange/red/yellow - pink/cyan/purple only as _tinted) + models (emox_mwiii_vertigo_models.gdt, model_export\_emox\_mwiii) + the _zm_synth_escape texture tree + 3 midgetblaster PaP-camo PNGs the GDTs reference. NOT yet face/zone-referenced.'
+        Required = $true
+        Marker   = 'source_data\_emox\emox_mwiii_vertigo_assets.gdt'
+        Link     = '"eMoX MWIII Synth Assets" (user download 2026-07-18). Install: drag source_data\_emox + model_export\_emox\_mwiii + model_export\_midgetblaster camo PNGs + texture_assets\_zm_synth_escape into the tools root; TOUCH both GDTs, gdtdb /update. Credit eMoX + midgetblaster (camo PNGs) + Infinity Ward/Activision (MWIII) before Public.'
+        Paths    = @(
+            'source_data\_emox\emox_mwiii_vertigo_assets.gdt',
+            'source_data\_emox\emox_mwiii_vertigo_models.gdt',
+            'model_export\_emox\_mwiii',
+            'model_export\_midgetblaster\weapons\t7\_images\i_t7_camo_zod_pap_g.png',
+            'model_export\_midgetblaster\weapons\t7\_images\i_wpn_t7_camo_zm_dlc2_pap8_3n.png',
+            'model_export\_midgetblaster\weapons\t7\_images\i_wpn_t7_camo_zm_dlc2_pap9_e3.png',
+            'texture_assets\_zm_synth_escape'
+        )
+    },
+    @{
+        Name     = 'Cryptid alien biome (ghost.zip - CoD:Ghosts Extinction rips)'
+        Author   = 'MoiCestTOM (port; readme asks credit MoiCestTOM + Cryptid) / Infinity Ward (orig CoD:Ghosts Extinction art)'
+        Provides = 'CoD: Ghosts Extinction alien-biome asset tree (whole _custom\_moicesttom: gdt\gdt_ghost GDTs incl. alien_ghost.gdt + models/textures) - Abyss horror dressing, ZONE-REFERENCED since M6 (2026-07-18: 10 custom_ghost_* xmodel lines; alien_ghost.gdt carries 3 M6-ADDED derived entries custom_ghost_armory_alien_{egg_01,tentacles_01,tentacles_02} over the alien_plus bins - backup alien_ghost.gdt.acc-m6-orig beside it; REPACK the bundle so teammates get the edited GDT).'
+        Required = $true
+        Marker   = '_custom\_moicesttom\gdt\gdt_ghost\alien_ghost.gdt'
+        Link     = 'ghost.zip (user download 2026-07-18). Install: drag the _custom\_moicesttom tree into the tools root (gdtdb scans _custom via the bin\converter_gdt_dirs_0.txt entry prepended for the Leviathan Axe 2026-07-07); TOUCH GDTs, gdtdb /update. Credit MoiCestTOM + Cryptid + Infinity Ward (Ghosts) before Public.'
+        Paths    = @(
+            '_custom\_moicesttom'
+        )
+    },
+    @{
+        # *** CREDITS POLICY FLAG (see the CREDITS.md VK row): NOT a game rip -
+        # converted photoscan libraries, PARTIALLY Textures.com-derived, and the
+        # CREDITS.md policy header BANS Textures.com/Poliigon/Quixel-derived
+        # textures from shipping. Per-material provenance (its texture folder
+        # name under texture_assets\vk_mtl) MUST be checked before any VK
+        # material lands on a shipped face; only cgbookcase/TextureHaven (Poly
+        # Haven) CC0 derivations are ship-safe. ***
+        Name     = 'VK PBR material megapack (brush-face materials, SELECTIVE install)'
+        Author   = 'unnamed "VK" (converter); textures from photoscan libraries - folder names trace to cgbookcase.com, TextureHaven (Poly Haven) and Textures.com'
+        Provides = '275 drag-in PBR brush-face materials across 8 GDTs (vk_pbr_pk1..pk8_mtl.gdt) + texture_assets\vk_mtl TIF sources - incl. the 9 emissives the BO6 set lacks (facade light panels, vista night-city facades, lava/magma for Abyss L4/L5), the road/road-marking decal suite, 11 corrugated-steel colorways (Market), bunker concrete (Vault), grate walkways (Lab). SELECTIVE install 2026-07-18: ~11.6 GB of material-UNreferenced sources (Part 2 pbr5\Texture\3..30 + Part 3''s nested Texture.rar) deliberately NOT installed. NOT yet face-referenced. SHIP GATE: per-material provenance check before ANY face use (see comment above).'
+        Required = $true
+        Marker   = 'source_data\vk_gdt\material\vk_pbr_pk1_mtl.gdt'
+        Link     = '"VK - Part 1.rar" / "VK - Part 2.rar" / "VK - Part 3.rar" (user Downloads 2026-07-18). Install = Part 1 full + Part 2 minus pbr5\Texture\3..30 + Part 3 source_data only (inspection verdict, visual-enhancement-sweep memory); TOUCH the 8 GDTs, gdtdb /update.'
+        Paths    = @(
+            'source_data\vk_gdt\material\vk_pbr_pk1_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk2_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk3_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk4_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk5_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk6_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk7_mtl.gdt',
+            'source_data\vk_gdt\material\vk_pbr_pk8_mtl.gdt',
+            'texture_assets\vk_mtl'
         )
     }
 )

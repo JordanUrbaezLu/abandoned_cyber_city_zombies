@@ -1,6 +1,9 @@
 {
   "_comment": "Weapon-usage tracking gun-ID registry (docs/41). APPEND-ONLY. Maps a canonical base weapon name (what acc_weapon_variants::true_base(w).name returns) to a PERMANENT positive integer id. id 0 is reserved = 'other'/unknown catch-all (never listed here). RULES: (1) ids are assigned in registration order and NEVER renumbered; (2) a NEW live box gun appends at max+1 (tools/gen_gun_ids.js auto-appends + warns); (3) a RETIRED gun KEEPS its id here as a tombstone (do NOT delete the line and do NOT reuse the id) so a future restore can't collide and old D1 rows stay meaningful; (4) NEVER derive ids from box order or box_weight rank - both reshuffle on every rebalance. The generator validates this against _acc_map_randomizer.gsc box_weapons[] and regenerates the GSC acc_gun_id() switch + backend/leaderboard/gun_ids.json.",
-  "_catch_all": { "id": 0, "name": "other" },
+  "_catch_all": {
+    "id": 0,
+    "name": "other"
+  },
   "ids": {
     "t6_fiveseven": 1,
     "apex_peacekeeper": 2,
@@ -32,7 +35,8 @@
     "leviathan": 28,
     "freezegun": 29,
     "t8_melee_figure": 30,
-    "knife_ballistic": 31
+    "knife_ballistic": 31,
+    "apex_lstar": 32
   },
   "_display": {
     "0": "Other",
@@ -66,10 +70,19 @@
     "28": "Leviathan Axe",
     "29": "Winter's Howl",
     "30": "Action Figure",
-    "31": "Ballistic Knife"
+    "31": "Ballistic Knife",
+    "32": "CYBERJACK"
   },
-  "_tactical_not_guns": ["cymbal_monkey", "octobomb"],
-  "_tombstones_retired_before_scheme": ["t9_m16", "s1_asm1"],
+  "_tactical_not_guns": [
+    "cymbal_monkey",
+    "octobomb"
+  ],
+  "_tombstones_retired_before_scheme": [
+    "t9_m16",
+    "s1_asm1"
+  ],
   "_comment_starting": "Guns that are ALSO a free/starting weapon (not acquired FROM the box). Their held-time is inflated by the free grant, so /stats/guns flags is_starting=true and a reader should discount their pref_index. t6_fiveseven is the start pistol (see _acc_map_randomizer.gsc box_weapons comment).",
-  "_starting": ["t6_fiveseven"]
+  "_starting": [
+    "t6_fiveseven"
+  ]
 }

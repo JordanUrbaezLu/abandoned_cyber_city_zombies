@@ -6,6 +6,650 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — 2026-07-20 LEADERBOARD/DB GATE: only DEV mode blocks storage (god-mode runs now post)
+
+User rule 2026-07-20 ("DB should only be behind dev mode"), superseding the 2026-07-11 dev/god
+rule: all five storage gates in `_acc_leaderboard.gsc` (leave-hook armer, end-game record,
+per-round record, leave-flush, record-lane) now check `IS_TRUE( level.acc_dev )` only. God-mode
+runs store to D1 + the local board like normal play — accepted trade-off (god-run round records
+reach the ladder); dev runs still store nothing. Also: Brutus CYBERJACK drop chance default
+0.25 → 1.0 (user 2026-07-20).
+
+### Fixed — 2026-07-20 Brutus CYBERJACK drop never fired in dev (dev loadout closed the rotation gate) + [CJ] gate trace
+
+Root cause of "Brutus never drops the CYBERJACK even at a 100% roll" (user's dev/god test,
+2026-07-20): `_acc_dev::dev_give_starting_guns` hands EVERY player a CYBERJACK (`apex_lstar`)
+~1.5s after blackscreen and re-gives it each life, so in any dev session
+`_acc_cyberjack::cyberjack_in_rotation()`'s primaries scan always found a holder and
+`try_brutus_gun_drop` returned false **before the roll** — at any chance. (The gun can sit in a
+background Mule-Kick slot, so "nobody holding one" on screen still scans true.) Path audit that
+ruled everything else out: the Trench Warden (`_acc_boss::run_mini_boss`, power-on + round ≥ 5,
+kill-anchored 3-round respawn) is the ONLY Brutus that threads `watch_mini_boss_death` → the drop;
+the r9/18/27 roster deck (`_acc_civil_protector::boss_roster`) contains phantom/protector/
+avogadro/panzer — **no Brutus** — and the Paradise Brutus (`spawn_one_paradise`, count-only
+watcher, `acc_no_shard_reward`) is reward-free by design; the NSZ pack's own cadence is disabled
+(`acc_brutus_external_spawns`). Weapon name verified correct: runtime `apex_lstar`
+(`gamedata/weapons/zm/zm_levelcommon_weapons.csv:36`; zone keeps `weapon,apex_lstar_zm`).
+
+- **Fix** (`_acc_cyberjack.gsc`): `cyberjack_in_rotation()` skips the holder scan under
+  `IS_TRUE( level.acc_dev )` (the `acc_cj_pickup_live` gate still blocks stacked ground
+  pickups); holder scan split into `cyberjack_holder()`. Ship behavior (dev off) unchanged —
+  and with dev now hardcoded OFF nobody gets the free loadout gun, so the rotation gate is
+  genuinely open: the next Trench Warden kill (power on + round ≥ 5) rolls the live 100%.
+- **Instrumentation** (`_acc_cyberjack.gsc` `cj_log` + `_acc_boss.gsc` call sites; rides
+  `acc_dev` ONLY per doctrine, silent in this build): `[CJ]` IPrintLnBold trace (lands in
+  console_mp.log as `[ SCRIPTER]`) at death-watch ARM, death state (corpse/n_bottles/
+  no_reward/drop_origin), every `try_brutus_gun_drop` gate (rotation blocker BY NAME,
+  weapon resolve, roll vs chance), the gun-vs-item verdict, and pickup commit/grab/expire.
+
+Docs: [docs/43](docs/43_cyberjack_wonder_weapon.md) (dev-grant TRAP note). Analytics side-note
+(user question, same session): the CYBERJACK has **no gun_id** in `tools/gun_ids.json` (box guns
+only) — `acc_gun_id("apex_lstar")` returns 0, so its production held-time folds into the
+"Other" bucket (id 0) in D1 `gun_time`; per-CYBERJACK usage is not attributable in the DB.
+
+### Changed — 2026-07-19 Per-zombie drop rates split (item 0.2%→0.25%, Mega Bottle 0.2%→0.17%)
+
+Per-zombie horde drop rolls (`_acc_boss_items::on_zombie_death_drop`) were a matched 0.2%/0.2% pair; now tuned apart (user): the random pool ITEM chance **0.002 → 0.0025** (0.2% → **0.25%**, slightly more item drops) and the Empty Mega Bottle to the killer **0.002 → 0.0017** (0.2% → **0.17%**, slightly fewer bottles). `#define`d defaults in `_acc_boss_items.gsc` (also live dvars `acc_zombie_item_drop_chance` / `acc_zombie_bottle_drop_chance`). Lucky Horseshoe still ×1.5 → item 0.375% / bottle 0.255%. Boss/mini-boss guaranteed drops unaffected; stock power-up cadence unaffected. Stale in-file comments (the "0.004 = 0.4%" preamble + the "0.2%→0.3%" clover notes) corrected to match. Doc: [docs/09](docs/09_boss_items.md).
+
+### Fixed — 2026-07-19 FIX BATCH 4: co-op zombie pile-ups (trench stairs + clip lanes) + Dark Magic co-op revive restore; carries the Scientist re-enable
+
+Two live-play issues from the user's co-op run, one staged build (dev/god stay hardcoded `false`;
+`_acc_main.gsc` untouched — the already-made Scientist re-enable rides along).
+
+1. **Zombies piled up at the trench stairs + on models (co-op).** Plane-accurate map audit
+   (session `map_lane_audit.js`: 264 worldspawn + 101→99 brushmodel clips + 428 solids + all 63
+   riser structs vs the stair channels/mouths/lips and every zone's lane gaps):
+   - **W stair TOP mouth was choked by `bus_street_lamp_full` (-660,1660):** the only E approaches
+     were 33u (travel-kiosk N face → lamp) and 35u (lamp → S parapet rail) — both under the
+     ~40-45u zombie width = the "top of the steps" pile-up. Lamp moved to **(-560,1690)** (hugs
+     the parapet rail, 5u seal); E approach now **63u**, stair mouth x[-761,-657] fully clear.
+     misc_model + clip + GSC twin in lockstep.
+   - **`m6_tr_seg_w/e` rib clips DELETED (models stay):** the only two brushmodel clips on the
+     open pit floor's N strip — the strip the W stair's bottom landing opens onto. Brushmodel
+     clips are navmesh-invisible and the runtime `DisconnectPaths` sweep disables every nav POLY
+     the brush touches (polys on a big open slab extend far past the clip footprint), so the ribs
+     could sever the stair-landing link = the "bottom of the stairs" pile-up. The 24u-deep
+     wall-dressing ribs are now walk-through (no perch top left either). Pit floor now has ZERO
+     brushmodel clips on the N strip; both stair bottom approaches = the full 82u slots.
+   - **Named chokepoints re-measured + widened to ≥55-60u** (clip shrink only, mesh-edge grazing
+     accepted): bomber E-door passages 2x45 → **2x55u** (walls recede ~10u more into the visual
+     jambs); market taxi↔tarp-stall lane 49 → **60u** (`tarp_a` hx 63→52); vault filing→ops lane
+     47/49 → **60/62u** (filing hx 19/18→13/12 + console hx 36→29); abyss L3 W-bay organic lane
+     50/54 → **60/64u** (`m6_l3_egg1` hy 59→49).
+   - **Verified intentionally tight (unchanged, honest list):** alley E-wall junk row pockets
+     (45-48u dead-end nooks behind the sealed AC row — not lanes; main alley routes 60-160u+),
+     alley mid-room slalom pairs 44-48u (parallel routes ≥113u both sides), bus restroom interior
+     38-56u (interior nook; main W lane 93-119u), corp queue 34u stanchion aisle (E-W cross gaps
+     66-146u), L4/L5 abyss slalom gaps 26-42u (parallel routes ≥90u; the Maw's density is design),
+     paradise palm wall-slots 34-44u (open floor on the palms' room side). Difficult navigation
+     stays — but every PRIMARY flow route now measures ≥55u.
+   - **Riser audit: all 63 spawn structs pass** ≥45u exit clearance in ≥2 directions (no pile-up
+     pockets; batch-3's containment fixes confirmed still clean).
+2. **Dark Magic (implant 15) failed to restore perks on a CO-OP revive** (partner downed with
+   Jug+Deadshot, revived by the user, came back with neither; solo QR path had passed live).
+   Root cause traced in stock source: the co-op manual-revive path notifies `"player_revived"`
+   BEFORE the revive executes (`_zm_laststand.gsc` `revive_success()` :1430 notify → :1432
+   `reviveplayer()`, weapons/health machinery still running for frames after), while the solo
+   `auto_revive` path (the only lane live-tested) notifies at the very END with the player fully
+   restored (:1351→:1392). Our restore sampled ONE instant (+0.1s) behind the 5-way
+   `zm_utility::is_player_valid` gate — evaluated mid-revive-pipeline on the co-op path — and a
+   single false reading silently `continue`d the whole restore with no retry; a post-notify strip
+   could likewise eat a just-granted perk with nothing to re-grant it. Fix in `_acc_boss_items.gsc`:
+   `dark_magic_revive_watch` now hands off to `dark_magic_do_revive_restore` — a monitored ~5s
+   retry window (0.25s ticks) that re-grants any still-missing tracked perk until the full set has
+   stayed present ~1s, aborts on re-down/bleed-out/disconnect, collapses overlapping instances,
+   and force re-pushes the implants HUD clientfield. Design confirmed vs docs/09: Dark Magic is a
+   SELF implant — the DOWNED player must have it implanted (a carried-not-implanted glyph does
+   nothing). Lints green (xref + structural). Live co-op re-test owed.
+
+### Fixed — 2026-07-19 Scientist CTD ROOT-CAUSED: the 1.3x `SetScale` experiment (fix authored, module stays disabled pending the verification build)
+
+The repeated Scientist hard CTDs (local dev sessions AND a subscriber on the 2026-07-18 published
+build — "the Scientist breaks the map" — so cross-machine, no local-env cause) = the
+`[ACC-SCI-SCALE]` 1.3x body-scale experiment, the deliberate retest of the project-banned
+"no `SetScale` on live AI" `0xC0000005` (Brutus, 2026-06-15). Evidence: the fresh 7/19 minidump
+READ AV `exe+0x15bf48f` (a new offset, no prior crash class); console_mp.log shows the server
+thread dying in the emerge-completion window ~T+4–6s after his rise in BOTH crash sessions —
+exactly where `scale_pin()` fired its single deferred `SetScale(1.3)` — with `goal=none` still
+(anchors/patrol never even ran; the boss-spawn-vs-clips audit had also cleared the lab risers).
+Every other write in that window (sprint `ASMSetAnimationRate`, custom-goal driving, SetModel
+reskin) is field-proven and ran clean in the pre-scale 07-17/18 live sessions. **Verdict: the
+SetScale ban is UNCONDITIONAL — stock skeleton + deferred single write does NOT dodge it.**
+Fix in `_acc_boss_scientist.gsc`: ACC_SCI_SCALE define + `scale_pin()` + its spawn thread
+REMOVED (post-mortem comment kept at the top of the module); hardening: sprint_pin's first
+gait/rate write moved 0.5s off the emerge-completion frame + `isalive`-guarded, roam chase goals
+navmesh-projected (`GetClosestPointOnNavMesh`) before `SetGoal` (raw-origin fallback). Lints
+green (xref + directive/ternary/reserved + brace/paren/column-0). `_acc_main.gsc`'s commented
+`init()` stays commented — re-enable + `-GscOnly` rebuild only on the user's signal after the
+current push; verification recipe + full incident record: docs/44 workstream B.
+
+### Changed — 2026-07-19 RELEASE PREP: Scientist boss HARDCODE-DISABLED (live crash suspect) + dev/god restored to ship-state `false`
+
+The Scientist (`_acc_boss_scientist`, Pentagon Thief homage) is disabled at the orchestrator
+(`_acc_main.gsc` — its `init()` call commented out) per the user: "He is causing the game to crash"
+— [SCI] debug was active in the pre-crash window of the 2026-07-19 CTDs. Module + assets stay in
+place; re-enable = uncomment after root-cause. `level.acc_dev` / `level.acc_god` hardcoded back to
+`false` (ship state) for the ASAP push. Linker-only rebuild (no geometry).
+
+### Fixed — 2026-07-19 FIX BATCH 3: alley rebuilt on its REAL east wall + bomber third entrance + bus off the POWER decals (N-wall park) + LAB REVERTED TO FULL HEX + zone-coherence audit
+
+Five user-reported issues, one staged build. Every prop move = misc_model origin + clip entry +
+gated GSC twin in lockstep (`add_prop_clips.js` re-emitted; scratch `fb3_moves.js` applied 45
+count-asserted replacements to GSC + `.map`).
+
+1. **ALLEY was built against a wall that doesn't exist.** The REAL interior wall planes, derived
+   from the `.map` wall brushes: **W x1339.5, E x2179.5, S y380, N y1476** (E wall continuous, no
+   door) — the room is **840u wide**, but M3 placed its whole "E wall" row against the stale
+   rooms.json bound x~1969 (~210u short; the E-wall riser (1979.5,644) even sat "outside", and the
+   P1 ACCC0012 strip was already on the real x2177.5). Fix: E-wall group + SE bay cluster shifted
+   **+210** (M3 flush gaps preserved: tanks 1.5u / AC+oil-rack+green-dumpster ~8u off the plane);
+   NE rubble+coil sealed INTO the corner (2130,1430) — the +210 spot would have left a 32u
+   zombie-unpathable wall pocket; mid-room re-spaced for the true width (scaffold+dolly -> x~2040,
+   tank_4 -> 1940, S chainlink/coil/pile belt +80..110, tarp fence -> 1830, N pile -> 1920,
+   x_wheelbarrow nudged (1610,710) — its corner was 42.9u from the (1539.5,644) riser); ceiling
+   cage lights + haze/drip FX re-centered to the true center x1760, wire-spark FX moved atop the
+   AC (2148,545). Re-audit: risers/dog >=52u, box r60 OK, tightest lanes 47-60u (deliberate),
+   flood-fill W door -> E wall and -> corp mouth both PASS at 40u zombie width.
+2. **BOMBER third entrance (E-side door).** Vertex decode (`vert_slices.js`) found the hull's
+   side **double-door bay on the E skin**: two full-height ~40u leaves world y[2795,2835] +
+   y[2843,2883] around an 8u mullion (hence the family's `_double_door_a` variant); the W skin has
+   only a framed window (stays sealed). `roof_m4_bomber_wall_e` split into S/N flanking boxes + a
+   mullion-post sliver clip; each sub-45u leaf widened ~5u into the visual jambs -> **two 45u
+   passages** (y[2790,2835]/y[2843,2888]). Three entrances: **S mouth 164u / N mouth 164u / E door
+   2x45u**; flanking boxes cap at the z85 interior ceiling (roof wedges unchanged — no new perch
+   tops); interior floor navmesh untouched (worldspawn clips, auto-cut). The crash-rubble clip
+   (-1420,2920) pinched the N passage exit to 34u -> rubble moved N to (-1420,2965) in lockstep.
+3. **BUS off the POWER decals — final N-wall park.** The batch-2 parapet spot covered the
+   ACCC000F POWER arrow (x[-500,-436] y2195, inside the seal span). Per the user ("against the
+   other wall, NOT on the same side as the power decals"): **yaw 0 lengthwise FLUSH on the true N
+   wall y2728** — misc_model (-25,2658), seal x[-261,207] y[2588,2728]; stepladder (-250 -> -290)
+   + power panel (150 -> 240) moved aside (15u sealed end slivers). Verified: **all 10
+   POWER/arrow decals CLEAR** — including the find that the two PIT decals ACCC0009/000A had been
+   hidden behind the M6 tunnel rib since 2026-07-18 (moved east of the rib to x[300,364]/[380,444],
+   nearer the stairs they point at); roof/vault corridor mouths untouched; corp box nearest clip
+   115u; E-stair -> power pocket flood-fill PASSES at 60u body; bench->bus lane 87u, booth 80u;
+   only designed grazes remain (debris mound flush on the seal S face). The two batch-2 N-hall
+   risers re-seated onto fully clear floor ((-381,2415)->(-340,2415), (-300,2440)->(-320,2455)).
+4. **LAB REVERTED TO FULL HEX** (user flagged the walls twice). One-shot
+   `tools/oneshots/revert_lab_hex_market_ceiling.js`: every sweep-painted face in the lab
+   super-region restored to its **per-face HEAD token** (brush-AABB + face-plane matching —
+   plane-point TEXT is generator-templated, not unique). Byte-diff proof: exactly **114 faces (96
+   -> hex, 18 -> the W corridor's HEAD poured-concrete)** = P2's 90 + P3's 24, 1:1; ACCC0016/0017
+   emissive strips KEPT; lab_e stainless untouched (HEAD). `paint_p3_lab_ceiling.js` marked
+   SUPERSEDED. docs/20 §14f.
+5. **Zone-coherence audit** (docs/20 §14f table): all repainted zones read as one material system
+   except the flagged **Market ceiling** — its full-zone slab underside was left rust metal over
+   brick+linoleum -> now `t10_ceiling_tile_01_dirty` (same one-shot, 1 face; Geometry class,
+   already in the fastfile). Deliberate contrasts kept (Vault marble/stainless, Paradise emissive,
+   Abyss bands, bus graphite POWER parapets); borderline calls listed in §14f, not churned.
+
+Same-error-class sweep of the other M3-M6 zones: **Market bounds were already real** (interior
+x[-2141,-1301] — M3's claim verified); **Vault M5 S-wall anchor row was 20u off the real y2280
+plane** -> whole portal row + flank panels + monitor moved -20y flush; **bus restroom fixtures**
+(sink/urinal/mirror) floated 45-49u off the real W wall x-761 since P0 -> flushed; Roof/Lab/Plaza
+props verified flush. Map clips now 264 worldspawn + 101 brushmodel. Verified: LED bake gate
+**BAKED** + `-GscOnly` **BUILD OK** (see below); GSC xref lint green; post-edit spawn-struct audit
+clean (only pre-existing tolerated grazes remain).
+
+Five user-reported issues from the post-sweep live test, in one staged build:
+
+1. **Round-3 hard CTD (dev): triaged; riser-in-clip conflicts fixed; root cause NOT reproduced by
+   evidence.** All three minidumps parsed (`tools/parse_minidump.js`): the fresh 7/19 dump = READ AV at
+   exe+`0x15bf48f`; the 7/16 dump = READ AV at exe+`0x13efab0` (different offset, pre-dates the sweep);
+   the 7/17 dump = exception 0x0 in KERNELBASE (the already-solved CF-overflow load incident). Neither
+   AV matches the documented fxanim anim-tick offset (+`0x2bc4ee9`) and the two AVs don't match each
+   other -> **no deterministic pattern; single data point at a new offset.** The directed boss-spawn
+   audit (scratch `map_audit.js`, plane-accurate AABBs: every riser/dog/initial/`acc_boss_spawn` struct
+   x 262 worldspawn clips + 101 brushmodel clips + 536 misc statics) found the only real conflicts in
+   the BUS STATION - exactly where the crash session was being played and where the round-3 Phantom
+   spawns (it promotes a zombie from the riser NEAREST a player): corp risers (+-150,1548) sat INSIDE
+   the `bus_bench_wood_5/6` clips and (-300,2348) INSIDE `bus_c_suitcase_med`. Moved to clear floor:
+   (-150,1610) / (105,1610) (the x150 spot was 3u off a stanchion clip - the real stanchions are at
+   x140/x-180, not the x60/-100 the old comment claims) / (-300,2440), plus (-381,2348)->(-381,2415)
+   (inside the re-parked bus footprint, see 2). Phantom asset wiring verified intact (model zone-listed,
+   2-bit aura CF holds value 3, and the 65000hp print IS post-spawn proof). Honest verdict: zombies
+   rising inside clip solids is the proven-stuck path and a plausible native-crash correlate, but the
+   dump alone does not prove it - if the CTD recurs at the SAME offset with these conflicts gone, the
+   next suspect list is (a) glitch-stalker forceteleport volume, (b) the 17 new FX loops, (c) the 530
+   misc_model bake; parse the new dump FIRST.
+2. **Schoolbus re-parked - the power route is direct again.** The sealed coach's NW-bay spot walled the
+   power-switch pocket off from the whole N hall (measured: N-end gaps 20u/30u vs lounge bench/trees, S
+   end 6u vs the parapet -> power only reachable the long way through the roof zone). No yaw-90 spot
+   can satisfy the >=64u lane rule (468u seal in the 529u hall leaves <=61u), so the bus is now **yaw 0
+   along the pit N parapet** (misc_model (-406,2269); seal x[-642,-174] y[2199,2339]; 6u parapet gap =
+   intentional seal). Flush traffic barrier moved to its N flank ((-470,2360)); GSC twins + clips moved
+   in lockstep. Re-measured lanes: E-stair mouth -> N hall (65-300u) -> west lane x[-761,-642] (119u)
+   -> power pocket. Docs/02 updated.
+3. **Bomber wreck is ENTERABLE** (was one sealed gable shell). Vertex decode proved
+   `jup_vertigo_plane_boneyard_bomber_main_01` is a continuous open-ended hull tube: skins local
+   x+-[83,98], OPEN belly (interior floor = the roof's own worldspawn floor -> navmesh survives), no
+   nose/tail taper -> both tube ends are torn-open mouths. New fitted set: `roof_m4_bomber_wall_w/e`
+   thin boxes z[0,85] + `roof_m4_bomber_roof_w/e` worldspawn mono-slope wedges (bottom z85 = interior
+   ceiling, ~56 deg ridge = anti-perch; `add_prop_clips.js` now honors `wedge:` on worldspawn entries).
+   **Mouths 164u wide - zombies path through both ends, no camping pocket**; interior headroom 85u;
+   kept cone/rubble = knee-high obstacles with >=60u lanes.
+4. **Lab decon units + portable curtains are walk-through** (were solid boxes). Vertex decode of all
+   three `p8_zm_whi_decontamination_*` units: open frames. Fitted clips = frame parts only
+   (unit_open: 2 pillars + gabled lintel, 100u passage; unit_small_open: 4 corner posts + gabled roof
+   slab, 98u/71u passages; unit_front: 3 posts + gabled header, 2x 46u bays; headroom 86-100u). The
+   `p8_zm_off_curtain_portable` fabric (pure hanging cloth, 75x3.6) now clips only its two end
+   slivers - 56u middle passage - in BOTH the lab and the implant lab (`m6_il_curtain_s/n`). Every
+   passage >=45u = zombie-pathable by design.
+5. **P3 lab ceiling/consistency paint** (`tools/oneshots/paint_p3_lab_ceiling.js`, one-shot
+   marker-guarded, exactly 24 signature-verified face swaps): lab CEILING hex ->
+   `t10_metal_aluminum_painted_01_panels` (Geometry Plus - clinical paneled drop-ceiling; all-white
+   would blur walls+ceiling into one plane; white walls / panel ceiling / hex floor = one system);
+   the `lab_w` corridor's leftover wet-concrete walls -> white + its ceiling -> panels (the grey
+   patchwork visible through the W mouth); `lab_e` corridor KEPT stainless/marble (deliberate vault
+   threshold). No Decal-category tokens anywhere. docs/20 s.14e.
+
+Verified: LED bake gate **BAKED** (83.9s) + `build_map.ps1 -GscOnly` **BUILD OK** (fresh 133.88 MB
+`.ff`, 2026-07-19 13:06; errors = the known waived sweep-pack material debt only). Post-edit
+re-audit: zero spawn-struct/clip containments remain (only the pre-existing tolerated 8-24u grazes).
+Dev/god hardcodes untouched (active test session).
+
+Two gameplay-critical bugs from the post-sweep play-test, root-caused and fixed, then a scripted
+full-map audit (session `audit_all.js`: 357 clips x 159 keep-clear volumes + a 16u-grid floor-coverage
+scan of all 26 walkable regions):
+
+1. **Implant-room death hole = a Decal-category material on a floor brush FACE.** The P1 paint batch
+   put `t10_terrain_decal_crack_asphalt_03` (GDT `materialCategory "Decal"` / `lit_decal_plus`) on the
+   z0 TOP face of the "arena floor SOUTH of well" slab (x[-620,-380] y[-560,-440] — the implant room's
+   SW alcove). Decal materials do not produce solid brush geometry: the face rendered as a hole and the
+   player fell through into the void below (that band is south of the Exchange vault, which starts at
+   y=-448) = fall to death. NOTHING was lost from the PROP CLIPS sections — the HEAD-vs-now brush diff
+   confirmed all 26 intentional M3-M6 clip removals and zero unintended ones. Fix: repainted ALL FOUR
+   sweep decal faces back to Geometry-class materials — the implant slab top (→ `t10_concrete_pavement_01`),
+   the P0 "decal test" on the corp trench E end-wall TOP (the walkable pit rim, → epoxy like the W wall),
+   the implant lintel `t10_dirt_grunge_leaking_02` (→ wall concrete) and the D1 stairwell rail
+   `t10_dirt_roots_01_reveal` (→ iron). **New rule: decal accents ONLY on `contents nonColliding` patch
+   meshes (the helipad H-mark pattern), NEVER as a brush face token** (docs/20 note pending). The
+   `mwiii_vertigo_retro_synth_cyan` Paradise floor face was checked and is safe (Geometry Advanced).
+2. **Trench E stair blocked by `m6_tr_wreck` — prop + clip + GSC twin DELETED.** The collapsed-tunnel
+   wreck's 418x164 full-height clip (x[240,658] y[1723,1887]) left a 29u slot to the E stair's pit-side
+   wall (x687) — narrower than the player capsule, sealing the ONLY pit-floor approach to the E (north,
+   power-side) stair — and its footprint swallowed the (480,1830) trench riser (zombies rose stuck).
+   The riser rows (y1830/y2070, x +-160/+-480) leave no legal pit spot for that footprint, so the trio
+   was deleted (map misc_model + `acc_clip_m6_tr_wreck` + the `_acc_abyss_deco` twin + PROPS entry).
+3. **Audit fixes (blocking):** `market_m3_vista_taxi` moved N +150 (its clip CONTAINED the market riser
+   struct (-2066,560)); the roof `dog_location` struct moved (-1529,2545)→(-1700,2650) (it sat INSIDE the
+   M4 bomber shell); initial spawns (-200,-90/-130) moved to (-260,-90/-130) (they sat INSIDE the
+   exo-station pod clip — pre-existing but spawn-critical). Buried Exchange props raised to the REAL
+   -160 floor (stale -240 trap): `m6_ex_rack` clip + `_acc_atmosphere` rack (-240→-160) and holo
+   (-170→-90). Remaining audit hits are pre-existing tolerated adjacencies (logged in the session
+   report); the floor scan found ZERO unintentional holes anywhere (the one flag = the intentional
+   Exchange staircase well).
+4. **Anti-perch slopes for fall-exposed trench clips** (new rule superseding "trench/abyss clips stay
+   flat" — the pit is open to the rim + Rocket-Shield bridge): `add_prop_clips.js` gained `wedgeBox()`
+   (mono-slope top, `wedge:'N|S|E|W'` = raised edge, ~56deg, >=12u min half-extent) + `gable`/`wedge`
+   support on brushmodel entries. `pit_cache_w/e` got gable ridges (mid-floor, spill N/S onto open
+   floor); `m6_tr_seg_w/e` got raise-N wedges (raised edge vs the pit N wall, slide S into the pit).
+   Abyss L2-L5 / under-room / Exchange / loft clips stay flat — ceilinged, no fall column exists.
+   Sections regenerated via `add_prop_clips.js` (strip-and-re-emit; deterministic guids).
+
+Verified: LED bake gate **BAKED** (80.9s) + `build_map.ps1 -GscOnly` **BUILD OK** (fresh .ff
+2026-07-19 11:49, 133.88 MB). The 94 waived linker material errors are pre-existing sweep pack debt.
+
+### Fixed — 2026-07-19 HOTFIX: `G_Spawn: no free entities` crash on load — all 530 static deco props baked into the `.map` as misc_model statics
+
+The map died on load with `Com_ERROR: G_Spawn: no free entities`: the engine game-entity table (~1024 +
+reserved; the diag census showed 1173+ used) was exhausted because ALL static map decor was GSC-spawned
+`script_model`s — each one a live runtime entity. Fix: session-scratch `convert_deco_to_misc.js` parsed
+every static `spawn_prop()` call in `_acc_surface_deco.gsc` (430: bus station 95 / alley 52 / vault 46 /
+market 43 / lab 42 / plaza 41 / helipad 37 / pass3 28 / paradise M6 14 / center 12 / under-rooms M6 11 /
+implant-lab M6 5 / armory-loft M6 4) + `_acc_abyss_deco.gsc` (100: L3 18 / L5 16 / L2+L4 14 each / M6
+trench 7 + L2 6 + L3 10 + L4 8 + L5 7) and appended **530 `misc_model` entity blocks** at the end of the
+`.map` (guid prefix `ACCDEC00`, format mirrors the 8 existing AW-box statics incl. `"static" "1"`;
+origins/angles VERBATIM — .map `"angles"` = `pitch yaw roll`, identical ordering to GSC `.angles`, proven
+by `tools/align_box_clips.js:84` reading yaw as component [1]). misc_models are compile-time static
+geometry: ZERO runtime entities + they now receive baked lighting. The GSC spawn twins stay in both
+modules but their init gates default **0** (`acc_surface_deco`/`acc_abyss_deco`; set 1 to ALSO spawn
+dynamically for layout iteration — props will double). Excluded (still runtime, by design): the
+soul-defeat `floor_lights_on`/`spawn_lamp` lamps + glow hosts (event-driven, clientfield glow) — the
+abyss init was restructured so the deco gate wraps ONLY the prop spawns (the opt-in `acc_abyss_lit`
+watcher stays independent). `.zone` xmodel lines + all clips untouched. Full build with LED bake (the
+530 statics are BSP-baked geometry). Docs: docs/02 (bake note), docs/30 (abyss note).
+
+### Added — 2026-07-19 FX pass: 17 per-zone ambient FX loops (HB21 library) via the proven apply_fx() pattern
+
+Final visual-sweep implementation batch: `_acc_atmosphere.gsc::apply_fx()` (existing `acc_atmo_fx` gate,
+bare server PlayFX at fixed origins post-blackscreen — the pattern whose 7 original loops render in-game)
+now places **17 new ambient accent loops** (16 unique HB21 `.efx`, all verified installed in
+`<tools>\share\raw\fx\`): Plaza fountain dust-fall line; Market sodium hat-light flicker (under the
+stall-row cage fixture) + kitchen-corner AC steam; Alley mid-corridor ceiling drip line + wire-spark loop
+atop the E-wall AC unit; Bus Station S-hall manhole steam + a floor vent line along the S trench rim;
+Vault veiled ceiling dust + a lit dust shaft over the server island; Helipad ground fog drifting the pad
+(clear of the bomber) + spark loop on the field generator; Lab coolant fog at the test chamber +
+fluorescent rectangle-flicker over the medical row; low fog rolling down the W trench stair channel; and
+the abyss organics — fungus-pod ambience ×2 (L3 tentacle mass + L5 flesh hive; NOTE the plain
+`fx_fungus_pod_ambient_md` name doesn't exist, only the `_zod_zmb` ZNS variant) + an L4 ceiling drip (no
+lights/glow in the abyss by design). Each fx wired per the docs/20 §7 inverse-of-materials rule:
+`#precache` + `level._effect` + `fx_at()` + a `fx,` line in zone_source (missing zone line = silent no-op;
+spawned-vs-zoned diff clean both directions). Origins derived from the `_acc_surface_deco` /
+`_acc_abyss_deco` prop layout (plumes rise from vents/machines/wreckage, off doorway aprons + lane
+centers). Lint green; `-GscOnly` build green (fresh 133.95 MB `.ff`, zero errors naming any new fx).
+Docs: docs/20 §7 "Ambient FX loops" note.
+
+### Changed — 2026-07-18 P2 FINAL texture batch: VAULT + HELIPAD + LAB + PARADISE + ABYSS bands, one bake-gated build
+
+The last texture batch — every zone now speaks the BO6/emox material language. One-shot
+`tools/oneshots/paint_p2_zones_t10.js` (marker-guarded, **signature-exact** brush targeting + token-keyed +
+region-asserted + worldspawn-only; snapshot byte-diff verified: exactly **146 single-token face swaps + 6
+inserted chalk meshes**, nothing else). **Vault:** 3 floor slab z0 tops `t7_metal_diamond_plate_worn_wet` →
+`t10_stone_marble_black_01` — the 4-way-shared diamond token proven safe by count (192 → 189, exactly −3:
+the 13 buyable doors / corp bridge / soul doors are entities, the L4 gantry z[-960,-808] is outside every
+target sig); walls keep brushed stainless. **Helipad:** 3 floor tops (weathered concrete) →
+`t10_asphalt_mid_01`; FINDING: **no asphalt-pad brush exists** on the roof (scanned — "pad keeps token" was
+vacuous), so the pad is *drawn* by 3 flat 1u-proud painted-line chalk quads forming an **H** in the clear
+E-central bay x[-1344,-1184] y[2400,2560] (**ACCC0013/14** `t10_terrain_decal_painted_line_solid_single_01`
+uprights + **ACCC0015** `t10_terrain_decal_painted_line_thick_02` crossbar — the briefed `*_solid_thick_02`
+name does NOT exist in the GDT); parapet striped band SKIPPED (no separate parapet brushes — walls are
+single z[0,256] brushes). **Lab:** 90 wall faces (6 perimeter brushes + the 9 alcove-divider fins) hex →
+`t10_concrete_painted_01_white`; floor + ceiling keep hex (clean-tech read); strips **ACCC0016**
+`mwiii_vertigo_retro_synth_cyan_tinted` crowning the perk row (N wall y4226 x[-604,604] z[200,228], above
+fins z150 / doors z140 / machines) + **ACCC0017** `..._purple_tinted` at the PaP corner (W wall x-759
+y[3580,3860] z[200,228]; the lab Overclock trigger was removed 2026-06-25 — nothing else to clear).
+**Paradise (the big bet):** the arena floor slab's z-1200 top face hex → **`mwiii_vertigo_retro_synth_cyan`
+(BASE emissive)** = the full neon-grid arena floor; hall + all walls keep hex; **ACCC0018** purple_tinted
+trim crowns the north hall-mouth (y-602 x[-96,96] z[-996,-968]). **Abyss bands** (user-approved; iron
+dominant, trench/L1 untouched, zero lights): L2 W+E walls → `t10_metal_aluminum_painted_01_panels_grey`
+(valid *derived* GDT entry), L3 W+E walls → `t10_me_rock_cave_wall_01_tile` + the **`_reveal` mechanism
+test** (`t10_dirt_roots_01_reveal`, lit_decal_reveal_plus, on the D3 rail's room-facing x132 face —
+**converted clean**, reveal-class verdict PASS), L4 E wall (gantry flank) → `t10_plaster_peeling_04_white_
+dirty` (gantry deck keeps diamond), L5 S wall jambs+lintel → `t10_stone_cliff_wall_01` framing the Paradise
+doorway (M60 chalk floats proud — P1 precedent). Bands ride **coincidence-free walls only**: every abyss
+N/S long wall shares a coplanar center band with an iron stairwell seal/rail brush (would z-fight) — found
+by scan, documented in the one-shot header. Full build GREEN: cod2map + navmesh + **LED bake PASSED**
+(fresh 80.13 MB `.led`, ~53s) + linker, fresh 133.73 MB `.ff`, errors = exactly the known 94 waived (zero
+name any new material); **xpak 5186.3 → 5343.4 MB (+157.2 MB)** for ~10 newly referenced 4K materials
+(~15.7 MB each — on the ~17 MB/material trend). Docs: 20 §5 zone table + new §14d.
+
+### Changed — 2026-07-18 P1 texture batch: PLAZA + MARKET + ALLEY BO6 (t10) repaint, one bake-gated build
+
+The first real batch on the P0-proven mechanisms. One-shot `tools/oneshots/paint_p1_zones_t10.js`
+(marker-guarded, token-keyed + region-bounded on paint_region.js's zone AABBs; snapshot byte-diff verified:
+exactly **298 single-token face swaps + 2 inserted chalk meshes**, nothing else). **Plaza:** 227 wall faces
+`t7_concrete_wall_weathered_01_wet` → `t10_concrete_base_wall_02_dirty` (38 brushes incl. the **Armory
+upper room**, repainted WITH the plaza; armory stairs/floor keep global asphalt; region-bounding leaves the
+same-token **Helipad floor untouched** — the shared-token problem is dead), 3 arena floor z0 tops →
+`t10_concrete_pavement_01`, 2 decal accents on the only small distinct faces that exist (S arena slab top →
+`t10_terrain_decal_crack_asphalt_03` (P0-referenced = free), spawn-doorway lintel y-240 face →
+`t10_dirt_grunge_leaking_02`); the FRAG-chalk backing N wall repainted (chalk floats 2u proud). **Market:**
+60 wall faces `t7_metal_paint_rust_brown` → `t10_brick_worn_modern_01` (3 ceiling slabs keep rust), 3 floor
+tops → `t10_linoleum_tile_dirty_03`, glazed red-tile band SKIPPED (no stall-front low brushes — §14b
+wainscot limit), emissive strip **ACCC0011** `mwiii_vertigo_retro_synth_pink_tinted` on the N wall y1474
+x[-2010,-1730] z[200,228] above the kiosk island. **Alley:** walls KEEP `t7_metal_painted_wall_dirty_black`
+(hazard identity), 3 floor tops (incl. both connector corridors) → `t10_asphalt_crack_02_worn`, oil-stain
+decal SKIPPED (no small floor face), emissive strip **ACCC0012** `mwiii_vertigo_retro_synth_red_tinted_edge`
+on the E wall x2177.5 y[440,720] z[192,220] (real wall plane x2179.5 — bare; M3 props sit x≤1966). VK
+substitution declined (per-material provenance tracing required, docs/20 §14b). Full build GREEN: cod2map +
+navmesh + **LED bake PASSED** + linker, fresh 133.75 MB `.ff`, errors = exactly the known 94 waived (zero
+name any new material); **xpak 5064.6 → 5186.3 MB (+121.7 MB)** for 7 new 4K materials. Docs: 20 §5 zone
+table + new §14c.
+
+### Changed — 2026-07-18 P0 texture-phase pilot: Bus Station BO6 (t10) repaint + the 3 mechanism tests — ALL THREE PASS
+
+First real repaint off the newly installed BO6 `t10_materials.gdt` + VK PBR + eMoX Vertigo packs, scoped
+to the Bus Station (corp zone) as the texture-phase de-risk pilot. One-shot
+`tools/oneshots/paint_bus_station_t10.js` (marker-guarded, paint_region.js conventions, per-token counts):
+**walls** 42 faces `t7_metal_bare_graphite_matte` → `t10_metal_aluminum_composite_wall_paneling_01`
+(**8 POWER-decal breadcrumb wall brushes on y1703/y2173/x687/y2193 EXCLUDED** — verified untouched, all 10
+`arrow_power_coldwar` chalk meshes intact; `acc_corp_bridge` is an entity, never touched); **floor** the 3
+z=0 surface top faces (N/S halves + W trench-rim strip) → `t10_concrete_epoxy_flooring_01_gray_dirty`,
+face-level only so the under-level/trench sides+bottoms stay dark (pit floors z<0 user-locked); **stairs**
+all 46 trench stair brushes (276 faces) → `t10_stairs_concrete_clean`; **ceiling** the single z256
+underside face → `t10_ceiling_tile_01_dirty`. **Wainscot SKIPPED** — corp walls are single full-height
+faces (token swaps can't split a face) and the only separate low wall brushes are the excluded POWER
+parapets, so `t10_concrete_wall_striped_03_trim` has no legal target. **Mechanism tests (docs/20 §14b): (1)
+DECAL-ON-FACE PASS** — `t10_terrain_decal_crack_asphalt_03` (materialCategory `Decal`/`lit_decal_plus`) as
+the face token of the E trench-rim z0 strip links clean, no techset/gdtDB error; **(2) EMISSIVE STRIP
+PASS** — one inline worldspawn chalk-mesh quad (CW power-arrow recipe clone, guid ACCC0010, 352×28u @
+y1170 z[204,232], +y normal = cols Xmax→Xmin) over the departure-board TVs with
+`mwiii_vertigo_retro_synth_cyan_tinted` (`lit_emissive_advanced`) converts clean; **(3) VK MATERIAL PASS
+with a provenance catch** — restroom-nook W wall segment (x[-781,-761] y[2556,2728]) →
+`pbr_white_rough_plaster_01_mtl`, whose images trace to `texture_assets\vk_mtl\pbr\
+texturehaven_white_rough_plaster_1K\` = **TextureHaven (Poly Haven) CC0, ship-safe**; the originally
+suggested `pbr_concrete_bunker_wall_1_mtl` was **REJECTED — its albedo is
+`TexturesCom_BunkerConcrete_4x4_A_1024_*` = Textures.com, licence-blocked (docs/20 §8)**; the vk_mtl tree
+is a CC0/flagged MIX (`cgbookcase_*`/`texturehaven_*` folders = safe, `TexturesCom_*` + pbr3/pbr6 sets =
+per-material provenance check REQUIRED before any future VK pick). No `.zone` lines (face/mesh materials
+transitive). Full build GREEN in 2:21: cod2map + navmesh + **LED bake PASSED** + linker, fresh 133.67 MB
+`.ff` (+0.07 MB), errors = exactly the known 94 waived set (zero name any new material). **Watched risk
+materialized mildly: xpak grew 4978.6 → 5064.6 MB (+86 MB)** — the 4K BO6/VK/Vertigo image stacks for ~6
+materials; fine for the pilot, but budget ~10-15 MB/material for the full texture phase. (This build also
+healed the 5 corrected M6 abyss clip centers already fixed in the source `.map` — expected, not a
+regression.)
+
+### Added — 2026-07-18 Visual sweep M6 (final batch): ABYSS horror organics + PARADISE synthwave + the 4 missed rooms + Exchange re-enable
+
+Sixth and final M-batch, same one-table pattern (scratch `gen_m6_layout.js` emits the GSC spawns for
+BOTH `_acc_abyss_deco.gsc` (`spawn_m6_trench/l2/l3/l4/l5`) AND `_acc_surface_deco.gsc`
+(`spawn_paradise_m6/armory_loft_m6/implant_lab_m6/under_rooms_m6`) plus the `add_prop_clips.js` "M6"
+entries, and validates every clip vs the abyss stairwell bands / stair channels / station kiosks r110
+/ L4 Gantry / L5 Paradise door + tide safe lane / all 12 Paradise risers + perk row + PaP/wonder ring
+/ armory + implant + under-room aprons). **72 props / 36 new clips — ALL `brushmodel:true` FLAT**
+(trench rule, never gabled), **ZERO light entities** (the abyss stays pitch black; only model-own
+emissive glows). **ABYSS (38 props)**: the moicesttom ghost pack lands — trench = 2 White tunnel ribs
+framing the N-room door + the 420×226 collapsed-tunnel wreck (S wall E half) + moss; L2 = rib + flush
+blast door + moss; L3 = wall tentacle mass + ceiling tentacle splat + 3-egg nest mound + alien
+grass/weeds (**the 3 `armory_alien_*` models shipped bins with NO GDT entries — added as derived
+`[ "custom_ghost_alien_weeds01" ]` entries in `alien_ghost.gdt` + gdtdb update, materials were already
+registered**); L4 = **2 ceiling GLO-SPROUTS** (`custom_ghost_alien_plant_ceil` — its
+`mtl_dct_alien_plant_glo_sprout` is `lit_emissive_advanced` with a dedicated `_em` map = the locked
+plan's Phase-0 emissive proof, placed in view of the Gantry) + butcher slab + mannequin head/standing
+specimen + 2 meat hooks on the Gantry face + bloody door; L5 = the **flesh hive** Maw heart + dead
+queen + 2 dead brutes (static corpse statues, never AI) + 2 sprouts + a flat walkable spawner hole.
+**PARADISE (14)**: 7 Vertigo palms ringing the edges (trunk-only clips; canopy ~300u up) + 5
+already-zoned grass patches + 2 cast-iron ferns; **vista pieces SKIPPED by measurement**
+(pyramid/towers/ziggurat = 3674²/11072-tall/6656-wide, and the sky cap ends at the arena walls — no
+out-of-bounds shelf exists). **MISSED ROOMS (20)**: Armory loft 4 (2 gun racks / ammo pile / locker),
+Implant Lab 5 (filing + coat rack + hanging hazmat + OFF x-ray lightbox + curtain — varied from the
+Lab zone kit), both trench under-rooms 11 (`p7_rus` industrial kit height-checked vs the real 144u
+ceilings; reactor/jukebox/box/vendor/aprons clear). **EXCHANGE RE-ENABLE**: `spawn_exchange_props()`
+un-commented — the 2026-07-02 crash suspicion was pinned on the 2026-07-17 clientfield-pool overflow,
+not these props; the holo screen MOVED off `(100,-300)` (the transfer-items ATM now lives there) to a
+floating `(-300,-380,-170)`, the rack got clip `m6_ex_rack`. **Zone: +33 xmodel lines** (grep-verified
+GDT names; Paradise accents + both Exchange props reuse existing lines; spawned-vs-zoned diffed clean
+both directions). Map clips now **249 worldspawn + 101 brushmodel**. Full build green: cod2map +
+navmesh regen + **LED bake PASSED** + fresh 133.64 MB `.ff`; every M6 xmodel, the 3 derived GDT
+models and the sprout emissive material ff_grep-verified in the fastfile; zero linker errors
+reference an M6 asset. **Known delta in the built `.ff` (heals on the next full build — one-build
+discipline):** a post-build review caught 5 abyss clips centered on SPAWN origins where the White
+bins are mesh-offset (the dmg wreck is +69x off-origin, the segment ribs +16y, queen −29x, brute2
+−23y) — the PROPS entries + source `.map` are already corrected (mesh-centered, re-emitted), but the
+shipped `.ff` carries the first-pass centers: worst case a ~68u guarded-air strip on the trench
+wreck's W face and a walk-through E tip. Docs: docs/30 (M6 organics + Paradise dressing + vista
+verdict), docs/02 (Implant Lab / Armory / Exchange / under-rooms notes).
+
+### Changed — 2026-07-18 Visual sweep M5: VAULT anchor upgrade (BO6 circular bank-vault door + bank-security suite)
+
+Fifth M-batch, same one-table pattern (scratch `gen_vault_layout.js` emits the GSC spawns AND the
+`add_prop_clips.js` "M5 VAULT" entries + validates every clip vs room bounds, box r60, both W-mouth
+door aprons, risers+dog ≥45, the `acc_power_vault` use-trigger and all kept clips). **THE ANCHOR:**
+the **BO6 circular bank-vault door set** (`t10_zm_door_circular_vault_01` leaf 116×118 + 192u frame +
+spinner wheel + hinge column, `bo6_props.gdt`) mounted as a massive **SEALED portal on the SOUTH wall
+centered x1780** — decor, it never opens; the clean span came from the SE chem-tank removal + sliding
+the kept armory cabinet 90u west (1650→1560, spawn+clip in lockstep). One **gabled assembly clip**
+covers all four pieces. Flanks = 3× `t10_zm_bank_safety_deposit` panels (S wall pair + SE nook).
+**Bank-security suite** (BO4 Classified `p8_zm_off_*`, 24 new zone lines incl. the t10 set): ops row
+of 2 control consoles facing the portal (114u door aisle), 190u standing console bank on the N wall
+(the old TranZit-door span) + a second on the E wall N of the box (103u clear), 3 server-wire wall
+sockets, 3 security monitors on mounts (screen_on / screen_red / static — S wall over a deposit
+panel, W-wall floor pole in the old teller bay, E wall over the tech island), a closed **elevator
+vignette** (lt+rt doors flush-clipped as one flat pair + call panel + floor arrow), a **walk-THROUGH
+metal-detector archway** on the corp-mouth approach (pillar clips ONLY — the 41u walkway gap stays
+open), 2 filing cabinets, 2 W-wall military lockers. **REMOVED superseded TranZit bank props** (8
+spawns + 5 clips in lockstep): `vault_bank_door`+`frame` (1500,3364), `sign_metal_bank`,
+`window_teller`, 3× `tank_chemical` (incl. the pass3 one), `radiator_vintage` — **zero zone lines
+removed** (every model keeps live Bus Station/Alley/Roof refs, grep-verified). KEPT: the whole T7
+tech set, the `vault_c_*` center island, the TranZit `power_panel`. Net **+23** (31 adds − 8
+removals); map clips 238→249 worldspawn (+16 new −5 removed), 65 brushmodel unchanged. **N-S
+Lab-approach gap audit** (clip-edge lanes): tightest true lane 47 (filing→ops row), corp-mouth S
+bypass 56.5, door-front lane 67, everything else ≥75. Spawned-vs-zoned diffed both directions (clean);
+docs/02 Vault section updated. Full build + LED bake pending below.
+
+Fourth M-batch, same one-table pattern (scratch `gen_bus_roof_layout.js` emits the GSC spawns AND the
+`add_prop_clips.js` "M4 BUS STATION + HELIPAD" entries + validates every clip vs the trench+rim band,
+stair mouths, Rocket-Shield bridge span, corridor aprons, box r60, **POWER-decal spans** and all kept
+clips). **BUS STATION** (net **+20** on the 75-prop terminal): headliner = **THE SEALED SCHOOLBUS**
+(`p8_zm_whi_schoolbus`, BO4 White pack, 454×129×137) parked as a dead coach N-S in the NW north-half
+bay (−572,2435 yaw 90), nose 6u off the N rim parapet; per the locked sweep decision it is **never
+walk-in** — its clip is ONE full-perimeter **gabled sealed shell** (`bus_m4_schoolbus_seal`, no
+door/window gaps; the model ships no `_col` LOD so the shell is its only collision; W restroom lane
+keeps 46u, the kept barrier grazes the flank). Plus the carved p7_spa spaceport kit (**holo departures
+board** ceiling-hung over the TV board + 2-unit **travel-kiosk island** SW), street kit (2 parking
+blocks, NO-PARKING post, bike stand), a **p7_rus staff corner** on the E wall (desk/timecard/fridge/2
+lockers under the payphones), and nature reclaim (3 leafless-ivy mats on the rim parapets — never over
+the POWER decals — 2 bare beech trees w/ trunk-only clips, 2 leaf piles). **HELIPAD hero swap** (net
+**+13**): the central tank cluster is REMOVED (2× `tank_chemical` + 3× `barrel_wood` + 2× `gas_pump` —
+7 spawns + 7 clips in lockstep; the `gas_pump` zone line hit zero refs and was deleted) and replaced by
+the **crashed bomber fuselage** `jup_vertigo_plane_boneyard_bomber_main_01` (eMoX MWIII pack,
+197×527×133) over the old cluster center — kept debris/cone read as crash rubble; the **training ring
+survives as an oval** (lanes W 248-307 / E 202-259 / N 166 / S 170; old cluster ~192×168, E-W width
+kept +2%). Edge kit: handrails/railings/chainlink/cloth/wire (wall-flush, no clips), crate pair +
+studio light head, NE fuel tank, W generator (`p7_out_generator` first zone use) + propane pair, 2
+light tripods, dry weeds. **SKIPPED — both rooms have hard z256 ceiling slabs (measured from the
+`.map`; the roof is fully enclosed, no sky ledge):** radar dish (569), antenna radar (307), truss
+(276), BO6 traffic-light pillar (275), utility pole; salsola too wide. **Clips: −7 removed, +22 added**
+(13 gabled incl. both hero shells); **zone: +31 xmodel lines, −1 orphan** (`gas_pump`);
+spawned-vs-zoned diffed clean both directions. All names grep-verified vs the GDTs (the bomber lives in
+`source_data\_emox\emox_mwiii_vertigo_models.gdt`, bins `model_export\_emox\_mwiii`; gdt.db already
+indexes every M4 model — verified by raw db grep, no gdtdb run needed).
+
+### Changed — 2026-07-18 Visual sweep M3: MARKET re-themed (neon night-market) + ALLEY densified (service gut)
+
+Third M-batch, same data-driven pattern as M1/M2 (scratch `gen_market_alley_layout.js` emits the GSC
+spawns AND the `add_prop_clips.js` entries from one table + validates every clip vs box r60 / risers+dog
+>=45u / door-mouth aprons / kept-clip overlap). **First batch to also REMOVE off-theme props** — spawns,
+clips and orphaned zone lines deleted in lockstep. **MARKET** (rural diner → **magenta neon night-market
+gone to rot**, net **+21**): removed `gas_pump`/`sign_building_gas`/`couch_floral`; added 3 carved
+`p7_sin_market_stand_tarp_01` tarp stalls (centered origin, z+30.6 lift) + a `p7_ris_kiosk_large_01`
+stall island + the `veh_t7_civ_sedan_cruiser_vista_taxi` wreck parked in the freed W-wall gas-pump bay,
+a booth-sofa diner nook under a `p8_zm_whi_sign_neon_diner`, an E-wall shop front (BO4 display case +
+wall-hung cigarette vending), TVs on the kept stall furniture, and a 10-piece Liberty Falls signage
+collage (neon bunny, bar strip, videostore billboard + 3 aisle labels, fast-food + ice-cream signs, menu
+board) + 3 cast-iron plants. The stall-row training loop stays loopable (narrowest lane 46u). **ALLEY**
+(→ **red-hazard service gut**, net **+20**): removed the outhouse, all 5 `barrel_wood` and all 3
+`cage_animal_med`; the center-anchor wood barrel became a `p7_rus_barrel_metal_burn` (same spot, now
+floor-origin z0); added a dumpster row (carved `p7_ris_dumpster_full_open_dirty` + BO6 blue/green street
+pair), `p7_zm_asc_ac_unit_lrg`, `p7_mou_scaffolding_full`, chainlink hole/dmg stubs + 2 barbed-wire
+coils, russianbase2 wall electrics/ladder/paper+splinter litter/blinds/cloth, broken window frames,
+street trash, and hanging vines/english ivy/broadleaf seams overhead. End-to-end pathing audited:
+narrowest clip-to-clip gaps 46-49u (wall lane 48, scaffold-tank 46, coil weave 59). **Clips: −13
+removed, +19 added** (16 gabled via the existing `market_`/`alley_` prefixes; wall/overhead mounts, flat
+litter and TVs-on-furniture stay walk-through); **zone: +46 xmodel lines, −3 orphans** (`outhouse`/
+`couch_floral`/`sign_building_gas` now spawn zero times; `barrel_wood`/`cage_animal_med`/`gas_pump`
+lines stay — Helipad/Market still use them). All 46 new names grep-verified against the GDTs (t10 bins
+under `_bo6` drop the `t10_` prefix; the pack GDTs live per-prop under `model_export`, not
+`source_data`). Full build green: LED bake passed, fresh 128 MB `.ff`, zero new asset errors (the 70
+linker errors are the known pre-existing waived set — verified none reference an M3 model).
+
+### Added — 2026-07-18 Visual sweep M2: the LAB gets its clinical cyberware-lab model pass
+
+The Lab (PaP + perk zone — the map's most-visited transaction zone) goes from zero decoration to a
+**clinical cyberware lab** (clean-tech contrast to the ruined city): **42 props / 32 newly-zoned
+models** in `_acc_surface_deco.gsc::spawn_lab()`, from the BO4 Classified office pack (`p8_zm_off_*`),
+the BO4 Alpha Omega White pack (`p8_zm_whi_*`) and BO6 Liberty Falls glow accents (`t10_*`) — all
+installed + gdtdb-registered by today's install session. Vignettes: teleporter machinery around the
+pad (manifold plates + the 145-wide prototype core generator, outside the r110 trigger ring), a decon
+airlock line (S wall), a specimen test chamber (W wall), a medical row (E wall: cart / respirator /
+lit x-ray lightbox / curtain / holo readout), an APD sci-fi island (mid-room NE: turbine + glowing
+element + aether canisters), an industrial corner (consoles / filing cabinet / pressure tanks / steel
+table / lockers, E wall N of the box), blue LED strips above the 10 perk alcove doors, and green/red
+energy-barrier glow posts. **Layout is data-driven** (scratch `gen_lab_layout.js` emits the GSC spawns
+AND the `add_prop_clips.js` "LAB SURFACE" entries from one table — spawns/clips cannot drift — and
+VALIDATES every clip against the keep-clears: **the perk-buy strip y>=4020 stays clear full-width**
+(players buy under fire), both corridor mouths + 40u aprons, teleporter pad r110, five-seven wallbuy
+r90, AW-box approach strip, PaP flanks, boss struct r60, all 14 risers >=45u). **24 worldspawn clips —
+19 anti-perch GABLED** (new `lab_` prefix in `add_prop_clips.js` `SURFACE_PREFIXES`; the pre-existing
+`lab_bench_slot1-3` implant-lab clips are brushmodel and unaffected) **, 5 thin kept flat** (gabling a
+sliver = linker 0xC0000409). The 3 flat teleporter manifold plates (<=11u) are deliberately
+walk-through — clipping a step plate would navmesh-hole the room center. GDT-name traps caught by
+grep-verification: `p8_zm_whi_decontamination_unit_open_01/closed_01` bins have NO GDT entries (used
+`unit_open`/`unit_small_open` instead), and `t10_zm_energy_barrier_01_open_green` is the GDT name for
+the closed_green bin. Docs: [docs/02_layout.md](docs/02_layout.md) Lab section. Full build with LED
+bake green.
+
+### Added — 2026-07-18 Visual-enhancement sweep: install session (8 packs, ~25 GB, gdtdb all green)
+
+The install session for the visual-enhancement sweep (plan dossier 2026-07-18): **8 asset packs
+installed, ~25 GB, one at a time (serialize-disk-heavy rule), gdtdb all green.** NOTHING is
+zone/face-referenced yet — wiring lands with the sweep batches. Every pack got a manifest entry
+(`tools/external_assets_manifest.ps1`) + a CREDITS.md row/checkbox; `tools/check_external_assets.ps1`
+re-run **all-PASS** (old + new entries).
+
+- **MadGaz BO6 materials — FULL pack** (`source_data\t10_materials.gdt`, 444 `t10_*` face materials +
+  `texture_assets\_bo6`). **Supersedes the 2026-07-02 one-material pilot**: `acc_bo6_mat_pilot.gdt` is
+  renamed install-side to `.acc-superseded-by-t10_materials` — never restore it while
+  `t10_materials.gdt` exists (gdtdb duplicate-asset abort). The manifest pilot entry is rewritten in
+  place (new marker `t10_materials.gdt`, `Required=$true`; the old marker/path would now FAIL the
+  checker on the renamed file).
+- **p8_zm_office_assets + p8_zm_white_assets** (Zombie115201; BO4 Classified/Pentagon + Alpha
+  Omega/Nuketown prop rips; the shared `t8_*` texture/decal GDT paths are OWNED by the office entry).
+  The office/white **test-convert gate PASSED** with ONE cosmetic gap: material
+  `mtl_p7_zm_kin_console_electric_decal` is missing — the `p8_zm_off_console_*` models' small decal
+  surface renders untextured (waived).
+- **_mg_bo6_libfall_props + _mg_bo6_foliage_pack** (MadGaz; 334 Liberty Falls props incl. the Vault
+  bank-door set + 734 foliage models). The shared `model_export\_bo6` tree is split per manifest entry
+  (`props\` = libfall, `Foliage\` = foliage) so pack/unpack MERGE it — never mirror.
+- **p7_mp_russianbase2_assets** (Zombie115201; native-T7 BO3 MP DLC props, per-prop GDTs like TranZit).
+- **eMoX MWIII Synth assets** (MWIII Vertigo `retro_synth_*` neon emissive face materials + models;
+  3 PaP camo PNGs by midgetblaster).
+- **ghost.zip Cryptid alien biome** (MoiCestTOM; CoD:Ghosts Extinction rips, `_custom\_moicesttom`).
+- **VK PBR material megapack — SELECTIVE install** (275 brush-face materials across 8 GDTs +
+  `texture_assets\vk_mtl`; the ~11.6 GB of material-unreferenced source dumps deliberately NOT
+  installed). ⚠️ **CREDITS policy flag**: partially **Textures.com**-derived — per-material provenance
+  check required before any VK material ships on a face (only cgbookcase / TextureHaven (Poly Haven)
+  CC0 derivations are ship-safe; Textures.com-derived must be replaced/removed before Workshop-Public).
+
+### Changed — 2026-07-18 Presentation assets: in-game map card split from the Steam thumbnail
+
+The map-select card and the Workshop web thumbnail are **two different surfaces** that were both
+being served by one 512×512 file. Split them, and settled what a usermap can and cannot do about
+the loading screen (29-agent research pass; full evidence chain below).
+
+- **`zone/previewimage.png` = the IN-GAME map card** (bottom-left of map select). Rebuilt at
+  **600×340** — the Launcher template spec, verified directly against BOTH
+  `rex\templates\ZM Mod Level\...\zone\previewimage.png` and the MP template (both exactly
+  600×340). Mechanism proven by reading the retail LUI (`ui/uieditor/modifyFunctions.lua:1519`):
+  a usermap is in no stock maptable, so `CoD.GetMapValue(map,"previewImage")` returns `$black`,
+  which falls through to `Engine.UpdateModPreviewImage(<ugcName>)` — a per-usermap refresh of the
+  fixed `img_t7_mod_preview` slot. **Not a fastfile asset — NO `.zone` line, no GDT, no rebuild.**
+  Art = the user-supplied 3840×2160 "Horde" key art (boss-roster layout), centre-cropped 16:9 →
+  1.7647:1 (14 px off each side) and downscaled by **progressive halving** (3812→1906→953→600); a
+  single 6.4× bicubic reduction aliased the 1 px neon grid lines badly.
+- **`zone/workshopimage.png` = the STEAM WORKSHOP web thumbnail** (new file). Art = the
+  user-supplied matching 512×512 square, copied verbatim (458 KB, under Steam's ~1 MB preview
+  limit). `zone/workshop.json` `"Thumbnail"` now points here by absolute path. Steam wants square;
+  the in-game card wants 600×340; one file cannot be both.
+- **`tools/prep_release.ps1`** gate rewritten: was a single `previewimage.png == 512×512` check
+  (which encoded exactly this conflation). Now checks the card at 600×340 AND the thumbnail at
+  512×512 separately, plus a **new stray-file gate** — `zone\` is uploaded to subscribers
+  *verbatim*, and two files were shipping that shouldn't have been.
+- **Removed from `zone/` (they were live in the published item):**
+  `previewimage.png.acc-orig-landscape` (965 KB — despite the name it is **not** artwork, it's an
+  obsolete greybox screenshot: Round 1, Thundergun, untextured walls) and `workshop.json.example`
+  (relocated to `tools/workshop.json.example`; it is a template, not a publish artifact).
+
+**`zone/loadingimage.png` is inert — a usermap CANNOT ship a custom static loading screen.**
+Do not re-litigate this. Four independent lines of evidence: (1) `MapNameToMapLoadingImage()`
+short-circuits `if Engine.IsUsingUsermap() then return "img_t7_mod_loading"`, and there is **no
+`Engine.UpdateModLoadingImage`** anywhere in the LUI dump — the preview slot has a per-map engine
+refresh, the loading slot does not; (2) our copy is byte-identical (md5 `f4536617…`) to the ZM
+template, the MP template, and shipped third-party map `zm_trenches_early` — three authors left it
+untouched; (3) zero `.zone` line, zero hits for the string `loadingimage` in any tools binary
+(ASCII **and** UTF-16, scanner validated with known-present controls); (4) Treyarch put all 41
+loadscreen images in `core_patch.ff`, not in map fastfiles, and our linker `.deps` says
+`ignore,core_patch`. Overriding it needs a separate `core_mod.ff` product that would replace the
+loading screen for *every* map the subscriber plays. The file stays (11 KB, harmless).
+
+The supported alternative is a **loading MOVIE**: `ui_mp/T6/HUD/Loading.lua:391-395` has a
+usermap-only branch calling `Engine.StartLoadingCinematic(<mapname> .. "_load")` —
+`zone/video/zm_abandoned_cyber_city_load.mkv`, no `.zone` line, no script (shipped precedent:
+`MattFiler/zm_alien_isolation`). **Gated `GetLobbyClientCount <= 1` — solo only**, so co-op players
+get the stock black screen. Not built: pending confirmation that the Launcher's publisher even
+uploads `zone\video\` (zero of the 7 subscribed items on this box ships one). See docs/34.
+
 ### Changed — 2026-07-18 Boss tuning: Avogadro +25%, Panzer +10%, Rogue Protector knockback +25%
 
 Three user retunes on the boss roster (all live-dvar defaults, `-GscOnly`):

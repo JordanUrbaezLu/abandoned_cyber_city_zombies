@@ -181,13 +181,21 @@ shelf lift.
   a **staggered arc** across the open EAST half (out of the Exchange staircase's SW corner and clear of every
   wall; relayout 2026-07-10). Entered by a **tight 80u doorway** with a **buyable slide-up door**
   (`enter_implant`, 1500). Also holds the descent to **The Exchange** (below). See [09_boss_items.md](09_boss_items.md).
+  **M6 dressing (2026-07-18)**: 5 clinic props varied from the Lab zone's kit — filing cabinet + lab-coat
+  rack (E wall, clipped `m6_il_*`), a W-wall hanging hazmat suit, an **OFF** x-ray lightbox on the stair
+  enclosure, and a portable curtain screening the W band (`_acc_surface_deco::spawn_implant_lab_m6`;
+  bench pads + both door aprons kept clear).
 - **The Exchange (transfer vault, under the Plaza)**: a stairwell carved **down from the Implant Lab floor**
   leads to an enclosed **transfer vault** at **z=-240 directly under the Plaza** (room x[-720,300] y[-448,360]).
   A **SHARED TEAM VAULT** for player-to-player transfers of Points / Data Shards / Mega Bottles / Boss Items —
   deposit/withdraw pads, no targeting. Gated by a **buyable slide-up door** (`enter_exchange`, 1500). Built by
   [tools/gen_plaza_basement.js](../tools/gen_plaza_basement.js) (carves the stock arena-floor slab around the
   stairwell well; LED-bake-gated). A **safe** room (excluded from the trench amping, OOB-vetoed). Full design:
-  [37_transfer_vault.md](37_transfer_vault.md).
+  [37_transfer_vault.md](37_transfer_vault.md). **M6 (2026-07-18)**: the 2026-07-02-disabled T7 pilot props are
+  **RE-ENABLED** (`_acc_atmosphere::spawn_exchange_props` — the crash they were suspected for was pinned on the
+  2026-07-17 clientfield-pool overflow, not them); the holo screen moved off `(100,-300)` (the transfer-items
+  ATM added 2026-07-09 sits there now) to a floating spot at `(-300,-380,-170)`, and the server rack got a
+  brushmodel clip (`m6_ex_rack`).
 - **The Armory (upper room)**: an enclosed **mezzanine loft** at **z=288** (room to z=560, footprint
   x[714,1074] y[-200,200], over the EAST dead-space) reached by a **24-tread staircase (12u rise / 20u run, ≈31°) up from the Plaza floor** (into a
   south-wall doorway; zombies path up). Houses a **shared team WEAPON RACK**
@@ -196,7 +204,10 @@ shelf lift.
   **door + its buy trigger touch playable floor (x[-470,213])**; the staircase (base x≈234) and loft climb
   EAST into the sealed **east dead-space** (x>213), which is still inside the `start_zone` volume, so it's
   in-zone and zombies path it. (reconciled to code 2026-07-11) Built by [tools/gen_upper_room.js](../tools/gen_upper_room.js)
-  (LED-bake-gated → BAKED). Full design: [39_armory.md](39_armory.md).
+  (LED-bake-gated → BAKED). Full design: [39_armory.md](39_armory.md). **M6 dressing (2026-07-18)**: 4 armory
+  props (2 BO4 gun racks N wall, ammo-crate pile NW, open military locker SW —
+  `_acc_surface_deco::spawn_armory_loft_m6`, clips `m6_ar_*`; both stations r110 + the stair mouth kept clear).
+  *(Loft floor is z=192 since the 2026-07-11 rebuild — the z=288 above is the original build note.)*
 - **Layout**: open-but-shrunk (an interior maze was tried then removed per user). Difficulty comes from the ~75%
   shrink + **4 scattered cargo-crate caches** (`plaza_cache_1..4`) as low cover, with zombie risers spread across the floor. Players
   spawn in the back band beside the mystery box. No more giant circles.
@@ -206,11 +217,37 @@ shelf lift.
 - **Purpose**: early economy and box location. Mid-risk.
 - **Features**: Mystery Box possible spawn. **No perk machines** — all perks live in the Lab per [10_perks.md](10_perks.md).
 - **Training**: stall-row loop. Strong early training.
+- **Theme (M3 re-theme 2026-07-18)**: **magenta neon night-market gone to rot** — the rural-diner read
+  (gas pump / gas-station marquee / floral couch) was REMOVED and replaced by 3 carved tarp stall stands +
+  a film-kiosk island over the kept kitchen-counter stall bases, a wrecked vista taxi on the W wall, a
+  booth-sofa diner nook under a neon DINER sign, an E-wall shop front (display case + cigarette vending),
+  and a Liberty Falls signage collage (neon bunny, bar strip, videostore billboard + aisle labels,
+  fast-food/ice-cream signs, menu board). Net +21 props; the stall-row loop stays loopable (lanes >=45u,
+  validated by scratch `gen_market_alley_layout.js`). Clips: `add_prop_clips.js` "M3 MARKET + ALLEY".
 
 ### Alley
 - **Purpose**: alternative opener. Faster access to the Bus Station, fewer sightlines.
 - **Features**: Data Shard lane (first elite spawn happens here around round 5).
 - **Training**: bad. It's a corridor. Don't camp here.
+- **Theme (M3 densify 2026-07-18)**: **red-hazard service gut** — the farm props (outhouse, wood barrels,
+  animal cages) were REMOVED; added a dumpster row (carved dirty dumpster + BO6 blue/green street pair),
+  a scaffolding tower, a 121-tall AC unit, chainlink hole/dmg stubs + barbed-wire coils, russianbase2
+  wall electrics/ladder/litter, broken window frames, street trash, and vines/ivy/cloth overhead. The
+  center-anchor barrel is now a burn barrel. Net +20 props, deliberately tight (difficult-navigation
+  memory) but end-to-end pathing audited.
+- **REAL interior bounds (FIX BATCH 3, 2026-07-19)**: **x[1339.5, 2179.5] y[380,1476]** — the room is
+  **840u wide**. M3 placed its "E wall" props against the stale rooms.json bound x≈1969 (user: "the wall
+  is further back than you may have thought"), leaving the whole E-wall row floating ~210u off the real
+  plane (which the ACCC0012 emissive strip at x2177.5 already sat on). Fixed: the E-wall group (2 chem
+  tanks, oil rack, AC unit, green dumpster, electric set, ladder, window frame, sconce, weeds, trash
+  drift, NE vines) + the SE bay cluster (dirty dumpster + S tank) shifted **+210** (M3 flush gaps
+  preserved); the NE rubble+coil sealed INTO the corner at (2130,1430) so no sub-45u pocket exists vs
+  the real wall; the mid-room re-spaced for the true width (scaffold+dolly cluster → x≈2040, tank_4 →
+  1940, chainlink/coil/pile S belt → +80..110, tarp fence → 1830, N rubble pile → 1920; ceiling cage
+  lights + haze/drip FX re-centered to the true room center x1760, the AC wire-spark FX moved with the
+  AC). Re-audit: all 4 risers + dog ≥52u from every clip, box (1500,380) ≥60u, both flood-fill paths
+  (W door → E wall, W door → corp mouth) pass at 40u zombie width; tightest deliberate pinches:
+  scaffold→E tank 60, coil→chainlink weave 58, chainlink-stub→burn-barrel 49, W wall→blue dumpster 47.
 
 ### Bus Station
 - **Purpose**: **the hub**. Where a large share of a typical run is spent.
@@ -226,14 +263,54 @@ shelf lift.
   GSC spawns AND clips from one table). **Every floor prop is clipped** — 55 shallow worldspawn brushes
   (`add_prop_clips.js` "BUS STATION SURFACE") that cod2map bakes into the navmesh so **zombies route around them**;
   overhead/high props (signs, wall TVs, caged lights, sconces, payphones) carry no floor clip. Center aisles + door
-  lanes stay navigable; clears the trench, both door pairs, the power switch, and the corp box. Kill-switch
-  `acc_surface_deco`. **All 5 surface zones are now dressed (2026-07-16):** Alley (grimy backstreet — drums/oil
-  racks/cages/wrecked bike/quarantine barricades/outhouse), Market (abandoned town market — kitchen-counter stalls
-  + gas marquee + shopper mannequins), Vault (server/data vault reusing the already-zoned T7 station tech +
+  lanes stay navigable; clears the trench, both door pairs, the power switch, and the corp box.
+  **2026-07-19 STATIC DECO BAKE (G_Spawn entity-cap hotfix):** the map crashed on load with `Com_ERROR: G_Spawn:
+  no free entities` — all 530 static deco props (430 surface + 100 abyss) were runtime `script_model` spawns, each
+  eating a slot in the ~1024-entry engine game-entity table. **All 530 are now baked into the `.map` as
+  `misc_model` statics** (compile-time geometry, ZERO runtime entities, receive baked lighting; appended at the
+  end of the `.map`, guid prefix `ACCDEC00`, origins/angles verbatim from the GSC literals). The GSC spawn twins
+  remain in `_acc_surface_deco.gsc`/`_acc_abyss_deco.gsc` but their init gates now default **0**
+  (`acc_surface_deco` / `acc_abyss_deco` — set 1 to ALSO spawn dynamically for layout iteration; props will
+  double). Clips are untouched (worldspawn/brushmodel, never entities); `.zone` xmodel lines untouched. **All 5 surface zones are now dressed (2026-07-16):** Alley (grimy backstreet, re-themed
+  M3 2026-07-18 → red-hazard service gut, see the Alley section), Market (town market, re-themed M3 2026-07-18 →
+  neon night-market, see the Market section), Vault (server/data vault reusing the already-zoned T7 station tech +
   a bank-vault door), Helipad (rooftop equipment yard — water tower + central tank obstacle + machinery). Market/
   Vault/Helipad were designed by a 3-agent workflow then validated against the ACTUAL room bounds (the zone
   `info_volume` AABBs — `rooms.json` is stale for those three, extended ~180u post-greybox). All via
   `spawn_alley/market/vault/helipad()` + gable-clipped wide props.
+- **M4 accent layer (2026-07-18, visual sweep):** +20 props on top of the 75-prop terminal
+  (`scratch gen_bus_roof_layout.js`, same one-table spawns+clips pattern as M1-M3, validated vs the
+  trench+rim band / stair mouths / Rocket-Shield bridge span / corridor aprons / box r60 / POWER-decal
+  spans / all kept clips). Headliner: **THE SEALED SCHOOLBUS** — `p8_zm_whi_schoolbus` (BO4 White pack,
+  454×129×137), **RE-PARKED 2026-07-19 (FIX BATCH 2)**: the original N-S NW-bay spot (−572,2435 yaw 90)
+  walled the power-switch pocket off from the entire N hall (live user report; and NO yaw-90 spot can
+  pass the ≥64u lane rule — the 468u seal in the 529u-deep hall leaves ≤61u). The batch-2 parapet spot
+  (−406,2269; seal x[−642,−174] y[2199,2339]) then **covered the ACCC000F POWER arrow decal**
+  (x[−500,−436] on the parapet N face y2195) — the user placed those breadcrumbs deliberately.
+  **RE-PARKED AGAIN 2026-07-19 (FIX BATCH 3), final spot per the user's direction ("against the other
+  wall, NOT on the same side as the power decals"): yaw 0, lengthwise FLUSH on the true N wall**
+  (interior plane y2728, derived from the `.map`): origin (−25,2658), **seal x[−261,207] y[2588,2728]**.
+  The stepladder (−250→−290) and power panel (150→240) moved aside to open the span (15u sealed slivers
+  at both bus ends); the N-lounge benches keep an **87u** lane to the bus S face, the booth chair 80u;
+  the debris-rubble mound at (120,2560) grazes the seal S face by design (flush junk, overlap legal).
+  Verified: **all 10 POWER/arrow decal meshes CLEAR** (the two PIT decals ACCC0009/000A, found hidden
+  behind the M6 tunnel rib since 2026-07-18, moved east of the rib to x[300,364]/x[380,444] on the same
+  pit-wall face — nearer the stairs they point at); both door-corridor mouths (roof W x−761 / vault E
+  x799, y[2320,2536]) untouched; corp box (300,2400) nearest clip 115u; E-stair head → power pocket
+  flood-fill passes at 60u body width — the parapet route is now decal-lit and bus-free. Still
+  **never walk-in** — the clip stays ONE full-perimeter gabled shell (`bus_m4_schoolbus_seal`; the
+  model ships no `_col` LOD so the shell is its only collision). The two batch-2 N-hall risers were
+  re-seated onto fully clear floor ((−381,2415)→(−340,2415), (−300,2440)→(−320,2455) — both grazed the
+  tree/dolly clips); the flush traffic barrier stays at (−470,2360) as parapet junk. Also FIX BATCH 3:
+  the **restroom fixtures are flush on the real W wall** x−761 (sink −747, urinal −751, mirror −759 —
+  they floated 45-49u off the wall since the P0-era layout).
+  Also: a **holo departures board** (`p7_spa_signage_hologram_departure`, ceiling-hung z228 over the TV
+  board) + a 2-unit `p7_spa_travel_kiosk_btm/top_blue` **kiosk island** (SW quadrant), street kit
+  (2 parking blocks on the S rim approach, NO-PARKING post at the N rim, bike stand), a **p7_rus staff
+  corner** on the E wall (desk under the payphones, timecard plaque, fridge, 2 lockers), and nature
+  reclaim (3 leafless-ivy mats on the rim parapets — NEVER over the POWER decals — 2 bare beech trees
+  with trunk-only clips, 2 leaf-litter piles). SKIPPED for the hard z256 ceiling: BO6 traffic-light
+  pillar (275 tall) + utility pole. Clips: +13 (6 gabled incl. the seal).
 - **Power**: a **single stock wall power-switch prefab**, west-wall-mounted in the Bus Station's **north/Lab half**
   with the native flip animation + power-on sound (origin `(-752 2250 1)`, facing east into the room). The trench's
   only north exit is the **east** stair channel, so players climb out on the NE side and must cross the dark Lab half
@@ -266,20 +343,76 @@ shelf lift.
     - **Spawn surge + raised zombie cap** — entering bursts extra zombies at the corp risers (`spawn_corp_surge`, `acc_trench_surge_count` **5**, `acc_trench_surge_cd_sec` **8** s cooldown) and raises `level.zombie_ai_limit` by `acc_trench_ai_bonus` (**14**) while anyone's in the pit; `_acc_zombie_speed` trench-aggro beelines/sprints them at you. (Both defaults were cut ~25% from 6/18, user 2026-06-18.)
     - **Pulsing full-screen red DANGER warning** (`_acc_bus_trench` `trench_warning_on`, dvar `acc_trench_warn`).
     - **Native engine fall damage is disabled map-wide** (`disable_native_fall_damage`), so the drop never kills; the only fall cost is the scripted, velocity-gated **~35 tax** (`ACC_TRENCH_FALL_DMG` = 35, applied ~0.2s after entry so it lands on impact; PhD-negated — the stair walk is free).
-  - **Two trench rooms (user, 2026-06-18):** two greybox rooms open off the pit at the **trench-floor level** — a **Plaza-facing** room behind the south wall (`y=TRENCH_Y1`) and a **Lab-facing** room behind the north wall (`y=TRENCH_Y2`), each ~**512w × 384d × 160h**, carved into the ground slabs (the slab above each stays solid = the walkable floor). Each is gated by a **buyable stock `zombie_door`** (1500 pts, `enter_under_plaza` / `enter_under_lab` → `acc_door_under_plaza` / `acc_door_under_lab`) that slides **sideways** into the wall pocket (so the room height isn't limited by a slide-up). **The whole underground counts as "the trench"** (user 2026-06-18): `player_in_trench` aliases the broad `player_in_underground` footprint, so the slow, spawn surge, AI-cap raise, zombie aggro, and the danger warning all apply down here, not just the open pit (the fall-tax still only fires on a real fall into the pit). NOT a respite. Brushes: `tools/add_trench_rooms.js` (post-processor — reads the **live** slab z, so it tracks the parallel depth retunes; **re-run after any `gen_corp_trench` regen**). Navmesh regenerates through the doorways → zombies follow once a door is bought.
+  - **Two trench rooms (user, 2026-06-18):** two greybox rooms open off the pit at the **trench-floor level** — a **Plaza-facing** room behind the south wall (`y=TRENCH_Y1`) and a **Lab-facing** room behind the north wall (`y=TRENCH_Y2`), each ~**512w × 384d × 160h**, carved into the ground slabs (the slab above each stays solid = the walkable floor). Each is gated by a **buyable stock `zombie_door`** (1500 pts, `enter_under_plaza` / `enter_under_lab` → `acc_door_under_plaza` / `acc_door_under_lab`) that slides **sideways** into the wall pocket (so the room height isn't limited by a slide-up). **The whole underground counts as "the trench"** (user 2026-06-18): `player_in_trench` aliases the broad `player_in_underground` footprint, so the slow, spawn surge, AI-cap raise, zombie aggro, and the danger warning all apply down here, not just the open pit (the fall-tax still only fires on a real fall into the pit). NOT a respite. Brushes: `tools/add_trench_rooms.js` (post-processor — reads the **live** slab z, so it tracks the parallel depth retunes; **re-run after any `gen_corp_trench` regen**). Navmesh regenerates through the doorways → zombies follow once a door is bought. **M6 dressing (2026-07-18)**: both under-rooms got a `p7_rus` industrial kit sized to the **144u real headroom** (pressure tank 122 / steel table / canisters / flush electric-box wall sets / dead ceiling tin-hat lamps — `_acc_surface_deco::spawn_under_rooms_m6`, clips `m6_us_*`/`m6_un_*`; perk-slot vendor r110, reactor r110, jukebox, the trench box node at `(-360,2231)` and both door aprons kept clear), and the **open trench itself** got the M6 horror layer (tunnel ribs + the collapsed-tunnel wreck + moss — see [30_abyss_descent.md](30_abyss_descent.md) M6).
   - **Underground = the Abyss Descent:** the rooms are the entrance to a vertical sub-level — a stacked set of **soul-box layers (L2/L3/L5)** descending to a **Paradise plaza** at the bottom. This supersedes the old "Data Vault gauntlet / Hall A → Hall C" greybox snapshot. The Plaza-facing room holds the shard **Glitch Altar** (`_acc_glitch_altar.gsc`); the layers hold the underground shard economy (caches, Cyberware/Overclock sinks). The deeper you go the harder it gets; each layer is an idempotent module authored by `tools/gen_abyss_layer.js`. The OOB-kill veto covers the whole sub-level (`_acc_bus_trench::player_in_underground`). Full design + per-layer detail: [30_abyss_descent.md](30_abyss_descent.md); trench systems overview: [28_trench_systems_guide.md](28_trench_systems_guide.md).
-  - Geometry SoT: `source_data/rooms.json` "trenches".corp; brushes `tools/gen_corp_trench.js`. Navmesh links the stairs so zombies funnel through. **Stairs re-pitched 2026-06-26** (players reported the original 16-tall/16-deep 45° steps glitched the player hull): `tools/regen_trench_stairs.js` rebuilt both stairs at **10-tall / 16-deep (≈32°), 23 steps, 368u long** — same top lip (south W / north E), extended toward the middle (W `y[1723,2091]`, E `y[1805,2173]`; opposite x-walls so no collision), pit-side walls re-sized to match. Lower 10u risers link the navmesh more easily than 16u. Geometry change → full LED bake (passed).
+  - Geometry SoT: `source_data/rooms.json` "trenches".corp; brushes `tools/gen_corp_trench.js`. Navmesh links the stairs so zombies funnel through. **Stairs re-pitched 2026-06-26** (players reported the original 16-tall/16-deep 45° steps glitched the player hull): `tools/regen_trench_stairs.js` rebuilt both stairs at **10-tall / 16-deep (≈32°), 23 steps, 368u long** — same top lip (south W / north E), extended toward the middle (W `y[1723,2091]`, E `y[1805,2173]`; opposite x-walls so no collision), pit-side walls re-sized to match. Lower 10u risers link the navmesh more easily than 16u. Geometry change → full LED bake (passed). **Stair-mouth flow fix 2026-07-19 (FIX BATCH 4** — live co-op: zombies piled up at the trench stair bottoms AND the top): (1) the `bus_street_lamp_full` clip at (-660,1660) choked the **W stair top mouth** — the only E approach lanes were 33u/35u (kiosk→lamp / lamp→parapet rail), under the ~40-45u zombie width; lamp + clip + GSC twin moved to **(-560,1690)** (rail-flush; E approach now 63u, mouth x[-761,-657] clear). (2) The **`m6_tr_seg_w/e` rib brushmodel clips were DELETED** (rib models stay, walk-through): they were the only brushmodel clips on the pit-floor N strip, and their runtime `DisconnectPaths` disables whole nav polys — which can sever the W stair's bottom-landing link ("pile at the bottom of the stairs"). Both bottom mouths keep their full **82u** wall-rounding slots; keep the pit floor's open strips **free of brushmodel clips** (worldspawn clips auto-cut the navmesh at compile and are safe; brushmodel + DisconnectPaths on a big open slab is not).
 - **Hack terminal**: optional intrusion event (`_acc_events_hack.gsc`; see [05_mechanics.md](05_mechanics.md)). Success completes a multi-stage channel/survive sequence; failure locks the terminal for the run and spawns a **penalty wave** (`spawn_penalty_wave`). The old **+2 Data Shard** reward is now **OFF by default** — the shard economy moved underground (trench-only), so the topside hack grants nothing unless you set `acc_hack_shard_drop 1`. *(An earlier "free Overclock voucher" reward idea was cut 2026-07-12 — never built.)*
 
 ### Vault
 - **Purpose**: high-risk, high-reward transit zone on one of the two Lab approaches.
 - **Features**: **No power here** (the map's single power switch lives in the Bus Station). **No perk machines** — all perks at the Lab.
+- **M5 anchor upgrade (2026-07-18, visual sweep): the sealed bank data-fortress.** The zone's defining
+  feature is now the **BO6 circular bank-vault door set** (`t10_zm_door_circular_vault_01` leaf + frame +
+  spinner wheel + hinge, 192u-wide portal) mounted **sealed on the SOUTH wall centered x1780** (pure decor —
+  it never opens; the span came from removing the SE chem tank + sliding the armory cabinet 90u west),
+  flanked by `t10_zm_bank_safety_deposit` panels (2 on the S wall + 1 in the SE nook). **FIX BATCH 3
+  (2026-07-19): the whole S-wall anchor row moved −20y flush onto the REAL S wall** — M5 assumed the
+  interior plane at y2300 but the `.map` wall is y2280 (same stale-bounds error class as the Alley,
+  smaller scale); portal seal clip now y[2280,2340], flank panels flush at y2297 (clip edge y2279.9). Backing suite (BO4
+  Classified `p8_zm_off_*`): a **bank-security ops row** (2 control consoles facing the portal, 114u door
+  aisle between them), **standing console banks** on the N wall (190u-wide, in the old TranZit-door span)
+  and E wall N of the box, **server-wire sockets** + a closed **elevator vignette** (doors/call panel/floor
+  arrow) on the N wall, **3 security monitors** on mounts (live/RED-alert/static — S wall, W-wall floor
+  pole in the old teller bay, E wall over the tech island), a **walk-THROUGH metal-detector archway** on the
+  corp-mouth approach (only its two side pillars are clipped — the 41u walkway gap stays open), filing
+  cabinets and a W-wall military-locker pair. **Superseded TranZit bank props removed** (spawns + clips in
+  lockstep; all zone lines stay — the models keep Bus Station/Alley/Roof refs): `vault_bank_door`+`frame`,
+  `sign_metal_bank`, `window_teller`, 3× `tank_chemical`, `radiator_vintage`. The whole T7 tech set, the
+  `vault_c_*` center island and the TranZit `power_panel` stay. Net **+23** (31 adds − 8 removals), 16 new
+  worldspawn clips (`add_prop_clips.js` "M5 VAULT", one gabled shell over the whole door assembly). N-S
+  Lab-approach traversal audited clip-edge to clip-edge: tightest true lane 47u (filing→ops row); corp-mouth
+  S bypass 56.5; box kept 103 clear; `acc_power_vault` trigger untouched. Scratch `gen_vault_layout.js` =
+  the one-table spawns+clips generator (M1-M4 pattern).
 - **Retired:** the earlier **"Vault Overload"** timed-defense side-event is **removed** (user 2026-07-07). `acc_events_overload::init()` is commented out in `_acc_main.gsc`, and the event's `acc_overload_terminal` trigger + point struct were deleted from the `.map`. Nothing reads `level.acc_overload_state`.
 
 ### Helipad
 - **Purpose**: late-game training arena. Opens verticality once you've paid for the elevator or taken the service stairs.
 - **Features**: Mystery Box possible spawn. **No perk machines** — all perks at the Lab.
 - **Training**: the **best late-game training spot in the map**. Large open area with a central obstacle. Elite enemies don't path well here; that's intentional and is compensated by a Helipad-specific modifier (see [06_replayability.md](06_replayability.md)) that forces you to move on timers.
+- **M4 hero swap (2026-07-18, visual sweep):** the central chemical-tank cluster (2× `tank_chemical` +
+  wood barrel; plus the 2 gas pumps + other 2 wood barrels — 7 spawns + 7 clips removed in lockstep, the
+  `gas_pump` zone line went to zero refs and was deleted) is replaced by a **crashed bomber fuselage** —
+  `jup_vertigo_plane_boneyard_bomber_main_01` (eMoX MWIII pack, 197×527×133) parked N-S over the old
+  cluster center (−1524,2845); the kept debris pile + cone now read as crash rubble under/next to the
+  hull. The **training ring survives as an oval**: lanes W 248-307 / E 202-259 / N 166 / S 170 (the old
+  combined cluster measured ~192×168 — the wreck keeps the E-W width +2%; no shorter bomber piece exists
+  in the pack). **ENTERABLE since 2026-07-19 (FIX BATCH 2**, replacing the single sealed gable shell):
+  vertex decode (`tools/xmodel_bin_inspect.js` + scratch slicers) proved the model is a **continuous
+  open-ended hull tube** — side skins at local x±[83,98] the full 527u length (flat panels between rib
+  frames), an **open belly** (interior floor = the roof's own worldspawn floor, so navmesh survives
+  inside), and a constant cross-section, i.e. **both tube ends are torn-open mouths** (no nose/tail
+  taper). Fitted clip set (`add_prop_clips.js`): `roof_m4_bomber_wall_w/e` thin side boxes z[0,85]
+  (seal the skins incl. any window holes) + `roof_m4_bomber_roof_w/e` worldspawn mono-slope wedges
+  (bottom z85 = invisible interior ceiling, ~56° tops meeting at a ridge over the centerline =
+  anti-perch; `wedge:` now honored on worldspawn entries). **Both mouths stay open at 164u** — zombies
+  path in through either end, so the interior is a corridor, not a camping pocket; the kept cone +
+  debris rubble sit inside as real knee-high obstacles (lanes ≥60u around them). Interior headroom 85u
+  (standing OK). **THIRD ENTRANCE since 2026-07-19 (FIX BATCH 3):** vertex decode located the model's
+  **side double-door bay on the E skin** (two full-height ~40u leaves world y[2795,2835] + y[2843,2883]
+  around an 8u mullion — the family's `_double_door_a` variant naming; the W skin has only a framed
+  window, stays sealed). The single E wall clip is now split (`roof_m4_bomber_wall_e_s/n` +
+  `roof_m4_bomber_door_post`): the mullion keeps a sliver clip (no walk-through-post) and each leaf's
+  clip gap is widened ~5u into the visual jambs to make **two 45u passages** (y[2790,2835] +
+  y[2843,2888]) — zombie-pathable, so the hull is a true flow-through with **three entrances: S mouth
+  164u, N mouth 164u, E side door 2×45u**. Flanking boxes cap at the same z85 interior ceiling (the
+  roof wedges above start at z85 — no new perch tops). The crash-rubble clip at (−1420,2920) blocked
+  the N passage exit to 34u, so the rubble moved N to (−1420,2965) (prop+clip+GSC twin in lockstep). **Edge kit** (+19 more): yellow
+  handrails + modern railings + wide chainlink + warning cloth + barbed wire (all wall-flush, no clips),
+  metal crate pair with a studio light head, NE rusty fuel tank, W field generator (`p7_out_generator`,
+  first zone use) + propane pair, 2 studio-light tripods, dry arid grass + tall weeds. **SKIPPED — the
+  roof is a fully ENCLOSED box with a hard z256 ceiling slab (measured from the `.map`), no sky ledge
+  exists:** radar dish (569 tall), antenna radar (307), truss (276), traffic-light pillar (275); salsola
+  bush too wide (205) for the remaining lanes. Net +13 props.
 
 ### Lab (Pack-a-Punch + Overclock Terminal + ALL Perks)
 - **Purpose**: the map's upgrade + perk hub. Everything that costs progression currency lives here.
@@ -291,6 +424,22 @@ shelf lift.
 - **Access**: two approaches (from the Vault side or from the Roof side). One is **blocked per run** at random (`roll_pap_approach`) — rerouting punishes players who don't know both paths.
 - **Training**: none. It's a transaction zone.
 - **Frequency of visit**: high — perk rotation + PaP + Overclock.
+- **Surface dressing (2026-07-18, M2 visual sweep)**: dressed as a **clinical cyberware lab** (clean-tech
+  contrast to the ruined city) via `_acc_surface_deco.gsc::spawn_lab()` — **42 props / 32 new models**
+  from the BO4 Classified office pack (`p8_zm_off_*`), BO4 Alpha Omega White pack (`p8_zm_whi_*`) and
+  BO6 Liberty Falls glow accents (`t10_*`). Vignettes: **teleporter machinery** ringing the pad at
+  (150,3450) (flat manifold plates + the 145-wide prototype core generator, all outside the r110
+  trigger), a **decon airlock line** on the south wall (3 decon units + queue poles + hazmat suits,
+  floor + hanging), a **specimen test chamber** on the west wall, a **medical row** on the east wall
+  (cart / respirator / lit x-ray lightbox / privacy curtain / holo readout), an **APD sci-fi island**
+  mid-room NE (turbine + glowing element + aether canisters), an **industrial corner** north of the AW
+  box (control consoles / filing cabinet / pressure tanks / steel morgue table / lockers), **blue LED
+  strips above the perk alcove doors** and green/red **energy-barrier glow posts**. Layout is
+  data-driven (scratch `gen_lab_layout.js` emits spawns + clips from one table and **validates** every
+  clip against the keep-clears: perk-buy strip y>=4020 full-width, both corridor mouths + aprons,
+  pad r110, wallbuy r90, AW-box approach, PaP flanks, boss struct r60, all 14 risers >=45u). **24
+  worldspawn clips (19 anti-perch gabled** via the `lab_` `SURFACE_PREFIXES` entry in
+  `add_prop_clips.js`**, 5 thin flat)**; teleporter plates/hazmat suits/wall-mounts stay walk-through.
 
 ## Randomized Geometry Elements
 

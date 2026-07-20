@@ -240,6 +240,9 @@ function init()
     acc_boss_phantom::init();
     // The Scientist - Pentagon Thief homage (weapon-stealing labcoat sprinter, own thief-round
     // cadence r7/every-6; docs/44 workstream B). AFTER phantom (borrows its promote factory).
+    // RE-ENABLED (user 2026-07-19) after the CTD was root-caused + fixed: the 1.3x SetScale-on-live-AI
+    // experiment was the crash (deleted; ban unconditional - see the module header post-mortem + docs/44
+    // workstream B). Runs the normal ship cadence (r7/every-6) - not dev-gated.
     acc_boss_scientist::init();
     // Paradise FINAL ONSLAUGHT: a timed 5-min survival fight (x4 spawns + Brutus/Phantom every minute +
     // shield/glitch gauntlet) that ENDS THE GAME on a win. After the boss modules it drives (brutus/glitch/

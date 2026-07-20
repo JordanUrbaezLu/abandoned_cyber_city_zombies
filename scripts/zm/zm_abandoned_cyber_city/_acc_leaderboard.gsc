@@ -197,11 +197,12 @@ function boot_agents()
     // record first. AetheriumStartMenu.lua reads the accLbLeaveHook controller model -
     // per-player + fresh each match, so a peer or a new lobby can never see a stale arm
     // (the reason this is NOT a dvar). Every player is explicitly written "0" first; only
-    // the host arms, and never on a dev/god run (those store nothing - their Leave stays
-    // instant; leave_flush_record re-checks the same gates server-side anyway).
+    // the host arms, and never on a DEV run (user 2026-07-20, supersedes the 07-11 dev/god rule:
+    // "DB should only be behind dev mode" - god-mode runs DO store now; leave_flush_record
+    // re-checks the same gate server-side anyway).
     foreach ( p in GetPlayers() )
         p SetControllerUIModelValue( "accLbLeaveHook", "0" );
-    if ( !IS_TRUE( level.acc_dev ) && !IS_TRUE( level.acc_god ) )
+    if ( !IS_TRUE( level.acc_dev ) )
         host SetControllerUIModelValue( "accLbLeaveHook", "1" );
 
     // 20s pre-game buffer + auto-fetch so any player can read the board right away.
@@ -584,11 +585,11 @@ function record_at_end_game()
 {
     level waittill( "end_game" );
 
-    // USER RULE (2026-07-11): dev mode or god mode -> no POST, no record, nothing
-    // stored anywhere (DB *and* the machine-local file). The LUI menu never opens.
-    if ( IS_TRUE( level.acc_dev ) || IS_TRUE( level.acc_god ) )
+    // USER RULE (2026-07-20, supersedes 07-11): only DEV mode blocks storage - "DB should only
+    // be behind dev mode". God-mode runs post like normal play (user accepts god-run records).
+    if ( IS_TRUE( level.acc_dev ) )
     {
-        lb_log( "record SKIPPED - dev/god active (user rule: assisted runs never stored)" );
+        lb_log( "record SKIPPED - dev active (user rule 2026-07-20: dev runs never stored)" );
         return;
     }
 
@@ -742,9 +743,9 @@ function record_on_paradise_win()
     while ( !IS_TRUE( level.acc_paradise_won ) )
         wait 1;
 
-    // USER RULE (2026-07-11): dev/god runs never store anything, and an opted-out host
-    // stores nothing - the same gates record_at_end_game applies.
-    if ( IS_TRUE( level.acc_dev ) || IS_TRUE( level.acc_god ) )
+    // USER RULE (2026-07-20, supersedes 07-11): only DEV blocks storage; an opted-out host
+    // still stores nothing - the same gates record_at_end_game applies.
+    if ( IS_TRUE( level.acc_dev ) )
         return;
     if ( !IS_TRUE( level.acc_lb_consent ) )
         return;
@@ -801,8 +802,8 @@ function leave_flush_watch()
 // round if the exit somehow doesn't happen (mirrors the Paradise win-time record).
 function leave_flush_record()
 {
-    if ( IS_TRUE( level.acc_dev ) || IS_TRUE( level.acc_god ) )
-        return;   // user rule 2026-07-11: assisted runs store nothing (hook isn't armed anyway)
+    if ( IS_TRUE( level.acc_dev ) )
+        return;   // user rule 2026-07-20 (supersedes 07-11): only dev runs store nothing
     if ( !IS_TRUE( level.acc_lb_consent ) )
         return;
     if ( IS_TRUE( level.acc_lb_recorded ) )
@@ -839,8 +840,8 @@ function record_every_round()
 {
     level endon( "end_game" );   // record_at_end_game owns the final record
 
-    // dev/god runs store nothing, ever (user rule 2026-07-11)
-    if ( IS_TRUE( level.acc_dev ) || IS_TRUE( level.acc_god ) )
+    // only DEV runs store nothing (user rule 2026-07-20, supersedes 07-11)
+    if ( IS_TRUE( level.acc_dev ) )
         return;
 
     level flag::wait_till( "initial_blackscreen_passed" );
