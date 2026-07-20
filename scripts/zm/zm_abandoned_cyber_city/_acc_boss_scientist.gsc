@@ -68,18 +68,21 @@
 #define ACC_SCI_MELEE_DMG_DEF       1     // he is a THIEF, not a bruiser (BO1 thief deals no damage; 1 not 0 - stock treats 0 as unset)
 #define ACC_SCI_CHASE_RANGE_DEF     450   // roam_loop switches from lab patrol to CHASE when a valid player is inside this range
 
-// [ACC-SCI-SCALE 2026-07-18 - EXPERIMENTAL, REVERT ME IF IT CTDs]
-// 1.3x body scale (user request). This is a DELIBERATE test of the project-wide
-// "no SetScale on live AI" ban (0xC0000005, minidump-verified on Brutus 2026-06-15).
-// Why it is worth retesting HERE: that isolation was done on Brutus - a CUSTOM-ANIMATED
-// pack AI - and the crash landed across his fragile %brutus_spawn -> ASM handoff, with a
-// LinkTo'd helmet ALSO explicitly scaled (double-scaled to 2.25x) and an anim-rate write
-// in the same window. The Scientist is a STOCK zombie skeleton with a plain SetModel
-// reskin, and scale_pin() below defers the single write until AFTER the natural emerge
-// completes - so none of the three aggravating factors are reproduced. Never tested on a
-// stock-skeleton actor before; this settles it empirically.
-// TO REVERT: delete this define, the `host thread scale_pin();` line, and scale_pin().
-#define ACC_SCI_SCALE 1.3
+// [ACC-SCI-SCALE REMOVED 2026-07-19 - IT WAS THE LIVE-CTD ROOT CAUSE. DO NOT RE-ADD.]
+// The 2026-07-18 "1.3x body scale" experiment deliberately retested the project-wide
+// "no SetScale on live AI" ban (0xC0000005, minidump-verified on Brutus 2026-06-15) on
+// the theory that a STOCK-skeleton actor + a single deferred post-emerge write avoided
+// Brutus's aggravating factors. EMPIRICALLY REFUTED: with it in, every Scientist spawn
+// hard-CTD'd the server thread ~4-6s after his rise - exactly the deleted scale_pin()
+// fire window (emerge-complete + 0.5s poll + 1.0s settle) - READ AV at exe+0x15bf48f
+// (minidump 2026-07-19; a NEW offset, matching no prior crash class), and it reproduced
+// on SUBSCRIBER machines via the 2026-07-18 published build ("the Scientist breaks the
+// map") at the r15 ship cadence, killing every local-env explanation. Every OTHER write
+// in that window (sprint gait + ASMSetAnimationRate, custom-goal driving, the SetModel
+// reskin) is field-proven on this map's other bosses and ran clean in the pre-scale
+// 2026-07-17/18 live sessions. VERDICT: the SetScale ban is UNCONDITIONAL - skeleton,
+// deferral, and write-count do not matter. He ships at 1.0x; his size identity is the
+// red numbers aura, not scale. Docs/44 workstream B records the incident.
 
 #define ACC_SCI_DISPLAY_NAME "THE SCIENTIST"
 
@@ -384,7 +387,8 @@ function spawn_scientist( round_number )
     acc_utility::derez_burst( host.origin, "scientist" );
     announce( "^1" + ACC_SCI_DISPLAY_NAME + " ^7- he wants your weapon. Don't let him touch you." );
 
-    host thread scale_pin();    // [ACC-SCI-SCALE] EXPERIMENTAL 1.3x - REVERT THIS LINE IF IT CTDs
+    // (scale_pin REMOVED 2026-07-19: the 1.3x SetScale was the live-CTD root cause - see the
+    // ACC-SCI-SCALE post-mortem at the top of this file. Never scale a live actor.)
     host thread sprint_pin();
     host thread roam_loop();    // the movement driver - lab patrol / whole-lab chase / walk-home containment
     host thread steal_watch();
@@ -394,42 +398,6 @@ function spawn_scientist( round_number )
     sci_log( "spawned in lab r" + round_number + " hp=" + host.maxhealth );
     acc_utility::log( "scientist: spawned r" + round_number + " hp " + host.maxhealth );
     return host;
-}
-
-// [ACC-SCI-SCALE 2026-07-18 - EXPERIMENTAL, DELETE THIS WHOLE FUNCTION TO REVERT]
-// ONE-SHOT 1.3x body scale, deferred exactly like sprint_pin(). Every known aggravating
-// factor from the Brutus 0xC0000005 is deliberately avoided here:
-//   1. NOT written during the rise - we gate on completed_emerging_into_playable_area, the
-//      same gate sprint_pin() uses ("writing ANY tree/anim state during the rise is the
-//      log-proven statue cause"). Brutus was scaled across his spawn->ASM handoff.
-//   2. NO double-scale - we scale the ACTOR ONLY. The cosmo head (Attach) and the stolen
-//      gun worldModel (Attach, steal_watch) inherit the body scale for free; the LinkTo'd
-//      acc_sci_fx_org is left at 1.0. Brutus ALSO explicitly scaled his LinkTo'd helmet,
-//      compounding it to 2.25x - that is the trap, do NOT "fix" the head by scaling it.
-//   3. NOT co-issued with an anim-rate write - the extra settle wait below separates this
-//      single write from sprint_pin()'s first ASMSetAnimationRate by ~1s.
-// It is ONE write, then the thread exits - nothing re-applies it per frame.
-// NOTE: expect the HITBOX to stay 1.0x - SetScale is repo-proven NOT to rescale collision on
-// script_models (CHANGELOG, prop-clip pass: "spawns at SetScale 1.0 - SetScale does NOT rescale
-// script_model collision"). On a live actor that is an INFERENCE, not verified: AI collision is
-// skeleton/bounds-driven, so he will most likely LOOK 1.3x but get hit at stock size. Worth
-// eyeballing during the test - if melee reach feels off, that is why.
-function scale_pin()
-{
-    self endon( "death" );
-    level endon( "end_game" );
-
-    // Same emerge gate as sprint_pin() - never mutate the actor during the riser animation.
-    while ( isdefined( self ) && !IS_TRUE( self.completed_emerging_into_playable_area ) )
-        wait 0.5;
-
-    wait 1.0;   // settle: keep this write off the same frame as sprint_pin's first anim-rate write
-
-    if ( !isdefined( self ) || !isalive( self ) )
-        return;
-
-    self SetScale( ACC_SCI_SCALE );
-    sci_log( "SCALE applied " + ACC_SCI_SCALE + "x (experimental - if the game CTDs here, revert ACC-SCI-SCALE)" );
 }
 
 // Pin the sprint gait (stock resets zombie_move_speed on round/speed sweeps; the keep-alive
@@ -446,11 +414,15 @@ function sprint_pin()
     while ( isdefined( self ) && !IS_TRUE( self.completed_emerging_into_playable_area ) )
         wait 0.5;
 
+    wait 0.5;   // 2026-07-19 hardening: keep the FIRST gait/rate write off the emerge-completion
+                // frame itself (the CTD window sat right on that transition; costs nothing)
+
     for ( ;; )
     {
         // Delete() does NOT fire "death" (repo-proven: avogadro nameplate guard) - the ESCAPE
         // path removes the ent without tripping our endon, so guard every write (review 2026-07-17).
-        if ( !isdefined( self ) ) return;
+        // isalive too (2026-07-19): never write gait/anim state into a dying/ragdolling actor.
+        if ( !isdefined( self ) || !isalive( self ) ) return;
 
         // ROUND+5 SPEED (user 2026-07-17 "if he gets you on round 15 he runs as fast as a
         // zombie does on round 20") with a SPRINT FLOOR (user test 2026-07-18 "he is slower
@@ -565,9 +537,15 @@ function roam_loop()
                 self.acc_sci_chasing = true;
                 sci_log( "CHASE acquired: dist=" + int( d_near ) + ( target_in_lab ? " (in-lab)" : " (in-range)" ) );
             }
-            self.v_zombie_custom_goal_pos = near.origin;
-            self SetGoal( near.origin );   // engine-level goal alongside the BT hook (unstick combo)
-            self.acc_sci_written_goal = near.origin;   // hijack-detector reference
+            // 2026-07-19 hardening: navmesh-project the chase goal - a player standing on a
+            // prop/clip (537 misc statics since the deco sweep) is an OFF-MESH point; never
+            // hand SetGoal one raw. Fall back to the raw origin (the NSZ-chase precedent
+            // behavior) only if the projection finds nothing within the search radius.
+            chase_goal = GetClosestPointOnNavMesh( near.origin, 120, 40 );
+            if ( !isdefined( chase_goal ) ) chase_goal = near.origin;
+            self.v_zombie_custom_goal_pos = chase_goal;
+            self SetGoal( chase_goal );   // engine-level goal alongside the BT hook (unstick combo)
+            self.acc_sci_written_goal = chase_goal;   // hijack-detector reference
             goal = undefined;   // fresh patrol point when they leave
             continue;
         }

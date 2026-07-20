@@ -35,7 +35,9 @@
 // COLLISION: NONE in this module (walk-through decor by design; the lg tank /
 // pods get clips in Phase 3 only if playtest shows walk-through reads wrong).
 // Models are BAKE-NEUTRAL + NAVMESH-NEUTRAL -> this module is -GscOnly safe.
-// Kill-switch: acc_abyss_deco 0.
+// GSC spawns OFF by default since 2026-07-19 (the props are baked into the .map
+// as misc_model statics - G_Spawn entity-cap fix); acc_abyss_deco 1 re-enables
+// the dynamic twins for layout iteration. floor_lights_on stays live regardless.
 // =============================================================================
 
 #using scripts\shared\array_shared;
@@ -54,18 +56,34 @@
 function init()
 {
     // (Crash-bisect resolved 2026-07-12: the CTD was the 10 baked lights, not this module.)
-    if ( getdvarint( "acc_abyss_deco", 1 ) != 1 )
-        return;
+    // 2026-07-19: all static deco baked into the .map as misc_model statics (G_Spawn
+    // entity-cap fix). Set 1 to ALSO spawn dynamically for layout iteration (props will double).
+    // (Gate wraps ONLY the prop spawns - the soul-defeat floor_lights_on/spawn_lamp pipeline and
+    // the opt-in acc_abyss_lit vision watcher below stay live regardless.)
+    if ( getdvarint( "acc_abyss_deco", 0 ) == 1 )
+    {
+        // PER-FLOOR APPROVAL LOOP (user 2026-07-12 "let's focus" -> "okay let's go L2"):
+        // floors light up ONE AT A TIME, sparse, with a user look-pass gating the next.
+        // L2 = APPROVED FOR TEST. L3/L4/L5 spawn sets are authored below but NOT called
+        // until their floor is approved - uncomment one call per approval.
+        n = 0;
+        n += spawn_l2();
+        n += spawn_l3();      // APPROVED 2026-07-12
+        n += spawn_l4();      // APPROVED 2026-07-13 ("implement the rest of the floors")
+        n += spawn_l5();      // APPROVED 2026-07-13
+        // M6 horror-organics layer (2026-07-18 visual sweep): moicesttom ghost pack (alien organics)
+        // + BO4 White tunnel/mannequin/spawner + BO4 office pig-slab/hooks + BO6 moss. Additive ONLY,
+        // ZERO light entities (the shaft stays pitch black - baked abyss lights are a bisect-proven CTD;
+        // the only glow is model-own emissive materials). Layout: scratch gen_m6_layout.js (keep-clear
+        // validated); clips: add_prop_clips.js "M6" section (brushmodel FLAT - trench rule).
+        n += spawn_m6_trench();
+        n += spawn_m6_l2();
+        n += spawn_m6_l3();
+        n += spawn_m6_l4();
+        n += spawn_m6_l5();
 
-    // PER-FLOOR APPROVAL LOOP (user 2026-07-12 "let's focus" -> "okay let's go L2"):
-    // floors light up ONE AT A TIME, sparse, with a user look-pass gating the next.
-    // L2 = APPROVED FOR TEST. L3/L4/L5 spawn sets are authored below but NOT called
-    // until their floor is approved - uncomment one call per approval.
-    n = 0;
-    n += spawn_l2();
-    n += spawn_l3();      // APPROVED 2026-07-12
-    n += spawn_l4();      // APPROVED 2026-07-13 ("implement the rest of the floors")
-    n += spawn_l5();      // APPROVED 2026-07-13
+        acc_utility::log( "abyss deco init (Infected Descent, trench + L2-L5 incl. M6 organics: " + n + " props)" );
+    }
 
     // Per-player LIT vision grade DISABLED by default (user 2026-07-13: "looks like you just added a
     // TINT on my screen ... all I wanted was some LIGHTS when it's defeated"). The vision grade is a
@@ -74,8 +92,6 @@ function init()
     // (default 0 now) only as an OPT-IN exposure boost if the lamps alone still aren't enough.
     if ( getdvarint( "acc_abyss_lit", 0 ) == 1 )
         level thread abyss_floor_vision_watcher();
-
-    acc_utility::log( "abyss deco init (Infected Descent, ALL floors L2-L5: " + n + " props)" );
 }
 
 // ---- L2 "FALTERING GRID" (floor -480, ceiling -256) -------------------------
@@ -217,6 +233,106 @@ function spawn_l5()
     n += spawn_prop( "p7_zm_gen_rune_7_purple", ( -250, 1730, -1100 ), ( 0, 0, 0 ) );     // purple rune, S wall W of the door
     n += spawn_prop( "p7_foliage_vines_hanging_ledge_192_long_dead", ( 500, 2160, -989 ), ( 0, 180, 0 ) );   // dead vines, N wall (hanging)
     n += spawn_prop( "p7_zm_asc_light_cage_warning_red", ( 0, 1735, -990 ), ( 0, 0, 0 ) );    // RED EXIT BEACON above the Paradise doorway
+    return n;
+}
+
+// =============================================================================
+// M6 HORROR ORGANICS (2026-07-18 visual sweep) - the infected-descent read gets its
+// organic layer: the infection creeps in from the trench (moss + collapsed tunnel),
+// blooms on L3 (tentacles/eggs/alien grass), is EXPERIMENTED ON in L4 (butcher
+// slab / hooks / mannequin specimens / EMISSIVE glo-sprouts - the locked plan's
+// Phase-0 emissive proof, mtl_dct_alien_plant_glo_sprout is lit_emissive_advanced
+// with a dedicated _em map), and WINS on L5 (flesh hive + dead queen/brutes).
+// Ghost-pack corpses (dead_queen_1/dead_brute_*) are STATIC script_models - deco
+// statues, never wired as AI. All solid floor pieces are clipped via
+// add_prop_clips.js "M6" (script_brushmodel FLAT boxes - LED-exempt, never gabled:
+// "anything in the trench is fine"); wall/ceiling mounts + moss/grass stay
+// walk-through. NO light entities anywhere in this block (pitch-black by design).
+// =============================================================================
+
+// ---- TRENCH L1 (floor -240, the open corp pit y[1723,2173]) -----------------
+// Keep-clears honored: pit caches (+-360,1950), D1 well band x[-130,130] S, the
+// N-room door apron x[-96,96], both stair channels (W x[-761,-665] S lip, E
+// x[703,799] N lip), the bridge span overhead.
+function spawn_m6_trench()
+{
+    n = 0;
+    n += spawn_prop( "p8_zm_whi_tunnel_metal_segment", ( -180, 2150, -240 ), ( 0, 90, 0 ) );   // tunnel rib W of the N under-room door. CLIP REMOVED 2026-07-19 FIX BATCH 4 (walk-through wall dressing now): its brushmodel clip's DisconnectPaths could kill the pit N-strip nav polys linking the W stair's bottom landing -> co-op "piled up at the bottom of the stairs". See add_prop_clips.js tombstone.
+    n += spawn_prop( "p8_zm_whi_tunnel_metal_segment", ( 180, 2150, -240 ), ( 0, 90, 0 ) );    // tunnel rib E of the N under-room door. CLIP REMOVED with its W twin (same FIX BATCH 4 reasoning).
+    // COLLAPSED tunnel wreck (p8_zm_whi_tunnel_metal_segment_dmg @ 380,1800) REMOVED 2026-07-19:
+    // its 418x164 full-height clip sealed the E trench stair's only pit-floor approach (29u slot
+    // < the 32u player capsule = pit exit toward power BLOCKED) and swallowed the (480,1830)
+    // riser. The riser rows y1830/y2070 (x +-160/+-480) leave no legal pit spot that big.
+    n += spawn_prop( "t10_un_foliage_weeds_moss_01", ( -560, 1726, -120 ), ( 0, 90, 0 ) );     // moss tuft, S wall
+    n += spawn_prop( "t10_un_foliage_weeds_moss_03", ( 240, 1726, -150 ), ( 0, 90, 0 ) );      // moss tuft, S wall E
+    n += spawn_prop( "t10_un_foliage_weeds_moss_05", ( -300, 2170, -140 ), ( 0, 270, 0 ) );    // moss tuft, N wall
+    n += spawn_prop( "t10_foliage_bunker_moss_01", ( 250, 2170, -180 ), ( 0, 270, 0 ) );       // bunker moss, N-room front wall
+    return n;
+}
+
+// ---- L2 M6 additions (the infection reaches the grid) -----------------------
+function spawn_m6_l2()
+{
+    n = 0;
+    n += spawn_prop( "p8_zm_whi_tunnel_metal_segment", ( 300, 1727, -480 ), ( 0, 90, 0 ) );    // tunnel rib vs the S wall E bay (protrudes 32 - real solid) [clip m6_l2_seg]
+    n += spawn_prop( "p8_zm_whi_tunnel_metal_door_01", ( -300, 2166, -476 ), ( 0, 90, 0 ) );   // blast door leaned flush on the N wall (9u deep - flush art, no clip)
+    n += spawn_prop( "t10_un_foliage_weeds_moss_01", ( -779, 1810, -390 ), ( 0, 0, 0 ) );      // moss, W wall
+    n += spawn_prop( "t10_un_foliage_weeds_moss_05", ( -779, 2120, -370 ), ( 0, 0, 0 ) );      // moss, W wall N
+    n += spawn_prop( "t10_un_foliage_weeds_moss_03", ( 793, 2060, -380 ), ( 0, 180, 0 ) );     // moss, E wall
+    n += spawn_prop( "t10_foliage_bunker_moss_01", ( 150, 1727, -400 ), ( 0, 90, 0 ) );        // bunker moss, S wall (clear of the D1 strip x112)
+    return n;
+}
+
+// ---- L3 M6 additions (Corruption Bloom - the bloom itself) ------------------
+// custom_ghost_armory_alien_* are M6-added derived GDT entries (alien_ghost.gdt,
+// alien_plus bins; their mtl_armory_alien_* materials shipped registered).
+function spawn_m6_l3()
+{
+    n = 0;
+    n += spawn_prop( "custom_ghost_armory_alien_tentacles_01", ( -780, 1810, -719.5 ), ( 0, 0, 0 ) );   // WALL-mount tentacle mass, W wall S corner (wraps the SW spore rock) [clip m6_l3_tent1]
+    n += spawn_prop( "custom_ghost_armory_alien_tentacles_02", ( 500, 1950, -497 ), ( 0, 0, 180 ) );    // flat tentacle splat on the CEILING, E bay (30 deep, 193 above the floor - no clip)
+    n += spawn_prop( "custom_ghost_armory_alien_egg_01", ( -650, 2060, -706.5 ), ( 0, 0, 0 ) );    // egg nest, W bay N corner [clip m6_l3_egg1]
+    n += spawn_prop( "custom_ghost_armory_alien_egg_01", ( -560, 2110, -706.5 ), ( 0, 120, 0 ) );  // egg nest (yaw 120) [clip m6_l3_egg2]
+    n += spawn_prop( "custom_ghost_armory_alien_egg_01", ( -690, 2140, -706.5 ), ( 0, 240, 0 ) );  // egg nest vs the N wall [clip m6_l3_egg3]
+    n += spawn_prop( "custom_ghost_alien_tall_grass_01", ( 450, 1750, -710.5 ), ( 0, 40, 0 ) );    // alien grass clump, S wall E (walk-through)
+    n += spawn_prop( "custom_ghost_alien_tall_grass_01", ( -250, 1760, -710.5 ), ( 0, 200, 0 ) );  // alien grass clump, S wall W
+    n += spawn_prop( "custom_ghost_alien_weeds01", ( 620, 2150, -718.7 ), ( 0, 10, 0 ) );          // weed tuft, N wall base
+    n += spawn_prop( "custom_ghost_alien_weeds01", ( 760, 1950, -718.7 ), ( 0, 140, 0 ) );         // weed tuft, E wall base
+    n += spawn_prop( "custom_ghost_alien_weeds01", ( -140, 1730, -718.7 ), ( 0, 260, 0 ) );        // weed tuft, S wall base
+    return n;
+}
+
+// ---- L4 M6 additions (Specimen Vault - what they DID down here) -------------
+// The two ceiling GLO-SPROUTS are the locked plan's Phase-0 emissive proof: the
+// model's own mtl_dct_alien_plant_glo_sprout is lit_emissive_advanced with a
+// dedicated _em map (same emissive class as the PROVEN L3 boils panel), placed
+// in clear view from the Gantry deck. Ceiling mounts = roll 180.
+function spawn_m6_l4()
+{
+    n = 0;
+    n += spawn_prop( "custom_ghost_alien_plant_ceil", ( 300, 1900, -737 ), ( 0, 0, 180 ) );        // EMISSIVE GLO-SPROUT #1, ceiling E bay - clear view from the Gantry
+    n += spawn_prop( "custom_ghost_alien_plant_ceil", ( -300, 2060, -737 ), ( 0, 90, 180 ) );      // EMISSIVE GLO-SPROUT #2, ceiling W bay N
+    n += spawn_prop( "p8_zm_off_pig_slab", ( -640, 1940, -959.2 ), ( 0, 0, 0 ) );                  // butcher slab, W-bay lab row [clip m6_l4_pigslab]
+    n += spawn_prop( "p8_zm_whi_mannequin_male_01_head", ( -638, 1925, -936.2 ), ( 0, 320, 0 ) );  // severed mannequin head ON the pig slab (tiny - no clip)
+    n += spawn_prop( "p8_zm_whi_mannequin_male_01_standing", ( 620, 1745, -960 ), ( 0, 15, 0 ) );  // specimen mannequin, S wall E of the vessel [clip m6_l4_mannequin]
+    n += spawn_prop( "p8_zm_off_metal_hook", ( 300, 2011, -852 ), ( 0, 180, 0 ) );                 // meat hook on the Gantry deck front face (flush, no clip)
+    n += spawn_prop( "p8_zm_off_metal_hook", ( 340, 2011, -858 ), ( 0, 160, 0 ) );                 // meat hook #2, lower
+    n += spawn_prop( "p8_zm_whi_door_wood_01_bloody", ( -757, 2100, -960 ), ( 0, 90, 0 ) );        // bloody door leaned flush on the W wall (12u - flush art, no clip)
+    return n;
+}
+
+// ---- L5 M6 additions (The Maw - the infection's heart) ----------------------
+// hive/dead_queen/dead_brutes are STATIC corpse/set-piece models (never AI).
+function spawn_m6_l5()
+{
+    n = 0;
+    n += spawn_prop( "custom_ghost_hive01", ( 260, 2105, -1196.6 ), ( 0, 30, 0 ) );          // THE MAW HEART - flesh hive, N-center E of the D4 arrival [clip m6_l5_hive]
+    n += spawn_prop( "custom_ghost_dead_queen_1", ( -430, 2115, -1180 ), ( 0, 0, 0 ) );      // dead alien queen corpse, W bay N [clip m6_l5_queen]
+    n += spawn_prop( "custom_ghost_dead_brute_1", ( 170, 1990, -1185.5 ), ( 0, 70, 0 ) );    // dead brute corpse near the hive [clip m6_l5_brute1]
+    n += spawn_prop( "custom_ghost_dead_brute_2", ( 760, 1990, -1183.6 ), ( 0, 90, 0 ) );    // dead brute sprawled vs the E wall pocket [clip m6_l5_brute2]
+    n += spawn_prop( "custom_ghost_alien_plant_ceil", ( 0, 1950, -977 ), ( 0, 0, 180 ) );    // glo-sprout on the ceiling, room center
+    n += spawn_prop( "custom_ghost_alien_plant_ceil", ( 500, 1800, -977 ), ( 0, 180, 180 ) );// glo-sprout on the ceiling, SE
+    n += spawn_prop( "p8_zm_whi_spawner_hole_01", ( 250, 1800, -1192.6 ), ( 0, 0, 0 ) );     // fleshy spawner hole FLAT on the floor (11u walkable plate - no clip)
     return n;
 }
 

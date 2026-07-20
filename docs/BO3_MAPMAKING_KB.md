@@ -309,3 +309,54 @@ Reusable dev behaviors (all gated on `level.acc_dev`):
 - Local stock-scripts mirror (agents/greps depend on it):
   `git clone --depth 1 https://github.com/zeroy99/bo3_modtools tmp/bo3_stock_ref`
 - Ground-truth sources (public GitHub, verified 2026-06): pristine zm template `FanaticSoftware/Skye-Weapon-Templates` → `rex/templates/01. ZM - Base/`; shipped map w/ source `MattFiler/zm_alien_isolation`; stock GDTs `shidouri/T7-GDT-Backup`. Drop-in kits catalogued in `16_community_techniques.md`.
+
+## 11. Presentation assets (map card / Workshop thumbnail / loading screen)
+
+Verified 2026-07-18 against the Launcher templates, the 7 Workshop maps installed on this box, and
+the decompiled retail LUI (`KingslayerKyle/T7LuaRepo`, `Dumps/PC_Ship_2025-05-31/`). **Portable —
+applies to any BO3 usermap.**
+
+**All of these are LOOSE FILES in `usermaps\<map>\zone\`. None is a fastfile asset:** no `.zone`
+line, no GDT, no material, no rebuild. Edit → sync → republish. (Corollary: `zone\` is uploaded to
+subscribers **verbatim** — anything parked there ships, including junk. Gate it.)
+
+| Surface | File | Spec |
+|---|---|---|
+| Steam Workshop web thumbnail | any path you point `workshop.json` `"Thumbnail"` at | square, 512×512; **must be an ABSOLUTE path** |
+| In-game map card (map-select, bottom-left) | `zone\previewimage.png` | **600×340** (both ZM and MP Launcher templates ship exactly this) |
+| In-game loading screen | — | **not achievable for a usermap** |
+
+**Don't let one file serve two surfaces.** `workshop.json`'s `Thumbnail` accepts any absolute path
+anywhere on disk, so give Steam its own square file (e.g. `zone\workshopimage.png`) and leave
+`previewimage.png` at 600×340 for the in-game card. Pointing `Thumbnail` at `previewimage.png` and
+then resizing it for Steam silently stretches the in-game card.
+
+**Map card mechanism:** `ui/uieditor/modifyFunctions.lua:1519` — `MapNameToMapImage()` calls
+`CoD.GetMapValue(map, "previewImage", "$black")`. A usermap is in no stock maptable → returns
+`$black` → engine falls through to `Engine.UpdateModPreviewImage(<ugcName>)`, repointing the fixed
+`img_t7_mod_preview` slot at that map's art. Non-600×340 renders stretched, not broken.
+
+**Loading screen: `zone\loadingimage.png` IS INERT — do not waste a day on it.** It exists in every
+template, ships in every published item, and does nothing. Evidence: (1) `MapNameToMapLoadingImage()`
+short-circuits `if Engine.IsUsingUsermap() then return "img_t7_mod_loading"` and **no
+`Engine.UpdateModLoadingImage` exists anywhere in the LUI** — the preview slot has a per-map engine
+refresh, the loading slot does not; (2) the file is byte-identical (md5 `f4536617…`) across the ZM
+template, the MP template, and multiple shipped third-party maps — nobody has ever successfully
+changed it; (3) zero hits for `loadingimage` in any tools binary (ASCII **and** UTF-16); (4)
+Treyarch put all 41 loadscreen images in `core_patch.ff`, not in map fastfiles, and a usermap's
+linker `.deps` says `ignore,core_patch`. Overriding it requires a separate `core_mod.ff` product
+that replaces the loading screen for *every* map the subscriber plays — not shippable with a map.
+
+**The supported alternative — a loading MOVIE (SOLO ONLY):** `ui_mp/T6/HUD/Loading.lua:391-395`
+has a usermap-only branch calling `Engine.StartLoadingCinematic(Engine.GetCurrentMap() .. "_load")`.
+Ship `zone\video\<mapname>_load.mkv` — H.264, 720p30, **all audio tracks stripped**, HandBrake
+**v1.0.3** (newer reportedly crashes). No `.zone` line, no script. Shipped precedent:
+`MattFiler/zm_alien_isolation`. ⚠️ Gated `GetLobbyClientCount(LOBBY_TYPE_GAME) <= 1` — **co-op
+players get nothing**. ⚠️ Unverified whether the Launcher's publisher uploads `zone\video\` at all.
+
+**Method note:** the repo's `tools/ff_grep.js` inflates T7 fastfile block chains and makes **stock
+LUI greppable** — the Mod Tools ship zero stock `.lua`, so this is the only way to read the real
+UI code. The LUI-bearing fastfiles are `core_patch.ff` (richest — holds `modifyFunctions` +
+`Loading`), `core_ui.ff`, `core_frontend.ff`, `core_frontend_patch.ff`. Note `BlackOps3.exe` and
+`linker_modtools.exe` are Arxan-packed, so string analysis of them proves nothing in either
+direction.

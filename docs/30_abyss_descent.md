@@ -289,7 +289,10 @@ Full plan: memory `abyss-horror-enhancement-plan` + the plan artifact linked the
   (`tools/oneshots/gen_abyss_mezzanine.js`, marker `-ACB5-`, idempotent + `--revert`; deck
   x[140,780] y[2013,2173] top z=-848, 3 rails, stair x[140,220] from y=1901, all visible
   `script_brushmodel`s in `t7_metal_diamond_plate_worn_wet` + **2 baked deck lights** at 0.15) and
-  the two probe props via NEW **`_acc_abyss_deco.gsc`** (kill-switch `acc_abyss_deco`): the carved
+  the two probe props via NEW **`_acc_abyss_deco.gsc`** (kill-switch `acc_abyss_deco`; **since
+  2026-07-19 the 100 static abyss props are baked into the `.map` as `misc_model` statics — G_Spawn
+  entity-cap hotfix, see docs/02 — and the GSC spawn gate defaults 0; `floor_lights_on`/`spawn_lamp`
+  stay runtime**): the carved
   **LARGE specimen tank** `p7_zm_isl_specimen_container_lg` (install
   `source_data\acc_t7_props_deco.gdt`, manifest "deco slice"; 63x65x120, glass + body-silhouette,
   **no `_col`** — clip in Phase 3; ⚠ the *mutant* vats are SKINNED — junk `j_` joints → linker
@@ -409,6 +412,29 @@ Full plan: memory `abyss-horror-enhancement-plan` + the plan artifact linked the
 
 - **Phase 7 (pending):** further balance-pass the hazard dvars, decide `acc_sparks` + csc
   light-flicker polish.
+- **M6 horror-organics layer (BUILT 2026-07-18, visual-sweep final batch):** the infection finally
+  gets its ORGANIC read, per-floor, additive-only — **38 new props (trench 7 / L2 6 / L3 10 / L4 8 /
+  L5 7), 14 new `acc_clip_m6_*` brushmodel FLAT clips** (never gabled — trench rule), **ZERO light
+  entities** (pitch-black stands; baked abyss lights = the bisect-proven CTD — the ONLY glow is
+  model-own emissive material). Sources: the **moicesttom ghost pack** (`custom_ghost_*`,
+  `_custom\_moicesttom\gdt\gdt_ghost\alien_ghost.gdt` — the 3 `armory_alien_*` models had shipped
+  **bins with no GDT entries**, added as derived `[ "custom_ghost_alien_weeds01" ]` entries + gdtdb
+  update; their materials were already registered), BO4 White tunnel/mannequin/spawner-hole/bloody
+  door, BO4 office pig-slab/meat-hooks, BO6 moss. Per floor: **trench** = 2 tunnel ribs framing the
+  N-room door + the 420×226 collapsed-tunnel wreck against the S wall E half (clip `m6_tr_wreck`,
+  lanes verified vs both stair channels/caches/D1 well) + moss; **L2** = rib + flush blast door +
+  moss (the grid, breached); **L3** = wall tentacle mass wrapping the SW spore rock + ceiling
+  tentacle splat + a 3-egg nest mound (W bay N) + alien grass/weeds (the bloom); **L4** = 2
+  **ceiling GLO-SPROUTS** (`custom_ghost_alien_plant_ceil`, roll 180) in clear view from the Gantry
+  — **this is the locked plan's Phase-0 emissive proof piece**: its `mtl_dct_alien_plant_glo_sprout`
+  is `lit_emissive_advanced` with a dedicated `_em` map, the same emissive class as the PROVEN L3
+  boils panel — plus butcher slab + severed mannequin head + specimen mannequin + 2 meat hooks on
+  the Gantry face + a bloody door (the experiments); **L5** = the **flesh hive** (125×129×120 Maw
+  heart, N-center) + dead queen + 2 dead brutes (corpse STATUES — static `script_model`s, never AI)
+  + 2 ceiling sprouts + a flat walkable spawner hole (the infection's source). Layout generated +
+  keep-clear-validated by scratch `gen_m6_layout.js` (stairwell bands, stair landings, station
+  kiosks r110, L4 Gantry, L5 Paradise door + tide safe lane, M60/AK wallbuys). Full build green:
+  LED bake passed, every M6 xmodel + the sprout material ff_grep-verified in the fresh `.ff`.
 
 **Paradise boss audit fixes (user 2026-07-09):** the **Phantom** and the **Glitch Stalker** never landed a melee
 swing in the arena — both are stock-zombie-BT hosts that spawn TOPSIDE and blink to players, so warping below
@@ -431,6 +457,20 @@ a free Max Ammo mid-finale. Every forced drop now carries the `level.acc_paradis
 only — the parity rule above is intact: no *damage* number reads the flag.) Deliberate finale-only deltas that remain
 (presentation/economy, not behavior): boss HUD + music suppressed, all drops/power-ups/shards blocked, and the
 paradise Brutus rides the same trench-warden tether he uses topside.
+
+**M6 Paradise dressing (2026-07-18, visual-sweep final batch):** the reward plaza gets its
+**synthwave-oasis read** — **7 MWIII Vertigo palms** (`jup_vertigo_palm_01/_02`, 552/519 tall — the
+sky cap at −200 gives 1000u of headroom) ringing the arena **edges only** (4 corners + W/E mid-wall +
+S center), each with a **TRUNK-ONLY** flat brushmodel clip (`m6_pd_palm1-7` — canopies ~300u up stay
+overhead), + 7 walk-through lush accents (5 already-zoned BO6 overgrowth grass patches at the palm
+bases + 2 cast-iron ferns flanking the hall mouth). Keep-clears validated by scratch
+`gen_m6_layout.js`: the arena floor stays OPEN for the 4-boss onslaught — all **12 risers** (r45),
+every station kiosk (r110), the **PaP + wonder-loot ring** (r200), the box, the 3 bench pads, all 10
+perk machines (r60) and the hall mouth. **VISTA VERDICT — skyline pieces SKIPPED:** the brief's
+pyramid/towers/ziggurat were bounds-measured at **3674×3674×2434 / 4640×3264×11072 / 6656×6144×1536**
+— bigger than the whole 2000×1600 arena — and the `gen_descent_hub.js` sky cap ends AT the arena
+walls (no out-of-bounds shelf exists; outside the walls is unrendered void), so there is nowhere a
+vista piece could stand OR be seen. `_acc_surface_deco::spawn_paradise_m6`.
 
 **Engine guard rails (tune down if unstable in coop):** concurrent caps on Brutus/Phantom (`_brutus_max`/
 `_phantom_max` 1, was 4), shield+glitch specials (`acc_paradise_special_max` 12, was 8), and an extra AI-cap bump

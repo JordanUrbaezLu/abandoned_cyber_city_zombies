@@ -59,7 +59,8 @@ const GUN_IDS = { ids: {
   "28": "Leviathan Axe",
   "29": "Winter's Howl",
   "30": "Action Figure",
-  "31": "Ballistic Knife"
+  "31": "Ballistic Knife",
+  "32": "CYBERJACK"
 } };
 // <<< END GENERATED gun-id labels >>>
 

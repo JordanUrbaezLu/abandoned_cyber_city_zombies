@@ -49,16 +49,17 @@
 
 // Per-ZOMBIE (regular horde) drop rolls (user 2026-06-27): every NON-boss zombie death INDEPENDENTLY rolls a
 // small chance to (a) drop a random pool ITEM as a free-for-all world pickup and (b) grant ONE Empty Mega
-// Bottle to the KILLER ONLY. Defaults 0.004 = 0.4% EACH (NOT 40%); live dvars acc_zombie_item_drop_chance /
+// Bottle to the KILLER ONLY. Defaults (user 2026-07-19): ITEM 0.0025 = 0.25% / BOTTLE 0.0017 = 0.17%
+// (fractions, NOT 25/17%); live dvars acc_zombie_item_drop_chance /
 // acc_zombie_bottle_drop_chance let you tune both with no rebuild.
-#define ACC_ZOMBIE_ITEM_DROP_CHANCE   0.002
-#define ACC_ZOMBIE_BOTTLE_DROP_CHANCE 0.002
+#define ACC_ZOMBIE_ITEM_DROP_CHANCE   0.0025
+#define ACC_ZOMBIE_BOTTLE_DROP_CHANCE 0.0017
 
 // Lucky Clover (item 7, user 2026-06-27): while IMPLANTED, the carrier's KILLS are luckier - the zombie item +
 // Mega Bottle drop chances are MULTIPLIED by ACC_CLOVER_MULT, and each of the carrier's kills additionally rolls
 // ACC_CLOVER_POWERUP_CHANCE to FORCE-DROP a random stock power-up (bypassing the per-round cap). Works everywhere
 // incl. the Paradise finale (user 2026-06-27). Live dvars: acc_clover_mult / acc_clover_powerup_chance.
-#define ACC_CLOVER_MULT             1.5    // item + bottle drop multiplier while the killer has the Clover (0.2% -> 0.3%)
+#define ACC_CLOVER_MULT             1.5    // item + bottle drop multiplier while the killer has the Clover (item 0.25%->0.375%, bottle 0.17%->0.255%)
 #define ACC_CLOVER_POWERUP_CHANCE   0.005  // per-kill chance for a Clover carrier to drop a random power-up
 
 // Item buff tuning.
@@ -351,7 +352,7 @@ function build_item_pool()
         "p7_ra2_tool_vintage_horseshoe", // REAL vintage iron horseshoe (T7 Assets carve 2026-07-08; replaces the X2-orb "use the X2 for now" placeholder). No clover/charm model exists in ANY T7 source (dump + all community packs swept) - the horseshoe IS the luck icon, so the display name follows the model. Internal id + acc_clover_* dvars unchanged.
         2,                              // floor lift (flat prop, base pivot; tune live)
         "implant",
-        &apply_lucky_clover,            // luck: zombie item + Mega Bottle drops 0.2% -> 0.3% (x1.5) + 0.5%/kill bonus power-up + box top-tier odds
+        &apply_lucky_clover,            // luck: zombie item 0.25%->0.375% + Mega Bottle 0.17%->0.255% (x1.5) + 0.5%/kill bonus power-up + box top-tier odds
         &remove_lucky_clover,
         4.0                             // model scale (user 2026-07-08: 2.25 still too small -> "make all of them 4x original size")
     );
@@ -639,12 +640,12 @@ function spawn_abyss_balcony_gift()
 // ---------------------------------------------------------------------------
 // Per-ZOMBIE drop rolls (user 2026-06-27). Registered as a zombie death-event callback, so it runs ON the
 // dying zombie (self) with the killer as `attacker`. Every REGULAR zombie death independently rolls:
-//   (a) acc_zombie_item_drop_chance  (default 0.002 = 0.2%) -> a random pool item drops at the corpse as a
+//   (a) acc_zombie_item_drop_chance  (default 0.0025 = 0.25%) -> a random pool item drops at the corpse as a
 //       FREE-FOR-ALL world pickup (any player can grab; per-grabber duplicate handling already in watch_pickup).
-//   (b) acc_zombie_bottle_drop_chance (default 0.002 = 0.2%) -> ONE Empty Mega Bottle granted DIRECTLY to the
+//   (b) acc_zombie_bottle_drop_chance (default 0.0017 = 0.17%) -> ONE Empty Mega Bottle granted DIRECTLY to the
 //       KILLER ONLY (no shared / world drop) - exactly the player who got the kill.
 // Bosses + mini-bosses are EXCLUDED (they have their own guaranteed drops via on_boss_death) so a boss kill
-// never double-dips. Both chances are LIVE dvars (no rebuild); 0.2% is rare by design - raise to taste.
+// never double-dips. Both chances are LIVE dvars (no rebuild); these sub-1% chances are rare by design - raise to taste.
 // ---------------------------------------------------------------------------
 function on_zombie_death_drop( attacker )
 {
@@ -1092,7 +1093,7 @@ function remove_payroll_ledger()     { self.acc_item_ledger = false; acc_utility
 
 // Lucky Clover (item 7): a passive flag read at drop time by on_zombie_death_drop (mirrors the payroll_ledger
 // pattern). While set, the carrier's kills get 2x zombie item/bottle drop chance + a 0.5%/kill bonus power-up.
-function apply_lucky_clover()        { self.acc_lucky_clover = true; acc_utility::log( "equip: lucky_clover (item/bottle drops 0.2%->0.3% x1.5 + 0.5%/kill power-up + box top-tier odds)" ); }
+function apply_lucky_clover()        { self.acc_lucky_clover = true; acc_utility::log( "equip: lucky_clover (item 0.25%->0.375% / bottle 0.17%->0.255% x1.5 + 0.5%/kill power-up + box top-tier odds)" ); }
 function remove_lucky_clover()       { self.acc_lucky_clover = false; acc_utility::log( "unequip: lucky_clover" ); }
 
 // Turbocharger (item 8, user 2026-07-07): a HAVOC-SPECIFIC passive flag. While set, _acc_havoc_charge
@@ -2511,11 +2512,27 @@ function dark_magic_track_perks()   // self = player
     }
 }
 
-// KEEP-YOUR-PERKS-ON-REVIVE. Perks were unset by the engine at player_downed; if
-// Dark Magic is implanted when you get back up, re-grant your first-4. give_perk(
-// perk, false ) = no cost / no drink anim / no VO, does NOT fire perk_bought (so
-// the tracker is untouched), and still applies Jugg's +health via the perk's
-// registered give thread + re-threads perk_think (so it strips again next down).
+// KEEP-YOUR-PERKS-ON-REVIVE. Perks were stripped by stock perk_think at
+// player_downed; if Dark Magic is implanted when you get back up, re-grant your
+// first-4. give_perk( perk, false ) = no cost / no drink anim / no VO, does NOT
+// fire perk_bought (so the tracker is untouched), and still applies Jugg's
+// +health via the perk's registered give thread + re-threads perk_think (so it
+// strips again next down).
+//
+// CO-OP FIX (2026-07-19, live co-op failure - partner revived, Jug+Deadshot not
+// restored): the CO-OP manual-revive path notifies "player_revived" BEFORE the
+// revive actually executes - _zm_laststand.gsc revive_success() notifies at
+// :1430 and only THEN calls reviveplayer() (:1432), with weapon re-enable and
+// health_reboot machinery still running for several frames after. The SOLO
+// auto_revive path (the only lane live-tested 2026-07-17) notifies at the very
+// END, player fully restored (:1351 reviveplayer -> :1392 notify). The old code
+// sampled ONE instant (+0.1s) behind zm_utility::is_player_valid - a 5-way
+// engine-state gate evaluated mid-revive-pipeline on the co-op path - and a
+// single false reading silently `continue`d the WHOLE restore, no retry; a
+// post-notify strip could likewise eat a just-granted perk with nothing to
+// re-grant it. Fix: hand off to a monitored restore worker that RETRIES any
+// still-missing tracked perk over a ~5s window and only stops early once the
+// full set has stayed present, aborting cleanly if the player goes down again.
 function dark_magic_revive_watch()   // self = player
 {
     self endon( "disconnect" );
@@ -2527,19 +2544,65 @@ function dark_magic_revive_watch()   // self = player
         if ( !player_has_item( self, "dark_magic" ) ) continue;
         if ( !isdefined( self.acc_dm_perk_order ) || self.acc_dm_perk_order.size == 0 ) continue;
 
-        wait( 0.1 );   // let the revive settle before touching perk clientfields
-        if ( !acc_data_shards::is_player_alive( self ) ) continue;
+        // Thread the worker so this watcher is IMMEDIATELY back on waittill -
+        // a rapid re-down + re-revive can never land in a dead window.
+        self thread dark_magic_do_revive_restore();
+    }
+}
 
-        restored = 0;
+// Revive-restore worker (self = player). Re-grants every tracked perk the player
+// is missing, retrying across the post-revive settle window (co-op revive keeps
+// mutating player state for several frames AFTER "player_revived", see the fix
+// note above). Exits early once all tracked perks have been present for ~1s.
+// A new down / real death / disconnect aborts (the perks are then legitimately
+// gone until the next revive re-runs this).
+function dark_magic_do_revive_restore()
+{
+    self endon( "disconnect" );
+    self endon( "player_downed" );   // re-downed mid-restore: stop; next revive restarts
+    self endon( "bled_out" );        // real death: the death-restore lane owns recovery now
+
+    self notify( "acc_dm_revive_restore" );   // collapse any overlapping restore instance
+    self endon( "acc_dm_revive_restore" );
+
+    restored_any = false;
+    stable_ticks = 0;
+    for ( tick = 0; tick < 20; tick++ )       // 20 x 0.25s = ~5s coverage
+    {
+        wait( 0.25 );
+        if ( !isdefined( self ) ) return;
+        if ( isdefined( self.laststand ) && self.laststand ) return;   // safety net alongside the endon (no IS_TRUE #insert in this file)
+
+        missing = 0;
         for ( i = 0; i < self.acc_dm_perk_order.size; i++ )
         {
             perk = self.acc_dm_perk_order[ i ];
             if ( !isdefined( perk ) ) continue;
             if ( self HasPerk( perk ) ) continue;
             self zm_perks::give_perk( perk, false );
-            restored++;
+            restored_any = true;
+            missing++;
         }
-        if ( restored > 0 ) self IPrintLnBold( "^5DARK MAGIC^7 - your first perks endure" );
+
+        if ( missing == 0 )
+        {
+            stable_ticks++;
+            if ( stable_ticks >= 4 )   // full set held for ~1s -> done
+                break;
+        }
+        else
+        {
+            stable_ticks = 0;          // something re-stripped us; keep watching
+        }
+    }
+
+    if ( restored_any )
+    {
+        // The toplayer acc_implants clientfield can go stale across the revive
+        // (same ZERO_ON_NEW_ENT class as the respawn path) - force a re-push.
+        self.acc_implants_cf_last = undefined;
+        self sync_items_hud();
+        self IPrintLnBold( "^5DARK MAGIC^7 - your first perks endure" );
     }
 }
 

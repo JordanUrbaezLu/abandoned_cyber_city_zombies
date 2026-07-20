@@ -106,6 +106,27 @@
 #precache( "fx", "acc/light/fx_perk_glow_red" );
 #precache( "fx", "dirt/fx_dust_linger_int_sector" );
 #precache( "fx", "steam/fx_steam_leak_md_factory_zmb" );
+// --- FX pass (2026-07-19): per-zone ambient loops from the installed HB21 library
+//     (<tools>\share\raw\fx\, verified on disk). Same wiring rule as the two above:
+//     every one of these ALSO has a matching `fx,` line in zone_source (docs/20 §7) -
+//     a precache without the zone line = PlayFX silently no-ops. All placed by
+//     apply_fx() below, gated by the existing acc_atmo_fx dvar.
+#precache( "fx", "dirt/fx_dust_fall_line_sm" );
+#precache( "fx", "dirt/fx_dust_fall_ceiling_veiled" );
+#precache( "fx", "dirt/fx_dust_fall_lg_lit" );
+#precache( "fx", "light/fx_light_flickering_hat_light_sodium" );
+#precache( "fx", "light/fx_light_sgen_dayroom_rectangle_flicker" );
+#precache( "fx", "steam/fx_steam_aircond" );
+#precache( "fx", "steam/fx_steam_manhole_cover" );
+#precache( "fx", "steam/fx_steam_vent_floor_line_100" );
+#precache( "fx", "water/fx_water_drip_line_25" );
+#precache( "fx", "water/fx_water_drip_ceiling" );
+#precache( "fx", "electric/fx_elec_gp_wire_sparking_xsml_anim_loop" );
+#precache( "fx", "electric/fx_elec_spark_loop_sm" );
+#precache( "fx", "fog/fx_fog_ground_wind_lt_sm" );
+#precache( "fx", "fog/fx_fog_coolant_vent_md" );
+#precache( "fx", "fog/fx_fog_ground_low_rolling_stairs" );
+#precache( "fx", "zombie/fx_fungus_pod_ambient_md_zod_zmb" );
 
 #namespace acc_atmosphere;
 
@@ -141,10 +162,10 @@ function init()
     level thread apply_ambient_bed();
     level thread apply_music();
     level thread apply_fx();          // Phase 3+4: neon hero-glows + ambient dust/steam (acc_atmo_fx)
-    // TEMP-DISABLED (user 2026-07-02 "game won't start" bisect): the T7 pilot props are one of
-    // two native-crash suspects (holo screen has 5 unresolved display materials; log dies silently
-    // right after init in the 22:48/23:49 builds). Re-enable to bisect once the game boots again.
-    // level thread spawn_exchange_props(); // T7 prop-pack pilot decor (user 2026-07-02)
+    // RE-ENABLED (M6 visual sweep 2026-07-18): the 2026-07-02 crash these props were bisect-suspected
+    // for was later PINNED on a clientfield-pool overflow (2026-07-17 post-mortem, memory
+    // sound-bank-cache-poisoning-crash) - NOT these props. Both models stayed zoned the whole time.
+    level thread spawn_exchange_props(); // T7 prop-pack Exchange decor (re-enabled M6)
 }
 
 // =============================================================================
@@ -167,12 +188,20 @@ function spawn_exchange_props()
 {
     // Repositioned to CLEARLY-OPEN mid-room floor (2026-07-02 round 3: props did not appear;
     // the old spots hugged the walls - a wall-embedded origin, wrong z, or a dead spawn could
-    // all hide silently). Vault interior: x[-720,300] y[-448,360], floor top z=-240.
+    // all hide silently). Vault interior: x[-720,300] y[-448,360], floor top z=-160 (NOT -240).
+    // M6 (2026-07-18): the holo screen MOVED off (100,-300) - the transfer-items ATM station
+    // (98,-280, docs/37, added 2026-07-09 AFTER these origins were picked) now occupies that
+    // spot. New home = SE open floor, RAISED to z=-170 (the 12x9 screen floats = hologram
+    // read; it was a 9u-tall plaque at ankle height on the floor). Rack got an M6 clip
+    // (m6_ex_rack); the tiny floating holo stays walk-through.
     n = 0;
-    n += spawn_exchange_prop( "p7_zm_moo_server_comm_02", ( -400, 200, -240 ), ( 0, 270, 0 ) );  // rack, open floor N half, faces south
-    n += spawn_exchange_prop( "p7_cru_monitor_holo_screen_01", ( 100, -300, -240 ), ( 0, 90, 0 ) ); // holo, open floor S half, faces north
+    // z FIXED 2026-07-19: the exchange/vault floor is z=-160, NOT -240 (the stale comment above
+    // + memory `lab-exchange-teleporter`). At -240/-170 both props sat 80u/10u UNDER the slab
+    // (invisible all along); the m6_ex_rack clip guarded empty air below the floor too.
+    n += spawn_exchange_prop( "p7_zm_moo_server_comm_02", ( -400, 200, -160 ), ( 0, 270, 0 ) );  // rack, open floor N half, faces south [clip m6_ex_rack]
+    n += spawn_exchange_prop( "p7_cru_monitor_holo_screen_01", ( -300, -380, -90 ), ( 0, 90, 0 ) ); // floating holo, SE open floor, faces north (floats 70 above the -160 floor)
 
-    acc_utility::log( "atmosphere: exchange pilot props spawned (" + n + ")" );
+    acc_utility::log( "atmosphere: exchange props spawned (" + n + ")" );
 }
 
 // Returns 1 on success, 0 on a dead spawn (guarded - spawn() CAN return undefined).
@@ -578,6 +607,24 @@ function apply_fx()
     level._effect[ "acc_glow_red" ]     = "acc/light/fx_perk_glow_red";
     level._effect[ "acc_haze" ]         = "dirt/fx_dust_linger_int_sector";
     level._effect[ "acc_steam" ]        = "steam/fx_steam_leak_md_factory_zmb";
+    // FX pass (2026-07-19): per-zone ambient loops (HB21 library). Registered here,
+    // placed below; all ride the same acc_atmo_fx gate. Zone lines in zone_source.
+    level._effect[ "acc_dust_line" ]    = "dirt/fx_dust_fall_line_sm";
+    level._effect[ "acc_dust_veiled" ]  = "dirt/fx_dust_fall_ceiling_veiled";
+    level._effect[ "acc_dust_lit" ]     = "dirt/fx_dust_fall_lg_lit";
+    level._effect[ "acc_flicker_sodium" ] = "light/fx_light_flickering_hat_light_sodium";
+    level._effect[ "acc_flicker_rect" ] = "light/fx_light_sgen_dayroom_rectangle_flicker";
+    level._effect[ "acc_steam_ac" ]     = "steam/fx_steam_aircond";
+    level._effect[ "acc_steam_manhole" ] = "steam/fx_steam_manhole_cover";
+    level._effect[ "acc_steam_line" ]   = "steam/fx_steam_vent_floor_line_100";
+    level._effect[ "acc_drip_line" ]    = "water/fx_water_drip_line_25";
+    level._effect[ "acc_drip_ceiling" ] = "water/fx_water_drip_ceiling";
+    level._effect[ "acc_wire_spark" ]   = "electric/fx_elec_gp_wire_sparking_xsml_anim_loop";
+    level._effect[ "acc_spark_loop" ]   = "electric/fx_elec_spark_loop_sm";
+    level._effect[ "acc_fog_wind" ]     = "fog/fx_fog_ground_wind_lt_sm";
+    level._effect[ "acc_fog_coolant" ]  = "fog/fx_fog_coolant_vent_md";
+    level._effect[ "acc_fog_stairs" ]   = "fog/fx_fog_ground_low_rolling_stairs";
+    level._effect[ "acc_fungus_pod" ]   = "zombie/fx_fungus_pod_ambient_md_zod_zmb";
 
     // HERO glow SPRITES were removed (user 2026-06-28: "put them in spots where they don't show... move it above
     // the ceiling"). The orbs showed as bright floating sprites in mid-room. The colored glow now comes purely from
@@ -587,14 +634,56 @@ function apply_fx()
     // AMBIENT drifting interior dust/haze (subtle life):
     fx_at( "acc_haze", (     0, 1950, 120 ) );  // Corp
     fx_at( "acc_haze", ( -1596,  928, 110 ) );  // Market
-    fx_at( "acc_haze", (  1634,  928, 110 ) );  // Alley
+    fx_at( "acc_haze", (  1760, 928, 110 ) );  // Alley
     fx_at( "acc_haze", (     0, 1950,-180 ) );  // Trench
     // STEAM vents (placed low so the plume rises):
     fx_at( "acc_steam", (  1700, 1000,  20 ) );  // Alley vent
     fx_at( "acc_steam", (  1300, 2600,  20 ) );  // Vault
     fx_at( "acc_steam", (  -200, 1948,-230 ) );  // Trench
 
-    acc_utility::log( "atmosphere FX placed (neon glows + drifting haze + steam vents)" );
+    // -- FX pass (2026-07-19): per-zone ambient accent loops. Origins derive from the
+    //    _acc_surface_deco / _acc_abyss_deco prop layout (plumes rise from vents/machines/
+    //    wreckage, not empty air); every placement is off the doorway aprons and training-
+    //    lane centers (subtle accents, per the visual-sweep plan). Same acc_atmo_fx gate.
+    // PLAZA - dust sifting down over the memorial-angel fountain island (-40,130, ceil 256):
+    fx_at( "acc_dust_line",      (   -40,  130,  200 ) );
+    // MARKET - sodium hat-light flicker just under the caged ceiling fixture above the tarp
+    // stall row (fixture at -1720,700,232), + AC steam off the W-wall stove/kitchen corner:
+    fx_at( "acc_flicker_sodium", ( -1720,  700,  228 ) );
+    fx_at( "acc_steam_ac",       ( -2110, 1385,  110 ) );
+    // ALLEY - ceiling drip line mid-corridor between the two cage lights (1760,650/1150),
+    // + wire-spark loop atop the 121u AC unit by the E-wall electric boxes (2148,545)
+    // (re-centered/moved 2026-07-19 FIX BATCH 3 with the real-E-wall prop re-place):
+    fx_at( "acc_drip_line",      (  1760, 900, 230 ) );
+    fx_at( "acc_wire_spark",     (  2148, 545, 150 ) );
+    // BUS STATION - manhole steam on the open S-hall floor W of the boarding queue, +
+    // a floor vent line along the S trench-rim approach (E of the parking block at 200,1686;
+    // clear of the x[-132,132] queue/bridge lane and the E stair mouth x>703):
+    fx_at( "acc_steam_manhole",  (  -350, 1560,    0 ) );
+    fx_at( "acc_steam_line",     (   330, 1690,    0 ) );
+    // VAULT - veiled ceiling dust under the N cage light (1650,3050,234), + a lit dust
+    // shaft over the mid-room server island (racks at 1450/1580,2650):
+    fx_at( "acc_dust_veiled",    (  1650, 3050,  228 ) );
+    fx_at( "acc_dust_lit",       (  1520, 2650,  215 ) );
+    // HELIPAD - ground fog drifting the SW open pad (W training lane, clear of the bomber
+    // hull at -1524,2845), + spark loop on the W-wall field generator (-1900,2900):
+    fx_at( "acc_fog_wind",       ( -1750, 2550,    0 ) );
+    fx_at( "acc_spark_loop",     ( -1885, 2905,   45 ) );
+    // LAB - coolant fog at the W-wall specimen test-chamber base (-730,3520), + fluorescent
+    // rectangle flicker above the E-wall medical row (cart/respirator at ~780,3410-3465):
+    fx_at( "acc_fog_coolant",    (  -712, 3540,    5 ) );
+    fx_at( "acc_flicker_rect",   (   760, 3450,  200 ) );
+    // TRENCH MOUTH - low fog rolling down the W-south stair channel top (x[-761,-665] S lip):
+    fx_at( "acc_fog_stairs",     (  -713, 1760,  -40 ) );
+    // ABYSS (no lights / no glow FX down here by design - these are organic ambience):
+    // L3 fungus pod beside the W-wall tentacle mass (-780,1810,-719.5); L5 pod at the
+    // flesh hive (260,2105,-1196.6); L4 ceiling drip, W bay (ceiling -736, clear of the
+    // Gantry deck x[140,780] N band and both well bands):
+    fx_at( "acc_fungus_pod",     (  -740, 1845, -716 ) );
+    fx_at( "acc_fungus_pod",     (   310, 2070,-1194 ) );
+    fx_at( "acc_drip_ceiling",   (  -500, 1990, -740 ) );
+
+    acc_utility::log( "atmosphere FX placed (neon glows + drifting haze + steam vents + 17 zone ambient loops)" );
 }
 
 function fx_at( key, origin )

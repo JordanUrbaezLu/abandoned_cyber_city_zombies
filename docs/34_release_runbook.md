@@ -32,7 +32,7 @@ Mod Tools). **Your only two jobs: (1) click _Upload_ in the Launcher, and (2) pl
 3. **Upload the map.** In the Launcher: click **`zm_abandoned_cyber_city`** in the map
    list → **Publish** (a button, or **File → Publish Mod/Map**). The form is mostly
    pre-filled — just confirm **Title** `Abandoned Cyber City`, **Tags** `Map, Zombies`,
-   the **Thumbnail** (`zone\previewimage.png`), and set **Visibility = Friends Only**
+   the **Thumbnail** (`zone\workshopimage.png`), and set **Visibility = Friends Only**
    (do **not** pick *Public* yet). Click **Upload**, wait ~a minute, and **copy the link
    it gives you.**
 4. **Tell Claude you uploaded it.** Type: *"I published it."* Claude runs one tiny
@@ -77,8 +77,9 @@ proven to build, load, and play from a real Workshop subscription.
 - `zone/workshop.json` is **fully filled in and committed** — Title
   `Abandoned Cyber City [SUPER HARD]`, `Tags = Map,Zombies`, `Type = map`, an absolute
   `Thumbnail` path, a written BBCode Description, and **`PublisherID` 3751124295** already
-  captured (so future publishes update the same item; see A6). `zone/previewimage.png` is
-  **512×512** (the prep-script thumbnail gate passes). `CREDITS.md` carries the IP sign-off gate.
+  captured (so future publishes update the same item; see A6). `zone/workshopimage.png` is
+  **512×512** and `zone/previewimage.png` is **600×340** (both prep-script gates pass — they are
+  two different surfaces, see §B3a). `CREDITS.md` carries the IP sign-off gate.
 - ⚠️ **Dev/god hardcode = VOLATILE (read the code, not this line).** `acc_resolve_dev_flags()` in
   `scripts/zm/zm_abandoned_cyber_city.gsc` **hardcodes both flags as compile-time booleans** — ship state
   is `level.acc_dev = false;` / `level.acc_god = false;`, test state flips them to `= true;` + rebuild.
@@ -135,12 +136,14 @@ success = a *fresh, >1 MB* `.ff`, never the linker exit code — it prints waive
    overwrites the generated files — correct and intended).
 3. Select the map → **File → Publish Mod/Map**.
 4. Fields (pre-filled from `zone/workshop.json`): Title, Description,
-   **Tags = `Map,Zombies`**, **Type = `map`**, Thumbnail → `zone\previewimage.png`.
-   > ⚠️ The `Thumbnail` field MUST be an **absolute path** to `previewimage.png` (the
-   > committed `workshop.json` already is). A *relative* path (`zone/previewimage.png`) makes
-   > the Launcher fail with **"Error updating Steam Workshop item"** —
-   > `Steam\logs\workshop_log.txt` shows `Failed to read preview file` even though the item is
-   > created and the map content uploads fine. See §Gotchas.
+   **Tags = `Map,Zombies`**, **Type = `map`**, Thumbnail → `zone\workshopimage.png`.
+   > ⚠️ The `Thumbnail` field MUST be an **absolute path** to `workshopimage.png` (the
+   > committed `workshop.json` already is). A *relative* path makes the Launcher fail with
+   > **"Error updating Steam Workshop item"** — `Steam\logs\workshop_log.txt` shows
+   > `Failed to read preview file` even though the item is created and the map content
+   > uploads fine. See §Gotchas.
+   > ⚠️ **Do NOT point `Thumbnail` at `previewimage.png`.** That is a *different asset* —
+   > the in-game map card, which must stay **600×340** (see §Presentation assets below).
 5. **Visibility = Friends-Only or Unlisted** for Track A. ← critical; this build is
    unreleasable IP until Track B. (See A8 for why **not** "Private/Hidden".)
 6. **Upload.** Save the Workshop URL.
@@ -266,12 +269,65 @@ things still need doing before Public:
 
 ### B3. Presentation assets
 
-- **Thumbnail:** ✅ done — `zone/previewimage.png` is already **512×512** (the prep script's
-  thumbnail gate passes). Only revisit if you want a nicer hero image.
+- **Thumbnail (Steam web):** ✅ done — `zone/workshopimage.png` is **512×512** and is what
+  `workshop.json` `"Thumbnail"` points at. Only revisit if you want a nicer hero image.
+- **Map card (in-game):** ✅ done — `zone/previewimage.png` is **600×340**. Different surface,
+  different file, different spec — see §B3a.
+- **Loading screen:** ❌ not achievable as a static image — see §B3a. `zone/loadingimage.png`
+  is inert; leave it alone.
 - **Screenshots:** still needed. Capture **5–10** at 1920×1080 (Plaza, weapons, perks, a
   boss, the Abyss descent, a round-10+ moment). Save as `zone/screenshot_NN_*.png` (or in
   `zone/screenshots/`) so the prep script counts them; add them to the Workshop page in the
   Launcher dialog / via Steam's image manager.
+
+### B3a. The three presentation surfaces — do NOT conflate them
+
+Established 2026-07-18 by a 29-agent research pass over the installed Workshop maps, the Mod Tools
+install, and the decompiled retail LUI (`KingslayerKyle/T7LuaRepo`, `Dumps/PC_Ship_2025-05-31/`).
+Everything below is **loose files in `zone\` — none of them is a fastfile asset, so none of them
+needs a `.zone` line, a GDT, a material, or a rebuild.** Sync + republish is the whole loop.
+
+| Surface | File | Spec | Status |
+|---|---|---|---|
+| Steam Workshop web thumbnail | `zone/workshopimage.png` | 512×512 (square) | ✅ shipping |
+| In-game map card (map select, bottom-left) | `zone/previewimage.png` | **600×340** | ✅ shipping |
+| In-game loading screen | — | **not possible for usermaps** | ❌ see below |
+
+**Map card mechanism (verified):** `ui/uieditor/modifyFunctions.lua:1519` —
+`MapNameToMapImage()` calls `CoD.GetMapValue(map, "previewImage", "$black")`. A usermap is in no
+stock maptable, so it returns `$black`, and the engine falls through to
+`Engine.UpdateModPreviewImage(<ugcName>)`, which repoints the fixed `img_t7_mod_preview` slot at
+that map's art. 600×340 is the Launcher template spec — **both** the ZM and MP templates ship
+`zone\previewimage.png` at exactly 600×340. Other ratios render stretched, not broken
+(`zm_countryside` shipped 1920×1080 and got away with it), but match the spec.
+
+**Loading screen — a usermap cannot replace it. Do not re-litigate:**
+1. `MapNameToMapLoadingImage()` short-circuits `if Engine.IsUsingUsermap() then return
+   "img_t7_mod_loading"`, and **no `Engine.UpdateModLoadingImage` exists anywhere in the LUI dump**
+   (`UpdateMod*` returns exactly two hits, both `UpdateModPreviewImage`). The preview slot has a
+   per-map engine refresh; the loading slot does not. That asymmetry is the whole answer.
+2. `zone/loadingimage.png` is byte-identical (md5 `f4536617…`) across our repo, the ZM template,
+   the MP template, our own published item, and shipped map `zm_trenches_early`. Zero `.zone`
+   line; zero hits for `loadingimage` in any tools binary (ASCII **and** UTF-16).
+3. Treyarch put all 41 loadscreen images in `core_patch.ff`, not in map fastfiles — and our
+   linker `.deps` contains `ignore,core_patch`. Delivering one needs a separate `core_mod.ff`
+   product that replaces the loading screen for **every** map the subscriber plays.
+4. Community record agrees (modme thread 1560: *"Preview image works perfectly but loading has
+   never worked"*).
+
+**The supported alternative — a loading MOVIE (solo only, NOT built):**
+`ui_mp/T6/HUD/Loading.lua:391-395` has a usermap-only branch:
+`Engine.StartLoadingCinematic(Engine.GetCurrentMap() .. "_load")`. Ship
+`zone/video/zm_abandoned_cyber_city_load.mkv` — H.264, 720p30, **all audio tracks stripped**,
+HandBrake **v1.0.3** (newer reportedly crashes). No `.zone` line, no script; shipped precedent is
+`MattFiler/zm_alien_isolation`. ⚠️ **Gated `GetLobbyClientCount(LOBBY_TYPE_GAME) <= 1` — solo
+only**; co-op players see the stock black screen. ⚠️ **Unconfirmed:** whether the Launcher's
+publisher uploads `zone\video\` at all — zero of the 7 subscribed items on this box ships one.
+Settle that (subscribe to `zm_alien_isolation`, inspect its content folder) before encoding.
+
+⚠️ **`zone\` is uploaded to subscribers VERBATIM.** Anything parked there ships. Two files were
+live in the published item until 2026-07-18 (a 965 KB obsolete greybox screenshot and
+`workshop.json.example`). `prep_release.ps1` now has a stray-file gate.
 
 ### B4. Content + balance check (decision, not a blocker)
 
@@ -346,11 +402,11 @@ What can go wrong (and the fix):
 - **Re-publishing updates the same item only if `zone/workshop.json` has the
   PublisherID** — already captured (`PublisherID 3751124295`, first publish 2026-06-24), so
   no action unless the Launcher ever writes a fresh item (then re-run A6's `-Reverse` + commit).
-- **`Thumbnail` MUST be an absolute path** to `previewimage.png`. The Launcher resolves it
+- **`Thumbnail` MUST be an absolute path** to `workshopimage.png`. The Launcher resolves it
   relative to its *own* working dir (not the usermap folder), so a relative
-  `zone/previewimage.png` fails with **"Error updating Steam Workshop item. Error code:"** —
+  `zone/workshopimage.png` fails with **"Error updating Steam Workshop item. Error code:"** —
   the real cause is in `Steam\logs\workshop_log.txt`: `[AppID 455130] Failed to read preview
-  file zone/previewimage.png`. By then the item is already **created** and the map content
+  file …`. By then the item is already **created** and the map content
   (`.ff`+`.xpak`) is **already uploaded** — only the preview upload failed; just fix the path
   and re-publish (it updates the same item). The committed `workshop.json` now uses an absolute
   path (dev-box-specific, fine for this single-box repo). Hit + fixed on the first publish,

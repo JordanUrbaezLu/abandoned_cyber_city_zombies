@@ -110,6 +110,41 @@ ANIMATED j_wrist_ri bone (tag_weapon_right sits at bind pose on zombie rigs - fl
 audio = the authentic BO1 numbers-broadcast hum ONLY (all warp-family sounds + the zap layer
 with its embedded teleporter audio removed). 35+ dev-gated [SCI] trace points remain.
 
+### INCIDENT 2026-07-19: hard CTD on every spawn — root cause = the 1.3x SetScale experiment (removed; fix authored, module disabled pending verification build)
+
+**Symptom:** repeated hard CTDs seconds after the Scientist rose, live (dev r3 sessions) AND on
+subscriber machines (Workshop comment "the Scientist breaks the map" on the 2026-07-18 published
+build, r15 ship cadence) — cross-machine repro, so no local-env cause. The user hardcode-disabled
+his `init()` in `_acc_main.gsc` for the 2026-07-19 ASAP push.
+
+**Evidence chain:** (1) minidump `...1784477684.dmp` (2026-07-19 12:14) = `0xC0000005` READ AV at
+`exe+0x15bf48f` — a NEW offset (7/16 dump = `0x13efab0`, fxanim class = `0x2bc4ee9`; 7/17 = the
+solved CF-overflow, not an AV). (2) console_mp.log: spawn 325.0s → T+3s heartbeat
+`moved=0u goal=none emerg=N! grnd=Y!` (still rising, roam never drove a goal) → total server-script
+silence from 328.8s → client `PLATFORM_DISCONNECTED_FROM_SERVER` at 334.7s ⇒ server thread died in
+the emerge-completion window (~T+4–6s). An earlier session crashed in the SAME window right after
+`roam: emerge complete after 4s` / `patrol: new point 268u away`. (3) That window is exactly where
+the deleted `scale_pin()` fired its one deferred `SetScale(1.3)` (emerge + 0.5s poll + 1.0s settle).
+(4) Every OTHER write in the window is field-proven elsewhere and ran clean in the pre-scale
+2026-07-17/18 live sessions (sprint gait + `ASMSetAnimationRate` = the Panzer/Warden sanctioned
+lever; `v_zombie_custom_goal_pos`/`SetGoal` = the NSZ/Warden hook; the SetModel reskin = trench-skins
+idiom). (5) `SetScale` on a live AI is THE project-banned `0xC0000005` crasher (Brutus,
+minidump-verified 2026-06-15); the experiment was a deliberate retest on a stock skeleton —
+**empirically refuted. The ban is UNCONDITIONAL: skeleton, deferral, write-count don't matter.**
+Anchors/patrol acquitted for this crash: the latest session died with `goal=none` (no goal ever
+written), and the 2026-07-19 boss-spawn audit found the lab risers/anchors clear of the sweep
+clips/statics (only bus-station conflicts existed, already fixed).
+
+**Fix (authored 2026-07-19, in `_acc_boss_scientist.gsc`; module stays disabled until the
+verification build):** ACC_SCI_SCALE define + `scale_pin()` + its thread REMOVED (post-mortem
+comment at the top of the module); hardening: sprint_pin waits 0.5s past emerge completion before
+its first gait/rate write + `isalive` guard, roam chase goals navmesh-projected via
+`GetClosestPointOnNavMesh` before `SetGoal` (raw-origin fallback). **Re-enable =** uncomment
+`acc_boss_scientist::init()` in `_acc_main.gsc`, `-GscOnly` build, dev session past a r3 spawn
+(watch the [SCI] heartbeat through emerge→patrol→chase→steal→flee); if a CTD recurs at
+`exe+0x15bf48f`, the next suspect is the emerge-window first-write timing — parse the new dump
+first. If ever re-asked for a bigger Scientist: pre-scaled model or nothing — never SetScale.
+
 ### v2 iteration notes (2026-07-18, superseded)
 
 **2026-07-18 rework after in-game tests:** (1) **DEV-ONLY** (user): never schedules in ship

@@ -62,14 +62,14 @@ link (§1B). Any you forget will show visibly broken (a feature, not a bug — y
 Shot details for each are in §3.
 
 ```
-[img]https://images.steamusercontent.com/ugc/16177977399189878707/3494AAC15198CB43E3922F68282991119D83DB05/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
+[img]https://images.steamusercontent.com/ugc/18184235990564509896/1C650B17C292F12F9DDB8D82B8D5E9CDDFA4A348/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]ABANDONED CYBER CITY[/h1]
 [b]The neon never turned off. Neither did whatever's still down there.[/b]
 
 This isn't a normal zombies map. It's a [b]descent[/b]. Build a character from nothing, drop
-below the streets, and claw DOWN through an Abyss that gets deadlier every floor. The bottom
-is real — and almost nobody reaches it.
+below the streets, and claw DOWN through an Abyss that gets deadlier every floor. The city
+reshuffles every match. The bottom is real — and almost nobody reaches it.
 
 [b]Think you can?[/b]
 
@@ -78,7 +78,7 @@ is real — and almost nobody reaches it.
 [img]https://images.steamusercontent.com/ugc/10310496277133168107/8E87FAE510213BA88A64EC6E93A1854ED8C6C0DD/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false[/img]
 
 [h1]⬢ THE CITY THAT FIGHTS BACK[/h1]
-A dead neon metropolis of busted power and cyber-tech gone dark. Turn
+A dead neon metropolis that re-randomizes every run — no memorized route survives twice. Turn
 the power on, crack the doors, and find the trench cut straight through its heart. Because the
 only way forward is [b]down[/b].
 
@@ -102,7 +102,7 @@ floors — if you live long enough to buy them.
 Bank [b]Data Shards[/b] down in the trench and spend them on power that sticks: bolt an
 [b]Exo Suit[/b] onto your body, [b]Overclock[/b] your favorite gun tier by tier, unlock extra
 perk slots, and gamble at the Glitch Altar. Rip [b]cyber-implants[/b] out of dead bosses —
-an 11-item loot pool, 3 implant slots, endless build combos. Then chase [b]Mega perks[/b] —
+an 14-item loot pool, 3 implant slots, endless build combos. Then chase [b]Mega perks[/b] —
 boss-tier upgrades that turn survival tools into win conditions. Triple-tier Pack-a-Punch
 on top of it all.
 
@@ -111,13 +111,12 @@ on top of it all.
 [img]https://images.steamusercontent.com/ugc/14813031108365527832/3F2066C0F4400C28E2FB124F7C677C273CDCBC78/?imw=2048&imh=1152&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img]
 
 [h1]🔫 THE ARSENAL — SIX COD GAMES… AND APEX LEGENDS[/h1]
-Over 30 box weapons pulled from six Call of Duty games and a squad ripped straight out of
-[b]Apex Legends[/b] — most Pack-a-Punchable and Overclock-ready, topped with FIVE wonder weapons:
+Nearly 30 box weapons, every one Pack-a-Punchable and Overclock-ready — pulled from six Call of
+Duty games and a squad ripped straight out of [b]Apex Legends[/b]:
 [list]
-[*][b]From Apex Legends:[/b] Prowler · Alternator · Peacekeeper · Triple Take · Havoc Beam Rifle
-[*][b]Five wonder weapons:[/b] Thundergun · Blast-O-Matic · Fire Bow · God of War's Leviathan Axe · Winter's Howl freeze gun
-[*][b]Melee & utility:[/b] Action Figure swing · Ballistic Knife (Krauss teammate revive)
-[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · HAMR · MORS railgun · Mahem launcher — and a dozen more
+[*][b]From Apex Legends:[/b] Alternator · Peacekeeper · Havoc · Triple Take · Prowler
+[*][b]Wonders & specials:[/b] Thundergun · Winter's Howl · Fire Bow · Leviathan Axe · Blast-O-Matic · Action Figure melee
+[*][b]Heavy hitters:[/b] AK-47 · M60 · PPSh-41 · M16 · HAMR · MORS railgun · Mahem launcher — and 15 more
 [/list]
 
 [hr][/hr]
@@ -162,7 +161,7 @@ has seen it.
 [h1]DROP IN[/h1]
 [list]
 [*]Solo or 4-player co-op, tuned for a ceiling worth grinding toward
-[*]Fresh every round: a rotating 4-of-10 perk lineup, a weighted mystery box, and a no-repeat boss deck
+[*]Per-run randomization — adapt or die
 [*]Deep progression: Data Shards, Overclocks, triple-tier Pack-a-Punch, Mega perks, boss implants
 [*]Built for teams: hand guns to teammates at the Armory, pool resources in the Exchange vault
 [*]A true endgame with a real win condition — and a jukebox
@@ -170,8 +169,7 @@ has seen it.
 
 [b]How deep can you get?[/b] Subscribe, drop in, and find your floor.
 
-[i]Note: this map updates often. If you don't see the latest changes, unsubscribe and
-resubscribe to force an update.[/i]
+[i]Note: This map will open the command prompt to help support the online leaderboards. [/i]
 ```
 
 ---

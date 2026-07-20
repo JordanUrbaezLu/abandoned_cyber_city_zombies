@@ -377,6 +377,16 @@ does NOT gain it** (decision 2 — Paradise loot would bypass the quest).
   "helpfully" restore it.
 - `_acc_dev.gsc` — dev-grant of the CYBERJACK via the box weapon_give path
   (`level.acc_dev`-gated; the `:101` Fire Bow pattern) — the ONLY acquisition until M4.
+  **TRAP (found 2026-07-20, the "Brutus never drops at 100%" hunt):** this per-life
+  dev-grant means EVERY dev session has a CYBERJACK holder, so the Brutus gun-drop's
+  "only 1 in rotation" gate (`cyberjack_in_rotation`'s primaries scan) was permanently
+  closed in dev — the drop returned false BEFORE the roll at any chance, and the gun can
+  hide in a background Mule-Kick slot so it *looks* like nobody holds one. Fix:
+  `cyberjack_in_rotation()` skips the holder scan under `IS_TRUE( level.acc_dev )`
+  (the `acc_cj_pickup_live` gate still prevents stacked ground pickups); ship behavior
+  unchanged. A dev-gated `[CJ]` trace (`cj_log`, the sci_log pattern) now prints every
+  gate decision (death-watch armed / death state / rotation-holder / weapon-resolve /
+  roll / pickup commit-grab-expire) so the next dev-armed kill is self-diagnosing.
 - `_acc_pap_levels.gsc` — `pap_price_bucket :372` WONDER row; clone the four firebow
   functions (`is_cyberjack`/`cyberjack_tier`/`acc_pap_cyberjack`/`make_cyberjack_packable`)
   + the 6 hook points (`:222/:530/:568/:959/:1253/:1572`).

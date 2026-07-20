@@ -800,33 +800,90 @@ function cyberjack_player_has()   // self = player -> true if holding any CYBERJ
     return false;
 }
 
-// The "1 in rotation" gate: true = the gun is unavailable (someone holds it or a pickup is live).
-function cyberjack_in_rotation()
+// First player whose PRIMARIES list carries any CYBERJACK form (undefined = nobody).
+// Split out of cyberjack_in_rotation so the [CJ] dev trace can NAME the blocker.
+function cyberjack_holder()
 {
-    if ( IS_TRUE( level.acc_cj_pickup_live ) ) return true;
     players = GetPlayers();
     for ( i = 0; i < players.size; i++ )
     {
         p = players[ i ];
         if ( isdefined( p ) && isplayer( p ) && p cyberjack_player_has() )
-            return true;
+            return p;
     }
-    return false;
+    return undefined;
+}
+
+// The "1 in rotation" gate: true = the gun is unavailable (someone holds it or a pickup is live).
+function cyberjack_in_rotation()
+{
+    if ( IS_TRUE( level.acc_cj_pickup_live ) ) return true;
+    // DEV EXEMPTION (2026-07-20 "Brutus never drops at 100%" root cause): the dev starting
+    // loadout (_acc_dev::dev_give_starting_guns) hands EVERY player a CYBERJACK ~1.5s after
+    // blackscreen and re-gives it each life, so in a dev session the holder scan below is
+    // permanently true and this gate could NEVER open - the Brutus drop was unreachable at
+    // ANY roll chance (it can also hide in a background Mule-Kick slot, so "nobody holding
+    // one" on screen still scans true). In dev, only the pickup_live gate above applies
+    // (still prevents stacked ground pickups). Ship behavior (acc_dev false) unchanged.
+    if ( IS_TRUE( level.acc_dev ) ) return false;
+    return isdefined( cyberjack_holder() );
 }
 
 // Called by the Brutus death handler. Returns TRUE iff the gun dropped (so the caller
 // skips the boss item - "never both"). 25% when available; 0% when in rotation.
 function try_brutus_gun_drop( drop_origin )
 {
-    if ( !isdefined( drop_origin ) )   return false;
-    if ( cyberjack_in_rotation() )     return false;   // only 1 in play
+    if ( !isdefined( drop_origin ) )
+    {
+        cj_log( "drop BLOCKED: drop_origin UNDEFINED (corpse reaped + attacker not a player)" );
+        return false;
+    }
+    if ( cyberjack_in_rotation() )     // only 1 in play
+    {
+        holder = cyberjack_holder();
+        if ( IS_TRUE( level.acc_cj_pickup_live ) )
+            cj_log( "drop BLOCKED: a ground pickup is already live" );
+        else if ( isdefined( holder ) )
+            cj_log( "drop BLOCKED: " + holder.name + " carries a CYBERJACK (primaries scan - dev loadout gives one every life)" );
+        else
+            cj_log( "drop BLOCKED: rotation closed" );
+        return false;
+    }
     // Resolve the weapon BEFORE committing the "gun instead of item" (verify-pass: don't
     // skip the item if the pack is somehow absent = "neither").
     w = GetWeapon( "apex_lstar" );
-    if ( !isdefined( w ) || w == level.weaponNone ) return false;
-    if ( RandomFloat( 1.0 ) >= getdvarfloat( "acc_cj_brutus_gun_chance", 0.25 ) ) return false;
+    if ( !isdefined( w ) || w == level.weaponNone )
+    {
+        cj_log( "drop BLOCKED: GetWeapon(apex_lstar) unresolved - pack absent from this build?" );
+        return false;
+    }
+    // 25% SHIP RATE (restored, user 2026-07-20 "put it back to 25%" after the flow was verified
+    // live at 100% - the 2026-07-20 find: the dev loadout's free CYBERJACK closed the rotation
+    // gate, which is why drops never appeared in dev sessions).
+    roll   = RandomFloat( 1.0 );
+    chance = getdvarfloat( "acc_cj_brutus_gun_chance", 0.25 );
+    if ( roll >= chance )
+    {
+        cj_log( "drop: roll " + roll + " >= chance " + chance + " - no gun (item instead)" );
+        return false;
+    }
+    cj_log( "drop: roll " + roll + " < chance " + chance + " - SPAWNING the CYBERJACK pickup" );
     level thread spawn_cyberjack_pickup( drop_origin, w );
     return true;
+}
+
+// [CJ] gun-drop trace (2026-07-20 "never drops at 100%" hunt). Rides acc_dev ONLY (project
+// doctrine - no debug dvar); the sci_log pattern. IPrintLnBold on a player also lands in
+// console_mp.log as a [ SCRIPTER] line (docs/17), so a test kill leaves a written trace.
+function cj_log( msg )
+{
+    if ( !IS_TRUE( level.acc_dev ) ) return;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )
+            players[ i ] IPrintLnBold( "^5[CJ]^7 " + msg );
+    }
 }
 
 function spawn_cyberjack_pickup( origin, w )
@@ -846,6 +903,7 @@ function spawn_cyberjack_pickup( origin, w )
     // Committed - both entities exist. ONLY NOW mark the rotation taken (no stuck-true path:
     // if either Spawn had failed above we returned without ever setting the flag).
     level.acc_cj_pickup_live = true;
+    cj_log( "pickup COMMITTED at " + origin + " (spinning model + use trigger; " + getdvarfloat( "acc_cj_pickup_life_s", 60 ) + "s expiry)" );
     m thread cj_pickup_spin();
     t TriggerIgnoreTeam();            // public pickup (required for a script-spawned use trigger)
     t UseTriggerRequireLookAt();
@@ -862,6 +920,7 @@ function spawn_cyberjack_pickup( origin, w )
         if ( !isdefined( player ) || !isplayer( player ) || !isalive( player ) ) continue;
         if ( player cyberjack_player_has() ) continue;   // guard: never double-give
         player cyberjack_grant_to( w );
+        cj_log( "pickup GRABBED by " + player.name );
         break;
     }
 
@@ -880,6 +939,7 @@ function cj_pickup_expire()   // self = trigger
 {
     level endon( "end_game" );
     wait getdvarfloat( "acc_cj_pickup_life_s", 60 );
+    cj_log( "pickup EXPIRED un-grabbed - rotation freed" );
     level.acc_cj_pickup_live = false;
     self notify( "acc_cj_pickup_gone" );
     if ( isdefined( self.acc_cj_model ) ) self.acc_cj_model Delete();

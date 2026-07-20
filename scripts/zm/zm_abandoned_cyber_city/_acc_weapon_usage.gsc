@@ -348,6 +348,7 @@ function acc_gun_id( weapon_name )
     if ( n == "freezegun" )                return 29;
     if ( n == "t8_melee_figure" )          return 30;
     if ( n == "knife_ballistic" )          return 31;
+    if ( n == "apex_lstar" )               return 32;
     // <<< END GENERATED gun-id map >>>
 
     return 0;

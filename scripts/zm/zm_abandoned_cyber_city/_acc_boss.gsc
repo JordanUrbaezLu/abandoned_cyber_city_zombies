@@ -378,6 +378,11 @@ function watch_mini_boss_death()
     // soft-lock). brutus_guard_failsafe clears it if self is freed without a death. Cheap belt-and-suspenders.
     self thread brutus_guard_failsafe();
 
+    // [CJ] trace (2026-07-20 gun-drop hunt; dev-gated inside cj_log): this line at SPAWN proves the
+    // killed Brutus is on the WATCHED path. A Brutus kill with no [CJ] lines at all = an unwatched
+    // spawn (the Paradise Brutus runs its own count-only watcher; the pack cadence is disabled).
+    acc_cyberjack::cj_log( "Trench Warden death-watch ARMED (this Brutus routes to the drop/reward handler)" );
+
     self waittill( "death", attacker );
 
     // COOP CRASH GUARD: capture every self field behind ONE isdefined - the corpse can be reaped the same
@@ -398,6 +403,11 @@ function watch_mini_boss_death()
         drop_origin = attacker.origin;   // corpse already reaped: anchor the drop at the killer instead
     }
 
+    // [CJ] trace: the full gate state the drop decision reads (dev-gated inside cj_log).
+    acc_cyberjack::cj_log( "Trench Warden DEATH: corpse=" + ( isdefined( self ) ? "present" : "reaped" )
+        + " n_bottles=" + n_bottles + " no_reward=" + ( no_reward ? "1" : "0" )
+        + " drop_origin=" + ( isdefined( drop_origin ) ? ( "" + drop_origin ) : "UNDEFINED" ) );
+
     if ( n_bottles <= 1 )
     {
         // A Brutus flagged acc_no_shard_reward (the PARADISE-fight Brutus, _acc_paradise::maybe_spawn_brutus) is a
@@ -411,6 +421,7 @@ function watch_mini_boss_death()
             // on the ground (if not already in rotation) / else the normal boss item - NEVER both.
             // The roll spawns the pickup itself; b_gun=true tells the reward to skip the item.
             b_gun = acc_cyberjack::try_brutus_gun_drop( drop_origin );
+            acc_cyberjack::cj_log( "verdict: " + ( b_gun ? "GUN DROPPED (boss item skipped)" : "no gun - normal boss item" ) );
             grant_unified_boss_reward( drop_origin, b_gun );
         }
     }
