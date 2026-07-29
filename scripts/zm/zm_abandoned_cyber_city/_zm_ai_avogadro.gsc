@@ -683,7 +683,7 @@ function avogadro_vfx()
 	lingerfx clientfield::set( "avogadro_fx", 1 );
 	lingersfx = Spawn("script_origin",lingerfx.origin);
 	lingersfx LinkTo(self,"tag_origin");
-	self PlayLoopSound("avogadro_loop");
+	// [acc] presence crackle moved CLIENT-side (acc_avo_crackle_lp, off the avogadro_fx CF in _zm_ai_avogadro.csc); server PlayLoopSound on this AI actor is dead in this build (sfx sweep 2026-07-21).
 	self waittill("avogadro_death");
 	// [acc] GUARD (user 2026-07-05): death() Delete()s self immediately after this notify, so self (and the
 	// LinkTo'd fx) can already be a removed entity here - isdefined-guard every access to avoid the crash.

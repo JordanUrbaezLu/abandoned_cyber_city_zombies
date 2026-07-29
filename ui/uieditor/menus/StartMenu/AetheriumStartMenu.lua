@@ -19,20 +19,20 @@ local ShowSignatures = false  -- Set to false to hide signature images (ACC: off
 -- slot card's hex window here AND on the in-game HUD (acc_hud.lua ACC_IMPLANT_EMBLEMS - keep
 -- both keyed to the same item nums as build_item_pool on any add/renumber).
 local ACC_IMPLANT_INFO = {
-	[1]  = { name = "Gas Tank",             desc = "+100% move speed for 5s (double-tap sprint)", emblem = "i_acc_emblem_gas_tank" },
+	[1]  = { name = "Sentry Drone",         desc = "Hover drone attacks enemies near you", emblem = "i_acc_emblem_sentry_drone" },
 	[2]  = { name = "Loot Stash",           desc = "+10 points per kill",                 emblem = "i_acc_emblem_loot_stash" },
-	[3]  = { name = "Repair Kit",           desc = "+10 HP per second",                   emblem = "i_acc_emblem_repair_kit" },
+	[3]  = { name = "Repair Kit",           desc = "+8 HP per second",                    emblem = "i_acc_emblem_repair_kit" },
 	[4]  = { name = "Rocket Shield",        desc = "+100% slide speed, 2x jump, riot shield", emblem = "i_acc_emblem_rocket_shield" },
-	[5]  = { name = "Phase Serum",          desc = "Nearby glitch bosses -80% speed",     emblem = "i_acc_emblem_phase_serum" },
+	[5]  = { name = "Phase Serum",          desc = "Nearby glitch bosses -64% speed",     emblem = "i_acc_emblem_phase_serum" },
 	[6]  = { name = "Boots",                desc = "+10% move speed",                     emblem = "i_acc_emblem_boots" },
 	[7]  = { name = "Lucky Horseshoe",      desc = "+50% drop luck, bonus power-ups",     emblem = "i_acc_emblem_lucky_horseshoe" },
 	[8]  = { name = "Turbocharger (Havoc)", desc = "Havoc: instant charge-up",            emblem = "i_acc_emblem_turbocharger" },
 	[9]  = { name = "Plasma Generator",     desc = "+10% energy weapon damage",           emblem = "i_acc_emblem_plasma_generator" },
-	[10] = { name = "Battery",              desc = "Boss zaps: +20% speed for 5s",        emblem = "i_acc_emblem_battery" },
+	[10] = { name = "Battery",              desc = "Boss zaps: +24% speed for 5s",        emblem = "i_acc_emblem_battery" },
 	[11] = { name = "Berzerker",            desc = "+35% melee speed, -5% HP per hit",    emblem = "i_acc_emblem_berzerker" },
 	[12] = { name = "High Caliber Rounds",  desc = "+25% bullet gun damage",              emblem = "i_acc_emblem_high_caliber" },
 	[13] = { name = "Warhead Bomber",       desc = "+20% explosive damage",               emblem = "i_acc_emblem_warhead_bomber" },
-	[14] = { name = "Hive Node",            desc = "Aura: +15 HP/s, -15% dmg; jump-tap revives/shields", emblem = "i_acc_emblem_hive_node" },
+	[14] = { name = "Hive Node",            desc = "Aura: +12 HP/s, -15% dmg; jump-tap revives/shields", emblem = "i_acc_emblem_hive_node" },
 	[15] = { name = "Dark Magic",           desc = "Keep first 4 perks after going down; keep guns after dying", emblem = "i_acc_emblem_dark_magic" },
 }
 
@@ -221,9 +221,66 @@ local AccLbFlushThen = function(menu, controller, exitFn)
 	end)
 end
 
+-- [acc] GAME-OVER MENU MODE (docs/40 retry-on-death v3, user 2026-07-25 "make it a menu
+-- like when you pause a game you can go up and down from controller"): on a wipe,
+-- _acc_leaderboard.gsc::offer_retry_on_death re-enables the ingame menu (stock disables
+-- it at end_game), force-opens THIS menu on every player and sets the host-side dvar
+-- acc_go_active=1. In that mode the list is exactly two entries - Restart Map /
+-- End Game - navigated with the menu's own native up/down + confirm, and the side
+-- panels step aside for the acc_gameover backdrop (YOU DIED + squad stats). The dvar
+-- is host-machine-only, so co-op peers get the normal pause list (Leave Game works
+-- there; restarting is the host's call). GSC scrubs the dvar at init.
+local AccGoActive = function(controller)
+	local tries = {
+		function() return Engine.DvarString(controller, "acc_go_active") end,
+		function() return Engine.DvarString("acc_go_active") end,
+		function() return Engine.GetDvarString("acc_go_active") end,
+	}
+	for i = 1, #tries do
+		local ok, r = pcall(tries[i])
+		if ok and r ~= nil and tostring(r) == "1" then return true end
+	end
+	return false
+end
+
 -- DataSource for menu buttons
 DataSources.AetheriumStartMenuButtons = ListHelper_SetupDataSource("AetheriumStartMenuButtons", function(controller)
 	local buttons = {}
+
+	-- [acc] game-over mode: exactly two choices (user 2026-07-25: no fast restart, no
+	-- restart level - "They can decide to end game or restart map"). Both actions are
+	-- the existing proven pause-menu lanes verbatim; the leave-flush is dedup-safe at
+	-- game over (the wipe already recorded; the Worker upserts by session).
+	if AccGoActive(controller) then
+		table.insert(buttons, {
+			models = {
+				displayText = "Restart Map",
+				action = function(self, element, controller, actionParam, menu)
+					AccLbFlushThen(menu, controller, function()
+						GoBack(menu, controller)
+						Engine.Exec(controller, "map_restart")
+					end)
+				end
+			}
+		})
+		table.insert(buttons, {
+			models = {
+				displayText = "End Game",
+				action = function(self, element, controller, actionParam, menu)
+					AccLbFlushThen(menu, controller, function()
+						menu:processEvent({
+							name = "close_all_ingame_menus",
+							controller = controller
+						})
+						Engine.SendMenuResponse(controller, "popup_leavegame", "endround")
+						Engine.SetDvar("cl_paused", 0)
+						Engine.Exec(controller, "disconnect")
+					end)
+				end
+			}
+		})
+		return buttons
+	end
 
 	table.insert(buttons, {
 		models = {
@@ -1197,6 +1254,39 @@ LUI.createMenu.StartMenu_Main = function(controller)
 			name = "gain_focus",
 			controller = controller
 		})
+	end
+
+	-- [acc] game-over mode visuals (see AccGoActive above): retitle, thin the overlay so
+	-- the acc_gameover backdrop (YOU DIED + squad stats) shows through, hide the pause-
+	-- only side panels, and move focus straight onto the two-entry button list. One
+	-- guarded block - a failure here may cost polish but can never take down the menu.
+	if AccGoActive(controller) then
+		pcall(function()
+			self.PauseMenuText:setText(Engine.Localize("Game Over"))
+			self.DarkOverlay:setAlpha(0.35)
+			self.SmallButtonList:setAlpha(0)
+			local hideOne = function(e)
+				pcall(function() e:setAlpha(0) end)
+			end
+			hideOne(self.ImplantsHeader)
+			hideOne(self.ObjectiveHeader)
+			hideOne(self.ObjectiveLine)
+			hideOne(self.ObjectiveDetail)
+			hideOne(self.ObjectiveBossWarn)
+			hideOne(self.PerksHeader)
+			local hideAll = function(t)
+				if type(t) ~= "table" then return end
+				for _, e in pairs(t) do hideOne(e) end
+			end
+			hideAll(self.ImplantCards)
+			hideAll(self.ImplantEmblems)
+			hideAll(self.ImplantLines)
+			hideAll(self.PerkLines)
+			self.ButtonList:processEvent({
+				name = "gain_focus",
+				controller = controller
+			})
+		end)
 	end
 
 	if PostLoadFunc then

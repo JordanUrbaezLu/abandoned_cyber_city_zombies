@@ -89,7 +89,8 @@ All currency writes are per-player and multiplayer-safe.
 - **Perks** — **10 perks** (`10_perks.md`), including the finished **Electric Cherry**
   pipeline (`_acc_perk_electric_cherry`, called directly from the entry script) as the
   real 10th perk. Slot cap `ACC_PERK_SLOT_MAX = 10` with escalating shard costs
-  (4/6/8/10/12/14); the Lab-alcove rotation is a live 4-of-10 door roll. Base perks are
+  (4/6/8/10/12/14); perk availability is the map-wide scatter (`_acc_perk_scatter.gsc`,
+  replaced the Lab-alcove 4-of-10 door roll 2026-07-24). Base perks are
   retuned in `_acc_perks.gsc`; the no-perk-cap override is hooked.
 - **Wonder weapon** — settled, not "one of three, TBD": the **Havoc charge** wonder
   weapon (`_acc_havoc_charge.gsc`, init at `_acc_main.gsc:249`). The arsenal also

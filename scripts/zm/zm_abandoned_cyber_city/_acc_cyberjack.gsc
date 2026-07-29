@@ -203,9 +203,9 @@ function tempest_arm_watcher()   // self = player
         if ( lvl > self.acc_cj_charge_lvl )
         {
             self.acc_cj_charge_lvl = lvl;
-            snd = "acc_havoc_charge_25";
-            if ( lvl == 2 ) snd = "acc_havoc_charge_50";
-            if ( lvl == 3 ) snd = "acc_havoc_charge_75";
+            snd = "acc_cj_charge_25";
+            if ( lvl == 2 ) snd = "acc_cj_charge_50";
+            if ( lvl == 3 ) snd = "acc_cj_charge_75";
             if ( lvl >= 4 ) snd = "wpn_apex_lstar_spin_start";   // MAX charge cue
             self PlaySound( snd );
             self clientfield::set_to_player( "elem_storm_whirlwind_rumble", 1 );
@@ -253,6 +253,7 @@ function tempest_release( v_impact, w, tier, lvl )
     // with the charge level: longer life + wider strike range (scaled inside micro_storm).
     life = getdvarfloat( "acc_cj_tempest_life", 3.0 ) + lvl * 1.2 + tier * 0.5;
     level thread micro_storm( v_impact + ( 0, 0, 24 ), self, w, tier, life, true, lvl );
+    PlaySoundAtPosition( "acc_cj_thunder", v_impact );   // [acc] tempest thunderclap (sfx sweep 2026-07-21)
 }
 
 function tempest_rumble_off()   // self = player
@@ -273,8 +274,8 @@ function armed_rumble_off()   // self = player; the short ARMED pulse
 // A crackling orb (elem_storm_zap_ambient CF) hangs at the point; it spikes REAL
 // lightning bolts (elem_storm_bolt_fx CF, aimed via mover angles - the .csc plays
 // fx_bow_storm_bolt_zap along them) into corruptible zombies in range: tesla shock
-// burst, the stock zombie_tesla_hit stagger, wonder-tier kill damage (exact-marked),
-// and CORRUPTION - so storm kills feed the decompile harvest.
+// burst, the stock zombie_tesla_hit stagger, SET tick damage (exact-marked; was a
+// guaranteed one-shot until 2026-07-26), and CORRUPTION - storm kills feed the harvest.
 // b_big (v4 TORNADO): + the DE whirlwind FUNNEL (elem_storm_fx CF), b_multi range
 // (320), a faster strike cadence - the charged shot IS the storm.
 function micro_storm( v_org, player, w, tier, life, b_big, lvl )
@@ -331,10 +332,11 @@ function micro_storm( v_org, player, w, tier, life, b_big, lvl )
     tick     = getdvarfloat( "acc_cj_storm_tick", 0.3 );
     t_end    = GetTime() + int( life * 1000 );
 
-    // THE STORM FIELD (user 2026-07-17): every tick, EVERYTHING in the radius is 50% SLOWED;
-    // normal zombies are ONE-HIT killed (+ corruption feeds the harvest); bosses/Shielded
-    // take scaling DAMAGE-OVER-TIME (x charge level, x1.25 at L4). Lightning-bolt visuals arc
-    // out from the spread funnels each tick.
+    // THE STORM FIELD (user 2026-07-17; damage rework 2026-07-26): every tick, EVERYTHING in
+    // the radius is 50% SLOWED; normal zombies take SET flat tick damage x the charge mult
+    // (one-hits early rounds, late rounds survive ticks - see storm_zombie_tick) + corruption
+    // feeds the harvest; bosses/Shielded take round-scaled DAMAGE-OVER-TIME (x charge level,
+    // x1.25 at L4). Lightning-bolt visuals arc out from the spread funnels each tick.
     while ( GetTime() < t_end )
     {
         enemies = enemies_in_radius( v_org, range );
@@ -344,15 +346,16 @@ function micro_storm( v_org, player, w, tier, life, b_big, lvl )
             e = enemies[ i ];
             if ( !isdefined( e ) || !isalive( e ) ) continue;
 
-            e tornado_slow_refresh();   // 50% slow while inside the radius (all enemies)
+            e tornado_slow_refresh( lvl );   // CHARGE-SCALED slow while inside (L1 12.5% .. L4 50%)
 
             b_tough = ( IS_TRUE( e.acc_is_shielded ) || IS_TRUE( e.acc_is_boss ) || IS_TRUE( e.is_boss ) || IS_TRUE( e.acc_is_mini_boss ) || IS_TRUE( e.acc_boss_custom_speed ) );
             if ( b_tough )
                 e thread storm_dot_tick( player, w, lvl );                     // scaling DoT vs tough
-            else if ( is_corruptible( e ) && !IS_TRUE( e.acc_cj_corrupted ) )
+            else if ( is_corruptible( e ) )
             {
-                mark_corrupted( e, player, tier );                            // harvest + its own slow
-                e thread storm_one_shot( player, w );                         // one-hit kill (normals)
+                if ( !IS_TRUE( e.acc_cj_corrupted ) )
+                    mark_corrupted( e, player, tier );                        // harvest + its own slow (first contact)
+                e thread storm_zombie_tick( player, w, lvl );                 // SET tick damage (2026-07-26; was a one-time one-shot)
             }
 
             if ( n_vis < n_visual )
@@ -399,17 +402,26 @@ function enemies_in_radius( v_org, range )
     return out;
 }
 
-// 50% slow every enemy in the tornado radius, refreshed while inside. Honored by
+// CHARGE-SCALED slow on every enemy in the tornado radius, refreshed while inside. Honored by
 // _acc_zombie_speed::under_anim_slow (acc_cj_storm_slow_on); a single watchdog per enemy
 // restores rate 1.0 when it leaves the radius / the storm ends (freezegun boss-slow precedent).
-function tornado_slow_refresh()   // self = enemy
+// SCALING (user 2026-07-27 "how much they slow currently should only be a max charge. I can do a
+// 15 bullet charge and its super OP. Make sure all aspects of it scale up"): acc_cj_storm_slow_rate
+// (0.5) is now the MAX-CHARGE rate only - the slow FRACTION interpolates linearly with the charge
+// level: L1 12.5% / L2 25% / L3 37.5% / L4 50%. With this, EVERY strength axis of the storm scales
+// with lvl (damage both lanes, life, range, funnels, bolts, slow); only cadence/caps stay flat.
+// The jack-in finisher micro-storms run at lvl 1 = the light 12.5% slow.
+function tornado_slow_refresh( lvl )   // self = enemy
 {
+    if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
+    if ( lvl > 4 ) lvl = 4;
     self.acc_cj_storm_slow_until = GetTime() + int( getdvarfloat( "acc_cj_storm_slow_hold", 0.45 ) * 1000 );
     // RE-APPLY the rate EVERY tick (user 2026-07-17 "make sure the slow applies to bosses too"):
     // a boss module (warden_speed_think / avo / panzer) sets its OWN anim rate, so setting ours
-    // only once would get overwritten - re-asserting each tick keeps the 50% slow winning while
+    // only once would get overwritten - re-asserting each tick keeps the slow winning while
     // the enemy is inside the radius. (Freezegun-safe mechanism; harmless re-set on normals.)
-    self ASMSetAnimationRate( getdvarfloat( "acc_cj_storm_slow_rate", 0.5 ) );
+    rate = 1.0 - ( ( 1.0 - getdvarfloat( "acc_cj_storm_slow_rate", 0.5 ) ) * lvl / 4.0 );
+    self ASMSetAnimationRate( rate );
     if ( !IS_TRUE( self.acc_cj_storm_slow_on ) )
     {
         self.acc_cj_storm_slow_on = true;
@@ -428,20 +440,36 @@ function tornado_slow_watch()   // self = enemy
     self.acc_cj_storm_slow_until = undefined;
 }
 
-// Normal zombie inside the tornado = ONE-HIT kill. Exact-marked so it one-shots at any round.
-function storm_one_shot( player, w )   // self = normal zombie
+// Normal zombie inside the tornado = SET damage per tick (user 2026-07-26 "I dont want it to
+// just one hit zombies. Same thing we do with bosses... it does a set damage. Maybe this is
+// still a one hit for earlier round but not forever. You would need a full recharge on really
+// late round"): FLAT base x the SAME charge multiplier as the boss lane (lvl, x1.25 at L4) -
+// deliberately NOT round-scaled, so the zombie HP curve overtakes it: base 972 one-hits at
+// L1 through ~r9, L2 (1944) ~r16, L3 (2916) ~r20, L4 (4860) ~r26; past that zombies inside
+// need multiple 0.3s ticks even at max charge (plus the charge-scaled slow). Nerf history:
+// 1500-class -> 1200 -> 1080 (2026-07-26 -20% then -10%) -> 972 (2026-07-27 all-lane -10%).
+// Exact-marked so the damage pipeline lands it verbatim. Applies to the TEMPEST tornado AND
+// the small jack-in finisher storms (same field loop, lvl 1). Corruption/harvest unchanged.
+function storm_zombie_tick( player, w, lvl )   // self = normal zombie
 {
     if ( !isdefined( self ) || !isalive( self ) ) return;
     if ( !isdefined( player ) || !isplayer( player ) ) return;
+    if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
     PlayFxOnTag( level._effect[ "acc_cj_shock" ], self, "j_spineupper" );
-    n = self.health + 1;
+    mult = lvl;
+    if ( lvl >= 4 ) mult = lvl * 1.25;   // the last blast: 125% (mirrors storm_dot_tick)
+    n = int( getdvarint( "acc_cj_storm_zombie_dmg", 972 ) * mult );
+    if ( n < 1 ) n = 1;
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
 }
 
-// Boss / Shielded inside the tornado = scaling DAMAGE-OVER-TIME per tick. Base = one
-// normal zombie's round HP (round-proof), x charge level, x1.25 at L4 (user 2026-07-17
+// Boss / Shielded inside the tornado = scaling DAMAGE-OVER-TIME per tick, a fraction of one
+// normal zombie's round HP (round-proof) x charge level, x1.25 at L4 (user 2026-07-17
 // "stack linearly except the last blast = 125%"). Exact-marked (bypasses the boss per-hit cap).
+// TEMPEST NERFS (user 2026-07-26 "-20%" + "another -10%", then 2026-07-27 all-lane -10%
+// "they are just too good"): dot_frac 0.5 -> 0.4 -> 0.36 -> 0.324, so per 0.3s tick vs
+// tough = 0.324 x zombie-round-HP x lvl-mult (L4: x5 -> 1.62x zHP/tick, was 2.5x).
 function storm_dot_tick( player, w, lvl )   // self = tough enemy
 {
     if ( !isdefined( self ) || !isalive( self ) ) return;
@@ -451,7 +479,7 @@ function storm_dot_tick( player, w, lvl )   // self = tough enemy
     base = ( isdefined( level.zombie_health ) ? level.zombie_health : 1000 );
     mult = lvl;
     if ( lvl >= 4 ) mult = lvl * 1.25;   // the last blast: 125%
-    n = int( base * getdvarfloat( "acc_cj_storm_dot_frac", 0.5 ) * mult );
+    n = int( base * getdvarfloat( "acc_cj_storm_dot_frac", 0.324 ) * mult );
     if ( n < 1 ) n = 1;
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
@@ -537,8 +565,8 @@ function shot_orb( v_muzzle, v_end, v_fwd, tier )
 
 // One storm strike on one zombie: tesla shock FX + the stock tesla stagger flag +
 // (storm_strike_zombie / storm_stagger_off removed 2026-07-17 - the storm-FIELD rework
-//  splits their job into storm_one_shot [normals], storm_dot_tick [tough enemies], and
-//  tornado_slow_refresh [the 50% radius slow]. See micro_storm's field loop.)
+//  splits their job into storm_zombie_tick [normals, set tick damage since 2026-07-26],
+//  storm_dot_tick [tough enemies], and tornado_slow_refresh [the 50% radius slow].)
 
 // ---- one chain: root the victim, then hop outward (2 + tier hops) ----
 function run_chain( z_first, w, tier )   // self = player
@@ -664,6 +692,7 @@ function mark_corrupted( z, player, tier )
     // The jack-in READS: tesla eyes flare on root (one-shot burst, server-side - the safe
     // replacement for the disabled elem_storm_shock_fx actor CF).
     PlayFxOnTag( level._effect[ "acc_cj_shock_eyes" ], z, "j_head" );
+    PlaySoundAtPosition( "acc_cj_zap", z.origin );   // [acc] jack-in root crackle (sfx sweep 2026-07-21)
 
     z thread corruption_slow( tier );
 }
@@ -711,7 +740,7 @@ function corruption_dot( player, w, tier )   // self = zombie
     self.acc_cj_dot_running = true;
 
     ticks = getdvarint( "acc_cj_dot_ticks", 3 );
-    frac  = getdvarfloat( "acc_cj_dot_frac", 0.34 ) + ( getdvarfloat( "acc_cj_dot_frac_tier", 0.08 ) * tier );
+    frac  = getdvarfloat( "acc_cj_dot_frac", 0.306 ) + ( getdvarfloat( "acc_cj_dot_frac_tier", 0.072 ) * tier );   // x0.9 all-lane cyberjack -10% 2026-07-27 (was 0.34 / +0.08)
 
     for ( t = 0; t < ticks; t++ )
     {
@@ -734,7 +763,7 @@ function dot_tick_one( player, w, frac )   // self = zombie; isolated per tick
     PlayFxOnTag( level._effect[ "acc_cj_shock" ], self, "j_spineupper" );
     // VERIFY-PASS FIX: the exact-damage mark (the Fire Bow portal recipe's own hardening,
     // consumed one-shot at _acc_damage:438) - without it the tick is rescaled by the FULL
-    // pipeline (x0.35 bal x3.25 global + ENERGY/explosive item layers) and the designed
+    // pipeline (x0.288 bal x3.25 global + ENERGY/explosive item layers) and the designed
     // fraction becomes meaningless. The mark makes the fraction land VERBATIM.
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
@@ -954,6 +983,6 @@ function cyberjack_grant_to( w )
 {
     self zm_weapons::weapon_give( w, undefined, undefined, undefined, true );
     self SwitchToWeapon( w );
-    self PlayLocalSound( "zmb_box_weapon_grab" );
+    self PlayLocalSound( "acc_cj_jackin" );
     self IPrintLnBold( "^5THE CYBERJACK^7 - jacked in" );
 }

@@ -56,6 +56,8 @@ const RANK = [
   { d: 'Havoc',    box: 'apex_beam_rifle',  key: 'apex_beam_rifle',     sp: true, pct: 1.2 },   // Apex energy special (A), replaces China Lake
   { d: 'Mahem',         box: 's1_mahem',            key: 's1_mahem',            sp: true },
   { d: 'War Machine',   box: 't6_war_machine',      key: 't6_war_machine',      sp: true },   // BO2 drum GL (user 2026-07-09) - A-tier explosive special, one step commoner than the Mahem; band cutoffs +1 below so every existing gun keeps its tier
+  // (L4 Siege / launcher_multi entry REMOVED 2026-07-26 with the gun itself.)
+  { d: 'EPG-1',         box: 's1_mdl',              key: 's1_mdl',              sp: true },   // AW MDL plasma-lobber reskin (user 2026-07-25) - explosive special, TOP-priced
   { d: 'MORS',          box: 's1_mors',             key: 's1_mors' },
   { d: 'Alternator',    box: 'apex_alternator',  key: 'apex_alternator', price: 'BOT' },   // Apex - A+ PaP (trash base); BOT cost = intentional cheap-to-PaP payoff gun (user 2026-07-06)
   { d: 'AE4',           box: 's1_ae4',              key: 's1_ae4' },
@@ -84,6 +86,7 @@ const BAND_TOP = 0.16, BAND_MID = 0.36, BAND_BAD = 0.48;   // conventional-pool 
 const G_TOP = 1.11, G_MID = 1.02, G_BAD = 1.03;            // intra-band gradients (gentle rise within each band)
 const CONV_TOTAL = 4741;            // conventional pool total, held constant (grand pool stays 4993)
 const GUN_SHARE = 0.985;            // 98.5% after the tactical pre-roll
+const GUN_W0 = 245;                 // default acc_box_weight for an unknown/undefined gun (mid-band). (2026-07-25: define restored - the GSC-emit path referenced an undefined GUN_W0 and crashed; 245 matches the shipped default.)
 
 // A gentle rising geometric of `n` weights summing to `budget`.
 function bandCurve( n, budget, g ) {
@@ -107,8 +110,8 @@ function convWeights( ranks ) {
 }
 
 // ---- price bands (by rank) ----------------------------------------------------
-const TOP_MAX = 14;   // ranks 1-14  -> TOP (wonders + AF + S guns + Havoc/Mahem/War Machine + MORS); 28-entry roster (War Machine added 2026-07-09, both cutoffs +1 so every pre-existing gun keeps its band)
-const MID_MAX = 21;   // ranks 15-21 -> MID (Alternator/AE4/RW1/AK-74u/Grav/Tac-19/Prowler);  22-28 -> BOT
+const TOP_MAX = 16;   // ranks 1-16  -> TOP (wonders + AF + S guns + Havoc/Mahem/War Machine/L4 Siege/EPG-1 + MORS); L4 Siege + EPG-1 added 2026-07-25, both cutoffs +2 so every pre-existing gun keeps its band
+const MID_MAX = 23;   // ranks 17-23 -> MID (Alternator/AE4/RW1/AK-74u/Grav/Tac-19/Prowler);  24+ -> BOT
 const priceOf = (rank) => rank <= TOP_MAX ? 'TOP' : rank <= MID_MAX ? 'MID' : 'BOT';
 const COSTS = { WONDER: '10000 / 15000 / 20000', TOP: '5000 / 7500 / 10000', MID: '4000 / 6000 / 8000', BOT: '3000 / 4500 / 6000' };
 

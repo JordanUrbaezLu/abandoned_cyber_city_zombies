@@ -195,7 +195,7 @@ ugx-mod-bo3 ships _zm_perk_electric_cherry_fixed.gsc/.csc — a complete cherry:
 zm_perk_utility::place_perk_machine(origin, angles, perk, model): spawn("trigger_radius_use", origin+(0,0,60), 0, 40, 80) with .targetname="zombie_vending", .script_noteworthy=<specialty>, TriggerIgnoreTeam(); spawn("script_model", origin) SetModel(machine model); bump = spawn("trigger_radius", origin+(0,0,30), 0, 40, 80) with .script_activated=1, .script_sound="zmb_perks_bump_bottle", .targetname="audio_bump_trigger"; collision = spawn("script_model", origin, 1) SetModel("zm_collision_perks1"), .script_noteworthy="clip", disconnectPaths(); then call [[level._custom_perks[perk].perk_machine_set_kvps]](t_use, machine, bump, collision) to apply the perk's registered KVP setup (which sets use_trigger.script_sound=<jingle alias>, .script_string=<perk>_perk, .script_label=<sting alias>, .target=vending_<perk>; machine.targetname=vending_<perk>). This mirrors exactly what stock perk_machine_think expects from Radiant-placed machines.
 
 - **Source:** ColDog5044/zm_countryside scripts/zm/_zm_perk_utility.gsc L554-583
-- **For our map:** Huge for our per-run randomization pillar: spawn the 10-perk roster at randomized struct locations from GSC each run instead of fixed hand-authored machines in the .map (the live Lab-alcove rotation rolls 4-of-10 per run).
+- **For our map:** Huge for our per-run randomization pillar: spawn the 10-perk roster at randomized struct locations from GSC each run instead of fixed hand-authored machines in the .map. (Realized 2026-07-24 by a different route: `_acc_perk_scatter.gsc` relocates the stock-spawned machine assemblies onto 10 map-wide pads instead of spawning fresh ones.)
 
 ### Per-perk power override / always-on machines (no power switch)
 

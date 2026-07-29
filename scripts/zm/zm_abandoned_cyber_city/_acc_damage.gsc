@@ -1437,7 +1437,7 @@ function acc_weapon_balance_mult( weapon_name )
     if ( IsSubStr( weapon_name, "pistol_standard" ) ) return 1.10;  // [start] MR6/M1911 start pistol (level.start_weapon): was default 1.0 (uncut); +10% all-gun buff (user 2026-07-07). NOTE: _upgraded (laststand "Death and Taxes") is handled by the halved line ABOVE; this covers the base start pistol only. Only >1.0 entry - an amplify, not a cut.
     if ( IsSubStr( weapon_name, "elemental_bow_demongate" ) ) return 0.585;  // [wonder] FIRE BOW (HB21 demongate): USER 2026-07-13 -35% ALL AROUND (1.0 -> 0.65) on the direct arrow hit, then USER 2026-07-18 all-wonder -10% (0.65 -> 0.585); the charged-shot portal DoT is nerfed in-lockstep in _zm_weap_elemental_bow_demongate.gsc (acc_firebow_dot_frac x0.9 + boss div /0.9 on 07-18). Designed one-shots (chomper eat = target.health) survive - 0.585x of a huge overkill still one-shots. pack-native damage x global 3.25; boss per-hit cap backstops.
     if ( IsSubStr( weapon_name, "leviathan" ) )               return 1.0;  // [wonder] LEVIATHAN AXE (WetEgg GoW melee, added 2026-07-07): melee weapon damage; base + leviathan_up covered by IsSubStr. PLAYTEST-TUNE HERE.
-    if ( IsSubStr( weapon_name, "apex_lstar" ) )              return 0.32; // [wonder] THE CYBERJACK (apex_lstar / L-STAR chassis, docs/43). FOUNDATION (user 2026-07-17): the BULLET STREAM sits JUST UNDER the wonder weapons on its own, but FULLY OVERCLOCKED + Plasma Generator (energy +10%, is_energy_weapon below) it is THE BEST GUN IN THE GAME - the OC damage tiers + Plasma stack multiplicatively on this base (both live). NOT a one-hit gun (that's the TORNADO's job). 250 @ 0.084 x 0.32 x 3.25 base; tune HERE. PaP ladder + OC tier both apply. (250 @ 0.084 x 0.18 x 3.25 ~= 1740 eff DPS base; PaP tiers multiply via pap_tier_mult at :990 - get_tier reads cyberjack_tier, so the in-place PaP damage ladder applies automatically). v4.3 GDT: clip 60 / 8 mags (480), pen LARGE (through-zombie pierce), tight hip spread, energy muzzle flash. The WONDER-ness is chain + DoT + tornado (exact-marked, untouched by this mult). PLAYTEST-TUNE HERE.
+    if ( IsSubStr( weapon_name, "apex_lstar" ) )              return 0.288; // [wonder] THE CYBERJACK (apex_lstar / L-STAR chassis, docs/43). FOUNDATION (user 2026-07-17): the BULLET STREAM sits JUST UNDER the wonder weapons on its own, but FULLY OVERCLOCKED + Plasma Generator (energy +10%, is_energy_weapon below) it is THE BEST GUN IN THE GAME - the OC damage tiers + Plasma stack multiplicatively on this base (both live). NOT a one-hit gun (that's the TORNADO's job). USER 2026-07-27 all-lane -10% "they are just too good" (0.32 -> 0.288). (250 @ 0.084 x 0.288 x 3.25 = 234/shot ~= 2786 eff DPS base; PaP tiers multiply via pap_tier_mult at :990 - get_tier reads cyberjack_tier, so the in-place PaP damage ladder applies automatically; the jack-in chain hops fire the held weapon so they inherit this mult too). v4.3 GDT: clip 60 / 8 mags (480), pen LARGE (through-zombie pierce), tight hip spread, energy muzzle flash. The WONDER-ness is chain + DoT + tornado (exact-marked, untouched by this mult - nerfed in their own lanes same day). PLAYTEST-TUNE HERE.
     if ( IsSubStr( weapon_name, "t6_fiveseven" ) ) return 0.27742;   // [C-] Five-Seven (start pistol): ~50 eff/shot. SPREAD -3% worst-gun nerf (0.26 -> 0.2522, user 2026-06-26). Mobile starter, fast reload + 14 clip = decent sustain, but weak dmg + 56 reserve = C- (user 2026-06-21).
     if ( IsSubStr( weapon_name, "s1_asm1" ) )      return 0.21;     // [B] ASM1 - RETIRED 2026-07-03 (user; gun removed from zone/CSV/pools - this entry is inert and STAYS for easy restore). ~401 DPS, v2 B (6.5).
     if ( IsSubStr( weapon_name, "s1_tac19" ) )     return 0.49929;  // [S] Tac-19 (AW energy SG): USER 2026-07-06 -20% ALL-SHOTGUN NERF (0.5674 -> 0.4539; per-pellet T3 body ~514). Prior: 2026-07-05 -10% (0.6304 -> 0.5674), SPREAD +3% (0.612 -> 0.6304). Tier label kept (curated e). 12-pellet crowd king (headshot-excluded); vs bosses see ACC_SHOTGUN_BOSS_MULT. docs/04.
@@ -1486,6 +1486,14 @@ function acc_weapon_balance_mult( weapon_name )
     // TARGET "2000 direct" -> bal = 2000/(raw 7000 x global 3.25) = 0.0879 (splash scales proportionally:
     // base inner ~228, PaP inner ~457). IsSubStr matches base + _up + both fastreload twins.
     if ( IsSubStr( weapon_name, "t6_war_machine" ) ) return 0.10636;   // [A] War Machine drum grenade launcher: USER 2026-07-16 +10% DAMAGE (0.09669 -> 0.10636 = ~2420 direct, splash proportional). Prior: +10% 2026-07-12 (0.0879 -> 0.09669 = ~2200). Per-shot still below the Mahem 2500 by design - the drum burst carries it. See note above.
+    // (L4 Siege launcher_multi bal 0.2 REMOVED 2026-07-26 with the gun itself.)
+    // EPG-1 (s1_mdl): the AW MDL plasma-lobber reskin (user 2026-07-25). GDT retuned so BASE + _up explosion are EQUAL
+    // (the BASE was normalized UP to the _up), so this single bal normalizes both and the +33/67/100% PaP ladder is
+    // the sole damage progression (the Mahem model). USER 2026-07-26 +50% DAMAGE: applied in the GDT RAW (inner
+    // 900 -> 1350, direct 600 -> 900, outer 125 -> 188 via reskin_mdl_epg.js) so bal stays the convention <1 value:
+    // direct now 1350 x global 3.25 x 0.68 = ~2984 (was ~1989). IsSubStr matches base s1_mdl + PaP s1_mdl_up.
+    // Launcher boss-cut in boss_nuke_mult.
+    if ( IsSubStr( weapon_name, "s1_mdl" ) )         return 0.68;     // [A] EPG-1 plasma-lobber (MDL reskin): ~2984 direct base (+50% 2026-07-26, raw-side), splash scales; PaP _up rides the tier ladder. Tune here.
     // Thundergun (wonder weapon): wind-blast CONE that multi-traces a single boss hitbox. It had NO balance entry
     // at all -> the default 1.0 (zero cut) x the global 2.5x x ~8 cone traces = the ~200k-to-bosses nuke the user
     // hit. NERF -30% (user 2026-06-24, implicit 1.0 -> 0.70). Covers base + thundergun_upgraded (IsSubStr). NOTE:
@@ -1711,6 +1719,7 @@ function weapon_gets_dt_bullet( w_weapon )
     if ( IsSubStr( n, "s1_mahem" ) )   return false;   // rocket launcher: explosive, no extra bullet
     if ( IsSubStr( n, "t5_china_lake" ) ) return false;   // China Lake grenade launcher: explosive, no extra bullet (user 2026-07-05; gun removed in the Apex migration but line kept inert)
     if ( IsSubStr( n, "t6_war_machine" ) ) return false;  // War Machine drum grenade launcher: explosive, no extra bullet (user 2026-07-09)
+    if ( IsSubStr( n, "s1_mdl" ) )         return false;  // EPG-1 plasma-lobber (MDL reskin): explosive, no extra bullet (user 2026-07-25)
     if ( IsSubStr( n, "apex_beam_rifle" ) ) return false;   // Havoc: Apex energy PROJECTILE rifle, no extra bullet (user 2026-07-06)
     if ( IsSubStr( n, "t9_semiauto_cosplay" ) ) return false;   // Blast-O-Matic: projectile energy blaster, no extra bullet (user 2026-07-03)
     return true;                                        // every other bullet gun gets the extra bullet -> tempered
@@ -1972,6 +1981,7 @@ function weapon_is_bullet_gun( weapon_name )
     if ( IsSubStr( weapon_name, "bare_hands" ) )         return false;   // Berzerker bare-fist melee slot
     if ( IsSubStr( weapon_name, "s1_mahem" ) )           return false;   // Mahem launcher (explosive)
     if ( IsSubStr( weapon_name, "war_machine" ) )        return false;   // War Machine drum GL (explosive)
+    if ( IsSubStr( weapon_name, "s1_mdl" ) )             return false;   // EPG-1 plasma-lobber (explosive)
     if ( weapon_is_unbuffed_wonder( weapon_name ) )      return false;   // Fire Bow / Thundergun / Winter's Howl = NONE of the three items (user 2026-07-14)
     return true;                                                          // remaining held guns fire plain bullets
 }
@@ -1986,6 +1996,7 @@ function weapon_is_explosive_gun( weapon_name )
     if ( !isdefined( weapon_name ) ) return false;
     if ( IsSubStr( weapon_name, "s1_mahem" ) )     return true;   // Mahem guided launcher
     if ( IsSubStr( weapon_name, "war_machine" ) )  return true;   // War Machine drum grenade launcher
+    if ( IsSubStr( weapon_name, "s1_mdl" ) )         return true;   // EPG-1 plasma-lobber - MDL reskin (user 2026-07-25; Warhead Bomber +20% verified applying, user check 2026-07-26)
     return false;
 }
 
@@ -1999,6 +2010,9 @@ function weapon_is_unbuffed_wonder( weapon_name )
     if ( IsSubStr( weapon_name, "bow" ) )        return true;   // elemental bows (Fire Bow etc.)
     if ( IsSubStr( weapon_name, "thundergun" ) ) return true;   // Thundergun (wonder energy cone)
     if ( IsSubStr( weapon_name, "freezegun" ) )  return true;   // Winter's Howl (cryo freeze cannon)
+    if ( IsSubStr( weapon_name, "special_discgun" ) ) return true;   // D13 Sector ricochet disc launcher (2026-07-24)
+    if ( IsSubStr( weapon_name, "skull_gun" ) )       return true;   // Skull of Nan Sapwe hero beam (2026-07-24)
+    if ( IsSubStr( weapon_name, "dragon_gauntlet" ) ) return true;   // Dragon Gauntlet hero flame (2026-07-24)
     return false;
 }
 
@@ -2144,6 +2158,7 @@ function boss_nuke_mult( w_weapon )
     if ( name == "s1_mahem" )        return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );
     if ( name == "t5_china_lake" )   return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );   // China Lake grenade launcher: same launcher boss-cut as the Mahem (user 2026-07-05)
     if ( name == "t6_war_machine" )  return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );   // War Machine drum grenade launcher: same launcher boss-cut (user 2026-07-09; a 6-round drum would boss-nuke without it)
+    if ( name == "s1_mdl" )          return getdvarfloat( "acc_launcher_boss_mult",   ACC_LAUNCHER_BOSS_MULT );   // EPG-1 plasma-lobber (MDL reskin): same launcher boss-cut (user 2026-07-25)
     if ( name == "t8_paladin_hb50" ) return getdvarfloat( "acc_paladin_boss_mult",    ACC_PALADIN_BOSS_MULT );
     return 1.0;
 }

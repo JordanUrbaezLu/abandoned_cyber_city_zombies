@@ -102,6 +102,17 @@ function spawn_altars()
     acc_ammo_crate::spawn_crate_at( ( -400, 1948, -1200 ), 0 );      // AMMO CRATE #2 -> abyss L5 WEST, the bottom before Paradise (user 2026-06-27)
     acc_overclocks::spawn_terminal_at( ( 400, 1948, -1200 ), 0 );    // Cyberware Weapon Overclock #2 -> abyss L5 EAST, opposite the L5 crate (user 2026-06-28). GSC spawn works immediately; collision clip QUEUED in add_prop_clips.js (overclock_l5) -> SOLID after the next .map + LED-bake pass (walk-through model until then).
 
+    // PLAZA Overclock (user 2026-07-26 "many players can't overclock because they can't get to the trench",
+    // then same day "switch the exo suit station in plaza with the overclock station at lab"): a SECOND,
+    // easy-access terminal ABOVE ground so the weapon-tier system no longer REQUIRES the trench descent.
+    // Now at the plaza start-room spot the Exo pod held 2026-07-13..07-26 (-200,-100,0): open spawn-band
+    // floor, immediately discoverable, clear of the start box (100,-150), the leaderboard terminal
+    // (-340,-210) and all four plaza caches. The Exo pod took the Lab-beside-PaP spot in exchange
+    // (_acc_exo::spawn_station). Above-ground is fine: spawn_terminal_at wires terminal_loop directly,
+    // bypassing watch_terminal_trigger's map-trigger-only guard. Blue unused-station pulse rides
+    // spawn_terminal_at's glow_on - position-independent. Collision clip: add_prop_clips.js 'overclock_plaza'.
+    acc_overclocks::spawn_terminal_at( ( -200, -100, 0 ), 0 );        // Cyberware Weapon Overclock -> PLAZA start room (ex-Exo spot), user 2026-07-26
+
     // --- MARQUEE SINK: Neural Expansion Bay - buy +1 perk slot with shards (base 4, up to 9). In the Foundry /
     //     Exo-Suit under-room (ORIGINAL size, user 2026-06-28 reverted a brief shrink): interior x[-192,192]
     //     y[1379,1723] z=-240. Sits on the EAST side at (120,1550); the Exo station is on the WEST (-120,1550), so
@@ -206,6 +217,7 @@ function paradise_box_loop()   // self = the box trigger
         if ( !( player zm_score::can_player_purchase( cost ) ) )
         {
             player acc_utility::hud_msg( "^5PARADISE BOX^7 - needs " + cost + " points" );
+            player PlaySound( "acc_shard_deny" );   // [acc] deny buzz (sfx sweep 2026-07-21)
             wait 0.4;
             continue;
         }
@@ -221,6 +233,7 @@ function paradise_box_loop()   // self = the box trigger
         player zm_score::minus_to_player_score( cost );
         self.acc_spinning = true;
         acc_interact_glow::glow_off( self.acc_box_model );   // points actually spent = successful use
+        PlaySoundAtPosition( "acc_glitch_altar_spin", self.acc_box_model.origin );   // [acc] datastream reveal spin (sfx sweep 2026-07-21)
 
         // [acc] VISIBLE SPIN (user 2026-07-06: "it just takes your points without spinning through
         // guns"): the old 0.75s bare wait gave zero feedback. Recreate the stock box read - a floating

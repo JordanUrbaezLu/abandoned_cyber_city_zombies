@@ -63,6 +63,7 @@
 #precache( "lui_menu", "acc_lb_rec" );
 #precache( "lui_menu", "acc_lb_board" );
 #precache( "lui_menu", "acc_lb_boot" );
+#precache( "lui_menu", "acc_gameover" );
 #precache( "model", "p7_zm_sta_dragon_network_data_terminal" );
 
 // CO-OP PEER RELAY models (2026-07-16, user: "non host players cant see the UI for the
@@ -88,6 +89,14 @@
 // LEAVE-FLUSH hook arm (2026-07-18): "1" on the HOST machine only = the pause menu's
 // Leave Game / Restart Level must ask GSC to record before exiting (leave_flush_watch).
 #precache( "lui_menu_data", "accLbLeaveHook" );
+
+// game-over decision screen (acc_gameover.lua - offer_retry_on_death below) sends NO
+// controller UI models: the per-controller Server UIModel pool is FULL (stock + the
+// accLb*/accBoss* spend above) - SetControllerUIModelValue threw "max number of Server
+// UIModels" for every new accGo* create, live 2026-07-25 (memory
+// controller-uimodel-pool-full). Feed = dvars (acc_go_info/exit + the acc_go_active
+// pause-menu game-over-mode flag, host-side) + client-side stock PlayerList models /
+// scoreboard columns read by the LUI itself.
 
 // Plaza south wall (y=-240 plane), WEST of the Implant Lab doorway (x[-260,-180]) -
 // the OPPOSITE side of that door from the acc_box_plaza mystery-box chest at
@@ -142,6 +151,8 @@ function init()
     level thread record_every_round();
     level thread station_setup();
     level thread dev_fetch_probe();
+    level thread offer_retry_on_death();   // on-death decision screen: RESTART MAP / END GAME (tower-map pattern, 2026-07-25)
+    level thread gameover_failsafe();      // independent exit watchdog - the game can never sit on the death screen forever
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +264,59 @@ function pick_recorder()
     return players[ 0 ];
 }
 
+// self = the host. PURE-IO LIVENESS PROBE - the core of the "quick retry, no cmd window" fix
+// (docs/40): os.execute is the ONLY thing that flashes a console; this probe fires NONE. It
+// mirrors the launcher pre-spawn's proven ping/pong handshake (spawn_lb_agent.tpl.ps1): open the
+// boot chunk in "ping" mode (io only - deletes any stale pong, writes players\acc_lb_ping.txt),
+// give the background agent a poll cycle to answer with players\acc_lb_pong.txt, then open it in
+// "pongcheck" mode to read the reply. A live pong means an agent from an EARLIER MATCH in this
+// Steam app session is STILL running - BlackOps3.exe (and the agent .bat) persist across
+// map_restart - so the caller REUSES it and never spawns. That is what makes every death ->
+// retry -> restart after the first game of a session open ZERO console windows.
+//
+// GSC drives the ~1s inter-open wait so each chunk open stays SYNCHRONOUS in createMenu (a
+// UITimer-driven wait FROZE the engine, 2026-07-12 - CLAUDE.md warns against an in-game handshake
+// that violates this; this one does not). Both opens hit the logic-only acc_lb_boot menu (no
+// visible UI). Any bridge hiccup falls back to "dead" -> spawn, so it can never be worse than
+// today. Host-only: menus open on the target client and only the host's machine has the agent.
+function agent_is_alive()
+{
+    // 1) write the ping (the chunk deletes any stale pong first)
+    SetDvar( "acc_lb_boot_trace", "" );
+    SetDvar( "acc_lb_boot_cmd", "ping" );
+    wait 0.2;   // let the mode dvar land client-side before the chunk's createMenu reads it
+    m = self OpenLUIMenu( "acc_lb_boot" );
+    wait 0.1;
+    if ( isdefined( m ) )
+        self CloseLUIMenu( m );
+
+    // 2) the agent's poll loop sleeps ~1s (ping -n 2) and answers a ping at the TOP of the loop
+    //    (before any curl) - give it a full cycle plus margin
+    wait 1.6;
+
+    // 3) read the pong reply
+    SetDvar( "acc_lb_boot_trace", "" );
+    SetDvar( "acc_lb_boot_cmd", "pongcheck" );
+    wait 0.2;
+    m = self OpenLUIMenu( "acc_lb_boot" );
+
+    tr = "";
+    end_ms = GetTime() + 2000;
+    while ( GetTime() < end_ms )
+    {
+        tr = GetDvarString( "acc_lb_boot_trace", "" );
+        if ( tr != "" )
+            break;
+        wait 0.1;
+    }
+    if ( isdefined( m ) )
+        self CloseLUIMenu( m );
+
+    alive = IsSubStr( tr, "alive" );
+    lb_log( "agent liveness probe: trace='" + tr + "' -> " + ( alive ? "ALIVE (reuse, no spawn)" : "dead (will spawn)" ) );
+    return alive;
+}
+
 // self = the host. Spawn the background curl agent via the acc_lb_boot chunk and CONFIRM it
 // actually happened: the chunk Execs acc_lb_boot_trace "spawn1" (agent launched) / "spawn0"
 // (bat write or wscript failed) / "check_*" (the chunk never SAW mode=spawn - the mode dvar
@@ -260,6 +324,17 @@ function pick_recorder()
 // all. Up to 3 attempts with a settle wait between them; true only on a CONFIRMED "spawn1".
 function boot_agent_verified()
 {
+    // REUSE FIRST (the quick-retry / no-flash fix, docs/40): BlackOps3.exe - and the agent .bat
+    // it spawned - PERSIST across map_restart within one Steam app session, so a prior match's
+    // agent is still polling. A pure-io ping/pong (agent_is_alive - NO os.execute) detects it and
+    // SKIPS the spawn entirely, so every death->retry->restart after the first game opens ZERO
+    // console windows. Falls through to a real spawn only when NO agent answers.
+    if ( self agent_is_alive() )
+    {
+        lb_log( "agent already alive this app session - reusing it (no spawn, no console flash)" );
+        return true;
+    }
+
     for ( attempt = 1; attempt <= 3; attempt++ )
     {
         SetDvar( "acc_lb_boot_trace", "" );
@@ -283,6 +358,16 @@ function boot_agent_verified()
         lb_log( "agent spawn attempt " + attempt + "/3: trace='" + tr + "'" );
         if ( IsSubStr( tr, "spawn1" ) )
             return true;
+
+        // The early-boot trace bridge is UNRELIABLE (2026-07-16 outage post-mortem): a spawn that
+        // ACTUALLY launched may fail to round-trip "spawn1". Confirm via the authoritative
+        // ping/pong BEFORE firing another (redundant, flashing) os.execute - so one real spawn
+        // never multiplies into 2-3 console flashes. This STRENGTHENS the verified-spawn intent.
+        if ( self agent_is_alive() )
+        {
+            lb_log( "agent spawn attempt " + attempt + ": confirmed live via ping/pong (trace missed)" );
+            return true;
+        }
 
         wait 2;   // settle before the retry (empty/check trace = menu or bridge not ready yet)
     }
@@ -615,16 +700,15 @@ function record_at_end_game()
     if ( !isdefined( recorder ) )
         return;
 
-    // ENSURE A LIVE AGENT for the POST: the subscriber spawn at blackscreen may not have
-    // confirmed (level.acc_lb_agent_up false), and a marathon run (>100 min) may have outlived
-    // the agent. Verified spawn with retries; the record below proceeds REGARDLESS - worst case
-    // the local record + queued POST wait on disk and the next live agent sends the queue (the
-    // boot chunk no longer clears acc_lb_do_post.txt; the Worker upserts by session, so a late
-    // re-send is safe). The game is over, so any console flash is invisible on the scoreboard.
-    if ( !IS_TRUE( level.acc_lb_agent_up ) || GetTime() > 100 * 60 * 1000 )
-    {
-        level.acc_lb_agent_up = recorder boot_agent_verified();
-    }
+    // NO agent boot at end_game (v2.1, user 2026-07-25 "i randomly get tabbed out at
+    // end of game"): the old ensure-boot here spawned a cmd window whose focus steal
+    // yanked exclusive-fullscreen BO3 to the desktop - tolerable over the old static
+    // scoreboard ("invisible"), unacceptable over the live acc_gameover decision
+    // screen. The record below proceeds REGARDLESS and is loss-proof without a boot:
+    // the local record + queued POST wait on disk (the boot chunk no longer clears
+    // acc_lb_do_post.txt; the Worker upserts by session, so a late re-send is safe)
+    // and the NEXT live agent sends the queue - the restart's spawn-in boot, or the
+    // next app session. A dead agent only delays the upload, never drops it.
 
     lb_log( "end_game: round_number=" + level.round_number + " players=" + GetPlayers().size + " - recording" );
     publish_and_open_rec( recorder );
@@ -699,13 +783,37 @@ function publish_and_open_rec( recorder )
     SetDvar( "acc_lb_stats", stats );
     lb_log( "record stats='" + stats + "' paradise=" + ( IS_TRUE( level.acc_paradise_won ) ? "1" : "0" ) );
 
+    // any lane reaching this point stores/queues a record for THIS run - latch it for
+    // the game-over screen's "RUN SAVED" chip (acc_go_info rec flag, acc_gameover.lua)
+    level.acc_go_recorded = true;
+
     wait 0.1;   // let the payload dvars land client-side before the rec chunk's createMenu reads them
-    recorder OpenLUIMenu( "acc_lb_rec" );
-    // Nothing to close: the chunk runs at menu-create (pure io - it writes the
-    // record + queues the POST trigger for the background agent, docs/40); its
-    // trace (r<raw>, w1, j1, q1, done) lands in the log above. The agent being a
-    // detached process means the POST survives even an instant quit-to-menu.
+    m_rec = recorder OpenLUIMenu( "acc_lb_rec" );
+    // The chunk runs at menu-create (pure io - it writes the record + queues the POST
+    // trigger for the background agent, docs/40); its trace (r<raw>, w1, j1, q1, done)
+    // lands in the log above. The agent being a detached process means the POST
+    // survives even an instant quit-to-menu.
     level thread capture_session_id();
+    // CLOSE THE INSTANCE (2026-07-26, the round-38 marathon post-mortem): the io is DONE
+    // at menu-create, but this menu used to stay open forever ("nothing to close") - and
+    // with the per-round lane, ~32 stacked instances deep into a marathon exhausted the
+    // per-client open-menu pool, after which EVERY OpenLUIMenu silently failed: rounds
+    // 33+, the end_game record, even stock's intermission fade (its internal menu open
+    // surfaced as the lui_shared "type undefined is not an int" script error). Threaded
+    // so the end_game/leave lanes never wait on it; 0.5s = the same io-settle margin
+    // leave_flush_record has always used. Memory: lui-menu-instance-cap.
+    level thread close_rec_menu_after_io( recorder, m_rec );
+}
+
+// Close one rec-menu instance once its chunk io has settled (see the call site above).
+// Deliberately NO endon - the end_game record's close must still run at intermission;
+// a mid-wait map_restart just tears everything down anyway. m_rec undefined = the open
+// itself failed (pool already full) - nothing to close.
+function close_rec_menu_after_io( recorder, m_rec )
+{
+    wait 0.5;
+    if ( isdefined( recorder ) && isdefined( m_rec ) )
+        recorder CloseLUIMenu( m_rec );
 }
 
 // Grab the session id the rec chunk parked on acc_lb_session (first record mints it;
@@ -1417,6 +1525,180 @@ function dev_fetch_probe()
         p CloseLUIMenu( m );
     lane_free();
     lb_log( "DEV PROBE COMPLETE (" + rows.size + " rows)" );
+}
+
+// ---------------------------------------------------------------------------
+// GAME-OVER DECISION SCREEN (v3, user 2026-07-25 "have the aetherium leaderboards
+// show with options when you die... they can decide to end game or restart map";
+// v3 same day: "make it a menu like when you pause a game you can go up and down
+// from controller" - the v2 hold-melee/hold-aim gestures are GONE).
+// On a wipe: the acc_gameover LUI backdrop (YOU DIED + squad stats + TIME SURVIVED
+// + countdown) opens on every player, and the CHOICE is a real navigable menu -
+// stock's own pause menu, re-enabled and force-opened, with AetheriumStartMenu's
+// game-over mode (dvar acc_go_active) showing exactly two native up/down entries:
+// RESTART MAP (the pause menu's proven flash-free `Engine.Exec map_restart` lane +
+// leave-flush) and END GAME (the pause menu's proven Leave Game disconnect lane).
+// No choice in 60s = ExitLevel(false), the stock terminal call (_zm.gsc:6249).
+// GSC reads NO buttons at all in v3 - navigation/confirm are the menu system's own
+// (GSC cannot read stick/dpad - only boolean action buttons exist, see
+// _acc_movement.gsc's slide-steering note - which is exactly why v2 used holds).
+//
+// HOW THE SCREEN OWNS THE FRAME (all script-side levers, VERIFIED vs stock _zm.gsc):
+//   - level._supress_survived_screen: stock end_game() only builds its "GAME OVER /
+//     You survived N rounds" hudelems when this is UNDEFINED (_zm.gsc:6057), and it
+//     builds them after a `wait 0.1` (:6035) - setting the flag synchronously on the
+//     end_game notify wins the race, so our screen draws the survived line instead.
+//   - level.zombie_vars["zombie_intermission_time"]: stock's exit is a plain
+//     `wait( zombie_intermission_time )` then ExitLevel (:6208/:6249), and the var is
+//     read AT the wait - stretching it to 120s on the notify parks stock's exit far
+//     behind our own decision window, so whichever action we take runs first.
+//   - LUINotifyEvent force_scoreboard 0: stock forces its scoreboard up right before
+//     intermission (:6204, param 1); the param-0 unforce is stock's own release call
+//     (:6244 dev block) - fired after our menu opens so the screen isn't covered.
+//
+// Deliberately NO endon("end_game") - this RUNS at end_game (like record_at_end_game).
+// The 3s settle lets the record io land FIRST (the run is stored before any restart)
+// and the intermission camera cut happen behind the fade-in.
+//
+// TRANSPORT: NO controller UI models - the per-controller Server UIModel pool is
+// FULL and every accGo* create threw live (see the precache-block note + memory
+// controller-uimodel-pool-full). The backdrop LUI reads the squad stats CLIENT-SIDE
+// (stock PlayerList models + Engine.GetScoreboardColumnForClient, the
+// AetheriumScoreboard data path - present on every machine, zero transport). GSC only
+// feeds acc_go_info/exit + the acc_go_active menu-mode flag over DVARS (the proven
+// GSC->LUI channel), which exist on the HOST machine only: co-op peers get the
+// backdrop with client-side stats and the NORMAL pause list (Leave Game works there;
+// restarting is the host's call). Live-disable: acc_retry_on_death 0 restores the
+// full stock flow (stock text, 15s, auto-exit).
+// ---------------------------------------------------------------------------
+function offer_retry_on_death()
+{
+    // stale-dvar scrub at init: dvars persist across map_restart within one app
+    // session - a leftover acc_go_active would turn the NEXT game's mid-run pause
+    // menu into the two-button game-over list
+    SetDvar( "acc_go_info", "" );
+    SetDvar( "acc_go_active", "" );
+    SetDvar( "acc_go_exit", "" );
+
+    level waittill( "end_game" );
+
+    if ( getdvarint( "acc_retry_on_death", 1 ) != 1 )
+        return;
+
+    // claim the frame SYNCHRONOUSLY on the notify (see the race notes above)
+    level._supress_survived_screen = true;
+    level.zombie_vars[ "zombie_intermission_time" ] = 120;
+
+    wait 3;   // record io settles + the intermission camera cut lands before the fade-in
+
+    players = GetPlayers();
+    if ( players.size == 0 )
+        return;
+
+    gameover_publish_dvars();
+
+    foreach ( p in players )
+    {
+        if ( !isdefined( p ) || !isplayer( p ) )
+            continue;
+        p.acc_go_menu = p OpenLUIMenu( "acc_gameover" );
+    }
+
+    // release the scoreboard stock forced up right before intermission (:6204)
+    LUINotifyEvent( &"force_scoreboard", 1, 0 );
+
+    // THE MENU: re-enable the ingame menu stock disabled at end_game (_zm.gsc:6043 -
+    // the flag is the ONLY gate, which is itself the proof the menu works here) and
+    // force it open on every player. acc_go_active flips AetheriumStartMenu into its
+    // two-entry game-over mode - native up/down navigation + confirm, the exact pause
+    // menu interaction the user asked for. OpenMenu = the stock builtin (_zm.gsc:636).
+    SetDvar( "acc_go_active", "1" );
+    SetMatchFlag( "disableIngameMenu", 0 );
+    wait 0.1;   // let the dvar land before the menu's createMenu reads it
+    foreach ( p in GetPlayers() )
+    {
+        if ( isdefined( p ) && isplayer( p ) )
+            p OpenMenu( "StartMenu_Main" );
+    }
+
+    // Both choices act from the menu itself (Engine.Exec map_restart / disconnect
+    // tear the VM down - nothing returns to this thread). GSC only runs the
+    // countdown: no choice in 60s = auto End Game, mirroring the stock exit. NOTE
+    // solo pause: an open menu may pause the server, freezing this countdown - by
+    // design, a player sitting IN the menu is deciding, not AFK.
+    gameover_countdown( 60 );
+    level.acc_go_done = true;   // stands the failsafe watchdog down
+    lb_log( "GAMEOVER: countdown expired with no choice -> ExitLevel" );
+    foreach ( p in GetPlayers() )
+    {
+        if ( isdefined( p ) && isplayer( p ) && isdefined( p.acc_go_menu ) )
+            p CloseLUIMenu( p.acc_go_menu );
+    }
+    wait 0.2;
+    ExitLevel( false );   // the stock terminal call (_zm.gsc:6249)
+}
+
+// LAST-RESORT EXIT WATCHDOG (v2.1, after the live "game can't end" hang): the game
+// must NEVER be able to sit on the death screen forever. Fully independent of the
+// main flow - if no decision landed 90s after end_game (main thread errored/died),
+// exit exactly like stock would have. Layering: main flow decides at <=63s, this
+// fires at 90s, stock's stretched intermission wait exits at ~120s.
+function gameover_failsafe()
+{
+    level waittill( "end_game" );
+
+    if ( getdvarint( "acc_retry_on_death", 1 ) != 1 )
+        return;
+
+    wait 90;
+
+    if ( IS_TRUE( level.acc_go_done ) )
+        return;
+    lb_log( "GAMEOVER: failsafe exit - the main flow never decided" );
+    ExitLevel( false );
+}
+
+// Feed the host-side dvars the backdrop LUI polls: acc_go_info "round|H:MM:SS|rec"
+// once, plus the countdown seed. The squad stat rows need NO feed at all - the LUI
+// reads stock PlayerList models + scoreboard columns client-side on every machine
+// (AetheriumScoreboard data path).
+function gameover_publish_dvars()
+{
+    secs = int( GetTime() / 1000 );   // match-relative ms -> run seconds (same as acc_lb_dur)
+    rec = ( IS_TRUE( level.acc_go_recorded ) ? "1" : "0" );
+    SetDvar( "acc_go_info", "" + level.round_number + "|" + gameover_fmt_time( secs ) + "|" + rec );
+    SetDvar( "acc_go_exit", "60" );
+}
+
+// "H:MM:SS" like the tower-map reference (0:00:11)
+function gameover_fmt_time( secs )
+{
+    h = int( secs / 3600 );
+    m = int( ( secs % 3600 ) / 60 );
+    s = int( secs % 60 );
+    ms = ( m < 10 ? "0" + m : "" + m );
+    ss = ( s < 10 ? "0" + s : "" + s );
+    return "" + h + ":" + ms + ":" + ss;
+}
+
+// The no-choice countdown, mirrored to the backdrop footer at 1s quanta on
+// acc_go_exit. Both real choices act from the pause menu (map_restart / disconnect
+// tear the VM down mid-loop, which is the intended exit); this only returns when the
+// full window elapsed with no decision.
+function gameover_countdown( secs )
+{
+    deadline = GetTime() + secs * 1000;
+    last = -1;
+    while ( GetTime() < deadline )
+    {
+        left = int( ( deadline - GetTime() ) / 1000 );
+        if ( left != last )
+        {
+            last = left;
+            SetDvar( "acc_go_exit", "" + left );
+        }
+        wait 0.25;
+    }
 }
 
 // ---------------------------------------------------------------------------

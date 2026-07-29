@@ -58,6 +58,7 @@
 #insert scripts\shared\shared.gsh;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // Paradise-win capstone XP (docs/45)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;         // single music channel (calm + 115 route through it)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_atmosphere;    // paradise_fog_on (roll the fog back in)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;    // get_paradise_risers / tag_trench_zombie / player_in_second_part
@@ -1060,6 +1061,7 @@ function win()
     {
         if ( !isdefined( p ) || !isplayer( p ) || !isalive( p ) ) continue;
         grant_paradise_reward( p );
+        acc_leveling::grant_paradise_win_xp( p );   // [acc] leveling: marquee survival capstone XP (docs/45)
     }
 
     // ---- LOOT: the 5 wonder weapons on the plaza floor for the reward window ----

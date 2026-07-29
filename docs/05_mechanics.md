@@ -41,9 +41,18 @@ We originally compressed stock BO3's slow opening with an early-round spawn-coun
 
 **Code**: [`_acc_early_round_pacing.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_early_round_pacing.gsc) — `post_zm_main()` chains `level.max_zombie_func` from `scripts/zm/zm_abandoned_cyber_city.gsc` immediately after `zm_usermap::main()`, still inside `main()` so the chain exists before round 1. Constants: `ACC_EARLY_ROUND_MAX`, `ACC_EARLY_SPAWN_MULT`, `ACC_EARLY_SPAWN_MULT_R1`.
 
-### 4. Per-round Lab perk rotation
+### 4. Map-wide perk scatter (every 3rd round)
 
-Each round a **random 4 of the 10** Lab perk alcoves open (the rest stay walled off); the open set re-rolls every round, so which perks you can reach is a per-run, per-round gamble. This is the live "Lab rotation" — `_acc_perk_doors.gsc::watch_rounds()`, keyed on `acc_round_start` (`ACC_PERK_DOORS_OPEN_PER_ROUND = 4`, user raised 3→4 on 2026-06-23). A player standing in an alcove at the round flip is **never sealed in** — the close is deferred until the alcove is empty (no-trap fix, 2026-06-25). Players can also **permanently unlock** one extra alcove by paying Empty Mega Bottles; that door drops out of the roll and stays open (user 2026-07-07). Dev mode runs the same 4-of-10 rotation as normal play.
+**Replaced the Lab alcove-door rotation on 2026-07-24.** The 10 perk machines live on **10 pads
+spread across the whole map** (Plaza = permanent Quick Revive; Lab ×2; Alley; Market; Helipad;
+Vault; the jukebox under-room; Abyss Layer 2 past the first soul door; the Exchange) and the perk→pad assignment **reshuffles
+at random at the start of every round divisible by 3** — `_acc_perk_scatter.gsc::round_watcher()`,
+keyed on `acc_round_start` (`ACC_SCATTER_INTERVAL = 3`). The opening layout is random per run. A
+player standing where a machine lands is pushed out of its front face (never wedged inside — the
+successor of the doors-era no-trap rule). A player who owns a perk's **Mega** can spend **2 Empty
+Mega Bottles** at its machine to **pin** that perk to its current pad for the rest of the game
+(perk + pad both leave the rotation; successor of the 2026-07-07 permanent door unlock). Dev mode
+runs the same scatter as normal play. Full spec: [10_perks.md](10_perks.md); pad ledger: [02_layout.md](02_layout.md).
 
 > **Superseded paths.** The old machine-reskin rotation (`_acc_map_randomizer::roll_perk_rotation`, keyed on `acc_decontamination_complete`) is **disabled/inert** — it targeted `acc_lab_perk_a..d` machines that were never placed (disabled 2026-06-16). The **decontamination / zone-seal hazard was also removed** (2026-06-22 — "never part of the final design"): no zone is ever sealed and no evac warning fires. `_acc_decontamination.gsc` now only re-emits `acc_decontamination_complete` each round so `_acc_lockdown[_challenge]` can reuse its zone helpers.
 
@@ -58,6 +67,14 @@ Stock BO3 kill awards are **replaced** (not modified) by our own table:
 | Knife / melee kill | 100 |
 
 Stock BO3 per-hit points (10 per damaging hit) are **suppressed by default** (kill-only economy, user 2026-06-18) — `score_per_hit` returns 0 unless the `acc_hit_points` dvar is set to 1. (reconciled to code 2026-07-11)
+
+**WONDER-WEAPON MONEY NERF (user 2026-07-26):** kills whose killing weapon is wonder-tier pay
+**HALF** base points — "a global nerf to wonderweapons since they are so strong". The halving
+scales `base` before the co-op split (killer share + pool both halve; solo body 70→30, headshot
+110→50 after the 10-unit floor) and applies to trench-zombie kills too (30→10). Identity =
+`_acc_points.gsc::is_wonder_kill` (elemental bows, Thundergun, Winter's Howl, D13 Sector, Skull,
+Dragon Gauntlet, Blast-O-Matic, THE CYBERJACK — a mirror of `_acc_damage`'s wonder set, kept in
+sync by comment). The Ledger flat +10 and boss bounty awards are NOT halved.
 
 ### Why these numbers
 

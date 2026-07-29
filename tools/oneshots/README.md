@@ -99,3 +99,29 @@ recovers its exact history. Families moved:
 (referenced by `preflight_windows.ps1`), the restore-chain regenerators (`gen_perk_glow_fx`,
 `apply_recoil_overhaul`, `gen_t7_carve_gdt`, `fix_actionfigure_port`), the maintenance re-run tools
 (`add_prop_clips`, `align_box_clips`, `add_rpd_pap_sight`), and all repeatable diagnostics/audits/generators.
+
+## 2026-07-24 content drop (D13 Sector + HB21 heroes + shield reskin + slots)
+
+Run order for a fresh reinstall of these packs (all install-side; details in
+`tools/external_assets_manifest.ps1` entries + memory `content-drop-2026-07-24-*`):
+
+1. `mega_dl.js <mega-url> <out>` — headless MEGA downloader (needs `npm i megajs`); the
+   D13 + HB21 packs came from live MEGA links 2026-07-24.
+2. D13 GDT accu fix — `sed` rpg.accu → default.accu in `source_data/koentje/koentje_disk_gun.gdt`
+   (silent-drop trap; no script — two sed lines, see the manifest entry).
+3. `fix_discgun_wavs.js` + `verify_discgun_csv.js` — rebuild/verify the trimmed
+   `sound/aliases/discgun_sounds.csv` (16/18 pack wavs never shipped; donors = apex b3wing /
+   spike_launcher lfe / disc foley). Repo copy is canonical; deploy to share\raw.
+4. `dedup_hb21_gdts.js` — strip HB21 GDT blocks duplicating stock/installed GDTs, EXCEPT:
+5. `rebuild_gauntlet_gdt.js` — the gauntlet GDT dedup MUST use this (header-anchored):
+   the beam names also appear as FIELD VALUES inside the weapon blocks and an indexOf
+   stripper corrupts the file (86/85 braces, both gauntlet weapons silently vanish from
+   gdtdb → `BG_LoadWeaponVariantDefFile: unable to locate asset` only in -verbose).
+6. Whelp soundDef blank — `c_zom_dlc3_dragon.gdt` `"soundDef" "veh_parasite"` → `""`
+   (dangling vehiclesounddef link error).
+7. `gen_shield_reskin_gdt.js` — regenerates `source_data/acc_riotshield_reskin.gdt`
+   (repo + install) from the installed logical_models_crafting.gdt template.
+8. `adapt_skull.js` — regenerates the vendored `_zm_weap_keeper_skull.gsc/.csc` CF surgery
+   from the pack staging copy (repo files are canonical; only re-run on a pack re-vendor).
+9. `add_nav_volume.js` — ONE-SHOT (idempotent, skips if present): the map-covering
+   nav_volume the whelp needs. Geometry → FULL build with the LED bake.

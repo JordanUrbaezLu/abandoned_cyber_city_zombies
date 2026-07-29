@@ -189,7 +189,20 @@ Lua:  el:subscribeToModel(Engine.GetModel(Engine.GetModelForController(Instance)
 
 Other channels (available, less used):
 - **M2 menu data** — `#precache("lui_menu_data", path)` + `SetControllerUIModelValue`
-  + Lua `Engine.CreateModel`. For interactive `OpenMenu` menus.
+  + Lua `Engine.CreateModel`. For interactive `OpenMenu` menus — **and the house
+  ZERO-clientfield HUD feed** (per-player, co-op replicated, spectate-pinned; every
+  push must be a unique string — bump a seq/push_id — and feeders must re-push per
+  life across the acc_hud reopen). Live users: `accLevel` (leveling chip),
+  `accLbR1..10`/`accLbTot`/`accLbSrc`/`accLbLeaveHook` (leaderboard),
+  **`accBoss1..5` (2026-07-24, boss health-bar rows — `_acc_boss_nameplate.gsc`
+  `bb_*` → `CoD.AccBossBars` in acc_hud.lua; payload
+  `"<NAME>|<pct 5%-steps>|<state 1/0/2>[|r<n>]"`, 4 Hz change-guarded, FIFO overflow
+  queue, Paradise wipe = state 2, rows tinted per-boss via name-keyed
+  `ACC_BB_BOSS_COLORS`)**. ⚠ CHANNEL-WIDE COST (2026-07-25 live-log find): every
+  UNIQUE string pushed on this channel registers a client BGCACHE **configstring**
+  (finite pool, exhaustion = the docs/22 #6 CTD class) — so QUANTIZE values and
+  never stamp per-push uniquifiers except where an identical re-send must fire
+  (menu-reopen repush windows). The same caution applies to accLevel/accLbR*.
 - **M3 events** — `#precache("eventstring", NAME)` + `player LUINotifyEvent(&NAME,
   argc, ...)` + Lua `subscribeToGlobalModel(..., "scriptNotify", cb)` +
   `CoD.GetScriptNotifyData`. One-shot; the live path is documented-flaky.

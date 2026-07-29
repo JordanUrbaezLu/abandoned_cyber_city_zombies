@@ -54,7 +54,7 @@ number or a system description into a doc, check this table; if you don't own it
 | 07 | [Milestones](07_milestones.md) | Build phases (historical → shipped) |
 | 08 | [Enemies](08_enemies.md) | Zombie speed curve, elites, the boss roster + cadence |
 | 09 | [Boss Items](09_boss_items.md) | The 11-item boss-drop pool, slots, shipped pickup models |
-| 10 | [Perks](10_perks.md) | All 10 perks + Megas, slot cap/costs, Lab-alcove rotation |
+| 10 | [Perks](10_perks.md) | All 10 perks + Megas, slot cap/costs, map-wide perk scatter |
 | 11 | [Controls & HUD](11_controls_and_hud.md) | Input bindings + the shipped Aetherium HUD (bar, gun-badge row, etc.) |
 | 12 | [Co-op Rules](12_coop_rules.md) | Co-op scaling, revive, split-screen, shared vs per-player state |
 | 31 | [Vague UI Language](31_vague_ui_language.md) | Principle: hide magnitudes in-game; exact numbers live in docs |
@@ -76,6 +76,7 @@ number or a system description into a doc, check this table; if you don't own it
 | 41 | [Weapon Usage Tracking](41_weapon_usage_tracking.md) | Anonymous per-gun held-time telemetry via the leaderboard POST (VERIFIED end-to-end in production) |
 | 42 | [Analytics Platform](42_analytics_platform.md) | **The path forward for online features**: cloud DB pipeline architecture, add-a-metric runbook, bug-free invariants |
 | 43 | [The CYBERJACK](43_cyberjack_wonder_weapon.md) | **The big bet**: map-exclusive signature wonder weapon on the storm-bow chassis — full verified design + implementation map (design locked, build not started) |
+| 45 | [Leveling System](45_leveling_system.md) | Per-player LV0-10 that caps the overclock + exo tier ladders; XP from bosses/trench/fast-rounds/kills; bottom-left HUD. **DEV-ONLY for now** — spec + Phase 1-3 built 2026-07-20 |
 
 ## Engineering reference
 | # | Doc | What it's for |

@@ -41,7 +41,7 @@ These were the launch targets set before the scope expanded; treat them as direc
 
 - 4-player co-op stable over a 2-hour run without persistent desync (co-op HP/spawn scaling lives in `_acc_coop_scaling.gsc`).
 - At least **3 viable build archetypes** reach round 50+ in solo when piloted well.
-- Map-state randomization produces different openings — the **PaP-blocked side** re-rolls per run and the Lab's **4-of-10 perk-door** set re-rolls each round (power routing is always `corp`, the Overclock pool is fixed/dead, and wallbuys are a fixed set of 5 — none of those re-roll). (reconciled to code 2026-07-11)
+- Map-state randomization produces different openings — the **map-wide perk scatter** re-rolls the perk→pad layout at every round divisible by 3 (opening layout random per run; QR fixed in the Plaza — [10_perks.md](10_perks.md), replaced the Lab 4-of-10 perk-door roll 2026-07-24), plus the box moves and boss drops. Power routing is always `corp`, both Lab approaches are always open (the per-run PaP block was removed 2026-06-22), the Overclock pool is fixed/dead, and wallbuys are a fixed set of 5 — none of those re-roll.
 - Median solo run length before avoidable death at round 30: **25+ minutes** (a measure of tension-without-cheap-deaths).
 - Workshop rating target: 4.5+ stars after 500 unique downloads, with reviews citing "build variety" or "replayability".
 

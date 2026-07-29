@@ -42,7 +42,14 @@ if (!inPath || !outArg) { console.error('usage: add_prop_clips.js <in> <out>'); 
 // too; ALL new/updated Paradise + loft clips use `brushmodel: true` (LED-exempt at ANY depth -
 // zero bake risk; the shallow legacy worldspawn clips keep baking as before, just resized).
 const PROPS = [
-  { x: -200, y: -100, hx: 29, hy: 26, bot: 0, top: 114, label: 'exo_station' },  // p7_cry_cryogen_pod_exterior (stasis pod 58x53x114, yaw 0 -> hx29/hy26) - MOVED to the PLAZA start room (user 2026-07-13, was the bus-station trench @ (-120,1550,-240)); surface z=0 floor -> shallow worldspawn clip (navmesh auto-cut, no LED risk). Mirrors _acc_exo::spawn_station_at (-200,-100,0).
+  { x: -200, y: 4480, hx: 29, hy: 26, bot: 0, top: 114, label: 'exo_station' },  // p7_cry_cryogen_pod_exterior (stasis pod 58x53x114, yaw 0) - THE SCIENTIST'S OFFICE (user 2026-07-26, gen_scientist_office.js room behind the Lab N wall); briefly Lab-floor (-500,3700) same day, PLAZA start room 2026-07-13..07-26 before, trench (-120,1550,-240) originally. Surface z=0 floor -> shallow worldspawn clip. Mirrors _acc_exo::spawn_station_at (-200,4480,0).
+  // ===== THE SCIENTIST'S OFFICE furniture (gen_scientist_office.js statics, user 2026-07-26) - z=0 room floor, snug boxes =====
+  { x:  -75, y: 4490, hx: 28, hy: 16, bot: 0, top:  31, label: 'sci_desk' },       // p7_rus_desk_metal_vintage (yaw 180) - the loot gun rests on top (GSC display at ~z37)
+  { x:  -75, y: 4538, hx: 13, hy: 13, bot: 0, top:  22, label: 'sci_chair' },      // p7_zm_tra_booth_chair behind the desk
+  { x: -252, y: 4540, hx: 11, hy: 11, bot: 0, top:  73, label: 'sci_coat_rack' },  // p8_zm_off_coat_lab_rack, NW corner
+  { x: -268, y: 4460, hx: 16, hy:  9, bot: 0, top:  52, label: 'sci_filing' },     // p8_zm_off_filing_cabinet_01 (18x32 at yaw 90 -> hx16/hy9), W wall
+  { x:   80, y: 4532, hx: 23, hy: 30, bot: 0, top:  56, label: 'sci_console' },    // p8_zm_off_console_control_01 (46x60, yaw 180), NE corner
+  { x:   92, y: 4292, hx: 28, hy: 27, bot: 0, top:  49, label: 'sci_tank' },       // p8_zm_off_tank_chemical, SE corner
   { x:    0, y: 2493, hx: 46, hy: 23, top: -190, label: 'reactor_plinth' }, // p7_ris_generator_lg_01_blue (industrial generator 92x46x50, yaw 0 - long axis X along the back wall). Jukebox NORTH under-room; the jukebox machine sits WEST at (-140,2350), clear. Mirrors _acc_reactor::spawn_plinth_at (0,2493).
   // Data Cache "storages" (user 2026-07-10): model reverted p7_zm_sta_computer_tower_01 -> p7_cai_stacking_cargo_crate
   // (the crate the user preferred). The crate SHIPS a _col LOD so it self-collides; these clips are belt-and-suspenders
@@ -60,6 +67,7 @@ const PROPS = [
   { x: -405, y: 1948, hx: 15, hy: 17, bot: -1200, top: -1174, brushmodel: true, label: 'ammo_crate_l5' }, // west_ammo_crate_model (same offset; spawn (-400,1948)) - abyss L5 WEST, the bottom before Paradise.
   { x: -400, y: 1948, hx: 24, hy: 17, bot: -480, top: -402, brushmodel: true, label: 'overclock_terminal' }, // p7_zm_sta_dragon_network_data_terminal (48x34x78) - abyss L2 WEST.
   { x:  400, y: 1948, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'overclock_l5' }, // dragon network terminal - abyss L5 EAST.
+  { x: -200, y: -100, hx: 24, hy: 17, bot:     0, top:    78, brushmodel: true, label: 'overclock_plaza' }, // dragon network terminal (48x34x78, yaw 0) - PLAZA start room, the ex-Exo-pod spot (SWAPPED user 2026-07-26; briefly 'overclock_lab' @ (-500,3700) earlier same day). Mirrors _acc_glitch_altar spawn_terminal_at (-200,-100,0).
   { x: -400, y: 1948, hx: 81, hy: 33, bot:  -720, top:  -600, brushmodel: true, label: 'glitch_altar_l3' }, // p7_ram_altar (stone altar 162x66x58) - abyss L3; slab x[-781,-112] holds the 162 width fine. TOP RAISED -662->-600 (2026-07-13): the 58u slab top was jump-on-able with the Rocket Shield implant (~80u apex, 2x jump); a 120u-tall invisible cap now makes the top unreachable while the side-approach use-trigger (radius 110) is unaffected.
   { x:  850, y: -1350, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'paradise_overclock' },   // dragon network terminal - PARADISE east-mid.
   { x: -850, y: -1950, hx: 29, hy: 26, bot: -1200, top: -1086, brushmodel: true, label: 'paradise_exo' },         // cryogen stasis pod (yaw 0) - PARADISE west-south.
@@ -90,6 +98,7 @@ const PROPS = [
   // Jukebox + Paradise PaP (model-clip audit 2026-07-10): both are bare spawn(script_model)+setmodel props whose xmodel
   // ships NO _col LOD (verified via find <model>*_col.xmodel_bin + tools/xmodel_bin_inspect.js) -> walk-through until clipped.
   { x: -139, y:  2240, hx: 12, hy: 17, bot:  -240, top:  -187, brushmodel: true, label: 'jukebox' },              // cp_town_jukebox 22.7x33x53, yaw 0; mesh sits +X of the spawn origin (-150,2240) -> clip center x=-139. North under-room SW (spread from the reactor 2026-07-10).
+  { x: -259.6, y: 2260.3, hx: 12, hy: 18, bot: -240, top: -187, brushmodel: true, label: 'slots_vending' },       // CYBER SLOTS floor machine (p8_zm_off_cigarette_vending, TOP-origin hangs 52.8, yaw 0) FREE-STANDING at (-250,2260,-187.2) on the open floor between the jukebox and the trench mystery box (REPLACED the outside-the-room wall-hung spot 2026-07-25). Mirrors _acc_slots::spawn_slot_machine; offsets = the surface cig-vending clip deltas (-9.6,+0.3) at yaw 0.
   // TELEPORTER pads have NO clips (FINAL 2026-07-18): the step-up plates (11u, then 8u) were
   // ZOMBIE-SAFE EXPLOITS - entity clips are navmesh-INVISIBLE, so zombies bumped an unseen ledge
   // at EITHER height and couldn't reach players on the pad. Pads are FLAT now (the Der assembly
@@ -555,7 +564,12 @@ const PROPS = [
   { x: -690, y: 2140, hx: 60, hy: 33, bot: -720, top: -674, brushmodel: true, label: 'm6_l3_egg3' },      // L3 egg nest vs the N wall (clamped y<=2173)
   { x: -640, y: 1940, hx: 17, hy: 37, bot: -960, top: -937, brushmodel: true, label: 'm6_l4_pigslab' },   // L4 butcher slab
   { x: 620, y: 1745, hx: 14, hy: 14, bot: -960, top: -895, brushmodel: true, label: 'm6_l4_mannequin' },  // L4 specimen mannequin
-  { x: 260, y: 2105, hx: 63, hy: 65, bot: -1200, top: -1080, brushmodel: true, label: 'm6_l5_hive' },     // L5 flesh hive (125x129x120 hero)
+  // m6_l5_hive REMOVED (user 2026-07-26 "clip/model blocking you on the stairs... preventing players from
+  // completing the map"): the hive @ (260,2105) x[197,323] y[2040,2170] sat IN the D4 stairwell band
+  // (y[2045,2173]) - the EXACT landing spot l5_column was already moved off of (240,2110 -> 470, user
+  // 2026-07-13). Together with m6_l5_brute1 (x[132,208] y[1956,2024]) it pinched every exit from the
+  // final L4->L5 stairs to <=20u slivers (player capsule ~32u) = map uncompletable. The D4 landing
+  // (x[112,~420] x y[1956,2173]) is a KEEP-CLEAR - never place a clipped prop there again.
   { x: -459, y: 2115, hx: 70, hy: 56, bot: -1200, top: -1150, brushmodel: true, label: 'm6_l5_queen' },   // L5 dead queen corpse (low 50-tall box; mesh center is -29x off the spawn origin -430; y+2 keeps the ammo-crate r110 clear)
   { x: 170, y: 1990, hx: 38, hy: 34, bot: -1200, top: -1167, brushmodel: true, label: 'm6_l5_brute1' },   // L5 dead brute (33 tall)
   { x: 760, y: 1967, hx: 32, hy: 69, bot: -1200, top: -1153, brushmodel: true, label: 'm6_l5_brute2' },   // L5 dead brute vs the E wall (yaw 90 bbox; mesh y[1898,2036])

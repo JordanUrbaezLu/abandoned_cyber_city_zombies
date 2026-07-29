@@ -66,7 +66,7 @@ The "most advanced custom zombies map" per several youtube reviews. Cyber / indu
 
 | Machin[a] idea | Our equivalent |
 |---|---|
-| Boss-drop passive items | Our 10-item pool in `_acc_boss_items.gsc::build_item_pool()`: Gas Tank, Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger (Havoc), Nuclear Energy, Battery. Fixed 3-slot implant bench (docs/09). |
+| Boss-drop passive items | Our 15-item pool in `_acc_boss_items.gsc::build_item_pool()` (live roster in docs/09 — headline: Sentry Drone [replaced Gas Tank 2026-07-22], Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger (Havoc), Plasma Generator, Battery, Berzerker, High Caliber, Warhead Bomber, Hive Node, Dark Magic). Fixed 3-slot implant bench (docs/09). |
 | Energy weapon = different damage rules | Tac-19 no-headshot-mult + bumped base damage; energy-weapon family gets the Plasma Generator +10% layer (explosive gets Warhead Bomber +20%). |
 | Multi-stage weapon upgrade | PaP L1–3 + Overclocks. |
 
@@ -118,7 +118,7 @@ Patterns we mirror because stock is the path of least resistance:
 
 - Stock: one power switch, flips once, stays on.
 - Our variant: **one** power switch (the Bus Station "corp" switch, script_string `corp`). An earlier dual-switch design (corp / vault, live one rolled per run) was cut — the vault switch prefab was removed from the map source 2026-06-18, so `_acc_map_randomizer.gsc::roll_power_switch_side()` now hardcodes `return "corp";` (the `acc_power_side` override is retired).
-- Perk machines require power on, then stay buyable for the rest of the run. We ship **10 perks** (Electric Cherry is the real 10th, finishing the stock-but-unfinished pipeline); slot cap `ACC_PERK_SLOT_MAX = 10` (`_acc_perks.gsc`) with escalating shard costs, and the Lab alcove runs a live 4-of-10 door roll (`_acc_perk_doors.gsc`, `ACC_PERK_DOORS_OPEN_PER_ROUND = 4`).
+- Perk machines require power on, then stay buyable for the rest of the run. We ship **10 perks** (Electric Cherry is the real 10th, finishing the stock-but-unfinished pipeline); slot cap `ACC_PERK_SLOT_MAX = 10` (`_acc_perks.gsc`) with escalating shard costs, and perk availability is the map-wide scatter (`_acc_perk_scatter.gsc`, perk→pad reshuffle every 3rd round; replaced the Lab alcove-door roll 2026-07-24).
 
 ### Mystery Box: `_zm_magicbox.gsc`
 

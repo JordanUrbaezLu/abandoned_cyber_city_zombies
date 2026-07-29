@@ -30,6 +30,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // priority-elite kill XP (docs/45)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
@@ -399,7 +400,10 @@ function shielded_death_reward()
     if ( isdefined( self.acc_no_shard_reward ) && self.acc_no_shard_reward )
         return;
     if ( isdefined( attacker ) && isplayer( attacker ) )
+    {
         acc_data_shards::grant_player( attacker, 3, "riot_elite" );
+        acc_leveling::grant_elite_xp( attacker, "riot" );   // [acc] leveling: priority-brute kill bonus (docs/45)
+    }
 }
 
 // self = a Shielded elite. A HEAVY, half-pace lumberer. The naive way to do "50% slower" - lock the round's
@@ -518,6 +522,22 @@ function on_player_damaged( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDea
     // This hook fires BEFORE player_damage_override's laststand/god-mode checks (_zm.gsc:5110 vs
     // :5137) - don't act on downed/invalid players.
     if ( !zm_utility::is_player_valid( self ) ) return -1;
+
+    // SENTRY DRONE rocket self-splash NEGATION (2026-07-24, adversarial-review catch): the drone's
+    // launcher secondary MagicBullets a REAL s1_mahem attributed to the OWNER (so kills credit them),
+    // and stock Callback_PlayerDamage's self-damage whitelist (_zm.gsc:1435) lets an OWN-rocket
+    // MOD_PROJECTILE_SPLASH through at s1_mahem's raw ~3100 = an instant self-down whenever a crossing
+    // zombie detonates the rocket near the owner (the RP mahem cap below never applies - it is gated on
+    // eAttacker.acc_is_rogue_protector, and here eAttacker IS the player). The native rocket is only
+    // the VISUAL (the real kill is the drone's scripted zombie-only AoE), so during a drone-rocket
+    // flight window (acc_drone_rocket_until, a self-expiring timestamp refreshed by the missile watch
+    // in _acc_boss_items::sentry_rocket_watch) a self-attributed mahem hit is ZEROED. Window-gated on
+    // purpose: a hand-FIRED box Mahem outside the window keeps its normal self-splash risk. Teammates
+    // never needed a lane (stock: "players can't hurt each other", _zm.gsc:1427).
+    if ( isdefined( eAttacker ) && eAttacker == self
+         && isdefined( weapon ) && isdefined( weapon.name ) && IsSubStr( weapon.name, "mahem" )
+         && isdefined( self.acc_drone_rocket_until ) && GetTime() < self.acc_drone_rocket_until )
+        return 0;
 
     final = iDamage;
 
@@ -851,7 +871,8 @@ function acc_avogadro_slow_clear()   // self = the slowed player
 
 // BATTERY boss item surge (user 2026-07-08): shared absorb path for ALL THREE boss zaps (Phantom chain /
 // Rogue Protector / Avogadro). A zap on a READY Battery holder is fully replaced - no slow, no mega-softening,
-// instead a +20% move boost (acc_battery_boost_mult in recompute_move_speed) for 5s (acc_battery_boost_sec) +
+// instead a +24% move boost (acc_battery_boost_mult in recompute_move_speed; user 2026-07-22 +20% buffed by
+// 20% -> 1.24) for 5s (acc_battery_boost_sec) +
 // a light blue-green full-screen aura (battery_aura, the trench-warning tint recipe) + own SFX (acc_battery_zap,
 // the "electric voltage" wav). COOLDOWN 10s (acc_battery_cooldown_sec; user 2026-07-09, was 12s), one surge per cooldown (NOT a
 // refresh-on-re-zap). While the surge is ACTIVE (the 5s window) a second zap is ABSORBED so it can't hinder the
@@ -871,7 +892,7 @@ function acc_battery_ready()   // self = player
 // Battery zap handling (user 2026-07-08 "a 2nd zap in the surge window shouldn't hinder the boost").
 // Returns true if the Battery HANDLED this zap (the caller must then NOT apply its slow):
 //   - Mid-surge (acc_battery_boost, the active 5s): ABSORB - protects the running boost from a 2nd zap.
-//   - Off cooldown: proc a FRESH +20% surge.
+//   - Off cooldown: proc a FRESH +24% surge.
 //   - Implanted but recharging (surge already ended, still <12s): returns FALSE -> the caller's slow applies,
 //     so you CAN still be slowed during the cooldown - just never while the boost itself is up.
 function acc_battery_absorb_zap()   // self = the zapped player

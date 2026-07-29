@@ -84,6 +84,15 @@
 // clientfield lockstep). External rip - assets gitignored via the manifest.
 #using scripts\zm\_zm_weap_freezegun;
 
+// [acc] HB21 Hero Weapons - Dragon Gauntlet + Skull of Nan Sapwe (2026-07-24, vendored
+// subset of hb21_specialist_weapons_v2.0.0; gravityspikes/glaive/annihilator STRIPPED -
+// scriptmover + toplayer CF pools are FULL). Box "special" rolls via _acc_map_randomizer;
+// the stock magicbox routes hero weapons through its own give_hero_weapon, our framework
+// copy finishes the give on user_grabbed_weapon (NO _zm_magicbox override needed).
+// Framework self-registers via REGISTER_SYSTEM_EX. Matching #using in the entry .csc
+// REQUIRED (skull_* clientfield lockstep). External rip - assets gitignored via the manifest.
+#using scripts\zm\_hb21_zm_hero_weapon;
+
 // [acc] AW 3D Printer Mystery Box (PLANET pack, 2026-07-12) - THE map's mystery box,
 // replacing the stock zbarrier chest (its treasure_chest_use structs are deleted from the
 // .map, which makes stock treasure_chest_init a clean no-op). Self-registers via
@@ -155,6 +164,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_avogadro;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perks;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // grant_door_xp (XP for opening a buyable door, docs/45)
 // [acc] Lockdown/Glitch-Purge seal query: the buyable-door loop below (zone_door_trigger_wait) consults
 // acc_lockdown_challenge::is_door_sealed so a door bordering an ACTIVE sealed purge room refuses to open
 // (else a sealed-in player just buys an un-bought border door and escapes - user 2026-06-25).
@@ -383,7 +393,7 @@ function main()
 
 // [acc] DEV MODE - the SINGLE switch (user 2026-06-22; hardcode-only since 2026-07-16). Sets the
 // COMPILE-TIME boolean level.acc_dev (the canonical gate every module reads), then DRIVES the one
-// surviving legacy sub-dvar off it (acc_open_map, for the perk-door module) so there is no
+// surviving legacy sub-dvar off it (acc_open_map, for main()'s open-the-whole-map helper) so there is no
 // per-feature flag to set. (The other dvar-reading holdout, acc_auto_power, is a live-balance knob
 // NOT driven by dev.) THIS is the place to hardcode dev values: add a SetDvar
 // here (or an `if ( level.acc_dev )` branch in the relevant module) - NEVER add a new dev dvar. Runs first
@@ -401,10 +411,10 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (OFF for every Workshop player, not overridable at launch); TEST state = flip
 	// this line to `true` + rebuild (the ONLY arming path - launch flags/dvars are NOT the workflow).
 	// Restore `false` before any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_dev = false;   // SHIP STATE (user 2026-07-20: "turn off dev mode" mid Cyberjack-drop debug; god stays armed below). To arm dev: set `true` + rebuild (docs/22; NO dvar/launch-flag path exists).
+	level.acc_dev = false;   // SHIP state (user 2026-07-25: dev OFF + full rebuild for publish, after the L4 Siege + EPG-1 dev test). Flip to `true` + rebuild to re-arm a dev session (docs/22).
 
 	v = ( level.acc_dev ? "1" : "0" );
-	SetDvar( "acc_open_map",      v );   // _acc_perk_doors reads this dvar (entry gate uses level.acc_dev)
+	SetDvar( "acc_open_map",      v );   // read by main()'s open-the-whole-map dev helper (buyable doors)
 	// ONE-FLAG DOCTRINE (user 2026-07-16, final form): only acc_dev / acc_god / the Lua ACC_MOCK_PARTY
 	// exist. The per-feature acc_*_debug / acc_*_test dvar levers were REMOVED that day - every debug
 	// print now rides IS_TRUE( level.acc_dev ) directly, and the early-boss-spawn test levers
@@ -416,11 +426,11 @@ function acc_resolve_dev_flags()
 	// Do NOT re-introduce a per-feature toggle here or anywhere - hardcode the dev behavior behind
 	// IS_TRUE( level.acc_dev ) (or a SetDvar line above for dvar-reading modules). docs/22 + memory
 	// debug-banners-gated-by-acc-dev-only.
-	// PERK DOORS: dev mode runs the REAL per-round 4-of-10 rotation, EXACTLY like normal play (user
-	// 2026-07-07: "dev and non-dev should work the same, only 4 open per round"). To test a walled-off
-	// perk in dev, buy it open - dev tops you up with a big Mega Bottle stash
-	// (_acc_mega_bottles::dev_unlimited_bottles). Live-balance dvars (acc_perk_doors_all_open etc.)
-	// still work standalone - balance knobs are not debug levers.
+	// PERK SCATTER (2026-07-24, supersedes the retired 4-of-10 perk-door rotation): dev runs the REAL
+	// map-wide scatter EXACTLY like normal play (same doctrine as the doors had since 07-07) - the only
+	// dev delta is the per-scatter assignment printout inside _acc_perk_scatter (rides acc_dev). Pin
+	// testing works out of the box: dev tops you up with a big Mega Bottle stash
+	// (_acc_mega_bottles::dev_unlimited_bottles).
 	// NOT driven by dev, so dev plays like the real game: acc_auto_power stays off - flip the Bus
 	// Station power switch yourself (user 2026-06-22).
 
@@ -436,7 +446,7 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (not overridable at launch - the getdvarint resolution was removed 2026-07-16,
 	// same as acc_dev above: hardcode `true` + rebuild is the ONLY arming path). Restore `false` before
 	// any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_god = false;   // SHIP STATE (user 2026-07-20: "turn off hardcode off dev and god mode" - full ship flags with acc_dev above). To arm a god test session: set `true` + rebuild.
+	level.acc_god = false;   // SHIP state (restored 2026-07-25 for a normal-play test run). Flip to `true` + rebuild for demigod (health floors at 1 HP).
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (hardcoded)" : "off" ) );
 }
 
@@ -653,7 +663,7 @@ function zone_door_buy_loop( d )
 // are thin in Y. 60u clears the ~64u-wide doorway brush so each trigger sits in open space on its side.
 function zone_door_thin_offset( d )
 {
-	if ( isdefined( d.script_flag ) && ( d.script_flag == "enter_under_lab" || d.script_flag == "enter_under_plaza" || d.script_flag == "enter_implant" ) )
+	if ( isdefined( d.script_flag ) && ( d.script_flag == "enter_under_lab" || d.script_flag == "enter_under_plaza" || d.script_flag == "enter_implant" || d.script_flag == "enter_scientist_office" ) )
 		return ( 0, 60, 0 );   // doorways thin in Y (the door slab spans X) -> offset the buy triggers along Y
 	return ( 60, 0, 0 );
 }
@@ -678,6 +688,7 @@ function zone_door_dest_name( flag )
 		case "enter_implant":     return "the Implant Room";
 		case "enter_exchange":    return "the Exchange";
 		case "enter_armory":      return "the Armory";
+		case "enter_scientist_office": return "the Scientist's Office";
 	}
 	return "a new area";
 }
@@ -730,6 +741,7 @@ function zone_door_trigger_wait( d, cost, clip, flag )
 		player zm_score::minus_to_player_score( cost );
 		player PlaySound( "zmb_cha_ching" );
 		d.acc_bought = true;
+		acc_leveling::grant_door_xp( player );   // [acc] leveling: XP for opening a new area (user 2026-07-22, once per door, docs/45)
 
 		if ( isdefined( d.script_flag ) && level flag::exists( d.script_flag ) )
 			level flag::set( d.script_flag );
@@ -775,6 +787,7 @@ function zone_door_trigger_origin( d )
 	case "enter_roof":        return ( -950, 2428, 40 );
 	case "enter_lab_e":       return ( 969, 3228, 40 );
 	case "enter_lab_w":       return ( -950, 3228, 40 );
+	case "enter_scientist_office": return ( -75, 4238, 40 );   // THE SCIENTIST'S OFFICE doorway in the Lab N wall (x[-123,-27] y[4228,4248], gen_scientist_office.js); Y-thin -> (0,60,0) offset puts buy triggers at y4178 (Lab side) / y4298 (office side)
 	}
 	return undefined;
 }
@@ -903,7 +916,7 @@ function set_perk_costs()
 
 	costs = [];
 	costs[ "specialty_armorvest" ]               = 4000; // Jugger-Nog
-	costs[ "specialty_quickrevive" ]             = 2500; // Quick Revive
+	costs[ "specialty_quickrevive" ]             = 2500; // Quick Revive (CO-OP; solo self-revive is 500 - see below)
 	costs[ "specialty_fastreload" ]              = 3500; // Speed Cola
 	costs[ "specialty_doubletap2" ]              = 3000; // Double Tap 2.0 (extra bullet = ~2x dmg; 5000 -> 3000 user 2026-06-25)
 	costs[ "specialty_staminup" ]                = 2000; // Stamin-Up
@@ -920,6 +933,24 @@ function set_perk_costs()
 		if ( isdefined( level._custom_perks[ perk ] ) )
 			level._custom_perks[ perk ].cost = costs[ perk ];
 	}
+
+	// Quick Revive: solo self-revive is the stock 500, co-op perk stays 2500. Stock
+	// _zm_perks.gsc reads .cost as an int OR a function pointer (perk_hint preview :386
+	// + machine cost :490), evaluating the pointer live - so a single fn tracks the
+	// solo/co-op state at buy time (matters if a co-op host is briefly alone). This
+	// OVERRIDES the flat 2500 the loop above just set.
+	if ( isdefined( level._custom_perks[ "specialty_quickrevive" ] ) )
+		level._custom_perks[ "specialty_quickrevive" ].cost = &quickrevive_cost;
+}
+
+// Quick Revive cost resolver (bound to level._custom_perks[...].cost as a fn pointer).
+// Solo (or forced-solo revive) = 500; co-op = 2500. zm_perks::use_solo_revive() is
+// stock's own solo determination (players.size==1 || level.force_solo_quick_revive).
+function quickrevive_cost()
+{
+	if ( zm_perks::use_solo_revive() )
+		return 500;
+	return 2500;
 }
 
 function CheckForPower()

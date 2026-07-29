@@ -39,6 +39,7 @@ function avogadro_fx( n_local_client, n_old, n_new, b_new_ent, b_initial_snap, s
 	{
 		self.lingering_avogadro = PlayFxOnTag( n_local_client, level._effect[ "avogadro_trail" ], self, "tag_origin" );
 		playsound( n_local_client, "avogadro_warp_in", self.origin  );
+		self.acc_avo_crackle = self PlayLoopSound( "acc_avo_crackle_lp", 0.5 );   // [acc] presence crackle, client-side (sfx sweep 2026-07-21)
 	}
 	else if(n_new == 0)
 	{
@@ -47,7 +48,9 @@ function avogadro_fx( n_local_client, n_old, n_new, b_new_ent, b_initial_snap, s
 		// is a client script error. Same pattern as the bolt handler below.
 		if ( isdefined( self.lingering_avogadro ) )
 			StopFX( n_local_client, self.lingering_avogadro );
-		playsound( n_local_client, "avogadro_warp_out", self.origin  );
+		if ( isdefined( self.acc_avo_crackle ) )
+			self stopLoopSound( self.acc_avo_crackle, 0.5 );   // [acc] stop presence crackle
+		playsound( n_local_client, "acc_avo_death", self.origin  );   // [acc] distinct death SFX, was avogadro_warp_out = bolt-impact reuse (sfx sweep 2026-07-21)
 	}
 }
 

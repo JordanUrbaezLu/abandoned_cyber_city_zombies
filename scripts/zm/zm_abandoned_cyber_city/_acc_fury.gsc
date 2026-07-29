@@ -275,6 +275,7 @@ function spawn_fury_near( player, require_underground )
         // Set it HERE (not in fury_tune, which has a `wait 1` window where it would still be counted).
         // Mirrors every sibling extra spawner (_acc_bus_trench:965, _acc_boss_glitch:282).
         e.ignore_enemy_count = true;
+        e.acc_is_fury = true;   // [acc] leveling: tag so _acc_leveling::on_zombie_killed pays the Fury elite XP bonus (docs/45)
 
         // [acc] BELOW-WORLD CULL IMMUNITY (Paradise audit, user 2026-07-09): the pack threads the stock
         // zombie_utility::round_spawn_failsafe on every fury (zm_genesis_apothicon_fury.gsc:193), and

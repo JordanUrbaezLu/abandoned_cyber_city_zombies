@@ -31,6 +31,7 @@
 #using scripts\zm\_zm_perks;
 #using scripts\zm\_zm_score;
 #using scripts\zm\_zm_weapons;   // zm_weapons::weapon_give() for the Fire Bow dev-start (box give path)
+#using scripts\zm\_hb21_zm_hero_weapon;   // give_hero_weapon() - the Skull dev-start MUST ride the hero path (gadget meter/state 2)
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
@@ -336,9 +337,9 @@ function dev_apply_jugg_state( v )
     acc_utility::log( "dev: jugg state v=" + v + " mega=" + ( mega ? "1" : "0" ) );
 }
 
-// DEV starting loadout: every player spawns holding the HAVOC (Apex energy rifle) in BASE form (user
-// 2026-07-06: "give me havoc on spawn", supersedes the same-day Alternator start) - to PaP + overclock
-// yourself. Hardcoded in dev (no console dvar). Re-given each life.
+// DEV starting loadout: every player spawns holding the EPG-1 plasma-lobber (user 2026-07-25
+// "give me both when dev mode is on so I can test easily"; the L4 Siege half was REMOVED from
+// the game 2026-07-26). Hardcoded in dev (no console dvar). Re-given each life.
 function dev_starting_loadout()
 {
     level endon( "end_game" );
@@ -366,19 +367,26 @@ function dev_give_starting_guns()
 {
     if ( !isdefined( self ) || !isplayer( self ) ) return;
 
-    // THE CYBERJACK dev-start (docs/43 M1, chassis swap 2026-07-17): the L-STAR plasma LMG
-    // (user: "the part I don't really like is that it's a bow"), QUEST-ONLY in public play
-    // (decision 2 - never in the box), so this dev grant is the ONLY acquisition until the M4
-    // ICEBREAKER COMPILE ships. RUNTIME name = "apex_lstar" (zone/GDT id apex_lstar_zm - the apex
-    // _zm strip). Given via zm_weapons::weapon_give (the box give path). SILENT handover.
-    // Dev has unlimited money, so PaP the in-place tiers (acc_pap_cyberjack) at will.
-    // Swap the runtime name below to test-start a different gun. (History: CYBERJACK storm-bow
-    // M0 07-17, Triple Take 07-16, Leviathan Axe 07-15, Winter's Howl 07-11, Fire Bow
-    // 07-11/07-10/07-08, Blast-O-Matic 07-10, Havoc 07-08/07-06, Alternator 07-06, XM4 07-04.)
-    w = GetWeapon( "apex_lstar" );
-    if ( !isdefined( w ) || w == level.weaponNone ) return;
-    self zm_weapons::weapon_give( w, undefined, undefined, undefined, true );
-    self SwitchToWeapon( w );
+    // EPG-1 dev-start (user 2026-07-25 "give me both when dev mode is on so I can test easily";
+    // the L4 Siege half was REMOVED from the game 2026-07-26, so the dev-start is now EPG-only).
+    // EPG-1 = s1_mdl, the AW MDL plasma-lobber reskin. Plain box-give path; the give fills the
+    // second primary slot next to the held stock pistol, EPG in hand. Swap the runtime name below
+    // to test-start a different gun.
+    // (History: L4Siege+EPG 07-25, Alternator+TripleTake 07-25, D13+Skull restored 07-25
+    // [gauntlet crash - gauntlet DISABLED everywhere pending diagnosis: native crash ~0.5s after
+    // WIELD, prime suspect = the csc wield-FX batch; also pulled from the box pool in
+    // _acc_map_randomizer], D13+Gauntlet 07-25, D13+Skull 07-25, CYBERJACK lstar 07-17
+    // [still QUEST-ONLY in public play - docs/43 decision 2], CYBERJACK storm-bow M0
+    // 07-17, Triple Take 07-16, Leviathan Axe 07-15, Winter's Howl 07-11, Fire Bow
+    // 07-11/07-10/07-08, Blast-O-Matic 07-10, Havoc 07-08/07-06, Alternator 07-06,
+    // XM4 07-04. HERO-weapon starts [skull etc.] MUST ride
+    // hb21_zm_hero_weapon::give_hero_weapon, never a raw weapon_give.)
+    w_epg = GetWeapon( "s1_mdl" );          // EPG-1 (MDL plasma-lobber reskin)
+    if ( isdefined( w_epg ) && w_epg != level.weaponNone && !( self hasWeapon( w_epg ) ) )
+    {
+        self zm_weapons::weapon_give( w_epg, undefined, undefined, undefined, true );
+        self SwitchToWeapon( w_epg );
+    }
 }
 
 // ---------------------------------------------------------------------------

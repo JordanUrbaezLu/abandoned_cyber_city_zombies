@@ -1081,7 +1081,7 @@ local ACC_IMPLANT_EMB_CX   = 0.901 -- emblem x-center at 90.1% of bar width (v4 
 -- Item num (1..13, _acc_boss_items build_item_pool / ACC_IMPLANT_INFO in AetheriumStartMenu.lua)
 -- -> emblem image. KEEP IN SYNC with both on any item add/renumber (num must stay <= 15, 4-bit).
 local ACC_IMPLANT_EMBLEMS = {
-    [1]  = "i_acc_emblem_gas_tank",
+    [1]  = "i_acc_emblem_sentry_drone",   -- Sentry Drone REPLACED Gas Tank 2026-07-22 (nibble full at 15, num 1 reused)
     [2]  = "i_acc_emblem_loot_stash",
     [3]  = "i_acc_emblem_repair_kit",
     [4]  = "i_acc_emblem_rocket_shield",
@@ -1614,6 +1614,460 @@ function CoD.AccEquip.new(HudRef, InstanceRef)
     return self
 end
 
+-- TOUCHPOINT 4f - LEVEL + XP bar (docs/45, DEV-ONLY leveling). CoD.AccLevel. Bottom-left widget
+-- built on the USER-SUPPLIED art frame i_acc_level_frame (512x128 PNG, installed 2026-07-20 via
+-- source_data/acc_perk_shaders.gdt + the zone image line): a hex emblem with an empty dark-glass
+-- center (we render the big level NUMBER there - the "LEVEL" caption is baked into the art) and a
+-- bar track whose interior is FULLY TRANSPARENT - our teal fill rect draws BEHIND the PNG and shows
+-- through that window, so the fill never covers the frame's neon border. Zone geometry below was
+-- MEASURED from the PNG's alpha channel (tools-session scan 2026-07-20), not assumed. Driven by the
+-- per-player CONTROLLER UI-model "accLevel" = "<lvl>|<frac>|<gain>|<seq>" pushed by _acc_leveling::
+-- push_level_hud - ZERO clientfield bits (all three CF pools are full), per-player, coop-replicated.
+-- Read with Engine.CreateModel (the controller-model node has no data until the first server write -
+-- the turbocharger-badge lesson; CreateModel is idempotent, so it catches the first push). Whole
+-- thing is inert in ship (the server never pushes accLevel unless dev is on -> widget stays hidden).
+local ACC_LVL_LEFT   = 24    -- x gap from the LEFT edge (TUNE IN-GAME)
+local ACC_LVL_W      = 160   -- display width; H = W/4 keeps the PNG's exact 4:1 aspect
+local ACC_LVL_H      = 40    -- display height (512x128 / 3.2); master is ~1.6x real display px,
+                             -- the same pre-downscale band as the shipped implant cards (552x102
+                             -- for a 184x34 box) - safe with noMipMaps 1
+local ACC_LVL_BOTTOM = 9     -- bottom-left corner, raised 5 (user 2026-07-22; was 4). AetheriumPlayerInfo
+                             -- rides -30 (AetheriumHud.lua), freeing the corner strip - chip y671..711
+local ACC_LVL_TEAL   = { 0.20, 0.95, 0.85 }          -- ACC_PAL.teal - XP fill + level number
+local ACC_LVL_AMBER  = { 1.0,  0.88, 0.25 }          -- ACC_PAL.amber - the "+N XP" gain floater
+-- MEASURED master-px geometry (do not eyeball-edit; re-run the alpha scan if the art changes):
+local ACC_LVL_IMG_W  = 512
+local ACC_LVL_IMG_H  = 128
+local ACC_LVL_WIN_X0 = 140   -- transparent bar window: x 140..489 inclusive (alpha==0, hard edges)
+local ACC_LVL_WIN_X1 = 490   -- exclusive right edge
+local ACC_LVL_WIN_Y0 = 52    -- window y 52..75 inclusive
+local ACC_LVL_WIN_Y1 = 76    -- exclusive bottom edge
+local ACC_LVL_EMB_CX = 70.5  -- emblem dark-glass center (level-number anchor)
+local ACC_LVL_EMB_CY = 63.5
+local ACC_LVL_SX     = ACC_LVL_W / ACC_LVL_IMG_W     -- master px -> display units (0.3125)
+local ACC_LVL_SY     = ACC_LVL_H / ACC_LVL_IMG_H
+local ACC_LVL_FILL_W = (ACC_LVL_WIN_X1 - ACC_LVL_WIN_X0) * ACC_LVL_SX   -- full-bar fill width
+
+CoD.AccLevel = InheritFrom(LUI.UIElement)
+
+function CoD.AccLevel.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccLevel)
+    self.id = "AccLevel"
+
+    -- Positioned box, bottom-left: left-anchored X, bottom-anchored Y with negative offsets
+    -- (the proven far-edge fixed-box idiom).
+    self:setLeftRight(true, false, ACC_LVL_LEFT, ACC_LVL_LEFT + ACC_LVL_W)
+    self:setTopBottom(false, true, -(ACC_LVL_BOTTOM + ACC_LVL_H), -ACC_LVL_BOTTOM)
+
+    -- Solid-rectangle helper (the AccRoundRing primitive: an empty CoD.TextWithBg whose .Bg is the fill).
+    local function Rect(r, g, b, a)
+        local e = CoD.TextWithBg.new(HudRef, InstanceRef)
+        e.Text:setText("")
+        e.Bg:setRGB(r, g, b)
+        e.Bg:setAlpha(a)
+        return e
+    end
+
+    -- (0) XP FILL - added FIRST so the frame PNG (next) draws OVER it: the fill is only visible
+    -- through the window's transparent interior, so its edges never cover the neon border. The
+    -- fill ELEMENT spans the full window; render() resizes its .Bg to the earned fraction.
+    local Fill = Rect(ACC_LVL_TEAL[1], ACC_LVL_TEAL[2], ACC_LVL_TEAL[3], 0.95)
+    Fill:setLeftRight(true, false, ACC_LVL_WIN_X0 * ACC_LVL_SX, ACC_LVL_WIN_X1 * ACC_LVL_SX)
+    Fill:setTopBottom(true, false, ACC_LVL_WIN_Y0 * ACC_LVL_SY, ACC_LVL_WIN_Y1 * ACC_LVL_SY)
+    self:addElement(Fill)
+    self.Fill = Fill
+
+    -- (1) the art frame, stretched over the whole chip box (same 4:1 aspect, so no distortion).
+    local Frame = LUI.UIImage.new()
+    Frame:setLeftRight(true, true, 0, 0)
+    Frame:setTopBottom(true, true, 0, 0)
+    Frame:setImage(RegisterImage("i_acc_level_frame"))
+    self:addElement(Frame)
+
+    -- (2) the LEVEL NUMBER, centered in the emblem's dark-glass circle (the art bakes the "LEVEL"
+    -- caption; we render digits only). Box centered on the measured glass center. TUNE IN-GAME.
+    local Num = LUI.UIText.new()
+    -- box center = measured glass center MINUS 3 (screenshot tune, user 2026-07-21: "level number
+    -- moved to left 3 points" - the digit sat right of the glass center)
+    Num:setLeftRight(true, false, ACC_LVL_EMB_CX * ACC_LVL_SX - 23, ACC_LVL_EMB_CX * ACC_LVL_SX + 17)
+    Num:setTopBottom(true, false, ACC_LVL_EMB_CY * ACC_LVL_SY - 10, ACC_LVL_EMB_CY * ACC_LVL_SY + 10)
+    Num:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_CENTER)
+    Num:setScale(0.95)
+    Num:setRGB(ACC_LVL_TEAL[1], ACC_LVL_TEAL[2], ACC_LVL_TEAL[3])
+    Num:setText("0")
+    self:addElement(Num)
+    self.Num = Num
+
+    -- (3) "+N XP" gain floater - just RIGHT of the chip (children may extend past the parent box;
+    -- LUI does not clip). Painted + faded by render() whenever a push carries a NEW gain (seq
+    -- changed); the fade is the proven completeAnimation->beginAnimation alpha tween (AccDmgNum/
+    -- AccRoundRing idiom). Starts invisible. Vertically centered on the bar window.
+    local Gain = LUI.UIText.new()
+    -- +5 right (screenshot tune, user 2026-07-21: "xp number moved over by 5 points" - clears the
+    -- frame's right-edge neon glow)
+    Gain:setLeftRight(true, false, ACC_LVL_W + 13, ACC_LVL_W + 123)
+    Gain:setTopBottom(true, false, 11, 29)
+    Gain:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+    Gain:setScale(0.75)
+    Gain:setRGB(ACC_LVL_AMBER[1], ACC_LVL_AMBER[2], ACC_LVL_AMBER[3])
+    Gain:setText("")
+    Gain:setAlpha(0)
+    self:addElement(Gain)
+    self.Gain = Gain
+
+    -- Paint from the "<lvl>|<frac>|<gain>|<seq>" payload (string.find/sub/tonumber - the
+    -- ZMCursorHintNew form; gain/seq are optional so an older 2-field payload still parses).
+    -- SHOW ONLY once the server has pushed a real payload, which ALWAYS contains '|'. The server
+    -- pushes accLevel only in dev (push_level_hud rides the dev-gated hooks), so in SHIP this widget
+    -- stays hidden no matter what an unwritten controller-model node defaults to (nil / "" / the
+    -- number 0) - NO stray "LV 0" chip in normal play. (It is built for every player; LUI cannot
+    -- read level.acc_dev, so the '|' gate is what enforces "hidden unless truly active".)
+    local lastGainSeq = nil
+    local function render(s)
+        if type(s) ~= "string" then s = nil end
+        local sep = s and string.find(s, "|", 1, true)
+        if not sep then
+            self:hide()
+            return
+        end
+        self:show()
+        local lvl  = tonumber(string.sub(s, 1, sep - 1)) or 0
+        local rest = string.sub(s, sep + 1)
+        local frac, gain, seq = 0, 0, nil
+        local sep2 = string.find(rest, "|", 1, true)
+        if sep2 then
+            frac = tonumber(string.sub(rest, 1, sep2 - 1)) or 0
+            local tail = string.sub(rest, sep2 + 1)
+            local sep3 = string.find(tail, "|", 1, true)
+            if sep3 then
+                gain = tonumber(string.sub(tail, 1, sep3 - 1)) or 0
+                seq  = string.sub(tail, sep3 + 1)
+            else
+                gain = tonumber(tail) or 0
+            end
+        else
+            frac = tonumber(rest) or 0
+        end
+        if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
+        self.Num:setText("" .. lvl)
+        -- resize the fill's .Bg within the fill element (which spans the transparent window);
+        -- grows from the window's left edge.
+        self.Fill.Bg:setLeftRight(true, false, 0, ACC_LVL_FILL_W * frac)
+
+        -- "+N XP" floater: seq is the server's per-PUSH id (bumped on EVERY push so each payload is
+        -- a unique string - that uniqueness is what makes re-pushes deliver into a freshly reopened
+        -- menu at all; unchanged model values never re-fire this subscription). Flash only when the
+        -- push actually carries a gain: grant pushes have gain>0, spawn/re-open pushes have gain 0.
+        -- Fade = the proven completeAnimation -> beginAnimation alpha tween.
+        if gain > 0 and seq ~= nil and seq ~= lastGainSeq then
+            lastGainSeq = seq
+            self.Gain:setText("+" .. gain .. " XP")
+            self.Gain:completeAnimation()
+            self.Gain:setAlpha(1)
+            self.Gain:beginAnimation("keyframe", 1400, false, false, CoD.TweenType.Linear)
+            self.Gain:setAlpha(0)
+        elseif seq ~= nil then
+            lastGainSeq = seq   -- track without flashing (e.g. the spawn push after a respawn)
+        end
+    end
+
+    local model = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "accLevel")
+    self:subscribeToModel(model, function(m)
+        render(Engine.GetModelValue(m))
+    end)
+    render(Engine.GetModelValue(model))   -- initial paint (rejoin / HUD rebuild mid-run)
+
+    return self
+end
+
+-- TOUCHPOINT 8 - BOSS HEALTH BARS (2026-07-24, user: "an actual bar would make sense
+-- rather than text"). CoD.AccBossBars. Up to 5 stacked boss rows in the upper-right
+-- THREAT column, directly under the HOSTILES bar (same width + right gap = one aligned
+-- device): boss NAME above a real depleting bar, built from the AccRoundRing rect kit
+-- (halo / navy track / BOSS-IDENTITY-color fill (ACC_BB_BOSS_COLORS, name-keyed - the
+-- ONLY boss indicator since 2026-07-25 - the 3D plate is removed) / dim same-hue
+-- damage-GHOST trail / white drain-front sliver / 33%-66% phase notches - docs/15
+-- boss-health-bar phase markers). Replaces the
+-- 3D nameplate's ASCII "[||||------]" (the plate keeps the floating NAME for in-world
+-- identity - _acc_boss_nameplate.csc). NO numeric HP anywhere (docs/31: progress bars
+-- carry no drawn number).
+--
+-- Driven by FIVE per-player controller UI-models (the accLevel channel - ZERO
+-- clientfield bits, co-op replicated, spectate-safe), pushed by _acc_boss_nameplate.gsc
+-- bb_* at 4 Hz change-guarded:
+--     "accBoss1".."accBoss5" = "<NAME>|<pct, 5% steps>|<state>[|r<n>]"
+--     state 1 = alive (paint/update) | 0 = killed (white flash + fade-out) | 2 = hide
+-- pct is quantized and only the per-life REPUSH window appends the |r<n> uniquifier
+-- (2026-07-25 BGCACHE find: every unique payload registers a finite client
+-- configstring - steady pushes rely on the server's change guard instead; the parser
+-- below handles both the 3- and 4-field forms). Rows are
+-- fixed positions (server backfills freed slots) - a brief gap after a death is fine,
+-- overflow bosses (6+) simply wait for a free row (the 3D plate is gone).
+local ACC_BB_SLOTS   = 5                                -- rows (4 -> 5 user 2026-07-24, Scientist added); LOCKSTEP with ACC_BB_SLOTS + the accBoss* precaches in _acc_boss_nameplate.gsc
+local ACC_BB_W       = ACC_BAR_W                        -- same width as the HOSTILES bar above
+local ACC_BB_BAR_H   = 12                               -- bar height (slimmer than HOSTILES' 22 = clear hierarchy)
+local ACC_BB_NAME_H  = 16                               -- name row height above each bar
+local ACC_BB_TOP0    = ACC_BAR_TOPC + ACC_BAR_H + 14    -- first row sits just under the HOSTILES bar (center-offset units)
+local ACC_BB_STRIDE  = ACC_BB_NAME_H + ACC_BB_BAR_H + 12  -- row pitch (40): name + bar + inter-row gap
+local ACC_BB_HOTW    = 3                                -- drain-front sliver width
+local ACC_BB_FADE_MS = 900                              -- kill flash/fade length; server holds the slot 1200ms (ACC_BB_FREE_DELAY_MS) so this finishes first
+
+-- Per-BOSS identity colors (user 2026-07-24 "each boss to have its own color: Phantom
+-- Yellow, brutus red, avogodro cyan, rogue protector blue, Panzer gray, scientist
+-- white"): keyed by the payload NAME, applied to the row's LED + name + halo + ghost +
+-- fill when a boss arms it. TRUE colors, exactly as asked - the 2026-07-25
+-- tint-calibrated palette (gold-orange/sea-teal/green/taupe/peach) was REVERTED the
+-- same day when the 3D plate was removed: the warm hostile-name tint that forced it
+-- only ever applied to the engine's draw-name renderer, and LUI rects render exact RGB.
+-- The bars are the ONLY boss indicator, so nothing constrains this table anymore.
+local ACC_BB_BOSS_COLORS = {
+    ["PHANTOM"]         = { 1.0,  0.85, 0.2  },   -- yellow
+    ["TRENCH WARDEN"]   = { 0.95, 0.2,  0.18 },   -- red - Brutus
+    ["AVOGADRO"]        = { 0.2,  0.9,  1.0  },   -- cyan
+    ["ROGUE PROTECTOR"] = { 0.25, 0.45, 1.0  },   -- blue (renders TRUE here - only the removed 3D channel couldn't)
+    ["PANZER"]          = { 0.62, 0.65, 0.7  },   -- gray
+    ["THE SCIENTIST"]   = { 0.95, 0.97, 1.0  },   -- white
+}
+local ACC_BB_DEFAULT_COLOR = { 0.90, 0.20, 0.55 }   -- unknown/future boss: house danger magenta
+
+CoD.AccBossBars = InheritFrom(LUI.UIElement)
+
+function CoD.AccBossBars.new(HudRef, InstanceRef)
+    local self = LUI.UIElement.new()
+    self:setClass(CoD.AccBossBars)
+    self.id = "AccBossBars"
+    self:setLeftRight(true, true, 0, 0)
+    self:setTopBottom(true, true, 0, 0)
+
+    -- Solid-rectangle helper (the AccRoundRing primitive: empty CoD.TextWithBg, .Bg = fill).
+    local function Rect(r, g, b, a)
+        local e = CoD.TextWithBg.new(HudRef, InstanceRef)
+        e.Text:setText("")
+        e.Bg:setRGB(r, g, b)
+        e.Bg:setAlpha(a)
+        return e
+    end
+
+    -- Build the 4 rows up-front, hidden; renderSlot() shows/paints them as payloads land
+    -- (the AccGunBadgeRow prebuilt-children idiom - zero churn as bosses come and go).
+    self.slots = {}
+    for i = 1, ACC_BB_SLOTS do
+        local top = ACC_BB_TOP0 + (i - 1) * ACC_BB_STRIDE
+        local slot = {}
+        -- Built in the neutral default hue; the ARMING pass (renderSlot fresh path)
+        -- retints LED/name/halo/ghost/fill to the occupying BOSS's identity color.
+        local C = ACC_BB_DEFAULT_COLOR
+        slot.color = C
+
+        local group = LUI.UIElement.new()
+        group:setLeftRight(false, true, -(ACC_BAR_RIGHT + ACC_BB_W), -ACC_BAR_RIGHT)
+        group:setTopBottom(false, false, top, top + ACC_BB_NAME_H + ACC_BB_BAR_H)
+        self:addElement(group)
+        slot.group = group
+
+        -- Name row: the boss-color "threat LED" square + the boss name in the kit's
+        -- display font (orbitron - the Aetherium name/header font, shipped-active in
+        -- AetheriumPlayerInfo.lua:165), BOTH retinted to the boss identity color so
+        -- each row owns its boss identity color (the ONLY indicator - no 3D plate).
+        local Led = Rect(C[1], C[2], C[3], 0.9)
+        Led:setLeftRight(true, false, 0, 6)
+        Led:setTopBottom(true, false, 5, 11)
+        group:addElement(Led)
+        slot.Led = Led
+
+        local NameTxt = LUI.UIText.new()
+        NameTxt:setLeftRight(true, true, 12, 0)
+        NameTxt:setTopBottom(true, false, 0, ACC_BB_NAME_H)
+        NameTxt:setTTF("fonts/orbitron.ttf")
+        NameTxt:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+        NameTxt:setScale(0.62)   -- 0.5 -> 0.62 (user 2026-07-25 "boss name needs to be slightly bigger")
+        NameTxt:setRGB(C[1], C[2], C[3])
+        NameTxt:setAlpha(0.95)
+        NameTxt:setText("")
+        group:addElement(NameTxt)
+        slot.NameTxt = NameTxt
+
+        -- Bar stack (all rects, bar area = y NAME_H .. NAME_H+BAR_H inside the group):
+        -- (0) soft halo frame in the boss color (the AccRoundRing glow idiom)
+        local Halo = Rect(C[1], C[2], C[3], 0.13)
+        Halo:setLeftRight(true, true, -3, 3)
+        Halo:setTopBottom(true, false, ACC_BB_NAME_H - 3, ACC_BB_NAME_H + ACC_BB_BAR_H + 3)
+        group:addElement(Halo)
+        slot.Halo = Halo
+
+        -- (1) navy glass track (the empty bar)
+        local Track = Rect(ACC_PAL.glass[1], ACC_PAL.glass[2], ACC_PAL.glass[3], 0.9)
+        Track:setLeftRight(true, true, 0, 0)
+        Track:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(Track)
+
+        -- (2) DIM damage-GHOST: same box + hue as the fill but at low alpha, on a slower
+        -- tween window - the trail reads as a dimmer band of the boss's own color on any
+        -- hue (a fixed pale color washed out against the yellow/white fills). Under
+        -- sustained 4Hz damage the per-push completeAnimation() snap keeps it ~one push
+        -- behind the fill (a classic trailing damage chip); once fire stops, the final
+        -- 600ms tween plays out fully and the chip drains into the track.
+        local Ghost = Rect(C[1], C[2], C[3], 0.4)
+        Ghost:setLeftRight(true, false, 0, ACC_BB_W)
+        Ghost:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(Ghost)
+        slot.Ghost = Ghost
+
+        -- (3) the health fill - the BOSS identity color, anchored LEFT (drains right->left,
+        -- the mirror of the HOSTILES bar so the two never read as the same gauge).
+        local Fill = Rect(C[1], C[2], C[3], 0.95)
+        Fill:setLeftRight(true, false, 0, ACC_BB_W)
+        Fill:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(Fill)
+        slot.Fill = Fill
+
+        -- (4) phase notches at 33% / 66% (docs/15 boss-health-bar phase markers)
+        local NotchA = Rect(0, 0.02, 0.05, 0.65)
+        NotchA:setLeftRight(true, false, ACC_BB_W / 3 - 1, ACC_BB_W / 3 + 1)
+        NotchA:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(NotchA)
+        local NotchB = Rect(0, 0.02, 0.05, 0.65)
+        NotchB:setLeftRight(true, false, ACC_BB_W * 2 / 3 - 1, ACC_BB_W * 2 / 3 + 1)
+        NotchB:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(NotchB)
+
+        -- (5) bright drain-front sliver riding the fill's right edge. WHITE so it reads on
+        -- every row hue. The ELEMENT spans the FULL bar (review fix 2026-07-24: Bg offsets
+        -- are element-relative, so a 3px-wide element put the sliver 237px off-target) -
+        -- the AccRoundRing Hot idiom: full-span element, then renderSlot places the Bg at
+        -- edge +/- HOTW/2 in bar coords.
+        local Hot = Rect(1, 1, 1, 0)
+        Hot:setLeftRight(true, true, 0, 0)
+        Hot:setTopBottom(true, false, ACC_BB_NAME_H, ACC_BB_NAME_H + ACC_BB_BAR_H)
+        group:addElement(Hot)
+        slot.Hot = Hot
+
+        -- Everything that fades on a kill (fill flashes separately), with its resting
+        -- alpha so a backfilled boss restores the row. Hot rests at 0 (edge logic owns it).
+        slot.fade = {
+            { e = Led.Bg,    a = 0.9  },
+            { e = NameTxt,   a = 0.95 },
+            { e = Halo.Bg,   a = 0.13 },
+            { e = Track.Bg,  a = 0.9  },
+            { e = Ghost.Bg,  a = 0.4  },
+            { e = NotchA.Bg, a = 0.65 },
+            { e = NotchB.Bg, a = 0.65 },
+            { e = Hot.Bg,    a = 0    },
+        }
+
+        group:hide()   -- hidden until the server paints a live payload
+        slot.mode = nil
+        self.slots[i] = slot
+    end
+
+    -- Paint one row from its "<NAME>|<pct>|<state>|<seq>" payload (the accLevel
+    -- string.find/sub/tonumber parse; seq is only there to make each push unique).
+    local function renderSlot(i, s)
+        local slot = self.slots[i]
+        if type(s) ~= "string" then slot.group:hide() slot.mode = nil return end
+        local sep = string.find(s, "|", 1, true)
+        if not sep then slot.group:hide() slot.mode = nil return end
+        local name = string.sub(s, 1, sep - 1)
+        local rest = string.sub(s, sep + 1)
+        local pct, state = 0, 2
+        local sep2 = string.find(rest, "|", 1, true)
+        if sep2 then
+            pct = tonumber(string.sub(rest, 1, sep2 - 1)) or 0
+            local tail = string.sub(rest, sep2 + 1)
+            local sep3 = string.find(tail, "|", 1, true)
+            if sep3 then
+                state = tonumber(string.sub(tail, 1, sep3 - 1)) or 2
+            else
+                state = tonumber(tail) or 2
+            end
+        else
+            pct = tonumber(rest) or 0
+        end
+
+        if state == 2 then   -- clear: hide immediately (Paradise wipe / empty-slot repush)
+            slot.group:hide()
+            slot.mode = nil
+            return
+        end
+
+        if state == 0 then   -- killed: full-width white kill-pop, whole row fades in place
+            if slot.mode ~= "alive" then return end
+            slot.mode = "dying"
+            slot.Fill.Bg:completeAnimation()
+            slot.Fill.Bg:setLeftRight(true, false, 0, ACC_BB_W)   -- pop the FULL bar, not the last sliver
+            slot.Fill.Bg:setRGB(1, 1, 1)
+            slot.Fill.Bg:setAlpha(1)
+            slot.Fill.Bg:beginAnimation("keyframe", ACC_BB_FADE_MS, false, false, CoD.TweenType.Linear)
+            slot.Fill.Bg:setAlpha(0)
+            for k = 1, #slot.fade do
+                local f = slot.fade[k]
+                f.e:completeAnimation()
+                f.e:beginAnimation("keyframe", ACC_BB_FADE_MS, false, false, CoD.TweenType.Linear)
+                f.e:setAlpha(0)
+            end
+            return
+        end
+
+        -- state 1: live row
+        if pct < 0 then pct = 0 elseif pct > 100 then pct = 100 end
+        local frac = pct / 100
+        local fresh = (slot.mode ~= "alive")
+        if fresh then
+            -- (re)arm: retint the row to THIS boss's identity color (matches its 3D
+            -- title), restore every part's resting alpha, paint instant (the
+            -- ringStarted rule - first update sets the baseline).
+            local C = ACC_BB_BOSS_COLORS[name] or ACC_BB_DEFAULT_COLOR
+            slot.color = C
+            slot.group:show()
+            slot.Led.Bg:setRGB(C[1], C[2], C[3])
+            slot.NameTxt:setRGB(C[1], C[2], C[3])
+            slot.Halo.Bg:setRGB(C[1], C[2], C[3])
+            slot.Ghost.Bg:completeAnimation()
+            slot.Ghost.Bg:setRGB(C[1], C[2], C[3])
+            slot.Fill.Bg:completeAnimation()
+            slot.Fill.Bg:setRGB(C[1], C[2], C[3])
+            slot.Fill.Bg:setAlpha(0.95)
+            for k = 1, #slot.fade do
+                local f = slot.fade[k]
+                f.e:completeAnimation()
+                f.e:setAlpha(f.a)
+            end
+            slot.mode = "alive"
+        end
+        if slot.shownName ~= name then
+            slot.NameTxt:setText(name)
+            slot.shownName = name
+        end
+        local edge = ACC_BB_W * frac
+        if not fresh then
+            slot.Fill.Bg:completeAnimation()
+            slot.Fill.Bg:beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)   -- matches the 0.25s server cadence (AccRoundRing grammar)
+            slot.Ghost.Bg:completeAnimation()
+            slot.Ghost.Bg:beginAnimation("keyframe", 600, false, false, CoD.TweenType.Linear)  -- slower than the fill: rides ~one push behind under fire, drains fully after the last hit (review-tuned 900->600, the snap-forward per push is smaller)
+            slot.Hot.Bg:completeAnimation()
+            slot.Hot.Bg:beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)
+        end
+        slot.Fill.Bg:setLeftRight(true, false, 0, edge)
+        slot.Ghost.Bg:setLeftRight(true, false, 0, edge)
+        slot.Hot.Bg:setLeftRight(true, false, edge - ACC_BB_HOTW * 0.5, edge + ACC_BB_HOTW * 0.5)
+        slot.Hot.Bg:setAlpha((frac > 0.02 and frac < 0.995) and 0.9 or 0)
+    end
+
+    -- One controller-model subscription per row. Engine.CreateModel, NEVER GetModel -
+    -- these nodes don't exist until the first server write (the turbocharger-badge
+    -- lesson); CreateModel is idempotent. Initial read covers a mid-run HUD rebuild.
+    for i = 1, ACC_BB_SLOTS do
+        local model = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "accBoss" .. i)
+        self:subscribeToModel(model, function(m)
+            renderSlot(i, Engine.GetModelValue(m))
+        end)
+        renderSlot(i, Engine.GetModelValue(model))
+    end
+
+    return self
+end
+
 function LUI.createMenu.acc_hud(Instance)
     local Hud = CoD.Menu.NewForUIEditor("acc_hud")
 
@@ -1658,6 +2112,15 @@ function LUI.createMenu.acc_hud(Instance)
     Hud:addElement(RoundRing)
     Hud.accRoundRing = RoundRing
 
+    -- BOSS HEALTH BARS (2026-07-24): up to 5 NAME-over-bar rows stacked under the
+    -- HOSTILES bar, each tinted to its boss identity color, driven by the accBoss1..5
+    -- controller UI-models
+    -- (_acc_boss_nameplate.gsc bb_*). Replaces the 3D plate's ASCII text bar (the
+    -- plate keeps the floating boss NAME for in-world identity).
+    local BossBars = CoD.AccBossBars.new(Hud, Instance)
+    Hud:addElement(BossBars)
+    Hud.accBossBars = BossBars
+
     -- RETIRED again (user 2026-07-03, currencies-in-panel pass): CoD.AccShardIcon + the
     -- _acc_health_bars own-stats hudelem row are superseded - shards/MB/EXO now render INSIDE
     -- the Aetherium PlayerInfo panel (toplayer clientfields acc_shards/acc_mb/acc_exo ->
@@ -1695,6 +2158,12 @@ function LUI.createMenu.acc_hud(Instance)
     local ImplantRow = CoD.AccImplantRow.new(Hud, Instance)
     Hud:addElement(ImplantRow)
     Hud.accImplantRow = ImplantRow
+
+    -- LEVEL + XP bar (docs/45, DEV-ONLY leveling): bottom-left "LV N" + XP progress bar, driven by
+    -- the accLevel controller UI-model. Inert in ship (server never pushes accLevel unless dev on).
+    local LevelChip = CoD.AccLevel.new(Hud, Instance)
+    Hud:addElement(LevelChip)
+    Hud.accLevel = LevelChip
 
     -- (AccPerkCard retired 2026-07-03 -> no accCard:close() override needed; re-add with it.)
 

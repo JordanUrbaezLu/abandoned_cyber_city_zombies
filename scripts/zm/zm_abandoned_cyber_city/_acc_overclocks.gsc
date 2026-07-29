@@ -28,6 +28,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_pap_levels;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the OC terminal
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;        // is_active()/player_level() level gate (docs/45; leveling is LIVE)
 
 // Tier costs per level. ACC_TIER_MAX 5 -> 10 (user 2026-06-24): both the gun Overclock and the Exo Suit
 // now go to 10 tiers. The 4 effects scale off the tier in _acc_damage (get_oc_tier, no internal clamp),
@@ -240,13 +241,15 @@ function watch_terminal_trigger()
     if ( !isdefined( level.acc_oc_kiosk_origins ) ) level.acc_oc_kiosk_origins = [];
     for ( i = 0; i < triggers.size; i++ )
     {
-        // TRENCH-ONLY OVERCLOCK GUARD (user 2026-06-25): overclocking is meant to be an underground RISK,
-        // so ignore any map-placed acc_overclock_terminal that is NOT underground. This kills the "invisible
-        // overclock machine in the Lab" exploit (a stray model-less trigger). The intended terminals are
-        // script-spawned underground via spawn_terminal_at (which calls terminal_loop directly, bypassing this
-        // loop), so they are unaffected. We guard in GSC because the .map deletion only lands on a FULL build
-        // and the LED bake is currently broken by unrelated WIP geometry - this makes the fix effective on a
-        // GSC-only build even while the old BSP still carries the Lab trigger.
+        // ABOVE-GROUND MAP-TRIGGER GUARD (user 2026-06-25): ignore any MAP-PLACED acc_overclock_terminal that
+        // is NOT underground - this kills the old "invisible overclock machine in the Lab" exploit (a stray
+        // model-less trigger the deleted-in-source entity 107 left behind in the live BSP). NOTE (user 2026-07-26):
+        // this does NOT block the Lab overclock any more - the intended terminals (trench L2/L5, Paradise, AND the
+        // Lab station beside PaP) are all SCRIPT-SPAWNED via spawn_terminal_at, which threads terminal_loop
+        // directly and bypasses this loop entirely. So this guard only rejects stray MAP triggers; the deliberate
+        // above-ground Lab terminal is spawned in _acc_glitch_altar::spawn_altars and is unaffected. We guard in
+        // GSC because the .map deletion only lands on a FULL build - this keeps the exploit closed on a GSC-only
+        // build even while the old BSP still carries the deleted Lab trigger.
         if ( acc_bus_trench::underground_layer( triggers[ i ].origin ) <= 0 )
         {
             acc_utility::log( "overclocks: ignoring above-ground terminal at " + triggers[ i ].origin + " (trench-only)" );
@@ -335,10 +338,20 @@ function terminal_loop()
         }
 
         next_tier = progress.tier + 1;
+        // [acc] LEVEL GATE (docs/45): your player level caps how high ANY gun can be overclocked
+        // (LV N -> max OC tier N, twin of the exo gate). Deny BEFORE the shard spend so a level-locked
+        // press costs nothing. is_active() is LIVE (leveling promoted out of dev 2026-07-22).
+        if ( acc_leveling::is_active() && next_tier > acc_leveling::player_level( player ) )
+        {
+            player acc_utility::hud_msg( "^5OVERCLOCK^7 - Tier " + next_tier + " requires ^5Level " + next_tier + "^7" );
+            wait( 0.5 );
+            continue;
+        }
         cost = tier_cost( next_tier );
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
             player acc_utility::hud_msg( "^5OVERCLOCK^7 - Tier " + next_tier + " needs ^5" + cost + "^7 Data Shards" );
+            player PlaySound( "acc_shard_deny" );   // [acc] shard-deny buzz (sfx sweep 2026-07-21)
             wait( 0.5 );   // debounce; the keeper is already quoting THIS player's next-tier price
             continue;
         }

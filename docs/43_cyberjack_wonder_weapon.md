@@ -323,7 +323,7 @@ post-launch as a content-update beat (idea: SIREN/WIRE daemon variants).
 |---|---|---|
 | `acc_cj_hops_base` | 2 (+1/tier) | chain hops (AS-BUILT name; M1 2026-07-17) |
 | `acc_cj_hop_range` | 220 | max hop distance (u) |
-| `acc_cj_dot_frac` / `_frac_tier` / `_ticks` | 0.34 / +0.08 / 3 | decompile DoT (exact-damage marked — lands verbatim) |
+| `acc_cj_dot_frac` / `_frac_tier` / `_ticks` | 0.306 / +0.072 / 3 | decompile DoT (exact-damage marked — lands verbatim; ×0.9 all-lane nerf 2026-07-27, was 0.34/+0.08) |
 | `acc_cj_slow_rate` / `_ms` / `_ms_tier` | 0.8 / 3500 / +500 | corruption flicker-slow (window outlives the DoT) |
 | `acc_cj_harvest_chance` | 0.20 (×2 at tier ≥2 BLACK ICE) | decompile shard proc (rarified 2026-07-17: was 0.35) |
 | `acc_cj_harvest_cap_base` | 3+round/10 | per-round shard cap, ALL cyberjack tags (rarified 2026-07-17: was 6 — the binding constraint, so this is the real rarity lever) |
@@ -391,7 +391,7 @@ does NOT gain it** (decision 2 — Paradise loot would bypass the quest).
   functions (`is_cyberjack`/`cyberjack_tier`/`acc_pap_cyberjack`/`make_cyberjack_packable`)
   + the 6 hook points (`:222/:530/:568/:959/:1253/:1572`).
 - `_acc_weapon_variants.gsc` — no-twin special lists `:360/:508` + in-place guard `:513`.
-- `_acc_damage.gsc` — balance mult row (IsSubStr `apex_lstar`, 0.18); `is_energy_weapon`
+- `_acc_damage.gsc` — balance mult row (IsSubStr `apex_lstar`, 0.288 as-built after the 2026-07-27 all-lane −10%); `is_energy_weapon`
   row; Glitch one-shot row (the `:476` pattern); the F12 weakness-flip + F11 melee-purge
   notify in block 0c5 (M3).
 - `_acc_cyberjack.gsc` (NEW, git-tracked = ours) — the whole combat identity: jack-in
@@ -399,6 +399,32 @@ does NOT gain it** (decision 2 — Paradise loot would bypass the quest).
   chain/orb bolts reuse the Triple Take's `acc_ttk_bolt_fx` scriptmover CF (value 3 =
   `acc_cj_bolt_violet`); the tornado uses the DE storm's `elem_storm_*` CFs. (The vendored
   `_zm_weap_elemental_bow_storm.gsc` is UNTOUCHED — the bow returned to dormant.)
+  **TEMPEST balance (2026-07-26, user "nerf it by 20%" + "another 10%... Its just so
+  strong" + "I dont want it to just one hit zombies"):** two stacked changes.
+  (1) tough-enemy (boss/Shielded/mini-boss) DoT `acc_cj_storm_dot_frac` **0.5 → 0.4 →
+  0.36** — per 0.3s tick = `0.36 × zombie-round-HP × lvl-mult` (L4 mult 5 → 1.8× zHP/tick,
+  was 2.5×). (2) the normals lane is NO LONGER a guaranteed one-shot: `storm_zombie_tick`
+  deals **SET flat damage per tick** — `acc_cj_storm_zombie_dmg` (default **1080**, the
+  −20%−10% of a 1500-class base) × the same lvl-mult, deliberately NOT round-scaled so the
+  zombie HP curve overtakes it: one-hits at L1 through ~r10, L2 ~r17, L3 ~r20, **L4 (5400)
+  ~r26**; past that even a full charge needs multiple ticks ("still a one hit for earlier
+  round but not forever — you would need a full recharge on really late round"). Applies to
+  the tornado AND the small jack-in finisher storms (same field loop at lvl 1). Zombies
+  already corrupted now also take storm ticks (the old one-shot skipped them). Wonder-weapon
+  kills (incl. every Cyberjack kill) also pay HALF kill money since 2026-07-26 (docs/05).
+  **(3) 2026-07-27 (user "how much they slow currently should only be a max charge. I can do
+  a 15 bullet charge and its super OP. Make sure all aspects of it scale up"): the storm SLOW
+  now scales with charge level** — `acc_cj_storm_slow_rate` (0.5) is the MAX-charge rate only;
+  the slow fraction interpolates linearly: **L1 12.5% / L2 25% / L3 37.5% / L4 50%** (finisher
+  micro-storms = the light L1 slow). With this, EVERY strength axis of the storm scales with
+  the charge: damage (both lanes ×lvl-mult), life (+1.2s/lvl), range (+90u/lvl), funnels
+  (=lvl), bolt visuals (lvl+1), slow (12.5%×lvl), ammo cost (15×lvl). Only cadence (0.3s
+  tick), the 4-storm cap, and the corruption mark (the same passive every bullet applies)
+  stay charge-flat. **(4) 2026-07-27 ALL-LANE −10% (user "give the cyberjack another 10%
+  nerf... They are just too good"):** every damage lane ×0.9 — bullet stream balance mult
+  0.32 → **0.288** (~234/shot, ~2786 base DPS; the chain hops inherit it), storm normals base
+  1080 → **972** (one-hits L1 ~r9 / L2 ~r16 / L3 ~r20 / L4 4860 ~r26), storm boss DoT frac
+  0.36 → **0.324** (L4 = 1.62× zHP/tick), decompile DoT 0.34/+0.08 → **0.306/+0.072**.
 - `_acc_events_hack.gsc` — terminal state machine grows purge/RAM/compile modes (ONE
   prioritized `set_hint_for_state`; unique-word hints).
 - `_acc_boss_avogadro.gsc` — counter-hack director (F11) + ICE-breach flag his loops check

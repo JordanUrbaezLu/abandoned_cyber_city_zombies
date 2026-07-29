@@ -239,7 +239,10 @@ function on_zombie_death( attacker ) // self = the killed zombie
     {
         if ( isdefined( attacker ) && isplayer( attacker ) )
         {
-            paid = award_killer_with_ledger( attacker, getdvarint( "acc_trench_zombie_points", 30 ), self.damagelocation );
+            base = getdvarint( "acc_trench_zombie_points", 30 );
+            if ( is_wonder_kill( self ) )
+                base = int( base / 2 );   // the global wonder-weapon money nerf (2026-07-26) - trench kills too
+            paid = award_killer_with_ledger( attacker, base, self.damagelocation );
             send_kill_feed( attacker, paid, kill_feed_text( self, self.damagemod, self.damagelocation ) );
         }
         return;
@@ -331,6 +334,14 @@ function distribute_points( zombie, killer, mod, hit_loc )
     base = base_points_for_kill( mod, hit_loc );
     if ( base <= 0 ) return;
 
+    // WONDER-WEAPON MONEY NERF (user 2026-07-26): wonder-tier kills pay HALF base
+    // points - a global economy nerf ("since they are so strong"). Scales `base`
+    // BEFORE the co-op split, so killer share and contributor pool both halve; the
+    // Loot Stash/Payroll Ledger flat +10 and the boss-module bounty awards are
+    // untouched. Halved 70/110 floor to 30/50 through the 10-unit quantization.
+    if ( is_wonder_kill( zombie ) )
+        base = int( base / 2 );
+
     // Partition contributors into killer vs others.
     contributors = qualifying_non_killer_contributors( zombie, killer );
 
@@ -416,6 +427,33 @@ function is_headshot( hit_loc )
     if ( hit_loc == "head" )   return true;
     if ( hit_loc == "helmet" ) return true;
     if ( hit_loc == "neck" )   return true;
+    return false;
+}
+
+// WONDER-WEAPON MONEY NERF identity (user 2026-07-26 "wonder weapon kills give half the
+// amount of money you would receive for a normal gun. This is a global nerf"). True when
+// the zombie's killing weapon is wonder-tier. The substring set = _acc_damage.gsc::
+// weapon_is_unbuffed_wonder + the two buffable wonder-tier guns (Blast-O-Matic, docs/25;
+// THE CYBERJACK, docs/43) - INLINED, not #using'd, because _acc_damage already #using's
+// THIS module (record_damage) and a #using cycle is not worth the risk; keep in sync
+// (the same mirror convention as is_headshot above). Substr matching covers PaP/_acc_
+// twin names exactly like the _acc_damage classifiers do. Melee kills are unaffected
+// (damageweapon is the melee weapon, not the held gun). Octobomb/Ragnarok = equipment,
+// deliberately excluded.
+function is_wonder_kill( zombie )
+{
+    if ( !isdefined( zombie ) || !isdefined( zombie.damageweapon ) ) return false;
+    w = zombie.damageweapon;
+    if ( !isdefined( w.name ) ) return false;
+    name = w.name;
+    if ( IsSubStr( name, "bow" ) )                 return true;   // elemental bows (Fire Bow)
+    if ( IsSubStr( name, "thundergun" ) )          return true;   // Thundergun
+    if ( IsSubStr( name, "freezegun" ) )           return true;   // Winter's Howl
+    if ( IsSubStr( name, "special_discgun" ) )     return true;   // D13 Sector
+    if ( IsSubStr( name, "skull_gun" ) )           return true;   // Skull of Nan Sapwe
+    if ( IsSubStr( name, "dragon_gauntlet" ) )     return true;   // Dragon Gauntlet
+    if ( IsSubStr( name, "t9_semiauto_cosplay" ) ) return true;   // Blast-O-Matic
+    if ( IsSubStr( name, "apex_lstar" ) )          return true;   // THE CYBERJACK
     return false;
 }
 

@@ -615,6 +615,11 @@ function mega_trigger_think( t_vending )
 
     t_mega = Spawn( "trigger_radius_use", t_vending.origin, 0, 40, 80 );
     t_mega.targetname = "acc_mega_vending";
+    // Back-link for the perk scatter (_acc_perk_scatter): machines relocate at
+    // runtime, and this trigger is spawned at t_vending.origin but never re-reads
+    // it - the scatter moves t_vending.acc_mega_trigger along with the machine.
+    t_mega.acc_vending = t_vending;
+    t_vending.acc_mega_trigger = t_mega;
     t_mega TriggerIgnoreTeam();
     t_mega UseTriggerRequireLookAt();
     t_mega SetCursorHint( "HINT_NOICON" );

@@ -86,7 +86,7 @@ rational because it pays for the team's next safe ascent.
 | Option | Pro | Con |
 |---|---|---|
 | **A. Free Overclock tier on held weapon** | Buildable now; value *scales* with how deep you already are (Overclocks cost a linear 4/8/12/16/20/24/28/32/36/40 Shards across 10 tiers — +4/tier, `_acc_overclocks.gsc:36-48`), so it stays meaningful late. | Risks **decaying** as portable Shards inflate; needs new redemption plumbing at the Lab Overclock terminal. |
-| **B. Perk-rotation re-roll token** | **Never goes stale** — re-rolling the Lab's 4-of-10 lineup is always valuable. | The rotation it re-rolls now **ships** — `_acc_perk_doors.gsc` opens a random 4-of-10 alcoves and re-rolls every round (`apply_round`, `_acc_perk_doors.gsc:187`). What's still unbuilt is a **player-triggered re-roll** (token/console) on top of that automatic per-round roll. |
+| **B. Perk-rotation re-roll token** | **Never goes stale** — re-rolling perk availability is always valuable. | The rotation this targeted was replaced 2026-07-24 by the **map-wide perk scatter** (`_acc_perk_scatter.gsc`, perk→pad reshuffle every 3rd round; the alcove-door roll is gone and its geometry deleted 2026-07-25). The token concept would now mean a **player-triggered scatter re-roll** — still unbuilt. |
 
 > **The judges' single most consistent criticism across all five concepts:** this bottom-pull is the
 > **load-bearing, least-built, most-fragile** half, and several concepts mislabel net-new economy

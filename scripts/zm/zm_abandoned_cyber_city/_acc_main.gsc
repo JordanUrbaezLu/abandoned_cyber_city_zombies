@@ -19,6 +19,7 @@
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // dev-only LV0-10 gate for overclock+exo (docs/45); early so gate modules can #using it
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_cyberware;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_overclocks;
@@ -30,8 +31,10 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_events_overload;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_emergency_drop;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_glitch_altar;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_scientist_office;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_jukebox;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_slots;      // CYBER SLOTS machine (Coolyer zm_slots adapted; NORTH under-room arcade corner next to the jukebox)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_kortifex;   // Kortifex announcer (medals/boss/quips; stock vox_zmba_* overridden by the pack CSV)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_leaderboard;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_reactor;
@@ -65,6 +68,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lockdown_challenge;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_doors;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_perk_scatter;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_info;
@@ -203,10 +207,16 @@ function init()
     // fires the first one. Door-locking is stage 2 (needs Radiant seal brushes).
     acc_lockdown::init();
 
-    // Per-round random perk access: 3 of the 9 Lab perk-alcove doors open each
-    // round (dev: all open via acc_open_map). Arms an acc_round_start listener,
-    // so init before watch_round_transitions fires (next to acc_lockdown).
+    // 10-perk specialty registry (level.acc_perk_door_specs - _acc_paradise reads
+    // it). The alcove doors this module used to force open were DELETED from the
+    // .map 2026-07-25 ("clean up the lab"); perk access is the map-wide scatter below.
     acc_perk_doors::init();
+
+    // MAP-WIDE PERK SCATTER (user 2026-07-24, docs/10): 10 perk pads across the
+    // map, the perk->pad assignment reshuffles every 3rd round (QR fixed in the
+    // Plaza; 2 Mega Bottles pins a Mega'd perk to its pad). Arms an
+    // acc_round_start listener, so init before watch_round_transitions fires.
+    acc_perk_scatter::init();
 
     // Order matters: data_shards owns the currency HUD, so it initializes before
     // cyberware / overclocks / emergency_drop which all read/write it.
@@ -224,7 +234,9 @@ function init()
     // (Vault). #using kept for easy restore; nothing reads level.acc_overload_state (README doc only).
     acc_emergency_drop::init();
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
+    acc_scientist_office::init();   // THE SCIENTIST'S OFFICE desk loot (paired random gun+implant; needs boss_items' item pool - init'd above)
     acc_jukebox::init();        // JUKEBOX (random song, 1 Data Shard + 1000 pts) in the NORTH trench room (the non-Overclock one)
+    acc_slots::init();          // CYBER SLOTS (500 pts/spin; shards jackpot, free-gun bell, perk-loss skull, insta-down death) - same room, west wall south of the jukebox
     acc_kortifex::init();       // KORTIFEX announcer (VG VO, [West] pack): medals + boss sendoff/roar + eliminations + taunts; kill-switch acc_kortifex_on
     acc_leaderboard::init();    // LEADERBOARD (docs/40) - end_game recorder (cloud POST, skipped in dev/god) + Plaza top-10 station
 
@@ -333,6 +345,11 @@ function init()
     // serialize; ships the gun blob in the leaderboard POST. Skipped in dev/god.
     // After weapon_variants (fold) + gun_badges (shares the held-gun read pattern).
     acc_weapon_usage::init();
+
+    // Leveling (docs/45): per-player LV0-10 that caps the overclock + exo tier ladders. DEV-ONLY
+    // for now - init() self-gates on level.acc_dev and is fully inert in ship. After every economy/
+    // boss/HUD module so it can read their state; before acc_dev (which stays last to override caps).
+    acc_leveling::init();
 
     // Dev/test harness LAST so it can override caps (perk limit) set earlier. Self-gates on the `acc_dev`
     // dvar - the DEV tools no-op in normal play, but two FEATURES set up above that gate ship to everyone:

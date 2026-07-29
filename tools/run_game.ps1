@@ -42,6 +42,24 @@ param([switch]$NoBoss, [switch]$NoDev, [switch]$NoVarDebug, [switch]$ClosedMap, 
 # ENGINE ARGS ONLY - no acc_dev/acc_god (they're hardcoded in the build, see header).
 # g_log/g_logSync: enable the engine GAME log (games_mp.log) - the [ACCDIAG] diagnostics heartbeat
 # (_acc_diag.gsc, LogPrint census every 30s) lands there. logfile 1 covers console_mp.log separately.
+# ---- [acc] BUILD-IN-PROGRESS GUARD (2026-07-25) -------------------------------------------------
+# Launching while the linker is writing the .ff makes the game load a HALF-WRITTEN fastfile ->
+# torn Lua chunks -> an on-screen "UI Error <code>" box at load (live-hit 3:31 AM 2026-07-25:
+# game launched at 3:31:44, linker finished the .ff at 3:34:07 -> UI Error 44429). Same family
+# as the concurrent-linker collisions (memory concurrent-linker-collision-0xc0000005). Refuse to
+# launch until the build tools are done - a fresh launch 60s later costs nothing; debugging a
+# phantom UI error costs an hour.
+$buildProcs = Get-Process linker_modtools, cod2map64, radiant_modtools -ErrorAction SilentlyContinue
+if ($buildProcs) {
+    Write-Host ""
+    Write-Host "[run_game] BUILD IN PROGRESS - NOT launching:" -ForegroundColor Red
+    $buildProcs | ForEach-Object { Write-Host ("    {0} (pid {1})" -f $_.ProcessName, $_.Id) -ForegroundColor Red }
+    Write-Host "[run_game] The game would load a HALF-WRITTEN .ff (= 'UI Error' box / corrupt load)." -ForegroundColor Red
+    Write-Host "[run_game] Wait for the build to finish, then run this again." -ForegroundColor Yellow
+    exit 1
+}
+# -------------------------------------------------------------------------------------------------
+
 $gameArgs = "+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1"
 
 # ---- [acc] LEADERBOARD AGENT PRE-SPAWN (docs/40, user 2026-07-12 "do it silently") --------------

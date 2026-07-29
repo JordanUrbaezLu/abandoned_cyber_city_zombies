@@ -9,6 +9,8 @@
 //   - Savior (QR Mega) +15% speed  (savior_speed_watcher + recompute term in
 //                                   _acc_utility::recompute_move_speed)
 //   - Widow's Wine base 50% nerf   (ww_nerf_install + ww_duration_watchdog; user 2026-07-17)
+//   - Low-health red-screen sync   (health_overlay_sync - kills the stock time-based
+//                                   pulse the moment HP is actually back to full)
 //
 // Wired from _acc_main: acc_perks::init() in init(); on_player_connect /
 // on_player_spawned dispatched from the matching acc_main hooks.
@@ -51,6 +53,14 @@
 #define ACC_PLAYER_BASE_HEALTH       125  // stock 100 (user 2026-07-16 starting-health buff)
 #define ACC_JUGG_HEALTH_ADD          125  // 150 -> 125 so Jug stays 250 with the 125 base (user 2026-07-16)
 #define ACC_JUGG_HEALTH_ADD_UPGRADE  125  // stock persistent-upgrade var mirror
+
+// --- Low-health red vignette trigger threshold (user 2026-07-25) --------------
+// Stock ZM (_zm_playerhealth.gsc:62) sets level.healthOverlayCutoff = 0.2 (20%): once
+// self.health/self.maxHealth drops to/under this the red pulse fires (gate at :189,
+// health_ratio <= level.healthOverlayCutoff, re-read live every damage tick). Raise it
+// so the screen starts flashing red at 30% HP instead of 20%. NOT to be confused with
+// health_overlay_sync below, which STOPS the (time-based) pulse once HP is back to full.
+#define ACC_HEALTH_OVERLAY_CUTOFF    0.30  // stock 0.2 (20%) -> 0.3 (30%)
 
 // --- Quick Revive regen: base 20% sooner, Savior Mega 40% sooner (docs/10; user 2026-06-21) ---
 #define ACC_QR_REGEN_DELAY_BASE   0.80   // base QR: regen delay x0.80 (=20% sooner -> ~1.92s; was 0.85/15%)
@@ -117,6 +127,12 @@ function init()
     // cascades to no-Jug (125), Jug (275) and every revive/round recompute.
     zombie_utility::set_zombie_var( "player_base_health", ACC_PLAYER_BASE_HEALTH );
 
+    // Low-health red vignette trigger: 20% -> 30% (user 2026-07-25). Stock ZM level init
+    // (_zm_playerhealth.gsc:62) already ran by the time acc_main::init reaches us (same
+    // ordering as player_base_health above), so this override wins and sticks; the overlay
+    // gate re-reads level.healthOverlayCutoff live every damage tick (_zm_playerhealth.gsc:189).
+    level.healthOverlayCutoff = ACC_HEALTH_OVERLAY_CUTOFF;
+
     // Per-player perk-slot limit hook (the stock-sanctioned override, _zm_utility.gsc:5879). The base
     // cap is level.perk_purchase_limit (4, set in the entry script); this hook adds each player's
     // shard-bought bonus on top. Installed here so it is live before any perk machine is used.
@@ -129,8 +145,9 @@ function init()
 
     level thread tune_jugg_health();
     level thread force_perk_machine_facing();
-    // Perk machines start lit + buyable via level.vending_machines_powered_on_at_start
-    // (set in the entry script before zm_usermap::main) - no power watcher needed.
+    // (Stale claim removed 2026-07-24: nothing ever set level.vending_machines_
+    // powered_on_at_start - machines follow stock power-off-at-start behaviour,
+    // gated by the corp switch "power_on" flag like everything else.)
 }
 
 // PERMANENT perk-machine facing fix (user 2026-06-19, after the facing reverted FOUR times). The .map
@@ -159,6 +176,10 @@ function force_perk_machine_facing()
 }
 
 // Set every perk machine model to the given yaw. Returns the count set (0 = machines not spawned yet).
+// PERK SCATTER (2026-07-24): a machine parked on a scatter pad carries .acc_pad_yaw
+// (set by _acc_perk_scatter::move_machine) - pads sit against different walls, so
+// the pad yaw WINS over the global Lab-row yaw here; without this the ~35s
+// re-assert window would spin freshly-scattered machines back to face south.
 function apply_perk_facing( yaw )
 {
     triggers = GetEntArray( "zombie_vending", "targetname" );
@@ -168,7 +189,10 @@ function apply_perk_facing( yaw )
         t = triggers[ i ];
         if ( isdefined( t ) && isdefined( t.machine ) )
         {
-            t.machine.angles = ( 0, yaw, 0 );
+            if ( isdefined( t.machine.acc_pad_yaw ) )
+                t.machine.angles = ( 0, t.machine.acc_pad_yaw, 0 );
+            else
+                t.machine.angles = ( 0, yaw, 0 );
             n++;
         }
     }
@@ -261,6 +285,7 @@ function perk_slot_vendor_loop()   // self = the vendor trigger
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
             player acc_utility::hud_msg( "^5NEURAL EXPANSION^7 - +1 Perk Slot costs ^5" + cost + " Data Shards" );
+            player PlaySound( "acc_shard_deny" );   // [acc] shard-deny buzz (sfx sweep 2026-07-21)
             wait 0.4;
             continue;
         }
@@ -286,6 +311,7 @@ function on_player_spawned( player )
     player notify( "acc_perk_life" );
     player thread qr_regen_booster();
     player thread savior_speed_watcher();
+    player thread health_overlay_sync();
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +397,53 @@ function qr_damage_time_watcher()
              && attacker.team == self.team )
             continue;
         self.acc_qr_last_hit_time = gettime();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Low-health red-screen sync: stop the native pulse the moment HP is back full.
+//
+// VERIFIED(acc): the stock red vignette (_zm_playerhealth.gsc::redFlashingOverlay)
+// is TIME-based, not health-based - once you dip under level.healthOverlayCutoff
+// (we raise it to 30% in init; stock 20%) it pulses at full severity until
+// hurtTime + level.longRegenTime (5s) plus
+// a fixed ~2.6s fade tail, and never re-reads self.health. Stock got away with it
+// because stock "very hurt" regen ALSO waits exactly longRegenTime before healing,
+// so overlay end and heal-to-full landed together by construction. Our recovery
+// modifiers break that alignment (qr_regen_booster above starts healing at ~1.4s;
+// Jug purchase / Mega heals top you off instantly) -> the screen keeps flashing
+// red for seconds at 100% HP (user 2026-07-25).
+//
+// The lever: stock's own external kill switch, the "clear_red_flashing_overlay"
+// notify (_zm_laststand.gsc:1370 fires it on revive) - watchHideRedFlashingOverlay
+// fades the overlay in 0.05s, clears the flag, and stops the heartbeat loop sfx,
+// and the pulse thread endon's the same notify. We fire it EDGE-TRIGGERED on the
+// not-full -> full transition. Deliberately NOT gated on the
+// player_has_red_flashing_overlay flag: stock's regen loop clears that flag at
+// full health WITHOUT stopping the visual, so "flag off, overlay still pulsing"
+// is exactly the broken state we're fixing. A notify while no overlay is up is a
+// no-op (fades an alpha-0 element, clears an unset flag).
+// ---------------------------------------------------------------------------
+
+function health_overlay_sync()
+{
+    self endon( "disconnect" );
+    self endon( "death" );
+    self endon( "acc_perk_life" );   // per-life kill + re-thread (see on_player_spawned)
+
+    was_full = true;   // spawns land at full - only a real recovery may edge-trigger
+
+    for ( ;; )
+    {
+        WAIT_SERVER_FRAME;
+
+        if ( !isdefined( self.maxHealth ) || self.maxHealth <= 0 ) continue;
+        if ( self.health <= 0 ) continue;   // downed/dead - laststand's revive path clears the overlay itself
+
+        is_full = ( self.health >= self.maxHealth );
+        if ( is_full && !was_full )
+            self notify( "clear_red_flashing_overlay" );
+        was_full = is_full;
     }
 }
 

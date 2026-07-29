@@ -263,8 +263,10 @@ the gate opens, and it starts the instant the team drops into the plaza. The seq
 | **WIN (run continues, user 2026-07-12)** | reward window `acc_paradise_reward_sec` 60 | Latch `level.acc_paradise_won` → banner + fanfare → **lift the fog** → **purge horde** → **reward every survivor**: **all perks** (`level.acc_perk_door_specs` via `zm_perks::give_perk`) + **enhanced Jug = 350 HP** (`n_player_health_boost` 100 + `perk_set_max_health_if_jugg`, survives downs; `acc_paradise_hp_boost`) + a **gold health bar at full HP** (`_acc_health_bars::hp_bar_color`, gated on `player.acc_paradise_reward`) → **drop the 5 wonder weapons** as hold-`[+activate]` plaza-floor pickups for the window (`acc_paradise_wonder_loot`; 2026-07-12 fix: a grabbed pickup now actually vanishes and un-grabbed ones clear at window close — both teardown paths used to notify their own endon and die before their deletes ran) → the **win banner fades out** ~5s into the window (`acc_paradise_win_banner_sec`; it used to stay on screen for the rest of the run) → **teleport survivors to the surface** `(-291,-316,32)` (fan-out ring, OOB 12s grace = no down) → `flag::set("spawn_zombies")` **resumes stock rounds** + `unseal_arena()` reopens the gate (`ConnectPaths`). **NO `end_game`** — the run ends later on death/quit, and the recorder tags that entry **(Paradise Winner)** (docs/40) via the latched flag. **LOSE** = team wipe ends the match normally (stock game-over). |
 
 **Boss-HUD / music suppression**: `_acc_health_bars::boss_bar_listener`/`boss_bar_track` skip + self-destroy bars
-while `level.acc_paradise_onslaught`; `_acc_boss::boss_music` returns early on the same flag (the "115" anthem owns
-the audio). **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
+while `level.acc_paradise_onslaught`; `_acc_boss_nameplate::attach` refuses new 3D plates AND LUI bar rows on the
+same flag, and `bb_pump` **wipes all live `CoD.AccBossBars` rows + the overflow queue** (state-2 clear pushes) the
+tick the flag goes true (2026-07-24 — the new bar rows inherit the exact old contract); `_acc_boss::boss_music`
+returns early on the same flag (the "115" anthem owns the audio). **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
 `_acc_boss_brutus::spawn_one_paradise` + `paradise_warden_think` (the trench-warden twin, paradise-tethered).
 
 ## Enhancement — the "Infected Descent" (LOCKED plan 2026-07-12; Phase 0 BUILT)
@@ -435,6 +437,18 @@ Full plan: memory `abyss-horror-enhancement-plan` + the plan artifact linked the
   keep-clear-validated by scratch `gen_m6_layout.js` (stairwell bands, stair landings, station
   kiosks r110, L4 Gantry, L5 Paradise door + tide safe lane, M60/AK wallbuys). Full build green:
   LED bake passed, every M6 xmodel + the sprout material ff_grep-verified in the fresh `.ff`.
+- **M6 regression: the flesh hive SEALED the D4 landing — REMOVED (user 2026-07-26 "clip/model
+  blocking you on the stairs... preventing players from completing the map"):** the hive at
+  `(260,2105)` (clip `x[197,323] y[2040,2170]`, 120 tall) sat IN the D4 stairwell band
+  (`y[2045,2173]`) — the THIRD prop to land on this exact spot (`l5_column` moved off `(240,2110)`
+  and the snake hatchery deleted from the well band, both 2026-07-13, both user-caught). Its clip +
+  `m6_l5_brute1`'s (`x[132,208] y[1956,2024]`) left only ≤20u slivers out of the final stairs
+  (player capsule ~32u) → Paradise unreachable. The M6 keep-clear validation missed the COMBINED
+  pinch (each clip alone left a lane; together they closed it). Hive spawn + clip removed
+  (`_acc_abyss_deco::spawn_m6_l5` / `add_prop_clips.js`); brute + column stay — with the hive gone
+  the landing exits east past x208 then south. **KEEP-CLEAR (hard rule, third strike): NO clipped
+  prop anywhere in `x[112,~420] × y[1956,2173]` on L5 — the D4 landing + its exit lanes. Check
+  clips PAIRWISE against the lane, not just solo.**
 
 **Paradise boss audit fixes (user 2026-07-09):** the **Phantom** and the **Glitch Stalker** never landed a melee
 swing in the arena — both are stock-zombie-BT hosts that spawn TOPSIDE and blink to players, so warping below

@@ -27,6 +27,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // survive-the-pit XP (docs/45)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_elites;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_glitch;
@@ -277,9 +278,22 @@ function run_surge( player )   // self = the plinth trigger
     players = level.players;
     for ( i = 0; i < players.size; i++ )
         acc_data_shards::grant_player( players[ i ], reward, "reactor" );
+
+    // [acc] LEVELING XP (docs/45): the ARMER who held the pit through the 5-wave elite gauntlet gets the
+    // big commitment bonus; every OTHER player still alive + underground at the end gets a smaller share
+    // (surface campers don't collect). 3-round re-arm cooldown makes it a raid, not a farm.
+    acc_leveling::grant_reactor_xp( player, true );
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( isdefined( p ) && isplayer( p ) && p != player
+             && acc_data_shards::is_player_alive( p ) && acc_bus_trench::player_in_underground( p ) )
+            acc_leveling::grant_reactor_xp( p, false );
+    }
+
     level thread zm_powerups::specific_powerup_drop( "fire_sale", player.origin );
     acc_boss_items::grant_challenge_reward( player.origin );
-    player PlaySound( "acc_shard_pickup" );
+    player PlaySound( "acc_reactor_online" );
     player acc_utility::hud_msg( "^2REACTOR STABILIZED^7 - everyone +" + reward + " Data Shards + Fire Sale + a random Implant!" );
 }
 
