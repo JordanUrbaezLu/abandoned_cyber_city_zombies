@@ -77,7 +77,7 @@
 // Stalker - re-theme later if they read too similar.)
 #define ACC_PHANTOM_ENABLE_DEF        1     // master on/off (1 = on in normal play; dev also runs it)
 #define ACC_PHANTOM_HP                65000  // BASE solo HP at the round-5 anchor (user 2026-07-05: 56000 -> 65000). Shared by Phantom + Rogue + Avogadro (+ Panzer). COMPOUNDS per round (user 2026-06-27, scale_phantom_hp): x ACC_PHANTOM_HP_EXP^(round-anchor) THEN x boss_hp_player_mult (LOGARITHMIC coop). Was FLAT every round = the no-scaling bug. Live dvar acc_phantom_hp.
-#define ACC_PHANTOM_HP_EXP            1.06   // per-round COMPOUNDING exponent (user 2026-07-04: 1.1 -> 1.08 -> 2026-07-08 1.06 after the anchor moved to r5). TIERED BOSS SCALE, all sharing base 65000 + anchor 5, differing ONLY by exponent: Brutus/Panzer 1.12 > Rogue Protector 1.09 > Phantom 1.06 (Phantom is the SOFTEST; Avogadro shares this). Phantom solo r5 65k / r10 87k / r20 156k / r30 279k / r40 500k. Live dvar acc_phantom_hp_exp.
+#define ACC_PHANTOM_HP_EXP            1.06   // per-round COMPOUNDING exponent (user 2026-07-26: -0.01 all-boss health nerf, 1.07->1.06 - keep Avogadro's inline fallback in lockstep; user 2026-07-04: 1.1 -> 1.08 -> 2026-07-08 1.06 after the anchor moved to r5 -> 2026-07-25 1.07). TIERED BOSS SCALE, all sharing base 65000 + anchor 5, differing ONLY by exponent: Brutus 1.12 > Panzer 1.1 > Rogue Protector 1.09 > Phantom/Avogadro 1.07 > Scientist 1.05 (Avogadro shares this value - his spawn site duplicates it as an inline dvar fallback, keep in lockstep). Phantom solo r5 65k / r10 91k / r20 179k / r30 353k / r40 694k. Live dvar acc_phantom_hp_exp.
 #define ACC_PHANTOM_HP_ANCHOR         5      // round the BASE HP applies + compounding STARTS (user 2026-07-08: 10 -> 5, so ALL bosses scale from round 5; they first spawn at round 9 = base x exp^4). Live dvar acc_phantom_hp_anchor.
 #define ACC_PHANTOM_FIRST_ROUND_DEF   10    // BASE-GAME first round (round 10), then every ACC_PHANTOM_INTERVAL rounds (user 2026-06-26). (Stale "DEV mode = 4" note removed 2026-07-17: that fast cadence was disabled 2026-07-12; the CURRENT dev accelerator is the one-shot round-3 spawn in phantom_due_count.)
 #define ACC_PHANTOM_INTERVAL_DEF      10    // LEGACY-FALLBACK cadence only (used if the shared roster pointer isn't published yet). Live rotation is the every-9 multi-boss roster in _acc_civil_protector. DEV fallback = every 4.
@@ -89,7 +89,7 @@
 #define ACC_PHANTOM_REVEAL_DIST_DEF   240   // stay invisible until THIS close, then materialize (was 400 - now he's on you)
 #define ACC_PHANTOM_SPEED_MULT_DEF    1.1   // sprint-gait playback rate. User 2026-06-24: +10% from the 1.0 interim baseline (natural zombie sprint ~181 u/s, KITEABLE vs a player's ~299 sprint). CAVEAT: anim-rate->ground-speed is NON-LINEAR (1.685 once overshot badly = caught+instakilled), so 1.1 is +10% PLAYBACK, not exactly +10% u/s - verify real speed with the [SPD] probe and tune LIVE via acc_phantom_speed_mult.
 #define ACC_PHANTOM_MELEE_DMG_DEF     19    // melee dealt to players: ~30% UNDER a Glitch Stalker's 27/hit (glitch = stock 60 x acc_glitch_melee_dmg_mult 0.45). User 2026-06-24 "not super lethal, 30% less than a glitch" (was 85). Stock zombie=60, our horde=45.
-#define ACC_PHANTOM_SERUM_SLOW_DEF    0.7   // gait mult while inside a Phase Serum holder's aura = 30% slow (user 2026-07-11, retuned twice same day: 0.5 -> 0.6 -> 0.7; matches the boss-zap slow's unified 30%). Glitch takes 0.2 + loses its blink; the Phantom only slows - teleports keep working. Live dvar acc_phantom_serum_slow; aura radius shared via acc_phase_serum_radius.
+#define ACC_PHANTOM_SERUM_SLOW_DEF    0.76  // gait mult while inside a Phase Serum holder's aura = 24% slow (user 2026-07-22: Phase Serum -20% across the board, 30% -> 24% slow; was 0.7 from 2026-07-11, retuned twice that day: 0.5 -> 0.6 -> 0.7). Glitch takes 0.36 + loses its blink; the Phantom only slows - teleports keep working. Live dvar acc_phantom_serum_slow; aura radius shared via acc_phase_serum_radius.
 #define ACC_PHANTOM_FLICKER_PCT_DEF   12    // % of 0.1s ticks that blip invisible while materialized (hologram flicker)
 
 // TELEPORT mobility (user 2026-06-24). The Phantom blinks to REPOSITION (it stalks via teleport, doesn't just
@@ -933,6 +933,7 @@ function phantom_death_watch()
     // multiple Phantoms may be alive at once, user 2026-07-03 multi-boss.)
 
     drop_origin = self.origin;
+    a_dmg = self.acc_damage_contrib;   // leveling XP damage-share ledger (docs/45 4a) - self guarded non-reaped above
 
     // Phantom reward (user 2026-06-22): GUARANTEED full set - 1 item drop + 1 Mega Bottle to every player +
     // a ROUND-SCALED payout to EVERY player (user 2026-06-29): round x 500 points + round x 1 Data Shards
@@ -943,7 +944,7 @@ function phantom_death_watch()
     // Mirrors the onslaught's block_powerup_drop + the reward-free Paradise Brutus path (host.acc_no_shard_reward).
     // Shared boss reward (user 2026-07-05: every boss identical) - 1 item + 1 bottle + round*300 pts +
     // int(round/3) shards, to every player. Paradise-suppression is handled inside the shared fn.
-    acc_boss::grant_unified_boss_reward( drop_origin );
+    acc_boss::grant_unified_boss_reward( drop_origin, undefined, a_dmg );
 
     pdebug( "^2Phantom down^7" );
 

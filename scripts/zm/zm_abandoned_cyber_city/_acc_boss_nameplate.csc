@@ -1,16 +1,21 @@
 // =============================================================================
-// _acc_boss_nameplate.csc - 3D over-head boss nameplate + health bar (client half)
+// _acc_boss_nameplate.csc - boss client FX pulses + 3D draw-name SUPPRESSOR
 //
-// Mirrors _acc_boss_nameplate.gsc's two actor clientfields and renders them via
-// the engine's floating actor name: `self SetDrawName( <string>, true )` - the
-// exact stock recipe from the Turned AAT (_zm_aat_turned.csc:38, an actor NOT
-// on the players' team) and the HB21 pack's ally robot (zm_zod_robot.csc).
-// Re-calling SetDrawName re-renders the string, so pushing a new hp value
-// redraws the bar live: `ROGUE PROTECTOR [|||||||---]`.
+// THE 3D PLATE IS REMOVED (user 2026-07-25 "remove the 3D name plate all
+// around. The only indicator will be the right side boss bar"): boss identity
+// + health live SOLELY on the LUI CoD.AccBossBars rows (acc_hud.lua, fed by
+// the accBoss1..5 controller UI-models from the .gsc half). History of the
+// plate: ASCII text bar -> name-only -> styled chevrons + identity colors
+// (all 2026-07-24) -> removed 2026-07-25 after the engine's hostile-name TINT
+// (multiplies ^-colors through ~{1.0,0.6,0.45}; white->peach, blue->black)
+// made true color-matching impossible. Restore any variant from git.
 //
-// NAME INDICES MUST MATCH _acc_boss_nameplate.gsc name_to_index(). 0 = clear.
-// The boss's own archetype may set a name at spawn (the robot's csc sets
-// "Civil Protector") - our callback simply overwrites it.
+// WHY name_cb STILL CALLS SetDrawName: it renders the EMPTY string - a boss
+// archetype may set its own floating name at spawn (the HB21 robot's csc sets
+// "Civil Protector" - zm_zod_robot.csc:50), and without this stomp the Rogue
+// Protector would show that pack name. The acc_bnp_name CF set at attach() is
+// the trigger. Registrations MUST stay in gsc/csc lockstep (CF-layout safety);
+// acc_bnp_hp stays SPARE (registered, never written).
 // =============================================================================
 
 #using scripts\shared\clientfield_shared;
@@ -71,55 +76,28 @@ function mahem_cb( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldN
 	self PlaySound( localClientNum, "wpn_s1_mahem_explosion_npc" );
 }
 
-function name_for_index( idx )
-{
-	switch ( idx )
-	{
-		case 1: return "PHANTOM";
-		case 2: return "PANZER";   // 2026-07-08: repurposed dead SUBROUTINE CORE slot (renamed from PANZER SOLDAT same day) - MUST match _acc_boss_nameplate.gsc name_to_index
-		case 3: return "TRENCH WARDEN";
-		case 4: return "GLITCH STALKER";
-		case 5: return "ROGUE PROTECTOR";
-		case 6: return "AVOGADRO";
-		default: return "BOSS";
-	}
-}
+// (name_for_index - the index->display-name table - REMOVED 2026-07-25 with the 3D
+// plate; the .gsc name_to_index survives as the CF encoder and the LUI rows carry the
+// name STRING in their payload. Restore from git with the plate if ever revived.)
 
-// Prebuilt 0..10 bar string. (The 2026-07-03 two-row/25-segment/colored restyle was
-// REVERTED same day - "looks worse" in the engine's draw-name renderer; this single-row
-// 10-segment format is the user-approved look.)
-function bar_for_tenths( tenths )
-{
-	fill = "";
-	for ( i = 0; i < tenths; i++ )
-		fill = fill + "|";
-	rest = "";
-	for ( i = tenths; i < 10; i++ )
-		rest = rest + "-";
-	return "^1[" + fill + "^7" + rest + "^1]";
-}
+// (bar_for_tenths / bnp_name_color / the styled ">> NAME <<" renderer - ALL REMOVED
+// with the 3D plate, 2026-07-25. The LUI CoD.AccBossBars rows are the only boss
+// indicator now. Restore from git if the plate is ever revived - and remember the
+// engine hostile-name TINT that killed it: title ^-colors multiply through
+// ~{1.0,0.6,0.45} on enemies, so white/grey/blue can never render true.)
 
-// self == the boss actor (both callbacks).
+// self == the boss actor (both callbacks). The plate is REMOVED - this callback's only
+// job is to STOMP any archetype-set floating name (the HB21 robot csc names the Rogue
+// Protector "Civil Protector" at spawn) the moment the server marks the boss (attach).
 function name_cb( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
-	self.acc_bnp_name_idx = newVal;
-	redraw();
+	self.acc_bnp_name_idx = newVal;   // kept for any future client consumer
+	self SetDrawName( "" );
 }
 
+// acc_bnp_hp is SPARE (2026-07-24): registered for CF-layout lockstep, never written.
+// Stored defensively; does not affect anything.
 function hp_cb( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
 	self.acc_bnp_hp = newVal;
-	redraw();
-}
-
-function redraw()
-{
-	idx = ( isdefined( self.acc_bnp_name_idx ) ? self.acc_bnp_name_idx : 0 );
-	if ( idx == 0 )
-	{
-		self SetDrawName( "" );
-		return;
-	}
-	hp = ( isdefined( self.acc_bnp_hp ) ? self.acc_bnp_hp : 10 );
-	self SetDrawName( "^7" + name_for_index( idx ) + " " + bar_for_tenths( hp ), true );
 }

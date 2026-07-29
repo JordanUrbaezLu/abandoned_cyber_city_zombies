@@ -283,7 +283,7 @@ if (-not $DryRun) {
     Info ("size:     {0:N2} MB" -f ($ffAfter.Length / 1MB))
     Info ("written:  {0}" -f $ffAfter.LastWriteTime)
     Write-Host ""
-    Write-Host "[build] READY TO TEST -> .\tools\run_game.ps1   (dev boss cadence 2026-07-17: 2 Glitch Stalkers EVERY round + one Phantom on round 3; Brutus + r9/18/27 roster run REAL)" -ForegroundColor Green
+    Write-Host "[build] READY TO TEST -> .\tools\run_game.ps1   (dev boss cadence: 2 Glitch Stalkers EVERY round + one Phantom on round 3 + ALL 5 BOSSES AT ONCE on round 4 [2026-07-24]; Brutus + r9/18/27 roster run REAL)" -ForegroundColor Green
 }
 
 # ===========================================================================

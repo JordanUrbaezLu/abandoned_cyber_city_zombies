@@ -349,7 +349,10 @@ function withdraw_item( player )
     // implant a duplicate (never converts it), push_implants_clientfield hides an already-implanted carry
     // so the CARRYING card stays EMPTY (no on-screen explanation), and the carry gate above then denies
     // every FURTHER withdrawal - telling them to bench the one item the bench will not take.
-    if ( acc_boss_items::player_has_item( player, id ) )
+    // STACKABLE exception (Sentry Drone, user 2026-07-25): duplicates are legal implants (one per slot),
+    // the bench accepts them, and the carried nibble shows a stackable carry - none of the three jams
+    // applies, so the withdraw proceeds like any fresh item.
+    if ( acc_boss_items::player_has_item( player, id ) && !( acc_boss_items::item_is_stackable( id ) ) )
     {
         player deny( "you already have that implanted - it stays in the vault" );
         return;

@@ -37,6 +37,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player() for passive trench shard income
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;      // trench-dwell XP twin (docs/45; no-op in ship)
 
 #insert scripts\shared\shared.gsh;
 
@@ -345,6 +346,7 @@ function trench_shard_income()   // self = player
         if ( interval > 0 && elapsed >= interval )
         {
             acc_data_shards::grant_player( self, getdvarint( "acc_trench_income_amount", 1 ), "trench_income" );
+            acc_leveling::grant_trench_xp( self, layer );   // [acc] leveling XP, scaled by depth (docs/45; dev-only, no-op in ship). Rides the same per-player continuous-dwell tick.
             elapsed = 0;   // reset whether or not the grant landed (at the shard cap it's a no-op) so we retry once per interval, not per second
         }
     }

@@ -99,11 +99,13 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	-- AETHERIUM CUSTOM WIDGETS
 	-- ========================================
 
-	-- Compass Widget
-	self.AetheriumCompass = CoD.AetheriumCompass.new( self, controller )
-	self.AetheriumCompass:setLeftRight( true, false, 0, 1280 )
-	self.AetheriumCompass:setTopBottom( true, false, 0, 720 )
-	self:addElement( self.AetheriumCompass )
+	-- Compass Widget - ACC DISABLED (2026-07-25, user): players report HUD clutter; the
+	-- top-of-screen compass strip is the cut (nothing gameplay-side feeds it - no quest/
+	-- objective markers ride it). Restore by re-adding:
+	--     self.AetheriumCompass = CoD.AetheriumCompass.new( self, controller )
+	--     self.AetheriumCompass:setLeftRight( true, false, 0, 1280 )
+	--     self.AetheriumCompass:setTopBottom( true, false, 0, 720 )
+	--     self:addElement( self.AetheriumCompass )
 
 	-- Loadout Widget (Ammo)
 	self.AetheriumLoadout = CoD.AetheriumLoadout.new( self, controller )
@@ -119,10 +121,14 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	--     self:addElement( self.AetheriumGobbleGum )
 
 	-- Player Info Widget (Main Player) - Use UIList with PlayerListZM DataSource
+	-- SHIFTED UP 20 (user 2026-07-20/21): the -20 rides the LIST container (its anchors are
+	-- respected; the item widget's own anchors get clobbered by the list layout - a -20 inside
+	-- AetheriumPlayerInfo.lua provably did nothing in-game). Frees the bottom-left corner strip
+	-- (y~690-720) for the leveling LV/XP frame (acc_hud.lua CoD.AccLevel, docs/45).
 	self.AetheriumPlayerInfo = LUI.UIList.new( self, controller, 2, 0, nil, false, false, 0, 0, false, false )
 	self.AetheriumPlayerInfo:makeFocusable()
 	self.AetheriumPlayerInfo:setLeftRight( true, false, 0, 1280 )
-	self.AetheriumPlayerInfo:setTopBottom( true, false, 0, 720 )
+	self.AetheriumPlayerInfo:setTopBottom( true, false, -30, 690 )   -- up 30 total (user 2026-07-22: was -20, +10 more)
 	self.AetheriumPlayerInfo:setWidgetType( CoD.AetheriumPlayerInfo )
 	self.AetheriumPlayerInfo:setDataSource( "PlayerListZM" )
 	self:addElement( self.AetheriumPlayerInfo )
@@ -137,7 +143,7 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	-- _zm_aetherium_hud.gsc::mock_party_feed drives for UNOCCUPIED slots in dev mode.
 	-- !!! While true, REAL teammates' slots are overridden by the mocks - FLIP TO false FOR
 	-- REAL CO-OP (this is the Lua half; the GSC feed self-limits to empty slots).
-	local ACC_MOCK_PARTY = false   -- SHIP-SAFE / real co-op (user 2026-07-15 publish prep: "player mocks hardcoded off"). This is NOT dev-gated - Lua has no level.acc_dev - so `true` ships to every subscriber and MASKS real teammates. Set true only for a solo QA pass, and flip back before any publish build. GSC feed half: _zm_aetherium_hud.gsc mock_party_feed (that one IS acc_dev-gated).
+	local ACC_MOCK_PARTY = false   -- SHIP state (restored 2026-07-25). NOT dev-gated (Lua has no level.acc_dev) - `true` MASKS real teammates and MUST stay `false` for any real/publish build (prep_release.ps1 may not catch this Lua flag - manage it manually). GSC feed half: _zm_aetherium_hud.gsc mock_party_feed (that one IS acc_dev-gated).
 	local ACC_MOCK_NAMES = { "GhostByte_99", "ZombieJuggler", "NeonNomad" }
 
 	self.PartyPlayers = {}

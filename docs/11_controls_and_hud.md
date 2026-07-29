@@ -121,18 +121,23 @@ Three cooperating layers draw the combat HUD:
    (`fonts/ltromatic.ttf`) — the single biggest "cheap tell" the old stock font left is gone.
    Widgets (`ui/uieditor/widgets/HUD/AetheriumWidgets/`, wired in `AetheriumHud.lua`):
    round counter, perks container, power-ups container, player-info panel, party-players
-   roster, weapon loadout, GobbleGum, kill feed, scoreboard, ZM cursor hints.
+   roster, weapon loadout, GobbleGum, kill feed, scoreboard, ZM cursor hints. The kit's
+   **top-of-screen compass strip is DISABLED** (2026-07-25, player HUD-clutter feedback —
+   nothing gameplay-side feeds it; ACC DISABLED block in `AetheriumHud.lua`, 4-line
+   re-add to restore).
 2. **`acc_hud` overlay (our map-unique widgets).** A standalone additive overlay opened
    per-player (`player OpenLUIMenu("acc_hud")`), never a stock override — so it can't break
-   HUD load. It carries the three widgets the kit doesn't: **damage numbers**, the
-   **HOSTILES round-progress bar**, and the **gun-badge chip row**
+   HUD load. It carries the widgets the kit doesn't: **damage numbers**, the
+   **HOSTILES round-progress bar**, the **gun-badge chip row**, the **implant slot cards**,
+   and the **boss health-bar rows** (`CoD.AccBossBars`, 2026-07-24)
    (`ui/uieditor/menus/hud/acc_hud.lua`). Several older classes (`AccPerkCard`,
    `AccPerkBar`, `AccPowerupBar`, `AccAmmoBlock`, `AccEquip`, `AccShardIcon`) are **retired
    but kept as restore paths** — documented workarounds, do not delete them.
-3. **Server hudelems (GSC).** The player HP bar, the boss HP bar + 3D nameplate, and the
-   equipped-boss-item lines are legacy `hud::` elements drawn from GSC
-   (`_acc_health_bars.gsc`, `_acc_boss_items.gsc`) because there is no LUI player-health
-   model and the clientuimodel pool is full (docs/19).
+3. **Server hudelems (GSC).** The player HP bar and the equipped-boss-item lines are
+   legacy `hud::` elements drawn from GSC (`_acc_health_bars.gsc`, `_acc_boss_items.gsc`)
+   because there is no LUI player-health model and the clientuimodel pool is full
+   (docs/19). Boss health moved OFF this layer 2026-07-24 (now the LUI `AccBossBars`
+   panel; the 3D over-head plate was REMOVED 2026-07-25 — the bars are the only indicator).
 
 ### Perk icons, power-ups, round counter, ammo (kit-drawn)
 
@@ -249,13 +254,45 @@ needs overriding `CoD.Waypoints`).
 
 ### Player & boss health bars, nameplate
 
-Server hudelems in `_acc_health_bars.gsc`. The **player HP bar** sits bottom-left
-(`hud::createBar`); it **widens** with your real max HP (Jugg/Mega tiers rebuild the bar,
-since `createBar` bakes the width) and the fill recolors by Jug tier. The **boss HP bar +
-3D nameplate** appear on the `acc_boss_spawned` notify and hide on the boss's death
-(`boss_bar_listener`). Both the player and boss bars **slide** to new values via
-`acc_set_bar_smooth()` (a `scaleOverTime` glide on the stock fill, ~0.25s) instead of
-snapping — the same motion grammar as the HOSTILES bar.
+Player bars: server hudelems in `_acc_health_bars.gsc`. The **player HP bar** sits
+bottom-left (`hud::createBar`); it **widens** with your real max HP (Jugg/Mega tiers
+rebuild the bar, since `createBar` bakes the width) and the fill recolors by Jug tier.
+It **slides** to new values via `acc_set_bar_smooth()` (a `scaleOverTime` glide, ~0.25s).
+
+**Boss health = the LUI `CoD.AccBossBars` panel (2026-07-24)** — up to **5 concurrent**
+NAME-over-bar rows stacked in the upper-right threat column directly under the HOSTILES
+bar (same 240-wide right-anchored column, `acc_hud.lua` TOUCHPOINT 8). Each row wears its
+**boss's identity color** (LED + orbitron name + halo + fill + a dim same-hue damage
+ghost): **Phantom yellow / Trench Warden red / Avogadro cyan / Rogue Protector blue /
+Panzer gray / The Scientist white** (name-keyed `ACC_BB_BOSS_COLORS`; unknown boss =
+danger magenta). These are TRUE colors — the short-lived 2026-07-25 tint-calibrated
+palette was reverted when the 3D plate was removed: the engine's hostile-name tint only
+constrained the draw-name channel, and LUI rects render exact RGB. The bar itself: navy glass track, identity-color fill draining
+right→left (250ms tween, the house motion grammar), the dim ghost trailing ~one push
+behind, a white drain-front sliver, and **phase notches at 33%/66%**. A kill plays a
+white flash + 900ms row fade; the Scientist's ESCAPE clears his row gracefully instead
+(`bb_release`, no false kill-pop). No numeric HP (docs/31). Feed: per-player controller
+UI-models `accBoss1..5` = `"<NAME>|<pct 5%-steps>|<state 1 alive/0 killed/2 hide>[|r<n>]"`
+(pct quantized + no per-push seq — every unique string burns a finite client BGCACHE
+configstring, 2026-07-25 find; only the per-life repush window appends the `r<n>`
+uniquifier), pushed 4 Hz change-guarded by the slot manager in `_acc_boss_nameplate.gsc`
+(`bb_*` — slot occupancy rides the `acc_bb_live` flag, never `isdefined(boss)`: a
+fast-Delete()d corpse reads undefined and must still fire its death push) off the
+existing `attach()` choke point (`acc_boss_spawned` notify + the Brutus/Scientist direct
+calls) — **zero clientfield bits** (all three CF pools are full), co-op replicated,
+per-life repush across the acc_hud reopen. Beyond 5 bosses a FIFO queue backfills any
+freed row. Kill-switch: hardcoded `level.acc_boss_bars_lui` (no dvar).
+
+The **3D over-head plate is REMOVED entirely (2026-07-25)** — the LUI bar rows are the
+**only** boss indicator (user call, after the engine's hostile-name tint made true
+HUD↔world color matching impossible). `_acc_boss_nameplate.csc`'s name callback now just
+`SetDrawName("")`s the actor — a required STOMP, because the Rogue Protector's asset
+pack sets its own "Civil Protector" floating name at spawn. The actor CFs stay
+registered (gsc/csc lockstep — CF-layout safety; `acc_bnp_hp` spare). Overflow bosses
+(6+) have no indicator until a row frees. The Scientist joined the boss UI 2026-07-24
+(bar row only; reverses the 2026-07-17 no-plate call). The old 2D top-screen hudelem bar
+remains dvar-gated dormant (`acc_boss_bar_2d`) for A/B; every plate variant (ASCII bar /
+name-only / styled chevrons) is restorable from git.
 
 ### Equipped boss-item indicator
 
@@ -372,7 +409,7 @@ The map's UI touchpoints and what actually draws each one today:
 | 5 | Round counter | `AetheriumRoundCounter` (image round display, top-right). |
 | 6 | Weapon / ammo / equipment | `AetheriumLoadout` (bottom-right). |
 | 7 | Currencies (Shards / Bottles / Exo) | `AetheriumPlayerInfo` panel + `AetheriumPartyPlayers` (co-op teammates). |
-| 8 | Player + boss HP + nameplate | server hudelems (`_acc_health_bars.gsc`, sliding bars). |
+| 8 | Player HP | server hudelems (`_acc_health_bars.gsc`, sliding bars). Boss HP: `acc_hud` boss bar rows (`CoD.AccBossBars`, accBoss1..4 models) + name-only 3D plate (`_acc_boss_nameplate`). |
 | 9 | Held-weapon status (PaP / OC / MULE / TURBO / NUKE / BRZ) | `acc_hud` gun-badge row (`CoD.AccGunBadgeRow`). |
 | 10 | Round progress | `acc_hud` HOSTILES bar (`CoD.AccRoundRing`). |
 | 11 | Damage numbers | `acc_hud` (`CoD.AccDmgNum`). |

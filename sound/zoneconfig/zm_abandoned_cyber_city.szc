@@ -21,6 +21,18 @@
 },
 {
  "Type" : "ALIAS",
+ "Name" : "discgun_sounds",
+ "Filename" : "discgun_sounds.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
+ "Name" : "t7_hero_weapon_sounds",
+ "Filename" : "t7_hero_weapon_sounds.csv",
+ "Specs" : [ ]
+},
+{
+ "Type" : "ALIAS",
  "Name" : "elemental_bow_sounds",
  "Filename" : "elemental_bow_sounds.csv",
  "Specs" : [ ]

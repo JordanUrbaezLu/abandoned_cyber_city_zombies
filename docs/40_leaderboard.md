@@ -7,6 +7,170 @@ view as soon as they load into the map") shows the global top 10 on interact.
 **The as-built system is documented in "✅ SHIPPED" right below; everything after
 that is the research/iteration history that got us here.**
 
+## ➕ UPDATE 2026-07-25 — AGENT REUSE: the cmd-window flash no longer opens on retries
+
+**The complaint (user: "players are commenting they are scared… without that command prompt
+opening… a quick retry so cmd doesn't need to open every time they retry. Don't remove the
+leaderboards").** The ONLY thing that shows a console is the single `os.execute` that launches
+the background curl agent (every record afterward is pure trigger-file io). The in-game
+`spawn_agent()` had **no reuse check**, so `boot_agents → boot_agent_verified` spawned a *fresh*
+agent — and thus flashed a cmd window — at **every match start**, and up to **3×** when the
+early-boot `acc_lb_boot_trace` confirmation was flaky. Because `BlackOps3.exe` (and the agent
+`.bat` it spawned) **persist across `map_restart`** within one Steam app session, every
+death→retry re-flashed a pipeline a live agent already covered.
+
+**What was ruled out (exhaustive 6-angle research + adversarial verification, 2026-07-25):**
+
+- **A windowless `os.execute` is impossible.** HavokScript `os.execute` == C `system()` ==
+  `cmd.exe /c`; BlackOps3 is a GUI-subsystem process with no console, so Windows allocates a new
+  console/conhost window *before the command even parses*. The flash is the `cmd` wrapper, not the
+  child — no host swap (wscript/cscript/mshta/rundll32/wmic/`schtasks /run`) and no prefix
+  (`start /b`, `/min`) removes it. This closes the entire "hide the exec" idea space.
+- **No non-`os.execute` network primitive is shippable.** Native LUI HTTP does not exist on retail
+  (T7Overcharged adds it via a non-shippable injected DLL); engine DemonWare/leaderboard calls hit
+  Activision, not our Worker; `io.popen` is the same console + hangs; Steam Cloud doesn't sync
+  `players\` in real time. **A pre-registered Scheduled Task / Startup autorun is REFUTED** — a game
+  silently registering a hidden task that `curl`s a remote URL forever is a textbook
+  malware-persistence signature (AV/SmartScreen bait), a *worse* "is this map hacking me?" than the
+  flash. **Deferring the one spawn to `end_game` is also refuted** — the scoreboard is still
+  exclusive-fullscreen so it still yanks there, and it strands a first-game Leave's queued POST.
+
+**The fix (the "quick retry", realized as AGENT REUSE — pure io, no `os.execute`, zero flash):**
+port the launcher pre-spawn's proven ping/pong handshake (`spawn_lb_agent.tpl.ps1`) into the
+in-game path, GSC-driven so each chunk open stays synchronous in `createMenu` (the 2026-07-12
+UITimer-freeze rule holds):
+
+1. `acc_lb_boot_chunk.lua` — two new **pure-io modes**: `ping` (os.remove any stale
+   `acc_lb_pong.txt`, then write `acc_lb_ping.txt`) and `pongcheck` (read the agent's
+   `acc_lb_pong.txt` reply → Exec `acc_lb_boot_trace "alive"/"dead"`, then consume the pong). Both
+   early-return **before** `spawn_agent`, so they never `os.execute`.
+2. `_acc_leaderboard.gsc::agent_is_alive()` — writes the ping, waits ~1.6s for the agent's ~1s
+   poll loop to answer (it answers at the top of the loop, before any curl), reads the pong.
+3. `boot_agent_verified()` — **reuses first** (returns true with no spawn if an agent answers) and,
+   after each spawn open, **confirms via ping/pong before re-firing** a redundant `os.execute`.
+   This strengthens the 2026-07-16 verified-spawn outage fix (ping/pong is a more authoritative
+   confirmation than the early-boot trace it distrusts) rather than weakening it.
+
+**Net:** exactly **one** flash on the first game of a fresh app session (partly masked by load-in);
+**zero** on every death→retry→restart thereafter — so the existing pause-menu **Restart Level** is
+already a flash-free "quick retry" (no new button needed). Fallback on any handshake hiccup = the
+old spawn behavior, so it **can never be worse than today**. Dev-only-storage gate, per-lobby
+ladders, session-upsert and peer relay are all untouched (only the *spawn decision* is gated).
+
+**Verification:** compiles + links clean (fresh `.ff` 2026-07-25; the linker emitted the
+`_acc_leaderboard.gsc.gdb` = the GSC compiled, and the boot chunk regen'd to 8685 bytecode bytes).
+**Needs a human in-game Steam-launch test before publish** — this pipeline is not headless-verifiable
+(a scripted launch parks at the "Press ENTER to Start" splash, which is exactly why a prior in-game
+ping/pong attempt was shelved as *unverifiable*, NOT as broken). Test: play game 1 (expect one flash
+at spawn-in), die + retry 3× in the SAME app session → expect **zero** further cmd windows, and
+confirm the board still fetches/records every retry (`players\acc_lb_boot_log.txt` shows an
+`pongcheck alive` line and no new `acc_lb_agent_*.bat`). Memory: [[retail-lui-io-os-persistence-and-http]].
+
+### RETRY ON DEATH + display-mode tip (built 2026-07-25, user "many tower maps allow a restart map option — follow that pattern")
+
+> **v2 SUPERSEDES the v1 prompt below — see "GAME-OVER DECISION SCREEN (v2)" next section.**
+> v1's mechanic (melee hold → `map_restart(true)`, proven in-game) carried over; its UI
+> (`IPrintLnBold` + `acc_ui` card) did not.
+
+- **`offer_retry_on_death()` / `retry_do_restart()`** (v1) — on a game-over wipe, after the record lands
+  (~3s) and the stock survived/scoreboard is up, every player is offered an instant in-place restart:
+  *"Hold [Melee] to RESTART this map instantly, or do nothing to return to the menu."* Any player
+  completing a ~1.2s hold within a 12s window (safely under the 15s stock `zombie_intermission_time`)
+  calls the **stock `map_restart( true )` builtin** — the same restart-on-wipe call stock makes at
+  `_zm.gsc:6197/6245` (gated there behind a dev dvar in a `/# #/` block; tower/challenge maps ship it
+  enabled). It is an ENGINE BUILTIN (called bare across four stock files, no `function map_restart`
+  definition, no `#using`). Paired with the AGENT REUSE fix above the restart is **flash-free** (the
+  persistent agent is reused). The pause-menu "Restart Level"
+  (`AetheriumStartMenu.lua` → `AccLbFlushThen` → `map_restart`) is now flash-free for free too.
+  Live-disable: `acc_retry_on_death 0`. Human-tested 2026-07-25: the hold + `map_restart(true)` work
+  as expected during the game-over/spectate state ("It works as expected but the UI is the problem").
+
+### GAME-OVER DECISION SCREEN (v2, built 2026-07-25 — user screenshot of a tower map's death menu: "Have the aetherium leaderboards show with options when you die… They can decide to end game or restart map")
+
+The v1 text prompt is replaced by a full Aetherium death screen (`acc_gameover.lua` + the rewritten
+`offer_retry_on_death()` in `_acc_leaderboard.gsc`), and the game now **waits for a decision instead of
+auto-dumping to the BO3 lobby**:
+
+- **Backdrop** (LUI menu `acc_gameover`, opened per player via `OpenLUIMenu`; v3 shifts the whole
+  composition left by `X_OFF=-140` so the pause-menu button column at x868+ stays clear): full-screen
+  dark glass, **YOU DIED** header + "NEURAL LINK SEVERED" sub-line, **YOU SURVIVED N ROUNDS**, a squad
+  stats panel in the board's visual language (PLAYER | SCORE | KILLS | DOWNS | REVIVES | HEADSHOTS),
+  a **TIME SURVIVED** tile (`H:MM:SS`), a teal **RUN SAVED** chip when any record lane stored this run
+  (`level.acc_go_recorded`, latched in `publish_and_open_rec`), a "choose in the menu / [ESC] reopens"
+  hint, and the 60s auto-END-GAME countdown footer.
+- **The choice = the real pause menu (v3**, user: "make it a menu like when you pause a game you can
+  go up and down from controller" — the v2 hold-melee/hold-aim gestures are GONE**)**: GSC re-enables
+  the ingame menu (`SetMatchFlag("disableIngameMenu", 0)` — stock sets it 1 at end_game `_zm.gsc:6043`,
+  and that flag being the ONLY gate is the proof the menu works during intermission), sets
+  `acc_go_active=1`, and force-opens `StartMenu_Main` on every player (`OpenMenu` builtin,
+  `_zm.gsc:636`). `AetheriumStartMenu.lua`'s game-over mode (dvar-gated at build) then shows exactly
+  TWO native up/down entries — **Restart Map** (the menu's proven flash-free
+  `AccLbFlushThen → Engine.Exec map_restart` lane; the extra flush is dedup-safe, the Worker upserts
+  by session) and **End Game** (the proven Leave Game disconnect lane) — retitles to "Game Over",
+  thins the DarkOverlay to 0.35 so the backdrop shows through, hides the pause-only side panels
+  (implants/objective/perks/small-buttons) and moves initial focus onto the two-entry list. ESC/B
+  closes it like any pause menu; the backdrop hint points the way back in. GSC reads NO buttons in v3.
+- **Flow control (all script-side stock levers, VERIFIED vs `_zm.gsc`)**: on the `end_game` notify the
+  handler synchronously sets `level._supress_survived_screen` (stock skips building its GAME OVER text,
+  `:6057`, which it creates only after a `wait 0.1`, `:6035`) and stretches
+  `level.zombie_vars["zombie_intermission_time"]` to 120 (read AT stock's exit wait `:6208`, so stock's
+  `ExitLevel` is parked behind our window); after the menu opens we release stock's forced scoreboard
+  with `LUINotifyEvent(&"force_scoreboard", 1, 0)` (stock's own release call, `:6244`).
+- **Timeout**: both real choices act from the menu itself (`map_restart` / `disconnect` tear the VM
+  down); GSC only runs a 60s countdown (`gameover_countdown`, mirrored to the backdrop on
+  `acc_go_exit`) → `ExitLevel(false)` (stock's terminal call `:6249`). Solo note: an open menu may
+  pause the server and freeze the countdown — by design (in the menu = deciding, not AFK).
+- **Transport (v2.1 — the v2 controller-UI-model feed FAILED live 2026-07-25)**: the per-controller
+  **Server UIModel pool is FULL** (stock + `accLbR*`/`accBoss*`/`accLevel`) — every new `accGo*` create
+  threw `SetControllerUIModelValue: max number of Server UIModels` (a *recoverable* exception: the thread
+  survives, so ship builds fail silently; the cap counts CREATES, precache reserves nothing; memory
+  `controller-uimodel-pool-full`). v2.1 is budget-neutral:
+  - **Squad stats need no transport**: stock replicates `PlayerList.<i>.playerName/.playerScore/.clientNum`
+    to every machine, and `Engine.GetScoreboardColumnForClient(clientNum, 1/2/3/4)` =
+    kills/downs/revives/headshots client-side — the exact AetheriumScoreboard.lua data path. Round =
+    `gameScore.roundsPlayed` model.
+  - **Dynamics ride dvars** (`acc_go_info` "round|H:MM:SS|rec", `acc_go_exit` countdown, plus the
+    `acc_go_active` menu-mode flag) polled by ONE UITimer (150ms, close-on-menu-close hygiene) via the
+    StartMenu's resilient try-list read. Host-side only: co-op **peers get the backdrop with client-side
+    stats but the NORMAL pause list** (Leave Game works there; restarting is the host's call).
+    Stale-dvar scrub at init (dvars persist across `map_restart` — a leftover `acc_go_active` would
+    turn the next game's mid-run pause menu into the two-button list).
+- **`gameover_failsafe()` watchdog** (v2.1, after the live "game can't end" hang): independent thread —
+  if no decision landed 90s after `end_game` (main flow errored), `ExitLevel(false)`. Layering: main flow
+  decides ≤63s, failsafe 90s, stock's stretched intermission ~120s. Never ship a stretched intermission
+  without one.
+- **End-of-game agent ensure-boot REMOVED** (v2.1, user: "i randomly get tabbed out at end of game"): the
+  `record_at_end_game` boot spawned a cmd window that yanked exclusive-fullscreen BO3 to the desktop —
+  tolerable over the old static scoreboard, unacceptable over a live decision screen. The record still
+  stores + queues unconditionally; a dead agent only delays the POST (restart spawn-in boot / next app
+  session sends the queue), never drops it.
+- Live-disable: `acc_retry_on_death 0` = the untouched stock flow (stock text, 15s, auto-exit).
+  **Needs a human in-game retest (v3)**: backdrop renders; the pause menu force-opens in game-over mode
+  (two entries, "Game Over" title, up/down + confirm works at intermission); Restart Map stays
+  flash-free; End Game exits clean; ESC-close → hint → ESC reopens; no tab-out at the wipe; a NORMAL
+  mid-game pause still shows the full pause list (the `acc_go_active` scrub).
+
+### REC-MENU INSTANCE LEAK (found 2026-07-26 — the round-38 marathon post-mortem)
+
+The user's 72-minute solo run (died round 38) recorded only through round 31: the per-round lane
+opened `acc_lb_rec` once per round and **never closed it** ("the chunk is pure io at menu-create,
+nothing to close" — wrong conclusion), and the **per-client pool of OPEN LUI menu instances is finite
+(~32 observed)**. At the cap every later `OpenLUIMenu` fails **silently** (no error, no return —
+local records/rec_log just stop) — rounds 33-38, the **end_game record**, and even stock's
+intermission camera fades (whose internal menu opens surfaced as the misleading `lui_shared.gsc`
+"type undefined is not an int, param 1" script error). No earlier game had recorded past round 18, so
+the leak was unreachable until a deep run. **Fix**: `publish_and_open_rec` now threads
+`close_rec_menu_after_io` (CloseLUIMenu after the same 0.5s io-settle margin `leave_flush_record`
+uses; no endon so the end_game record's close still runs at intermission). The boot + board lanes
+always closed correctly. The lost run was **backfilled** by hand-POSTing the session upsert (round
+37 = the completed-rounds convention) via the agent's own curl recipe — `backend/leaderboard/
+backfill_r37.json`. Memory: `lui-menu-instance-cap`.
+
+(An in-game "Fullscreen Window" display-mode tip was built alongside this and then REMOVED at the user's
+request 2026-07-25 — the one residual first-launch flash only *yanks* players in exclusive fullscreen, but
+the user preferred not to show an in-game card for it. If we want to nudge borderless later, put it in the
+Steam Workshop description, not a card.)
+
 ## ➕ UPDATE 2026-07-18 — LEAVE FLUSH: pause-menu quit/restart records before exiting
 
 **The hole (user: "it only sends when players die and game ends"):** a deliberate

@@ -21,6 +21,30 @@ prefab SFX** (mystery box, doors, power switch, revive, announcer VO) and a set 
 **Scope stance:** audio earns its keep by making **gameplay readable first** (elite
 reads, event cues), mood second.
 
+**Audio pass 5 — 2026-07-21 (SFX enhancement sweep, this commit).** Audit-driven batch
+that filled silent / placeholder / overloaded cues with 10 CC0 downloads (converted to
+48k/16-bit PCM in `sound_assets/acc/fx/`). New `acc_audio.csv` aliases: `acc_cj_zap`,
+`acc_cj_thunder`, `acc_cj_charge_25/50/75`, `acc_cj_jackin`, `acc_glitch_altar_spin`,
+`acc_reactor_online`, `acc_avo_crackle_lp` (LOOPING), `acc_avo_death`, `acc_shard_deny`.
+Now **LIVE**:
+- **CYBERJACK** (`_acc_cyberjack.gsc`) — the lightning finally sounds: `acc_cj_zap` on the
+  jack-in root (`mark_corrupted`), `acc_cj_thunder` on the tempest tornado (`tempest_release`);
+  the charge triad has its OWN cue (`acc_cj_charge_*`, no longer the Havoc's riser); acquire
+  plays `acc_cj_jackin` (was stock `zmb_box_weapon_grab`).
+- **Avogadro** — presence crackle (`acc_avo_crackle_lp`) + a distinct death SFX (`acc_avo_death`)
+  driven **client-side** off the existing `avogadro_fx` CF in `_zm_ai_avogadro.csc` (server AI-actor
+  audio is dead); death no longer reuses the bolt-impact `avogadro_warp_out`.
+- **Glitch Altar** — `acc_glitch_altar_spin` datastream cue over the reveal spin (was silent).
+- **Reactor** — success plays `acc_reactor_online` (the "wants a fanfare" TODO on the Reactor row
+  below is now DONE; was the tiny `acc_shard_pickup` ding).
+- **Shard-spend DENY** — `acc_shard_deny` now fires on the can't-afford branch of Overclock / Exo /
+  Neural Expansion / Paradise Box (the DENY = NONE rows below).
+- **Freeze Gun dry-fire** — repointed off the stock LMG bolt click to a custom energy fizzle
+  (`acc\fx\freezegun_dryfire.wav`) in `freezegun_sounds.csv`.
+
+Skipped by request: the Paradise Mario-jingle swap (still a publish blocker, §4 / CREDITS) and the
+powerup idle-loop beacon.
+
 ---
 
 ## 0. The rule that makes the whole map work (READ FIRST)

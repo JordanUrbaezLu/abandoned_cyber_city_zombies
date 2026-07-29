@@ -6,10 +6,12 @@
 // until its GDT-referenced aliases exist. For each configured gun this generates:
 //   FIRE  - wpn_<sid>_shot_plr/_npc (one row per shot-variant wav; multiple rows
 //           w/ the same Name = engine randomization) + wpn_<sid>_pap_shot_plr/_npc.
-//   FOLEY - one alias per .wav in sound_assets\skye_ports\<sid>\foley\, named after
-//           the wav's basename (which IS the token the GDT references, e.g.
-//           wpn_s1_pdw_mag_in, wpn_t5_tishina_bolt_back). This is the "reload /
-//           bolt / charge" layer that was previously missing -> guns were fire-only.
+//   FOLEY - one alias per .wav in sound_assets\skye_ports\<sid>\foley\, named for
+//           the GDT token it satisfies: the wav basename when the GDT customnotes
+//           reference it exactly (wpn_s1_pdw_mag_in, inspect_part1), or the
+//           digit-stripped stem for round-robin variant wavs (shell_in1..4.wav ->
+//           4 rows named wpn_<sid>_shell_in; same-Name rows = engine randomization).
+//           This is the "reload / bolt / charge" layer - a name mismatch is silence.
 // Fire rows clone the s1_tac19 shot template; foley rows clone the fiveseven charge
 // template; only Name (col0) + FileSpec (col3) are swapped. The .szc references this
 // CSV; the sound build compiles it.
@@ -32,7 +34,7 @@ const CSV = path.join( REPO, "sound/aliases/acc_skye_box_weapons.csv" );
 
 // Locate the Mod Tools sound_assets dir (AppID-suffixed folder; detected via
 // bin\modlauncher.exe, never folder name - mirrors apply_recoil_overhaul.js).
-function findSoundAssets() {
+function findToolsRoot() {
     const roots = [
         "C:\\Program Files (x86)\\Steam\\steamapps\\common",
         "D:\\SteamLibrary\\steamapps\\common",
@@ -42,12 +44,30 @@ function findSoundAssets() {
         if ( !fs.existsSync( r ) ) continue;
         for ( const d of fs.readdirSync( r ) ) {
             if ( fs.existsSync( path.join( r, d, "bin", "modlauncher.exe" ) ) )
-                return path.join( r, d, "sound_assets", "skye_ports" );
+                return path.join( r, d );
         }
     }
-    throw new Error( "Mod Tools sound_assets\\skye_ports not found (need it to scan foley wavs)." );
+    throw new Error( "Mod Tools root not found (need sound_assets to scan foley wavs + source_data for GDT sound tokens)." );
 }
-const SA = findSoundAssets();
+const TOOLS = findToolsRoot();
+const SA = path.join( TOOLS, "sound_assets", "skye_ports" );
+
+// The DEMAND side: every sound token the installed skye GDTs' xanim customnotes play
+// ("2D Sound"/"3D Sound" actionparam1). Foley alias names MUST match these tokens -
+// variant-numbered wavs (shell_in1..4.wav) are round-robin takes of ONE unsuffixed
+// token (wpn_t9_streetsweeper_shell_in: the engine randomizes same-Name rows), while
+// sequentially-named wavs (inspect_part1..4) are each referenced WITH the number.
+// Naming the alias after the wav basename alone shipped silent reloads for the
+// Streetsweeper + XM4 (found 2026-07-26) - the alias lookup is exact-name.
+const GDT_TOKENS = new Set();
+{
+    const sd = path.join( TOOLS, "source_data" );
+    for ( const g of fs.readdirSync( sd ).filter( ( f ) => /^skye_.*\.gdt$/i.test( f ) ) ) {
+        const txt = fs.readFileSync( path.join( sd, g ), "utf8" );
+        for ( const m of txt.matchAll( /"customnote\d+actionparam1"\s+"(wpn_[^"]+)"/g ) )
+            GDT_TOKENS.add( m[ 1 ] );
+    }
+}
 
 const seq = ( n, pfx ) => Array.from( { length: n }, ( _, i ) => `${pfx}${i + 1}.wav` );
 
@@ -125,11 +145,17 @@ for ( const g of GUNS ) {
     out.push( mkRow( tmplShotNpc, `wpn_${g.sid}_pap_shot_npc`, pf ) );
     nFire += 2;
 
-    // FOLEY - one alias per wav under foley\, named for the wav (= the GDT token).
+    // FOLEY - one alias per wav under foley\. Alias Name = the GDT token: the wav
+    // basename when the GDT references it exactly, else the digit-stripped stem when
+    // the wav is a round-robin variant of a token (shell_in1.wav -> wpn_..._shell_in,
+    // same-Name rows randomize). Basename fallback covers weapon-file-referenced
+    // foley (futz etc.) the customnote scan doesn't see.
     const foleyDir = path.join( SA, dir, "foley" );
     if ( fs.existsSync( foleyDir ) ) {
         for ( const f of fs.readdirSync( foleyDir ).filter( ( f ) => f.toLowerCase().endsWith( ".wav" ) ) ) {
-            const name = f.replace( /\.wav$/i, "" );        // basename IS the alias/token
+            let name = f.replace( /\.wav$/i, "" );
+            const stem = ( name.match( /^(.*?)\d+$/ ) || [] )[ 1 ];
+            if ( !GDT_TOKENS.has( name ) && stem && GDT_TOKENS.has( stem ) ) name = stem;
             out.push( mkRow( tmplFoley, name, `skye_ports\\${dir}\\foley\\${f}` ) );   // dir (folder) not sid (alias prefix) - Chicom differs
             nFoley++;
         }

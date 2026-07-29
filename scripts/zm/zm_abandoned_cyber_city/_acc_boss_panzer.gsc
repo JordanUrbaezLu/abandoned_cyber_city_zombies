@@ -51,7 +51,7 @@
 
 #define ACC_PANZER_ENABLE_DEF     1
 #define ACC_PANZER_DISPLAY_NAME   "PANZER"   // user 2026-07-08: renamed from "PANZER SOLDAT" (nameplate + all UI)
-#define ACC_PANZER_HP_EXP         1.09   // MATCHES THE ROGUE PROTECTOR (user 2026-07-08 final: "match the RP" after the 1.12/1.13/1.14 tank-tier ladder) - ladder now Brutus 1.12 > Rogue/Panzer 1.09 > Phantom/Avogadro 1.06 on the SHARED 65k/anchor-5 scale. Live dvar acc_panzer_hp_exp.
+#define ACC_PANZER_HP_EXP         1.09    // user 2026-07-26: -0.01 all-boss health nerf, 1.1->1.09 (ladder Brutus 1.11 > Panzer 1.09 > Rogue 1.08 > Phantom/Avo 1.06 > Scientist 1.04). user 2026-07-25: 1.09 -> 1.1, splitting OFF the Rogue tier into his own rung (exp history: 1.12/1.13/1.14 tank-tier ladder -> "match the RP" 1.09 [2026-07-08] -> 1.1). Ladder now Brutus 1.12 > Panzer 1.1 > Rogue 1.09 > Phantom/Avogadro 1.07 > Scientist 1.05 on the SHARED 65k/anchor-5 scale. Panzer solo r5 65k / r10 105k / r20 272k / r30 704k / r40 1.83M. Live dvar acc_panzer_hp_exp.
 #define ACC_PANZER_TEST_ROUND     2      // DEV: first test spawn at round 2 (user 2026-07-08, was 3), keep exactly one alive (Avogadro pattern)
 #define ACC_PANZER_CLEARANCE      150    // units of spawn clearance from every living boss (pick_spawn_point)
 
@@ -807,21 +807,25 @@ function boss_life( boss )
 	level.acc_panzer_alive++;
 
 	org = boss.origin;
+	a_dmg = boss.acc_damage_contrib;   // leveling XP damage-share ledger (docs/45 4a) - polled with org, same reap race
 	while ( isdefined( boss ) && isalive( boss ) )
 	{
 		org = boss.origin;
+		a_dmg = boss.acc_damage_contrib;
 		wait 0.25;
 	}
+	if ( isdefined( boss ) )
+		a_dmg = boss.acc_damage_contrib;   // final refresh: the killing blow lands after the last poll
 
 	level.acc_panzer_alive--;
 	if ( level.acc_panzer_alive < 0 )
 		level.acc_panzer_alive = 0;
 
 	dbg( "down @ " + org );
-	grant_drops( org );
+	grant_drops( org, a_dmg );
 }
 
-function grant_drops( org )
+function grant_drops( org, a_dmg )
 {
 	if ( IS_TRUE( level.acc_paradise_onslaught ) )
 		return;
@@ -829,7 +833,8 @@ function grant_drops( org )
 		return;
 	// Shared boss reward (user 2026-07-05: every boss identical) - 1 item + 1 Mega Bottle +
 	// round-scaled pts + int(round/3) shards, per player. spawn_pickup floor-snaps the drop.
-	acc_boss::grant_unified_boss_reward( org );
+	// a_dmg = the boss's damage ledger (leveling XP damage-share, docs/45 4a; undefined -> flat XP).
+	acc_boss::grant_unified_boss_reward( org, undefined, a_dmg );
 }
 
 function announce( text )

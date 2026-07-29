@@ -36,6 +36,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;   // +1 XP per soul banked (docs/45)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_perk_lights;   // set_glow() = the proven client glow pipeline (soul orb)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_abyss_deco;    // floor_lights_on() = soul-defeat dim lamps (user 2026-07-12)
@@ -220,6 +221,8 @@ function on_zombie_death_souls( attacker )
         if ( door.acc_layer != layer ) continue;               // each death feeds at most one gate
 
         door.acc_souls++;
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+            acc_leveling::grant_soul_xp( attacker, 1 );   // [acc] leveling: +1 XP per soul you bank (user 2026-07-22, docs/45)
         // Soul-steal SFX at the spot the zombie died (user 2026-06-25), every kill that banks a soul.
         // PlaySoundAtPosition is an engine builtin (stock _globallogic.gsc:4069) - plays at a WORLD point,
         // independent of the dying actor (which corpse-cleanup deletes ~immediately). acc_soul_steal = 3D
@@ -246,6 +249,8 @@ function on_zombie_death_souls( attacker )
     {
         need_hub = souls_needed( 4 );
         level.acc_hub_souls++;
+        if ( isdefined( attacker ) && isplayer( attacker ) )
+            acc_leveling::grant_soul_xp( attacker, 1 );   // [acc] leveling: +1 XP per hub soul banked (user 2026-07-22, docs/45)
         PlaySoundAtPosition( "acc_soul_steal", self.origin );
         level thread spawn_soul_light( self.origin, ( 0, ACC_HUB_APPROACH_Y, ACC_HUB_FLOOR_Z + 40 ) );
         if ( level.acc_hub_souls >= need_hub )

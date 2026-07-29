@@ -15,6 +15,10 @@ CoD.AetheriumPlayerInfo.new = function ( menu, controller )
 	self.id = "AetheriumPlayerInfo"
 	self.soundSet = "default"
 	self:setLeftRight( true, false, 0, 1280 )
+	-- NOTE (2026-07-21): do NOT try to shift this panel here - this widget is a UIList ITEM
+	-- (AetheriumHud.lua setWidgetType + PlayerListZM datasource) and the list clobbers the item's
+	-- own anchors (proven in-game: a -20 offset here did nothing). The 20-up shift that frees the
+	-- bottom-left corner for the leveling chip lives on the LIST container in AetheriumHud.lua.
 	self:setTopBottom( true, false, 0, 720 )
 	self.anyChildUsesUpdateState = true
 

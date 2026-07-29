@@ -99,36 +99,37 @@ function __main__()
 	level._effect[ "freezegun_crumple_upgraded" ]		= FX_FREEZEGUN_CRUMPLE_UPGRADED;
 	level._effect[ "freezegun_reload" ] 				= "dlc5/zmb_weapon/fx_freezegun_reload_smoke";
 
-	// [acc] user 2026-07-18 all-wonder -10% nerf: every cone/shatter var x0.9, BOTH branches (the else
-	// branch is the ACTIVE set - gen_weapon_stats.js parses it; the t8 set is nerfed in lockstep so a
-	// future use_t8_damage_set flip doesn't silently restore the old numbers).
+	// [acc] user 2026-07-18 all-wonder -10% nerf, then user 2026-07-26 "Winterhowl needs a 10% nerf
+	// all around as well": every cone/shatter var x0.9 AGAIN, BOTH branches (the else branch is the
+	// ACTIVE set - gen_weapon_stats.js parses it; the t8 set is nerfed in lockstep so a future
+	// use_t8_damage_set flip doesn't silently restore the old numbers).
 	if( IS_TRUE( level.use_t8_damage_set ) )
 	{
-		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1350 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage",					675 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			675 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			450 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1215 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage",					608 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			608 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			405 );
 
-		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			2700 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			1350 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	1350 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	675 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			2430 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			1215 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	1215 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	608 );
 	}
 	else
 	{
-		// [acc] SLIGHT DAMAGE BUFF +15% (user 2026-07-13 "slight buff on the winters howl"): cone + shatter,
-		// base + upgraded. The cone is a weaponless DoDamage so acc_weapon_balance_mult can't reach it - the
-		// tuning lives here in the zombie_vars (see gen_weapon_stats.js note). History: 1000/500/500/250 ->
-		// +15% 2026-07-13 = 1150/575/575/288 -> x0.9 all-wonder nerf 2026-07-18 = current.
-		zombie_utility::set_zombie_var( "freezegun_inner_damage",					1035 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage",					518 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			518 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			259 );
+		// [acc] History: 1000/500/500/250 -> +15% 2026-07-13 ("slight buff on the winters howl") =
+		// 1150/575/575/288 -> x0.9 all-wonder nerf 2026-07-18 = 1035/518/518/259 -> x0.9 again
+		// 2026-07-26 = current. The cone is a weaponless DoDamage so acc_weapon_balance_mult can't
+		// reach it - the tuning lives here in the zombie_vars (see gen_weapon_stats.js note).
+		zombie_utility::set_zombie_var( "freezegun_inner_damage",					932 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage",					466 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage",			466 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage",			233 );
 
-		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			1553 );
-		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			777 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	777 );
-		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	518 );
+		zombie_utility::set_zombie_var( "freezegun_inner_damage_upgraded",			1398 );
+		zombie_utility::set_zombie_var( "freezegun_outer_damage_upgraded",			699 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_inner_damage_upgraded",	699 );
+		zombie_utility::set_zombie_var( "freezegun_shatter_outer_damage_upgraded",	466 );
 	}
 
 	// [acc] range bumped ~33% (user 2026-07-11, "increase the range a bit"): outer reach + cone width + inner

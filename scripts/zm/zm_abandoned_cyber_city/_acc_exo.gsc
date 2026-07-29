@@ -20,6 +20,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow;   // cyan "usable" holo on the pod
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;        // is_active()/player_level() level gate (docs/45; leveling is LIVE)
 
 // Station model: a Cyber City white metal workbench as a body-augment chamber (stock t7_props, proven packable).
 // STATION REMODEL (user 2026-07-09, docs/09): Cryogen stasis pod (58x53x114, T7-dump carve
@@ -91,13 +92,15 @@ function spawn_station()
     if ( getdvarint( "acc_exo_on", 1 ) != 1 )
         return;
 
-    // Exo station MOVED to the PLAZA start room (user 2026-07-13; was the bus-station trench/Foundry under-room
-    // @ (-120,1550,-240)). Plaza interior x[-470,213] y[-240,720], floor z=0. Placed at (-200,-100) on the open
-    // spawn-band floor (players spawn x[-120,40] y[-90,-130]) - front-left of a spawning player, immediately
-    // discoverable, and clear of the start box (100,-150), the leaderboard terminal (-340,-210) and all four
-    // plaza caches. Its .map collision clip moves to match (tools/add_prop_clips.js exo_station -> a shallow z=0
-    // worldspawn clip) - a GEOMETRY change, so this build needs a FULL LED bake.
-    spawn_station_at( ( -200, -100, 0 ), 0 );
+    // Exo station lives in THE SCIENTIST'S OFFICE (user 2026-07-26 "In here will be the exo suit upgrade"):
+    // the buyable room behind the Lab N wall (gen_scientist_office.js; enter_scientist_office door, 2000
+    // pts). Pod on the room's W side at (-200,4480,0) yaw 0 (front -Y faces the door), clear of the desk
+    // (x[-103,-47]) and the W wall (face -275). Same-day history: briefly Lab floor beside PaP (-500,3700)
+    // during the plaza swap; PLAZA start room 2026-07-13..07-26; trench/Foundry (-120,1550,-240) originally.
+    // Blue unused-station pulse rides glow_on below - position-independent (user reminder honored).
+    // Its .map collision clip moves to match (tools/add_prop_clips.js exo_station) - a GEOMETRY change, so
+    // this build needs a FULL LED bake.
+    spawn_station_at( ( -200, 4480, 0 ), 0 );
 }
 
 function spawn_station_at( origin, yaw )
@@ -156,10 +159,22 @@ function station_loop()   // self = the station trigger
         }
 
         next_tier = player.acc_exo_tier + 1;
+        // [acc] LEVEL GATE (docs/45): your player level caps the buyable exo tier (LV N -> tier N).
+        // Deny BEFORE the shard spend so a level-locked press costs nothing. is_active() is LIVE
+        // (leveling promoted out of dev 2026-07-22); to turn it off, flip is_active(). Per-player via
+        // the trigger's `player`; ack on hud_msg (the shared hint keeper cannot address just the
+        // presser - same reason as the fail-ack below).
+        if ( acc_leveling::is_active() && next_tier > acc_leveling::player_level( player ) )
+        {
+            player acc_utility::hud_msg( "^5EXO SUIT^7 - Tier " + next_tier + " requires ^5Level " + next_tier + "^7" );
+            wait 0.4;
+            continue;
+        }
         cost = exo_cost( next_tier );
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
             player acc_utility::hud_msg( "^5EXO SUIT^7 - Tier " + next_tier + " needs ^5" + cost + "^7 Data Shards" );
+            player PlaySound( "acc_shard_deny" );   // [acc] shard-deny buzz (sfx sweep 2026-07-21)
             wait 0.4;
             continue;
         }

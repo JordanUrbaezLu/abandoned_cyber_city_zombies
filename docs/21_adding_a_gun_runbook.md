@@ -168,7 +168,10 @@ aliases.
 Add the gun to its `GUNS[]` (`{ sid, shot:[…wavs], pap }`) and re-run. It clones the
 templates and emits `wpn_<sid>_shot_plr/_npc` (one row per shot-variant wav → randomized)
 + `_pap_shot_*`, **and auto-scans `sound_assets\skye_ports\<sid>\foley\`** to emit one
-alias per foley wav (alias name = wav basename = the GDT token). Traps it encodes:
+alias per foley wav. Alias name = the GDT token the wav satisfies: the wav basename when
+the GDT's xanim customnotes reference it exactly, or the digit-stripped stem for
+round-robin variant wavs (since 2026-07-26 the generator parses `source_data\skye_*.gdt`
+customnote tokens to pick the right one). Traps it encodes:
 - **FIRE-ONLY = silent on RELOAD.** An older tool authored only fire rows, so some guns
   fired but had no bolt/mag/charge sound. Foley is not optional — the GDT references
   `wpn_<sid>_mag_in` etc. and a missing alias is just silence.
@@ -184,10 +187,16 @@ alias per foley wav (alias name = wav basename = the GDT token). Traps it encode
   `wpn_sniper_<gun>_*scope/camo/lens*` material tokens; only the `wpn_<sid>_*` ones with a
   matching wav are sounds. Driving foley from the wav folder (not the GDT token list)
   sidesteps this automatically.
-- **Singular-token foley the auto-scanner can't emit.** The (now-removed, Apex migration
-  2026-07-06) China Lake's reload token was `shell_in` (singular) mapping TWO wavs
-  (`shell_in1/2`) — the scanner names foley by wav basename so it can't collapse those;
-  **hand-add** such guns' aliases (don't rely on the generator's `GUNS`).
+- **Singular-token foley (variant wavs) — FIXED IN THE GENERATOR 2026-07-26.** A GDT
+  customnote can play ONE unsuffixed token (`wpn_t9_streetsweeper_shell_in`) served by
+  SEVERAL numbered wavs (`shell_in1..4.wav`) — the correct rows are N wavs under the SAME
+  alias Name (engine round-robin, exactly like fire `shot1..6`). The old
+  basename-as-alias scan emitted `shell_in1..4` alias NAMES instead, which the anim never
+  plays → **the Streetsweeper + XM4 shipped 2026-07-10 with silent reloads** (China Lake
+  had hit the same trap earlier). The generator now collapses `stem<digit>` wavs onto the
+  GDT token when the token exists; sequentially-referenced names (`inspect_part1..4`,
+  each played by its own note) still keep their basenames. Alias lookup is exact-name —
+  a mismatch is pure silence, no error anywhere.
 - **Projectile guns: grep `projExplosionSound`.** A launcher/GL's explosion sound is a
   separate alias — War Machine's `projExplosionSound` (`wpn_t6_grenade_explosion_npc`) had
   no alias anywhere → silent explosions until aliased to the Mahem explosion wav.

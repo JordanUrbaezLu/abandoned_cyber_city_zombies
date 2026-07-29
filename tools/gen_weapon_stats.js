@@ -84,6 +84,7 @@ const ROSTER = [
   { d: 'Alternator',  cls: 'SMG (PaP power)', sec: 'SMG', balKey: 'apex_alternator_up', gdt: 'acc_apex_up.gdt', up: 'apex_alternator_up_zm', tier: 'A', price: 'BOT', score: 7.20, box: 'apex_alternator' },   // Apex - trash base, A+ PaP (user 2026-07-06); balKey = the _up bal line (RUNTIME name, no _zm); up = GDT BLOCK id; box = acc_box_weight key (no _up)
   { d: 'Mahem',       cls: 'Launcher', sec: 'Launcher', balKey: 's1_mahem', gdt: 'skye_s1_mahem.gdt',      up: 's1_mahem_up',       tier: '-',  price: 'TOP', score: null, special: 'explosive (direct + splash)' },
   { d: 'War Machine', cls: 'Launcher', sec: 'Launcher', balKey: 't6_war_machine', gdt: 'skye_t6_war_machine.gdt', up: 't6_war_machine_up', tier: 'A',  price: 'TOP', score: null, special: 'explosive drum GL (impact detonation; PaP = 12-rd full-auto)' },   // user 2026-07-09
+  { d: 'EPG-1',       cls: 'Launcher', sec: 'Launcher', balKey: 's1_mdl', gdt: 'skye_s1_mdl.gdt', up: 's1_mdl_up', tier: '-', price: 'TOP', score: null, special: 'plasma energy-lobber - slow high-arc TIMED-fuse airburst (AW MDL reskin, user 2026-07-25)' },   // reskin_mdl_epg.js retunes the GDT (arc + _up normalized + EMP FX); reads s1_mdl_up stats live
   { d: 'Havoc',  cls: 'AR (energy, full-auto)', sec: 'AR', balKey: 'apex_beam_rifle', gdt: 'acc_apex_up.gdt', up: 'apex_beam_rifle_up_zm', tier: 'A', price: 'TOP', score: null, special: 'Apex energy projectile rifle (full-auto)' },   // user 2026-07-09: "technically an AR" - filed under AR, Launcher its own section
 ];
 
@@ -120,6 +121,24 @@ const SPECIALS = [
   // retrievable blade + own melee stab), damage 100% SCRIPTED. `knife` kind = show BOTH raw numbers; boss +
   // note filled live in the emit loops from BK_THROW_MULT / BK_STAB_MULT. See docs/04 Per-Weapon Detail.
   { d: 'Ballistic Knife', cls: 'Special (throw + stab)', box: 'knife_ballistic', cap: null, up: 'knife_ballistic_upgraded_zm', kind: 'knife', knife: true, boss: '', note: '' },
+  // D13 Sector (2026-07-24, KOENTJE port of the stock T7 loot disc launcher): claim-capped box wonder with
+  // a TRUE _up form. kind proj = damage read straight off the GDT (no bal entry -> default/uncut, like the AF).
+  { d: 'D13 Sector', cls: 'Wonder (disc)', box: 'special_discgun', cap: 1, up: 'special_discgun_up', kind: 'proj',
+    boss: 'normal multiplier chain (no bal cut) backstopped by the per-hit boss cap — a solid chip weapon, not a boss-deleter.',
+    note: 'KOENTJE "Disk Gun" v1.0.1 port of the stock T7 loot **D13 Sector** (2026-07-24). Semi-auto launcher firing **ricocheting energy discs** (visible projectile + fx_trail_discgun; projExplosionType none = direct-hit damage, discs keep bouncing wall-to-wall after a hit). 3-disc clip, reserve is ABSOLUTE rounds (ammoCountClipRelative 0 — the Blast-O-Matic/Thundergun class). TRUE `_up` PaP form ships in the pack GDT (WONDER price tier); wonder fastreload twins = follow-up (freezegun generator is the template). Claim-capped 1/match (acc_cap_discgun). Sound CSV rebuilt install-side (16/18 pack wavs never shipped — fire rides an Apex B3 Wingman donor; see the manifest entry). External rip — assets gitignored via the manifest.' },
+  // HB21 Hero Weapons (2026-07-24): limited-power GADGET weapons (hero slot, power meter, NO PaP, NO twins —
+  // Action-Figure exemption class). noPap = show an em-dash in the PaP-price column instead of the BOT default.
+  { d: 'Skull of Nan Sapwe', cls: 'Hero (beam + mesmerize)', box: 'skull_gun', cap: 1, up: 'skull_gun_zm', kind: 'aoe', noPap: true,
+    rawOverride: 'scripted beam (gib-chain ticks)', effOverride: 'power-limited (gadget meter)',
+    boss: 'beam ticks are target-health-sized weaponless DoDamage on up to 8 look-targets — the per-hit boss cap backstops bosses (VERIFY live); mesmerize (ADS) pacifies regular zombies only.',
+    note: 'HB21 Hero Weapons v2.0.0 port of the ZNS **Skull of Nan Sapwe** (2026-07-24). HERO weapon: box roll gives it into the hero slot (Dpad), it runs on the **gadget power meter** (100), drains on use, recharges from kills — NO ammo economy, NO PaP, NO twins. **FIRE (hold) = death beam:** look-gated chain on up to 8 targets in 500u — regular zombies scream, head-gib, then explode into pieces (scene `cin_zm_dlc1_zombie_dth_deathray_04`); spiders die instantly; each tick costs power. **ADS (hold) = MESMERIZE torch:** pacifies regular zombies in 500u (they stop and dance the `pacified_by_skullgun` scenes) until the torch drops. [acc] CF surgery: beam/torch 1P fields ride **allplayers** (toplayer pool full) with a local-player guard; thrasher support stripped. Claim-capped 1/match (acc_cap_skullgun). Weapon def links from the tools DLC2 asset db; skull_gun_1 = the polished upgraded form (script-given, not PaP). External rip — assets gitignored via the manifest.' },
+  // Dragon Gauntlet DISABLED 2026-07-25 (crashed the user's game ~0.5s after wield - forensics in
+  // _acc_map_randomizer's commented pool entry; box row pulled there = the completeness check would
+  // die on this row). Re-add together with the pool entry once the crash is fixed.
+  /* { d: 'Dragon Gauntlet', cls: 'Hero (flame + whelp)', box: 'dragon_gauntlet_flamethrower', cap: 1, up: 'dragon_gauntlet_flamethrower_zm', kind: 'aoe', noPap: true,
+    rawOverride: 'scripted flame (insta-burn)', effOverride: 'power-limited (gadget meter)',
+    boss: 'flame MOD_BURNED insta-kill hits archetype "zombie" only; the 115-punch melee (+6000 over health) reaches anything but bosses get the normal capped chain (VERIFY live).',
+    note: 'HB21 Hero Weapons v2.0.0 port of the GK **Gauntlet of Siegfried** (2026-07-24). HERO weapon on the **gadget power meter** — NO ammo, NO PaP, NO twins. **FIRE = arm flamethrower:** MOD_BURNED flame that insta-kills regular zombies (green dragon-fire death FX). **ADS = RELEASE THE WHELP:** the gauntlet hatches a baby dragon vehicle (`spawner_bo3_dragon_whelp`) that flies the map torching zombies while your arm swaps to the **115-punch melee form** (`dragon_gauntlet` — melee = +6000-over-health ragdoll launch, AoE cylinder); ADS again recalls it. Whelp flies the new map-covering **nav_volume** (required or it crashes — .map 2026-07-24); its vehicle soundDef was blanked (dangling veh_parasite ref) so it flies quiet. Laststand kills/recalls the whelp; power drains while active. Claim-capped 1/match (acc_cap_gauntlet). Registers ZERO clientfields. External rip — assets gitignored via the manifest.' }, */
 ];
 
 // PaP step costs per price tier - DERIVED from _acc_pap_levels.gsc::tier_cost (user 2026-07-12 "code driven so
@@ -149,6 +168,7 @@ const PAP_RELOAD = {
   'AE4': 3.0, 'RW1': 1.4, 'AK-74u': 1.764, 'Streetsweeper': 0.675, 'Grav': 2.925, 'Paladin HB50': 4.13,
   'RPD': 7.5, 'HAMR': 6.0, 'M16': 3.5, 'Triple Take': 3.4, 'Five-Seven': 1.8, 'MK14': 2.0, 'Olympia': 1.75, 'Klauser': 2.9, 'Mahem': 3.5,
   'War Machine': 3.75,   // GDT reloadTime (drum swap; fastreload twin 3.2138 - user 2026-07-09)
+  'EPG-1': 0.833,   // MDL reloadEmptyTime (fast rotary whole-mag reload; user 2026-07-25)
   'CEL-3': 3.75, 'China Lake': 3.5,   // CEL-3 GDT reloadTime user 2026-07-11 3.0->3.75 (+25% SLOWER nerf); China Lake launcher estimate (like Mahem)
   'Peacekeeper': 2.5, 'Prowler': 0.9, 'G7 Scout': 2.4, 'Alternator': 1.9, 'Havoc': 3.864,   // Apex guns (user 2026-07-06; Havoc retuned 2026-07-09; Prowler reloadTime user 2026-07-11 1.0->0.9 (+10% faster SMG buff, weapon_rebalance_0711.js); prior 1.6->1.0)
 };
@@ -349,7 +369,11 @@ if (!BW_BODY) die('could not isolate box_weapons array in _acc_map_randomizer.gs
 const BOX_LIST = [...BW_BODY.matchAll(/"([^"]+)"/g)].map(m => m[1]);
 if (BOX_LIST.length < 25) die('box_weapons parse got only ' + BOX_LIST.length + ' entries (regex drift?) - completeness audit unreliable');
 const BOX_TACTICALS = new Set(['cymbal_monkey', 'octobomb']);   // grenades: fixed pre-roll, not gun-table rows
-const LIVE_GUNS = BOX_LIST.filter(n => !BOX_TACTICALS.has(n));
+// Stock-cooked box guns with NO local GDT (assets + damage baked into zm_levelcommon) - the generator can't
+// read their stats off a GDT, so they get a PROSE note (docs/04 + the preamble below) instead of an auto stats
+// row. (Empty since 2026-07-26: the L4 Siege / launcher_multi, the only such gun, was removed from the game.)
+const BOX_STOCK_NO_GDT = new Set([]);
+const LIVE_GUNS = BOX_LIST.filter(n => !BOX_TACTICALS.has(n) && !BOX_STOCK_NO_GDT.has(n));
 const COVERED = new Set([...ROSTER.map(g => g.box || g.balKey), ...SPECIALS.map(s => s.box)]);
 const bwMissing = LIVE_GUNS.filter(n => !COVERED.has(n));
 const bwStale = [...COVERED].filter(n => !LIVE_GUNS.includes(n));
@@ -613,7 +637,8 @@ for (const s of SPECIALS) {
   }
   if (s.d === 'Action Figure') bossStr = '1/' + AF_BOSS_HITS + ' maxHP/hit (~' + AF_BOSS_HITS + ' hits, acc_af_boss_hits)';
   const gMove = fieldNumSoft(blk, 'moveSpeedScale') || 1;
-  md += `| **${s.d}** | ${s.cls} | ${bp.toFixed(2)}% | ${PRICE_COST[tier]} | ${cap == null ? '—' : cap + '/game'} | ${rawStr} | ${bal == null ? '—' : bal} | ${effStr} | ${clipRes} | ${gFt != null ? gFt + 's' : '—'} | ×${gMove} | ${bossStr} |\n`;
+  const priceStr = s.noPap ? '— (no PaP)' : PRICE_COST[tier];   // hero gadgets can't PaP - don't print the BOT default
+  md += `| **${s.d}** | ${s.cls} | ${bp.toFixed(2)}% | ${priceStr} | ${cap == null ? '—' : cap + '/game'} | ${rawStr} | ${bal == null ? '—' : bal} | ${effStr} | ${clipRes} | ${gFt != null ? gFt + 's' : '—'} | ×${gMove} | ${bossStr} |\n`;
 }
 md += '\n**Per-wonder notes:**\n';
 for (const s of SPECIALS) {

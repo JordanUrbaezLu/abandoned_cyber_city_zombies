@@ -14,7 +14,7 @@ zombies match took solving four separate, independent gotchas. They are all
 fixed in the repo tooling now; this doc records *why*, so a regression is
 diagnosable in minutes instead of an afternoon.
 
-## The four gotchas (all solved)
+## The launch gotchas (all solved)
 
 | # | Symptom | Cause | Fix (already in repo) |
 |---|---------|-------|------------------------|
@@ -24,6 +24,7 @@ diagnosable in minutes instead of an afternoon.
 | 4 | Same `tdm.gsc` black screen even after #3 | Steam **appends** the game's **Launch Options** to the `steam://run//<args>`, producing a **doubled command line** that re-corrupts the gametype | Keep Steam **Launch Options EMPTY**; use exactly ONE arg source |
 | 5 | Launch **silently ignored** (no process, no log write) right after a game **crash** | Steam's stale launch-handler jam (see CLAUDE.md): after a CTD + rapid retries Steam drops `steam://run` requests | Fully restart Steam (`steam.exe -shutdown`, wait for exit, relaunch, wait for login) — then see #6 |
 | 6 | Launch still silently ignored **after a Steam restart** — `console_log.txt` (Steam's `logs\` folder) shows `LaunchApp waiting for user response to ShowGameArgs` | After a Steam restart, **EVERY** `steam://run//<args>` launch pops an **in-Steam launch-arguments confirmation dialog** and waits for a click (verified live 2026-07-17: re-prompted at 20:48 after a 20:35 approval); headless/scripted launches hang on it, and a follow-up `-applaunch` queues behind the pending action. Pre-restart launches were silent, so some approval state persists per Steam session until a restart clears it | **Click OK/Allow in the Steam window** (a human step — scripts can't dismiss it; tick "don't ask again" if offered). The queued launch then fires with the right args. Agents: after launching headless, if the process doesn't appear in ~30s, check `Steam\logs\console_log.txt` (grep `311210`) and ask the user to click — do NOT stack more launch requests |
+| 7 | Map loads into an on-screen **"UI Error \<code\>"** box (e.g. 44429) after a launch that overlapped a build | The game read a **half-written `.ff`** while the linker was still packing it (live-hit 2026-07-25: launch 3:31:44 vs `.ff` finished 3:34:07) — torn Lua chunks surface as a UI Error; NOT a code bug | **Both launchers now refuse to start while `linker_modtools`/`cod2map64`/`radiant_modtools` are running** (`PLAY_NORMAL.bat` + `tools/run_game.ps1` tasklist guard). If you ever see it anyway: quit fully, wait for the build, relaunch |
 
 ## The gametype detail (the subtle one — gotcha #3)
 

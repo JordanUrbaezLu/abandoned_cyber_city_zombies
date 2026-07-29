@@ -3,8 +3,10 @@
 //
 // Identity (user 2026-07-04): NOT lethal - super ANNOYING. A fast electric harasser whose
 // job is stun-locking players and knocking their perks / PaP offline.
-//   - HP = EXACTLY the Phantom's (shared scale_phantom_hp, 65k base / anchor 5 / exp 1.06 x log coop).
-//   - Always spawns in the LAB (struct acc_boss_spawn @ (19,3648,0)) and roams the Lab machines.
+//   - HP = EXACTLY the Phantom's (shared scale_phantom_hp, 65k base / anchor 5 / exp 1.07 x coop table).
+//   - Spawns in the LAB (struct acc_boss_spawn @ (19,3648,0)) and ROAMS THE MAP machine to
+//     machine (since the 2026-07-24 perk scatter the pads span every zone incl. the under-rooms;
+//     the seek cache re-syncs on acc_perk_scatter_applied and unreachable pads ride the blacklist).
 //   - ATTACK (reworked 2026-07-06, user: "animation didn't line up with the logs and sfx / no bolt"):
 //     BT-DRIVEN BOLT THROW. The pack BT plays his range-attack anim (enemy 150-2000u + LOS), whose
 //     GDT notetrack self-notifies "avo_send_bolt" at the throw frame (frame 20); bolt_listener catches
@@ -15,11 +17,18 @@
 //     Anim + SFX + bolt + stun + log are ONE event. Point-blank (<220u, inside the bolt's 150u minimum)
 //     aura_loop direct-zaps (same slow, acc_avo_aura_damage 10) so hugging him still means stun-lock.
 //     bolt_watchdog falls back to direct zaps ONLY if the BT bolt starves on a bug (logs the reason).
-//   - HACK ability: walks up to a machine and disables it for 30s; max 2 at once PER boss; PRIORITIZES
-//     perks. Targets: Pack-a-Punch, Jugg, Quick Revive, Stamin-Up, Electric Cherry, Widow's Wine. FULL disable
-//     (user 2026-07-06): base perk paused for ALL players, machine unbuyable (TriggerEnable false),
-//     glow dark, and every MEGA effect drops too (owns_or_paused + on_perk_hacked - see
-//     apply_hack_effect for the complete contract). Restores after 30s / when the owner dies.
+//   - HACK ability (REWORKED 2026-07-24, user: "he can turn off any perk. And any amount at
+//     once"): walks up to a machine and disables it for 30s; NO simultaneous cap (the old
+//     max-2-per-boss limit is gone - the 30s per-hack window + travel time between the scattered
+//     pads is the only limiter); PRIORITIZES perks. Targets: ALL 10 PERKS + Pack-a-Punch
+//     (was the 5-perk subset; the boss EMP already perk_pauses all 10, so the pause machinery
+//     is battle-tested map-wide). FULL disable (user 2026-07-06): base perk paused for ALL
+//     players, machine unbuyable (TriggerEnable false), machine model forced dark (native
+//     off-model since the aura retirement), and every MEGA effect drops too (owns_or_paused +
+//     on_perk_hacked - see apply_hack_effect for the complete contract; the only STATEFUL megas
+//     are jugg/staminup/widows, already handled - every other perk's effects read live through
+//     has_active_mega_perk, which excludes hacked keys generically). Restores after 30s / when
+//     the owner dies.
 //
 // SPAWN = SpawnActor("spawner_zm_avogadro", ...) (the LED-bake-safe Rogue Protector recipe; the pack GDT
 // ships the archetype->variant->spawner chain, zone-listed). Then zm_ai_avogadro::avogadro_spawn(avo,1)
@@ -43,6 +52,7 @@
 #using scripts\zm\_zm_perks;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_weapon_variants;   // request_reconcile - instant twin revert/return on hack/restore (Speed/Deadshot megas)
 #using scripts\zm\zm_abandoned_cyber_city\_zm_ai_avogadro;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;
@@ -68,8 +78,7 @@
 
 #define ACC_AVO_ENABLE_DEF        1
 #define ACC_AVO_DISPLAY_NAME      "AVOGADRO"
-#define ACC_AVO_MAX_HACKS         2       // machines disabled at once
-#define ACC_AVO_HACK_SECS_DEF     30      // seconds a machine stays disabled
+#define ACC_AVO_HACK_SECS_DEF     30      // seconds a machine stays disabled (the ONLY hack limiter since the 2026-07-24 uncapped rework)
 #define ACC_AVO_FIRE_INTERVAL_DEF 0.5     // seconds between point-blank AURA zaps (user 2026-07-06: "attacks so slow" - was 0.8; the BOLT cadence is acc_avo_bolt_cd, read in _zm_ai_avogadro::avoFinishBoltShoot)
 #define ACC_AVO_FIRE_RANGE_DEF    1500    // units - fallback-target search radius (watchdog / bolt retarget)
 #define ACC_AVO_AURA_RANGE_DEF    220     // units - point-blank aura zap reach (covers the bolt's 150u minimum range)
@@ -123,6 +132,13 @@ function init()
     level._effect[ "acc_avo_zap" ] = "zombie/fxt/fx_tesla_bolt_secondary_zmb";   // visible zap-at-target FX
 
     cache_target_origins();
+    // PERK SCATTER (2026-07-24): machines relocate every 3 rounds (_acc_perk_scatter),
+    // so the position cache above goes stale - rebuild it after every applied layout.
+    level thread recache_on_scatter();
+    // REWORK BUILT (user 2026-07-24, same day as the perk scatter): all 10 perks hackable,
+    // no simultaneous-hack cap, faster movement (acc_avo_anim_rate default 1.15 -> 1.2; ONE
+    // ladder rung - the lever is super sensitive per the user + the 07-06 ladder).
+    // The scatter turned his machine-seek into a map-wide tour by construction.
 
     if ( ACC_AVO_TEST_MODE == 1 )
     {
@@ -280,7 +296,7 @@ function spawn_boss()
     // (boss_hp_player_mult: 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user 2026-07-15, was a log curve).
     // Set level.avogadro_hp BEFORE the pack setup so avogadro_spawn() applies it as health+maxhealth.
     rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
-    hp = int( acc_boss_phantom::scale_phantom_hp( rn, getdvarfloat( "acc_phantom_hp_exp", 1.06 ) ) * acc_coop_scaling::boss_hp_player_mult() );
+    hp = int( acc_boss_phantom::scale_phantom_hp( rn, getdvarfloat( "acc_phantom_hp_exp", 1.06 ) ) * acc_coop_scaling::boss_hp_player_mult() );   // exp 1.06 = the Phantom's ACC_PHANTOM_HP_EXP, kept in lockstep (user 2026-07-26: -0.01 all-boss health nerf, 1.07->1.06)
     if ( hp < 1 )
         hp = 1;
     level.avogadro_hp = hp;
@@ -331,7 +347,14 @@ function spawn_boss()
     // set_zombie_run_cycle_override_value - the run-cycle override is what froze Brutus's custom ASM,
     // the bare rate call is safe on the standard blackboard move state his locomotion runs through. His
     // throw anim rides the same rate.
-    boss ASMSetAnimationRate( getdvarfloat( "acc_avo_anim_rate", 1.15 ) );
+    // 1.2 default since the 2026-07-24 rework (user: "he also moves faster" + "be careful with
+    // the speed lever, it's super sensitive"). Ladder history: 1x too slow -> 2x way too fast ->
+    // 1.5x still out-speeds the player -> 1.2 -> 1.15 shipped ("un-slowed player outruns him").
+    // The lever is SUPER SENSITIVE (0.05 steps were felt in playtests), so the rework takes ONE
+    // proven rung up the ladder, not a leap: 1.2 is a real speed-up over 1.15 without gambling
+    // past the catch-crossover somewhere in (1.2, 1.5). Live-balance dvar read at SPAWN - push
+    // it in game (`acc_avo_anim_rate 1.25`) and the NEXT Avogadro picks it up.
+    boss ASMSetAnimationRate( getdvarfloat( "acc_avo_anim_rate", 1.2 ) );
     boss.maxhealth = hp;
     boss.health    = hp;
 
@@ -368,6 +391,7 @@ function boss_life( boss )
     // level.avogadro_death_origin - it's a single global the pack overwrites, so with 2 Avogadros alive
     // one boss_life could drop at the other's death spot). This captures his position ~0.25s before death.
     org = boss.origin;
+    a_dmg = boss.acc_damage_contrib;   // leveling XP damage-share ledger (docs/45 4a) - polled with org (same reap race), refreshed post-loop for the killing blow
     // Freeze org at the GROUND kill spot, NOT the airborne exit-anim rise (user 2026-07-10 "killed Avogadro,
     // no item"). The pack's death() (_zm_ai_avogadro.gsc:853) sets boss.is_alive=0 AT GROUND, THEN
     // AnimScripted("exit_anim") LIFTS him ~800u while allowdeath stays false (line 929) so .health is held ->
@@ -378,8 +402,11 @@ function boss_life( boss )
     while ( isdefined( boss ) && isalive( boss ) && !( isdefined( boss.is_alive ) && boss.is_alive == 0 ) )
     {
         org = boss.origin;
+        a_dmg = boss.acc_damage_contrib;
         wait 0.1;
     }
+    if ( isdefined( boss ) )
+        a_dmg = boss.acc_damage_contrib;   // final refresh: the killing blow's damage lands after the last poll
 
     level.acc_avo_alive--;
     if ( level.acc_avo_alive < 0 )
@@ -387,7 +414,7 @@ function boss_life( boss )
 
     restore_boss_hacks( my_id );         // THIS boss dying restores ONLY the machines IT disabled - a still-alive sibling keeps its own
 
-    grant_drops( org );
+    grant_drops( org, a_dmg );
 
     if ( level.acc_avo_alive <= 0 )
         clear_all_hacks();               // last Avogadro down -> belt-and-suspenders: force-restore any residue
@@ -675,6 +702,27 @@ function nav_project( org, label )
     return org;
 }
 
+// PERK SCATTER integration: re-resolve every seek origin whenever _acc_perk_scatter
+// applies a layout (including the opening one - init-order-proof either way: if this
+// module inits after the opening scatter, the cache_target_origins() call above
+// already read the scattered positions; if before, the first notify fixes it up).
+// The surface-vs-Paradise split below survives scattering: surface pads all sit at
+// z >= -240, so the "nearest to the Lab boss spawn" surface pick still always beats
+// the z=-1200 twin, and the twin cache's z < -600 filter still only sees Paradise.
+// A machine scattered somewhere navmesh-unreachable just logs the nav_project
+// warning and rides the existing seek blacklist (temporarily skipped) - same
+// graceful path as any unreachable target.
+function recache_on_scatter()
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        level waittill( "acc_perk_scatter_applied" );
+        cache_target_origins();
+    }
+}
+
 function cache_target_origins()
 {
     level.acc_avo_origin = [];
@@ -763,18 +811,30 @@ function cache_target_origins()
     }
 }
 
-// Priority-ordered target list (perks FIRST, PaP last).
+// Priority-ordered target list (perks FIRST, PaP last). ALL 10 perks since the 2026-07-24
+// rework (user: "he can turn off any perk") - the same specialty roster as
+// level.acc_perk_door_specs. specialty_electriccherry = PhD Flopper (the cherry hijack);
+// specialty_combat_efficiency = the real Electric Cherry.
 function target_keys()
 {
-    return array( "specialty_armorvest", "specialty_quickrevive", "specialty_staminup", "specialty_widowswine", "specialty_combat_efficiency", "pap" );
+    return array( "specialty_armorvest", "specialty_quickrevive", "specialty_fastreload",
+                  "specialty_doubletap2", "specialty_staminup", "specialty_additionalprimaryweapon",
+                  "specialty_deadshot", "specialty_widowswine", "specialty_electriccherry",
+                  "specialty_combat_efficiency", "pap" );
 }
 
-// The hackable PERK noteworthies (single source for both dimension caches; PaP is handled separately).
+// The hackable PERK noteworthies (single source for both dimension caches; PaP is handled
+// separately). ALL 10 since 2026-07-24. Safe to pause any of them: the boss EMP already
+// perk_pauses the full roster map-wide, and the only STATEFUL mega cleanups (jugg HP /
+// Flash speed / Widow's stance) are handled in _acc_mega_bottles::on_perk_hacked/restored -
+// every other perk's effects read live through has_active_mega_perk (hacked keys excluded).
 function is_hackable_perk_key( key )
 {
     return ( key == "specialty_armorvest" || key == "specialty_quickrevive"
-          || key == "specialty_widowswine" || key == "specialty_combat_efficiency"
-          || key == "specialty_staminup" );
+          || key == "specialty_fastreload" || key == "specialty_doubletap2"
+          || key == "specialty_staminup" || key == "specialty_additionalprimaryweapon"
+          || key == "specialty_deadshot" || key == "specialty_widowswine"
+          || key == "specialty_electriccherry" || key == "specialty_combat_efficiency" );
 }
 
 // Dimension-aware seek origin (user 2026-07-09 parity pass): the LAB cache normally; the PARADISE twin
@@ -790,6 +850,20 @@ function target_origin( key )
 
 function is_key_enabled( key )
 {
+    // SOLO QR PROTECTION (user 2026-07-25 "prevent him from shutting QR in solo"): in a
+    // solo-revive game Quick Revive IS the self-revive lifeline - hacking it would turn any
+    // down during the 30s window into a run-ending death. level.using_solo_revive is stock's
+    // own determination (_zm_perks::use_solo_revive, set by QR's turn_revive_on at load).
+    if ( key == "specialty_quickrevive" && IS_TRUE( level.using_solo_revive ) )
+        return false;
+    // RE-HACK COOLDOWN (2026-07-25 annoyance review): uncapped hacking + expiry re-enabling a
+    // key meant he could CAMP one machine (or ping-pong the jukebox room's two pads) into a
+    // near-permanent blackout. A restored perk is now guaranteed usable for the cooldown
+    // window before ANY Avogadro may re-hack it (level-wide by design - it's a player-facing
+    // "you get your perk back for at least this long" promise). Stamped in undo_hack.
+    if ( isdefined( level.acc_avo_rehack_ok ) && isdefined( level.acc_avo_rehack_ok[ key ] )
+         && GetTime() < level.acc_avo_rehack_ok[ key ] )
+        return false;
     return ( isdefined( target_origin( key ) ) && !IS_TRUE( level.acc_avo_hacked[ key ] ) );
 }
 
@@ -858,7 +932,7 @@ function hack_director()
         // nearest flipped as he nudged around + an 8s blacklist expired before the other's 9s timeout), so
         // the timeout timer RESET forever, the chase fallback lasted one 0.4s tick, and he stood still all
         // game. Timeouts now also blacklist for 30s (was 8) and open a 12s pure-chase window.
-        if ( boss_hack_count( self ) < ACC_AVO_MAX_HACKS && GetTime() >= no_seek_until )   // PER-BOSS cap (user 2026-07-05)
+        if ( GetTime() >= no_seek_until )   // NO hack cap since 2026-07-24 (user: "any amount at once") - only the chase window pauses seeking
         {
             key = undefined;
             if ( isdefined( seek_key ) && is_key_enabled( seek_key )
@@ -905,7 +979,7 @@ function hack_director()
         }
         else
         {
-            seek_key = undefined;                        // at cap / in a chase window - drop any commitment
+            seek_key = undefined;                        // in a post-timeout chase window - drop any commitment
         }
 
         if ( isdefined( goal ) )
@@ -953,9 +1027,10 @@ function hack_director()
 // (nearest_valid_player removed 2026-07-08 review cleanup: never called - pick_fire_target() is the
 // live targeting path, and stock zm_utility::get_closest_valid_player covers the generic case.)
 
-// How many machines THIS Avogadro currently owns. The 2-machine cap is per-boss (user 2026-07-05), so two
-// Avogadros can disable up to 4 - all 4 perks. Compares the stored owner id (an INT), never an entity, which
-// sidesteps the "entity == undefined throws" trap once an owner boss has been Delete()d.
+// How many machines THIS Avogadro currently owns. DIAGNOSTIC-ONLY since the 2026-07-24 uncapped
+// rework (the heartbeat dbg prints it); no gameplay path gates on it anymore. Compares the stored
+// owner id (an INT), never an entity, which sidesteps the "entity == undefined throws" trap once
+// an owner boss has been Delete()d.
 function boss_hack_count( boss )
 {
     if ( !isdefined( boss ) || !isdefined( boss.acc_avo_id ) )
@@ -973,12 +1048,15 @@ function boss_hack_count( boss )
 
 function do_hack( boss, key )
 {
-    // PER-BOSS cap: each Avogadro may hold up to ACC_AVO_MAX_HACKS of ITS OWN. A machine already disabled by
-    // ANOTHER Avogadro is skipped (one hack per machine) - that sibling seeks a different one, so two together
-    // knock out up to 4 machines (all 4 perks). "Doubly lethal" (user 2026-07-05).
-    if ( boss_hack_count( boss ) >= ACC_AVO_MAX_HACKS )
-        return;
+    // NO per-boss cap since 2026-07-24 (user: "any amount at once") - a lone Avogadro can in
+    // principle dark the whole roster; the 30s per-hack expiry + the travel time between the
+    // scattered pads is the counter-pressure. One hack per machine still holds: a machine
+    // already disabled by ANOTHER Avogadro is skipped (that sibling seeks a different one).
     if ( IS_TRUE( level.acc_avo_hacked[ key ] ) )
+        return;
+    // Belt-and-suspenders mirror of the is_key_enabled solo-QR guard (the seek should never
+    // send him here, but a stale sticky seek_key must not slip through either).
+    if ( key == "specialty_quickrevive" && IS_TRUE( level.using_solo_revive ) )
         return;
 
     level.acc_avo_hacked[ key ]    = true;
@@ -1020,6 +1098,12 @@ function undo_hack( key )
     if ( level.acc_avo_hack_count < 0 )
         level.acc_avo_hack_count = 0;
 
+    // Anti-camping (2026-07-25): the restored key is off-limits to every Avogadro for the
+    // cooldown window - see the is_key_enabled guard. Live-balance dvar.
+    if ( !isdefined( level.acc_avo_rehack_ok ) )
+        level.acc_avo_rehack_ok = [];
+    level.acc_avo_rehack_ok[ key ] = GetTime() + getdvarint( "acc_avo_rehack_cd_ms", 45000 );
+
     level thread apply_unhack_effect( key );
 
     hack_alert( key, false );   // UI alert: it's back
@@ -1044,7 +1128,8 @@ function restore_boss_hacks( id )
 
 // Force-restore EVERYTHING when the LAST Avogadro dies (user 2026-07-05: a perk/PaP must NEVER stay stuck
 // OFF as a bug). Each boss already restores its own hacks on its death (restore_boss_hacks), so this is the
-// belt-and-suspenders: it restores ALL 5 targets unconditionally, clearing even a desynced/untracked pause.
+// belt-and-suspenders: it restores EVERY target (all 10 perks + PaP) unconditionally, clearing even a
+// desynced/untracked pause.
 // Safe: zm_perks::perk_unpause is a no-op if the perk wasn't paused, and the glow just re-lights. Each
 // restore is threaded so one stock throw can't leave the rest stuck.
 function clear_all_hacks()
@@ -1079,9 +1164,24 @@ function apply_hack_effect( key )
         level.acc_pap_hacked = true;        // _acc_pap_levels refuses to pack while set
     else
     {
+        // MULE STASH (user 2026-07-25 "stash and restore the gun"): stock's pause take-thread
+        // TAKES the at-risk 3rd gun outright (take_additionalprimaryweapon) and only the SLOT
+        // returns on unpause. Snapshot every mule holder's primaries+ammo BEFORE the pause so
+        // the diff pass can identify + stash exactly what the take removed.
+        if ( key == "specialty_additionalprimaryweapon" )
+            mule_stash_snapshot();
+
         zm_perks::perk_pause( key );        // stops the BASE perk for owners
         set_vending_triggers( key, false ); // and nobody can buy it while hacked
         acc_mega_bottles::on_perk_hacked( key );   // stateful MEGA effects off (Ultimate Tank HP)
+
+        if ( key == "specialty_additionalprimaryweapon" )
+            level thread mule_stash_diff(); // the pause's take runs on a player thread - diff after a beat
+
+        // INSTANT twin revert (user 2026-07-25): the Speed/Deadshot megas live in an in-place
+        // weapon-def swap (_acc_weapon_variants); the reconcile net would catch the HasPerk
+        // drop within ~3s anyway, but the poke swaps the base form back the same frame.
+        poke_twin_reconcile( key );
     }
     set_machine_glow( key, 0 );             // dark
 }
@@ -1100,8 +1200,152 @@ function apply_unhack_effect( key )
         zm_perks::perk_unpause( key );
         set_vending_triggers( key, true );
         acc_mega_bottles::on_perk_restored( key );  // Ultimate Tank HP back + Widow's stance watcher re-applied
+        if ( key == "specialty_additionalprimaryweapon" )
+            level thread mule_stash_restore();      // give the stashed 3rd gun back (validated per player)
+        poke_twin_reconcile( key );                 // instant twin return for Speed/Deadshot mega holders
         set_machine_glow( key, acc_perk_lights::perk_color_index( key ) );
     }
+}
+
+// ---------------------------------------------------------------------------
+// MULE KICK STASH (user 2026-07-25 "stash and restore the gun on restore").
+// Stock's pause path (take_additionalprimaryweapon, _zm_perk_additionalprimaryweapon.gsc:105-113)
+// removes the at-risk 3rd gun and never returns it - only the slot comes back. These three
+// helpers snapshot-diff-restore around the pause so a mule hack costs the gun for 30s, not
+// forever. The stash records the exact weapon OBJECT + ammo, so a twin form comes back as the
+// twin (the variants reconcile net re-normalizes the form within seconds either way).
+// ---------------------------------------------------------------------------
+
+// Called SYNCHRONOUSLY before perk_pause: record every mule holder's primaries + ammo (the
+// take runs on a player thread a frame later, so this snapshot is strictly pre-take).
+function mule_stash_snapshot()
+{
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isplayer( p ) ) continue;
+        if ( !( p HasPerk( "specialty_additionalprimaryweapon" ) ) ) continue;
+
+        snap = [];
+        prims = p GetWeaponsListPrimaries();
+        for ( j = 0; j < prims.size; j++ )
+        {
+            rec = SpawnStruct();
+            rec.w     = prims[ j ];
+            rec.clip  = p GetWeaponAmmoClip( prims[ j ] );
+            rec.stock = p GetWeaponAmmoStock( prims[ j ] );
+            snap[ snap.size ] = rec;
+        }
+        p.acc_avo_mule_snap = snap;
+    }
+}
+
+// A beat after the pause: whichever snapshotted primary is no longer carried is the gun the
+// stock take removed - stash it (per player) for the restore pass.
+function mule_stash_diff()
+{
+    level endon( "end_game" );
+    wait 0.5;   // the pause's take-thread has run by now
+
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isdefined( p.acc_avo_mule_snap ) ) continue;
+        snap = p.acc_avo_mule_snap;
+        p.acc_avo_mule_snap = undefined;
+
+        prims = p GetWeaponsListPrimaries();
+        for ( j = 0; j < snap.size; j++ )
+        {
+            found = false;
+            for ( k = 0; k < prims.size; k++ )
+            {
+                if ( prims[ k ] == snap[ j ].w )
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if ( !found )
+            {
+                p.acc_avo_mule_stash = snap[ j ];
+                dbg( "mule stash: kept " + snap[ j ].w.name + " for " + p.name );
+                break;
+            }
+        }
+    }
+}
+
+// After the unpause re-grants the slot: give each stashed gun back with its ammo. Per-player
+// threads so one downed player can't stall the rest; validated at give time (still owns mule
+// post-unpause - a full death during the window forfeits the stash like any real mule loss;
+// slot actually free; not already re-acquired). No forced weapon switch.
+function mule_stash_restore()
+{
+    level endon( "end_game" );
+    wait 0.5;   // let perk_unpause's give-thread grant the slot back first
+
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        p = players[ i ];
+        if ( !isdefined( p ) || !isdefined( p.acc_avo_mule_stash ) ) continue;
+        rec = p.acc_avo_mule_stash;
+        p.acc_avo_mule_stash = undefined;
+        level thread mule_restore_player( p, rec );
+    }
+}
+
+function mule_restore_player( p, rec )
+{
+    level endon( "end_game" );
+
+    // Wait out every TRANSIENT not-owned state before judging the stash (2026-07-25 review fix -
+    // the first cut forfeited the gun if the restore fired while the player was still DOWNED or
+    // while an overlapping hack/EMP window had mule re-paused):
+    //   - laststand: weapon juggling while downed is the documented minefield - defer.
+    //   - !HasPerk but disabled_perks[mule] still true: merely PAUSED again - the re-give is
+    //     coming (next unpause), keep waiting.
+    //   - !HasPerk and NOT pause-tracked: a REAL loss (full death cleared ownership) - forfeit,
+    //     exactly like any real Mule Kick loss.
+    // Cap ~120s so a pathological state can't leak the thread forever.
+    for ( i = 0; i < 240; i++ )
+    {
+        if ( !isdefined( p ) ) return;
+        if ( !IS_TRUE( p.laststand ) )
+        {
+            if ( p HasPerk( "specialty_additionalprimaryweapon" ) )
+                break;
+            if ( !( isdefined( p.disabled_perks ) && IS_TRUE( p.disabled_perks[ "specialty_additionalprimaryweapon" ] ) ) )
+                return;   // real loss - forfeit
+        }
+        wait 0.5;
+    }
+    if ( !isdefined( p ) || !isplayer( p ) ) return;
+    if ( !( p HasPerk( "specialty_additionalprimaryweapon" ) ) ) return;   // cap expired without a re-give
+    if ( p HasWeapon( rec.w ) ) return;                                    // re-acquired it themselves
+    prims_now = p GetWeaponsListPrimaries();   // temp var: .size on a parenthesized call is a GSC parse error
+    if ( prims_now.size >= 3 ) return;         // slot already refilled
+
+    p GiveWeapon( rec.w );
+    p SetWeaponAmmoClip( rec.w, rec.clip );
+    p SetWeaponAmmoStock( rec.w, rec.stock );
+    p iprintln( "^5" + rec.w.name + "^7 recovered from the hack" );
+    dbg( "mule stash: restored " + rec.w.name + " to " + p.name );
+}
+
+// Speed Cola / Deadshot megas live in an IN-PLACE weapon-def swap (_acc_weapon_variants twins,
+// gated on HasPerk && mega). The 3s reconcile net would converge anyway; the poke makes the
+// revert (hack) and return (restore) land the same frame. Other keys: no twin axis, no-op.
+function poke_twin_reconcile( key )
+{
+    if ( key != "specialty_fastreload" && key != "specialty_deadshot" )
+        return;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+        acc_weapon_variants::request_reconcile( players[ i ] );
 }
 
 // Enable/disable every buy trigger of this specialty (the zombie_vending trigger IS the purchase
@@ -1118,11 +1362,19 @@ function set_vending_triggers( key, enabled )
     }
 }
 
-// Set the glow index (0 = dark) on EVERY machine of this specialty (both the Lab machine AND the
-// Paradise duplicate at z=-1200) - perk_pause is per-specialty (affects both dimensions), so the glow
-// must match, and darkening all guarantees the Lab machine is never left lit while the perk is hacked.
+// Set the AURA glow index (0 = dark) on EVERY machine of this specialty (both the surface
+// machine AND the Paradise duplicate at z=-1200) - perk_pause is per-specialty (affects both
+// dimensions), so the glow must match, and darkening all guarantees no copy is ever left lit
+// while the perk is hacked. (Auras restored 2026-07-25 - the 07-24 native model-swap visual
+// was refuted live, _acc_perk_lights header.) RE-LIGHT is gated on level.acc_perk_glow_done
+// (the power-on aura latch): if power hasn't glowed the machines yet, an unhack must NOT
+// light one early - power_glow_watch owns the first light. Darkening (0) is always allowed
+// (a no-op on an unlit machine).
 function set_machine_glow( key, color_index )
 {
+    if ( color_index != 0 && !IS_TRUE( level.acc_perk_glow_done ) )
+        return;
+
     if ( key == "pap" )
     {
         if ( isdefined( level.acc_pap_glow_host ) )
@@ -1142,13 +1394,18 @@ function display_name( key )
 {
     switch ( key )
     {
-        case "specialty_armorvest":         return "Juggernog";
-        case "specialty_quickrevive":       return "Quick Revive";
-        case "specialty_staminup":          return "Stamin-Up";
-        case "specialty_widowswine":        return "Widow's Wine";
-        case "specialty_combat_efficiency": return "Electric Cherry";
-        case "pap":                         return "Pack-a-Punch";
-        default:                            return key;
+        case "specialty_armorvest":                return "Juggernog";
+        case "specialty_quickrevive":              return "Quick Revive";
+        case "specialty_fastreload":               return "Speed Cola";
+        case "specialty_doubletap2":               return "Double Tap";
+        case "specialty_staminup":                 return "Stamin-Up";
+        case "specialty_additionalprimaryweapon":  return "Mule Kick";
+        case "specialty_deadshot":                 return "Deadshot";
+        case "specialty_widowswine":               return "Widow's Wine";
+        case "specialty_electriccherry":           return "PhD Flopper";   // the cherry hijack (docs/10)
+        case "specialty_combat_efficiency":        return "Electric Cherry";
+        case "pap":                                return "Pack-a-Punch";
+        default:                                   return key;
     }
 }
 
@@ -1180,7 +1437,7 @@ function hack_alert( key, on )
 // Death rewards (standard boss drops - item + mega bottle + shards, per player)
 // ---------------------------------------------------------------------------
 
-function grant_drops( org )
+function grant_drops( org, a_dmg )
 {
     if ( IS_TRUE( level.acc_paradise_onslaught ) )
         return;
@@ -1193,6 +1450,7 @@ function grant_drops( org )
 
     // Shared boss reward (user 2026-07-05: every boss identical) - 1 item + 1 bottle + round-scaled pts +
     // int(round/3) shards, per player. spawn_pickup floor-snaps the drop origin.
-    acc_boss::grant_unified_boss_reward( org );
+    // a_dmg = the boss's damage ledger (leveling XP damage-share, docs/45 4a; undefined -> flat XP).
+    acc_boss::grant_unified_boss_reward( org, undefined, a_dmg );
     dbg( "drops granted at " + org );
 }

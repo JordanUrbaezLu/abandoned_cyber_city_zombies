@@ -25,8 +25,10 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   are NOT present: `acc_cyberware_kiosk` is still map-missing (`_acc_cyberware.gsc`
   no-ops until Radiant places it), `acc_overclock_terminal` was removed 2026-06-25
   (only a removal comment remains), and the `acc_lab_perk_*` machines never
-  shipped — Lab perks now use the `acc_perk_door_<specialty>` alcove doors
-  (`_acc_perk_doors.gsc`). (reconciled to code 2026-07-11) Every "grep `acc_` over
+  shipped — Lab perks used the `acc_perk_door_<specialty>` alcove doors until
+  2026-07-24, when the **map-wide perk scatter** (`_acc_perk_scatter.gsc`)
+  superseded the door rotation (doors now forced permanently open; perks live on
+  10 pads across the map, reshuffled every 3rd round — docs/10). Every "grep `acc_` over
   the .map returns zero matches / every interaction entity is map-missing" claim
   (docs/03, 07, 12, 15 headers) is stale.
   <!-- TODO(acc-verify): re-audit each map-missing row -->
@@ -44,7 +46,9 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   with `ACC_PERK_SLOT_MAX = 10`; the entry script sets the base
   `level.perk_purchase_limit = 4` (`zm_abandoned_cyber_city.gsc:320`). There are
   **10 perks** (Electric Cherry is the real 10th, `_acc_perk_electric_cherry`),
-  and the Lab-alcove rotation is a live **4-of-10** door roll.
+  and perk availability is the **map-wide perk scatter** (every-3rd-round perk→pad
+  reshuffle + 2-bottle Mega pin, `_acc_perk_scatter.gsc`, 2026-07-24 — replaced
+  the live 4-of-10 alcove-door roll).
 - **The HUD is shipped, not Phase-4-blocked.** The Aetherium LUI HUD has been the
   base HUD since 2026-07-03 (`scripts/zm/_zm_aetherium_hud.gsc/.csc`), with
   client-side clientfields for Data Shards, Mega Bottles, Exo charge, per-player
@@ -140,8 +144,9 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
 
 ## docs/02_layout.md
 
-- [x] **perk-rotation-4of9-no-dupes** `implemented` — Each round the Lab perk lineup is a random 4 of the 9-perk roster with no duplicates, re-rolled per round (not per run).
-- [x] **perk-roll-after-decon-not-round-start** `implemented` *(closed 2026-06-12 second ultracode pass)* — The Lab 4-of-9 perk re-roll runs only after acc_decontamination_complete (after the 20s window + seal, or after the nominal 0s tick on round 5+), never at the first frame of the round.
+- [x] **perk-scatter-map-wide** `implemented 2026-07-24` — The 10 perk machines live on 10 placement-verified pads across the map (Plaza = permanent QR, Lab ×2, Alley, Market, Helipad, Vault, jukebox under-room, trench L1, Exchange); the perk→pad assignment reshuffles at random on every round divisible by 3 (opening layout random per run); 2 Empty Mega Bottles pins a Mega'd perk to its current pad forever (`_acc_perk_scatter.gsc`; pad ledger in docs/02).
+- [x] ~~**perk-rotation-4of9-no-dupes**~~ `superseded 2026-07-24` — (was: per-round random-4 Lab lineup, later the 4-of-10 alcove-door roll.) Replaced by **perk-scatter-map-wide** above.
+- [x] ~~**perk-roll-after-decon-not-round-start**~~ `superseded 2026-07-24` — (was: roll timing vs decontamination.) The scatter rolls on `acc_round_start` at rounds divisible by 3; decon no longer gates any perk roll.
   - *Next:* Once _acc_decontamination.gsc exists, replace the acc_round_start waittill at _acc_map_randomizer.gsc:232 with waittill("acc_decontamination_complete", round_number).
 - [ ] **lab-4-perk-machine-slots** `scaffolded` — The Lab contains 4 perk machines (Lab-A through Lab-D, targetnames acc_lab_perk_a/b/c/d) whose dispense logic grants rotation[index]'s specialty.
   - *Next:* Build the Lab zone with 4 acc_lab_perk_a..d machine entities and write the trigger/purchase logic that reads .acc_current_specialty and grants that perk via the stock perk pipeline.
@@ -718,8 +723,7 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Add ACC_ITEM_SHROUD_COOLDOWN_SEC 90 #define; in apply_ghost_shroud only initialize ready_at if undefined so re-equip preserves cooldown
 - [ ] **ledger-double-points-multiplicative** `missing` — Ledger stacks multiplicatively with the Double Points powerup (effective +120% during the window).
   - *Next:* In award_player, multiply pts by level.zombie_vars[player.team]["zombie_point_scalar"] (default 1) before the Ledger mult and floor
-- [ ] **visor-no-boss-hp** `design-only` — Visor does NOT show boss HP over the world; boss gets a dedicated UI element instead.
-  - *Next:* Phase 4: build the dedicated boss HP LUI element and exclude acc_is_boss actors from visor HP bars
+- [x] **visor-no-boss-hp** `done 2026-07-24` — Visor does NOT show boss HP over the world; boss gets a dedicated UI element instead: the `CoD.AccBossBars` LUI rows (acc_hud.lua, fed by `_acc_boss_nameplate.gsc` accBoss1..4 controller models).
 - [ ] **glowing-pickup-model** `phase4-blocked` — Drop entity renders as a glowing themed pickup model per item.
   - *Next:* Phase 4: author/import per-item models + glow FX and swap setmodel("tag_origin")
 - [ ] **hud-item-indicator** `phase4-blocked` — Equipped items are visible via a small HUD indicator (2 icons).
@@ -852,8 +856,7 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Author an _acc_pap_levels.gsc module that wraps _zm_pack_a_punch upgrade flow for 5 repeatable levels, and place the PaP machine in Radiant.
 - [ ] **wonder-craft-terminal** `missing` — Wonder weapon craft: Hold F on a craft terminal (Lab / Vault), gated on 5 Shards + completing the matching side event.
   - *Next:* Author an _acc_wonder_craft.gsc module (trigger acc_craft_terminal, 5-shard spend, gate on level.acc_hack_state/acc_overload_state == consumed) and place the terminals.
-- [ ] **boss-health-bar-mini** `missing` — Mini-boss health bar uses phase markers at 33% / 66%.
-  - *Next:* Implement mini-boss spawning with HP + 33/66 phase computation in _acc_boss.gsc.
+- [x] **boss-health-bar-mini** `done 2026-07-24` — Mini-boss health bar uses phase markers at 33% / 66%: the `CoD.AccBossBars` rows draw notch ticks at 33%/66% on every boss bar.
 - [ ] **damage-numbers-modifier** `missing` — Damage numbers: off by default, enabled via `acc_mod_damage_numbers`; floating text rising from hit location, white body / yellow headshot / red boss.
   - *Next:* Add "damage_numbers" to the _acc_modifiers list (dvar gate works today) and implement the floating-text rendering in Phase 4 LUI.
 - [ ] **emergency-drop-prompt** `missing` — Emergency Drop prompt: contextual `[Hold F] Emergency Drop - 3 Shards` shown when standing on the active power switch trigger.
@@ -878,10 +881,10 @@ missing = no code / design-only = doc only / phase4-blocked = needs assets.
   - *Next:* Author acc_boss_items_row.lua + an equipped-items clientfield in Phase 4.
 - [ ] **objective-prompt-hud** `phase4-blocked` — Objective prompt: upper-center `HACK STAGE 2/3: ... [2 / 3, 0:42]` with live progress/timer, yellow active / green success flash / red timeout.
   - *Next:* Author acc_objective_prompt.lua in Phase 4; optionally add an interim iprintln progress tick in run_stage.
-- [ ] **boss-health-bar-full** `phase4-blocked` — Boss health bar with full-boss phase markers at 66% / 33% / 15%, appears on spawn, disappears on death, shows name + phase + HP.
-  - *Next:* Add a boss-HP clientfield + acc_boss_health.lua in Phase 4, after the boss actor exists.
+- [x] **boss-health-bar-full** `done 2026-07-24 (amended)` — Boss health bar: appears on spawn, kill-flash + fade on death, boss NAME above a real bar with 33%/66% phase notches, up to 4 concurrent + overflow queue (`CoD.AccBossBars`). *Amendment:* the original "shows … HP" text predates docs/31 — progress bars carry **no drawn number**, so the bar shows name + phases only (docs/31 §53 wins); the 15% marker was dropped with it (two notches match the shipped mini spec).
 - [ ] **lui-widget-files** `phase4-blocked` — Seven LUI widget files under ui/uieditor/widgets/zm_abandoned_cyber_city/ (data_shards, cyberware_stack, weapon_status, boss_items_row, objective_prompt, boss_health, emergency_drop_prompt).
-  - *Next:* Author the 7 .lua widgets in UIEditor on the Windows box in Phase 4 and add their rawfile zone lines.
+  - *Note 2026-07-24:* **boss_health is SHIPPED** — as `CoD.AccBossBars` inside `acc_hud.lua` (the house pattern: acc widgets live in the overlay menu file, not separate widget files). weapon_status + boss_items_row are likewise covered by the gun-badge row + implant cards in the same file.
+  - *Next:* Author the remaining widgets in acc_hud.lua as needed (separate widget files not required).
 - [ ] **colorblind-icons** `phase4-blocked` — Cyberware branch icons distinguish Overclock / Subroutine / Reflex by both color AND distinct shape.
   - *Next:* Bake the shape+color distinction into the branch icon assets during the Phase 4/5 art pass.
 - [ ] **reduced-motion-toggle** `phase4-blocked` — HUD pulse/animation on state changes can be disabled via the modifier system.

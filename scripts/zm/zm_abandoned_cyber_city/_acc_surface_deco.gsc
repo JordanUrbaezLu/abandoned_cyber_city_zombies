@@ -835,10 +835,11 @@ function spawn_plaza()
 // wallbuy (0,3070) r90; AW box approach x[640,799] y[3560,3740]; PaP (-700,3700);
 // boss/dog struct (19,3648) r60; every riser >=45u. The 3 flat teleporter
 // manifold plates (<=11u tall) are WALK-THROUGH by design - clipping a step
-// plate would navmesh-hole the room center. Vignettes: decon airlock (S wall),
-// test chamber (W wall), medical row (E wall), APD sci-fi island (mid-room NE),
-// industrial corner (E wall N of the box), LED strips over the perk alcove
-// doors, green/red energy-barrier glow posts.
+// plate would navmesh-hole the room center. Vignettes: decon airlock (S wall;
+// the big open unit hosts a perk-scatter pad since 2026-07-25), test chamber
+// (W wall), medical row (E wall), APD sci-fi island (mid-room NE), industrial
+// corner (E wall N of the box), LED strips on the N wall (the alcove row they
+// crowned was removed 2026-07-25), green/red energy-barrier glow posts.
 function spawn_lab()
 {
     n = 0;
@@ -851,7 +852,7 @@ function spawn_lab()
     n += spawn_prop( "p8_zm_whi_apd_canister",                        ( 350, 3555, 0 ), ( 0, 0, 0 ) );   // sci-fi coolant canister feeding the core
 
     // -- DECON AIRLOCK line, S wall W of the five-seven wallbuy --
-    n += spawn_prop( "p8_zm_whi_decontamination_unit_open",           ( -560, 3075, 0 ), ( 0, 180, 0 ) );   // decon unit, curtain open (GDT name; bin = unit_open)
+    n += spawn_prop( "p8_zm_whi_decontamination_unit_open",           ( -560, 3075, 0 ), ( 0, 180, 0 ) );   // decon unit, curtain open (GDT name; bin = unit_open) - hosts a Lab perk-scatter pad since 2026-07-25 (machine parks inside the tent)
     n += spawn_prop( "p8_zm_whi_decontamination_unit_small_open",     ( -420, 3078, 0 ), ( 0, 180, 0 ) );   // small decon unit, open
     n += spawn_prop( "p8_zm_whi_decontamination_unit_front",          ( -290, 3072, 1 ), ( 0, 180, 0 ) );   // decon unit front frame
     n += spawn_prop( "p8_zm_whi_decontamination_unit_pole_64",        ( -520, 3190, 0 ), ( 0, 0, 0 ) );   // queue pole (2x2 sliver)
@@ -895,14 +896,14 @@ function spawn_lab()
     n += spawn_prop( "p8_zm_off_locker_military_open",                ( 600, 3835, 0 ), ( 0, 0, 0 ) );   // locker, open
     n += spawn_prop( "p8_zm_off_locker_military_closed",              ( 648, 3835, 0 ), ( 0, 0, 0 ) );   // locker, closed
 
-    // -- PERK ROW accents: LED strips on the BACK wall face y4228 at z175 (the
-    //    alcove partitions are only 150 tall and the doors 140, so the back wall
-    //    is the visible surface above the alcove line - a strip at the y4150
-    //    door plane would float in the open band; yaw 270 hugs the face) --
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip over bay 2 (armor vest)
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip over bay 4 (double tap)
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip over bay 7 (deadshot)
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip over bay 9 (cherry)
+    // -- N-WALL accents: LED strips on the wall face y4228 at z175, yaw 270 hugs
+    //    the face. (Were "over the alcove bays" - the alcove row was REMOVED
+    //    2026-07-25, so these + the cyan crown band now read as plain neon trim
+    //    on the flat N wall over the perk spawn row.) --
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall W band
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall W-center
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall E-center
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall E band
     n += spawn_prop( "p7_cru_monitor_holo_screen_01",                 ( 0, 3074, 140 ), ( 0, 0, 0 ) );   // holo readout above the five-seven wallbuy
 
     return n;

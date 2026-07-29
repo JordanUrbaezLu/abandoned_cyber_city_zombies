@@ -96,6 +96,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_hack.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_events_overload.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_emergency_drop.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_scientist_office.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_kortifex.gsc
@@ -129,6 +130,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_leviathan_swing.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perks.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_weapon_abilities.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_points.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_leveling.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_corpse_cleanup.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_damage.gsc
 // PhD Flopper (perk #9): hijacks the stock _zm_perk_electric_cherry pipeline (registered
@@ -142,8 +144,11 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_decontamination.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown.gsc
 // Lockdown CHALLENGE room (Phase A): trap -> 30 confined glitch zombies -> reward. docs/43.
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_lockdown_challenge.gsc
-// Per-round random-3 access to the 9 Lab perk-alcove door gates.
+// Lab perk-alcove doors: RETIRED 2026-07-24 (forced open once; registry only).
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_doors.gsc
+// MAP-WIDE PERK SCATTER: 10 pads across the map, reshuffled every 3rd round;
+// 2 Mega Bottles pins a Mega'd perk to its current pad. docs/10.
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_perk_scatter.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_coop_scaling.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_zombie_speed.gsc
 // Bus Station cross-room trench: velocity-gated fall tax (PhD-negated). docs/03.
@@ -197,6 +202,14 @@ fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
 // [acc] De-rez teleport burst (docs/44 workstream A; audio pass 2 + BANK CACHE NUKE 2026-07-17;
 // audio pass 3 same night: +acc_scientist_numbers_lp synth loop (row FileSpec re-baked after a shell formfeed mangle);
 // audio pass 4: hum wav swapped to the AUTHENTIC BO1 numbers broadcast (num_04 via prep_scientist_numbers_from_rip.js, install-side only) - this comment edit is the bank-regen trigger -
+// audio pass 5 (2026-07-21 SFX enhancement sweep): +11 aliases in acc_audio.csv (acc_cj_zap/thunder/charge_25/50/75/jackin, acc_glitch_altar_spin, acc_reactor_online, acc_avo_crackle_lp, acc_avo_death, acc_shard_deny) + freezegun dryfire repoint - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 6 (2026-07-22 gun/feedback + intro swap): headshot-kill ding wav swapped; Triple Take fire repointed off the beam/HAVOC wav to acc\fx\tripletake_fire.wav (pitch 0, secondary cleared); Alternator fire to acc\fx\alternator_fire.wav; intro main_theme.wav replaced (The One, 18.76s, faded); +acc_shield_break implant SFX - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 7 (2026-07-22): CYBERJACK shoot SFX swapped to Devotion - the CYBERJACK-exclusive wpn_apex_lstar_fire (the weapon's loopFireSound; apex_lstar is quest-only, never in box) repointed to acc\fx\cj_fire.wav - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 8 (2026-07-22): shield-break SFX now 3d so teammates hear an ally's shield pop (PlaySoundAtPosition; acc_shield_break 2d->3d, dist 200/1500/2000) + wav re-baked mono +10% louder - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 9 (2026-07-22 fix): headshot ding REVERTED to original wav (user: old one was better); gun-fire wavs fixed - alternator re-cut from the loud shot (old AudioTrimmer trim was near-silent, max -47dB) + cj_fire/tripletake_fire normalized to a punchy level - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 10 (2026-07-22): gun shooting sounds replaced from the user's proper ZIP (compressed(1).zip) - alternator_fire/cj_fire/tripletake_fire overwritten with full 48k sounds (the earlier AudioTrimmer web-trims were the root problem) - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 11 (2026-07-22 FIX on-release bug): the ZIP clips had ~0.24-0.37s of LEADING SILENCE before the shot, so the weapon fire sound played nothing on trigger-DOWN (on the CYBERJACK only the stock loopFireEndSound decay was heard on release). Re-cut cj_fire/alternator_fire as short single-shots from the onset + tripletake_fire with its lead-in dropped - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 12 (2026-07-26 reload-foley fix): Streetsweeper/XM4 reload foley aliases were named with the wav's variant number baked in (shell_in1..4, knob_rotate1..3, regrip1/2) but the xanim "2D Sound" customnotes play the UNsuffixed name -> alias lookup missed -> silent reloads since 07-10. Renamed to same-name round-robin rows (the fire-sound pattern) + added the 6 missing s1_mdl reload foley aliases - THIS comment bump forces the bank regen (game CLOSED) -
 // this comment edit FORCES a sound-bank rebuild after the CachedBanks corruption incident: a bank
 // regen ran while BO3 was open holding the .sabs locks -> poisoned incremental cache -> every
 // later build re-emitted corrupt banks -> hard crash mid-DB-load, varying points, no error.
@@ -212,6 +225,8 @@ fx,_custom/acc/fx_acc_scientist_trail       // RED numbers aura - continuous BO1
 fx,dlc0/factory/fx_teleporter_elec_strike_os
 fx,dlc0/factory/fx_teleporter_elec_strike_sparks_os   // extra sparks layer on PHANTOM warps only - the real boss hits harder
 fx,dlc0/factory/fx_teleporter_beam_factory            // idle pad BEAM for the Lab<->Exchange teleporter (_acc_teleporter.gsc; HB21 lib, verified on disk)
+fx,zombie/fx_aat_fireworks_burst_zmb                  // LEVEL-UP celebration burst (stock AAT "Fireworks" pop; _acc_leveling.gsc acc_levelup_fx, docs/45). Stock, verified installed.
+fx,zombie/fx_aat_fireworks_zmb                        // LV10 "Fully Augmented" capstone: the bigger full fireworks (_acc_leveling.gsc acc_levelup_max_fx, docs/45). Stock.
 // Teleporter KINO wind-up sequence FX (_acc_teleporter.gsc, user 2026-07-17) - all stock, on disk (HB21 lib):
 fx,dlc4/genesis/fx_sophia_elec_charge_teleporter      // the CHARGE windup
 fx,dlc1/castle/fx_elec_teleport_flash_lg              // the bright DISCHARGE flash
@@ -658,6 +673,7 @@ xmodel,p7_zm_ctl_battery_ceramic
 xmodel,p7_zm_ctl_ammo_flak_bullet_01
 xmodel,p7_zm_ctl_deathray_sphere_coil
 xmodel,projectile_t7_drone_amws_missile
+xmodel,veh_t7_dlc_zm_quadrotor_piece_body
 // Berzerker (item 11, 2026-07-11): the Wolf Bow death skull - ALREADY registered install-side by
 // the HB21 bow dependency packs (source_data\rune_prison_death_skull.gdt +
 // model_export\black_ops_3\rune_prison_death_skull\ bin on disk) - no new carve needed.
@@ -864,6 +880,9 @@ rawfile,ui/uieditor/menus/hud/acc_hud.lua
 rawfile,ui/uieditor/menus/hud/acc_lb_rec.lua
 rawfile,ui/uieditor/menus/hud/acc_lb_board.lua
 rawfile,ui/uieditor/menus/hud/acc_lb_boot.lua
+// Game-over decision screen (docs/40 retry-on-death v2): YOU DIED + squad stats +
+// RESTART MAP / END GAME hold plates, fed by _acc_leaderboard's accGo* controller models.
+rawfile,ui/uieditor/menus/hud/acc_gameover.lua
 
 // Custom perk HUD icons (Ronan's Cyberpunk Shaders), drawn by acc_hud.lua's
 // CoD.AccPerkBar via setImage(RegisterImage(...)). 2D UI `image` assets - NOT
@@ -951,6 +970,14 @@ image,i_acc_badge_warhead
 image,i_acc_implant_slot1
 image,i_acc_implant_slot2
 image,i_acc_implant_slot3
+// Leveling LV/XP frame (docs/45): user-supplied 512x128 art; level number + XP fill drawn
+// through its reserved zones by acc_hud.lua CoD.AccLevel. GDT: source_data/acc_perk_shaders.gdt.
+image,i_acc_level_frame
+// SOUND-BANK REGEN TRIGGER (2026-07-21b): acc_level_up alias (level-up SFX, wav
+// sound_assets/acc/fx/level_up.wav) - re-encoded +1.5dB LOUDER (user "about 10% louder"). Sound banks
+// regen ONLY on a .zone content change, so this comment bump forces the repack on the next link
+// (memory sound-bank-rebuild-zone-trigger). Bump it again (any edit) if a future alias-CSV/wav change
+// needs to reach the banks.
 image,i_acc_emblem_gas_tank
 image,i_acc_emblem_loot_stash
 image,i_acc_emblem_repair_kit
@@ -966,6 +993,7 @@ image,i_acc_emblem_high_caliber
 image,i_acc_emblem_warhead_bomber
 image,i_acc_emblem_hive_node
 image,i_acc_emblem_dark_magic
+image,i_acc_emblem_sentry_drone
 // V2 pack (2026-07-12): _dim = unequipped-state cards (35% desat / 60% bright / 50% alpha BAKED
 // IN - state change is a pure image swap, NO code alpha on top or it compounds to 25%);
 // holding = the 4th "carrying an implant" card (same emblem-window geometry as the slots).
@@ -1285,6 +1313,15 @@ weapon,s1_mahem_up
 // fastreload twins in the twin block below (the Mahem wonder-tier pattern).
 weapon,t6_war_machine
 weapon,t6_war_machine_up
+// EPG-1 (s1_mdl) = the AW MDL grenade launcher RESKINNED into a neon plasma energy-LOBBER (user 2026-07-25):
+// slow high-arc TIMED-fuse airburst - GDT retuned (projectileSpeed 3500->1400, projImpactExplode 0 on base+_up,
+// fuseTime 3.0) + explosion/trail/muzzle FX repainted to stock EMP/energy (tools/oneshots/reskin_mdl_epg.js).
+// Real GDT projectileweapon (skye_s1_mdl.gdt, packed by the source_data\skye_*.gdt manifest wildcard). EXEMPT
+// explosive special like the Mahem (empty altWeapon so no _zm_zm Com_ERROR; is_aat_exempt CSV col ->
+// make_epg_pap_visible_to_tier3). (The L4 Siege launcher_multi is stock-cooked in zm_levelcommon -> CSV row
+// ONLY, NO weapon line here - the octobomb/thundergun precedent.)
+weapon,s1_mdl
+weapon,s1_mdl_up
 // Apex Legends guns (zeroy pack, user 2026-07-06 migration). Asset ids carry a baked _zm; _up forms in acc_apex_up.gdt (legend-skin PaP model). Twin-less.
 weapon,apex_peacekeeper_zm
 weapon,apex_peacekeeper_up_zm
@@ -2000,3 +2037,124 @@ fx,_mori2/t8_powerup_pre_drop
 fx,_mori2/t8_powerup_pre_drop_solo
 fx,_mori2/t8_powerup_pre_drop_pop_solo
 fx,_mori2/t8_powerup_pre_drop_pop
+
+// ============================================================================
+// [acc] 2026-07-24 CONTENT DROP - D13 Sector + HB21 Hero Weapons (Dragon
+// Gauntlet + Skull of Nan Sapwe) + Cyberpunk Riot Shield reskin + CYBER SLOTS.
+// Packs installed install-side (manifest rows in tools/external_assets_manifest.ps1;
+// CREDITS.md). Docs: CHANGELOG Unreleased.
+// ============================================================================
+// --- D13 Sector disc launcher (Koentje Disk Gun v1.0.1; GDT source_data/koentje/,
+//     rpg.accu refs repointed to default.accu - silent-drop trap; sounds =
+//     sound/aliases/discgun_sounds.csv, surgically trimmed - see its header) ---
+weapon,special_discgun
+weapon,special_discgun_up
+// --- HB21 Hero Weapons framework (VENDORED SUBSET - scripts/zm/_hb21_zm_hero_weapon.*;
+//     gravityspikes/glaive/annihilator stripped, CF pools full). _zm_hero_weapon =
+//     stock framework compiled from share/raw (its _zm_pers_upgrades_functions #using
+//     resolves against the stock OBSOLETE no-op stub - do NOT vendor HB21's copies). ---
+scriptparsetree,scripts/zm/_hb21_zm_hero_weapon.gsc
+scriptparsetree,scripts/zm/_hb21_zm_hero_weapon.csc
+scriptparsetree,scripts/zm/_zm_hero_weapon.gsc
+// _zm_weap_annihilator: STOCK raw script, compiled ONLY because the vendored keeper_skull
+// #usings it (gib-on-annihilator-kill hook). Registers hero "hero_annihilator" BY NAME -
+// the weapon asset itself is NOT zoned (we don't ship the Annihilator).
+scriptparsetree,scripts/zm/_zm_weap_annihilator.gsc
+// --- Skull of Nan Sapwe (ZNS hero; runtime names skull_gun / skull_gun_1) ---
+weapon,skull_gun_zm
+weapon,skull_gun_1_zm
+scriptparsetree,scripts/zm/_zm_weap_keeper_skull.gsc
+scriptparsetree,scripts/zm/_zm_weap_keeper_skull.csc
+scriptbundle,cin_zm_dlc1_zombie_dth_deathray_04
+scriptbundle,ai_zm_dlc2_zombie_pacified_by_skullgun
+fx,zombie/fx_tesla_shock_eyes_zmb
+fx,zombie/fx_glow_eye_white
+fx,dlc2/island/fx_zombie_torso_explo
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_start_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_loop_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_end_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_start_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_loop_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_end_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_start_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_loop_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_end_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_start_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_loop_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_beam_side_end_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_start_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_loop_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_end_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_start_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_loop_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_end_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_start_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_loop_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_end_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_start_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_loop_3p_island
+fx,dlc2/zmb_weapon/fx_wpn_skull_torch_side_end_3p_island
+// thrash-fire fx: no thrashers on this map, but the vendored .csc #precaches them -
+// keep them packed so the precache resolves (stock fx, ship free from the asset db).
+fx,dlc2/island/fx_fire_thrash_arm_left_loop
+fx,dlc2/island/fx_fire_thrash_arm_rgt_loop
+fx,dlc2/island/fx_fire_thrash_leg_left_loop
+fx,dlc2/island/fx_fire_thrash_leg_rgt_loop
+fx,dlc2/island/fx_fire_thrash_hip_left_loop
+fx,dlc2/island/fx_fire_thrash_hip_rgt_loop
+fx,dlc2/island/fx_fire_thrash_torso_loop
+fx,dlc2/island/fx_fire_thrash_waist_loop
+// --- Dragon Gauntlet of Siegfried (GK hero; runtime dragon_gauntlet_flamethrower /
+//     dragon_gauntlet). Whelp vehicle needs the nav_volume in the .map. ---
+scriptparsetree,scripts/shared/vehicles/_dragon_whelp.gsc
+scriptparsetree,scripts/shared/vehicles/_dragon_whelp.csc
+scriptparsetree,scripts/zm/_zm_weap_dragon_gauntlet.gsc
+scriptparsetree,scripts/zm/_zm_weap_dragon_gauntlet.csc
+weapon,dragon_gauntlet_flamethrower_zm
+weapon,dragon_gauntlet_zm
+vehicle,spawner_bo3_dragon_whelp
+xmodel,wpn_t7_zmb_dlc3_gauntlet_dragon_elbow_world
+xmodel,wpn_t7_zmb_dlc3_gauntlet_dragon_elbow_upg_world
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_emitter_1p
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_begin_1p
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_end_1p
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_blocked
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_emitter_3p
+fx,dlc3/stalingrad/fx_dragon_gauntlet_flamethrower_begin_3p
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_orange_glow1
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_orange_glow2
+fx,dlc3/stalingrad/fx_dragon_gauntlet_whelp_eye_glow_sm
+fx,dlc3/stalingrad/fx_dragon_gauntlet_whelp_mouth_drips_sm
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_glow1
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_glow2
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_glow_finger2
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_glow_finger
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_tube
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_glow_finger3
+fx,dlc3/stalingrad/fx_dragon_gauntlet_glove_blue_tube2
+fx,dlc3/stalingrad/fx_fire_torso_zmb_green
+fx,dlc3/stalingrad/fx_fire_generic_zmb_green
+// --- Cyberpunk Riot Shield reskin (Logical's mesh SHADOWING the stock SOE rocket-shield
+//     model names - usermap ff wins at load, customizationtable-shadow precedent; GDT
+//     source_data/acc_riotshield_reskin.gdt, mesh install-side via the manifest). The
+//     Rocket Shield boss item keeps the NATIVE zod_riotshield mechanics untouched. ---
+xmodel,wpn_t7_zmb_zod_rocket_shield_view
+xmodel,wpn_t7_zmb_zod_rocket_shield_world
+xmodel,wpn_t7_zmb_zod_rocket_shield_dmg1_view
+xmodel,wpn_t7_zmb_zod_rocket_shield_dmg1_world
+xmodel,wpn_t7_zmb_zod_rocket_shield_dmg2_view
+xmodel,wpn_t7_zmb_zod_rocket_shield_dmg2_world
+// --- CYBER SLOTS (Coolyer zm_slots adapted -> _acc_slots; icons = _custom/_coolyer
+//     GDT via the converter_gdt_dirs patch; SetShader materials NEED zone lines) ---
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_slots.gsc
+material,cherry
+material,lemon
+material,bar
+material,seven
+material,bell
+material,diamond
+material,clover
+material,coin
+material,banana
+material,skull
+material,death

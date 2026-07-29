@@ -373,6 +373,7 @@ function pap_price_bucket( weapon_name )
     if ( IsSubStr( weapon_name, "apex_lstar" ) )              return "WONDER";   // THE CYBERJACK (L-STAR chassis, quest-only wonder - docs/43; chassis swap 2026-07-17)
     if ( IsSubStr( weapon_name, "leviathan" ) )             return "WONDER";   // #4 Leviathan Axe (special)
     if ( IsSubStr( weapon_name, "freezegun" ) )             return "WONDER";   // Winter's Howl (utility freeze wonder, 2026-07-11; is_aat_exempt FALSE in CSV so tier-3 PaP stays visible - no thundergun-style fix needed)
+    if ( IsSubStr( weapon_name, "special_discgun" ) )       return "WONDER";   // D13 Sector disc launcher (Koentje port, 2026-07-24; TRUE _up form ships in the pack GDT)
 
     // TOP  (5000 / 7500 / 10000)
     if ( IsSubStr( weapon_name, "t8_melee_figure" ) )       return "TOP";   // #5 Action Figure (special)
@@ -385,6 +386,8 @@ function pap_price_bucket( weapon_name )
     if ( IsSubStr( weapon_name, "apex_beam_rifle" ) )       return "TOP";   // #11 Havoc (special)
     if ( IsSubStr( weapon_name, "s1_mahem" ) )              return "TOP";   // #12 Mahem (special)
     if ( IsSubStr( weapon_name, "t6_war_machine" ) )        return "TOP";   // #13 War Machine (special)
+    // (launcher_multi / L4 Siege TOP bucket REMOVED 2026-07-26 with the gun itself.)
+    if ( IsSubStr( weapon_name, "s1_mdl" ) )                return "TOP";   // EPG-1 plasma-lobber (special, user 2026-07-25) - HAND-ADDED past the generator
     if ( IsSubStr( weapon_name, "s1_mors" ) )               return "TOP";   // #14 MORS
     if ( IsSubStr( weapon_name, "s1_cel3" ) )               return "TOP";   // #18 CEL-3
 
@@ -1322,6 +1325,8 @@ function pap_tier_machine_watcher()
     make_cyberjack_packable();      // same fix for THE CYBERJACK (apex_lstar / L-STAR chassis, same no-_up shape) (docs/43, 2026-07-17)
     make_mahem_pap_visible_to_tier3();   // un-exempt the launcher from AAT so its machine stays visible past pack 2 (user 2026-06-26)
     make_war_machine_pap_visible_to_tier3();   // same un-exempt for the War Machine drum GL (user 2026-07-09; its CSV row also ships is_aat_exempt TRUE)
+    // (make_l4siege_pap_visible_to_tier3 call REMOVED 2026-07-26 with the L4 Siege itself.)
+    make_epg_pap_visible_to_tier3();       // EPG-1 (s1_mdl plasma-lobber): CSV is_aat_exempt TRUE - same un-exempt (user 2026-07-25)
     make_havoc_pap_visible_to_tier3();   // Havoc (Apex energy special, replaces China Lake): always-safe un-exempt (no-op if not aat-exempt), same gate as the Mahem (user 2026-07-06)
     make_thundergun_pap_visible_to_tier3();   // same bug, same fix, for the wonder weapon (user 2026-07-02: "can only PaP twice")
     make_blasto_pap_visible_to_tier3();       // Blast-O-Matic ships is_aat_exempt TRUE - same gate, same fix (user 2026-07-03)
@@ -1483,6 +1488,21 @@ function make_war_machine_pap_visible_to_tier3()
     was_exempt = isdefined( level.aat_exemptions[ up ] );
     level.aat_exemptions[ up ] = undefined;
     acc_utility::log( "pap_levels: War Machine PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " (machine stays visible past pack 2)" );
+}
+
+// EPG-1 clone of make_mahem_pap_visible_to_tier3 (user 2026-07-25): the s1_mdl plasma-lobber's CSV row carries
+// is_aat_exempt TRUE (launcher), so the identical un-exempt keeps the PaP machine visible for pack 3. PaP form
+// s1_mdl_up (regular _up, like the Mahem). Full mechanism trace: the Mahem comment block above.
+function make_epg_pap_visible_to_tier3()
+{
+    if ( !isdefined( level.aat_exemptions ) ) return;
+    up = GetWeapon( "s1_mdl_up" );
+    if ( !isdefined( up ) || up == level.weaponNone ) return;
+    up = zm_weapons::get_nonalternate_weapon( up );
+
+    was_exempt = isdefined( level.aat_exemptions[ up ] );
+    level.aat_exemptions[ up ] = undefined;
+    acc_utility::log( "pap_levels: EPG-1 PaP-to-tier3 fix - was_aat_exempt=" + was_exempt + " (machine stays visible past pack 2)" );
 }
 
 // Blast-O-Matic tier-3 fix (user 2026-07-03) - its CSV row ships is_aat_exempt TRUE (wonder-class

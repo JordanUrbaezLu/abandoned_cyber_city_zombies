@@ -84,7 +84,7 @@
 // reshuffled per run and only when the deck empties - so rounds with up to 4 bosses are always
 // all-distinct types, a repeat first becomes possible at the 5th boss slot (round 45) where it's
 // forced, and no two games play the same boss sequence.
-#define ACC_PROTECTOR_HP_EXP        1.09  // per-round HP exponent: the MIDDLE boss tier - Brutus 1.12 > Rogue/Panzer 1.09 > Phantom 1.06 - on the SHARED 65k/anchor-5 scale_phantom_hp scale (user 2026-07-04 1.1 -> 2026-07-08 1.11 -> 1.09 after anchor moved to r5). Live dvar acc_protector_hp_exp.
+#define ACC_PROTECTOR_HP_EXP        1.08  // user 2026-07-26: -0.01 all-boss health nerf, 1.09->1.08. per-round HP exponent: the MIDDLE boss tier - Brutus 1.12 > Panzer 1.1 > Rogue 1.09 > Phantom/Avo 1.07 > Scientist 1.05 (ladder since 2026-07-25; Panzer split off this rung) - on the SHARED 65k/anchor-5 scale_phantom_hp scale (user 2026-07-04 1.1 -> 2026-07-08 1.11 -> 1.09 after anchor moved to r5). Live dvar acc_protector_hp_exp.
 #define ACC_BOSS_FIRST_DEF          9     // BASE GAME: first boss round 9, then every 9
 #define ACC_BOSS_INTERVAL_DEF       9
 #define ACC_BOSS_FIRST_DEV          3     // DEV: round 3, every 3 (fast iteration)
@@ -198,6 +198,17 @@ function dev_force_spawn_watcher()
 // How many bosses TOTAL this round? 0 if not a boss round; else slot+1 (round 9->1, 18->2, 27->3).
 function boss_count( round_number )
 {
+	// DEV ALL-BOSS WAVE (user 2026-07-24: "have the bosses come at round 4 - all of them at
+	// once - only when dev mode is true"): dev round 4 owes the FULL 4-type deck in one shot.
+	// Count 4 makes boss_roster deal one of EACH type (the no-duplicate deck guarantees
+	// phantom + protector + avogadro + panzer for n=4), and all four debt directors fire off
+	// the same "acc_round_start" - near-simultaneous spawns. The 5th boss, the Trench Warden,
+	// is roster-independent: his matching dev round-4 branch lives in _acc_boss::round_hook_loop.
+	// (Also the multi-boss bar-UI stress round: 5 bosses vs 5 LUI rows - the r3 dev Phantom or a Scientist pushes it into the overflow queue.)
+	// Rounds 9/18/27 still run the REAL roster below, dev and ship alike.
+	if ( IS_TRUE( level.acc_dev ) && round_number == 4 )
+		return 4;
+
 	// DEV fast cadence (every ACC_BOSS_INTERVAL_DEV from ACC_BOSS_FIRST_DEV) DISABLED
 	// (user 2026-07-12: "stop the bosses spawning early in dev - annoying"): dev uses the
 	// REAL 9/9 schedule. The dvars still override in EITHER mode for a manual fast burst
@@ -448,8 +459,8 @@ function spawn_boss()
 	boss.can_gib_zombies = 0;
 
 	// HP: the SHARED boss scale (base 65k + anchor 5, scale_phantom_hp) but with the Rogue
-	// Protector's OWN exponent - the TIER between Brutus and the Phantom (user 2026-07-08: Brutus/Panzer
-	// 1.12 > Rogue 1.09 > Phantom 1.06). Then the SAME coop boss-HP table (boss_hp_player_mult:
+	// Protector's OWN exponent - the MIDDLE tier (since 2026-07-25: Brutus 1.12 > Panzer 1.1 >
+	// Rogue 1.09 > Phantom/Avo 1.07 > Scientist 1.05). Then the SAME coop boss-HP table (boss_hp_player_mult:
 	// 1p 1.00 / 2p 1.70 / 3p 2.30 / 4p 2.60 - user 2026-07-15, was a log curve). No cap.
 	// Rogue solo: r5 65k / r10 100k / r20 237k / r30 561k / r40 1.33M (anchor r5, exp 1.09; user 2026-07-08).
 	rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
@@ -930,10 +941,12 @@ function death_watch()
 	// COOP CRASH GUARD: the corpse can be reaped the same frame the death notify fires (4p corpse churn) -
 	// any self deref then throws "not an entity" and ends the whole match (same race phantom_death_watch
 	// guards). Fall back to the killer's origin so the reward still pays out when the corpse is already gone.
+	a_dmg = undefined;
 	if ( isdefined( self ) )
 	{
 		self StopLoopSound();   // kill the hover-jet hum (PlayLoopSound at spawn) - it otherwise loops on the corpse forever
 		drop_origin = self.origin;
+		a_dmg = self.acc_damage_contrib;   // leveling XP damage-share ledger (docs/45 4a) - captured pre-reap
 	}
 	else if ( isdefined( attacker ) && isplayer( attacker ) )
 	{
@@ -953,5 +966,5 @@ function death_watch()
 
 	// Shared boss reward (user 2026-07-05: every boss identical - this FIXES the Rogue Protector granting
 	// ZERO shards): 1 item + 1 bottle + round*300 pts + int(round/3) shards, to every player.
-	acc_boss::grant_unified_boss_reward( drop_origin );
+	acc_boss::grant_unified_boss_reward( drop_origin, undefined, a_dmg );
 }

@@ -26,7 +26,7 @@ Seven stock BO3 perks (retuned) + three custom (Deadshot, PhD Flopper, **Electri
 | # | Perk | Cost | Base (what it does) | Mega name | Mega (what the upgrade adds) |
 |---:|---|---:|---|---|---|
 | 1 | **Jugger-Nog** | 4,000 | **250 HP** → down on the **6th** zombie melee hit (no perk = 125 HP / 3rd). | **Ultimate Tank** | **300 HP** → down on the **7th** hit. *(The boss-zap protection now lives on Mega Electric Cherry "Power Surge" as a **−10% softening** — was Mega Jug → Mega Widow's → Mega Electric Cherry, user 2026-06-25; softened from full immunity 2026-07-03.)* |
-| 2 | **Quick Revive** | 2,500 | Revive teammates in **2.0 s**; HP regen starts **20% sooner** after damage; solo self-revive. | **Savior** | Revive in **1.0 s**; regen starts **40% sooner**; **+15% move speed** while any other player is downed; **−50% damage taken while reviving**. |
+| 2 | **Quick Revive** | 2,500 co-op / **500 solo** | Revive teammates in **2.0 s**; HP regen starts **20% sooner** after damage; solo self-revive (the 500 solo price is the stock BO3 self-revive cost). | **Savior** | Revive in **1.0 s**; regen starts **40% sooner**; **+15% move speed** while any other player is downed; **−50% damage taken while reviving**. |
 | 3 | **Speed Cola** | 3,500 | **+50%** reload; faster **barrier board / repair**. | **Sleight of Hand Expert** | **+75%** reload (replaces +50%). |
 | 4 | **Double Tap 2.0** | **3,000** | Fires **2 bullets per shot for 1 round of ammo** (double pellets on shotguns) **plus +33%** rate of fire. Extra-bullet damage tempered ×0.7 → ~**1.86× DPS**. Excludes Wonder Weapons / Ballistic Knife / explosives. | **Gun Slinger** | **Extra bullets hit harder** — temper eases ×0.7 → ×0.9 (~**2.39× DPS**). *No* fire-rate/swap bonus (twin removed 2026-07-04). |
 | 5 | **Stamin-Up** | 2,000 | Sprint lasts **~12 s** (vs ~4 s no perk); **~4 s** stamina recharge; **+7–8%** move speed (mobility caps ~109%). | **The Flash** | **+15% sprint speed** (×1.15, uniform move scalar). |
@@ -90,9 +90,9 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 - **HP / hit counts** (at ~45 dmg per zombie melee): **125 HP → 3rd · 250 HP → 6th · 300 HP → 7th**. Open-field melee damage is a baked GDT value — confirm hit counts in-game.
 - **Stacking**: Ghost Shroud (boss item). *(Cyberware Subroutine Caching also stacks if the tree is re-enabled — dormant by default, docs/03.)*
 
-### 2. Quick Revive — 2,500 Points
+### 2. Quick Revive — 2,500 Points (co-op) / 500 Points (solo)
 
-**Base.** **Revive teammates in 2.0 s** (vs 3.0 s with no perk). **HP regen starts 20% sooner** after you take damage — begins at **1.92 s** instead of the **2.4 s** baseline (an earlier *start*, not a faster heal rate). **Solo:** self-revive per stock BO3 where applicable.
+**Base.** **Revive teammates in 2.0 s** (vs 3.0 s with no perk). **HP regen starts 20% sooner** after you take damage — begins at **1.92 s** instead of the **2.4 s** baseline (an earlier *start*, not a faster heal rate). **Solo:** self-revive per stock BO3, priced at the **stock 500** (up to 3 buys). The cost is a function pointer (`quickrevive_cost` in the entry script) that returns **500 when `zm_perks::use_solo_revive()` is true, else 2,500** — stock reads `.cost` live for both the machine price and the look-at hint, so solo and co-op each show/charge the right number.
 
 **Mega: Savior.** (1) **Revive in 1.0 s** — half of base QR's 2.0 s. (2) **HP regen starts 40% sooner** (begins at 1.44 s) — upgraded from base QR's 20%. (3) **+15% move speed** (×1.15) while any *other* player is downed / bleeding out; clears the moment nobody is down (your own down does not count). (4) **−50% incoming damage while you are reviving a teammate** (user 2026-06-26) — you take half damage for the whole revive channel, so you can't be punished as easily for stopping to pick someone up.
 
@@ -100,6 +100,8 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 - **Revive time:** no perk **3.0 s** → base QR **2.0 s** → Savior **1.0 s**.
 - **Regen delay:** baseline **2.4 s** → base QR **1.92 s** (20% sooner) → Savior **1.44 s** (40% sooner). Heal rate is unchanged; the % is the delay reduction.
+- **Low-health red-screen trigger** (map-wide; 2026-07-25): the red pulse fires at **≤30% HP** — `_acc_perks.gsc::init` raises the stock `level.healthOverlayCutoff` from `0.2` (20%) to **`0.30`** (`ACC_HEALTH_OVERLAY_CUTOFF`; stock ZM level init runs first, so our override sticks; the overlay gate re-reads it live each damage tick). Separate from the *sync* below, which stops the pulse when HP is back to full.
+- **Low-health red-screen sync** (map-wide, not QR-gated; 2026-07-25): the stock red pulse vignette is **time-based** — below the cutoff (now 30% HP) it flashes for a fixed `longRegenTime` (5 s) + ~2.6 s tail and never re-reads health (stock aligned only because stock very-hurt regen also waits exactly 5 s). With our earlier-start regen and instant heals (Jug purchase, Megas) the screen stayed red for seconds at full HP. `_acc_perks.gsc::health_overlay_sync` (per player, per life) fires stock's own kill switch `self notify("clear_red_flashing_overlay")` (the notify `_zm_laststand` uses on revive) edge-triggered on the not-full → full transition, which fades the overlay in 0.05 s, clears the flag, and stops the heartbeat loop. Not gated on the `player_has_red_flashing_overlay` flag — stock clears that flag at full health *without* stopping the visual, so flag-off-but-pulsing is exactly the broken state.
 - **Move speed:** Savior **×1.15** while a teammate is in last-stand (multiplicative with other speed buffs).
 - **Revive damage reduction:** Savior takes **×0.50 incoming damage** for the full duration of a revive (the whole time `self.is_reviving_any > 0`). Applied in `_acc_elites::on_player_damaged` after the Exo Suit resist, so the two **stack multiplicatively** (e.g. Exo T5 −25% then ×0.5 → ~0.375× total). Floored at 1 (always killable). Self-revive does not qualify (the downed player is rejected as invalid earlier in the callback). Lever: `ACC_SAVIOR_REVIVE_DMG_TAKEN` in `_acc_perks.gsc`.
 
@@ -206,7 +208,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ### 10. Electric Cherry — 3,000 Points (custom — the REAL 10th perk)
 
-**Base.** **Reloading discharges an electric nova** that electrocutes nearby zombies, and **the emptier your mag, the bigger the blast** — an empty-mag reload one-shots trash at any round; a full-mag reload is just a spark (we fixed the stock `1/10` clip-fraction stub to read the real `GetWeaponAmmoClip / clipSize`). Zombies the nova doesn't kill are **stunned** with the stock tesla stun + shock FX (~4 s); lethal hits get the full electrocution. **8 targets** per nova (`EC_TARGET_CAP`), **6 s cooldown** (`EC_COOLDOWN`) to stop reload-spam, base empty-mag radius **220u** (`EC_RADIUS_MAX`). **No last-stand explosion** — PhD Flopper owns the single global down-explosion hook. Built from scratch on the unused engine specialty **`specialty_combat_efficiency`** (the Elemental Pop precedent), so it does **not** collide with PhD Flopper's `specialty_electriccherry` hijack — both perks coexist. Code: `_acc_perk_electric_cherry.gsc`; own Lab machine (the real cherry model `electric_cherry_model`, West-pack port) + own alcove.
+**Base.** **Reloading discharges an electric nova** that electrocutes nearby zombies, and **the emptier your mag, the bigger the blast** — an empty-mag reload one-shots trash at any round; a full-mag reload is just a spark (we fixed the stock `1/10` clip-fraction stub to read the real `GetWeaponAmmoClip / clipSize`). Zombies the nova doesn't kill are **stunned** with the stock tesla stun + shock FX (~4 s); lethal hits get the full electrocution. **8 targets** per nova (`EC_TARGET_CAP`), **6 s cooldown** (`EC_COOLDOWN`) to stop reload-spam, base empty-mag radius **220u** (`EC_RADIUS_MAX`). **No last-stand explosion** — PhD Flopper owns the single global down-explosion hook. Built from scratch on the unused engine specialty **`specialty_combat_efficiency`** (the Elemental Pop precedent), so it does **not** collide with PhD Flopper's `specialty_electriccherry` hijack — both perks coexist. Code: `_acc_perk_electric_cherry.gsc`; own machine (the real cherry model `electric_cherry_model`, West-pack port) with its own spawn slot on the Lab N wall — like every perk it rides the map-wide scatter (the alcove row is gone, 2026-07-25).
 
 **Mega: Power Surge.** A stronger, faster nova — **+50% damage** (`× 1.5`), **12 targets** (`EC_TARGET_CAP_MEGA`), **4 s cooldown** (`EC_COOLDOWN_MEGA`, user 2026-07-08, was 5). All read live off the persistent Mega flag. The Mega's edge is damage / targets / cooldown, **not** blast size: the empty-mag radius is a touch *tighter* by design (`EC_RADIUS_MAX_MEGA 200` vs base `220`). **Plus boss-zap softening** — a Power-Surge holder takes any boss zap slow (**Phantom chain / Rogue Protector / Avogadro**) at a flat **−10% instead of −30%** (`acc_boss_slow_mega_mult 0.90` vs the `0.70` non-holder slow; was full immunity, softened 2026-07-03; the protection moved here from Mega Jug → Mega Widow's 2026-06-25).
 
@@ -219,7 +221,7 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 
 ## Mega Bottles (system)
 
-**Mega** perk tiers (Savior, Gun Slinger, Ultimate Tank, etc.) are **not** bought with Points. They unlock by spending **Empty Mega Bottles** at Lab machines when the base perk is in the current rotation — full **Mega** descriptions are in [Perk reference (base + Mega)](#perk-reference-base--mega) under each perk’s **Mega: … (full description)**.
+**Mega** perk tiers (Savior, Gun Slinger, Ultimate Tank, etc.) are **not** bought with Points. They unlock by spending **Empty Mega Bottles** at the perk's machine, wherever the scatter currently has it parked (the parallel `acc_mega_vending` trigger moves with the machine) — full **Mega** descriptions are in [Perk reference (base + Mega)](#perk-reference-base--mega) under each perk’s **Mega: … (full description)**.
 
 ### Acquisition Loop
 
@@ -227,12 +229,12 @@ Read **top to bottom** for full prose on every perk. Each entry has a **Base** d
 - **Additional to** the boss item-drop pool — Mega Bottles do NOT take an item-pool slot. They are a separate drop resource.
 - **Inventory**: unlimited stack, per-player (counter on `self.acc_mega_bottles`).
 - **In co-op**, each player independently receives 1 bottle per boss kill.
-- **Realistic rate**: a long run yields a **handful of bottles per player** — enough to Mega a few perks, nowhere near all 10. Bottles are a scarce, decision-forcing resource: which perk you Mega first, and whether to instead sink 2 bottles into a **permanent perk-door unlock** (below), is the tension.
+- **Realistic rate**: a long run yields a **handful of bottles per player** — enough to Mega a few perks, nowhere near all 10. Bottles are a scarce, decision-forcing resource: which perk you Mega first, and whether to instead sink 2 bottles into **pinning a Mega'd perk to its pad** (the scatter pin, below), is the tension.
 
 ### Usage
 
-1. You must **already own the base perk** (bought normally from a Lab machine).
-2. The base perk's **Lab alcove must be open this round** (its door is one of the 4-of-10 currently rotated open, or permanently unlocked).
+1. You must **already own the base perk** (bought normally from its machine).
+2. **Find the machine wherever the scatter currently has it parked** (the paired `acc_mega_vending` trigger moves with the machine — the old "alcove must be open this round" gate died with the door rotation, 2026-07-24).
 3. Interact with that machine → UI prompt "Apply Mega? (1 Empty Mega Bottle)".
 4. Consume 1 Mega Bottle → the base perk upgrades to its Mega variant.
 5. **No Points cost** — the bottle IS the cost.
@@ -250,12 +252,11 @@ This means: **the Mega Bottle is a one-time investment per perk per run**. Death
 ### Cross-Round Timing Tension
 
 - **You get a Mega Bottle at round 10** (the first mini-boss kill).
-- **You decide you want to Mega Jug**.
-- **But Jug's alcove door isn't open this round** (it wasn't one of the 4-of-10 rolled open).
-- **You wait**. Maybe 1-3 rounds until Jug rotates open — or spend 2 bottles to unlock its door for good.
-- **Jug's door opens at round 13**. You rush to Lab, interact, consume bottle, Jug becomes Ultimate Tank.
+- **You decide you want to Mega Jug** — but the scatter parked Jug's machine somewhere across the map (maybe deep: the Abyss L2 or Exchange pad).
+- **You trek to it** (or wait for the next divisible-by-3 reshuffle to bring it somewhere safer), interact, consume the bottle → Jug becomes Ultimate Tank.
+- Once it's Mega'd you can also **pin it**: 2 more bottles lock that perk onto its current pad for the rest of the run (the successor of the old 2-bottle door unlock).
 
-This mirrors the existing perk-rotation decision texture. Mega-ing a perk is a **two-step commitment**: 1) own the perk, 2) wait for rotation, 3) apply bottle. Players will strategize which perk to Mega first based on current round and rotation odds.
+This keeps the decision texture the door rotation used to provide: Mega-ing a perk means owning it, reaching wherever it currently lives, and choosing between spending bottles on more Megas or on pinning the ones you rely on.
 
 ### Mega damage stack example
 
@@ -296,112 +297,136 @@ See [11_controls_and_hud.md](11_controls_and_hud.md) for HUD element spec.
 - **Mega too strong**: reduce specific Mega effects (e.g. American Sniper +1.5 → +1.4 headshot bonus, Gun Slinger damage temper `acc_doubletap_mega_dmg_mult` 0.9 → 0.8).
 - **Rotation timing frustrating**: allow Mega application at ANY perk machine as long as the player owns the base perk (decouple from rotation). Simpler but less texture.
 
-## Perk Availability: Per-Round Door-Gated Lab Alcoves
+## Perk Availability: Map-Wide Perk Scatter (every 3rd round)
 
-> **STATUS: the per-round rotation is LIVE** (restored 2026-06-22; `_acc_perk_doors.gsc`). Each round a
-> random **4 of the 10** Lab alcove doors open and the other 6 stay walled off; the 4 re-roll every round
-> (never immediately repeating the prior round's exact set). Runs in **normal play**; a manual escape hatch
-> forces all open with `set acc_perk_doors_all_open 1`.
+> **STATUS: LIVE (built 2026-07-24)** — `_acc_perk_scatter.gsc`. **Supersedes** the per-round
+> 4-of-10 Lab alcove-door rotation AND its 2-bottle permanent door unlock (both retired the same
+> day). **2026-07-25 lab cleanup (user):** the alcove geometry itself — the 9 partition fins,
+> all 10 `acc_perk_door_*` gate slabs and the `acc_ec_right_wall` seal — was **deleted from the
+> `.map`** (tombstone comments mark the spots), so `_acc_perk_doors.gsc` is now **registry-only**
+> (it keeps `level.acc_perk_door_specs`, which `_acc_paradise` reads). The two Lab pads were
+> split apart in the same pass: one stays on the (now flat) N wall, the other moved **inside the
+> S-wall decon tent**. Geometry changed ⇒ that pass needed a full LED-bake build; every
+> GSC-only scatter tune after it is `-GscOnly` again.
 
-**All 10 perks are consolidated to the Laboratory**, each in its **own door-gated alcove** on the Lab north wall (nowhere else on the map). **IMPLEMENTED 2026-06-16** (`tools/add_perk_alcoves.js` geometry + `_acc_perk_doors.gsc`, later extended for the 10th perk): every round, a **random 4 of the 10 alcove doors open** (`ACC_PERK_DOORS_OPEN_PER_ROUND = 4`, user 2026-06-23: 3 → 4) via `acc_perk_door_<specialty>` `script_brushmodel` gates; the other 6 are walled off and **unbuyable that round**. The roll re-shuffles each round on `acc_round_start`. A closed door blocks *access to the machine* only — a perk you already own keeps working. **Dev mode: same rotation as normal play** (user 2026-07-07) — the old "all alcoves open in dev" auto-override was **removed**; `acc_resolve_dev_flags()` no longer `SetDvar`s `acc_perk_doors_all_open`, so dev runs the exact same per-round 4-of-10 rotation. To test a walled-off perk in dev, **buy that closed door open** with the permanent-unlock trigger (below) — dev keeps you stocked with Mega Bottles (`_acc_mega_bottles::dev_unlimited_bottles`, refills to 99 when below 30). The `acc_perk_doors_all_open` dvar survives as a **manual** escape hatch for either mode.
+**The 10 perk machines are spread across the whole map on 10 fixed pads, and the perk→pad
+assignment reshuffles at random at the start of every round divisible by 3** (3, 6, 9, … —
+`ACC_SCATTER_INTERVAL`). The **opening layout is also random**, rolled per run and applied during
+load while the blackscreen still hides the map. A scatter is announced (*"PERK MACHINES
+SCATTERED"* banner) but the new homes are **not** revealed — finding them is the gameplay.
+**Swap presentation (2026-07-25, punched up same day after the first test read as "nothing"):**
+each live scatter plays the teleporter's de-rez read at **both** ends of every move — cyan
+de-rez numbers + zap burst and the `acc_teleport_warp` boom at the vacated pad (open air —
+the machine is already gone) and **above** the destination — while the machine **materializes
+60u up and descends for 0.8 s**, then **lands with a punch**: the stock perk power-on
+*ka-chunk* (`zmb_perks_power_on`), the stock machine shake (`Vibrate`), and one more de-rez
+flash at body height. Purely cosmetic: the buy trigger and collision land instantly, so the
+glide can never trap or block anyone. Pinning a perk also fires one de-rez burst on the
+machine as the lock lands. The opening layout is silent (nobody sees it anyway).
 
-*(The door layer **superseded** the earlier "4 machines reassign to a random subset" plan — that targeted `acc_lab_perk_a..d` machines that were never placed in Radiant, so `_acc_map_randomizer::apply_perk_rotation_to_machines` stayed a `TODO(acc-geom)` stub. The map has all 10 real perk machines behind alcove doors; per-round gating is purely the door layer. The unbuilt rotating-machine approach is documented under [Rotating Lab machines (unbuilt alternative)](#rotating-lab-machines-unbuilt-alternative) below.)*
+| # | Pad (announce name) | Zone / room | Notes |
+|---|---|---|---|
+| 0 | the Plaza | `start_zone`, W wall | **Permanently Quick Revive**, never scatters. Solo auto-power + the stock solo 3-buy/self-revive rules ride the specialty + trigger (not the position), so solo QR works pre-power here like normal maps |
+| 1 | the Lab | `lab_zone`, N wall at (75, 4195) — the alcove row was deleted 2026-07-25, flat wall now | the old in-game-verified Mule Kick spot |
+| 2 | the Lab | `lab_zone`, **inside the S-wall decon tent** at (−560, 3103) — the big curtain-open decontamination unit | machine backs the S wall and faces N out the open curtain; buy from the 100u tent mouth; the ~128-tall machine top pokes through the z96 curtain-rail band (accepted) |
+| 3 | the Alley | `alley_zone`, N wall | clear of the corp corridor mouth + NE rubble corner |
+| 4 | the Market | `market_zone`, S wall | far from the stall training loop |
+| 5 | the Helipad | `roof_zone`, S wall | wall-flush so the bomber training oval keeps its S lane |
+| 6 | the Vault | `vault_zone`, W wall, N band (the 62u free span between the dragon-network clip and the monitor-support pole) | between the two W corridor gaps |
+| 7 | the Bus Station depths | corp N under-room — the jukebox/reactor arena (z=−240), E wall solid segment south of the east-wing mouth | the room is the full expand_core arena (x to ±384), NOT the stale 192-wide floor brush |
+| 8 | the Abyss (Layer 2) | L2 shaft W wall (z=−480), **past the first soul door**, straight west of the well landing — moved down from the jukebox S wall 2026-07-25 | no compile pre-cut (deep worldspawn clips crash the LED bake); the machine's runtime clip behaves like L2's existing clipped mid-floor pillars |
+| 9 | the Exchange | the transfer vault (z=−160) | behind the 1,500-pt `enter_exchange` door — a safe-room perk is the reward for opening it |
 
-**Tuning levers:** `ACC_PERK_DOORS_OPEN_PER_ROUND` in `_acc_perk_doors.gsc` (default **4**-of-10, user 2026-06-23, was 3) — raise further if a starved feel emerges. The doors re-roll on `acc_round_start` (round start).
+Exact origins/yaws live in ONE place: the pad table in `_acc_perk_scatter.gsc::build_pads()`
+(placement-verified against the docs/02 keep-clear bands).
 
-### Permanent unlock — buy a closed door open for good (2 Mega Bottles) (IMPLEMENTED 2026-07-07)
+**Rules**
 
-You don't have to keep waiting for a perk to rotate back in. **While a perk's alcove door is CLOSED**, a buy trigger at the door face lets any player spend **2 Empty Mega Bottles** to **open that door for the rest of the game**. Details:
+- **Spots = perks, always** (user 2026-07-24): every perk has a home at all times — the 9 rotating
+  perks permute over the 9 rotating pads each scatter. If a perk is ever added to the map, a pad
+  gets added with it.
+- **Owned perks are untouched** — only machines move; perks are player state (unchanged rule).
+- **Power gating unchanged**: the single global `power_on` flag. Machines relocate before power
+  too — just unbuyable until the corp switch is flipped. Plaza QR keeps stock solo behavior.
+- **Mega upgrades unchanged**: the parallel `acc_mega_vending` trigger rides along on every move
+  (back-linked at spawn in `_acc_mega_bottles::mega_trigger_think`).
+- **Dev = ship**: dev runs the real scatter, exactly like normal play. The only dev delta is the
+  per-scatter assignment printout (rides `IS_TRUE( level.acc_dev )`, no dvars).
 
-- **Only while closed.** The trigger shows/uses only when that door is currently walled off *and* hasn't already been bought. If the perk happens to be open on rotation this round, the prompt is hidden — wait for a round where it's closed (or just walk in and use it that round).
-- **Stays open forever + leaves the rotation.** Once bought, the door is force-open on every reconcile and is **removed from the per-round roll** (`candidates_excluding_last` skips it). It becomes a **bonus always-open alcove *on top of* the 4 rotating doors** — so each permanent unlock permanently widens how many perks you can reach per round (4 rotating + N bought = up to all 10).
-- **Team benefit, buyer pays.** Mega Bottles are per-player, but the door opens for the **whole team** for good. The 2 bottles come out of the buyer's stash (`acc_mega_bottles::try_consume_bottle`). At 1 bottle guaranteed per boss kill, a permanent unlock costs **two bosses' worth** of bottles — a real trade against Mega-ing a perk.
-- **Where:** one `trigger_radius_use` per alcove, at the door's south face, look-at required so the 10-door row doesn't mass-prompt as you run by. Hint: *"Hold [use] · Open `<Perk>` for good · [2 Mega Bottles]"*.
-- **Prompt UI:** the unlock hint (contains `permanently` + `Mega Bottles`) is deliberately routed to the **DefaultHint** card in the LUI cursor-hint router (`ZMCursorHintNew.lua`), *not* the perk-buy card or a weapon card. Both `getPerkFromHint` and `isMysteryBoxWeapon` guard on `permanently`/`bottle` so the hint doesn't get mis-classified — without those guards the loose "`hold`+`for`" weapon matcher rendered a blank **Weapon** card (fixed 2026-07-11).
-- **Dev mode:** runs the same rotation, so closed doors exist and the buy trigger appears normally — dev just keeps you stocked with Mega Bottles so you can open any of them for testing (this is *how* you reach a walled-off perk in dev now that dev no longer force-opens them all).
-- **Tuning lever:** `ACC_PERK_DOOR_UNLOCK_COST` in `_acc_perk_doors.gsc` (default **2**).
+### Pin — lock a Mega'd perk to its pad for good (2 Mega Bottles)
 
-### How it works
+*The direct successor of the retired permanent door unlock: same currency, same cost, same
+"spend bottles to make perk access permanent" role — but now gated on the Mega.*
 
-```mermaid
-flowchart LR
-    RS[acc_round_start] --> Roll[Roll 4 of 10<br/>open alcove doors]
-    Roll --> Shop[Players read the open<br/>alcoves at the Lab]
-    Shop --> NRS[Next acc_round_start]
-```
+- The pin prompt shows **only to players who own that perk's Mega** (the sticky
+  `has_mega_perk` flag — survives a down, like the Mega itself) while the perk is unpinned.
+  Costs `ACC_SCATTER_PIN_COST = 2` Empty Mega Bottles from the buyer; benefits the whole team.
+- On pin: the perk **and its current pad both leave the rotation forever** (the remaining pool
+  keeps permuting over the remaining pads — counts stay equal by construction). Announced
+  team-wide; the pin trigger deletes itself (entity freed).
+- Quick Revive has **no pin trigger** — it never moves, so pinning it would waste 2 bottles.
+- **Prompt UI:** the pin hint keeps `permanently` + `Mega Bottles` in its text so the LUI
+  cursor-hint router (`ZMCursorHintNew.lua`, guards fixed 2026-07-11) classifies it to the
+  **DefaultHint** card exactly like the old unlock prompt. 9 static hint strings replace the 10
+  retired unlock strings (net negative on the engine hint-string cap).
 
-- **Roll timing**: on every `acc_round_start` the door layer picks a fresh 4-of-10 open set (avoiding an immediate repeat of the prior round's exact set).
-- **The open set is team-wide.** Every player sees the same 4 open alcoves that round.
-- **Purchase is per-player.** One player buying Jug from an open alcove doesn't block teammates from also buying Jug there that round.
-- **Owned perks retain across rounds.** The rotation only changes which alcoves are *reachable*, not what any player is holding. If you bought Jug in round 3 and Jug's door is closed in round 4, you still have Jug.
+### How machines move (the mechanism)
 
-### Rotation Rules
+Stock `perk_machine_spawn_init` (`_zm_perks.gsc:1513-1561`) builds every machine from **4 script
+entities** — the `zombie_vending` use trigger (pad+60z), `.machine` (the vending `script_model`),
+`.bump` (audio trigger, +20z) and `.clip` (solid `zm_collision_perks1` `script_model`,
+DisconnectPaths'd) — nothing is baked world geometry, so the scatter simply **rewrites origins**:
 
-**Hard constraints:**
+> phase 1: `ConnectPaths()` EVERY moving clip while all machines still sit at their old pads →
+> phase 2: move clip / machine / trigger / bump (+ the paired `acc_mega_vending` and
+> `acc_perk_pin` triggers + the `s_fxloc` FX host) and `DisconnectPaths()` at each new pad →
+> unstick any player the arrival overlapped (pushed out the machine's front, per-pad distance).
+> **Power look (FX auras — re-affirmed 2026-07-25):** the per-machine `accPerkGlow` colour
+> auras (`_acc_perk_lights`) are the power-on visual. The 07-24 "native" attempt (rely on the
+> stock `off_model`→`on_model` swap) was **refuted live** — the swap shows no visible delta in
+> this build. The auras are strictly power-gated (fields only ever set after the `power_on`
+> flag; pre-power = no glow), re-pulsed after every scatter move, and re-kicked per z-band when
+> players first descend (under-rooms/Exchange/L2 at z<−100; the Paradise row at z<−1000) so a
+> latched far-away set still renders on arrival. Avogadro's hack darkens the aura; his re-light
+> is gated on the power-on latch. Note: Electric Cherry's West-pack model and PhD's nuke
+> placeholder are inherently emissive models — they *look* lit at all times regardless of the
+> aura (fixing that needs darkened model variants, asset work).
 
-1. **No duplicates in the open set.** 4 distinct perks open per round.
-2. **Equal weights in v1.0.** Each of the 10 perks has 4/10 odds to be open in any round. Jugger-Nog is in the pool at the same weight as everything else - no guaranteed-placement rule.
-3. **Round 1 gets a roll.** You might reach Jug immediately, or might have to wait several rounds. See probability notes below.
+Shipped precedent for every step: zm_nuked's ±10000z trigger displacement, mid-game flying
+machine, and relocatable PaP; ohm-nabar/zm_building's literal `move_perk_machine` utility
+(docs/16:60-121); plus this repo's own `force_perk_machine_facing` mutating the same handles.
+Everything downstream resolves machines **by name** (`zombie_vending` / `radiant_machine_name`),
+never by position, so the stock purchase pipeline, drink anim, jingles and power gating all
+survive. Integrations that ARE position-aware were wired: `_acc_boss_avogadro` re-runs
+`cache_target_origins()` on the `acc_perk_scatter_applied` notify (its Lab-vs-Paradise split
+survives because every surface pad sits at z ≥ −240, far above the z<−600 twin filter);
+`_acc_perks::apply_perk_facing` honors the per-pad `acc_pad_yaw` so its post-load facing
+re-assert can't spin machines back to the Lab-row yaw; `b_keep_when_turned_off` is set on every
+machine so no power-off path can Delete-and-respawn a model out from under the captured handles.
+The Paradise duplicate row (z=−1200) is excluded by z-band and never scatters.
 
-**Soft rules (tuning surface):**
+**Tuning levers:** `ACC_SCATTER_INTERVAL` (default **3**) and `ACC_SCATTER_PIN_COST` (default
+**2**) in `_acc_perk_scatter.gsc`.
 
-- **Closed set changes every round** - a perk walled off this round can reopen next round; the roll only avoids an immediate repeat of the prior round's exact 4-set.
-- **No per-perk "can't reopen N rounds in a row" cooldown** in v1.0. Could be added as a mitigation if a perk gets cheesed too often.
-- **No weight bump on high-value perks** in v1.0. Pure random (minus the no-immediate-repeat rule). If playtest shows Jug-less early runs feel terrible, we weight Jug up or guarantee it in the first-round roll.
+### Retired predecessors (history — none of this is live)
 
-### Probability Notes
+Two prior perk-availability designs are fully superseded by the scatter; their implementations were
+**deleted** on 2026-07-24 (recoverable from git history):
 
-*(Independent-roll approximation — the no-immediate-repeat rule nudges these slightly, but not materially over a run.)*
-
-- Probability a specific perk (e.g. Jug) is open in a single round: **4/10 = 40%**.
-- Probability Jug is NOT open for N consecutive rounds ≈ `(6/10)^N`:
-  - 1 round: 0.6 ≈ 60%.
-  - 3 rounds: 0.6^3 ≈ 21.6%.
-  - 5 rounds: 0.6^5 ≈ 7.8%.
-  - 10 rounds: 0.6^10 ≈ 0.6%.
-- **A Jug-less first 5 rounds has a ~8% probability.** If that feels terrible in playtest, add a weight bump or a "Jug guaranteed in the first roll" rule, or raise `ACC_PERK_DOORS_OPEN_PER_ROUND`. See "Tuning Levers" below.
-
-### Per-run variance
-
-- C(10, 4) = **210 distinct 4-perk open sets** possible each round (just the set, not the ordering).
-- Every round re-rolls (avoiding an immediate repeat of the prior set). A 50-round run has 50 rolls; the space of run histories is effectively unbounded.
-- The player's skill is **route management** (Lab visits cost time) + **patience** (waiting for the right rotation) + **value recognition** (knowing which of the 4 offered is most worth your Points).
-
-### Player Adaptation (the real skill loop)
-
-Each round the player asks:
-
-1. **What's in the rotation?** (Only answerable by running to Lab and checking - costs time.)
-2. **What do I already own?** (Don't re-route for perks you have.)
-3. **What can I afford?** (Point budget.)
-4. **What's worth waiting for?** (If this round offers only Stamin-Up + Mule Kick + Deadshot + Widow's Wine and you're down-to-die at 1-hit, skip perk buy and save Points for next round hoping Jug rolls.)
-
-Missing a perk this round is OK. It'll cycle back. **Patience and route management become core skills.**
-
-### Decision tension created
-
-1. **Lab travel time is real.** Every round you weigh "is it worth the trip?" The Lab is in one corner of the map; you'll be 1-2 zones away at round start typically.
-2. **Single-round perk windows are cheap.** If Jug rolls up, it's probably worth buying now. Waiting to "see if more options appear" means Jug might be gone for 3+ more rounds.
-3. **Buy order matters more than ever.** Cheap perks (Stamin-Up 2,000 / Mule Kick 2,500) look tempting when open, but Jug (4,000) is objectively more valuable. Sometimes you skip a cheap offer this round to save Points for a hoped-for Jug next round.
-4. **Lab is now the map's "pulse."** Every round transition, every player eyes the Lab. It changes the rhythm of the map - Ameliorama-style "check the shop between waves" but triggered round-by-round.
-
-### Implementation (live: the door layer)
-
-- The **live** gating is `_acc_perk_doors.gsc`: on `acc_round_start` it rolls a 4-of-10 open set and drives the `acc_perk_door_<specialty>` `script_brushmodel` gates open/closed (permanently-unlocked doors are force-open every reconcile and dropped from the roll).
-- A closed door walls off *machine access* only; owned perks are player state and keep working.
-- The alcove geometry + door brushmodels were authored by `tools/add_perk_alcoves.js` (later extended for the 10th perk).
-
-### Rotating Lab machines (unbuilt alternative)
-
-*(Salvaged from the retired `21_adding_a_gun_runbook.md` — the still-open Radiant `TODO(acc-geom)`.)*
-
-The door layer replaced an earlier design where **4 dedicated Lab machines** would each re-skin/re-assign to a rolled perk every round. The rotation **brain** exists but is **inert**: `_acc_map_randomizer.gsc::roll_perk_rotation()` rolls a random 4 into `level.acc_perk_rotation` fine, but `apply_perk_rotation_to_machines()` is a `TODO(acc-geom)` stub because **no `acc_lab_perk_*` entities were ever placed in Radiant** — so the rolled array is never consumed (that whole `_acc_map_randomizer` machine-rotation path is disabled/unthreaded, kept for reference).
-
-To ever build this alternative (not needed — the door layer already ships per-round gating):
-
-- In Radiant, place **4** perk-machine entities tagged `acc_lab_perk_a` / `_b` / `_c` / `_d` (the slot indices `apply_perk_rotation_to_machines` reads), wired so each can be re-skinned/assigned to `level.acc_perk_rotation[slot]`.
-- Finish `apply_perk_rotation_to_machines()` — assign the current specialty per machine and add a reader that makes each machine dispense/lock per the rolled specialty. GSC-only, but blocked on the entities existing first.
-- A **headless lockout** on the *existing* machines is also possible without Radiant: stock `vending_trigger_think` calls `level.custom_perk_validation` before each purchase (`_zm_perks.gsc:560-562`), so pointing it at `IsInArray( level.acc_perk_rotation, self.script_noteworthy )` would gate buys — but it can't *re-skin* a live machine (the trigger snapshots its perk once at spawn). Left off; the door layer is the shipped answer.
+- **The Lab alcove-door rotation (live 2026-06-16 → 2026-07-24)**: all 10 perks in door-gated Lab
+  alcoves, a random 4-of-10 doors open per round (no immediate repeats, no-trap occupancy
+  reconcile), plus the **2-Mega-Bottle permanent door unlock** (2026-07-07) whose cost/currency/
+  team-benefit shape lives on as the scatter's **pin**. The `ACC_PERK_DOORS_OPEN_PER_ROUND` and
+  `ACC_PERK_DOOR_UNLOCK_COST` defines and the `acc_perk_doors_all_open` dvar **no longer exist**;
+  the rewritten `_acc_perk_doors.gsc` only forces the doors open and keeps the
+  `level.acc_perk_door_specs` registry. The prompt-UI lesson carries over: hints containing
+  `permanently` + `Mega Bottles` route to the **DefaultHint** LUI card (`ZMCursorHintNew.lua`
+  guards, fixed 2026-07-11) — the pin hint keeps that wording.
+- **Rotating Lab machines (never built)**: 4 dedicated `acc_lab_perk_a..d` machines re-assigned
+  per round — `_acc_map_randomizer::apply_perk_rotation_to_machines()` stayed a `TODO(acc-geom)`
+  stub because the entities were never placed; still inert/unthreaded, kept for reference.
+  (Ironically the scatter now does the "machines move" idea for real, map-wide, by relocating the
+  stock machine assemblies instead of re-skinning dedicated ones.)
 
 ## Perk Machine Behavior
 
@@ -506,7 +531,7 @@ grenade-fill field bug was found and fixed — see the notes.
 | | Mega boss-ability immunity | OK | `_acc_boss.gsc::protect_immune_players_during_debuff` re-grants immune holders' perks during disable_*_for. *Caveat: power-off is a global flag, so the holder's traps still go dark — only owned perks are preserved* |
 | **Quick Revive** (`quickrevive`) | base faster teammate revive | STOCK | `_zm_laststand.gsc:1156` halves revive to 1.5s when the reviver owns the specialty |
 | | base +30% HP regen after damage | OK\* | `_acc_perks.gsc::qr_regen_booster` (regen window opens ~30% sooner, then parallel ramp). *Verified: ZM has NO per-player regen-rate hook (MP-only), so "earlier start" is the strongest GSC-reachable interpretation — design call: accept, or reword card to "+30% faster regen start"* |
-| | base solo self-revive; cost 2,500 | STOCK / OK | stock; cost `…gsc:327` |
+| | base solo self-revive; cost **500** (co-op 2,500) | STOCK / OK | `.cost` = `&quickrevive_cost` fn ptr (returns 500 when `zm_perks::use_solo_revive()`); stock reads it live at `_zm_perks.gsc:490` (machine) + `:386` (hint) |
 | | Mega Savior revive ×0.6 | OK | `_acc_perks.gsc::savior_revive_time` via `self.get_revive_time` hook, consumed at `_zm_laststand.gsc:1163` (1.5s→0.9s; sole writer of the hook — grep-confirmed) |
 | | Mega Savior +15% move while teammate down | OK | `_acc_perks.gsc::savior_speed_watcher` + `×1.15` term in `_acc_utility.gsc:155` |
 | | Mega Savior −50% damage while reviving | OK | `_acc_perks.gsc::savior_revive_damage_mult` (×0.50, gated on Mega QR + `self.is_reviving_any > 0`) applied in `_acc_elites::on_player_damaged` after Exo resist; stock counter held the whole channel (`_zm_laststand.gsc:1208`/`:1285`) |
@@ -548,8 +573,10 @@ grenade-fill field bug was found and fixed — see the notes.
   hook `level.get_player_perk_purchase_limit` = `acc_perks::acc_perk_slot_limit` (consumed by the
   live buy-gate `_zm_utility.gsc:5876`/`:5889`). Extra slots are bought with Data Shards at the
   Neural Expansion Bay (escalating 4/6/8/10/12/14). NOT the old no-cap design.
-- **Per-round gating — LIVE via the door layer; machine-reskin path STUB.** The actual per-round
-  lockout ships as `_acc_perk_doors.gsc` (4-of-10 alcove doors on `acc_round_start`). The older
+- **Per-round gating — now the map-wide SCATTER; door layer retired; machine-reskin path STUB.**
+  Per-round texture ships as `_acc_perk_scatter.gsc` (perk→pad reshuffle every 3rd round; the
+  4-of-10 alcove-door lockout ran 2026-06-16 → 2026-07-24, and the door geometry itself was
+  deleted 2026-07-25). The older
   machine-reskin rotation is inert: `roll_perk_rotation()` rolls/stores fine, but
   `apply_perk_rotation_to_machines` is a `TODO(acc-geom)` stub and **no `acc_lab_perk_*` entities
   exist in Radiant**, so that array is never consumed — see [Rotating Lab machines (unbuilt

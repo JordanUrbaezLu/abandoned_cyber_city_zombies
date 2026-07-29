@@ -17,6 +17,7 @@ All custom gameplay logic for Abandoned Cyber City lives in this folder. The `_a
 | `_acc_weapon_abilities.gsc` | Intrinsic active ability per weapon category (Triple Tap, Stabilizer, Precision Mode, etc). Hotkey + cooldown. | main |
 | `_acc_boss_items.gsc` | 6-item boss-drop pool, 2 player slots, drop/equip/unequip/duplicate-to-Shards. | main, data_shards, boss, points (Ledger bonus) |
 | `_acc_mega_bottles.gsc` | Empty Mega Bottle acquisition (1 per boss) + per-perk Mega flag system (sticks through death within run). | main, boss |
+| `_acc_perk_scatter.gsc` | MAP-WIDE PERK SCATTER (2026-07-24): 10 perk pads across the map, perk→pad assignment reshuffles every 3rd round (QR fixed in the Plaza); 2 Mega Bottles pins a Mega'd perk to its pad. Moves the stock machine entity assemblies (trigger/model/bump/clip) between pads. Supersedes the `_acc_perk_doors` alcove rotation (that module is retired: forces doors open + owns the `level.acc_perk_door_specs` registry). | main, mega_bottles, perk_lights, boss_avogadro (recache on `acc_perk_scatter_applied`) |
 | `_acc_elites.gsc` | Shielded / Teleporter / EMP elite spawning and death rewards. | main, data_shards |
 | `_acc_map_randomizer.gsc` | Per-run rolls: power switch, PaP path, wallbuy pool, perk pool, box initial. | main (via pre_init) |
 | `_acc_events_hack.gsc` | Hack Terminal side event (3-stage objective). | main, data_shards |
@@ -72,6 +73,8 @@ Custom events this namespace publishes (subscribe via `level waittill(...)`):
 - `acc_round_start` (args: round_number) - every round transition.
 - `acc_round_end` (args: previous_round_number) - emitted right before the new round's start event.
 - `acc_shards_changed` (args: player) - emitted when a player's shard count changes.
+- `acc_perk_scatter_applied` - a perk→pad layout was applied (including the opening one). `_acc_boss_avogadro` recaches its machine-seek origins on this.
+- `acc_perk_pinned` (args: specialty) - a Mega holder locked a perk onto its current pad.
 - `acc_cyberware_purchased` (args: player, node_id) - node bought.
 - `acc_boss_dead` - a boss defeated (legacy: its only emitter lives in the unreachable full-boss path in `_acc_boss.gsc` since the 2026-06-22 removal).
 

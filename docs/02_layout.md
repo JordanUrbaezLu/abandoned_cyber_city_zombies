@@ -61,7 +61,7 @@ Hub-and-spoke with two Lab approaches. `==` / `||` are **doors** (buyable or alw
 
 - **SPAWN**: Plaza is the starting zone.
 - **HUB**: Bus Station is the cut vertex — required for connectivity between Plaza, the side zones, and both Lab approaches. It holds the map's single power switch and the trench/Abyss descent.
-- **PaP**: the Lab holds Pack-a-Punch, the Overclock terminal, and all 10 perks.
+- **PaP**: the Lab holds Pack-a-Punch, the Overclock terminal, and 2 of the 10 perk-scatter pads (perks rotate map-wide every 3rd round since 2026-07-24 — see the pad ledger below).
 
 ### Mermaid (same graph, for slides / wiki)
 
@@ -100,7 +100,7 @@ Key properties:
 
 - Plaza has two exits (Market, Alley), both buyable early so players pick their opener.
 - Bus Station is the **hub** — four connections, two training spots, the map's power switch, and the trench/Abyss.
-- Lab (PaP + perks) has two approaches (Vault-side or Roof-side). One approach is **randomly blocked per run** (`_acc_map_randomizer::roll_pap_approach` returns `server` or `roof` — the blocked side; see [Randomized Geometry Elements](#randomized-geometry-elements)).
+- Lab (PaP + 2 perk pads) has two approaches (Vault-side or Roof-side). **Both are always open** — the per-run random block was removed 2026-06-22 (`apply_pap_approach` opens both walls every run; `blocked_side` is rolled but ignored).
 - Total: **7 zones**, all permanent (no zone is ever sealed).
 
 ## Zone Graph (compact)
@@ -113,7 +113,7 @@ flowchart TD
     Corp[Bus Station<br/>Power switch, box, trench/Abyss]
     Server[Vault]
     Roof[Helipad<br/>Box, late train]
-    Lab[Lab<br/>PaP, Overclock, ALL perks]
+    Lab[Lab<br/>PaP, Overclock, 2 perk pads]
 
     Spawn <--> Market
     Spawn <--> Alley
@@ -211,11 +211,11 @@ shelf lift.
 - **Layout**: open-but-shrunk (an interior maze was tried then removed per user). Difficulty comes from the ~75%
   shrink + **4 scattered cargo-crate caches** (`plaza_cache_1..4`) as low cover, with zombie risers spread across the floor. Players
   spawn in the back band beside the mystery box. No more giant circles.
-- **No perks.** Forces movement.
+- **Perks (changed 2026-07-24)**: the W wall carries the map's **permanent Quick Revive pad** — the one perk spot that never moves under the map-wide perk scatter ([10_perks.md](10_perks.md); pad ledger below). The old "no perks in the Plaza" rule is retired.
 
 ### Market
 - **Purpose**: early economy and box location. Mid-risk.
-- **Features**: Mystery Box possible spawn. **No perk machines** — all perks live in the Lab per [10_perks.md](10_perks.md).
+- **Features**: Mystery Box possible spawn. **One perk-scatter pad** on the S wall (perks rotate map-wide every 3rd round per [10_perks.md](10_perks.md); pad ledger below).
 - **Training**: stall-row loop. Strong early training.
 - **Theme (M3 re-theme 2026-07-18)**: **magenta neon night-market gone to rot** — the rural-diner read
   (gas pump / gas-station marquee / floral couch) was REMOVED and replaced by 3 carved tarp stall stands +
@@ -335,7 +335,7 @@ shelf lift.
   Decal-direction rule (documented in the .map section header): normal = u_dir × v_dir (v=+z), u0 = viewer-left —
   so screen-right is +x on −y-normal faces, −x on +y-normal faces, −y on −x-normal faces. Art map: blank=right
   arrow, 4=left, 2=up-right, 1=POWER, 7=STAIRS (full list in the manifest entry).
-- **Features**: Mystery Box possible spawn. **No perk machines** — all perks at the Lab.
+- **Features**: Mystery Box possible spawn. **Two perk-scatter pads** in the underground: one inside the jukebox/reactor arena (E wall) and one on **Abyss Layer 2, past the first soul door** (moved down 2026-07-25; perks rotate map-wide every 3rd round per [10_perks.md](10_perks.md); pad ledger below).
 - **Trench (cross-room)**: a horizontal (E-W) trench is cut **dead-centre**, splitting the room into a south half (the two entrances from Market/Alley, plus the power switch and box) and a north half (the doors to Vault/Helipad). It spans the full room width and is a **deep multi-layer abyss** (first floor −240, then descending on a fixed 240u pitch through layers L2 −480, L3 −720, L4 −960, L5 −1200 — see [30_abyss_descent.md](30_abyss_descent.md)) **with vertical walls** (all four sides sealed, incl. E/W end walls) — you can't step over it or jump the 450u gap across the top, so to cross you go **down and up the far side**. **One thin (96u) staircase per side, hugging the side walls**: a stair against the **west wall** (south lip) and one against the **east wall** (north lip), joined by the open trench floor — cross by going **down one wall and up the other** (diagonal: SW down → across the open pit → NE up). Or **just jump in** (preferred/faster). **Rocket-Shield BRIDGE:** one central deck (`x[-45,83]` = 128u wide, full S→N span) floats **58u above the rim** — reachable ONLY by the Rocket Shield **2× jump**; the express crossing for that item, off the navmesh so zombies can't follow (`tools/add_trench_bridge.js`).
   - **The pit is a deliberate kill-box (user, 2026-06-18):**
     - **No random death** — the trench floor sits below the corp_zone playable-area volume, so stock ZM's out-of-playable-area monitor *was* hard-killing standing players (hp-full, no-damage, ~3s delay). `_acc_bus_trench::init` registers `level.player_out_of_playable_area_monitor_callback` to **veto that kill in the trench only** (rest of map still guarded) → safe at ANY depth. See memory `sunken-floor-oob-kill`.
@@ -350,7 +350,7 @@ shelf lift.
 
 ### Vault
 - **Purpose**: high-risk, high-reward transit zone on one of the two Lab approaches.
-- **Features**: **No power here** (the map's single power switch lives in the Bus Station). **No perk machines** — all perks at the Lab.
+- **Features**: **No power here** (the map's single power switch lives in the Bus Station). **One perk-scatter pad** on the W wall, N band (perks rotate map-wide every 3rd round per [10_perks.md](10_perks.md); pad ledger below).
 - **M5 anchor upgrade (2026-07-18, visual sweep): the sealed bank data-fortress.** The zone's defining
   feature is now the **BO6 circular bank-vault door set** (`t10_zm_door_circular_vault_01` leaf + frame +
   spinner wheel + hinge, 192u-wide portal) mounted **sealed on the SOUTH wall centered x1780** (pure decor —
@@ -377,7 +377,7 @@ shelf lift.
 
 ### Helipad
 - **Purpose**: late-game training arena. Opens verticality once you've paid for the elevator or taken the service stairs.
-- **Features**: Mystery Box possible spawn. **No perk machines** — all perks at the Lab.
+- **Features**: Mystery Box possible spawn. **One perk-scatter pad** on the S wall, wall-flush (perks rotate map-wide every 3rd round per [10_perks.md](10_perks.md); pad ledger below — placed so the bomber training oval's S lane is untouched).
 - **Training**: the **best late-game training spot in the map**. Large open area with a central obstacle. Elite enemies don't path well here; that's intentional and is compensated by a Helipad-specific modifier (see [06_replayability.md](06_replayability.md)) that forces you to move on timers.
 - **M4 hero swap (2026-07-18, visual sweep):** the central chemical-tank cluster (2× `tank_chemical` +
   wood barrel; plus the 2 gas pumps + other 2 wood barrels — 7 spawns + 7 clips removed in lockstep, the
@@ -414,16 +414,21 @@ shelf lift.
   exists:** radar dish (569 tall), antenna radar (307), truss (276), traffic-light pillar (275); salsola
   bush too wide (205) for the remaining lanes. Net +13 props.
 
-### Lab (Pack-a-Punch + Overclock Terminal + ALL Perks)
-- **Purpose**: the map's upgrade + perk hub. Everything that costs progression currency lives here.
+### Lab (Pack-a-Punch + the Scientist's Office [Exo, permanent Jugg, desk loot] + 2 perk-scatter pads)
+- **Purpose**: the map's upgrade hub. PaP and the Overclock terminal live here; perks no longer do (scatter, 2026-07-24).
 - **Features**:
   - **Pack-a-Punch machine** (L1-L5 progression via Points, see [04_weapons.md](04_weapons.md)).
-  - **Overclock Terminal** (spend Data Shards to advance weapon tier T1-T5 or re-roll an Overclock).
-  - **10 perk alcoves** along the Lab north wall. **A random 4 of the 10 alcove doors open each round** and the rest stay walled off; the 4 re-roll every round (`_acc_perk_doors.gsc`, `ACC_PERK_DOORS_OPEN_PER_ROUND` = 4 of 10 specialties). A player can also **permanently unlock** one currently-closed door for the rest of the game by paying **2 Empty Mega Bottles** (`ACC_PERK_DOOR_UNLOCK_COST`) — that becomes a bonus always-open alcove on top of the 4 rotating ones. Manual override `set acc_perk_doors_all_open 1` forces all open (dev mode runs the real rotation). See [10_perks.md](10_perks.md).
+  - **THE SCIENTIST'S OFFICE** (2026-07-26, `tools/oneshots/gen_scientist_office.js`) — a small buyable room behind the Lab N wall (interior `x[-275,125] y[4248,4568]`, ceiling 256; hexagon-tile shell matching the Lab; the crown neon band continues over the door header). **Door: 2000 pts** (`enter_scientist_office`, diamond-plate slab in the doorway cut `x[-123,-27]`; standard dual radius buy-triggers). Lore: it's the **gun-stealing Scientist boss's office** (docs/44). Inside:
+    - **Exo Suit station** (`_acc_exo`, spawn `(-200, 4480, 0)`) — Data-Shard Exo tiers, blue unused-station pulse.
+    - **Juggernog — permanent** (perk-scatter `fixed_spec` pad at `(92, 4420)`, E wall; never rotates, solo or co-op — the office is always Jugg + Exo).
+    - **The Scientist's desk loot** (`_acc_scientist_office.gsc`) — ONE random **category-paired** set per game: an implant on the floor (High Caliber / Warhead Bomber / Plasma Generator) + a **matching-category gun on the desk** (bullet/explosive/energy pool from the live box registry via the same `_acc_damage` classifiers the implants read; wonder weapons + Blast-O-Matic + CYBERJACK excluded). First-come; gun display = worldModel + blue pulse; implant = the persistent `spawn_pickup` idiom (no despawn).
+    - Dressing: BO4 office kit statics (desk/chair/coat rack + hanging coat/filing cabinet/control console/chemical tank/lit x-ray lightbox/holo screen/hazmat suit/paper litter) + 2 cool-white omnis; furniture clips = `add_prop_clips.js` `sci_*`.
+  - The **easy-access Overclock terminal is in the Plaza start room** at `(-200,-100,0)` (the pod's pre-07-26 spot; `overclock_plaza` clip); trench/Abyss L2/L5 + Paradise Overclocks unchanged (deep-risk sink).
+  - **2 perk-scatter pads** — the old 10-alcove perk row is **gone**: the door rotation was retired 2026-07-24, and on 2026-07-25 the alcove geometry itself (the 9 partition fins, all 10 `acc_perk_door_*` slabs, the `acc_ec_right_wall` seal) was **deleted from the `.map`** (user: "clean up the lab") — the N wall is flat now, with the LED strips + cyan crown band kept as neon trim. The two Lab pads were also split apart (they sat side by side): **one moved INTO the Scientist's Office at (92, 4420) — permanently Juggernog since 2026-07-26 — one inside the S-wall decon tent at (−560, 3103)** — pad ledger below. The invisible `zm_perk_machine` spawn structs at y4195 remain: machines spawn there and the opening scatter relocates them pre-blackscreen. `_acc_perk_doors.gsc` is registry-only now (`level.acc_perk_door_specs`). See [10_perks.md](10_perks.md).
   - **Wonder weapon**: the elemental bows are the map's wonder weapons (box arsenal, see [04_weapons.md](04_weapons.md)). <!-- TODO(acc-verify): the earlier "Signal Staff craft terminal" is not present in code or the weapon CSV; if it is ever built, restore its terminal here. -->
-- **Access**: two approaches (from the Vault side or from the Roof side). One is **blocked per run** at random (`roll_pap_approach`) — rerouting punishes players who don't know both paths.
+- **Access**: two approaches (from the Vault side or from the Roof side), **both always open** (the per-run random block was removed 2026-06-22).
 - **Training**: none. It's a transaction zone.
-- **Frequency of visit**: high — perk rotation + PaP + Overclock.
+- **Frequency of visit**: steady — PaP + Overclock (+ whatever 2 perks the scatter parked here this cycle).
 - **Surface dressing (2026-07-18, M2 visual sweep)**: dressed as a **clinical cyberware lab** (clean-tech
   contrast to the ruined city) via `_acc_surface_deco.gsc::spawn_lab()` — **42 props / 32 new models**
   from the BO4 Classified office pack (`p8_zm_off_*`), BO4 Alpha Omega White pack (`p8_zm_whi_*`) and
@@ -434,7 +439,8 @@ shelf lift.
   (cart / respirator / lit x-ray lightbox / privacy curtain / holo readout), an **APD sci-fi island**
   mid-room NE (turbine + glowing element + aether canisters), an **industrial corner** north of the AW
   box (control consoles / filing cabinet / pressure tanks / steel morgue table / lockers), **blue LED
-  strips above the perk alcove doors** and green/red **energy-barrier glow posts**. Layout is
+  strips on the N wall** (they crowned the alcove row until its 2026-07-25 removal) and green/red
+  **energy-barrier glow posts**. Layout is
   data-driven (scratch `gen_lab_layout.js` emits spawns + clips from one table and **validates** every
   clip against the keep-clears: perk-buy strip y>=4020 full-width, both corridor mouths + aprons,
   pad r110, wallbuy r90, AW-box approach, PaP flanks, boss struct r60, all 14 risers >=45u). **24
@@ -446,8 +452,8 @@ shelf lift.
 These are features **of the layout** that re-roll per run/round. Full randomization catalog is in [06_replayability.md](06_replayability.md).
 
 - **Power switch**: **not randomized.** There is exactly one switch (the Bus Station wall prefab). The old "A (Corp) or B (Vault)" roll is retired — the Vault switch prefab was deleted from the map, so `roll_power_switch_side()` always returns `corp`.
-- **Lab approach blocked**: Vault-side (`server`) or Roof-side (`roof`), rolled once per run by `roll_pap_approach`. Changes your PaP route.
-- **Perk rotation (per round)**: a random **4 of the 10** Lab perk alcove doors open each round; no duplicates. Rolled per round in `_acc_perk_doors.gsc` — independent of any round-start tick. See [10_perks.md](10_perks.md).
+- **Lab approach**: **not randomized anymore.** `roll_pap_approach` still rolls a side but `apply_pap_approach` opens BOTH corridor walls every run (removed 2026-06-22) — the roll is ignored.
+- **Perk scatter (every 3rd round)**: the perk→pad assignment across the 10 map-wide pads reshuffles at random on every round divisible by 3 (`_acc_perk_scatter.gsc`; opening layout random per run; QR fixed in the Plaza; pinned perks excluded). Replaced the per-round 4-of-10 alcove-door roll 2026-07-24. See [10_perks.md](10_perks.md) + the pad ledger below.
 - **Mystery Box location**: standard BO3-style box move among the **seven** chests (market / corp / roof / plaza / lab / vault + **trench** — the reactor/jukebox under-room at z=-240, added 2026-07-12); the **initial** spawn is deterministic — `roll_mystery_box_initial` always returns `plaza` (the start room), and the stock teddy-bear move rotates among all seven chests thereafter. **Placement convention (2026-07-12)**: every chest except the free-standing plaza one sits flush against a solid room wall — long axis parallel to the wall, origin 20u off the wall face, yaw chosen so the buy trigger (stock unitrigger at `origin + AnglesToRight(angles)*-22.5`) faces the room: west wall→270, east→90, north→180, south→0. Clips re-authored in lockstep by `tools/align_box_clips.js` (reads live struct origins/yaw/z).
 
 ## Training Spot Summary
@@ -458,6 +464,35 @@ Knowing where you can train is a skill check. Listed best-to-worst for late game
 2. **Bus Station** (south half) — big, safe, central.
 3. **Bus Station S-curve** — tighter, higher efficiency, unforgiving.
 4. **Market stall row** — early-game only.
+
+## Perk-scatter pad ledger (2026-07-24)
+
+The map-wide perk scatter ([10_perks.md](10_perks.md), `_acc_perk_scatter.gsc`) parks the 10 perk
+machines on these pads and reshuffles the assignment every 3rd round. **Every origin below was
+placement-verified against the live .map** (8-agent sweep 2026-07-24: prop-clip AABBs, corridor
+mouths, door aprons, riser structs, decals, keep-clear r110s, ≥45u lanes — clip-edge to clip-edge).
+The GSC pad table (`build_pads()`) is the runtime SoT; **keep this ledger in sync with it**, and
+re-verify the band before nudging any pad. Yaw convention (perk vending models ONLY — visual front
+is model-local −Y): back to N wall = 359.999, S = 180, W = 90, E = 270 (the recorded failure: 270
+faced them WEST — `tools/oneshots/fix_perk_facing_flanks.js`).
+
+**Standoff convention (hardened 2026-07-24 after "the Vault machine is inside the wall"):** every
+wall pad's origin sits **33u off the wall interior face** — the Lab row's in-game-verified
+geometry (origins y=4195 vs wall face 4228). Flush-mount placements (~17.5u) sink the vending
+model into the wall; never place a pad closer than 33.
+
+| Pad | Origin (x, y, z) | Wall / band | Key clearances |
+|---|---|---|---|
+| the Plaza (**QR, permanent**) | (−437, −110, 0) | W wall (plane x=−470), S of the planter bed | 123u clip-free span y[−144,−20.9]; bed clip N of it, pblock step-over S; cast-iron foliage mesh 50u N of machine edge |
+| **the Scientist's Office** (was Lab N wall) | (92, 4420, 0) | E wall (face x=125) **inside the office room** behind the Lab N wall (`gen_scientist_office.js`), yaw 270 faces W | **PERMANENTLY Juggernog** (user 2026-07-26, "jugg and QR are always in same spot", **regardless of solo/co-op** — 2nd `fixed_spec` pad; `apply_scatter`'s fixed flow generalized off its QR hardwire the same day). Behind the 2000-pt `enter_scientist_office` door; clear of the chem-tank clip (y[4265,4319]) + control-console clip (y[4502,4562]); unstick push 85 lands (7,4420) open room center. Mega-pin refused on fixed perks (no bottle waste) |
+| the Lab (decon tent) | (−560, 3103, 0) | S wall (face y3068), **inside the big curtain-open decon unit** — yaw 180, faces N out the curtain | tent side-pillar clips x[−622,−610] / x[−510,−498] leave a 100u mouth; buy prompt reads at the mouth (trigger r40 → y≈3143, mouth y3134); lintel clip band z[96,118] means the ~128-tall machine top pokes through the curtain rail (accepted tradeoff); unstick push 85 → (−560, 3188), straight out the mouth |
+| the Alley | (1816, 1443, 0) | N wall (plane 1476) | the 161u gap between bike clip (ends x1736) and rubble-pile clip (starts x1897); 60/61u side lanes, ≥115u front |
+| the Market | (−1650, 413, 0) | S wall (interior face y=380) | no x overlap with the kitchen-table clip or the fastfood sign; ~107u front lane to tarp stall C |
+| the Helipad | (−1500, 2313, 0) | S wall (face y=2280) | W edge on the traffic-barrier clip line (no dead notch); bomber oval S lane intact; studio-tripod clip starts y2368 → **unstick push 38** so a nudged player lands short of it |
+| the Vault | (1152, 3015, 0) | W wall (plane x=1119), N band | the 62u free span y[2984,3046] between dragon-network clip and monitor-support pole (the y2600..3050 band is otherwise fully occupied) |
+| the Bus Station depths | (351, 2234, −240) | Jukebox/reactor **arena** E wall — the solid segment y[2189,2280] | the live room is the expand_core arena out to x=384 (the 192-wide floor brush is stale); y>2280 is the OPEN east-wing mouth — do not creep the pad north |
+| the Abyss (Layer 2) | (−748, 1790, −480) | L2 shaft W wall (slab face x=−781), past soul door 1, straight W of the XS-well landing | **Moved here from the jukebox S wall 2026-07-25** (user: pad belongs past the first soul door, a level below the trench). Clear of the SW server-tower row (ends x≈−645), W-wall rack (y1900), breaker cabinet (y2050), W-bay breaker slab (−550,1948), Overclock terminal (−400,1948), teleporter pad r110 (−250,1850), both wells (x≈−124). **No compile pre-cut**: deep (bot<−240) worldspawn clips CRASH the LED bake (`add_prop_clips.js` header), and the L2 slab already hosts runtime-DisconnectPaths'd brushmodel clips (both breaker pillars + the terminal) that zombies route around — the machine clip behaves identically. *(History: the L1 pit's `acc_scatter_trench_precut` brush was wiped by a concurrent `add_prop_clips.js` regeneration on 2026-07-25 — it was already dormant; hand-inserted brushes inside the generated clip section do NOT survive regens.)* |
+| the Exchange | (25, 327, −160) | N wall (interior face y=360) | 47u trigger-edge gap to the deposit-pad trigger column (x=80); room otherwise contains only 4 lights |
 
 ## Out-of-Scope for This Doc
 

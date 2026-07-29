@@ -122,14 +122,16 @@ The bus_trench watcher writes the player's current layer to **`player.acc_trench
 
 **Station model + placement.** A **cryogen stasis pod** (`p7_cry_cryogen_pod_exterior`, T7-dump carve,
 docs/09 remodel 2026-07-09) — a body-augmentation chamber. The pod origin is mid-body, so it spawns
-`+63 z` or it sinks into the floor. **MOVED to the PLAZA start room (user 2026-07-13)** — it previously
-lived in the Foundry under-room in the bus-station trench at `(−120, 1550, −240)`. It now sits on the open
-spawn-band floor of the Plaza (interior `x[−470,213] y[−240,720]`, floor `z=0`) at `(−200, −100, 0)`, yaw 0
-— front-left of a spawning player (spawns are `x[−120,40] y[−90,−130]`), immediately discoverable, and clear
-of the start box `(100,−150)`, the leaderboard terminal `(−340,−210)`, and all four plaza caches. Its `.map`
-collision clip is a shallow `z=0` worldspawn clip (`tools/add_prop_clips.js` `exo_station`; navmesh auto-cut,
-no LED risk). Buying tiers up top before descending still realises the loop: earn shards → buy Exo tiers →
-descend → spend at the deeper sinks (Overclock, Glitch Altar — docs/30, `_acc_glitch_altar.gsc`).
+`+63 z` or it sinks into the floor. **Lives in THE SCIENTIST'S OFFICE (user 2026-07-26)** — the 2000-pt
+buyable room behind the Lab N wall (`gen_scientist_office.js`, docs/02): pod at `(−200, 4480, 0)` yaw 0
+(front faces the door), sharing the room with the permanent Juggernog pad and the Scientist's desk loot.
+The easy-access Overclock terminal sits in the Plaza start room at `(−200, −100, 0)` (the pod's pre-07-26
+spot). History: briefly Lab open floor `(−500,3700)` earlier the same day; Plaza start room
+2026-07-13..07-26; Foundry under-room in the bus-station trench `(−120, 1550, −240)` originally. Its
+`.map` collision clip is a shallow `z=0` worldspawn clip (`tools/add_prop_clips.js` `exo_station`; navmesh
+auto-cut, no LED risk). The blue unused-station pulse rides `spawn_station_at`'s `glow_on` —
+position-independent. The upgrade loop: PaP just outside in the Lab; shards spend here (Exo) and at the
+plaza/trench Overclocks + Glitch Altar (docs/30, `_acc_glitch_altar.gsc`).
 
 **`_acc_utility.gsc::recompute_move_speed`** — reads `player.acc_trench_layer` + `player.acc_exo_tier`
 and applies the depth-aware slow (§2). Boots do NOT cancel it (they still give +8% overall via

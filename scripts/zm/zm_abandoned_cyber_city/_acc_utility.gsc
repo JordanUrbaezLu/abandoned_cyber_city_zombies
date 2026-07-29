@@ -423,7 +423,8 @@ function get_closest_uncloaked_player( origin )
 // so the Phantom can read it too - glitch already #using's phantom, so phantom #using glitch would be
 // circular). True if any alive player within acc_phase_serum_radius holds the Phase Serum boss item
 // (p.acc_phase_serum, set by _acc_boss_items::apply_arnie_cloak). Consumers pick their own penalty:
-// Glitch Stalker = 1/5 speed + no blink; Phantom = 30% slower (gait only, teleports untouched).
+// Glitch Stalker = 0.36x speed + no blink; Phantom = 24% slower (gait only, teleports untouched).
+// (user 2026-07-22: Phase Serum -20% across the board - was 1/5 + 30%.)
 function serum_aura_active( origin )
 {
     radius = getdvarint( "acc_phase_serum_radius", 350 );
@@ -501,11 +502,12 @@ function recompute_move_speed( player )
     if ( isdefined( player.acc_battery_boost ) && player.acc_battery_boost )
     {
         // Battery boss item (docs/09, user 2026-07-08): a boss zap ABSORBED by the implant becomes a
-        // +20% surge for 5s instead of a slow (flag set by _acc_elites::acc_battery_surge). While the surge
+        // +24% surge for 5s instead of a slow (flag set by _acc_elites::acc_battery_surge; user 2026-07-22:
+        // +20% buffed by 20% -> 1.20 -> 1.24). While the surge
         // is active the zap applicators absorb further zaps (acc_battery_absorb_zap), so a slow flag is NOT
         // set during the boost - they never multiply against each other. (A zap during the post-surge
         // recharge CAN set a slow flag, but the boost is already cleared by then, so still no stacking.)
-        n_scale = n_scale * getdvarfloat( "acc_battery_boost_mult", 1.20 );
+        n_scale = n_scale * getdvarfloat( "acc_battery_boost_mult", 1.24 );
     }
     if ( isdefined( player.acc_savior_speed ) && player.acc_savior_speed )
     {

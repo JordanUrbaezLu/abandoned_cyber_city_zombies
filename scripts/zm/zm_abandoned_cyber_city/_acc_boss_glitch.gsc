@@ -38,6 +38,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // grant_player (1 shard to the glitch killer)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;      // mini-boss kill XP (docs/45)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_zombie_speed;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_lui;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // (aura call removed 2026-07-02 - kept for shared phantom helpers/history)
@@ -155,8 +156,8 @@ function glitch_speed_think()
         mult = getdvarfloat( "acc_glitch_speed_mult", ACC_GLITCH_SPEED_MULT_DEF );
         rate = acc_zombie_speed::rate_for_round( r ) * mult;
         if ( rate < 0.1 ) rate = 0.1;
-        if ( self acc_serum_suppressed() )   // Phase Serum aura: 1/5 speed (user 2026-06-29 nerf)
-            rate = rate * getdvarfloat( "acc_phase_serum_slow", 0.2 );
+        if ( self acc_serum_suppressed() )   // Phase Serum aura: 0.36x speed (user 2026-07-22: the 0.2 "basically freezes glitches" - slow strength -20%, 80% -> 64% slow; was 1/5 from the 2026-06-29 nerf)
+            rate = rate * getdvarfloat( "acc_phase_serum_slow", 0.36 );
 
         self zombie_utility::set_zombie_run_cycle_override_value( acc_zombie_speed::tier_for_round( r ) );
         self ASMSetAnimationRate( rate );
@@ -165,8 +166,9 @@ function glitch_speed_think()
 }
 
 // PHASE SERUM suppression (user 2026-06-29): true if any alive player within acc_phase_serum_radius holds the
-// Phase Serum. A Glitch Stalker in that aura is slowed to 1/5 speed (glitch_speed_think) AND skips its blink /
-// glitch ability (glitch_blink_loop) - "nullified" but still able to see + chase. self = the Stalker.
+// Phase Serum. A Glitch Stalker in that aura is slowed to 0.36x speed (glitch_speed_think; user 2026-07-22,
+// was 1/5) AND skips its blink / glitch ability (glitch_blink_loop) - "nullified" but still able to see +
+// chase. self = the Stalker.
 function acc_serum_suppressed()
 {
     // Body lifted to acc_utility::serum_aura_active (2026-07-11) so the Phantom shares the
@@ -883,7 +885,10 @@ function glitch_death_watch()
     // NO LONGER drops boss items or grants Mega Bottles - those stay exclusive to the RARE bosses (Brutus,
     // Phantom). Instead the KILLER (the player who landed the kill) gets exactly 1 Data Shard.
     if ( isdefined( attacker ) && isplayer( attacker ) )
+    {
         acc_data_shards::grant_player( attacker, 1, "glitch_kill" );
+        acc_leveling::grant_elite_xp( attacker, "glitch" );   // [acc] leveling: mini-boss kill bonus (docs/45; follows the shard's gating)
+    }
 
     gdebug( "^2Glitch Stalker down^7 - +1 Data Shard to killer" );
     acc_utility::log( "boss_glitch: Glitch Stalker killed" );

@@ -37,7 +37,7 @@ climbs to ~4.7 GB over ~40 s.
 | Feature | Behaviour |
 |---|---|
 | **Unlimited money** | Points top back up to 1,000,000 whenever they drop below 100,000. Buying any zone door / wallbuy / perk is effectively free. |
-| **Doors** | NOT auto-opened. Dev runs the **same** per-round 4-of-10 perk-alcove rotation and the same buyable zone doors as normal play (user 2026-07-07: "dev and non-dev should work the same") — unlimited money just makes buying them trivial. `set acc_perk_doors_all_open 1` is a manual escape hatch in either mode. |
+| **Doors** | NOT auto-opened. Dev runs the same buyable zone doors as normal play (user 2026-07-07: "dev and non-dev should work the same") — unlimited money just makes buying them trivial. (The old perk-alcove rotation + its `acc_perk_doors_all_open` escape-hatch dvar are gone — perks ride the map-wide scatter, same in dev and normal.) |
 | **Data Shards** | **25 granted ONCE at spawn**, then the real trench economy runs (spend/earn like normal play — the old per-second 999 pin is gone, so you can actually test a shard SPEND). |
 | **Power** | NOT auto-on — flip the Bus Station (corp) power switch yourself (perks/PaP/traps gate on it), same as normal play. (`set acc_auto_power 1` is a dormant manual shortcut.) |
 | **Bosses** | The full multi-boss roster runs the **real cadence, same as normal play** (see below) — the early per-module dev/test spawns were removed 2026-07-16. |
@@ -94,8 +94,9 @@ health scaling on top — see docs/08_enemies.md.)
    Market, Alley, Corp Plaza, Vault, Roof, Lab, plus the Armory, the Exchange, and
    the underground Abyss layers → Paradise plaza. Note any spot where geometry blocks you.
 3. **Perks (all 10)** — buy every perk machine (Electric Cherry is the real 10th);
-   confirm each effect (flip the power switch first). Note the Lab alcoves only
-   expose 4 of the 10 machines per round (the rotation).
+   confirm each effect (flip the power switch first). Machines are scattered on 10
+   pads across the map (QR fixed in the Plaza; the Lab holds 2 — N wall + inside
+   the S-wall decon tent) and reshuffle every 3rd round.
 4. **Guns** — weapons are **box-only** here: spam the **Mystery Box** (Apex +
    Skye ports + elemental bows in the pool); confirm they fire. Buy any wallbuys too.
 5. **Pack-a-Punch** — PaP a gun (power on); confirm T1 damage, T2 `_up` transform, T3 max.

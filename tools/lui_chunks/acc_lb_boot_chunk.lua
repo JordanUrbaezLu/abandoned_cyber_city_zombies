@@ -211,6 +211,47 @@ local mode = readdvar("acc_lb_boot_cmd")
 FL("open mode='" .. mode .. "'")   -- "" here while GSC set "spawn" = the dvar-read race, on record
 if mode == "" then mode = "check" end
 
+-- LIVENESS PROBE modes (the "quick retry, no cmd window" fix, docs/40). PURE IO, NO os.execute
+-- => ZERO console flash. GSC (agent_is_alive) drives a two-step handshake that mirrors the
+-- launcher pre-spawn (spawn_lb_agent.tpl.ps1): "ping" writes the trigger, "pongcheck" reads the
+-- agent's reply. Because BlackOps3.exe - and the agent .bat - persist across map_restart within
+-- one Steam app session, a prior match's agent answers, so every retry/restart REUSES it and the
+-- spawn (the one os.execute) is skipped. Both branches early-return before ever reaching
+-- spawn_agent, so they are the same flash-free class as "check"/"set0".
+if mode == "ping" then
+	-- delete any STALE pong first (a dead agent's leftover reply must not read as "alive"),
+	-- then write the ping. A live agent's poll loop deletes it + writes pong within ~1s.
+	pcall(function() os.remove("players/acc_lb_pong.txt") end)
+	pcall(function()
+		local f = io.open("players/acc_lb_ping.txt", "w")
+		f:write("ping\n")
+		f:close()
+	end)
+	FL("ping written")
+	X('set acc_lb_boot_trace "pinged"')
+	pcall(DisableGlobals)
+	return "ping"
+end
+
+if mode == "pongcheck" then
+	-- read the agent's pong reply; present => an agent is ALIVE in this app session. Consume it
+	-- (os.remove) so a later probe can never read a stale pong.
+	local alive = false
+	pcall(function()
+		local f = io.open("players/acc_lb_pong.txt", "r")
+		if f ~= nil then
+			local v = f:read("*a")
+			f:close()
+			if v ~= nil and string.find(v, "pong", 1, true) ~= nil then alive = true end
+		end
+	end)
+	pcall(function() os.remove("players/acc_lb_pong.txt") end)
+	FL("pongcheck " .. (alive and "alive" or "dead"))
+	X('set acc_lb_boot_trace "' .. (alive and "alive" or "dead") .. '"')
+	pcall(DisableGlobals)
+	return (alive and "alive" or "dead")
+end
+
 if mode == "spawn" then
 	local ok = spawn_agent()
 	FL("spawn " .. (ok and "OK" or "FAIL"))

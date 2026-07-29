@@ -183,6 +183,12 @@ function register_mystery_box_pool()
         // fuseTime 0 - "explodes on land"). Exempt explosive special like the Mahem, but WITH the wonder-tier
         // fastreload twins. A-tier box odds/pricing (rank after the Mahem, gen_box_dynamic.js).
         "t6_war_machine",        // War Machine (BO2 drum grenade launcher - exempt explosive special, fastreload-twinned)
+        // (L4 Siege launcher_multi REMOVED 2026-07-26 by user request - was the stock-cooked
+        // zm_levelcommon launcher added 07-25 via CSV row + this entry, the octobomb pattern.)
+        // EPG-1 (s1_mdl, user 2026-07-25): the AW MDL grenade launcher reskinned into a neon plasma energy-LOBBER
+        // (GDT retune + FX repaint, tools/oneshots/reskin_mdl_epg.js) - slow high-arc timed airburst. Real GDT
+        // projectileweapon (skye_s1_mdl.gdt), zone weapon lines present. Exempt explosive special like the Mahem.
+        "s1_mdl",                // EPG-1 (AW MDL plasma-lobber reskin - exempt explosive special)
         // WONDER WEAPON (user 2026-06-23, SWAPPED from the Wunderwaffe DG-2): Thundergun. STOCK common weapon
         // (def cooked in zm_levelcommon -> NO `weapon,` .zone line; just a row in our slim weapon table CSV, the
         // octobomb/cymbal_monkey precedent). Wind-blast knockback; is_limited=1 (one in the world at a time =
@@ -202,6 +208,27 @@ function register_mystery_box_pool()
         // bosses 25%/3s (the headline use) + super-effective vs Shielded/Glitch. projectileweapon _zm asset,
         // claim-capped 1, self-registers via autoexec (_zm_weap_freezegun). Combat logic in that file's [acc] block.
         "freezegun",                 // Winter's Howl (freeze utility wonder weapon)
+        // D13 Sector disc launcher (Koentje "Disk Gun" v1.0.1 port of the stock T7 loot special;
+        // installed 2026-07-24, CREDITS.md). Ricocheting energy discs; ships a TRUE _up PaP form
+        // (special_discgun_up). Sound CSV was surgically trimmed - see sound/aliases/discgun_sounds.csv
+        // header note. WONDER tier, claim-capped 1 like every wonder.
+        "special_discgun",           // D13 Sector (ricochet disc launcher wonder)
+        // HB21 Hero Weapons (2026-07-24, vendored subset - see _hb21_zm_hero_weapon.gsc header):
+        // limited-power HERO weapons (gadget meter, no PaP, no twins - like the Action Figure's
+        // exemption class). The stock magicbox routes them through its own give_hero_weapon; the
+        // framework's user_grabbed_weapon enhancer arms the gadget. Claim-capped 1 each.
+        "skull_gun",                     // Skull of Nan Sapwe (mesmerize/beam hero weapon)
+        // "dragon_gauntlet_flamethrower",  // Dragon Gauntlet - DISABLED 2026-07-25 (user: "it crashed
+        //     my game" during the dev shakedown). console_mp.log forensics: crash lands ~0.3-0.5s
+        //     AFTER the wield completes (STATE cur=gauntlet -> Flamethrower hint -> log cuts
+        //     mid-write = native fault; the whelp was NEVER released - zero whelp lines). Beams
+        //     EXONERATED (both flamethrower_beam_* rows packed, assetinfo-verified). Prime suspect:
+        //     the .csc wield FX batch (_zm_weap_dragon_gauntlet.csc plays 4 playViewModelFx on
+        //     tag_fx_7/tag_fx_6/tag_eye_left_fx/tag_throat_fx at wield+0.5s - a missing viewmodel
+        //     tag or a bad converted fx there = native crash), or the first flamethrower fire.
+        //     This array is the SOLE box authority, so commenting it out fully removes the gun
+        //     from play (assets still pack; dev loadout reverted to the Skull). Re-enable only
+        //     after a staged repro (wield WITHOUT the csc fx, then fire) - see the content-drop memory.
         // THE CYBERJACK (apex_lstar) is DELIBERATELY ABSENT from this array (user 2026-07-17,
         // docs/43 decision 2: QUEST-ONLY, NEVER in the box - the ICEBREAKER COMPILE is the only public
         // acquisition; dev-grant rides _acc_dev). Do NOT "helpfully" add it here in a wonder-roster sweep.
@@ -288,6 +315,9 @@ function wonder_cap_key( w )   // weapon object -> claim key, or undefined = unc
     if ( IsSubStr( w.name, "leviathan" ) )               return "leviathanaxe";  // GoW Leviathan Axe (covers _up)
     if ( IsSubStr( w.name, "freezegun" ) )               return "freezegun";     // Winter's Howl (covers freezegun_upgraded)
     if ( IsSubStr( w.name, "apex_lstar" ) )              return "cyberjack";     // THE CYBERJACK (L-STAR chassis, docs/43) - QUEST-ONLY, never in the box (chassis swap bow->L-STAR 2026-07-17)
+    if ( IsSubStr( w.name, "special_discgun" ) )         return "discgun";       // D13 Sector (2026-07-24; covers special_discgun_up)
+    if ( IsSubStr( w.name, "skull_gun" ) )               return "skullgun";      // Skull of Nan Sapwe hero weapon (2026-07-24; covers skull_gun_1)
+    if ( IsSubStr( w.name, "dragon_gauntlet" ) )         return "gauntlet";      // Dragon Gauntlet hero weapon (2026-07-24; covers both forms)
     return undefined;
 }
 
@@ -300,6 +330,9 @@ function wonder_cap_limit( key )
     if ( key == "leviathanaxe" ) return getdvarint( "acc_cap_leviathanaxe", 1 );
     if ( key == "freezegun" )    return getdvarint( "acc_cap_freezegun", 1 );
     if ( key == "cyberjack" )    return getdvarint( "acc_cap_cyberjack", 1 );
+    if ( key == "discgun" )      return getdvarint( "acc_cap_discgun", 1 );      // D13 Sector (2026-07-24)
+    if ( key == "skullgun" )     return getdvarint( "acc_cap_skullgun", 1 );     // Skull of Nan Sapwe (2026-07-24)
+    if ( key == "gauntlet" )     return getdvarint( "acc_cap_gauntlet", 1 );     // Dragon Gauntlet (2026-07-24)
     return 0;
 }
 
@@ -586,6 +619,9 @@ function acc_box_weight( wpn )
     if ( n == "elemental_bow_demongate" ) return 12;   // 0.24% - #3 Fire Bow
     if ( n == "leviathan" )             return 12;   // 0.24% - #4 Leviathan Axe
     if ( n == "freezegun" )             return 12;   // 0.24% - Winter's Howl utility wonder
+    if ( n == "special_discgun" )       return 12;   // 0.24% - D13 Sector disc launcher (wonder tier, 2026-07-24; hand-added special - re-apply after any gen_box_dynamic.js regen)
+    if ( n == "skull_gun" )             return 20;   // 0.40% - Skull of Nan Sapwe hero weapon (2026-07-24; hero = limited-power gadget, slightly commoner than wonders)
+    if ( n == "dragon_gauntlet_flamethrower" ) return 20;   // 0.40% - Dragon Gauntlet hero weapon (2026-07-24; same hero rarity)
     if ( n == "t8_melee_figure" )       return 40;   // 0.80% - #5 Action Figure
     if ( n == "knife_ballistic" )       return 92;   // ~1.8% - Ballistic Knife (user 2026-07-12: 40->92, the integer weight closest to a 1.8% pull at the current pool = 1.81%; hand-added special, re-run gen_box_dynamic.js RANK to re-sync the printed %)
     if ( n == "t9_xm4" )                return 64;   // 1.26% - #6 XM4 (TOP band = 16% of the conventional pool)
@@ -596,6 +632,8 @@ function acc_box_weight( wpn )
     if ( n == "apex_beam_rifle" )       return 60;   // 1.18% - #11 Havoc (special - unchanged)
     if ( n == "s1_mahem" )              return 108;   // 2.13% - #12 Mahem
     if ( n == "t6_war_machine" )        return 120;   // 2.37% - #13 War Machine
+    // (launcher_multi / L4 Siege weight 124 REMOVED 2026-07-26 with the gun itself.)
+    if ( n == "s1_mdl" )                return 128;   // ~2.5% - EPG-1 plasma-lobber (user 2026-07-25; explosive special, TOP band). HAND-ADDED past the generator.
     if ( n == "s1_mors" )               return 133;   // 2.62% - #14 MORS (last of the TOP band)
     if ( n == "apex_alternator" )       return 230;   // 4.54% - #15 Alternator (MID band = 36% of the conventional pool)
     if ( n == "s1_ae4" )                return 234;   // 4.62% - #16 AE4

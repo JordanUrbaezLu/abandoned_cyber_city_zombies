@@ -32,6 +32,15 @@ less often.
 
 ## Current ranking (29 box entries, pool total weight 4901)
 
+> **2026-07-25 — launcher added (not yet in the table below):** **EPG-1** (`s1_mdl`, AW MDL
+> plasma-lobber reskin, box weight ~128) was **hand-added** to `acc_box_weight` + `pap_price_bucket`
+> as a **TOP**-band explosive special, ranked between the War Machine (#13) and MORS. This generated
+> table is not regenerated for it because `gen_box_dynamic.js` has pre-existing drift from the
+> hand-tuned live weights (wonders 12 not 15, plus freezegun/knife/discgun/skull/gauntlet hand-adds
+> absent from RANK). *(The L4 Siege `launcher_multi`, added the same day at weight ~124, was
+> REMOVED from the game 2026-07-26.)*
+> The RANK table in the generator was updated for a future reconciliation. See CHANGELOG 2026-07-25.
+
 | Rank | Weapon | Price tier | PaP cost T1/T2/T3 | Box weight | Per-open % |
 |--:|---|:--:|---|--:|--:|
 | 1 | **Thundergun** (special) | **WONDER** | 10000 / 15000 / 20000 | 15 | 0.30% |

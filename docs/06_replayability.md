@@ -6,7 +6,7 @@ The explicit systems that make run N+1 meaningfully different from run N, withou
 
 Ordered from "subtle" to "radical":
 
-1. **Per-run / per-round variance** - re-rolls come from the box, the perk rotation, and boss drops. Small but pervasive. Default-on.
+1. **Per-run / per-round variance** - re-rolls come from the box, the map-wide perk scatter, and boss drops. Small but pervasive. Default-on.
 2. **Build space** - your weapon-Tier / Overclock decisions within a run. Large expressive space. Driven by player choice + Shard RNG. *(The Cyberware skill tree was designed as a co-equal build lever but is currently **disabled** — see Tier 2 below.)*
 3. **Modifiers** - optional opt-in rule changes (dvar-toggled). Radical changes to rules. Default-off.
 
@@ -19,7 +19,7 @@ Documented so players can learn the *space* of randomization, not guess.
 > - **Power switch:** the map now ships a **single** stock switch (Bus Station / "corp"). The Vault switch prefab was deleted from the map source (user 2026-06-18); `_acc_map_randomizer::apply_power_switch_side()` is now a safety no-op — there is nothing to delete.
 > - **PaP approach:** `_acc_map_randomizer::apply_pap_approach()` **opens both** Lab corridors every run (user 2026-06-22); the old random path-blocking wall read in-game as a "broken door" and was cut. `blocked_side` is rolled but ignored.
 >
-> So the layout is now **fixed**; per-run freshness comes from the box, the perk rotation, and boss drops below.
+> So the geometry is **fixed**; per-run freshness comes from the box, the map-wide perk scatter, and boss drops below.
 
 ### Wallbuys - five fixed buys, no randomization
 
@@ -45,27 +45,30 @@ per-run wallbuy-pool machinery (`roll_wallbuy_pool`, per-slot single-candidate d
 
 - Which Mystery Box pulls you land.
 - Which boss items drop.
-- Which perks open at the Lab this round (see Perk Rotation below).
+- Where every perk currently lives (see Perk Scatter below).
 
 **Post-1.0 pool expansion** may add real wallbuy variance (e.g. a Kuda / Weevil / Pharo SMG slot if we re-add SMGs).
 
-### Perk Rotation (per round, at the Lab)
+### Perk Scatter (map-wide, every 3rd round — replaced the Lab rotation 2026-07-24)
 
-**All 10 perks live in the Lab alcoves** (Electric Cherry is the real 10th, `_acc_perk_electric_cherry`).
-A **random 4 of the 10 alcove doors open each round** and the rest stay walled off; the open set
-**re-rolls at the start of every round** (`_acc_perk_doors::watch_rounds` → `apply_round`, woken by
-`acc_round_start`). No immediate repeats — the previous round's open set is excluded from the next roll
-(`candidates_excluding_last`, `_acc_perk_doors.gsc:212-215`). A door bought open stays permanently unlocked
-and drops out of the roll. No per-perk guarantees — Jug and Quick Revive are in the pool at equal weight.
-`ACC_PERK_DOORS_OPEN_PER_ROUND = 4`, over 10 perks (`_acc_perk_doors.gsc:50`).
+**Every perk is always buyable somewhere** — the 10 machines live on 10 pads spread across the
+whole map (Plaza = permanent Quick Revive; Lab ×2; Alley; Market; Helipad; Vault; the jukebox
+under-room; Abyss Layer 2 past the first soul door; the Exchange) and the perk→pad assignment **reshuffles at random on every
+round divisible by 3** (`_acc_perk_scatter::round_watcher`, woken by `acc_round_start`;
+`ACC_SCATTER_INTERVAL = 3`). The opening layout is random per run. The reshuffle is announced but
+the new homes are not revealed.
 
-- Probability Jug is open in any given round: 4/10 = 40%.
-- Probability Jug is NOT offered for 5 consecutive rounds: (6/10)^5 ≈ 7.8%.
-- **C(10, 4) = 210 distinct 4-perk rotations possible each round.** A 50-round run has ~50 independent rolls.
-- The player's skill becomes **route management** (Lab visits cost time), **patience** (waiting for the right rotation), and **value recognition** (which of the 4 open is most worth buying).
+- **9! = 362,880 distinct layouts** per scatter (9 rotating perks over 9 rotating pads; QR fixed).
+- A perk you want is never *unavailable* — it's *somewhere*; the cost is the route to reach it.
+- **Pinning** (2 Empty Mega Bottles, requires that perk's Mega): locks a perk onto its current pad
+  for the rest of the run — both leave the rotation, shrinking future shuffles. Team-wide benefit.
+- The player's skill becomes **map knowledge under churn** (re-learning the layout every 3 rounds),
+  **route planning** (chaining buys along a sweep of the map), and **investment timing** (when a
+  perk lands somewhere convenient — or dangerous-but-close — pin it).
 
-Dev mode runs the same per-round 4-of-10 rotation as normal play (user 2026-07-07). The old per-run,
-distributed-across-zones perk model is removed. See [10_perks.md](10_perks.md) for the full spec.
+Dev mode runs the same scatter as normal play (dev only adds the assignment printout). The old
+per-round 4-of-10 Lab alcove-door rotation is retired. See [10_perks.md](10_perks.md) for the full
+spec and [02_layout.md](02_layout.md) for the pad ledger.
 
 ### Weapon Tier / Overclock progression (deterministic, not a random draw)
 
@@ -115,10 +118,10 @@ tier (`acc_box_weight`; each wonder weapon pinned to ~0.3% per open — ~1.2% co
 - Layout (power switch, PaP approach): **fixed** (1 combination — both retired).
 - Wallbuys: **fixed** (5 buys, no roll).
 - Mystery Box: initial always Plaza; then rotates among all 6 spots, weighted by gun tier, filtered no-dupe.
-- Perk rotation: **210 distinct 4-of-10 door sets per round**, re-rolled every round.
+- Perk scatter: **9! = 362,880 distinct map-wide layouts**, re-rolled every 3rd round (opening layout random per run; QR fixed in the Plaza).
 - Boss item drops + boss-type deck (see [09_boss_items.md](09_boss_items.md), [08_enemies.md](08_enemies.md)).
 
-The map layout is the same every run; the *box pulls, per-round perk offer, and boss drops* keep runs fresh.
+The map layout is the same every run; the *box pulls, every-3rd-round perk scatter, and boss drops* keep runs fresh.
 
 ## Tier 2 - Build Space (within-run decisions)
 
@@ -201,7 +204,7 @@ Stock zombies has almost none; we don't want to inflate that. The intended (but 
 ## Tuning Philosophy
 
 - **Randomization is a *spice*, not a *meal*.** The *systems* do the heavy lifting; randomization adds freshness.
-- **Never randomize where players expect determinism.** Door costs, PaP cost, perk cost, zombie round formula, and now the map *layout* itself - all fixed. The box gun and the per-round perk offer - varied.
+- **Never randomize where players expect determinism.** Door costs, PaP cost, perk cost, zombie round formula, and now the map *layout* itself - all fixed. The box gun and the every-3rd-round perk scatter - varied.
 - **A player who knows the map inside-out should still have surprises every run.** Because the *space of possibilities* is known but the *specific roll* isn't.
 - **Modifiers are where we experiment.** If a base-game mechanic might be too harsh, we test it as an opt-in modifier first.
 

@@ -49,8 +49,15 @@ Check ".map brace balance ($open/$close)" ($open -eq $close) "map file corrupted
 # every module in the zone manifest exists on disk, and vice versa
 $zoneLines = Get-Content $zoneFile | Where-Object { $_ -match '^scriptparsetree,' } |
     ForEach-Object { ($_ -split ',', 2)[1].Trim() -replace '/', '\' }
-$missing = @($zoneLines | Where-Object { -not (Test-Path (Join-Path $RepoRoot $_)) })
-Check "all $($zoneLines.Count) zone scriptparsetree files exist" ($missing.Count -eq 0) ("missing: " + ($missing -join ', '))
+# A scriptparsetree may compile from the REPO or from the Mod Tools STOCK raw tree
+# (linker search order: usermap copy, then share\raw). Stock-raw compiles are how
+# _zm_hero_weapon / _dragon_whelp ship (2026-07-24 hero weapons) - mirror that here.
+$stockRaw = if ($env:TA_TOOLS_PATH) { Join-Path $env:TA_TOOLS_PATH 'share\raw' } else { $null }
+$missing = @($zoneLines | Where-Object {
+    -not (Test-Path (Join-Path $RepoRoot $_)) -and
+    -not ($stockRaw -and (Test-Path (Join-Path $stockRaw $_)))
+})
+Check "all $($zoneLines.Count) zone scriptparsetree files exist (repo or stock share\raw)" ($missing.Count -eq 0) ("missing: " + ($missing -join ', '))
 $moduleFiles = Get-ChildItem (Join-Path $RepoRoot "scripts\zm\zm_abandoned_cyber_city") -Filter "_acc_*.gsc" |
     ForEach-Object { "scripts\zm\zm_abandoned_cyber_city\$($_.Name)" }
 $unlisted = @($moduleFiles | Where-Object { $zoneLines -notcontains $_ })

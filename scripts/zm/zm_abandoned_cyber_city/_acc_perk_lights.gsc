@@ -1,7 +1,13 @@
 // =============================================================================
 // _acc_perk_lights.gsc - perk machine + Pack-a-Punch GLOW when power turns on
-// (server half). Like base zombies: dark until you flip the Bus Station switch,
-// then each machine lights with a coloured glow.
+// (server half). MACHINE AURAS ARE THE GLOW (re-affirmed 2026-07-25): the
+// 2026-07-24 "native" attempt (rely on stock's off_model->on_model swap and
+// retire the auras) was REFUTED LIVE - the model swap shows no visible power
+// delta in this build ("native glow doesnt work"), so the colour auras are back
+// as the one power visual. STRICTLY power-gated: the fields are only ever set
+// after the "power_on" flag (power_glow_watch below); pre-power every machine's
+// field is 0 = no aura. Also owns the shared set_glow pipeline other systems
+// ride (purge 11 / shard banks 12 / loot 13 / abyss lamps 14-15).
 //
 // WHY THIS SHAPE (root-caused, multi-agent design + adversarial verify 2026-06-18):
 // the 2026-06-17 attempt failed because it played FX SERVER-SIDE (PlayFXOnTag in a
@@ -69,22 +75,27 @@ function power_glow_watch()
         wait( 0.25 );
 
     glow_all_machines();
-    level thread paradise_glow_rekick();
+    level thread glow_rekick_watch();
 }
 
-// Set the per-perk colour index on every perk machine + a PaP host. One-shot (the
-// clientfield value LATCHES, so late-joining clients still get the glow via the
-// client callback's initial-snapshot fire). Idempotent guard so it never double-runs.
+// MACHINE AURAS RESTORED 2026-07-25 (user: "native glow doesnt work so we can go
+// back to the fx glows"): the 2026-07-24 native attempt (rely on stock's
+// off_model -> on_model swap) was REFUTED LIVE - the swap produces no visible
+// power delta in this build, so the per-machine colour auras below are THE
+// power-on glow again. Set ONLY here, after the "power_on" flag (power_glow_watch)
+// - machines can never aura before the switch is flipped; the scatter re-pulses a
+// moved machine's field post-move, and glow_rekick_watch re-pulses band machines
+// when players first descend (a latched CF set far from the viewer never renders
+// on approach). One-shot (the clientfield value LATCHES, so late-joining clients
+// still get the glow via the client callback's initial-snapshot fire). Idempotent.
 function glow_all_machines()
 {
     if ( isdefined( level.acc_perk_glow_done ) && level.acc_perk_glow_done ) return;
     level.acc_perk_glow_done = true;
 
-    // All 9 perk machines (6 stock struct prefabs + 3 inline structs) carry targetname
-    // "zm_perk_machine"; stock perk_machine_spawn_init gives each a "zombie_vending"
-    // trigger whose .machine is the renderable script_model (has tag_origin). By power-on
-    // time these have long existed. VERIFIED(acc): GetEntArray("zombie_vending",...) +
-    // trigger.machine is the stock-blessed machine handle (perk_machine_spawn_init).
+    // All perk machines carry the stock "zombie_vending" trigger whose .machine is the
+    // renderable script_model (has tag_origin). By power-on time these have long existed.
+    // VERIFIED(acc): trigger.machine is the stock-blessed machine handle (perk_machine_spawn_init).
     triggers = GetEntArray( "zombie_vending", "targetname" );
     dbg( "power on -> glowing. zombie_vending triggers = " + triggers.size );
 
@@ -102,6 +113,7 @@ function glow_all_machines()
         t.machine clientfield::set( "accPerkGlow", idx );
         glowed++;
     }
+    dbg( "machines glowed = " + glowed );
 
     // Pack-a-Punch: the "pack_a_punch" script_noteworthy ent is the USE TRIGGER, not a
     // renderable model (and a zbarrier is not scriptmover scope), so spawn our own
@@ -110,7 +122,7 @@ function glow_all_machines()
     pap = GetEntArray( "pack_a_punch", "script_noteworthy" );
     pap_n = 0;
     if ( isdefined( pap ) ) pap_n = pap.size;
-    dbg( "pack_a_punch ents = " + pap_n + " (machines glowed = " + glowed + ")" );
+    dbg( "pack_a_punch ents = " + pap_n );
 
     if ( pap_n > 0 && isdefined( pap[ 0 ] ) )
     {
@@ -153,49 +165,54 @@ function glow_all_machines()
     }
 }
 
-// PARADISE GLOW RE-KICK (user 2026-07-09: "the perks and pap in paradise don't have the glow like the
-// lab"). The power-on pass above sets every machine's field ONCE - and the client plays the looping glow
-// FX the moment the value arrives, which for the arena row (z=-1200) is while every player is 1000+u
-// ABOVE it; an FX spawned that far out never becomes visible when you finally drop in. Every WORKING use
-// of this pipeline (Lab/surface machines, loot glow, shard banks, purge lights) has the field set while a
-// player is near the ent - the deep row was the one far-away set. Fix: each time the team transitions
-// into the deep band (anyone below z<-1000 = the abyss bottom / Paradise), PULSE the deep machines'
-// fields 0 -> idx so the client stops + replays the FX at close range. Edge-triggered (once per descent,
-// not per tick); a brief 0.25s off-blink on ents whose glow WAS rendering is the worst case.
-function paradise_glow_rekick()
+// GLOW RE-KICK (2026-07-09 Paradise lesson, generalized 2026-07-25 for the perk
+// scatter): the power-on pass sets every machine's field ONCE - and the client plays
+// the looping glow FX the moment the value arrives, which for machines far below the
+// team (the Paradise row at z=-1200; scattered machines in the under-rooms/Exchange/L2
+// at z=-160..-480) is while every player is far ABOVE them; an FX spawned that far out
+// never becomes visible when you finally arrive. Fix: edge-triggered re-pulses per
+// band - each time the team first transitions into the UNDERGROUND band (anyone below
+// z<-100) pulse the z[-600,-100] machines, and into the DEEP band (anyone below
+// z<-1000) pulse the z<-600 ents (Paradise row + custom PaP hosts). Once per descent,
+// not per tick; a brief 0.25s off-blink on ents whose glow WAS rendering is the worst case.
+function glow_rekick_watch()
 {
     level endon( "end_game" );
 
     was_deep = false;
+    was_under = false;
     for ( ;; )
     {
         wait 1;
         deep = false;
+        under = false;
         foreach ( p in GetPlayers() )
         {
-            if ( isdefined( p ) && isplayer( p ) && isalive( p ) && p.origin[ 2 ] < -1000 )
-            {
-                deep = true;
-                break;
-            }
+            if ( !isdefined( p ) || !isplayer( p ) || !isalive( p ) ) continue;
+            if ( p.origin[ 2 ] < -1000 ) deep = true;
+            if ( p.origin[ 2 ] < -100 )  under = true;
         }
         if ( deep && !was_deep )
-            pulse_deep_glows();
+            pulse_band_glows( -999999, -600 );
+        if ( under && !was_under )
+            pulse_band_glows( -600, -100 );
         was_deep = deep;
+        was_under = under;
     }
 }
 
-// Re-pulse ONLY the deep-band glow ents (machine models + custom PaP hosts below z=-600): 0 now, the
-// real index a beat later. The two values must land in DIFFERENT snapshots or they coalesce into
+// Re-pulse the glow ents whose origin z falls in (zmin, zmax]: 0 now, the real index a
+// beat later. The two values must land in DIFFERENT snapshots or they coalesce into
 // no-change (no client callback), hence the threaded re-set with a real wait.
-function pulse_deep_glows()
+function pulse_band_glows( zmin, zmax )
 {
     n = 0;
     triggers = GetEntArray( "zombie_vending", "targetname" );
     foreach ( t in triggers )
     {
         if ( !isdefined( t.machine ) ) continue;
-        if ( t.machine.origin[ 2 ] > -600 ) continue;   // surface/Lab rows render fine - deep band only
+        z = t.machine.origin[ 2 ];
+        if ( z <= zmin || z > zmax ) continue;
         idx = perk_color_index( t.script_noteworthy );
         t.machine clientfield::set( "accPerkGlow", 0 );
         t.machine thread reglow( idx );
@@ -205,13 +222,15 @@ function pulse_deep_glows()
     {
         foreach ( host in level.acc_custom_pap_glow_hosts )
         {
-            if ( !isdefined( host ) || host.origin[ 2 ] > -600 ) continue;
+            if ( !isdefined( host ) ) continue;
+            z = host.origin[ 2 ];
+            if ( z <= zmin || z > zmax ) continue;
             host clientfield::set( "accPerkGlow", 0 );
             host thread reglow( 10 );
             n++;
         }
     }
-    dbg( "deep-glow pulse: rekicked " + n + " glow ents" );
+    dbg( "glow pulse band (" + zmin + "," + zmax + "]: rekicked " + n + " glow ents" );
 }
 
 function reglow( idx )   // self = the machine model / glow host

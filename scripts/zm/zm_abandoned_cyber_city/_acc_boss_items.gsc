@@ -5,7 +5,9 @@
 //
 // Bosses drop random items from an 11-item pool on death. Players have 3 item
 // slots (ACC_ITEM_SLOTS_PER_PLAYER). Implanted duplicates are refused; loose-carried
-// duplicates auto-convert to Data Shards.
+// duplicates auto-convert to Data Shards. EXCEPTION: a .stackable item (ONLY the
+// Sentry Drone, user 2026-07-25) may be implanted in multiple slots - every
+// duplicate gate consults item_is_stackable() and stands down for it.
 //
 // Status: LIVE. Item table, drop/equip plumbing, and all effect implementations
 // are authored (apply_/remove_ per item).
@@ -63,7 +65,7 @@
 #define ACC_CLOVER_POWERUP_CHANCE   0.005  // per-kill chance for a Clover carrier to drop a random power-up
 
 // Item buff tuning.
-#define ACC_OVERCHARGE_REGEN     10    // Repair Kit: HP regenerated per second (user 2026-07-11: back to 10; was briefly 13 from 2026-07-07)
+#define ACC_OVERCHARGE_REGEN     8     // Repair Kit: HP regenerated per second (user 2026-07-22: -20% nerf, 10 -> 8; was 10 from 2026-07-11, briefly 13 from 2026-07-07)
 #define ACC_BULWARK_HP           50    // (legacy Bulwark - now unused; kept for the dead fn)
 #define ACC_SALVAGE_INTERVAL_SEC 20    // (legacy Salvage - now unused; kept for the dead fn)
 #define ACC_DROP_MODEL_Z_DEF     24    // ground drops: lift model Z off the floor (live dvar acc_drop_model_z)
@@ -83,7 +85,7 @@
 // so a support player is PAID for the slot. The DR is read by _acc_elites::apply_player_mitigations off the
 // self-expiring timestamps acc_hive_covered_until (aura) / acc_hive_bubble_until (burst). Every value = live dvar.
 #define ACC_HIVE_RADIUS        300   // aura + burst radius (units)
-#define ACC_HIVE_REGEN         15    // aura HP/sec regen to every player in range (Repair Kit is 10; this ALSO heals teammates)
+#define ACC_HIVE_REGEN         12    // aura HP/sec regen to every player in range (Repair Kit is 8 since the same-day nerf; this ALSO heals teammates). SLIGHT NERF 2026-07-22 (was 15) - trims the always-on team-sustain, still above the Repair Kit
 #define ACC_HIVE_DR            0.15  // aura passive damage reduction for players in range (0..1); read in _acc_elites
 #define ACC_HIVE_BUBBLE_DR     0.50  // active Bloom-burst damage reduction (0..1); read in _acc_elites
 #define ACC_HIVE_BUBBLE_SEC    5     // active Bloom-burst shield duration (s)
@@ -92,6 +94,20 @@
 #define ACC_HIVE_REVIVE_SHARDS 2     // Data Shards paid to the carrier per teammate the Bloom REVIVES
 #define ACC_HIVE_REVIVE_PTS    250   // points paid to the carrier per teammate the Bloom REVIVES
 #define ACC_HIVE_HEAL_PTS      50    // points paid to the carrier per living teammate the Bloom HEALS
+
+// Sentry Drone (item 1, user 2026-07-22 - REPLACED Gas Tank; see the SENTRY DRONE section).
+// The #defines below are DEFAULTS; motion (orbit radius/speed/height) + all combat knobs are
+// live-tune dvars read in the loops (acc_drone_orbit_radius / acc_drone_orbit_speed /
+// acc_drone_hover_z / acc_drone_range / acc_drone_fire_sec / acc_drone_bolt_speed /
+// acc_drone_damage / acc_drone_maxhp_frac / acc_drone_launch_sec / acc_drone_launch_min_range /
+// acc_drone_launch_radius / acc_drone_launch_damage / acc_drone_launch_maxhp_frac).
+#define ACC_DRONE_MODEL_NAME   "veh_t7_dlc_zm_quadrotor_piece_body"  // the Origins MAXIS DRONE chassis - LOD0-clean STATIC buildable-piece variant (T7 Assets carve 2026-07-22, acc_t7_drone.gdt; source_map p7_zm_tomb; 35.8x8.7x11.7u, center pivot). NEVER swap to the assembled veh_t7_dlc_zm_quadrotor - rigged 45 tags at ALL 8 LODs. KEEP IN SYNC with the .zone xmodel line.
+#define ACC_DRONE_PICKUP_SCALE 1.5   // world-pickup SetScale (35.8u chassis -> ~54u, reads like the other bench pickups; SetScale is script_model-safe)
+#define ACC_DRONE_BODY_SCALE   1.3   // flying-body SetScale (~47u wingspan)
+#define ACC_DRONE_HOVER_Z      58    // DEFAULT hover height above the owner's FEET (u); live dvar acc_drone_hover_z
+#define ACC_DRONE_ORBIT_RADIUS 72    // DEFAULT orbit radius around the owner (u); live dvar acc_drone_orbit_radius. It circles the owner in WORLD space (independent of the owner's facing) so you can turn and watch it come around - the OLD shoulder-locked offset stayed glued behind your view forever (user 2026-07-24 "pretty stiff ... stuck behind my player, I cant look at it").
+#define ACC_DRONE_ORBIT_DPS    65    // DEFAULT orbit angular speed (degrees/sec; ~5.5s a full lap); live dvar acc_drone_orbit_speed
+#define ACC_DRONE_LEASH        500   // beyond this the chase-lerp hard-snaps (teleporter / long-fall catch-up)
 
 // Pickup world models - one per item (see build_item_pool). Each is a distinct
 // stock prop, packed via an xmodel,<name> line in the .zone; build errorlog
@@ -114,6 +130,7 @@
 #precache( "model", "p7_zm_isl_specimen_container_egg" ); // 14 Hive Node (MODEL SWAP 2026-07-17: Zetsubou bio-specimen EGG/pod - an organic "hive node" that reads distinct from Repair Kit's med box; the two heal items shared p7_spl_first_aid_box before and were "very confusing", user. NO new carve - the _egg is already carved+installed STATIC-rigid in acc_t7_props_deco.gdt, .zone xmodel line added; 51x54x60u base pivot -> SetScale 0.7 ~42u, user "cut size 30%")
 #precache( "model", "rune_prison_death_skull" );           // 11 Berzerker (Wolf Bow death skull - already registered install-side by the HB21 bow dep packs, .zone xmodel line; 9.7x6.7x8.2u base pivot -> x4 scale)
 #precache( "model", "p7_zm_zod_symbol_96_apothicon_purple_emissive" ); // 15 Dark Magic (SoE Apothicon purple-emissive glyph - ALREADY packed: .zone xmodel line :799, live as L4 abyss decor in _acc_abyss_deco; the Aether/dark-magic sigil, distinct from every other pickup. Flat ~96u glyph.)
+#precache( "model", ACC_DRONE_MODEL_NAME );                // 1 Sentry Drone pickup + the flying body itself (T7 Assets carve 2026-07-22, acc_t7_drone.gdt + .zone xmodel line; REPLACED Gas Tank - the nitrous tank precache above stays for the dormant helpers). Macro-in-#precache is stock-proven (_microwave_turret.gsc:68).
 
 // VERIFIED(acc): #namespace MUST come after all #using/#insert/#define -
 // it terminates the directive preamble; a #using after it is a compile
@@ -143,7 +160,7 @@ function init()
     // defaults 0 for every Workshop subscriber, so this whole scatter is inert in a normal game. Comment
     // the two lines out again (or re-add a filter) for the next publish build.
     if ( isdefined( level.acc_dev ) && level.acc_dev )   // (IS_TRUE not #insert'd in this file - explicit test, same as player_has_ledger)
-        level thread dev_scatter_items();   // no arg = the full item grid (all 13 items) in the Plaza
+        level thread dev_scatter_items();   // no arg = the full item grid (every pool item + 2 extra Sentries = the 3-stack SWARM QA, user 2026-07-25) in the Plaza
     level thread scale_octobombs_watch();   // shrink Li'l Arnie (octobomb) visuals (user 2026-06-18)
 
     // Register octobomb as a LEVEL tactical grenade (2026-07-17, "box Arnie traded my gun" bug): stock
@@ -267,17 +284,30 @@ function build_item_pool()
     // Items 1-3 REUSE already-wired effects (speed / charged-shot / +points);
     // items 4-6 are new self-contained buffs (regen / max-health / shard income).
 
+    // Sentry Drone (item 1, user 2026-07-22): the pool's SUPPORT-CHARACTER implant - an ALWAYS-ON hovering
+    // helper drone that follows/roams around its owner and zaps the nearest normal zombie in the owner's
+    // radius. REPLACES Gas Tank (retired same day - its apply_/remove_/watch helpers stay DORMANT below,
+    // kinetic-battery precedent): the acc_implants nibble is FULL at 15 (4-bit cap), so a new implant must
+    // reuse a freed num - user picked Gas Tank. Zero clientfield change. See the SENTRY DRONE section below
+    // + docs/09.
     pool[ pool.size ] = item(
         1,
-        "gas_tank",
-        "Gas Tank",
-        "Double-tap sprint: speed burst",
-        "p7_zm_zod_nitrous_tank",
-        -6,                             // floor lift (was +24, user: 30 lower)
-        "feet",
-        &apply_gas_tank,                // nitro: double-tap sprint -> 5s +20% burst, 30s regen
-        &remove_gas_tank
+        "sentry_drone",
+        "Sentry Drone",
+        "Autonomous drone zaps nearby zombies",   // router-safe: no banned substrings (for/cost/buy/purchase/mystery/rack/bottle/permanently/door/power)
+        ACC_DRONE_MODEL_NAME,
+        2,                              // floor lift (base-pivot guess; tune at the Plaza dev-scatter)
+        "back",
+        &apply_sentry_drone,
+        &remove_sentry_drone,
+        ACC_DRONE_PICKUP_SCALE
     );
+    // THE ONE STACKABLE IMPLANT (user 2026-07-25 "the only implant that you can implant more than
+    // one on same character"): up to 3 copies (one per bench slot) = up to 3 drones orbiting. Every
+    // duplicate gate in the pipeline (ground grab / carry / equip_slot / bench / vault withdraw /
+    // carried-HUD-nibble) checks item_is_stackable() and stands down for this id; apply_/remove_ are
+    // COUNT-based (each copy = +1 drone). No other item sets this field.
+    pool[ pool.size - 1 ].stackable = true;
 
     // Li'l Arnie (#2) + Monkey Bomb (#6) REMOVED from the boss-item pool (user 2026-06-24): they are now rare
     // MYSTERY-BOX rolls (1% / 0.5%) instead - see _acc_map_randomizer + watch_box_tactical_grab below. Their
@@ -327,7 +357,7 @@ function build_item_pool()
         "p7_zm_mob_vial_surgical_lrg",  // REAL MOTD surgical vial (T7 Assets carve 2026-07-08; was the generic perk bottle)
         2,                              // floor lift (small vial, base pivot; tune live)
         "implant",
-        &apply_arnie_cloak,             // Phase-boss aura: Stalkers in range = 1/5 speed + no blink; Phantoms = 30% slower (2026-07-11)
+        &apply_arnie_cloak,             // Phase-boss aura: Stalkers in range = 0.36x speed + no blink; Phantoms = 24% slower (user 2026-07-22: whole item -20%; was 1/5 + 30%)
         &remove_arnie_cloak,
         4.0                             // model scale (user 2026-07-08: 2.0 still too small -> "make all of them 4x original size")
     );
@@ -406,7 +436,7 @@ function build_item_pool()
         "p7_zm_ctl_battery_ceramic",
         2,                              // floor lift (base pivot guess; tune live like the other carve props)
         "implant",
-        &apply_battery,                 // sets self.acc_item_volt_battery -> boss zaps become +8% surges
+        &apply_battery,                 // sets self.acc_item_volt_battery -> boss zaps become +24% move surges (user 2026-07-22 buff)
         &remove_battery,
         2.0                             // model scale (DE quest prop, reads small at 1x; tune at the next visual QA)
     );
@@ -838,7 +868,9 @@ function watch_pickup()   // self = the hold-use trigger
         // duplicate is no longer consumed/converted. The CARRIED (loose, not yet enabled) duplicate below
         // KEEPS the shard conversion - a carried item is transient per-player state (invisible to teammates,
         // can't coexist with the same id being implanted), so a second copy is genuinely unusable to anyone.
-        if ( player_has_item( player, item_struct.id ) )
+        // STACKABLE exception (Sentry Drone, user 2026-07-25): an implanted copy does NOT block the grab -
+        // more copies are legal (one per slot), so the gate stands down via item_is_stackable().
+        if ( player_has_item( player, item_struct.id ) && !item_is_stackable( item_struct.id ) )
         {
             player iprintln( "^3Already implanted: ^7" + display_for( item_struct ) );
             acc_utility::drops_debug( "item ALREADY-IMPLANTED refuse id=" + item_struct.id + " player=" + player.name + " (left for teammates)" );
@@ -846,8 +878,18 @@ function watch_pickup()   // self = the hold-use trigger
         }
 
         // Duplicate of a LOOSE CARRY (per-player pending pickup, not yet enabled) -> convert to shards.
+        // STACKABLE exception: a second copy is NOT unusable (it can be implanted alongside the first),
+        // the player just can't CARRY two at once (single carry slot) - so refuse and LEAVE it on the
+        // ground (like the implanted-refuse above) instead of destroying it: bench the held one first,
+        // then come back. Teammates can still grab it meanwhile; watch_lifetime despawns it normally.
         if ( isdefined( player.acc_carried_item ) && player.acc_carried_item == item_struct.id )
         {
+            if ( item_is_stackable( item_struct.id ) )
+            {
+                player iprintln( "^3Already carrying one - implant it at a bench, then come back" );
+                acc_utility::drops_debug( "item STACKABLE-CARRY refuse id=" + item_struct.id + " player=" + player.name + " (left on ground)" );
+                continue;
+            }
             acc_data_shards::grant_player( player, ACC_ITEM_DUPLICATE_SHARD_CONVERT, "boss_item_duplicate" );
             acc_utility::drops_debug( "item DUPE id=" + item_struct.id + " player=" + player.name + " -> +" + ACC_ITEM_DUPLICATE_SHARD_CONVERT + " shards" );
             self notify( "acc_item_claimed" );
@@ -857,10 +899,13 @@ function watch_pickup()   // self = the hold-use trigger
 
         // If already holding a LOOSE carried item (picked up, not yet enabled) and
         // it's a different one, DROP it back to the ground so it isn't lost - you can
-        // grab it again. (An ENABLED/implanted item is not a loose carry, so it stays.)
+        // grab it again. (An ENABLED/implanted item is not a loose carry, so it stays.
+        // STACKABLE exception: a carried Sentry copy CAN coexist with an implanted one -
+        // it is a REAL loose carry and must drop back to the ground, not silently vanish.)
         if ( isdefined( player.acc_carried_item )
              && player.acc_carried_item != item_struct.id
-             && !player_has_item( player, player.acc_carried_item ) )
+             && ( !player_has_item( player, player.acc_carried_item )
+                  || item_is_stackable( player.acc_carried_item ) ) )
         {
             old = find_item( player.acc_carried_item );
             if ( isdefined( old ) )
@@ -937,6 +982,17 @@ function player_has_item( player, item_id )
     return false;
 }
 
+// STACKABLE = the item may be implanted in MORE THAN ONE slot on the same character (user
+// 2026-07-25; currently ONLY the Sentry Drone - each copy adds another orbiting drone). Public:
+// _acc_transfer's vault-withdraw duplicate gate calls this cross-module. Every duplicate refusal
+// in the pipeline must consult this, or a legal second copy gets refused/converted/stranded.
+function item_is_stackable( item_id )
+{
+    it = find_item( item_id );
+    if ( !isdefined( it ) ) return false;
+    return ( isdefined( it.stackable ) && it.stackable );
+}
+
 // Put item_id into a SPECIFIC slot (the pad the player used). If the slot is occupied, the old
 // occupant's on_unequip runs first (which also performs the tactical-grenade hand-off, docs/09).
 function equip_slot( player, slot, item_id )
@@ -944,7 +1000,7 @@ function equip_slot( player, slot, item_id )
     if ( !isdefined( player.acc_equipped_items ) ) player.acc_equipped_items = empty_slots();
     item_struct = find_item( item_id );
     if ( !isdefined( item_struct ) ) return;
-    if ( player_has_item( player, item_id ) ) return;   // never the same item in both slots
+    if ( player_has_item( player, item_id ) && !item_is_stackable( item_id ) ) return;   // never the same item in two slots - EXCEPT the stackable Sentry Drone (each copy = another drone)
 
     if ( player.acc_equipped_items[ slot ] != "" )
         unequip_slot( player, slot );                   // evict the current occupant first
@@ -1007,7 +1063,9 @@ function push_implants_clientfield()
     }
     // Carried nibble mirrors the CARRYING hud line's condition: only a carry that is NOT already
     // implanted in a slot (an implanted id can't also be a loose carry worth showing).
-    if ( isdefined( self.acc_carried_item ) && !player_has_item( self, self.acc_carried_item ) )
+    // STACKABLE exception (Sentry Drone): carried-while-implanted IS a real pending copy - show it.
+    if ( isdefined( self.acc_carried_item )
+         && ( !player_has_item( self, self.acc_carried_item ) || item_is_stackable( self.acc_carried_item ) ) )
     {
         it = find_item( self.acc_carried_item );
         if ( isdefined( it ) ) packed = packed | ( it.num << 12 );
@@ -1050,9 +1108,9 @@ function remove_kinetic_battery()
 }
 
 // Battery (item 10, user 2026-07-08): boss-zap absorber. Flag read by _acc_elites' three zap applicators
-// (acc_phantom_chain_zap / acc_protector_zap / acc_avogadro_zap) -> acc_battery_surge() = +20% move for 5s
-// + a light blue-green screen aura + the acc_battery_zap SFX instead of the slow, on a 10s cooldown (user
-// 2026-07-09, was 12s). DISTINCT
+// (acc_phantom_chain_zap / acc_protector_zap / acc_avogadro_zap) -> acc_battery_surge() = +24% move for 5s
+// (user 2026-07-22: +20% buffed by 20%) + a light blue-green screen aura + the acc_battery_zap SFX instead
+// of the slow, on a 10s cooldown (user 2026-07-09, was 12s). DISTINCT
 // from the legacy Kinetic Battery's acc_item_battery flag (dormant v1 item above) - reusing it would wake the
 // old charged-shot readers in _acc_points/_acc_damage. On unequip kill any live surge + aura + cooldown so
 // nothing outlives the implant.
@@ -1060,7 +1118,7 @@ function apply_battery()
 {
     self.acc_item_volt_battery = true;
     self.acc_battery_cd_until = 0;   // ready immediately on (re)implant
-    acc_utility::log( "equip: battery (boss zaps -> +20% surge 5s, 10s cd)" );
+    acc_utility::log( "equip: battery (boss zaps -> +24% surge 5s, 10s cd)" );
 }
 function remove_battery()
 {
@@ -1606,9 +1664,860 @@ function hive_on_kill( attacker )
 // consumers in stock). See docs/09 + the feasibility spec.
 // ===========================================================================
 
-// --- Item 1: Gas Tank -> nitro burst. Double-tap SPRINT = 5s +20% move speed,
-//     then a 30s lockout (cannot re-trigger until fully regenerated). The burst
-//     runs its full 5s and is not cancellable. Speed rides recompute_move_speed.
+// ===========================================================================
+// Item 1: SENTRY DRONE (user 2026-07-22) - the "support character" implant that
+// REPLACED Gas Tank. An ALWAYS-ON hovering helper drone (Origins Maxis-Drone
+// chassis) that ORBITS its owner and shoots the nearest normal zombie in the
+// owner's radius with a VISIBLE plasma bolt, plus a slower ROCKET LAUNCHER
+// secondary that lobs a real explosive at distant clusters.
+//
+// ARCHITECTURE - script-flown script_model, NOT an AI actor (deliberate):
+//   * No navmesh/BT/team/actor-pool cost. The real-ally alternative (the
+//     zod_companion archetype) can't even fire on this map - zero cover nodes
+//     keeps CanShootEnemy()==0 forever (see _acc_civil_protector's fire_loop
+//     workaround) - so a script fire loop is mandatory EITHER way; the actor
+//     would only add its costs. Research write-up: docs/09.
+//   * MOTION = a WORLD-SPACE ORBIT (user 2026-07-24 "pretty stiff ... stuck
+//     behind my player, I cant look at it"): the anchor circles the owner on a
+//     world XY ring (cos/sin of a free-running orbit angle), NOT the old fixed
+//     right-shoulder offset that was locked to owner.angles[1] - that stayed
+//     glued behind wherever you looked, so you could never turn to see it. Now
+//     it drifts around you and passes through your view every lap. RANDOM ROAM
+//     (user 2026-07-25 "predictable circle"): the radius/pace/height each wander
+//     via eased random re-aims every 0.9-2.6s, so the loop never traces the same
+//     path twice (forward-only pace keeps the pass-through-view guarantee).
+//     Still a 20 Hz MoveTo exponential chase (+ sine bob), an eye-trace wall
+//     clamp so the anchor never parks inside geometry, and a hard SetOrigin
+//     leash snap (a MoveTo "snap" = the teleport hyper-speed streak bug). NOT
+//     LinkTo - rigid attach clips walls on every doorway. Radius/speed/height =
+//     live dvars (the wander multiplies them).
+//   * PRIMARY FIRE = a VISIBLE plasma bolt (user "it doesnt shoot an actual
+//     projectile so i cant see its shots"). Reuses the Triple Take bolt pipeline:
+//     a script_model mover flies drone->target on the ALREADY-REGISTERED
+//     acc_ttk_bolt_fx scriptmover clientfield (value 1 = blue geotrail; the
+//     scriptmover CF pool is FULL so we ride an existing value, ZERO new bits -
+//     memory scriptmover-clientfield-pool-full). Damage lands on ARRIVAL.
+//   * SECONDARY FIRE = a ROCKET LAUNCHER (user "give it a launcher as a secondary
+//     firing projectile"): every acc_drone_launch_sec it MagicBullets a REAL,
+//     VISIBLE s1_mahem rocket (its own model/smoke-trail/explosion/boom - the
+//     civil-protector mahem recipe) attributed to the OWNER so kills still credit
+//     you, aimed at the FARTHEST valid target beyond acc_drone_launch_min_range.
+//     MagicBullet returns the missile entity - sentry_rocket_watch tracks it and
+//     lands the round-proof scripted exact-mark AoE at the ACTUAL detonation
+//     point/time (a crossing zombie can blow it early); that scripted AoE is the
+//     real kill (native s1_mahem damage falls off at high rounds - the rocket is
+//     the visual). OWNER SAFETY (adversarial-review catch 2026-07-24): a
+//     self-attributed rocket's splash passes stock's self-damage MOD whitelist at
+//     raw ~3100 (the RP mahem cap is attacker-gated and never applies) - so the
+//     watch holds a rolling acc_drone_rocket_until window on the owner and
+//     _acc_elites::on_player_damaged ZEROES self-mahem hits inside it (teammates
+//     were never at risk: stock "players can't hurt each other", _zm.gsc:1427;
+//     the scripted AoE itself is zombie-only by construction).
+//   * Damage (both weapons) = PLAYER-ATTRIBUTED DoDamage riding the
+//     acc_tg_exact_dmg exact mark (the cyberjack storm_one_shot recipe, consumed
+//     one-shot in _acc_damage): round-proof (flat floor OR maxhealth fraction,
+//     whichever is larger), no double-dip through the gun-damage multiplier stack,
+//     and kills pay the OWNER's points/drops/Loot-Stash/leaderboard like any gun
+//     kill (zm_spawner death callbacks all see attacker=owner).
+//   * Targets: EVERYTHING hostile in range (user 2026-07-22 "target the bosses
+//     and elites") - owner-centered Distance2D radius + z-band (aoe-radius-
+//     elevated-center lesson) + a drone-eye SightTrace (also naturally skips
+//     underground risers). Bosses/elites/Glitches/Furies are PREFERRED over
+//     trash (the dangerous thing dies first) but ride a separate CHIP damage
+//     lane: a fraction of ONE normal zombie's round HP (the cyberjack
+//     storm_dot_tick tough-enemy recipe) - NEVER a fraction of the boss's own
+//     pool, because the exact mark bypasses the boss per-hit cap by design and
+//     25%-of-maxhealth zaps would melt the roster in seconds.
+//   * FX: server PlayFX is dead in this build (memory server-playfx-does-not-
+//     render) - the bolt impact arc rides PlayFxOnTag(acc_cj_shock) on the TARGET
+//     actor (tag-FX renders; storm_one_shot precedent) + the acc_cj_zap 3d SFX
+//     from the drone; the rocket's explosion is the s1_mahem native FX. No new
+//     FX/CF registrations (both pools are FULL).
+//   * STACKABLE (user 2026-07-25 "the only implant that you can implant more
+//     than one on same character"): the item table's .stackable flag stands
+//     every duplicate gate down for THIS id only (ground grab, carried-dupe
+//     convert, drop-old-carry, equip_slot, bench [same-slot self-replace still
+//     refused], vault withdraw, carried HUD nibble - grep item_is_stackable for
+//     all 7). apply_/remove_ are COUNT-based (once per copy); up to 3 copies =
+//     3 drones, phases auto-spread by the guardian (2 = opposite sides, 3 = a
+//     triangle). Bolt fire fans out via a 0.7s target claim (sibling drones
+//     prefer unclaimed zombies; solo behavior unchanged - the claim expires
+//     before the same drone's next 0.9s shot).
+//   * SENTRY SWARM set bonus (user 2026-07-25 "a nice easter egg"): ALL 3 slots
+//     = Sentry Drone -> x1.5 damage (bolt + rocket blast) / orbit roam speed /
+//     fire rate (both cadences), all via sentry_swarm_mult (live dvar
+//     acc_drone_swarm_mult 1.5, count read LIVE so it engages/disengages with
+//     the 3rd copy instantly). In-game it is UNADVERTISED except the reveal
+//     IPrintLnBold when the 3rd copy is implanted - that discovery IS the egg.
+//   * Lifecycle: ONE guardian loop (on the player) owns the FLEET - keeps
+//     exactly acc_sentry_drone_count drones alive (spawn/respawn-after-death/
+//     cull; Spawn can return undefined under entity pressure - just retry);
+//     remove_ decrements the count (culling one drone; the LAST copy tears the
+//     fleet down + ends the guardian); every drone's own loops ALSO self-Delete
+//     whenever the flag/owner vanish, so nothing outlives the implant (bleed-out
+//     wipe -> on_unequip per copy -> gone; disconnect -> owner undefined ->
+//     self-Delete). Bolt/rocket flight threads run on LEVEL (like the TT bolt)
+//     so they self-clean even if the drone dies mid-flight. Ent budget: <= 3
+//     drones + ~1 bolt mover + ~1 missile in flight per drone per carrier -
+//     trivial vs the ~1024 G_Spawn cap even in a pathological all-stacked lobby.
+// ===========================================================================
+
+// STACKABLE (user 2026-07-25): the Sentry Drone is the ONLY implant legal in more than one slot on
+// the same character - the item table's .stackable flag stands every duplicate gate down for it.
+// apply_/remove_ therefore run once PER COPY and are COUNT-based: acc_sentry_drone_count copies =
+// that many drones orbiting, all maintained by ONE guardian; acc_item_sentry_drone stays a plain
+// bool (true while count >= 1) so every drone loop's owner-check reads it unchanged.
+function apply_sentry_drone()    // self = player; runs once per implanted copy
+{
+    if ( !isdefined( self.acc_sentry_drone_count ) )
+        self.acc_sentry_drone_count = 0;
+    self.acc_sentry_drone_count++;
+    self.acc_item_sentry_drone = true;
+    if ( self.acc_sentry_drone_count == 1 )
+        self thread sentry_drone_guardian();             // ONE guardian maintains the whole fleet
+
+    // SENTRY SWARM set-bonus reveal (user 2026-07-25 "a nice easter egg"): all 3 slots = Sentry
+    // Drone -> every drone overclocks (+50% damage / orbit roam speed / fire rate, live via
+    // sentry_swarm_mult below). Deliberately UNADVERTISED anywhere else in-game - the on-screen
+    // reveal at the moment the 3rd copy goes in IS the easter egg. No state to arm/disarm: every
+    // consumer reads the count live, so the bonus engages right here and dies with the stack.
+    if ( self.acc_sentry_drone_count >= 3 )
+        self IPrintLnBold( "^5SENTRY SWARM^7 - the drones overclock: damage, speed and fire rate surge" );
+
+    acc_utility::log( "equip: sentry_drone (stack x" + self.acc_sentry_drone_count + ")" );
+}
+
+function remove_sentry_drone()   // self = player; runs once per unequipped copy
+{
+    if ( !isdefined( self.acc_sentry_drone_count ) || self.acc_sentry_drone_count <= 0 )
+    {
+        // defensive: unequip without a live stack (should never happen) - just hard-clear
+        self.acc_sentry_drone_count = 0;
+        self.acc_item_sentry_drone  = false;
+        return;
+    }
+    self.acc_sentry_drone_count--;
+    if ( self.acc_sentry_drone_count == 2 )
+        self iprintln( "^3Sentry Swarm broken^7 - the drones power back down" );   // dropped below the 3-stack set bonus
+
+    if ( self.acc_sentry_drone_count <= 0 )
+    {
+        // last copy gone - tear the whole fleet down
+        self.acc_item_sentry_drone = false;
+        self notify( "acc_sentry_drone_removed" );       // ends the guardian loop
+        if ( isdefined( self.acc_sentry_drones ) )
+        {
+            for ( i = 0; i < self.acc_sentry_drones.size; i++ )
+            {
+                if ( isdefined( self.acc_sentry_drones[ i ] ) )
+                    self.acc_sentry_drones[ i ] Delete();   // Delete() also kills that drone's hover/fire/launcher threads
+            }
+        }
+        self.acc_sentry_drones = undefined;
+        acc_utility::log( "unequip: sentry_drone (fleet down)" );
+        return;
+    }
+
+    // Still stacked: cull ONE drone right now (snappy feedback at the bench; the guardian's prune
+    // would catch up within 0.5s anyway). The array keeps an undefined hole until the guardian's
+    // next prune pass - every reader guards isdefined.
+    if ( isdefined( self.acc_sentry_drones ) )
+    {
+        for ( i = self.acc_sentry_drones.size - 1; i >= 0; i-- )
+        {
+            if ( isdefined( self.acc_sentry_drones[ i ] ) )
+            {
+                self.acc_sentry_drones[ i ] Delete();
+                break;
+            }
+        }
+    }
+    acc_utility::log( "unequip: sentry_drone (stack x" + self.acc_sentry_drone_count + " remains)" );
+}
+
+// Owns the FLEET's existence: keeps exactly acc_sentry_drone_count drones alive - initial spawns,
+// respawn after the owner's death wiped one, re-materialize anything the engine deleted, cull an
+// over-stock after a copy is unequipped. Runs for the whole implant tenure (count >= 1), one thread
+// per player regardless of stack size. Whenever the roster size changes, the orbit phases are
+// re-spread evenly (2 drones = opposite sides, 3 = a triangle) anchored on drone[0]'s CURRENT angle
+// so nothing visibly snaps - the chase lerp glides the others onto their new arcs, and identical
+// angular speed keeps the spacing forever after.
+function sentry_drone_guardian()   // self = player
+{
+    self endon( "disconnect" );
+    self endon( "acc_sentry_drone_removed" );
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        wait( 0.5 );
+        if ( !( isdefined( self.acc_item_sentry_drone ) && self.acc_item_sentry_drone ) )
+            return;
+        n_want = 0;
+        if ( isdefined( self.acc_sentry_drone_count ) )
+            n_want = self.acc_sentry_drone_count;
+        if ( n_want <= 0 )
+            return;
+
+        // Prune deleted entries (death wipe / bench cull / entity pressure) into a compact roster.
+        a_live = [];
+        b_changed = false;
+        if ( isdefined( self.acc_sentry_drones ) )
+        {
+            for ( i = 0; i < self.acc_sentry_drones.size; i++ )
+            {
+                d = self.acc_sentry_drones[ i ];
+                if ( !isdefined( d ) )
+                    continue;
+                // STRAND/HUSK HEAL (user 2026-07-25 "i took the teleporter and my drones
+                // disappeared"): a drone whose hover thread died (any silent runtime error)
+                // still isdefined()s forever - the old prune counted it alive and never
+                // replaced it. The hover loop stamps a 20 Hz heartbeat; a drone silent for
+                // >2s is a stranded husk - delete it and let the top-up respawn fresh.
+                if ( isdefined( d.acc_hover_beat ) && GetTime() - d.acc_hover_beat > 2000 )
+                {
+                    d Delete();
+                    b_changed = true;
+                    continue;
+                }
+                a_live[ a_live.size ] = d;
+            }
+        }
+
+        // Cull an over-stock (belt-and-braces - remove_ already culls one immediately).
+        while ( a_live.size > n_want )
+        {
+            a_live[ a_live.size - 1 ] Delete();
+            a_trim = [];
+            for ( i = 0; i < a_live.size - 1; i++ )
+                a_trim[ a_trim.size ] = a_live[ i ];
+            a_live = a_trim;
+            b_changed = true;
+        }
+
+        // Top up to the stack count - but never materialize over a downed/dead owner.
+        if ( acc_data_shards::is_player_alive( self ) )
+        {
+            while ( a_live.size < n_want )
+            {
+                d = spawn_sentry_drone( self );
+                if ( !isdefined( d ) )
+                    break;                               // G_Spawn pressure - retry next tick
+                a_live[ a_live.size ] = d;
+                b_changed = true;
+            }
+        }
+
+        self.acc_sentry_drones = a_live;
+
+        // Even orbit spacing on any roster change (spawn/cull/respawn - NOT just a size delta, so a
+        // same-tick die+respawn still re-spreads instead of leaving two drones stacked at phase 0).
+        if ( b_changed && a_live.size > 0 )
+        {
+            base = a_live[ 0 ].acc_orbit;
+            for ( i = 0; i < a_live.size; i++ )
+                a_live[ i ].acc_orbit = base + i * ( 360 / a_live.size );
+        }
+    }
+}
+
+// SENTRY SWARM set bonus (user 2026-07-25 easter egg): ALL 3 slots implanted with the Sentry Drone
+// -> x1.5 on every drone's damage (bolt + rocket blast), orbit roam speed, and fire rate (bolt +
+// launcher cadence / mult). Read LIVE at every consumer (no armed state): implanting the 3rd copy
+// engages it on the next tick/shot, dropping to 2 disengages it just as fast. Count == 3 can ONLY
+// mean all three slots are Sentries (ACC_ITEM_SLOTS_PER_PLAYER is 3). Live dvar acc_drone_swarm_mult
+// (1.5); floor-clamped so a bad dvar can never divide a wait by zero.
+function sentry_swarm_mult( owner )
+{
+    if ( !isdefined( owner ) || !isdefined( owner.acc_sentry_drone_count ) || owner.acc_sentry_drone_count < 3 )
+        return 1.0;
+    n = getdvarfloat( "acc_drone_swarm_mult", 1.5 );
+    if ( n < 0.25 ) n = 0.25;
+    return n;
+}
+
+// PUBLIC teleport-follow (user 2026-07-25 "i took the teleporter and my drones disappeared"):
+// SetOrigin every live drone in this player's fleet to a tight orbit point at the player's
+// CURRENT position. Called by _acc_teleporter at warp time (per rider) so the fleet arrives
+// WITH its owner - structural continuity, no reliance on the hover loop's leash snap noticing
+// the displacement. Safe no-op for non-carriers; the hover loop re-orbits them next tick.
+function sentry_fleet_warp( player )
+{
+    if ( !isdefined( player ) || !isdefined( player.acc_sentry_drones ) )
+        return;
+    n_hover = getdvarfloat( "acc_drone_hover_z", ACC_DRONE_HOVER_Z );
+    for ( i = 0; i < player.acc_sentry_drones.size; i++ )
+    {
+        d = player.acc_sentry_drones[ i ];
+        if ( !isdefined( d ) )
+            continue;
+        n_ang = ( isdefined( d.acc_orbit ) ? d.acc_orbit : i * 120 );
+        d SetOrigin( player.origin + ( Cos( n_ang ) * 40, Sin( n_ang ) * 40, n_hover ) );
+    }
+}
+
+function spawn_sentry_drone( owner )
+{
+    d = Spawn( "script_model", owner.origin + ( 0, 0, ACC_DRONE_HOVER_Z ) );
+    if ( !isdefined( d ) )
+        return undefined;                                // G_Spawn pressure - guardian retries in 0.5s
+    d SetModel( ACC_DRONE_MODEL_NAME );
+    d SetScale( ACC_DRONE_BODY_SCALE );
+    d NotSolid();       // BULLETS PASS THROUGH (user 2026-07-25 "it blocks shots"): the carved mesh
+                        // has bullet collision even though players clip through it (no _col LOD =
+                        // no BODY solidity, but traces still hit the mesh) - and the drone orbits
+                        // at eye height, so it ate the owner's shots. NotSolid clears the entity's
+                        // contents so player fire, drone bolts, and its own rockets all trace
+                        // through it (also kills the rocket-birth-inside-the-47u-body risk).
+    d.owner = owner;                                     // the loops' LIFELINE: every hover/fire/launcher tick reads self.owner and self-Deletes when undefined. (RESTORED 2026-07-25 - the same-day NotSolid edit accidentally dropped this line, which made every drone spawn/self-delete in an invisible 0.5s cycle: no drones ever appeared.)
+    d.acc_orbit = 0;                                     // world-orbit phase (deg), advanced by the hover loop
+    d.acc_hover_beat = GetTime();                        // liveness heartbeat (stamped 20 Hz by the hover loop; the guardian husk-heals silence >2s)
+    d thread sentry_hover_loop();
+    d thread sentry_fire_loop();       // primary: visible plasma bolts
+    d thread sentry_launcher_loop();   // secondary: real s1_mahem rocket (slower cadence)
+    return d;
+}
+
+// 20 Hz hover chase. Anchor = a point ORBITING the owner on a WORLD-space XY ring (+ a slow
+// sine bob) - NOT the old right-shoulder offset that was locked to the owner's yaw and so stayed
+// glued behind wherever you looked (user 2026-07-24 "stuck behind my player, I cant look at it").
+// The orbit angle free-runs at acc_drone_orbit_speed deg/s, so the drone drifts around you and
+// passes through your view every lap - turn and it is right there. Exponential lerp keeps the
+// motion soft (drifts, overshoots a little, settles - never rigid); eye-trace wall clamp + hard
+// leash snap keep it out of geometry. Radius/speed/height are live dvars for feel tuning.
+function sentry_hover_loop()   // self = the drone (script_model)
+{
+    level endon( "end_game" );
+    n_t = 0;
+
+    for ( ;; )
+    {
+        wait( 0.05 );
+        owner = self.owner;
+        if ( !isdefined( owner ) || !( isdefined( owner.acc_item_sentry_drone ) && owner.acc_item_sentry_drone ) )
+        {
+            self Delete();                               // never outlive the implant/owner
+            return;
+        }
+        self.acc_hover_beat = GetTime();                 // liveness heartbeat - the guardian husk-heals a drone whose hover thread died (any silent runtime error strands the ent forever otherwise; user 2026-07-25 "my drones disappeared")
+
+        n_t += 0.05;
+        n_bob    = Sin( n_t * 160 ) * 5;                 // GSC Sin() takes DEGREES: 2.25s period, +/-5u
+        n_radius = getdvarfloat( "acc_drone_orbit_radius", ACC_DRONE_ORBIT_RADIUS );
+        n_hover  = getdvarfloat( "acc_drone_hover_z",      ACC_DRONE_HOVER_Z );
+
+        // RANDOM ROAM inside the ring (user 2026-07-25 "They currently go in a predictable
+        // circle"): every 0.9-2.6s the drone re-aims a random radius fraction / pace / height
+        // offset and EASES toward it - so the path is a wandering loop around the owner
+        // (swings in tight, drifts out wide, hurries then lazes, dips and rises) instead of a
+        // fixed-radius circle. Pace stays FORWARD-only (0.4x-1.7x) so the 2026-07-24
+        // pass-through-your-view guarantee holds; the ring dvars still scale everything (the
+        // wander is multiplicative on them). Per-drone state -> stacked drones desync naturally.
+        if ( !isdefined( self.acc_roam_next ) || GetTime() >= self.acc_roam_next )
+        {
+            self.acc_roam_next  = GetTime() + RandomIntRange( 900, 2600 );
+            self.acc_roam_rad_t = RandomFloatRange( 0.45, 1.25 );
+            self.acc_roam_spd_t = RandomFloatRange( 0.4, 1.7 );
+            self.acc_roam_z_t   = RandomFloatRange( -14, 14 );
+            if ( !isdefined( self.acc_roam_rad ) )       // first tick: start ON the aim, no spawn lurch
+            {
+                self.acc_roam_rad = self.acc_roam_rad_t;
+                self.acc_roam_spd = self.acc_roam_spd_t;
+                self.acc_roam_z   = self.acc_roam_z_t;
+            }
+        }
+        self.acc_roam_rad += ( self.acc_roam_rad_t - self.acc_roam_rad ) * 0.04;   // soft ease (~1.7s to settle)
+        self.acc_roam_spd += ( self.acc_roam_spd_t - self.acc_roam_spd ) * 0.04;
+        self.acc_roam_z   += ( self.acc_roam_z_t   - self.acc_roam_z )   * 0.04;
+
+        // Advance the WORLD-space orbit phase (independent of owner.angles - THE whole fix).
+        // SWARM (3-stack easter egg): x1.5 roam speed - the pack visibly whirls faster.
+        self.acc_orbit += getdvarfloat( "acc_drone_orbit_speed", ACC_DRONE_ORBIT_DPS ) * self.acc_roam_spd * 0.05 * sentry_swarm_mult( owner );
+        if ( self.acc_orbit >= 360 ) self.acc_orbit -= 360;
+
+        anchor = owner.origin
+                 + ( Cos( self.acc_orbit ) * n_radius * self.acc_roam_rad,
+                     Sin( self.acc_orbit ) * n_radius * self.acc_roam_rad,
+                     n_hover + n_bob + self.acc_roam_z );
+
+        // Wall clamp: if the orbit point is inside geometry (owner hugging a wall/doorframe), pull
+        // it back along the eye->anchor line so the drone tucks in instead of clipping through.
+        v_eye = owner.origin + ( 0, 0, 60 );
+        trace = BulletTrace( v_eye, anchor, false, self );
+        if ( trace[ "fraction" ] < 1 )
+            anchor = v_eye + ( trace[ "position" ] - v_eye ) * 0.8;
+
+        if ( Distance( self.origin, anchor ) > ACC_DRONE_LEASH )
+        {
+            // TRUE snap (bugfix, user 2026-07-25 "when you teleport ... the drone gains super
+            // speed"): the old MoveTo( anchor, 0.05 ) "snap" is not a teleport - it makes the
+            // ENGINE fly the mover the whole displacement in 0.05s (a teleporter jump = a
+            // cross-map hyper-speed streak, re-issued every tick until it catches up). A
+            // teleport-scale catch-up must be a real teleport: SetOrigin, done in one frame.
+            // (Script_model SetOrigin cancels the pending MoveTo; the drone has no collision
+            // and the OOB monitor only polices PLAYERS, so a bare teleport is safe here.)
+            self SetOrigin( anchor );
+        }
+        else
+        {
+            v_goal = self.origin + ( anchor - self.origin ) * 0.25;   // exponential chase
+            self MoveTo( v_goal, 0.05 );
+        }
+
+        // Face the current target if there is one, else look along the orbit's direction of travel
+        // (tangent = orbit angle + 90) so it reads as patrolling around you rather than staring.
+        n_face = self.acc_orbit + 90;
+        if ( isdefined( self.acc_drone_target ) && isalive( self.acc_drone_target ) )
+            n_face = VectorToAngles( self.acc_drone_target.origin - self.origin )[ 1 ];
+        self RotateTo( ( 0, n_face, 0 ), 0.15 );
+    }
+}
+
+// PRIMARY-FIRE cadence loop - a VISIBLE plasma bolt at the nearest zombie. Combat knobs are LIVE
+// dvars for balance passes (acc_drone_fire_sec / acc_drone_range / acc_drone_bolt_speed /
+// acc_drone_damage / acc_drone_maxhp_frac).
+function sentry_fire_loop()   // self = the drone
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        // SWARM (3-stack easter egg): +50% fire rate = interval / mult (0.9s -> 0.6s).
+        wait( getdvarfloat( "acc_drone_fire_sec", 0.9 ) / sentry_swarm_mult( self.owner ) );
+        owner = self.owner;
+        if ( !isdefined( owner ) || !( isdefined( owner.acc_item_sentry_drone ) && owner.acc_item_sentry_drone ) )
+        {
+            self Delete();
+            return;
+        }
+        if ( !acc_data_shards::is_player_alive( owner ) )
+            continue;                                    // no cover fire while the owner is down
+
+        z = self sentry_pick_target( owner );
+        self.acc_drone_target = z;                       // hover loop faces this
+        if ( !isdefined( z ) )
+            continue;
+
+        // CLAIM the target for 0.7s (STACKED drones, user 2026-07-25): sibling drones' pick_target
+        // prefers unclaimed zombies, so a 2-3 drone fleet spreads bolts across the horde instead of
+        // triple-bolting the same nearest zombie. Expires before THIS drone's own next shot (0.9s
+        // cadence), so solo behavior is completely unchanged.
+        z.acc_drone_claim_until = GetTime() + 700;
+
+        // Fire report from the drone, then fly a VISIBLE bolt that lands its damage on ARRIVAL.
+        // The flight runs on LEVEL (like the Triple Take bolt) so it self-cleans even if the drone
+        // dies mid-flight; the damage number is snapshot NOW (round-proof, target's current maxhp).
+        self PlaySound( "acc_cj_zap" );
+        v_from = self sentry_muzzle( z );
+        v_to   = z.origin + ( 0, 0, 40 );
+        level thread sentry_bolt_flight( owner, z, v_from, v_to, sentry_bolt_damage( owner, z ) );
+    }
+}
+
+// Best target inside the OWNER's radius ("zombies in YOUR radius" - the drone guards the
+// player, it does not free-hunt). Owner-centered Distance2D + z-band
+// (aoe-radius-elevated-center-feet-origin), LOS from the DRONE's eye.
+// PRIORITY (user 2026-07-25 "these drones need to target the bosses and elites"): the nearest
+// TOUGH target (sentry_is_tough - boss/mini-boss/elite/shielded/Glitch/Fury) beats ANY normal
+// zombie; tough targets ignore the sibling claims (all drones may focus one boss - overkill
+// doesn't apply to a chip lane). Normals keep the STACK spread below.
+// STACK spread (2026-07-25): prefers the nearest UNCLAIMED normal (a sibling drone's 0.7s
+// acc_drone_claim_until mark from its own launch), falling back to the nearest claimed one when the
+// whole radius is claimed - so a stacked fleet fans out its bolts but never holds fire. Invariant:
+// n_best_a <= n_best_u (the any-track sees a superset), so one skip check covers both normal tracks.
+function sentry_pick_target( owner )   // self = the drone
+{
+    n_range   = getdvarfloat( "acc_drone_range", 700 );
+    n_best_t  = n_range * n_range;                       // nearest TOUGH (boss/elite - top priority, user 2026-07-25)
+    n_best_u  = n_range * n_range;                       // nearest UNCLAIMED normal (preferred among trash)
+    n_best_a  = n_range * n_range;                       // nearest ANY normal (fallback)
+    best_t    = undefined;
+    best_u    = undefined;
+    best_a    = undefined;
+    now       = GetTime();
+    a_zombies = GetAITeamArray( "axis" );                // snapshot - never iterate a live AI list (octobomb-brutus)
+
+    for ( i = 0; i < a_zombies.size; i++ )
+    {
+        z = a_zombies[ i ];
+        if ( !sentry_valid_target( z ) )
+            continue;
+        if ( Abs( owner.origin[ 2 ] - z.origin[ 2 ] ) > 320 )
+            continue;                                    // z-band: no cross-floor sniping
+        n_d = Distance2DSquared( owner.origin, z.origin );
+
+        // TOUGH track (boss/elite): its own lane, and it IGNORES the sibling-drone claims -
+        // the claims exist to stop stacked drones OVERKILLING one-bolt trash; a boss soaks
+        // every drone's chip happily, and all-focus-the-boss is exactly the wanted behavior.
+        if ( sentry_is_tough( z ) )
+        {
+            if ( n_d >= n_best_t )
+                continue;
+            if ( !SightTracePassed( self.origin, z.origin + ( 0, 0, 48 ), false, self ) )
+                continue;
+            best_t   = z;
+            n_best_t = n_d;
+            continue;
+        }
+
+        if ( n_d >= n_best_u )
+            continue;                                    // can't improve either normal track (n_best_a <= n_best_u)
+        if ( !SightTracePassed( self.origin, z.origin + ( 0, 0, 48 ), false, self ) )
+            continue;                                    // walls block it; also skips underground risers
+        if ( n_d < n_best_a )
+        {
+            best_a   = z;
+            n_best_a = n_d;
+        }
+        if ( !( isdefined( z.acc_drone_claim_until ) && now < z.acc_drone_claim_until ) )
+        {
+            best_u   = z;
+            n_best_u = n_d;
+        }
+    }
+    if ( isdefined( best_t ) )
+        return best_t;                                   // the dangerous thing eats the bolts first
+    if ( isdefined( best_u ) )
+        return best_u;
+    return best_a;
+}
+
+// The boss/elite lane (user 2026-07-25 "these drones need to target the bosses and elites"):
+// every marker the old exclusion filter dropped, PLUS shielded elites - the union of the
+// _acc_cyberjack is_corruptible/b_tough marker sets. Tough targets are legal AND preferred
+// (sentry_pick_target) but ride the CHIP damage branch in sentry_bolt_damage /
+// sentry_launch_damage - never the maxhealth-fraction lane (the exact mark bypasses the boss
+// per-hit cap by design; 25%-of-a-boss's-pool bolts would melt the roster). This file has no
+// shared.gsh #insert, so explicit isdefined tests instead of IS_TRUE (same as the module).
+function sentry_is_tough( z )
+{
+    if ( isdefined( z.is_boss ) && z.is_boss )                               return true;
+    if ( isdefined( z.acc_is_boss ) && z.acc_is_boss )                       return true;
+    if ( isdefined( z.acc_is_mini_boss ) && z.acc_is_mini_boss )             return true;
+    if ( isdefined( z.acc_boss_custom_speed ) && z.acc_boss_custom_speed )   return true;
+    if ( isdefined( z.acc_is_elite ) && z.acc_is_elite )                     return true;
+    if ( isdefined( z.acc_is_shielded ) && z.acc_is_shielded )               return true;
+    if ( isdefined( z.acc_is_glitch_zombie ) && z.acc_is_glitch_zombie )     return true;
+    if ( isdefined( z.b_is_apothicon_fury ) && z.b_is_apothicon_fury )       return true;
+    return false;
+}
+
+// Anything hostile: a live axis AI that is either a normal horde zombie OR a boss/elite (the
+// tough lane above). Off-team (the allies-team Civil Protector ally) can never match; the
+// archetype gate only applies to the NORMAL lane - bosses are custom archetypes on purpose.
+function sentry_valid_target( z )
+{
+    if ( !isdefined( z ) || !isalive( z ) )                                  return false;
+    team = ( isdefined( level.zombie_team ) ? level.zombie_team : "axis" );
+    if ( isdefined( z.team ) && z.team != team )                             return false;
+    if ( sentry_is_tough( z ) )                                              return true;
+    if ( !isdefined( z.archetype ) || z.archetype != "zombie" )              return false;
+    return true;
+}
+
+// Drone "muzzle": the drone's origin nudged toward the target so bolts/rockets don't birth inside
+// the ~47u body. (The static quadrotor-piece model has no muzzle tag, so this is script-computed.)
+function sentry_muzzle( z )   // self = the drone
+{
+    v = self.origin;
+    if ( isdefined( z ) )
+        v += VectorNormalize( ( z.origin + ( 0, 0, 30 ) ) - self.origin ) * 20;
+    return v;
+}
+
+// Round-proof damage number for one PRIMARY bolt: max(flat, maxhealth fraction) so the drone stays
+// a meaningful support at ANY round instead of falling off a cliff by round 20 (default: 168 flat /
+// 19.125% maxhealth - the 2026-07-27 "-15%" then "another 10%" passes, x0.765 of the 220/25%
+// originals; ~6 bolts a kill at high rounds). SWARM (3-stack easter egg): the whole number x1.5 -
+// applied AFTER the max() so both the flat floor and the round-proof fraction scale.
+function sentry_bolt_damage( owner, z )
+{
+    // Boss/elite CHIP lane (user 2026-07-25): a fraction of ONE NORMAL ZOMBIE's round HP (the
+    // cyberjack storm_dot_tick tough-enemy recipe) - round-proof, and NEVER a fraction of the
+    // boss's own pool (the exact mark bypasses the boss per-hit cap by design; 25% of a boss's
+    // maxhealth per 0.9s bolt would melt the whole roster). Swarm mult still applies after.
+    // 0.35 -> 0.2975 -> 0.26775 (2026-07-27 -15%, then another -10%).
+    if ( isdefined( z ) && sentry_is_tough( z ) )
+    {
+        n_base = ( isdefined( level.zombie_health ) ? level.zombie_health : 1000 );
+        n_dmg  = int( n_base * getdvarfloat( "acc_drone_boss_frac", 0.26775 ) );
+        n_dmg  = int( n_dmg * sentry_swarm_mult( owner ) );
+        if ( n_dmg < 1 )
+            n_dmg = 1;
+        return n_dmg;
+    }
+
+    n_dmg = int( getdvarfloat( "acc_drone_damage", 168 ) );
+    if ( isdefined( z ) && isdefined( z.maxhealth ) )
+    {
+        n_frac = int( z.maxhealth * getdvarfloat( "acc_drone_maxhp_frac", 0.19125 ) );
+        if ( n_frac > n_dmg )
+            n_dmg = n_frac;
+    }
+    n_dmg = int( n_dmg * sentry_swarm_mult( owner ) );
+    if ( n_dmg < 1 )
+        n_dmg = 1;
+    return n_dmg;
+}
+
+// One VISIBLE primary bolt: a script_model mover flies v_from -> v_to on the acc_ttk_bolt_fx
+// scriptmover clientfield (value 1 = blue geotrail, the Triple Take pipeline - ZERO new CF bits,
+// the pool is FULL: memory scriptmover-clientfield-pool-full), and the exact-mark player-attributed
+// hit lands on ARRIVAL. Threaded on LEVEL (not the drone) so a mid-flight drone Delete can't strand
+// the mover. Avogadro gotchas honored: min flight 0.25s (below it the CF snapshot eats the visual)
+// and NEVER a handle-less world PlayFX (the clientfield-on-entity pattern is the self-cleaning way).
+function sentry_bolt_flight( owner, z, v_from, v_to, n_dmg )
+{
+    level endon( "end_game" );
+
+    speed = getdvarfloat( "acc_drone_bolt_speed", 4000 );
+    if ( speed < 100 ) speed = 100;
+    t_fly = Distance( v_from, v_to ) / speed;
+    if ( t_fly < 0.25 ) t_fly = 0.25;
+    if ( t_fly > 2.0 )  t_fly = 2.0;
+
+    mover = Spawn( "script_model", v_from );
+    if ( isdefined( mover ) )
+    {
+        mover SetModel( "tag_origin" );
+        mover clientfield::set( "acc_ttk_bolt_fx", 1 );  // 1 = TT blue geotrail, client-side (_acc_tripletake.csc)
+        mover MoveTo( v_to, t_fly );
+    }
+
+    wait t_fly;
+
+    // Land the hit if the target survived the flight (else the bolt just fizzles - visual only).
+    if ( isdefined( owner ) && isdefined( z ) && isalive( z ) )
+        sentry_apply_hit( owner, z, n_dmg, true );
+
+    if ( isdefined( mover ) )
+    {
+        mover clientfield::set( "acc_ttk_bolt_fx", 0 );  // StopFX client-side
+        wait 0.1;                                        // let the field-0 snapshot land before the ent dies
+        if ( isdefined( mover ) )
+            mover Delete();
+    }
+}
+
+// The impact of a bolt or blast tick: exact-marked player-attributed DoDamage (storm_one_shot
+// recipe) + an optional electric arc on the victim. The exact mark is consumed one-shot in
+// _acc_damage (:448), so no gun-multiplier double-dip and the kill credits the OWNER. b_fx off for
+// the rocket blast (the s1_mahem explosion IS the FX - electric arcs on a crowd would just be noise).
+function sentry_apply_hit( owner, z, n_dmg, b_fx )
+{
+    if ( !isdefined( z ) || !isalive( z ) )
+        return;
+
+    w = owner GetCurrentWeapon();                        // attribution metadata only - the exact mark owns the number
+    if ( !isdefined( w ) )
+        w = level.weaponNone;
+
+    if ( isdefined( b_fx ) && b_fx && isdefined( level._effect ) && isdefined( level._effect[ "acc_cj_shock" ] ) )
+        PlayFxOnTag( level._effect[ "acc_cj_shock" ], z, "j_spineupper" );   // tag-FX on an actor renders; bare PlayFX would not
+
+    z.acc_tg_exact_dmg = n_dmg;                          // consumed one-shot in _acc_damage (:448) - never outlives this hit
+    z DoDamage( n_dmg, z.origin, owner, owner, "none", "MOD_PROJECTILE_SPLASH", 0, w );
+}
+
+// ===========================================================================
+// SECONDARY FIRE - the ROCKET LAUNCHER (user 2026-07-24 "give it a launcher as a
+// secondary firing projectile"). A slower cadence than the primary bolt: every
+// acc_drone_launch_sec the drone lobs a REAL, VISIBLE s1_mahem rocket (own model,
+// smoke trail, explosion + boom - the _acc_civil_protector::mahem_shot recipe) at
+// the FARTHEST valid zombie so the blast always flies AWAY from the owner (no self-
+// splash). A round-proof scripted exact-mark AoE at the impact point (timed to the
+// rocket's arrival) is the ACTUAL kill - the native s1_mahem damage is just the
+// visual and would fall off at high rounds.
+// ===========================================================================
+function sentry_launcher_loop()   // self = the drone
+{
+    level endon( "end_game" );
+
+    for ( ;; )
+    {
+        // SWARM (3-stack easter egg): +50% launcher rate = interval / mult (4.5s -> 3.0s).
+        wait( getdvarfloat( "acc_drone_launch_sec", 4.5 ) / sentry_swarm_mult( self.owner ) );
+        owner = self.owner;
+        if ( !isdefined( owner ) || !( isdefined( owner.acc_item_sentry_drone ) && owner.acc_item_sentry_drone ) )
+        {
+            self Delete();
+            return;
+        }
+        if ( !acc_data_shards::is_player_alive( owner ) )
+            continue;
+
+        z = self sentry_pick_launch_target( owner );
+        if ( !isdefined( z ) )
+            continue;                                    // nothing far enough out - hold fire (never rocket your own lap)
+        self sentry_launch_rocket( owner, z );
+    }
+}
+
+// Launcher target = the FARTHEST valid zombie inside the drone's range AND beyond
+// acc_drone_launch_min_range from the owner, with LOS from the drone. Farthest-first means the
+// rocket always points away from the owner, so its splash can never reach you.
+function sentry_pick_launch_target( owner )   // self = the drone
+{
+    n_range  = getdvarfloat( "acc_drone_range", 700 );
+    n_min    = getdvarfloat( "acc_drone_launch_min_range", 260 );
+    n_best_d = n_min * n_min;                            // must beat the min-range gate to qualify
+    best     = undefined;
+    a_zombies = GetAITeamArray( "axis" );                // snapshot - never iterate a live AI list (octobomb-brutus)
+
+    for ( i = 0; i < a_zombies.size; i++ )
+    {
+        z = a_zombies[ i ];
+        if ( !sentry_valid_target( z ) )
+            continue;
+        if ( Abs( owner.origin[ 2 ] - z.origin[ 2 ] ) > 320 )
+            continue;
+        n_d = Distance2DSquared( owner.origin, z.origin );
+        if ( n_d > n_range * n_range )
+            continue;                                    // out of the drone's reach
+        if ( n_d <= n_best_d )
+            continue;                                    // want the FARTHEST qualifier (and it must clear min-range)
+        if ( !SightTracePassed( self.origin, z.origin + ( 0, 0, 48 ), false, self ) )
+            continue;
+        best     = z;
+        n_best_d = n_d;
+    }
+    return best;
+}
+
+// Fire the rocket: a real owner-attributed s1_mahem projectile from the drone muzzle at the target.
+// MagicBullet RETURNS the missile entity (stock precedent: _remotemissile.gsc:241 `rocket =
+// MagicBullet(...)`, _missile_swarm.gsc:565) - sentry_rocket_watch tracks it so the round-proof
+// scripted AoE lands WHERE AND WHEN the rocket actually detonates (a crossing zombie / doorframe can
+// blow it early - a fixed timer at the aim point would deal invisible "ghost" damage 400u from the
+// visible explosion). The watch also holds the owner's acc_drone_rocket_until self-splash-negation
+// window (consumed by _acc_elites::on_player_damaged) for the missile's whole flight.
+function sentry_launch_rocket( owner, z )   // self = the drone
+{
+    v_from = self sentry_muzzle( z );
+    v_aim  = z.origin + ( 0, 0, 30 );
+
+    w_rocket = GetWeapon( "s1_mahem" );                  // in the ZM levelcommon weapon table (see _acc_civil_protector::mahem_shot)
+    if ( isdefined( w_rocket ) && w_rocket != level.weaponNone && isdefined( w_rocket.name ) && w_rocket.name != "none" )
+    {
+        // Open the self-splash-negation window BEFORE the missile exists (same-frame detonations
+        // covered); the watch refreshes it every tick of the flight + a 400ms tail past detonation.
+        owner.acc_drone_rocket_until = GetTime() + 400;
+        missile = MagicBullet( w_rocket, v_from, v_aim, owner );   // REAL rocket, owner-attributed so kills still credit YOU
+        level thread sentry_rocket_watch( owner, missile, v_from, v_aim );
+    }
+    else
+    {
+        // s1_mahem unresolvable (should never happen - the Protector fires it live): no visual, but
+        // the kill still lands - timer-fallback blast at the aim point (~2500 u/s nominal flight).
+        t_arrive = Distance( v_from, v_aim ) / 2500;
+        if ( t_arrive < 0.1 ) t_arrive = 0.1;
+        level thread sentry_launch_blast( owner, v_aim, t_arrive );
+    }
+    self PlaySound( "acc_cj_zap" );                      // launch crackle from the drone
+}
+
+// Track the live missile: poll its origin while it exists (detonation Delete()s it), keep the owner's
+// self-splash window open, then land the scripted AoE at the LAST KNOWN position = the real impact
+// point. Threaded on LEVEL so it survives the drone. 4s lifetime cap. STACKED drones (2026-07-25)
+// mean watches CAN overlap (one per drone's missile) - safe by construction: every refresh SETS the
+// window to GetTime()+400, which only grows as time marches, so concurrent watches can never shorten
+// each other's protection; a 4s-runaway missile is >= 10,000u away when the cap stops refreshing,
+// far beyond any splash radius.
+function sentry_rocket_watch( owner, missile, v_from, v_aim )
+{
+    level endon( "end_game" );
+
+    if ( !isdefined( missile ) )
+    {
+        // MagicBullet gave no handle (engine edge) - degrade to the timer fallback at the aim point.
+        t_arrive = Distance( v_from, v_aim ) / 2500;
+        if ( t_arrive < 0.1 ) t_arrive = 0.1;
+        level thread sentry_launch_blast( owner, v_aim, t_arrive );
+        return;
+    }
+
+    v_last = missile.origin;
+    n_t = 0;
+    while ( isdefined( missile ) && n_t < 4.0 )
+    {
+        v_last = missile.origin;
+        if ( isdefined( owner ) )
+            owner.acc_drone_rocket_until = GetTime() + 400;   // rolling refresh; self-expires 400ms past detonation
+        wait 0.05;
+        n_t += 0.05;
+    }
+
+    sentry_launch_blast( owner, v_last, 0 );   // already at detonation time - no extra delay
+}
+
+// The round-proof AoE at the rocket's real impact point: every valid zombie within
+// acc_drone_launch_radius takes an exact-mark player-attributed hit (heavier than the primary bolt -
+// it is the "big" secondary). Threaded on LEVEL so it survives the drone. ONLY zombies are damaged
+// (never the owner/teammates - and the native splash on the owner is zeroed by the _acc_elites
+// negation lane). set-then-DoDamage is synchronous per zombie, so no cross-mark bleed between them.
+function sentry_launch_blast( owner, v_center, t_delay )
+{
+    level endon( "end_game" );
+
+    if ( isdefined( t_delay ) && t_delay > 0 )
+        wait t_delay;
+    if ( !isdefined( owner ) )
+        return;
+
+    n_radius  = getdvarfloat( "acc_drone_launch_radius", 200 );
+    a_zombies = GetAITeamArray( "axis" );
+
+    for ( i = 0; i < a_zombies.size; i++ )
+    {
+        z = a_zombies[ i ];
+        if ( !sentry_valid_target( z ) )
+            continue;
+        if ( Distance( v_center, z.origin ) > n_radius )
+            continue;
+        sentry_apply_hit( owner, z, sentry_launch_damage( owner, z ), false );
+    }
+}
+
+// Round-proof damage for one launcher-blast zombie: a heavier floor + fraction than the bolt
+// (the launcher is the big AoE secondary). Default 306 flat / 45.9% maxhealth (the 2026-07-27
+// -15% then another -10%, x0.765 of the 400/60% originals). SWARM (3-stack easter egg): x1.5
+// after the max(), same as the bolt.
+function sentry_launch_damage( owner, z )
+{
+    // Boss/elite CHIP lane (user 2026-07-25): same recipe as the bolt but a heavier fraction -
+    // the launcher is the big secondary (~2.3x the bolt's chip, mirroring its 306/45.9% vs
+    // 168/19.1% normal-lane ratio). Still a fraction of ONE normal zombie's round HP, never the
+    // boss pool. 0.8 -> 0.68 -> 0.612 (2026-07-27 -15%, then another -10%).
+    if ( isdefined( z ) && sentry_is_tough( z ) )
+    {
+        n_base = ( isdefined( level.zombie_health ) ? level.zombie_health : 1000 );
+        n_dmg  = int( n_base * getdvarfloat( "acc_drone_launch_boss_frac", 0.612 ) );
+        n_dmg  = int( n_dmg * sentry_swarm_mult( owner ) );
+        if ( n_dmg < 1 )
+            n_dmg = 1;
+        return n_dmg;
+    }
+
+    n_dmg = int( getdvarfloat( "acc_drone_launch_damage", 306 ) );
+    if ( isdefined( z ) && isdefined( z.maxhealth ) )
+    {
+        n_frac = int( z.maxhealth * getdvarfloat( "acc_drone_launch_maxhp_frac", 0.459 ) );
+        if ( n_frac > n_dmg )
+            n_dmg = n_frac;
+    }
+    n_dmg = int( n_dmg * sentry_swarm_mult( owner ) );
+    if ( n_dmg < 1 )
+        n_dmg = 1;
+    return n_dmg;
+}
+
+// --- Item 1 (RETIRED 2026-07-22): Gas Tank -> nitro burst. Double-tap SPRINT = 5s +20% move
+//     speed, then a 30s lockout (cannot re-trigger until fully regenerated). The burst runs
+//     its full 5s and is not cancellable. Speed rides recompute_move_speed.
+//     DORMANT (kinetic-battery precedent): the pool entry was REPLACED by the Sentry Drone
+//     above (the acc_implants nibble is FULL at 15, so the new implant reused num 1 - user
+//     2026-07-22). Nothing references apply_gas_tank/remove_gas_tank anymore; the helpers
+//     stay for a future re-slot.
 function apply_gas_tank()    // self = player
 {
     self.acc_item_gas_tank = true;
@@ -1759,9 +2668,10 @@ function set_gas_bar_fill( frac )    // self = bar BG elem
 //     (get_closest_uncloaked_player). NEVER write .ignoreme directly - laststand
 //     shares the same counter; use the increment/decrement pair.
 // Phase Serum -> PHASE-BOSS SUPPRESSION AURA (user 2026-06-29 NERF, was a glitch-only cloak). It NO LONGER hides
-// you. While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 1/5 speed AND loses its blink
-// (its glitch ability), and any Phantom in the same aura is slowed by 30% (user 2026-07-11 - milder: gait
-// only, teleports keep working). Both can still SEE + chase you. Aura check = acc_utility::serum_aura_active;
+// you. While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 0.36x speed AND loses its blink
+// (its glitch ability), and any Phantom in the same aura is slowed by 24% (user 2026-07-22: whole item -20% -
+// the old 0.2 "basically freezes glitches"; glitch 80% -> 64% slow, phantom 30% -> 24%. Phantom slow was
+// gait-only from 2026-07-11, teleports keep working). Both can still SEE + chase you. Aura check = acc_utility::serum_aura_active;
 // read by _acc_boss_glitch (glitch_speed_think + glitch_blink_loop via acc_serum_suppressed) and
 // _acc_boss_phantom (phantom_speed_think). The old acc_cloak_glitch flag is cleared so the Stalker targets a
 // serum-holder normally again.
@@ -1769,7 +2679,7 @@ function apply_arnie_cloak()    // self = player
 {
     self.acc_phase_serum = true;
     self.acc_cloak_glitch = false;   // drop the old cloak - the Stalker CAN target a serum-holder now
-    acc_utility::log( "equip: phase_serum (phase-boss aura: glitch 1/5 + no blink, phantom -30% speed in range)" );
+    acc_utility::log( "equip: phase_serum (phase-boss aura: glitch 0.36x + no blink, phantom -24% speed in range)" );
 }
 function remove_arnie_cloak()
 {
@@ -2019,6 +2929,7 @@ function riot_shield_regrant_on_destroy()    // self = player
     for ( ;; )
     {
         self waittill( "destroy_riotshield" );   // stock notify from riotshield::player_take_riotshield (shield HP hit 0)
+        PlaySoundAtPosition( "acc_shield_break", self.origin );   // [acc] shield-break feedback, 3d at the owner so nearby teammates hear it too (sfx sweep 2026-07-22); this thread only runs while the rocket_shield implant is equipped
         regrant_sec = getdvarfloat( "acc_rocket_shield_regrant_sec", 60 );   // 1 min (user 2026-07-15, was 30)
         if ( regrant_sec < 0.05 ) regrant_sec = 0.05;
         wait( regrant_sec );
@@ -2232,7 +3143,9 @@ function spawn_bench()
 
 // DEV MODE ONLY (user 2026-07-08): lay out ONE pickup of EVERY pool item across the open
 // Plaza floor so a dev run can eyeball all the world models at once (added for the T7-carve
-// model swap QA). Hardcoded behind level.acc_dev per docs/22 - NO dvar. Anchored to the
+// model swap QA) - PLUS two extra Sentry Drones (3 total, user 2026-07-25) so the stackable
+// 3-copy SENTRY SWARM is testable straight from the grid. Hardcoded behind level.acc_dev per
+// docs/22 - NO dvar. Anchored to the
 // Plaza spawn struct exactly like spawn_bench(); the grid extends NORTH (+y) of the spawn
 // row into the open middle (the south wall is behind the spawn at y=-540). spawn_pickup()
 // floor-snaps every drop, so only the XY spread matters.
@@ -2302,6 +3215,58 @@ function dev_scatter_items( only_id )   // only_id (optional): place JUST that p
         }
         slot++;
     }
+
+    // STACK QA (user 2026-07-25 "have 3 of them spawn in plaza on dev mode"; spots REANCHORED same
+    // day after "I didnt see the other two"): the Sentry Drone is STACKABLE (3 copies = the SENTRY
+    // SWARM easter egg), so TWO EXTRA Sentry pickups join the one the pool pass already placed - a
+    // dev run can implant the full 3-stack straight off the Plaza floor. The v1 placement continued
+    // the grid onto ROW 5 (~170u past the last verified row, y~+959) and the copies landed on/inside
+    // the Plaza's north-side structures, where find_clear_ground's +/-85 nudges couldn't save them -
+    // spawned but out of sight. Now each extra takes the FIRST candidate whose ground TRACE-VERIFIES
+    // as open Plaza floor (scatter_spot_clear - the grid nudge's own 24u criterion, but able to
+    // REJECT), preferred order: the open strip between the spawn row and grid row 0 (the walkway you
+    // spawn facing - in your face on load), then a 4th column east of rows 0-2. Every candidate is
+    // >= 170u from every grid cell and from each other, so triggers can never overlap (the v2
+    // 128u-diameter lesson). Only if fewer than 2 candidates verify (should never happen - the south
+    // strip is the spawn's own walkway) does the remainder fall back to the v1 row-5 cells. Same
+    // persistent-QA treatment; honors the only_id filter (dev_scatter_items("sentry_drone") = 3).
+    it_sentry = find_item( "sentry_drone" );
+    if ( isdefined( it_sentry )
+         && ( !isdefined( only_id ) || IsSubStr( " " + only_id + " ", " sentry_drone " ) ) )
+    {
+        cands = [];
+        cands[ cands.size ] = base + ( 0,   -170, 0 );   // south strip, under col 0 (between spawn row + grid row 0)
+        cands[ cands.size ] = base + ( 170, -170, 0 );   // south strip, under col 1 (dead ahead of the spawn point)
+        cands[ cands.size ] = base + ( 340, -170, 0 );   // south strip, under col 2
+        cands[ cands.size ] = base + ( 510,    0, 0 );   // 4th column east, beside row 0
+        cands[ cands.size ] = base + ( 510,  170, 0 );   // 4th column east, beside row 1
+        cands[ cands.size ] = base + ( 510,  340, 0 );   // 4th column east, beside row 2
+
+        n_extra = 0;
+        for ( k = 0; k < cands.size && n_extra < 2; k++ )
+        {
+            if ( !scatter_spot_clear( cands[ k ], floor_z ) )
+                continue;
+            t = spawn_pickup( it_sentry, cands[ k ] );
+            if ( !isdefined( t ) )
+                continue;
+            t notify( "acc_item_claimed" );              // persistent - kill the 60s despawn watcher, like the grid
+            placed++;
+            n_extra++;
+        }
+        while ( n_extra < 2 )                            // absolute fallback: the v1 row-5 cells, unverified
+        {
+            p = find_clear_ground( base + ( n_extra * 170, 850, 0 ), floor_z );
+            t = spawn_pickup( it_sentry, p );
+            if ( isdefined( t ) )
+            {
+                t notify( "acc_item_claimed" );
+                placed++;
+            }
+            n_extra++;
+        }
+    }
+
     acc_utility::log( "dev scatter: " + placed + " item(s) placed in the Plaza (persistent)" );
 }
 
@@ -2323,12 +3288,22 @@ function find_clear_ground( p, floor_z )
     for ( k = 0; k < offs.size; k++ )
     {
         cand = p + offs[ k ];
-        tr = BulletTrace( cand + ( 0, 0, 60 ), cand - ( 0, 0, 2500 ), false, undefined );
-        if ( !isdefined( tr ) || !isdefined( tr[ "position" ] ) ) continue;
-        if ( abs( tr[ "position" ][ 2 ] - floor_z ) <= 24 )
+        if ( scatter_spot_clear( cand, floor_z ) )
             return cand;
     }
     return p;
+}
+
+// ONE-spot ground check (the find_clear_ground criterion factored out, no nudging): open Plaza
+// floor iff the down-trace lands within 24u of the reference floor height. Exists because
+// find_clear_ground can't signal failure (it falls back to the original spot) - the dev 3-Sentry
+// extras need to REJECT a blocked candidate and move to the next one (2026-07-25 "I didnt see the
+// other two": the v1 row-5 spots were on/inside the north structures and fell back silently).
+function scatter_spot_clear( p, floor_z )
+{
+    tr = BulletTrace( p + ( 0, 0, 60 ), p - ( 0, 0, 2500 ), false, undefined );
+    if ( !isdefined( tr ) || !isdefined( tr[ "position" ] ) ) return false;
+    return ( abs( tr[ "position" ][ 2 ] - floor_z ) <= 24 );
 }
 function spawn_bench_pad( org, slot )   // slot = fixed target index (0-based; one pad per implant slot)
 {
@@ -2363,11 +3338,23 @@ function bench_use_loop()    // self = a bench pad trigger; self.acc_bench_slot 
             continue;
         }
         // Already implanted in EITHER slot -> nothing to do (don't let it re-charge / dup).
+        // STACKABLE exception (Sentry Drone, user 2026-07-25): more copies are legal in OTHER slots -
+        // only a same-slot self-replace is refused (paying the swap cost to evict a Sentry and install
+        // the same Sentry would be a pure points sink).
         if ( player_has_item( player, carried ) )
         {
-            player iprintln( "Implant Bench: that item is already implanted" );
-            wait( 0.5 );
-            continue;
+            if ( !item_is_stackable( carried ) )
+            {
+                player iprintln( "Implant Bench: that item is already implanted" );
+                wait( 0.5 );
+                continue;
+            }
+            if ( player.acc_equipped_items[ slot ] == carried )
+            {
+                player iprintln( "Implant Bench: Slot " + ( slot + 1 ) + " already holds that - stack it on another pad" );
+                wait( 0.5 );
+                continue;
+            }
         }
 
         // FREE to fill an empty slot; ACC_BENCH_SWAP_COST to REPLACE this slot's current item.

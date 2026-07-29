@@ -27,7 +27,7 @@
 
 - **[05_mechanics.md](docs/05_mechanics.md)** — **Round pacing** (pressure pulses, elite timing, **early rounds 1–4**: higher spawn counts + faster zombies vs stock), **Point Economy** (70/110/100 + 70/30 co-op split + 5 anti-exploit rules), **Headshot Multiplier** (2.5x regular, 4x boss, Tac-19 excluded), **Data Shard flow**, **Side Events** (Hack Terminal 3-stage + Vault Overload 90s defense), **Emergency Drop** (3-Shard clutch button), **GSC module architecture**.
 - **[08_enemies.md](docs/08_enemies.md)** — Regular zombies, 3 elite classes (Shielded r5+, Teleporter r11+, EMP r21+), Glitch Stalker mini-boss (every 2nd round; count scales with round, r4=1, r6=2, r8=3, unbounded), boss rounds every 9 from r9 (roster roll from a 4-boss deck: The Phantom / Rogue Protector / Avogadro / Panzer; count scales r9=1, r18=2, r27=3), plus the Trench Warden (Brutus — one enemy, not two; debuts at power-on & r5+, respawns 3 rounds after each kill). HP scaling, spawn timing rules, boss counter weapons.
-- **[09_boss_items.md](docs/09_boss_items.md)** — 11 passive-buff items (Gas Tank, Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger, Nuclear Energy, Battery, Berzerker). 3 slots per player. Every boss kill drops 1 item via the unified reward; duplicates → 3 Shards.
+- **[09_boss_items.md](docs/09_boss_items.md)** — 15 passive-buff items (Sentry Drone [replaced Gas Tank 2026-07-22], Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger, Plasma Generator, Battery, Berzerker, High Caliber, Warhead Bomber, Hive Node, Dark Magic). 3 slots per player. Every boss kill drops 1 item via the unified reward; duplicates → 3 Shards.
 
 ### 4. Replayability & Run Variance
 
@@ -124,7 +124,7 @@ Boss counters: the Vibro Cleaver / Signal Staff counter-weapons and the Juggerna
 
 ### Boss Items
 
-- Pool: **11 items** (Gas Tank, Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger, Nuclear Energy, Battery, Berzerker). (reconciled to code 2026-07-11)
+- Pool: **15 items** (Sentry Drone [replaced Gas Tank 2026-07-22], Loot Stash, Repair Kit, Rocket Shield, Phase Serum, Boots, Lucky Horseshoe, Turbocharger, Plasma Generator, Battery, Berzerker, High Caliber Rounds, Warhead Bomber, Hive Node, Dark Magic). (reconciled to code 2026-07-22)
 - **3** equipped slots per player. (reconciled to code 2026-07-11)
 - Every boss kill drops 1 item (unified boss reward). ~~Mini-boss drop: 50% chance; full boss: 100% guaranteed.~~ (Full boss removed 2026-06-22.)
 - Duplicates → 3 Data Shards.
@@ -132,12 +132,22 @@ Boss counters: the Vibro Cleaver / Signal Staff counter-weapons and the Juggerna
 ### Perks
 
 - **10 total**: Jugger-Nog, Quick Revive, Speed Cola, Double Tap 2.0, Stamin-Up, Mule Kick, Deadshot, Widow's Wine, PhD Flopper, Electric Cherry. (reconciled to code 2026-07-11 — Electric Cherry is the real 10th, `specialty_combat_efficiency`)
-- **All perks at the Lab** (10 door-gated alcoves). Every round start, a random 4-of-10 alcoves open from the full roster.
-- No duplicates in rotation; no per-perk guarantees; equal weights.
-- 210 distinct 4-perk rotations per round (C(10,4)); 50 independent rolls in a 50-round run.
+- **MAP-WIDE PERK SCATTER (user 2026-07-24 — supersedes the Lab alcove-door rotation)**: the 10
+  machines live on **10 fixed pads spread across the map** — Plaza (permanently Quick Revive, solo
+  auto-power per stock), Lab ×2 (two of the old alcoves), Alley, Market, Helipad, Vault, the Bus
+  Station jukebox under-room, **Abyss Layer 2 past the first soul door** (user 2026-07-25 — a
+  perk reward for descending), and the Exchange — and the perk→pad assignment
+  **reshuffles at random at the start of every round divisible by 3** (3, 6, 9, …). The opening
+  layout is also random per run. Announced, but new locations are not revealed. **Spots = perks,
+  always**: every perk has a home at all times; adding a perk later means adding a pad with it.
+- **Pin (2 Empty Mega Bottles)**: a player who owns a perk's **Mega** can spend 2 bottles at its
+  machine to lock that perk onto its current pad for the rest of the game — the perk and pad both
+  leave the rotation. (Successor of the retired 2-bottle permanent door unlock.)
+- Perks stay power-gated until the Bus Station switch is flipped (machines relocate before power
+  too); owned perks are never affected by a scatter.
 - **Perk-slot cap**: everyone starts with 4 perk slots and buys additional slots with Data Shards up to 10 (all perks). (reconciled to code 2026-07-11)
 - Baseline HP: 3 zombie hits to die without Jug, **6** with Jug on this map (stock BO3 Jug = **5** hits before down).
-- **Route tension**: the Lab is now the map's highest-traffic zone; players route back every round to check the rotation.
+- **Route tension**: every 3rd round the whole map becomes the shop — players learn the new layout by traveling it (or pin the perks they care about).
 - **Mega Bottle upgrades**: every boss kill drops **1 Empty Mega Bottle per player** (both mini and full). Applying a bottle at a perk machine currently dispensing a perk the player owns **upgrades that perk to its Mega variant** (named like Savior, Gun Slinger, American Sniper, etc.). Mega flag persists through death for the run (re-buying the perk re-applies Mega). ~5 bottles max per 50-round run (from 5 boss kills); you cannot Mega all 10 perks in one run. See [10_perks.md](docs/10_perks.md#mega-bottles-system) and per-perk Mega under **Perk reference** in that file.
 
 ### Co-op

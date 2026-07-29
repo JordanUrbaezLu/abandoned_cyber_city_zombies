@@ -6,6 +6,1417 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
+### Changed — 2026-07-27 second pass: Cyberjack ALL-LANE −10% + Sentry Drone another −10%
+
+- (user: "Give the cyberjack another 10% nerf and drone another 10%. They are just too good.")
+- **Cyberjack ×0.9 on every damage lane** (broader than the 07-26 TEMPEST-only passes — the whole
+  gun): bullet-stream balance mult 0.32 → **0.288** (`_acc_damage.gsc` — ~234/shot, ~2786 base
+  DPS; jack-in chain hops fire the held weapon so they inherit it), TEMPEST normals base 1080 →
+  **972** (`acc_cj_storm_zombie_dmg`; one-hit windows now L1 ~r9 / L2 ~r16 / L3 ~r20 / L4 ~r26),
+  TEMPEST boss DoT `acc_cj_storm_dot_frac` 0.36 → **0.324** (L4 = 1.62× zHP per tick; full nerf
+  history 0.5→0.4→0.36→0.324), decompile DoT `acc_cj_dot_frac`/`_tier` 0.34/+0.08 →
+  **0.306/+0.072**. docs/43 updated (balance note + dvar table + as-built mult).
+- **Sentry Drone another ×0.9** (cumulative ×0.765 of the originals with yesterday's −15%): bolt
+  187/0.2125/0.2975 → **168/0.19125/0.26775**; launcher 340/0.51/0.68 → **306/0.459/0.612**.
+  docs/09 table synced. Full rebuild per user.
+
+### Changed — 2026-07-27 Sentry Drone −15% + Cyberjack storm slow now CHARGE-SCALED
+
+- (user: "We need a drone implant 15% nerf. Also make sure all cyberjack abilities scale with
+  teh charge. For example how much they slow currently should only be a max charge. I can do a
+  15 bullet charge and its super OP.")
+- **Sentry Drone −15% on all six damage lanes** (`_acc_boss_items.gsc` dvar defaults ×0.85):
+  bolt flat 220→**187**, bolt maxHP frac 0.25→**0.2125**, bolt boss-chip frac 0.35→**0.2975**;
+  launcher flat 400→**340**, launcher maxHP frac 0.6→**0.51**, launcher boss-chip 0.8→**0.68**.
+  Cadence/range/swarm untouched (rate is not damage). docs/09 dvar table synced.
+- **Cyberjack TEMPEST slow scales with charge** (`tornado_slow_refresh(lvl)`): the 50% slow is
+  now the MAX-charge value; slow fraction = 12.5% × level (**L1 12.5 / L2 25 / L3 37.5 / L4
+  50%**), finisher micro-storms = the L1 slow. This was the last charge-flat strength axis —
+  every aspect of the storm (damage, life, range, funnels, bolts, slow, ammo cost) now scales
+  with the charge level; only tick cadence, the 4-storm cap, and the corruption mark stay flat.
+  docs/43 updated. GSC-only; NOT yet rebuilt (user mid-game) — rides the next `-GscOnly` build.
+
+### Fixed — 2026-07-26 Rec-menu instance leak: marathon runs stopped recording at ~round 32
+
+- (user: "I died on round 38 and should have the record for solo now but I dont see [it in]
+  npm run summary".) The run recorded only through **round 31** (POSTed, `{"ok":true}` — it WAS
+  on the board at solo #3), then rounds 33-38 AND the end_game record silently vanished. Root
+  cause: `publish_and_open_rec` opened `acc_lb_rec` per record and **never closed it**, and the
+  **per-client pool of open LUI menu instances is finite (~32 observed)** — at the cap every
+  later `OpenLUIMenu` fails SILENTLY, and stock's intermission fades break too (the misleading
+  `lui_shared.gsc` "type undefined is not an int" error in the log). First game to ever record
+  past round 18, so the leak was invisible until a deep run. **Fix**: new
+  `close_rec_menu_after_io` thread (CloseLUIMenu after the 0.5s io-settle margin
+  `leave_flush_record` already used; no endon so the end_game close runs at intermission).
+  New memory `lui-menu-instance-cap`; docs/40 post-mortem section. The lost run backfilled via
+  the agent's own curl recipe (`backend/leaderboard/backfill_r37.json`, session upsert → R37).
+
+### Changed — 2026-07-26 wonder-weapon economy nerf (kills pay HALF) + Cyberjack TEMPEST −20%
+
+- (user: "wonder weapon kills give half the amount of money you would recieve for a normal gun.
+  This is a global nerf to wonderweapons since they are so striong. ALso the cyber jack charge
+  move seems to string... Can we nerf it by 20%?")
+- **Wonder-weapon kills pay HALF kill money** (`_acc_points.gsc`, the map's scoring authority):
+  new `is_wonder_kill` (reads the zombie's `damageweapon`; substring set = `_acc_damage`'s
+  wonder roster + Blast-O-Matic + CYBERJACK, inlined to avoid a `#using` cycle) halves `base`
+  before the co-op split — solo body 70→30, headshot 110→50 after the 10-unit floor; trench
+  kills 30→10 too. Ledger +10 and boss bounties untouched. docs/05 Point Economy updated.
+- **Cyberjack TEMPEST −20% then another −10%, and the normals one-shot is GONE** (user, three
+  messages same day): tough-enemy DoT `acc_cj_storm_dot_frac` 0.5 → 0.4 → **0.36**
+  (`storm_dot_tick`; L4 = 1.8× zHP per 0.3s tick, was 2.5×). Normals lane reworked
+  (`storm_one_shot` → **`storm_zombie_tick`**, user "I dont want it to just one hit zombies.
+  Same thing we do with bosses... a set damage... one hit for earlier round but not forever"):
+  SET flat tick damage `acc_cj_storm_zombie_dmg` (default **1080**) × the boss lane's lvl-mult,
+  NOT round-scaled — one-hits at L1 to ~r10 / L4 (5400) to ~r26, then takes multiple ticks even
+  at full charge. Corrupted zombies now also take storm ticks (the old one-shot skipped them).
+  Small jack-in finisher storms share the lane at lvl 1. docs/43 updated.
+
+### Changed — 2026-07-26 Winter's Howl −10% all around (second all-wonder-style pass)
+
+- (user: "Winterhowl needs a 10% nerf all around as well.") Every freezegun cone/shatter damage
+  var ×0.9 again in `_zm_weap_freezegun.gsc`, BOTH branches (active else-set AND the t8 lockstep
+  set): active base 1035/518/518/259 → **932/466/466/233**, upgraded 1553/777/777/518 →
+  **1398/699/699/466** (inner/outer cone, shatter inner/outer). Full history in the code comment
+  (1000-base → +15% 07-13 → ×0.9 07-18 → ×0.9 today). The +50%/PaP-tier ladder and the
+  freeze/slow utility are untouched (they scale off these bases / are not damage). docs/25
+  regenerated via gen_weapon_stats.js. Winter's Howl kills also pay HALF money since today's
+  wonder-economy nerf. GSC-only.
+
+### Fixed — 2026-07-26 live-test pass 2: D4 stair-landing blocker REMOVED (map was uncompletable) + office white-out root-caused (volume_sun ends at y4300)
+
+- (user: "going to last floor in trench there is some clip/model blocking you on the stairs...
+  preventing players from completing the map... the Scientist room is still white when you walk in.
+  Adds a whole white tint to my screen.")
+- **The L4→L5 (D4) stair landing was sealed shut by the M6 flesh hive** (`custom_ghost_hive01` at
+  (260,2105), clip x[197,323] y[2040,2170] z[-1200,-1080], placed by the 2026-07-18 M6 organics sweep):
+  it sat IN the D4 stairwell band (y[2045,2173]) — the EXACT spot `l5_column` was already moved off of
+  on 2026-07-13 ((240,2110)→470, "off the D4 stair landing") — and together with `m6_l5_brute1`
+  (x[132,208] y[1956,2024]) it pinched every exit from the final stairs to ≤20u slivers (player capsule
+  ~32u). Paradise unreachable. **Fix: hive REMOVED** (spawn in `_acc_abyss_deco.gsc::spawn_m6_l5` +
+  `m6_l5_hive` clip in `add_prop_clips.js`, clips regenerated — 100 brushmodel clips, was 101). The
+  brute + column stay (with the hive gone the landing exits east past x208 then south, wide open). The
+  D4 landing (x[112,~420] × y[1956,2173] on L5) is now a documented KEEP-CLEAR in both files + docs/30.
+- **Office white-tint root cause: the office pierces the map's single `volume_sun`** (north face
+  y=4300; office interior to y4568). volume_sun carries the night grade (`ssi acc_ssi_night_dim80`,
+  all 4 slots) + the lightgrid density — past y≈4300 the player's camera leaves the volume, the engine
+  falls back to the DEFAULT (bright day) ssi → whole-screen white exposure wash, exactly "a few steps
+  in" and nowhere else on the map (everything else sits inside). Same failure class as yesterday's
+  sky-box leak: the office was the first room to extend past a map-wide envelope. **Fix: volume_sun
+  north plane 4300 → 4640** (matches the new sky interior; office max y4588 covered). NOT YET REBUILT
+  (user mid-game) — both fixes are .map/BSP-class changes and need the next FULL build + LED bake.
+
+### Fixed — 2026-07-26 Scientist's Office live-test fix pass (SKY-BOX LEAK = white room/black gashes; desk gun invisible; desk is now a TRADE station)
+
+- (user live test: "the room has no light... my screen goes white... the prototype should be a gun model
+  on the desk. And it will remove the gun you are holding... like the gun exchange system we have near
+  plaza... some of the walls arent even built. I can see the bottom of the map".)
+- **ROOT CAUSE of the white-out + black void gashes + "missing walls": the map is SEALED BY ITS SKY
+  ENCLOSURE** (6 `sky`-material slabs, interior `y<=4268`) and the office (to y4588) was built **through
+  the north sky slab** — cod2map: "restricting BSP to sky brushes → ******* leaked *******" (`.lin` trail
+  from the office holo screen; the fresh `.lin` + the STALE `.d3dprt` portal file were the tell — the
+  5:13 PM pre-office compile sealed, the 5:50 PM office compile leaked). A leaked BSP = broken vis
+  (black gashes = the sky slab's CSG cross-section through the room; north of it renders the map
+  underside) + garbage light bake (fullbright white). **Fix: north sky slab moved `y[4268,4300]` →
+  `y[4640,4672]` + the other four slabs' shared north-edge plane 4300→4672** (else the shell gaps).
+  Sky-box dependency documented in the generator header for any re-run.
+- **Office lights were state-gated OFF**: the light entities copied the FOUNDRY light's field set
+  including `lightingstate1 "0"` — flipped to `"1"` (surface room, must be lit under power). Also added
+  the room's missing **reflection_probe** at (-75,4410,140).
+- **Desk gun was invisible**: the display used bare `SetModel(wpn.worldModel)` — the working idiom is the
+  armory rack's `UseBuildKitWeaponModel(player, wpn, camo, upgraded)` (worldModel-guard + ent-pool guard);
+  now verbatim that, with the blue pulse.
+- **Desk reworked into a PERPETUAL TRADE station** (was one-shot take-with-full-slot-deny): hold-USE
+  **swaps your held primary with the desk gun** — prototype first, then whatever the last trader left;
+  OC tier rides the desk gun via the armory's own `rack_tier_of`/`rack_restore_tier`; guards =
+  melee/placeable/non-owned-primary refusals (`is_primary_owned`). Exactly the plaza armory-rack
+  exchange semantics, per the user. FULL rebuild.
+
+### Added — 2026-07-26 THE SCIENTIST'S OFFICE: buyable Lab back-room (Exo station + permanent Jugg + paired random gun/implant desk loot)
+
+- (user, staged over several messages: "build a small scientist room in the back of the lab... lab coats
+  and other models that make science... In here will be the exo suit upgrade... buyable door on the back
+  side of lab where the perks used to be... cost 2000... called the scientists office... the lure is that
+  its the scientist's office that comes around and steals your gun" + desk loot pivot: "random item too —
+  gun damage boost / explosive / plasma (energy) implant. Alongside... a gun that matches that same
+  implant... random gun in that category excluding wonderweapons... random gun on desk and random implant
+  on ground. They will match in types" + "Place one of the lab perks inside the room and it will always be
+  jugg... regardless of solo or not" + "both need the blue unused station pulse" + "use the proper wall
+  decal for the lab and door".)
+- **The room** (`tools/oneshots/gen_scientist_office.js`, one-shot map surgery): interior
+  `x[-275,125] y[4248,4568]`, z256 ceiling, behind the Lab N wall where the perk alcove row used to be.
+  The N wall brush is SPLIT around a 96-wide doorway at `x[-123,-27]` (W/E segments + z[128,256] header —
+  the crown neon band at z200-228 rides the header, so the trim runs unbroken over the door). Shell =
+  the Lab's own `t7_zm_der_tile_hexagon`; door slab = the buyable-door-standard
+  `t7_metal_diamond_plate_worn_wet` (user: "the proper wall decal for the lab and door"). `lab_zone`
+  info_volume got a 4th brush over the room (OOB cover; same zone -> no zonemgr adjacency needed).
+  2 cool-white omni lights (the foundry-light field set).
+- **The door**: 2000 pts, `script_flag enter_scientist_office`, standard acc dual radius buy-triggers
+  (3 new entry-script switch cases: dest name "the Scientist's Office", trigger origin `(-75,4238,40)`,
+  Y-thin offset). Buy card announces the destination like every other door.
+- **Inside**: the **Exo Suit station** (pod at `(-200,4480,0)`; supersedes the same-day "beside PaP" spot
+  from the swap entry below — the OC→Plaza half of that swap stands); **Juggernog PERMANENTLY** on the
+  E-wall pad `(92,4420)` — the perk scatter's 2nd `fixed_spec` pad, unconditional solo or co-op
+  (`apply_scatter`'s fixed flow generalized off its QR hardwire — it always moved the QR handle, so a 2nd
+  fixed pad would have double-moved QR; + `spec_is_fixed` pool filter + Mega-pin refusal on fixed perks so
+  nobody wastes 2 bottles). Both stations keep the blue unused-station pulse (`glow_on` is
+  position-independent in both spawn helpers).
+- **Desk loot** (`_acc_scientist_office.gsc`, NEW module): ONE random category-paired set per game —
+  implant on the ground (**High Caliber Rounds** bullet / **Warhead Bomber** explosive / **Plasma
+  Generator** energy; the persistent `spawn_pickup` idiom, no despawn) + a **matching-category random gun
+  on the desk** (pool = live box registry filtered by the SAME `_acc_damage` classifiers the implants'
+  damage gates read — `weapon_is_bullet_gun` / `weapon_is_explosive_gun` / `is_energy_weapon` — so the
+  desk gun is always one its implant buffs; wonder weapons + Blast-O-Matic + CYBERJACK excluded; `_acc_`
+  twins skipped per the zombie_weapons-loop rule). Gun display = armory-rack worldModel idiom + blue
+  pulse; first-come take with full-slot deny (a give at the limit silently destroys the held gun);
+  no gun name in hint/toast (the 2026-07-10 armory precedent — the model IS the identity); router-safe
+  hint (no "for"). Deco: 12 BO4-office statics (desk/chair/coat rack + hanging coat/filing
+  cabinet/console/chemical tank/lit x-ray/holo screen/hazmat suit/papers) — every model already
+  zone-listed + baked elsewhere in this map (zero new assets); furniture clips `sci_*` in
+  `add_prop_clips.js`. Lore anchor documented in docs/44; room in docs/02; Exo in docs/29. FULL rebuild
+  (geometry). **Publish build.**
+
+### Changed — 2026-07-26 Exo Suit station ⇄ easy-access Overclock terminal SWAPPED (Exo → Lab beside PaP; Overclock → Plaza start room)
+
+- (user: "switch the exo suit station in plaza with the overclock station at lab", same day as the Lab OC
+  add below; reminder honored: "both need the blue unused station pulse" — both spawn helpers call
+  `acc_interact_glow::glow_on` on their model, so the cyan pulse is position-independent and survives the swap.)
+- **Exo Suit station** (`_acc_exo::spawn_station`): Plaza `(-200,-100,0)` → **Lab `(-500,3700,0)` yaw 180**,
+  the spot beside PaP the same-day Lab Overclock briefly held — PaP (Points) + Exo (Shards) now cluster as
+  the Lab upgrade hub. `exo_station` clip (shallow z=0 worldspawn, 58x53x114) moved with it.
+- **Easy-access Overclock terminal** (`_acc_glitch_altar::spawn_altars`): Lab → **Plaza start room
+  `(-200,-100,0)` yaw 0**, the pod's old spawn-band spot (immediately discoverable; clear of the start box,
+  leaderboard terminal, and all 4 plaza caches). Clip renamed `overclock_lab` → `overclock_plaza`
+  (brushmodel 48x34x78; auto-solid + auto-DisconnectPaths via the `acc_clip_*` prefix sweeps).
+- Trench/Abyss L2/L5 + Paradise Overclock terminals and everything else unchanged. `add_prop_clips.js`
+  re-run on the `.map`; docs/02 (Lab section + heading) + docs/29 updated. **FULL rebuild** (geometry:
+  both clips moved) — publish build.
+
+### Added — 2026-07-26 Second Overclock terminal in the Lab (easy-access; trench copies unchanged)
+
+- (user: "Place another overclock model in the lab. Many players aren't able to overclock because they
+  can't even get to the trench.") Overclocking had been **intentionally trench-only** (the Lab's map-placed
+  trigger was removed 2026-06-25 and a GSC guard ignores any above-ground *map-placed* terminal). This is a
+  deliberate **ADD** — a second, topside terminal in the Lab so reaching the trench/Abyss isn't required to
+  tier up guns. Not a bug fix; the user just wanted an easy-access one now.
+- **Placement:** a second, fully-working terminal spawned on open Lab floor **~200u east of Pack-a-Punch**
+  (`(-500, 3700, 0)`, yaw 180), clustering the two upgrade stations. West of the riser columns (start
+  x=-381) and clear of PaP's use-trigger. It gets the cyan "usable" glow + the proximity OC-report card
+  automatically (both ride `spawn_terminal_at`).
+- **Mechanism:** added one `acc_overclocks::spawn_terminal_at()` call in `_acc_glitch_altar::spawn_altars`
+  (the proven `wait 1` amenity site, same as the trench/Paradise terminals). `spawn_terminal_at` threads
+  `terminal_loop` directly, so it **bypasses** the trench-only `watch_terminal_trigger` guard (which only
+  rejects stray *map-placed* above-ground triggers — guard comment updated to say so). The trench L2/L5 +
+  Paradise terminals are unchanged; this is purely additive.
+- **Collision:** `overclock_lab` clip **queued** in `add_prop_clips.js` (goes solid on the next full
+  cod2map+LED bake); walk-through until then, exactly like the L5 terminal shipped. GSC-only build — no
+  geometry/BSP change this pass. docs/02 Lab section updated (also corrected the stale "T1-T5 / re-roll").
+
+### Changed — 2026-07-26 L4 Siege REMOVED; EPG-1 +50% damage/clip/reserve (Warhead synergy verified)
+
+- (user: "Remove the l4 siege from the game and buff the EPG 1 by 50% damage clip and reserve.
+  Also make sure it gets the explosive damage buff if they have the implant".)
+- **L4 Siege (`launcher_multi`) removed** one day after adding: CSV row
+  (`zm_levelcommon_weapons.csv`), box pool entry + `acc_box_weight` 124
+  (`_acc_map_randomizer`), `_acc_damage` entries (bal 0.2, DT no-extra-bullet, bullet-gun
+  exclusion, `weapon_is_explosive_gun`, launcher boss-cut), `_acc_pap_levels` (TOP bucket +
+  `make_l4siege_pap_visible_to_tier3` + call), dev-give (`_acc_dev` — dev-start is now
+  EPG-only), and the generators (`gen_weapon_stats.js` `BOX_STOCK_NO_GDT` now empty + its
+  docs/25 prose note; `gen_box_dynamic.js` RANK). Memory
+  `zm-levelcommon-stock-launchers-csv-only` marked removed (the CSV-only recipe stays valid).
+- **EPG-1 (`s1_mdl`) +50% damage / clip / reserve** — applied **RAW-side in the GDT** via the
+  tracked `tools/oneshots/reskin_mdl_epg.js` (new second-stage swaps AFTER the 07-25
+  normalization so a fresh Skye reinstall converges: inner 450→900→**1350**, direct
+  200→600→**900**, outer 125→**188**) so `acc_weapon_balance_mult` stays the convention-<1
+  **0.68** → **~2984 direct base** (was ~1989), PaP tier ladder unchanged on top. Clip 6→**9**
+  (both blocks); base reserve `maxAmmo`/`startAmmo` 18→**27** ROUNDS (`ammoCountClipRelative 0`);
+  the `_up` reserve left at 12 clip-RELATIVE magazines on purpose → 12×9 = **108** rounds
+  (+50% of the old 72 automatically; memory `ammocountcliprelative-reserve-units`). Oneshot run,
+  GDT verified on disk; docs/25 regenerated (EPG row: clip 9 / reserve 108).
+- **Warhead Bomber (+20% explosive) on the EPG: VERIFIED already applying, no change needed** —
+  the `_acc_damage` gate is `acc_item_warhead` + `is_explosive_mod` (the EPG's timed-fuse
+  projectile MODs qualify) and `s1_mdl` is neither on `is_energy_weapon` (the disjoint-class
+  exclusion) nor an unbuffed wonder; `weapon_is_explosive_gun` also lights its badge chip.
+  Docs: 04 (EPG buff + L4 removal note), 33 (note), 25 (regen). Lint + docs generator audit green.
+
+### Changed — 2026-07-26 Boss health nerf: −0.01 to every boss HP exponent
+
+- (user: "nerf all boss health by 0.01 exponent".) Every roster boss's per-round HP-**compounding exponent**
+  dropped by 0.01, uniformly — the relative tank ladder is unchanged: **Brutus 1.12→1.11**, **Panzer 1.1→1.09**,
+  **Rogue Protector 1.09→1.08**, **Phantom 1.07→1.06**, **Avogadro 1.07→1.06** (shares the Phantom's value —
+  its inline dvar fallback kept in lockstep), **Scientist 1.05→1.04**. The shared 65k base + round-5 anchor are
+  unchanged, so the cut **compounds with round number** (small early, large late): e.g. Brutus solo r40 ≈3.43M →
+  ≈2.51M, Phantom r40 ≈694k → ≈500k. The **Glitch Stalker + Apothicon Fury are untouched** — they use FLAT
+  normal-HP multipliers, not an exponent, so they're out of scope for "0.01 exponent". Each is a `#define` (or
+  inline literal for Avogadro/Scientist) with a matching live dvar that defaults to it (`acc_boss_mini_hp_exp` /
+  `acc_panzer_hp_exp` / `acc_protector_hp_exp` / `acc_phantom_hp_exp` / `acc_scientist_hp_exp`). Files:
+  `_acc_boss.gsc`, `_acc_boss_panzer.gsc`, `_acc_civil_protector.gsc`, `_acc_boss_phantom.gsc`,
+  `_acc_boss_avogadro.gsc`, `_acc_boss_scientist.gsc`. GSC-only (linker fast path). Docs: 08.
+
+### Changed — 2026-07-26 Solo Quick Revive priced at the stock 500 (was 2,500); co-op unchanged
+
+- (user: "solo quick revive should be 500 instead of 2500".) Our `set_perk_costs()` set
+  `level._custom_perks["specialty_quickrevive"].cost = 2500` as a flat int, which stock
+  `_zm_perks.gsc` applies to **both** solo and co-op (there is no stock solo=500 special-case
+  once a custom `.cost` is defined) — so solo self-revive cost 2,500 instead of the standard 500.
+- **Fix (`zm_abandoned_cyber_city.gsc`):** `.cost` for Quick Revive is now the fn pointer
+  `&quickrevive_cost`, which returns **500 when `zm_perks::use_solo_revive()` is true (players==1
+  or `force_solo_quick_revive`), else 2,500**. Stock reads `.cost` live as an int OR a function
+  pointer for both the machine charge (`_zm_perks.gsc:490`) and the look-at hint preview (`:386`),
+  so both the displayed and charged price track solo/co-op correctly, evaluated at buy time. Co-op
+  perk cost (and the co-op "buy-all" economy) is unchanged. docs/10 §2 + perk-audit table updated.
+
+### Fixed — 2026-07-26 Streetsweeper/XM4 silent reloads (foley alias names ≠ GDT anim tokens) + MDL reload foley
+
+- (user: "Streetsweeper reload sfx isnt working. Did we break this?") **Not a regression — born broken
+  2026-07-10** when the gun's alias rows were generated. Root cause: reload foley plays via the reload
+  xanims' `"2D Sound"` customnotes, which reference **UNsuffixed** tokens
+  (`wpn_t9_streetsweeper_shell_in` / `_knob_rotate`), but `gen_box_weapon_sounds.js` named each alias
+  after its wav **basename** (`shell_in1..4`, `knob_rotate1..3`) — alias lookup is exact-name, so every
+  shell-insert/knob sound in the reload loop was silence (only the `start`/`end` bookends matched). Same
+  bug on the XM4 (`regrip1/2` vs `wpn_t9_xm4_regrip`) — and docs/21 had already documented this exact
+  trap on the China Lake ("hand-add such guns") but the Streetsweeper/XM4 were generator-added anyway.
+- **Fix (`sound/aliases/acc_skye_box_weapons.csv`):** renamed the 7 Streetsweeper + 2 XM4 rows to
+  same-Name round-robin rows under the GDT token (the fire-`shot1..6` pattern; wav paths unchanged), and
+  added the 6 missing `s1_mdl` (EPG-1, in-flight) reload foley aliases (`mag_in`/`pre_mag_in`/
+  `rotate_start|stop`/`spin_start|stop` — GDT-token-exact, wavs shipped in the pack).
+- **Generator fixed at the source (`tools/oneshots/gen_box_weapon_sounds.js`):** now parses the installed
+  `source_data\skye_*.gdt` xanim customnote tokens and collapses `stem<digit>.wav` variants onto the
+  unsuffixed GDT token when one exists; exactly-referenced sequential names (`inspect_part1..4`) keep
+  their basenames. A re-run now emits the corrected rows (idempotent dedupe by Name).
+- Audited ALL in-map guns' GDT customnote tokens vs the alias CSVs — Streetsweeper, XM4, and MDL were the
+  only mismatches. Zone comment bumped (audio pass 12) to force the sound-bank regen (docs/21 §3 updated;
+  banks only repack on `.zone` content change).
+
+### Added — 2026-07-25 Two new explosive launchers: L4 Siege (`launcher_multi`) + EPG-1 (`s1_mdl` MDL reskin)
+
+- (user: "We need another explosive gun. What can we add that fits the map? Maybe an infinite warfare
+  gun idk" → after research, two DISTINCT explosive lanes vs the incumbent Mahem (LoS impact rocket) +
+  War Machine (impact frag drum). User picked the **EPG-1** (cyberpunk energy lobber) + the **L4 Siege**,
+  and: "give me both when dev mode is on so I can test easily".)
+- **L4 Siege (`launcher_multi`)** — a stock BO3 / Gorod-Krovi **semi-auto free-fire rocket launcher**
+  (smaller rockets, big mag, no per-shot reload = a sustained-fire lane). **KEY FINDING** (corrects an
+  earlier wrong "needs porting" call): its FULL asset set — `weapon,launcher_multi_zm/_upgraded_zm` +
+  `wpn_t7_loot_launch_multi_view/world/stow/projectile` + the `vm_multi_launcher_*` anims — already
+  ships in **`zm_levelcommon`** (the fastfile every usermap loads), so it drops in by a **CSV row ONLY**
+  (the octobomb/cymbal_monkey precedent): NO port, NO GDT, NO `weapon,` .zone line. The models are named
+  `multi_launcher`/`launch_multi` not `launcher_multi`, which is why a naive grep missed them (memory
+  `zm-levelcommon-stock-launchers-csv-only`).
+- **EPG-1 (`s1_mdl`)** — the AW MDL grenade launcher (already installed via the `source_data\skye_*.gdt`
+  manifest wildcard) **reskinned** into a neon plasma energy-**LOBBER**: slow high-arc **TIMED-fuse
+  airburst**. `tools/oneshots/reskin_mdl_epg.js` (tracked, idempotent, backup `.acc-epg-orig`) retunes
+  `projectileSpeed 3500→1400`, sets `projImpactExplode 0` on base + `_up` (keeps the lob identity through
+  PaP), normalizes the BASE raw UP to the `_up` (inner 450→900, damage 200→600) so ONE balance mult covers
+  both AND stays a `<1` reduction like every other gun (the +33/67/100% PaP tier ladder is the sole damage
+  progression — the Mahem model; equal base/_up raw avoids the `_up`-raw × papMult double-count), and repaints
+  explosion/trail/muzzle FX to **stock EMP/energy** (`fx_exp_grenade_emp` / `fx_trail_rocket_emp` /
+  `fx_muz_energy_shotgun_1p/_3p` — all verified in `share\raw\fx`; this also drops the not-in-raw
+  `fx_exp_rocket_default_sm` ref). The real Titanfall EPG-1 port was a dead end (Bunz thread 403s /
+  WaW-format / unconfirmed), so this reskin delivers the same niche with zero sourcing risk.
+- **Wiring (both):** CSV rows (`gamedata/weapons/zm/zm_levelcommon_weapons.csv`, mirror the Mahem launcher
+  row); box pool (`_acc_map_randomizer::register_mystery_box_pool`); box weight **hand-added** to
+  `acc_box_weight` (~124/128, TOP band between War Machine and MORS) + `pap_price_bucket` TOP (the
+  generator `gen_box_dynamic.js` has PRE-EXISTING drift from the hand-tuned live weights — RANK updated
+  for a future reconciliation, and a latent `GUN_W0`-undefined crash in its GSC-emit path was fixed);
+  `_acc_damage` (`acc_weapon_balance_mult` — L4 Siege 0.2 STARTING/raw-unverified, EPG-1 0.68 ≈1989
+  direct; `boss_nuke_mult` launcher ×0.50; `weapon_is_explosive_gun` = TRUE; DoubleTap no-extra-bullet
+  + bullet-gun exclusions); `_acc_pap_levels` (`make_l4siege_pap_visible_to_tier3` +
+  `make_epg_pap_visible_to_tier3` un-exempt the AAT launchers so the PaP machine stays visible past pack 2;
+  `register_special_upgrades`' generic loop auto-maps the non-twin `_up` forms); EPG-1 zone `weapon,`
+  lines; **dev-give** both in `_acc_dev::dev_give_starting_guns` (replaces the Alternator+Triple Take
+  dev-start — both launchers in hand when `acc_dev` is on).
+- **Follow-ups done same day (user 2026-07-25):** (a) EPG-1 **fire sound** wired — 4 fire aliases
+  (`wpn_s1_mdl_shot_plr/_npc` + `_pap_shot_plr/_npc`) cloned from the Mahem into
+  `sound/aliases/acc_skye_box_weapons.csv` via `tools/oneshots/add_mdl_sound_aliases.js`; the sound bank was
+  rebuilt (full cod2map64 build, no `no files for filespec`). (b) EPG-1 balance re-derived to a `<1` convention
+  value: base normalized UP to 900 raw + `bal 0.68` (was the out-of-convention 1.37 on 450 raw — which also
+  tripped the docs/25 generator's `bal <= 1` sanity check). (c) **docs/25** regenerated — EPG-1 added to the
+  ROSTER (Launcher section, live GDT stats); L4 Siege excluded from the auto table (`BOX_STOCK_NO_GDT` — stock,
+  no readable GDT) with a prose note.
+- **Still to-tune:** both **balance mults are starting values** — tune after the first playtest (L4 Siege raw is
+  baked/unknown; EPG-1 targets ~2000 at bal 0.68). No fastreload twins (optional, like the Mahem originally
+  shipped without). Docs: 04, 25, 33.
+
+### Changed — 2026-07-25 Low-health red screen now triggers at 30% HP (was 20%)
+
+- (user: "we have some custom logic to determine when your screen turns red… under 20% health.
+  Lets change that to under 30% health".) The red low-health vignette is gated by the stock
+  `level.healthOverlayCutoff` (`_zm_playerhealth.gsc:62` = `0.2`; the overlay fires when
+  `self.health/self.maxHealth <= level.healthOverlayCutoff`, re-read live every damage tick at
+  `:189`). Stock's ZM level init runs before `acc_main::init`, so `acc_perks::init()` now
+  overrides it to `0.30` (new `ACC_HEALTH_OVERLAY_CUTOFF`) and it sticks. This is the *trigger*
+  threshold — distinct from the earlier `health_overlay_sync` fix, which *stops* the (time-based)
+  pulse once HP is back to full. Docs: 10. Verified: `lint_gsc_xref` green (GSC-only, linker fast
+  path). Needs in-game test (screen reddens by ~30% HP; still clears at full).
+
+### Added — 2026-07-25 Game-over decision screen: YOU DIED + squad stats + RESTART MAP / END GAME (retry-on-death v2)
+
+- (user, from a tower-map screenshot: "Have the aetherium leaderboards show with options when you
+  die… We dont need fast restart or restart level. Just do restart map and have it function like it
+  does currently. But we dont want to just bring them to the bo3 lobby when they die.") The v1
+  retry prompt (IPrintLnBold + acc_ui card over the stock scoreboard) is replaced by a full
+  Aetherium death screen, and a wipe now WAITS for a decision instead of auto-exiting at 15s:
+  **new `ui/uieditor/menus/hud/acc_gameover.lua`** (full-screen glass; YOU DIED; YOU SURVIVED N
+  ROUNDS; PLAYER/SCORE/KILLS/DOWNS/REVIVES/HEADSHOTS squad panel in the board's visual language;
+  TIME SURVIVED tile; RUN SAVED chip; RESTART MAP hold-[Melee] / END GAME hold-[Aim] plates with
+  live tweened fill bars; 60s auto-END-GAME countdown) + rewritten
+  `_acc_leaderboard.gsc::offer_retry_on_death` (on the `end_game` notify: synchronously sets stock's
+  own `level._supress_survived_screen` switch and stretches `zombie_intermission_time` to 120 so
+  stock's `ExitLevel` is parked behind our window; releases stock's forced scoreboard via
+  `LUINotifyEvent(&"force_scoreboard",1,0)`; server-side any-player melee/aim hold poll →
+  `map_restart(true)` (v1's proven flash-free lane, unchanged) or `ExitLevel(false)`). Feed rides
+  per-player controller UI models `accGoInfo`/`accGoP0..3`/`accGoHold`/`accGoExit` (co-op-peer-safe;
+  `Engine.CreateModel`-before-subscribe badge-row recipe; every handler pcall'd; zero UITimers).
+  `publish_and_open_rec` latches `level.acc_go_recorded` for the RUN SAVED chip. Live-disable
+  `acc_retry_on_death 0` = untouched stock flow. Zone: `rawfile acc_gameover.lua`; precache:
+  `lui_menu acc_gameover`. Verified: `lint_gsc_xref` green, hksc syntax-compile green. Docs: 40
+  (v2 section).
+- **v2.1 same-day live-test fixes** (user: "i never saw the screen…the game cant end now…i
+  randomly get tabbed out at end of game"): (1) the v2 controller-UI-model feed was DEAD ON
+  ARRIVAL — the per-controller **Server UIModel pool is FULL**, every `accGo*` create threw
+  `SetControllerUIModelValue: max number of Server UIModels` (recoverable exception → silent in
+  ship; found via console_mp.log; new memory `controller-uimodel-pool-full`). Rewrote transport
+  budget-neutral: squad stats read **client-side** (stock `PlayerList.<i>` models +
+  `Engine.GetScoreboardColumnForClient(clientNum,1..4)` — the AetheriumScoreboard data path,
+  works on every machine incl. co-op peers; round = `gameScore.roundsPlayed`), dynamics ride
+  **dvars** (`acc_go_info/hold/exit`, 150ms UITimer poll w/ close-on-close hygiene, StartMenu
+  try-list reads, stale-dvar scrub at init; peers get static plates — their holds still decide).
+  (2) new **`gameover_failsafe()`** watchdog: independent thread `ExitLevel(false)`s at 90s if
+  the main flow ever dies — the game can never sit on the death screen forever (main ≤63s,
+  failsafe 90s, stock backstop ~120s). (3) **end-of-game tab-out fixed**: removed the
+  `record_at_end_game` agent ensure-boot whose cmd window yanked fullscreen BO3 to the desktop;
+  the queued POST is loss-proof without it (restart spawn-in boot / next app session sends the
+  queue). Docs: 40 (v2.1 transport + watchdog + ensure-boot notes).
+- **v3 same-day interaction rework** (user: "Why did you implement aim and melee? Its a menu…
+  Just make it a menu like when you pause a game you can go up and down from controller"): the
+  hold-melee/hold-aim gestures are GONE. GSC cannot read stick/dpad (only boolean action buttons
+  — the `_acc_movement.gsc` slide-steering finding), so the choice is now **the real pause menu**:
+  GSC re-enables the ingame menu stock disables at end_game (`SetMatchFlag("disableIngameMenu",0)`
+  — that flag being the only gate proves the menu works at intermission), sets `acc_go_active=1`
+  and force-opens `StartMenu_Main` (`OpenMenu` builtin, stock `_zm.gsc:636`).
+  `AetheriumStartMenu.lua` gains a dvar-gated game-over mode: exactly two native up/down entries
+  — **Restart Map** (the menu's proven flash-free `AccLbFlushThen → map_restart` lane, dedup-safe)
+  / **End Game** (the proven Leave Game disconnect lane) — "Game Over" title, DarkOverlay thinned
+  to 0.35, pause-only side panels hidden, initial focus on the list. `acc_gameover.lua` becomes a
+  pure backdrop (composition shifted left of the button column; hold plates → "choose in the menu
+  / [ESC] reopens" hint + countdown). GSC v3 reads no buttons: `gameover_countdown` (60s →
+  `ExitLevel`), choices act from the menu itself; `retry_do_restart`/decision-poll removed;
+  `acc_go_active` scrubbed at init so a mid-run pause menu stays normal. Co-op peers (host-only
+  dvar): backdrop + normal pause list — Leave works, restart is the host's call. Verified:
+  `lint_gsc_xref` green, hksc green on BOTH Lua files. Docs: 40 (v3 section).
+
+### Fixed — 2026-07-25 Low-health red screen kept pulsing after healing back to full
+
+- (user: "there are times your screen is red when you already are back to full health".) Root
+  cause: the stock red vignette (`_zm_playerhealth.gsc::redFlashingOverlay`) is **time-based,
+  not health-based** — below the 20% cutoff it pulses for `longRegenTime` (5 s) + a fixed
+  ~2.6 s fade tail and never re-reads `self.health`. Stock only *looked* health-driven because
+  stock very-hurt regen also waits exactly 5 s before healing, so overlay end and heal-to-full
+  coincided by construction. Our recovery modifiers (QR regen booster starts healing at
+  ~1.4–1.9 s; Jug purchase / Mega heals top off instantly) broke that alignment. Fix:
+  `_acc_perks.gsc::health_overlay_sync` (per player, per life, `acc_perk_life` idiom) fires
+  stock's designed external kill switch — `self notify("clear_red_flashing_overlay")`, the same
+  notify `_zm_laststand.gsc:1370` fires on revive — edge-triggered on the not-full → full
+  health transition. `watchHideRedFlashingOverlay` then fades the overlay in 0.05 s, clears the
+  flag, and stops the heartbeat loop sfx. Deliberately NOT gated on the
+  `player_has_red_flashing_overlay` flag (stock clears the flag at full health without stopping
+  the visual — that flag-off-but-pulsing state IS the bug). Docs: 10 (QR mechanics);
+  memory `red-overlay-time-based-clear-notify`.
+
+### Changed — 2026-07-25 Boss HP ladder retune: Panzer 1.10, Phantom/Avogadro 1.07, Scientist 1.05
+
+- (user: "Make the panzer 1.1 / Scientist 1.05 / phnatim 1.07".) Three rungs of the shared
+  65k-base/anchor-5 boss HP curve moved up: **Panzer 1.09 → 1.10** (`ACC_PANZER_HP_EXP` — splits
+  off the Rogue's rung into his own tier; solo r20 237k → 272k, r30 561k → 704k),
+  **Phantom 1.06 → 1.07** (`ACC_PHANTOM_HP_EXP`; solo r20 156k → 179k, r30 279k → 353k) and
+  **Scientist 1.04 → 1.05** (inline `acc_scientist_hp_exp` fallback; r15 ~96k → ~106k).
+  **Avogadro follows the Phantom to 1.07 by design** ("HP = EXACTLY the Phantom's") — his spawn
+  site duplicates the exponent as an inline dvar fallback, updated in lockstep
+  (`_acc_boss_avogadro.gsc`; lockstep note added at the Phantom define). Full ladder now:
+  **Brutus 1.12 > Panzer 1.10 > Rogue Protector 1.09 > Phantom/Avogadro 1.07 > Scientist 1.05**
+  (Brutus + Rogue untouched). Stale "tied with the Panzer" / old-ladder comments fixed across
+  `_acc_boss.gsc` / `_acc_civil_protector.gsc`. Docs: 08 (all four HP bullets + the boss-round
+  note), 44 (Scientist HP).
+
+### Fixed — 2026-07-25 Scatter swap presentation v2 (first cut read as "nothing" in live test)
+
+- (user: "I didnt notice any animation or anything when perks switched" — the log shows the
+  presentation DID fire; it was just too subtle: a 0.4 s glide is a blink, and the arrival
+  burst at body height sat buried inside the descending machine mesh.) Punched up in
+  `_acc_perk_scatter.gsc::move_machine`: descent slowed to **0.8 s** (`ACC_SCATTER_GLIDE_SEC`),
+  the arrival burst raised to **+90z above the model** (`ACC_SCATTER_ARRIVE_FX_Z` — no longer
+  occluded), and a new **landing punch** thread (`land_punch`): when the glide touches down the
+  machine plays the stock perk power-on ka-chunk (`zmb_perks_power_on` via the emitter
+  primitive), the stock machine shake (`Vibrate (0,-100,0) 0.3/0.4/3` — the exact
+  perk_machine_think power-on recipe), and one more de-rez flash at body height. Departure
+  burst unchanged (it fires in open air after the machine leaves and was already correct).
+- Docs: 10 (swap-presentation paragraph); perk-scatter memory (why each element is positioned
+  where it is — arrival FX must sit ABOVE a descending mesh or it reads as nothing).
+
+### Removed — 2026-07-25 Lab alcove geometry deleted; Lab perk pads split (N wall + decon tent)
+
+- (user: "Can you clean up the lab. We still have the coves for the previous perk implementation
+  but thats gone... Place the perks in distance spots in the lab. Keep one near the wall and
+  another inside one of the tents if possible".) The retired perk-alcove row is now **gone from
+  the `.map`**, not just held open: deleted the **9 partition fin brushes** (worldspawn,
+  `respace_perk_alcoves_10.js` output), all **10 `acc_perk_door_*` gate slabs** and the
+  **`acc_ec_right_wall` seal** (both script_brushmodel; the nook it sealed no longer exists) —
+  tombstone comments mark both sites. The N wall is a flat wall; the 4 LED strips + cyan crown
+  band stay as neon trim, and the invisible `zm_perk_machine` spawn structs at y4195 stay (the
+  opening scatter still relocates machines from there pre-blackscreen).
+- `_acc_perk_doors.gsc` slimmed to **registry-only** (`level.acc_perk_door_specs` for
+  `_acc_paradise` — the force-open + EC-seal code had nothing left to operate on).
+- **Lab pads split apart** (`_acc_perk_scatter.gsc::build_pads`): they sat 150u apart on the old
+  row; now **one on the N wall (75, 4195, 0)** (the verified old Mule Kick spot) and **one INSIDE
+  the S-wall decon tent (−560, 3103, 0), yaw 180** — the machine backs the S wall inside the big
+  curtain-open decontamination unit and faces out its 100u mouth; buy prompt reads at the mouth.
+  Known cosmetic tradeoff: the ~128-tall machine top pokes through the tent's z96 curtain-rail
+  band (the "inside a tent if possible" accept). Docs: 02 (Lab section + pad ledger), 10 (scatter
+  status + pad table; also refreshed the Mega "Usage"/"Timing" sections that still described the
+  dead door rotation). Geometry change ⇒ full LED-bake build.
+
+### Fixed — 2026-07-25 Sentry Drones survive the teleporter (fleet-warp + husk-heal + owner-line regression)
+
+- (user: "i took the teleporter and my drones disappeared.") Three-part hardening:
+  **(1) Teleporter fleet-warp:** `_acc_teleporter::do_teleport` now calls the new
+  `acc_boss_items::sentry_fleet_warp( rider )` for every rider at warp time — each live drone is
+  `SetOrigin`'d to a tight ring at the owner's arrival spot, so the fleet arrives WITH its owner
+  structurally instead of relying on the hover loop's leash snap noticing the displacement.
+  **(2) Husk-heal:** a drone whose hover thread dies (any silent runtime error) still
+  `isdefined()`s forever, so the old guardian counted it alive and never replaced it — the exact
+  shape of a "my drones disappeared" report. The hover loop now stamps a 20 Hz heartbeat
+  (`acc_hover_beat`); the guardian deletes any drone silent >2 s and respawns it fresh. Converts
+  every unknown strand cause into a ≤2.5 s self-heal.
+  **(3) Same-day regression fix:** the NotSolid edit accidentally dropped `d.owner = owner;` from
+  `spawn_sentry_drone` — every loop reads `self.owner` and self-deletes when undefined, so the
+  4:26 PM build's drones spawn/self-delete in an invisible 0.5 s cycle (never visible at all).
+  Restored, with a LIFELINE comment so it can't be silently lost again.
+  `_acc_boss_items.gsc`, `_acc_teleporter.gsc`.
+
+### Fixed — 2026-07-25 Sentry Drone no longer blocks the owner's shots
+
+- (user: "they always stay at one level and it blocks shots.") Two parts: the one-level feel is
+  covered by the same-day random ROAM height wander (±14u + bob on the 58u hover), but the real
+  defect was that the carved chassis mesh HAS bullet collision (players clip through it — no
+  `_col` LOD = no body solidity — but weapon traces still hit the mesh), and the drone orbits at
+  eye height, so it ate the owner's fire. `spawn_sentry_drone` now calls `NotSolid()` on the body:
+  player shots, drone bolts, and its own rockets all trace through it (this also removes the
+  rocket-birthing-inside-the-body detonation risk). `_acc_boss_items.gsc`.
+
+### Changed — 2026-07-25 Sentry Drone: random ROAM inside the orbit ring
+
+- (user: "One thing I want within the ring is random roaming. They currently go in a predictable
+  circle.") The hover anchor still rides the world-space orbit ring (the 2026-07-24 visibility
+  fix), but every 0.9–2.6 s each drone now re-aims a random radius fraction (0.45×–1.25× of
+  `acc_drone_orbit_radius`), pace (0.4×–1.7× of `acc_drone_orbit_speed`, forward-only so the
+  pass-through-your-view guarantee holds) and height offset (±14u) and EASES toward them (soft
+  ~1.7 s settle) — a wandering loop that swings in tight, drifts wide, hurries then lazes, and
+  never traces the same path twice. Per-drone wander state, so stacked fleets desync naturally;
+  swarm ×1.5 pace and all ring dvars still apply (the wander is multiplicative). No new dvars.
+  `_acc_boss_items.gsc::sentry_hover_loop`, docs/09.
+
+### Fixed — 2026-07-25 Sentry Drone: teleport hyper-speed streak + pause-menu desc simplified
+
+- **Teleport super-speed (user: "when you teleport ... the drone gains super speed"):** the hover
+  loop's leash "snap" was `MoveTo( anchor, 0.05 )` — not a teleport: the engine flies the mover the
+  whole displacement in 0.05 s, so a teleporter jump sent the drone streaking cross-map at
+  thousands of u/s (re-issued each tick until caught up). Beyond the 500u leash it now does a real
+  `SetOrigin` teleport (one frame, cancels the pending MoveTo; the drone has no collision and the
+  OOB monitor only polices players). `_acc_boss_items.gsc::sentry_hover_loop`.
+- **Pause-menu desc** (user): Sentry Drone `ACC_IMPLANT_INFO[1]` now reads exactly
+  "Hover drone attacks enemies near you" (`AetheriumStartMenu.lua`).
+
+### Changed — 2026-07-25 Sentry Drone now targets bosses + elites (chip lane, priority fire)
+
+- (user: "These drones need to target the bosses and elites. They dont currently.") The drone's
+  target filter previously EXCLUDED every boss marker (the standard octobomb-brutus splash
+  convention). Now `sentry_valid_target` allows and `sentry_pick_target` **PREFERS** tough
+  enemies — new `sentry_is_tough` = boss/mini-boss/`acc_boss_custom_speed`/elite/shielded/
+  Glitch/Fury (union of the cyberjack `is_corruptible`+`b_tough` marker sets); the nearest
+  tough target beats ANY normal zombie, and tough targets ignore the sibling stack-claims
+  (all drones may focus one boss — the claims exist to stop trash overkill). The launcher's
+  farthest-first pick inherits bosses automatically via the shared filter.
+- **CHIP damage lane** (both weapons; the exact mark bypasses the boss per-hit cap by design,
+  so a maxhealth-fraction bolt would melt the roster): tough hits deal a fraction of ONE
+  normal zombie's round HP (the cyberjack `storm_dot_tick` recipe) — bolt
+  `acc_drone_boss_frac` 0.35, launcher blast `acc_drone_launch_boss_frac` 0.8 (~2.3× the
+  bolt, mirroring the weapons' normal-lane ratio). Swarm ×1.5 still applies. Sustained
+  single-drone focus ≈ 0.57 zombie-HP/s — meaningful boss pressure, not a boss deleter; the
+  Trench Warden commit-gate still zeroes the mark in the trench window (documented
+  precedence). `_acc_boss_items.gsc` (SENTRY DRONE section), docs/09 (row + 2 dvar rows).
+
+### Changed — 2026-07-25 Dev starting loadout: Alternator (held) + Triple Take
+
+- (user: "in dev mode start me with the alternator and triple take".) `_acc_dev.gsc::
+  dev_give_starting_guns` now gives `apex_tripletake` then `apex_alternator` (order is
+  load-bearing: the TT give fills slot 2 while the pistol is held, the Alternator give then
+  replaces the held pistol via the 2-primary over-give — end state both Apex guns, Alternator
+  in hand). Replaces the D13+Skull start; history ladder kept in the function comment.
+
+### Added — 2026-07-25 Perk-scatter SWAP PRESENTATION: de-rez warp at both pads + materialize-glide
+
+- (user: "at least a SFX at the perk location when they swap. Lets enhance this somehow" — the
+  Nuketown fly-in referenced, built as our cyberpunk equivalent.) Every LIVE scatter move now
+  plays the teleporter's proven discharge read at **both** ends: `acc_utility::derez_burst`
+  (cyan de-rez numbers + zap — host-based, the pattern that actually renders here; bare server
+  PlayFX does not) + the `acc_teleport_warp` boom via `play_sound_at_origin` at the vacated pad
+  AND the destination. The machine model **materializes `ACC_SCATTER_DROP_Z` (60u) above its new
+  pad and glides down** over `ACC_SCATTER_GLIDE_SEC` (0.4 s) — purely cosmetic (trigger + clip
+  land instantly, so the glide can never trap/block; MoveTo on the stock machine script_model is
+  the zm_nuked-proven primitive). The pre-blackscreen opening layout stays silent. **Pin flair**:
+  a successful 2-bottle pin fires one de-rez burst on the machine as the lock lands.
+- Transient cost per scatter: ~9 temp sound emitters (2 s self-delete) + 0.5 s de-rez hosts —
+  well inside pool headroom; `play_sound_at_origin` drops the sound on a full pool, never throws.
+- Docs: 10 (swap-presentation paragraph); perk-scatter memory updated.
+
+### Fixed/Changed — 2026-07-25 HUD declutter: Aetherium compass strip removed
+
+- **Compass strip (top of screen) DISABLED** (user: players complaining about HUD clutter):
+  the Aetherium kit's `AetheriumCompass` widget is no longer instantiated in
+  `AetheriumHud.lua` — same ACC DISABLED convention as the kit's GobbleGum/RoundCounter
+  cuts (instantiation commented with a restore recipe; `require`, zone lines
+  (`AetheriumCompass.lua` rawfile + `sat_hud_horizontal_compass` material +
+  `i_mtl_ui_hud_compass_theme_aetherium` image), and the nil-safe alpha guards all stay,
+  so restore = re-add the 4 commented lines). Nothing gameplay-side feeds the compass
+  (no quest/objective markers ride it — the waypoint system was refuted for our use,
+  `_acc_dev.gsc` damage-number header), so the cut is purely visual. Lua-only change
+  (`-GscOnly` build). Doc: 11 (widget roster).
+
+- **Machine glow = the FX auras again** (user: "native glow doesnt work so we can go back to the
+  fx glows"): the 07-24 native attempt (stock `off_model`→`on_model` swap) shows NO visible power
+  delta in this build — refuted live, recorded so it is never retried. Restored: the
+  `glow_all_machines` aura pass (still strictly gated on the `power_on` flag — pre-power every
+  field is 0, no glow), the scatter's post-move 0→idx re-pulse, and Avogadro's aura-dark hack
+  visual — his **re-light is now gated on the power-on aura latch** (`level.acc_perk_glow_done`)
+  so a pre-power unhack can't light a machine early. NEW: `glow_rekick_watch` generalizes the
+  Paradise descent re-kick with a second band — first time any player drops below z=−100, the
+  under-room/Exchange/L2 machines (z∈(−600,−100]) get the 0→idx pulse, so scattered underground
+  machines actually render their glow on arrival (latched CF set far from a viewer never renders).
+  EC + PhD still LOOK lit at all times (inherently emissive models — asset work to fix, flagged).
+- **Pad 9 moved to ABYSS LAYER 2** (user: "passed the first soul door on a level below the bus
+  station trench"): (−748, 1790, −480) — L2 shaft W wall, straight west of the XS-well landing,
+  clear of the server row/rack/breakers/Overclock terminal/teleporter r110/wells. The jukebox
+  room is back to ONE pad (E wall). **No compile pre-cut**: deep (bot<−240) worldspawn clips
+  CRASH the LED bake (`add_prop_clips.js` header rule), and the L2 slab already carries
+  runtime-DisconnectPaths'd brushmodel clips (both breaker pillars + the terminal) that zombies
+  route around — the machine clip behaves identically, so the pit-only FIX BATCH 4 concern does
+  not apply. Change is pure GSC (`-GscOnly`).
+- **Concurrent-session .map clobber, confirmed live**: the dormant L1 `acc_scatter_trench_precut`
+  brush was WIPED by another session's `add_prop_clips.js` regeneration (guids in the generated
+  clip section shifted) — no functional loss (dormant), but the lesson is durable: hand-inserted
+  brushes inside a generator-owned .map section do NOT survive regens; register through the
+  generator's table instead.
+- Docs: 10 (pad table, glow paragraph, header), 02 (ledger + Bus Station line), 05/06/
+  REQUIREMENTS pad lists, 08 (hack visual note); perk-scatter memory updated.
+
+### Fixed/Changed — 2026-07-25 Avogadro all-perk hack audit: solo-QR shield, mule-gun stash, instant twin revert
+
+- Full per-perk audit of "hack any perk" vs every effect system (user: "lets think of each one
+  by one... we do have a twin system"). Verdict: 9 of 10 + PaP already correct by construction —
+  every custom effect gates on `HasPerk`/`has_active_mega_perk` per use, stock `perk_pause`
+  runs each perk's registered take-thread (give-thread on unpause), and the boss EMP has been
+  pause-cycling all 10 for weeks. The **twin megas** (Sleight/American Sniper) were already
+  handled by `_acc_weapon_variants`' live derivation (`HasPerk && mega` per axis + the 3 s
+  reconcile net) — a hack reverts the held gun's in-place twin to base automatically.
+- Hardening from the audit (`_acc_boss_avogadro.gsc`):
+  - **Solo Quick Revive is UN-hackable** (user: "prevent him from shutting QR in solo"):
+    `is_key_enabled` + a `do_hack` mirror skip QR while `level.using_solo_revive` (stock's own
+    solo-QR determination) — a solo down during a QR hack would otherwise be a run-ending death.
+  - **Mule Kick 3rd gun: stash-and-restore** (user): stock's pause take removes the at-risk gun
+    PERMANENTLY (slot-only return). New snapshot→diff→restore trio around the pause: primaries+
+    ammo snapshotted pre-pause, the taken gun identified after the take-thread runs, re-given
+    with its ammo after the unpause (per-player thread, deferred while downed, validated: full
+    death mid-window forfeits like a real mule loss; skips if re-acquired or slot refilled; no
+    forced weapon switch).
+  - **Instant twin revert/return**: hack + restore now poke
+    `acc_weapon_variants::request_reconcile` for `specialty_fastreload`/`specialty_deadshot`
+    so the in-place weapon-def swap lands the same frame instead of riding the ≤3 s net.
+- **Second review pass (same day — "make sure it doesn't cause bugs or annoyance"):**
+  (1) **re-hack cooldown** `acc_avo_rehack_cd_ms` (45 s, level-wide, stamped in `undo_hack`,
+  enforced in `is_key_enabled`) — uncapped hacking let him CAMP one machine (or ping-pong the
+  jukebox room's two pads) into a near-permanent blackout; a restored perk is now guaranteed
+  usable for the window. (2) **mule stash no longer forfeits on transient states** — the first
+  cut forfeited the gun if the restore fired while the player was downed or an overlapping
+  hack/EMP had mule re-paused; the restore thread now waits out laststand AND paused-but-tracked
+  states (~120 s cap) and forfeits only on a REAL loss (full death). (3) dbg prints use
+  `p.name` (stock field; `.playername` has zero stock-GSC precedent). Verified non-issues:
+  hack toasts ride the slot-0 in-place-refresh hud_msg (no stacking spam, incl. the
+  kill-restores-everything burst); a mid-seek scatter is self-healing (the seek re-reads
+  `target_origin` every 0.4 s tick, and TriggerEnable/dark-model ride the moved ents).
+- Docs: 08 (hack-audit hardening paragraph + cooldown), 22 (`acc_avo_rehack_cd_ms` row);
+  memory boss-plan updated.
+
+### Added — 2026-07-25 Sentry Drone is STACKABLE: the only implant legal in more than one slot
+
+User: *"This is the only implant that you can implant more than one on same character."* Up to **3 copies
+(one per bench slot) = up to 3 drones orbiting**. GSC-only; fresh `.ff` verified.
+
+- **Item-table flag + helper:** the sentry pool entry gets `.stackable = true` (the ONLY item that sets
+  it) and a public `acc_boss_items::item_is_stackable( id )`. Every duplicate gate in the pipeline now
+  consults it — **7 touchpoints** (grep `item_is_stackable`):
+  1. **Ground grab** (`watch_pickup`): an implanted copy no longer refuses the grab;
+  2. **Carried-dupe grab**: refused-and-LEFT on the ground ("implant it at a bench, then come back")
+     instead of shard-converted — a second copy is usable now, you just can't carry two at once;
+  3. **Drop-old-carry**: a carried Sentry replaced by a different pickup drops back to the ground even
+     while another Sentry is implanted (the old `!player_has_item` condition would have silently
+     discarded it — a stackable carry-while-implanted is REAL);
+  4. **`equip_slot`** hard gate ("never the same item in two slots") stands down;
+  5. **Bench** (`bench_use_loop`): stacking into another pad's slot allowed; only the pointless same-slot
+     self-replace (pay 2500 to swap a Sentry for the same Sentry) is refused — "stack it on another pad";
+  6. **Vault withdraw** (`_acc_transfer::withdraw_item`): a stackable duplicate withdraws normally (none
+     of the three documented jam conditions applies to it);
+  7. **Carried HUD nibble** (`push_implants_clientfield`): a carried-while-implanted stackable shows its
+     CARRYING chip (was hidden). Slot nibbles needed NO change — the `acc_implants` CF packs per-slot, so
+     two slots showing num 1 render two Sentry cards natively.
+- **Count-based fleet lifecycle** (`apply_/remove_sentry_drone` now run once PER COPY):
+  `acc_sentry_drone_count` copies = that many drones; `acc_item_sentry_drone` stays a plain bool (true
+  while count ≥ 1) so every drone loop's owner-check reads it unchanged. ONE `sentry_drone_guardian` per
+  player maintains the whole fleet (prune deleted / cull over-stock / top-up, respawn-after-death, spawn
+  retry under entity pressure); `remove_` decrements + culls one drone immediately (last copy tears the
+  fleet down and ends the guardian). Bleed-out wipe runs `remove_` once per slotted copy → count reaches
+  0 → everything gone, as before.
+- **Orbit phase auto-spread:** on any roster change the guardian re-spreads phases evenly anchored on
+  drone[0]'s current angle (2 drones = opposite sides, 3 = a triangle; no visual snap — the chase lerp
+  glides them onto the new arcs, and identical angular speed keeps the spacing forever).
+- **Stacked fire spreads:** a drone claims its bolt target for 0.7 s (`acc_drone_claim_until`);
+  `sentry_pick_target` prefers the nearest UNCLAIMED zombie (nearest-any as fallback, so the fleet never
+  holds fire) — 2-3 drones fan bolts across the horde instead of triple-bolting one zombie. Solo behavior
+  unchanged (the claim expires before the same drone's next 0.9 s shot). Rockets deliberately don't claim
+  (overlapping AoE at a far cluster is fine). The rocket self-splash window is overlap-safe for stacked
+  missiles by construction (every watch refresh SETS `GetTime()+400` — monotonic, can only extend).
+- **SENTRY SWARM set bonus (user, same day: "when you have all 3 implans as the drone ... increase by
+  50%. This will be a nice easter egg"):** ALL 3 slots = Sentry Drone → **×1.5 on every drone's damage
+  (bolt + rocket blast, applied after the round-proof `max()` so both the floor and the fraction scale),
+  orbit roam speed, and fire rate (0.9 s → 0.6 s bolts, 4.5 s → 3.0 s rockets)**. One helper
+  (`sentry_swarm_mult`, live dvar `acc_drone_swarm_mult` 1.5, floor-clamped 0.25 so a bad value can't
+  zero a wait) read LIVE at every consumer — no armed state; implanting the 3rd copy engages it on the
+  next tick/shot and breaking the stack disengages it identically. In-game it's advertised NOWHERE except
+  the `SENTRY SWARM` IPrintLnBold at the moment the 3rd copy is implanted (+ a power-down print when the
+  stack breaks) — the discovery is the easter egg.
+- **Dev-mode 3-Sentry QA** (user, same day: "Have 3 of them spawn in plaza on dev mode"): the Plaza
+  `dev_scatter_items` grid now places **two extra Sentry Drone pickups** on top of the pool pass's one
+  (3 total) so a dev run can implant the full 3-stack — and trip the SWARM reveal — straight off the
+  Plaza floor without farming boss drops. Same persistent-QA treatment (no 60 s despawn), honors the
+  `only_id` filter (`dev_scatter_items("sentry_drone")` = exactly 3 Sentries), and rides the existing
+  `IS_TRUE(level.acc_dev)` gate — no new flag, inert in every normal game (docs/22 rules).
+  **Placement fix (same day, live test "I didnt see the other two"):** v1 continued the grid onto row 5
+  (~y+959, 170 u past the last verified row) and both copies landed on/inside the Plaza's north-side
+  structures — spawned but out of sight (`find_clear_ground`'s ±85 nudges can't save a fully blocked
+  area, and it falls back silently). The extras now take the first candidates that **trace-verify as
+  open floor** via the new `scatter_spot_clear` (the grid nudge's own 24 u criterion factored out so it
+  can REJECT; `find_clear_ground` now calls it too — single source of truth): preferred spots are the
+  open strip between the spawn row and grid row 0 (**the walkway you spawn facing — in your face on
+  load**), then a 4th column east of rows 0-2; all ≥170 u from every grid cell and each other (the v2
+  trigger-overlap lesson), with the v1 row-5 cells kept only as an absolute fallback.
+- Docs: `docs/09_boss_items.md` (Duplicates section + item-1 row + dvar table).
+
+### Fixed — 2026-07-25 Boss bars: stuck-Phantom ROOT CAUSE + configstring churn + name size + Panzer title color
+
+- **Stuck Phantom row — root-caused and fixed for real** (2nd live repro; the 07-24 state-2 hardening
+  treated the symptom): the live log showed `PHANTOM|2|1` → `[phantom] Phantom down` → **no death push
+  ever** (while the slow-despawning Avogadro's `AVOGADRO|0|0` landed fine). Cause: the Phantom's corpse
+  is `Delete()`d **0.05s after death — faster than bb_pump's 4Hz tick** — and a deleted entity
+  reference reads `undefined`, so the pump's free-slot check (`!isdefined(acc_bb_boss[i])`) swallowed
+  the slot as EMPTY before the death check could run: no kill-pop, no clear, row frozen at its last
+  alive value. Fix: occupancy now rides a dedicated **`acc_bb_live` flag** (set/cleared only by
+  occupy/death/release/wipe); a live slot whose boss reference reads undefined falls through to
+  `bb_is_dead`'s `!isdefined` → the death push fires. All slot walkers (free-slot pick, wipe, repush)
+  converted off `isdefined(boss)` (`_acc_boss_nameplate.gsc`).
+- **BGCACHE configstring churn capped** (live-log find: every UNIQUE `SetControllerUIModelValue`
+  string registers a client configstring — 594 registrations in ~3 min of boss fighting with the
+  always-bumped seq; the pool is finite and its exhaustion class is a known CTD, docs/22 #6). Payload
+  is now `"<NAME>|<pct 5%-steps>|<state>[|r<n>]"`: pct quantized to 5% steps (~22 distinct strings per
+  boss life; identical strings re-register nothing), the per-push seq is GONE — steady pushes rely on
+  the pct change-guard for natural uniqueness, and ONLY the per-life repush window appends the `r<n>`
+  uniquifier (the one case that re-sends identical values into a freshly reopened menu). The Lua
+  parser already accepted both 3- and 4-field forms — no client logic change.
+- **HUD boss name bigger** (user): orbitron scale 0.5 → **0.62** in the bar rows.
+- **Panzer 3D title ^9 LIVE-REFUTED — renders SALMON, not gray** (screenshot, clashed with the
+  Warden's red): no gray `^` code exists in the draw-name renderer; Panzer's title falls back to
+  `^7` white (HUD row stays gray; the PANZER/THE SCIENTIST names differ, so the correlator holds).
+- **Bar colors reverted to the TRUE palette** (user, after the plate removal below: "revert the
+  color change... now that we removed the 3D plate we can make it look nicer"): with the bars as
+  the only indicator, the tint-calibrated palette (gold-orange/sea-teal/green/taupe/peach) lost
+  its reason to exist — the hostile tint only ever constrained the removed draw-name channel, LUI
+  rects render exact RGB. `ACC_BB_BOSS_COLORS` = the original ask: Phantom **yellow**, Warden
+  **red**, Avogadro **cyan**, Rogue Protector **true blue** (finally renderable), Panzer **gray**,
+  Scientist **white**.
+- **3D name plate REMOVED entirely** (user, after the tint recalibration below: "remove the 3D name
+  plate all around. The only indicator will be the right side boss bar"): the LUI `AccBossBars`
+  rows are now the SOLE boss indicator. `_acc_boss_nameplate.csc`'s name callback survives as a
+  `SetDrawName("")` STOMP (the Rogue Protector's asset pack sets its own "Civil Protector"
+  floating name at spawn — it must be actively cleared); all 5 actor CF registrations stay in
+  gsc/csc lockstep (CF-layout safety), `bnp_name_color`/`name_for_index` (csc) removed with the
+  renderer. Overflow bosses (6+) now have no indicator until a row frees. Every plate variant
+  (ASCII bar → name-only → styled identity chevrons) is restorable from git; the module keeps its
+  historical name.
+- **Boss colors recalibrated to the ENGINE HOSTILE TINT** (user: "the HUD and the 3d world label
+  dont match... Scientist is peach while his bar is white"): live-derived from two data points
+  (^7 white → PEACH, ^9 grey → SALMON), the draw-name renderer **multiplies** title ^-colors
+  through a warm enemy-name tint (~{1.0, 0.6, 0.45}) — pure white/grey/blue are UNRENDERABLE over
+  an enemy's head (blue → near-black). Both ends now calibrate to the RENDERED hue: Phantom
+  **gold-orange** (^3), Warden **red** (^1), Avogadro **sea-teal** (^5), Rogue Protector **green**
+  (^2 — the asked-for blue is engine-impossible; ^6 hot-pink is the one-line alt), Panzer **warm
+  taupe** (^9, nearest grey), Scientist **peach** (^7, embraced). HUD `ACC_BB_BOSS_COLORS` swatches
+  match the rendered hues (`_acc_boss_nameplate.csc::bnp_name_color` ↔ acc_hud.lua lockstep).
+- **Launchers now REFUSE to start during a build** (`PLAY_NORMAL.bat` + `tools/run_game.ps1`):
+  launching while the linker writes the `.ff` loads a half-written fastfile → torn Lua chunks →
+  an on-screen "UI Error" box (live-hit 3:31 AM: game launched 3:31:44, linker finished 3:34:07 →
+  **UI Error 44429** — code was fine, the read was torn). Both scripts now tasklist-check
+  `linker_modtools`/`cod2map64`/`radiant_modtools` and bail with a "wait for the build" message —
+  the whole game-reads-while-linker-writes collision class is closed off at the launcher.
+
+### Changed — 2026-07-25 LEADERBOARD: agent REUSE = no cmd-window flash on retries (players reported being scared)
+
+- (user: "players are commenting they are scared… call/update the DB WITHOUT that command prompt opening…
+  a quick retry so cmd doesn't need to open every time they retry… don't remove the leaderboards.")
+- **Root cause:** the ONLY thing that flashes a console is the single `os.execute` that launches the
+  background curl agent. The in-game spawn (`acc_lb_boot_chunk.lua::spawn_agent`) had **no reuse check**,
+  so `boot_agents → boot_agent_verified` re-spawned a fresh agent at EVERY match start (and up to 3× on a
+  flaky confirmation) — even though `BlackOps3.exe` (and the prior agent) persist across `map_restart`, so
+  every death→retry re-flashed a still-covered pipeline. Exhaustive research (6-angle workflow +
+  adversarial verification) confirmed a **windowless `os.execute` is impossible** (`system()` → `cmd /c`
+  always allocates a console for a GUI process) and **no non-`os.execute` network primitive is shippable**
+  (native LUI HTTP is a non-shippable injected DLL; scheduled-task/autorun = malware signature, refuted).
+- **Fix (the "quick retry" the user asked for, realized as agent reuse):** ported the launcher pre-spawn's
+  proven ping/pong handshake into the in-game path, GSC-driven and **pure-io (no `os.execute` → zero flash)**:
+  - `acc_lb_boot_chunk.lua`: two new modes — `ping` (delete stale pong, write `acc_lb_ping.txt`) and
+    `pongcheck` (read the agent's `acc_lb_pong.txt` reply, report `alive`/`dead`). Both early-return before
+    `spawn_agent`, same flash-free class as `check`/`set0`.
+  - `_acc_leaderboard.gsc::agent_is_alive()` — writes the ping, waits ~1.6s for the agent's poll loop to
+    answer, reads the pong. GSC drives the wait so each chunk open stays synchronous in `createMenu` (the
+    2026-07-12 UITimer freeze rule holds; CLAUDE.md:167 warning respected).
+  - `boot_agent_verified()` now **reuses first** (returns true with no spawn if an agent answers) and, after
+    each spawn open, **confirms via ping/pong before re-firing** — so one real spawn can never multiply into
+    2–3 flashes. Strengthens (does not weaken) the 2026-07-16 verified-spawn outage fix.
+- **Net:** exactly ONE flash on the first game of a fresh Steam app session, **ZERO on every death→retry→
+  restart thereafter**. Fallback on any handshake hiccup = today's spawn behavior, so it can never be worse.
+  All gating (dev-only storage), ladders, session-upsert and peer relay untouched. **Compiles + links clean
+  (fresh `.ff` 2026-07-25); needs a human in-game Steam-launch test before publish** (this pipeline is not
+  headless-verifiable — the scripted launch parks at the ENTER splash). Docs: docs/40 "AGENT REUSE".
+
+### Added — 2026-07-25 RETRY-ON-DEATH prompt (paired with the reuse fix above)
+
+- (user: "sure add both. Many of the tower maps allow for a restart map option — follow that pattern.")
+- **Retry on death** (`_acc_leaderboard.gsc::offer_retry_on_death` + `retry_do_restart`): on a game-over
+  wipe, after the leaderboard record lands (~3s), every player is offered an **instant in-place restart** —
+  "Hold [Melee] to RESTART this map instantly, or do nothing to return to the menu." Any player completing
+  a ~1.2s hold within a 12s window (safely inside the 15s stock `zombie_intermission_time`) triggers the
+  **stock `map_restart( true )` builtin** — the exact restart-on-wipe call stock uses at `_zm.gsc:6197/6245`
+  (gated there behind a dev dvar; tower/challenge maps ship it on). Paired with the agent-reuse fix above,
+  this restart is **flash-free** (the persistent agent is reused, no new `os.execute`). Prompt shown via
+  BOTH `IPrintLnBold` (proven to render at end_game) and the `acc_ui` card, so it can't be hidden behind the
+  scoreboard; if the player does nothing, the stock flow returns to the menu unchanged. The pause-menu
+  "Restart Level" (already `map_restart` via `AccLbFlushThen`) is now also flash-free for free. Live-disable:
+  `acc_retry_on_death 0`.
+- **Compiles + links clean** (fresh `.ff` 2026-07-25; pure GSC, no LUI change). **Needs a
+  human in-game test:** confirm the death prompt renders + a [Melee] hold restarts flash-free, and the tip
+  shows once. If the `acc_ui` card is hidden behind the scoreboard, the `IPrintLnBold` line still carries the
+  prompt (graceful fallback). Docs: docs/40 "AGENT REUSE / RETRY ON DEATH".
+
+### Added — 2026-07-24 CONTENT DROP: D13 Sector + 2 hero weapons + cyber riot shield + CYBER SLOTS
+
+- **UPDATE 2026-07-25 — DRAGON GAUNTLET DISABLED** (user: "it crashed my game"): native crash
+  ~0.5s after WIELD in the dev shakedown (console_mp.log cuts mid-write right after the Flamethrower
+  hint; the whelp was never released). Beams exonerated (both packed, assetinfo-verified); prime
+  suspect = the vendored .csc wield-FX batch (4 playViewModelFx on gauntlet viewmodel tags at
+  wield+0.5s). Pulled from the box pool (the randomizer array = sole authority; full forensics in
+  its commented entry), the dev loadout (reverted to D13+Skull), and docs/25 (generator SPECIALS
+  entry commented — completeness parity). Assets still pack; re-enable = staged repro first.
+- **UPDATE 2026-07-25 — CYBER SLOTS re-placed** (user: outside the room + floating): now
+  free-standing ON THE FLOOR inside the north under-room at (-250,2260,-187.2) (top-origin model,
+  floor -240), between the jukebox and the trench mystery box, facing the door; trigger + clip
+  moved with it (add_prop_clips rerun, full LED-baked build).
+
+- (user: "implement the new riot shield…, use the slot machine model…, add the Ripper… and the
+  D13 Sector to the mystery box". The Ripper has NO downloadable BO3 port anywhere — user picked
+  the **Dragon Gauntlet + Skull of Nan Sapwe** from HB21's Hero Weapons v2.0.0 as the substitutes.)
+- **D13 Sector** (`special_discgun`/`_up`, KOENTJE Disk Gun v1.0.1): box WONDER-tier ricochet-disc
+  launcher — randomizer pool + weight 12 (0.24%), claim cap 1 (`acc_cap_discgun`), WONDER PaP tier,
+  unbuffed-wonder damage class. Install fixes: `rpg.accu` → `default.accu` (aivsplayer rpg.accu is
+  NOT stock = the freezegun silent-drop trap) and the pack sound CSV rebuilt as
+  `sound/aliases/discgun_sounds.csv` — 16/18 `wpn\energy\discgun` wavs never shipped (whole-bank
+  `no files for filespec` risk); fire re-donored from the Apex B3 Wingman, lfe from the spike
+  launcher, act from the shipped disc foley; all `water,under` + bounce/loop rows deleted. Every
+  surviving FileSpec verified on disk.
+- **HB21 Hero Weapons (vendored subset)**: `_hb21_zm_hero_weapon.gsc/.csc` +
+  `_zm_weap_dragon_gauntlet.gsc/.csc` (verbatim) + `_zm_weap_keeper_skull.gsc/.csc` in git.
+  **CF-pool surgery on the skull**: `skull_beam_fx`/`skull_torch_fx` moved toplayer → allplayers
+  (toplayer FULL; allplayers had 2 registrations) with a `getLocalPlayer` guard on the 1P
+  viewmodel-FX callbacks; `thrasher_skull_fire` actor CF deleted (no thrashers).
+  Gravityspikes/glaive/annihilator modules STRIPPED (5 scriptmover + 3 toplayer bits = load
+  crash). NO `_zm_magicbox` override: stock already routes hero weapons through its own
+  `give_hero_weapon` (verified vs stock mirror line 1951); the framework finishes the give on
+  `user_grabbed_weapon` (drops any old hero, arms gadget state 2, power 100). Whelp needs the
+  new map-covering `nav_volume` (.map). Both in the box (weight 20/0.40% each, claim cap 1).
+- **Cyberpunk Riot Shield reskin** (Logical's mesh): `source_data/acc_riotshield_reskin.gdt`
+  shadows the 6 stock `wpn_t7_zmb_zod_rocket_shield_{view,world,dmg1_*,dmg2_*}` xmodel names with
+  `logical_m_yaw_shield_full` — usermap ff wins at load (customizationtable-shadow precedent).
+  The Rocket Shield boss item keeps NATIVE `zod_riotshield` mechanics untouched. Logical's own
+  crafting system (bench/parts/scripts) deliberately NOT wired. Fallback if the 1P view render
+  misbehaves: revert the 3 `_view` lines in zone + GDT (world/back-stow keeps the cyber look).
+- **CYBER SLOTS** (`_acc_slots.gsc`, Coolyer zm_slots v1.2 heavily adapted): working slot machine
+  as a wall-hung `p8_zm_off_cigarette_vending` panel (TOP-origin, hangs 52.8) on the NORTH
+  under-room west wall at (-150,2100,-130), south of the jukebox; glitch-altar spawn pattern
+  (script_model + `trigger_radius_use` + `TriggerIgnoreTeam`), clip via `add_prop_clips.js`
+  (`slots_vending`, brushmodel). 500 pts/spin, 5% triple / 20% pair. ACC reward remap: ALL
+  `player.score` writes → `zm_score::` API; jackpot = 2000 pts + **150 Data Shards**; bell = free
+  gun via `acc_glitch_altar::paradise_box_pick_weapon` (claim-cap-safe, heroes re-roll); clover =
+  1000 pts + 50 shards; skull = `zm_perks::lose_random_perk` (or half points); death = insta-down
+  (world-source DoDamage — self-attacker would be MOD-whitelist-zeroed); diamond/coin/banana =
+  powerup drops. 11 Flaticon reel materials via `_custom\_coolyer` GDT + zone `material,` lines.
+- Wiring: entry gsc/csc `#using`s (freezegun pattern), zone content-drop block (weapons, fx,
+  scriptbundles, whelp vehicle, shadow xmodels, slots materials), szc `discgun_sounds` +
+  `t7_hero_weapon_sounds` alias sources, 3 `zm_levelcommon_weapons.csv` rows, manifest entries
+  (all 4 packs, same-day rule) + CREDITS.md rows + IP-checklist items. New box guns ride the
+  GENERIC box card (the 5-bit `acc_box_gun` id table is full at 31/31 — toplayer pool can't widen).
+
+### Changed — 2026-07-24 AVOGADRO REWORK for the scatter era: all-perk hacks, no cap, faster
+
+- (user: "he can turn off any perk. And any amount at once. He also moves faster" — the planned
+  rework from earlier today, now built.) `_acc_boss_avogadro.gsc`:
+- **Hacks ANY perk**: `target_keys()`/`is_hackable_perk_key()` now cover **all 10 specialties +
+  PaP** (was Jugg/QR/Stamin/Widow's/EC). PhD rides `specialty_electriccherry` (the cherry
+  hijack), Electric Cherry rides `specialty_combat_efficiency`; `display_name()` filled in for
+  the 5 new keys. Safe by construction: the boss EMP already `perk_pause`s the full roster
+  map-wide, the hack/unhack side-effect surface is key-generic (`apply_hack_effect`,
+  `set_vending_triggers`, the native off-model dark visual, `perk_color_index` covers all 10),
+  and the only STATEFUL mega cleanups (Jugg HP / Flash speed / Widow's stance) were already
+  handled in `_acc_mega_bottles::on_perk_hacked/on_perk_restored` — every other perk's effects
+  read live through `has_active_mega_perk`, which excludes hacked keys generically.
+- **No simultaneous-hack cap**: `ACC_AVO_MAX_HACKS` (2 per boss) deleted from `hack_director` +
+  `do_hack`. Counter-pressure = each hack's own 30 s expiry (`acc_avo_hack_secs`) + his travel
+  time between the scattered pads + all his hacks restoring the moment he dies (the
+  owner-death and last-boss force-restore paths are unchanged). One-hack-per-machine still
+  holds for multi-Avogadro rounds. `boss_hack_count()` kept as heartbeat diagnostics only.
+- **Faster — by ONE ladder rung**: `acc_avo_anim_rate` default **1.15 → 1.2** (user, mid-build:
+  "be careful with the speed lever — it's super sensitive, as you will see in the history"; the
+  07-06 ladder felt 0.05 steps and even 1.2 was once walked back, so the rework climbs one
+  proven rung instead of leaping — the catch-crossover sits somewhere in (1.2, 1.5)). Read at
+  spawn; push it live (`acc_avo_anim_rate 1.25`) and the next Avogadro picks it up.
+- The scatter already made his seek a map-wide tour (target cache re-syncs on
+  `acc_perk_scatter_applied`; unreachable pads — e.g. a machine behind the unopened Exchange
+  door — ride the 30 s seek blacklist + 12 s player-chase window).
+- Docs: 08 (blockquote → built, spawn/movement/hack bullets), 22 (Avogadro section header +
+  `acc_avo_anim_rate` row), boss-plan memory.
+
+### Fixed/Changed — 2026-07-24 Sentry Drone (item 1): ORBIT motion + VISIBLE bolts + a rocket-launcher secondary
+
+User feedback on the live Sentry Drone: *"It should be orbiting around the player. Right now its pretty
+stiff with the player. When I try to look at it I cant cause its stuck behind my player. Also it doesnt
+shoot an actually prohjectile so i cant see its shots. Can you give it actually projectiles and also give
+it a launcher as a secondary firing projectile."* All three addressed in `_acc_boss_items.gsc` (the SENTRY
+DRONE section); **GSC-only, fresh `.ff` verified** (no `.csc`/`.zone`/geometry change — the bolt reuses an
+already-registered clientfield and `s1_mahem` was already in the weapon table).
+
+- **MOTION → a WORLD-SPACE ORBIT** (fixes "stiff … stuck behind my player, I cant look at it"). The old
+  hover anchor was a FIXED right-shoulder offset built from `owner.angles[1]` (`v_right·SIDE − v_fwd·BACK`),
+  so it was **locked to your view** — it rode behind wherever you turned and you could never face it. The
+  anchor is now a point orbiting you on a **world XY ring**: `owner.origin + (Cos(θ)·r, Sin(θ)·r, hover+bob)`
+  with `θ` free-running at `acc_drone_orbit_speed` (65°/s ≈ a lap every 5.5 s) — independent of your facing,
+  so it drifts around you and passes through your view every lap (turn and it's right there). Same 20 Hz
+  MoveTo exponential chase + sine bob + eye-trace wall clamp + 500 u leash snap. Idle facing now looks along
+  the orbit tangent (patrolling) instead of the owner's yaw. Precedent: the `_acc_boss_scientist` reposition
+  ring uses the identical `center + (Cos·r, Sin·r, 0)` pattern. Radius/speed/height are new **live dvars**
+  (`acc_drone_orbit_radius` 72 / `acc_drone_orbit_speed` 65 / `acc_drone_hover_z` 58) so the feel is tunable
+  in-game without a rebuild. Retired `ACC_DRONE_SIDE`/`ACC_DRONE_BACK`.
+- **PRIMARY FIRE → a VISIBLE plasma bolt** (fixes "it doesnt shoot an actual projectile so i cant see its
+  shots"). The instant `sentry_zap` is replaced by `sentry_fire_loop` → `sentry_bolt_flight`: a `script_model`
+  mover flies drone→target and the round-proof exact-mark hit lands **on arrival**. The visible trail reuses
+  the **Triple Take `acc_ttk_bolt_fx` scriptmover clientfield (value 1 = blue geotrail)** — **ZERO new CF
+  bits**, the scriptmover pool is FULL (memory `scriptmover-clientfield-pool-full`); the `_acc_tripletake.csc`
+  callback already renders values 1/2/3, so no client change. Avogadro gotchas honored (min-flight 0.25 s,
+  no handle-less world PlayFX; flight threaded on LEVEL so a mid-flight drone Delete can't strand the mover).
+  New dvar `acc_drone_bolt_speed` (4000 u/s). Damage math unchanged (`max(220, 25% max HP)`, round-proof).
+- **SECONDARY FIRE → a ROCKET LAUNCHER** (the requested "launcher as a secondary firing projectile"). New
+  `sentry_launcher_loop` (cadence `acc_drone_launch_sec` 4.5 s) `MagicBullet`s a **real, VISIBLE `s1_mahem`
+  rocket** — its own model, smoke trail, explosion, boom — the exact `_acc_civil_protector::mahem_shot`
+  recipe, but **attributed to the OWNER** so kills still credit you (player-attributed remote-origin
+  MagicBullet precedent: the cyberjack chain hops). It targets the **FARTHEST** qualifying zombie beyond
+  `acc_drone_launch_min_range` (260 u) — the rocket is the long-range weapon, the bolt owns close range.
+  The **actual kill is a round-proof scripted exact-mark AoE** (`sentry_launch_blast`) at the impact point
+  (`acc_drone_launch_radius` 200 u, `max(400, 60% max HP)`) — the native `s1_mahem` damage is just the
+  visual and would fall off at high rounds. New dvars `acc_drone_launch_sec` / `_min_range` / `_radius` /
+  `_damage` / `_maxhp_frac`.
+- **REVIEW-PASS FIXES (same day — 8-agent adversarial verify, 1 HIGH bug confirmed 4/4, both fixes below):**
+  - **Owner self-splash ZEROED (the confirmed bug):** a player-attributed `s1_mahem` splash on the FIRER
+    passes stock's self-damage MOD whitelist (`_zm.gsc:1435` — `MOD_PROJECTILE_SPLASH` is allowed; that's
+    why PhD exists) at the raw ~3100 one-shot, and the existing rocket cap in `_acc_elites` (:565) is
+    **gated on `eAttacker.acc_is_rogue_protector`** so it never applies to a player attacker. Since the
+    drone orbits, it can fire from your far side ACROSS your position, and a crossing zombie detonating
+    the rocket beside you = instant self-down, roughly whenever the orbit lines up. Fix: the missile watch
+    holds a **rolling `acc_drone_rocket_until` window** on the owner (self-expiring-timestamp pattern, the
+    `acc_hive_covered_until` precedent) and a new lane at the top of `_acc_elites::on_player_damaged`
+    returns **0** for a **self-attributed `mahem` hit inside the window** — window-gated so a hand-fired
+    box Mahem outside a drone flight keeps its normal self-splash risk (no silent balance change).
+    Teammates never needed a lane (stock `_zm.gsc:1427` "players can't hurt each other"; the scripted AoE
+    is zombie-only by construction).
+  - **Blast lands at the REAL detonation point:** `MagicBullet` returns the missile entity (stock
+    precedent `_remotemissile.gsc:241`), so the new `sentry_rocket_watch` polls it in flight and fires the
+    scripted AoE **where and when the rocket actually detonates** — a crossing zombie / doorframe blowing
+    it early no longer leaves invisible "ghost" damage at the far aim point while the visible explosion
+    happened elsewhere. This replaced the `acc_drone_rocket_speed` guess-timer dvar (dropped; a nominal
+    2500 u/s timer survives only as the no-missile-handle fallback).
+- Shared plumbing: `sentry_apply_hit` (exact-mark player-attributed DoDamage + optional impact arc — arc off
+  for the rocket blast since the explosion is the FX) and `sentry_muzzle` (drone-origin nudged toward the
+  target so bolts/rockets don't birth inside the ~47 u body). Both the bolt and the blast run their
+  set-mark-then-DoDamage per zombie synchronously on a per-entity field, so there is no cross-mark bleed.
+- Docs: `docs/09_boss_items.md` (item-1 row rewritten + the full dvar table).
+
+### Fixed/Changed — 2026-07-24 Perk scatter first-live-test feedback: NATIVE machine glow + pad corrections
+
+- **Machine FX auras RETIRED → native power glow** (user: "the way the perks glow ... i know its
+  wrong. Perks have a native glow that usually lights them up when they turn on"): the per-machine
+  `accPerkGlow` colour auras are gone. Machines now read on/off purely via the **stock
+  `off_model`→`on_model` swap** in `perk_machine_think` (dark until the corp switch, lit after —
+  native, position-independent, follows the scatter for free; also removes any pre-power glow by
+  construction for every machine with a real model pair). `_acc_perk_lights` keeps ONLY the PaP
+  glow hosts + the shared 11-15 indices (purge/shard/loot/abyss); `pulse_deep_glows` no longer
+  touches machines; the scatter's post-move re-pulse is deleted. `_acc_boss_avogadro`'s hack
+  visual converted to the same lever: hack = force the off model, unhack = restore the on model
+  **iff that machine's `power_on` is set** (a pre-power unhack can no longer light a dead
+  machine); machines with no usable pair are skipped. **Known limitation:** Electric Cherry (one
+  emissive West-pack model both ways) and PhD (nuke placeholder; its registered cherry p6 models
+  are unpackable) have no off/on delta — they look constant across power; fixing those needs
+  darkened model variants (asset work, flagged to the user).
+- **Trench pad moved INTO the jukebox/reactor room** (user: "should be inside the same room as the
+  jukebox. Not in the open area"): the Bus Station depths now hosts TWO pads — E wall (351, 2234,
+  −240) + S wall (230, 2222, −240); the open-pit L1 pad is gone. Its `clip_ai` navmesh pre-cut
+  brush (`acc_scatter_trench_precut`) stays in the .map, dormant + harmless (AI-only, wall-flush;
+  documented for reuse if a pit pad ever returns) — no geometry change needed for this fix.
+- **33u wall-standoff sweep** (user: "the perk machine inside the Vault is inside the wall"): the
+  flush-mount pads sank the vending model into their walls — every wall pad now uses the Lab
+  row's in-game-verified 33u origin-to-wall-face standoff. Moved: Plaza x −452.5→−437, Market
+  y 397.5→413, Helipad y 2297→2313 (unstick push 45→38 to stay short of the tripod clip), Vault
+  x 1137→1152, jukebox E pad x 366→351. Convention documented in `build_pads()` + the docs/02
+  ledger ("never place a pad closer than 33").
+- (Same session: the 21:57 no-start was resolved — the crashing artifact was the 8:08 PM
+  build-race between two agent sessions' builds + the first sound-bank regen in weeks; a clean
+  sequential full rebuild loads fine. The second launch attempt was blocked by Steam's
+  launch-args confirmation dialog, not the map.)
+- Docs: 10 (pad table, mechanism, header), 02 (ledger + standoff note + Bus Station line),
+  05/06/REQUIREMENTS pad lists.
+- **PLANNED (user, same session — not built): Avogadro rework** for the scatter era — he should
+  hack **ANY perk** (all 10, not the 5-key subset), with **no simultaneous-hack cap**, and
+  **move faster**. Directive + design questions recorded in docs/08 (Avogadro blockquote), a
+  `TODO(acc)` in `_acc_boss_avogadro.gsc::init`, and the boss-plan memory.
+
+### Fixed/Changed — 2026-07-24 Boss bar stuck-row hardening + styled 3D title (post-first-live-test)
+
+- **Stuck-row hardening** (user: "the phantom bar never went away"): when a killed row's 1.2s fade
+  hold expires, `bb_pump` now ALSO pushes a hard state-2 clear before any backfill — so a death
+  payload that gets missed/mis-ordered client-side can never strand a visible row (`_acc_boss_nameplate.gsc`).
+  (Note for the next test: a bar that persists can also be CORRECT — a still-alive Phantom hiding
+  cloaked somewhere keeps its row by design; its `>> PHANTOM <<` 3D title confirms if found.)
+- **Styled 3D title in PER-BOSS identity colors, matched to the bars** (user: "just plain text, not
+  even nice font style" → "align the color" → final same-day: "each boss to have its own color"):
+  the engine draw-name renderer's font is FIXED (no font control exists on that channel), so the
+  title uses the string-level levers — targeting chevrons `>> NAME <<` rendered **entirely in the
+  boss's identity color**: Phantom **yellow** `^3` / Trench Warden (Brutus) **red** `^1` / Avogadro
+  **cyan** `^5` / Rogue Protector **blue** `^4` / Panzer **gray** `^9` (T7 grey code; fallback `^7`
+  if it renders wrong) / **The Scientist white** `^7`. The `AccBossBars` rows retint to the same hue
+  on arm (LED + name + halo + fill + a dim same-hue damage-ghost — a fixed pale ghost washed out on
+  the light fills): name-keyed `ACC_BB_BOSS_COLORS` in acc_hud.lua, LOCKSTEP with `bnp_name_color()`
+  in the .csc (color keys off the existing `acc_bnp_name` index — `acc_bnp_hp` is now SPARE,
+  registered-never-written; the hp-tenths stream + `hp_watch` thread are gone, and the brief
+  row-index/health-tint variants from earlier today were never built). Kept restrained per the
+  reverted 2026-07-03 heavy-restyle lesson.
+- **The Scientist JOINS the boss UI in white + rows 4 → 5** (user: "add the scientist in as well...
+  white. Can we increase to 5 rows max?" — REVERSES 2026-07-17 "I dont even want a name above him"):
+  direct `attach()` at his spawn (like Brutus — deliberately NOT the `acc_boss_spawned` notify, which
+  implies boss music/announcer), 3D title index 4 = the never-used GLITCH STALKER slot repurposed
+  (`THE SCIENTIST`, the Panzer/Core precedent). His **ESCAPE** (alive `Delete()`) drops the row via
+  the new **`bb_release()`** — a graceful state-2 hide instead of the false kill-pop — and queue
+  backfill is now centralized on ANY free slot (death-freed, released, or never used). 5th row =
+  `ACC_BB_SLOTS` 5 + `accBoss5` precache + Lua slot (3-file lockstep).
+
+### Added — 2026-07-24 DEV round-4 ALL-BOSS wave (bar-UI stress round)
+
+- **Dev mode only** (user: "have the bosses come at round 4 — all of them at once — only when dev mode
+  is true"): round 4 in a dev build spawns **all 5 bosses simultaneously**. Two hardcoded
+  `IS_TRUE( level.acc_dev )` branches (no dvars, per the one-flag rule): `_acc_civil_protector::boss_count`
+  returns 4 for dev round 4 — the no-duplicate deck then deals exactly one Phantom + Rogue Protector +
+  Avogadro + Panzer and all four debt directors fire off the same `acc_round_start` — and
+  `_acc_boss::round_hook_loop` adds the roster-independent Trench Warden (one-shot bypass of the power
+  gate + round-5 floor; `acc_brutus_active`/`acc_brutus_kill_round` guards keep the normal kill-anchored
+  schedule intact afterward, and `brutus_power_watch` self-disarms). Doubles as the boss-bar stress
+  round: 5 bosses vs 4 `AccBossBars` rows exercises the overflow queue + backfill live. r9/18/27 roster
+  unchanged, ship behavior unchanged. docs/22 §B + CLAUDE.md dev section updated.
+
+### Changed — 2026-07-24 MAP-WIDE PERK SCATTER replaces the Lab alcove-door rotation
+
+- **The 10 perk machines now live on 10 pads spread across the whole map and the perk→pad
+  assignment reshuffles at random at the start of every round divisible by 3** (user 2026-07-24).
+  New module `_acc_perk_scatter.gsc`: pads = Plaza (**permanently Quick Revive** — never scatters;
+  stock solo auto-power/self-revive rules ride the specialty+trigger and survive the move), Lab ×2
+  (the old Stamin-Up + Mule Kick alcoves), Alley, Market, Helipad, Vault, the Bus Station
+  jukebox/reactor under-room (E wall), Trench layer 1 (pit S wall), and the Exchange. Opening
+  layout is **random per run**, applied during load behind the blackscreen. Scatters are announced
+  (`PERK MACHINES SCATTERED` banner) but locations are not revealed. **Spots = perks, always** —
+  every perk has a home at all times; a future 11th perk means an 11th pad.
+- **Mechanism (HACKY-IS-GOOD)**: the stock machine is 4 script entities (`zombie_vending` trigger /
+  `.machine` model / `.bump` / `.clip`), so the scatter **rewrites origins**: clip
+  `ConnectPaths()` → move all pieces (+ the paired `acc_mega_vending` + new `acc_perk_pin`
+  triggers) → clip `DisconnectPaths()` → push out any overlapped player → re-pulse `accPerkGlow`
+  0→idx (the `paradise_glow_rekick` latched-CF fix, per move). Shipped precedent: zm_nuked's
+  flying machine + relocatable PaP, ohm-nabar's `move_perk_machine` (docs/16:60-121). Everything
+  downstream resolves machines by NAME; the two position-aware consumers were wired:
+  `_acc_boss_avogadro` recaches seek origins on the new `acc_perk_scatter_applied` notify, and
+  `_acc_perks::apply_perk_facing` now honors per-pad `machine.acc_pad_yaw` (pads sit on all four
+  wall orientations; N=359.999 / S=180 / W=90 / E=270 — the vending models' front is model-local
+  −Y). `b_keep_when_turned_off` set on every machine (power-off Delete-and-respawn insurance).
+  Paradise's duplicate row (z=−1200) is excluded by z-band and never scatters.
+- **PIN (2 Empty Mega Bottles)**: a player who owns a perk's **Mega** can lock it onto its current
+  pad for the rest of the game — perk + pad both leave the rotation. Per-machine `acc_perk_pin`
+  trigger (visible only to Mega holders while unpinned; QR gets none), announced team-wide,
+  trigger self-deletes on purchase. Successor of the retired 2-bottle permanent door unlock (same
+  currency + cost; 9 static hint strings replace the 10 retired ones — hint-cap negative; the
+  `permanently`+`Mega Bottles` wording keeps the LUI DefaultHint routing).
+- **`_acc_perk_doors.gsc` RETIRED** (rotation, no-trap reconcile, unlock triggers, and the
+  `acc_perk_doors_all_open` dvar all deleted): init now just forces all 10 alcove doors
+  permanently open, seals the EC right wall, and keeps the `level.acc_perk_door_specs` registry
+  (`_acc_paradise` reads it). Entry-script dev comments updated (the PERK DOORS paragraph →
+  PERK SCATTER; stale `acc_open_map`-consumer claims fixed; also removed `_acc_perks.gsc`'s stale
+  `vending_machines_powered_on_at_start` comment — nothing ever set it).
+- **Pad placement was placement-VERIFIED against the live .map** (8-agent sweep: prop-clip AABBs,
+  corridor mouths, door aprons, risers, decals, r110 keep-clears, ≥45u lanes) — 5 of the 8
+  first-guess spots were corrected (Plaza planter-bed clip, Alley bike clip, Market kitchen-table
+  clip + wall plane, Vault computer-tower clip, and the jukebox room's REAL arena extent x±384).
+  Ledger with origins + clearances: docs/02 "Perk-scatter pad ledger".
+- **One .map change**: worldspawn `clip_ai` brush `acc_scatter_trench_precut` (x[−330,−270]
+  y[1723,1772] z[−240,−160]) pre-cuts the navmesh at the trench pad so the machine clip's runtime
+  `DisconnectPaths` lands in an already-cut hole instead of killing a giant pit-slab nav poly
+  (FIX BATCH 4 rule, docs/02:348; `clip_ai` = compile-time nav cut + AI-only collision, zm_giant
+  precedent via docs/16). Geometry change → full LED-bake build required for this landing;
+  all later scatter tuning is `-GscOnly`.
+- **`_acc_mega_bottles.gsc`**: mega vending trigger now back-links its machine
+  (`t_vending.acc_mega_trigger`) so scatters carry it; Mega buys work wherever the machine sits.
+- Cadence/pin tuning levers: `ACC_SCATTER_INTERVAL` (3) / `ACC_SCATTER_PIN_COST` (2). Dev = ship
+  behavior; dev additionally prints the assignment table (rides `acc_dev`, no new dvars/flags).
+- Docs: 10 (rotation section → scatter spec), 02 (pad ledger + 5 stale "no perks here" lines),
+  05 §4, 06 (Perk Scatter), 00 overview line, REQUIREMENTS.md Perks, module README (row + events
+  `acc_perk_scatter_applied` / `acc_perk_pinned`), zone manifest comment.
+- **Adversarial review fixes (same day — 31-agent review, 11 confirmed findings, all fixed):**
+  (1) the move loop's per-machine ConnectPaths→move→DisconnectPaths was WRONG for permutation
+  cycles (a departing machine's ConnectPaths re-opened the navmesh under a machine that had
+  already arrived at that pad — not refcounted) → apply is now TWO-PHASE: all clips ConnectPaths
+  while everything still sits at its old pad, then all moves + DisconnectPaths; (2) pin prompt
+  now also requires **currently owning the base perk** (the sticky Mega flag survives a down, so
+  a revived Mega holder previously saw the pin AND the stock rebuy prompt stacked); (3) unstick
+  push is per-pad (Helipad 45 — the 85 default landed players in the studio-tripod clip;
+  Exchange 70); (4) post-move glow re-pulse skips Avogadro-hacked machines (the unhack path owns
+  their re-light); (5) Quick Revive is EXCLUDED from `b_keep_when_turned_off` (the stock solo
+  3-buy epilogue is a real `turn_perk_off` path — QR keeps pure-stock behaviour; the module
+  comment claiming "no path fires it" was wrong) and the stock `s_fxloc` FX host is dragged
+  along on moves; (6) docs sweep — the leftover door-rotation prose in docs/10 (§Permanent
+  unlock through §Rotating Lab machines) collapsed into a "Retired predecessors" note, docs/02
+  Lab section + Randomized-Geometry bullets rewritten (also fixed the long-stale "PaP approach
+  blocked per run" claims there and in docs/00 — `apply_pap_approach` opens BOTH walls since
+  2026-06-22), docs/06 summary line.
+
+### Changed — 2026-07-24 Boss health UI: real LUI bars replace the 3D plate's ASCII bar
+
+- **The over-head text bar is gone** (user: "`Brutus [||||||||||||]` ... thats just so bad ... an actual
+  bar would make sense rather than text"). The engine draw-name channel is TEXT-ONLY (and the 2026-06-13
+  overhaul cycle live-refuted every world-anchored graphical-bar route: waypoint elems can't resize —
+  SetShader resets the anchor / SetWaypoint resets the size — can't layer at one anchor, and suppress
+  SetText), so the redesign splits the job:
+  - **3D plate = NAME ONLY** (`_acc_boss_nameplate.csc::redraw` drops `bar_for_tenths`; the `acc_bnp_hp`
+    actor CF still streams — paid-for bits, lockstep registrations untouched, text-bar revert = one line).
+    In-world identity/position stays on every boss, including bar-row overflow bosses.
+  - **NEW `CoD.AccBossBars` LUI widget** (`acc_hud.lua` TOUCHPOINT 8): up to **4 concurrent** NAME-over-bar
+    rows stacked in the upper-right threat column directly under the HOSTILES bar (same W240/right-10
+    column). Each row = orbitron name + threat LED + the AccRoundRing rect kit (danger-magenta fill
+    draining right→left, pale **damage-ghost trail** tweened 900ms behind the 250ms fill, bright
+    drain-front sliver, navy glass track, soft halo, **33%/66% phase notches** — closes the docs/15
+    `boss-health-bar-mini` marker row). Kill = white flash + 900ms row fade. No numeric HP (docs/31 §bars).
+  - **Feed = zero new clientfields** (all three CF pools FULL): per-player controller UI-models
+    `accBoss1..4` = `"<NAME>|<pct 0..100>|<state 1/0/2>|<seq>"` — the proven accLevel/accLbR* channel
+    (co-op replicated, spectate-pinned). Server half lives in `_acc_boss_nameplate.gsc` (`bb_*`): slot
+    manager on the existing `attach()` choke point (so the `acc_boss_spawned` notify + Brutus's direct
+    attach + the dvar/Paradise gates all apply unchanged), 4 Hz change-guarded pushes, seq stamped unique
+    per push (the leveling push_id lesson), per-life AND on-connect repush across the acc_hud
+    reopen window (`repush_level_hud_per_life` clone; connect hook added by the review pass — a
+    mid-game joiner watching an unengaged boss otherwise saw no rows until first spawn), death
+    detection covering every despawn path (engine death,
+    Delete-without-death `!isdefined`, Avogadro `is_alive==0` rising exit), 1.2s dying-row hold so the
+    Lua fade plays, FIFO overflow queue + backfill beyond 4 bosses (r45+ can exceed 4; queued bosses keep
+    their 3D name plate meanwhile), Paradise-onslaught full wipe (state 2). Kill-switch =
+    hardcoded `level.acc_boss_bars_lui` bool (the `level.acc_aetherium_hud` pattern — no new dvar).
+  - Docs: 11 (boss-bar section rewritten), 19 (accBoss models + widget), 22 (nameplate/2D-bar dvar rows +
+    kill-switch), 15 (visor-no-boss-hp / boss-health-bar rows), 30 (suppression row), 08 (RP presentation).
+
+### Fixed — 2026-07-22 Gun fire sounds played on trigger-release instead of press
+
+- Root cause: the source ZIP clips had ~0.24–0.37s of **leading silence** before the actual shot. Used as a weapon fire sound, that silence played on trigger-DOWN, so nothing was heard until release — on the CYBERJACK (whose `fireSound` is empty and rides `loopFireSound` + a stock `loopFireEndSound` decay) only the release decay was audible. Re-cut all three from the shot onset: `cj_fire.wav` + `alternator_fire.wav` as short 0.13s single-shots (the Full-Auto per-shot/loop fire), `tripletake_fire.wav` (single-shot sniper) with its 0.37s lead-in dropped. `sound_assets/acc/fx/*`.
+
+### Added — 2026-07-22 SENTRY DRONE implant (replaces Gas Tank) + three implant retunes
+
+- **Sentry Drone (item 1)** — the pool's SUPPORT-CHARACTER implant: an ALWAYS-ON hovering helper drone
+  (Origins **Maxis Drone chassis**, `veh_t7_dlc_zm_quadrotor_piece_body` — LOD0-clean static piece variant,
+  NEW T7 Assets carve `acc_t7_drone.gdt`, manifest + zone-listed) that follows/roams beside its owner
+  (20 Hz MoveTo chase + sine bob + eye-trace wall clamp + 500u leash snap; script-flown `script_model`,
+  deliberately NOT an AI actor — no navmesh/BT/actor-pool cost, and the ally BT can't fire on this map
+  anyway) and zaps the nearest normal zombie in the owner's radius every 0.9 s (700u 2D + 320u z-band,
+  drone-eye LOS, all boss markers/Glitch/Fury excluded). Damage = max(220, 25% target max HP), dealt as
+  player-attributed exact-mark DoDamage (the cyberjack `storm_one_shot` recipe) so kills pay the owner's
+  points/drops/Loot-Stash/leaderboard. Impact = `acc_cj_shock` tag-FX + `acc_cj_zap` SFX (zero new FX/CF
+  registrations — both pools full). Guardian loop owns spawn/respawn; drone self-deletes whenever the
+  implant/owner vanish. Live dvars `acc_drone_range`/`acc_drone_fire_sec`/`acc_drone_damage`/
+  `acc_drone_maxhp_frac`. **REPLACES Gas Tank** (user pick — the `acc_implants` nibble is full at 15, so
+  the new implant reused num 1; gas helpers stay dormant, kinetic-battery precedent). New 96×96 emblem
+  `i_acc_emblem_sentry_drone` (teal quadrotor glyph) + GDT block + zone image line + both Lua tables
+  repointed (`acc_hud.lua` `ACC_IMPLANT_EMBLEMS[1]`, `AetheriumStartMenu.lua` `ACC_IMPLANT_INFO[1]`).
+  `_acc_boss_items.gsc` (SENTRY DRONE section), docs/09 (item row + dvar table).
+- **Battery buffed 20%** (user): surge `acc_battery_boost_mult` default 1.20 → **1.24** (+24% move for 5 s
+  on an absorbed boss zap). `_acc_utility.gsc::recompute_move_speed`.
+- **Repair Kit nerfed 20%** (user): `ACC_OVERCHARGE_REGEN` 10 → **8** HP/s. `_acc_boss_items.gsc`.
+- **Phase Serum nerfed 20%** (user — the 0.2 rate "basically freezes glitches"): Glitch Stalker slow
+  `acc_phase_serum_slow` default 0.2 → **0.36** (80% → 64% slow, `_acc_boss_glitch.gsc`); Phantom gait
+  `acc_phantom_serum_slow`/`ACC_PHANTOM_SERUM_SLOW_DEF` 0.7 → **0.76** (30% → 24% slow,
+  `_acc_boss_phantom.gsc`). Blink suppression unchanged. Pause-menu implant descs updated to match all
+  three retunes.
+
+### Changed — 2026-07-22 Gun shooting sounds replaced from proper source ZIP
+
+- Alternator / CYBERJACK (Devotion) / Triple Take fire wavs (`alternator_fire.wav`, `cj_fire.wav`, `tripletake_fire.wav`) replaced with full-length 48k sounds from the user's ZIP — the earlier AudioTrimmer web-trims were the root problem (the alternator one was a silent gap). Aliases unchanged (already repointed to these paths).
+
+### Fixed — 2026-07-22 Audio: revert headshot ding + fix silent gun fires
+
+- **Headshot ding reverted** to the original wav (`sound_assets/acc/fx/headshot_ding.wav` restored from git HEAD — the pass-6 Voicy swap was worse per the user).
+- **Alternator fire was silent** — the AudioTrimmer trim caught a gap between shots (max −47 dB, effectively inaudible). Re-cut from the loud shot (~2s) in the source clip and normalized. `alternator_fire.wav`.
+- **CYBERJACK (Devotion) + Triple Take fires** normalized to a consistent punchy level (both already had audio and were wired + deployed correctly — verified the deployed `acc_apex_weapons.csv` rows and baked wavs — but leveled up for clear in-game audibility). `cj_fire.wav`, `tripletake_fire.wav`.
+
+### Changed — 2026-07-22 Hive Node slight nerf
+
+- Hive Node (item 14) passive aura regen `ACC_HIVE_REGEN` 15 → 12 hp/s (`_acc_boss_items.gsc`) — a slight trim to its always-on team-sustain (still above the Repair Kit's 10). Radius, passive/Bloom damage-reduction, Bloom duration/cooldown, and the medic-reward payouts are unchanged.
+
+### Changed — 2026-07-22 Shield-break SFX: 3D (teammate-audible) + 10% louder (pass 8)
+
+- `acc_shield_break` changed from owner-local 2D (`PlayLocalSound`) to a 3D positional cue (`PlaySoundAtPosition` at the owner, dist 200/1500/2000, `_acc_boss_items.gsc`) so nearby co-op teammates hear an ally's shield pop; the wav re-encoded mono with a +10% gain. Bank regen via `.zone` bump (pass 8).
+
+### Changed — 2026-07-22 CYBERJACK shoot SFX → Devotion (pass 7)
+
+- The CYBERJACK's fire sound swapped from the L-STAR plasma auto to "Devotion" (`sound_assets/acc/fx/cj_fire.wav`, 0.44s). Repointed the CYBERJACK-exclusive `wpn_apex_lstar_fire_{plr,npc}` alias (`acc_apex_weapons.csv`), which the `apex_lstar` weapon uses as its `loopFireSound` — `apex_lstar` is quest-only and never in the box, and all forms (base + PaP twins) share the alias, so this one CSV repoint covers the whole weapon with no GDT change. Kept the ±25 pitch variation + LFE bass secondary. Bank regen via the `.zone` bump (pass 7).
+
+### Changed — 2026-07-22 Audio swaps (pass 6): headshot-kill ding, Triple Take + Alternator fire, new intro
+
+Sound-only pass — wav swaps + apex-CSV repoints; sound-bank regen via the `.zone` bank-regen comment bump. No GDT/GSC changes.
+- **Headshot-kill ding** — `sound_assets/acc/fx/headshot_ding.wav` swapped for a new SFX (alias `acc_headshot_ding` unchanged; still fires on bullet headshot kills in `_acc_damage.gsc`).
+- **Triple Take fire** — the Triple-Take-exclusive `acc_ttk_energy_fire_{plr,npc}` alias (`acc_apex_weapons.csv`) repointed off the shared beam_rifle/HAVOC wav to a dedicated `acc\fx\tripletake_fire.wav`; its +150/250 pitch (tuned for the beam wav) zeroed and the layered stock apex-tripletake secondary cleared → clean single crack. The HAVOC's own aliases are untouched.
+- **Alternator fire** — `wpn_apex_alternator_fire_{plr,npc}` repointed to `acc\fx\alternator_fire.wav` (natural pitch; keeps its LFE bass secondary).
+- **Intro** — `acc\music\main_theme.wav` (the spawn intro, alias `acc_main_theme`) replaced with "The One" (18.76s) baked with a 0.8s fade-in + 5s fade-out.
+- **Shield-break SFX** — new alias `acc_shield_break` (`acc\fx\shield_break.wav`) plays owner-local (`PlayLocalSound`) the instant the Rocket Shield implant's shield depletes — hooked on the stock `destroy_riotshield` notify in `_acc_boss_items.gsc::riot_shield_regrant_on_destroy`, which only runs while that implant is equipped (inherently gated).
+- **IP note:** the new intro is a copyrighted placeholder — treat as private / DO-NOT-PUBLISH (gitignore + CREDITS) and swap before the public Workshop build, same policy as the other placeholder music.
+
+### Added — 2026-07-21 SFX enhancement sweep (pass 5): CYBERJACK / Avogadro / Altar / Reactor / deny cues + Freeze Gun dry-fire
+
+Audit-driven audio pass (findings + shopping-list in this session; full map in docs/23 "Audio pass 5").
+Filled silent / placeholder / overloaded cues with 10 CC0 downloads, converted to 48k/16-bit PCM in
+`sound_assets/acc/fx/`. Needs a **sound-bank regen** — bumped the bank-regen comment in
+`zone_source/zm_abandoned_cyber_city.zone` (the documented trigger; built game-CLOSED).
+- **New aliases** (`sound/aliases/acc_audio.csv`): `acc_cj_zap`, `acc_cj_thunder`, `acc_cj_charge_25/50/75`,
+  `acc_cj_jackin`, `acc_glitch_altar_spin`, `acc_reactor_online`, `acc_avo_crackle_lp` (LOOPING),
+  `acc_avo_death`, `acc_shard_deny`.
+- **CYBERJACK** (`_acc_cyberjack.gsc`): `acc_cj_zap` on the jack-in root; `acc_cj_thunder` on the tempest
+  tornado; charge levels 1-3 now play `acc_cj_charge_*` (was the Havoc's `acc_havoc_charge_*` riser — the
+  Havoc gun is untouched); acquire plays `acc_cj_jackin` (was stock `zmb_box_weapon_grab`).
+- **Avogadro** (`_zm_ai_avogadro.csc` + `.gsc`): client-side presence crackle loop + distinct death SFX off
+  the existing `avogadro_fx` clientfield; death no longer reuses the bolt-impact `avogadro_warp_out`; the
+  dead server `PlayLoopSound("avogadro_loop")` retired.
+- **Stations**: Glitch Altar reveal spin (`acc_glitch_altar_spin`); Reactor success fanfare
+  (`acc_reactor_online`, was `acc_shard_pickup`); shard-deny buzz (`acc_shard_deny`) on the can't-afford
+  branch of Overclock / Exo / Neural Expansion / Paradise Box.
+- **Freeze Gun** (`sound/aliases/freezegun_sounds.csv`): dry-fire (npc + plr) repointed off the stock LMG
+  bolt click to `acc\fx\freezegun_dryfire.wav`.
+- Skipped by request: Paradise Mario-jingle swap (still a publish blocker) + powerup idle beacon.
+
+### Fixed — 2026-07-21 `npm run summary`: CYBERJACK shown as raw id "32" + Paradise-winner star
+
+Two analytics-summary polish fixes (`backend/leaderboard/summary.js`), no game rebuild:
+- **Gun "32" now labels as CYBERJACK.** The whole pipeline was already wired correctly —
+  the GSC `acc_gun_id()` maps `apex_lstar`→32, `tools/gun_ids.json` registers it, and its
+  telemetry is flowing (0.2% share). The only gap: the *deployed* Worker predates the label
+  (CYBERJACK was added to `worker.js` GUN_IDS after the last deploy), so `/stats/guns.json`
+  returned the raw numeric id as the name. The summary now resolves gun names LOCALLY from
+  the canonical `tools/gun_ids.json` `_display` map (preferring it over the Worker's label),
+  so a new gun reads correctly the moment the registry does — independent of the Worker's
+  deploy cadence. Root-cause fix for the live API = redeploy the Worker (`npm run deploy`).
+- **Paradise-finale winners now carry a leading `*`** in the per-squad record boards so a
+  winning session is scannable at a glance (previously only a trailing `*PARADISE WINNER*`
+  tag). Mark sits inside the 4-char row indent, so columns stay aligned.
+
+### Changed — 2026-07-24 Leveling system DISABLED (dev + non-dev)
+
+User: "disable the level up system for now. On dev and non dev." `acc_leveling::is_active()` now
+returns `false` — the single off switch makes the WHOLE system inert everywhere: no XP grants, no
+LV/XP HUD chip (never pushed → widget stays hidden), no level gates on Exo/Overclock tiers (buyable
+ungated, as pre-leveling), and every external hook site (boss/trench/elites/glitch/reactor/souls/
+paradise/doors) no-ops through the guarded grants. All code + docs stay in place; re-enable = one
+line in `is_active()` (`true`, or `IS_TRUE(level.acc_dev)` for dev-only).
+
+### Changed — 2026-07-22 Leveling curve HALVED + HUD nudges
+
+- **XP curve halved** (user "too grindy"): `ACC_LVL_XP_STEP` 150→75 → LV10 = **4,125 XP** total
+  (was 8,250), ≈ reachable round 20-25 for an engaged player.
+- **HUD**: Aetherium player panel up 10 more (list offset −20→−30); LV/XP chip up 5
+  (`ACC_LVL_BOTTOM` 4→9).
+
+### Added — 2026-07-22 Leveling: six new objective/elite XP sources (broaden the earn surface)
+
+Grounded in a 4-lens research pass, all farm-guarded, amounts sized by frequency+risk (all `#define`):
+- **Elite / mini-boss kill bonuses** — Riot Shielded +10 (`_acc_elites`), Glitch Stalker +12
+  (`_acc_boss_glitch`), Apothicon Fury +30 (tagged `acc_is_fury` at spawn, paid in
+  `_acc_leveling::on_zombie_killed`). Fixes the gap where a 12×-HP Fury paid the same as trash. Each
+  honors the existing `acc_no_shard_reward` gate, so reactor/purge gauntlet spawns pay nothing.
+- **Reactor Surge survival** — armer +100 (held the pit through the 5-wave gauntlet), other
+  alive+underground survivors +40 (`_acc_reactor::run_surge` success). 3-round cooldown = no farm.
+- **+1 XP per soul banked in the abyss** (user) — at both `door.acc_souls++` and `level.acc_hub_souls++`
+  in `_acc_abyss_doors`. Bounded by the gate quotas; rewards fighting deep.
+- **Paradise win +250** — marquee once-per-run survival capstone (`_acc_paradise::win` survivor loop).
+- **Open a buyable door +30** (user; 15→30 same day) — one-time per door at the buy point (entry script
+  `zone_door_trigger_wait`); rewards pushing into new areas.
+
+XP amounts are first-pass tunables. Docs/45 §4. Publish gates verified (acc_dev/acc_god/ACC_MOCK_PARTY
+all false); full LED-bake rebuild for the publish.
+
+### Changed — 2026-07-22 Leveling PROMOTED to live (no longer dev-gated)
+
+User "make sure its not behind dev mode" — for a real, real-damage test run. `acc_leveling::is_active()`
+now returns `true` (was `IS_TRUE(level.acc_dev)`); it's the single on/off point that `init()`, every
+grant, and the Overclock/Exo purchase gates read. So leveling (XP, HUD, tier-gates) runs in normal play.
+`level.acc_dev` + `level.acc_god` both restored to `false` (ship state; passes prep_release Gate 0). One
+line to re-gate behind dev: `is_active()` → `IS_TRUE(level.acc_dev)`. Stale "dev-only for now" comments
+in `_acc_exo` / `_acc_overclocks` / the module header updated.
+
+### Changed — 2026-07-21 Leveling tuning: fast-clear vs spawn floor, Flawless 40→15
+
+- **Fast-clear bonus reworked** (user "fast clear is tough — check how zombies spawn"): the linear par
+  (`15+4×round`) was too tight early / too loose late. Now measured against the round's SPAWN-LIMITED
+  floor — zombies can't die before they spawn, so min clear = `level.zombie_total × spawn_delay`
+  (`capture_round_zombie_total()` snapshots the count at the stock `zombie_total_set` notify). Bonus
+  scales on `active-clear / floor` ratio: full ≤1.5×, zero ≥3.5×. Auto-adapts to round / player count /
+  the map's custom density (ai_limit 50, spawn ×0.85). No per-round guessing.
+- **Flawless bonus 40 → 15** (user).
+
+### Changed — 2026-07-21 Leveling XP/reward RETUNE for risk + skill (4-lens design review)
+
+A four-lens design review found the economy rewarded PRESENCE, not risk — and inverted risk in
+one spot: passive trench dwell was a pure occupancy timer (~257 XP/min at L5), so a maxed-Exo
+player could AFK-farm LV10 from a safe deep pocket. Reworked the whole XP economy (all `#define`
+tunables in `_acc_leveling.gsc`) toward the map's high-risk/high-skill identity. User decisions:
+rewards stay **pure gating + a LV10 prestige capstone** (no power grants — flat HP/damage rejected);
+boss XP gets a **20% participation floor**; camp gating **moderate**.
+
+- **Trench dwell** — now **combat-gated** (pays only if you killed/took a hit in the last 8s) +
+  **capped 60/round**; base 6→3×layer. Rewards fighting deep, not standing deep.
+- **Kill XP** — base 2→1, **+2 bullet headshot** (skill), **+1×trench layer** (risk); surge/drip
+  zombies now **pay** (surviving the threat), excluded from the Flawless kill tally.
+- **Round survival** — now per-player: base 15 + speed bonus (0-75, **forfeited on a down**) +
+  5×deepest-layer (risk) + **Flawless +40** (no enemy damage + ≥8 kills) + **no-down streak +75**
+  (rounds 10/15/20…). Flawless rides a new `zm::register_player_damage_callback` (axis-only flag,
+  always returns -1 — fall tax / Berzerker / PhD self-damage don't break it).
+- **Boss XP** — kept damage-weighted, added a **20% even participation floor** among damage-dealers
+  (co-op fairness) + a **Brutus finisher +100** (`_acc_boss.gsc` watch_mini_boss_death; real
+  Trench Warden only).
+- **LV10 "Fully Augmented" capstone** — distinct toast + the bigger full-fireworks FX
+  (`acc_levelup_max_fx` = `zombie/fx_aat_fireworks_zmb`, precache + zone line).
+- Full design + rationale: docs/45 §4. Dev-only throughout (ship-inert).
+
+### Changed — 2026-07-21 Leveling polish: damage-share boss XP, level-up sound + sparkle, new frame art
+
+- **Boss XP is now DAMAGE-WEIGHTED** (user: "distributed by damage allocation... proportional").
+  Rides the existing per-victim `acc_damage_contrib` ledger (`_acc_points::record_damage`, populated
+  on every player damage path incl. the Thundergun/Leviathan fractional kills). Each boss death
+  watcher captures the ledger pre-reap (poll-loop bosses refresh it post-loop for the killing blow)
+  and passes it as the new 3rd arg to `grant_unified_boss_reward`. `acc_leveling::grant_boss_xp_shares`
+  splits a pool of `250 × players-in-game` by damage fraction (solo = 250 unchanged; same total inflow
+  as the old flat grant, just merit-allocated). Zero-damage players get 0; no usable ledger →
+  flat-grant fallback. Points/shards/bottle stay flat — only XP is weighted. Share math divides
+  before scaling so a high-round boss's millions-of-damage can't overflow int32.
+- **Level-up feedback** (user): a **3D world sound** at the player (`PlaySoundAtPosition("acc_level_up",
+  origin)` — nearby players hear it; WAV installed: `accomplishment-from-the-80s` resampled 44.1k→48k
+  mono to `sound_assets/acc/fx/level_up.wav`, `acc_level_up` alias in `acc_audio.csv`, banks regen'd via
+  a zone-trigger comment) and a **celebration FX**. Replaces the old 2D shard-pickup ping.
+- **Level-up FX = the stock AAT "Fireworks" burst** (`zombie/fx_aat_fireworks_burst_zmb`, a colorful
+  firework pop) — user wanted "not just a white glow" like the map's ambient FX. Chosen over the
+  placeholder derez-spark after researching the HB21 FX Library (turned out to be stock-FX materials,
+  not ready-made effects) + the stock mirror; alternatives (PaP swirl `dlc1/castle/fx_packapunch_castle`,
+  powerup-grab burst `zombie/fx_powerup_grab_*_zmb`, body power-surge `zombie/fx_elec_player_torso_zmb`)
+  are one-key swaps. Registered `acc_levelup_fx` + `#precache` + `fx,` zone line; played via
+  `play_fx_burst` at +52z, 1.5s. All stock — ships free.
+- **New LV/XP frame art** swapped in (`i_acc_level_frame` v2; bar window byte-identical so no widget
+  geometry change). Level number nudged left 3, "+N XP" text right 5 (screenshot tune).
+
+### Added — 2026-07-20 LEVELING SYSTEM (dev-only): per-player LV0-10 gates the overclock + exo tier ladders
+
+New `_acc_leveling.gsc` (namespace `acc_leveling`) — a per-player **level 0-10** that is the
+player's *augmentation ceiling*: it caps BOTH the weapon-Overclock tier ladder AND the Exo-Suit
+tier ladder at your level (both are 0-10 Data-Shard twins). Start at LV0 (nothing tier-able);
+reach LV1 to unlock tier 1 of each; LV10 = fully maxed. Full spec: **docs/45_leveling_system.md**.
+User-locked design (2026-07-20): symmetric gate, XP bar + rising thresholds, cap 10.
+
+- **Gates** (one line each, BEFORE the shard spend so a level-locked press costs nothing):
+  `_acc_exo.gsc::station_loop` and `_acc_overclocks.gsc::terminal_loop` now deny a tier-up when
+  `acc_leveling::is_active() && next_tier > acc_leveling::player_level(player)`, with a per-player
+  `hud_msg` "requires Level N". Twin idiom in both.
+- **XP sources** (all four): boss kills (`_acc_boss::grant_unified_boss_reward` per-player loop —
+  every boss, all players, Paradise-suppressed), trench dwell (`_acc_bus_trench::trench_shard_income`
+  tick, scaled by depth layer), round survival **scaled by clear SPEED** (fast clear → bonus,
+  camping → base only; par-time model, listens on `acc_round_start`/`acc_round_end`), and a small
+  zombie-kill trickle (own additive death callback; skips trench surge zombies).
+- **HUD**: bottom-left "LV N" + XP bar, new `CoD.AccLevel` widget in `acc_hud.lua`, driven by the
+  per-player controller UI-model string `accLevel` = "<lvl>|<frac>" (`SetControllerUIModelValue`) —
+  **ZERO clientfield bits** (all three CF pools are full), per-player, coop-replicated. The widget
+  hides until a real "lvl|frac" payload arrives (so it never shows a stray "LV 0" in ship).
+  **FIX (2026-07-20, "I didn't see the level HUD")**: `_acc_lui` closes+reopens `acc_hud` ~0.6s
+  after each spawn, so a value pushed on-spawn didn't paint into the fresh menu — `_acc_leveling`
+  now re-pushes `accLevel` across the reopen window (`repush_level_hud_per_life`, mirroring the
+  round-ring/perk watch loops). Plate + text also nudged up for visibility.
+  **FIX 2 (2026-07-20, "it only shows after first kill")**: the reopen fires 0.5s after the
+  `initial_blackscreen_passed` FLAG, not after spawn — on the initial spawn the whole post-spawn
+  re-push window elapsed before the menu existed (the first kill's grant push was the first to
+  land). The re-pusher now anchors on the flag (like `_acc_lui` itself); instant on respawns.
+  **FIX 3 (2026-07-21, "still doesn't show before XP" — the real root cause)**: the model only
+  DELIVERS on a value CHANGE, and a freshly opened menu reads no construction-time value from a
+  client-created controller-model node — so identical re-pushes ("0|0|…" repeatedly) never
+  painted it; the first XP grant was simply the first push whose STRING differed. Every push now
+  stamps an always-incrementing `push_id` field (`"lvl|frac|gain|push_id"`), making each one a
+  unique string / guaranteed change event — the chip paints at LV0 with zero XP. The floater key
+  moved with it: gain now rides ONLY the grant push (zeroed immediately after), so re-pushes
+  deliver without re-flashing "+N XP".
+  **HUD layout (user 2026-07-20)**: `AetheriumPlayerInfo` (bottom-left player panel) shifted UP 20
+  to free the true bottom-left corner strip (y≈690-720); the LV chip moved down into it (y690-716).
+  **CORRECTED 2026-07-21 ("player HUD didn't move")**: the panel is a UIList ITEM
+  (`setWidgetType` + `PlayerListZM` datasource, AetheriumHud.lua) and the list layout CLOBBERS the
+  item widget's own anchors — an offset inside AetheriumPlayerInfo.lua provably did nothing
+  in-game. The −20 now rides the LIST container in AetheriumHud.lua (list anchors are respected);
+  the item-level edit was reverted with a warning note. Durable lesson: to move an Aetherium
+  datasource widget, move its LIST, not the item.
+  **"+N XP" gain floater (user 2026-07-20)**: every XP grant now flashes "+N XP" (amber, 1.4s
+  fade) just right of the XP bar. Payload widened to `"lvl|frac|gain|seq"` — `seq` bumps per grant
+  so equal back-to-back gains still re-fire the LUI subscription; spawn/reopen pushes carry gain 0
+  so a fresh menu never replays a stale floater.
+  **Custom art frame (user-supplied, 2026-07-20)**: the placeholder rect chip was replaced by
+  `i_acc_level_frame` (512×128 PNG → `source_data/acc_perk_shaders/_images/`, GDT entry cloned
+  from the implant cards, `image,` zone line, deployed via `deploy_perk_shaders.ps1`). The art has
+  two reserved zones MEASURED from its alpha channel (never assumed): a fully transparent
+  hard-edged bar window (x140-489, y52-75) that the teal XP fill grows through from BEHIND the
+  PNG, and an empty dark-glass emblem (center 70.5,63.5) where the level number renders (digits
+  only — "LEVEL" caption is baked in). Displayed 160×40 (exact 4:1); master is ~1.6× real display
+  px, the same band as the shipped implant-card masters (noMipMaps-safe). All widget geometry is
+  ratio-mapped from the measured master pixels, so a future resize is a one-constant change.
+- **Dev-gate (INVERTED semantics, deliberate)**: the WHOLE feature is dev-only for now.
+  `acc_leveling::init()` early-returns in ship, and `is_active()` returns `IS_TRUE(level.acc_dev)`
+  — so **dev ON = gates ENFORCE** (how we test), **dev OFF = gates no-op** (overclock/exo behave
+  exactly as today). `grant_xp` also self-guards on `acc_dev`. Ship state = fully inert; passes
+  prep_release Gate 0/0c untouched. Single flip point to promote later (docs/45 §3c, §11).
+- Wired via `_acc_main` (`#using` + `acc_leveling::init()` before `acc_dev::init()`) + one `.zone`
+  scriptparsetree line. GSC+LUI only → `-GscOnly` build, no LED bake. Clean compile + fresh `.ff`
+  2026-07-20 (94 waived material errors only, zero script/Lua/CF errors). Phase 4 polish (level-up
+  SFX, Brutus-killer bonus, station "requires LV N" hint cards) still open.
+- **NOTE**: `level.acc_dev` hardcoded `true` in `acc_resolve_dev_flags()` to test — **restore to
+  `false` before any publish** (Gate 0 enforces).
+
 ### Changed — 2026-07-20 LEADERBOARD/DB GATE: only DEV mode blocks storage (god-mode runs now post)
 
 User rule 2026-07-20 ("DB should only be behind dev mode"), superseding the 2026-07-11 dev/god

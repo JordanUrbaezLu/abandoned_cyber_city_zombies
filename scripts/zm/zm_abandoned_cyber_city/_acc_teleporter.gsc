@@ -92,6 +92,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;       // derez_burst / play_sound_at_origin / hud_msg / log
 #using scripts\zm\zm_abandoned_cyber_city\_acc_interact_glow; // "usable" holo glow (lit on the Paradise win)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;    // sentry_fleet_warp (bring each rider's Sentry Drones along)
 
 #insert scripts\shared\shared.gsh;                            // IS_TRUE (dev / paradise-won / zone-enabled gates)
 
@@ -405,6 +406,7 @@ function do_teleport( user, src, dst, dst_yaw, dst_zone )
         riders[ i ] SetOrigin( dst + off + ( 0, 0, ACC_TP_CLIP_TOP ) );   // land ON the raised pad clip
         riders[ i ] SetPlayerAngles( ( 0, dst_yaw, 0 ) );
         riders[ i ].acc_tp_arrived_ms = GetTime();                        // arm the held-button arrival-toast debounce
+        acc_boss_items::sentry_fleet_warp( riders[ i ] );                 // Sentry Drones arrive WITH their owner (user 2026-07-25 "i took the teleporter and my drones disappeared") - structural, no reliance on the hover loop's leash snap
     }
 
     // ---- ARRIVAL: materialize beam + flash + boom at the far pad. ----

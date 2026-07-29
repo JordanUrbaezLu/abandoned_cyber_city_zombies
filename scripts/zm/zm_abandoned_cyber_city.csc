@@ -48,6 +48,11 @@
 // registration must lockstep with the server .gsc (mismatch otherwise). Self-registers via autoexec.
 #using scripts\zm\_zm_weap_freezegun;
 
+// [acc] HB21 Hero Weapons client twin (2026-07-24): registers the skull_* allplayers/actor
+// clientfields + the gauntlet's local viewmodel FX watchers - MUST lockstep with the server
+// .gsc registrations (Clientfield Mismatch otherwise). Self-registers via REGISTER_SYSTEM_EX.
+#using scripts\zm\_hb21_zm_hero_weapon;
+
 // [acc] AW 3D Printer Mystery Box client twin (2026-07-12): registers the
 // exo_magicbox_dr_holo scriptmover clientfield + the dr_fx_holo duplicate-render filter -
 // MUST lockstep with the server .gsc registration (Clientfield Mismatch otherwise).

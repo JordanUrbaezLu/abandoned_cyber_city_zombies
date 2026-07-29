@@ -43,6 +43,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_coop_scaling;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss;             // grant_unified_boss_reward (shared boss death payout)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;   // attach (LUI bar row; the 3D plate is removed) + bb_release (escape = graceful row drop, no kill flash)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_phantom;   // scale_phantom_hp(round, exp) = the SHARED boss HP curve (65k base, r5 anchor); we pass our own 1.04 exponent
 #using scripts\zm\zm_abandoned_cyber_city\_acc_bus_trench;       // force_playable_emergence (below-volume melee unlock)
 
@@ -314,11 +315,11 @@ function spawn_scientist( round_number )
     host Detach( "c_zom_dlc4_zombie_charred_head" );
     host Attach( "p7_zm_dlchd_cosmo_cosmo_head" + ( acc_utility::acc_rand_int( 5 ) + 1 ) );
 
-    // BOSS-TIER HP (user 2026-07-18 "boss level scaling", exponent settled at 1.04 after a 1.03 detour): the shared
-    // boss curve - 65k base @ the round-5 anchor, compounding x1.04/round = a NEW SOFTEST tier
-    // under the Phantom (tank ladder: Brutus/Panzer 1.12 > Rogue 1.09 > Phantom/Avo 1.06 >
-    // Scientist 1.04 - he's a chase target, not a sponge), x the logarithmic coop mult like
-    // every boss. r15 solo ~96k. Live dvar acc_scientist_hp_exp. Written AFTER the init-gate.
+    // BOSS-TIER HP (user 2026-07-18 "boss level scaling"; exponent 1.03 -> 1.04 -> 1.05 user
+    // 2026-07-25): the shared boss curve - 65k base @ the round-5 anchor, compounding
+    // x1.05/round = still the SOFTEST tier (tank ladder: Brutus 1.12 > Panzer 1.1 > Rogue 1.09 >
+    // Phantom/Avo 1.07 > Scientist 1.05 - he's a chase target, not a sponge), x the coop
+    // boss-HP table like every boss. r15 solo ~106k. Live dvar acc_scientist_hp_exp. Written AFTER the init-gate.
     // DEV: flat 1000 HP (user 2026-07-17) - hardcoded on the one flag per the dev doctrine.
     if ( IS_TRUE( level.acc_dev ) )
     {
@@ -326,6 +327,7 @@ function spawn_scientist( round_number )
     }
     else
     {
+        // user 2026-07-26: -0.01 all-boss health nerf, exp 1.05 -> 1.04 (the SOFTEST tier stays softest).
         host.maxhealth = int( acc_boss_phantom::scale_phantom_hp( round_number,
                                   getdvarfloat( "acc_scientist_hp_exp", 1.04 ) )
                               * acc_coop_scaling::boss_hp_player_mult() );
@@ -366,9 +368,13 @@ function spawn_scientist( round_number )
         PlayFxOnTag( level._effect[ "acc_sci_trail" ], host.acc_sci_fx_org, "tag_origin" );
     }
 
-    // NO nameplate at all (user 2026-07-17 "I dont even want a name above him") - the red
-    // numbers aura + the announce line ARE his identity. (Also moot: the plate's 3-bit name
-    // field is full and would have rendered a generic "BOSS".)
+    // BOSS UI (REVERSAL 2026-07-24, user "Lets add the scientist in as well and he will be
+    // white" - supersedes 2026-07-17 "I dont even want a name above him"): direct attach()
+    // like Brutus - deliberately NOT the acc_boss_spawned notify (that implies boss music +
+    // the Kortifex sendoff; he's a lurker). Gets a peach-white CoD.AccBossBars row (the 3D
+    // plate was removed 2026-07-25; name index 4 = the repurposed unused Glitch slot).
+    // health/maxhealth are already set above (the bar reads them).
+    acc_boss_nameplate::attach( host, ACC_SCI_DISPLAY_NAME );
 
     // CONSTANT NUMBERS HUM (user 2026-07-17 "he needs a constant number sfx that you hear when
     // you get close to him"). No wav could be sourced, so it is SYNTHESIZED - a numbers-station
@@ -875,6 +881,9 @@ function flee_loop()
     acc_utility::derez_burst( self.origin, "scientist" );
     if ( isdefined( self.acc_sci_fx_org ) ) self.acc_sci_fx_org Delete();
     self.acc_sci_escaped = true;   // belt+braces: whatever Delete()'s death-notify semantics are, death_watch bails on this flag
+    // Drop his bar row GRACEFULLY (state-2 hide) BEFORE the Delete - he escaped alive, so
+    // the row must not play the white kill-pop (bb_pump would read the Delete as a death).
+    acc_boss_nameplate::bb_release( self );
     self Delete();   // escape = no rewards for letting him go
 }
 
@@ -942,7 +951,9 @@ function death_watch( round_number, fx_org )
         level thread zm_powerups::specific_powerup_drop( "fire_sale", drop_origin );
     // b_skip_item TRUE (user 2026-07-17 "he should not drop an item when he dies"): no boss-item
     // pickup - the shared points/shards/bottle payout still lands, and the powerups above are his drops.
-    acc_boss::grant_unified_boss_reward( drop_origin, true );
+    // a_dmg = damage ledger for the leveling XP damage-share (docs/45 4a; guarded - reap race).
+    a_dmg = ( isdefined( self ) ? self.acc_damage_contrib : undefined );
+    acc_boss::grant_unified_boss_reward( drop_origin, true, a_dmg );
 
     acc_utility::derez_burst( drop_origin, "scientist" );
     announce( "^2" + ACC_SCI_DISPLAY_NAME + " ^7is down." );

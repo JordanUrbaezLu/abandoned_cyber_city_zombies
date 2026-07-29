@@ -30,5 +30,24 @@ REM [acc] LEADERBOARD AGENT PRE-SPAWN (docs/40, user 2026-07-12 "do it silently"
 REM hidden network agent BEFORE the game and pass +set acc_lb_agent 1 so the game skips its own
 REM spawn - NO terminal window ever appears. Helper is generated (tools/build_lb_lui.js); if it
 REM is missing the launch still works (the game falls back to its own minimized spawn).
+
+REM [acc] BUILD-IN-PROGRESS GUARD (2026-07-25): launching while the linker/compiler is writing
+REM the .ff makes the game load a HALF-WRITTEN fastfile -> torn Lua chunks -> an on-screen
+REM "UI Error <code>" box at load (live-hit: launch 3:31:44 vs .ff finished 3:34:07 = UI Error
+REM 44429). If any build tool is running, WAIT for it to finish, then double-click this again.
+tasklist /FI "IMAGENAME eq linker_modtools.exe" 2>NUL | find /I "linker_modtools.exe" >NUL && goto build_running
+tasklist /FI "IMAGENAME eq cod2map64.exe"      2>NUL | find /I "cod2map64.exe"      >NUL && goto build_running
+tasklist /FI "IMAGENAME eq radiant_modtools.exe" 2>NUL | find /I "radiant_modtools.exe" >NUL && goto build_running
+
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\spawn_lb_agent.ps1"
 start "" "steam://run/311210//+set fs_game zm_abandoned_cyber_city +set_gametype zclassic +devmap zm_abandoned_cyber_city +set developer 1 +set logfile 1 +set g_log games_mp.log +set g_logSync 1 +set acc_lb_agent 1"
+goto :eof
+
+:build_running
+echo.
+echo  [PLAY_NORMAL] A MAP BUILD IS RUNNING - not launching.
+echo  Launching now would load a HALF-WRITTEN fastfile (= "UI Error" box / corrupt load).
+echo  Wait for the build to finish, then double-click this again.
+echo.
+pause
+exit /b 1

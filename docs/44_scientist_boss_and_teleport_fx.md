@@ -9,6 +9,12 @@ Two workstreams sharing one FX kit:
   (Dr. Yuri Zavoyski, the weapon-stealing "mad scientist") with downloadable
   substitutes — **the authentic-rip path was researched and dropped** (user pivot
   2026-07-17: "assume we can't get the correct model and animations").
+  **World-lore anchor (2026-07-26): THE SCIENTIST'S OFFICE** — the 2000-pt buyable
+  room behind the Lab N wall (docs/02, `gen_scientist_office.js`) is HIS lair: lab
+  coats, chemistry, x-ray lightbox, research notes, and his desk with a "prototype"
+  gun + implant free pickup — "the lure is that it's the Scientist's office, the guy
+  who comes around and steals your gun" (user). The Exo station + permanent
+  Juggernog live there too.
 
 Research trail (3 verified web sweeps, 2026-07-17): memory `pentagon-thief-boss-sourcing`.
 Headlines: **no drop-in BO3 thief pack exists anywhere**; **BO4 Classified CUT the
@@ -99,9 +105,9 @@ BO1 reference names (for authenticity + any future audio pass):
 **SHIP CADENCE:** debut ROUND 15 (lab must be open - zone_is_enabled gate); after each death
 OR escape the next Scientist is owed +4 rounds (die r16 -> next r20;
 acc_scientist_first_round / acc_scientist_respawn_rounds dvars). An unkilled lurker persists
-(single-lurker gate). Dev keeps the every-round-from-3 accelerator. Ship HP = the SHARED boss curve (65k base @ r5 anchor) at exponent 1.04 - the new softest
-tier (Brutus/Panzer 1.12 > Rogue 1.09 > Phantom/Avo 1.06 > Scientist 1.04; r15 solo ~96k,
-r20 ~117k) x logarithmic coop mult; live dvar acc_scientist_hp_exp. Dev = flat 1000.
+(single-lurker gate). Dev keeps the every-round-from-3 accelerator. Ship HP = the SHARED boss curve (65k base @ r5 anchor) at exponent 1.05 (2026-07-25 retune, was 1.04) - still the softest
+tier (Brutus 1.12 > Panzer 1.1 > Rogue 1.09 > Phantom/Avo 1.07 > Scientist 1.05; r15 solo ~106k,
+r20 ~135k) x the coop boss-HP table; live dvar acc_scientist_hp_exp. Dev = flat 1000.
 Final architecture: NATIVE lab-riser spawn (stock spawn_zombie spawn_point param - zero
 teleports, engine-run emerge, healthy BT by construction), roam driver on the stock BT
 custom-goal hook, whole-lab chase, lab-plaza shuttle flee with player avoidance + corner-

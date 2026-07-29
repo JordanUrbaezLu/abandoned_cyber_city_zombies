@@ -28,6 +28,7 @@
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_leveling;    // boss-kill XP (docs/45; no-op in ship)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_items;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_mega_bottles;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_cyberjack;   // Brutus CYBERJACK gun-drop (docs/43, 2026-07-17)
@@ -54,7 +55,7 @@
 // spawn). Brutus debuts at power-on & round >= acc_warden_first_round (5); his round-5 debut is exactly the flat
 // 65k base (past clamps to 0), then compounds at 1.12 from round 5 onward.
 #define ACC_BOSS_MINI_HP 65000       // Brutus BASE solo HP (shared with Phantom/Rogue/Avo; user 2026-07-05: 56000 -> 65000). Scaled by scale_mini_boss_hp THEN x boss_hp_player_mult (LOGARITHMIC coop). Live dvar acc_boss_mini_hp.
-#define ACC_BOSS_MINI_HP_EXP 1.12    // Brutus COMPOUNDS per round at 1.12 (user 2026-07-08: 1.12 -> 1.13 -> 1.14 -> 1.12 after the anchor moved to r5, the TANKIEST tier tied with the Panzer): base x 1.12^(round-anchor5) -> solo r5 65k / r10 115k / r20 356k / r30 1.11M / r40 3.43M. Live dvar acc_boss_mini_hp_exp.
+#define ACC_BOSS_MINI_HP_EXP 1.11    // Brutus COMPOUNDS per round at 1.11 (user 2026-07-26: -0.01 all-boss health nerf, 1.12->1.11; ladder still Brutus 1.11 > Panzer 1.09 > Rogue 1.08 > Phantom/Avo 1.06 > Scientist 1.04. user 2026-07-08: 1.12 -> 1.13 -> 1.14 -> 1.12 after the anchor moved to r5) - the TANKIEST tier, alone at the top (ladder since 2026-07-25: Brutus 1.12 > Panzer 1.1 > Rogue 1.09 > Phantom/Avo 1.07 > Scientist 1.05): base x 1.12^(round-anchor5) -> solo r5 65k / r10 115k / r20 356k / r30 1.11M / r40 3.43M. Live dvar acc_boss_mini_hp_exp.
 #define ACC_BOSS_MINI_HP_ANCHOR 5    // round his BASE HP applies + compounding STARTS (user 2026-07-08: 10 -> 5, so scaling begins at his round-5 power-on debut, not round 10; matches the roster's acc_phantom_hp_anchor 5). Live dvar acc_boss_mini_hp_anchor.
 #define ACC_BRUTUS_FIRST_ROUND 4     // LEGACY (superseded by the power-on first spawn, 2026-06-18)
 #define ACC_BRUTUS_INTERVAL 5        // LEGACY (superseded by ACC_BRUTUS_RESPAWN_INTERVAL)
@@ -92,6 +93,21 @@ function round_hook_loop()
         // Subroutine Core full boss REMOVED (user 2026-06-22): no r30/40/50 full-boss spawn anymore.
         // (run_full_boss + spawn_subroutine_core remain defined but are now UNREACHABLE dead code - left
         // in place so the module still compiles and the boss is trivially restorable; nothing calls them.)
+
+        // DEV ALL-BOSS WAVE (user 2026-07-24: "all of them at once on round 4, dev only"): the
+        // Trench Warden joins the dev round-4 wave (the 4 roster bosses ride
+        // _acc_civil_protector::boss_count's matching branch). Bypasses the power gate + the
+        // round-5 floor for this ONE spawn; the normal schedule stays intact afterward - if he's
+        // alive when power flips, brutus_power_watch's acc_brutus_active guard returns; once he's
+        // killed (or the spawn fails), acc_brutus_kill_round is set and respawns are kill-anchored
+        // exactly as if the power-on spawn had fired. Guards make this one-shot and non-stacking.
+        if ( IS_TRUE( level.acc_dev ) && round_number == 4
+             && !IS_TRUE( level.acc_brutus_active )
+             && !isdefined( level.acc_brutus_kill_round ) )
+        {
+            acc_utility::log( "boss: DEV round-4 all-boss wave -> Trench Warden joins" );
+            level thread run_mini_boss( round_number );
+        }
 
         // Brutus mini-boss = the TRENCH WARDEN (user 2026-06-18). FIRST spawn = power-on
         // (brutus_power_watch). RESPAWN = kill-anchored: once he's KILLED (acc_brutus_kill_round
@@ -201,9 +217,9 @@ function suppress_normal_wave( round_number )
 }
 
 // Brutus HP COMPOUNDS each round (user 2026-06-27) like a zombie so a high-round Trench Warden keeps pace:
-//   hp = base * exp^( rounds_past_anchor )      (exp 1.12 - the TOP TANK tier, tied with the Panzer, on the
+//   hp = base * exp^( rounds_past_anchor )      (exp 1.12 - the TOP TANK tier, alone at the top of the
 //                                                unified 65k-base/anchor-5 scale shared with all bosses;
-//                                                Brutus/Panzer 1.12 > Rogue 1.09 > Phantom/Avogadro 1.06)
+//                                                Brutus 1.12 > Panzer 1.1 > Rogue 1.09 > Phantom/Avogadro 1.07 > Scientist 1.05)
 // anchored at round 5 (user 2026-07-08: was 10) so scaling begins at his round-5 power-on debut - the FIRST
 // Warden is exactly the base, and every round after compounds. Knobs are
 // LIVE balance dvars: acc_boss_mini_hp / _exp / _anchor. The coop player multiplier (boss_hp_player_mult)
@@ -346,15 +362,24 @@ function boss_music( host )
 // round 18 (x2 bosses) -> 6 shards + $3,240 EACH; round 30 -> 10 shards + $5,400. Paradise-suppressed
 // (the finale is survive-don't-farm). Call: acc_boss::grant_unified_boss_reward( drop_origin ).
 // ---------------------------------------------------------------------------
-function grant_unified_boss_reward( drop_origin, b_skip_item )
+function grant_unified_boss_reward( drop_origin, b_skip_item, a_dmg_contrib )
 {
     if ( IS_TRUE( level.acc_paradise_onslaught ) )
         return;
     // b_skip_item (Brutus CYBERJACK gun-drop, user 2026-07-17 "either an item OR the gun,
     // never both"): the gun replaces the item; points/shards/bottle still granted. Every
-    // other boss caller passes nothing -> undefined -> item granted as before.
+    // other boss caller passes nothing for b_skip_item -> undefined -> item granted as before.
+    // (a_dmg_contrib, the 3rd param, IS passed by every caller now - the leveling XP ledger.)
     if ( !IS_TRUE( b_skip_item ) )
         acc_boss_items::grant_challenge_reward( drop_origin );   // 1 item, guaranteed (dupes -> shards)
+
+    // [acc] LEVELING XP (docs/45; dev-only, no-op in ship). DAMAGE-WEIGHTED (user 2026-07-21):
+    // a_dmg_contrib = the boss's acc_damage_contrib ledger (captured by the death watcher pre-reap);
+    // shares pay proportional to each player's damage. Fallback = the original flat grant to every
+    // player when no usable ledger exists (scripted kill / watcher couldn't capture / ship).
+    // Points/shards/bottle below stay FLAT for everyone - only the XP is damage-weighted.
+    b_xp_shared = acc_leveling::grant_boss_xp_shares( a_dmg_contrib );
+
     kill_round = ( isdefined( level.round_number ) ? level.round_number : 1 );
     score  = kill_round * getdvarint( "acc_boss_score_per_round", 180 );   // user 2026-07-07: -40% boss cash (was 300)
     shards = int( kill_round / getdvarint( "acc_boss_shards_round_div", 3 ) );
@@ -367,6 +392,8 @@ function grant_unified_boss_reward( drop_origin, b_skip_item )
         if ( score  > 0 ) p zm_score::add_to_player_score( score );   // rounds UP to a multiple of 10
         if ( shards > 0 ) acc_data_shards::grant_player( p, shards, "boss" );
         p acc_mega_bottles::grant_bottle( 1, "boss" );
+        if ( !b_xp_shared )
+            acc_leveling::grant_boss_xp( p );   // flat fallback (dev-only inside; inert in ship)
     }
 }
 
@@ -392,11 +419,13 @@ function watch_mini_boss_death()
     drop_origin = undefined;
     n_bottles = 1;
     no_reward = false;
+    a_dmg = undefined;
     if ( isdefined( self ) )
     {
         drop_origin = self.origin;
         n_bottles = ( isdefined( self.acc_bottle_drop ) ? self.acc_bottle_drop : 1 );
         no_reward = IS_TRUE( self.acc_no_shard_reward );
+        a_dmg = self.acc_damage_contrib;   // leveling XP damage-share ledger (docs/45 4a) - captured pre-reap like the fields above
     }
     else if ( isdefined( attacker ) && isplayer( attacker ) )
     {
@@ -422,7 +451,12 @@ function watch_mini_boss_death()
             // The roll spawns the pickup itself; b_gun=true tells the reward to skip the item.
             b_gun = acc_cyberjack::try_brutus_gun_drop( drop_origin );
             acc_cyberjack::cj_log( "verdict: " + ( b_gun ? "GUN DROPPED (boss item skipped)" : "no gun - normal boss item" ) );
-            grant_unified_boss_reward( drop_origin, b_gun );
+            grant_unified_boss_reward( drop_origin, b_gun, a_dmg );
+            // [acc] LEVELING: finisher bonus for landing the kill on the REAL Trench Warden - the
+            // commit-gated marquee risk (docs/45 4a; dev-only, no-op in ship). Paradise Brutus is the
+            // no_reward branch, so this is the objective Brutus only.
+            if ( isdefined( attacker ) && isplayer( attacker ) )
+                acc_leveling::grant_brutus_killer_xp( attacker );
         }
     }
     else

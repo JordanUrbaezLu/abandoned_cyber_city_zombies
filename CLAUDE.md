@@ -29,8 +29,10 @@ possible (docs/14, docs/16), but absence of precedent is not a blocker — inven
 The user wants a single `acc_dev` flag that, when enabled, **hardcodes everything the way they want for
 testing** (unlimited shards / money / all perk slots / dev console commands / dev-gated debug output) —
 a binary **normal play vs dev mode**, baked in GSC. (God is the separate `acc_god` flag. Dev boss cadence
-since 2026-07-17: **2 Glitch Stalkers EVERY round + one Phantom on round 3** — hardcoded
-`IS_TRUE( level.acc_dev )` branches, docs/44; Brutus + the r9/18/27 roster run REAL. The
+since 2026-07-17: **2 Glitch Stalkers EVERY round + one Phantom on round 3**, and since 2026-07-24 the
+**ROUND-4 ALL-BOSS WAVE — all 5 bosses at once** (`_acc_civil_protector::boss_count` dev branch = 4-count
+roster → one of each type; `_acc_boss::round_hook_loop` dev branch adds the Trench Warden, one-shot power/floor
+bypass) — hardcoded `IS_TRUE( level.acc_dev )` branches, docs/22 §B; Brutus + the r9/18/27 roster run REAL. The
 2026-07-16 removal of the test-spawn *dvar levers* still stands — these are compile-time branches.) They do **NOT** want a runtime-tweakable dev console.
 **Never tell the user to "set dvar X in the console"** to test something, and **never add a new dev dvar** —
 **even though a runtime dvar is the "normal" practice.** (Live-balance tuning dvars for the user's own

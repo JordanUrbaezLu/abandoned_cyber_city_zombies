@@ -326,7 +326,11 @@ function spawn_m6_l4()
 function spawn_m6_l5()
 {
     n = 0;
-    n += spawn_prop( "custom_ghost_hive01", ( 260, 2105, -1196.6 ), ( 0, 30, 0 ) );          // THE MAW HEART - flesh hive, N-center E of the D4 arrival [clip m6_l5_hive]
+    // flesh hive REMOVED (user 2026-07-26): it sat at (260,2105) - INSIDE the D4 stair landing
+    // (the spot l5_column was already moved off of 2026-07-13) - and its clip + m6_l5_brute1's
+    // pinched every exit from the final stairs shut (map uncompletable). The D4 landing
+    // (x[112,~420] x y[1956,2173] on L5) is a KEEP-CLEAR; re-home the hive south/center if the
+    // Maw ever needs its heart back.
     n += spawn_prop( "custom_ghost_dead_queen_1", ( -430, 2115, -1180 ), ( 0, 0, 0 ) );      // dead alien queen corpse, W bay N [clip m6_l5_queen]
     n += spawn_prop( "custom_ghost_dead_brute_1", ( 170, 1990, -1185.5 ), ( 0, 70, 0 ) );    // dead brute corpse near the hive [clip m6_l5_brute1]
     n += spawn_prop( "custom_ghost_dead_brute_2", ( 760, 1990, -1183.6 ), ( 0, 90, 0 ) );    // dead brute sprawled vs the E wall pocket [clip m6_l5_brute2]
