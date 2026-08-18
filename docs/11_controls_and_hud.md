@@ -146,10 +146,31 @@ Three cooperating layers draw the combat HUD:
   Ronan's Cyberpunk-Shader base/Mega icons, so a Mega'd perk shows its teal variant.
 - **Power-ups** — `AetheriumPowerupsContainer`, drawn from the **stock** power-up
   clientfields (our old suppressor + `AccPowerupBar` are disabled behind the master flag).
-- **Round counter** — `AetheriumRoundCounter`: the vanilla **image-based** round display,
-  top-right (`ZmRndContainer`, ~50px from the right edge). The earlier "recolor the round
+- **Round counter** — `CoD.AccRoundRecon` (2026-08-01, GEN 2): the user-supplied
+  **recon-frame PNG** (`i_acc_round_frame` — cyan corner brackets + smoked-glass center +
+  baked "ROUND" plate) **top-left** (LUI x30..110, y32..112; launched 120px-square, resized
+  −17% then −20% on 2026-08-02 user feedback — master re-baked 240×240 to keep exact 2×) with the round number drawn
+  in its center in orbitron, reading the engine-owned `gameScore.roundsPlayed` UI model
+  (= round + 1; zero clientfield/hudelem cost). Round change = number pop (teal→white)
+  + frame re-scan flicker. Stored on `self.AetheriumRoundCounter` in `AetheriumHud.lua`
+  so the kit's scoreboard/pause fade blocks drive it — meaning it now also hides while
+  the scoreboard is open (kit-consistent; the old hudelem only hid in menus). History:
+  GEN 1 = the teal GSC "Round N" hudelem (`_acc_health_bars`, now dormant, pre-Aetherium
+  fallback only); GEN 0 = the kit's top-right `AetheriumRoundCounter` chalk digits
+  (ACC DISABLED 2026-07-03; require + zone line kept). The earlier "recolor the round
   counter teal by overriding `RoundStatus.lua`" plan was **abandoned** — no such file ships,
   and overriding a stock HUD *menu* risks a non-loadable `.ff` (docs/19).
+- **Location / area title** — `CoD.AccAreaBanner` (2026-08-02): 14 user-supplied **PNG
+  recon-plate banners** (`i_acc_area_*`, 1024×256 true-alpha — trench set carries progressive
+  red-glitch corruption LV1→LV5, PARADISE is amber) top-center at LUI x520.5..759.5, y4..63.7
+  (launched 341×85, −30% on 2026-08-02 user feedback; masters re-baked 720×180 = exact 2×,
+  and the smaller box now fully clears the CenterConsole print band). Data = the 4-bit `accArea` clientuimodel
+  (0 = hidden, 1..14 = `_acc_dev.gsc dev_area_code` order); `_acc_dev.gsc dev_update_zone`
+  remains the state machine (reveal on area change, 3.75s surface hold — was 5s, −25% on
+  2026-08-02 user feedback — persistent hold
+  underground/Paradise). 0.3s fade-in / 0.4s fade-out client-side, alpha 0.85. Replaced the
+  teal top-center TEXT hudelem (kept dormant for pre-Aetherium). **Mutual exclusion with the
+  disabled `AetheriumCompass`** — both own top-center.
 - **Weapon / ammo / equipment** — `AetheriumLoadout`, bottom-right plate.
 - **Riot-shield equipment slot** — `AetheriumLoadout` (added 2026-07-15): a satellite slot
   on the loadout **orb's lower-right rim**, plate tilted via `setZRot` to follow the curve
@@ -217,14 +238,20 @@ header. Chips use full-bleed 5:7 pennant PNGs (`i_acc_*`); text chips get the na
 
 Salvaged from the round-progress research (docs/11). The shipped form is a **top-right
 horizontal bar** (`acc_hud.lua` `CoD.AccRoundRing`), **full at round start and draining
-right-to-left** as the round's zombies die, teal → magenta as it empties. It is a layered
-cyberpunk meter built **entirely from render-safe `CoD.TextWithBg.Bg` rectangles** (no
-custom material): outer cyan halo, navy track, the teal→magenta drain fill, segment
-notches, a bright "drain front" sliver riding the fill's moving left edge, a top accent
-line, four corner targeting brackets, and a small **"HOSTILES"** caption (the old `pct%`
-readout was removed, user 2026-06-17). The fill + sliver **slide** to each new value via a
-250ms LUI keyframe tween (`completeAnimation → beginAnimation`), matching the ~0.25s server
-push so steps chain into a continuous drain.
+right-to-left** as the round's zombies die, teal → magenta as it empties. **GEN 2
+(2026-08-02, user art):** the housing is one PNG (`i_acc_hostiles_bar` — slim angled
+recon plate, cyan rim, baked graduation ticks; 800×112 master, `drain_bar_compact.png`)
+drawn **over** the dynamic parts, which render through the art's fully-transparent slot
+(alpha-measured art x[54,745] y[42,69]): navy track, the teal→magenta drain fill, and the
+bright "drain front" sliver — those stay render-safe `CoD.TextWithBg.Bg` rectangles (a PNG
+can't drain or recolor). The GEN-1 rect chrome (halo / segment notches / accent line /
+corner brackets — 17 elements/client) is retired, replaced by the art; there is no text
+caption (the old `pct%` readout was removed, user 2026-06-17). The housing (312×43.68 LUI
+after the +30% grow, 2026-08-02 user feedback; right-aligned, top-biased) overhangs the
+unchanged 240×22 logical box so the boss-row stack below (`ACC_BB_TOP0` = y96, 6.3px under
+the housing) keeps its size and the right-edge column alignment. The fill + sliver **slide** to each new
+value via a 250ms LUI keyframe tween (`completeAnimation → beginAnimation`), matching the
+~0.25s server push so steps chain into a continuous drain.
 
 Data path: one `accRoundRing` clientuimodel int (7 bits; `_acc_lui.gsc:100`) = fill percent,
 **clamped 0-100** (`set_round_ring` never pushes above 100; the 7-bit field width just spans
@@ -251,6 +278,11 @@ batch); headshots render 25% bigger. Encoding: the `accDmgNum` clientuimodel int
 packs `dmg*4 + headshot_bit(2) + parity(1)`; the parity bit flips each push so an identical
 number still re-pops (decoder `acc_hud.lua:471`). Over-entity floating text was rejected (it
 needs overriding `CoD.Waypoints`).
+
+**Readability tune (user 2026-08-02** "5% bigger and move upwards a bit slower"**):**
+`ACC_DMG_SCALE` 0.38 → **0.399**, `ACC_DMG_SCALE_HS` 0.48 → **0.504** (both ×1.05, the 25%
+headshot ratio holds) and `ACC_DMG_RISE` 46 → **36** px over the unchanged 0.5s life (~22%
+slower drift; lifetime kept so rapid-fire clutter doesn't grow).
 
 ### Player & boss health bars, nameplate
 
@@ -281,7 +313,13 @@ fast-Delete()d corpse reads undefined and must still fire its death push) off th
 existing `attach()` choke point (`acc_boss_spawned` notify + the Brutus/Scientist direct
 calls) — **zero clientfield bits** (all three CF pools are full), co-op replicated,
 per-life repush across the acc_hud reopen. Beyond 5 bosses a FIFO queue backfills any
-freed row. Kill-switch: hardcoded `level.acc_boss_bars_lui` (no dvar).
+freed row. Kill-switch: hardcoded `level.acc_boss_bars_lui` (no dvar). **The rows RUN
+through the Paradise onslaught since 2026-07-29** (user: "bosses in paradise get a health
+bar, same implementation above trench") — the finale wave (Warden/Phantom/RP/Panzer/
+Avogadro, cap 1 each) fills exactly the 5 rows; the Paradise Brutus direct-attaches as
+`TRENCH WARDEN` from `_acc_paradise::maybe_spawn_brutus`. The old wipe-on-flag contract
+(2026-06-25 → 2026-07-29) protected the retired TOP-CENTER 2D bar from covering the
+survival countdown; boss **music** stays suppressed (the "115" anthem owns the audio).
 
 The **3D over-head plate is REMOVED entirely (2026-07-25)** — the LUI bar rows are the
 **only** boss indicator (user call, after the engine's hostile-name tint made true
@@ -359,6 +397,17 @@ crit damage numbers read as one signal. AAT kills (Electric/Blast Furnace/Firewo
 Turned) keep the same yellow as regular kills. (Before: crits yellow, regular white.) All in
 `SetKillTypeColor`, `AetheriumKillFeed.lua`.
 
+**Currency gains ride the feed too (user 2026-08-02** "like the text that says +110 Critical
+Kill... a different color/shade"**):** every shard grant pops `+N Data Shard(s)` in **ice-blue**
+`(0.60, 0.90, 1.00)` (the old toast cyan — deliberately NOT the crit teal) and every Mega Bottle
+grant pops `+N Mega Bottle(s)` in **gold** `(0.95, 0.78, 0.20)`, sent by `grant_player` /
+`grant_bottle` via the same `LuiNotifyEvent(&"score_event", …)` channel (direct calls — routing
+through `_acc_points` would close a `#using` cycle). On currency rows the `+N` number is tinted
+to match (kills keep a white number), and the rows are **excluded from the points running
+total** (`IsCurrencyRow` guard). The old center-screen toasts ("+1 Data Shard" slot 0 / gold
+slot-1 bottle line) survive only as the non-Aetherium-HUD fallback. Keys: `KF_SHARD(S)`,
+`KF_MEGA_BOTTLE(S)` in `zm_aetherium.str`.
+
 ### HUD elements we deliberately DON'T have
 
 - **Minimap** — no. Zombies convention; would undercut zone-memorization skill.
@@ -384,7 +433,8 @@ One themed accent layer over a clean combat center. **teal = power, magenta = da
 | **amber** | `1.00, 0.88, 0.25` | money / value / normal damage numbers |
 | **danger** | `0.90, 0.20, 0.55` | low / empty / boss / lockdown / bar drained |
 
-- **Layout zones (avoid collisions):** top-right = round counter + HOSTILES bar;
+- **Layout zones (avoid collisions):** top-left = recon-frame round counter (x30..110,
+  y32..112) above the implant cards (y220+); top-right = HOSTILES bar + boss bars;
   bottom-left = player health + Shards/Bottles/Exo + implant lines; bottom-right = weapon
   loadout + gun-badge row; center = crosshair + damage numbers; contextual center = cursor
   hints / device prompts.
@@ -392,9 +442,11 @@ One themed accent layer over a clean combat center. **teal = power, magenta = da
   rise+fade. Subtle; no jarring pops. Dark backing plates aid contrast against the map's
   intentionally dark color grade.
 - **Render constraints (why it looks the way it does):** custom full-screen shaders
-  (blur/CRT/bloom) and custom 2D HUD materials are **not** feasible in a usermap — the HOSTILES
-  bar and every plate are built from tinted rectangles, and icons are plain `RegisterImage`
-  PNGs, on purpose (docs/19, docs/20).
+  (blur/CRT/bloom) and custom 2D HUD materials are **not** feasible in a usermap — dynamic
+  fills/plates are tinted rectangles, and all static art (icons, the round recon frame, area
+  banners, the HOSTILES bar housing) is plain `RegisterImage` PNGs, on purpose (docs/19,
+  docs/20). Where art needs dynamics, the PNG overlays code-drawn rects through a transparent
+  slot (the AccRoundRing/AccLevel layering idiom).
 
 ## UI touchpoint inventory (shipped renderer)
 
@@ -406,7 +458,7 @@ The map's UI touchpoints and what actually draws each one today:
 | 2 | Wall buy / box / door / power prompts | Aetherium cursor hints (`PromptWallBuy` / `PromptMysteryBox` / `PromptDoors` / `PromptPowerSwitch`). |
 | 3 | Perk icons | `AetheriumPerksContainer` (our `accOwnedMask`/`accMegaMask` + Ronan base/Mega art). |
 | 4 | Power-ups | `AetheriumPowerupsContainer` (stock power-up clientfields). |
-| 5 | Round counter | `AetheriumRoundCounter` (image round display, top-right). |
+| 5 | Round counter | `CoD.AccRoundRecon` (recon-frame PNG + orbitron number, top-left; `gameScore.roundsPlayed` model). |
 | 6 | Weapon / ammo / equipment | `AetheriumLoadout` (bottom-right). |
 | 7 | Currencies (Shards / Bottles / Exo) | `AetheriumPlayerInfo` panel + `AetheriumPartyPlayers` (co-op teammates). |
 | 8 | Player HP | server hudelems (`_acc_health_bars.gsc`, sliding bars). Boss HP: `acc_hud` boss bar rows (`CoD.AccBossBars`, accBoss1..4 models) + name-only 3D plate (`_acc_boss_nameplate`). |
@@ -417,7 +469,19 @@ The map's UI touchpoints and what actually draws each one today:
 | 13 | Equipped boss items (implants + carry) | server hudelem stack (`_acc_boss_items::sync_items_hud`). |
 | 14 | Weapon-ability activation / cooldown | `iprintln` feedback ("Activated: …" / "on cooldown"). |
 | 15 | Event warnings (Lockdown / Decontamination / Reactor / Glitch Altar) | server toast/banner hudelems + `iprintlnbold`. |
+| 16 | Location / area title | `CoD.AccAreaBanner` (17 PNG recon-plate banners top-center incl. armory/office/implants sub-areas, `accArea` clientuimodel; `_acc_dev.gsc` state machine — 3.75s on change, persistent underground/Paradise). |
 | ~~—~~ | ~~Rampage Inducer device~~ | removed 2026-06-14 — replaced by the per-round zombie-speed curve (no UI). |
+
+**Once-per-match banners (2026-08-01):** recurring-event *info* banners ride
+`acc_utility::announce_once( key, msg )` (an `IPrintLnBold` gated on a per-key match flag) and
+print only the FIRST time each match: the perk-scatter banner (*"PERK MACHINES SCATTERED — find
+their new homes"*), the Scientist arrival (*"he wants your weapon..."*) and *"is down."* lines
+(both kill paths share one key), the Phantom arrival (*"something is phasing in..."*), and the
+Rogue Protector arrival (*"Civil Protection unit compromised..."*). Everything actionable stays
+always-on: the Scientist steal warning / escaped / weapon-back lines, all cost/deny toasts,
+cooldown + objective status, Avogadro hack alerts, the bridge damage warning, and soul-gate
+milestones. Rationale: the repeated copy got annoying; per-spawn tells (nameplates, boss music,
+boss bars, moved machines + perk lights) still fire every time.
 
 ## Accessibility
 

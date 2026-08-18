@@ -1,0 +1,5 @@
+{
+ "removed": [
+  "{\nguid \"{ACCDEC00-0ACC-4E0D-8A3F-000000000524}\"\n\"classname\" \"misc_model\"\n\"model\" \"custom_ghost_hive01\"\n\"origin\" \"260 2105 -1196.6\"\n\"angles\" \"0 30 0\"\n\"lightingstate1\" \"1\"\n\"lightingstate2\" \"1\"\n\"lightingstate3\" \"1\"\n\"lightingstate4\" \"1\"\n\"modelscale\" \"1\"\n\"static\" \"1\"\n}"
+ ]
+}

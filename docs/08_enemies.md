@@ -42,12 +42,33 @@ paradise included).
   - **Round 15** (`acc_zspeed_sprint_round`; **user 2026-07-09: whole curve shifted 2 rounds EARLIER** — was 17; every round now runs the old curve's speed from 2 rounds later, and the 101.3% jog start is the same shift, keeping the R14→R15 sprint hand-off near-continuous at ~109.75%): zombies break into the full **sprint** gait at rate 1.0 = base-game max — a deliberate, natural escalation. sprint@1.0 clears the topped-out jog, so the wave still steps **up** (strictly monotonic).
   - **Round > 15:** sprint gait, rate `1.0 + 0.5%·(round−15)` (`acc_zspeed_sprint_step_pct`, cut from 1% — user 2026-06-24, gentler post-sprint creep) — a faster sprint (rate > 1.0 reads fine, no slow-mo). No upper clamp (R20 = 1.025, R25 = 1.05).
   The playback rate is **floored at 1.0** in code, so the wave never animates below natural cadence. The "sprint" run modifier (`acc_mod_force_sprint`) forces the sprint gait on every round. Tunable live via the `acc_zspeed_*` dvars — see [22_flags_reference.md](22_flags_reference.md).
+  - **RAMPAGE INDUCER v2 (user 2026-08-03):** a grounded power-breaker station
+    (`p7_zm_ver_powerbreaker`) on the **Plaza→Alley connector** at (1020, 452, 0)
+    (`_acc_rampage.gsc`, script-spawned — no baked geometry; the floating Berzerker-skull
+    reuse was rejected in playtest) that players can **toggle during
+    rounds 1–4**; at **round 5 it seals** at whatever state it was left on. While ON, the
+    curve is evaluated at **round + 7** (`acc_zombie_speed::effective_round()`, live dvar
+    `acc_rampage_round_bonus`) for **exactly four enemy classes**: normal zombies (on-spawn
+    hook + 1.5 s keep-alive → a mid-round toggle retro-applies within one sweep), **Glitch
+    Stalkers** (`glitch_speed_think`), **armored/Shielded elites** (`shielded_speed_think` —
+    walk cadence only, the heavy identity keeps its gait), and the **Scientist**
+    (`sprint_pin` — both his +5 curve and his 1.10× anti-horde floor read the rampaged
+    round, so he stays strictly faster than a rampaged horde). **Nothing else**: Phantom
+    (fixed gait), Brutus (the freeze lesson), Avogadro/Rogue/Panzer/Fury never read
+    `effective_round()`. With rampage on, sprint arrives at real round 8 (8+7=15); rounds
+    1–4 only quicken the jog (+~4.6% playback) — the visible jump starts round 8. This
+    supersedes nothing: the 2026-06-14 curve stays the base; rampage is a pure round-offset
+    on top (the old Inducer's failure modes — dvar watcher fights, one-way toggle, raw-rate
+    overshoot, override decay, boss ASM stomps — are all dodged by construction; see the
+    `_acc_rampage.gsc` header). While ON the breaker **pulses RED** (~1 Hz,
+    `acc_perk_lights::set_glow` colour 1 — the client-rendered Jugg aura; a sealed-ON
+    breaker keeps pulsing, the light signifies the state); OFF = no red.
   - *Footgun — two abandoned attempts, kept as warnings:* (1) a walk→run→sprint-**by-round** variant with `rate = target% ÷ category_base%` dipped at each tier up-shift (the per-tier baked speeds are unknowable from data) → read as "slowing down per round." (2) A **sprint-locked** variant scaling `ASMSetAnimationRate` to an exact target % *below 1.0* produced the correct ground speed but a **slow-motion** sprint gait → "slomo running." Deep research (2026-06-15) confirmed there is **no script lever** for continuous speed at natural cadence (`SetMoveSpeedScale` is player-only; `moveplaybackrate` / `animtranslationScale` are dead/death-only). The natural-gait model above is the resolution: exact percentages are traded away for a correct-looking, monotonic ramp.
 
 ### Elite: Shielded ("Riot") — the ONLY elite (Teleporter + EMP removed, user 2026-06-22)
 
 - **Spawn (user 2026-06-22)**: a **"shield round" every 4 rounds from round 4** (r4, r8, r12, …); the **count that round = the round number ÷ 2** (r4 → 2 shields, r8 → 4, r12 → 6, r20 → 10 …), spread ~3 s apart across the round (`acc_shielded_spacing`). Other rounds spawn zero elites. High-round caveat: the 50-AI cap (`ACC_AI_LIMIT`) throttles how many are concurrently alive.
-- **Depth-scaled ratio (user 2026-06-25)**: ADDITIONALLY, in the **abyss** a depth-based share of *every* zombie spawns Shielded — **deeper = more**: **L2 10% · L3 15% · L4 22% · L5 30%** (surface + L1 pit = 0; the shield rounds above still cover those). Per-zombie roll on `zombie_init_done` (chained after coop_scaling so HP is already scaled), keyed by `acc_bus_trench::underground_layer(origin)`. Live dvars `acc_shielded_pct_l2..l5`. `promote_to_shielded` has a re-entrancy guard so a shield-round + depth-roll can't double-promote. `_acc_elites::acc_depth_shielded_roll` / `depth_shielded_pct`.
+- **Depth-scaled ratio (user 2026-06-25)**: ADDITIONALLY, in the **abyss** a depth-based share of *every* zombie spawns Shielded — **deeper = more**: **L2 13% · L3 20% · L4 29% · L5 40%** (scare pass 2026-08-01, was 10/15/22/30; surface + L1 pit = 0; the shield rounds above still cover those). Per-zombie roll on `zombie_init_done` (chained after coop_scaling so HP is already scaled), keyed by `acc_bus_trench::underground_layer(origin)`. Live dvars `acc_shielded_pct_l2..l5`. `promote_to_shielded` has a re-entrancy guard so a shield-round + depth-roll can't double-promote. `_acc_elites::acc_depth_shielded_roll` / `depth_shielded_pct`.
 - **HP**: **4× a normal zombie's current health, at ANY player count** (user 2026-07-04: 5× → 4×, "5× is too much"). A **flat ×4** — it tracks the normal zombie's co-op scaling, NOT a separate elite curve. (Do **not** stack `special_hp_mult()` on top: by promote time the base HP already carries the regular +20%/player co-op mult, so multiplying the elite curve double-counts co-op — that earlier made a 2-player Shielded read ~4.5× a 2p zombie instead of a clean multiple.)
 - **Movement**: a heavy **WALK** — roughly half the pace of the round's normal (jogging) zombies, a lumbering armoured brute. Uses the natural `walk` run cycle at full cadence, **not** the run gait at 0.5× rate (that read as slow-motion — `<1.0` anim rate is always slow-mo; user 2026-06-22 "why does it move so slow"). `_acc_elites::shielded_speed_think`; tune via `acc_shielded_walk_rate` (**default 1.2** = a bit faster than the natural walk, user 2026-06-24; 1.0 = natural, raise for faster); `acc_boss_custom_speed` opt-out; NO `SetScale`. Trade-off: it's the walk's natural pace, not a math-exact 50% — at high sprint rounds it reads slower-than-half; bump the rate if needed.
 - **Behavior**: front-facing armor. Damage to the front quarter (90° arc) = 25% through — *unless* your gun's Overclock pierces it (below). Flank or break the shield with sustained fire.
@@ -284,9 +305,13 @@ promoted to a wave mini-boss.
 
 - **Spawn (normal — a per-player trench clock)**: each connected player at trench **layer ≥ `acc_fury_min_layer`
   (2)** ("level 2 and below", not the pit) gets one meteor-dropped near them — the first after `acc_fury_arm_sec`
-  (8s) of being deep, then every `acc_fury_interval` (30s) while they stay down; surfacing **pauses** that
-  player's clock (re-arms the 8s on the next descent). N deep players = **N independent streams**; the alive cap
-  is the **lobby size** (solo 1 / quad 4, ceiling `acc_fury_max_ceil` 8). **Paradise**: one fury per rolling wave
+  (**6s**, was 8 — scare pass 2026-08-01) of being deep, then every `acc_fury_interval` (**22s**,
+  `ACC_FURY_INTERVAL_DEF`; was 30 — scare pass 2026-08-01), **shrinking with depth** (`fury_delay_sec`, NEW
+  2026-08-01: −2.5s per layer below L2, floored 15s → **L2 22 / L3 19.5 / L4 17 / L5 15**; recomputed live each
+  wait tick, so descending mid-clock speeds it up) while they stay down; surfacing **pauses** that
+  player's clock (re-arms the 6s on the next descent). N deep players = **N independent streams**; the alive cap
+  is the **lobby size** (solo 1 / quad 4) **+1 while ANY player is at layer ≥ 4** (scare pass 2026-08-01 — solo
+  at L4/L5 can face 2 at once; ceiling `acc_fury_max_ceil` 8 unchanged). **Paradise**: one fury per rolling wave
   dropped **on a living player** in the arena (cap `acc_paradise_fury_max` 1), flagged `acc_is_mini_boss`.
 - **HP**: a flat **12× the current round's normal-zombie health** (`acc_fury_health_mult`; history 5 → 8 → 10 →
   12), and **Furious mode doubles it again**. The 12× is against a **co-op-scaled** zombie at any player count.
@@ -383,11 +408,11 @@ The map otherwise runs stock round spawning; this is the "Moderate" intensity pa
 | Elite spacing | seconds between elite spawns | 45 → **3 s** (`acc_shielded_spacing`, default 3.0) | `_acc_elites.gsc:200` |
 | Co-op spawn rate | per extra player | **+30%** (unchanged) | `_acc_coop_scaling.gsc` |
 | Regular-zombie melee | damage per hit to player | 60 → **45** HP (baseline) | `_acc_zombie_speed.gsc` `ACC_ZOMBIE_MELEE_BASE_DEF` / dvar `acc_zombie_melee_base` |
-| Trench melee (per layer) | damage per hit while in the trench | **+4 HP per layer** on the incoming hit (L1 ≈49, L2 ≈53, … L5 ≈65; was +6 → +5, user 2026-07-16) | `_acc_bus_trench.gsc` `trench_melee_scaled` / dvar `acc_trench_layer_dmg_add` |
-| Trench move (per layer) | move speed while in the trench | baseline **+3% per layer** (anim-rate; was +4% → +3.5%, user 2026-07-16) | `_acc_zombie_speed.gsc` `apply_speed_for_round` / dvar `acc_trench_layer_speed_pct` |
+| Trench melee (per layer) | damage per hit while in the trench | **+5 HP per layer** on the incoming hit (L1 ≈50, L2 ≈55, … L5 ≈70; 6 → 5 → 4 user 2026-07-16, back to **5** scare pass 2026-08-01) | `_acc_bus_trench.gsc` `trench_melee_scaled` / dvar `acc_trench_layer_dmg_add` |
+| Trench move (per layer) | move speed while in the trench | baseline **+4% per layer** (anim-rate; 4 → 3.5 → 3 user 2026-07-16, back to **4** scare pass 2026-08-01; L5 +20%) | `_acc_zombie_speed.gsc` `apply_speed_for_round` / dvar `acc_trench_layer_speed_pct` |
 | Trench health (per layer) | max health while in the trench (**stacks on top of** round + co-op HP) | **+25% per layer** (L1 +25% … L5 +125%; one-way, deepest layer reached; nerf 30 → 27 → 25, user 2026-07-16) — final HP = (round curve × player-count mult) × (1 + layer × 25%), so player scaling AND trench difficulty both apply (user 2026-07-04) | `_acc_zombie_speed.gsc` `apply_trench_health` / dvar `acc_trench_layer_hp_pct` |
 
-Melee values are re-asserted every speed sweep on non-boss zombies (bosses keep their own — Glitch Stalker stays ×0.45). Stock baseline was 60 (`_zm_spawner.gsc:358`, originally 45). Player health is **100** (gametype setting `playerMaxHealth`, `_globallogic_spawn.gsc:242`), so 45/hit = **3 hits to down** in the open. In the trench, melee adds a **flat +6 HP per layer** (and move **+4% per layer**) on top — L1 ≈51/hit up to L5 ≈75/hit — so the deeper you descend the harder and faster they hit; the lethality ramps with depth (user 2026-06-21).
+Melee values are re-asserted every speed sweep on non-boss zombies (bosses keep their own — Glitch Stalker stays ×0.45). Stock baseline was 60 (`_zm_spawner.gsc:358`, originally 45). Player health is **100** (gametype setting `playerMaxHealth`, `_globallogic_spawn.gsc:242`), so 45/hit = **3 hits to down** in the open. In the trench, melee adds a **flat +5 HP per layer** (and move **+4% per layer**) on top — L1 ≈50/hit up to L5 ≈70/hit — so the deeper you descend the harder and faster they hit; the lethality ramps with depth (user 2026-06-21; melee-add history 6 → 5 → 4 user 2026-07-16 → **5** scare pass 2026-08-01).
 
 ### Bus Station = high-threat zone
 

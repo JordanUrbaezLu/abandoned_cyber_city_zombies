@@ -29,6 +29,13 @@
 // are baked into the .map as misc_model statics - G_Spawn entity-cap fix);
 // acc_surface_deco 1 re-enables the dynamic twins for layout iteration.
 //
+// LOCKSTEP IS MANDATORY: unlike _acc_abyss_deco (whose twins drifted - see its
+// STALE-LEDGER TOMBSTONE), these surface twins were kept IN LOCKSTEP with the .map
+// through the 2026-08-03 Prop Audit (Wave 1 + Phase A, CHANGELOG). Every future prop
+// move MUST edit the .map misc_model AND the matching spawn_*() line here to the
+// SAME origin/yaw in one pass (clips via add_prop_clips.js). If they ever diverge,
+// acc_surface_deco 1 will double/resurrect props exactly like the abyss twin now would.
+//
 // KEEP-CLEARS (corp interior x[-761,799] y[1168,2728], floor z0, ~240 ceil): the
 // trench y[1723,2173]; door corridors W&E at y[1200,1456] + y[2300,2556]; power
 // switch W wall (-752,2250); mystery box (396,2704) + N-wall strip x[300,520];
@@ -89,18 +96,18 @@ function init()
 function spawn_paradise_m6()
 {
     n = 0;
-    n += spawn_prop( "jup_vertigo_palm_01", ( -940, -2140, -1198 ), ( 0, 30, 0 ) );    // palm, SW corner [clip m6_pd_palm1]
-    n += spawn_prop( "jup_vertigo_palm_02", ( 940, -2140, -1197 ), ( 0, 140, 0 ) );    // palm, SE corner [clip m6_pd_palm2]
-    n += spawn_prop( "jup_vertigo_palm_01", ( 940, -660, -1198 ), ( 0, 260, 0 ) );     // palm, NE corner [clip m6_pd_palm3]
-    n += spawn_prop( "jup_vertigo_palm_02", ( -940, -660, -1197 ), ( 0, 75, 0 ) );     // palm, NW corner [clip m6_pd_palm4]
-    n += spawn_prop( "jup_vertigo_palm_01", ( -950, -1150, -1198 ), ( 0, 190, 0 ) );   // palm, W wall mid [clip m6_pd_palm5]
-    n += spawn_prop( "jup_vertigo_palm_02", ( 950, -1650, -1197 ), ( 0, 320, 0 ) );    // palm, E wall mid [clip m6_pd_palm6]
-    n += spawn_prop( "jup_vertigo_palm_02", ( -80, -2150, -1197 ), ( 0, 210, 0 ) );    // palm, S wall center [clip m6_pd_palm7]
-    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_01", ( -880, -2060, -1200 ), ( 0, 20, 0 ) );   // grass patch at the SW palm base
-    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_02", ( 880, -2060, -1200 ), ( 0, 200, 0 ) );   // grass patch, SE
-    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_03", ( -880, -750, -1200 ), ( 0, 90, 0 ) );    // grass patch, NW
-    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_01", ( 880, -770, -1200 ), ( 0, 300, 0 ) );    // grass patch, NE
-    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_04", ( -30, -2120, -1200 ), ( 0, 140, 0 ) );   // grass patch at the S palm base
+    n += spawn_prop( "jup_vertigo_palm_01", ( -640, -1940, -1198 ), ( 0, 30, 0 ) );    // palm, SW corner [clip m6_pd_palm1]
+    n += spawn_prop( "jup_vertigo_palm_02", ( 640, -1940, -1197 ), ( 0, 140, 0 ) );    // palm, SE corner [clip m6_pd_palm2]
+    n += spawn_prop( "jup_vertigo_palm_01", ( 640, -660, -1198 ), ( 0, 260, 0 ) );     // palm, NE corner [clip m6_pd_palm3]
+    n += spawn_prop( "jup_vertigo_palm_02", ( -640, -660, -1197 ), ( 0, 75, 0 ) );     // palm, NW corner [clip m6_pd_palm4]
+    n += spawn_prop( "jup_vertigo_palm_01", ( -650, -1035, -1198 ), ( 0, 190, 0 ) );   // palm, W wall (satellite nest) [clip m6_pd_palm5]
+    n += spawn_prop( "jup_vertigo_palm_02", ( 650, -1450, -1197 ), ( 0, 320, 0 ) );    // palm, E wall mid [clip m6_pd_palm6]
+    n += spawn_prop( "jup_vertigo_palm_02", ( -80, -1950, -1197 ), ( 0, 210, 0 ) );    // palm, S wall center [clip m6_pd_palm7]
+    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_01", ( -580, -1860, -1200 ), ( 0, 20, 0 ) );   // grass patch at the SW palm base
+    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_02", ( 580, -1860, -1200 ), ( 0, 200, 0 ) );   // grass patch, SE
+    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_03", ( -580, -750, -1200 ), ( 0, 90, 0 ) );    // grass patch, NW
+    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_01", ( 580, -770, -1200 ), ( 0, 300, 0 ) );    // grass patch, NE
+    n += spawn_prop( "t10_foliage_grass_weeds_overgrowth_patch_04", ( -30, -1920, -1200 ), ( 0, 140, 0 ) );   // grass patch at the S palm base
     n += spawn_prop( "t10_foliage_cast_iron_lrg_01", ( -140, -620, -1200 ), ( 0, 0, 0 ) );    // fern W of the hall mouth
     n += spawn_prop( "t10_foliage_cast_iron_med_03", ( 140, -620, -1200 ), ( 0, 180, 0 ) );   // fern E of the hall mouth
     return n;
@@ -117,7 +124,7 @@ function spawn_armory_loft_m6()
     n = 0;
     n += spawn_prop( "p8_zm_off_rack_gun_full", ( 990, 208, 192 ), ( 0, 180, 0 ) );        // gun rack, N wall E [clip m6_ar_rack1]
     n += spawn_prop( "p8_zm_off_rack_gun_full", ( 1042, 208, 192 ), ( 0, 180, 0 ) );       // gun rack, NE corner [clip m6_ar_rack2]
-    n += spawn_prop( "p8_zm_off_ammo_box_pile_01", ( 715, 170, 193.1 ), ( 0, 90, 0 ) );    // ammo crate pile, NW corner [clip m6_ar_ammo]
+    n += spawn_prop( "p8_zm_off_ammo_box_pile_01", ( 720, 170, 193.1 ), ( 0, 90, 0 ) );    // ammo crate pile, NW corner [clip m6_ar_ammo]
     n += spawn_prop( "p8_zm_off_locker_military_open", ( 700, -205, 192 ), ( 0, 0, 0 ) );  // military locker, SW corner [clip m6_ar_locker]
     return n;
 }
@@ -189,12 +196,12 @@ function spawn_bus_station()
     n += spawn_prop( "p7_zm_tra_sign_metal_bank",         ( -450, 1248, 158 ), ( 0, 90, 0 ) );
 
     // -- S / DEPARTURE BOARD (S wall center) - TVs on stands the bench grid faces --
-    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( -120, 1210, 33 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( -120, 1210, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( 0, 1210, 33 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( 0, 1210, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( 120, 1210, 33 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( 120, 1210, 0 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( -120, 1210, 33 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( -120, 1210, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( 0, 1210, 33 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( 0, 1210, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_tv_vintage_on",           ( 120, 1210, 33 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( 120, 1210, 0 ), ( 0, 180, 0 ) );
     n += spawn_prop( "p7_zm_tra_sign_please_wait",        ( 0, 1189, 130 ), ( 0, 180, 0 ) );
     n += spawn_prop( "p7_zm_tra_sign_neon_bar",           ( 0, 1189, 176 ), ( 0, 180, 0 ) );
 
@@ -220,8 +227,8 @@ function spawn_bus_station()
     // -- S / BAGGAGE CLAIM (SE quadrant, SOUTH of the Alley door y1456) - dolly + spilled luggage + bag table --
     n += spawn_prop( "p7_zm_tra_pneumatic_dolly",         ( 600, 1540, 2 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_suitcase_lrg",            ( 558, 1500, 0 ), ( 0, 20, 0 ) );
-    n += spawn_prop( "p7_zm_tra_suitcase_med",            ( 648, 1580, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_suitcase_med_clothes",    ( 560, 1578, 0 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_suitcase_med",            ( 648, 1580, 0 ), ( 0, 335, 0 ) );
+    n += spawn_prop( "p7_zm_tra_suitcase_med_clothes",    ( 560, 1578, 0 ), ( 0, 40, 0 ) );
     n += spawn_prop( "p7_zm_tra_table_rustic_wood_sml",   ( 450, 1520, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_ashtray_tall",            ( 410, 1490, 13 ), ( 0, 0, 0 ) );
 
@@ -230,27 +237,27 @@ function spawn_bus_station()
     n += spawn_prop( "p7_zm_tra_post_stanchion",          ( 60, 2262, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_post_stanchion",          ( -100, 2314, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_post_stanchion",          ( 60, 2314, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_traffic_street_barrier",  ( -470, 2360, 0 ), ( 0, 0, 0 ) );   // moved 2026-07-19 with the bus re-park: now flush junk on the coach N flank
+    n += spawn_prop( "p7_zm_tra_traffic_street_barrier",  ( -360, 2230, 0 ), ( 0, 0, 0 ) );   // re-homed 2026-08-03 (prop audit): FIX BATCH 3 moved the coach to the N wall and orphaned this; now joins the N bay-rim cordon (fence/cone), kept 36u EAST of the ACCC000F POWER arrow decal x[-500,-436] y2195 - never block the user's breadcrumbs
     n += spawn_prop( "p7_zm_tra_traffic_street_cone",     ( 400, 2228, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_fence_quarantine",        ( 150, 2210, 0 ), ( 0, 0, 0 ) );
 
     // -- N / DEPARTURES LOUNGE - benches facing the bay, armchair --
     n += spawn_prop( "p7_zm_tra_bench_wood",              ( -150, 2500, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_bench_wood",              ( 150, 2500, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_booth_chair",             ( 300, 2545, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_booth_chair",             ( 300, 2545, 0 ), ( 0, 0, 0 ) );
 
     // -- N / RESTROOM NOOK (NW corner, W wall N of Vault door y>2556) --
     n += spawn_prop( "p7_zm_tra_sink_bathroom",           ( -747, 2600, 0 ), ( 0, 90, 0 ) );   // flushed vs the REAL W wall x-761 (FIX BATCH 3; was floating 45u off at x-702)
     n += spawn_prop( "p7_zm_tra_urinal_bathroom",         ( -751, 2680, 40 ), ( 0, 90, 0 ) );  // flushed vs the W wall (FIX BATCH 3)
     n += spawn_prop( "p7_zm_tra_mirror_wall_dmg",         ( -759, 2600, 130 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_tra_sink_standing",           ( -560, 2708, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_sink_standing",           ( -665, 2704, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_frame_window_wood",       ( -485, 2645, 0 ), ( 0, 0, 0 ) );
 
     // -- N / CONCESSION / DINER (NE corner, E of box strip x>520) --
     n += spawn_prop( "p7_zm_tra_table_kitchen_long",      ( 620, 2690, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_stool_counter",           ( 580, 2648, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_stool_counter",           ( 660, 2648, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_stove_kitchen",           ( 702, 2600, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "p7_zm_tra_stove_kitchen",           ( 775, 2695, 0 ), ( 0, 270, 0 ) );
     n += spawn_prop( "p7_zm_tra_cash_register",           ( 560, 2690, 54 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_coffee_maker_full",       ( 660, 2690, 54 ), ( 0, 0, 0 ) );
 
@@ -303,16 +310,15 @@ function spawn_bus_station()
     n += spawn_prop( "p8_zm_whi_schoolbus",               ( -25, 2658, 0 ), ( 0, 0, 0 ) );       // SEALED dead coach, E-W flush on the TRUE N wall y2728 (full-perimeter gabled shell, no entry; re-parked 2026-07-19 FIX BATCH 3, see header)
     n += spawn_prop( "p7_spa_signage_hologram_departure", ( 0, 1235, 228 ), ( 0, 90, 0 ) );       // holo departures board floating over the TV board (ceiling-mount, hangs down)
     n += spawn_prop( "p7_spa_travel_kiosk_btm_blue",      ( -600, 1520, 0 ), ( 0, 0, 0 ) );       // travel kiosk (base unit), SW island
-    n += spawn_prop( "p7_spa_travel_kiosk_top_blue",      ( -470, 1520, 0 ), ( 0, 180, 0 ) );     // travel kiosk (canopy unit), SW island pair
     n += spawn_prop( "t10_com_parking_block_grey01",      ( -410, 1686, 0 ), ( 0, 90, 0 ) );      // parking block row W, S bus-bay rim approach (W of the POWER text decal)
     n += spawn_prop( "t10_com_parking_block_grey01",      ( 200, 1686, 0 ), ( 0, 90, 0 ) );       // parking block row E, S bus-bay rim approach
-    n += spawn_prop( "t10_sign_street_usa_no_parking_post_01", ( 430, 2205, 0 ), ( 0, 0, 0 ) );   // NO PARKING post leaned at the N rim parapet (decals clear)
+    n += spawn_prop( "t10_sign_street_usa_no_parking_post_01", ( 430, 2205, 0 ), ( 6, 340, 8 ) );   // NO PARKING post leaned at the N rim parapet (decals clear)
     n += spawn_prop( "t10_street_bike_stand_02",          ( 740, 1495, 0 ), ( 0, 0, 0 ) );        // bike stand, SE wall bay S of the staff desk
     n += spawn_prop( "p7_rus_desk_metal_vintage",         ( 779, 1590, 0 ), ( 0, 270, 0 ) );      // staff desk flush on the E wall under the payphone bank
     n += spawn_prop( "p7_rus_timecard_rack",              ( 796, 1650, 60 ), ( 0, 270, 0 ) );     // timecard rack plaque on the E wall (flush, no clip)
     n += spawn_prop( "p7_rus_refrigerator_vintage",       ( 770, 1672, 0 ), ( 0, 270, 0 ) );      // staff fridge, E wall by the S rim corner
-    n += spawn_prop( "p7_rus_locker_open",                ( 796, 1520, 0 ), ( 0, 90, 0 ) );       // staff locker (open), E wall
-    n += spawn_prop( "p7_rus_locker_closed",              ( 796, 1488, 0 ), ( 0, 90, 0 ) );       // staff locker (closed), E wall
+    n += spawn_prop( "p7_rus_locker_open",                ( 781, 1498, 0 ), ( 0, 270, 0 ) );       // staff locker (open), E wall
+    n += spawn_prop( "p7_rus_locker_closed",              ( 781, 1466, 0 ), ( 0, 270, 0 ) );       // staff locker (closed), E wall
     n += spawn_prop( "t10_un_foliage_ivy_leafless_wall_01_sparse", ( -100, 1700, 0 ), ( 0, 0, 0 ) );   // leafless ivy, S rim face between the POWER text and the E arrow
     n += spawn_prop( "t10_un_foliage_ivy_leafless_wall_02_sparse", ( 470, 1700, 0 ), ( 0, 0, 0 ) );    // leafless ivy, S rim face E of the arrow
     n += spawn_prop( "t10_un_foliage_ivy_leafless_wall_01_sparse", ( 60, 2196, 0 ), ( 0, 180, 0 ) );   // leafless ivy, N rim N face between the decal groups
@@ -363,7 +369,7 @@ function spawn_alley()
 
     // -- KEPT GRIME (TranZit industrial kit) --
     n += spawn_prop( "p7_zm_tra_tank_chemical",           ( 2155, 480, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( 2155, 830, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( 2155, 830, 0 ), ( 0, 270, 0 ) );
     n += spawn_prop( "p7_zm_tra_tank_chemical",           ( 2155, 1060, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_debris_rubble_02",        ( 2130, 1430, 9 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_bike_destroyed",          ( 1700, 1448, 4 ), ( 0, 0, 0 ) );
@@ -373,9 +379,8 @@ function spawn_alley()
     n += spawn_prop( "p7_zm_tra_tank_chemical",           ( 2070, 415, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_fence_quarantine_tarp_01", ( 1830, 770, 46 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_debris_rubble_pile_01",   ( 1730, 590, 3 ), ( 0, 10, 0 ) );
-    n += spawn_prop( "p7_zm_tra_wheelbarrow_full",        ( 1625, 1300, 0 ), ( 0, 80, 0 ) );
     n += spawn_prop( "p7_zm_tra_pneumatic_dolly",         ( 2045, 1150, 2 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( 1600, 860, 0 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( 1600, 860, 0 ), ( 0, 0, 0 ) );   // mid-room ON PURPOSE - squatter-camp cluster w/ mannequin + burn barrel (docs/47 Alley #12 KEEP, difficult-navigation)
     n += spawn_prop( "p7_zm_tra_tank_chemical",           ( 1940, 570, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_mannequin_full",          ( 1560, 900, 0 ), ( 0, 40, 0 ) );
     n += spawn_prop( "p7_zm_tra_radiator_vintage",        ( 1356, 1000, 0 ), ( 0, 90, 0 ) );
@@ -406,7 +411,7 @@ function spawn_alley()
     n += spawn_prop( "p8_zm_whi_barbed_wire_coil_01",     ( 1770, 420, 19 ), ( 0, 0, 0 ) );       // barbed wire coil along the S wall (z lift 19)
     n += spawn_prop( "p8_zm_whi_barbed_wire_coil_02",     ( 2140, 1465, 30 ), ( 0, 0, 0 ) );      // coil dumped on the NE rubble pile (rides its clip, none of its own)
     n += spawn_prop( "p8_zm_whi_window_frame_broken_02",  ( 1342, 830, 0 ), ( 0, 0, 0 ) );        // broken window frame leaned on the W wall
-    n += spawn_prop( "p8_zm_whi_window_frame_broken_03",  ( 2174, 1120, 0 ), ( 0, 0, 0 ) );       // broken window frame leaned on the E wall
+    n += spawn_prop( "p8_zm_whi_window_frame_broken_03",  ( 2174, 1120, 0 ), ( 0, 180, 0 ) );       // broken window frame leaned on the E wall
 
     // -- STREET TRASH + FLAT LITTER (litter = no clips) --
     n += spawn_prop( "t10_as_street_trash_bin_01",        ( 1445, 1250, 0 ), ( 0, 25, 0 ) );      // street trash bin near the corp mouth lane edge
@@ -457,8 +462,8 @@ function spawn_market()
     n = 0;
 
     // -- KEPT STALL BASES (TranZit diner kit, now the night-market's bones) --
-    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( -2102, 680, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_tra_barrel_wood",             ( -2100, 760, 25 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( -2102, 860, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "p7_zm_tra_barrel_wood",             ( -2100, 930, 25 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_counter_kitchen_cabinet", ( -2102, 1030, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_counter_kitchen_shelf",   ( -2102, 1095, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_stove_kitchen",           ( -2103, 1385, 0 ), ( 0, 90, 0 ) );
@@ -467,7 +472,7 @@ function spawn_market()
     n += spawn_prop( "p7_zm_tra_stool_counter",           ( -1850, 500, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_cash_register",           ( -1900, 446, 54 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_table_kitchen_long",      ( -1870, 1390, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_booth_chair",             ( -1720, 1360, 0 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_booth_chair",             ( -1615, 1364, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_counter_kitchen_table",   ( -2050, 1420, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_mannequin_full",          ( -1720, 520, 0 ), ( 0, 180, 0 ) );
     n += spawn_prop( "p7_zm_tra_mannequin_full",          ( -1660, 1320, 0 ), ( 0, 0, 0 ) );
@@ -479,7 +484,7 @@ function spawn_market()
 
     // -- STALL ROW: 3 tarp market stands + the film-kiosk island (M3) --
     n += spawn_prop( "p7_sin_market_stand_tarp_01",       ( -1950, 700, 30.6 ), ( 0, 90, 0 ) );   // tarp stall A, W stall row (30.6 z lift, centered origin)
-    n += spawn_prop( "p7_sin_market_stand_tarp_01",       ( -1460, 900, 30.6 ), ( 0, 90, 0 ) );   // tarp stall B, E stall row
+    n += spawn_prop( "p7_sin_market_stand_tarp_01",       ( -1460, 900, 30.6 ), ( 0, 270, 0 ) );   // tarp stall B, E stall row
     n += spawn_prop( "p7_sin_market_stand_tarp_01",       ( -1670, 600, 30.6 ), ( 0, 0, 0 ) );    // tarp stall C, S mid-row (flush with the center counter cluster)
     n += spawn_prop( "p7_ris_kiosk_large_01",             ( -1870, 1220, 0 ), ( 0, 0, 0 ) );      // kiosk stall island, mid-north
     n += spawn_prop( "veh_t7_civ_sedan_cruiser_vista_taxi", ( -2100, 710, 0 ), ( 0, 90, 0 ) );    // wrecked taxi parked on the W wall (vista-grade, mid-distance). MOVED N +150 2026-07-19: at y560 its clip swallowed the (-2066,560) riser struct
@@ -499,14 +504,14 @@ function spawn_market()
 
     // -- NEON / SIGNAGE SUITE (wall + overhead mounts, no clips) --
     n += spawn_prop( "t10_zm_neon_bunny_01",              ( -2134, 900, 100 ), ( 0, 270, 0 ) );   // giant neon bunny, W wall (spans z11-247)
-    n += spawn_prop( "t10_zm_signage_bar_neon_01",        ( -2138, 1062, 190 ), ( 0, 0, 0 ) );    // neon bar strip over the W counters
+    n += spawn_prop( "t10_zm_signage_bar_neon_01",        ( -2138, 1062, 190 ), ( 0, 270, 0 ) );    // neon bar strip over the W counters
     n += spawn_prop( "t10_zm_sign_videostore_billboard_01", ( -1305, 528, 130 ), ( 0, 90, 0 ) );  // videostore billboard over the E door mouth
     n += spawn_prop( "t10_zm_sign_videostore_label_televisions", ( -2139, 1020, 148 ), ( 0, 270, 0 ) );   // aisle label TELEVISIONS, W wall
     n += spawn_prop( "t10_zm_sign_videostore_label_computers", ( -2139, 1075, 148 ), ( 0, 270, 0 ) );     // aisle label COMPUTERS, W wall
     n += spawn_prop( "t10_zm_sign_videostore_label_radio", ( -2139, 1130, 148 ), ( 0, 270, 0 ) );  // aisle label RADIO, W wall
     n += spawn_prop( "t10_zm_fastfood_store_sign_01",     ( -1800, 403, 80 ), ( 0, 0, 0 ) );      // fast-food store sign over the S diner tables
-    n += spawn_prop( "t10_zm_sign_ice_cream_01",          ( -1470, 1452, 140 ), ( 0, 0, 0 ) );    // ice cream sign, N wall by the booths
-    n += spawn_prop( "t10_zm_sign_ice_cream_menu_board",  ( -2139, 1300, 120 ), ( 0, 0, 0 ) );    // menu board, W wall over the stove corner
+    n += spawn_prop( "t10_zm_sign_ice_cream_01",          ( -1470, 1452, 140 ), ( 0, 180, 0 ) );    // ice cream sign, N wall by the booths
+    n += spawn_prop( "t10_zm_sign_ice_cream_menu_board",  ( -2139, 1300, 120 ), ( 0, 270, 0 ) );    // menu board, W wall over the stove corner
 
     // -- CAST-IRON HOUSEPLANTS (walk-through; zoned by the M1 plaza pass) --
     n += spawn_prop( "t10_foliage_cast_iron_lrg_01",      ( -2115, 412, 0 ), ( 0, 45, 0 ) );      // SW corner
@@ -550,19 +555,19 @@ function spawn_vault()
     n = 0;
 
     // -- KEPT T7 TECH SET (E wall island, S wall power kit, W wall mini row) --
-    n += spawn_prop( "p7_zm_moo_server_comm_02",          ( 1910, 2400, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_zm_sta_computer_tower_01",       ( 1915, 2490, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1913, 2590, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_out_monitor_atm",                ( 1913, 2680, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_zm_sta_drop_pod_console_blue",   ( 1908, 2970, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "p7_zm_moo_server_comm_02",          ( 1899, 2400, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "p7_zm_sta_computer_tower_01",       ( 1904, 2490, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1895, 2590, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_out_monitor_atm",                ( 1919, 2680, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_sta_drop_pod_console_blue",   ( 1897, 2970, 0 ), ( 0, 270, 0 ) );
     n += spawn_prop( "p7_ris_generator_lg_01_blue",       ( 1400, 2328, 0 ), ( 0, 180, 0 ) );
     n += spawn_prop( "p7_con_cargo_train_armory_cabinet", ( 1560, 2312, 0 ), ( 0, 180, 0 ) );   // MOVED 1650->1560 (M5: opens the S-wall span for the vault portal)
     n += spawn_prop( "p7_zm_tra_power_panel",             ( 1127, 2620, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_sta_computer_tower_01",       ( 1134, 2820, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1136, 2960, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1143, 2960, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_ris_generator_lg_01_blue",       ( 1720, 3352, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_cru_monitor_holo_screen_01",     ( 1922, 3060, 100 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_cru_monitor_holo_screen_01",     ( 1121, 2680, 100 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "p7_cru_monitor_holo_screen_01",     ( 1922, 3060, 100 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_cru_monitor_holo_screen_01",     ( 1121, 2680, 100 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_light_cage_ceiling",      ( 1400, 2700, 234 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_light_cage_ceiling",      ( 1650, 3050, 234 ), ( 0, 90, 0 ) );
 
@@ -575,12 +580,12 @@ function spawn_vault()
     n += spawn_prop( "t10_zm_door_circular_vault_01_hinge",     ( 1700, 2320, 0 ), ( 0, 90, 0 ) );    // hinge column on the west jamb
     n += spawn_prop( "t10_zm_bank_safety_deposit",        ( 1676, 2297, 0 ), ( 0, 90, 0 ) );          // safety-deposit panel, S wall west flank of the portal
     n += spawn_prop( "t10_zm_bank_safety_deposit",        ( 1924, 2297, 0 ), ( 0, 90, 0 ) );          // safety-deposit panel, S wall east flank
-    n += spawn_prop( "t10_zm_bank_safety_deposit",        ( 1913, 2372, 0 ), ( 0, 180, 0 ) );         // safety-deposit panel, E wall SE nook (old chem-tank bay)
+    n += spawn_prop( "t10_zm_bank_safety_deposit",        ( 1901.8, 2372, 0 ), ( 0, 180, 0 ) );         // safety-deposit panel, E wall SE nook (old chem-tank bay)
 
     // -- M5 BANK-SECURITY OPS ROW facing the portal + console banks --
     n += spawn_prop( "p8_zm_off_console_control_03",      ( 1700, 2450, 0 ), ( 0, 180, 0 ) );         // security control console W, ops row facing the vault door
     n += spawn_prop( "p8_zm_off_console_control_04",      ( 1886, 2450, 0 ), ( 0, 180, 0 ) );         // security control console E (114u door aisle between)
-    n += spawn_prop( "p8_zm_off_console_standing_01",     ( 1903, 3280, 0 ), ( 0, 270, 0 ) );         // standing console bank, E wall N of the box (103u clear)
+    n += spawn_prop( "p8_zm_off_console_standing_01",     ( 1892, 3280, 0 ), ( 0, 270, 0 ) );         // standing console bank, E wall N of the box (103u clear)
     n += spawn_prop( "p8_zm_off_console_standing_02",     ( 1470, 3353, 0 ), ( 0, 180, 0 ) );         // BIG standing console bank, N wall span freed by the old TranZit door
 
     // -- M5 SERVER-WIRE SOCKETS above the N-wall bank (wall greebles, no clips) --
@@ -592,11 +597,11 @@ function spawn_vault()
     n += spawn_prop( "p8_zm_off_monitor_security_mount_01", ( 1660, 2293, 98 ), ( 0, 180, 0 ) );      // wall mount above the west deposit panel
     n += spawn_prop( "p8_zm_off_monitor_security",        ( 1660, 2313, 150 ), ( 0, 180, 0 ) );       // monitor body (z150-183)
     n += spawn_prop( "p8_zm_off_monitor_security_screen_on", ( 1660, 2313, 151 ), ( 0, 180, 0 ) );    // live screen overlay (ON)
-    n += spawn_prop( "p8_zm_off_monitor_security_mount_02", ( 1136, 2880, 0 ), ( 0, 270, 0 ) );       // floor pole mount, W wall (old teller-window bay; clipped)
-    n += spawn_prop( "p8_zm_off_monitor_security",        ( 1136, 2880, 94 ), ( 0, 270, 0 ) );        // monitor body on the pole
-    n += spawn_prop( "p8_zm_off_monitor_security_screen_red", ( 1136, 2880, 95 ), ( 0, 270, 0 ) );    // alert screen overlay (RED)
-    n += spawn_prop( "p8_zm_off_monitor_security_mount_01", ( 1912, 2740, 102 ), ( 0, 90, 0 ) );      // wall mount, E wall between ATM and drop-pod console
-    n += spawn_prop( "p8_zm_off_monitor_security_static", ( 1912, 2740, 152 ), ( 0, 90, 0 ) );        // monitor (static screen), E wall (z152-185)
+    n += spawn_prop( "p8_zm_off_monitor_security_mount_02", ( 1136, 2880, 0 ), ( 0, 90, 0 ) );       // floor pole mount, W wall (old teller-window bay; clipped)
+    n += spawn_prop( "p8_zm_off_monitor_security",        ( 1136, 2880, 94 ), ( 0, 90, 0 ) );        // monitor body on the pole
+    n += spawn_prop( "p8_zm_off_monitor_security_screen_red", ( 1136, 2880, 95 ), ( 0, 90, 0 ) );    // alert screen overlay (RED)
+    n += spawn_prop( "p8_zm_off_monitor_security_mount_01", ( 1912, 2740, 102 ), ( 0, 270, 0 ) );      // wall mount, E wall between ATM and drop-pod console
+    n += spawn_prop( "p8_zm_off_monitor_security_static", ( 1892, 2740, 152 ), ( 0, 270, 0 ) );        // monitor (static screen), E wall (z152-185)
 
     // -- M5 ELEVATOR VIGNETTE, N wall (closed decor pair, one flush clip) --
     n += spawn_prop( "p8_zm_off_elevator_door_metal_lt",  ( 1571, 3377, 0 ), ( 0, 270, 0 ) );         // elevator door LEFT (pair meets at x1610)
@@ -641,12 +646,10 @@ function spawn_helipad()
     n += spawn_prop( "p7_zm_tra_power_panel",             ( -1650, 2320, 0 ), ( 0, 180, 0 ) );
     n += spawn_prop( "p7_zm_tra_traffic_street_barrier",  ( -1560, 2332, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_traffic_street_cone",     ( -1440, 2334, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_cage_animal_med",         ( -1650, 3352, 20 ), ( 0, 180, 0 ) );
-    n += spawn_prop( "p7_zm_tra_pneumatic_dolly",         ( -1540, 3348, 2 ), ( 0, 180, 0 ) );
-    n += spawn_prop( "p7_zm_tra_radiator_vintage",        ( -1430, 3358, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_tra_cage_animal_med",         ( -1650, 3352, 20 ), ( 0, 0, 0 ) ); // KEPT on purpose (Track C 2026-08-03): passes as derelict rooftop junk; no zoned mil-tech model at ~42x40 beats it. Yaw-0 fix = Wave 1.
+    n += spawn_prop( "p7_zm_tra_pneumatic_dolly",         ( -1540, 3348, 2 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_power_panel",             ( -1140, 2650, 0 ), ( 0, 270, 0 ) );
     n += spawn_prop( "p7_zm_tra_shelve_oilrack",          ( -1148, 2990, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "p7_zm_tra_street_lamp_full",        ( -1895, 2400, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_fence_quarantine",        ( -1908, 3040, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_debris_rubble_02",        ( -1835, 2470, 9 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_pipes_garage_1x256",      ( -1128, 2830, 190 ), ( 0, 90, 0 ) );
@@ -662,14 +665,14 @@ function spawn_helipad()
     n += spawn_prop( "p7_rus_crate_metal_lrg",            ( -1240, 2600, 0 ), ( 0, 0, 0 ) );      // metal crate, E bay between the door mouths
     n += spawn_prop( "p7_rus_crate_metal_lrg",            ( -1300, 2600, 0 ), ( 0, 0, 0 ) );      // metal crate pair
     n += spawn_prop( "p7_rus_light_studio",               ( -1300, 2600, 42 ), ( 0, 30, 0 ) );    // studio light head dropped on the crate (rides its clip)
-    n += spawn_prop( "p7_rus_fuel_tank_rust",             ( -1290, 3255, 0 ), ( 0, 0, 0 ) );      // rusty fuel tank, NE corner (clear of the lab-door apron)
+    n += spawn_prop( "p7_rus_fuel_tank_rust",             ( -1290, 3255, 0 ), ( 0, 90, 0 ) );      // rusty fuel tank, NE corner (clear of the lab-door apron)
     n += spawn_prop( "p7_out_generator",                  ( -1900, 2900, 0 ), ( 0, 0, 0 ) );      // field generator, W wall N of the box
     n += spawn_prop( "p8_zm_off_tank_propane",            ( -1866, 2965, 0 ), ( 0, 0, 0 ) );      // propane tank beside the generator
     n += spawn_prop( "p8_zm_off_tank_propane",            ( -1856, 2950, 0 ), ( 0, 0, 0 ) );      // propane tank pair
     n += spawn_prop( "p7_rus_light_studio_tripod",        ( -1680, 3300, 0 ), ( 0, 15, 0 ) );     // studio light tripod aimed at the pad, N by the water tower
-    n += spawn_prop( "p7_rus_light_studio_tripod",        ( -1480, 2380, 0 ), ( 0, 40, 0 ) );     // studio light tripod, S edge kit
+    n += spawn_prop( "p7_rus_light_studio_tripod",        ( -1480, 2380, 0 ), ( 0, 190, 0 ) );     // studio light tripod, S edge kit
     n += spawn_prop( "p8_zm_whi_fence_chainlink_wide_01", ( -1300, 3364, 0 ), ( 0, 0, 0 ) );      // wide chainlink run on the N wall (flush, no clip)
-    n += spawn_prop( "p8_zm_whi_cloth_warning",           ( -1310, 3342, 0 ), ( 0, 0, 0 ) );      // warning cloth draped on the chainlink (no clip)
+    n += spawn_prop( "p8_zm_whi_cloth_warning",           ( -1310, 3360, 0 ), ( 0, 0, 0 ) );      // warning cloth draped on the chainlink (no clip)
     n += spawn_prop( "t10_balcony_railing_modern_64",     ( -1124, 2590, 0 ), ( 0, 90, 0 ) );     // modern railing piece, E wall between the mouths (flush, no clip)
     n += spawn_prop( "t10_balcony_railing_modern_64",     ( -1124, 2900, 0 ), ( 0, 90, 0 ) );     // modern railing piece, E wall N segment (flush, no clip)
     n += spawn_prop( "t10_base_foliage_grass_dry_arid_01", ( -1524, 2560, 0 ), ( 0, 0, 0 ) );     // dry arid grass scatter around the wreck tail (walk-through)
@@ -699,20 +702,19 @@ function spawn_surface_pass3()
     // -- ALLEY extra (M3 removed the barrel_wood pair + the cage here) --
     n += spawn_prop( "p7_zm_tra_debris_rubble_pile_01",   ( 1560, 1420, 3 ), ( 0, 30, 0 ) );
     n += spawn_prop( "p7_zm_tra_tank_chemical",           ( 1900, 1280, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_tra_wheelbarrow_full",        ( 1610, 710, 0 ), ( 0, 30, 0 ) );
     n += spawn_prop( "p7_zm_tra_mannequin_full",          ( 1700, 1300, 0 ), ( 0, 200, 0 ) );
 
     // -- MARKET extra --
     n += spawn_prop( "p7_zm_tra_barrel_wood",             ( -1900, 900, 25 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_debris_rubble_pile_01",   ( -1500, 1100, 3 ), ( 0, 10, 0 ) );
     n += spawn_prop( "p7_zm_tra_mannequin_full",          ( -1850, 700, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "p7_zm_tra_table_rustic_wood_sml",   ( -1600, 1350, 0 ), ( 0, 0, 0 ) );
+    n += spawn_prop( "p7_zm_tra_table_rustic_wood_sml",   ( -1560, 1364, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_zm_tra_planter_stone",           ( -1450, 600, 0 ), ( 0, 0, 0 ) );
 
     // -- VAULT extra (M5 removed the mid-W tank_chemical @1250,2700 with the
     //    bank-fortress anchor pass; the T7 tech extras stay) --
     n += spawn_prop( "p7_zm_sta_computer_tower_01",       ( 1350, 3352, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1250, 2320, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_zm_sta_dragon_network_data_terminal", ( 1250, 2320, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_zm_tra_monitor_support_02",      ( 1130, 3050, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "p7_cru_monitor_holo_screen_01",     ( 1900, 2400, 100 ), ( 0, 270, 0 ) );
 
@@ -760,14 +762,14 @@ function spawn_plaza()
     n = 0;
 
     // -- HERO: memorial angel fountain, mid-room island (angel faces spawn) --
-    n += spawn_prop( "t10_decor_shaftesbury_memorial_fountain_angel", ( -40, 130, 0 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "t10_decor_shaftesbury_memorial_fountain_angel", ( -40, 130, 0 ), ( 0, 0, 0 ) );
 
     // -- WEST PLANTER BED gone wild: iron fence run (rust gap y108-130) + boxes --
     n += spawn_prop( "t10_fence_plaza_iron_01_128",       ( -440, -20, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "t10_fence_plaza_iron_02_64",        ( -440, 130, 0 ), ( 0, 90, 0 ) );
     n += spawn_prop( "t10_foliage_flower_hollyhock_planter_box_long_group_01_c", ( -455, 45, 0 ), ( 0, 0, 0 ) );
     n += spawn_prop( "t10_foliage_flower_camomile_planter_box_long_group_01_a",  ( -455, 145, 0 ), ( 0, 0, 0 ) );
-    n += spawn_prop( "t10_fence_plaza_iron_01_single_a",  ( -440, 240, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "t10_fence_plaza_iron_01_single_a",  ( -440, 215, 0 ), ( 0, 90, 0 ) );
 
     // -- NORTH PLANTER BED under the dead neon (clear of the frag wallbuy @-250) --
     n += spawn_prop( "t10_fence_plaza_iron_01_128",       ( -64, 684, 0 ), ( 0, 0, 0 ) );
@@ -775,10 +777,10 @@ function spawn_plaza()
     n += spawn_prop( "t10_foliage_flower_camomile_planter_box_long_group_01_b",  ( 45, 700, 0 ), ( 0, 0, 0 ) );
 
     // -- BENCH ROWS facing the fountain (row A south, row B north) --
-    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -220, 10, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -140, 10, 0 ), ( 0, 90, 0 ) );
-    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -120, 335, 0 ), ( 0, 270, 0 ) );
-    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( 30, 335, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -220, 10, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -140, 10, 0 ), ( 0, 270, 0 ) );
+    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( -120, 335, 0 ), ( 0, 90, 0 ) );
+    n += spawn_prop( "t10_street_bench_iron_ornate_01",   ( 30, 335, 0 ), ( 0, 90, 0 ) );
 
     // -- BOLLARD LINES leading to (not into) the NW/NE exit mouths (gaps y400-656) --
     n += spawn_prop( "t10_street_bollard_01",             ( -438, 250, 0 ), ( 0, 0, 0 ) );
@@ -818,7 +820,7 @@ function spawn_plaza()
     n += spawn_prop( "p7_sky_light_led_01_b_blue",        ( -469, 80, 150 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_sky_light_led_01_b_blue",        ( -469, 340, 150 ), ( 0, 0, 0 ) );
     n += spawn_prop( "p7_sky_light_led_01_b_blue",        ( 212, 150, 150 ), ( 0, 180, 0 ) );
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",        ( 212, 330, 155 ), ( 0, 180, 0 ) );
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",        ( 212, 330, 150 ), ( 0, 180, 0 ) );
 
     return n;
 }
@@ -879,32 +881,32 @@ function spawn_lab()
     n += spawn_prop( "p7_cru_monitor_holo_screen_01",                 ( 796, 3430, 135 ), ( 0, 180, 0 ) );   // holo readout above the cart (already zoned)
 
     // -- APD SCI-FI ISLAND, mid-room NE quadrant (S of the perk strip) --
-    n += spawn_prop( "p8_zm_whi_apd_turbine",                         ( 160, 3856, 0 ), ( 0, 0, 0 ) );   // APD turbine (mesh extends -y: spans y3764-3856)
+    n += spawn_prop( "p8_zm_whi_apd_turbine",                         ( 160, 3868, 0 ), ( 0, 0, 0 ) );   // APD turbine (mesh extends -y), flush the new inner N wall (2026-08-02 compression: interior y[3068,3868])
     n += spawn_prop( "p8_zm_whi_apd_element",                         ( 250, 3790, 1 ), ( 0, 45, 0 ) );   // APD glowing element core
-    n += spawn_prop( "t10_zm_aether_canister_on",                     ( 100, 3870, 0 ), ( 0, 0, 0 ) );   // aether canister (glow)
+    n += spawn_prop( "t10_zm_aether_canister_on",                     ( 100, 3860, 0 ), ( 0, 0, 0 ) );   // aether canister (glow), flush the new N wall
     n += spawn_prop( "t10_zm_aether_canister_on",                     ( 300, 3800, 0 ), ( 0, 0, 0 ) );   // aether canister (glow)
 
     // -- INDUSTRIAL CORNER, E wall N of the box (consoles = background per the
     //    untextured-decal cosmetic note; heroes = tank pair + steel table) --
     n += spawn_prop( "t10_zm_energy_barrier_01_closed_red",           ( 770, 3770, 0 ), ( 0, 0, 0 ) );   // RED energy barrier post N of the box (glow)
-    n += spawn_prop( "p8_zm_off_console_control_01",                  ( 774, 3852, 0 ), ( 0, 90, 0 ) );   // control console vs the E wall (background)
-    n += spawn_prop( "p8_zm_off_filing_cabinet_01",                   ( 777, 3898, 0 ), ( 0, 90, 0 ) );   // filing cabinet between the consoles
-    n += spawn_prop( "p8_zm_off_console_control_02",                  ( 774, 3960, 0 ), ( 0, 90, 0 ) );   // wide control console vs the E wall (background)
-    n += spawn_prop( "p8_zm_off_tank_chemical",                       ( 690, 3880, 0 ), ( 0, 0, 0 ) );   // pressure tank 1
-    n += spawn_prop( "p8_zm_off_tank_chemical",                       ( 690, 3965, 0 ), ( 0, 30, 0 ) );   // pressure tank 2
-    n += spawn_prop( "p8_zm_off_morgue_table",                        ( 620, 3920, 0 ), ( 0, 0, 0 ) );   // steel morgue/work table
-    n += spawn_prop( "p8_zm_off_locker_military_open",                ( 600, 3835, 0 ), ( 0, 0, 0 ) );   // locker, open
-    n += spawn_prop( "p8_zm_off_locker_military_closed",              ( 648, 3835, 0 ), ( 0, 0, 0 ) );   // locker, closed
+    n += spawn_prop( "p8_zm_off_console_control_01",                  ( 330, 3846, 0 ), ( 0, 180, 0 ) );   // control console, new N wall
+    n += spawn_prop( "p8_zm_off_filing_cabinet_01",                   ( 718, 3852, 0 ), ( 0, 0, 0 ) );   // filing cabinet, new N wall
+    n += spawn_prop( "p8_zm_off_console_control_02",                  ( 520, 3846, 0 ), ( 0, 180, 0 ) );   // wide control console, new N wall
+    n += spawn_prop( "p8_zm_off_tank_chemical",                       ( 724, 3792, 0 ), ( 0, 0, 0 ) );   // pressure tank 1 - NE spur (merges with the red barrier mass)
+    n += spawn_prop( "p8_zm_off_tank_chemical",                       ( 735, 3737, 0 ), ( 0, 30, 0 ) );   // pressure tank 2 - NE spur south end
+    n += spawn_prop( "p8_zm_off_morgue_table",                        ( -190, 3240, 0 ), ( 0, 90, 0 ) );   // steel morgue/work table -> center-south medical cluster
+    n += spawn_prop( "p8_zm_off_locker_military_open",                ( 610, 3852, 0 ), ( 0, 0, 0 ) );   // locker, open - new N wall
+    n += spawn_prop( "p8_zm_off_locker_military_closed",              ( 658, 3852, 0 ), ( 0, 0, 0 ) );   // locker, closed - new N wall
 
     // -- N-WALL accents: LED strips on the wall face y4228 at z175, yaw 270 hugs
     //    the face. (Were "over the alcove bays" - the alcove row was REMOVED
     //    2026-07-25, so these + the cyan crown band now read as plain neon trim
     //    on the flat N wall over the perk spawn row.) --
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall W band
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall W-center
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 225, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall E-center
-    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 525, 4227, 175 ), ( 0, 270, 0 ) );   // LED strip, N wall E band
-    n += spawn_prop( "p7_cru_monitor_holo_screen_01",                 ( 0, 3074, 140 ), ( 0, 0, 0 ) );   // holo readout above the five-seven wallbuy
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -525, 3867, 175 ), ( 0, 270, 0 ) );   // LED strip, inner N wall W band
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( -225, 3867, 175 ), ( 0, 270, 0 ) );   // LED strip, inner N wall W-center
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 225, 3867, 175 ), ( 0, 270, 0 ) );   // LED strip, inner N wall E-center
+    n += spawn_prop( "p7_sky_light_led_01_b_blue",                    ( 525, 3867, 175 ), ( 0, 270, 0 ) );   // LED strip, inner N wall E band
+    n += spawn_prop( "p7_cru_monitor_holo_screen_01",                 ( 0, 3074, 140 ), ( 0, 90, 0 ) );   // holo readout above the five-seven wallbuy
 
     return n;
 }

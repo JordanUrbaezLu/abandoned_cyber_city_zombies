@@ -1,0 +1,242 @@
+{
+    "generated":  "2026-07-29 trench-alien-takeover-v2 workflow (wf_72bf7dd8-dea) - DESIGN ONLY, awaiting Alley-clean gate",
+    "v1_scope":  "V1 = the clip-neutral subset: 13 removals (all rows with clipped=false - none has an @0u acc_clip_*, so ZERO clip brushes change, no DisconnectPaths/navmesh-relevant edit) + 13 adds = net entity delta 0. Composition: L1/L2/Paradise untouched (dread curve - L2\u0027s machines stay to be strangled, and the four ACCINF gradient anchors all live there: blue generator, breaker cabinet, S cable conduit, plus L3 slalom root); L3 gets only the 5 mandatory BANNED-model swaps (in-place, same spots); L4 carries the pass (7 industrial removals -\u003e ceiling colonization + first victim beat); L5 loses its last industrial piece. 7 fresh ghost types introduced (poison_green/_orange, plant05_top_01_blue/_cyan, plant04_arm_01, plant03_arm_01, dead_soldier_01 - within the 4-8 band), all non-solid (no _col LODs), all emissive except the soldier which ships with a proven-glow egg partner. All adds are misc_model statics; zero new fx, zero lights. PERMANENT KEEPS discovered this pass (never remove, v2 included): p7_zm_isl_specimen_container_lg (ACCINF02 placed its own red cage light beside it as the \u0027hero specimen tank\u0027 pairing anchor) and p7_con_containment_vessel_decor (ACCINF L4 egg clutch at (450,1745,-947) is deliberately FUSED to acc_clip_l4_vessel_s). V2 (separate pass: clip deletes + full bake + navmesh regen): remove interrogation_console_02 + acc_clip_l4_console -\u003e plant04_base in place; remove cryogen_pod_frosted + acc_clip_l4_pod_frost -\u003e hive02 at (-600,1760,-957); plus new vocabulary that needs more care: tentacle_double_01 sunk ~195u into the L5 floor as a floor-to-ceiling pillar silhouette beside a glow cluster (416u tall, DARK), and dead_soldier_02/03 scattered near existing egg nests. V2 also inherits any L2 conversions if the user later wants the strangle to progress - not proposed now.",
+    "removes":  [
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000511}",
+                        "model":  "custom_ghost_alien_tall_grass_01",
+                        "origin":  "(450 1750 -710.5)",
+                        "layer":  "L3",
+                        "clipped":  false,
+                        "why":  "BANNED model (fxanim_backlit crash class), no-clip; swap in-place for GDT-backed poison stalk"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000512}",
+                        "model":  "custom_ghost_alien_tall_grass_01",
+                        "origin":  "(-250 1760 -710.5)",
+                        "layer":  "L3",
+                        "clipped":  false,
+                        "why":  "BANNED model, no-clip; swap in-place for poison stalk recolor"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000513}",
+                        "model":  "custom_ghost_alien_weeds01",
+                        "origin":  "(620 2150 -718.7)",
+                        "layer":  "L3",
+                        "clipped":  false,
+                        "why":  "BANNED model, no-clip; swap in-place for plant05 low glowing fan"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000514}",
+                        "model":  "custom_ghost_alien_weeds01",
+                        "origin":  "(760 1950 -718.7)",
+                        "layer":  "L3",
+                        "clipped":  false,
+                        "why":  "BANNED model, no-clip; swap in-place for plant05 fan recolor"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000515}",
+                        "model":  "custom_ghost_alien_weeds01",
+                        "origin":  "(-140 1730 -718.7)",
+                        "layer":  "L3",
+                        "clipped":  false,
+                        "why":  "BANNED model, no-clip; swap in-place for plant04 wall-growth arm on the S wall"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000472}",
+                        "model":  "p7_zm_isl_cage_trap",
+                        "origin":  "(-250 1950 -736)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Industrial ceiling cage; L4 must read alien-consumed. Unclipped (acc_clip_glitch_altar_l3 @71u is the Altar\u0027s FUNCTIONAL clip, not this prop\u0027s - do not touch it). Replaced by tentacles_02 ceiling splat"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000473}",
+                        "model":  "p7_zm_isl_cage_trap",
+                        "origin":  "(300 1780 -736)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Industrial ceiling cage, no-clip; replaced by tentacles_02 ceiling splat"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000474}",
+                        "model":  "p7_zm_isl_signage_hanging_01_specimen_01",
+                        "origin":  "(-400 1870 -744)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Hanging lab sign; unclipped (nearby glitch-altar clip is functional, not its own). Lab identity survives via the clipped hero tank/pods/table kept below. Replaced by plant_ceil glo-sprout"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000475}",
+                        "model":  "p7_zm_isl_signage_hanging_01_specimen_03",
+                        "origin":  "(400 1880 -744)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Hanging lab sign, no-clip; replaced by plant_ceil dripping over the kept E cryo pod"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000476}",
+                        "model":  "p7_cry_warning_light",
+                        "origin":  "(460 2090 -840)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Industrial wall light model, no-clip (NOT the ACCINF02 red cage light that anchors the hero specimen tank - that one stays). Replaced by a 187u plant03 arm climbing the N wall through the old mount point"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000521}",
+                        "model":  "p8_zm_off_metal_hook",
+                        "origin":  "(300 2011 -852)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Industrial wall hook, no-clip; hooks read butcher-industrial, not consumed. Story replacement: a consumed soldier corpse below"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000522}",
+                        "model":  "p8_zm_off_metal_hook",
+                        "origin":  "(340 2011 -858)",
+                        "layer":  "L4",
+                        "clipped":  false,
+                        "why":  "Industrial wall hook; unclipped (acc_clip_l4_pod_e @47u belongs to the kept cryo pod, not this prop)"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000492}",
+                        "model":  "p7_zm_asc_light_cage_warning_red",
+                        "origin":  "(0 1735 -990)",
+                        "layer":  "L5",
+                        "clipped":  false,
+                        "why":  "The ONLY industrial piece on L5, no-clip; the bottom must be fully consumed. Replaced by tentacles_02 ceiling splat in the same S-wall corner"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000467}",
+                        "model":  "p7_cry_interrogation_console_02",
+                        "origin":  "(-756 2050 -960)",
+                        "layer":  "L4",
+                        "clipped":  true,
+                        "why":  "V2 ONLY (own clip acc_clip_l4_console - clip delete + full bake + navmesh). ACCINF \u0027specimen that got away\u0027 beat is placed CLEAR of this clip (mesh x[-732,-608]), not fused - safe to remove in v2; replace with plant04_base in the same W-wall spot"
+                    },
+                    {
+                        "guid":  "{ACCDEC00-0ACC-4E0D-8A3F-000000000465}",
+                        "model":  "p7_cry_cryogen_pod_frosted",
+                        "origin":  "(-600 1760 -902)",
+                        "layer":  "L4",
+                        "clipped":  true,
+                        "why":  "V2 ONLY (own clip acc_clip_l4_pod_frost). One of two cryo pods; the E pod stays as the strangle target, this SW one becomes a hive02 (floor+3 = z -957) - a hive where the pod stood"
+                    }
+                ],
+    "adds":  [
+                 {
+                     "model":  "custom_ghost_alien_poison_green",
+                     "x":  450,
+                     "y":  1750,
+                     "z":  -706,
+                     "yaw":  40,
+                     "note":  "L3, in-place swap for tall_grass ...0511. Poison convention floor+14 (L3 floor -720). Thin 40x44x131 silhouette, LIKELY glow, non-solid. Inherits old yaw"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_poison_orange",
+                     "x":  -250,
+                     "y":  1760,
+                     "z":  -706,
+                     "yaw":  200,
+                     "note":  "L3, in-place swap for tall_grass ...0512. floor+14. Clear of D3 well x[-112,112] check in Radiant (old prop sat here already)"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant05_top_01_cyan",
+                     "x":  620,
+                     "y":  2150,
+                     "z":  -717,
+                     "yaw":  10,
+                     "note":  "L3, in-place swap for weeds01 ...0513 at the N wall. plant05 convention floor+3 (matches ACCINF row at z -717). Low 204x67x48 glowing fan"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant05_top_01_blue",
+                     "x":  760,
+                     "y":  1950,
+                     "z":  -717,
+                     "yaw":  140,
+                     "note":  "L3, in-place swap for weeds01 ...0514 near the E wall. floor+3"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant04_arm_01",
+                     "x":  -140,
+                     "y":  1730,
+                     "z":  -720,
+                     "yaw":  90,
+                     "note":  "L3, in-place swap for weeds01 ...0515. 41x12x113 wall growth, back against the S wall (y 1727), base at floor (no listed lift - verify flush in Radiant). Fits 223u gap"
+                 },
+                 {
+                     "model":  "custom_ghost_armory_alien_tentacles_02",
+                     "x":  -250,
+                     "y":  1950,
+                     "z":  -737,
+                     "yaw":  0,
+                     "note":  "L4 ceiling splat replacing cage trap ...0472. Angles (0 0 180) - ceiling roll 180, z = L4 ceiling exactly (ACCINF precedent -497 on L3). Already zoned + bake-proven. Glitch Altar prompt is floor-level 200u+ below - clear"
+                 },
+                 {
+                     "model":  "custom_ghost_armory_alien_tentacles_02",
+                     "x":  300,
+                     "y":  1780,
+                     "z":  -737,
+                     "yaw":  70,
+                     "note":  "L4 ceiling splat replacing cage trap ...0473. Angles (0 70 180)"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant_ceil",
+                     "x":  -400,
+                     "y":  1870,
+                     "z":  -737,
+                     "yaw":  45,
+                     "note":  "L4 glo-sprout (PROVEN-class emissive) replacing lab sign ...0474. Angles (0 45 180). Sits over the kept hero specimen tank + ACCINF red light pairing - adds the consumed layer without touching the anchor"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant_ceil",
+                     "x":  400,
+                     "y":  1880,
+                     "z":  -737,
+                     "yaw":  90,
+                     "note":  "L4 glo-sprout replacing lab sign ...0475, dripping directly over the kept E cryo pod (strangle read). Angles (0 90 180). Riser (400,1850) is floor-level - ceiling piece clear, confirm in Radiant"
+                 },
+                 {
+                     "model":  "custom_ghost_alien_plant03_arm_01",
+                     "x":  460,
+                     "y":  2095,
+                     "z":  -960,
+                     "yaw":  180,
+                     "note":  "L4, replaces warning light ...0476: 46x20x187 frond climbing the N wall, top at -773 passes through the old light mount (-840). Back to wall, base at floor, fits 223u gap"
+                 },
+                 {
+                     "model":  "custom_ghost_dead_soldier_01",
+                     "x":  310,
+                     "y":  2040,
+                     "z":  -960,
+                     "yaw":  205,
+                     "note":  "L4 consumed-victim beat under the removed meat hooks (...0521/0522) - the lab crew the biome ate. DARK model: MUST keep the paired egg below within ~60u. 74x44x16 prone, floor level"
+                 },
+                 {
+                     "model":  "custom_ghost_armory_alien_egg_01",
+                     "x":  350,
+                     "y":  2075,
+                     "z":  -947,
+                     "yaw":  30,
+                     "note":  "L4 glow partner for the soldier (PROVEN emissive, egg convention floor+13). Already zoned. ~45u from corpse; verify clear of any L4 riser row in Radiant before bake"
+                 },
+                 {
+                     "model":  "custom_ghost_armory_alien_tentacles_02",
+                     "x":  0,
+                     "y":  1780,
+                     "z":  -977,
+                     "yaw":  0,
+                     "note":  "L5 ceiling splat replacing the red caged light ...0492 in the S corner. Angles (0 0 180), z = L5 ceiling. Spawner hole (250,1800,-1192) and the walk-under arch are floor-level, 200u+ below - clear"
+                 }
+             ],
+    "new_zone_lines":  [
+                           "xmodel,custom_ghost_alien_poison_green",
+                           "xmodel,custom_ghost_alien_poison_orange",
+                           "xmodel,custom_ghost_alien_plant05_top_01_blue",
+                           "xmodel,custom_ghost_alien_plant05_top_01_cyan",
+                           "xmodel,custom_ghost_alien_plant04_arm_01",
+                           "xmodel,custom_ghost_alien_plant03_arm_01",
+                           "xmodel,custom_ghost_dead_soldier_01"
+                       ],
+    "checklist":  "LOOK-PASS CHECKLIST (v1)\n1. EDIT SAFETY: grep the .map for another session\u0027s markers before touching it (concurrent-sessions-clobber-map-appends); confirm all 13 remove guids resolve to exactly one entity each and the 5 banned-model guids grep to 0 hits after the edit.\n2. ZONE: add the 7 new xmodel lines; then confirm custom_ghost_alien_tall_grass_01 and custom_ghost_alien_weeds01 have 0 remaining .map placements and delete their orphaned zone lines (1749-1750) in the same edit. Zone content changes -\u003e sound banks regen: NEVER build while BO3 is running.\n3. FX RULE: this pass adds models only - verify the diff contains zero fx/createfx lines; both crash-class greps (explicit def lines, tail elements) must stay clean; flies + sword_quest_egg glow remain banned.\n4. RADIANT SPOT-CHECKS before bake: (a) plant04_arm_01 and plant03_arm_01 bases flush at floor (no published lift values); (b) plant05 recolors match the ACCINF plant05_top_01 mount (floor+3); (c) soldier+egg pair clear of L4 riser rows and the (400,1850) riser; (d) new ceiling pieces do not occlude the Glitch Altar prompt sightline; (e) poison_orange clear of the D3 well band x[-112,112].\n5. BUILD GATE: misc_model edits are geometry -\u003e FULL build with LED bake (.\\tools\\build_map.ps1, no -SkipLED) or .\\tools\\_bake_test.ps1; the 7 fresh models have never been in a bake - BAKED verdict required before anything is kept. Build success = fresh .ff, not linker exit code.\n6. IN-GAME LOOK PASS (dev build, teleport per layer): L1/L2 read unchanged-industrial-being-strangled; L3 - five swap spots render (banned fxanim pieces may have been invisible before - expect the spots to look FULLER now), poison/plant05/plant04 glow without any light entity; L4 - look UP: cages/signs gone, tentacle splats + glo-sprouts own the ceiling, soldier corpse reads against the egg glow, hero tank + red light pairing intact; L5 - no red industrial light anywhere, S-corner splat present; Paradise untouched.\n7. GRADIENT AUDIT: walk L1-\u003eL5 in one run - dread curve must still ramp (barely touched -\u003e strangled -\u003e consumed); confirm no new piece blocks a soul box, riser, stair, deck, tide lane, D-well landing, or prompt radius.\n8. BOOKKEEPING: CHANGELOG.md entry + docs (abyss deco doc / docs/30 layer notes) in the same commit; record the two new permanent keeps (specimen container, vessel_decor = ACCINF anchors) in the deco doc so the next pass doesn\u0027t re-propose them; leave work uncommitted for the user."
+}

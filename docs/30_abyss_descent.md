@@ -5,6 +5,17 @@
 goal is to reach the bottom. **5 floors total.** The existing trench/underground = **Layer 1**;
 we add **4 more identical enclosed floors** straight down below it.
 
+**THE INFESTATION GRADIENT (user, 2026-07-29):** the descent's visual identity is now the
+glowing-egg infestation (ghost.zip Extinction organics + T7 glyph/boil emissives) — ONE doubtful
+egg at L1 → machine-strangling clusters at L2 → nests + ceiling colonization at L3 → green-lit
+incubation clutches on the L4 vessels → the nest itself at L5 → **Paradise is the HEART** (full
+takeover remodel; arena center stays trainable). One organism: the surface trench-rim reclamation
+(docs/46 differentiator 3) is where it breaches the street. Implementation:
+`tools/oneshots/gen_infestation.js` (ACCINF01/02, baked misc_models, non-solid, keep-clear
+verified; per-batch revert) + fungus-family FX loops + the boot-up cascade's `descent_hive_wake()`
+(the wake walks L2→L5 at t+5→14 after power-on). Still pitch-black by design — glow is model-own
+emissive ONLY, never lights (the 2026-07-12 CTD lockout stands).
+
 See the research that gated this (engine limits, why we build down instead of moving the map up)
 in the session memory `made-in-abyss-vertical-research` summary. Headline: **there is no practical
 depth limit** — the engine world bound is ≥ ±65,536 (likely ±131,072), symmetric; the map currently
@@ -98,8 +109,14 @@ AND y[−400,2900]**. Every abyss layer is below −36 inside that XY band, so *
 auto-protected — no `ACC_UNDER_Z` change, no new zones, no new callback.** (Do NOT *lower* `ACC_UNDER_Z`
 — that would strand the shallow layers.) Zombies follow players down once cod2map regenerates the
 navmesh over the 16/16 stairs. Programmatic trench spawning already keys off `player_in_underground`,
-so the trench effects (−20% slow, fall-tax, AI-cap bump, danger HUD) apply uniformly to every layer —
-a good base for "deeper = harder" escalation later.
+so the trench effects (−20% slow, fall-tax, AI-cap bump, danger HUD) apply to every layer — and since
+the **scare pass (2026-08-01, "+35% scarier")** the "deeper = harder" escalation is BUILT, not deferred:
+the descent surge grows +1 zombie per layer (L2 6 … L5 9, shared 6s cooldown), the stay-down drip
+quickens/fattens off the deepest occupied layer (5s ×2 at L1 → 3s ×4 at L4–L5), per-layer zombie stats
+sit at +4% speed / +5 melee / +25% HP, the Depth-Shielded roll runs L2 13% … L5 40%, the fury clock
+shrinks with depth (22s → 15s at L5, +1 alive cap while anyone is at L4/L5), each abyss layer erupts
+from **6 synthetic risers** (was 4; the L1 pit gained 2 — pure GSC, no `.map` edit), and the red DANGER
+warning re-pulses on every new deeper floor from L3 down. Numbers: docs/28 (trench), docs/08 (enemies).
 
 ## Build discipline (per layer, MANDATORY)
 
@@ -181,7 +198,13 @@ layer broke it. cod2map regenerates the navmesh (cwd=bin, handled by build_map).
 L5's **south wall has a doorway** (`gen_abyss_layer.js`, only the bottom layer) into **"Paradise"** — the second
 part of the map. Beyond it: a **long dark hallway** runs south and opens into a large **OPEN-AIR plaza** (a deep
 ~1000u pit, floor z=-1200, capped with the existing `sky` material so you look up at the night sky), placed south of
-the surface map so the sky cap has clear void above it. Geometry: **`tools/gen_descent_hub.js`** (hallway + plaza +
+the surface map so the sky cap has clear void above it. **COMPRESSED 2026-08-02** (`tools/oneshots/
+gen_compress_lab_paradise.js`; user: "minimize paradise"): interior is now **x[-700,700] y[-2000,-600]**
+(1400x1400, ~39% less area than the original 2000x1600) — the 8 hub brushes were value-remapped in place
+(preserving the mwiii-vertigo floor re-skin), every misc_model (M6 palms + ACCINF02 infestation) re-homed by
+cluster rules, the 10-perk row re-spaced to 130u (x[-630,630], same y-820), and all GSC amenities pulled in
+(see below). The hallway, hub door, plaza lights and probe were untouched. The finale arena is deliberately
+tighter — less room to kite the 5-boss wave. Geometry: **`tools/gen_descent_hub.js`** (hallway + plaza +
 the `acc_abyss_hub_door` slab). OOB-safe + trench-NEUTRAL via `acc_bus_trench::player_in_second_part` (footprint
 `ACC_SP_*`). Paradise is a full second hub: GSC-spawned duplicate Glitch Altar / Overclock / Exo / perk-slot vendor /
 boss-item bench + a **permanent mystery box** + a **2nd Pack-a-Punch** (`acc_glitch_altar::spawn_paradise`),
@@ -190,7 +213,7 @@ Exo / perk vendor, all at z=-1200) are **solid** — `add_prop_clips.js` `paradi
 per-prop `bot` (user 2026-06-27), each with its remodeled model's snug dims (altar 162×66×58, overclock 48×34×78, exo 58×52×114, perk vendor 50×44×71; the stations were remodeled 2026-07-09) (reconciled to code 2026-07-11).
 
 **The 2nd Pack-a-Punch is a STANDALONE GSC vendor, NOT a 2nd stock machine** (`_acc_pap_levels::spawn_paradise_pap_at`,
-at `(0,-1700,-1200)`). Stock supports exactly one PaP: `spawn_init` renames every `zm_pack_a_punch` zbarrier to the
+at `(0,-1550,-1200)` since the 2026-08-02 compression). Stock supports exactly one PaP: `spawn_init` renames every `zm_pack_a_punch` zbarrier to the
 shared `vending_packapunch`, then `vending_weapon_upgrade()` does a singular `GetEnt("vending_packapunch")` that
 **fatals the load** with two — which is what broke the surface PaP on the earlier attempt. The standalone vendor
 (`script_model` + `trigger_radius_use`, like the Paradise box) dispatches through the **same player-scoped tier path**
@@ -259,14 +282,28 @@ the gate opens, and it starts the instant the team drops into the plaza. The seq
 | **1 — CALM** | `acc_paradise_calm_sec` 60 | One-shot **victory fanfare** (`acc_paradise_calm`, the Mario stage-win jingle), clear air, a **very light trickle** (`acc_paradise_trickle_sec` 12). A fakeout. |
 | **2 — OMEN** | instant | **Fog rolls back in** (`acc_atmosphere::paradise_fog_on` → re-runs the map's `set_fog_from_dvars` haze every tick, overriding the power-on settle) + a **"fetch me their souls" omen cue** — a **CUSTOM** alias `acc_paradise_omen` (`play_fetch_souls` → `PlayLocalSound`, user 2026-06-25). It replaced the stock dog-round announcer `zmb_dog_round_start`, which was SILENT here because that alias lives in a dog-round sound bank this map never loads. |
 | **3 — DREAD** | `acc_paradise_dread_sec` 10 | Fog closing in, trickle continues. |
-| **4 — BATTLE** | `acc_paradise_survive_sec` 225 (**3:45**, user 2026-06-27) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume — wav +10% louder 2026-07-12 via `tools/amplify_wav.js --loudness-db 0.83`) plays; the bosses arrive on a **STAGED roster** (user 2026-07-12 nerf — was 1 of each from the opening bell): **3:45 Trench Warden (Brutus) + Phantom → 2:45 +Rogue Protector → 1:45 +Panzer → 0:45 +Avogadro** (unlock minutes `acc_paradise_rp/panzer/avo_unlock_min` on `level.acc_paradise_battle_minute`; the **Apothicon Fury is DROPPED from the wave** — `maybe_spawn_fury` kept for a re-add) — + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): the **boss wave tops the UNLOCKED roster back up to 1 of each** (concurrent cap **1 each**: `acc_paradise_brutus_max`/`_phantom_max`/`_rp_max`/`_avo_max`/`_panzer_max`, so a killed boss is replaced the next minute), the **wave-baseline horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final wave; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer` as the floor), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the L5 step at 3:00). **Four waves**: L2/L3/L4 are **60s** each, the **final L5 wave is 45s** (3:00 → 3:45). **ON TOP of the wave, every zombie individually ages +1 tier per 30s it stays ALIVE** (`acc_paradise_age_step_sec` 30, 0 = ramp off, capped at `acc_paradise_buff_max` L5 — the per-zombie anti-kite ramp restored 2026-07-09; stamped + computed in `paradise_buff_layer`, effective layer = max(wave, birth wave + age steps)): kiting instead of killing outscales the wave clock 2:1 — a wave-1 zombie a runner never kills is L5 by 1:30. **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). A **countdown timer HUD**; **boss HUD + boss music suppressed** (`level.acc_paradise_onslaught`). |
+| **4 — BATTLE** | `acc_paradise_survive_sec` 225 (**3:45**, user 2026-06-27) | Arena **seals** (`acc_paradise_seal`); the **"115" anthem** (`acc_paradise_music`, max volume — wav +10% louder 2026-07-12 via `tools/amplify_wav.js --loudness-db 0.83`) plays; the bosses arrive on a **STAGED roster** (user 2026-07-12 nerf — was 1 of each from the opening bell): **3:45 Trench Warden (Brutus) + Phantom → 2:45 +Rogue Protector → 1:45 +Panzer → 0:45 +Avogadro** (unlock minutes `acc_paradise_rp/panzer/avo_unlock_min` on `level.acc_paradise_battle_minute`; the **Apothicon Fury is DROPPED from the wave** — `maybe_spawn_fury` kept for a re-add) — + the **x4 horde** (regular surge + shield/glitch gauntlet, `acc_paradise_spawn_mult` 4). **Every minute, in lockstep** (`escalation_loop`): the **boss wave tops the UNLOCKED roster back up to 1 of each** (concurrent cap **1 each**: `acc_paradise_brutus_max`/`_phantom_max`/`_rp_max`/`_avo_max`/`_panzer_max`, so a killed boss is replaced the next minute), the **wave-baseline horde trench-buff** steps up a layer (**L2** min 0–1 → **L3** → **L4** → **L5** final wave; `_acc_zombie_speed::paradise_buff_layer` reads `level.acc_paradise_horde_layer` as the floor), and a **UI alert** fires ("The horde is getting stronger", or **"You will never escape!"** on the L5 step at 3:00). **Four waves**: L2/L3/L4 are **60s** each, the **final L5 wave is 45s** (3:00 → 3:45). **ON TOP of the wave, every zombie individually ages +1 tier per 30s it stays ALIVE** (`acc_paradise_age_step_sec` 30, 0 = ramp off, capped at `acc_paradise_buff_max` L5 — the per-zombie anti-kite ramp restored 2026-07-09; stamped + computed in `paradise_buff_layer`, effective layer = max(wave, birth wave + age steps)): kiting instead of killing outscales the wave clock 2:1 — a wave-1 zombie a runner never kills is L5 by 1:30. **NO power-up drops** the whole battle (`block_powerup_drop` on `level.custom_zombie_powerup_drop`). The **top-right HOSTILES bar becomes the survival countdown** (full at the opening bell, drains to 0 on the battle clock — empty = the win moment; the center-screen SURVIVE M:SS timer hudelem was REMOVED 2026-08-02, user "use the enemy-remaining bar, it syncs with the time"); **boss music suppressed** (`level.acc_paradise_onslaught`) — the **boss health rows STAY UP** (2026-07-29, user; the 5-boss wave fills the 5 `AccBossBars` rows exactly). |
 | **WIN (run continues, user 2026-07-12)** | reward window `acc_paradise_reward_sec` 60 | Latch `level.acc_paradise_won` → banner + fanfare → **lift the fog** → **purge horde** → **reward every survivor**: **all perks** (`level.acc_perk_door_specs` via `zm_perks::give_perk`) + **enhanced Jug = 350 HP** (`n_player_health_boost` 100 + `perk_set_max_health_if_jugg`, survives downs; `acc_paradise_hp_boost`) + a **gold health bar at full HP** (`_acc_health_bars::hp_bar_color`, gated on `player.acc_paradise_reward`) → **drop the 5 wonder weapons** as hold-`[+activate]` plaza-floor pickups for the window (`acc_paradise_wonder_loot`; 2026-07-12 fix: a grabbed pickup now actually vanishes and un-grabbed ones clear at window close — both teardown paths used to notify their own endon and die before their deletes ran) → the **win banner fades out** ~5s into the window (`acc_paradise_win_banner_sec`; it used to stay on screen for the rest of the run) → **teleport survivors to the surface** `(-291,-316,32)` (fan-out ring, OOB 12s grace = no down) → `flag::set("spawn_zombies")` **resumes stock rounds** + `unseal_arena()` reopens the gate (`ConnectPaths`). **NO `end_game`** — the run ends later on death/quit, and the recorder tags that entry **(Paradise Winner)** (docs/40) via the latched flag. **LOSE** = team wipe ends the match normally (stock game-over). |
 
-**Boss-HUD / music suppression**: `_acc_health_bars::boss_bar_listener`/`boss_bar_track` skip + self-destroy bars
-while `level.acc_paradise_onslaught`; `_acc_boss_nameplate::attach` refuses new 3D plates AND LUI bar rows on the
-same flag, and `bb_pump` **wipes all live `CoD.AccBossBars` rows + the overflow queue** (state-2 clear pushes) the
-tick the flag goes true (2026-07-24 — the new bar rows inherit the exact old contract); `_acc_boss::boss_music`
-returns early on the same flag (the "115" anthem owns the audio). **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
+**Boss music suppression / boss BARS now run (2026-07-29)**: the `CoD.AccBossBars` LUI rows **stay live through
+the whole onslaught** (user: "bosses in paradise get a health bar, same implementation above trench") —
+`_acc_boss_nameplate::attach` no longer refuses on `level.acc_paradise_onslaught` and `bb_pump`'s wipe-on-flag
+tick is retired (`bb_wipe_all` kept, uncalled). The wave bosses feed the rows via their own `acc_boss_spawned`
+notifies; the Paradise Brutus direct-attaches as `TRENCH WARDEN` (`maybe_spawn_brutus`), and `win()`'s
+`remove_paradise_bosses()` Delete() clears surviving rows via `bb_is_dead`'s `!isdefined` path. The old full
+suppression (2026-06-25 → 2026-07-29) existed for the retired TOP-CENTER 2D bar vs the survival countdown; the
+legacy 2D `boss_bar_listener`/`boss_bar_track` skips (dormant, `acc_boss_bar_2d 0`) keep their gate.
+`_acc_boss::boss_music` still returns early on the flag (the "115" anthem owns the audio).
+
+**The below-world cull is DISARMED map-wide (2026-07-29, user "nothing down there should just randomly die")**:
+stock `round_spawn_failsafe` rides EVERY zombie-spawner spawn (`_zm_gametype.gsc:909` spawn function) and its
+below-world branch DoDamage-kills any actor under `level.zombie_vars["below_world_check"]` (stock -1000) on each
+30s tick regardless of movement — which silently killed every finale Phantom/Glitch ~30s in AND turned the
+paradise horde/shielded elites into 30s churn (blunting the per-zombie aging anti-kite ramp).
+`_acc_bus_trench::init` now moves the line to **-2000** (800u under the deepest real floor, z=-1200), so nothing
+legitimately below the surface can trip it while true fall-throughs still get reclaimed; the moved<24u
+stuck-zombie failsafe is untouched, and every per-boss `ignore_round_spawn_failsafe` flag stays as
+belt-and-braces. Paradise zombies now persist, so the 30s aging ramp actually punishes kiting as designed. **Paradise risers**: 12 floor points (`get_paradise_risers`, was 6). **Brutus in paradise**:
 `_acc_boss_brutus::spawn_one_paradise` + `paradise_warden_think` (the trench-warden twin, paradise-tethered).
 
 ## Enhancement — the "Infected Descent" (LOCKED plan 2026-07-12; Phase 0 BUILT)
@@ -469,8 +506,9 @@ guarded 2026-07-15 (review): `specific_powerup_drop` spawns directly and never c
 `level.custom_zombie_powerup_drop`, so `block_powerup_drop` could not stop it and a wave-Avogadro kill handed out
 a free Max Ammo mid-finale. Every forced drop now carries the `level.acc_paradise_onslaught` guard. (Reward-path
 only — the parity rule above is intact: no *damage* number reads the flag.) Deliberate finale-only deltas that remain
-(presentation/economy, not behavior): boss HUD + music suppressed, all drops/power-ups/shards blocked, and the
-paradise Brutus rides the same trench-warden tether he uses topside.
+(presentation/economy, not behavior): boss music suppressed (the bars run since 2026-07-29 — see the suppression
+section above), all drops/power-ups/shards blocked, and the paradise Brutus rides the same trench-warden tether
+he uses topside.
 
 **M6 Paradise dressing (2026-07-18, visual-sweep final batch):** the reward plaza gets its
 **synthwave-oasis read** — **7 MWIII Vertigo palms** (`jup_vertigo_palm_01/_02`, 552/519 tall — the

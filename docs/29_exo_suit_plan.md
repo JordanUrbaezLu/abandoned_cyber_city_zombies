@@ -123,7 +123,7 @@ The bus_trench watcher writes the player's current layer to **`player.acc_trench
 **Station model + placement.** A **cryogen stasis pod** (`p7_cry_cryogen_pod_exterior`, T7-dump carve,
 docs/09 remodel 2026-07-09) — a body-augmentation chamber. The pod origin is mid-body, so it spawns
 `+63 z` or it sinks into the floor. **Lives in THE SCIENTIST'S OFFICE (user 2026-07-26)** — the 2000-pt
-buyable room behind the Lab N wall (`gen_scientist_office.js`, docs/02): pod at `(−200, 4480, 0)` yaw 0
+buyable room behind the Lab N wall (`gen_scientist_office.js`, docs/02): pod at `(−200, 4120, 0)` yaw 0 (office translated -360y with the 2026-08-02 lab compression)
 (front faces the door), sharing the room with the permanent Juggernog pad and the Scientist's desk loot.
 The easy-access Overclock terminal sits in the Plaza start room at `(−200, −100, 0)` (the pod's pre-07-26
 spot). History: briefly Lab open floor `(−500,3700)` earlier the same day; Plaza start room

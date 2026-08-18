@@ -410,9 +410,9 @@ local ACC_DMG_COLOR    = { 1.0, 0.88, 0.25 }   -- normal hit (amber)
 local ACC_DMG_COLOR_HS = { 0.20, 0.95, 0.85 }  -- headshot hit (teal)
 local ACC_DMG_POOL  = 12     -- max simultaneous numbers (also = #scatter points)
 local ACC_DMG_LIFE  = 500    -- ms on screen (rise + fade) (user 2026-06-22: 0.5s)
-local ACC_DMG_RISE  = 46     -- px drift up over its life
-local ACC_DMG_SCALE    = 0.38   -- normal hit (user 2026-06-22: 15% smaller, was 0.45)
-local ACC_DMG_SCALE_HS = 0.48   -- headshot: 25% larger than normal (0.38 * 1.25)
+local ACC_DMG_RISE  = 36     -- px drift up over its life (user 2026-08-02 "move upwards a bit slower": 46 -> 36, ~22% slower over the same 0.5s - same lifetime, no extra clutter)
+local ACC_DMG_SCALE    = 0.399  -- normal hit (user 2026-08-02 "+5% bigger": 0.38 -> 0.399; history 0.45 -> 0.38 user 2026-06-22)
+local ACC_DMG_SCALE_HS = 0.504  -- headshot: 25% larger than normal (0.399 * 1.25; both scales x1.05 2026-08-02 so the ratio holds)
 local ACC_DMG_CY     = 0      -- spawn-circle center = DEAD CENTER of screen (user 2026-06-22)
 local ACC_DMG_SPREAD = 0.4    -- scatter-circle size multiplier (user 2026-06-22: 20% tighter, was 0.5)
 local ACC_DMG_BOXW  = 80     -- half text-box width (for centered text)
@@ -1060,9 +1060,11 @@ end
 -- CreateModel-not-GetModel: toplayer models have no node until the first server write (the
 -- turbocharger-badge lesson, see AccGunBadgeRow's ACCESSOR CHOICE note above).
 --
--- GEOMETRY (virtual 1280x720): the upper-left band y45..406 is clear - HEALTH/shards/EXO/MB moved
--- into the BOTTOM Aetherium PlayerInfo panel (y~595-710), only the Round counter sits top-left
--- (~y45). Cards start at y220; the 4-bar stack ends y406, ~33px above the co-op party panels
+-- GEOMETRY (virtual 1280x720): the upper-left band y135..406 is clear - HEALTH/shards/EXO/MB moved
+-- into the BOTTOM Aetherium PlayerInfo panel (y~595-710); top-left is the recon-frame Round widget
+-- (CoD.AccRoundRecon in AetheriumHud.lua, x30..110 y32..112 - launched 120sq 2026-08-01, -17%
+-- then -20% to 80sq 2026-08-02; was the teal GSC "Round N" hudelem at ~y45). Cards start at y220;
+-- the 4-bar stack ends y406, ~33px above the co-op party panels
 -- (y439+). The pause-menu panel (AetheriumStartMenu) mirrors these exact coords to OVERLAP these
 -- bars while paused. TUNE IN-GAME like every chip before it.
 local ACC_IMPLANT_CARD_W   = 184   -- v4 bars at -20% (user 2026-07-12: "reduce size 20%"); 184/34 = 5.41 ~ 962x176 (5.466:1)
@@ -1218,20 +1220,25 @@ function CoD.AccImplantRow.new(HudRef, InstanceRef)
     return self
 end
 
--- TOUCHPOINT 5 - Cyber "HOSTILES" threat BAR (upper-right). CoD.AccRoundRing. A layered
--- cyberpunk depleting meter: FULL at round start, drains as the round's zombies are killed.
--- Built ENTIRELY from CoD.TextWithBg.Bg rectangles (the only render-safe primitive here - no
--- custom material/shader, docs/29 §14): outer cyan halo, navy track, teal->magenta drain fill,
--- segment notches, a bright "drain front" sliver that rides the fill edge, a top accent line,
--- four corner targeting brackets, and a small "HOSTILES" caption (the % readout was REMOVED per
--- user 2026-06-17). Driven by ONE clientuimodel int (_acc_lui.gsc round_ring_watch):
--- "accRoundRing" = fill percent 0..100; frac = pct/100, teal (full) -> magenta (empty) via
--- acc_ring_color. docs/42.
+-- TOUCHPOINT 5 - Cyber "HOSTILES" threat BAR (upper-right). CoD.AccRoundRing. A depleting
+-- meter: FULL at round start, drains as the round's zombies are killed. GEN 2 (2026-08-02,
+-- user-supplied art): the housing is now ONE PNG (i_acc_hostiles_bar - slim angled recon
+-- plate, cyan rim, baked graduation ticks) drawn ON TOP of the code-drawn fill, which shows
+-- through the art's transparent slot (the AccLevel/AccRoundRecon under-the-frame layering
+-- idiom). The DYNAMIC parts stay CoD.TextWithBg.Bg rectangles (the render-safe primitive,
+-- docs/29 §14 - a PNG can't drain or recolor): navy track + teal->magenta fill + the bright
+-- "drain front" sliver. The old rect-built chrome (halo/notches/accent/corner brackets +
+-- the never-implemented "HOSTILES" caption) is REPLACED by the art. Driven by ONE
+-- clientuimodel int (_acc_lui.gsc round_ring_watch): "accRoundRing" = fill percent 0..100;
+-- frac = pct/100, teal (full) -> magenta (empty) via acc_ring_color. docs/42.
 CoD.AccRoundRing = InheritFrom(LUI.UIElement)
 
--- Bar geometry (virtual px). Upper-right; tune freely.
-local ACC_BAR_W     = 240   -- bar width
-local ACC_BAR_H     = 22    -- bar height
+-- Bar geometry (virtual px). Upper-right.
+-- COUPLING: ACC_BAR_W / ACC_BAR_H / ACC_BAR_TOPC / ACC_BAR_RIGHT feed the boss-row stack
+-- (ACC_BB_W = ACC_BAR_W, ACC_BB_TOP0 = ACC_BAR_TOPC + ACC_BAR_H + 14) - the GEN-2 housing
+-- deliberately keeps them and OVERHANGS the 22-tall box instead of resizing it.
+local ACC_BAR_W     = 240   -- logical bar width (= housing width; boss-row alignment)
+local ACC_BAR_H     = 22    -- logical bar height (boss-row anchor math; the ART is 43.68 tall)
 local ACC_BAR_RIGHT = 10    -- gap from the right edge (user 2026-06-17: moved right 30, 40->10)
 local ACC_BAR_TOPC  = -300  -- vertical offset from screen CENTER (negative = up; user 2026-06-17:
                             -- up 100, -200->-300). Briefly -230 during the Aetherium adoption to
@@ -1239,9 +1246,24 @@ local ACC_BAR_TOPC  = -300  -- vertical offset from screen CENTER (negative = up
                             -- (round counter back to our top-left elem, user 2026-07-03), so the
                             -- bar's original corner spot is restored.
 local ACC_BAR_HOTW  = 5     -- width of the bright "drain front" sliver
-local ACC_BAR_SEGS  = 8     -- number of segment divisions (draws SEGS-1 notches)
-local ACC_BAR_BR_TH = 2     -- corner-bracket arm thickness
-local ACC_BAR_BR_LN = 11    -- corner-bracket arm length
+-- ART HOUSING (drain_bar_compact 800x112 master). +30% (2026-08-02 user: "the round bar on
+-- the top right 30% bigger"): housing = 312x43.68 LUI (scale 0.39, was 240x33.6 at 0.3),
+-- grown as pure OVERHANG of the untouched 240x22 logical box so ACC_BAR_W/H/TOPC/RIGHT and
+-- the boss-row stack below stay byte-identical. RIGHT-aligned (left overhang -72 -> housing
+-- x958..1270 on screen, right edges still column-aligned with the boss rows) and TOP-biased
+-- (YOFF -14, not the symmetric -10.84) to keep 6.3px clearance to the first boss row at y96
+-- (housing bottom y89.68). Master is now 1.71x display px - still in the safe no-mips band.
+local ACC_BAR_ART_W    = 312     -- 800 * 0.39
+local ACC_BAR_ART_H    = 43.68   -- 112 * 0.39
+local ACC_BAR_ART_YOFF = -14     -- housing top rel. the logical box (top-biased, see above)
+-- FILL SLOT (the art's fully-transparent cutout, alpha-measured 2026-08-02: art x[54,745]
+-- y[42,69], ticks dip ~2px from its top and OVERLAY the fill - intended). Box-local LUI
+-- (negative X = inside the left overhang):
+local ACC_BAR_SLOT_X0 = -50.94   -- 54 * 0.39 - 72
+local ACC_BAR_SLOT_X1 = 218.94   -- 746 * 0.39 - 72
+local ACC_BAR_SLOT_Y0 = 2.38     -- 42 * 0.39 + ART_YOFF
+local ACC_BAR_SLOT_Y1 = 13.3     -- 70 * 0.39 + ART_YOFF
+local ACC_BAR_SLOT_W  = ACC_BAR_SLOT_X1 - ACC_BAR_SLOT_X0   -- 269.88 (fill span; drain math)
 
 function CoD.AccRoundRing.new(HudRef, InstanceRef)
     local self = LUI.UIElement.new()
@@ -1262,65 +1284,42 @@ function CoD.AccRoundRing.new(HudRef, InstanceRef)
         return e
     end
 
-    -- (0) Outer cyan halo - a slightly oversized dim rect behind the track = soft glow frame.
-    local Halo = Rect(0.12, 0.55, 0.85, 0.16)
-    Halo:setLeftRight(true, true, -4, 4)
-    Halo:setTopBottom(true, true, -4, 4)
-    self:addElement(Halo)
+    -- GEN 2 layering (2026-08-02): dynamic rects FIRST (render under), housing PNG LAST
+    -- (renders over; its fully-transparent slot reveals them; its ticks/rim overlay the fill).
+    -- The old rect chrome (halo / 7 notches / accent line / 8 bracket arms) is gone - the art
+    -- bakes all of it. Net: 17 fewer TextWithBg elements per client.
 
-    -- (1) Navy track (empty bar), stretched to fill self.
+    -- (1) Navy track (empty-bar backing) - fills the art's slot so the drained region reads
+    -- as dark glass instead of raw world.
     local Track = Rect(0, 0.035, 0.085, 0.9)
-    Track:setLeftRight(true, true, 0, 0)
-    Track:setTopBottom(true, true, 0, 0)
+    Track:setLeftRight(true, false, ACC_BAR_SLOT_X0, ACC_BAR_SLOT_X1)
+    Track:setTopBottom(true, false, ACC_BAR_SLOT_Y0, ACC_BAR_SLOT_Y1)
     self:addElement(Track)
 
-    -- (2) Teal->magenta drain fill: resize its inner .Bg to the RIGHT frac of the bar (proven
+    -- (2) Teal->magenta drain fill: resize its inner .Bg to the RIGHT frac of the SLOT (proven
     -- setLeftRight(true,false,x,x+W) idiom) so the fill shrinks and the empty part grows from left.
     local Fill = Rect(ACC_RING_FULL[1], ACC_RING_FULL[2], ACC_RING_FULL[3], 0.95)
-    Fill:setLeftRight(true, true, 0, 0)
-    Fill:setTopBottom(true, true, 0, 0)
+    Fill:setLeftRight(true, false, ACC_BAR_SLOT_X0, ACC_BAR_SLOT_X1)
+    Fill:setTopBottom(true, false, ACC_BAR_SLOT_Y0, ACC_BAR_SLOT_Y1)
     self:addElement(Fill)
     self.Fill = Fill
 
-    -- (3) Segment notches - thin dark dividers over the fill = battery / tech-gauge readout.
-    for k = 1, ACC_BAR_SEGS - 1 do
-        local x = ACC_BAR_W * k / ACC_BAR_SEGS
-        local seg = Rect(0, 0.02, 0.05, 0.6)
-        seg:setLeftRight(true, false, x - 1, x + 1)
-        seg:setTopBottom(true, true, 0, 0)
-        self:addElement(seg)
-    end
-
-    -- (4) Bright "drain front" sliver - rides the fill's moving left edge (positioned in the
-    -- callback). Starts hidden (alpha 0) until the first push places it.
+    -- (3) Bright "drain front" sliver - rides the fill's moving left edge (its .Bg is
+    -- positioned SLOT-LOCALLY in the callback, so the widget box = the slot, like Fill).
+    -- Starts hidden (alpha 0) until the first push places it.
     local Hot = Rect(0.85, 1.0, 1.0, 0)
-    Hot:setLeftRight(true, true, 0, 0)
-    Hot:setTopBottom(true, true, 0, 0)
+    Hot:setLeftRight(true, false, ACC_BAR_SLOT_X0, ACC_BAR_SLOT_X1)
+    Hot:setTopBottom(true, false, ACC_BAR_SLOT_Y0, ACC_BAR_SLOT_Y1)
     self:addElement(Hot)
     self.Hot = Hot
 
-    -- (5) Top accent line (the perk-card cyan strip idiom).
-    local Accent = Rect(0.2, 0.75, 1.0, 0.85)
-    Accent:setLeftRight(true, true, 0, 0)
-    Accent:setTopBottom(true, false, 0, 2)
-    self:addElement(Accent)
-
-    -- (6) Four corner "targeting" brackets (8 thin arms) = cyber-HUD frame.
-    local function Bracket(lA, rA, lO, rO, tA, bA, tO, bO)
-        local e = Rect(0.3, 0.85, 1.0, 0.9)
-        e:setLeftRight(lA, rA, lO, rO)
-        e:setTopBottom(tA, bA, tO, bO)
-        self:addElement(e)
-    end
-    local TH, LN = ACC_BAR_BR_TH, ACC_BAR_BR_LN
-    Bracket(true,  false,  0,  LN, true,  false,  0,  TH)   -- top-left (horizontal arm)
-    Bracket(true,  false,  0,  TH, true,  false,  0,  LN)   -- top-left (vertical arm)
-    Bracket(false, true,  -LN,  0, true,  false,  0,  TH)   -- top-right (horizontal)
-    Bracket(false, true,  -TH,  0, true,  false,  0,  LN)   -- top-right (vertical)
-    Bracket(true,  false,  0,  LN, false, true,  -TH,  0)   -- bottom-left (horizontal)
-    Bracket(true,  false,  0,  TH, false, true,  -LN,  0)   -- bottom-left (vertical)
-    Bracket(false, true,  -LN,  0, false, true,  -TH,  0)   -- bottom-right (horizontal)
-    Bracket(false, true,  -TH,  0, false, true,  -LN,  0)   -- bottom-right (vertical)
+    -- (4) The housing art, ON TOP (slot = transparent -> fill shows through). RIGHT-anchored
+    -- so the +30% growth overhangs LEFT, keeping the right edge on the boss-row column line.
+    local Housing = LUI.UIImage.new()
+    Housing:setLeftRight(false, true, -ACC_BAR_ART_W, 0)
+    Housing:setTopBottom(true, false, ACC_BAR_ART_YOFF, ACC_BAR_ART_YOFF + ACC_BAR_ART_H)
+    Housing:setImage(RegisterImage("i_acc_hostiles_bar"))
+    self:addElement(Housing)
 
     -- Driven by one clientuimodel int: accRoundRing = fill PERCENT 0..100 (0 = round cleared).
     -- SMOOTH SLIDE (user 2026-06-17): the fill + drain-front sliver SLIDE to the new value via the
@@ -1333,7 +1332,9 @@ function CoD.AccRoundRing.new(HudRef, InstanceRef)
         local pct = Engine.GetModelValue(m) or 100
         if pct > 100 then pct = 100 elseif pct < 0 then pct = 0 end
         local frac = pct / 100
-        local leftOff = ACC_BAR_W - frac * ACC_BAR_W
+        -- SLOT-LOCAL coords (GEN 2): the Fill/Hot WIDGETS are anchored to the art's slot, so
+        -- their .Bg offsets run 0..ACC_BAR_SLOT_W within it (was 0..ACC_BAR_W over the box).
+        local leftOff = ACC_BAR_SLOT_W - frac * ACC_BAR_SLOT_W
         if ringStarted then
             self.Fill.Bg:completeAnimation()
             self.Fill.Bg:beginAnimation("keyframe", 250, false, false, CoD.TweenType.Linear)
@@ -1342,7 +1343,7 @@ function CoD.AccRoundRing.new(HudRef, InstanceRef)
         else
             ringStarted = true
         end
-        self.Fill.Bg:setLeftRight(true, false, leftOff, ACC_BAR_W)     -- right frac (drains L->R)
+        self.Fill.Bg:setLeftRight(true, false, leftOff, ACC_BAR_SLOT_W)   -- right frac (drains L->R)
         self.Fill.Bg:setRGB(acc_ring_color(1 - frac))                 -- teal (full) -> magenta (empty)
         -- bright drain front rides the fill's left edge; hidden once the round is cleared.
         self.Hot.Bg:setLeftRight(true, false, leftOff - ACC_BAR_HOTW * 0.5, leftOff + ACC_BAR_HOTW * 0.5)

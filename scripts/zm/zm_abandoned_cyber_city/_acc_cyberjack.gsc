@@ -287,6 +287,16 @@ function micro_storm( v_org, player, w, tier, life, b_big, lvl )
 
     if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
 
+    // The tick-damage multiplier, computed ONCE for the whole field (2026-08-01 retune;
+    // 2026-08-03 reshape): TEMPEST tornadoes ride the cubic charge curve (charge_mult, L4
+    // anchor 5.0 untouched); the small jack-in FINISHER storms (b_big undefined -> lvl 1)
+    // get a flat 1.0. (user 2026-08-03 "nerf all charge up stages by 25%, buff the actual
+    // shooting": the shared storm BASES took the x0.75 charge-stage cut, so the finisher's
+    // flat mult moved 0.75 -> 1.0 to EXACTLY compensate - finisher output is unchanged
+    // [620x1.0 ~= 826x0.75], only the charged tornado stages dropped. Pre-2026-08-03 the
+    // 0.75 was the clean -25% of the old lvl-1 output, NOT the cubic L1 0.078.)
+    n_mult = ( IS_TRUE( b_big ) ? charge_mult( lvl ) : 1.0 );
+
     // The crackling electric CORE at the base.
     e_orb = Spawn( "script_model", v_org );
     if ( !isdefined( e_orb ) ) { level.acc_cj_live_storms--; return; }
@@ -332,11 +342,11 @@ function micro_storm( v_org, player, w, tier, life, b_big, lvl )
     tick     = getdvarfloat( "acc_cj_storm_tick", 0.3 );
     t_end    = GetTime() + int( life * 1000 );
 
-    // THE STORM FIELD (user 2026-07-17; damage rework 2026-07-26): every tick, EVERYTHING in
-    // the radius is 50% SLOWED; normal zombies take SET flat tick damage x the charge mult
-    // (one-hits early rounds, late rounds survive ticks - see storm_zombie_tick) + corruption
-    // feeds the harvest; bosses/Shielded take round-scaled DAMAGE-OVER-TIME (x charge level,
-    // x1.25 at L4). Lightning-bolt visuals arc out from the spread funnels each tick.
+    // THE STORM FIELD (user 2026-07-17; damage rework 2026-07-26; cubic curve 2026-08-01):
+    // every tick, EVERYTHING in the radius is charge-scaled SLOWED; normal zombies take SET
+    // flat tick damage x n_mult (one-hits early rounds, late rounds survive ticks - see
+    // storm_zombie_tick) + corruption feeds the harvest; bosses/Shielded take round-scaled
+    // DAMAGE-OVER-TIME (x n_mult). Lightning-bolt visuals arc from the spread funnels each tick.
     while ( GetTime() < t_end )
     {
         enemies = enemies_in_radius( v_org, range );
@@ -346,16 +356,16 @@ function micro_storm( v_org, player, w, tier, life, b_big, lvl )
             e = enemies[ i ];
             if ( !isdefined( e ) || !isalive( e ) ) continue;
 
-            e tornado_slow_refresh( lvl );   // CHARGE-SCALED slow while inside (L1 12.5% .. L4 50%)
+            e tornado_slow_refresh( lvl );   // CHARGE-SCALED slow while inside (cubic: L1 0.8% .. L4 50%)
 
             b_tough = ( IS_TRUE( e.acc_is_shielded ) || IS_TRUE( e.acc_is_boss ) || IS_TRUE( e.is_boss ) || IS_TRUE( e.acc_is_mini_boss ) || IS_TRUE( e.acc_boss_custom_speed ) );
             if ( b_tough )
-                e thread storm_dot_tick( player, w, lvl );                     // scaling DoT vs tough
+                e thread storm_dot_tick( player, w, n_mult );                 // scaling DoT vs tough (cubic charge curve)
             else if ( is_corruptible( e ) )
             {
                 if ( !IS_TRUE( e.acc_cj_corrupted ) )
                     mark_corrupted( e, player, tier );                        // harvest + its own slow (first contact)
-                e thread storm_zombie_tick( player, w, lvl );                 // SET tick damage (2026-07-26; was a one-time one-shot)
+                e thread storm_zombie_tick( player, w, n_mult );              // SET tick damage x cubic charge curve (2026-08-01)
             }
 
             if ( n_vis < n_visual )
@@ -402,15 +412,28 @@ function enemies_in_radius( v_org, range )
     return out;
 }
 
+// THE charge->power curve (user 2026-08-01 "output should scale exponentially every charge -
+// a single charge shot is almost not even worth it; keep max charge as-is"): CUBIC in lvl,
+// anchored so L4 returns EXACTLY the old 4 x 1.25 = 5.0 (max charge output frozen).
+//   mult = 5 x (lvl/4)^3  ->  L1 0.078 / L2 0.625 / L3 2.109 / L4 5.0
+//   (old linear ladder was 1 / 2 / 3 / 5: L1 -92% / L2 -69% / L3 -30% / L4 unchanged)
+// Shared by BOTH storm damage lanes and the tornado slow interpolation.
+function charge_mult( lvl )
+{
+    if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
+    if ( lvl > 4 ) lvl = 4;
+    return 5.0 * ( lvl * lvl * lvl ) / 64.0;
+}
+
 // CHARGE-SCALED slow on every enemy in the tornado radius, refreshed while inside. Honored by
 // _acc_zombie_speed::under_anim_slow (acc_cj_storm_slow_on); a single watchdog per enemy
 // restores rate 1.0 when it leaves the radius / the storm ends (freezegun boss-slow precedent).
 // SCALING (user 2026-07-27 "how much they slow currently should only be a max charge. I can do a
-// 15 bullet charge and its super OP. Make sure all aspects of it scale up"): acc_cj_storm_slow_rate
-// (0.5) is now the MAX-CHARGE rate only - the slow FRACTION interpolates linearly with the charge
-// level: L1 12.5% / L2 25% / L3 37.5% / L4 50%. With this, EVERY strength axis of the storm scales
-// with lvl (damage both lanes, life, range, funnels, bolts, slow); only cadence/caps stay flat.
-// The jack-in finisher micro-storms run at lvl 1 = the light 12.5% slow.
+// 15 bullet charge and its super OP. Make sure all aspects of it scale up"; steepened to the
+// shared CUBIC charge curve 2026-08-01): acc_cj_storm_slow_rate (0.5) is the MAX-CHARGE rate
+// only - the slow FRACTION rides charge_mult/5: L1 0.8% / L2 6.3% / L3 21.1% / L4 50%. With
+// this, EVERY strength axis of the storm scales with lvl (damage both lanes, life, range,
+// funnels, bolts, slow); only cadence/caps stay flat. Finisher micro-storms = the L1 whisper.
 function tornado_slow_refresh( lvl )   // self = enemy
 {
     if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
@@ -420,7 +443,7 @@ function tornado_slow_refresh( lvl )   // self = enemy
     // a boss module (warden_speed_think / avo / panzer) sets its OWN anim rate, so setting ours
     // only once would get overwritten - re-asserting each tick keeps the slow winning while
     // the enemy is inside the radius. (Freezegun-safe mechanism; harmless re-set on normals.)
-    rate = 1.0 - ( ( 1.0 - getdvarfloat( "acc_cj_storm_slow_rate", 0.5 ) ) * lvl / 4.0 );
+    rate = 1.0 - ( ( 1.0 - getdvarfloat( "acc_cj_storm_slow_rate", 0.5 ) ) * charge_mult( lvl ) / 5.0 );
     self ASMSetAnimationRate( rate );
     if ( !IS_TRUE( self.acc_cj_storm_slow_on ) )
     {
@@ -443,43 +466,46 @@ function tornado_slow_watch()   // self = enemy
 // Normal zombie inside the tornado = SET damage per tick (user 2026-07-26 "I dont want it to
 // just one hit zombies. Same thing we do with bosses... it does a set damage. Maybe this is
 // still a one hit for earlier round but not forever. You would need a full recharge on really
-// late round"): FLAT base x the SAME charge multiplier as the boss lane (lvl, x1.25 at L4) -
-// deliberately NOT round-scaled, so the zombie HP curve overtakes it: base 972 one-hits at
-// L1 through ~r9, L2 (1944) ~r16, L3 (2916) ~r20, L4 (4860) ~r26; past that zombies inside
-// need multiple 0.3s ticks even at max charge (plus the charge-scaled slow). Nerf history:
-// 1500-class -> 1200 -> 1080 (2026-07-26 -20% then -10%) -> 972 (2026-07-27 all-lane -10%).
-// Exact-marked so the damage pipeline lands it verbatim. Applies to the TEMPEST tornado AND
-// the small jack-in finisher storms (same field loop, lvl 1). Corruption/harvest unchanged.
-function storm_zombie_tick( player, w, lvl )   // self = normal zombie
+// late round"): FLAT base x the shared multiplier the field loop passed in (micro_storm:
+// cubic charge_mult for tornadoes, flat 0.75 for finisher storms) - deliberately NOT
+// round-scaled, so the zombie HP curve overtakes it. With base 620 the CUBIC ladder pays
+// L1 48 / L2 387 / L3 1307 / L4 3100 per 0.3s tick (finisher 620 - flat 1.0 mult since the
+// 2026-08-03 reshape, output unchanged; L4 one-hits through ~r21; L1 is deliberately
+// near-worthless - user 2026-08-01 "a single charge shot is almost not even worth it").
+// Nerf history: 1500-class -> 1200 -> 1080 (2026-07-26 -20% then -10%) -> 972 (2026-07-27
+// all-lane -10%) -> curve reshaped cubic, base kept (2026-08-01) -> 826 (2026-08-03 overall
+// -15%) -> 620 (2026-08-03 reshape: charge-up stages another x0.75, finisher compensated;
+// net tornado vs the played 972 build ~= x0.6375).
+// Exact-marked so the damage pipeline lands it verbatim. Corruption/harvest unchanged.
+function storm_zombie_tick( player, w, mult )   // self = normal zombie
 {
     if ( !isdefined( self ) || !isalive( self ) ) return;
     if ( !isdefined( player ) || !isplayer( player ) ) return;
-    if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
+    if ( !isdefined( mult ) || mult <= 0 ) mult = 1.0;
     PlayFxOnTag( level._effect[ "acc_cj_shock" ], self, "j_spineupper" );
-    mult = lvl;
-    if ( lvl >= 4 ) mult = lvl * 1.25;   // the last blast: 125% (mirrors storm_dot_tick)
-    n = int( getdvarint( "acc_cj_storm_zombie_dmg", 972 ) * mult );
+    n = int( getdvarint( "acc_cj_storm_zombie_dmg", 620 ) * mult );
     if ( n < 1 ) n = 1;
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
 }
 
 // Boss / Shielded inside the tornado = scaling DAMAGE-OVER-TIME per tick, a fraction of one
-// normal zombie's round HP (round-proof) x charge level, x1.25 at L4 (user 2026-07-17
-// "stack linearly except the last blast = 125%"). Exact-marked (bypasses the boss per-hit cap).
-// TEMPEST NERFS (user 2026-07-26 "-20%" + "another -10%", then 2026-07-27 all-lane -10%
-// "they are just too good"): dot_frac 0.5 -> 0.4 -> 0.36 -> 0.324, so per 0.3s tick vs
-// tough = 0.324 x zombie-round-HP x lvl-mult (L4: x5 -> 1.62x zHP/tick, was 2.5x).
-function storm_dot_tick( player, w, lvl )   // self = tough enemy
+// normal zombie's round HP (round-proof) x the shared multiplier from the field loop (cubic
+// charge_mult for tornadoes, 0.75 for finisher storms). Exact-marked (bypasses the boss
+// per-hit cap). TEMPEST NERFS (user 2026-07-26 "-20%" + "another -10%", then 2026-07-27
+// all-lane -10%, then 2026-08-03 overall -15%, then 2026-08-03 reshape charge-stages x0.75):
+// dot_frac 0.5 -> 0.4 -> 0.36 -> 0.324 -> 0.2754 -> 0.20655. Curve reshaped cubic
+// 2026-08-01: per 0.3s tick vs tough = 0.20655 x zombie-round-HP x mult -> L1 0.016x /
+// L2 0.129x / L3 0.436x / L4 1.033x zHP (finisher 0.207x - flat 1.0 mult since the
+// reshape, output unchanged).
+function storm_dot_tick( player, w, mult )   // self = tough enemy
 {
     if ( !isdefined( self ) || !isalive( self ) ) return;
     if ( !isdefined( player ) || !isplayer( player ) ) return;
-    if ( !isdefined( lvl ) || lvl < 1 ) lvl = 1;
+    if ( !isdefined( mult ) || mult <= 0 ) mult = 1.0;
     PlayFxOnTag( level._effect[ "acc_cj_shock" ], self, "j_spineupper" );
     base = ( isdefined( level.zombie_health ) ? level.zombie_health : 1000 );
-    mult = lvl;
-    if ( lvl >= 4 ) mult = lvl * 1.25;   // the last blast: 125%
-    n = int( base * getdvarfloat( "acc_cj_storm_dot_frac", 0.324 ) * mult );
+    n = int( base * getdvarfloat( "acc_cj_storm_dot_frac", 0.20655 ) * mult );
     if ( n < 1 ) n = 1;
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
@@ -740,7 +766,7 @@ function corruption_dot( player, w, tier )   // self = zombie
     self.acc_cj_dot_running = true;
 
     ticks = getdvarint( "acc_cj_dot_ticks", 3 );
-    frac  = getdvarfloat( "acc_cj_dot_frac", 0.306 ) + ( getdvarfloat( "acc_cj_dot_frac_tier", 0.072 ) * tier );   // x0.9 all-lane cyberjack -10% 2026-07-27 (was 0.34 / +0.08)
+    frac  = getdvarfloat( "acc_cj_dot_frac", 0.195075 ) + ( getdvarfloat( "acc_cj_dot_frac_tier", 0.0459 ) * tier );   // x0.85 overall -15% 2026-08-03 (was 0.2295 / +0.054 after the x0.75 all-around -25% 2026-08-01; before that 0.306 / +0.072; orig 0.34 / +0.08)
 
     for ( t = 0; t < ticks; t++ )
     {
@@ -763,7 +789,7 @@ function dot_tick_one( player, w, frac )   // self = zombie; isolated per tick
     PlayFxOnTag( level._effect[ "acc_cj_shock" ], self, "j_spineupper" );
     // VERIFY-PASS FIX: the exact-damage mark (the Fire Bow portal recipe's own hardening,
     // consumed one-shot at _acc_damage:438) - without it the tick is rescaled by the FULL
-    // pipeline (x0.288 bal x3.25 global + ENERGY/explosive item layers) and the designed
+    // pipeline (x0.2754 bal x3.25 global + ENERGY/explosive item layers) and the designed
     // fraction becomes meaningless. The mark makes the fraction land VERBATIM.
     self.acc_tg_exact_dmg = n;
     self DoDamage( n, self.origin, player, player, "none", "MOD_PROJECTILE_SPLASH", 0, w );
@@ -811,7 +837,7 @@ function harvest_round_reset()
 // =============================================================================
 // BRUTUS GUN-DROP ACQUISITION (user 2026-07-17)
 // -----------------------------------------------------------------------------
-// Brutus (Trench Warden) death rolls 25% THE CYBERJACK on the ground / 75% the
+// Brutus (Trench Warden) death rolls 23.75% THE CYBERJACK on the ground / 76.25% the
 // normal boss item - NEVER both (_acc_boss::grant_unified_boss_reward skips the
 // item when the gun drops). ONLY ONE CYBERJACK in rotation: if any player already
 // holds it OR a ground pickup is live, Brutus can't drop it (falls through to the
@@ -859,7 +885,7 @@ function cyberjack_in_rotation()
 }
 
 // Called by the Brutus death handler. Returns TRUE iff the gun dropped (so the caller
-// skips the boss item - "never both"). 25% when available; 0% when in rotation.
+// skips the boss item - "never both"). 23.75% when available; 0% when in rotation.
 function try_brutus_gun_drop( drop_origin )
 {
     if ( !isdefined( drop_origin ) )
@@ -886,11 +912,12 @@ function try_brutus_gun_drop( drop_origin )
         cj_log( "drop BLOCKED: GetWeapon(apex_lstar) unresolved - pack absent from this build?" );
         return false;
     }
-    // 25% SHIP RATE (restored, user 2026-07-20 "put it back to 25%" after the flow was verified
-    // live at 100% - the 2026-07-20 find: the dev loadout's free CYBERJACK closed the rotation
-    // gate, which is why drops never appeared in dev sessions).
+    // 23.75% SHIP RATE (user 2026-08-03 "-5%" relative, was 0.25; 0.25 restored 2026-07-20
+    // "put it back to 25%" after the flow was verified live at 100% - the 2026-07-20 find:
+    // the dev loadout's free CYBERJACK closed the rotation gate, which is why drops never
+    // appeared in dev sessions).
     roll   = RandomFloat( 1.0 );
-    chance = getdvarfloat( "acc_cj_brutus_gun_chance", 0.25 );
+    chance = getdvarfloat( "acc_cj_brutus_gun_chance", 0.2375 );   // -5% relative (user 2026-08-03, was 0.25)
     if ( roll >= chance )
     {
         cj_log( "drop: roll " + roll + " >= chance " + chance + " - no gun (item instead)" );

@@ -62,10 +62,25 @@
 // build's auto-power, power comes on ~1.5s after the haze appears, so the haze is brief; in a
 // switch-gated ship build it holds until the player turns power on.) All knobs are live dvars.
 #define ACC_FOG_CLEAR_ON_POWER   1    // 1 = power-on settles the fog away; 0 = haze stays all match
-#define ACC_FOG_SETTLE_INTERVAL  1.0  // seconds between each slight downward nudge (user: once per second)
+#define ACC_FOG_SETTLE_INTERVAL  5.0  // seconds between nudges. P2 re-pace (docs/46): 4 nudges to the
+                                      // residual depth x 5s = the ~20s settle lands WITH the boot-up
+                                      // cascade's t+21 finale - the air clears as the city finishes waking.
+                                      // (was 1.0 = a ~4s settle that beat the cascade by 17s)
 #define ACC_FOG_SETTLE_STEP      200  // units the fog base sinks per nudge - keep "slight"; smaller = slower/smoother
 #define ACC_FOG_SETTLE_DEPTH     7500 // base must sink this far below the floor to read as invisible (then locked off)
 #define ACC_FOG_SETTLE_MAX_STEPS 1200 // hard cap on nudges so the descent always terminates (user: "like 1200 times")
+
+// RESIDUAL HAZE (visual overhaul P0, docs/46 intervention #2, user-approved 2026-07-29): the
+// power-on settle no longer ends in disable_fog() - the map's light pools need a permanent thin
+// medium to read as VOLUMES (root cause RC2: "the atmospheric medium deletes itself; post-power
+// is the flattest possible state"). The descent now STOPS once the base has sunk
+// acc_fog_residual_depth below its start and holds a thinner, longer-throw haze from then on
+// (wider halfway_dist + lower opacity than the pre-power haze). The old full-disable behavior is
+// one dvar away (acc_fog_residual_on 0) and Paradise finale fog still overrides everything.
+#define ACC_FOG_RESIDUAL_ON            1     // 1 = settle INTO a thin haze; 0 = legacy settle to full disable_fog()
+#define ACC_FOG_RESIDUAL_DEPTH         800   // base stops this far below its start (eye-level haze thins ~2.1x via the 750u halfway_height falloff)
+#define ACC_FOG_RESIDUAL_OPACITY       0.55  // residual max_opacity (pre-power haze = 0.80); effective eye-level ~0.25-0.35
+#define ACC_FOG_RESIDUAL_HALFWAY_DIST  850   // residual distance falloff (pre-power 550) - thinner up close, still pools light at range
 
 // Ambient bed = the AUDIO half of the atmosphere (the fog above is the visual
 // half). A single 2D LOOPING city/rain soundscape, authored as the alias below
@@ -92,7 +107,11 @@
 // experiment live. VERIFIED(acc): a BARE server-side `VisionSetNaked( name, blend )`
 // sets the GLOBAL naked vision for all players (stock _emp.gsc:428-431).
 #define ACC_VISION_ON           0
-#define ACC_VISION_SET          "zm_abandoned_cyber_city"
+// P2 (docs/46 #23): the audition candidate is now acc_grade_vibrant (neutral curve + vkTS 0.12
+// = +12% saturation). Still SHIPS OFF - flip ACC_VISION_ON to 1 + rebuild ONLY after the user
+// approves the P1 noir rig (a grade only reads correctly on a colored rig; user rejected a bare
+// tint on the old flat-white scene 2026-06-18 - that verdict does not transfer to this rig).
+#define ACC_VISION_SET          "acc_grade_vibrant"
 
 // --- Atmosphere FX (Phase 3+4, user 2026-06-28): neon HERO-GLOWS + ambient dust/steam. Server PlayFX of
 //     LOOPING efx (one shot at init persists). Paths verified on disk (share/raw/fx). Gated by acc_atmo_fx.
@@ -127,6 +146,32 @@
 #precache( "fx", "fog/fx_fog_coolant_vent_md" );
 #precache( "fx", "fog/fx_fog_ground_low_rolling_stairs" );
 #precache( "fx", "zombie/fx_fungus_pod_ambient_md_zod_zmb" );
+// --- P0 sparkle batch (visual overhaul docs/46 Phase 0, 2026-07-29): lensflares at the neon
+//     pools, the Alley burn-barrel fire, dumpster flies, Lab/Vault god rays + motes. All paths
+//     verified on disk (<tools>\share\raw\fx\) 2026-07-29; each has a `fx,` zone line; all
+//     placed by apply_fx() below on the same acc_atmo_fx gate.
+#precache( "fx", "lensflares/fx_lensflare_fluorescent" );
+#precache( "fx", "lensflares/fx_lensflare_light_cool_lg" );
+// FX CRASH LEDGER (2026-07-29, four Alley crash sessions to learn this - see apply_fx +
+// memory fx-embedded-light-def-freeze): REMOVED fire/fx_fire_barrel (pcloud spark materials =
+// THE killer, present in all 4 crashes), light/fx_light_zm_fire_spot_1 (embedded lightdef),
+// animals/fx_bio_fly_dark_50x50 + sword_quest_egg_glow (unproven, out pending probes).
+// RULE: grep every new .efx for 'pcloud' AND explicit 'def ' lines BEFORE wiring.
+#precache( "fx", "env/light/fx_light_god_ray_sm_single" );
+#precache( "fx", "env/light/fx_light_god_rays_dust_motes" );
+// P2 boot-up cascade (docs/46 differentiator 2): aviation blink strips ignite at t+18
+// (already zoned for the lockdown module; duplicate precache is harmless).
+#precache( "fx", "light/fx_glow_blink_red_5" );
+// --- INFESTATION FX (user 2026-07-29, rides the ACCINF01/02 model batches): fungus-family
+//     recolors/sizes + the Paradise finale organ set. ALL def-grep-verified SAFE (bare
+//     dynamicLight2 exactly like the proven md fungus; the freeze class needs `def <lightdef>`).
+#precache( "fx", "zombie/fx_fungus_pod_ambient_sm_zod_zmb" );
+// (green variant REMOVED - pcloud dust-mote material ref; sm substitutes at L4)
+#precache( "fx", "zombie/fx_fungus_pod_ambient_lg_zod_zmb" );
+#precache( "fx", "zombie/fx_egg_ready_zod_zmb" );
+// (fx_sword_quest_egg_ground_glow + dlc2/island/fx_spores_cloud_exp_md REMOVED pre-wire -
+//  pcloud/tail crash classes; fungus_explo below [0 pcloud, 0 defs] is the finale substitute)
+#precache( "fx", "zombie/fx_fungus_pod_explo_md_zod_zmb" );
 
 #namespace acc_atmosphere;
 
@@ -162,6 +207,7 @@ function init()
     level thread apply_ambient_bed();
     level thread apply_music();
     level thread apply_fx();          // Phase 3+4: neon hero-glows + ambient dust/steam (acc_atmo_fx)
+    level thread power_bootup_cascade(); // P2 (docs/46): the district-by-district reboot on power_on
     // RE-ENABLED (M6 visual sweep 2026-07-18): the 2026-07-02 crash these props were bisect-suspected
     // for was later PINNED on a clientfield-pool overflow (2026-07-17 post-mortem, memory
     // sound-bank-cache-poisoning-crash) - NOT these props. Both models stayed zoned the whole time.
@@ -218,11 +264,14 @@ function apply_fog()
 {
     level endon( "end_game" );
 
-    // VERIFIED(acc): "initial_blackscreen_passed" is a FLAG (_zm.gsc) -
-    // flag::wait_till returns immediately if already set; a bare waittill hangs.
-    // This wait is MANDATORY: fog cannot be set before players are in - it is literally how
-    // the haze gets set in the first place, NOT optional "flag stuff" we can drop.
-    level flag::wait_till( "initial_blackscreen_passed" );
+    // EARLY GATE (user 2026-08-02 "start everything at once"): fog DOES need players in
+    // (a frame-0 SetVolFog was the original "no haze" bug), but players spawn DURING the
+    // loading blackscreen - waiting for "initial_blackscreen_passed" (set only AFTER the
+    // fade + control unfreeze, _zm.gsc:530) made the haze visibly POP IN while you were
+    // already walking. Gate on the first player entity instead: the 0.1s authority loop
+    // below asserts the haze under the blackscreen, so it's up the frame the screen fades
+    // (and re-asserts over anything stock applies during the fade).
+    acc_utility::wait_players_in();
 
     if ( !isdefined( level.acc_fog_cleared ) ) level.acc_fog_cleared = false;
 
@@ -302,18 +351,24 @@ function paradise_fog_apply()
 // accumulated-time counter, not per-frame, so the cadence holds at any tick rate.
 function settle_fog_step()
 {
-    // Already fully settled -> hold it hard-disabled (cheap, and blocks any re-fog).
+    // Already fully settled -> hold the end state (cheap + change-gated, and blocks any re-fog):
+    // residual thin haze (docs/46 P0 default) or the legacy hard-disable (acc_fog_residual_on 0).
     if ( isdefined( level.acc_fog_settle_done ) && level.acc_fog_settle_done )
     {
-        disable_fog();
+        hold_settled_fog();
         return;
     }
 
     interval  = getdvarfloat( "acc_fog_settle_interval",  ACC_FOG_SETTLE_INTERVAL );
     step      = getdvarfloat( "acc_fog_settle_step",      ACC_FOG_SETTLE_STEP );
-    depth     = getdvarfloat( "acc_fog_settle_depth",     ACC_FOG_SETTLE_DEPTH );
     max_steps = getdvarint(   "acc_fog_settle_max_steps", ACC_FOG_SETTLE_MAX_STEPS );
     if ( interval < 0.1 ) interval = 0.1;   // never faster than the tick
+
+    // Residual mode ends the descent EARLY (a shallow sink to "thin", not "gone").
+    if ( getdvarint( "acc_fog_residual_on", ACC_FOG_RESIDUAL_ON ) == 1 )
+        depth = getdvarfloat( "acc_fog_residual_depth", ACC_FOG_RESIDUAL_DEPTH );
+    else
+        depth = getdvarfloat( "acc_fog_settle_depth",   ACC_FOG_SETTLE_DEPTH );
 
     base_start = getdvarfloat( "acc_fog_base_height", ACC_FOG_BASE_HEIGHT );
 
@@ -333,13 +388,13 @@ function settle_fog_step()
         level.acc_fog_settle_base -= step;        // the slight move, straight DOWN
         level.acc_fog_settle_steps += 1;
 
-        // Stop once it's far enough below the floor to be invisible, or the cap is reached.
+        // Stop at the target depth (residual: shallow; legacy: invisible), or the cap.
         sunk = base_start - level.acc_fog_settle_base;
         if ( sunk >= depth || level.acc_fog_settle_steps >= max_steps )
         {
             level.acc_fog_settle_done = true;
-            disable_fog();
-            acc_utility::log( "atmosphere fog: settled away after " + level.acc_fog_settle_steps + " steps" );
+            hold_settled_fog();
+            acc_utility::log( "atmosphere fog: settled after " + level.acc_fog_settle_steps + " steps (residual haze " + getdvarint( "acc_fog_residual_on", ACC_FOG_RESIDUAL_ON ) + ")" );
             return;
         }
     }
@@ -364,6 +419,36 @@ function settle_fog_step()
 function disable_fog()
 {
     acc_set_vol_fog( 100000000, 100000001, 0, 0, 0, 0, 0, 0 );
+}
+
+// The settled-state holder (docs/46 P0): once the power-on descent finishes, re-assert either
+// the thin RESIDUAL haze (default - the light pools keep a medium for the rest of the match)
+// or the legacy full disable. Runs every 0.1s from the single fog authority; acc_set_vol_fog's
+// change-gate makes the steady state one engine call, not ten per second. Same colour as the
+// pre-power haze (cold blue-grey), just thinner (lower opacity) and longer-throw (wider
+// halfway_dist), with the base parked acc_fog_residual_depth below its start. NOTE: after the
+// Paradise WIN (paradise_fog_off's instant disable), this quietly restores the city's residual
+// haze on the next tick - intended: the surface keeps its atmosphere post-victory.
+function hold_settled_fog()
+{
+    if ( getdvarint( "acc_fog_residual_on", ACC_FOG_RESIDUAL_ON ) != 1 )
+    {
+        disable_fog();
+        return;
+    }
+
+    base_start = getdvarfloat( "acc_fog_base_height", ACC_FOG_BASE_HEIGHT );
+    r_depth    = getdvarfloat( "acc_fog_residual_depth",        ACC_FOG_RESIDUAL_DEPTH );
+    r_opacity  = getdvarfloat( "acc_fog_residual_opacity",      ACC_FOG_RESIDUAL_OPACITY );
+    r_halfway  = getdvarfloat( "acc_fog_residual_halfway_dist", ACC_FOG_RESIDUAL_HALFWAY_DIST );
+
+    start_dist     = getdvarfloat( "acc_fog_start_dist",     ACC_FOG_START_DIST );
+    halfway_height = getdvarfloat( "acc_fog_halfway_height", ACC_FOG_HALFWAY_HEIGHT );
+    r              = getdvarfloat( "acc_fog_r", ACC_FOG_R );
+    g              = getdvarfloat( "acc_fog_g", ACC_FOG_G );
+    b              = getdvarfloat( "acc_fog_b", ACC_FOG_B );
+
+    acc_set_vol_fog( start_dist, r_halfway, halfway_height, base_start - r_depth, r, g, b, r_opacity );
 }
 
 // CHANGE-GATED SetVolFog (user 2026-07-04): the apply_fog loop re-asserted IDENTICAL fog params
@@ -524,9 +609,10 @@ function apply_ambient_bed()
 {
     level endon( "end_game" );
 
-    // VERIFIED(acc): same flag the fog loop waits on - "initial_blackscreen_passed"
-    // is a FLAG (_zm.gsc); flag::wait_till returns immediately if already set.
-    level flag::wait_till( "initial_blackscreen_passed" );
+    // EARLY GATE (2026-08-02, matches the fog loop): a LOOPING emitter reaches every
+    // client for as long as it loops, so late-connecting co-op clients still hear it -
+    // start it under the blackscreen so the bed is already playing at fade-in.
+    acc_utility::wait_players_in();
 
     started = false;
     for ( ;; )
@@ -573,11 +659,13 @@ function apply_music()
 {
     level endon( "end_game" );
 
-    // Wait until players are actually in (blackscreen passed) - a 2D server sound
-    // played at init reaches nobody. Stock music is already off (init), so there is
-    // no base music during this wait, just the loading intro, then the theme.
+    // The theme is a ONE-SHOT 2D server sound: it only reaches clients connected at
+    // start time, so it KEEPS the blackscreen-passed gate (the earliest all-clients-
+    // guaranteed moment in co-op - an early solo-style start would skip late loaders).
+    // The extra +1s settle wait was REMOVED (user 2026-08-02 "start everything at
+    // once"): the flag fires the same instant controls unfreeze, so the theme now
+    // starts the moment you can walk instead of a second later.
     level flag::wait_till( "initial_blackscreen_passed" );
-    wait( 1 );
 
     if ( getdvarint( "acc_music_on", 1 ) == 1 )
     {
@@ -596,7 +684,11 @@ function apply_music()
 function apply_fx()
 {
     level endon( "end_game" );
-    level flag::wait_till( "initial_blackscreen_passed" );
+    // EARLY GATE (2026-08-02): these are persistent LOOPS at fixed world points - a late
+    // client sees an ongoing loop like any map FX. Placing them under the blackscreen
+    // means the neon glows / haze / steam are already alive at fade-in instead of
+    // popping on while you're walking (user "start everything at once").
+    acc_utility::wait_players_in();
     if ( getdvarint( "acc_atmo_fx", 1 ) != 1 )
         return;
 
@@ -625,6 +717,22 @@ function apply_fx()
     level._effect[ "acc_fog_coolant" ]  = "fog/fx_fog_coolant_vent_md";
     level._effect[ "acc_fog_stairs" ]   = "fog/fx_fog_ground_low_rolling_stairs";
     level._effect[ "acc_fungus_pod" ]   = "zombie/fx_fungus_pod_ambient_md_zod_zmb";
+    // P0 sparkle batch (docs/46 Phase 0, 2026-07-29):
+    level._effect[ "acc_flare" ]        = "lensflares/fx_lensflare_fluorescent";
+    level._effect[ "acc_flare_cool" ]   = "lensflares/fx_lensflare_light_cool_lg";
+    // (acc_fire_barrel REMOVED - pcloud spark materials = THE Alley crash, 4/4 sessions;
+    //  acc_flies / acc_egg_glow stay out as unproven until single-fx probe tests)
+    level._effect[ "acc_god_ray" ]      = "env/light/fx_light_god_ray_sm_single";
+    level._effect[ "acc_god_motes" ]    = "env/light/fx_light_god_rays_dust_motes";
+    level._effect[ "acc_blink_red" ]    = "light/fx_glow_blink_red_5";   // P2 cascade: Helipad strips
+    // Infestation family (2026-07-29): size/color variants of the proven fungus pod + the
+    // Paradise finale organs (egg_ready/spores/explo/ground-glow used by _acc_paradise weave).
+    level._effect[ "acc_fungus_sm" ]    = "zombie/fx_fungus_pod_ambient_sm_zod_zmb";
+    // (green variant REMOVED - pcloud dust-mote ref, crash class; sm substitutes at L4)
+    level._effect[ "acc_fungus_lg" ]    = "zombie/fx_fungus_pod_ambient_lg_zod_zmb";
+    level._effect[ "acc_egg_ready" ]    = "zombie/fx_egg_ready_zod_zmb";
+    // (spore_burst REMOVED - pcloud dust-mote ref; fungus_explo [0 pcloud] is the finale substitute)
+    level._effect[ "acc_fungus_explo" ] = "zombie/fx_fungus_pod_explo_md_zod_zmb";
 
     // HERO glow SPRITES were removed (user 2026-06-28: "put them in spots where they don't show... move it above
     // the ceiling"). The orbs showed as bright floating sprites in mid-room. The colored glow now comes purely from
@@ -676,18 +784,188 @@ function apply_fx()
     // TRENCH MOUTH - low fog rolling down the W-south stair channel top (x[-761,-665] S lip):
     fx_at( "acc_fog_stairs",     (  -713, 1760,  -40 ) );
     // ABYSS (no lights / no glow FX down here by design - these are organic ambience):
-    // L3 fungus pod beside the W-wall tentacle mass (-780,1810,-719.5); L5 pod at the
-    // flesh hive (260,2105,-1196.6); L4 ceiling drip, W bay (ceiling -736, clear of the
-    // Gantry deck x[140,780] N band and both well bands):
+    // L3 fungus pod beside the W-wall tentacle mass; L5 pod MOVED 2026-07-29 with the
+    // ACCINF01 hive01 re-home (it glowed over the empty D4 keep-clear; now it rides the
+    // re-homed hive on the L5 W wall - the two MUST move together); L4 ceiling drip, W bay:
     fx_at( "acc_fungus_pod",     (  -740, 1845, -716 ) );
-    fx_at( "acc_fungus_pod",     (   310, 2070,-1194 ) );
+    fx_at( "acc_fungus_pod",     (  -700, 2050,-1194 ) );
     fx_at( "acc_drip_ceiling",   (  -500, 1990, -740 ) );
+    // -- INFESTATION GRADIENT loops (2026-07-29, ride the ACCINF01/02 model batches; every
+    //    loop anchors a glow-core cluster so unproven-glow neighbors read in the dark):
+    fx_at( "acc_fungus_sm",      (   690, 2110, -476 ) );  // L2 strangled-generator cluster
+    fx_at( "acc_fungus_sm",      (  -450, 1770, -476 ) );  // L2 cable-run cluster
+    fx_at( "acc_fungus_sm",      (   660, 1795, -716 ) );  // L3 second nest (E-S bay)
+    // (green variant SWAPPED to sm 2026-07-29: fx_fungus_pod_ambient_green carries a
+    //  gfx_dust_mote_1_pcloud_em reference = the particlecloud crash class; sm has zero)
+    fx_at( "acc_fungus_sm",      (   505, 1780, -950 ) );  // L4 lit-vessel clutch
+    fx_at( "acc_fungus_sm",      (  -655, 2095, -950 ) );  // L4 hive02 corner
+    fx_at( "acc_fungus_lg",      (   660, 2070,-1194 ) );  // L5 E field / N-wall massing
+    // (flies over the dead queen REMOVED - fx_bio_fly = the particlecloud crash class)
+    // Paradise (the heart - permanent, matching the settled-fog precedent):
+    fx_at( "acc_fungus_lg",      (     0,-1900,-1195 ) );  // the heart nest (re-homed 2026-08-02 w/ the Paradise compression)
+    fx_at( "acc_fungus_sm",      (  -620,-1015,-1195 ) );  // W satellite nest
+    fx_at( "acc_fungus_sm",      (   630,-1005,-1195 ) );  // E satellite nest
+    // (flies over the heart REMOVED - same crash class)
 
-    acc_utility::log( "atmosphere FX placed (neon glows + drifting haze + steam vents + 17 zone ambient loops)" );
+    // -- P0 sparkle batch, AMBIENT half (docs/46 Phase 0, 2026-07-29; RC5 "nothing moves" +
+    //    the rain-floor graft). These read as unpowered decay, so they run from the start.
+    //    The POWERED half (lensflares, god rays) moved to the P2 boot-up cascade below
+    //    (docs/46 differentiator 2) - pre-power the city is now truly dead, and each district's
+    //    powered FX IGNITE in sequence when the switch is thrown. Smoke column DEFERRED to
+    //    Phase 6 (needs the Helipad's open sky).
+    // ALLEY FREEZE - FINAL VERDICT (2026-07-29, crash 4/4 with a READABLE material name at
+    // last): `Com_ERROR: Vertex type 5 ('particlecloud') ... in material
+    // 'ec/gfx_fxt_spark_2_pcloud_em'` -> that material is referenced by exactly ONE wired fx:
+    // `fire/fx_fire_barrel` (its ember/spark elements). THE FIRE WAS PRESENT IN EVERY CRASHING
+    // SESSION - the single common denominator; the earlier def-light and flies removals were
+    // de-risking of adjacent classes, but the barrel fire was the killer. THE TRUE
+    // DISCRIMINATOR (validated against every proven fx = 0 hits, every crasher >= 1): grep the
+    // .efx for 'pcloud' MATERIAL references - a *_pcloud_* material lacks its particlecloud
+    // vertex-decl techset variant in a usermap .ff and Com_ERRORs on first render. The barrel
+    // fire is REMOVED (the burn-barrel prop stays; a pcloud-free fire fx can be auditioned
+    // later); flies/sword-glow stay out as unproven. Memory: fx-embedded-light-def-freeze.
+    // RAIN FLOOR (docs/46 graft - "just rained" ships day 1): drip lines at the two Plaza
+    // doorway eaves (over the Market/Alley corridor mouths, Plaza side) + both trench rims
+    // (clear of the x[-132,132] bridge/queue lane):
+    fx_at( "acc_drip_line",      ( -1250,  430,  230 ) );  // Plaza -> Market door eave
+    fx_at( "acc_drip_line",      (  1070,  430,  230 ) );  // Plaza -> Alley door eave
+    fx_at( "acc_drip_line",      (   300, 1728,   -5 ) );  // trench N rim lip
+    fx_at( "acc_drip_line",      (  -300, 2168,   -5 ) );  // trench S rim lip
+
+    acc_utility::log( "atmosphere FX placed (drifting haze + steam vents + 17 zone ambient loops + P0 ambient: fire barrel, flies, 4 drips; powered FX ride the P2 cascade)" );
 }
 
 function fx_at( key, origin )
 {
     if ( isdefined( level._effect[ key ] ) )
         PlayFX( level._effect[ key ], origin );
+}
+
+// ---------------------------------------------------------------------------
+// P2 THE CASCADING BOOT-UP (docs/46 differentiator 2, v1 - 2026-07-29).
+// When power comes on, the city doesn't just switch on - it REBOOTS district by
+// district, radiating outward from the Bus Station over ~21s: spark salvos, sign
+// false-starts, steam releases, and each zone's powered FX (lensflares, god rays)
+// igniting in graph order. The engine's binary lighting-state flip still happens
+// at t+0 underneath (masked by apply_vision's 15s warm-up lerp); this FX cascade
+// rides OVER it. The fog settle was re-paced to ~20s (ACC_FOG_SETTLE_INTERVAL 5.0
+// x 4 nudges to the residual depth) so the air clears exactly as the reboot
+// completes. INTERIM FINALE (pre-Phase-4): a map-wide sign-flare beat; when the
+// holo city-double ships (P4a), its de-rez ignition replaces this with ONE added
+// line at t+21. All beats are one-wait-one-call lines - trivially re-orderable.
+// Bursts ride acc_utility::play_fx_burst (bare server PlayFX one-shots don't
+// render - memory server-playfx-does-not-render; loops via fx_at DO, proven).
+// Gate: same acc_atmo_fx master switch as apply_fx. NO clientfields, NO dvars.
+// ---------------------------------------------------------------------------
+
+function power_bootup_cascade()
+{
+    level endon( "end_game" );
+    level flag::wait_till( "initial_blackscreen_passed" );
+    if ( getdvarint( "acc_atmo_fx", 1 ) != 1 )
+        return;
+
+    level flag::wait_till( "power_on" );
+    acc_utility::log( "atmosphere: POWER ON -> boot-up cascade begins (t+0 Bus Station)" );
+
+    // t+0 - BUS STATION (the switch's own district wakes first): spark salvo at the
+    // departure board + the floor vent, a manhole steam RELEASE, and the board's
+    // fluorescent flicker ignites (a second acc_flicker_rect loop, board-mounted).
+    level thread acc_utility::play_fx_burst( "acc_wire_spark",  (     0, 1235,  215 ), 1.5 );
+    level thread acc_utility::play_fx_burst( "acc_spark_loop",  (   330, 1690,   10 ), 1.5 );
+    level thread acc_utility::play_fx_burst( "acc_steam_manhole", ( -350, 1560,    0 ), 2.5 );
+    fx_at( "acc_flicker_rect",   (     0, 1235,  222 ) );
+
+    // t+2.5 - TRENCH RIM: the infection stirs with the city (differentiator 3 tie-in) -
+    // fungus pulses at both rim lips, then the wake DESCENDS the shaft level by level
+    // (the infestation gradient answering the reboot - it reaches the L5 hive at t+14).
+    wait( 2.5 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (   300, 1728,  -40 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (  -300, 2168,  -40 ), 2.0 );
+    level thread descent_hive_wake();
+
+    // t+3.5 - BUS STATION flares catch (the hub is lit; the wave spreads outward).
+    wait( 1.0 );
+    fx_at( "acc_flare_cool",     (     0, 1360,  175 ) );
+    fx_at( "acc_flare_cool",     (     0, 2280,  175 ) );
+
+    // t+6 - MARKET + ALLEY. Both hero signs STUTTER-IGNITE with two false starts
+    // (short flare bursts) before the persistent bloom catches - the "dying city
+    // remembers how to be alive" beat.
+    wait( 2.5 );
+    level thread sign_stutter_ignite( "acc_flare", ( -1720,  700,  150 ) );   // Market @ S cage light
+    level thread acc_utility::play_fx_burst( "acc_wire_spark", ( -1560, 1420, 150 ), 1.2 );  // diner sign sparks
+    wait( 0.9 );
+    level thread sign_stutter_ignite( "acc_flare", (  1610,  995,  150 ) );   // Alley @ the burning barrel
+    level thread acc_utility::play_fx_burst( "acc_spark_loop", (  2040, 1060, 120 ), 1.2 );  // scaffold sparks
+
+    // t+10 - PLAZA + VAULT.
+    wait( 3.1 );
+    fx_at( "acc_flare",          (   -40,  130,  150 ) );  // fountain angel (cyan)
+    level thread acc_utility::play_fx_burst( "acc_spark_loop", (   212,  150, 150 ), 1.0 );  // LED bar pops
+    fx_at( "acc_flare",          (  1400, 2700,  150 ) );  // Vault mid cage light (green)
+    fx_at( "acc_god_ray",        (  1650, 3050,  236 ) );  // Vault god-ray shaft
+    level thread acc_utility::play_fx_burst( "acc_wire_spark", ( 1136, 2880, 140 ), 1.5 );   // security desk wakes
+
+    // t+14 - LAB.
+    wait( 4.0 );
+    fx_at( "acc_flare",          (     0, 3830,  175 ) );  // Lab N pool (purple; moved with the 2026-08-02 lab compression - inner N wall now y3868)
+    fx_at( "acc_god_motes",      (   760, 3450,  230 ) );  // motes over the medical row
+    level thread acc_utility::play_fx_burst( "acc_spark_loop", (  150, 3450,  40 ), 1.5 );   // teleporter pad stirs
+
+    // t+18 - HELIPAD: flare + the aviation blink strips begin (pad corners; they move
+    // to the parapet against real sky when Phase 6 opens the roof).
+    wait( 4.0 );
+    fx_at( "acc_flare",          ( -1500, 2600,  150 ) );
+    fx_at( "acc_blink_red",      ( -1900, 2330,  238 ) );
+    fx_at( "acc_blink_red",      ( -1150, 2330,  238 ) );
+    fx_at( "acc_blink_red",      ( -1900, 3350,  238 ) );
+    fx_at( "acc_blink_red",      ( -1150, 3350,  238 ) );
+    level thread acc_utility::play_fx_burst( "acc_spark_loop", ( -1524, 2845,  80 ), 1.5 );  // bomber wreck arcs
+
+    // t+21 - FINALE (interim until P4a ships the holo city-double): a map-wide
+    // sign-flare surge as the fog settle completes - every district's bloom pops
+    // once, together. (P4a adds: the holo's de-rez loop snaps on HERE.)
+    wait( 3.0 );
+    level thread acc_utility::play_fx_burst( "acc_flare", (   -40,  130, 150 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare", ( -1720,  700, 150 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare", (  1610,  995, 150 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare_cool", ( 0, 1360, 175 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare_cool", ( 0, 2280, 175 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare", (  1400, 2700, 150 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare", ( -1500, 2600, 150 ), 0.8 );
+    level thread acc_utility::play_fx_burst( "acc_flare", (     0, 3830, 175 ), 0.8 );
+
+    acc_utility::log( "atmosphere: boot-up cascade complete (t+21 finale fired)" );
+}
+
+// The infestation answers the reboot: fungus-pulse bursts walk DOWN the shaft one level
+// per beat (L2 t+5 -> L3 t+8 -> L4 t+11 -> L5 hive t+14, offsets from power_on; this thread
+// starts at the cascade's t+2.5 rim beat). Pure server bursts on the proven md fungus fx.
+function descent_hive_wake()
+{
+    level endon( "end_game" );
+    wait( 2.5 );   // t+5 - L2 strangled generator
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (   690, 2115, -465 ), 2.0 );
+    wait( 3.0 );   // t+8 - both L3 nests
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (  -740, 1845, -710 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (   660, 1795, -710 ), 2.0 );
+    wait( 3.0 );   // t+11 - L4 vessels + hive02
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (   505, 1780, -950 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (  -655, 2095, -950 ), 2.0 );
+    wait( 3.0 );   // t+14 - the wake reaches the re-homed L5 hive
+    level thread acc_utility::play_fx_burst( "acc_fungus_pod", (  -700, 2050,-1190 ), 2.0 );
+}
+
+// Two short false-start blooms, then the persistent flare catches. The plan's
+// "stutter-ignite" - a loop can't flicker, so the false starts are short-lived
+// play_fx_burst pops and the real fx_at loop lands on the third beat.
+function sign_stutter_ignite( key, origin )
+{
+    level endon( "end_game" );
+    level thread acc_utility::play_fx_burst( key, origin, 0.35 );
+    wait( 0.8 );
+    level thread acc_utility::play_fx_burst( key, origin, 0.35 );
+    wait( 0.9 );
+    fx_at( key, origin );
 }

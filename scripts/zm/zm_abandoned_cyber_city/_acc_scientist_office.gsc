@@ -43,9 +43,9 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_armory;          // the rack TRADE primitives: is_primary_owned / rack_tier_of / rack_restore_tier
 
 // Desk top = z31 (p7_rus_desk_metal_vintage, sci_desk clip top); rack-idiom hover 6.
-#define ACC_SCI_GUN_ORG     ( -75, 4490, 37 )
+#define ACC_SCI_GUN_ORG     ( -75, 4130, 37 )   // office translated -360y 2026-08-02 (lab compression)
 #define ACC_SCI_GUN_TRIG_Z  20
-#define ACC_SCI_IMPLANT_ORG ( -170, 4420, 0 )
+#define ACC_SCI_IMPLANT_ORG ( -170, 4060, 0 )
 
 #namespace acc_scientist_office;
 

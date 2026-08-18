@@ -101,6 +101,19 @@ function __init__()
     // the clientuimodel clientfield pool is nearly full - wider count fields overflow it and
     // a STOCK field (zmhud.swordEnergy) then fails to register => Com_ERROR at load. docs/11.
     clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int" );
+    // Area-banner id (2026-08-02, user: PNG art replaces the top-center area TEXT banner):
+    // 0 = hidden, 1..14 = plaza/market/alley/bus_station/vault/helipad/lab/exchange/paradise/
+    // trench1..5, 15..17 = armory/sci_office/implant SUB-AREAS (2026-08-02 second pass -
+    // dev_area_code order, _acc_dev.gsc). Pushed by _acc_dev.gsc dev_update_zone (the
+    // existing area state machine); rendered by CoD.AccAreaBanner (AetheriumHud.lua)
+    // swapping the 17 i_acc_area_* images. WIDENED 4->5 bits for the sub-areas (17 ids no
+    // longer fit 0..15). Appended LAST so existing fields' bit layout is untouched (MUST
+    // match _acc_lui.csc order/width). POOL PROBE LEDGER: the original 4-bit free append
+    // (66->70 acc bits) PROVED to load 2026-08-02 (live session, no Com_ERROR); this widen
+    // is +1 more (70->71) - if the load Com_ERRORs on stock zmhud.swordEnergy, fund it by
+    // narrowing accDmgNum 18->17 (display cap 65535->32767; ALSO clamp the encoder at the
+    // _acc_dev.gsc dmg queue) - a 1-bit shave, NOT the old 4-bit prescription.
+    clientfield::register( "clientuimodel", "accArea", VERSION_SHIP, 5, "int" );
     // [acc] ACTOR-scope eye-tint marker for the Glitch Stalker (teal eyes, NO FX). Separate
     // bit pool from the clientuimodel fields above. MUST match _acc_lui.csc EXACTLY
     // (scope/name/version/bits/type). Server only registers + sets; the client mirror owns the
@@ -185,6 +198,17 @@ function set_round_ring( player, pct )
     player clientfield::set_player_uimodel( "accRoundRing", pct );
 }
 
+// Push the top-center area-banner id (0 = hidden, 1..14 = the PNG banner for the area -
+// see the accArea registration comment for the id order). Driven by _acc_dev.gsc
+// dev_update_zone (the area show/hold state machine); the 0.3s fade-in / 0.4s fade-out
+// run client-side in CoD.AccAreaBanner (AetheriumHud.lua).
+function set_area( player, id )
+{
+    if ( !isdefined( id ) || id < 0 ) id = 0;
+    if ( id > 17 ) id = 17;   // 17 = highest banner id (implant chamber); field holds 0..31 (5 bits)
+    player clientfield::set_player_uimodel( "accArea", id );
+}
+
 // Mark/unmark an ACTOR for the teal eye-tint recolour (Glitch Stalker). The matching client
 // callback (_acc_lui.csc eye_tint_cb) recolours ONLY this actor's eyeball material - no FX asset,
 // horde untouched. `on` falsey => clear back to the stock eye colour.
@@ -219,16 +243,31 @@ function round_ring_watch()
             total = 1;
         }
 
-        alive = zombie_utility::get_current_zombie_count();
-        togo  = 0;
-        if ( isdefined( level.zombie_total ) && level.zombie_total > 0 )
-            togo = level.zombie_total;
-        remaining = alive + togo;
-        if ( remaining < 0 ) remaining = 0;
+        // PARADISE FINALE OVERRIDE (user 2026-08-02 "remove the timer, use the enemy-remaining
+        // bar - it syncs with the time"): during the onslaught the horde is an endless x4 pour,
+        // so "hostiles remaining" is meaningless - the bar becomes the SURVIVAL COUNTDOWN
+        // instead: full at the opening bell, drains to 0 on the battle clock (empty = the win
+        // moment; the old center-screen SURVIVE M:SS hudelem is deleted). State published by
+        // _acc_paradise::survival_timer_loop; reverts the frame win() clears the flag.
+        if ( IS_TRUE( level.acc_paradise_onslaught ) &&
+             isdefined( level.acc_paradise_battle_total ) && isdefined( level.acc_paradise_battle_remaining ) &&
+             level.acc_paradise_battle_total > 0 )
+        {
+            pct = Int( ( level.acc_paradise_battle_remaining * 100 ) / level.acc_paradise_battle_total );
+        }
+        else
+        {
+            alive = zombie_utility::get_current_zombie_count();
+            togo  = 0;
+            if ( isdefined( level.zombie_total ) && level.zombie_total > 0 )
+                togo = level.zombie_total;
+            remaining = alive + togo;
+            if ( remaining < 0 ) remaining = 0;
 
-        if ( remaining > total ) total = remaining;   // peak = the round's full count
+            if ( remaining > total ) total = remaining;   // peak = the round's full count
 
-        pct = Int( ( remaining * 100 ) / total );
+            pct = Int( ( remaining * 100 ) / total );
+        }
         if ( pct < 0 ) pct = 0;
         if ( pct > 100 ) pct = 100;
 
@@ -264,9 +303,18 @@ function player_lui_init()
     self endon( "disconnect" );
     level flag::wait_till( "initial_blackscreen_passed" );
 
+    b_first_open = true;
     for ( ;; )
     {
-        wait 0.5; // let the (re)spawned client HUD settle before (re)opening our overlay
+        // The 0.5s settle exists for RESPAWNS (the engine closes LUI menus on the
+        // death->spectate transition; the fresh client HUD needs a beat before we
+        // re-open). At MATCH START the client is freshly loaded with nothing to
+        // settle - open near-instantly so the overlay (perk bar / shard counter /
+        // round ring) is up the moment the fade lifts instead of ~0.6s into play
+        // (user 2026-08-02 "start everything at once").
+        if ( b_first_open ) wait 0.05;
+        else wait 0.5; // let the (re)spawned client HUD settle before (re)opening our overlay
+        b_first_open = false;
 
         if ( isdefined( self.acc_lui_menu ) )
             self CloseLUIMenu( self.acc_lui_menu );

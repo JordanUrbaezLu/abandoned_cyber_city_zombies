@@ -49,12 +49,18 @@ beacon on the re-cloak point). Zone: `fx,_custom/acc/fx_acc_derez_blink` +
 the manifest).
 
 **PHANTOM SPECIAL TREATMENT (same day, user: "make sure the phantom gets special
-treatment in fx/sfx so players know the threat"):** boss colour language locked —
-**cyan burst = Glitch, NEON-YELLOW burst = Phantom** (matches its existing
-`accPhantomAura` glow colour 3), red = Scientist (workstream B). `derez_burst` grew a
-`style` arg: `"phantom"` = yellow numbers clone
-(`fx_acc_derez_blink_phantom.efx`, tint 1/0.9/0.25) + an EXTRA
-`fx_teleporter_elec_strike_sparks_os` layer (the real boss reads bigger). SFX: new
+treatment in fx/sfx so players know the threat"):** boss colour language originally locked
+as cyan-numbers = Glitch / yellow-numbers = Phantom / red = Scientist. **SUPERSEDED
+2026-08-02 (user: "that fx is only for scientists — why does the phantom and possibly
+glitches have it"): the nixie DIGIT GLYPHS are now the SCIENTIST'S EXCLUSIVE identity.**
+Boss styles are digit-free — `"phantom"` = zap + the EXTRA
+`fx_teleporter_elec_strike_sparks_os` layer (the real boss still reads bigger),
+`"glitch_boss"` (the Stalker's combat blinks) = zap only; both still READ as teleports.
+The WORLD teleports (Lab/Exchange pads, perk-scatter moves, style `"glitch"`) keep their
+cyan digits — ambience, not a boss identity. The yellow numbers clone
+(`fx_acc_derez_blink_phantom.efx`, tint 1/0.9/0.25) + its `acc_derez_phantom` key stay
+registered but unused (zero-cost, easy restore). Gate lives in
+`_acc_utility.gsc::derez_burst_run`. SFX unchanged: new
 alias `acc_phantom_warp` (acc_audio.csv — same warp.wav but pitch **-500..-350
 cents**, louder 90/95, longer range 200/1500/2000) = the Phantom's OWN deep voice:
 `materialize_scare` no longer borrows `acc_glitch_warp` (high warp = Glitch, deep
@@ -115,6 +121,12 @@ freeze proofing (full-circle escape fan + stuck-detector breakout), gun carried 
 ANIMATED j_wrist_ri bone (tag_weapon_right sits at bind pose on zombie rigs - floats),
 audio = the authentic BO1 numbers-broadcast hum ONLY (all warp-family sounds + the zap layer
 with its embedded teleporter audio removed). 35+ dev-gated [SCI] trace points remain.
+
+**Announce dedupe (2026-08-01):** the arrival line (*"he wants your weapon. Don't let him touch
+you."*) and the *"is down."* line (both kill paths — normal death and the reap race — share one
+`sci_down` key) now print only the FIRST time per match via `acc_utility::announce_once` — he
+respawns every ~4 rounds and the repeated copy got annoying. The nameplate/hum/de-rez bursts stay
+the per-spawn tell, and the actionable steal warning / escaped / weapon-back lines stay always-on.
 
 ### INCIDENT 2026-07-19: hard CTD on every spawn — root cause = the 1.3x SetScale experiment (removed; fix authored, module disabled pending verification build)
 

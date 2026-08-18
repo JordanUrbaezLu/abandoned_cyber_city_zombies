@@ -1,0 +1,1047 @@
+{
+ "generated": "2026-07-29 infestation-gradient-design workflow (wf_2001b7d9-053)",
+ "deletes": [
+  {
+   "guid": "{ACCDEC00-0ACC-4E0D-8A3F-000000000524}",
+   "model": "custom_ghost_hive01",
+   "note": "L5 *** DELETE, NOT A PLACEMENT *** — remove the existing orphan misc_model (guid {ACCDEC00-0ACC-4E0D-8A3F-000000000524}, .map L23820-23832, origin 260 2105 -1196.6) squatting in the D4 landing keep-clear x[112,420]xy[1956,2173]. Third-strike class."
+  }
+ ],
+ "batch1": [
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 330,
+   "y": 1748,
+   "z": -227,
+   "yaw": 200,
+   "note": "L1 THE ONE EGG — under the E rim drip (300,1728,-5), half-tucked to S wall (mesh embeds ~25u, intended). Clear of riser rows y1830/2070, hack terminal, D1 well, E stair x[703,799]."
+  },
+  {
+   "model": "p7_zm_isl_foliage_mutated_root_wall_01",
+   "x": 390,
+   "y": 1727,
+   "z": -204,
+   "yaw": 90,
+   "note": "L1 S-wall creep beside the egg (DARK, legal — L1 has surface light). z=floor+36 matches existing L3 root_wall height."
+  },
+  {
+   "model": "p7_zm_isl_foliage_mutated_root_wall_02",
+   "x": -300,
+   "y": 2168,
+   "z": -204,
+   "yaw": 270,
+   "note": "L1 N-wall under the W rim drip — the no-glow doubt beat (Design A). Beside existing moss."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 690,
+   "y": 2140,
+   "z": -467,
+   "yaw": 45,
+   "note": "L2 strangled-generator cluster — nestled against BLUE generator corner (clip x[554,646]y[2097,2143], tiny deliberate fusion) + N wall. FX loop anchor."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 720,
+   "y": 2085,
+   "z": -466,
+   "yaw": 0,
+   "note": "L2 spore stalk beside generator egg (LIKELY, egg <70u). z=floor+14."
+  },
+  {
+   "model": "p7_zm_gen_rune_1_purple",
+   "x": 660,
+   "y": 2166,
+   "z": -380,
+   "yaw": 180,
+   "note": "L2 N-wall glyph over the generator cluster (PROVEN). z=floor+100 matches existing L5 rune height."
+  },
+  {
+   "model": "p7_zm_gen_rune_3_purple",
+   "x": -560,
+   "y": 1727,
+   "z": -380,
+   "yaw": 0,
+   "note": "L2 S-wall cable-run cluster core (PROVEN; no egg here — keeps A's 3-egg count). West of cable-run clip x[-528,-272]."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_nerve_vine_01",
+   "x": -430,
+   "y": 1727,
+   "z": -450,
+   "yaw": 90,
+   "note": "L2 S-wall veins wrapping the existing cable conduit (DARK; anchored by the cable-run FX loop <50u)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -700,
+   "y": 1990,
+   "z": -467,
+   "yaw": 120,
+   "note": "L2 breaker-wall egg — 2u sliver fusion with breaker cabinet clip x[-764,-748]y[2004,2096] intended. OC prompt (-400,1948) r110 clear (dist ~304)."
+  },
+  {
+   "model": "p7_zm_gen_rune_5_purple",
+   "x": -758,
+   "y": 1990,
+   "z": -380,
+   "yaw": 90,
+   "note": "L2 W-wall glyph over the breaker egg (south of cabinet clip y2004)."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_membrane_01",
+   "x": -740,
+   "y": 2020,
+   "z": -480,
+   "yaw": 30,
+   "note": "L2 floor flesh at cabinet base (DARK, inside egg+rune cluster)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 490,
+   "y": 1810,
+   "z": -467,
+   "yaw": 250,
+   "note": "L2 THE STRAY — deliberately alone mid-floor (Design A isolation beat). Clear of green console (y>1746), pillar_l2_e (x<552), m6 rib, riser (400,1850) mesh-dist ~55."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 650,
+   "y": 1810,
+   "z": -707,
+   "yaw": 60,
+   "note": "L3 SECOND NEST (E-S bay, mirrors W-bay nest). Fused to slalom-root edge (clip x[563,677]y[1841,1879]) — intended organic fusion."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 720,
+   "y": 1770,
+   "z": -707,
+   "yaw": 200,
+   "note": "L3 second nest; mesh embeds S wall ~12u, intended."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 600,
+   "y": 1780,
+   "z": -706,
+   "yaw": 0,
+   "note": "L3 second-nest spore stalk (LIKELY, eggs <60u + new FX loop)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 700,
+   "y": 2075,
+   "z": -707,
+   "yaw": 150,
+   "note": "L3 NE hazard-pod anchor (750,2120) — fused to spore rock (clip x[720,780]y[2093,2147]), intended. D2 arrival band x[112,300] clear."
+  },
+  {
+   "model": "p7_zm_gen_rune_6_purple",
+   "x": 795,
+   "y": 2100,
+   "z": -620,
+   "yaw": 270,
+   "note": "L3 E-wall glyph over the NE rock (reads above rock top -631). x795 = existing E-wall prop offset convention."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 250,
+   "y": 1765,
+   "z": -707,
+   "yaw": 320,
+   "note": "L3 S hazard-pod anchor (250,1745). D3 well x[-112,112] + soul trigger (-136,1787) r110 clear (dist ~386)."
+  },
+  {
+   "model": "custom_ghost_alien_plant05_top_01",
+   "x": 310,
+   "y": 1745,
+   "z": -717,
+   "yaw": 90,
+   "note": "L3 low glowing carpet at the S pod (LIKELY, egg <65u)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 505,
+   "y": 2010,
+   "z": -707,
+   "yaw": 30,
+   "note": "L3 E-mid hazard-pod anchor (450,1990) — fused to slalom rock (clip x[420,480]y[1963,2017]), intended. Riser (400,2046) mesh-dist ~55."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_boils_01_128x128a_emissive",
+   "x": 795,
+   "y": 1850,
+   "z": -655,
+   "yaw": 270,
+   "note": "L3 E-wall PROVEN glow panel — completes the E glow ladder with the existing (795,2000) backlit + rune_6."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": -650,
+   "y": 2100,
+   "z": -497,
+   "yaw": 0,
+   "note": "L3 CEILING COLONIZATION (roll 180) over the W nest — the first look-up beat. Angles (0 0 180)."
+  },
+  {
+   "model": "p7_zm_gen_rune_8_purple",
+   "x": -650,
+   "y": 2166,
+   "z": -545,
+   "yaw": 180,
+   "note": "L3 N-wall HIGH glyph (~175 above floor) — proven anchor within ~85u of the ceiling splat; pulls the eye up."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": 600,
+   "y": 1760,
+   "z": -497,
+   "yaw": 180,
+   "note": "L3 ceiling splat (roll 180) over the second nest. Angles (0 180 180)."
+  },
+  {
+   "model": "p7_zm_gen_rune_9_purple",
+   "x": 600,
+   "y": 1727,
+   "z": -545,
+   "yaw": 0,
+   "note": "L3 S-wall high glyph anchoring the S ceiling splat (<60u)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": -400,
+   "y": 2090,
+   "z": -497,
+   "yaw": 0,
+   "note": "L3 glo-sprout ceiling (roll 180) over the W nest — Glitch Altar prompt r110 is floor-level, 220u below; clear."
+  },
+  {
+   "model": "custom_ghost_alien_plant03_whole_01",
+   "x": -720,
+   "y": 2030,
+   "z": -718,
+   "yaw": 45,
+   "note": "L3 tall tendril in the existing W-bay 3-egg nest pocket (LIKELY, existing eggs <80u). Clear of egg1/egg3/tent1 clips."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 450,
+   "y": 1745,
+   "z": -947,
+   "yaw": 80,
+   "note": "L4 lit-vessel clutch — fused to vessel_s SW corner (clip x[464,536]y[1699,1791]); mesh embeds S wall ~37u. Riser (400,1850) mesh-dist ~68."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 560,
+   "y": 1810,
+   "z": -947,
+   "yaw": 210,
+   "note": "L4 lit-vessel clutch E side; cyl_e clip overlap negligible."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 660,
+   "y": 1850,
+   "z": -947,
+   "yaw": 300,
+   "note": "L4 containment-vessel W flank — fused (clip x[700,816]y[1762,1878])."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 760,
+   "y": 1745,
+   "z": -947,
+   "yaw": 10,
+   "note": "L4 containment-vessel S face — fused; mesh embeds S wall ~37u."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -550,
+   "y": 1790,
+   "z": -947,
+   "yaw": 140,
+   "note": "L4 frosted-pod clutch — fused (clip x[-616,-584]y[1713,1807]). AK wallbuy (-400,1725) dist ~163."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 310,
+   "y": 1948,
+   "z": -947,
+   "yaw": 220,
+   "note": "L4 cryo-pod W flank (near-fused, 13u gap to clip x[373,427]). Gantry stair mouth x[140,228] clear; riser (400,1850) mesh-dist ~56; deck y2013 clear."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 630,
+   "y": 1885,
+   "z": -946,
+   "yaw": 0,
+   "note": "L4 spore stalk in the vessel cluster (egg <50u)."
+  },
+  {
+   "model": "p7_zm_asc_light_cage_warning_red",
+   "x": -460,
+   "y": 1905,
+   "z": -900,
+   "yaw": 90,
+   "note": "L4 PROVEN red cage light beside the DARK hero specimen tank (clip x[-432,-368]y[1915,1981]) — the audit's designated pairing anchor; answers the unresolved 07-12 'does the vat read?'. Verify mount height vs existing deck light in Radiant."
+  },
+  {
+   "model": "custom_ghost_alien_plant03_whole_01",
+   "x": -500,
+   "y": 2000,
+   "z": -958,
+   "yaw": 45,
+   "note": "L4 tall tendril behind the tank, inside red-light reach (~100u)."
+  },
+  {
+   "model": "custom_ghost_hive02",
+   "x": -670,
+   "y": 2100,
+   "z": -957,
+   "yaw": 30,
+   "note": "L4 NW 'the specimen that got away' (green flesh, LIKELY). Mesh x[-732,-608]y[2036,2164] — clear of console clip x[-765,-747] and N wall. z=floor+3."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -580,
+   "y": 2060,
+   "z": -947,
+   "yaw": 190,
+   "note": "L4 PROVEN egg fused to hive02 E edge — legalizes the hive. Riser (-400,2046) mesh-dist ~130; pig-slab clip clear."
+  },
+  {
+   "model": "p7_zm_gen_rune_5_purple",
+   "x": -758,
+   "y": 2080,
+   "z": -820,
+   "yaw": 90,
+   "note": "L4 W-wall glyph peeking over hive02 top (-837) — second instance of rune_5 (multiple instances of one xmodel are fine)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": -550,
+   "y": 1850,
+   "z": -737,
+   "yaw": 0,
+   "note": "L4 glo-sprout ceiling (roll 180)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": 100,
+   "y": 1790,
+   "z": -737,
+   "yaw": 120,
+   "note": "L4 glo-sprout ceiling (roll 180) — ceiling over the D3 arrival is airspace-legal (floor lane untouched)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": 400,
+   "y": 1985,
+   "z": -737,
+   "yaw": 240,
+   "note": "L4 glo-sprout ceiling (roll 180) SOUTH of the gantry deck (y<2013 — NEVER over the deck: only ~53u head clearance there)."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_nerve_vine_02",
+   "x": 520,
+   "y": 2170,
+   "z": -840,
+   "yaw": 270,
+   "note": "L4 N-wall veins visible from the gantry deck, ~100u from the existing red warning light (460,2090,-840); 4u deep, no deck clearance issue. Balcony gift (600,2093,-848) dist ~110."
+  },
+  {
+   "model": "custom_ghost_hive01",
+   "x": -700,
+   "y": 2055,
+   "z": -1197,
+   "yaw": 30,
+   "note": "L5 RE-HOME of hive01 to the W wall (old Overlook floor). Mesh x[-762,-638]y[1991,2119] — clear of monolith clip x[-587,-493]y[1786,1914], queen clip x[-529,-389]y[2059,2171], ammo-crate prompt r110 (dist ~242), riser (-400,2046). New ACCINF01 guid. The L5 FX loop constant MUST move with it in the same build."
+  },
+  {
+   "model": "p7_zm_gen_rune_1_purple",
+   "x": -758,
+   "y": 2055,
+   "z": -1060,
+   "yaw": 90,
+   "note": "L5 W-wall glyph crowning the re-homed hive (above hive top -1077 so it reads over the mass)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -600,
+   "y": 1990,
+   "z": -1187,
+   "yaw": 0,
+   "note": "L5 Field A — proven ring around the LIKELY hive; slight fusion with hive edge intended."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -580,
+   "y": 2120,
+   "z": -1187,
+   "yaw": 100,
+   "note": "L5 Field A — between hive and dead queen; queen clip x[-529,-389] clear (mesh ends -530)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -660,
+   "y": 1930,
+   "z": -1187,
+   "yaw": 210,
+   "note": "L5 Field A south — monolith clip clear (mesh x[-710,-610] vs clip x[-587,-493])."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -500,
+   "y": 2000,
+   "z": -1187,
+   "yaw": 300,
+   "note": "L5 Field A at the queen's S flank ('she died defending the brood'). Riser (-400,2046) mesh-dist ~50."
+  },
+  {
+   "model": "custom_ghost_dead_brute_3",
+   "x": -640,
+   "y": 1970,
+   "z": -1186,
+   "yaw": 150,
+   "note": "L5 corpse in the hive glow (DARK — eggs <45u both sides). Verify floor-flush in Radiant; mirror brute_1/2 lift pattern (~+14 to +16)."
+  },
+  {
+   "model": "custom_ghost_hive02",
+   "x": -220,
+   "y": 2140,
+   "z": -1197,
+   "yaw": 200,
+   "note": "L5 N-wall green hive west of the D4 well. Mesh x[-282,-158] — clear of well x[-112,112] and door_4 slab x[-124,-112]; ~31u N-wall embed intended."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -300,
+   "y": 2050,
+   "z": -1187,
+   "yaw": 40,
+   "note": "L5 proven anchor for hive02 + the W carpet. Riser (-400,2046) mesh-dist ~50; queen clip clear (east of x-389)."
+  },
+  {
+   "model": "p7_zm_gen_rune_6_purple",
+   "x": -600,
+   "y": 2166,
+   "z": -1100,
+   "yaw": 180,
+   "note": "L5 N-wall glyph between queen and hive fields."
+  },
+  {
+   "model": "custom_ghost_alien_plant02_top",
+   "x": -200,
+   "y": 2080,
+   "z": -1155,
+   "yaw": 90,
+   "note": "L5 W carpet — ORIGIN RAISED +45 (mesh dips 45.2 below origin, stack-segment trap). Long axis along Y (spans y[1944,2216], ~43u N-wall embed); clear of D4 well x[-112,112] and crate prompt r110."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 555,
+   "y": 1865,
+   "z": -1187,
+   "yaw": 40,
+   "note": "L5 Field B south of jade fountain (clip x[548,692]y[1923,2077] — tiny fusion at N edge intended)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 655,
+   "y": 1885,
+   "z": -1187,
+   "yaw": 160,
+   "note": "L5 Field B — clutch overlap with neighbors is natural."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 720,
+   "y": 1905,
+   "z": -1187,
+   "yaw": 280,
+   "note": "L5 Field B — fused to dead brute_2 (clip x[728,792]y[1898,2036]): corpse in the brood field, intended."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 620,
+   "y": 2110,
+   "z": -1187,
+   "yaw": 80,
+   "note": "L5 Field B north — fused to fountain N edge; snake-column clip x[422,518] and niche-nest clip x[737,783] clear; east of D4 band (x>420)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_01",
+   "x": 700,
+   "y": 2170,
+   "z": -1199,
+   "yaw": 270,
+   "note": "L5 N-WALL MASS at the tide origin — grows -Y into the room (spans ~x[550,850]/y[2003,2170]; ~31u E-wall embed + deliberate creep over brute_2 and the old E niche nest). Snake-column clip x[422,518] clear. Anchored by egg (620,2110) ~100u."
+  },
+  {
+   "model": "custom_ghost_alien_plant02_top",
+   "x": 740,
+   "y": 2050,
+   "z": -1155,
+   "yaw": 90,
+   "note": "L5 E carpet — ORIGIN RAISED +45; deliberate creep over brute_2/nest clips (non-solid). Anchored by Field B eggs + the relocated lg FX loop."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": -620,
+   "y": 1860,
+   "z": -1186,
+   "yaw": 0,
+   "note": "L5 W spore stalk beside Field A (egg (-660,1930) ~80u). Monolith clip x[-587,-493] clear."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 620,
+   "y": 1755,
+   "z": -1187,
+   "yaw": 220,
+   "note": "L5 S-band altar anchor — fused to the existing DARK niche base (clip x[641,759]y[1701,1819]); ~27u S-wall embed. S strip stays sparse (tide-safe lane y<1880 must read runnable). Contribute trigger (0,1745) r110 clear (dist ~620)."
+  },
+  {
+   "model": "p7_zm_gen_rune_7_purple",
+   "x": 700,
+   "y": 1727,
+   "z": -1100,
+   "yaw": 0,
+   "note": "L5 S-wall glyph just above the niche-base top (-1104) — second instance of rune_7."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 560,
+   "y": 1740,
+   "z": -1186,
+   "yaw": 0,
+   "note": "L5 S altar stalk (egg (620,1755) ~62u). Fountain clip (y>=1923) far."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -190,
+   "y": 1770,
+   "z": -1187,
+   "yaw": 90,
+   "note": "L5 anchors the existing W niche nest (clip x[-273,-227] — slight fusion intended). Paradise door lane x[-96,96] clear; contribute trigger r110 clear (~192); M60 (-400,1725) clear (~214)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": -300,
+   "y": 1850,
+   "z": -977,
+   "yaw": 0,
+   "note": "L5 glo-sprout ceiling (roll 180)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": 650,
+   "y": 2140,
+   "z": -977,
+   "yaw": 120,
+   "note": "L5 glo-sprout ceiling (roll 180) — east of D4 airspace (x>420)."
+  },
+  {
+   "model": "custom_ghost_alien_plant_ceil",
+   "x": -600,
+   "y": 1900,
+   "z": -977,
+   "yaw": 240,
+   "note": "L5 glo-sprout ceiling (roll 180) over the W nest."
+  }
+ ],
+ "batch2": [
+  {
+   "model": "custom_ghost_alien_plant01_base",
+   "x": 0,
+   "y": -1930,
+   "z": -1179,
+   "yaw": 0,
+   "note": "HEART totem base (227x227x209, lift 20.6 -> origin floor+21). S-center behind the PaP on the hall-mouth sightline; ~44u S-wall embed; riser (0,-1900) mesh-gap ~116; bench pads/box clear."
+  },
+  {
+   "model": "custom_ghost_alien_plant01_middle",
+   "x": 0,
+   "y": -1930,
+   "z": -980,
+   "yaw": 90,
+   "note": "HEART totem middle — seam sunk 15u into base top (-991). Verify seam in Radiant, adjust z +-15."
+  },
+  {
+   "model": "custom_ghost_alien_plant01_top",
+   "x": 0,
+   "y": -1930,
+   "z": -837,
+   "yaw": 45,
+   "note": "HEART totem crown — tops out ~-725, far under the -200 sky cap. The ~475u glowing tower visible from the hall mouth 1500u away through the perk gap x(-180,180)."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_base",
+   "x": 140,
+   "y": -1900,
+   "z": -1200,
+   "yaw": 0,
+   "note": "NEW altar (rhymes with the L5 ruin — L5 = broken altar, Paradise = living one). DARK, legalized by the egg horseshoe + Paradise baked lights."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_capital",
+   "x": 140,
+   "y": -1900,
+   "z": -1104,
+   "yaw": 0,
+   "note": "Capital atop the base (base height 96)."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_nest",
+   "x": -130,
+   "y": -1920,
+   "z": -1200,
+   "yaw": 30,
+   "note": "Nest column, heart W side."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_nest",
+   "x": 240,
+   "y": -1860,
+   "z": -1200,
+   "yaw": 300,
+   "note": "Nest column, heart E side."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -200,
+   "y": -1860,
+   "z": -1187,
+   "yaw": 15,
+   "note": "Heart horseshoe (opens NORTH toward the fight — B composition). Bench pad (-390,-2080) clear ~190."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -120,
+   "y": -1910,
+   "z": -1187,
+   "yaw": 140,
+   "note": "Heart horseshoe."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -60,
+   "y": -1840,
+   "z": -1187,
+   "yaw": 265,
+   "note": "Heart horseshoe — riser (0,-1900) mesh-gap ~82."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 80,
+   "y": -1830,
+   "z": -1187,
+   "yaw": 30,
+   "note": "Heart horseshoe — riser (0,-1900) mesh-gap ~77."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 200,
+   "y": -1820,
+   "z": -1187,
+   "yaw": 190,
+   "note": "Heart horseshoe — PaP r200 clear (~329 to mesh)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 280,
+   "y": -1890,
+   "z": -1187,
+   "yaw": 320,
+   "note": "Heart horseshoe — fused to E nest column; box (550,-2080) clear ~220."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": -260,
+   "y": -1960,
+   "z": -1186,
+   "yaw": 0,
+   "note": "Heart W stalk; bench pads clear ~152."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 260,
+   "y": -1960,
+   "z": -1186,
+   "yaw": 180,
+   "note": "Heart E stalk."
+  },
+  {
+   "model": "p7_zm_gen_rune_3_purple",
+   "x": -140,
+   "y": -1995,
+   "z": -1100,
+   "yaw": 0,
+   "note": "S-wall glyph behind the heart (Paradise S wall = y-2200, faces +Y)."
+  },
+  {
+   "model": "p7_zm_gen_rune_8_purple",
+   "x": 140,
+   "y": -1995,
+   "z": -1100,
+   "yaw": 0,
+   "note": "S-wall glyph behind the heart."
+  },
+  {
+   "model": "custom_ghost_alien_tentacle_single_01",
+   "x": -230,
+   "y": -660,
+   "z": -1200,
+   "yaw": 70,
+   "note": "HALL-MOUTH W JAW — 432u DARK mega-pillar (finally has headroom); backlit by the (0,-1000) baked omni + egg-anchored. Mesh x[-323,-137] — mouth lane x[-96,96] and riser (0,-700) r45 clear."
+  },
+  {
+   "model": "custom_ghost_alien_tentacle_single_01",
+   "x": 230,
+   "y": -660,
+   "z": -1200,
+   "yaw": 250,
+   "note": "HALL-MOUTH E JAW — you walk in between two flesh pillars."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -165,
+   "y": -645,
+   "z": -1187,
+   "yaw": 120,
+   "note": "Gate egg (proven anchor for the W jaw). Mesh edge 19u past mouth lane at x-115; riser (0,-700) dist ~174; Stamin-Up r60 clear."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 165,
+   "y": -645,
+   "z": -1187,
+   "yaw": 240,
+   "note": "Gate egg (E jaw anchor)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -300,
+   "y": -700,
+   "z": -1187,
+   "yaw": 0,
+   "note": "Gate outer egg."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 300,
+   "y": -700,
+   "z": -1187,
+   "yaw": 180,
+   "note": "Gate outer egg."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": -190,
+   "y": -605,
+   "z": -1080,
+   "yaw": 180,
+   "note": "N-wall splat W of the mouth (spans x[-275,-105], clear of opening x[-96,96]). WALL MOUNT — needs pitch/roll set in Radiant; verify orientation (only ceiling roll-180 is proven)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": 190,
+   "y": -605,
+   "z": -1080,
+   "yaw": 180,
+   "note": "N-wall splat E of the mouth. Same orientation caveat."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -580,
+   "y": -1920,
+   "z": -1187,
+   "yaw": 30,
+   "note": "SW corner brood at the palm (trunk clip ~30u — clear)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -620,
+   "y": -1850,
+   "z": -1187,
+   "yaw": 150,
+   "note": "SW corner brood."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -550,
+   "y": -1970,
+   "z": -1187,
+   "yaw": 270,
+   "note": "SW corner brood."
+  },
+  {
+   "model": "custom_ghost_alien_plant03_whole_01",
+   "x": -660,
+   "y": -1900,
+   "z": -1198,
+   "yaw": 45,
+   "note": "SW corner tendril (~41u W-wall embed OK)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 590,
+   "y": -1910,
+   "z": -1187,
+   "yaw": 60,
+   "note": "SE corner brood; box (550,-2080) clear ~290."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 630,
+   "y": -1840,
+   "z": -1187,
+   "yaw": 200,
+   "note": "SE corner brood."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 560,
+   "y": -1970,
+   "z": -1187,
+   "yaw": 340,
+   "note": "SE corner brood."
+  },
+  {
+   "model": "custom_ghost_alien_plant02_base",
+   "x": 650,
+   "y": -1960,
+   "z": -1198,
+   "yaw": 90,
+   "note": "SE corner sprawl (long axis along Y; S-wall embed OK)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -600,
+   "y": -660,
+   "z": -1187,
+   "yaw": 10,
+   "note": "NW corner brood — QR perk (-900,-820) r60 clear (mesh-gap ~101); riser (-700,-700) clear ~150."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -640,
+   "y": -720,
+   "z": -1187,
+   "yaw": 130,
+   "note": "NW corner brood — QR mesh-gap ~159."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -555,
+   "y": -620,
+   "z": -1187,
+   "yaw": 250,
+   "note": "NW corner brood (N-wall embed ~39u OK)."
+  },
+  {
+   "model": "custom_ghost_alien_plant05_top_01",
+   "x": -640,
+   "y": -640,
+   "z": -1197,
+   "yaw": 0,
+   "note": "NW corner carpet along the N wall (QR r60 mesh-gap ~146)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 605,
+   "y": -660,
+   "z": -1187,
+   "yaw": 80,
+   "note": "NE corner brood — EC perk (900,-820) r60 mesh-gap ~101."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 650,
+   "y": -680,
+   "z": -1187,
+   "yaw": 220,
+   "note": "NE corner brood — EC mesh-gap ~81."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 565,
+   "y": -615,
+   "z": -1187,
+   "yaw": 300,
+   "note": "NE corner brood — riser (700,-700) mesh-gap ~118."
+  },
+  {
+   "model": "custom_ghost_alien_plant05_top_01",
+   "x": 640,
+   "y": -640,
+   "z": -1197,
+   "yaw": 0,
+   "note": "NE corner carpet (EC r60 mesh-gap ~146)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_01",
+   "x": 695,
+   "y": -1450,
+   "z": -1199,
+   "yaw": 180,
+   "note": "E-WALL MASS in the kiosk-free band y[-1800,-1500] (OC (850,-1350) and Neural (850,-1950) r110 both clear); riser (700,-1500) mesh-gap ~128. W wall has 3 kiosks — no room for a mass there, splats instead."
+  },
+  {
+   "model": "p7_zm_gen_rune_9_purple",
+   "x": 695,
+   "y": -1360,
+   "z": -1050,
+   "yaw": 270,
+   "note": "E-wall glyph anchoring the mass (~90u)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": 695,
+   "y": -1035,
+   "z": -1060,
+   "yaw": 270,
+   "note": "E-wall splat over the E satellite nest (anchored by its eggs). Wall-mount orientation caveat."
+  },
+  {
+   "model": "p7_zm_gen_rune_1_purple",
+   "x": 695,
+   "y": -1105,
+   "z": -1040,
+   "yaw": 270,
+   "note": "E-wall glyph (OC kiosk r110 clear, ~195)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": -695,
+   "y": -1300,
+   "z": -1060,
+   "yaw": 90,
+   "note": "W-wall splat (high, above kiosk prompt zones). Wall-mount orientation caveat."
+  },
+  {
+   "model": "p7_zm_gen_rune_5_purple",
+   "x": -695,
+   "y": -1440,
+   "z": -1040,
+   "yaw": 90,
+   "note": "W-wall glyph anchoring the splat (~60u); armory rack r110 clear (~170)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_tentacles_02",
+   "x": -695,
+   "y": -1600,
+   "z": -1060,
+   "yaw": 90,
+   "note": "W-wall splat between mega-bottle and Exo kiosk bands."
+  },
+  {
+   "model": "p7_zm_gen_rune_6_purple",
+   "x": -695,
+   "y": -1540,
+   "z": -1040,
+   "yaw": 90,
+   "note": "W-wall glyph (mega-bottle r110 clear ~170, Exo clear)."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_nerve_vine_01",
+   "x": -450,
+   "y": -605,
+   "z": -1120,
+   "yaw": 180,
+   "note": "N-wall veins behind the perk row (perks at y-820 face -Y; this looms behind them)."
+  },
+  {
+   "model": "p7_zm_gen_apoth_int_nerve_vine_02",
+   "x": 450,
+   "y": -605,
+   "z": -1120,
+   "yaw": 180,
+   "note": "N-wall veins behind the perk row, E side."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_nest",
+   "x": -645,
+   "y": -1005,
+   "z": -1200,
+   "yaw": 60,
+   "note": "W SATELLITE nest (finale ripple relay point). Armory-rack kiosk (-850,-1350) r110 clear."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -595,
+   "y": -1035,
+   "z": -1187,
+   "yaw": 45,
+   "note": "W satellite egg — kiosk r110 mesh-gap ~141."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -580,
+   "y": -965,
+   "z": -1187,
+   "yaw": 200,
+   "note": "W satellite egg — riser (-700,-1100) mesh-gap ~130."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": -650,
+   "y": -1115,
+   "z": -1186,
+   "yaw": 0,
+   "note": "W satellite stalk — kiosk clear (~127)."
+  },
+  {
+   "model": "p7_ram_snake_egg_niche_nest",
+   "x": 650,
+   "y": -995,
+   "z": -1200,
+   "yaw": 240,
+   "note": "E SATELLITE nest, under the E-wall splat."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 615,
+   "y": -1045,
+   "z": -1187,
+   "yaw": 90,
+   "note": "E satellite egg — OC kiosk (850,-1350) r110 mesh-gap ~132."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 590,
+   "y": -975,
+   "z": -1187,
+   "yaw": 310,
+   "note": "E satellite egg — riser (700,-1100) mesh-gap ~140."
+  },
+  {
+   "model": "custom_ghost_alien_poison",
+   "x": 655,
+   "y": -1115,
+   "z": -1186,
+   "yaw": 180,
+   "note": "E satellite stalk — OC kiosk clear (~142)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": -435,
+   "y": -690,
+   "z": -1187,
+   "yaw": 160,
+   "note": "PERK-GAP egg behind the row (A's 'watching purchases' beat) — DT machine r60 clear, risers clear (~200+)."
+  },
+  {
+   "model": "custom_ghost_armory_alien_egg_01",
+   "x": 435,
+   "y": -690,
+   "z": -1187,
+   "yaw": 20,
+   "note": "Perk-gap egg E — Widow r60 mesh-gap ~81."
+  }
+ ],
+ "_batch2_note": "batch2 coords re-homed 2026-08-02 by gen_compress_lab_paradise.js rules (Paradise compressed to x[-700,700] y[-2000,-600]); the live .map ACCINF02 block was transformed in place - a --revert 2 + re-apply reproduces this layout."
+}

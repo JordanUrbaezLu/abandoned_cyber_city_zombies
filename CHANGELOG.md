@@ -6,7 +6,1210 @@ Version scheme: `v0.x.y` during pre-release (no public v1.0 yet). `v1.0.0` = fir
 
 ## [Unreleased]
 
-### Changed — 2026-07-27 second pass: Cyberjack ALL-LANE −10% + Sentry Drone another −10%
+### Changed — 2026-08-08 leaderboard summary: record boards capped at top 30 per squad size
+
+- `backend/leaderboard/summary.js` record boards now display only the top 30 placements
+  per squad size (user: SOLO was printing ~900 rows). The FULL round history is still
+  fetched — Paradise-win totals, the "(N recorded)" counts, and the data-quality gamertag
+  scan run over all rows; only the printed board is truncated (header shows
+  "showing top 30" when capped). `--json` output is unchanged (still the full dump).
+
+### Added — 2026-08-03 PROP AUDIT WAVE 3: the permanent prop-placement lint + the full audit residue + kit swaps (AUDIT CLOSED)
+
+- (user: "Wave 3 lets go" — the closing sweep.)
+- **NEW `tools/lint_prop_placement.js`** (wired into `preflight_windows.ps1`) — the carried
+  TODO closed: riser-vs-clip ≥45u (111 spots: 73 .map structs + 38 GSC-computed trench/
+  Paradise eruption spots — the altar lesson, statically parsed), clip-vs-clip overlap (23
+  cited allowances ratchet-locked), .map↔surface-deco twin lockstep (424 pairs; the
+  tombstoned abyss twin skipped), misc_model hygiene (lightingstate1..4 + pure-hex unique
+  guids — both LED-crash red herrings now gated), and the single-baked-instance light-model
+  cap (the LightingStateInst crash class, seeded with the warning lamp). Negative-tested
+  against injected regressions of every class; 5/5 PASS on the live tree, and it validated
+  this wave's own batch.
+- **Residue swept — every one of the 98 audit findings now actioned, obsolete, or on the
+  final walkabout list.** Applied (ledger-provable): Vault W-wall RED-alert monitor set +
+  E-wall static set re-faced into the room (the story-beat red screen faced the wall 17u
+  away); office holo un-edged (270→180); the server-island dragon corrected — a **Wave-1
+  regression** (flipped with the refuted −Y axis; now yaw 0 under the +X proof); the
+  **ledger cascade**: 3 more vault dragon terminals + 2 vault holos the audit had blessed
+  under the old axis, all re-faced (two with row-flush origin corrections); the L2 diagonal
+  membrane seated on its wall; the armory ammo pile un-grazed (+5x); pit Data Caches get
+  scatter yaws (the Wave-1 helper param, never passed); KEEP-intent comments (mid-room
+  oilrack, roof cage, L2 terminal yaw).
+- **Track C kit fix:** the Scientist's Office desk chair p7_zm_tra_booth_chair →
+  `p8_zm_off_chair_office_executive_black` — the audit's "no p8 chair installed" premise
+  REFUTED (per-prop GDT verified on disk; it was simply never zoned). Zone xmodel line
+  added; sci_chair clip resized 13→14/top 24.
+- docs/47 got the Wave-3 closing block + the FINAL walkabout list (the only open items).
+  FULL build (map moves/rotations + the chair model → navmesh + LED gate).
+
+### Added — 2026-08-03 PROP AUDIT WAVE 2: connector density gradient, L5 centerpiece, diner regroup, front-axis ledger + tombstones
+
+- (user: "Continue with wave 2" — the per-area recomposition/enhancement phase of docs/47.)
+- **Plaza→Alley CONNECTOR dressed (the audit's "bare greybox tube" HIGH):** a 10-prop
+  density gradient on the S wall (N side stays the walk/train lane ≥189u): W-mouth classical
+  fade (bollard pair x260/x315 echoing the plaza NE cordon, dead stone planter x390, weeds
+  patch) → mid-corridor drift (street litter yaw 220, the plaza's blue LED strip at the same
+  z150) → E red-hazard cluster feeding the rampage breaker (wall electric set x760, a 256u
+  wire-bundle run whose tip stops 4u off the breaker slab, biohazard sign x1105 at the
+  door). 3 new clips (`plaza_conn_*`: bollards flat slivers, planter gabled); wall/
+  litter props clipless per convention. Every clip ≥130u from every riser; clear of the
+  enter_alley trigger + the breaker's use radius. docs/02 + docs/47 updated.
+- **LED-BAKE CRASH POST-MORTEM (a NEW crash class; 3 failed bakes + a 4-round bisect):**
+  the planned 12th prop — a red caged warning lamp (`p7_zm_asc_light_cage_warning_red`)
+  over the Alley door — crashed Radiant's LED bake at map load with `SANITY CHECK FAILURE:
+  Allocator <Gfx::LightingStateInst, 1024> has outstanding allocations`
+  (SharedPtrBlockAllocator.h:64, a modal dialog — text read off the dialog via win32
+  window enumeration). The model bakes FINE at its single abyss instance — a SECOND baked
+  instance of this light-carrying model is what kills the lighting compiler. Bisect:
+  stripped-12 BAKED 89s → +6 floor props BAKED → +LED/electric/biohazard BAKED → all-but-
+  the-lamp BAKED 78s. The beacon is CUT (the biohazard sign + the Alley's own red glow
+  beyond the door complete the gradient). Two red herrings fixed en route, now MAP-ENTITY
+  HYGIENE RULES: baked misc_models must carry the FULL `lightingstate1..4` key set (the
+  first append had only 1–3) and guids must be pure HEX (`ACCW2000` contained W —
+  cod2map tolerates it, Radiant does not). Also learned: `build_map.ps1` only WARNS when
+  the LED exits nonzero and still links a stale-lighting .ff — three such .ffs were
+  produced mid-saga (all superseded by this build).
+- **Abyss L5 E-bay centerpiece restored:** `p7_ram_statue_snake_base_jade` on the purged
+  pighead-fountain's exact footprint (620,2000,-1200) yaw 270 — twin of the SW idol; deep
+  brushmodel clip `l5_statue_e`; the "fountain-fused" egg comment refreshed. The GSC ledger
+  line swapped with a purge-history comment.
+- **Market diner nook regrouped:** table slid to the sofa-pair midline under the DINER sign
+  (-1560,1364) + the Wave-1 stray chair pulled to the table's W end facing it (-1640,1364,
+  yaw 90) — three loose pieces become one readable dining set. Clips in lockstep.
+- **Bus bay-rim cordon completed:** a traffic cone at (-200,2230) linking the re-homed
+  barrier to the quarantine fence line.
+- **Regression-proofing (the audit's highest-leverage ask):** the per-family FRONT-AXIS
+  ledger now lives in `tools/add_prop_clips.js`'s header (bench −X walkabout-proven, signs
+  +Y, flat-backs −Y, vending/station −Y PaP-confirmed, dragon +X, monitors −Y, holo +X, ATM
+  back-face-origin +X, Gorod console marked UNVERIFIED); `_acc_abyss_deco.gsc` got a
+  STALE-LEDGER TOMBSTONE (its dormant dev twin would double/resurrect deleted props — ~18
+  orphaned spawn lines flagged); `_acc_surface_deco.gsc` got the mandatory-lockstep note;
+  docs/28's three stale Foundry-Exo references corrected (moved to the Scientist's Office
+  2026-07-26); docs/47 got the Wave 1 APPLIED / Wave 2 status block.
+- **Clip hygiene:** the orphaned `inf_l2_stray_egg` brushmodel clip removed (its model was
+  deleted in Wave 1 — a 48×48 invisible barrier was left mid-lane at L2). Regen totals:
+  278 worldspawn + 135 brushmodel. FULL build (new baked props → navmesh + LED gate).
+- **Wave-1 verify catches fixed in this same build** (the adversarial pass FAILED Wave 1
+  on four counts, all corrected): (1) an applier splice left the 3 Paradise bench clips
+  fused into one dead comment line — slots 2+3 were still walk-through at the stale
+  pre-compression y-2080; now three real entries at y-1840; (2) the Glitch Altar broadside
+  rotation REVERTED — yaw 90 put the 162u clip 17u from BOTH flanking L3 eruption risers
+  ((-400,1850)/(-400,2046)); the ≥45u riser rail beats the aesthetic (yaw 0 = the proven
+  65u); (3) the reactor plinth was embedded 11u in the wall — the claimed y2748 "wall" is
+  the slab EXTERIOR; re-seated at y2704 against the real interior face y2732; (4) the
+  jukebox's claimed x-384 "west wall" is a bay MOUTH at its y — re-homed to the TRUE W wall
+  x-720 at (-717,2450). Accepted-as-is: bench slot1's clip overlaps the SW brood mass by
+  24×46 (organic infestation swallowing the bench reads intentionally; flagged for the
+  walkabout); the office coat-RACK at (-252,4180) was never an audit item (the coat_hanging
+  rotation landed). Residual applier prose stripped; stale yaw comments refreshed.
+
+### Fixed — 2026-08-03 PROP AUDIT WAVE 1: ~115 walkabout-calibrated fixes (benches/angel, vault E-row un-embed, Paradise+trench station rotations, cleanup)
+
+- (user walkabout answers: benches face AWAY from the fountain + angel faces map-center;
+  holo departures board reads fine; vault S row has no gap BUT the E row's "models are
+  inside the wall"; the Paradise PaP faces the wrong way. Plus: "I want a whole enhancement
+  and orientation audit" — this wave applies everything those four answers made provable;
+  Wave 2 = per-area recomposition.)
+- **Calibrations cascaded:** t10 bench front = −X native (all 4 Plaza benches flipped to
+  face the fountain; angel 180→0 to face spawn); the vending/station front = −Y convention
+  CONFIRMED via the PaP → the whole blanket-yaw-0 sweep applied.
+- **Plaza/Bus/Alley/Market (30 edits):** benches+angel; cache crates get scatter yaws
+  15/350/20/345 (`spawn_cache_at` gains an optional yaw); ice-cream sign + stall B +
+  window frame flips; stray diner chair tucked to the booth nook; orphaned traffic barrier
+  re-homed to the N bay-rim cordon; baggage suitcases get spill yaws; NO PARKING post now
+  actually leans (6,340,8); N-lounge armchair faces the bay.
+- **Vault E-row UN-EMBED (user-confirmed "models inside the wall"):** all 7 row members
+  (server_comm, computer tower, dragon terminal, ATM, drop-pod console, safety deposit,
+  standing console) shifted ~11u west so meshes sit flush at the x1919 wall face instead of
+  embedding to ~1930; clips in lockstep. S row untouched (user: no gap).
+- **Roof/Lab:** N-wall junk row (cage/dolly) flipped to face out; tripod re-aimed at the
+  bomber wreck (40→190); warning cloth seated ON the chainlink; fuel tank rotated 90 (clip
+  swap) clearing the (-1324,3115) riser to ≥45u; lab N-wall consoles 0→180; office X-ray
+  lightbox gets its missing upright roll; N-wall test chamber + office lab coat + server-
+  island terminal rotated to face the room.
+- **Station rotations (front=−Y validated):** Paradise — PaP 0→180 (faces the hall-mouth
+  approach), E kiosks →180 (dragon family front=+X, cited), Exo pod →90, Wonderfizz →90,
+  team rack →90 (cabinet + BOTH end pads rotate together via `AnglesToForward`), magic box
+  →180 (angles set BEFORE its DisconnectPaths cut), 3 implant benches →90 side-by-side
+  (y −1810→−1840; their clips ALSO re-synced from stale PRE-compression coords — latent bug);
+  trench — Exchange ATM row flipped to face the stair approach (origin+37x so the mesh box
+  and clips stay identical), Foundry Neural console + L2/L5 Overclocks rotated to their
+  approaches, Glitch Altar broadside (90; clip extents swapped, bay clearance 144u).
+  Helpers gained optional yaw params (`spawn_bottle_station`/`spawn_rack_station`/
+  `spawn_bench_pad`/`spawn_altar_at`/`spawn_cache_at`) — omitted = exactly today's pose.
+- **Cleanup:** DELETED the 2 farm wheelbarrows (last rural leftovers per the M3 purge), the
+  roof indoor radiator + street lamp, the L2 walk-through egg, the orphaned kiosk canopy
+  (base kept); jukebox re-homed to the REAL west wall (-372,2450 — the room expanded and
+  left it floating); reactor plinth re-homed to the REAL back wall (y2720 vs the moved-away
+  y2517); 3 abyss plant tufts seated on the floor. All clips regenerated (274 worldspawn +
+  135 brushmodel; 5 entries deleted).
+- Deferred by planners (unanswered walkabout stops): live-TV facing, DINER neon, plaza dead
+  neon + camomile + W parking block + AW box, BANK blade sign, breaker yaw check, mid-room
+  alley shelf (kept per difficult-navigation), S-wall stale-plane rows (user: no gap = fine).
+  FULL build (map deletions + moves → navmesh + LED gate).
+
+### Fixed — 2026-08-03 PROP AUDIT PHASE A: the 28 data-proven fixes applied (docs/47 HIGH batch)
+
+- (user: "go".) All docs/47 HIGH findings applied in one pass — 32 .map entity edits (incl.
+  1 deletion), 13 clip-table updates + full clip regen, 25 dormant GSC deco-twin syncs, 2
+  runtime GSC fixes:
+- **Plaza:** frag wallbuy display model `wpn_t7_zmb_monkey_bomb_world` →
+  `wpn_t7_grenade_frag_world` (verify-pass correction ×2: the audit's "players saw a monkey
+  bomb" was REFUTED — the struct model key is INERT, `spawn_acc_wallbuy_models()` was
+  disabled 2026-06-24 and only the chalk renders, so this is dormant-data hygiene against a
+  future re-enable; AND the first name `wpn_t7_frag_world` doesn't exist — the linker NEVER
+  validates struct model keys, so no build would have caught it. Real name proven via the
+  stock GDT dumps); iron picket un-welded from the NW bollard ((-440,240)→(-440,215) +
+  clip); E-wall LED twin height 155→150.
+- **Bus Station:** the 3-TV departure board + stands flipped yaw 0→180 (they faced the S wall
+  42u away, backs to all six bench rows — the N-wall arrivals TV proved the convention);
+  standing sink un-interpenetrated from the arrivals TV stand (4u apart → restroom nook edge
+  (-665,2704) yaw 0); staff lockers rotated 90→270 + re-seated flush x799 (the OPEN door
+  faced the wall 3u away); kitchen stove moved behind the counter to the E wall
+  ((702,2600)→(775,2695) yaw 270, was freestanding customer-side facing a wall).
+- **Alley/Market:** oilrack + wood barrel slid out of the taxi's body (the 2026-07-19 taxi
+  move put them 100% INSIDE the car — (−2102,680)→(−2102,860), (−2100,760)→(−2100,930) +
+  clips); neon bar strip + ice-cream menu board yaw 0→270 (edge-on to their W wall); alley
+  E-wall oilrack yaw 90→270 (shelf front was pressed into the wall).
+- **Vault/Roof + Lab:** vault ATM re-faced west + row-flush ((1913→1930,2680) yaw 270→180 +
+  clip resync to the real mesh); both Lab holo screens rotated to face the room (0→90 over
+  the Five-Seven wallbuy, 180→270 over the perk row); sci_console clip AABB corrected
+  (hx/hy were swapped — 7u of console unclipped + 7u of solid air).
+- **Trench:** the 4 Exchange ATM totems RAISED 80u — they were buried to ankle height under
+  the vault floor (`_acc_transfer.gsc` spawned at a stale −240 floor belief; now at the real
+  −160 + clips bot −160/top −57).
+- **Abyss:** 3 boils panels + the purple glyph re-pitched from horizontal floating shelves to
+  vertical wall growths (Z-flat sheet meshes had yaw-only rotations); 2 nerve vines +
+  membrane_02 + the plant04 arm rotated from perpendicular fins to wall-flush sheets; the
+  100%-deck-entombed armory egg DELETED (its story partner was removed 2026-07-30) + its
+  dead clip; the deck-buried plant03 arm re-homed to the E wall (778,1950,−954); the
+  floating caged warning light seated ON the specimen tank top as its alarm beacon.
+- **Paradise:** the 5 wonder-weapon reward pickups now spawn tangent to the ring + slow
+  display spin (`wonder_pickup_spin`) — they all sat at identical yaw 0, "spawned, not
+  presented".
+- Deferred from HIGH: the bare Plaza→Alley connector deco pass (a design addition →
+  Phase C). NOTE: `wpn_t7_frag_world` is the pattern-inferred stock name — the full build
+  is the verifier; fallback is the `t7_zm_chalk_buy_frag` chalk. FULL build (clip regen +
+  moves → navmesh + LED gate).
+
+### Added — 2026-08-03 PROP PLACEMENT & ORIENTATION AUDIT: docs/47, 794 props / 98 findings across 8 areas
+
+- (user: "one big audit on how the models are placed... focusing on design consistency and
+  orientation... chairs scattered around not really making sense... deliver a product that
+  really makes sense and is coherent to the players. We do need to be careful about
+  overlapping models.")
+- **New docs/47_prop_placement_audit.md** — 8 parallel area auditors swept all 734 baked
+  misc_models + 60 script-spawned deco/station props with environment-artist judging rules.
+  98 findings: 28 HIGH (data-proven), ~44 MEDIUM (front-axis unverified — the map stores yaw,
+  not the mesh's front), ~24 LOW. Dominant class: orientation (48).
+- **Headline catches:** the Plaza FRAG wallbuy displays a MONKEY BOMB world model (entity
+  9006 — a live purchase-misread bug); Lab/Paradise compression orphans; the `spawn_plaza()`
+  "yaws are first-pass — flip after the walk" debt (the walk never happened); copy-paste
+  yaw-0 grids (all 4 cache crates identical).
+- **Plan in the doc:** Phase A = apply the 28-fix HIGH batch (one .map+GSC pass + FULL
+  build); Phase B = one in-game walkabout checklist converting the MEDIUM/LOW front-axis
+  questions into exact yaw flips; Phase C = per-area recomposition (Plaza first) — one area
+  per pass, each baked + reviewed before the next. All proposed positions written against
+  the riser-clearance + no-overlap rails.
+
+### Fixed — 2026-08-03 STUCK-ZOMBIE CLUMPS: 8 riser spawn structs moved out of baked prop-clip aprons (Bus Station queue fence + 4 more rooms)
+
+- (user with a Bus Station screenshot: "zombies will clump up and get stuck here... there are
+  few other places this happens so we need to understand why it happens and resolve"; "been
+  happening for a while. Its an existing bug".)
+- **Root cause (workflow-verified, NOT a stale navmesh — deployed navmesh was 14h fresher
+  than the .map):** riser spawn structs sitting INSIDE / within 12–30u of baked worldspawn
+  clip brushes (the 2026-07-18 bus-surface furniture pass added clipped stanchions/tables/
+  benches ON TOP of pre-existing risers; the bus layout generator, unlike the market/alley/
+  lab ones, never enforced the ≥45u riser-clearance standard). Zombies rise onto the carved
+  sliver navmesh and can't path out; stock `zombie_use_failsafe` only culls a zombie that
+  moves <24 inches in 30 s and then RE-QUEUES it to the same nearest riser — pile-jostled
+  zombies move more than that and are never culled. Same class as the two prior fixed cases
+  ("zombies rose inside the taxi" 2026-07-19, the trench-stair riser swallow).
+- **Moves (origin-only .map edits; final positions survived an adversarial point-in-brush +
+  full-clip-table verify — the FIRST cut failed it: two spots landed inside the trench S-rim
+  parapet brushes y[1703,1723] and the group-B "fix" was a regression, its old spots were
+  actually clean):** Bus Station/corp: (-150,1610) → **(-280,1600)** + (105,1610) →
+  **(200,1600)** (the screenshot fence slots — out of the 66u-wide stanchion slots entirely;
+  both stanchion ROWS y1614+y1662 and the parapet cleared), (419,1548) → **(500,1600)** (was
+  12u from the table clip — the worst; now ≥48u from table/dolly/quarantine-fence),
+  (300,1548) → **(330,1544)** (suitcase clip 24u → 54u; beech trunk 48u); Plaza: (150,295) →
+  **(170,560)** (bollard line 23u → ≥120u to every clip; in the NE walk lane — took THREE
+  verify rounds: (120,420) sat 10u from the pre-existing riser at (130,420), (120,480) sat
+  24u from the one at (100,492.86); the final spot clears the full enumerated start_zone
+  spawner list by ≥97u); Roof: (-1324,2545) → **(-1324,2515)** (crate clip 30u → 60u). Group-B pair
+  (-150,2348)/(0,2348) REVERTED to original after the verify pass proved them clean (50.8u/
+  56.3u nearest). Lab (320,3750) measures 45.2u — passes, on the in-game watch-list.
+  **FULL build required** (cod2map64 navmesh regen + LED bake gate). Retest: hold rounds in
+  the Bus Station + Plaza, confirm flow through the queue fence, no piles at the old spots;
+  also re-check corp spawn pacing (hub room).
+- TODO carried: port the riser-vs-clip proximity audit into tools/ as a preflight lint so
+  the next deco pass can't regress this class.
+
+### Added — 2026-08-03 RAMPAGE INDUCER v2: breaker toggle on the Plaza→Alley path, horde speed +7 rounds, seals at round 5
+
+- (user: "we need a rampage system. Basically we tried this multiple times and failed. All
+  it does is make zombies, glitch, armored zombies and the scientist faster. Nothing else.
+  And it bumps up the speed by 7 rounds. It should be an item you can toggle at spawn. once
+  round 5 hits you cant toggle anymore and it stays what ever it was left on.")
+- **New `_acc_rampage.gsc`:** a GROUNDED `p7_zm_ver_powerbreaker` slab (93×16×112, scale 1 —
+  playtest rework same day: the first cut floated the Berzerker skull, user rejected both
+  the float and the double-meaning model; the breaker is inert-deco-only elsewhere and "a
+  breaker you throw" IS the mechanic) + `trigger_radius_use`, script-spawned on the
+  **Plaza→Alley connector south wall** (`ACC_RAMPAGE_ORIGIN (1020,452,0)`, user "place it
+  on the path to alley from plaza"; ~200u before the enter_alley door, corridor N side left
+  clear; leaderboard-station recipe, zone-line-only model so no precache). Each use flips
+  `level.acc_rampage_on` (all-player announce + hint shows current state); at round 5 the
+  state **SEALS** — the use-loop check is the authoritative gate (a lock-watcher only
+  freezes the hint + kills the glow). No on/off dvar exists BY DESIGN.
+- **Pulsing RED state light while ON** (user: "pulsing red fx to signify that rampage is
+  on. Off it looses its red fx light"): `pulse_think` toggles
+  `acc_perk_lights::set_glow(breaker, 1)` (the client-precached Jugg RED aura) at ~1 Hz —
+  the proven client-rendered glow pipeline, since bare server PlayFX never renders and the
+  scriptmover CF pool is full (accPerkGlow is an existing registration; the lockdown
+  purge-room precedent already drives it on arbitrary scriptmovers). A sealed-ON breaker
+  keeps pulsing (the light = the rampage state); OFF = no red.
+- **Speed wiring:** new `acc_zombie_speed::effective_round()` = `current_round()` + 7
+  (`ACC_RAMPAGE_ROUND_BONUS_DEF`, live dvar `acc_rampage_round_bonus`) while ON —
+  `current_round()` stays pure. Swapped at EXACTLY the four spec'd consumers: normal-zombie
+  on-spawn hook + 1.5 s keep-alive (mid-round toggles retro-apply within one sweep, both
+  directions), `glitch_speed_think`, `shielded_speed_think` (armored elite — walk cadence
+  only), and the Scientist's `sprint_pin` (BOTH his +5 curve and the 1.10× anti-horde floor
+  read the rampaged round, preserving his "always visibly quicker" invariant; dev forensics
+  mirrored). Phantom / Brutus / Avogadro / Rogue / Panzer / Fury untouched by construction.
+- **Why v2 works where the 2026-06-13/14 Inducer failed 6 times** (workflow-reconstructed
+  from CHANGELOG 22797→21159): no dvar watcher to fight the device ("sprints a few seconds
+  then stops"), a real flip-flop toggle (not one-way), no new anim-rate writers (the raw
+  1.7× overshoot / competing-writer bugs), the existing keep-alive already defeats stock's
+  locomotion-re-eval decay ("stops after a minute"), and the boss guard still skips every
+  boss marker (the Brutus ASM-stomp freeze). Zone: `_acc_rampage` scriptparsetree line.
+  Docs: docs/08 speed-curve section, docs/22 dvar row, docs/36 player guide.
+
+### Fixed — 2026-08-03 MUSIC: one song at a time, THE stoppable-primitive redesign (5th and final fix)
+
+- (user: "there was a music solution to only have one song at a time. It doesnt work still.
+  This has failed multiple times... check the time on the song that starts playing. When a
+  new song starts check the current song timer and if it still exist then stop that and
+  start new one.")
+- **Root cause (workflow-verified, explains all 4 failed attempts):** the arbitration was
+  never the problem — the STOP PRIMITIVE was. All one-shot songs (7 jukebox tracks, theme,
+  both Paradise tracks) are STREAMED/2D/NONLOOPING aliases, and the engine does not stop
+  those from script: `StopSounds()` never silenced one here (the 2026-08-02 stop-frame fix
+  ran on a live ent, was in the build the user played, and overlap persisted), stock never
+  stops streamed music server-side (client musicstate machine only), and StopOnEntDeath
+  defaults to no so even Delete() left the stream playing. The only primitive ever observed
+  cutting a streamed track here is `PlayLoopSound`/`StopLoopSound` (the boss loop). Plus
+  two by-design layered paths no attempt ever touched: the WetEgg round stingers (~14 s/
+  ~10 s full BUS_MUSIC tracks on EVERY round boundary) and the Fire Sale per-pad
+  `mus_fire_sale` loops.
+- **The fix (`_acc_music.gsc` redesign):** every song alias flipped `NONLOOPING → LOOPING`
+  (`acc_audio.csv` ×10, `acc_round_sounds.csv` ×3: both stingers + gameover); `play()`
+  ALWAYS `PlayLoopSound`s; one-shot semantics = `oneshot_end_watchdog` —
+  `SoundGetPlaybackTime(alias)` (the proven jukebox-hold recipe) then `StopLoopSound` one
+  frame before the loop wraps (the user's "check the time on the song" proposal, applied
+  where it has teeth; 400 s fallback cap so a failed query can never loop forever).
+  `stop()` additionally fires the per-alias `StopSound(alias)` builtin (alias captured
+  before clearing; zm_alien_isolation interrupt recipe, docs/16:802). Priority layer
+  (jukebox 1 < boss 2 < paradise 3) unchanged.
+- **No layered music either:** round stingers are SKIPPED while a channel song plays, ride
+  the same LOOPING+watchdog recipe, are tracked in `level.acc_music_stinger_ents`, and
+  `play()` kills live stingers + Fire Sale pad loops (`_zm_aw_mysterybox` registers
+  `level.acc_firesale_music_ents`, skips the jingle entirely while a song plays) before
+  any song starts. Paradise win fanfare moved to new NONLOOPING twin
+  `acc_paradise_calm_once` (PlayLocalSound of a LOOPING alias would never end).
+- Alias edits ride **audio pass 13** zone bump (bank regen verified: alias.sz + both banks
+  rebuilt, `acc_paradise_calm_once` present in the baked alias table, zero filespec
+  errors). Verify-pass catches folded in: a NEW stinger now CUTS the previous one (with
+  ~5s round transitions the ~10s round-end stinger would underlie every ~14s round-start
+  stinger), and both watchdogs drop `level endon("end_game")` (stock can notify end_game
+  twice — a second notify would strand the now-LOOPING gameover song/stinger repeating).
+  Docs: docs/23 §1a rewritten. TEST: buy a jukebox song → force a boss round → the song
+  must cut the instant the boss theme claims; round stingers must be silent during songs.
+
+### Changed — 2026-08-03 CYBERJACK IDENTITY RESHAPE: charge-up stages −25%, actual shooting +50% (stacks on the same-day −15%)
+
+- (user, revising the same-day 15% ask after more thought: "cyber jack actually needs a 30%
+  nerf. Mostly the charge up that is too strong. Maybe lets nerf all charge up stages by 25%
+  and buff the actually shooting by 50%." Implemented on TOP of the −15% pass so the charge
+  lanes land ~−36% vs the build the user played while the gun itself comes up — the weapon's
+  identity shifts from charge-nuke to gun.)
+- **Charge-up (tornado) stages ×0.75:** `acc_cj_storm_zombie_dmg` **826 → 620** (L1 48 / L2
+  387 / L3 1307 / L4 3100 per 0.3s tick; L4 one-hits through ~r21; net vs played 972 ≈
+  ×0.6375) + `acc_cj_storm_dot_frac` **0.2754 → 0.20655** (L4 1.033× zHP/tick). The cubic
+  `charge_mult` curve + tornado slow untouched.
+- **Finisher micro-storms exactly unchanged:** they are jack-in (shooting) payoff, not a
+  charge stage — the field-loop flat mult (and both tick fallbacks) moved **0.75 → 1.0** to
+  compensate the shared base cut (620×1.0 ≈ 826×0.75; boss lane exact).
+- **Actual shooting ×1.5:** bullet-stream bal mult **0.1836 → 0.2754** (~223.8/shot, ~2664
+  base DPS; net vs the played 0.216 build = **+27.5%**; jack-in chain hops fire the held
+  weapon so they inherit it). Decompile DoT stays at the −15% values (neither a charge stage
+  nor buffed). Doc: docs/43 retune entry (7) + implementation map + comment ladders.
+
+### Changed — 2026-08-03 PLAYTEST BALANCE PASS: fast round transitions + Cyberjack −15% + Brutus gun-drop −5% + Phase Serum −15%
+
+- (user after playing: "gameplay is a bit slow... when a round ends theres like a one minute
+  grace period. I want rounds to start up super quickly — 5 seconds after killing last zombie,
+  next round will start spawning"; "cyber jack needs an overall nerf of 15%"; "drop rate from
+  brutus needs to be reduced by 5%"; "nerf phase serum by 15%".)
+- **ROUND TRANSITIONS ~5s** — `_acc_main.gsc`: new `ACC_BETWEEN_ROUND_TIME 2.0` overwrites
+  `level.zombie_vars["zombie_between_round_time"]` (stock 10, `_zm.gsc:1224`) in
+  `configure_spawn_density()`; stock `round_over()` re-reads the var live every round
+  (`_zm.gsc:4260/:4284`). Full chain: ≤1s end-detect poll + 2.0s + stock's hardcoded 2.5s
+  `round_one_up` ≈ **5s from last kill to first spawn** (was ~13.5s scripted; a perceived
+  "minute" beyond that = a straggler/boss keeping the round open, which no timer controls).
+  Shipped precedent: UGX / zm_alien_isolation run 0 (docs/16:406/:860). In-round spawn pacing
+  (`ACC_SPAWN_DELAY_MULT`) untouched. Doc: docs/05 Round & Pacing Model.
+- **CYBERJACK OVERALL −15%** (every damage lane ×0.85; supersedes the 2026-08-01 max-charge
+  freeze — L4 included this time): bullet-stream bal mult **0.216 → 0.1836** (`_acc_damage.gsc`
+  apex_lstar row; ~149.2/shot, chain hops inherit), storm-vs-normals base
+  `acc_cj_storm_zombie_dmg` **972 → 826** (L4 tick 4130, one-hits through ~r24), storm boss DoT
+  `acc_cj_storm_dot_frac` **0.324 → 0.2754** (L4 1.377× zHP/tick), decompile DoT
+  `acc_cj_dot_frac`/`_frac_tier` **0.2295/+0.054 → 0.195075/+0.0459**. The cubic `charge_mult`
+  + finisher 0.75 mult untouched (double-dip; charge_mult also drives the tornado slow).
+  Non-damage axes (slows, storm life/range, ammo, charge step, harvest) unchanged — same scope
+  as the 07-27/08-01 retunes. Doc: docs/43 §4 + implementation map + retune entry (6).
+- **BRUTUS CYBERJACK GUN-DROP −5% (relative)** — `acc_cj_brutus_gun_chance` default
+  **0.25 → 0.2375** (`_acc_cyberjack.gsc::try_brutus_gun_drop`; house convention reads "reduce
+  by N%" multiplicatively — if 20 percentage points was meant, set 0.20). His only probabilistic
+  drop (boss item is guaranteed, "never both"); item share rises to 76.25%. Doc: docs/43 dvar
+  table (new row).
+- **PHASE SERUM −15%** (slow strength ×0.85, same interpretation as the 2026-07-22 −20%):
+  Glitch `acc_phase_serum_slow` **0.36 → 0.456** (64% → 54.4% slow), Phantom
+  `acc_phantom_serum_slow`/`ACC_PHANTOM_SERUM_SLOW_DEF` **0.76 → 0.796** (24% → 20.4% slow).
+  Blink suppression stays binary; `acc_phase_serum_radius` (350) unchanged (precedent).
+  Implant card text −64% → −54% (`AetheriumStartMenu.lua`). Docs: docs/09 (3 spots) +
+  docs/22 dvar row; stale pre-07-22 comments in glitch/phantom modules refreshed.
+
+### Fixed — 2026-08-03 ITEM-SWAP Z-DRIFT: dropped item climbed higher on every ground swap
+
+- (user: "when you drop an item and swap with another item on the ground, the item dropped
+  keeps moving up in space. Higher and higher everytime you swap.")
+- **Root cause (3-link chain):** on a swap, `_acc_boss_items::watch_pickup` re-drops the old
+  carry at the grabbed item's stored ground origin **before** `cleanup_pickup()` deletes the
+  grabbed pickup's model — and `acc_utility::drop_floor_origin`'s non-AI-entity branch accepted
+  ANY solid non-AI hit as a walkable floor, so the down-trace landed on the still-standing
+  model's TOP (~`z_lift`+model height up). The re-drop stored that raised point as its own
+  `acc_ground_origin`, so the next swap traced onto the newly raised model — compounding climb.
+  (The stored origin itself was already snap-correct; the helper's floor test was the leak.
+  Only bullet-solid pickup models — those whose xmodel ships a `_col` LOD — ever drifted.)
+- **Fix (in the shared helper, covers every drop path):** `drop_floor_origin` now steps
+  THROUGH entities tagged as loot pickups (`.acc_item_id` boss items / `.acc_shard_count`
+  shard drops — fields verified to exist on no other world-solid entity) exactly like
+  AI/player bodies, continuing down to the real floor. Swap re-drops are now idempotent; boss
+  corpse/zombie-roll/balcony/scientist/dev-scatter drops + shard drops
+  (`_acc_data_shards`/`_acc_cyberjack`/`_acc_paradise` callers) get the same protection against
+  one-shot raises when landing on an existing tagged item/shard pickup (the Cyberjack/Paradise
+  wonder-GUN ground pickups themselves carry neither tag — rare one-offs, still accepted as
+  floor if bullet-solid). NOT fixed by reordering
+  cleanup-before-spawn: `cleanup_pickup()` deletes the trigger and `watch_pickup`'s
+  `self endon("death")` would kill the thread before the re-drop spawns (item vanishes).
+  Doc: docs/09 drop-floor bullet.
+
+### Changed — 2026-08-02 FEED: currency rows tighten the "+1 → name" gap (single-digit assumption)
+
+- (user: kill rows read `+100  Melee Kill` but currency rows showed `+1      Data Shard` —
+  "its never more than single digit gain... make the appropriate spacing.")
+- `AetheriumKillFeed.lua`: new per-row `SetNameIndent` — the name's left edge now follows the
+  NUMBER's digit count instead of the fixed x29 column: `+N` → **x16** (the tight gap the user
+  asked for), `+NN` → x23 (two-digit currency gains DO exist — altar MEGA +10, boss shards
+  +10 from r30 — and must not overlap), 4+ chars → the stock x29 (kill rows read exactly as
+  before). Re-applied at insert AND in the shift-down recycling (rows are reused — indent
+  keyed off the SCORE text, which is what actually shifts). No widget-file change.
+
+### Fixed — 2026-08-02 SHARD/BOTTLE FEED ROWS WERE INVISIBLE (mid-file #precache never registers) + dev-cap masking + grant-path audit
+
+- (user: "when you get shards from the shard disposals around the map or sitting in trench it
+  doesnt show up. Make sure all paths are covered. Glitch alter shard gain etc. Same with mega
+  bottles." Two compounding causes, both fixed.)
+- **CAUSE 1 — precache placement (the render killer):** the 4 currency `#precache("string")`
+  directives sat MID-FILE (after functions) — they **compile but never register** into the
+  load-time precache pass, so the istrings had no CS_LOCALIZED_STRINGS slot →
+  `Engine.GetIString` nil client-side → the widget's nil-guard silently dropped every row (no
+  raw token, no error — the popups never worked for ANY source). All 25 working feed keys sit
+  in preambles. Fix: moved all 4 to the owner modules' directive preambles + belt-and-braces
+  duplicates in `_zm_aetherium_hud.gsc`'s proven block. CLAUDE.md's "#precache is not
+  order-sensitive" fact caveated (compile-legal ≠ runtime-registered); memory
+  `midfile-string-precache-never-registers`.
+- **CAUSE 2 — dev-cap masking:** dev sessions started every player AT the 1000/1000 shard cap,
+  so every trench/cache/altar grant clamped to `granted == 0` and was **silent by design**
+  (feed AND toast). Dev init now **cap−100 (900)** so gain feedback is testable in dev; ship
+  init (0) unchanged.
+- **Grant-path audit (all paths covered):** every runtime shard source flows through
+  `grant_player` and every bottle source through `grant_bottle` — one real bypass found and
+  rerouted: the express-start modifier wrote `acc_data_shards = 5` raw (no feed row, no HUD
+  sync, would clobber a dev stash down to 5) → now `grant_player(..., "modifier_express")`.
+  The dev bottle refill loop stays a deliberate silent bypass (a 1 Hz "+69" row would be spam;
+  comment added). Latent note: the Workshop item's `en_*.ff` predates the new keys — republish
+  only after this fix builds green, or subscribers see raw-token rows.
+
+### Fixed — 2026-08-02 MUSIC: one song at a time FOR REAL (stop-frame fix) + priority jukebox < boss < paradise
+
+- (user: "boss music should turn off any existing music. I can start the jukebox and go into
+  a boss round or paradise and both songs will be playing.")
+- **ROOT CAUSE (the audible overlap):** the single music channel (`_acc_music.gsc`, 2026-06-25)
+  already routed all sources, but `stop()` did `StopSounds()` + `Delete()` on the emitter in the
+  **same server frame** — which voids the stop (Treyarch's own comment in
+  `sound_shared.gsc::play_on_tag`). Every one-shot song (all jukebox tracks, theme, both
+  Paradise tracks — STREAMED NONLOOPING) was orphaned unstoppable and played to its end under
+  the new track; only the looping boss alias ever stopped cleanly. Fix: `stop()` defers the
+  `Delete` one frame (`delete_next_frame`, stock precedent).
+- **Priority layer** (`level.acc_music_pri`, jukebox 1 < boss 2 < paradise 3): new
+  `claim_jukebox/claim_boss/claim_paradise` API — equal-or-higher claims cut instantly, lower
+  claims are DENIED. Boss music (`_acc_boss::boss_music`) + both Paradise tracks converted to
+  claims; bare `play()` stays the force path for exactly the main theme + game-over song.
+- **Jukebox** (`_acc_jukebox.gsc`): purchase **denied before any charge** while boss/Paradise
+  owns the channel ("Jukebox unavailable"); a mid-purchase race refunds BOTH halves
+  (`jukebox_refund` tag); new `jukebox_cut_watch` (re-thread-guarded) clears the song-length
+  busy hold the moment a higher source cuts the song — instantly re-buyable; a cut song stays
+  cut (no refund — bounded loss, and the deny gate prevents the common case).
+- **Paradise `win()`** now actually stops the 115 anthem before the victory fanfare (the
+  `start_finale_music` "Stopped on win" comment was never true). No auto-resume anywhere:
+  priority drops to 0 when a song stops/ends. docs/23 §1a + docs/28 jukebox note updated.
+
+### Changed — 2026-08-02 PARADISE: the top-right HOSTILES bar IS the survival countdown (center timer removed)
+
+- (user: "remove the timer and use the enemy-remaining bar on top right — it syncs with the
+  time.") During the onslaught the horde is an endless x4 pour, so "hostiles remaining" was
+  meaningless anyway — `_acc_lui::round_ring_watch` now branches while
+  `level.acc_paradise_onslaught` is up and drains the bar on the BATTLE CLOCK (full at the
+  opening bell → empty = the win moment), fed by `level.acc_paradise_battle_total/_remaining`
+  published from `_acc_paradise::survival_timer_loop`. Reverts to the normal hostiles drain
+  the frame `win()` clears the flag.
+- The center-screen `SURVIVE M:SS` hudelem is **deleted** (`update_timer_hud`/
+  `ensure_timer_hud` + the win() destroy) — also frees one per-player slot in the shared
+  server-hudelem pool. Max-ammo-at-1:45 and the win trigger are untouched. docs/30 updated.
+
+### Fixed — 2026-08-02 RIOT SHIELD HUD PLATE: rim-tangent alignment (pass 6)
+
+- (user screenshot: "rotate the riot shield icon on bottom right a bit more. See how it
+  doesn't align with the circle.") `AetheriumLoadout.lua` `SHIELD_PLATE_ROT` −60 → −70 (the
+  analytic rim tangent for the −20° orbit position) → **−80** (pass 7, user: "another 10
+  degrees and should be good" — the in-game read beats the math; the plate art's long axis
+  isn't quite its bounding-box axis). Icon stays upright for readability.
+
+### Fixed — 2026-08-02 NIXIE DIGIT GLYPHS ARE SCIENTIST-ONLY (Phantom/Glitch teleports lose them)
+
+- (user: "the phantom is getting the numbers fx that the scientist has. That fx is only for
+  scientists so why does the phantom and possibly glitches have it." Root cause: not a
+  clientfield leak — the shared `derez_burst` primitive spawned a nixie-numbers host for
+  EVERY style by design: cyan digits on Glitch blinks, a yellow digits clone on every Phantom
+  warp, red for the Scientist. Diagnosis ruled out CF bit collisions — no `.csc` touches the
+  derez FX at all.)
+- **`_acc_utility.gsc::derez_burst_run`**: digit host is now style-gated — `"scientist"` (red)
+  and the world-teleport default `"glitch"` (cyan — Lab/Exchange pads + perk-scatter moves,
+  ambience not boss identity) keep digits; **`"phantom"` = zap + sparks only** (still reads
+  bigger than a Glitch blink) and the new **`"glitch_boss"` = zap only** are digit-free.
+  `_acc_boss_glitch.gsc` combat blinks (both ends) now pass `"glitch_boss"`. Phantom call
+  sites unchanged (style already `"phantom"`). Scientist's continuous red trail + red bursts
+  untouched. The yellow `fx_acc_derez_blink_phantom.efx` + `acc_derez_phantom` key stay
+  registered but unused (zero-cost, easy restore). docs/44 colour-language paragraph
+  superseded in the same commit.
+- **Follow-up (user live test: "the phantom had RED digits")** — audited the Scientist's red
+  trail lifecycle: **no leak** (all three exits delete the linked fx host; the Phantom spawns a
+  fresh actor, inherits nothing). The sighting = the trail's ~1-2s glyph WAKE behind the
+  sprinting Scientist overlapping a Phantom that warps onto the same player — amplified by the
+  dev cadence (Scientist up every round ≥3, 1-hit HP, red bursts at spawn/steal/death). One
+  theoretical hole hardened anyway: new `sci_fx_org_guardian` poll (brutus_guard_failsafe
+  pattern) deletes the trail host if the Scientist is ever freed WITHOUT a death notify —
+  previously that would have stranded an orphaned looping red-digit column.
+
+### Added — 2026-08-02 SUB-AREA BANNERS (Armory / Scientist's Office / Implants Chamber) + hold −25%
+
+- (user: "add ARMORY SCIENTIST'S OFFICE and IMPLANT CHAMBER area banners"; art delivered in
+  `acc_location_banners (1).zip` — the full 17-banner set, new three template-identical,
+  two-line layout for the long names; art reads "IMPLANTS CHAMBER" plural, system matches.)
+- **`accArea` widened 4→5 bits** (both VMs, lockstep — 17 ids no longer fit 0..15). Pool
+  ledger updated at the registration: the 4-bit append PROVED to load 2026-08-02; this is +1
+  (70→71 acc clientuimodel bits). Fallback if a load ever Com_ERRORs on `zmhud.swordEnergy`:
+  narrow `accDmgNum` 18→17 (cap 32767) — a 1-bit shave now, not 4.
+- **Detection = coordinate AABB predicates** in `_acc_dev.gsc` (`origin_in_armory` /
+  `origin_in_sci_office` / `origin_in_implant_lab` — the `origin_in_vault` idiom; none of
+  the rooms has its own zone volume, all deliberately live inside parent-zone volumes).
+  Bounds from the 2026-08-02 recon (live .map brushes + generator tables + module origins,
+  HIGH confidence): armory x[213,1074] y[−230,230] z[−8,464] (X1 = the enter_armory door
+  plane — flips exactly on walking through); office x[−295,145] y[3868,4228] z[−16,400]
+  (= the map's own OOB-cover brush for the room); implant lab x[−720,180] y[−540,−240)
+  z[−40,256] (y_max exclusive = the doorway plane tips to PLAZA; z −40 covers the top
+  Exchange-stair treads). **Priority: implant BEFORE vault** (its z sliver lies inside the
+  vault AABB — hands off IMPLANTS CHAMBER → EXCHANGE BANK ~4 treads down);
+  armory/sci_office after paradise, before the zone walk (parent volumes would swallow
+  them). `dev_area_code` ids 15/16/17; `dev_area_name` text fallbacks added.
+- **Assets**: 3 PNGs re-baked 720×180 (`i_acc_area_armory` / `_scioffice` / `_implant`),
+  GDT blocks + zone lines + LUI handle-table entries (order matched).
+- **Banner hold −25%** (user): 5s → **3.75s** at both push sites (surface reveal + the
+  underground push-forward constant); fades unchanged (0.3s in / 0.4s out). Docs/11 + all
+  stale "5s" comments updated.
+
+### Changed — 2026-08-02 DAMAGE NUMBERS: +5% size, ~22% slower rise (readability)
+
+- (user: "damage popups can we make 5% bigger and make them move upwards a bit slower...
+  just want to make it a bit easier [to read].")
+- `acc_hud.lua` floating combat text: `ACC_DMG_SCALE` 0.38 → **0.399** and `ACC_DMG_SCALE_HS`
+  0.48 → **0.504** (both ×1.05 — the 25% headshot-bigger ratio holds); `ACC_DMG_RISE`
+  46 → **36** px over the unchanged 500ms life (~22% slower upward drift; lifetime kept
+  flat so high-RoF weapons don't grow on-screen clutter or churn the 12-slot pool faster).
+  docs/11 damage-numbers section updated same-commit.
+
+### Changed — 2026-08-02 HUD SIZE PASS 2 (user in-game feedback): banner −30%, round frame −20%, HOSTILES bar +30%
+
+- **Area banner −30%**: box 341.33×85.33 → **238.94×59.74** (x520.53..759.47, y4..63.74,
+  exact 4:1). Masters re-baked 1024×256 → **720×180** (2.01× display, no-mips rule). Bonus:
+  the box now ends above the CenterConsole print band (y68.5) — the launch size's transient
+  underlap is gone entirely.
+- **Round recon frame −20%** (second same-day shrink, 120→100→**80×80 LUI**, x30..110,
+  y32..112): number box re-derived from the measured art center → center (69.9, 62.9), box
+  67.2×30.8; master re-baked from the 512 original to **240×240** (exact 2×). The frame now
+  fully clears the dormant RocketShieldBlueprintWidget box (note updated in AetheriumHud.lua).
+- **HOSTILES bar +30%**: housing 240×33.6 → **312×43.68** (scale 0.39), grown as pure
+  OVERHANG — `ACC_BAR_W/H/TOPC/RIGHT` untouched, so the boss-row stack keeps its size and
+  y96 anchor. Right-aligned (left overhang −72 → housing x958..1270; right edges stay
+  column-aligned with boss rows) and top-biased (`ACC_BAR_ART_YOFF` −14, not the symmetric
+  −10.84) to preserve 6.3px clearance above the first boss row. Slot constants recomputed
+  (box-local x−50.94..218.94, y2.38..13.3, span 269.88 — negative X = inside the overhang);
+  the drain math is fully parameterized so only constants changed. Master ships as-is
+  (1.71× display — safe band); the fill strip grows to ~16 real px, easing the GEN-2
+  slim-fill concern. docs/11 (×4 spots) + zone comments updated.
+
+### Fixed — 2026-08-02 STARTUP POP-IN: fog / music / FX / HUD now live the frame the fade lifts
+
+- (user: "the map starts up before everything is loaded in — fog, music, shard load all start
+  a few seconds after you are already walking around.") Root cause: those systems gated on the
+  stock `initial_blackscreen_passed` flag, which `_zm.gsc:530` sets only AFTER the fade-in +
+  control unfreeze — so everything they own visibly popped in during the first seconds of play,
+  and the music added its own `wait(1)` on top.
+- **New early gate `acc_utility::wait_players_in()`** (polls for the first player ENTITY —
+  players connect + spawn DURING the loading blackscreen, seconds before the fade). Switched to
+  it: `_acc_atmosphere::apply_fog` (the 0.1s SetVolFog authority now asserts the haze under the
+  blackscreen — comment rewritten; the old "MANDATORY flag" note conflated players-in with
+  fade-done), `apply_ambient_bed` (looping 2D emitter — loops reach late co-op clients), and
+  `apply_fx` (neon glows / haze / steam loops placed under the blackscreen).
+- **`apply_music` KEEPS the blackscreen flag** (a one-shot 2D server sound only reaches clients
+  connected at start time — the flag is the earliest all-clients-guaranteed moment in co-op)
+  but its extra `wait(1)` is dropped: the flag fires the same instant controls unfreeze, so the
+  theme starts the moment you can walk.
+- **`_acc_lui::player_lui_init` fast first open**: the 0.5s "client HUD settle" wait exists for
+  the death→spectate→respawn rebuild; at match start the client is freshly loaded, so the first
+  open now waits 0.05s — the whole Aetherium overlay (perk bar, shard counter, round ring)
+  is up as the fade lifts instead of ~0.6s into play. Respawn keeps the 0.5s settle.
+- Audited every other `initial_blackscreen_passed` gate (50+): the rest are gameplay-start
+  systems (bosses, hazards, leaderboard, door fixups) with no spawn-visible output, or have
+  real load-order reasons (`_acc_perks` jugg-var overwrite) — left on the flag.
+- **First-round zombie-spawn grace HALVED 20s → 10s** (same session, user "a few seconds is
+  fine, cut in half what we previously had"): `_acc_leaderboard::zombie_spawn_grace`'s fixed
+  pre-game buffer — it still covers the LB agent's cmd-window focus steal + the board
+  auto-fetch. The old 35s consent-DECISION pre-loop was then DELETED
+  (user: "verify in code - could be old work never removed" - confirmed dead: auto opt-in sets
+  `acc_lb_decided=true` at init before the grace thread starts, and consent_flow /
+  prompt_consent / dev_prompt_test have zero live call sites, so the loop always broke on its
+  first tick). Verified the grace survived the startup-pop-in change untouched (it clears
+  `spawn_zombies`, a different mechanism from the blackscreen gates).
+
+### Changed — 2026-08-02 HOSTILES BAR GEN 2 (PNG housing) + round frame −17%
+
+- **HOSTILES drain bar** (user-supplied `drain_bar_compact.png`, 800x112 true-alpha): the
+  rect-built housing of `CoD.AccRoundRing` (halo / 7 segment notches / accent line / 8 corner
+  bracket arms — 17 `TextWithBg` elements/client) is replaced by ONE PNG
+  (`i_acc_hostiles_bar`) drawn ON TOP of the code-drawn drain (the under-the-frame layering
+  idiom). The dynamic parts stay rects rendering through the art's measured fully-transparent
+  slot (art x[54,745] y[42,69] → box-local x16.2..223.8, y6.8..15.2): navy track +
+  teal→magenta fill + drain-front sliver, all now SLOT-local (`ACC_BAR_SLOT_*` constants;
+  drain math switched from `ACC_BAR_W` span to `ACC_BAR_SLOT_W` 207.6). The art's baked
+  graduation ticks overlay the fill. **Coupling preserved**: `ACC_BAR_W/H/TOPC/RIGHT`
+  unchanged — the 33.6-LUI-tall housing OVERHANGS the 22-tall logical box (`ACC_BAR_ART_YOFF`
+  −5.8), so the boss-row stack (`ACC_BB_TOP0` = y96) and THREAT-column width alignment are
+  untouched (housing y54.2..87.8, 8.2px above the first boss row). Master ships as-is (2.2x
+  display = the proven implant-bar band). Note: the fill strip is slimmer than before
+  (8.4 LUI vs 22 — the "compact" art trade); flagged for eyes-on.
+- **Round recon frame −17%** (user: "the round png is too big"): 120×120 → **100×100 LUI**
+  (x30..130, y32..132, anchor corner kept). Number box re-derived from the measured art
+  center — now exactly on it: center (79.9, 70.6), box 84×38.4 (the 120-era ~2px-low offset
+  corrected in the same pass). Master re-baked 512→**300×300** (premultiplied bicubic) to
+  keep the exact 2× no-mips relationship. All coordinate references updated (acc_hud GEOMETRY
+  note, AetheriumHud blueprint-overlap note, docs/11 ×2, zone comment).
+
+### Changed — 2026-08-02 GLITCH ALTAR HUGE NERF: doubled+escalating price, 50%→7% powerup odds, per-round powerup cap
+
+- (user: "It needs a hug[e] nerf... I get too many good things like drops etc. We need smaller
+  rewards as well. And double the price. Basically the issue is someone can sit there and spam
+  it to continue to get instakills... Maybe the big jackpot is a nice pay out but overall
+  needs to be a gamble." Pre-nerf reality: 50% of spins paid a full powerup or perk at 2
+  shards/spin with a 6s cooldown — an insta-kill every ~7 spins.)
+- **Price doubled + escalates** (`_acc_glitch_altar.gsc`): `acc_altar_cost` 2 → **4**, plus
+  **+2 per spin within a round** (`acc_altar_price_step`; 4, 6, 8, … resets each round —
+  hack-terminal escalation precedent). The use hint is now **live-priced**
+  (`altar_refresh_hint` at spawn/spin/round-change via a 2s `altar_round_watch`; the old
+  baked-at-spawn hint would have lied). Cooldown **6s → 12s**.
+- **Reweighted to a true gamble — 55% curses / 36% small wins / 7% powerup-perk / 2% MEGA**
+  (was 65% boon incl. 50% powerup-class): NEW small lanes `shard_trickle` 16% (+1 shard) and
+  `small_points` 12% (+250 pts); `shard_jackpot` 15%→8% but pays **5** (was 4) as the one
+  small true win; `max_ammo` 15%→**3%**, `double_points` 12%→**2%**, `insta_kill` 13%→**1%**,
+  `random_perk` 8%→**1%**; curses `surge` 16→**20%**, `shard_drain` 11→**15%** (drain 2→**3**),
+  `dud` 8→**20%**. **`mega_win` stays the 2% showpiece**, sweetened: perk + insta-kill +
+  **10 bonus shards** (`acc_altar_mega_shards`).
+- **One powerup-class hit per round** (max ammo / insta-kill / double points / mega-win): a
+  second powerup roll in the same round reroutes to a "grid is spent" +1 trickle; a capped
+  mega-win keeps its perk + shards and loses only the insta-kill — **insta-kill chaining is
+  impossible regardless of bankroll**. EV ≈ −3.7 shards/spin at base price (worse escalated);
+  a powerup/perk every ~9 spins instead of every 2.
+- Untouched: the module's separate spawns (trench caches, overclock terminals, ammo crates,
+  Paradise amenities, `paradise_box_pick_weapon` export), curses-never-instant-down invariant.
+  Docs 05/28/32/36/03 (+22 if applicable) updated same-commit.
+
+### Changed — 2026-08-02 LAB + PARADISE COMPRESSION: both "safety" rooms shrunk, Lab densified
+
+- (user: "the lab and paradise have too much open space for reasons that aren't part of the
+  map anymore — make the areas smaller so players don't gravitate to them for safety; the lab
+  gets more lab models to fit the area.") One-shot: `tools/oneshots/gen_compress_lab_paradise.js`
+  (marker `ACCLPC01`, backup `.map.acc-lpc-orig`).
+- **PARADISE: interior x[-1000,1000] y[-2200,-600] → x[-700,700] y[-2000,-600]** (2000×1600 →
+  1400×1400, ~39% less area — a tighter 5-boss finale arena). The 8 `gen_descent_hub.js` plaza
+  brushes were **value-remapped in place** (per-face materials preserved, incl. the
+  `mwiii_vertigo_retro_synth_cyan` floor re-skin — a generator re-run would have lost it; the
+  generator's `PLZ_*` constants re-synced with a warning note). Hallway / hub door / 6 plaza
+  lights / probe untouched (all inside the new footprint — zero relight churn). **63 misc_models
+  re-homed by cluster rules** (M6 palms/grass + the ACCINF02 infestation: S content +200y,
+  wall/corner content ∓300x, satellite nests +115y; `gen_infestation_data.json` batch2
+  transformed in lockstep, 51 rows). **10-perk row re-spaced** 180u→130u (x[-630,630], y-820,
+  center gap kept; `gen_paradise_props.js` table updated + re-run — which also stripped the
+  long-stale neutralized 2nd-PaP prefab from the old block, as its header promised). GSC
+  amenities pulled in (`_acc_glitch_altar::spawn_paradise`): Overclock/rack (±550,-1180),
+  bottle (-550,-1430), Exo/perk-vendor (±550,-1680), **PaP (0,-1700)→(0,-1550)** (Avogadro's
+  pinned seek + wonder-loot ring + hint keeper moved with it), bench row (-610/-450/-290,-1810)
+  backing the infestation heart, box (450,-1900). 12 GSC risers re-gridded
+  (`get_paradise_risers`); heart/jaw/satellite FX anchors + heartbeat pts re-homed
+  (`_acc_paradise.gsc`, `_acc_atmosphere.gsc` fungus loops).
+- **LAB: playable interior y[3068,4228] → y[3068,3868]** (1560×1160 → 1560×800, ~31% less area).
+  Plaza-shrink technique: a new **inner N wall** (hexagon, y[3868,3888], doorway x[-123,-27] +
+  header) seals the dead band the 2026-07-25 perk-alcove removal left behind; the outer envelope
+  is untouched (rooms.json stays valid). **The Scientist's Office translated -360y** (shell
+  brushes + door slab/trigger + 12 statics + 2 lights + probe + lab_zone volume brush; interior
+  now y[3888,4208], entirely inside the old envelope; the outer-wall doorway is plugged).
+  Everything in the sealed band moved in: perk staging structs y4195→3800, LED strips
+  y4227→3867, riser row y3948→3750..3808, roof lights y4068→3800 (same radii — noir freeze
+  respected), neon pool + purple flare (0,4060)→(0,3830), APD turbine/canister flushed to the
+  new wall, the E-wall industrial corner relayed onto the new N wall + an NE tank/barrier spur,
+  morgue table → a new center-south medical cluster. **+18 densification statics** (all
+  already-zoned models, zero new `.zone` lines): W-center data island (blue generator, computer
+  tower, server comm, dragon terminal, holo), 2nd specimen test chamber, 2 standing console
+  banks + server-wire sockets + security-monitor pair on the new N wall, medical cart, hazmat
+  suit, paper litter. GSC follows: exo station (-200,4120), office desk loot defines, scatter
+  office pad (92,4060), `enter_scientist_office` trigger center (-75,3878).
+- **Clips**: `add_prop_clips.js` PROPS updated in lockstep (7 paradise kiosks/PaP, 7 palms,
+  10 infestation clusters, 7 office `sci_*`/exo, 10 moved + 8 new `lab_*`) + re-run (279
+  worldspawn + 136 brushmodel — zero new runtime entities; all new lab clips are worldspawn
+  anti-perch gables). **Validated**: a purpose-built clearance audit (risers ≥45u from every
+  clip, kiosk r110s, PaP/pad/box/boss keep-clears, office-door + corridor aprons, hall-mouth
+  lane, pocket-gap scan) runs 0 FAILs; `lint_gsc_xref` green; `validate_rooms` unchanged
+  (same 8 pre-existing corp/vault/roof staleness errors before and after).
+- Docs: 02 (Lab section + pad ledger), 29, 30, 39. NOTE: `gen_map_design.js` currently parses
+  0 markers from the live .map (pre-existing tool rot — the committed SVG predates weeks of
+  changes); SVG left at the committed version instead of regenerating a worse one.
+- Baseline LED-bake fact: the full map now bakes in **~450s** (not the 132s note from
+  2026-07-19) — `_bake_test.ps1` needs `-TimeoutSec 600+`; a 400s cap false-CRASHes.
+- **Review pass (same day)**: full bounds audit (92 paradise-band entities incl. lights/
+  probe/prefabs/structs — 0 outside; 0 stranded in the lab's sealed band at any z), clip↔model
+  pairing audit for every new/moved static vs reference instances of the same models (the
+  filing-cabinet yaw-0 clip confirmed correct via the Vault M5 datapoint — the office's own
+  yaw-90 clip is a pre-existing 7u oddity, untouched). Two findings fixed: the **2nd medical
+  cart spawned yaw 0 under a yaw-90-shaped clip** (cart turned to yaw 90 = the M2 orientation
+  its hx13/hy18 clip fits); the **dev `acc_tp_perks` teleport still dropped players at
+  (0,4090) inside the sealed band** (→ (0,3700) "the Lab"). Re-baked + re-linked after the
+  cart yaw change (geometry gate).
+
+### Changed — 2026-08-02 AREA BANNERS: 14 PNG recon-plates replace the top-center area text
+
+- (user: PNG art for the location title, "we cant really change the font style"; supplied 14
+  1024x256 true-alpha banners — identical recon-plate template, trench set with progressive
+  red-glitch corruption LV1→LV5, amber PARADISE.)
+- **New 4-bit `accArea` clientuimodel clientfield** (0 = hidden, 1..14 = area id), appended
+  LAST in `_acc_lui.gsc`/`.csc` in lockstep as a **free-append probe** — headroom above the
+  66-bit acc spend is unknown ([0,24)); if the map load Com_ERRORs on stock
+  `zmhud.swordEnergy`, the fallback (documented at the registration) is narrowing `accDmgNum`
+  18→14 (damage-number display cap 65535→4095 — surface to the user first). Setter:
+  `acc_lui::set_area`. Channel choice per the 2026-08-02 pool recon: controller Server-UIModel
+  pool at-cap (creates throw — proven live 2026-07-25), toplayer/scriptmover FULL, dvars
+  host-only; clientuimodel is the only non-host-co-op-correct lane left and replicates by
+  construction.
+- **`_acc_dev.gsc` stays the state machine** (show-on-change / 5s surface hold / persistent
+  hold underground+Paradise / hold-through-undefined, all unchanged): `dev_update_zone` now
+  branches per render path — Aetherium pushes ids (`dev_area_code`, new key→id table 1:1 with
+  the LUI handle order); pre-Aetherium keeps the teal TEXT hudelem path dormant-but-called
+  (art can't ride hudelems — no 2D materials in a usermap). **Aetherium mode = ZERO banner
+  hudelems**: frees the per-client slot the old banner held for entire underground runs.
+- **New widget `CoD.AccAreaBanner`** (`AetheriumWidgets/AccAreaBanner.lua`, instantiated in
+  `AetheriumHud.lua` + added to its three guarded alpha blocks): one UIImage top-center at
+  LUI x469.33..810.67, y4..89.33 (341.33x85.33 = 512x128 real px @1080p → **the 1024x256
+  masters ship untouched, exactly 2x, zero resample**), swapping 14 pre-registered
+  `i_acc_area_*` handles; 0.3s fade-in (parity with the hudelem's FadeOverTime), 0.4s
+  fade-out (upgrade — the old path Destroy()'d instantly), alpha 0.85, instant art swap on
+  area→area (trench descents). No UITimers. Top-center verified clear (compass ACC DISABLED
+  — mutual-exclusion note added at its block; lockdown y93+/trench warn y165/Paradise timer
+  y225 all clear of the banner box).
+- **Assets**: 14 `image.gdf` blocks cloned in `acc_perk_shaders.gdt` + 14 `image,` zone lines;
+  deployed via `deploy_perk_shaders.ps1` (gdtdb 98 assets). Stale y-cluster comment at
+  `ensure_zone_banner` rewritten (2D boss bar dormant, Paradise timer at y150 since
+  2026-07-06).
+
+### Changed — 2026-08-02 SHARD + MEGA BOTTLE GAINS RIDE THE KILL FEED (color-coded), center toasts retired
+
+- (user: "move the shard gain over to the player hud... like the text that says +110 Critical
+  Kill. Maybe we can add some for shards and mega bottles. But they need to be a different
+  color/shade" + "And mega bottle as well".)
+- **Every shard gain** (`_acc_data_shards.gsc::grant_player`) and **every Mega Bottle gain**
+  (`_acc_mega_bottles.gsc::grant_bottle`) now pops in the mid-screen **AetheriumKillFeed** —
+  the same feed as "+110 Critical Kill" — as `+N Data Shard(s)` / `+N Mega Bottle(s)`, via the
+  proven `LuiNotifyEvent(&"score_event", 2, key, n)` channel (stock precedent
+  `_globallogic_score.gsc:151`; sent DIRECTLY from both modules because routing through
+  `acc_points::send_kill_feed` would close the `points → boss_items → data_shards` `#using`
+  cycle). New `.str` keys `KF_SHARD(S)` / `KF_MEGA_BOTTLE(S)` (`zm_aetherium.str`; zone already
+  localizes the file) + matching `#precache`s. Zero new clientfields/UI models/dvars.
+- **Color language** (`AetheriumKillFeed.lua`): shard rows **ice-blue (0.60, 0.90, 1.00)** (the
+  old toast cyan — deliberately NOT the crit teal), bottle rows **gold (0.95, 0.78, 0.20)** (the
+  bottle-counter gold, warmer than the lemon kill yellow); on currency rows the `+N` number is
+  tinted to match (kills keep white numbers; `SetScoreColor` applied at insert AND in the
+  shift-down loop so the tint follows the row). Currency rows are **excluded from the feed's
+  points running total** (`IsCurrencyRow` guard).
+- **Center toasts retired to fallback:** the slot-0 "+N Data Shard" and slot-1 gold bottle
+  toasts now fire only when `level.acc_aetherium_hud` is off (feed widget is Aetherium-only).
+  At-cap silent-grant behavior unchanged (`granted > 0` gate). Bottle pickup SFX kept. All
+  spend/deny/event toasts (vault, armory, pin, reactor/jackpot banners) untouched.
+  `_acc_utility.gsc` slot-comment + docs/11 kill-feed section updated same-commit.
+
+### Changed — 2026-08-01 POST-PLAYTEST BALANCE PASS: cyberjack curve, trench scare pass, shard drip, once-per-match banners, drone free-roam
+
+- (user playtest feedback, 5 asks: cyberjack −25% + exponential charge scaling with max kept;
+  trench "35% scarier" with depth-scaled aggression + more furies/spawns; trench shard income
+  −25%; recurring info text once per match; drone implant −25% + free-roam movement.)
+- **CYBERJACK** (`_acc_cyberjack.gsc`, `_acc_damage.gsc`): TEMPEST charge→damage ladder reshaped
+  from linear 1/2/3/5 to **cubic `charge_mult(lvl) = 5×(lvl/4)³`** — L1 0.078 / L2 0.625 /
+  L3 2.109 / **L4 5.0 exactly frozen** (per-tick vs normals 972/1944/2916/4860 → **75/607/2050/
+  4860**; boss lane 0.324×zHP×mult; storm slow now rides the same curve, 0.8%→50%). The jack-in
+  finisher micro-storms take a flat **0.75** mult (clean −25%, NOT the cubic L1 — that would have
+  silently gutted them −92%; `micro_storm` now computes `n_mult` once and the tick fns take a
+  mult, not a level). Bullet stream bal mult **0.288 → 0.216** (−25%; 234 → ~175.5/shot, chain
+  hops inherit); corruption DoT **0.306/+0.072 → 0.2295/+0.054** (×0.75). Charge time, ammo
+  costs, storm life/range, harvest, PaP ladder untouched — max charge plays identically.
+- **TRENCH SCARE PASS (+~35%, depth-ramped)** (`_acc_bus_trench.gsc`, `_acc_fury.gsc`,
+  `_acc_zombie_speed.gsc`, `_acc_elites.gsc`): surge count **+1/layer below the pit** (5 base
+  kept; L5=9), surge cooldown **8s→6s**; pit drip now scales off the deepest occupied layer —
+  **interval 5s→3s / count 2→4 by L5** (L1 exactly as the 2026-06-18 pit tune); melee
+  **+4→+5 HP/layer**; zombie speed **+3%→+4%/layer** (deliberately re-raising part of the
+  2026-07-16 trim); depth-Shielded odds **13/20/29/40%** (were 10/15/22/30); **+2 spawn spots
+  per layer** (6 synthetic risers on L2-L5, 2 new synthetic pit risers — pure GSC, no .map
+  edit); the red DANGER banner **re-pulses on every new floor L3+** (re-thread guard added).
+  Furies: interval **30s→22s**, arm **8s→6s**, new depth ramp (−2.5s/layer below L2, floor
+  **15s at L5**), alive cap **+1 while anyone is at L4/L5**. NOT touched: `acc_trench_ai_bonus`
+  (50+14=64 = engine cap), layer HP +25%, parked abyss hazards (user-gated).
+- **TRENCH SHARD INCOME −25%** (`_acc_bus_trench.gsc::trench_income_interval`): intervals
+  **45/31/20/12/7 → 60/41/27/16/9s** (rate ×0.75, integer-rounded; amount stays 1). Kill/event
+  shard sources (caches, bosses, elites, reactor, altar) untouched.
+- **ONCE-PER-MATCH BANNERS** (`_acc_utility.gsc` + 4 modules): new
+  **`acc_utility::announce_once(key,msg)`** (level-array dedupe). Converted: perk-scatter
+  "PERK MACHINES SCATTERED", Scientist arrival + "is down" (both kill paths, one key), Phantom
+  arrival, Rogue Protector arrival (its per-cycle retry guard kept). Always-on kept: steal/
+  escape/weapon-back, cost/deny/cooldown toasts, objective status, Avogadro hack alerts, bridge
+  warning. Per-spawn tells (nameplates, boss music, bars, moved machines) unaffected.
+- **SENTRY DRONE** (`_acc_boss_items.gsc`): −25% DPS on all four damage lanes via cadence —
+  bolt **0.9s→1.2s**, rocket **4.5s→6.0s** (per-hit numbers + swarm ×1.5 ratio preserved;
+  0.7s target claim still < both cadences). Movement reworked fixed-ring orbit → **free roam**:
+  random bearing goals (signed ±170°, reverses/cuts chords) every 1.2-3.2s + radius fraction
+  0.35-1.25 + height offset, rate-limited pursuit (orbit dvar ×1.6), **layered height bob**
+  (±6u ripple + ±10u swell, per-drone phase, 30u z-floor), travel-vector facing; guardian
+  re-spread now also resets bearing goals (else stacked drones re-clump). World-space anchor,
+  wall clamp, SetOrigin leash, heartbeat all unchanged.
+- Docs updated same-commit: 43/25(regen)/30/28/08/22/05/03/10/06/44/11/09 (docs/04 carries no
+  cyberjack copy — nothing to update there; docs/43 is the weapon's doc of record).
+
+### Changed — 2026-08-01 ROUND COUNTER GEN 2: recon-frame LUI widget replaces the teal text
+
+- (user: the top-left "Round X" was "too plain"; supplied 512x512 recon-frame art.)
+- **New widget `CoD.AccRoundRecon`** (`ui/uieditor/widgets/HUD/AetheriumWidgets/AccRoundRecon.lua`):
+  draws the recon-frame PNG (`i_acc_round_frame` — cyan corner brackets + smoked-glass center +
+  baked "ROUND" plate) top-left at LUI x30..150, y32..152 with the round number in orbitron
+  centered in the bracket square. Round number rides the **engine-owned
+  `gameScore.roundsPlayed` UI model** (= round + 1, the AetheriumScoreboard decode) — **zero
+  clientfields/uimodels/hudelems** (all CF pools are FULL; this actually FREES 1 hudelem/client).
+  Round change = number pop (scale 1.3→1, teal→white, 0.8s) + frame re-scan flicker (alpha
+  0.25→1, 0.6s) via the completeAnimation→beginAnimation idiom; no UITimers, no clips.
+- **Instantiated in `AetheriumHud.lua` as `self.AetheriumRoundCounter`** at the old GEN-0 seam,
+  so the kit's three existing guarded alpha blocks (init / BIT_SCOREBOARD_OPEN / BIT_UI_ACTIVE)
+  drive it unchanged. **Visible behavior delta:** it now hides while the scoreboard is open
+  (kit-consistent; the old hudelem only had `hidewheninmenu`).
+- **Asset pipeline** (docs/19 recipe): user art pre-downscaled 512→**360x360** (premultiplied-alpha
+  HighQualityBicubic — display is 120x120 LUI = 180 real px @1080p, master ~2x per the no-mips
+  rule) into `source_data/acc_perk_shaders/_images/i_acc_round_frame.png` (512 original kept as
+  `.acc-512-orig`); `image.gdf` block cloned from `i_acc_data_shard` (`noMipMaps 1` +
+  `compressionMethod uncompressed`) in `source_data/acc_perk_shaders.gdt`; `image,i_acc_round_frame`
+  + `rawfile,...AccRoundRecon.lua` zone lines; deployed via `deploy_perk_shaders.ps1` (gdtdb
+  processed 84 assets).
+- **GSC retirement** (`_acc_health_bars.gsc`): the Aetherium branch of `player_bars_loop` no longer
+  calls `ensure/update_round_counter` — both functions kept **dormant** for the pre-Aetherium
+  fallback branch (which still calls them), own-stats precedent. Docs/11 round-counter bullet,
+  layout-zones line, and touchpoint row 5 updated (were stale since 2026-07-03).
+
+### Fixed/Changed — 2026-07-29 PARADISE BOSS BARS + the "bosses randomly die in Paradise" cull
+
+- (user: "I would like the bosses in paradise to have a health bar, same implementation above
+  trench. Also can we understand why bosses in paradise will randomly die off for being alive
+  too long. This doesnt happen above the trench with bosses.")
+- **ROOT CAUSE of the die-off (the 2026-06-26 Brutus bug, two more victims):** stock
+  `zombie_utility::round_spawn_failsafe` is installed as a **spawn function on EVERY zombie
+  spawner** (`_zm_gametype.gsc:909` `spawner::add_spawn_function`), so every promoted stock-host
+  boss carries it even though we spawn directly — and its **below-world branch
+  (zombie_utility.gsc:1857) DoDamage-kills ANY actor below z=-1000 on each 30s tick REGARDLESS
+  of movement**. The Paradise arena floor is z=-1200, so every finale **Phantom** and **Glitch
+  Stalker** silently died ~30s after blinking down (the glitch module's old "it MOVES so it's
+  never failsafe-culled" note only considered the moved<24u branch). Above the trench z stays
+  above -1000 and both bosses move, so neither branch ever fired — matching the user's report.
+  Fix: `ignore_round_spawn_failsafe = true` at spawn in `_acc_boss_phantom.gsc::spawn_phantom` +
+  `_acc_boss_glitch.gsc::spawn_glitch` (the failsafe re-reads the flag each loop; pinning is safe
+  — both bosses are `ignore_enemy_count` so a stuck one never gates round end; fury/Brutus/
+  Scientist precedent). Brutus/Panzer/RP/Avogadro were already flagged in `_acc_paradise.gsc`
+  (Brutus same-frame since 2026-06-26; the SpawnActor packs never thread the failsafe at all —
+  their flags are belt-and-braces).
+- **Boss health bars now RUN through the Paradise onslaught** (`CoD.AccBossBars` rows — the same
+  and only boss-HP implementation used above the trench): removed the `attach()` refuse-on-flag
+  gate + `bb_pump()`'s wipe-on-flag tick in `_acc_boss_nameplate.gsc` (`bb_wipe_all` kept,
+  uncalled) — the old suppression (2026-06-25) protected the retired TOP-CENTER 2D bar from
+  covering the survival countdown; the LUI rows live upper-right, and the finale wave
+  (Warden/Phantom/RP/Panzer/Avogadro, cap 1 each) fills the 5 rows exactly. The Paradise Brutus
+  now direct-attaches as `TRENCH WARDEN` in `maybe_spawn_brutus` (after the HP writes; direct
+  attach = no boss-music implication, the trench-warden convention); the other 4 wave bosses
+  feed the rows via their existing `acc_boss_spawned` notifies. Boss **music** stays suppressed
+  (`_acc_boss::boss_music` self-gates; the "115" anthem owns the finale audio); `win()`'s
+  `remove_paradise_bosses()` clears surviving rows via `bb_is_dead`'s `!isdefined` path.
+- **MAP-WIDE root fix (same session — user: "Yes they should not die either. Nothing down there
+  should just randomly die"):** the paradise HORDE zombies + shielded elites (spawner-spawned at
+  z=-1200) were also below-world-culled every 30s — it read as churn but partially defeated the
+  per-zombie aging anti-kite ramp. Fixed at the source: `_acc_bus_trench::init` (the module that
+  owns the below-surface world — it also carries the player OOB-kill veto, the SAME z-volume
+  mismatch family) now sets `level.zombie_vars["below_world_check"] = -2000` — 800u under the
+  deepest real floor (trench L5 / Paradise arena z=-1200), so NOTHING legitimately below the
+  surface can ever trip the below-world kill, while a genuine fall-through still gets reclaimed
+  past -2000 and the moved<24u stuck-zombie failsafe stays fully intact everywhere. Ordering
+  proven by the `player_base_health` precedent (`_acc_perks.gsc` init — stock's `_zm.gsc:1219`
+  write already ran; the failsafe reads the var LIVE each 30s tick, one write wins the match).
+  The per-boss `ignore_round_spawn_failsafe` flags all stay (belt-and-braces + they also cover
+  the moved<24u branch for patrol/roam bosses with no nearby player). BALANCE NOTE: paradise
+  zombies now genuinely persist, so the 30s-per-tier aging ramp finally bites kiters as designed.
+- Docs: 11 (boss-bar section), 30 (suppression contract rewritten, battle-row + finale-deltas
+  lines + the below_world_check note), BO3_MAPMAKING_KB (portable gotcha). Memory:
+  `below-volume-boss-melee-lockout-and-cull` updated (spawn-function provenance + the -2000 line).
+
+### Added — 2026-07-29 VISUAL OVERHAUL master plan (docs/46) — research + design locked
+
+- (user: "map is too dull and boring visually... go from dull and boring to one of the most
+  exciting and vibrant maps on the workshop"; 4 direction decisions locked same day: noir recolor
+  MAP-WIDE, Helipad open-sky conversion, skyline vista under the locked skybox, cyber-layer-on-top
+  prop policy.)
+- **Research (3 multi-agent workflows, 31 agents):** (1) internal audit — root causes ranked
+  RC1-RC8: shadowless uniform WHITE light rig executing docs/20 §1 backwards (135/159 pure-white,
+  0 spots, 0 shadow-casters, only 4/159 lights near a visible fixture), fog hard-disabled forever
+  at power-on, 94% of visible brushes featureless axis-aligned boxes (one z256 ceiling map-wide),
+  ~8 emissive faces total, nothing moves (no rain despite the art bible), nothing above z300 (no
+  vista), ~5% cyber prop language, below-surface probe inversion; (2) deep study of 10 most
+  visually acclaimed workshop maps (Leviathan, CYBER, C-TOWN, Kowloon, NIGHTMARE, Isle of Cthulhu,
+  Astoria, Wanted, 115 Caves, Fabrik) → 12 proven technique clusters (fixture-first lighting 9/10,
+  two-tone complementary color script 10/10, signage scale-hierarchy, modeled vista 8/10,
+  particle-in-every-pool 10/10, wet-ground neon smear, grime layering, light-as-wayfinding,
+  hero-prop shrines, darkness discipline); (3) judged design panel (3 candidate plans ×
+  3 judges — cinematographer spine won unanimously).
+- **The plan (docs/46 — read it before ANY visual work):** 8 phases, each walkable/testable:
+  P0 residual-haze fix + FX sparkle + drip lines (-GscOnly); P1 THE NOIR RELIGHT (one-shot
+  `noir_relight_v1.js` ACCNR01, KVP-only + new shadowed PRIMARY_SPOTs, radii FROZEN, full revert
+  table embedded — the user checkpoint gating everything downstream); P2 boot-up cascade v1 +
+  grade audition + boss-red-alert/Overclock-brownout states; P3 caulk retrofit → per-class pilot
+  → emissive bands/animated screens/Alley hero blade/grime; P4 cyber carves + Plaza vista +
+  holo city-double (ABSENT until power — ignites as cascade finale) + trench-rim reclamation
+  gradient; P5 lit-fog volumes + Plaza-only rain behind an explicit perf gate; P6 Helipad
+  open-sky conversion (own isolated bake + full leak protocol); P7 optional geometry garnish.
+  Zone-hue canon locked (baked rig wins: Plaza cyan / Market magenta / Alley red / corp blue /
+  Vault green / Helipad amber / Lab purple / Exchange sodium / trench→black). Asset budget
+  HARD-CAPPED ≤12 new 4K materials; VK pack provenance-blocked with named stock fallbacks;
+  Abyss L2-L5 untouched (locked pitch-black); no new dvars/clientfields anywhere.
+- docs/README.md index row added. Implementation begins with Phase 0 (same session).
+
+### Changed — 2026-07-30 SHIP FLAGS RESTORED + full production rebuild ("fix prodiction")
+
+- `level.acc_dev = false` + `level.acc_god = false` hardcoded back in
+  `acc_resolve_dev_flags()` (the 07-29 test-walk arming removed); `ACC_MOCK_PARTY` verified
+  already `false` (AetheriumHud.lua:146 — the Lua flag Gate 0 may not catch, checked manually
+  per the pre-publish-trio rule). FULL pipeline rebuild (cod2map64 + navmesh regen 8:51 PM +
+  LED + linker): BUILD OK, .ff 157.55MB 8:57 PM; deployed-copy flag check confirms both false.
+  The whole 07-29/30 visual overhaul (relight, cascade, infestation+clips, swap pass, corpse/
+  fountain removals, EPG-1/D13 overclock fix) ships in this build — none of it was dev-gated.
+
+### Fixed — 2026-07-30 EPG-1 + D13 couldn't OVERCLOCK; L5 "pig-head" jade fountain removed
+
+- (user: "the new grenade laucnher cant be overclocked. This is a bug" + "There is still a pig
+  heade model i want removed... trench 5th floor opposit side of ammo crate".)
+- **Overclock fall-through fixed (`_acc_overclocks.gsc::weapon_name_to_family`):** the family
+  switch blocks any unlisted gun as "unknown" — the EPG-1 (`s1_mdl`, added 07-25) was never
+  added. Now in `special_list` (damage + vs-glitch tiers, same class as Mahem/War Machine/
+  Cyberjack). The same audit caught the **D13 Sector (`special_discgun`, added 07-24) with the
+  identical bug** — fixed in the same edit (exact base name verified vs _acc_map_randomizer:622).
+  STANDING REMINDER the file already carries: every new gun MUST be added to a family list
+  (docs/21 runbook step).
+- **`p7_ram_snake_fountain_01_jade` @ (620,2000,-1200) removed** (`gen_remove_pighead.js`,
+  revert `--revert`, backup `.acc-pighead-orig`) + its 144u-wide `pillar_l5_fountain` clip
+  (brushmodel clips 137→136; the wide-snouted ZNS snake head read as a pig). The other
+  ram_snake pieces (W jade statue, column, sconces, niche nests) STAY. misc_models 663→662.
+- Gates: clips regen + integrity (662 exact, depth 0, zero fountain refs), lint green, BAKED
+  535.4s (slow-but-green outlier — machine load; the ~97-180s band is the norm), BUILD OK
+  8:17 PM, .ff 157.55MB.
+
+### Removed — 2026-07-30 ALL CORPSE MODELS (user: "dont really like the dead animals/aliens models")
+
+- **5 corpse misc_models removed** via `tools/oneshots/gen_remove_corpses.js` (guid-anchored with
+  the lone-`{`-line rule; revert `--revert`, backup `.acc-corpse-orig`): the M6-era
+  `custom_ghost_dead_queen_1` + `dead_brute_1` + `dead_brute_2` (L5) and yesterday's
+  `dead_brute_3` (L5) + `dead_soldier_01` (L4 "consumed lab crew" beat). Their 4 clip entries
+  (`m6_l5_queen`/`m6_l5_brute1`/`m6_l5_brute2`/`inf_l5_brute`) removed from add_prop_clips
+  PROPS + clips regenerated (brushmodel clips 141→137). `p7_foliage_*_long_dead` KEPT (dead
+  vines = foliage, not a corpse). L5's "she died defending the brood" composition now reads as
+  pure nest (the anchor eggs stay). misc_models 668→663. Side benefit: 4 more L5 lane openings
+  on top of yesterday's thinning.
+- GOTCHA hit: Windows PowerShell 5.1 `Set-Content -Encoding utf8` writes a BOM; Node refuses a
+  BOM+shebang script ("Invalid or unexpected token" at `#!`). add_prop_clips.js re-written
+  BOM-less. Rule: edit repo JS with the Edit tool or WriteAllText(UTF8Encoding($false)), never
+  Set-Content.
+
+### Changed — 2026-07-29b L4/L5 THINNED ~29% + CLIP COVERAGE v2 (user walk feedback; BAKED 99.3s, BUILD OK 11:56 PM, .ff 157.77MB)
+
+- (user, from the first successful walk: "A lot of models are missing clips and the trench
+  levels need like 25% reduced clutter toward lv 4 and 5 you can almost barely move around.")
+- **Thinning (`tools/oneshots/gen_infestation_thin.js`, revert `--revert`):** 8 of 28 L4/L5
+  floor pieces cut (~29%) — the mid-floor vessel egg, the middle of the 4-egg vessel crowd, the
+  Gantry-stair-approach egg, two W-pocket eggs at the L5 hive, the Field-B middle egg, the
+  fountain-edge egg, one W-approach stalk. Every HERO stays (hives, brute, soldier+partner,
+  altar/niche anchors, wall silhouettes). L1-L3 + Paradise untouched. misc_models 676→668.
+- **Clip coverage v2 (`add_prop_clips.js`):** −4 orphaned entries (their pieces were cut),
+  +19 new: every remaining wall/prop-FUSED egg gets a flush core box (never protruding past the
+  model into a lane), all poison stalks get 24u trunk boxes, the L3 second nest a cluster box,
+  the L1 egg a (free) worldspawn clip. Still deliberately unclipped: carpets/fans, membranes,
+  vines, wall arms, glyphs, ceiling pieces, the prone soldier, and the L3 swap stalk whose clip
+  edge would graze the D3 soul-trigger r110. Net infestation clips 26→41.
+- **TOOL BUG found + fixed (gen_infestation_thin):** its opening-brace search used a bare
+  `lastIndexOf('{', originIdx)` which lands on the `{` INSIDE the entity's guid string (guid
+  lines precede origin lines), leaving 8 orphaned `{`+`guid "` fragments = 8 unclosed braces.
+  Caught by the post-edit structural integrity check (depth +8), fragments stripped, revert
+  file repaired (blocks re-prefixed), tool fixed to anchor on the LONE-`{`-line. RULE: any
+  .map block-removal tool must anchor braces on whole lines, never bare indexOf — guid strings
+  contain braces (the gen_infestation delete dodged this only via its `gi-1` fix).
+
+### Added — 2026-07-29 ALIEN TAKEOVER SWAP PASS + PARADISE FINALE WEAVE + INFESTATION CLIP PASS (all gated GREEN, final .ff 158.07MB 9:25 PM)
+
+- (user: "adding models from [the alien] package to design the trench... removing some not all
+  of the older placements"; then "you forgot all the clips everywhere. Please review your
+  changes and add precise clips. Also careful for ground clips.")
+- **Swap pass (`tools/oneshots/gen_alien_swap.js` ACCSWP01, BAKED 180.2s):** 13 older placements
+  out / 13 alien pieces in (net entity 0). Includes the 5 BANNED-class tall_grass/weeds models
+  silently baked into L3 since 07-18 (swapped in-place for GDT-backed poison-stalk recolors +
+  glowing fans + a wall-growth arm); L4 flips lab-industrial→consumed (ceiling cages→tentacle
+  splats, lab signs→glo-sprouts over the kept cryo pod, meat hooks→a consumed soldier + glow-egg
+  partner, warning light→a 187u wall-climbing frond); L5's last industrial piece→ceiling growth.
+  v1 = clip-neutral (unclipped removals only); the 2 clipped cryo-pod/console swaps deferred to
+  v2 (need clip deletes + navmesh). 7 new xmodel zone lines (GDT-verified in alien_ghost.gdt).
+- **Paradise finale weave (`_acc_paradise.gsc`, lint green):** the infestation now participates
+  in the finale — `infestation_omen()` (egg-pulses ripple jaws→satellites→heart on "fetch me
+  their souls"), `infestation_seal_eruptions()` (fungus eruptions at the 4 corner broods + both
+  satellites as the arena seals — the onslaught reads HATCHED), the final "You will never
+  escape!" buff now lands with a heart ROAR burst, and `spawn_heart_battle_fx()` (6 budgeted
+  tag_origin hosts carrying stoppable sm-fungus loops on heart/jaws/satellites) is deleted in
+  `win()` = **the heart's glow visibly dies with the victory**. All FX = the pcloud/def-grep
+  SAFE set; all bursts ride the proven play_fx_burst primitive.
+- **Infestation clip pass (`add_prop_clips.js` INFESTATION section, BAKED 97s):** 26 precise
+  brushmodel clips (deep clips must be entities — worldspawn below −240 = the brush.cpp:1860
+  crash; auto `acc_clip_` prefix → the randomizer init sweep DisconnectPaths them). Policy:
+  free-standing fat bodies get snug 48u core boxes (lean tips overhang, brushable); hives/brute/
+  tendril trunks + the never-clipped original M6 W-bay nest clipped; Paradise masses = CLUSTER
+  boxes with TALL anti-camp caps (top floor+130 — no Rocket-Shield perching in the finale
+  arena; the heart horseshoe box also SEALS its walk-in pocket; jaw boxes stop at the
+  hall-mouth lane edge x±135 so gate pathing is untouched). Deliberately UNCLIPPED for ground
+  care: wall-fused eggs, thin stalks, glow carpets, wall/ceiling growths, the prone soldier,
+  and the W perk-gap egg (would pinch the Double Tap lane). Map integrity verified post-regen
+  (676 misc_models = exact batch arithmetic; 179 lights; 20 probes; braces balanced).
+- **Next-wave backlog researched + filed (docs/backlog.md 2026-07-29 section):** ranked top-12
+  frontier candidates (wake-up spawn beat, rain ambient bed, cascade audio layer, sector-failure
+  brownouts, fog creep, drone patrol, dread stingers, growing infestation over rounds, ghost
+  monorail, capture checklist, spinners, organic loops) — every item pre-checked against the
+  constraint ledger; recommended next session = the zero-bake audio trio.
+
+### Fixed — 2026-07-29 ALLEY FREEZE FINAL VERDICT (crash 4/4): `fire/fx_fire_barrel` pcloud spark materials — THE killer all along
+
+- (user: "Crashed again... tabbed out when I go in the room." The 4th crash finally logged a
+  READABLE material name: `Com_ERROR: Vertex type 5 ('particlecloud')... in material
+  'ec/gfx_fxt_spark_2_pcloud_em'` — referenced by exactly ONE wired fx: the barrel fire's
+  ember/spark elements. The fire was present in ALL FOUR crashing sessions — the single common
+  denominator; the earlier light-def and flies theories were adjacent-class de-risking, not the
+  killer.)
+- **THE VALIDATED RULE (supersedes the round-2 entry below): grep every new .efx for `pcloud`
+  material references** — `*_pcloud_*` materials lack their particlecloud vertex-decl techset
+  variant in a usermap .ff and Com_ERROR on FIRST RENDER (link converts them clean). Validated
+  against the full wired set: every proven-safe fx = 0 pcloud refs; the fire = 2. Also keep the
+  class-A grep (explicit `def` lightdef lines).
+- **Pre-emptive saves from the same sweep:** `fx_fungus_pod_ambient_green` (1 pcloud ref, wired
+  at L4 ×2 — would have crashed the descent) swapped to the clean `sm` variant;
+  `dlc2/island/fx_spores_cloud_exp_md` (1 pcloud ref, staged for the Paradise finale) unwired —
+  `fx_fungus_pod_explo_md` (0 refs) is the finale substitute. Flies + sword-glow stay out as
+  unproven pending single-fx probes (they may have been innocent).
+- Build: lint green, BUILD OK 8:26 PM, .ff 157.36MB.
+
+### Fixed — 2026-07-29 ALLEY FREEZE ROUND 2, SOLVED FOR REAL: the flies' particlecloud vertex crash (crash class B)
+
+- (user: "Again still froze in the alley" — 3/3, WITH the class-A def fix in. console_mp.log's
+  tail finally caught the real fatal: `Com_ERROR: Vertex type 5 ('particlecloud') doesn't have
+  the information used by shader techsetdef_unlit.hlsl...` the exact frame the ALLEY
+  configstring registered.)
+- **Culprit: `animals/fx_bio_fly_dark_50x50`** — one of only TWO wired FX containing `tail`
+  elements (the element class that compiles to the particlecloud vertex type; its material's
+  techset variant doesn't pack in a usermap .ff). Every proven-safe fx has zero tails
+  (`cloudDensity` params are harmless noise). ALL FOUR fly placements removed (both Alley
+  dumpsters + the L5 dead queen + the Paradise heart — the last two shipped in the infestation
+  build and would have crashed those areas on first render). Same-class
+  `fx_sword_quest_egg_ground_glow_zod_zmb` unwired BEFORE it ever played (was staged for the
+  Paradise finale — needs a safe substitute, e.g. a second egg_ready). The fire barrel is
+  doubly cleared (0 tails, 0 defs) and RESTORED.
+- **TWO fx crash classes now canonical** (memory `fx-embedded-light-def-freeze`, zone-file NB):
+  A = explicit `def` lightdef lines; B = `tail` elements. Both convert clean at link; both die
+  on first render; both read as a "freeze". Grep BOTH before wiring ANY fx — and check
+  console_mp.log's last lines before theorizing (it survives the kill; would have saved two
+  test sessions today).
+- Build: lint green, BUILD OK 4:59 PM, .ff 157.41MB, zero token errors.
+
+### Added — 2026-07-29 THE INFESTATION GRADIENT: glowing eggs take over the descent + Paradise (ACCINF01/02)
+
+- (user: "as you go down in the trench you should see more and more... complete remodel of
+  paradise to have these glow models. That should be the theme." The eggs =
+  `custom_ghost_armory_alien_egg_01` from ghost.zip/Extinction — only 3 existed, at L3.)
+- **Design:** infestation-gradient workflow (4 audits + 2 competing designs + merge) → placement
+  tables in `tools/oneshots/gen_infestation_data.json`, applied by `gen_infestation.js`
+  (`--batch 1|2`, revert per batch). Dread curve: L1 ONE egg under the rim drip → L2 three
+  machine-strangling eggs + first glyphs → L3 nests + first CEILING colonization (tentacle
+  splats, roll-180) → L4 clutches fused to specimen vessels (fungus glow shifts GREEN) → L5 the
+  nest (orphan hive01 DELETED from the D4 landing keep-clear + re-homed to the W wall as the
+  centerpiece, its fungus loop moving with it) → Paradise the HEART (61 rows: 17-piece heart
+  nest behind the PaP sightline, hall-mouth jaws, 16 corner broods, wall growths, satellite
+  nests, snake-egg niches upgraded to centerpiece; arena center fully trainable). Every cluster
+  glow-core-first (proven emissive/FX anchor; DARK models silhouette inside); ALL non-solid
+  baked misc_models (zero G_Spawn, zero clips, zero navmesh churn); NO lights below the trench
+  lip (CTD lockout); every row keep-clear-verified (wells, soul triggers r110, risers r45,
+  Gantry/Overlook access, tide safe lane, Paradise risers/perk row/PaP r200/box).
+- **FX weave (GSC):** 11 new ambient loops (fungus sm/green/lg recolors + flies over the dead
+  queen + the Paradise heart/satellites) — all def-grep SAFE (bare dynamicLight2, the exact
+  class of the fungus md that has run since 07-19; the freeze class requires `def <lightdef>` —
+  rule refined in memory `fx-embedded-light-def-freeze`); the L5 md loop MOVED with the hive
+  re-home; the boot-up cascade grew `descent_hive_wake()` — the wake walks DOWN the shaft
+  (L2 t+5 → L3 t+8 → L4 t+11 → the L5 hive t+14) while the city reboots above. 18 new xmodel
+  zone lines + 7 fx lines (egg_ready/spores/explo/ground-glow pre-staged for the Paradise
+  finale weave — NEXT SLICE: omen egg-pulses, seal spore-eruptions, escalation heart-burst,
+  win = heart-death; anchors mapped in gen_infestation_data notes).
+- Gates: batch 1 BAKED 114.9s; batch 2 BAKED 93.8s; final link BUILD OK, .ff 157.22MB, zero
+  errors naming infestation assets. GOTCHA caught en route: the zone-file tokenizer chokes on
+  ANGLE BRACKETS inside comments ("can't read token" + it silently STOPS PARSING the zone —
+  the .ff shrank 154→116MB before the fix; the size drop is the tell). Zone comments = plain
+  ASCII only (NB comment now lives at the spot in the .zone).
+
+### Fixed — 2026-07-29 ALLEY-ENTRY FREEZE: fx-embedded light def doesn't pack in a usermap .ff
+
+- (user: reproducible 2/2 — "opened Alley bus station door and tried to walk in", hard hang both
+  sessions.) **Cause: `light/fx_light_zm_fire_spot_1`** (P0's barrel firelight, placed mid-Alley)
+  is the ONLY new FX whose .efx embeds a `dynamicLight2` element carrying **`def white_light`** —
+  efx-source-sweep verified every other new FX (flares, fire, flies, god rays, blink strips) is
+  def-free. A light def referenced INSIDE an efx does NOT auto-pack into a usermap fastfile, so
+  the Alley's first render resolved a missing asset = the freeze. Zone/GSC/precache references
+  fully REMOVED (not just unplaced); the barrel keeps `fire/fx_fire_barrel`, which carries its
+  own light-intensity graphs. Fix build: lint green, -GscOnly BUILD OK 12:37, `fire_spot`
+  reference count in the build log = 0.
+- **DURABLE RULE (docs/46 open-question (c) answered the hard way): any def-carrying fx or light
+  idea — `cookie_flicker`, gobo/cookie defs, stock fire-spot fx — is BLOCKED until light-def
+  packing is solved.** Check new .efx picks with a `dynamicLight|def ` grep BEFORE wiring.
+  Memory: `fx-embedded-light-def-freeze`.
+
+### Added — 2026-07-29 Visual overhaul PHASE 2a SHIPPED: THE BOOT-UP CASCADE v1 (-GscOnly BUILD OK)
+
+- (docs/46 Phase 2 + differentiator 2 — "the dead city reboots around you, district by district."
+  User go-ahead: "expand whats possible and keep pushing".)
+- **`_acc_atmosphere.gsc::power_bootup_cascade()`** (threaded from init, `acc_atmo_fx` gate, zero
+  clientfields/dvars): on the `power_on` flag the city wakes over ~21s radiating from the Bus
+  Station — t+0 spark salvo at the departure board + floor vent + manhole steam release + board
+  flicker ignites; t+2.5 the trench-rim infection STIRS (fungus pulses — differentiator-3 tie-in);
+  t+3.5 hub flares catch; t+6 Market + Alley hero signs **stutter-ignite with two false starts**
+  (`sign_stutter_ignite()`: 2 short `play_fx_burst` bloom pops, then the persistent loop) + sign/
+  scaffold sparks; t+10 Plaza + Vault (flares, god ray, security-desk arc); t+14 Lab (flare,
+  motes, teleporter-pad arc); t+18 Helipad (flare + **4 aviation blink strips** `fx_glow_blink_red_5`
+  at pad corners — move to the parapet at P6); t+21 INTERIM FINALE: map-wide sign-flare surge
+  (P4a replaces with the holo city-double's de-rez ignition, one added line). All beats
+  one-wait-one-call = trivially re-orderable.
+- **Powered/ambient FX split:** the P0 lensflares + god rays no longer start at init — pre-power
+  the city is now truly DEAD (fire barrel/flies/drips/steam stay, they read unpowered); powered
+  FX ignite via the cascade. **Fog settle re-paced** `ACC_FOG_SETTLE_INTERVAL` 1.0→5.0 (4 nudges
+  × 5s ≈ 20s) so the air clears exactly as the reboot completes.
+- **Grade audition candidate authored, DORMANT:** `vision/acc_grade_vibrant.vision` (neutral
+  curve + `vkTS 0.12` = +12% saturation) + zone line; `ACC_VISION_SET` now points at it but
+  `ACC_VISION_ON` stays 0 until the user approves the P1 rig (grade-on-colored-rig sequencing).
+- **WATCH ITEM:** user reported ONE game freeze (hang, not CTD) a few minutes into the first
+  P0+P1 session — called it a probable one-off, not yet reproduced. Nothing in P0/P1 runs
+  per-frame (shadows baked, FX = the proven loop class), but if it recurs: bisect the P0 FX
+  batch first (hardcode-skip the new fx_at lines + rebuild), then the relight (`--revert`).
+- Gates: lint green; `-GscOnly` BUILD OK (fresh .ff 154.04MB 12:07, zero errors naming new
+  assets). Dev+god still armed for the test session.
+
+### Added — 2026-07-29 Visual overhaul PHASE 1 SHIPPED: THE NOIR RELIGHT (ACCNR01, LED bake GREEN 153.2s, BUILD OK)
+
+- (docs/46 Phase 1 — the "80% fix". Root causes attacked: RC1 shadowless white rig, RC4 partial,
+  RC8 below-surface inversion. **THE USER CHECKPOINT: walk every zone before any geometry phase.**)
+- **One-shot `tools/oneshots/noir_relight_v1.js` (marker ACCNR01, revert = `--revert` restoring
+  the byte-exact `.acc-nr01-orig` backup).** All 159 lights re-authored by targetname family:
+  whites tinted 25-40% toward the zone-hue canon (corp blue / plaza cyan / lab purple / market
+  magenta / vault green / helipad orange / alley red; connectors tinted toward their DESTINATION
+  zone per the doorway-framing rule; underground+hub sodium amber; Exchange's 4
+  brightest-in-map whites retired to amber 0.8), white grid bake 1.3→0.7 (plaza 0.5), the 22
+  `acc_neon` pools lifted 0.5-0.9→1.0-1.2 + stops 7.5, and **15 pools re-homed onto real fixture
+  props** (fountain angel, cage lights, street lamps, sconces, videostore signage, the burning
+  barrel — only 4/159 lights sat near any fixture before). **Radii FROZEN** (tool asserts a
+  radius-histogram invariant; the ≤150-crash vs 250-540-green conflict stays untested).
+- **The map's first shadows:** 11 shadow-casting `PRIMARY_SPOT` downlights (zm_giant entity-34
+  template, `PRIMARY_NOSHADOWMAP 0` + `shadowUpdate Never` = baked, zero runtime cost; no
+  angles key = aims straight down, stock-verified) on the landmarks + vignettes: fountain angel
+  cyan, crashed taxi, departure board, schoolbus rim, circular vault door green rake, security
+  desk red, bomber amber rake, Lab teleporter + morgue row purple, Alley scaffold red, ticket
+  office warm. Plus 9 fixture-pair omnis (radius-260 proven template clones) at neon
+  signs/lamps/holo screens (incl. the Exchange floating-holo cyan accent).
+- **Below-surface probe fix (RC8):** 4 new dark probes (Exchange −80 / hub −1040 / abyss −900 /
+  Paradise −1140, brightnessAdjust −5 + evcomp −5) so the deep spaces stop inheriting the BRIGHT
+  default cubemap; the 9 bare surface probes completed to match their configured twins
+  (resolution 8x + ao_range 38, brightness/evcomp kept 0 — no seams vs the zeroed twins). NO
+  lights added anywhere below the trench lip (abyss CTD lockout respected).
+- Worldspawn `lightingquality` 1024→**2048** (docs/46 fallback tier; 4096 = later audition —
+  it taxes every future bake). P0 flare origins re-synced to the moved pools. docs/20 §5 zone-hue
+  canon block added (baked rig WINS; Vault=green; trench yellow stays below z0; spot volumetric
+  KVP = `"volumetric" "1"`).
+- Gates: `_bake_test.ps1` **BAKED 153.2s** (new baseline at 2048 — was ~132s; keep TimeoutSec
+  300+); linker BUILD OK, fresh .ff 154.04MB, zero errors naming new entities (lights/probes are
+  BSP/.led-baked). Everything left as open edits — user owns the commit.
+
+### Added — 2026-07-29 Visual overhaul PHASE 0 SHIPPED: residual haze + P0 sparkle FX + rain floor (-GscOnly BUILD OK)
+
+- (docs/46 Phase 0 — "the air comes back". Root causes attacked: RC2 the medium deleting itself,
+  RC5 nothing moves.)
+- **Residual haze (`_acc_atmosphere.gsc`):** the power-on fog settle no longer ends in
+  `disable_fog()` — the descent stops at `acc_fog_residual_depth` (800u) and `hold_settled_fog()`
+  re-asserts a thinner, longer-throw haze forever (opacity 0.55 vs pre-power 0.80, halfway_dist
+  850 vs 550; all `acc_fog_residual_*` live-tunable; legacy full-disable = `acc_fog_residual_on 0`).
+  Post-Paradise-win the residual quietly returns too (intended — the city keeps its air).
+- **P0 sparkle batch (`apply_fx()`, 17 new placements, 7 new FX all disk-verified + zone lines):**
+  8 lensflares at the brightest per-zone `acc_neon` pool origins (`fx_lensflare_fluorescent`, cool
+  `_light_cool_lg` twins on the two Bus Station blues), the Alley `p7_rus_barrel_metal_burn` at
+  (1610,995) finally BURNS (`fire/fx_fire_barrel` + `light/fx_light_zm_fire_spot_1` firelight),
+  flies over both Alley dumpsters (`animals/fx_bio_fly_dark_50x50`), a god-ray shaft under the
+  Vault N cage light + motes over the Lab medical row (`env/light/fx_light_god_ray_sm_single` /
+  `_god_rays_dust_motes`), and the rain floor: 4 `fx_water_drip_line_25` at the two Plaza doorway
+  eaves + both trench rim lips. Smoke column DEFERRED to Phase 6 (needs open sky).
+- Build: lint green; `-GscOnly` BUILD OK (fresh .ff 153.59MB, zero errors naming new assets;
+  the mtl_p7_rus_*/tra_* tail is the known waived cosmetic noise). User look-pass checklist:
+  docs/46 "In-game verification" Batch A+B.
 
 - (user: "Give the cyberjack another 10% nerf and drone another 10%. They are just too good.")
 - **Cyberjack ×0.9 on every damage lane** (broader than the 07-26 TEMPEST-only passes — the whole

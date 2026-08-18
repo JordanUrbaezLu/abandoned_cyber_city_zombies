@@ -55,8 +55,11 @@ const HALL_CEIL_BOT = L5_FLOOR_TOP + HUB_DOOR_H;   // -1000 (200u clearance = th
 const HALL_CEIL_TOP = HALL_CEIL_BOT + FLOOR_TH;    // -984
 
 // plaza: large OPEN-AIR pit, SOUTH of the surface map so its sky cap has clear void above it
-const PLZ_X1 = -1000, PLZ_X2 = 1000;              // interior width 2000
-const PLZ_Y1 = -2200, PLZ_Y2 = -600;             // interior depth 1600; north edge -600 is clear south of surface Plaza (y=-560)
+// COMPRESSED 2026-08-02 (gen_compress_lab_paradise.js value-remapped the live .map brushes
+// in place - preserving the mwiii_vertigo floor re-skin. A RE-RUN of this generator would
+// LOSE that face paint; prefer in-place remaps for future resizes.)
+const PLZ_X1 = -700, PLZ_X2 = 700;                // interior width 1400 (was 2000)
+const PLZ_Y1 = -2000, PLZ_Y2 = -600;             // interior depth 1400 (was 1600); north edge -600 is clear south of surface Plaza (y=-560)
 const PLZ_SKY_BOT = -200;                         // walls rise to here (a ~1000u-deep pit); the sky cap caps it
 const PLZ_SKY_TOP = PLZ_SKY_BOT + FLOOR_TH;       // -184
 

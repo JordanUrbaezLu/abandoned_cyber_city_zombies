@@ -182,9 +182,13 @@ function attach( boss, name )
 		return;
 	if ( !isdefined( boss ) )
 		return;
-	// Paradise onslaught suppresses boss HUD (same rule as the old 2D bar).
-	if ( IS_TRUE( level.acc_paradise_onslaught ) )
-		return;
+	// PARADISE ONSLAUGHT NO LONGER SUPPRESSES THE ROWS (user 2026-07-29 "bosses in
+	// paradise get a health bar, same implementation as above trench"). The 2026-06-25
+	// suppression protected the old TOP-CENTER 2D bar from stomping the survival
+	// countdown; the LUI rows live upper-right and cap at ACC_BB_SLOTS, and the finale
+	// wave maxes at 5 concurrent (Warden/Phantom/RP/Panzer/Avogadro) = exactly the row
+	// budget. Boss MUSIC stays suppressed (_acc_boss::boss_music gates itself - the
+	// "115" anthem owns the finale audio).
 
 	// 3D plate REMOVED (2026-07-25): this CF set no longer renders a title - the .csc
 	// callback SetDrawName("")s the actor, stomping pack-set names (the Rogue
@@ -214,8 +218,8 @@ function attach( boss, name )
 // engine death (isalive false / health<=0), Delete()-without-death (Avogadro,
 // Scientist escape, Paradise cleanup -> !isdefined), and the Avogadro's
 // allowdeath=false rising exit (poll .is_alive == 0 - memory
-// rising-death-boss-airborne-drop). Paradise onslaught wipes all rows (same
-// suppression contract as the plates + the old 2D bar, docs/30).
+// rising-death-boss-airborne-drop). The rows RUN through the Paradise onslaught
+// since 2026-07-29 (user; the old wipe-on-flag contract is retired - docs/30).
 // =============================================================================
 
 // TRUE once `boss` should no longer show a live bar. Order matters: the
@@ -372,8 +376,10 @@ function bb_push_to( player, slot, name, pct, state, tag )
 	player SetControllerUIModelValue( "accBoss" + ( slot + 1 ), payload );
 }
 
-// Wipe every row + the queue (Paradise onslaught, matching the plate/2D-bar
-// suppression). state 2 = hide immediately (no death flash).
+// Wipe every row + the queue. state 2 = hide immediately (no death flash).
+// CURRENTLY UNCALLED (2026-07-29): its one caller was bb_pump's paradise-onslaught
+// tick, retired when the user asked for bars through the finale - kept for any
+// future suppression window (it is the only correct all-rows teardown).
 function bb_wipe_all()
 {
 	for ( i = 0; i < ACC_BB_SLOTS; i++ )
@@ -401,11 +407,9 @@ function bb_pump()
 	{
 		wait 0.25;
 
-		if ( IS_TRUE( level.acc_paradise_onslaught ) )
-		{
-			bb_wipe_all();
-			continue;
-		}
+		// (The paradise-onslaught bb_wipe_all() tick lived here 2026-07-24..29; the rows
+		// now RUN through the finale - see the attach() note. bb_wipe_all is kept below
+		// for any future suppression window.)
 
 		// Prune queued bosses that died (or were Delete()d) while waiting.
 		fresh = [];

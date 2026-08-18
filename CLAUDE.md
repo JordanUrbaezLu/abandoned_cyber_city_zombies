@@ -242,7 +242,13 @@ hardcode-`true` AND on any reappearing `acc_dev`/`acc_god` dvar read. Memory:
   (`mechz_spiki.gsc:74`). `tools/preflight_windows.ps1` lints the real rule —
   the brace/paren lint alone does NOT catch it. The linker compiles modules in
   the order `_acc_main` `#using`s them and STOPS at the first error, so a clean
-  run validates everything before the break point.
+  run validates everything before the break point. **CAVEAT (2026-08-02):
+  "legal" ≠ "functional" for `#precache( "string", ... )` placed AFTER function
+  definitions begin — it compiles but is never collected into the load-time
+  precache pass, so the istring gets no CS_LOCALIZED_STRINGS slot and any
+  LuiNotifyEvent carrying it resolves to nil client-side (rows/text silently
+  invisible, no error anywhere). Keep ALL `#precache` in the directive
+  preamble; memory `midfile-string-precache-never-registers`.
 - **Stock zm-template `volume_sun` ships MP sky settings** → hard link error
   `xmodel 'skybox_mp_havoc_override' is missing`. The template's sun volume
   has `ssi1`/`ssi2` = `mp_havoc` + `ssi1_runtime_override` = `mp_havoc_overide`

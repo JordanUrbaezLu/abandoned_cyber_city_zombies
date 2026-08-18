@@ -23,7 +23,7 @@
 //             60s each, the FINAL L5 wave is 45s (3:00 -> 3:45). ON TOP of the wave, EVERY ZOMBIE individually
 //             jumps +1 tier for each 30s it stays ALIVE (acc_paradise_age_step_sec, capped L5 - the anti-kite
 //             ramp restored 2026-07-09): kill the wave or the ones chasing you outscale the wave clock 2:1. NO power-up drops the whole
-//             battle (no insta-kill / max-ammo / double-points - block_powerup_drop). A countdown TIMER HUD shows
+//             battle (no insta-kill / max-ammo / double-points - block_powerup_drop). The battle clock drives the top-right HOSTILES bar (2026-08-02; the center TIMER HUD is gone) and shows
 //             the time left; the BOSS HUD + boss music are SUPPRESSED for the whole battle (level.acc_paradise_
 //             onslaught - read by _acc_health_bars and _acc_boss::boss_music).
 //
@@ -72,6 +72,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_avogadro;   // spawn_boss (Avogadro - has a paradise branch that spawns him in the arena)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_fury;            // spawn_paradise_fury (Apothicon Fury - meteor-drops onto a player in the arena, user 2026-07-09)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_boss_panzer;     // spawn_boss (Panzer - has a paradise branch that spawns him on a player in the arena, user 2026-07-09)
+#using scripts\zm\zm_abandoned_cyber_city\_acc_boss_nameplate;  // attach (paradise Brutus bar row, user 2026-07-29 - the other wave bosses feed the rows via their own "acc_boss_spawned" notifies)
 
 // --- Tunable defaults. Every one a live acc_paradise_* dvar (mirror docs/22). ---
 #define ACC_PARADISE_CALM_SEC_DEF         60    // PHASE 1: calm/victory-fakeout seconds before the fog hits
@@ -186,6 +187,7 @@ function run_finale()
     acc_utility::log( "paradise: PHASE 2 omen - fog + 'fetch me their souls'" );
     acc_atmosphere::paradise_fog_on();   // roll the fog back in
     play_fetch_souls();                  // stock dog-round announcer
+    level thread infestation_omen();     // the heart ANSWERS: egg-pulses ripple jaws -> satellites -> heart (2026-07-29)
     foreach ( p in GetPlayers() )
         if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^1...something is coming." );
 
@@ -206,6 +208,8 @@ function start_battle()
         getdvarint( "acc_paradise_survive_sec", ACC_PARADISE_SURVIVE_SEC_DEF ) + "s to win" );
 
     seal_arena();          // a true last stand: no retreat up the abyss
+    level thread infestation_seal_eruptions();   // the garden BIRTHS the onslaught (corner broods + satellites erupt, 2026-07-29)
+    spawn_heart_battle_fx();                     // stoppable heart-glow battle layer; win() deletes = the heart DIES
     gather_stragglers();   // pull any player NOT in the plaza INTO the fight - nobody left behind / stuck up top
     start_finale_music();  // the "115" anthem at max volume
 
@@ -237,7 +241,7 @@ function start_battle()
     level thread ai_pressure();         // raise the AI cap for the x4 horde
     level thread deathzone_loop();      // the x4 regular surge + shield/glitch specials
     level thread escalation_loop();     // every minute: top the boss wave back to 1 of each, step the horde buff L2->L5, fire the UI alert (all in lockstep)
-    level thread survival_timer_loop(); // the countdown HUD + the WIN trigger
+    level thread survival_timer_loop(); // the battle clock (drives the top-right HOSTILES bar) + the WIN trigger
 }
 
 // Re-seal the Paradise gate so the battle is a contained last stand. Same brushmodel primitives the gate
@@ -264,7 +268,7 @@ function seal_arena()
 function play_calm_music()
 {
     if ( getdvarint( "acc_paradise_music_on", 1 ) != 1 ) return;
-    acc_music::play( "acc_paradise_calm", false );   // single music channel - overrides any prior song, one-shot
+    acc_music::claim_paradise( "acc_paradise_calm" );   // priority-3 claim (user 2026-08-02): cuts jukebox/boss instantly, one-shot
 }
 
 // PHASE 2 omen: the "fetch me their souls" cue. The stock dog-round alias (zmb_dog_round_start) lives in a
@@ -285,7 +289,7 @@ function play_fetch_souls()
 function start_finale_music()
 {
     if ( getdvarint( "acc_paradise_music_on", 1 ) != 1 ) return;
-    acc_music::play( "acc_paradise_music", false );   // the "115" anthem via the single music channel (overrides + stops boss music)
+    acc_music::claim_paradise( "acc_paradise_music" );   // priority-3 claim (user 2026-08-02): the "115" anthem owns the channel over boss/jukebox
     acc_utility::log( "paradise: 115 anthem ON (acc_paradise_music)" );
 }
 
@@ -351,7 +355,7 @@ function gather_stragglers()
 
 // A validated Paradise floor spot to teleport stragglers to: a living teammate already in the plaza (safest -
 // guaranteed standable), else the nav-snapped plaza centre, else a computed riser, else the raw centre.
-// Plaza floor z=-1200, interior x[-1000,1000] y[-2200,-600], inside the second_part OOB-veto band.
+// Plaza floor z=-1200, interior x[-700,700] y[-2000,-600] (compressed 2026-08-02), inside the second_part OOB-veto band.
 function paradise_gather_point()
 {
     foreach ( p in GetPlayers() )
@@ -616,7 +620,11 @@ function escalation_loop()
         {
             level.acc_paradise_horde_layer++;
             if ( level.acc_paradise_horde_layer >= max_l )
+            {
                 horde_buff_alert( "You will never escape!", "^1" );        // the FINAL buff (-> L5)
+                // the heart ROARS with the final buff (2026-07-29 infestation weave):
+                level thread acc_utility::play_fx_burst( "acc_fungus_explo", ( 0, -1900, -1190 ), 3.0 );
+            }
             else
                 horde_buff_alert( "The horde is getting stronger", "^3" );
             acc_utility::log( "paradise: horde buff -> L" + level.acc_paradise_horde_layer + " (whole horde)" );
@@ -631,6 +639,74 @@ function horde_buff_alert( msg, col )
 {
     foreach ( p in GetPlayers() )
         if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( col + msg );
+}
+
+// ---------------------------------------------------------------------------
+// INFESTATION FINALE WEAVE (2026-07-29, rides the ACCINF02 Paradise dressing).
+// All FX are level._effect keys registered by _acc_atmosphere::apply_fx (pcloud/
+// def-grep verified SAFE); all bursts ride acc_utility::play_fx_burst (the proven
+// PlayFxOnTag-host primitive). Anchor coords = the ACCINF02 placement tables:
+// heart (0,-1900), gate jaws (+-230,-660), satellites (-620/-1015, 630/-1005),
+// corner broods (-580/-1920, 590/-1910, -600/-680, 605/-670), floor z-1200.
+// (Anchors re-homed 2026-08-02 with the Paradise compression - interior now
+//  x[-700,700] y[-2000,-600]; keep in lockstep with gen_infestation_data.json.)
+// ---------------------------------------------------------------------------
+
+// PHASE 2 OMEN: the heart answers "fetch me their souls" - egg-pulses ripple
+// inward: gate jaws -> satellite nests -> the heart. Pure one-shot bursts.
+function infestation_omen()
+{
+    level endon( "end_game" );
+    level thread acc_utility::play_fx_burst( "acc_egg_ready", (  -230,  -660, -1190 ), 2.5 );
+    level thread acc_utility::play_fx_burst( "acc_egg_ready", (   230,  -660, -1190 ), 2.5 );
+    wait 0.7;
+    level thread acc_utility::play_fx_burst( "acc_egg_ready", (  -620, -1015, -1190 ), 2.5 );
+    level thread acc_utility::play_fx_burst( "acc_egg_ready", (   630, -1005, -1190 ), 2.5 );
+    wait 0.7;
+    level thread acc_utility::play_fx_burst( "acc_egg_ready", (     0, -1900, -1190 ), 3.5 );
+}
+
+// PHASE 4 SEAL: the garden births the onslaught - fungus eruptions at the four
+// corner broods + both satellites as the gate slams (the horde reads as HATCHED,
+// not spawned; corners sit outside the riser r45 keep-clears by design).
+function infestation_seal_eruptions()
+{
+    level endon( "end_game" );
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (  -580, -1920, -1190 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (   590, -1910, -1190 ), 2.0 );
+    wait 0.4;
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (  -600,  -680, -1190 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (   605,  -670, -1190 ), 2.0 );
+    wait 0.4;
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (  -620, -1015, -1190 ), 2.0 );
+    level thread acc_utility::play_fx_burst( "acc_fungus_explo", (   630, -1005, -1190 ), 2.0 );
+}
+
+// PHASE 4 BATTLE LAYER: 6 tag_origin hosts carrying STOPPABLE sm-fungus glow loops
+// on the heart + jaws + satellites, over the permanent apply_fx ambience. win()
+// Deletes them all = the heart's glow visibly dies with the victory. BOUNDED
+// G_Spawn spend of 6, finale-only, reclaimed at win (or match end). Same
+// host+PlayFxOnTag idiom as acc_utility::play_fx_burst (bare PlayFX = invisible).
+function spawn_heart_battle_fx()
+{
+    if ( !isdefined( level._effect ) || !isdefined( level._effect[ "acc_fungus_sm" ] ) ) return;
+    pts = [];
+    pts[ 0 ] = (     0, -1900, -1170 );   // the heart core
+    pts[ 1 ] = (  -230,  -660, -1180 );   // gate W jaw
+    pts[ 2 ] = (   230,  -660, -1180 );   // gate E jaw
+    pts[ 3 ] = (  -620, -1015, -1180 );   // W satellite
+    pts[ 4 ] = (   630, -1005, -1180 );   // E satellite
+    pts[ 5 ] = (     0, -1900, -1120 );   // heart crown (higher pulse layer)
+    level.acc_paradise_heart_fx = [];
+    for ( i = 0; i < pts.size; i++ )
+    {
+        host = Spawn( "script_model", pts[ i ] );
+        if ( !isdefined( host ) ) continue;   // entity pool full - drop the layer, never throw
+        host SetModel( "tag_origin" );
+        PlayFxOnTag( level._effect[ "acc_fungus_sm" ], host, "tag_origin" );
+        level.acc_paradise_heart_fx[ level.acc_paradise_heart_fx.size ] = host;
+    }
+    acc_utility::log( "paradise: heart battle-fx layer up (" + level.acc_paradise_heart_fx.size + " hosts)" );
 }
 
 // Stock powerup_drop() override hook (set on level.custom_zombie_powerup_drop in init). Returns TRUE to SUPPRESS
@@ -703,6 +779,13 @@ function maybe_spawn_brutus()
     rn = ( isdefined( level.round_number ) ? level.round_number : 1 );
     host.maxhealth = int( acc_boss::scale_mini_boss_hp( rn ) * acc_coop_scaling::boss_hp_player_mult() );
     host.health    = host.maxhealth;
+
+    // BOSS BAR (user 2026-07-29 - paradise bosses show the same LUI AccBossBars row as above trench):
+    // direct attach like the trench warden (_acc_boss.gsc) - Brutus deliberately never emits
+    // "acc_boss_spawned" (that notify implies boss music elsewhere). AFTER the HP writes above so the
+    // row's first pct snapshot is right. The Phantom/RP/Panzer/Avogadro rows come from their own
+    // notifies now that _acc_boss_nameplate::attach no longer refuses during the onslaught.
+    acc_boss_nameplate::attach( host, "TRENCH WARDEN" );
 
     host thread acc_boss_brutus::paradise_warden_think();
     host thread brutus_death_watch();
@@ -923,7 +1006,7 @@ function paradise_boss_count_watch( host, kind )
 }
 
 // ---------------------------------------------------------------------------
-// Survival timer (countdown HUD) + the WIN trigger
+// Survival battle clock (drives the top-right HOSTILES bar via _acc_lui::round_ring_watch) + the WIN trigger
 // ---------------------------------------------------------------------------
 
 function survival_timer_loop()
@@ -934,9 +1017,18 @@ function survival_timer_loop()
     remaining = getdvarint( "acc_paradise_survive_sec", ACC_PARADISE_SURVIVE_SEC_DEF );
     if ( remaining < 1 ) remaining = 1;
 
+    // COUNTDOWN -> the top-right HOSTILES bar (user 2026-08-02 "remove the timer, use the
+    // enemy-remaining bar - it syncs with the time"). The old center-screen "SURVIVE M:SS"
+    // hudelem is GONE (update_timer_hud/ensure_timer_hud deleted; frees a per-player slot in
+    // the shared hudelem pool). Instead these two level vars publish the battle clock and
+    // _acc_lui::round_ring_watch drains the HOSTILES bar with TIME while
+    // level.acc_paradise_onslaught is up: full at the opening bell -> empty = the win moment.
+    level.acc_paradise_battle_total     = remaining;
+    level.acc_paradise_battle_remaining = remaining;
+
     while ( remaining > 0 )
     {
-        update_timer_hud( remaining );
+        level.acc_paradise_battle_remaining = remaining;
         // Scripted MAX AMMO at 1:45 on the countdown (user 2026-07-13): one guaranteed full_ammo
         // mid-battle (regular drops are blocked the whole finale). Default 105s = 1:45 remaining.
         if ( remaining == getdvarint( "acc_paradise_maxammo_at_sec", 105 ) )
@@ -945,7 +1037,7 @@ function survival_timer_loop()
         remaining--;
     }
 
-    update_timer_hud( 0 );
+    level.acc_paradise_battle_remaining = 0;   // bar empty = survived
 
     // Survived to 0 with the team NOT wiped (a wipe would have endon'd this loop via end_game) -> WIN.
     if ( any_player_alive() )
@@ -972,38 +1064,9 @@ function paradise_drop_max_ammo()
         if ( isdefined( p ) && isplayer( p ) ) p IPrintLnBold( "^3MAX AMMO^7 dropped - grab it!" );
 }
 
-function update_timer_hud( remaining )
-{
-    mins   = int( remaining / 60 );
-    secs   = remaining % 60;
-    secstr = ( secs < 10 ? "0" + secs : "" + secs );
-    col    = ( remaining <= 30 ? "^1" : "^3" );   // red in the final 30s
-    txt    = col + "SURVIVE  " + mins + ":" + secstr;
-
-    players = GetPlayers();
-    for ( i = 0; i < players.size; i++ )
-    {
-        p = players[ i ];
-        if ( !isdefined( p ) || !isplayer( p ) ) continue;
-        ensure_timer_hud( p );
-        if ( isdefined( p.acc_paradise_timer ) ) p.acc_paradise_timer SetText( txt );
-    }
-}
-
-function ensure_timer_hud( p )
-{
-    if ( isdefined( p.acc_paradise_timer ) ) return;
-    p.acc_paradise_timer = acc_utility::he_check( p hud::createFontString( "objective", 1.9 ), "paradise.timer" );
-    if ( !isdefined( p.acc_paradise_timer ) ) return;   // pool full (he_check logged it) - degrade, don't touch undefined
-    // y 24 -> 150 + scale 1.6 -> 1.9 (user 2026-07-06: "timer too high, none of the players noticed").
-    // 150 sits clearly below the trench DANGER banner band (y 110) so the two never stack.
-    p.acc_paradise_timer hud::setPoint( "TOP", "TOP", 0, 150 );
-    p.acc_paradise_timer.alignX = "center";
-    p.acc_paradise_timer.alignY = "top";
-    p.acc_paradise_timer.color  = ( 1, 0.85, 0.2 );
-    p.acc_paradise_timer.alpha  = 0.95;
-    p.acc_paradise_timer.hidewheninmenu = true;
-}
+// (update_timer_hud / ensure_timer_hud DELETED 2026-08-02 - the center-screen "SURVIVE M:SS"
+// hudelem is replaced by the top-right HOSTILES bar draining on the battle clock; see
+// survival_timer_loop + _acc_lui::round_ring_watch.)
 
 // ---------------------------------------------------------------------------
 // WIN (user 2026-07-12: Paradise no longer ENDS the run - it REWARDS and CONTINUES).
@@ -1031,6 +1094,17 @@ function win()
 
     acc_atmosphere::paradise_fog_off();         // LIFT the fog (move it off the map)
 
+    // INFESTATION HEART-DEATH (2026-07-29): delete the battle-layer FX hosts the moment the
+    // team wins - the heart's glow visibly DIES with the victory (the permanent apply_fx
+    // ambience stays behind as embers; bare PlayFX loops are unstoppable, hosts are the only
+    // stoppable-loop mechanism - the 6 G_Spawn slots are reclaimed here).
+    if ( isdefined( level.acc_paradise_heart_fx ) )
+    {
+        foreach ( h in level.acc_paradise_heart_fx )
+            if ( isdefined( h ) ) h Delete();
+        level.acc_paradise_heart_fx = undefined;
+    }
+
     // CLEAN SLATE: purge the finale horde AND remove the finale bosses so the reward window /
     // continued run is a calm plaza. purge_zombies() SKIPS bosses BY DESIGN (its other caller,
     // start_battle, must not cull a pre-existing boss), so it can't do this itself. win() no
@@ -1041,6 +1115,11 @@ function win()
     purge_zombies();
     remove_paradise_bosses();
 
+    // Kill the "115" anthem so the fanfare below plays CLEAN (2026-08-02 - makes the
+    // start_finale_music "Stopped on win" comment actually true; it never was). stop_if =
+    // release: the channel priority drops to 0 for the continued run.
+    acc_music::stop_if( "acc_paradise_music" );
+
     // ---- CELEBRATE: banner + fanfare, NO control freeze (user 2026-07-13: "your character freezes
     // when you win and that can cause you to die if there is a zombie alive - remove the freeze").
     // purge_zombies() above already clears the horde, but a straggler mid-spawn could survive a frame;
@@ -1048,9 +1127,11 @@ function win()
     foreach ( p in GetPlayers() )
     {
         if ( !isdefined( p ) || !isplayer( p ) ) continue;
-        if ( isdefined( p.acc_paradise_timer ) ) { p.acc_paradise_timer hud::destroyElem(); acc_utility::he_free( 1 ); p.acc_paradise_timer = undefined; }
         p show_win_banner();
-        p PlayLocalSound( "acc_paradise_calm" );   // the victory fanfare
+        p PlayLocalSound( "acc_paradise_calm_once" );   // the victory fanfare (NONLOOPING twin of
+                                                        // acc_paradise_calm - the base alias went LOOPING
+                                                        // for the 2026-08-03 channel redesign, and a
+                                                        // PlayLocalSound loop would never end)
         p IPrintLnBold( "^2YOU SURVIVED PARADISE^7 - victory!" );
     }
 
@@ -1165,9 +1246,9 @@ function spawn_paradise_wonder_loot()
     if ( getdvarint( "acc_paradise_wonder_loot", 1 ) != 1 ) return;
 
     // Drop the reward loot around the PARADISE PACK-A-PUNCH (user 2026-07-13: "drop all the rewards
-    // near the Pack a Punch machine once the team has beaten it"). The 2nd PaP is at (0,-1700,-1200)
+    // near the Pack a Punch machine once the team has beaten it"). The 2nd PaP is at (0,-1550,-1200)
     // (spawn_paradise_pap_at); a 120u ring keeps the pickups clear of the machine's own footprint.
-    center = ( 0, -1700, -1200 );
+    center = ( 0, -1550, -1200 );
 
     // The 5 wonders, runtime base names (verified _acc_map_randomizer.gsc box specials).
     // THE CYBERJACK (apex_lstar) is DELIBERATELY EXCLUDED (user 2026-07-17, docs/43 decision 2:
@@ -1177,14 +1258,29 @@ function spawn_paradise_wonder_loot()
     {
         ang = i * 360 / wonders.size;
         org = center + ( cos( ang ) * 120, sin( ang ) * 120, 0 );   // 120u ring around the PaP
-        level thread spawn_one_wonder_pickup( wonders[ i ], org );
+        level thread spawn_one_wonder_pickup( wonders[ i ], org, ang + 90 );   // tangent yaw: presented, not
+                                                                               // parallel-spawned (audit 2026-08-03)
+    }
+}
+
+// Slow display spin for a reward-ring pickup (the paradise_box_loop flourish). Level thread with
+// isdefined guards - Delete() never fires "death" on a script_model (repo-proven), so an ent-scoped
+// endon would strand a throwing loop after the grab cleanup.
+function wonder_pickup_spin( m )
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        if ( !isdefined( m ) ) return;
+        m RotateYaw( 360, 8 );
+        wait 8;
     }
 }
 
 // One wonder-weapon ground pickup: script_model + hold-[+activate] trigger_radius_use (the proven data-shard /
 // boss-item pickup recipe), granting the weapon via the box's own weapon_give path. One-shot; self-cleans on
 // grab or at the reward-window close.
-function spawn_one_wonder_pickup( wname, origin )
+function spawn_one_wonder_pickup( wname, origin, n_ring_yaw )
 {
     level endon( "end_game" );
 
@@ -1196,6 +1292,14 @@ function spawn_one_wonder_pickup( wname, origin )
     m = spawn( "script_model", origin + ( 0, 0, getdvarint( "acc_drop_model_z", 24 ) ) );
     if ( isdefined( w.worldModel ) )
         m setmodel( w.worldModel );
+    // Display presentation (audit 2026-08-03: all 5 wonders spawned at identical yaw 0 -
+    // "spawned, not presented"): tangent to the reward ring + the slow display spin the
+    // Paradise box already does.
+    if ( isdefined( n_ring_yaw ) )
+    {
+        m.angles = ( 0, n_ring_yaw, 0 );
+        level thread wonder_pickup_spin( m );
+    }
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 56, 72 );
     t TriggerIgnoreTeam();            // any player may grab (public pickup) - REQUIRED for a script-spawned use trigger

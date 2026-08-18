@@ -185,6 +185,18 @@ if ($node) {
     Check "room-geometry source-of-truth lint" $true "node not found - skipped (install Node.js to enable)" $true
 }
 
+# Prop-placement lint (node): riser-vs-clip clearance (>=45u incl. GSC-computed trench/paradise
+# eruption spots), clip-vs-clip overlap, .map<->surface-deco twin lockstep, misc_model hygiene
+# (lightingstate1..4 + hex/unique guids), single-baked-instance light models (the LED crash class).
+# Ports the 2026-08-03 stuck-zombie riser audit into a permanent gate (CHANGELOG TODO closed).
+if ($node) {
+    $props = & node (Join-Path $RepoRoot "toolslint_prop_placement.js") 2>&1
+    $propsOk = ($LASTEXITCODE -eq 0)
+    Check "prop-placement lint (risers/overlaps/lockstep/hygiene/light-cap)" $propsOk (($props | Select-Object -First 1) -join " ")
+} else {
+    Check "prop-placement lint" $true "node not found - skipped" $true
+}
+
 # line endings: repo policy is LF (see .gitattributes)
 $gaPath = Join-Path $RepoRoot ".gitattributes"
 Check ".gitattributes present (LF policy pinned)" (Test-Path $gaPath) "restore .gitattributes from git"

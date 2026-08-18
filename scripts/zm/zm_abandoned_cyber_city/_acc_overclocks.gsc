@@ -521,7 +521,9 @@ function weapon_name_to_family( weapon_name )
     // explosions / wind-blast don't headshot - but harmless). "special" is just the overclockable gate; the OC
     // effects are tier-based and family-agnostic, so the value string beyond none/unknown doesn't change them.
     special_list = array( "s1_mahem", "apex_beam_rifle", "thundergun", "t6_war_machine",
-                          "apex_lstar" );   // Mahem + Apex Havoc + Thundergun + War Machine + THE CYBERJACK (L-STAR plasma LMG, docs/43 - user 2026-07-17 "this gun should be able to overclock"; energy special, OC damage+vs-glitch tiers, family-agnostic)
+                          "apex_lstar",     // Mahem + Apex Havoc + Thundergun + War Machine + THE CYBERJACK (L-STAR plasma LMG, docs/43 - user 2026-07-17 "this gun should be able to overclock"; energy special, OC damage+vs-glitch tiers, family-agnostic)
+                          "s1_mdl",         // EPG-1 plasma-lobber (added 2026-07-25, MISSED here = "unknown"/blocked - user bug report 2026-07-30 "the new grenade launcher cant be overclocked"; same launcher class as Mahem/War Machine)
+                          "special_discgun" ); // D13 Sector disc launcher (added 2026-07-24, same fall-through bug caught in the same audit; exact-name verified vs _acc_map_randomizer:622)
 
     // The ONLY weapon that CANNOT Overclock is the Action Figure melee (the Exo Suit scales melee instead),
     // plus the non-box held things that were never tier-able (laststand pistol, knife, grenade) -> "none"

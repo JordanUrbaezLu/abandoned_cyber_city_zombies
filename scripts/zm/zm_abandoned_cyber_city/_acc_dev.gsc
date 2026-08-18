@@ -62,7 +62,8 @@ function init()
     // now-removed dev DAMAGE/LOG panel, hence the "dev_" prefix on it + its helpers). ALWAYS ON for EVERY player
     // in BOTH dev and normal play (user 2026-06-27: "the area display when you go from one area to another should
     // be there for both dev and non-dev modes"). It is a permanent game FEATURE - a clean area title that reveals
-    // on each area change (5s + fade on the surface, held the whole time you're underground), NOT a dev tool - so
+    // on each area change (3.75s + fade on the surface - was 5s, -25% user 2026-08-02 - held the whole time
+    // you're underground), NOT a dev tool - so
     // it is threaded ABOVE the dev gate. The ONLY dev-only piece is the "DEV MODE ACTIVE" confirmation line inside
     // ensure_dev_huds, which stays gated on level.acc_dev there.
     level thread dev_player_hud_loop();
@@ -139,7 +140,7 @@ function dev_teleport_watcher()
         if ( getdvarint( "acc_tp_perks", 0 ) == 1 )
         {
             SetDvar( "acc_tp_perks", "0" );
-            dev_tp_players( ( 0, 4090, 32 ), "the perk row" );
+            dev_tp_players( ( 0, 3700, 32 ), "the Lab" );   // was (0,4090) "the perk row" - that band is SEALED since the 2026-08-02 lab compression (interior now ends y3868)
         }
         if ( getdvarint( "acc_tp_spawn", 0 ) == 1 )
         {
@@ -677,10 +678,15 @@ function ensure_dev_huds( p )
     //     p IPrintLnBold( "^2DEV MODE ACTIVE^7 - perk-icon test: console ^3acc_dev_jugg_mega 1^7 (teal) / ^32^7 (red)" );
 }
 
-// Create the area-name banner hudelem on demand (TOP, y2). CONDITIONAL/pooled (user 2026-06-28): dev_update_zone
-// destroys it after the 5s hold and recreates it here on the next area change, so it only costs a slot while shown.
-// y=2 + scale 1.3 (user 2026-06-27): the banner grows DOWNWARD, so a tall line at y20 bled into the top-center boss
-// nameplate (y22) + bar (y46) + Paradise timer (y24); pinned at y2 it sits cleanly ABOVE that y[22,60] cluster.
+// Create the area-name banner hudelem on demand (TOP, y2). PRE-AETHERIUM FALLBACK ONLY since
+// 2026-08-02: in Aetherium mode the banner is the LUI PNG widget (CoD.AccAreaBanner,
+// AetheriumHud.lua) riding the 4-bit accArea clientuimodel - dev_update_zone never calls this
+// there (usermap hudelems can't draw custom images: "No techsetdef for material type 2d", so
+// the TEXT elem stays the fallback, not the art). CONDITIONAL/pooled (user 2026-06-28):
+// dev_update_zone destroys it after the 5s hold and recreates it on the next area change, so
+// it only costs a slot while shown. (The old y-cluster rationale for y2 - boss plate y22 /
+// bar y46 / Paradise timer y24 - is STALE: the 2D boss bar is dormant behind acc_boss_bar_2d
+// and the Paradise timer moved to y150 in 2026-07-06. y2 remains a fine anchor.)
 function ensure_zone_banner( p )
 {
     if ( isdefined( p.acc_dev_zone_hud ) ) return;
@@ -692,8 +698,17 @@ function ensure_zone_banner( p )
 }
 
 // Location title: show the current AREA's name (top of screen) ONLY when it CHANGES,
-// hold 5s, then fade out to declutter the HUD (user 2026-06-21). Re-appears for 5s on the
-// next new area. Trench/Abyss layers override the surface zone (e.g. "BUS STATION (TRENCHES LV2)").
+// hold 3.75s (was 5s; -25% user 2026-08-02), then fade out to declutter the HUD (user
+// 2026-06-21). Re-appears on the next new area. Trench/Abyss layers override the surface
+// zone (e.g. "BUS STATION (TRENCHES LV2)").
+// TWO RENDER PATHS since 2026-08-02 (user: PNG art, "we cant really change the font style"):
+// this function stays THE state machine for both; only the output differs per branch:
+//   AETHERIUM (ship): push the 4-bit accArea clientuimodel id (acc_lui::set_area) - the LUI
+//     widget CoD.AccAreaBanner (AetheriumHud.lua) swaps the 14 i_acc_area_* PNG banners and
+//     owns the 0.3s fade-in / 0.4s fade-out client-side. ZERO hudelems (frees the slot the
+//     old banner held for entire underground runs - a real co-op pool win).
+//   PRE-AETHERIUM (fallback): the original teal TEXT hudelem path, kept dormant-but-called
+//     (art can't ride hudelems - no 2D materials in a usermap).
 function dev_update_zone( p )
 {
     area = dev_get_player_area( p );
@@ -702,12 +717,19 @@ function dev_update_zone( p )
     if ( isdefined( area ) && ( !isdefined( p.acc_dev_cur_zone ) || p.acc_dev_cur_zone != area ) )
     {
         p.acc_dev_cur_zone = area;
-        ensure_zone_banner( p );                    // (re)create the banner elem for this reveal
-        if ( !isdefined( p.acc_dev_zone_hud ) ) return;   // pool full -> skip; shows on a later change
-        p.acc_dev_zone_hud SetText( dev_area_name( area ) );
-        p.acc_dev_zone_hud FadeOverTime( 0.3 );
-        p.acc_dev_zone_hud.alpha = 0.85;            // fade in
-        p.acc_dev_zone_until = GetTime() + 5000;    // hold 5 seconds
+        if ( IS_TRUE( level.acc_aetherium_hud ) )
+        {
+            acc_lui::set_area( p, dev_area_code( area ) );
+        }
+        else
+        {
+            ensure_zone_banner( p );                    // (re)create the banner elem for this reveal
+            if ( !isdefined( p.acc_dev_zone_hud ) ) return;   // pool full -> skip; shows on a later change
+            p.acc_dev_zone_hud SetText( dev_area_name( area ) );
+            p.acc_dev_zone_hud FadeOverTime( 0.3 );
+            p.acc_dev_zone_hud.alpha = 0.85;            // fade in
+        }
+        p.acc_dev_zone_until = GetTime() + 3750;    // hold 3.75s (user 2026-08-02: -25% off the original 5s)
         p.acc_dev_zone_shown = true;
         return;
     }
@@ -718,39 +740,144 @@ function dev_update_zone( p )
     // Paradise; it still RE-reveals (above) on each area change. On the surface the 5s declutter fade is unchanged.
     if ( acc_bus_trench::underground_layer( p.origin ) > 0 || acc_bus_trench::player_in_second_part( p ) )
     {
-        ensure_zone_banner( p );                    // recreate if it was destroyed on the surface before descending
-        if ( !isdefined( p.acc_dev_zone_hud ) ) return;
-        if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
+        if ( IS_TRUE( level.acc_aetherium_hud ) )
         {
-            // Title was hidden (e.g. destroyed on the surface before descending) - bring it back up.
-            p.acc_dev_zone_hud SetText( dev_area_name( area ) );
-            p.acc_dev_zone_hud FadeOverTime( 0.3 );
-            p.acc_dev_zone_hud.alpha = 0.85;
-            p.acc_dev_zone_shown = true;
+            // Re-push if hidden (e.g. surface hold expired before descending). area is always
+            // defined in this branch (trenchN/paradise keys). Same id -> the CF layer no-ops.
+            if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
+            {
+                acc_lui::set_area( p, dev_area_code( area ) );
+                p.acc_dev_zone_shown = true;
+            }
         }
-        p.acc_dev_zone_until = GetTime() + 5000;    // push the hold forward so it never fades while underground
+        else
+        {
+            ensure_zone_banner( p );                    // recreate if it was destroyed on the surface before descending
+            if ( !isdefined( p.acc_dev_zone_hud ) ) return;
+            if ( !( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown ) )
+            {
+                // Title was hidden (e.g. destroyed on the surface before descending) - bring it back up.
+                p.acc_dev_zone_hud SetText( dev_area_name( area ) );
+                p.acc_dev_zone_hud FadeOverTime( 0.3 );
+                p.acc_dev_zone_hud.alpha = 0.85;
+                p.acc_dev_zone_shown = true;
+            }
+        }
+        p.acc_dev_zone_until = GetTime() + 3750;    // push the hold forward so it never fades while underground (same 3.75s constant as the surface hold)
         return;
     }
 
-    // 5s elapsed since the last change -> fade out (declutter). SURFACE only (underground returned above).
+    // 5s elapsed since the last change -> hide (declutter). SURFACE only (underground returned above).
     if ( isdefined( p.acc_dev_zone_shown ) && p.acc_dev_zone_shown &&
          isdefined( p.acc_dev_zone_until ) && GetTime() >= p.acc_dev_zone_until )
     {
-        // 5s hold elapsed -> DESTROY the banner to FREE its pool slot (was: fade to alpha 0, which kept the slot).
-        // Recreated by ensure_zone_banner on the next area change. SURFACE only (underground returned above). 2026-06-28.
-        if ( isdefined( p.acc_dev_zone_hud ) ) p.acc_dev_zone_hud Destroy();
-        p.acc_dev_zone_hud = undefined;
+        if ( IS_TRUE( level.acc_aetherium_hud ) )
+        {
+            acc_lui::set_area( p, 0 );   // 0 = hidden; the widget fades out client-side (0.4s)
+        }
+        else
+        {
+            // 5s hold elapsed -> DESTROY the banner to FREE its pool slot (was: fade to alpha 0, which kept the slot).
+            // Recreated by ensure_zone_banner on the next area change. SURFACE only (underground returned above). 2026-06-28.
+            if ( isdefined( p.acc_dev_zone_hud ) ) p.acc_dev_zone_hud Destroy();
+            p.acc_dev_zone_hud = undefined;
+        }
         p.acc_dev_zone_shown = false;
     }
 }
 
+// ---------------------------------------------------------------------------
+// Sub-area room predicates (2026-08-02, user: ARMORY / SCIENTIST'S OFFICE /
+// IMPLANTS CHAMBER banners). Coordinate AABBs in the acc_bus_trench origin_in_*
+// style - none of these rooms has its own zone/volume entity (each deliberately
+// lives inside a parent zone's info_volume: armory+implant lab in start_zone,
+// office in lab_zone), so a box is the correct predicate. Bounds derived from
+// the live .map brushes + generator tables + module origins (2026-08-02 bounds
+// recon, HIGH confidence each); tune via the defines. Raw-origin helpers so any
+// entity can be tested (the _acc_bus_trench origin_in_vault idiom).
+// ---------------------------------------------------------------------------
+
+// THE ARMORY (id 15): the whole gated space - stairwell + loft - east of the Plaza seal
+// wall. X1 213 = the enter_armory door plane, so the banner flips exactly on walking
+// through the bought door (the closed slab keeps Plaza origins west of ~198; never widen
+// X1 below 213). X2 1074 = loft east wall HARD CAP (zombie-spawn gulley beyond 1074.5,
+// docs/39). Z1 -8 stays above the -36 trench lip; Z2 464 = ceiling top. Sealed dead-space
+// inside the band is unreachable, so the fat box is safe. Sources: _acc_armory.gsc:83-88
+// (loft x[682,1074] y[-230,230] floor z192), .map:3101-3400, docs/39:196-236.
+#define ACC_ARM_X1 213
+#define ACC_ARM_X2 1074
+#define ACC_ARM_Y1 -230
+#define ACC_ARM_Y2 230
+#define ACC_ARM_Z1 -8
+#define ACC_ARM_Z2 464
+
+function origin_in_armory( org )
+{
+    return ( org[ 0 ] >= ACC_ARM_X1 && org[ 0 ] <= ACC_ARM_X2
+          && org[ 1 ] >= ACC_ARM_Y1 && org[ 1 ] <= ACC_ARM_Y2
+          && org[ 2 ] >= ACC_ARM_Z1 && org[ 2 ] <= ACC_ARM_Z2 );
+}
+
+// THE SCIENTIST'S OFFICE (id 16): the 2000-pt room behind the Lab's inner north wall
+// (enter_scientist_office; Exo pod, Jugg scatter pad, desk trade station live inside).
+// Box = the lab_zone OOB-cover volume brush the map defines for this exact room
+// (guid ...009): interior x[-275,125] y[3888,4208] z[0,256] + 20u wall slack. Y1 3868 =
+// the lab-side face of the inner N wall (flips on stepping INTO the doorway - the vault
+// include-the-threshold feel; use 3888 instead if a door-hugger reading office ~15u
+// early ever bothers). Sources: gen_scientist_office.js (post-compression planes),
+// .map brush {ACC5C0DE-...009}, module origins (desk -75,4130 / exo -200,4120 /
+// Jugg 92,4060). TRAP: .map COMMENT lines + the generator's emit literals still print
+// PRE-compression y values - trust planes only.
+#define ACC_SCIOFF_X1 -295
+#define ACC_SCIOFF_X2 145
+#define ACC_SCIOFF_Y1 3868
+#define ACC_SCIOFF_Y2 4228
+#define ACC_SCIOFF_Z1 -16
+#define ACC_SCIOFF_Z2 400
+
+function origin_in_sci_office( org )
+{
+    return ( org[ 0 ] >= ACC_SCIOFF_X1 && org[ 0 ] <= ACC_SCIOFF_X2
+          && org[ 1 ] >= ACC_SCIOFF_Y1 && org[ 1 ] <= ACC_SCIOFF_Y2
+          && org[ 2 ] >= ACC_SCIOFF_Z1 && org[ 2 ] <= ACC_SCIOFF_Z2 );
+}
+
+// THE IMPLANTS CHAMBER (id 17): the gated implant-bench side-room SOUTH of the Plaza
+// (enter_implant, 1500 pts; the 3 bench pads at y~-430..-490). Y2 -240 is EXCLUSIVE
+// (strict <) - that is the doorway/plaza-south-wall plane, so the doorway itself tips
+// to PLAZA (single hard edge, no flicker band). Z1 -40 (NOT 0): bench models seat at
+// z-7 and the first Exchange-stair treads dip below z0 while still visually inside the
+// lab - -40 mirrors the ACC_TRENCH_TRIGGER_Z "past the first couple of stairs" idiom,
+// handing off IMPLANTS CHAMBER -> EXCHANGE BANK ~4 treads down. NOTE the PARADISE twin
+// bench trio (-450,-1810 area) is a different room - covered by the paradise key, and
+// this box excludes it. Sources: gen_plaza_shrink.js wall table + hand-applied east
+// wall (the .map is truth: x[-720,180]), _acc_boss_items bench spawns, docs/02.
+#define ACC_IMP_X1 -720
+#define ACC_IMP_X2 180
+#define ACC_IMP_Y1 -540
+#define ACC_IMP_Y2 -240
+#define ACC_IMP_Z1 -40
+#define ACC_IMP_Z2 256
+
+function origin_in_implant_lab( org )
+{
+    return ( org[ 0 ] >= ACC_IMP_X1 && org[ 0 ] <= ACC_IMP_X2
+          && org[ 1 ] >= ACC_IMP_Y1 && org[ 1 ] < ACC_IMP_Y2
+          && org[ 2 ] >= ACC_IMP_Z1 && org[ 2 ] <= ACC_IMP_Z2 );
+}
+
 // Current AREA key: the trench/abyss layer (underground) OVERRIDES the surface zone, so
 // descending the trench reads "trench1".."trench5" instead of the corp surface zone.
+// Sub-area priority (2026-08-02): implant BEFORE vault (its z[-40,0) top-stair sliver
+// lies inside the vault AABB - implant must win there); armory/sci_office anywhere
+// before the zone walk (their parent volumes would otherwise swallow them).
 function dev_get_player_area( p )
 {
     layer = acc_bus_trench::underground_layer( p.origin );
     if ( layer > 0 )
         return "trench" + layer;          // trench1 = the pit/Lv1 .. trench5 = the deepest floor
+    if ( origin_in_implant_lab( p.origin ) )
+        return "implant";
     // The Exchange Bank vault is excluded from underground_layer AND sits below every zone player_volume,
     // so it would read undefined (blank banner). Give it its own key (user 2026-06-27).
     if ( acc_bus_trench::player_in_vault( p ) )
@@ -759,6 +886,10 @@ function dev_get_player_area( p )
     // every zone player_volume, so it would read undefined (blank banner). Give it its own key (user 2026-06-27).
     if ( acc_bus_trench::player_in_second_part( p ) )
         return "paradise";
+    if ( origin_in_armory( p.origin ) )
+        return "armory";
+    if ( origin_in_sci_office( p.origin ) )
+        return "sci_office";
     return dev_get_player_zone( p );       // surface zone key (undefined while between zone volumes)
 }
 
@@ -799,6 +930,8 @@ function dev_zone_name( zone )
 
 // Friendly area name incl. the trench/abyss layers (user format, 2026-06-21:
 // "Bus Station (Trenches LvN)"). Surface zones delegate to dev_zone_name().
+// PRE-AETHERIUM text path only since 2026-08-02 (the Aetherium path ships area IDS via
+// dev_area_code below; the PNG banners bake these exact strings as art).
 function dev_area_name( area )
 {
     switch ( area )
@@ -810,8 +943,43 @@ function dev_area_name( area )
     case "trench3": return "BUS STATION (TRENCHES LV3)";
     case "trench4": return "BUS STATION (TRENCHES LV4)";
     case "trench5": return "BUS STATION (TRENCHES LV5)";
+    // Sub-area rooms (2026-08-02 second pass, user): detected by the AABB predicates in
+    // dev_get_player_area, overriding their parent areas.
+    case "armory":     return "ARMORY";
+    case "sci_office": return "SCIENTIST'S OFFICE";
+    case "implant":    return "IMPLANTS CHAMBER";   // plural - matches the delivered art
     }
     return dev_zone_name( area );
+}
+
+// Area key -> accArea clientuimodel id (2026-08-02): the index into the LUI widget's
+// i_acc_area_* handle table (CoD.AccAreaBanner, AetheriumHud.lua - orders MUST match).
+// 0 = hidden. Unknown keys return 0 (the old text path displayed the raw key; the PNG set
+// has no art for unknowns - dev_get_player_area can only produce the 14 keys below, so an
+// unknown here means a new zone was added without a banner: add the PNG + a case).
+function dev_area_code( area )
+{
+    switch ( area )
+    {
+    case "start_zone":  return 1;    // PLAZA
+    case "market_zone": return 2;    // MARKET
+    case "alley_zone":  return 3;    // ALLEY
+    case "corp_zone":   return 4;    // BUS STATION
+    case "vault_zone":  return 5;    // VAULT
+    case "roof_zone":   return 6;    // HELIPAD
+    case "lab_zone":    return 7;    // LAB
+    case "exchange":    return 8;    // EXCHANGE BANK
+    case "paradise":    return 9;    // PARADISE
+    case "trench1":     return 10;   // BUS STATION (TRENCHES LV1)
+    case "trench2":     return 11;
+    case "trench3":     return 12;
+    case "trench4":     return 13;
+    case "trench5":     return 14;
+    case "armory":      return 15;   // ARMORY (Plaza upper room; sub-area, 2026-08-02)
+    case "sci_office":  return 16;   // SCIENTIST'S OFFICE (sub-area)
+    case "implant":     return 17;   // IMPLANT CHAMBER (sub-area)
+    }
+    return 0;
 }
 
 // ---------------------------------------------------------------------------

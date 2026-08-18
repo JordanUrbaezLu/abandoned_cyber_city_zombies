@@ -1,0 +1,9 @@
+{
+ "removed": [
+  "{\r\nguid \"{ACCDEC00-0ACC-4E0D-8A3F-000000000525}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"custom_ghost_dead_queen_1\"\r\n\"origin\" \"-430 2115 -1180\"\r\n\"angles\" \"0 0 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}",
+  "{\r\nguid \"{ACCDEC00-0ACC-4E0D-8A3F-000000000526}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"custom_ghost_dead_brute_1\"\r\n\"origin\" \"170 1990 -1185.5\"\r\n\"angles\" \"0 70 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}",
+  "{\r\nguid \"{ACCDEC00-0ACC-4E0D-8A3F-000000000527}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"custom_ghost_dead_brute_2\"\r\n\"origin\" \"760 1990 -1183.6\"\r\n\"angles\" \"0 90 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}",
+  "{\r\nguid \"{ACCF1050-0000-4E0B-8A3F-000000000050}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"custom_ghost_dead_brute_3\"\r\n\"origin\" \"-640 1970 -1186\"\r\n\"angles\" \"0 150 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}",
+  "{\r\nguid \"{ACCF2011-0000-4E0B-8A3F-000000000011}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"custom_ghost_dead_soldier_01\"\r\n\"origin\" \"310 2040 -960\"\r\n\"angles\" \"0 205 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}"
+ ]
+}

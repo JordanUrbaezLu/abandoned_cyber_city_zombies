@@ -1,0 +1,5 @@
+{
+ "removed": [
+  "{\r\nguid \"{ACCDEC00-0ACC-4E0D-8A3F-000000000479}\"\r\n\"classname\" \"misc_model\"\r\n\"model\" \"p7_ram_snake_fountain_01_jade\"\r\n\"origin\" \"620 2000 -1200\"\r\n\"angles\" \"0 270 0\"\r\n\"lightingstate1\" \"1\"\r\n\"lightingstate2\" \"1\"\r\n\"lightingstate3\" \"1\"\r\n\"lightingstate4\" \"1\"\r\n\"modelscale\" \"1\"\r\n\"static\" \"1\"\r\n}"
+ ]
+}

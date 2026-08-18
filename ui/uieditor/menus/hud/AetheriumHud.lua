@@ -14,6 +14,8 @@ require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumPlusPointsContainer"
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumPowerupsContainer" )
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumPowerupNotification" )
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumRoundCounter" )
+require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AccRoundRecon" )  -- GEN-2 recon-frame round display (2026-08-01)
+require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AccAreaBanner" )  -- top-center PNG area banners (2026-08-02)
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumGobbleGum" )
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumScoreboard" )
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumKillFeed" )
@@ -101,7 +103,10 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 
 	-- Compass Widget - ACC DISABLED (2026-07-25, user): players report HUD clutter; the
 	-- top-of-screen compass strip is the cut (nothing gameplay-side feeds it - no quest/
-	-- objective markers ride it). Restore by re-adding:
+	-- objective markers ride it). MUTUAL EXCLUSION (2026-08-02): CoD.AccAreaBanner (below)
+	-- now owns this exact top-center real estate (compass frame x239..1055 y-24..131 vs
+	-- banner x469..811 y4..89) - restoring the compass under the area banner = direct
+	-- overlap; never enable both. Restore by re-adding:
 	--     self.AetheriumCompass = CoD.AetheriumCompass.new( self, controller )
 	--     self.AetheriumCompass:setLeftRight( true, false, 0, 1280 )
 	--     self.AetheriumCompass:setTopBottom( true, false, 0, 720 )
@@ -182,14 +187,33 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	self.AetheriumPowerupNotification:setTopBottom( true, false, 0, 720 )
 	self:addElement( self.AetheriumPowerupNotification )
 
-	-- Round Counter (Top Right) - ACC DISABLED (2026-07-03, user): the map's own custom
-	-- "Round N" counter (teal, TOP-LEFT, pulses on round change - _acc_health_bars
-	-- ensure/update_round_counter, re-enabled in Aetherium mode) replaces the kit's
-	-- top-right bloody stock digits. Restore by re-adding:
-	--     self.AetheriumRoundCounter = CoD.AetheriumRoundCounter.new( self, controller )
-	--     self.AetheriumRoundCounter:setLeftRight( true, false, 0, 1280 )
-	--     self.AetheriumRoundCounter:setTopBottom( true, false, 0, 720 )
-	--     self:addElement( self.AetheriumRoundCounter )
+	-- Round Counter GEN 2 (2026-08-01, user: the teal text was "too plain"):
+	-- CoD.AccRoundRecon draws the recon-frame PNG (i_acc_round_frame - corner brackets +
+	-- baked "ROUND" plate) TOP-LEFT with the round number (orbitron) in its center, off the
+	-- engine-owned "gameScore.roundsPlayed" model (= round + 1; zero clientfield/hudelem
+	-- cost). It replaces the teal GSC "Round N" hudelem (_acc_health_bars
+	-- ensure/update_round_counter - now dormant, pre-Aetherium fallback branch only), which
+	-- had replaced the kit's top-right bloody stock digits (GEN 0, ACC DISABLED 2026-07-03;
+	-- still restorable: CoD.AetheriumRoundCounter.new + the same full-canvas anchors -
+	-- its require and zone rawfile line were kept). Stored on self.AetheriumRoundCounter so
+	-- the kit's three existing guarded alpha blocks (init / BIT_SCOREBOARD_OPEN /
+	-- BIT_UI_ACTIVE below) drive the new widget with zero fade-code changes.
+	self.AetheriumRoundCounter = CoD.AccRoundRecon.new( self, controller )
+	self.AetheriumRoundCounter:setLeftRight( true, false, 0, 1280 )
+	self.AetheriumRoundCounter:setTopBottom( true, false, 0, 720 )
+	self:addElement( self.AetheriumRoundCounter )
+
+	-- Area banner (2026-08-02, user: PNG art for the location title): CoD.AccAreaBanner
+	-- swaps the 14 i_acc_area_* recon-plate banners top-center off the 4-bit accArea
+	-- clientuimodel (0 = hidden; _acc_dev.gsc dev_update_zone stays the show/hold state
+	-- machine - this side just fades/swaps). Replaces the teal top-center area TEXT hudelem
+	-- (kept dormant in _acc_dev.gsc for the pre-Aetherium fallback). Mutual exclusion with
+	-- AetheriumCompass (disabled above) - both own top-center. Added to the three guarded
+	-- alpha blocks below (scoreboard/pause hides, like every kit widget).
+	self.AccAreaBanner = CoD.AccAreaBanner.new( self, controller )
+	self.AccAreaBanner:setLeftRight( true, false, 0, 1280 )
+	self.AccAreaBanner:setTopBottom( true, false, 0, 720 )
+	self:addElement( self.AccAreaBanner )
 	
 	-- ========================================
 	-- STANDARD HUD COMPONENTS
@@ -304,6 +328,14 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	self.ZMBeastBar:setScale( 0.7 )
 	self:addElement( self.ZMBeastBar )
 
+	-- DORMANT-WIDGET NOTE (2026-08-02 placement audit): this widget's 0.8-scaled box
+	-- (~x-5..246, y117..220) overlapped the AccRoundRecon round frame at its 120sq launch
+	-- size; after the same-day resizes (frame now x30..110, y32..112) they no longer overlap
+	-- at all. Note kept because the widget also stays invisible on THIS map - its feed models (zmInventory.player_crafted_shield
+	-- / widget_shield_parts) are written only by the stock BUILDABLE-shield craftable flow
+	-- (_zm_craft_shield.gsc), and our Rocket Shield implant grants the shield whole via
+	-- zm_equipment::buy (different models). If a buildable-shield flow is ever added, move this
+	-- widget or the round frame first (compass-note convention, see the top of this section).
 	self.RocketShieldBlueprintWidget = CoD.RocketShieldBlueprintWidget.new( self, controller )
 	self.RocketShieldBlueprintWidget:setLeftRight( true, false, -36.5, 277.5 )
 	self.RocketShieldBlueprintWidget:setTopBottom( true, false, 104, 233 )
@@ -419,7 +451,10 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 	if self.AetheriumRoundCounter then
 		self.AetheriumRoundCounter:setAlpha( 1 )
 	end
-	
+	if self.AccAreaBanner then
+		self.AccAreaBanner:setAlpha( 1 )
+	end
+
 	-- Subscribe to scoreboard visibility to toggle HUD
 	self:subscribeToModel( Engine.GetModel( Engine.GetModelForController( controller ), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_SCOREBOARD_OPEN ), function ( model )
 		local modelValue = Engine.GetModelValue( model )
@@ -460,6 +495,9 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 		end
 		if self.AetheriumRoundCounter then
 			self.AetheriumRoundCounter:setAlpha( targetAlpha )
+		end
+		if self.AccAreaBanner then
+			self.AccAreaBanner:setAlpha( targetAlpha )
 		end
 	end )
 
@@ -503,6 +541,9 @@ LUI.createMenu.T7Hud_zm_factory = function ( controller )
 		end
 		if self.AetheriumRoundCounter then
 			self.AetheriumRoundCounter:setAlpha( targetAlpha )
+		end
+		if self.AccAreaBanner then
+			self.AccAreaBanner:setAlpha( targetAlpha )
 		end
 	end )
 

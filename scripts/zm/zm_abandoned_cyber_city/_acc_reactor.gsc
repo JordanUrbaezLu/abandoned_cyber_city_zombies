@@ -123,7 +123,7 @@ function spawn_reactor()
     // (_acc_jukebox, replaced the 3 teddy bears 2026-07-09) - MOVED to the SOUTH-WEST at (-150, 2240)
     // on 2026-07-10 (user: "spread them out") so the plinth (north wall) and jukebox (south corner) sit
     // ~290u apart across the room instead of clustered ~200u in the north-west.
-    spawn_plinth_at( ( 0, 2493, -240 ), 0 );
+    spawn_plinth_at( ( 0, 2704, -240 ), 0 );   // re-homed to the back wall 2026-08-03 (verify-corrected same day: the INTERIOR face is y2732, y2748 is the slab exterior - mesh back edge y2727 leaves a 5u gap; the old y2493 centered it on a wall that moved)
 }
 
 function spawn_plinth_at( origin, yaw )

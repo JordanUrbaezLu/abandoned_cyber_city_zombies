@@ -88,12 +88,15 @@ function player_bars_loop()
                 // INSIDE the Aetherium PlayerInfo panel via the acc_shards/acc_mb/acc_exo toplayer
                 // clientfields - _zm_aetherium_hud player_currency_watch. ensure/update_own_stats
                 // kept dormant below for the pre-Aetherium restore path.)
-                // Custom "Round N" counter REUSED in Aetherium mode (user 2026-07-03: "move the
-                // round number top left ... we had a custom Round X UI"): same teal TOP_LEFT
-                // pulse-on-change elem as pre-Aetherium; the kit's top-right stock digits
-                // (AetheriumRoundCounter) are disabled in AetheriumHud.lua. +1 hudelem/client.
-                ensure_round_counter( p );
-                update_round_counter( p );
+                // Teal "Round N" hudelem RETIRED in Aetherium mode (2026-08-01, user: "too
+                // plain"): the round display is now the LUI recon-frame widget
+                // CoD.AccRoundRecon (AetheriumWidgets/AccRoundRecon.lua, instantiated in
+                // AetheriumHud.lua as self.AetheriumRoundCounter) - PNG frame + orbitron
+                // number reading the CLIENT-side gameScore.roundsPlayed model, so no GSC
+                // watcher and no hudelem (frees 1/client from the shared pool).
+                // ensure/update_round_counter kept dormant below for the pre-Aetherium
+                // fallback branch (still called there). Aetherium branch: no per-player
+                // work left in this loop (own-stats retired 2026-07-03, round 2026-08-01).
             }
             else
             {
@@ -114,6 +117,8 @@ function player_bars_loop()
 
 // Top-left ROUND counter (user 2026-06-27): "Round N" on ONE line, inset from the corner, in the space the old
 // shards/exo/bottles stack used to occupy (those moved into the per-player SQUAD roster). Per-player hudelem.
+// RETIRED in Aetherium mode 2026-08-01 (superseded by the LUI recon-frame widget CoD.AccRoundRecon in
+// AetheriumHud.lua); kept dormant for the pre-Aetherium fallback branch, which still calls both functions.
 function ensure_round_counter( p )
 {
     if ( isdefined( p.acc_round_hud ) ) return;
@@ -793,6 +798,9 @@ function boss_bar_listener()
         // 2D TOP-SCREEN BAR RETIRED (user 2026-07-02): boss health now renders as the 3D
         // over-head nameplate + bar on the enemy itself (_acc_boss_nameplate, SetDrawName).
         // The 2D bar stays fully wired for A/B - re-enable live with `set acc_boss_bar_2d 1`.
+        // COLLISION WARNING (2026-08-02): re-enabling now lands INSIDE the top-center LUI
+        // area banner's box (label y22 -> LUI y33, bar y46 -> LUI y69 vs banner y4..89 -
+        // CoD.AccAreaBanner, AetheriumHud.lua). Move one of them before any A/B session.
         if ( getdvarint( "acc_boss_bar_2d", 0 ) != 1 )
             continue;
         // PARADISE FINALE (user 2026-06-25): suppress the boss HUD for the whole onslaught - a Phantom spawns

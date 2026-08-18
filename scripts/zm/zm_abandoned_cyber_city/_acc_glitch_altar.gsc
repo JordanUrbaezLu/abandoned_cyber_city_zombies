@@ -3,17 +3,23 @@
 //
 // Design: the user chose "shard gambling" as what Data Shards DO (workflow
 // underground-shards-design, 2026-06-18). The dangerous Bus Station trench is a
-// CASINO: spend Data Shards at a glitch altar for a weighted jackpot - MOSTLY strong
-// timed boons, a real slice of "glitch" CURSES (NEVER instant-down; odds telegraphed
-// in the use hint). The descent is the house edge. Higher variance than the Emergency
-// Drop (the guaranteed 3-shard clutch button), which it sits alongside.
+// CASINO: spend Data Shards at a glitch altar for a weighted roll. HUGE NERF
+// (user 2026-08-02 "I get too many good things like drops... needs smaller rewards...
+// double the price... overall needs to be a gamble"): 55% curses / 36% SMALL wins /
+// 7% powerup-or-perk / 2% MEGA jackpot (was 50% powerup-class!), price DOUBLED (4)
+// and ESCALATING +2 per spin within a round, cooldown doubled (12s), and a hard
+// ONE-POWERUP-CLASS-HIT-PER-ROUND cap (extra rolls reroute to a +1 trickle) so
+// insta-kill chaining is impossible regardless of bankroll. Curses NEVER instant-down;
+// price telegraphed in the LIVE use hint. The descent is the house edge. Higher
+// variance than the Emergency Drop (the guaranteed clutch button), which it sits alongside.
 //
 // Pure GSC: the altar core + interact trigger are SCRIPT-SPAWNED (mirroring
 // acc_data_shards::spawn_pickup_at) at a fixed origin inside the Plaza-facing trench
 // room - no .map entity, no geometry, ships -GscOnly with ZERO LED-bake risk.
 //
-// Live dvars: acc_altar_cost (2), acc_altar_cooldown (6 s), acc_altar_jackpot (4),
-//             acc_altar_surge (5), acc_altar_drain (2).
+// Live dvars: acc_altar_cost (4), acc_altar_price_step (2), acc_altar_cooldown (12 s),
+//             acc_altar_jackpot (5), acc_altar_points (250), acc_altar_mega_shards (10),
+//             acc_altar_surge (5), acc_altar_drain (3).
 // =============================================================================
 
 #using scripts\shared\flag_shared;
@@ -77,8 +83,8 @@ function spawn_altars()
     // --- SOURCE: Data Caches in the EXPOSED PIT - FLAT 3 shards each, once per round, first-come
     //     (user 2026-06-23: 1->2; user 2026-06-25: 2->3, faster faucet). Re-arm each round. Spread
     //     across the open pit floor, clear of the side stairs.
-    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 3 ), "trench" ); // pit west (user 2026-06-25: 2->3)
-    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 3 ), "trench" ); // pit east (user 2026-06-25: 2->3)
+    acc_data_shards::spawn_cache_at( ( -360, 1950, -240 ), getdvarint( "acc_cache_w_count", 3 ), "trench", 345 ); // pit west (user 2026-06-25: 2->3)
+    acc_data_shards::spawn_cache_at( (  360, 1950, -240 ), getdvarint( "acc_cache_e_count", 3 ), "trench", 30 ); // pit east (user 2026-06-25: 2->3)
 
     // --- DESCENT SINKS (user 2026-06-24): the two big shard sinks now REWARD descending the abyss - you
     //     must go DEEPER to spend. The Exo Suit (the thing that lets you walk deeper) stays up top in the
@@ -96,11 +102,11 @@ function spawn_altars()
     //     NOTE: L2..L5 bake PITCH BLACK (gen_abyss_layer.js lightsForLayer=0). The Altar self-glows (its
     //     floating core orb) so it reads as a beacon in the dark; the OC kiosk + crates do NOT - if too hard
     //     to find in-game, add a bake-gated light near them (geometry change) rather than dimming the abyss.
-    spawn_altar_at( ( -400, 1948, -720 ) );                          // Glitch Altar -> abyss L3 WEST
+    spawn_altar_at( ( -400, 1948, -720 ) );                          // Glitch Altar -> abyss L3 WEST. BROADSIDE ROTATION REVERTED same-day (verify catch 2026-08-03): yaw 90 put the 162u clip 17u from BOTH flanking L3 eruption risers (-400,1850)/(-400,2046) - the >=45u riser rail beats the docs/47 finding-9 aesthetic; at yaw 0 the clearance is the proven 65u
     acc_overclocks::spawn_terminal_at( ( -400, 1948, -480 ), 0 );    // Cyberware Weapon Overclock -> abyss L2 WEST
     acc_ammo_crate::spawn_crate_at( (  400, 1948,  -480 ), 0 );      // AMMO CRATE #1 -> abyss L2 EAST, opposite the OC (user 2026-06-27: entry refill)
     acc_ammo_crate::spawn_crate_at( ( -400, 1948, -1200 ), 0 );      // AMMO CRATE #2 -> abyss L5 WEST, the bottom before Paradise (user 2026-06-27)
-    acc_overclocks::spawn_terminal_at( ( 400, 1948, -1200 ), 0 );    // Cyberware Weapon Overclock #2 -> abyss L5 EAST, opposite the L5 crate (user 2026-06-28). GSC spawn works immediately; collision clip QUEUED in add_prop_clips.js (overclock_l5) -> SOLID after the next .map + LED-bake pass (walk-through model until then).
+    acc_overclocks::spawn_terminal_at( ( 400, 1948, -1200 ), 180 );  // Cyberware Weapon Overclock #2 -> abyss L5 EAST (yaw 180 2026-08-03: screen WEST at the central descent well x[-112,112] - dragon front = +X at yaw 0, proven by the LB terminal at yaw 90 backed on the plaza S wall facing north, add_prop_clips.js 'leaderboard_terminal'; 180 keeps the origin-centered AABB so the overclock_l5 clip is untouched). Collision clip: add_prop_clips.js overclock_l5.
 
     // PLAZA Overclock (user 2026-07-26 "many players can't overclock because they can't get to the trench",
     // then same day "switch the exo suit station in plaza with the overclock station at lab"): a SECOND,
@@ -118,7 +124,7 @@ function spawn_altars()
     //     y[1379,1723] z=-240. Sits on the EAST side at (120,1550); the Exo station is on the WEST (-120,1550), so
     //     the two sit on OPPOSITE sides the long way (user 2026-06-26 placement tweak). Its .map collision clip
     //     moves to match (tools/add_prop_clips.js perk_slot_vendor).
-    acc_perks::spawn_perk_slot_vendor_at( ( 120, 1550, -240 ), 0 );
+    acc_perks::spawn_perk_slot_vendor_at( ( 120, 1550, -240 ), 180 );   // face the room's ONLY doorway (NW, door span x[-192,-112] on the y1723 wall - docs/47 trench finding 4): door bearing from here is ~147deg = WEST-of-NW, and 180 = WEST if the Gorod console front is +X like its p7_zm_sta_ sibling (dragon/LB proof) or NORTH (still toward the door wall) if it is -Y vending-style - 180 wins under BOTH axes; was yaw 0 = staring at the east wall 48u away under +X. Flip to 270 only if in-game it reads sideways.
 
     // PARADISE (the open-air plaza hub below the abyss - gen_descent_hub.js) gets its own FULL set of the
     // script-spawned amenities (user 2026-06-25: "everything a player needs spread throughout"). Independent
@@ -127,44 +133,46 @@ function spawn_altars()
 }
 
 // Populate PARADISE with the GSC-spawned amenities. (Stock perks + a 2nd Pack-a-Punch live as .map entities,
-// added separately via tools/gen_paradise_props.js.) Plaza interior x[-1000,1000] y[-2200,-600], floor z=-1200;
-// entrance at north-center (y=-600). Spread the stations across the room. All sit deep in Paradise, reachable
-// only after the soul-box descent + the communal Paradise gate, so they just wait there until you arrive.
+// added separately via tools/gen_paradise_props.js.) Plaza interior x[-700,700] y[-2000,-600] (COMPRESSED
+// 2026-08-02, gen_compress_lab_paradise.js - was 2000x1600; user: "players gravitate there for safety"),
+// floor z=-1200; entrance at north-center (y=-600). Spread the stations across the room. All sit deep in
+// Paradise, reachable only after the soul-box descent + the communal Paradise gate.
 function spawn_paradise()
 {
-    pz = -1200;   // Paradise floor top. Perk row is at y=-820 (north); 2nd PaP at (0,-1700). Spread the
+    pz = -1200;   // Paradise floor top. Perk row is at y=-820 (north); 2nd PaP at (0,-1550). Spread the
                   // kiosks to the mid/south SIDES and put the bench (left) + box (right) along the south.
 
     // Glitch Altar + in-arena Ammo Crate REMOVED from Paradise (user 2026-07-13). The finale is a
     // survive-the-onslaught fight, not a shop run - the gamble altar + the refill crate are gone
     // (their clips also pulled from add_prop_clips.js). Max ammo now arrives as a scripted powerup
     // at 1:45 on the battle countdown instead (_acc_paradise::paradise_drop_max_ammo).
-    // spawn_altar_at( ( -850, -1350, pz ) );                        // Glitch Altar - REMOVED
-    acc_overclocks::spawn_terminal_at( ( 850, -1350, pz ), 0 );      // Cyberware Weapon Overclock (east-mid)
-    acc_exo::spawn_station_at( ( -850, -1950, pz ), 0 );             // Exo Suit station (west-south)
-    acc_perks::spawn_perk_slot_vendor_at( ( 850, -1950, pz ), 0 );   // Neural Expansion Bay / perk slots (east-south)
-    // acc_ammo_crate::spawn_crate_at( ( 850, -1650, pz ), 0 );      // AMMO CRATE #3 - REMOVED
+    // spawn_altar_at( ( -550, -1180, pz ) );                        // Glitch Altar - REMOVED
+    acc_overclocks::spawn_terminal_at( ( 550, -1180, pz ), 180 );    // Cyberware Weapon Overclock (east-mid) - screen WEST into the arena. DRAGON FRONT = +X at yaw 0 (LB-terminal proof, add_prop_clips.js 'leaderboard_terminal': same model at yaw 90 backed on the plaza S wall faces north), so west = 180 NOT the vending-convention 270; 180 keeps the origin-centered 48x34 AABB -> paradise_overclock clip untouched
+    acc_exo::spawn_station_at( ( -550, -1680, pz ), 90 );            // Exo Suit station (west-south) - pod face EAST at the arena (cryo-pod front = -Y at yaw 0, proven by the Scientist's Office copy: _acc_exo.gsc:97 'front -Y faces the door', live since 07-26); paradise_exo clip X/Y-swapped in lockstep
+    acc_perks::spawn_perk_slot_vendor_at( ( 550, -1680, pz ), 180 );   // Neural Expansion Bay / perk slots (east-south) - address the arena to the west. Gorod-console front axis UNVERIFIED: 180 = WEST if it follows its p7_zm_sta_ sibling's +X front (dragon/LB proof), NORTH (toward the arena/entrance) if it is -Y vending-style - 180 wins under BOTH; 270 would face the S wall band if the axis is +X. Flip to 270 only if the in-game screen reads sideways.
+    // acc_ammo_crate::spawn_crate_at( ( 550, -1430, pz ), 0 );      // AMMO CRATE #3 - REMOVED
 
     // ARMORY STATIONS IN PARADISE (user 2026-07-13): the two Armory-loft stations, on the west wall as a
     // pair. The rack is a SEPARATE, INDEPENDENT pool from the loft rack (spawn_rack_station is now
     // per-station, so it does NOT clobber the loft's) - the loft is unreachable once you descend anyway.
-    acc_armory::spawn_rack_station( ( -850, -1350, pz ) );           // team weapon rack (west-mid, mirrors the Overclock at +850,-1350)
-    acc_armory::spawn_bottle_station( ( -850, -1650, pz ) );         // mega-bottle -> random Implant exchange (west, between the rack and the Exo)
+    acc_armory::spawn_rack_station( ( -550, -1180, pz ), 90 );       // team weapon rack (west-mid) - 138u long axis now PARALLEL to the W wall, long face east at the plaza (walkabout 2026-08-03 batch); end pads rotate to the S/N ends; paradise_armory_rack clip X/Y-swapped in lockstep
+    acc_armory::spawn_bottle_station( ( -550, -1430, pz ), 90 );     // mega-bottle -> random Implant exchange (west) - bottle display EAST at the plaza (vending front = -Y memory + walkabout 2026-08-03; this is the exact model class the -Y rule was verified on); paradise_armory_bottle clip X/Y-swapped in lockstep
 
     // Boss-item Implant Bench: 3 pads = the 3 implant slots (2 -> 3, user 2026-07-09), side by side
     // along X at the same 160u spacing as the Plaza lab row, south-LEFT of center (row spans
-    // x[-710,-390] - clear of the west wall at -1000 and the Mystery Box at +550).
+    // x[-650,-250] - clear of the west wall at -700, backing onto the infestation SW brood/heart band;
+    // the Mystery Box at +450 balances it east of the heart).
     sep = getdvarint( "acc_bench_pad_sep", 80 );
-    acc_boss_items::spawn_bench_pad( ( -550 - 2 * sep, -2080, pz ), 0 );
-    acc_boss_items::spawn_bench_pad( ( -550,           -2080, pz ), 1 );
-    acc_boss_items::spawn_bench_pad( ( -550 + 2 * sep, -2080, pz ), 2 );
+    acc_boss_items::spawn_bench_pad( ( -450 - 2 * sep, -1840, pz ), 0, 90 );
+    acc_boss_items::spawn_bench_pad( ( -450,           -1840, pz ), 1, 90 );
+    acc_boss_items::spawn_bench_pad( ( -450 + 2 * sep, -1840, pz ), 2, 90 );
 
-    spawn_paradise_box_at( ( 550, -2080, pz ) );   // permanent Mystery Box (south-right, balances the bench)
+    spawn_paradise_box_at( ( 450, -1900, pz ) );   // permanent Mystery Box (south-right, between the heart's E edge and the SE brood)
 
     // 2nd Pack-a-Punch (center-south, the design's intended PaP spot). STANDALONE custom vendor -
     // NOT a 2nd stock "zm_pack_a_punch" machine (that fatals stock's singleton GetEnt at load and was
     // what broke the surface PaP before). Reuses the SAME player-scoped tier path, so tier never resets.
-    acc_pap_levels::spawn_paradise_pap_at( ( 0, -1700, pz ), 0 );
+    acc_pap_levels::spawn_paradise_pap_at( ( 0, -1550, pz ), 180 );   // face NORTH at the hall-mouth approach (walkabout 2026-08-03: faced AWAY at yaw 0 -> -Y-front validated); paradise_pap clip center y -1552 -> -1548 in lockstep
 
     acc_utility::log( "paradise: GSC amenities spawned (overclock/exo/perk-slot/bench/box/pap/armory-rack/armory-bottle)" );
 }
@@ -184,6 +192,7 @@ function spawn_paradise_box_at( origin )
 {
     box = spawn( "script_model", origin );
     box setmodel( "p7_zm_der_magic_box" );   // the iconic magic-box mesh (stock; packs via the explicit zone line - the surface box is the AW 3D Printer since 2026-07-12)
+    box.angles = ( 0, 180, 0 );   // face NORTH at the arena approach (walkabout 2026-08-03 batch; angles were never written = default 0 = front at the S wall 100u away). MUST be set BEFORE the DisconnectPaths cut below so the navmesh cut matches the rotated _col footprint.
     // der_magic_box ships a _col LOD (self-collides) but the navmesh cannot see entity collision, so zombies
     // path through its footprint and grind on it. Stock pattern: DisconnectPaths() the collision entity at
     // spawn (_zm_perks.gsc:1551-1555). Box is PERMANENT + STATIONARY, so a one-shot cut is safe (a moved
@@ -341,7 +350,7 @@ function paradise_box_pick_weapon( player )
     return acc_map_randomizer::acc_box_weighted_pick( eligible );
 }
 
-function spawn_altar_at( origin )
+function spawn_altar_at( origin, yaw )   // yaw optional (L3 passes 90 - broadside at the approach); omitted = default pose
 {
     cost = altar_cost();
 
@@ -350,6 +359,7 @@ function spawn_altar_at( origin )
     // above it (STATION REMODEL 2026-07-09 - was the shared sign kiosk).
     base = spawn( "script_model", origin );
     base setmodel( "p7_ram_altar" );
+    if ( isdefined( yaw ) ) base.angles = ( 0, yaw, 0 );
     acc_interact_glow::glow_on( base );
 
     core = spawn( "script_model", origin + ( 0, 0, 72 ) );
@@ -366,10 +376,11 @@ function spawn_altar_at( origin )
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 110, 100 );
     t TriggerIgnoreTeam();   // REQUIRED for a script-spawned use-trigger to be player-usable (stock _zm_perks.gsc:1523).
     t SetCursorHint( "HINT_NOICON" );
-    t SetHintString( "Hold ^3[{+activate}]^7  ^5GLITCH ALTAR^7 - gamble ^5" + cost + " Data Shards^7 (mostly boons, real glitch risk)" );
     t.acc_core = core;
     t.acc_base_model = base;   // glow_off target on first successful gamble (user 2026-07-17)
+    t altar_refresh_hint();    // hint is LIVE-price owned (escalating price, user 2026-08-02) - never bake a cost string here
     t thread altar_loop();
+    t thread altar_round_watch();
 
     acc_utility::log( "glitch_altar: spawned at " + origin + " (cost " + cost + ")" );
 }
@@ -385,8 +396,47 @@ function spin_core()
     }
 }
 
-function altar_cost()     { return getdvarint( "acc_altar_cost", 2 ); }  // 4 -> 2 (scaled-back economy, user 2026-06-19)
-function altar_cooldown() { return getdvarint( "acc_altar_cooldown", 6 ); }
+function altar_cost()     { return getdvarint( "acc_altar_cost", 4 ); }   // 2 -> 4: HUGE altar nerf, doubled (user 2026-08-02); history 4 -> 2 user 2026-06-19
+function altar_cooldown() { return getdvarint( "acc_altar_cooldown", 12 ); }  // 6 -> 12: spam brake (user 2026-08-02)
+
+// THE SPIN PRICE, with per-round escalation (HUGE nerf, user 2026-08-02 "someone can sit there
+// and spam it to continue to get instakills"): every spin THIS round raises the next spin's
+// price by acc_altar_price_step (4, 6, 8, 10, ...); a new round resets to the base. Precedent:
+// the hack terminal's per-attempt stage escalation (_acc_events_hack). State lives on the
+// trigger - exactly ONE altar exists (Paradise altar removed 2026-07-13), so trigger == global.
+function altar_current_price()   // self = the altar trigger
+{
+    if ( !isdefined( self.acc_altar_spin_round ) || self.acc_altar_spin_round != level.round_number )
+        return altar_cost();
+    return altar_cost() + self.acc_altar_spins_round * getdvarint( "acc_altar_price_step", 2 );
+}
+
+// The hint must track the LIVE price (it was baked once at spawn and would lie under
+// escalation - jukebox live-hint precedent). Called at spawn, after every paid spin, and by
+// the round watcher on round change.
+function altar_refresh_hint()    // self = the altar trigger
+{
+    price = self altar_current_price();
+    self SetHintString( "Hold ^3[{+activate}]^7  ^5GLITCH ALTAR^7 - gamble ^5" + price + " Data Shards^7 (a true gamble - rare ^6MEGA^7 jackpot)" );
+}
+
+// Round rollover: reset the escalation + refresh the hint so a player walking up in a fresh
+// round reads the base price (the trigger-side check alone only corrects on USE, not on read).
+function altar_round_watch()     // self = the altar trigger
+{
+    self endon( "death" );
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        wait 2;
+        if ( isdefined( self.acc_altar_spin_round ) && self.acc_altar_spin_round != level.round_number )
+        {
+            self.acc_altar_spin_round  = level.round_number;
+            self.acc_altar_spins_round = 0;
+            self altar_refresh_hint();
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Interaction
@@ -409,7 +459,16 @@ function altar_loop()    // self = the altar trigger
             continue;
         }
 
-        cost = altar_cost();
+        // Escalation bookkeeping (user 2026-08-02): sync the stored round BEFORE pricing so the
+        // first spin of a fresh round always charges the base (the 2s watcher may not have
+        // ticked yet).
+        if ( !isdefined( self.acc_altar_spin_round ) || self.acc_altar_spin_round != level.round_number )
+        {
+            self.acc_altar_spin_round  = level.round_number;
+            self.acc_altar_spins_round = 0;
+        }
+
+        cost = self altar_current_price();
         if ( !acc_data_shards::try_spend( player, cost ) )
         {
             altar_msg( player,"Glitch Altar: needs ^5" + cost + " Data Shards" );
@@ -418,6 +477,8 @@ function altar_loop()    // self = the altar trigger
         }
 
         self.acc_cooldown = true;
+        self.acc_altar_spins_round++;   // next spin this round costs +step more
+        self altar_refresh_hint();
         acc_interact_glow::glow_off( self.acc_base_model );   // shards actually spent = successful use
         self resolve_gamble( player );
         wait altar_cooldown();
@@ -425,40 +486,81 @@ function altar_loop()    // self = the altar trigger
     }
 }
 
-// Weighted: ~65% boon / ~35% curse (user 2026-06-24, "spice it up" - was 72/28; spicier both ways).
-// Curses NEVER instant-down. The shard_jackpot only partially refunds (net shard EV is NEGATIVE per
-// spin - the altar is a sink, the boons are the value), so it can't be farmed for shards.
+// Weighted: 45% win / 55% curse - a REAL gamble (HUGE nerf, user 2026-08-02: "I get too many
+// good things like drops... needs smaller rewards... maybe the big jackpot is a nice pay out
+// but overall needs to be a gamble"; was 65/35 with a 50% powerup/perk class). Curses NEVER
+// instant-down. Most wins are now SMALL (a shard trickle / pocket points / a partial-refund
+// jackpot); the powerup/perk class collapsed 50% -> 7% (+2% mega) AND is capped at one
+// powerup-class hit per round (deliver_outcome). Mega Win stays the 2% showpiece, sweetened
+// with bonus shards so the doubled+escalating price still has a dream payout.
 function resolve_gamble( player )   // self = the altar trigger
 {
-    // Weights sum to 100, so each weight == its % chance. Riskier 65/35 split (user 2026-06-24): the
-    // marquee Mega Win (top prize: free perk + insta-kill) doubled 1->2% for a juicier top end, and the
-    // curse share grew 28->35 (mostly Surge - the most ACTION-y downside) so a spin bites more often.
-    // Free Perk trimmed 12->8 and the 4% moved into Shard Jackpot (11->15) - the altar leans more into
-    // refunding shards than handing out perks (user 2026-06-24).
+    // Weights sum to 100, so each weight == its % chance.
     roll = acc_utility::acc_weighted_pick( array(
-        // ---- BOONS (65) ----
-        weighted( 15, "max_ammo" ),
-        weighted( 13, "insta_kill" ),
-        weighted( 12, "double_points" ),
-        weighted(  8, "random_perk" ),
-        weighted( 15, "shard_jackpot" ),
-        weighted(  2, "mega_win" ),       // ~2% jackpot - the single big win (was 1%)
-        // ---- CURSES (35) - never instant-down ----
-        weighted( 16, "surge" ),
-        weighted( 11, "shard_drain" ),
-        weighted(  8, "dud" )
+        // ---- SMALL WINS (36) ----
+        weighted( 16, "shard_trickle" ),  // +1 shard - a "win" that still nets negative
+        weighted( 12, "small_points" ),   // +250 points
+        weighted(  8, "shard_jackpot" ),  // +5 shards - the one small TRUE win (15 -> 8)
+        // ---- POWERUPS / PERK (7) - rare treats. The per-round cap covers the POWERUP class
+        // (max_ammo / double_points / insta_kill / mega_win); random_perk is NOT capped. ----
+        weighted(  3, "max_ammo" ),       // 15 -> 3
+        weighted(  2, "double_points" ),  // 12 -> 2
+        weighted(  1, "insta_kill" ),     // 13 -> 1 (THE spam-degenerate lane)
+        weighted(  1, "random_perk" ),    //  8 -> 1 (uncapped - a perk is not a powerup)
+        // ---- THE JACKPOT (2) ----
+        weighted(  2, "mega_win" ),       // the showpiece: perk + insta-kill + bonus shards
+        // ---- CURSES (55) - never instant-down ----
+        weighted( 20, "surge" ),          // 16 -> 20
+        weighted( 15, "shard_drain" ),    // 11 -> 15 (and the drain deepened 2 -> 3)
+        weighted( 20, "dud" )             //  8 -> 20
     ) );
 
     deliver_outcome( player, roll );
 }
 
-function deliver_outcome( player, outcome )
+function deliver_outcome( player, outcome )   // self = the altar trigger (via resolve_gamble)
 {
     acc_utility::log( "glitch_altar roll: " + outcome );
 
+    // ONE POWERUP-CLASS HIT PER ROUND (user 2026-08-02: hard-stops insta-kill chaining
+    // regardless of bankroll - the weight cut alone can't stop a 500-shard-deep fisher).
+    // A second powerup-class roll in the same round reroutes to the "grid spent" trickle;
+    // mega_win keeps its perk + bonus shards and only loses the insta-kill half. Per-round
+    // counter precedent: the Data Cache anti-hog counters (_acc_data_shards).
+    b_powerup_capped = false;
+    if ( outcome == "max_ammo" || outcome == "insta_kill" || outcome == "double_points" || outcome == "mega_win" )
+    {
+        if ( isdefined( self.acc_altar_powerup_round ) && self.acc_altar_powerup_round == level.round_number )
+            b_powerup_capped = true;
+        else
+            self.acc_altar_powerup_round = level.round_number;
+    }
+    if ( b_powerup_capped && outcome != "mega_win" )
+        outcome = "grid_spent";
+
     switch ( outcome )
     {
-    // ---------- BOONS ----------
+    // ---------- SMALL WINS ----------
+    case "shard_trickle":
+        acc_data_shards::grant_player( player, 1, "altar_trickle" );
+        altar_msg( player,"^2GLITCH ALTAR: ^7a flicker of data... +1 Data Shard" );
+        break;
+    case "grid_spent":   // a capped powerup roll lands here - still pays the trickle
+        acc_data_shards::grant_player( player, 1, "altar_trickle" );
+        altar_msg( player,"^2GLITCH ALTAR: ^7the grid is spent this round... +1 Data Shard" );
+        break;
+    case "small_points":
+        player zm_score::add_to_player_score( getdvarint( "acc_altar_points", 250 ) );
+        altar_msg( player,"^2GLITCH ALTAR: ^7+" + getdvarint( "acc_altar_points", 250 ) + " points" );
+        break;
+    case "shard_jackpot":
+        n = getdvarint( "acc_altar_jackpot", 5 );   // 7 -> 3 -> 4 (user 2026-06-24) -> 5 (nerf pass 2026-08-02: the one small TRUE win at the doubled price)
+        acc_data_shards::grant_player( player, n, "altar_jackpot" );
+        altar_msg( player,"^2GLITCH ALTAR: ^6JACKPOT ^7+" + n + " Data Shards!" );
+        break;
+
+    // ---------- POWERUPS / PERK (rare; the per-round cap = max_ammo/insta_kill/double_points/
+    // mega_win only - random_perk is deliberately UNCAPPED, a perk is not a powerup) ----------
     case "max_ammo":
         altar_msg( player,"^2GLITCH ALTAR: ^7Max Ammo!" );
         level thread zm_powerups::specific_powerup_drop( "full_ammo", player.origin );
@@ -478,15 +580,19 @@ function deliver_outcome( player, outcome )
         if ( isdefined( level.acc_kx_announce_random_perk ) )
             [[ level.acc_kx_announce_random_perk ]]();
         break;
-    case "shard_jackpot":
-        n = getdvarint( "acc_altar_jackpot", 4 );   // 7 -> 3 -> 4 (+4 shards, user 2026-06-24; still net-negative EV vs the 15% odds at cost 2)
-        acc_data_shards::grant_player( player, n, "altar_jackpot" );
-        altar_msg( player,"^2GLITCH ALTAR: ^6JACKPOT ^7+" + n + " Data Shards!" );
-        break;
+
+    // ---------- THE JACKPOT ----------
     case "mega_win":
-        altar_msg( player,"^2GLITCH ALTAR: ^6MEGA WIN ^7Free Perk + Insta-Kill!" );
+        n = getdvarint( "acc_altar_mega_shards", 10 );
+        acc_data_shards::grant_player( player, n, "altar_mega" );
         player zm_perks::give_random_perk();
-        level thread zm_powerups::specific_powerup_drop( "insta_kill", player.origin );
+        if ( b_powerup_capped )
+            altar_msg( player,"^2GLITCH ALTAR: ^6MEGA WIN ^7Free Perk +" + n + " Shards! (grid spent - no Insta-Kill)" );
+        else
+        {
+            altar_msg( player,"^2GLITCH ALTAR: ^6MEGA WIN ^7Free Perk + Insta-Kill +" + n + " Shards!" );
+            level thread zm_powerups::specific_powerup_drop( "insta_kill", player.origin );
+        }
         break;
 
     // ---------- CURSES (never instant-down) ----------
@@ -495,7 +601,7 @@ function deliver_outcome( player, outcome )
         level thread acc_bus_trench::spawn_corp_surge( getdvarint( "acc_altar_surge", 5 ) );
         break;
     case "shard_drain":
-        drained = drain_shards( player, getdvarint( "acc_altar_drain", 2 ) );   // 6 -> 2 (scaled-back economy)
+        drained = drain_shards( player, getdvarint( "acc_altar_drain", 3 ) );   // 6 -> 2 (scaled-back economy) -> 3 (nerf pass 2026-08-02)
         altar_msg( player,"^1GLITCH ALTAR: ^7Corruption! -" + drained + " Data Shard" + ( drained == 1 ? "" : "s" ) );
         break;
     case "dud":

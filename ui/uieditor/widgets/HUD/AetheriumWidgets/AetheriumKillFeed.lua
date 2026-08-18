@@ -3,9 +3,23 @@
 
 require( "ui.uieditor.widgets.HUD.AetheriumWidgets.AetheriumKillFeedText" )
 
+-- Currency-gain rows (user 2026-08-02: shard/bottle gains ride this feed instead of the old
+-- center toasts, color-differentiated from points events). Matches the LOCALIZED row name.
+local IsCurrencyRow = function ( killName )
+	killName = tostring( killName )   -- Localize results are not guaranteed strings (lb-playername lesson); every other consumer tostrings too
+	return ( killName:find( "Data Shard" ) ~= nil ) or ( killName:find( "Mega Bottle" ) ~= nil )
+end
+
 local SetKillTypeColor = function ( element, killName )
+	-- Currency gains first (2026-08-02): shards = the shard-toast ice-blue (deliberately NOT
+	-- the crit teal 0.20/0.95/0.85 - crits keep that); bottles = the bottle-counter gold
+	-- (warmer than the lemon kill yellow 0.92/0.94/0.17).
+	if killName:find( "Data Shard" ) then
+		element:setRGB( 0.60, 0.90, 1.00 ) -- Ice-blue (old shard toast cyan)
+	elseif killName:find( "Mega Bottle" ) then
+		element:setRGB( 0.95, 0.78, 0.20 ) -- Gold (old bottle toast / MEGA BOTTLES counter gold)
 	-- AAT Kill Colors (yellow, same as regular kills since the 2026-07-11 recolor)
-	if killName:find( "Electric Kill" ) then
+	elseif killName:find( "Electric Kill" ) then
 		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow
 	elseif killName:find( "Blast Furnace" ) then
 		element:setRGB( 0.92, 0.94, 0.17 ) -- Yellow
@@ -24,6 +38,37 @@ local SetKillTypeColor = function ( element, killName )
 	end
 end
 
+-- The "+N" number: white for kills (unchanged), but tinted on currency rows so the whole
+-- line reads as a currency event at a glance, not a points event.
+local SetScoreColor = function ( element, killName )
+	if killName:find( "Data Shard" ) then
+		element:setRGB( 0.60, 0.90, 1.00 )
+	elseif killName:find( "Mega Bottle" ) then
+		element:setRGB( 0.95, 0.78, 0.20 )
+	else
+		element:setRGB( 1, 1, 1 )
+	end
+end
+
+-- Per-row name indent (user 2026-08-02 "for data shards and mega bottles its never more than
+-- single digit gain... make the appropriate spacing"): the name column sat at a fixed x29,
+-- sized for 3-digit kill scores ("+100" ends ~x26) - a single-digit "+1" ends ~x13, leaving a
+-- hole. The left edge now follows the NUMBER's actual width (digit count of the score text):
+-- "+N" -> x16 (the tight gap the user asked for), "+NN" -> x23 (altar MEGA pays +10; boss
+-- shards hit +10 at r30 - these must not overlap), 4+ chars -> the stock x29 (kill rows
+-- unchanged: "+100 Melee Kill" reads exactly as before). Rows are RECYCLED as they shift
+-- down, so this is re-applied wherever the text is set - insert AND the shift loop.
+local SetNameIndent = function ( element, scoreText )
+	local n = string.len( tostring( scoreText or "" ) )
+	if n <= 2 then
+		element:setLeftRight( true, false, 16, 200 )
+	elseif n == 3 then
+		element:setLeftRight( true, false, 23, 200 )
+	else
+		element:setLeftRight( true, false, 29, 200 )
+	end
+end
+
 local PostLoadFunc = function ( self, controller, menu )
 	-- Subscribe to score_event notifications from GSC
 	self:subscribeToGlobalModel( controller, "PerController", "scriptNotify", function ( model )
@@ -35,14 +80,17 @@ local PostLoadFunc = function ( self, controller, menu )
 			local score = scriptNotifyData[2]
 
 			if name ~= nil and score ~= nil and type( score ) == "number" then
-				-- Update running total
-				local totalText = self.total:getText()
-				if totalText == nil or totalText == "" then
-					totalText = "0"
+				-- Update running total - POINTS events only. Currency rows (shards/bottles,
+				-- 2026-08-02) share the feed visually but must never add into the points sum.
+				if not IsCurrencyRow( name ) then
+					local totalText = self.total:getText()
+					if totalText == nil or totalText == "" then
+						totalText = "0"
+					end
+					local total = tonumber( totalText ) or 0
+					total = total + score
+					self.total:setText( tostring( total ) )
 				end
-				local total = tonumber( totalText ) or 0
-				total = total + score
-				self.total:setText( tostring( total ) )
 
 				-- Shift down existing kill entries (5 slots)
 				for index = 5, 2, -1 do
@@ -51,12 +99,16 @@ local PostLoadFunc = function ( self, controller, menu )
 					self["text" .. index].name:setText( tostring( prevName ) )
 					self["text" .. index].score:setText( tostring( prevScore ) )
 					SetKillTypeColor( self["text" .. index].name, tostring( prevName ) )
+					SetScoreColor( self["text" .. index].score, tostring( prevName ) )
+					SetNameIndent( self["text" .. index].name, tostring( prevScore ) )
 				end
 
 				-- Set new kill at top position
 				self.text1.name:setText( tostring( name ) )
 				self.text1.score:setText( "+" .. tostring( score ) )
 				SetKillTypeColor( self.text1.name, tostring( name ) )
+				SetScoreColor( self.text1.score, tostring( name ) )
+				SetNameIndent( self.text1.name, "+" .. tostring( score ) )
 
 				-- Count how many kills are currently displayed
 				local killCount = 0

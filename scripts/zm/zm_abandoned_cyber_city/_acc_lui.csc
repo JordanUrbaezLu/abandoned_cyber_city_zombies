@@ -38,6 +38,7 @@ function __init__()
     clientfield::register( "clientuimodel", "accOwnedMask", VERSION_SHIP, 10, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );  // 9->10 for Electric Cherry (lockstep w/ .gsc)
     clientfield::register( "clientuimodel", "accPowerupMask", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
     clientfield::register( "clientuimodel", "accRoundRing", VERSION_SHIP, 7, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+    clientfield::register( "clientuimodel", "accArea", VERSION_SHIP, 5, "int", undefined, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );  // area-banner id 0..17 (2026-08-02; widened 4->5 for the armory/sci_office/implant sub-areas - lockstep w/ .gsc, appended LAST)
 
     // [acc] ACTOR-scope eye-tint marker for the Glitch Stalker (teal eyes, NO FX asset).
     // This is a DIFFERENT clientfield pool from the clientuimodel fields above (the actor

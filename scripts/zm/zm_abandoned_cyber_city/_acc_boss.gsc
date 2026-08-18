@@ -328,12 +328,14 @@ function boss_music( host )
 
     level.acc_boss_music_count++;
 
-    // Start the boss loop on the SHARED music channel (user 2026-06-25). This OVERRIDES any song that was
-    // playing (e.g. the main theme). Only (re)start if boss music isn't already the channel, so a 2nd
-    // simultaneous boss doesn't restart the loop. A teddy-bear song triggered mid-fight overrides THIS in turn
-    // (acc_music::play) and we never fight it back - the keep-alive loop below only waits.
+    // Start the boss loop on the SHARED music channel via a PRIORITY CLAIM (user 2026-08-02 "jukebox <
+    // boss < paradise", supersedes the 2026-06-25 anything-overrides-anything rule): this CUTS a jukebox
+    // song instantly, is DENIED while a Paradise track owns the channel (the :323 onslaught gate already
+    // covers the common case), and a jukebox purchase during boss music is now denied jukebox-side rather
+    // than overriding us. Only (re)claim if boss music isn't already the channel, so a 2nd simultaneous
+    // boss doesn't restart the loop.
     if ( !acc_music::is_playing( "acc_brutus_music" ) )
-        acc_music::play( "acc_brutus_music", true );
+        acc_music::claim_boss( "acc_brutus_music" );
 
     // Hold this boss's refcount while it lives (poll covers death AND despawn/delete). Also releases the moment
     // the Paradise onslaught begins, so the "115" anthem can take over the channel.
@@ -446,7 +448,7 @@ function watch_mini_boss_death()
         // that also documents the intent (user 2026-06-29: "Paradise Brutus should not give any of this").
         if ( !no_reward && isdefined( drop_origin ) )
         {
-            // BRUTUS (Trench Warden) CYBERJACK gun-drop (user 2026-07-17): 25% drop THE CYBERJACK
+            // BRUTUS (Trench Warden) CYBERJACK gun-drop (user 2026-07-17; -5% relative 2026-08-03): 23.75% drop THE CYBERJACK
             // on the ground (if not already in rotation) / else the normal boss item - NEVER both.
             // The roll spawns the pickup itself; b_gun=true tells the reward to skip the item.
             b_gun = acc_cyberjack::try_brutus_gun_drop( drop_origin );

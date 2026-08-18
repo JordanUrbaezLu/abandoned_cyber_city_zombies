@@ -152,22 +152,31 @@ function glitch_speed_think()
     {
         if ( !isalive( self ) ) return;
 
-        r    = acc_zombie_speed::current_round();
+        r    = acc_zombie_speed::effective_round();   // rampage-aware (+7 while the spawn toggle is ON, user 2026-08-03)
         mult = getdvarfloat( "acc_glitch_speed_mult", ACC_GLITCH_SPEED_MULT_DEF );
         rate = acc_zombie_speed::rate_for_round( r ) * mult;
         if ( rate < 0.1 ) rate = 0.1;
-        if ( self acc_serum_suppressed() )   // Phase Serum aura: 0.36x speed (user 2026-07-22: the 0.2 "basically freezes glitches" - slow strength -20%, 80% -> 64% slow; was 1/5 from the 2026-06-29 nerf)
-            rate = rate * getdvarfloat( "acc_phase_serum_slow", 0.36 );
+        if ( self acc_serum_suppressed() )   // Phase Serum aura: 0.456x speed (user 2026-08-03: item -15% again - slow strength x0.85, 64% -> 54.4% slow; 2026-07-22 -20% took 80% -> 64% [rate 0.2 -> 0.36]; was 1/5 from the 2026-06-29 nerf)
+            rate = rate * getdvarfloat( "acc_phase_serum_slow", 0.456 );
 
-        self zombie_utility::set_zombie_run_cycle_override_value( acc_zombie_speed::tier_for_round( r ) );
+        // Clear the stock override-LOCK before re-setting the tier (the _acc_elites:437 recipe -
+        // set_zombie_run_cycle early-returns if zombie_move_speed_override is already defined, so a
+        // Stalker surviving a sprint-crossing round boundary silently kept its old gait; rampage
+        // moves that crossing to real r7->8, making the drop visible - verify-pass 2026-08-03).
+        tier = acc_zombie_speed::tier_for_round( r );
+        if ( !isdefined( self.zombie_move_speed_override ) || self.zombie_move_speed_override != tier )
+        {
+            self.zombie_move_speed_override = undefined;
+            self zombie_utility::set_zombie_run_cycle_override_value( tier );
+        }
         self ASMSetAnimationRate( rate );
         wait 1;
     }
 }
 
 // PHASE SERUM suppression (user 2026-06-29): true if any alive player within acc_phase_serum_radius holds the
-// Phase Serum. A Glitch Stalker in that aura is slowed to 0.36x speed (glitch_speed_think; user 2026-07-22,
-// was 1/5) AND skips its blink / glitch ability (glitch_blink_loop) - "nullified" but still able to see +
+// Phase Serum. A Glitch Stalker in that aura is slowed to 0.456x speed (glitch_speed_think; user 2026-08-03,
+// was 0.36 [2026-07-22], 1/5 before) AND skips its blink / glitch ability (glitch_blink_loop) - "nullified" but still able to see +
 // chase. self = the Stalker.
 function acc_serum_suppressed()
 {
@@ -333,8 +342,19 @@ function spawn_glitch( round_number )
     host.meleeDamage = int( base_melee * melee_mult );
     if ( host.meleeDamage < 1 ) host.meleeDamage = 1;
 
-    // Durability: a mobile boss that fights alongside the wave. It MOVES, so it is
-    // never failsafe-culled and must NOT be pinned (no ignore_round_spawn_failsafe).
+    // Durability: a mobile boss that fights alongside the wave. It MOVES, so the stock
+    // failsafe's moved<24u branch never fires - but its BELOW-WORLD branch
+    // (zombie_utility.gsc:1857; threaded on every spawner-spawned host by
+    // _zm_gametype.gsc:909's spawn function) DoDamage-kills ANY actor below z=-1000 on
+    // each 30s tick REGARDLESS of movement, and the Paradise specials wave (z=-1200)
+    // sits under that line - every finale Glitch silently died ~30s after blinking down
+    // (user 2026-07-29, found with the Phantom). The ROOT fix is map-wide since the same
+    // session: _acc_bus_trench::init moves below_world_check to -2000, under the deepest
+    // real floor. This flag stays as belt-and-braces + covers the moved<24u branch too;
+    // pinning is safe: ignore_enemy_count (below) means a stuck Glitch never gates round
+    // end. (Corrects the earlier "must NOT be pinned" note, which only considered the
+    // movement branch.)
+    host.ignore_round_spawn_failsafe = true;
     host DisableAimAssist();
     host.disableAmmoDrop = true;
     host.no_gib = true;
@@ -550,7 +570,7 @@ function glitch_blink_loop()
         if ( !isalive( self ) ) return;
 
         // PHASE SERUM (user 2026-06-29): a Stalker inside a serum-holder's aura LOSES its blink (glitch ability) -
-        // it can still chase + melee, just at 1/5 speed (glitch_speed_think) with no teleport. Skip the blink.
+        // it can still chase + melee, just at 0.456x speed (glitch_speed_think) with no teleport. Skip the blink.
         if ( self acc_serum_suppressed() )
         {
             gdebug( "blink suppressed (Phase Serum aura)" );
@@ -600,9 +620,11 @@ function glitch_blink_loop()
         // [acc] de-rez burst at BOTH ends of the blink (docs/44 workstream A) - the departure
         // burst is the tell that it moved, the arrival burst is the "where". Combat blinks only;
         // the hidden spawn-drive forceteleport (~L668) stays FX-less so the reveal isn't spoiled.
-        acc_utility::derez_burst( self.origin );
+        // "glitch_boss" style = zap only, NO digit glyphs (user 2026-08-02: the nixie numbers
+        // are the SCIENTIST's identity - _acc_utility::derez_burst_run).
+        acc_utility::derez_burst( self.origin, "glitch_boss" );
         self forceteleport( flank_pos );
-        acc_utility::derez_burst( self.origin );
+        acc_utility::derez_burst( self.origin, "glitch_boss" );
         // [acc] teleport "warp" SFX EMITTED BY the zombie. `self PlaySound` attaches the sound to the
         // AI entity (the same call the Brutus pack uses for its vocals), so it is a true 3D world sound
         // that originates at the zombie and follows him - inaudible when he's far, louder up close,

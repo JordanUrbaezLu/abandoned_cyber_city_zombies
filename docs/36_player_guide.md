@@ -26,6 +26,15 @@ the code wins. (Verified against the code 2026-07-10.)*
 **Core loop:** survive up top for cash → drop into the trench for Shards → spend Shards on
 permanent power → open the soul-box gates and go deeper → repeat, all the way down to Paradise.
 
+- **Want it harder? The RAMPAGE breaker.** An industrial power-breaker on the path from the
+  Plaza to the Alley toggles **RAMPAGE**:
+  the horde (plus Glitch Stalkers, armored zombies, and the Scientist) moves as if the round
+  were **7 rounds higher** — zombies break into a full sprint from round 8 instead of 15.
+  Toggle it freely during **rounds 1–4**; when **round 5** starts it **seals** at whatever
+  you left it on, for the whole match. **Other bosses are unaffected** (only the Scientist
+  speeds up — Brutus, the Phantom, and the rest keep their normal pace). The breaker
+  **pulses red while RAMPAGE is on** — no red light means it's off.
+
 ---
 
 ## Guns: tiers, Pack-a-Punch cost, and box odds
@@ -112,7 +121,7 @@ multi-tier sinks, finite so you can't hoard forever.
 | **Data Caches** (×2, in the pit) | The exposed pit floor (one west, one east) | **+3 each**, once per round, first-come. They re-arm every round (a dim white glow = "shards here this round"). In co-op, once you grab a cache you **can't take the other one** that round — leave it for a teammate. Solo, take both. |
 | **Any boss kill** | Boss rounds (see below) | **Every boss pays the same guaranteed reward** to every player: **round × 180 points + ⌊round ÷ 3⌋ shards**, plus a **boss item** and a **Mega Bottle**. (Round 9 = ~1,620 points + 3 shards; round 18 = ~3,240 + 6.) This covers the **Trench Warden** (Brutus), **Phantom**, **Avogadro**, **Panzer**, and the **Rogue Protector** alike — they were unified 2026-07-05, no more per-boss differences. *(Bosses spawned during the Paradise finale pay nothing — that fight is survive-don't-farm.)* |
 | **Reactor Surge** | The arm plinth down in the trench (free to arm) | Survive the **5-wave** surge → **everyone gets +5 shards, a shared Fire Sale, and 1 random Implant drops at the plinth.** Re-arms on a **3-round cooldown.** You must stay down in the trench to collect — bail out and you get nothing. |
-| **Glitch Altar** | Deep underground (Abyss Layer 3) | A **2-Shard gamble**, not a faucet — see below. |
+| **Glitch Altar** | Deep underground (Abyss Layer 3) | A **true gamble** — 4 Shards a spin, and the price **climbs every spin** you take that round — see below. |
 | **Glitch Stalker** | A mobile mini-boss that blinks in on some rounds | **+1 shard to whoever kills it** — no boss item, no Mega Bottle (it spawns on **even rounds from round 4** — 1 at round 4, 2 at round 6, 3 at round 8, then 4+ from round 10 on, uncapped — so those stay exclusive to the rare Brutus/Phantom). |
 
 **Boss rounds:** the first **mini-boss** (the Trench Warden / Brutus) shows up around **round 5**
@@ -123,14 +132,19 @@ Protector, Avogadro, Panzer** — without repeats until the deck empties, so you
 boss twice in a round until very deep. Avogadro is the disruptor (stuns + hacks your perks/PaP);
 kill him fast to get your utilities back.
 
-### The Glitch Altar (gamble — net-negative on shards)
+### The Glitch Altar (a true gamble — it will drain you)
 
-Each spin costs **2 Data Shards** and rolls a weighted result: **~65% boon / ~35% curse**
-(curses never down you). Boons are Max Ammo, Insta-Kill, Double Points, a free perk, a
-**Shard Jackpot (+4)**, or the rare **Mega Win** (free perk *and* Insta-Kill). Curses are a
-zombie **surge**, a small **Shard Drain (−2)**, or a **dud**. Even the jackpot only partly
-refunds the spin, so the altar **drains** shards over time — spin it for the perks and
-power-ups, not to grow your bank.
+Spins start at **4 Data Shards** and get **2 Shards more expensive with every spin you take
+that round** (4, 6, 8, …) — the price resets each new round, and the hint always shows the
+current price (12-second cooldown between spins). Each spin rolls a weighted result: **~45%
+win / ~55% curse** (curses never down you). Most wins are **small**: a **+1 Shard** flicker,
+**+250 points**, or the uncommon **Shard Jackpot (+5)**. Power-ups and the free perk are now
+**rare** (a few percent combined) and **capped at ONE power-up-class hit per round** — a
+second one just pays a +1 Shard "grid spent" consolation. The showpiece is the rare **~2%
+MEGA Win**: a free perk *and* Insta-Kill *and* **+10 bonus Shards** (if the round's power-up
+is already spent you keep the perk and the Shards, losing only the Insta-Kill). Curses are a
+zombie **surge**, a **Shard Drain (−3)**, or a **dud**. On average you **lose** Shards every
+spin — spin for the thrill and the rare MEGA, never to grow your bank.
 
 ---
 

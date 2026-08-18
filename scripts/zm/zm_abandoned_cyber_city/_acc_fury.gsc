@@ -19,12 +19,13 @@
 //     sprint from it (the horde's exact speed is a per-zombie xanim playback rate from
 //     _acc_zombie_speed that a different archetype can't share; gait is the same knob the
 //     stock fury uses, ai::set_behavior_attribute("move_speed")).
-//   - CADENCE (user 2026-07-03, PER-PLAYER): EVERY player runs their OWN independent
-//     acc_fury_interval (30s) clock; while that player is at trench LAYER >= acc_fury_min_layer
-//     (2 - "level 2 trench and below", NOT layer 1/the pit), each full interval meteor-drops one
-//     fury near them. Timers are per-player, so N players deep = N independent spawn streams
-//     ("stacks"). Leaving the deep trench PAUSES that player's clock (doesn't reset). Cap scales:
-//     acc_fury_max_per_player (2) x deep-player count, hard-ceiling acc_fury_max_ceil (8).
+//   - CADENCE (user 2026-07-03, PER-PLAYER; scare pass 2026-08-01): EVERY player runs their OWN
+//     independent acc_fury_interval (22s) clock; while that player is at trench LAYER >=
+//     acc_fury_min_layer (2 - "level 2 trench and below", NOT layer 1/the pit), each full interval
+//     meteor-drops one fury near them. Depth SHRINKS the interval (fury_delay_sec: -2.5s/layer
+//     below L2, floor 15s). Timers are per-player, so N players deep = N independent spawn streams
+//     ("stacks"). Leaving the deep trench PAUSES that player's clock (doesn't reset). Alive cap =
+//     player count, +1 while anyone is at L4/L5, hard-ceiling acc_fury_max_ceil (8).
 //   (A dev-only round-1 test spawn validated the archetype in game 2026-07-03 and was
 //   removed the same day - the trench cadence is the only spawner.)
 //
@@ -48,7 +49,7 @@
 // Underground z gate for the SPAWN SPOT (a drop can't land above the deep trench). The PLAYER
 // gate is now a trench-LAYER check (>= acc_fury_min_layer), not this plane.
 #define ACC_FURY_Z_DEF          -36
-#define ACC_FURY_INTERVAL_DEF    30   // seconds between a PLAYER's trench fury drops (user 2026-07-03, per-player)
+#define ACC_FURY_INTERVAL_DEF    22   // seconds between a PLAYER's trench fury drops (scare pass 2026-08-01 30->22 ~+36%; user 2026-07-03, per-player; depth shrinks it further - see fury_delay_sec)
 #define ACC_FURY_MIN_LAYER_DEF    2   // only spawn while a player is at trench LAYER >= 2 (user 2026-07-03: "lv2 and below")
 #define ACC_FURY_MAX_PER_PLAYER   2   // furies a single deep player contributes to the alive cap
 #define ACC_FURY_MAX_CEIL_DEF     8   // hard ceiling on total alive furies (actor-budget safety)
@@ -140,11 +141,11 @@ function fury_manager()
 
 // self = a player. Their OWN clock, advancing only while at trench layer >= min (leaving PAUSES
 // it, doesn't reset). Independent per player => furies stack in co-op. Live-diagnosed 2026-07-03:
-// requiring the FULL 30s dwell before the FIRST spawn meant furies almost never appeared (nobody
-// camps deep-trench 30s straight - the user reached layer 2 for ~20s and saw nothing). FIX: the
-// FIRST drop after entering the deep trench arms in acc_fury_arm_sec (8s), so descending actually
-// produces a fury; subsequent drops keep the acc_fury_interval (30s) cadence while they stay deep.
-// Bailing out of the deep trench re-arms the short delay on the next descent.
+// requiring the FULL interval dwell before the FIRST spawn meant furies almost never appeared
+// (nobody camps deep-trench 30s straight - the user reached layer 2 for ~20s and saw nothing).
+// FIX: the FIRST drop after entering the deep trench arms in acc_fury_arm_sec (6s), so descending
+// actually produces a fury; subsequent drops ride the depth-ramped fury_delay_sec cadence (22s at
+// L2, down to 15s at L5) while they stay deep. Bailing out re-arms the short delay on the next descent.
 function fury_player_timer()
 {
     self endon( "disconnect" );
@@ -154,15 +155,14 @@ function fury_player_timer()
 
     for ( ;; )
     {
-        delay = ( b_first
-                  ? getdvarfloat( "acc_fury_arm_sec", 8 )
-                  : getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF ) );
+        delay = fury_delay_sec( b_first, self );
 
         waited = 0;
         while ( waited < delay )
         {
             wait 1;
             if ( player_deep( self ) ) waited += 1;
+            delay = fury_delay_sec( b_first, self );   // live depth ramp: descending mid-wait shortens the clock
         }
 
         if ( !player_deep( self ) )   // surfaced before the timer fired -> re-arm the short delay
@@ -176,10 +176,26 @@ function fury_player_timer()
         e = spawn_fury_near( self, true );
         if ( isdefined( e ) )
         {
-            b_first = false;   // armed drop done -> stay on the 30s cadence while deep
-            dbg( "spawned near you (layer " + acc_bus_trench::underground_layer( self.origin ) + ", next in " + getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF ) + "s)" );
+            b_first = false;   // armed drop done -> stay on the depth-ramped cadence while deep
+            dbg( "spawned near you (layer " + acc_bus_trench::underground_layer( self.origin ) + ", next in " + fury_delay_sec( false, self ) + "s)" );
         }
     }
+}
+
+// Seconds until this player's next fury drop. Fresh descent = the short arm delay; the repeating
+// cadence then SHRINKS with depth (scare pass 2026-08-01 "scarier the deeper you go"): interval
+// minus 2.5s per layer below the L2 gate, floored at 15s (default 22 -> L2 22 / L3 19.5 / L4 17 /
+// L5 15). Recomputed live each wait tick so descending mid-clock speeds it up.
+function fury_delay_sec( b_first, player )
+{
+    if ( IS_TRUE( b_first ) )
+        return getdvarfloat( "acc_fury_arm_sec", 6 );   // 8->6 scare pass 2026-08-01
+    delay = getdvarfloat( "acc_fury_interval", ACC_FURY_INTERVAL_DEF );
+    layer = acc_bus_trench::underground_layer( player.origin );
+    if ( layer > 2 )
+        delay -= 2.5 * ( layer - 2 );
+    if ( delay < 15 ) delay = 15;
+    return delay;
 }
 
 // A player is "deep" (fury-eligible) while at trench LAYER >= acc_fury_min_layer (2). Uses the
@@ -201,11 +217,22 @@ function deep_player_count()
 
 // Alive-fury cap = NUMBER OF PLAYERS in the game (user 2026-07-07: "match number of players - solo 1, ...,
 // 4p 4"). Was deep-players x 2 (up to 8); now simply the live player count, so it tracks the lobby size
-// (solo 1 / duo 2 / trio 3 / quad 4). The actor-budget ceiling (8) still backstops as a hard safety.
+// (solo 1 / duo 2 / trio 3 / quad 4). DEEP BONUS (scare pass 2026-08-01 "scarier the deeper you go"):
+// +1 while ANY player is at layer >= 4, so solo at L4/L5 can face 2 furies at once. The actor-budget
+// ceiling (8) still backstops as a hard safety. (Paradise fury spawns bypass this cap by design.)
 function effective_cap()
 {
     cap = GetPlayers().size;
     if ( cap < 1 ) cap = 1;
+    foreach ( player in GetPlayers() )
+    {
+        if ( isdefined( player ) && zm_utility::is_player_valid( player ) &&
+             acc_bus_trench::underground_layer( player.origin ) >= 4 )
+        {
+            cap++;
+            break;
+        }
+    }
     ceil = getdvarint( "acc_fury_max_ceil", ACC_FURY_MAX_CEIL_DEF );
     if ( cap > ceil ) cap = ceil;
     return cap;

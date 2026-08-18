@@ -24,8 +24,10 @@
 // SLOTS (user 2026-06-24): two pickups can fire on the same frame (a boss kill grants a Mega
 // Bottle while a Data Shard drop is grabbed) - on one slot the second SetText overwrites the
 // first. `hud_msg_slot( txt, slot, color )` gives each independent line its own elem + own
-// fade at its own y (slot N sits acc_msg_slot_h px below slot N-1), so they never overlap. The
-// Mega Bottle pickup uses slot 1 (gold); slot 0 stays the generic/shard toast.
+// fade at its own y (slot N sits acc_msg_slot_h px below slot N-1), so they never overlap.
+// (2026-08-02: shard + Mega Bottle GAINS moved to the mid-screen kill feed - slot 1 gold and
+// the slot-0 shard gain line are now non-Aetherium fallbacks only; slot 0 remains the live
+// generic toast for everything else.)
 // ---------------------------------------------------------------------------
 
 // Back-compat API: the generic upper-center toast = slot 0 (cyan). Every existing
@@ -84,6 +86,28 @@ function hud_msg_fade( slot )   // self = player
 }
 
 // ---------------------------------------------------------------------------
+// ONCE-PER-MATCH broadcast banner (user 2026-08-01 "text like 'scientist is in the lab' /
+// 'perks have moved spots'... I only want each one to show once per match. It gets annoying").
+// For RECURRING-EVENT INFO lines only (boss arrivals, perk scatter) - the event's other tells
+// (nameplates, boss music, moved machines) still fire every time. NOT for actionable/critical
+// feedback (costs, cooldowns, damage warnings, objective status): those keep printing directly.
+// String-keyed level array; resets naturally on map restart. isdefined-based check (never
+// compare a possibly-undefined value with == - T7 throws). IPrintLnBold = hudelem-pool-free.
+// ---------------------------------------------------------------------------
+function announce_once( key, msg )
+{
+    if ( !isdefined( level.acc_announced ) ) level.acc_announced = [];
+    if ( isdefined( level.acc_announced[ key ] ) ) return;
+    level.acc_announced[ key ] = true;
+    players = GetPlayers();
+    for ( i = 0; i < players.size; i++ )
+    {
+        if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )
+            players[ i ] IPrintLnBold( msg );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // HUDELEM POOL DIAGNOSTIC (user 2026-06-28). The server hudelem pool is SHARED + FIXED; when it fills,
 // hud::create* returns UNDEFINED and the widget silently does NOT draw (no crash - row_complete relies on this).
 // he_check(elem,label): call right after a hud::create* - counts live allocations AND logs the exact site the
@@ -126,6 +150,24 @@ function he_log( msg )
     players = get_all_players();
     for ( i = 0; i < players.size; i++ )
         if ( isdefined( players[ i ] ) ) players[ i ] IPrintLnBold( msg );
+}
+
+// ---------------------------------------------------------------------------
+// EARLY start gate (user 2026-08-02 "the map starts before everything is loaded
+// - fog/music/HUD pop in while you're already walking"): blocks until at least
+// one player ENTITY exists (players connect + spawn DURING the loading
+// blackscreen), which is seconds BEFORE stock lifts the fade - stock sets
+// "initial_blackscreen_passed" only AFTER unfreezing controls (_zm.gsc:530).
+// Level-state systems (fog, looping FX, loop sounds) started after THIS gate
+// are already live the frame the screen fades in. NOT a replacement for the
+// blackscreen flag where all-clients delivery matters (one-shot 2D sounds) or
+// where stock load-order must finish first - those keep the flag.
+// ---------------------------------------------------------------------------
+
+function wait_players_in()
+{
+    while ( GetPlayers().size < 1 )
+        wait 0.05;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,7 +226,9 @@ function levbug_wname( w )
 // floor. Fix: when the trace hits an ACTOR or PLAYER (the dying boss, a sibling, a teammate), step
 // 4u below the hit and re-trace, until we reach either WORLD geometry (tr["entity"] undefined -
 // the stock world-hit idiom, vehicle_shared.gsc:2772) or a solid NON-AI entity (a script_brushmodel
-// bridge/platform IS a floor - accept it). A true miss (fraction >= 1: over a void) KEEPS the
+// bridge/platform IS a floor - accept it; EXCEPT tagged loot-pickup models (.acc_item_id /
+// .acc_shard_count), stepped through like bodies - the 2026-08-03 item-swap z-drift fix, see the
+// branch below). A true miss (fraction >= 1: over a void) KEEPS the
 // original origin - never bury a drop 2500u below. Diagnostics ride drops_debug (dev-visible).
 function drop_floor_origin( origin )
 {
@@ -204,11 +248,25 @@ function drop_floor_origin( origin )
         e = tr[ "entity" ];
         if ( !isdefined( e ) )
         {
-            if ( i > 0 ) drops_debug( "floor-snap stepped through " + i + " body/bodies -> floor " + tr[ "position" ] );
+            if ( i > 0 ) drops_debug( "floor-snap stepped through " + i + " body/pickup hit(s) -> floor " + tr[ "position" ] );
             return tr[ "position" ];   // world geometry = the real floor
         }
         if ( !isplayer( e ) && !( IsActor( e ) ) )
         {
+            // LOOT PICKUPS ARE NEVER A FLOOR (item-swap z-drift, user 2026-08-03 "keeps moving up in
+            // space"): on a swap, _acc_boss_items::watch_pickup re-drops the old carry at the grabbed
+            // item's ground origin BEFORE cleanup_pickup() deletes the grabbed model, so this trace runs
+            // with that model still standing on the drop point - accepting its TOP surface as "floor"
+            // raised the re-drop by ~z_lift + model height, and the NEXT swap traced onto THAT raised
+            // model (compounding climb; the stored acc_ground_origin was already snap-correct, this
+            // branch was the leak). Pickup models are tagged (boss items: .acc_item_id / shard drops:
+            // .acc_shard_count) - step through them like bodies down to the real floor.
+            if ( isdefined( e.acc_item_id ) || isdefined( e.acc_shard_count ) )
+            {
+                start = tr[ "position" ] - ( 0, 0, 4 );
+                if ( start[ 2 ] <= bottom[ 2 ] ) break;
+                continue;
+            }
             return tr[ "position" ];   // solid non-AI entity (brushmodel bridge / door slab) = a walkable surface
         }
 
@@ -423,8 +481,8 @@ function get_closest_uncloaked_player( origin )
 // so the Phantom can read it too - glitch already #using's phantom, so phantom #using glitch would be
 // circular). True if any alive player within acc_phase_serum_radius holds the Phase Serum boss item
 // (p.acc_phase_serum, set by _acc_boss_items::apply_arnie_cloak). Consumers pick their own penalty:
-// Glitch Stalker = 0.36x speed + no blink; Phantom = 24% slower (gait only, teleports untouched).
-// (user 2026-07-22: Phase Serum -20% across the board - was 1/5 + 30%.)
+// Glitch Stalker = 0.456x speed + no blink; Phantom = 20.4% slower (gait only, teleports untouched).
+// (user 2026-08-03: Phase Serum -15% again; 2026-07-22 -20% across the board - was 1/5 + 30%.)
 function serum_aura_active( origin )
 {
     radius = getdvarint( "acc_phase_serum_radius", 350 );
@@ -782,14 +840,27 @@ function derez_burst_run( origin, style )
     // warning) - the zap layer had been silently invisible under the numbers. PlayFxOnTag on a
     // spawned host is the proven server-side pattern (cyberjack tesla / scientist trail / the
     // numbers below). Same fix for the phantom sparks layer.
-    numbers_key = "acc_derez";                                   // cyan (Glitch)
+    // DIGIT GLYPHS ARE SCIENTIST-EXCLUSIVE (user 2026-08-02 "that fx is only for scientists so
+    // why does the phantom and possibly glitches have it" - supersedes the docs/44 per-boss
+    // numbers-color language): only the "scientist" style (red) and the WORLD-teleport default
+    // (cyan - Lab/Exchange pads, perk-scatter moves; not a boss identity) spawn the nixie
+    // numbers host. Boss styles "phantom" / "glitch_boss" are numbers-FREE - their warps still
+    // READ as teleports via the zap/sparks layers. The yellow numbers .efx + acc_derez_phantom
+    // key stay registered (zero-cost, easy restore).
+    numbers_key = "acc_derez";                                   // cyan (world teleports / legacy default)
     if ( style == "phantom" )
     {
-        // Boss colour language (docs/44): the Phantom's numbers are NEON YELLOW to match its
-        // accPhantomAura glow, and it gets an extra sparks layer - the REAL boss reads bigger.
-        numbers_key = "acc_derez_phantom";
+        // Phantom warp = zap + sparks, NO digits (the sparks layer keeps the REAL boss reading
+        // bigger than a Glitch blink).
+        numbers_key = undefined;
         level thread play_fx_burst( "acc_derez_zap", origin, 1.0 );
         level thread play_fx_burst( "acc_derez_sparks", origin, 1.0 );
+    }
+    else if ( style == "glitch_boss" )
+    {
+        // Glitch Stalker combat blink = zap only, NO digits.
+        numbers_key = undefined;
+        level thread play_fx_burst( "acc_derez_zap", origin, 1.0 );
     }
     else if ( style == "scientist" )
     {
@@ -801,8 +872,9 @@ function derez_burst_run( origin, style )
     }
     else
     {
-        level thread play_fx_burst( "acc_derez_zap", origin, 1.0 );   // glitch: zap + cyan numbers
+        level thread play_fx_burst( "acc_derez_zap", origin, 1.0 );   // world teleports: zap + cyan numbers
     }
+    if ( !isdefined( numbers_key ) ) return;                     // numbers-free boss style - zap/sparks threads self-clean
     host = Spawn( "script_model", origin + ( 0, 0, 36 ) );       // numbers at torso height, not the feet
     if ( !isdefined( host ) ) return;                            // entity pool full - skip the numbers, keep the zap
     host SetModel( "tag_origin" );

@@ -45,7 +45,7 @@
 
 #precache( "model", "cp_town_jukebox" );
 
-#define ACC_JUKEBOX_ORIGIN        ( -150, 2240, -240 )   // NORTH under-room, SOUTH-WEST (user 2026-07-10: spread it away from the reactor plinth at the north wall (0,2493) - was (-140,2350), only ~200u apart). Back to the west wall, faces +x into the room, clear of the south doorway (x[-96,96]). Clip mirrors in add_prop_clips.js (label 'jukebox').
+#define ACC_JUKEBOX_ORIGIN        ( -717, 2450, -240 )   // NORTH under-room, SOUTH-WEST (user 2026-07-10: spread it away from the reactor plinth at the north wall (0,2493) - was (-140,2350), only ~200u apart). Back to the west wall, faces +x into the room, clear of the south doorway (x[-96,96]). Clip mirrors in add_prop_clips.js (label 'jukebox').
 #define ACC_JUKEBOX_YAW           0                      // face +x = into the room (retune in-game if the IW model's forward differs)
 #define ACC_JUKEBOX_COOLDOWN_SEC  300                 // FALLBACK hold (sec) if SoundGetPlaybackTime fails; the real hold = song length - dvar acc_jukebox_cooldown
 #define ACC_JUKEBOX_COST_POINTS   1000                // points per play      - dvar acc_jukebox_cost_points
@@ -122,6 +122,15 @@ function spawn_jukebox()
             continue;
         }
 
+        // MUSIC PRIORITY GATE (user 2026-08-02 "jukebox < boss < paradise"): boss / Paradise music owns
+        // the channel -> deny BEFORE any price check/charge, so the payment is never eaten.
+        if ( !acc_music::jukebox_can_claim() )
+        {
+            player PlaySound( "zmb_no_purchase" );
+            player acc_utility::hud_msg( "^3Jukebox unavailable^7 - boss music is playing" );
+            continue;
+        }
+
         // DUAL PRICE: check BOTH halves before charging EITHER (no partial charge on a deny).
         pts    = getdvarint( "acc_jukebox_cost_points", ACC_JUKEBOX_COST_POINTS );
         shards = getdvarint( "acc_jukebox_cost_shards", ACC_JUKEBOX_COST_SHARDS );
@@ -151,6 +160,17 @@ function spawn_jukebox()
         song = pick_song();
         level.acc_jukebox_last = song.alias;
 
+        // Through the single MUSIC CHANNEL, as a PRIORITY-1 CLAIM (user 2026-08-02): cuts only the main
+        // theme; DENIED if a boss/Paradise track grabbed the channel between the gate above and here
+        // (race) - refund BOTH halves, nothing consumed, no hold armed.
+        if ( !acc_music::claim_jukebox( song.alias ) )
+        {
+            if ( shards > 0 ) acc_data_shards::grant_player( player, shards, "jukebox_refund" );
+            if ( pts > 0 )    player zm_score::add_to_player_score( pts );
+            player acc_utility::hud_msg( "^3Jukebox unavailable^7 - boss music is playing" );
+            continue;
+        }
+
         // Busy for exactly THIS song's length (user 2026-07-18). SoundGetPlaybackTime returns ms and
         // works on streamed aliases server-side (stock _zm_audio.gsc:1112); guard the <=0/undefined
         // fail case like stock does and fall back to the old fixed cooldown.
@@ -159,10 +179,7 @@ function spawn_jukebox()
             hold_ms = getdvarint( "acc_jukebox_cooldown", ACC_JUKEBOX_COOLDOWN_SEC ) * 1000;
         level.acc_jukebox_cooldown_until = GetTime() + hold_ms;
         refresh_hint();
-
-        // Through the single MUSIC CHANNEL: stops boss music / the theme first (one song at a time,
-        // user 2026-06-25 override rule), then plays 2D for the whole lobby. NONLOOPING.
-        acc_music::play( song.alias, false );
+        level thread jukebox_cut_watch( song.alias );   // a higher-priority cut clears the hold (re-buyable)
         acc_utility::log( "jukebox: PLAYING " + song.alias + " (" + song.title + ") for " + pts + "pts + " + shards + " shard(s), hold " + int( hold_ms / 1000 ) + "s" );
 
         // NOW-PLAYING banner to EVERY player (whole lobby hears the song, whole lobby sees the title).
@@ -170,6 +187,33 @@ function spawn_jukebox()
         foreach ( p in GetPlayers() )
             if ( isdefined( p ) && isplayer( p ) )
                 p IPrintLnBold( "^5NOW PLAYING^7  " + song.title );
+    }
+}
+
+// The song-length hold is a WALL-CLOCK timer, not tied to actual playback - if boss/Paradise music
+// cuts the song mid-play (priority claim), the jukebox would stay "busy" for minutes over a track
+// nobody hears. Watch the channel: the moment our song is no longer playing (cut - or ended a hair
+// early on a mis-measured length), clear the hold so the machine is instantly re-buyable. Poll, not
+// a notify, per the module's hint_ticker pattern. NO-RESUME POLICY: a cut song stays cut and is not
+// refunded - the loss is bounded to one purchase, and the pre-charge deny gate prevents the common
+// case (buying while boss music already plays).
+function jukebox_cut_watch( alias )
+{
+    // Re-thread guard: a stale watcher from the PREVIOUS song (its while-loop revived by the new
+    // purchase re-arming cooldown_until) would see its old alias not-playing and instantly clear
+    // the NEW song's hold. Kill any prior watcher first.
+    level notify( "acc_jukebox_cut_watch_restart" );
+    level endon( "acc_jukebox_cut_watch_restart" );
+    level endon( "end_game" );
+    while ( GetTime() < level.acc_jukebox_cooldown_until )
+    {
+        if ( !acc_music::is_playing( alias ) )
+        {
+            level.acc_jukebox_cooldown_until = GetTime();
+            refresh_hint();
+            return;
+        }
+        wait 0.5;
     }
 }
 

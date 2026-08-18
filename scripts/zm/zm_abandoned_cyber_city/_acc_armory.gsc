@@ -98,11 +98,13 @@ function spawn_stations()
 // Its gun pool (station.pool), display cabinet (station.base) and pad triggers (station.pads) all
 // hang off a struct, NOT level globals, so N racks never clobber one another. Each pad back-refs
 // its station (t.acc_rack) and rack_loop routes deposits/withdraws to that pool. Returns the station.
-function spawn_rack_station( origin )
+function spawn_rack_station( origin, yaw )   // yaw optional (default 0 = loft unchanged): rotates the cabinet AND its two end pads together
 {
+    if ( !isdefined( yaw ) ) yaw = 0;
     station = SpawnStruct();
     station.base = spawn( "script_model", origin );
     station.base setmodel( "p7_con_cargo_train_armory_cabinet" );   // long weapons cabinet - pads sit at its two ends
+    station.base.angles = ( 0, yaw, 0 );
     acc_interact_glow::glow_on( station.base );
     station.pool = [];    // FIFO { wpn, model } entries (was level.acc_armory_rack)
     station.pads = [];    // { deposit, withdraw } triggers (was level.acc_armory_rack_pads)
@@ -110,8 +112,9 @@ function spawn_rack_station( origin )
     // DEPOSIT pad (west of the kiosk) + WITHDRAW pad (east). One trigger per action - BO3
     // use-triggers are single-button (the Exchange's multi-pad idiom). Pads are 110u apart,
     // radius 40, so they never overlap.
-    spawn_rack_pad( station, "deposit",  origin + ( -55, 0, 0 ) );
-    spawn_rack_pad( station, "withdraw", origin + (  55, 0, 0 ) );
+    ends = AnglesToForward( ( 0, yaw, 0 ) );   // long axis = local +X rotated by yaw (loft 0 = W/E ends, Paradise 90 = S/N ends)
+    spawn_rack_pad( station, "deposit",  origin + ( ends * -55 ) );
+    spawn_rack_pad( station, "withdraw", origin + ( ends *  55 ) );
     update_rack_hints( station );   // initial (empty-rack) hints
     return station;
 }
@@ -427,10 +430,11 @@ function spawn_rack_display( station, player, wpn, index )
 // Mega-bottle exchange (1 bottle -> a random reward "item")
 // ---------------------------------------------------------------------------
 
-function spawn_bottle_station( origin )
+function spawn_bottle_station( origin, yaw )   // yaw optional: omitted = no angles write (the loft copy stays exactly as today)
 {
     base = spawn( "script_model", origin );
     base setmodel( "p7_zm_vending_wonder" );   // Wonderfizz chassis - bottles-for-a-random-reward read
+    if ( isdefined( yaw ) ) base.angles = ( 0, yaw, 0 );
     acc_interact_glow::glow_on( base );
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 40 ), 0, 48, 90 );

@@ -57,6 +57,14 @@
 // matching add_prop_clips.js clips are belt-and-suspenders, sized to the 64x64x48 crate. Crate origin sits at
 // its BASE (floorLift 0) -> spawn lift is 0 (was +36 for the mesh-centered tower). xmodel line already in .zone.
 #precache( "model", "p7_cai_stacking_cargo_crate" );   // underground/plaza Data Cache (loot-for-shards) model
+// Kill-feed gain-popup strings (user 2026-08-02; sent via LuiNotifyEvent in grant_player - direct,
+// NOT through acc_points::send_kill_feed, which would close a #using cycle points->boss_items->here).
+// MUST live HERE in the preamble: a mid-file #precache("string",...) COMPILES but is never collected
+// into the load-time precache pass, so the istring gets no CS_LOCALIZED_STRINGS slot and the client
+// GetIString returns nil = the feed row silently never renders (2026-08-02 incident - the popups were
+// invisible for every source until these two lines moved up from below the functions).
+#precache( "string", "ZM_AETHERIUM_KF_SHARD" );
+#precache( "string", "ZM_AETHERIUM_KF_SHARDS" );
 // Data Shards HUD icon (user 2026-06-25): the player's PNG replaces the "DATA SHARDS" text label. The server
 // hudelem path is a DEAD END - a usermap cannot build a 2D HUD material ("No techsetdef for material type '2d'");
 // the image i_acc_data_shard packs fine though, so the icon is drawn in LUI (acc_hud.lua, CoD.AccShardIcon),
@@ -103,10 +111,12 @@ function client_init()
 
 function on_player_connect( player )
 {
-    // Dev mode (acc_dev 1) starts each player with ACC_DEV_SHARDS (1000) Data Shards to test the Cyberware /
-    // Overclock / trench economy; normal play starts at 0. ONE-TIME grant (not a refill loop),
-    // so spending then behaves normally. (GSC ternary must be fully paren-wrapped.)
-    player.acc_data_shards = ( ( isdefined( level.acc_dev ) && level.acc_dev ) ? ACC_DEV_SHARDS : 0 );
+    // Dev mode (acc_dev 1) starts each player with a big testing stash; normal play starts at 0. ONE-TIME
+    // grant (not a refill loop), so spending then behaves normally. START 100 BELOW THE DEV CAP
+    // (2026-08-02): starting AT the 1000 cap made every trench/cache/altar grant clamp to granted==0 -
+    // silently no feed row, no toast - so gain-feedback paths were untestable in dev ("when you get
+    // shards from the shard disposals... it doesnt show up"). (GSC ternary must be fully paren-wrapped.)
+    player.acc_data_shards = ( ( isdefined( level.acc_dev ) && level.acc_dev ) ? ( ACC_DEV_SHARDS - 100 ) : 0 );
     player sync_shards_to_client();
 }
 
@@ -130,6 +140,9 @@ function shards_cap()
 {
     return ( ( isdefined( level.acc_dev ) && level.acc_dev ) ? ACC_DEV_SHARDS : ACC_SHARDS_MAX );
 }
+
+// (The KF_SHARD/KF_SHARDS string precaches used to sit HERE, mid-file - they compiled but never
+// registered at load, so the feed rows were invisible. Moved to the directive preamble 2026-08-02.)
 
 // Grant shards to a player. Returns actual grant amount (may be clamped or
 // diminished based on round).
@@ -173,7 +186,20 @@ function grant_player( player, amount, source_tag )
 
     if ( granted > 0 )
     {
-        player acc_utility::hud_msg( "+" + granted + " Data Shard" + ( granted > 1 ? "s" : "" ) );
+        // Gain popup rides the mid-screen kill feed (user 2026-08-02 "like the text that says
+        // +110 Critical Kill... a different color/shade") - AetheriumKillFeed.lua colors any
+        // "Data Shard" row ice-cyan and skips it in the points running total. The old
+        // center-screen toast survives ONLY as the non-Aetherium-HUD fallback (feed widget is
+        // Aetherium-only). At-cap no-op grants (granted == 0) stay silent on both paths.
+        if ( isdefined( level.acc_aetherium_hud ) && level.acc_aetherium_hud )   // no shared.gsh #insert in this file -> no IS_TRUE macro
+        {
+            text = &"ZM_AETHERIUM_KF_SHARD";
+            if ( granted > 1 )
+                text = &"ZM_AETHERIUM_KF_SHARDS";
+            player LuiNotifyEvent( &"score_event", 2, text, granted );
+        }
+        else
+            player acc_utility::hud_msg( "+" + granted + " Data Shard" + ( granted > 1 ? "s" : "" ) );
     }
     return granted;
 }
@@ -246,13 +272,15 @@ function spawn_pickup_at( origin, count )
 
 // group (user 2026-07-11): the anti-hog cap is scoped PER GROUP ("plaza" vs "trench") - a player may
 // loot one cache from EACH group per round, just never two from the same group. Omitted = "default".
-function spawn_cache_at( origin, count, group )
+function spawn_cache_at( origin, count, group, yaw )
 {
     if ( !isdefined( count ) || count <= 0 ) count = 1;
 
     lift = ( isdefined( level.acc_shards_cache_lift ) ? level.acc_shards_cache_lift : 0 );   // model-paired lift (init sets it beside the model)
     crate = spawn( "script_model", origin + ( 0, 0, lift ) );   // 0 for the base-origin cargo crate; was +36 for the mesh-centered tower
     crate setmodel( level.acc_shards_cache_model );
+    if ( isdefined( yaw ) && yaw != 0 )
+        crate.angles = ( 0, yaw, 0 );   // scatter yaw (prop audit 2026-08-03): VISUAL only - the 64x64 nav clip stays axis-aligned; crate self-collides via its _col LOD
 
     t = spawn( "trigger_radius_use", origin + ( 0, 0, 30 ), 0, 60, 72 );
     t TriggerIgnoreTeam();   // REQUIRED: a script-spawned use-trigger is NOT player-usable without this (stock perk machine _zm_perks.gsc:1523 + navcard :5442 both call it). Missing it = "I walk up and can't use it."

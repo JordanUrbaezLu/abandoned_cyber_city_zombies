@@ -105,8 +105,8 @@
 #define ACC_DRONE_PICKUP_SCALE 1.5   // world-pickup SetScale (35.8u chassis -> ~54u, reads like the other bench pickups; SetScale is script_model-safe)
 #define ACC_DRONE_BODY_SCALE   1.3   // flying-body SetScale (~47u wingspan)
 #define ACC_DRONE_HOVER_Z      58    // DEFAULT hover height above the owner's FEET (u); live dvar acc_drone_hover_z
-#define ACC_DRONE_ORBIT_RADIUS 72    // DEFAULT orbit radius around the owner (u); live dvar acc_drone_orbit_radius. It circles the owner in WORLD space (independent of the owner's facing) so you can turn and watch it come around - the OLD shoulder-locked offset stayed glued behind your view forever (user 2026-07-24 "pretty stiff ... stuck behind my player, I cant look at it").
-#define ACC_DRONE_ORBIT_DPS    65    // DEFAULT orbit angular speed (degrees/sec; ~5.5s a full lap); live dvar acc_drone_orbit_speed
+#define ACC_DRONE_ORBIT_RADIUS 72    // DEFAULT roam-ring radius around the owner (u); live dvar acc_drone_orbit_radius. WORLD space (independent of the owner's facing - user 2026-07-24 "stuck behind my player" fix); since the 2026-08-01 free-roam rework the drone WANDERS the ring (random bearing goals, varying radius fraction) instead of lapping it.
+#define ACC_DRONE_ORBIT_DPS    65    // DEFAULT bearing speed BASE (degrees/sec; the free-roam pursuit tops out at x1.6 this); live dvar acc_drone_orbit_speed
 #define ACC_DRONE_LEASH        500   // beyond this the chase-lerp hard-snaps (teleporter / long-fall catch-up)
 
 // Pickup world models - one per item (see build_item_pool). Each is a distinct
@@ -357,7 +357,7 @@ function build_item_pool()
         "p7_zm_mob_vial_surgical_lrg",  // REAL MOTD surgical vial (T7 Assets carve 2026-07-08; was the generic perk bottle)
         2,                              // floor lift (small vial, base pivot; tune live)
         "implant",
-        &apply_arnie_cloak,             // Phase-boss aura: Stalkers in range = 0.36x speed + no blink; Phantoms = 24% slower (user 2026-07-22: whole item -20%; was 1/5 + 30%)
+        &apply_arnie_cloak,             // Phase-boss aura: Stalkers in range = 0.456x speed + no blink; Phantoms = 20.4% slower (user 2026-08-03: whole item -15%; 2026-07-22 -20%; was 1/5 + 30%)
         &remove_arnie_cloak,
         4.0                             // model scale (user 2026-07-08: 2.0 still too small -> "make all of them 4x original size")
     );
@@ -746,7 +746,8 @@ function spawn_pickup( item_struct, origin, persistent )
     // and returned the hit ON the corpse (~the airborne origin) - so the "snap" pinned the whole pickup
     // mid-air. Ground zombies never showed it (their corpse is already on the floor). Now uses the shared
     // acc_utility::drop_floor_origin, which STEPS THROUGH AI/player body hits down to real world geometry,
-    // accepts brushmodel surfaces (bridges/platforms) as floors, and keeps the origin on a true miss (never
+    // accepts brushmodel surfaces (bridges/platforms) as floors - but steps through tagged loot-pickup
+    // models (the 2026-08-03 swap z-drift fix) - and keeps the origin on a true miss (never
     // buries a drop over a void). Live dvar acc_drop_floor_snap (1=on) lives inside the helper.
     origin = acc_utility::drop_floor_origin( origin );
 
@@ -821,7 +822,7 @@ function spawn_pickup( item_struct, origin, persistent )
     t_use.acc_model = pickup;
     t_use.acc_item_id = item_struct.id;
     t_use.acc_created_at = pickup.acc_created_at;
-    t_use.acc_ground_origin = origin;   // unlifted floor origin, for swap re-drop (no Z creep)
+    t_use.acc_ground_origin = origin;   // unlifted floor origin, for swap re-drop (no Z creep; the residual creep was drop_floor_origin tracing onto the still-standing grabbed model - fixed 2026-08-03 in the helper, pickups stepped through)
 
     acc_utility::drops_debug( "item SPAWN id=" + item_struct.id + " at=" + origin + " lifetime=" + ACC_ITEM_DROP_LIFETIME_SEC + "s" );
 
@@ -1677,20 +1678,21 @@ function hive_on_kill( attacker )
 //     keeps CanShootEnemy()==0 forever (see _acc_civil_protector's fire_loop
 //     workaround) - so a script fire loop is mandatory EITHER way; the actor
 //     would only add its costs. Research write-up: docs/09.
-//   * MOTION = a WORLD-SPACE ORBIT (user 2026-07-24 "pretty stiff ... stuck
-//     behind my player, I cant look at it"): the anchor circles the owner on a
-//     world XY ring (cos/sin of a free-running orbit angle), NOT the old fixed
-//     right-shoulder offset that was locked to owner.angles[1] - that stayed
-//     glued behind wherever you looked, so you could never turn to see it. Now
-//     it drifts around you and passes through your view every lap. RANDOM ROAM
-//     (user 2026-07-25 "predictable circle"): the radius/pace/height each wander
-//     via eased random re-aims every 0.9-2.6s, so the loop never traces the same
-//     path twice (forward-only pace keeps the pass-through-view guarantee).
-//     Still a 20 Hz MoveTo exponential chase (+ sine bob), an eye-trace wall
-//     clamp so the anchor never parks inside geometry, and a hard SetOrigin
-//     leash snap (a MoveTo "snap" = the teleport hyper-speed streak bug). NOT
-//     LinkTo - rigid attach clips walls on every doorway. Radius/speed/height =
-//     live dvars (the wander multiplies them).
+//   * MOTION = WORLD-SPACE FREE ROAM (2026-08-01 rework, user "it just circles
+//     you... make it more free roaming around the player and bob in height";
+//     supersedes the forward-only wandering circle of 2026-07-25, which itself
+//     replaced the 2026-07-24 shoulder-locked offset - world-space stands, the
+//     owner's facing never matters): every 1.2-3.2s the drone picks a NEW random
+//     bearing goal (signed +/-170 deg - it reverses and cuts chords, never laps),
+//     radius fraction (0.35-1.25 of the ring dvar), and height offset, steering
+//     bearing at a capped deg/s while radius/height ease; two stacked sines
+//     (per-drone phase) give organic vertical bobbing. The old "passes through
+//     your view every lap" guarantee is now statistical - random bearings cross
+//     the view constantly. Still a 20 Hz MoveTo exponential chase, an eye-trace
+//     wall clamp so the anchor never parks inside geometry (+ a 30u z floor),
+//     and a hard SetOrigin leash snap (a MoveTo "snap" = the teleport hyper-
+//     speed streak bug). NOT LinkTo - rigid attach clips walls on every doorway.
+//     Radius/speed/height = live dvars (the wander multiplies them).
 //   * PRIMARY FIRE = a VISIBLE plasma bolt (user "it doesnt shoot an actual
 //     projectile so i cant see its shots"). Reuses the Triple Take bolt pipeline:
 //     a script_model mover flies drone->target on the ALREADY-REGISTERED
@@ -1742,7 +1744,7 @@ function hive_on_kill( attacker )
 //     3 drones, phases auto-spread by the guardian (2 = opposite sides, 3 = a
 //     triangle). Bolt fire fans out via a 0.7s target claim (sibling drones
 //     prefer unclaimed zombies; solo behavior unchanged - the claim expires
-//     before the same drone's next 0.9s shot).
+//     before the same drone's next 1.2s shot).
 //   * SENTRY SWARM set bonus (user 2026-07-25 "a nice easter egg"): ALL 3 slots
 //     = Sentry Drone -> x1.5 damage (bolt + rocket blast) / orbit roam speed /
 //     fire rate (both cadences), all via sentry_swarm_mult (live dvar
@@ -1912,11 +1914,18 @@ function sentry_drone_guardian()   // self = player
 
         // Even orbit spacing on any roster change (spawn/cull/respawn - NOT just a size delta, so a
         // same-tick die+respawn still re-spreads instead of leaving two drones stacked at phase 0).
+        // Free-roam rework 2026-08-01: ALSO reset each drone's bearing goal to its new spread slot
+        // (staggered re-aim times) - otherwise the goal-seeking hover loop immediately eases every
+        // drone back toward its stale pre-spread goal and they clump again.
         if ( b_changed && a_live.size > 0 )
         {
             base = a_live[ 0 ].acc_orbit;
             for ( i = 0; i < a_live.size; i++ )
-                a_live[ i ].acc_orbit = base + i * ( 360 / a_live.size );
+            {
+                a_live[ i ].acc_orbit      = base + i * ( 360 / a_live.size );
+                a_live[ i ].acc_roam_ang_t = a_live[ i ].acc_orbit;
+                a_live[ i ].acc_roam_next  = GetTime() + RandomIntRange( 600, 1600 );
+            }
         }
     }
 }
@@ -1970,7 +1979,8 @@ function spawn_sentry_drone( owner )
                         // contents so player fire, drone bolts, and its own rockets all trace
                         // through it (also kills the rocket-birth-inside-the-47u-body risk).
     d.owner = owner;                                     // the loops' LIFELINE: every hover/fire/launcher tick reads self.owner and self-Deletes when undefined. (RESTORED 2026-07-25 - the same-day NotSolid edit accidentally dropped this line, which made every drone spawn/self-delete in an invisible 0.5s cycle: no drones ever appeared.)
-    d.acc_orbit = 0;                                     // world-orbit phase (deg), advanced by the hover loop
+    d.acc_orbit = 0;                                     // world bearing around the owner (deg), steered by the hover loop's roam goal
+    d.acc_bob_phase = RandomInt( 360 );                  // per-drone bob offset so stacked drones never bob in sync (free-roam rework 2026-08-01)
     d.acc_hover_beat = GetTime();                        // liveness heartbeat (stamped 20 Hz by the hover loop; the guardian husk-heals silence >2s)
     d thread sentry_hover_loop();
     d thread sentry_fire_loop();       // primary: visible plasma bolts
@@ -1978,13 +1988,16 @@ function spawn_sentry_drone( owner )
     return d;
 }
 
-// 20 Hz hover chase. Anchor = a point ORBITING the owner on a WORLD-space XY ring (+ a slow
-// sine bob) - NOT the old right-shoulder offset that was locked to the owner's yaw and so stayed
-// glued behind wherever you looked (user 2026-07-24 "stuck behind my player, I cant look at it").
-// The orbit angle free-runs at acc_drone_orbit_speed deg/s, so the drone drifts around you and
-// passes through your view every lap - turn and it is right there. Exponential lerp keeps the
-// motion soft (drifts, overshoots a little, settles - never rigid); eye-trace wall clamp + hard
-// leash snap keep it out of geometry. Radius/speed/height are live dvars for feel tuning.
+// 20 Hz hover chase. FREE-ROAM rework (user 2026-08-01 "it just circles you... make it more
+// free roaming around the player and bob in height"): the anchor is a point at a WANDERING
+// bearing+radius around the owner - every 1.2-3.2s the drone picks a NEW random bearing goal
+// (signed +/-170 deg delta, so it reverses and cuts chords across the circle instead of lapping)
+// plus a random radius fraction and height offset, and steers toward it at a capped deg/s. Two
+// stacked sines give organic vertical bobbing. World-space (independent of owner.angles - the
+// 2026-07-24 "stuck behind my player" fix stands); the old forward-only-lap "passes through your
+// view" guarantee is now delivered statistically (random bearings cross the view constantly).
+// Exponential lerp keeps the motion soft; eye-trace wall clamp + hard leash snap keep it out of
+// geometry. Radius/speed/height are live dvars for feel tuning.
 function sentry_hover_loop()   // self = the drone (script_model)
 {
     level endon( "end_game" );
@@ -2002,43 +2015,72 @@ function sentry_hover_loop()   // self = the drone (script_model)
         self.acc_hover_beat = GetTime();                 // liveness heartbeat - the guardian husk-heals a drone whose hover thread died (any silent runtime error strands the ent forever otherwise; user 2026-07-25 "my drones disappeared")
 
         n_t += 0.05;
-        n_bob    = Sin( n_t * 160 ) * 5;                 // GSC Sin() takes DEGREES: 2.25s period, +/-5u
+        // LAYERED height bob (free-roam rework 2026-08-01): a fast ~2.25s +/-6u ripple riding a
+        // slow ~6.8s +/-10u swell, phase-offset per drone. GSC Sin() takes DEGREES.
+        n_bob    = Sin( n_t * 160 + self.acc_bob_phase ) * 6 + Sin( n_t * 53 + self.acc_bob_phase * 2 ) * 10;
         n_radius = getdvarfloat( "acc_drone_orbit_radius", ACC_DRONE_ORBIT_RADIUS );
         n_hover  = getdvarfloat( "acc_drone_hover_z",      ACC_DRONE_HOVER_Z );
 
-        // RANDOM ROAM inside the ring (user 2026-07-25 "They currently go in a predictable
-        // circle"): every 0.9-2.6s the drone re-aims a random radius fraction / pace / height
-        // offset and EASES toward it - so the path is a wandering loop around the owner
-        // (swings in tight, drifts out wide, hurries then lazes, dips and rises) instead of a
-        // fixed-radius circle. Pace stays FORWARD-only (0.4x-1.7x) so the 2026-07-24
-        // pass-through-your-view guarantee holds; the ring dvars still scale everything (the
-        // wander is multiplicative on them). Per-drone state -> stacked drones desync naturally.
-        if ( !isdefined( self.acc_roam_next ) || GetTime() >= self.acc_roam_next )
+        // FREE-ROAM re-aim (2026-08-01, replaces the forward-only wandering circle): every
+        // 1.2-3.2s pick a NEW bearing GOAL (signed delta - the drone reverses, cuts across,
+        // holds position), a radius fraction (0.35 low end = swings in close), and a height
+        // offset. Radius/height still EASE softly; the bearing is pursued rate-limited below.
+        // Per-drone state -> stacked drones desync naturally.
+        // FIRST-TICK SEED runs UNCONDITIONALLY on undefined ease state (adversarial-review
+        // catch 2026-08-01): the guardian's re-spread stamps acc_roam_next on a FRESH drone in
+        // the same frame it spawns, so gating the seed behind the roam_next timer skipped it -
+        // the ease lines below then hit undefined arithmetic and killed the hover thread on
+        // tick 1 (husk-heal delete/respawn loop = no drone ever flew).
+        if ( !isdefined( self.acc_roam_rad ) )           // first tick: start ON the aim, no spawn lurch
         {
-            self.acc_roam_next  = GetTime() + RandomIntRange( 900, 2600 );
-            self.acc_roam_rad_t = RandomFloatRange( 0.45, 1.25 );
-            self.acc_roam_spd_t = RandomFloatRange( 0.4, 1.7 );
-            self.acc_roam_z_t   = RandomFloatRange( -14, 14 );
-            if ( !isdefined( self.acc_roam_rad ) )       // first tick: start ON the aim, no spawn lurch
-            {
-                self.acc_roam_rad = self.acc_roam_rad_t;
-                self.acc_roam_spd = self.acc_roam_spd_t;
-                self.acc_roam_z   = self.acc_roam_z_t;
-            }
+            self.acc_roam_ang_t = self.acc_orbit;
+            self.acc_roam_rad_t = RandomFloatRange( 0.35, 1.25 );
+            self.acc_roam_z_t   = RandomFloatRange( -16, 18 );
+            self.acc_roam_rad   = self.acc_roam_rad_t;
+            self.acc_roam_z     = self.acc_roam_z_t;
+            if ( !isdefined( self.acc_roam_next ) )
+                self.acc_roam_next = GetTime() + RandomIntRange( 1200, 3200 );
+        }
+        else if ( GetTime() >= self.acc_roam_next )
+        {
+            self.acc_roam_next  = GetTime() + RandomIntRange( 1200, 3200 );
+            self.acc_roam_ang_t = self.acc_orbit + RandomFloatRange( -170, 170 );
+            self.acc_roam_rad_t = RandomFloatRange( 0.35, 1.25 );
+            self.acc_roam_z_t   = RandomFloatRange( -16, 18 );
         }
         self.acc_roam_rad += ( self.acc_roam_rad_t - self.acc_roam_rad ) * 0.04;   // soft ease (~1.7s to settle)
-        self.acc_roam_spd += ( self.acc_roam_spd_t - self.acc_roam_spd ) * 0.04;
         self.acc_roam_z   += ( self.acc_roam_z_t   - self.acc_roam_z )   * 0.04;
 
-        // Advance the WORLD-space orbit phase (independent of owner.angles - THE whole fix).
-        // SWARM (3-stack easter egg): x1.5 roam speed - the pack visibly whirls faster.
-        self.acc_orbit += getdvarfloat( "acc_drone_orbit_speed", ACC_DRONE_ORBIT_DPS ) * self.acc_roam_spd * 0.05 * sentry_swarm_mult( owner );
-        if ( self.acc_orbit >= 360 ) self.acc_orbit -= 360;
+        // Steer the WORLD-space bearing toward the goal, shortest path, rate-limited (free-roam
+        // top speed = the orbit dvar x1.6; pace is implied by angular distance - near the goal it
+        // slows into a brief hover-read, then re-aims). SWARM (3-stack): x1.5 - whirls faster.
+        n_dps  = getdvarfloat( "acc_drone_orbit_speed", ACC_DRONE_ORBIT_DPS ) * sentry_swarm_mult( owner ) * 1.6;
+        n_diff = self.acc_roam_ang_t - self.acc_orbit;
+        while ( n_diff > 180 )  n_diff -= 360;
+        while ( n_diff < -180 ) n_diff += 360;
+        n_step = n_dps * 0.05;
+        if ( Abs( n_diff ) <= n_step )
+        {
+            self.acc_orbit = self.acc_roam_ang_t;
+            if ( GetTime() + 400 < self.acc_roam_next )
+                self.acc_roam_next = GetTime() + 400;    // arrived early -> re-aim soon (brief hover-in-place read)
+        }
+        else
+        {
+            self.acc_orbit += ( ( n_diff > 0 ) ? n_step : ( 0 - n_step ) );
+        }
+        while ( self.acc_orbit >= 360 ) self.acc_orbit -= 360;
+        while ( self.acc_orbit < 0 )    self.acc_orbit += 360;
+
+        // Anchor z floor: the deeper roam range + the 10u swell must never scrape the owner's
+        // knees in tight rooms - keep the point >= 30u above their feet.
+        n_z = n_hover + n_bob + self.acc_roam_z;
+        if ( n_z < 30 ) n_z = 30;
 
         anchor = owner.origin
                  + ( Cos( self.acc_orbit ) * n_radius * self.acc_roam_rad,
                      Sin( self.acc_orbit ) * n_radius * self.acc_roam_rad,
-                     n_hover + n_bob + self.acc_roam_z );
+                     n_z );
 
         // Wall clamp: if the orbit point is inside geometry (owner hugging a wall/doorframe), pull
         // it back along the eye->anchor line so the drone tucks in instead of clipping through.
@@ -2064,11 +2106,19 @@ function sentry_hover_loop()   // self = the drone (script_model)
             self MoveTo( v_goal, 0.05 );
         }
 
-        // Face the current target if there is one, else look along the orbit's direction of travel
-        // (tangent = orbit angle + 90) so it reads as patrolling around you rather than staring.
-        n_face = self.acc_orbit + 90;
+        // Face the current target if there is one, else look along the ACTUAL direction of travel
+        // (free-roam: the tangent guess is wrong when reversing/cutting chords) so it reads as
+        // patrolling around you rather than staring.
         if ( isdefined( self.acc_drone_target ) && isalive( self.acc_drone_target ) )
             n_face = VectorToAngles( self.acc_drone_target.origin - self.origin )[ 1 ];
+        else
+        {
+            v_travel = anchor - self.origin;
+            if ( Distance2D( anchor, self.origin ) > 4 )   // Distance2D not Length2D: proven builtin (53 stock uses)
+                n_face = VectorToAngles( v_travel )[ 1 ];
+            else
+                n_face = self.angles[ 1 ];               // hovering at the goal: hold the last heading
+        }
         self RotateTo( ( 0, n_face, 0 ), 0.15 );
     }
 }
@@ -2082,8 +2132,8 @@ function sentry_fire_loop()   // self = the drone
 
     for ( ;; )
     {
-        // SWARM (3-stack easter egg): +50% fire rate = interval / mult (0.9s -> 0.6s).
-        wait( getdvarfloat( "acc_drone_fire_sec", 0.9 ) / sentry_swarm_mult( self.owner ) );
+        // SWARM (3-stack easter egg): +50% fire rate = interval / mult (1.2s -> 0.8s).
+        wait( getdvarfloat( "acc_drone_fire_sec", 1.2 ) / sentry_swarm_mult( self.owner ) );   // 0.9 -> 1.2: -25% DPS all lanes (user 2026-08-01)
         owner = self.owner;
         if ( !isdefined( owner ) || !( isdefined( owner.acc_item_sentry_drone ) && owner.acc_item_sentry_drone ) )
         {
@@ -2100,7 +2150,7 @@ function sentry_fire_loop()   // self = the drone
 
         // CLAIM the target for 0.7s (STACKED drones, user 2026-07-25): sibling drones' pick_target
         // prefers unclaimed zombies, so a 2-3 drone fleet spreads bolts across the horde instead of
-        // triple-bolting the same nearest zombie. Expires before THIS drone's own next shot (0.9s
+        // triple-bolting the same nearest zombie. Expires before THIS drone's own next shot (1.2s
         // cadence), so solo behavior is completely unchanged.
         z.acc_drone_claim_until = GetTime() + 700;
 
@@ -2235,7 +2285,7 @@ function sentry_bolt_damage( owner, z )
     // Boss/elite CHIP lane (user 2026-07-25): a fraction of ONE NORMAL ZOMBIE's round HP (the
     // cyberjack storm_dot_tick tough-enemy recipe) - round-proof, and NEVER a fraction of the
     // boss's own pool (the exact mark bypasses the boss per-hit cap by design; 25% of a boss's
-    // maxhealth per 0.9s bolt would melt the whole roster). Swarm mult still applies after.
+    // maxhealth per 1.2s bolt would melt the whole roster). Swarm mult still applies after.
     // 0.35 -> 0.2975 -> 0.26775 (2026-07-27 -15%, then another -10%).
     if ( isdefined( z ) && sentry_is_tough( z ) )
     {
@@ -2335,8 +2385,8 @@ function sentry_launcher_loop()   // self = the drone
 
     for ( ;; )
     {
-        // SWARM (3-stack easter egg): +50% launcher rate = interval / mult (4.5s -> 3.0s).
-        wait( getdvarfloat( "acc_drone_launch_sec", 4.5 ) / sentry_swarm_mult( self.owner ) );
+        // SWARM (3-stack easter egg): +50% launcher rate = interval / mult (6.0s -> 4.0s).
+        wait( getdvarfloat( "acc_drone_launch_sec", 6.0 ) / sentry_swarm_mult( self.owner ) );   // 4.5 -> 6.0: -25% DPS all lanes (user 2026-08-01)
         owner = self.owner;
         if ( !isdefined( owner ) || !( isdefined( owner.acc_item_sentry_drone ) && owner.acc_item_sentry_drone ) )
         {
@@ -2668,9 +2718,9 @@ function set_gas_bar_fill( frac )    // self = bar BG elem
 //     (get_closest_uncloaked_player). NEVER write .ignoreme directly - laststand
 //     shares the same counter; use the increment/decrement pair.
 // Phase Serum -> PHASE-BOSS SUPPRESSION AURA (user 2026-06-29 NERF, was a glitch-only cloak). It NO LONGER hides
-// you. While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 0.36x speed AND loses its blink
-// (its glitch ability), and any Phantom in the same aura is slowed by 24% (user 2026-07-22: whole item -20% -
-// the old 0.2 "basically freezes glitches"; glitch 80% -> 64% slow, phantom 30% -> 24%. Phantom slow was
+// you. While held, any Glitch Stalker within acc_phase_serum_radius is slowed to 0.456x speed AND loses its blink
+// (its glitch ability), and any Phantom in the same aura is slowed by 20.4% (user 2026-08-03: whole item -15% on top of
+// the 2026-07-22 -20% - the old 0.2 "basically freezes glitches"; glitch 64% -> 54.4% slow, phantom 24% -> 20.4%. Phantom slow was
 // gait-only from 2026-07-11, teleports keep working). Both can still SEE + chase you. Aura check = acc_utility::serum_aura_active;
 // read by _acc_boss_glitch (glitch_speed_think + glitch_blink_loop via acc_serum_suppressed) and
 // _acc_boss_phantom (phantom_speed_think). The old acc_cloak_glitch flag is cleared so the Stalker targets a
@@ -2679,7 +2729,7 @@ function apply_arnie_cloak()    // self = player
 {
     self.acc_phase_serum = true;
     self.acc_cloak_glitch = false;   // drop the old cloak - the Stalker CAN target a serum-holder now
-    acc_utility::log( "equip: phase_serum (phase-boss aura: glitch 0.36x + no blink, phantom -24% speed in range)" );
+    acc_utility::log( "equip: phase_serum (phase-boss aura: glitch 0.456x + no blink, phantom -20.4% speed in range)" );
 }
 function remove_arnie_cloak()
 {
@@ -3305,10 +3355,11 @@ function scatter_spot_clear( p, floor_z )
     if ( !isdefined( tr ) || !isdefined( tr[ "position" ] ) ) return false;
     return ( abs( tr[ "position" ][ 2 ] - floor_z ) <= 24 );
 }
-function spawn_bench_pad( org, slot )   // slot = fixed target index (0-based; one pad per implant slot)
+function spawn_bench_pad( org, slot, yaw )   // slot = fixed target index (0-based; one pad per implant slot); yaw optional - the Paradise row passes 90, the Plaza lab row omits it = default pose
 {
     bench = spawn( "script_model", org );
     bench setmodel( "p7_zm_isl_table_operating" ); // Implant Bench: Zetsubou operating table (surgical install read)
+    if ( isdefined( yaw ) ) bench.angles = ( 0, yaw, 0 );
     acc_interact_glow::glow_on( bench );
 
     t = spawn( "trigger_radius_use", org + ( 0, 0, 40 ), 0, getdvarint( "acc_bench_pad_radius", 40 ), 80 );

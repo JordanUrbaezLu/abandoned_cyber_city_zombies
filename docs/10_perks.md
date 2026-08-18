@@ -312,8 +312,11 @@ See [11_controls_and_hud.md](11_controls_and_hud.md) for HUD element spec.
 **The 10 perk machines are spread across the whole map on 10 fixed pads, and the perk→pad
 assignment reshuffles at random at the start of every round divisible by 3** (3, 6, 9, … —
 `ACC_SCATTER_INTERVAL`). The **opening layout is also random**, rolled per run and applied during
-load while the blackscreen still hides the map. A scatter is announced (*"PERK MACHINES
-SCATTERED"* banner) but the new homes are **not** revealed — finding them is the gameplay.
+load while the blackscreen still hides the map. Only the **first** scatter of a match is
+announced (*"PERK MACHINES SCATTERED — find their new homes"*, via
+`acc_utility::announce_once`; 2026-08-01 — the every-3rd-round repeat of the banner got
+annoying, and the moved machines + perk lights are the per-scatter tell). The new homes are
+**not** revealed either way — finding them is the gameplay.
 **Swap presentation (2026-07-25, punched up same day after the first test read as "nothing"):**
 each live scatter plays the teleporter's de-rez read at **both** ends of every move — cyan
 de-rez numbers + zap burst and the `acc_teleport_warp` boom at the vacated pad (open air —

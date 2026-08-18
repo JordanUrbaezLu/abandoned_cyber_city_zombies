@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// !! 2026-08-02 NOTE (gen_compress_lab_paradise.js): the applied office was TRANSLATED
+// -360 in y by the lab compression - the live room interior is x[-275,125] y[3888,4208],
+// its doorway now cuts the NEW inner Lab N wall at y[3868,3888] (the coordinates below
+// describe the ORIGINAL as-built placement and are kept for the historical record; the
+// old outer-wall doorway is plugged). Do not re-run this against the compressed map.
 // gen_scientist_office.js - THE SCIENTIST'S OFFICE (user 2026-07-26): a small buyable
 // room behind the Lab's NORTH wall (where the old 10-alcove perk row was), themed as the
 // gun-stealing Scientist boss's office (docs/44 lore hook). Contains the Exo Suit station
