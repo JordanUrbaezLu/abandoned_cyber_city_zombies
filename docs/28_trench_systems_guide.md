@@ -16,11 +16,11 @@ survive the next twenty.
   danger zone. The **Foundry room** opens off the pit through a buyable door (1500).
 
 ## The danger (why it's a risk)
-While anywhere underground you get **amped zombies** (faster + hit harder + tankier, scaling **+3% move / +25% health / +4 HP melee per layer** the deeper you go), a **−20% move slow**, a
-**spawn surge that erupts at YOUR current layer** (on entry, on descending to a new layer, and a continuous drip while you stay down — so the deeper layers populate as you reach them, not just the pit), and a small **fall tax** if you dive in. The reward has to be worth it —
+While anywhere underground you get **amped zombies** (faster + hit harder + tankier, scaling **+4% move / +25% health / +5 HP melee per layer** the deeper you go), a **−20% move slow**, a
+**spawn surge that erupts at YOUR current layer** (on entry, on descending to a new layer, and a continuous drip while you stay down — so the deeper layers populate as you reach them, not just the pit; since the scare pass 2026-08-01 the surge grows and the drip quickens the deeper you go), and a small **fall tax** if you dive in. The reward has to be worth it —
 that's everything below.
 
-> Per-layer numbers (N = layer 1–5): move **+3%·N**, health **+25%·N** (**stacks on top of** round + co-op HP, so final = (round curve × player-count mult) × (1 + 0.25·N) — both scale, user 2026-07-04; per-layer HP nerfed 30→27→25, user 2026-07-16), melee **+4·N flat HP** (base 45 → 49/53/57/61/65). Dvars: `acc_trench_layer_speed_pct` (3), `acc_trench_layer_hp_pct` (25), `acc_trench_layer_dmg_add` (4) — speed 4→3, HP 30→25, melee 6→4, user 2026-07-16. Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers, L2–L5 = computed floor risers) and erupts there.
+> Per-layer numbers (N = layer 1–5): move **+4%·N**, health **+25%·N** (**stacks on top of** round + co-op HP, so final = (round curve × player-count mult) × (1 + 0.25·N) — both scale, user 2026-07-04; per-layer HP nerfed 30→27→25, user 2026-07-16), melee **+5·N flat HP** (base 45 → 50/55/60/65/70). Dvars: `acc_trench_layer_speed_pct` (4), `acc_trench_layer_hp_pct` (25), `acc_trench_layer_dmg_add` (5) — speed 4→3, HP 30→25, melee 6→4, user 2026-07-16; scare pass 2026-08-01 ("+35% scarier") re-raised speed 3→4 and melee 4→5. Spawning: `spawn_corp_surge` reads each underground player's layer (`get_layer_risers`: L1 = map pit risers **+ 2 synthetic mid-band extras** at (−250,1770)/(250,2120), L2–L5 = **6** computed floor risers each, was 4 — both riser adds pure GSC, no `.map` edit, scare pass 2026-08-01) and erupts there. Surge count = `acc_trench_surge_count` (5) **+ layer − 1** (pit entry L1 unchanged at 5; L2 6 … L5 9), shared cooldown `acc_trench_surge_cd_sec` **6s** (was 8); the stay-down drip (`trench_ai_pressure`) now scales off the **deepest occupied layer** — interval `acc_trench_drip_sec` (5.0) − 0.5·(deepest−1), floored 3.0s (L1 5s unchanged … L5 3s), count `acc_trench_drip_count` (2) + int(deepest/2) (L1 2 / L2–L3 3 / L4–L5 4; the 3s floor only clamps the depth subtraction — a live-tuned base below 3s is honored). The red DANGER warning also **re-pulses on every new deeper floor from L3 down** (was entry-only; `trench_warning_on` gained a re-thread guard, `acc_trench_warn_restart`) — all scare pass 2026-08-01.
 
 ## The things in the trench
 
@@ -34,20 +34,24 @@ All numbers are tight and even.
 | **Trench Warden** (Brutus) | Near the trench | The signature mini-boss; killing him grants the **unified boss reward** (identical for every boss, user 2026-07-05) to **every player**: **int(round ÷ 3) shards** + **round × 180 points** + **1 guaranteed boss item** (dupes convert to shards at pickup) + **1 Mega Bottle**. Round-scaling, so the debut kill pays more the later it lands (e.g. round 9 → 3 shards + 1,620 pts). (`acc_boss::grant_unified_boss_reward`; tunables `acc_boss_shards_round_div` = 3, `acc_boss_score_per_round` = 180.) | **int(rnd/3)** all |
 | **Reactor Plinth** | Pit (north) | The climax: **activate** (free), then a **~3-round cooldown** → **survive a fast, scary 5-wave surge** (13 zombies/wave ~2.1s apart, **+3 Shielded elites & 1 Glitch Stalker per wave** — user 2026-06-25 scary pass: 5 waves + ~30% more aggressive + more armor) → **everyone +5 shards + a shared Fire Sale** (user 2026-06-27, was an Insta-Kill) **+ 1 random Implant world drop at the armer** (user 2026-07-16; free-for-all, same dupe→shards pickup as a boss drop). The Shielded/Glitch spawns give **no shards** (a threat, not a farm — same as the glitch purge). Re-arm is a self-healing round-number cooldown (`acc_reactor_cooldown`), so it can't lock. | **+5** all |
 | **Neural Expansion Bay** | Foundry (east) | The marquee buy: **+1 perk slot** (start at 4, up to 10 — so 6 buyable slots). | spend (4/6/8/10/12/14) |
-| **Glitch Altar** | Abyss **floor 3** (west) | **Gamble 2 shards/spin** for a weighted result: usually a boon (Max Ammo / Insta-Kill / Double Points / free perk / +4 shard jackpot / rare ~2% Mega Win = Free Perk + Insta-Kill), sometimes a curse (surge / −2 drain / dud). ~65% boon / ~35% curse; net-negative, can't be farmed. | spend (2/spin) |
+| **Glitch Altar** | Abyss **floor 3** (west) | **Gamble shards at a RISING price** (2026-08-02 nerf: base **4**, +2 per spin each round — resets on the new round; 12 s cooldown; the hint always shows the live price). A **true gamble** now: **45% win**, mostly small (+1 trickle 16 / +250 pts 12 / **+5 jackpot** 8); powerups + free perk are just **7** combined and **capped at ONE powerup-class hit per round** (extras pay a +1 "grid spent" trickle); the rare **2% MEGA Win** = Free Perk + Insta-Kill + **10 shards**. **55% curse** (surge 20 / **−3 drain** 15 / dud 20). EV ≈ **−3.7 shards/spin** at base price; can't be farmed. | spend (4, 6, 8, …/spin) |
 | **Cyberware Weapon Overclock** | Abyss **floor 2** (west) | **Upgrade the gun you're holding** (per-gun) across 10 tiers. Each tier gives a **small boost to 4 effects at once** — flat damage, glitch piercing (vs glitch zombies), headshot ammo-refund, and shield piercing (vs the Riot's front armor) — minimal at T1, full at T10. | spend (4/8/12/16/20/24/28/32/36/40) |
 | **Ammo Crate** ×2 | Abyss **floor 2** (east, by the OC) & **floor 5** (bottom, before Paradise) | Refills the **held weapon's reserve** (personal Max Ammo). Costs **points** by PaP state: **1000** base / **5000** Pack-a-Punched / **10000 flat for wonder weapons** (Thundergun / Fire Bow / Blast-O-Matic, regardless of PaP; user 2026-07-08). Melee / no-PaP specials (incl. the **Action Figure** and the ammo-less **Leviathan Axe**) can't be refilled here — charges nothing. | **points** (1000/5000/10000) |
-| **Exo Suit** | Foundry (west) | **Per-player**, 10 tiers. Each tier lets you walk **normal speed one trench layer deeper** (the trench slows you more each layer down — the Exo Suit is the only thing that cancels it). The key to reaching the deep layers. | spend (4/8/12/16/20/24/28/32/36/40) |
+| **Exo Suit** | Scientist's Office (behind the Lab N wall) | **Per-player**, 10 tiers. Each tier lets you walk **normal speed one trench layer deeper** (the trench slows you more each layer down — the Exo Suit is the only thing that cancels it). The key to reaching the deep layers. | spend (4/8/12/16/20/24/28/32/36/40) |
 
 > **Jukebox (dev note):** the **NORTH** under-room (opposite the SOUTH "Foundry" room that holds the
-> Exo Suit station + Neural Expansion Bay) has a **JUKEBOX machine** (IW `cp_town_jukebox` model, eMoX pack model-only lift) on
+> Neural Expansion Bay; the Exo Suit station MOVED to the Scientist's Office behind the Lab N wall on
+> 2026-07-26 -- _acc_exo::spawn_station_at (-200,4120,0), no longer in the Foundry) has a **JUKEBOX machine** (IW `cp_town_jukebox` model, eMoX pack model-only lift) on
 > the west side at `(-150, 2240, -240)` (moved 2026-07-10 to spread it away from the reactor plinth; was
 > `(-140, 2350)`) — it **replaced the 3 teddy bears** (2026-07-09). Holding [activate]
 > charges **2 Data Shards + 1000 points** and plays a **RANDOM song** from the playlist (never the same one
 > twice in a row) 2D for the whole lobby, then stays **busy for exactly the picked song's length**
 > (engine-queried `SoundGetPlaybackTime`, replaced the fixed 5-min cooldown 2026-07-18; `acc_jukebox_cooldown`
 > is now only the fallback if the query fails); it is never
-> consumed (repeatable all game). A **`NOW PLAYING <title>`** banner shows the song's name to **all
+> consumed (repeatable all game). **Music priority (2026-08-02, docs/23 §1a):** the jukebox is the
+> LOWEST-priority song source (`jukebox < boss < paradise`) — the purchase is **denied (uncharged)**
+> while boss/Paradise music owns the channel, and if a boss/Paradise track cuts a playing song the
+> busy hold **self-clears** (instantly re-buyable; the cut song is not refunded). A **`NOW PLAYING <title>`** banner shows the song's name to **all
 > players**. Playlist (7 songs): "Cyber Dreams" (Lilex), "Night Groove", "I Want To
 > Stay At Your House" (aliases `acc_ee_song`/`_2`/`_3`; ~180s/168s/247s) + the 2026-07-18 additions
 > "Dead Again", "Beauty of Annihilation", "Can You Hear Me? Come In", "The Gift" (`_4`-`_7`, 48k stereo;
@@ -84,7 +88,7 @@ user cut it to `0.05`/tier on 2026-06-25, then `0.04`/tier on 2026-07-08.)
 ## Exo Suit — the trench depth gate (docs/29)
 
 **Per-player**, **10 tiers** (user 2026-06-24; cost **4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 36 / 40** Data
-Shards = **4 × tier**, **220** to max — the SAME ladder as the gun Overclock), bought at the Exo Station. The
+Shards = **4 × tier**, **220** to max — the SAME ladder as the gun Overclock), bought at the Exo Station (relocated 2026-07-26 to the Scientist's Office behind the Lab N wall -- was the Foundry west). The
 HUD shows your tier as **EXO SUIT N/10**. Three augments scale with tier:
 
 | Augment | /tier | T5 | **T10 (max)** |

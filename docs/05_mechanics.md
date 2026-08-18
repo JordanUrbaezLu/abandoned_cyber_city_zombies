@@ -8,11 +8,20 @@ A zombies round has an implicit structure; we make ours explicit and tune each p
 
 ```mermaid
 flowchart LR
-    Prep[Prep phase<br/>5-8s, no zombies] --> Spawn[Spawn phase<br/>zombies appear in waves]
+    Prep[Prep phase<br/>~5s, no zombies] --> Spawn[Spawn phase<br/>zombies appear in waves]
     Spawn --> Combat[Combat phase<br/>player cleans up]
     Combat --> Bleed[Bleed phase<br/>last 1-3 zombies]
     Bleed --> Prep
 ```
+
+**Between-round time (user 2026-08-03 "rounds should start up super quickly"):** round N+1
+begins **spawning ~5 s after round N's last kill**. Stock's chain was ~13.5 s (≤1 s end-of-round
+detect poll + 10 s `zombie_vars["zombie_between_round_time"]` + a hardcoded 2.5 s `round_one_up`
+wait); we overwrite the zombie_var to **2.0** (`ACC_BETWEEN_ROUND_TIME`,
+`_acc_main::configure_spawn_density` — stock `round_over()` re-reads it live every round). The
+remaining ~2.5 s + poll are hardcoded stock (going lower needs a `round_wait_func` /
+`zombie_round_change_custom` pointer swap — not worth it at the 5 s target). In-round spawn
+pacing (`ACC_SPAWN_DELAY_MULT`) is a separate, unchanged knob.
 
 We tune two levers that stock BO3 mostly leaves alone:
 
@@ -283,10 +292,12 @@ flowchart LR
   flat count (round scaling removed, user 2026-06-19). (reconciled to code 2026-07-11)
 - **SOURCE — Trench Warden:** the recurring trench boss grants `int( round / acc_boss_shards_round_div )` shards
   (default divisor **3**) to every player on death — the shared boss-death reward, not a fixed `acc_warden_shard_reward` (no such dvar exists).
-- **SOURCE — Glitch Altar:** the jackpot boon (net-negative EV — see below).
+- **SOURCE — Glitch Altar:** the jackpot/trickle/mega boons — a *nominal* source only: since the
+  2026-08-02 nerf pass EV is roughly **−3.7 shards/spin at base price** (worse as the per-round price
+  escalates) — see below.
 - **SOURCE — Passive trench income (user, 2026-06-26):** simply *standing in a trench layer* pays **1 Data
-  Shard every N seconds**, where N shrinks with depth — **L1 (Bus Station pit) 45s, L2 31s, L3 20s, L4 12s,
-  L5 7s** — so deeper = more reward for the greater risk. **Per-player** (each player who braves the pit
+  Shard every N seconds**, where N shrinks with depth — **L1 (Bus Station pit) 60s, L2 41s, L3 27s, L4 16s,
+  L5 9s** (income −25%, user 2026-08-01: was 45/31/20/12/7) — so deeper = more reward for the greater risk. **Per-player** (each player who braves the pit
   earns their own; no shared pool). The clock counts only while underground (it does NOT tick on the surface
   or in Paradise) and resets the instant you leave the trench; it carries across layer changes (paid at the
   current layer's rate). Cap-clamped by the shard cap, so it stops at the cap and resumes after spending.
@@ -457,23 +468,43 @@ Emergency drops are a **clutch button**. 3 Shards is meaningful (third of a full
 
 ## Glitch Altar System (the shard gamble)
 
-The dangerous Bus Station **trench** is also a **casino**. A **Glitch Altar** sits in the Plaza-facing trench
-room: **gamble Data Shards** (default **2**, dvar `acc_altar_cost`) for a **weighted jackpot** on a short
-cooldown (`acc_altar_cooldown`, 6 s). Roughly **65% boons / 35% glitch-curses** (user 2026-06-24, riskier
-"spice it up" tune — was 72/28), odds telegraphed in the use hint. Curses **never instant-down** you.
-Implemented in `_acc_glitch_altar.gsc` — a script-spawned hold-USE trigger + glowing core, **pure GSC** (no
-geometry, ships `-GscOnly`).
+The dangerous Bus Station **trench** is also a **casino** — and since the 2026-08-02 "HUGE nerf" pass, a
+predatory one. A **Glitch Altar** sits in the Plaza-facing trench room: **gamble Data Shards** for a
+**weighted roll** on a cooldown (`acc_altar_cooldown`, **12 s** — was 6). The price **doubled and now
+escalates within a round**: base **4** (dvar `acc_altar_cost`; was 2, originally 4 pre-2026-06-19), then
+**+`acc_altar_price_step` (2) per spin that round** — 4, 6, 8, … — resetting at the new round (a
+trigger-side round check + a 2 s `altar_round_watch` thread that also refreshes the hint; the hint is
+**LIVE** via `altar_refresh_hint` — never a baked cost string). Odds flipped to **45% wins / 55%
+glitch-curses** (was 65/35 from the 2026-06-24 "spice it up" tune, itself from 72/28), odds still
+telegraphed in the use hint. Curses **never instant-down** you. Implemented in `_acc_glitch_altar.gsc` —
+a script-spawned hold-USE trigger + glowing core, **pure GSC** (no geometry, ships `-GscOnly`).
 
-- **Boons (65%):** Max Ammo (15) · Insta-Kill (13) · Double Points (12) · a random free Perk (8) · **Shard Jackpot** (15, +4 shards) · **Mega Win** (2, free Perk + Insta-Kill — the marquee ~2% top prize).
-- **Curses (35%, never down you):** **Surge** (16 — an immediate burst of trench zombies via `acc_bus_trench::spawn_corp_surge`) · **Corruption** (11 — lose up to 2 banked shards) · **Dud** (8 — nothing, you lose the spin).
+- **Small wins (36):** **Shard Trickle** (16, +1 shard — a "win" that still nets negative) · **Pocket
+  Points** (12, +250 points via `zm_score::add_to_player_score`, dvar `acc_altar_points`) ·
+  **Shard Jackpot** (8, was 15 — payout +**5** shards, `acc_altar_jackpot` 4 → 5).
+- **Powerup/perk (7 — was 50):** Max Ammo (3, was 15) · Double Points (2, was 12) · Insta-Kill (1, was
+  13 — THE spam-degenerate lane) · a random free Perk (1, was 8).
+- **Mega Win (2, unchanged %):** the marquee top prize, sweetened — free Perk + Insta-Kill + **10 bonus
+  shards** (`acc_altar_mega_shards`).
+- **Curses (55 — was 35, never down you):** **Surge** (20 — an immediate burst of trench zombies via
+  `acc_bus_trench::spawn_corp_surge`) · **Corruption** (15 — lose up to **3** banked shards, drain
+  2 → 3) · **Dud** (20 — nothing, you lose the spin).
 
-Distinct from the Emergency Drop (the *guaranteed* 3-shard clutch button): the Altar is **higher variance**
-with a real downside, and its shard EV per spin is **negative** (the partial jackpot can't be farmed — the
-altar is a sink, the boons are the value). This is the user-chosen answer to "what do Data Shards do"
-(2026-06-18, workflow `underground-shards-design`); the other live shard sink is the **Overclock terminal**
-in the Foundry (reached through the deeper-access door). (The Cyberware kiosk that once shared the room is
-**dormant** — see "The Foundry" above.) All payouts are live dvars
-(`acc_altar_jackpot` / `acc_altar_surge` / `acc_altar_drain`) for tuning.
+**ONE powerup-class hit per round** (Max Ammo / Insta-Kill / Double Points / Mega Win): a second
+powerup-class roll in the same round reroutes to **"grid spent"** — the +1 shard trickle with a distinct
+message. A capped Mega Win keeps its perk + 10 shards and loses only the Insta-Kill half. This cap is
+what actually kills Insta-Kill chaining — the weight cut alone can't stop a 500-shard-deep fisher.
+
+Distinct from the Emergency Drop (the *guaranteed* 3-shard clutch button): the Altar is a **true gamble**
+with a firmly negative EV — roughly **−3.7 shards/spin at base price** (worse escalated), and a
+powerup/perk lands about 9% of spins (~1 in 11) instead of every other spin, with Insta-Kill chaining
+impossible. The altar is a sink; the rare boons + the 2% Mega showpiece are the value. This is the
+user-chosen answer to "what do Data Shards do" (2026-06-18, workflow `underground-shards-design`); the
+other live shard sink is the **Overclock terminal** in the Foundry (reached through the deeper-access
+door). (The Cyberware kiosk that once shared the room is **dormant** — see "The Foundry" above.) All
+payouts are live dvars (`acc_altar_cost` / `acc_altar_price_step` / `acc_altar_cooldown` /
+`acc_altar_jackpot` / `acc_altar_points` / `acc_altar_mega_shards` / `acc_altar_surge` /
+`acc_altar_drain`) for tuning.
 
 ## Feedback Loops (summary)
 

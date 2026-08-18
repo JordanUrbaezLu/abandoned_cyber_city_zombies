@@ -142,7 +142,8 @@ Bench** — a dup they already own converts to Data Shards at grab (`watch_picku
 ## Both stations ALSO in Paradise (user 2026-07-13)
 
 The finale arena gets its own copy of **both** stations (`_acc_glitch_altar::spawn_paradise`): the weapon
-rack at **`(-850,-1350)`** (west-mid) and the bottle exchange at **`(-850,-1650)`** (west), a west-wall
+rack at **`(-550,-1180)`** (west-mid) and the bottle exchange at **`(-550,-1430)`** (west)
+(re-homed 2026-08-02 with the Paradise compression to x[-700,700] y[-2000,-600]), a west-wall
 amenity pair so you don't have to leave the fight. The bottle exchange is stateless, so it just spawns a
 second time. The rack needed a refactor first:
 

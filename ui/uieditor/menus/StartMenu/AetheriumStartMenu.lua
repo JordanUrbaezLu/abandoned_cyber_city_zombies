@@ -23,7 +23,7 @@ local ACC_IMPLANT_INFO = {
 	[2]  = { name = "Loot Stash",           desc = "+10 points per kill",                 emblem = "i_acc_emblem_loot_stash" },
 	[3]  = { name = "Repair Kit",           desc = "+8 HP per second",                    emblem = "i_acc_emblem_repair_kit" },
 	[4]  = { name = "Rocket Shield",        desc = "+100% slide speed, 2x jump, riot shield", emblem = "i_acc_emblem_rocket_shield" },
-	[5]  = { name = "Phase Serum",          desc = "Nearby glitch bosses -64% speed",     emblem = "i_acc_emblem_phase_serum" },
+	[5]  = { name = "Phase Serum",          desc = "Nearby glitch bosses -54% speed",     emblem = "i_acc_emblem_phase_serum" },
 	[6]  = { name = "Boots",                desc = "+10% move speed",                     emblem = "i_acc_emblem_boots" },
 	[7]  = { name = "Lucky Horseshoe",      desc = "+50% drop luck, bonus power-ups",     emblem = "i_acc_emblem_lucky_horseshoe" },
 	[8]  = { name = "Turbocharger (Havoc)", desc = "Havoc: instant charge-up",            emblem = "i_acc_emblem_turbocharger" },

@@ -11,7 +11,12 @@
 neon lights · reflection probes) is **SHIPPED**. The scene is lightmap-baked (LED
 bakes again after the pre-stage3 revert — `-SkipLED` is a RED FLAG, not the
 default). The colour grade ships **OFF** (base game colours) with dormant
-live-swappable grades. Fog is ON by default. Code:
+live-swappable grades. Fog is ON by default, and **since 2026-07-29 the power-on
+settle ends in a permanent thin RESIDUAL haze, never a full disable**
+(`hold_settled_fog()`, `acc_fog_residual_*` dvars — docs/46 Phase 0; light pools
+need a medium to read as volumes). **THE ACTIVE PLAN for everything visual is now
+[46_visual_overhaul.md](46_visual_overhaul.md)** (noir relight → cascade → emissives
+→ vista/holo → volumes/rain → open Helipad); this doc stays the mechanism reference. Code:
 [_acc_atmosphere.gsc](../scripts/zm/zm_abandoned_cyber_city/_acc_atmosphere.gsc)
 (fog/vision/ambient/FX) +
 [_acc_perk_lights.gsc](../scripts/zm/zm_abandoned_cyber_city/_acc_perk_lights.gsc)/`.csc`
@@ -147,6 +152,20 @@ Mood + material reference per zone (see [02_layout.md](02_layout.md) for the
 gameplay graph). "Hero" = the 1–2 surfaces worth custom emissive/backdrop work.
 Actual per-face materials are applied by `tools/apply_zone_materials.js` +
 `tools/paint_region.js`; this table is the mood intent behind those picks.
+
+**ZONE-HUE CANON (locked 2026-07-29, docs/46 — the baked `acc_neon` light rig WINS
+over this table's older accent column wherever they disagree):** Plaza **cyan** ·
+Market **magenta** · Alley **red** · Bus Station/corp **blue-cyan** · Vault
+**green** (not the "cyan+amber" below) · Helipad **orange/amber** · Lab **purple**
+· Exchange **sodium amber** · trench **blue fading to BLACK** (the baked YELLOW
+pools below z0 STAY — industrial caution under the infection) · Paradise
+cyan/purple as shipped. ONE pool colour per zone; in-zone complementary accents
+ride emissive SIGNAGE surfaces only, never light pools. The ACCNR01 noir relight
+(`tools/oneshots/noir_relight_v1.js`, revert = `--revert`) executes this canon:
+whites tinted 25-40% toward the zone hue, grid bake 1.3→0.7, pools 1.0-1.2 and
+re-homed onto fixture props, 11 shadow-casting PRIMARY_SPOT downlights on the
+landmarks (the map's first shadows), 9 fixture-pair omnis, 4 dark below-surface
+probes, lightingquality 2048 (4096 = pending audition; spot "volumetric" KVP = `"volumetric" "1"`).
 
 | Zone | Mood | Walls / floors | Neon accent |
 |---|---|---|---|

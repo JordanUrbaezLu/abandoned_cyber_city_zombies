@@ -17,9 +17,11 @@
 // the tagged "vault floor slab" brush, .map ~L2603: top -160, room x[-720,300] y[-448,360],
 // ceiling -16) directly UNDER the spawn Plaza, reached by a stairwell carved DOWN from the
 // Implant Lab and gated by the buyable "enter_exchange" door (1500, wired in
-// zm_abandoned_cyber_city.gsc). NOTE the -240 belief also shaped spawn_station(): ATM bases
-// spawn at origin+(0,0,-80) = z=-240, i.e. 80u UNDER the real floor - only the totem's top
-// ~23u shows (it reads as a low pedestal in-game; left as-is 2026-07-17, user's call to raise).
+// zm_abandoned_cyber_city.gsc). NOTE the old -240 belief once shaped spawn_station(): ATM
+// bases used to spawn at origin+(0,0,-80) = 80u UNDER the real -160 floor - only the totem's
+// top ~23u showed. CLOSED 2026-08-03 (docs/47 audit Phase A, the user's placement pass
+// re-opened the 2026-07-17 "user's call to raise"): bases now spawn AT origin (z=-160,
+// flush), clips re-synced bot -160/top -57.
 // It is excluded from the trench amping + OOB-kill via origin_in_vault() in
 // _acc_bus_trench.gsc (a SAFE utility room).
 //
@@ -55,8 +57,8 @@
 // model the Glitch Altar uses).
 // STATION REMODEL (user 2026-07-09, docs/09): ATM totem (37x34x103, T7-dump carve; Zurich
 // ticket-kiosk mesh family) - the deposit/withdraw read for the 4 vault stations. Its origin is
-// at the BASE (station origins are z=-160 = 80 above the -240 floor, tuned to the old kiosk
-// pivot), so the model spawns -80 to sit on the floor; pads/triggers keep the -160 origins.
+// at the BASE and the vault floor is z=-160 (NOT -240 - the header's old stale claim), so the
+// model spawns AT the station origin, flush (2026-08-03 fix); pads/triggers keep the -160 origins.
 #precache( "model", "p7_out_monitor_atm" );
 
 #namespace acc_transfer;
@@ -98,8 +100,13 @@ function spawn_stations()
 
 function spawn_station( kind, origin )
 {
-    base = spawn( "script_model", origin + ( 0, 0, -80 ) );   // ATM origin is at its base - drop to the -240 floor
+    base = spawn( "script_model", origin + ( 37, 0, 0 ) );   // ATM origin is at its base + BACK face; spawn AT the real -160 floor (raise
+                                              // fix 2026-08-03) and +37x so the yaw-180 flip below leaves the 37u-deep mesh
+                                              // in the SAME world box x[80,117] - transfer_* clips + both pads untouched.
+                                              // Screen lands at x=80 facing WEST at the stair approach (docs/47 trench
+                                              // finding 3: the row showed 4 machine BACKS to the room's only entrance).
     base setmodel( "p7_out_monitor_atm" );
+    base.angles = ( 0, 180, 0 );
     acc_interact_glow::glow_on( base );
 
     // DEPOSIT pad (west of the terminal) + WITHDRAW pad (east of the terminal).

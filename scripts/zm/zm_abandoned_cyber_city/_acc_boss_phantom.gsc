@@ -89,7 +89,7 @@
 #define ACC_PHANTOM_REVEAL_DIST_DEF   240   // stay invisible until THIS close, then materialize (was 400 - now he's on you)
 #define ACC_PHANTOM_SPEED_MULT_DEF    1.1   // sprint-gait playback rate. User 2026-06-24: +10% from the 1.0 interim baseline (natural zombie sprint ~181 u/s, KITEABLE vs a player's ~299 sprint). CAVEAT: anim-rate->ground-speed is NON-LINEAR (1.685 once overshot badly = caught+instakilled), so 1.1 is +10% PLAYBACK, not exactly +10% u/s - verify real speed with the [SPD] probe and tune LIVE via acc_phantom_speed_mult.
 #define ACC_PHANTOM_MELEE_DMG_DEF     19    // melee dealt to players: ~30% UNDER a Glitch Stalker's 27/hit (glitch = stock 60 x acc_glitch_melee_dmg_mult 0.45). User 2026-06-24 "not super lethal, 30% less than a glitch" (was 85). Stock zombie=60, our horde=45.
-#define ACC_PHANTOM_SERUM_SLOW_DEF    0.76  // gait mult while inside a Phase Serum holder's aura = 24% slow (user 2026-07-22: Phase Serum -20% across the board, 30% -> 24% slow; was 0.7 from 2026-07-11, retuned twice that day: 0.5 -> 0.6 -> 0.7). Glitch takes 0.36 + loses its blink; the Phantom only slows - teleports keep working. Live dvar acc_phantom_serum_slow; aura radius shared via acc_phase_serum_radius.
+#define ACC_PHANTOM_SERUM_SLOW_DEF    0.796 // gait mult while inside a Phase Serum holder's aura = 20.4% slow (user 2026-08-03: item -15% again, 24% -> 20.4% slow; 2026-07-22 -20% took 30% -> 24% [0.7 -> 0.76]; was 0.7 from 2026-07-11, retuned twice that day: 0.5 -> 0.6 -> 0.7). Glitch takes 0.456 + loses its blink; the Phantom only slows - teleports keep working. Live dvar acc_phantom_serum_slow; aura radius shared via acc_phase_serum_radius.
 #define ACC_PHANTOM_FLICKER_PCT_DEF   12    // % of 0.1s ticks that blip invisible while materialized (hologram flicker)
 
 // TELEPORT mobility (user 2026-06-24). The Phantom blinks to REPOSITION (it stalks via teleport, doesn't just
@@ -263,12 +263,10 @@ function is_full_boss_round( round_number )
 
 function announce_inbound()
 {
-    for ( i = 0; i < level.players.size; i++ )
-    {
-        p = level.players[ i ];
-        if ( isdefined( p ) && isplayer( p ) )
-            p IPrintLnBold( "^5" + ACC_PHANTOM_DISPLAY_NAME + " ^7- something is phasing in..." );
-    }
+    // ONCE PER MATCH (user 2026-08-01): the Phantom respawns on every roster boss round AND
+    // every Paradise minute-wave - the repeated banner got annoying. First arrival explains it;
+    // the nameplate + boss music + boss bar remain the per-spawn tell.
+    acc_utility::announce_once( "phantom_arrival", "^5" + ACC_PHANTOM_DISPLAY_NAME + " ^7- something is phasing in..." );
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +327,19 @@ function spawn_phantom( round_number )
     // 45/60 horde melee. Set AFTER the init-gate (stock writes meleeDamage=60 at spawn).
     host.meleeDamage = getdvarint( "acc_phantom_melee_dmg", ACC_PHANTOM_MELEE_DMG_DEF );
 
-    // Durability: a mobile boss alongside the wave; never pinned (it moves), never gates round end.
+    // Durability: a mobile boss alongside the wave; never gates round end.
+    // [acc] BELOW-WORLD CULL IMMUNITY (user 2026-07-29 "bosses in Paradise randomly die off for being
+    // alive too long"): the host comes from a stock zombie spawner, and _zm_gametype.gsc:909 installs
+    // zombie_utility::round_spawn_failsafe as a spawn function on EVERY zombie spawner - so every
+    // promoted host carries it even though we spawn directly (not via the round loop). Its below-world
+    // branch (zombie_utility.gsc:1857) DoDamage-kills ANY actor below z=-1000 on each 30s tick
+    // REGARDLESS of movement; the Paradise arena / trench L5 floor is z=-1200, so every finale Phantom
+    // silently died ~30s after blinking down to the players. The ROOT fix is map-wide since the same
+    // session (user "nothing down there should just randomly die"): _acc_bus_trench::init moves
+    // below_world_check to -2000, under the deepest real floor. This flag stays as belt-and-braces AND
+    // covers the failsafe's other branch (moved<24u in 30s) - safe to pin: ignore_enemy_count (below)
+    // means a stuck Phantom never gates round end (fury 2026-07-09 / Brutus / Scientist precedent).
+    host.ignore_round_spawn_failsafe = true;
     host DisableAimAssist();
     host.disableAmmoDrop = true;
     host.no_gib = true;
@@ -604,7 +614,7 @@ function phantom_warp_snd( ent )
 
 // Drive the gait every sweep (the global keep-alive skips mini-bosses). Clone of
 // glitch_speed_think. NEVER rate < 1.0 (no slow-mo) - sole exception: the Phase Serum
-// aura's deliberate 30% slow below. NO SetScale.
+// aura's deliberate 20.4% slow below. NO SetScale.
 function phantom_speed_think()
 {
     self endon( "death" );
@@ -622,8 +632,9 @@ function phantom_speed_think()
         // acc_phantom_speed_mult is the live rate; 1.0 = natural zombie sprint (~181 u/s). Target = your
         // sprint +2% (dial it up live, watch PH in the probe, then bake the value).
         rate = getdvarfloat( "acc_phantom_speed_mult", ACC_PHANTOM_SPEED_MULT_DEF );
-        // PHASE SERUM aura (user 2026-07-11): 30% gait slow near a serum holder - the Glitch concept
-        // (acc_serum_suppressed) but a MILDER penalty (glitch = 1/5 + no blink; Phantom keeps its
+        // PHASE SERUM aura (user 2026-07-11; retuned -20% 2026-07-22, -15% 2026-08-03): 20.4% gait slow
+        // near a serum holder - the Glitch concept (acc_serum_suppressed) but a MILDER penalty
+        // (glitch = 0.456x + no blink; Phantom keeps its
         // teleports, only the run slows). The deliberate exception to "never rate < 1.0".
         if ( acc_utility::serum_aura_active( self.origin ) )
             rate = rate * getdvarfloat( "acc_phantom_serum_slow", ACC_PHANTOM_SERUM_SLOW_DEF );

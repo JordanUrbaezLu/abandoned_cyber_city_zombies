@@ -142,12 +142,17 @@ async function main() {
   console.log(`  Total held-gun time         : ${guns.all_seconds.toLocaleString()} s  (${secsToHM(guns.all_seconds)})`);
 
   // === record boards ========================================================
-  console.log(h1("RECORD BOARDS - ALL GAMES (round reached, by squad size)"));
+  // Display capped at top 30 per squad size (user 2026-08-08: full boards got
+  // unreadable at ~900 solo games). The FULL history is still fetched above —
+  // Paradise-win totals and the data-quality name scan run over all rows.
+  const BOARD_SHOW = 30;
+  console.log(h1(`RECORD BOARDS - TOP ${BOARD_SHOW} (round reached, by squad size)`));
   for (const n of [1, 2, 3, 4]) {
     const rows = perCount[n];
-    console.log(`\n  ${COUNT_LABEL[n]}  (${rows.length} recorded)`);
+    const shown = rows.length > BOARD_SHOW ? `, showing top ${BOARD_SHOW}` : "";
+    console.log(`\n  ${COUNT_LABEL[n]}  (${rows.length} recorded${shown})`);
     if (!rows.length) { console.log("    -- no games recorded --"); continue; }
-    rows.forEach((r, i) => {   // ALL rows (user 2026-07-13: was capped at .slice(0,10))
+    rows.slice(0, BOARD_SHOW).forEach((r, i) => {
       // Leading "*" marks a session that beat the Paradise finale so it's scannable at a
       // glance (user 2026-07-21); the trailing tag keeps it explicit. r.winner is parsed
       // from the Worker's "* " row prefix on top10.txt. The mark sits inside the row's

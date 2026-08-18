@@ -323,12 +323,13 @@ post-launch as a content-update beat (idea: SIREN/WIRE daemon variants).
 |---|---|---|
 | `acc_cj_hops_base` | 2 (+1/tier) | chain hops (AS-BUILT name; M1 2026-07-17) |
 | `acc_cj_hop_range` | 220 | max hop distance (u) |
-| `acc_cj_dot_frac` / `_frac_tier` / `_ticks` | 0.306 / +0.072 / 3 | decompile DoT (exact-damage marked — lands verbatim; ×0.9 all-lane nerf 2026-07-27, was 0.34/+0.08) |
+| `acc_cj_dot_frac` / `_frac_tier` / `_ticks` | 0.195075 / +0.0459 / 3 | decompile DoT (exact-damage marked — lands verbatim; ×0.9 all-lane nerf 2026-07-27 took 0.34/+0.08 → 0.306/+0.072; ×0.75 retune 2026-08-01 → 0.2295/+0.054; ×0.85 overall −15% 2026-08-03 → current) |
 | `acc_cj_slow_rate` / `_ms` / `_ms_tier` | 0.8 / 3500 / +500 | corruption flicker-slow (window outlives the DoT) |
 | `acc_cj_harvest_chance` | 0.20 (×2 at tier ≥2 BLACK ICE) | decompile shard proc (rarified 2026-07-17: was 0.35) |
 | `acc_cj_harvest_cap_base` | 3+round/10 | per-round shard cap, ALL cyberjack tags (rarified 2026-07-17: was 6 — the binding constraint, so this is the real rarity lever) |
 | `acc_cj_max_chains` / `acc_cj_bolt_speed` | 2 / 700 | live-chain cap per player / arc visual speed |
 | `acc_cj_rift_life_ms` / `_dot_frac` | 8000 / tune | breach rift |
+| `acc_cj_brutus_gun_chance` | 0.2375 | Brutus (Trench Warden) gun-drop roll (−5% relative 2026-08-03; was 0.25) — 0% while a CYBERJACK is in rotation |
 | `acc_cj_sync_per_kill/chain/harvest` | 2/8/1 | SYNC% gains |
 | `acc_cj_root_radius` | 900 | ROOT ACCESS reach |
 | `acc_cj_brick_ms` | 12000 | Avogadro brick duration |
@@ -391,7 +392,7 @@ does NOT gain it** (decision 2 — Paradise loot would bypass the quest).
   functions (`is_cyberjack`/`cyberjack_tier`/`acc_pap_cyberjack`/`make_cyberjack_packable`)
   + the 6 hook points (`:222/:530/:568/:959/:1253/:1572`).
 - `_acc_weapon_variants.gsc` — no-twin special lists `:360/:508` + in-place guard `:513`.
-- `_acc_damage.gsc` — balance mult row (IsSubStr `apex_lstar`, 0.288 as-built after the 2026-07-27 all-lane −10%); `is_energy_weapon`
+- `_acc_damage.gsc` — balance mult row (IsSubStr `apex_lstar`, **0.2754** as-built after the 2026-08-03 reshape's +50% shooting buff; was 0.1836 after the same-day overall −15%, 0.216 after the 2026-08-01 −25% retune, 0.288 after the 2026-07-27 all-lane −10%); `is_energy_weapon`
   row; Glitch one-shot row (the `:476` pattern); the F12 weakness-flip + F11 melee-purge
   notify in block 0c5 (M3).
 - `_acc_cyberjack.gsc` (NEW, git-tracked = ours) — the whole combat identity: jack-in
@@ -425,6 +426,44 @@ does NOT gain it** (decision 2 — Paradise loot would bypass the quest).
   0.32 → **0.288** (~234/shot, ~2786 base DPS; the chain hops inherit it), storm normals base
   1080 → **972** (one-hits L1 ~r9 / L2 ~r16 / L3 ~r20 / L4 4860 ~r26), storm boss DoT frac
   0.36 → **0.324** (L4 = 1.62× zHP/tick), decompile DoT 0.34/+0.08 → **0.306/+0.072**.
+  **(5) 2026-08-01 EXPONENTIAL CHARGE CURVE + −25% ALL-AROUND, MAX CHARGE FROZEN:** the
+  linear charge→strength ladder (mult 1/2/3/5 by lvl — i.e. ×1.25 at L4) is replaced by a
+  **cubic** `charge_mult(lvl) = 5 × (lvl/4)³` → **L1 0.078 / L2 0.625 / L3 2.109 / L4 5.0**
+  (L4 EXACTLY unchanged; bases `acc_cj_storm_zombie_dmg` **972** and `acc_cj_storm_dot_frac`
+  **0.324** UNCHANGED). Storm normals per 0.3s tick 972/1944/2916/4860 → **75/607/2050/4860**
+  (L1 deliberately near-worthless); boss/tough DoT per tick 0.324/0.648/0.972/1.62 × zHP →
+  **0.025/0.203/0.684/1.62**. The tornado SLOW now rides the same cubic curve (`charge_mult/5`,
+  superseding (3)'s linear interp): 12.5%/25%/37.5%/50% → **0.8%/6.3%/21.1%/50%** (max
+  unchanged). Jack-in chain FINISHER micro-storms drop the L1 lookup for a flat **0.75**
+  multiplier (= a clean −25% of their old lvl-1 output: normals **729**/tick, boss
+  **0.243×** zHP/tick). Bullet stream −25%: `_acc_damage.gsc` mult 0.288 → **0.216**
+  (~175.5/shot, ~2089 base DPS; the chain hops inherit it — they MagicBullet the held
+  weapon). Decompile/corruption DoT ×0.75: `acc_cj_dot_frac` 0.306 → **0.2295**,
+  `acc_cj_dot_frac_tier` 0.072 → **0.054**. UNCHANGED: 550ms charge step, 15×lvl ammo cost,
+  storm life/range/funnel scaling, harvest economy, PaP tier ladder — everything at max
+  charge is exactly as before.
+  **(6) 2026-08-03 OVERALL −15% (every damage lane ×0.85, max charge INCLUDED — supersedes
+  (5)'s max-charge freeze):** bullet stream bal mult 0.216 → **0.1836** (~149.2/shot, ~1776
+  base DPS; chain hops inherit it), storm normals base `acc_cj_storm_zombie_dmg` 972 →
+  **826** (per 0.3s tick L1 64 / L2 516 / L3 1742 / L4 4130, finisher 619; L4 one-hits
+  through ~r24), storm boss DoT `acc_cj_storm_dot_frac` 0.324 → **0.2754** (L4 1.377× zHP,
+  finisher 0.207×), decompile DoT `acc_cj_dot_frac`/`_tier` 0.2295/+0.054 →
+  **0.195075/+0.0459**. The cubic `charge_mult` (5×(lvl/4)³) and the finisher 0.75 mult are
+  UNTOUCHED (scaling them too would double-dip, and charge_mult also drives the tornado
+  SLOW). UNCHANGED non-damage axes: slow rates, storm life/range/funnels, 15×lvl ammo,
+  550ms charge step, harvest economy, PaP/OC ladders.
+  **(7) 2026-08-03 IDENTITY RESHAPE (same day, on top of (6) — user "actually needs a 30%
+  nerf. Mostly the charge up... nerf all charge up stages by 25% and buff the actually
+  shooting by 50%"):** the GUN becomes the weapon's core and the charge nuke recedes.
+  **Charge-up (tornado) stages ×0.75:** storm bases `acc_cj_storm_zombie_dmg` 826 → **620**
+  (per 0.3s tick L1 48 / L2 387 / L3 1307 / L4 3100; L4 one-hits through ~r21; net vs the
+  played 972 build ≈ ×0.6375) and `acc_cj_storm_dot_frac` 0.2754 → **0.20655** (L4 1.033×
+  zHP/tick; net vs played ≈ ×0.6375). The jack-in FINISHER micro-storms are shooting-derived,
+  NOT a charge stage — their flat mult moved 0.75 → **1.0** to exactly compensate the shared
+  base cut (finisher output unchanged: 620/tick, 0.207× zHP). **The actual shooting ×1.5:**
+  bullet-stream bal mult 0.1836 → **0.2754** (~223.8/shot, ~2664 base DPS; net vs the played
+  0.216 build = **+27.5%**; chain hops inherit). `charge_mult` cubic curve, tornado SLOW,
+  decompile DoT (still at (6)'s 0.195075/+0.0459), ammo/charge/harvest all UNCHANGED.
 - `_acc_events_hack.gsc` — terminal state machine grows purge/RAM/compile modes (ONE
   prioritized `set_hint_for_state`; unique-word hints).
 - `_acc_boss_avogadro.gsc` — counter-hack director (F11) + ICE-breach flag his loops check

@@ -94,13 +94,13 @@ function spawn_station()
 
     // Exo station lives in THE SCIENTIST'S OFFICE (user 2026-07-26 "In here will be the exo suit upgrade"):
     // the buyable room behind the Lab N wall (gen_scientist_office.js; enter_scientist_office door, 2000
-    // pts). Pod on the room's W side at (-200,4480,0) yaw 0 (front -Y faces the door), clear of the desk
+    // pts). Pod on the room's W side at (-200,4120,0) yaw 0 (front -Y faces the door), clear of the desk (office translated -360y 2026-08-02)
     // (x[-103,-47]) and the W wall (face -275). Same-day history: briefly Lab floor beside PaP (-500,3700)
     // during the plaza swap; PLAZA start room 2026-07-13..07-26; trench/Foundry (-120,1550,-240) originally.
     // Blue unused-station pulse rides glow_on below - position-independent (user reminder honored).
     // Its .map collision clip moves to match (tools/add_prop_clips.js exo_station) - a GEOMETRY change, so
     // this build needs a FULL LED bake.
-    spawn_station_at( ( -200, 4480, 0 ), 0 );
+    spawn_station_at( ( -200, 4120, 0 ), 0 );
 }
 
 function spawn_station_at( origin, yaw )

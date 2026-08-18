@@ -38,6 +38,26 @@
 // GSC spawns OFF by default since 2026-07-19 (the props are baked into the .map
 // as misc_model statics - G_Spawn entity-cap fix); acc_abyss_deco 1 re-enables
 // the dynamic twins for layout iteration. floor_lights_on stays live regardless.
+//
+// !!! STALE-LEDGER TOMBSTONE (2026-08-03, Prop Audit Wave 1) - READ BEFORE acc_abyss_deco 1 !!!
+// The spawn_*() tables below are the DORMANT dev twin. The LIVE abyss layout is the
+// BAKED misc_model set in map_source/zm/zm_abandoned_cyber_city.map - NOT this file.
+// These twins have DRIFTED OUT OF LOCKSTEP: Wave 1 + Phase A (CHANGELOG 2026-08-03)
+// deleted/swapped props from the .map that STILL SPAWN here. Enabling acc_abyss_deco 1
+// therefore does TWO harmful things at once:
+//   (1) DOUBLES every prop that still exists in both the .map and this file, and
+//   (2) RESURRECTS props deleted from the .map - the earlier pighead/corpse/fountain
+//       removals, the alien-organic swaps, and the Wave-1 deletions (e.g. the L2
+//       walk-through egg; the deck-entombed L3 armory egg deleted in Phase A).
+// The 2026-08-03 verify flagged ~18 orphaned twins in the L4/L5/M6 blocks below
+// (roughly lines 190-340). Known prime suspects: the M6 alien eggs (L294-296,
+// custom_ghost_armory_alien_egg_01 - one armory egg was DELETED from the .map in
+// Phase A) and the L4/L5 set-pieces. The boils/glyph/membrane/nerve-vine ANGLES
+// (L140-147) were re-synced in Phase A - verify each line, do NOT assume.
+// DO NOT delete the orphaned spawn lines to "clean up" - they are kept as tombstoned
+// history. If you must iterate layout with the dynamic twin, first RE-SYNC every
+// spawn_*() line against the current .map misc_models (diff by model + origin).
+//
 // =============================================================================
 
 #using scripts\shared\array_shared;
@@ -137,14 +157,14 @@ function spawn_l3()
 {
     n = 0;
     // Glow anchors:
-    n += spawn_prop( "p7_zm_gen_apoth_int_boils_01_128x128a_emissive", ( -758, 1900, -690 ), ( 0, 90, 0 ) );   // EMISSIVE boils panel, W wall
-    n += spawn_prop( "p7_zm_gen_apoth_int_boils_01_64x64a_backlit", ( 795, 2000, -670 ), ( 0, 270, 0 ) );      // boils, E wall
-    n += spawn_prop( "p7_zm_zod_symbol_96_apothicon_purple_emissive", ( -758, 2080, -660 ), ( 0, 90, 0 ) );    // PURPLE GLYPH, W wall (flat - no clip)
+    n += spawn_prop( "p7_zm_gen_apoth_int_boils_01_128x128a_emissive", ( -760, 1900, -650 ), ( 90, 0, 0 ) );   // EMISSIVE boils panel, W wall
+    n += spawn_prop( "p7_zm_gen_apoth_int_boils_01_64x64a_backlit", ( 797, 2000, -650 ), ( 270, 0, 0 ) );      // boils, E wall
+    n += spawn_prop( "p7_zm_zod_symbol_96_apothicon_purple_emissive", ( -761, 2080, -640 ), ( 90, 0, 0 ) );    // PURPLE GLYPH, W wall (flat - no clip)
     // Wall growth:
-    n += spawn_prop( "p7_zm_gen_apoth_int_nerve_vine_01", ( -758, 1770, -719 ), ( 0, 90, 0 ) );    // nerve vine, W wall S corner (flat - no clip)
-    n += spawn_prop( "p7_zm_gen_apoth_int_nerve_vine_02", ( 795, 1770, -717 ), ( 0, 270, 0 ) );    // nerve vine, E wall S corner (flat - no clip)
+    n += spawn_prop( "p7_zm_gen_apoth_int_nerve_vine_01", ( -758, 1770, -719 ), ( 0, 0, 0 ) );    // nerve vine, W wall S corner (flat - no clip)
+    n += spawn_prop( "p7_zm_gen_apoth_int_nerve_vine_02", ( 795, 1770, -717 ), ( 0, 180, 0 ) );    // nerve vine, E wall S corner (flat - no clip)
     n += spawn_prop( "p7_zm_gen_apoth_int_membrane_01", ( 300, 2150, -719 ), ( 0, 180, 0 ) );      // membrane, N wall
-    n += spawn_prop( "p7_zm_gen_apoth_int_membrane_02", ( 650, 1740, -720 ), ( 0, 0, 0 ) );        // membrane, S wall
+    n += spawn_prop( "p7_zm_gen_apoth_int_membrane_02", ( 650, 1740, -720 ), ( 0, 270, 0 ) );        // membrane, S wall
     n += spawn_prop( "p7_zm_isl_foliage_mutated_root_wall_01", ( -758, 2000, -684 ), ( 0, 90, 0 ) );   // root wall, W
     n += spawn_prop( "p7_zm_isl_foliage_mutated_root_wall_02", ( 200, 2150, -684 ), ( 0, 180, 0 ) );   // root wall, N
     n += spawn_prop( "p7_zm_isl_spore_rock", ( -700, 1780, -720 ), ( 0, 30, 0 ) );     // spore rock, SW corner
@@ -217,7 +237,8 @@ function spawn_l5()
     // n += spawn_prop( "p7_ram_snake_large_hatchery", ( -380, 2140, -977 ), ( 0, 180, 0 ) );   // HATCHERY hero, N-wall W bay (caps ceiling) [clip]
     n += spawn_prop( "p7_zm_ori_monolith_base_crystal_01", ( -540, 1850, -1200 ), ( 0, 30, 0 ) );   // crystal monolith, W bay (E of the Overlook) [clip]
     n += spawn_prop( "p7_zm_ori_monolith_base_crystal_02", ( 700, 1850, -1200 ), ( 0, 210, 0 ) );   // crystal monolith, E bay [clip]
-    n += spawn_prop( "p7_ram_snake_fountain_01_jade", ( 620, 2000, -1200 ), ( 0, 270, 0 ) );        // jade snake fountain, E bay centerpiece [clip]
+    // jade snake fountain REMOVED 2026-07-30 (user "pig headed model", gen_remove_pighead.js) - replaced by a second jade statue on the same footprint (E-bay centerpiece, twin of the SW idol):
+    n += spawn_prop( "p7_ram_statue_snake_base_jade", ( 620, 2000, -1200 ), ( 0, 270, 0 ) );   // jade statue, E bay centerpiece (old fountain spot) [clip l5_statue_e]
     n += spawn_prop( "p7_ram_snake_column_01", ( 470, 2110, -1192 ), ( 0, 180, 0 ) );    // snake column, N wall E (MOVED 240->470: was in the D4 stair landing, user 2026-07-13) [clip]
     n += spawn_prop( "p7_ram_statue_snake_base_jade", ( -700, 1745, -1200 ), ( 0, 90, 0 ) );   // jade statue, SW (just S of the Overlook) [clip]
     n += spawn_prop( "p7_ram_snake_egg_niche_base", ( 700, 1760, -1200 ), ( 0, 0, 0 ) );  // big egg nest base, SE corner [clip]

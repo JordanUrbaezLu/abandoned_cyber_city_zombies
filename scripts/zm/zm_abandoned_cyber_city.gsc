@@ -411,7 +411,7 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (OFF for every Workshop player, not overridable at launch); TEST state = flip
 	// this line to `true` + rebuild (the ONLY arming path - launch flags/dvars are NOT the workflow).
 	// Restore `false` before any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_dev = false;   // SHIP state (user 2026-07-25: dev OFF + full rebuild for publish, after the L4 Siege + EPG-1 dev test). Flip to `true` + rebuild to re-arm a dev session (docs/22).
+	level.acc_dev = false;   // SHIP state (restored 2026-08-03 for publish)   // SHIP state (user 2026-08-02 "hardcode god and dev mode off and full rebuild for publish"). Flip to `true` + rebuild to re-arm a dev session (docs/22).
 
 	v = ( level.acc_dev ? "1" : "0" );
 	SetDvar( "acc_open_map",      v );   // read by main()'s open-the-whole-map dev helper (buyable doors)
@@ -446,7 +446,7 @@ function acc_resolve_dev_flags()
 	// SHIP state = `false` (not overridable at launch - the getdvarint resolution was removed 2026-07-16,
 	// same as acc_dev above: hardcode `true` + rebuild is the ONLY arming path). Restore `false` before
 	// any publish build; prep_release.ps1 Gate 0 enforces it.
-	level.acc_god = false;   // SHIP state (restored 2026-07-25 for a normal-play test run). Flip to `true` + rebuild for demigod (health floors at 1 HP).
+	level.acc_god = false;   // SHIP state (restored 2026-08-03 for publish)   // SHIP state (user 2026-08-02, restored with acc_dev above for publish). Flip to `true` + rebuild for demigod (health floors at 1 HP).
 	acc_utility::log( "GOD MODE = " + ( level.acc_god ? "ON (hardcoded)" : "off" ) );
 }
 
@@ -598,15 +598,15 @@ function acc_spawn_plaza_props()
 	while ( !isdefined( level.acc_shards_cache_model ) )
 		wait 0.05;
 	// CRATES ONLY, in the OPEN exit band (NEVER in a maze leg - a crate there blocks the ~120u corridor =
-	// "stuck on one side"). SPREAD across the open plaza. ANGLE 0 (axis-aligned, spawn_cache_at's default) so
-	// each crate matches its axis-aligned 64x64 clip. Coords MUST match tools/add_prop_clips.js (plaza_cache_1..4).
+	// "stuck on one side"). SPREAD across the open plaza. SCATTER YAWS 15/350/20/345 (prop audit 2026-08-03) so
+	// each crate's CLIP stays axis-aligned 64x64 (rotation is visual-only; the crate _col LOD collides). Coords MUST match tools/add_prop_clips.js (plaza_cache_1..4).
 	// count = 1 -> 1 Data Shard each (cache_yield clamps; no round scaling at the default acc_cache_scale_rounds).
 	// A 4TH cache was added (user 2026-07-10): the co-op "one cache per player per round" cap (see below) starved
 	// the 4th player with only 3 caches; the 4th sits on the path to the Market door.
-	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1, "plaza" );   // plaza_cache_1
-	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1, "plaza" );   // plaza_cache_2
-	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1, "plaza" );   // plaza_cache_3
-	acc_data_shards::spawn_cache_at( ( -360, 460, 0 ), 1, "plaza" );   // plaza_cache_4 (western approach to Market door - 4-player coverage). MOVED off (-420,460) 2026-07-10 (pocketed a boss vs the L-wall corner x=-480/y=390), then off (-300,460) 2026-07-12: the crate's east edge (x-268) sat inside the plaza window-barricade planks (barricade_reciever_wood zbarrier at (-227.5,446), planks ~x[-280,-175]). -360 clears the barricade by ~48u and keeps ~78u to the x=-470 doorway jamb (no boss pocket; gap >> zombie width).
+	acc_data_shards::spawn_cache_at( ( -320,  30, 0 ), 1, "plaza", 15 );   // plaza_cache_1
+	acc_data_shards::spawn_cache_at( (   80, 230, 0 ), 1, "plaza", 350 );   // plaza_cache_2
+	acc_data_shards::spawn_cache_at( (  -80, 560, 0 ), 1, "plaza", 20 );   // plaza_cache_3
+	acc_data_shards::spawn_cache_at( ( -360, 460, 0 ), 1, "plaza", 345 );   // plaza_cache_4 (western approach to Market door - 4-player coverage). MOVED off (-420,460) 2026-07-10 (pocketed a boss vs the L-wall corner x=-480/y=390), then off (-300,460) 2026-07-12: the crate's east edge (x-268) sat inside the plaza window-barricade planks (barricade_reciever_wood zbarrier at (-227.5,446), planks ~x[-280,-175]). -360 clears the barricade by ~48u and keeps ~78u to the x=-470 doorway jamb (no boss pocket; gap >> zombie width).
 	acc_utility::log( "plaza props: 4 crate Data Caches spawned (1 shard each, refill/round)" );
 }
 function acc_spawn_prop( model, org, yaw )
@@ -787,7 +787,7 @@ function zone_door_trigger_origin( d )
 	case "enter_roof":        return ( -950, 2428, 40 );
 	case "enter_lab_e":       return ( 969, 3228, 40 );
 	case "enter_lab_w":       return ( -950, 3228, 40 );
-	case "enter_scientist_office": return ( -75, 4238, 40 );   // THE SCIENTIST'S OFFICE doorway in the Lab N wall (x[-123,-27] y[4228,4248], gen_scientist_office.js); Y-thin -> (0,60,0) offset puts buy triggers at y4178 (Lab side) / y4298 (office side)
+	case "enter_scientist_office": return ( -75, 3878, 40 );   // THE SCIENTIST'S OFFICE doorway in the Lab INNER N wall (x[-123,-27] y[3868,3888] - office translated -360y by the 2026-08-02 lab compression, gen_compress_lab_paradise.js); Y-thin -> (0,60,0) offset puts buy triggers at y3818 (Lab side) / y3938 (office side)
 	}
 	return undefined;
 }

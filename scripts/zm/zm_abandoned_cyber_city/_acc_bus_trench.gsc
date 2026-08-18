@@ -182,6 +182,21 @@ function init()
     // the map stays guarded. Only ONE such callback may exist (verified none other sets it).
     level.player_out_of_playable_area_monitor_callback = &acc_trench_oob_allow;
 
+    // *** THE AI TWIN of the OOB fix above (user 2026-07-29 "Nothing down there should just randomly
+    // die") ***: stock round_spawn_failsafe - installed as a spawn function on EVERY zombie spawner
+    // (_zm_gametype.gsc:909), so every spawner-spawned AI carries it - DoDamage-kills ANY actor below
+    // level.zombie_vars["below_world_check"] on each 30s tick REGARDLESS of movement
+    // (zombie_utility.gsc:1857). Stock sets it to -1000 (_zm.gsc:1219, "fell through the world"), but
+    // THIS map's playable space legitimately reaches z=-1200 (trench L5 + the Paradise arena), so the
+    // whole below-surface horde/elites/promoted bosses silently died ~30s after arriving down there.
+    // Move the line to -2000: 800u below the deepest real floor, so nothing playable ever trips it,
+    // while a genuine fall-through still gets reclaimed once it passes -2000. Stock's write already ran
+    // (same ordering proof as player_base_health, _acc_perks.gsc init) and the failsafe reads the var
+    // LIVE each tick, so this single write wins for the whole match. The per-boss
+    // ignore_round_spawn_failsafe flags stay as belt-and-braces (they also cover the moved<24u branch
+    // for patrol bosses with no nearby player). Memory: below-volume-boss-melee-lockout-and-cull.
+    level.zombie_vars[ "below_world_check" ] = -2000;
+
     level thread disable_native_fall_damage();
     level thread watch_connections();
     level thread trench_ai_pressure();   // raise the zombie cap while ANY player is in the pit
@@ -310,7 +325,8 @@ function watch_connections()
 
 // PASSIVE TRENCH SHARD INCOME (user 2026-06-26: "reward players for staying in the trenches"). While a player
 // STANDS in a trench layer, they passively earn 1 Data Shard every N seconds, where N SHRINKS with depth -
-// deeper = more reward for the greater risk: L1 (Bus Station pit) 45s / L2 31s / L3 20s / L4 12s / L5 7s.
+// deeper = more reward for the greater risk: L1 (Bus Station pit) 60s / L2 41s / L3 27s / L4 16s / L5 9s
+// (-25% income pass, user 2026-08-01).
 // Per-player (own thread, own grant - matches the trench-only, per-player economy). The timer counts only
 // while underground (underground_layer >= 1, which already excludes the surface AND Paradise) and RESETS the
 // moment the player leaves the trench, so "every X seconds you are in the trench" is literal. It carries
@@ -353,14 +369,15 @@ function trench_shard_income()   // self = player
 }
 
 // Seconds between passive shard grants for a given trench layer (1..5). Deeper = shorter = more reward for the
-// risk. Live dvar-tunable. (user 2026-06-29: L1 45 / L2 31 / L3 20 / L4 12 / L5 7; was 50/34/22/14/10.)
+// risk. Live dvar-tunable. (user 2026-08-01: -25% income pass, L1 60 / L2 41 / L3 27 / L4 16 / L5 9 - rate x0.75
+// via interval x4/3, integer-rounded; user 2026-06-29 was 45/31/20/12/7; before that 50/34/22/14/10.)
 function trench_income_interval( layer )
 {
-    if ( layer == 1 ) return getdvarint( "acc_trench_income_l1", 45 );
-    if ( layer == 2 ) return getdvarint( "acc_trench_income_l2", 31 );
-    if ( layer == 3 ) return getdvarint( "acc_trench_income_l3", 20 );
-    if ( layer == 4 ) return getdvarint( "acc_trench_income_l4", 12 );
-    if ( layer == 5 ) return getdvarint( "acc_trench_income_l5", 7 );
+    if ( layer == 1 ) return getdvarint( "acc_trench_income_l1", 60 );
+    if ( layer == 2 ) return getdvarint( "acc_trench_income_l2", 41 );
+    if ( layer == 3 ) return getdvarint( "acc_trench_income_l3", 27 );
+    if ( layer == 4 ) return getdvarint( "acc_trench_income_l4", 16 );
+    if ( layer == 5 ) return getdvarint( "acc_trench_income_l5", 9 );
     return 0;
 }
 
@@ -429,13 +446,24 @@ function trench_fall_watcher()
             // layers"). spawn_corp_surge spawns at whatever layer each player is on, so this bursts the layer
             // you just dropped into. Surface->pit (layer 0->1) is handled by the fresh-entry block below; this
             // covers pit->L2->L3->... Cooldown-shared with the entry surge so quick descents don't spam.
+            // DEPTH RAMP (user 2026-08-01 "35% scarier... scale aggression as you go deeper"): +1 surge
+            // zombie per layer below the pit (L2 6 .. L5 9; base 5 untouched - the 6->5 pit nerf stands).
             if ( layer > prev_layer && layer >= 2 && !trench_vanilla() &&
                  getdvarint( "acc_trench_surge_on", 1 ) == 1 &&
                  ( !isdefined( self.acc_trench_surge_cd ) || GetTime() >= self.acc_trench_surge_cd ) )
             {
-                self.acc_trench_surge_cd = GetTime() + ( getdvarint( "acc_trench_surge_cd_sec", 8 ) * 1000 );
-                level thread spawn_corp_surge( getdvarint( "acc_trench_surge_count", 5 ) );
+                self.acc_trench_surge_cd = GetTime() + ( getdvarint( "acc_trench_surge_cd_sec", 6 ) * 1000 );  // 8->6: +33% surge frequency (scare pass 2026-08-01)
+                level thread spawn_corp_surge( getdvarint( "acc_trench_surge_count", 5 ) + layer - 1 );
             }
+
+            // Re-pulse the red DANGER warning on every NEW deeper floor from L3 down (scare pass
+            // 2026-08-01) - was entry-only. Deliberately OUTSIDE the surge block (adversarial-review
+            // catch: nested there, a fast stairwell descent inside the 6s surge cooldown - or a
+            // surge-disabled config - silently skipped the pulse). Gated only on acc_trench_warn,
+            // matching the entry pulse. trench_warning_on re-threads safely: the pulse loop
+            // endon's acc_trench_warn_restart, notified at its top.
+            if ( layer > prev_layer && layer >= 3 && getdvarint( "acc_trench_warn", 1 ) == 1 )
+                self thread trench_warning_on();
 
             prev_layer = layer;
         }
@@ -466,8 +494,8 @@ function trench_fall_watcher()
             if ( !trench_vanilla() && getdvarint( "acc_trench_surge_on", 1 ) == 1 &&
                  ( !isdefined( self.acc_trench_surge_cd ) || GetTime() >= self.acc_trench_surge_cd ) )
             {
-                self.acc_trench_surge_cd = GetTime() + ( getdvarint( "acc_trench_surge_cd_sec", 8 ) * 1000 );
-                level thread spawn_corp_surge( getdvarint( "acc_trench_surge_count", 5 ) ); // 6->5: -25% pit aggression (user 2026-06-18)
+                self.acc_trench_surge_cd = GetTime() + ( getdvarint( "acc_trench_surge_cd_sec", 6 ) * 1000 );  // 8->6: +33% surge frequency (scare pass 2026-08-01)
+                level thread spawn_corp_surge( getdvarint( "acc_trench_surge_count", 5 ) + layer - 1 ); // 6->5: -25% pit aggression (user 2026-06-18); + (layer-1) depth ramp 2026-08-01 (pit entry at L1 = unchanged 5)
             }
         }
         else if ( !inside && was_inside )
@@ -610,7 +638,7 @@ function trench_melee_scaled( player, n_damage )
     if ( getdvarint( "acc_trench_aggro_melee", 1 ) != 1 ) return n_damage;
     layer = underground_layer( player.origin );
     if ( layer <= 0 ) return n_damage;
-    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 4 ) ); // +4 HP/layer (flat) (user 2026-07-16, was 10 -> 8 -> 6 -> 5 -> 4; L5 +20)
+    return n_damage + ( layer * getdvarint( "acc_trench_layer_dmg_add", 5 ) ); // +5 HP/layer (flat) (scare pass 2026-08-01 4->5; user 2026-07-16 was 10 -> 8 -> 6 -> 5 -> 4; L5 +25)
 }
 
 function apply_fall_tax( player )
@@ -754,6 +782,7 @@ function trench_ai_pressure()
         wait 0.5;
 
         occupied = false;
+        deepest  = 1;   // deepest occupied layer this tick (Paradise reads layer 0 -> counts as 1)
         if ( !trench_vanilla() && getdvarint( "acc_trench_surge_on", 1 ) == 1 )   // VANILLA TEST: no AI-cap bump / drip
         {
             foreach ( p in GetPlayers() )
@@ -761,7 +790,8 @@ function trench_ai_pressure()
                 if ( isdefined( p ) && isalive( p ) && player_in_trench( p ) )
                 {
                     occupied = true;
-                    break;
+                    n_pl = underground_layer( p.origin );
+                    if ( n_pl > deepest ) deepest = n_pl;
                 }
             }
         }
@@ -788,11 +818,21 @@ function trench_ai_pressure()
         // treadmill, not a runaway). Leaving the pit (occupied=false) stops it. Dvar-gated.
         if ( occupied && getdvarint( "acc_trench_drip_on", 1 ) == 1 )
         {
+            // DEPTH RAMP (scare pass 2026-08-01 "scarier the deeper you go"): the drip speeds up
+            // AND fattens with the deepest occupied layer. Pit (L1) keeps the user-tuned 5s x2
+            // (the 2026-06-18 -25% pit nerf stands); L5 = 3s x4 (~+40% cadence, x2 volume).
+            // The 3s floor only clamps the DEPTH subtraction - a live-tuned base below 3s is
+            // honored as its own floor (the dvar keeps full authority at every layer).
+            base_sec = getdvarfloat( "acc_trench_drip_sec", 5.0 ); // 4->5s: -25% pit aggression (user 2026-06-18)
+            n_floor  = base_sec;
+            if ( n_floor > 3.0 ) n_floor = 3.0;
+            drip_sec = base_sec - 0.5 * ( deepest - 1 );
+            if ( drip_sec < n_floor ) drip_sec = n_floor;
             drip_t += 0.5;
-            if ( drip_t >= getdvarfloat( "acc_trench_drip_sec", 5.0 ) && !IS_TRUE( level.acc_trench_dripping ) ) // 4->5s: -25% pit aggression (user 2026-06-18)
+            if ( drip_t >= drip_sec && !IS_TRUE( level.acc_trench_dripping ) )
             {
                 drip_t = 0;
-                level thread do_trench_drip( getdvarint( "acc_trench_drip_count", 2 ) );
+                level thread do_trench_drip( getdvarint( "acc_trench_drip_count", 2 ) + int( deepest / 2 ) );  // L1 2 / L2-3 3 / L4-5 4
             }
         }
         else
@@ -1151,6 +1191,30 @@ function get_trench_risers()
               " usedSnap=" + ( used ? "Y" : "N" ) );
     }
 
+    // 2 extra SYNTHETIC pit risers (scare pass 2026-08-01 "more aggressive spawns" - pure GSC,
+    // no .map edit): same mid-band offsets as the abyss layers, same recipe as get_layer_risers
+    // (spawnstruct + riser_location/find_flesh + DOWN nav-snap r<=128); pit floor top z=-240.
+    a_extra = [];
+    a_extra[ 0 ] = ( -250, 1770, -240 );
+    a_extra[ 1 ] = (  250, 2120, -240 );
+    for ( i = 0; i < a_extra.size; i++ )
+    {
+        o = a_extra[ i ];
+        s = spawnstruct();
+        s.origin = o;
+        s.angles = ( 0, 0, 0 );
+        s.script_noteworthy = "riser_location";   // erupt from the floor (do_zombie_rise)
+        s.script_string = "find_flesh";
+        if ( snap_on )
+        {
+            snapped = GetClosestPointOnNavMesh( o, r, 16 );
+            if ( isdefined( snapped ) && snapped[ 2 ] <= o[ 2 ] + 16 )   // accept only a DOWN snap
+                s.origin = snapped;
+        }
+        tlog( "PIT extra riser " + i + " o=" + o + " onMesh=" + ( IsPointOnNavMesh( s.origin, 16 ) ? "Y" : "N" ) );
+        risers[ risers.size ] = s;
+    }
+
     level.acc_trench_risers = risers;
     return level.acc_trench_risers;
 }
@@ -1179,6 +1243,11 @@ function get_layer_risers( layer )
     spots[ 1 ] = (  400, 1850, fz );
     spots[ 2 ] = ( -400, 2046, fz );
     spots[ 3 ] = (  400, 2046, fz );
+    // 2 extra mid-band spots (scare pass 2026-08-01 "more aggressive spawns"): offset from the
+    // corner grid so eruptions also open BEHIND a player fighting at the stations (x=+-400
+    // y=1948). Clear of the center down-well (x[-112,112]) and the perimeter walls.
+    spots[ 4 ] = ( -250, 1770, fz );
+    spots[ 5 ] = (  250, 2120, fz );
 
     snap_on = ( getdvarint( "acc_trench_riser_navsnap", 1 ) == 1 );
     r = getdvarint( "acc_trench_riser_navsnap_radius", 128 );
@@ -1217,21 +1286,23 @@ function get_paradise_risers()
 
     pz = -1200;   // Paradise floor top
     // 12 risers spread across the whole plaza floor (was 6, user 2026-06-25: "add a few more spawns in
-    // paradise") so the death-zone horde erupts from EVERYWHERE, not just two rows. 4 rows x 3 columns within
-    // the interior x[-1000,1000] y[-2200,-600]; each nav-snapped DOWN below so off-floor picks land on solid floor.
+    // paradise") so the death-zone horde erupts from EVERYWHERE, not just two rows. Re-spread 2026-08-02
+    // for the COMPRESSED interior x[-700,700] y[-2000,-600] (gen_compress_lab_paradise.js): 3 columns x 3
+    // rows + a south flank pair + 2 center fills, every point >=45u from every clip (heart/broods/kiosks/
+    // bench/box/PaP re-checked); each nav-snapped DOWN below so off-floor picks land on solid floor.
     spots = [];
-    spots[ spots.size ] = ( -700,  -700, pz );
-    spots[ spots.size ] = (    0,  -700, pz );
-    spots[ spots.size ] = (  700,  -700, pz );
-    spots[ spots.size ] = ( -700, -1100, pz );
-    spots[ spots.size ] = (    0, -1100, pz );
-    spots[ spots.size ] = (  700, -1100, pz );
-    spots[ spots.size ] = ( -700, -1500, pz );
-    spots[ spots.size ] = (    0, -1500, pz );
-    spots[ spots.size ] = (  700, -1500, pz );
-    spots[ spots.size ] = ( -700, -1900, pz );
-    spots[ spots.size ] = (    0, -1900, pz );
-    spots[ spots.size ] = (  700, -1900, pz );
+    spots[ spots.size ] = ( -450,  -750, pz );
+    spots[ spots.size ] = (    0,  -750, pz );
+    spots[ spots.size ] = (  450,  -780, pz );   // pushed S+E of the perk-gap egg clip (435,-690)
+    spots[ spots.size ] = ( -420, -1120, pz );   // pulled NE off the armory-rack clip (-550,-1180)
+    spots[ spots.size ] = (    0, -1150, pz );
+    spots[ spots.size ] = (  450, -1150, pz );
+    spots[ spots.size ] = ( -450, -1550, pz );
+    spots[ spots.size ] = (  450, -1550, pz );
+    spots[ spots.size ] = (    0, -1350, pz );
+    spots[ spots.size ] = (    0, -1650, pz );
+    spots[ spots.size ] = ( -420, -1750, pz );
+    spots[ spots.size ] = (  420, -1750, pz );
 
     snap_on = ( getdvarint( "acc_trench_riser_navsnap", 1 ) == 1 );
     r = getdvarint( "acc_trench_riser_navsnap_radius", 128 );
@@ -1314,6 +1385,10 @@ function ensure_trench_warning()   // self = player
 
 function trench_warning_on()   // self = player
 {
+    // Re-thread-safe (scare pass 2026-08-01: the descent branch re-pulses on every new floor
+    // L3+): kill any still-running pulse window first, then arm our own restart endon.
+    self notify( "acc_trench_warn_restart" );
+    self endon( "acc_trench_warn_restart" );
     self endon( "disconnect" );
     self endon( "acc_left_trench" );
 

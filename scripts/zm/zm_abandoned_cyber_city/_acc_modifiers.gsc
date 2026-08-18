@@ -14,6 +14,7 @@
 #using scripts\zm\_zm_utility;
 
 #using scripts\zm\zm_abandoned_cyber_city\_acc_utility;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_data_shards;   // express_start shard bonus via the grant funnel (coverage audit 2026-08-02)
 
 #namespace acc_modifiers;
 
@@ -238,7 +239,11 @@ function express_start()
         // VERIFIED(acc): add via zm_score so pers["score"] stays in sync
         // (_zm_score.gsc:521; direct += desyncs reconnect/host-migration).
         level.players[ i ] zm_score::add_to_player_score( 5000 );
-        level.players[ i ].acc_data_shards = 5;
+        // Through the grant FUNNEL, not a raw field write (coverage audit 2026-08-02): the old
+        // `= 5` bypassed the feed row + sync_shards_to_client AND would clobber a dev testing
+        // stash down to 5. grant_player ADDS 5 (identical for a fresh ship run at 0), pops the
+        // "+5 Data Shards" feed row, and keeps the HUD in sync.
+        acc_data_shards::grant_player( level.players[ i ], 5, "modifier_express" );
     }
     acc_utility::log( "express: starting at round 10 with bonus" );
 }

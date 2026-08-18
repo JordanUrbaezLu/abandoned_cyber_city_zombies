@@ -736,7 +736,7 @@ function cache_target_origins()
         if ( !isdefined( t.script_noteworthy ) )
             continue;
         key = t.script_noteworthy;
-        if ( is_hackable_perk_key( key ) )   // Stamin-Up hackable too (user 2026-07-06; machine = the stock marathon prefab @ (-75,4195) in the Lab row)
+        if ( is_hackable_perk_key( key ) )   // Stamin-Up hackable too (user 2026-07-06; machine = the stock marathon prefab @ (-75,3800) in the Lab staging row)
         {
             d = DistanceSquared( lab_ref, t.origin );
             if ( !isdefined( level.acc_avo_origin[ key ] ) || d < best_d[ key ] )
@@ -777,8 +777,8 @@ function cache_target_origins()
     }
     // Paradise PaP seek origin: the arena PaP is our CUSTOM standalone vendor (acc_pap_levels::
     // spawn_paradise_pap_at, NOT a vending_packapunch ent), so its spot is pinned to the spawn call in
-    // _acc_glitch_altar::spawn_paradise - (0,-1700,-1200). *** COORD PINNED THERE - move both together. ***
-    level.acc_avo_origin_paradise[ "pap" ] = nav_project( ( 0, -1700, -1200 ), "pap" );
+    // _acc_glitch_altar::spawn_paradise - (0,-1550,-1200). *** COORD PINNED THERE - move both together. ***
+    level.acc_avo_origin_paradise[ "pap" ] = nav_project( ( 0, -1550, -1200 ), "pap" );
     // PaP seek origin. Use GetEntArray, NOT GetEnt - a singular GetEnt("vending_packapunch") FATALS with
     // two of them (documented in _acc_pap_levels.gsc:711), and a throw here would abort init() before the
     // spawn thread starts. Pick the Lab PaP (nearest the boss spawn). Hardcoded fallback if none found.

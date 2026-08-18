@@ -28,7 +28,7 @@
 // =============================================================================
 'use strict';
 const fs = require('fs'), path = require('path');
-const MAP = path.join(__dirname, '..', 'map_source', 'zm', 'zm_abandoned_cyber_city.map');
+const MAP = path.join(__dirname, '..', '..', 'map_source', 'zm', 'zm_abandoned_cyber_city.map');   // path fixed for the tools/oneshots/ home (2026-08-02)
 const outArg = process.argv.indexOf('--out');
 const OUT = outArg > 0 ? process.argv[outArg + 1] : MAP;
 const REVERT = process.argv.includes('--revert');
@@ -76,22 +76,23 @@ function perkStruct(model, specialty, x, y) {
 // standalone GSC vendor - see _acc_pap_levels::spawn_paradise_pap_at + the entities[] note below.
 
 // Layout: ONE row of all 10 perks along the north, facing -Y (forced) so players use them from the room
-// side (south). A center GAP (x[-180,180]) keeps the hallway mouth (x[+-96], y=-600) clear; 5 perks each
-// side, 180u apart. Plaza interior x[-1000,1000] y[-2200,-600].
+// side (south). A center GAP (x[-110,110]) keeps the hallway mouth (x[+-96], y=-600) clear; 5 perks each
+// side, 130u apart. Plaza interior x[-700,700] y[-2000,-600] (COMPRESSED 2026-08-02,
+// gen_compress_lab_paradise.js - was x[-1000,1000] y[-2200,-600] with 180u spacing).
 const PERK_Y = -820;
 const entities = [
   // Left of the entrance gap:
-  perkPrefab('vending_revive_struct.map',                  -900, PERK_Y, true),  // Quick Revive
-  perkPrefab('vending_juggernaut_struct.map',              -720, PERK_Y, true),  // Jugger-Nog
-  perkPrefab('vending_sleight_struct.map',                 -540, PERK_Y, true),  // Speed Cola
-  perkPrefab('vending_doubletap_struct.map',               -360, PERK_Y, true),  // Double Tap
-  perkPrefab('vending_marathon_struct.map',                -180, PERK_Y, false), // Stamin-Up (surface has no script_string)
+  perkPrefab('vending_revive_struct.map',                  -630, PERK_Y, true),  // Quick Revive
+  perkPrefab('vending_juggernaut_struct.map',              -500, PERK_Y, true),  // Jugger-Nog
+  perkPrefab('vending_sleight_struct.map',                 -370, PERK_Y, true),  // Speed Cola
+  perkPrefab('vending_doubletap_struct.map',               -240, PERK_Y, true),  // Double Tap
+  perkPrefab('vending_marathon_struct.map',                -110, PERK_Y, false), // Stamin-Up (surface has no script_string)
   // Right of the entrance gap:
-  perkPrefab('vending_additionalprimaryweapon_struct.map',  180, PERK_Y, false), // Mule Kick (surface has no script_string)
-  perkStruct('p7_zm_vending_ads',              'specialty_deadshot',          360, PERK_Y), // Deadshot
-  perkStruct('p7_zm_vending_widows_wine',      'specialty_widowswine',        540, PERK_Y), // Widow's Wine
-  perkStruct('p7_zm_vending_nuke',             'specialty_electriccherry',    720, PERK_Y), // PhD / nuke machine
-  perkStruct('p6_zm_vending_electric_cherry_on','specialty_combat_efficiency', 900, PERK_Y), // Electric Cherry (10th)
+  perkPrefab('vending_additionalprimaryweapon_struct.map',  110, PERK_Y, false), // Mule Kick (surface has no script_string)
+  perkStruct('p7_zm_vending_ads',              'specialty_deadshot',          240, PERK_Y), // Deadshot
+  perkStruct('p7_zm_vending_widows_wine',      'specialty_widowswine',        370, PERK_Y), // Widow's Wine
+  perkStruct('p7_zm_vending_nuke',             'specialty_electriccherry',    500, PERK_Y), // PhD / nuke machine
+  perkStruct('p6_zm_vending_electric_cherry_on','specialty_combat_efficiency', 630, PERK_Y), // Electric Cherry (10th)
   // NO 2nd Pack-a-Punch here anymore (user 2026-06-25). A 2nd stock "zm_pack_a_punch" zbarrier
   // FATALS the load (stock renames both to "vending_packapunch" then GetEnt-singular's it) and
   // that is what broke the SURFACE PaP. The Paradise PaP is now a STANDALONE GSC vendor instead:

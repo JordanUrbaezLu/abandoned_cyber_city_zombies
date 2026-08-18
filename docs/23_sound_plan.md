@@ -72,12 +72,39 @@ we give that exact alias a row in one of our CSVs. Two ways to make a call audib
 ### 1a. The single music channel — [`_acc_music.gsc`](../scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc)
 
 **One song at a time, ever.** Every *song* source routes through `acc_music::play(alias, looping)`,
-which **hard-stops** whatever is playing (Delete the owned emitter — no fade, no
-overlap) and starts the new one. `zm_utility::play_sound_2D` gives no handle back, so
-it can't be stopped to make room for the next song — the channel OWNS its emitter so
-`play()`/`stop()`/`stop_if()` can. Reach-all in coop uses the proven idioms
-(`PlaySoundWithNotify` on a `script_origin` for one-shots, `PlayLoopSound` for loops).
+which **hard-stops** whatever is playing (no fade, no overlap) and starts the new one.
+`zm_utility::play_sound_2D` gives no handle back, so it can't be stopped to make room
+for the next song — the channel OWNS its emitter so `play()`/`stop()`/`stop_if()` can.
 Call `acc_music::init()` once from [`_acc_main.gsc:170`](../scripts/zm/zm_abandoned_cyber_city/_acc_main.gsc#L170).
+
+**THE ONE STOPPABLE PRIMITIVE (2026-08-03 redesign — the 5th and final "one song at a
+time" fix, user: "it doesnt work still... check the time on the song"):** every song now
+plays via **`PlayLoopSound` on a LOOPING alias** — the only primitive this codebase has
+ever observed cutting a streamed track (the boss loop, months of clean cuts). A STREAMED
+NONLOOPING one-shot started with `PlaySoundWithNotify` is **engine-level unstoppable**:
+`StopSounds()` never silenced one here (the 2026-08-02 stop-frame fix ran on a live ent
+and overlap persisted in play), stock never stops streamed music server-side (all stock
+music is the client-side musicstate machine), and `StopOnEntDeath` defaults to *no* so
+even `Delete()` left the stream playing. All 10 song rows in
+`sound/aliases/acc_audio.csv` were flipped `NONLOOPING → LOOPING`; one-shot *semantics*
+come from `oneshot_end_watchdog`: `SoundGetPlaybackTime(alias)` (the proven jukebox-hold
+recipe) + `wait(duration)` + `StopLoopSound` one frame before the loop wraps — the
+user's "check the time on the song" watchdog, applied where it has teeth. `stop()` also
+fires the per-alias `StopSound(alias)` builtin as belt-and-braces (zm_alien_isolation's
+jukebox-interrupt recipe, docs/16:802). **Alias edits ride audio pass 13 in the zone
+(bank-regen trigger; game CLOSED — memory `sound-bank-rebuild-zone-trigger`).**
+
+**No layered music either (same redesign):** the Kino round-change stingers
+(`mus_roundstart1_intro` ~14 s / `mus_roundend1_intro` ~10 s) are full BUS_MUSIC tracks
+that used to layer OVER the current song by design (2026-07-02) — at every round
+boundary that *was* "two songs at once". Now a stinger is **skipped** while a channel
+song plays, rides the same LOOPING+watchdog recipe (so it is stoppable), is tracked in
+`level.acc_music_stinger_ents`, and `play()` kills live stingers + the Fire Sale
+per-pad `mus_fire_sale` loops (`_zm_aw_mysterybox` registers them in
+`level.acc_firesale_music_ents`; the sale skips its jingle entirely while a song plays)
+before starting a song. The Paradise **win fanfare** uses the new NONLOOPING twin
+`acc_paradise_calm_once` (a per-player `PlayLocalSound` of the now-LOOPING base alias
+would never end).
 
 Sources routed through the channel (never overlap): **main theme**
 (`_acc_atmosphere::apply_music`), **boss music** (`_acc_boss::boss_music`), **jukebox**
@@ -85,6 +112,32 @@ Sources routed through the channel (never overlap): **main theme**
 anthem** (`_acc_paradise`). *Deliberately NOT routed:* perk jingles (`acc_jingle_*`)
 and the ambient city bed (`acc_amb_city_bed`) — those are SFX/ambience meant to layer
 *under* the music.
+
+**PRIORITY + the stop-frame fix (2026-08-02, user: "only one song plays at a time —
+jukebox < boss < paradise"):** two changes — the priority layer stands; the stop-frame
+fix alone did NOT end the overlap (superseded by the 2026-08-03 LOOPING redesign above,
+kept as hygiene):
+
+1. **Stop-frame fix (the actual bug):** `stop()` used to `StopSounds()` + `Delete()` the
+   emitter in the **same server frame** — which VOIDS the stop (Treyarch's own comment,
+   `sound_shared.gsc::play_on_tag`: *"stopsounds doesnt work if the org is deleted same
+   frame"*). Every one-shot song (all jukebox tracks, theme, both Paradise tracks are
+   STREAMED NONLOOPING) was orphaned unstoppable and played to its natural end **under**
+   the new track — the reported jukebox-plus-boss / jukebox-plus-Paradise stack. `stop()`
+   now defers the `Delete` one frame (`delete_next_frame`); only the looping boss path
+   ever stopped cleanly before.
+2. **Priority claims:** the channel carries `level.acc_music_pri` — **jukebox 1 < boss 2 <
+   paradise 3**. Sources claim via `claim_jukebox` / `claim_boss` / `claim_paradise`: an
+   equal-or-higher claim cuts the current song instantly; a lower claim is DENIED (returns
+   false, nothing plays or stops). The jukebox **denies the purchase before charging**
+   while outranked (plus a race-refund if a boss claims mid-purchase), and its song-length
+   busy hold self-clears when a higher source cuts the song (`jukebox_cut_watch`) so the
+   machine is instantly re-buyable — a cut song stays cut (no refund; bounded loss).
+   Priority drops to 0 on stop or natural song end; **no auto-resume** of the cut song.
+   Bare `play()` remains the force path for exactly two callers: the main theme
+   (blackscreen) and the game-over song (must beat even Paradise). Paradise's 115 anthem
+   is now actually stopped on win (`win()` calls `stop_if` before the fanfare — the old
+   "Stopped on win" comment was aspirational).
 
 > **Boss-music old-fade note (superseded):** the boss track's historical 4 s fade-out
 > is intentionally dropped in favour of the channel's no-overlap hard stop.

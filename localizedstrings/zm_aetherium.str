@@ -50,4 +50,16 @@ LANG_ENGLISH         "Ragnarok Kill"
 REFERENCE            BK_PICKUP
 LANG_ENGLISH         "Retrieve Ballistic Knife"
 
+REFERENCE            KF_SHARD
+LANG_ENGLISH         "Data Shard"
+
+REFERENCE            KF_SHARDS
+LANG_ENGLISH         "Data Shards"
+
+REFERENCE            KF_MEGA_BOTTLE
+LANG_ENGLISH         "Mega Bottle"
+
+REFERENCE            KF_MEGA_BOTTLES
+LANG_ENGLISH         "Mega Bottles"
+
 ENDMARKER

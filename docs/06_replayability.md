@@ -55,8 +55,10 @@ per-run wallbuy-pool machinery (`roll_wallbuy_pool`, per-slot single-candidate d
 whole map (Plaza = permanent Quick Revive; Lab ×2; Alley; Market; Helipad; Vault; the jukebox
 under-room; Abyss Layer 2 past the first soul door; the Exchange) and the perk→pad assignment **reshuffles at random on every
 round divisible by 3** (`_acc_perk_scatter::round_watcher`, woken by `acc_round_start`;
-`ACC_SCATTER_INTERVAL = 3`). The opening layout is random per run. The reshuffle is announced but
-the new homes are not revealed.
+`ACC_SCATTER_INTERVAL = 3`). The opening layout is random per run. Only the **first** reshuffle
+of a match is announced (`acc_utility::announce_once`, 2026-08-01 — the repeated banner got
+annoying; the moved machines + perk lights are the per-scatter tell), and the new homes are
+never revealed.
 
 - **9! = 362,880 distinct layouts** per scatter (9 rotating perks over 9 rotating pads; QR fixed).
 - A perk you want is never *unavailable* — it's *somewhere*; the cost is the route to reach it.

@@ -23,9 +23,9 @@ Points are fast and plentiful. Data Shards are **slow and precious**.
 
 All amounts are the shipped defaults (each has a live dvar for tuning).
 
-- **Trench passive income** (`_acc_bus_trench.gsc`): +1 Shard per interval while you stand in a trench layer; deeper layers pay faster. `acc_trench_income_amount` (default 1).
+- **Trench passive income** (`_acc_bus_trench.gsc`): +1 Shard per interval while you stand in a trench layer; deeper layers pay faster (income −25%, user 2026-08-01 — per-layer seconds in docs/22, `acc_trench_income_l1…l5`). `acc_trench_income_amount` (default 1).
 - **Data Caches** (`_acc_data_shards.gsc::spawn_cache_at`, placed by `_acc_glitch_altar` at the pit west/east): a flat count per round, first player to loot it takes it, re-arms each round. Two caches, 3 each by default (`acc_cache_w_count` / `acc_cache_e_count`).
-- **Glitch Altar jackpot** (`_acc_glitch_altar.gsc`): a gamble — the `shard_jackpot` outcome pays +4 (`acc_altar_jackpot`).
+- **Glitch Altar jackpot** (`_acc_glitch_altar.gsc`): a gamble — the `shard_jackpot` outcome pays +5 (`acc_altar_jackpot`; 4 → 5, nerf pass 2026-08-02 — but the spin now costs 4 and escalates +2/spin per round, so even the jackpot is only a partial refund; small `shard_trickle` wins pay +1 and the rare MEGA Win adds +10, `acc_altar_mega_shards`).
 - **Shielded ("Riot") elite kill** in the trench: flat **3 Shards** to the killer (user 2026-07-13, was 2) (`_acc_elites.gsc::shielded_death_reward`, source `riot_elite`). Reactor/glitch-purge shielded grant nothing (survive-the-gauntlet threat, not a farm).
 - **Boss round**: `int( round / 3 )` Shards to **every player independently** (`_acc_boss.gsc:376`, `acc_boss_shards_round_div`) — e.g. 3 at round 9, 6 at round 18, 9 at round 27. Boss rounds land every 9 from round 9; a mini-boss (Brutus) first appears at round 5 (once Bus Station power is on and round >= `acc_warden_first_round`, default 5). Types come from a no-duplicate shuffled roster (see [08_enemies.md](08_enemies.md)).
 - **Glitch boss kill**: +1 Shard to the killer (`_acc_boss_glitch.gsc:802`).

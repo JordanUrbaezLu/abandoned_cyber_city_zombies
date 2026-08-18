@@ -62,6 +62,12 @@
 #define ACC_ZSPEED_SPRINT_START_PCT_DEF 100 // sprint playback rate at sprint_round (100 = natural full sprint)
 #define ACC_ZSPEED_SPRINT_STEP_PCT_DEF 0.5  // + sprint playback % per round after sprint_round (user 2026-06-29: 0.6 -> 0.5, a slightly GENTLER late creep - R20 = 1.025x, R25 = 1.05x, R30 = 1.075x; unbounded, no clamp). MUST be read via getdvarfloat - getdvarint would truncate the fractional % -> 0 (mirrors the jog_step float handling).
 #define ACC_ZSPEED_KEEPALIVE_WAIT      1.5  // s between keep-alive re-assert sweeps
+#define ACC_RAMPAGE_ROUND_BONUS_DEF    7    // RAMPAGE (user 2026-08-03): rounds ADDED to the curve input while
+                                            // level.acc_rampage_on (the _acc_rampage spawn station). Applied via
+                                            // effective_round() at EXACTLY 4 sites: the on-spawn hook + keep-alive
+                                            // here, glitch_speed_think, shielded_speed_think (+ the Scientist's
+                                            // sprint_pin via its own effective_round read). Live dvar
+                                            // acc_rampage_round_bonus.
 
 // Regular-zombie melee damage to players (absolute, in HP). Stock zombie_spawn_init
 // sets self.meleeDamage = 60 (_zm_spawner.gsc:358; its trailing "// 45" shows the
@@ -112,7 +118,7 @@ function on_zombie_spawned_speed()
     if ( !( self zombie_utility::is_zombie() ) )
         return;
 
-    self apply_speed_for_round( current_round() );
+    self apply_speed_for_round( effective_round() );   // rampage-aware (+7 while the spawn toggle is ON)
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +131,35 @@ function current_round()
     if ( !isdefined( r ) || r < 1 )
         return 1;
     return r;
+}
+
+// RAMPAGE (user 2026-08-03): true while the spawn-station toggle is ON (sealed at round 5 -
+// _acc_rampage.gsc owns the flag; no dvar path, by design - the old Inducer's dvar watcher
+// was the "sprints then stops" bug).
+function rampage_active()
+{
+    return ( isdefined( level.acc_rampage_on ) && level.acc_rampage_on );
+}
+
+// The curve input: current round, +7 while RAMPAGE is on. current_round() stays PURE - the
+// offset must NOT live inside current_round/rate_for_round/tier_for_round (the Scientist's
+// sprint_pin and _acc_fury pass explicit rounds through those primitives; an offset inside
+// them would double-apply). Consumers: the on-spawn hook + keep-alive (normal zombies),
+// glitch_speed_think, shielded_speed_think, and the Scientist's sprint_pin. Phantom / Brutus /
+// Avogadro / Rogue / Panzer / Fury deliberately never call this.
+function effective_round()
+{
+    r = current_round();
+    if ( rampage_active() )
+        r += rampage_bonus();
+    return r;
+}
+
+// Public single source of the +N bonus (the station's announce text reads it too - never
+// re-inline the default elsewhere, the compiled copies drift on a retune).
+function rampage_bonus()
+{
+    return getdvarint( "acc_rampage_round_bonus", ACC_RAMPAGE_ROUND_BONUS_DEF );
 }
 
 function sprint_start_round()
@@ -216,7 +251,7 @@ function apply_speed_for_round( round )
 
     if ( layer > 0 )
     {
-        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 3 ) / 100.0 ); // +3%/layer (user 2026-07-16, was 4 -> 3.5 -> 3; L5 +15%)
+        spd  = 1.0 + ( layer * getdvarfloat( "acc_trench_layer_speed_pct", 4 ) / 100.0 ); // +4%/layer (scare pass 2026-08-01 3->4, deliberately re-raising the 2026-07-16 trim; L5 +20%)
         rate = rate * spd;
     }
     self apply_baseline_melee();
@@ -251,9 +286,9 @@ function apply_speed_for_round( round )
 // Trench per-layer scaling (user 2026-06-21). A zombie standing IN the trench is deadlier, scaling with
 // how deep it is (the layer, via acc_bus_trench::underground_layer). Master gate acc_trench_aggro
 // (default 1). THREE per-layer levers:
-//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 3, was 4 -> 3.5 -> 3 - user 2026-07-16) - here, in apply_speed_for_round.
+//   - SPEED  +acc_trench_layer_speed_pct% anim-rate per layer (default 4 - scare pass 2026-08-01; history 4 -> 3.5 -> 3 user 2026-07-16 -> back to 4) - here, in apply_speed_for_round.
 //   - HEALTH +acc_trench_layer_hp_pct% max health per layer (default 25, was 30 -> 27 -> 25 - user 2026-07-16) - apply_trench_health (one-way).
-//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 4, flat - was 6 -> 5 -> 4, user 2026-07-16) - added to the player's INCOMING
+//   - MELEE  +acc_trench_layer_dmg_add HP per layer (default 5 - scare pass 2026-08-01; history 6 -> 5 -> 4 user 2026-07-16 -> back to 5) - added to the player's INCOMING
 //     damage in acc_bus_trench::trench_melee_scaled, because open-field zombie melee uses the engine
 //     Melee() weapon, NOT self.meleeDamage (a per-zombie meleeDamage write never lands).
 // NO forced sprint, NO beeline. Gated on the ZOMBIE'S OWN position, NOT its target - surface = stock.
@@ -382,7 +417,7 @@ function speed_keepalive()
     {
         wait ACC_ZSPEED_KEEPALIVE_WAIT;
 
-        r = current_round();
+        r = effective_round();   // rampage-aware: a mid-round toggle retro-applies to every live zombie within one sweep
         team = ( isdefined( level.zombie_team ) ? level.zombie_team : "axis" );
         zombies = GetAITeamArray( team );
 

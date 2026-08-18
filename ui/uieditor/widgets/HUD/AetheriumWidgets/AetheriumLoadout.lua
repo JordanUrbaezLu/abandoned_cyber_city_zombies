@@ -594,8 +594,12 @@ CoD.AetheriumLoadout.new = function ( menu, controller )
 	local SHIELD_RADIUS = 72       -- orb center -> plate center (grenade plate orbits at ~71)
 	local SHIELD_PLATE_W = 56      -- tactical plate scaled down (~0.84) so it reads as a rim tab
 	local SHIELD_PLATE_H = 49
-	local SHIELD_PLATE_ROT = -60   -- setZRot degrees; plate long-axis along the ring edge at this spot.
-	                               -- Same sign as pass 4 (user asked for MORE, not the other way).
+	local SHIELD_PLATE_ROT = -90   -- setZRot degrees; plate long-axis along the ring edge at this spot.
+	                               -- Pass 6 (user 2026-08-02 screenshot: "rotate a bit more - it doesn't
+	                               -- align with the circle"): -60 -> -70 (the analytic rim tangent for
+	                               -- the -20 deg position). Pass 7 ("another 10 degrees"): -70 -> -80.
+	                               -- Pass 8 ("another 10%"): -80 -> -90 - the in-game read beats the
+	                               -- math (the plate art's long axis isn't its bounding-box axis).
 	local SHIELD_ICON_S = 26       -- icon square; kept UPRIGHT for readability (setZRot it too if preferred)
 
 	local shieldRad = math.rad( SHIELD_ANGLE )

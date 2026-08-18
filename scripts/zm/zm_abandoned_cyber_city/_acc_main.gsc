@@ -34,6 +34,7 @@
 #using scripts\zm\zm_abandoned_cyber_city\_acc_scientist_office;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_music;
 #using scripts\zm\zm_abandoned_cyber_city\_acc_jukebox;
+#using scripts\zm\zm_abandoned_cyber_city\_acc_rampage;   // RAMPAGE INDUCER v2: breaker toggle on the Plaza->Alley connector, horde speed +7 rounds, seals at round 5 (user 2026-08-03)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_slots;      // CYBER SLOTS machine (Coolyer zm_slots adapted; NORTH under-room arcade corner next to the jukebox)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_kortifex;   // Kortifex announcer (medals/boss/quips; stock vox_zmba_* overridden by the pack CSV)
 #using scripts\zm\zm_abandoned_cyber_city\_acc_leaderboard;
@@ -103,10 +104,19 @@
 //   ACC_SPAWN_DELAY_MULT: scales the stock per-round inter-spawn delay
 //                        (_zm.gsc:4598 get_zombie_spawn_delay). 0.85 = waves
 //                        fill 15% faster. Floored at 0.1s (stock's own floor).
+//   ACC_BETWEEN_ROUND_TIME: seconds stock round_over() sleeps after the round's
+//                        last kill (_zm.gsc:4279 wait; :4284 reads
+//                        zombie_vars["zombie_between_round_time"], stock default
+//                        10 at :1224). 2.0 + round_wait's ~0.5s avg detect poll
+//                        (_zm.gsc:4745) + round_one_up's fixed 2.5s (_zm.gsc:4244)
+//                        = next round starts spawning ~5s after the last kill
+//                        (user 2026-08-03; stock chain was ~13.5s). In-round
+//                        spawn pacing (ACC_SPAWN_DELAY_MULT) is unaffected.
 // ---------------------------------------------------------------------------
 #define ACC_AI_LIMIT 50
 #define ACC_ACTOR_LIMIT 56
 #define ACC_SPAWN_DELAY_MULT 0.85
+#define ACC_BETWEEN_ROUND_TIME 2.0
 
 #namespace acc_main;
 
@@ -236,6 +246,7 @@ function init()
     acc_glitch_altar::init();   // Data Shard gamble in the trench rooms (needs data_shards + bus_trench above)
     acc_scientist_office::init();   // THE SCIENTIST'S OFFICE desk loot (paired random gun+implant; needs boss_items' item pool - init'd above)
     acc_jukebox::init();        // JUKEBOX (random song, 1 Data Shard + 1000 pts) in the NORTH trench room (the non-Overclock one)
+    acc_rampage::init();        // RAMPAGE INDUCER v2 (breaker on the Plaza->Alley connector): toggle rounds 1-4, seals at round 5; speed layer reads acc_zombie_speed::effective_round()
     acc_slots::init();          // CYBER SLOTS (500 pts/spin; shards jackpot, free-gun bell, perk-loss skull, insta-down death) - same room, west wall south of the jukebox
     acc_kortifex::init();       // KORTIFEX announcer (VG VO, [West] pack): medals + boss sendoff/roar + eliminations + taunts; kill-switch acc_kortifex_on
     acc_leaderboard::init();    // LEADERBOARD (docs/40) - end_game recorder (cloud POST, skipped in dev/god) + Plaza top-10 station
@@ -380,6 +391,13 @@ function configure_spawn_density()
     level.zombie_ai_limit = ACC_AI_LIMIT;
     level.zombie_actor_limit = ACC_ACTOR_LIMIT;
 
+    // Between-round dead time: stock round_over() re-reads this zombie_var LIVE
+    // every round via get_delay_between_rounds (_zm.gsc:4260/:4284), so this
+    // one-time overwrite of the stock 10 (_zm.gsc:1224) sticks for the whole run.
+    // Shipped precedent: UGX / zm_alien_isolation set it to 0 for seamless
+    // rounds (docs/16_community_techniques.md:406, :860).
+    level.zombie_vars[ "zombie_between_round_time" ] = ACC_BETWEEN_ROUND_TIME;
+
     // Inter-spawn delay: chain the stock spawn-delay hook so waves fill faster.
     // Stock invokes [[ level.func_get_zombie_spawn_delay ]]( round ) once per
     // round (_zm.gsc:4502) to refresh zombie_vars["zombie_spawn_delay"]; we wrap
@@ -389,7 +407,8 @@ function configure_spawn_density()
     level.func_get_zombie_spawn_delay = &acc_spawn_delay_override;
 
     acc_utility::log( "spawn density: ai_limit " + ACC_AI_LIMIT + " / actor_limit " +
-                      ACC_ACTOR_LIMIT + " / spawn-delay x" + ACC_SPAWN_DELAY_MULT );
+                      ACC_ACTOR_LIMIT + " / spawn-delay x" + ACC_SPAWN_DELAY_MULT +
+                      " / between-round " + ACC_BETWEEN_ROUND_TIME + "s" );
 }
 
 // Level-scope: stock calls this with the round number (_zm.gsc:4502) and stores

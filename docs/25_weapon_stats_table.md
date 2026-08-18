@@ -9,7 +9,7 @@
 > The generator self-checks (aborts on any unresolved GDT entry or a roster/code price mismatch).
 > Base-form + full max-scale numbers: `node tools/audit_gun_damage.js`.
 
-## Formula (verified from `_acc_damage.gsc::on_ai_damage`, 2026-07-27)
+## Formula (verified from `_acc_damage.gsc::on_ai_damage`, 2026-08-02)
 
 ```
 held-weapon raw damage  x  bal(acc_weapon_balance_mult)  x  global(3.25)  x  papMult(tier)  x  headTemper

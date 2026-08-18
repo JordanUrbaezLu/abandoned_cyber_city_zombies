@@ -134,10 +134,10 @@ function depth_shielded_pct( layer )
 {
     switch ( layer )
     {
-        case 2: return getdvarint( "acc_shielded_pct_l2", 10 );   // trench floor 2 (first descent)
-        case 3: return getdvarint( "acc_shielded_pct_l3", 15 );   // floor 3
-        case 4: return getdvarint( "acc_shielded_pct_l4", 22 );   // floor 4
-        case 5: return getdvarint( "acc_shielded_pct_l5", 30 );   // floor 5 (deepest)
+        case 2: return getdvarint( "acc_shielded_pct_l2", 13 );   // trench floor 2 (first descent)  (scare pass 2026-08-01: 10 -> 13)
+        case 3: return getdvarint( "acc_shielded_pct_l3", 20 );   // floor 3                          (scare pass 2026-08-01: 15 -> 20)
+        case 4: return getdvarint( "acc_shielded_pct_l4", 29 );   // floor 4                          (scare pass 2026-08-01: 22 -> 29)
+        case 5: return getdvarint( "acc_shielded_pct_l5", 40 );   // floor 5 (deepest)                (scare pass 2026-08-01: 30 -> 40)
     }
     return 0;   // layer 0 (surface) + layer 1 (pit): no depth Shielded
 }
@@ -430,7 +430,7 @@ function shielded_speed_think()
     {
         if ( !isalive( self ) ) return;
 
-        r    = acc_zombie_speed::current_round();
+        r    = acc_zombie_speed::effective_round();   // rampage-aware (+7 while the spawn toggle is ON, user 2026-08-03)
         rate = acc_zombie_speed::rate_for_round( r ) * getdvarfloat( "acc_shielded_walk_rate", 1.2 );  // 1.0 -> 1.2: a BIT faster walk (user 2026-06-24)
         if ( rate < 1.0 ) rate = 1.0;   // never below natural cadence => never slow-mo
 

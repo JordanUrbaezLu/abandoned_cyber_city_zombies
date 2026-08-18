@@ -585,19 +585,16 @@ function pick_target_player()
 }
 
 // Once per owed cycle (the director retries spawn_boss every 3s under a full
-// actor pool - without the guard this would spam every retry).
+// actor pool - without the guard this would spam every retry). The retry-guard flag ALSO
+// serves spawn bookkeeping (cleared on each successful spawn), so it stays; announce_once
+// adds the match-wide layer on top (user 2026-08-01: each boss banner shows once per match -
+// nameplate + boss music remain the per-spawn tell).
 function announce()
 {
 	if ( IS_TRUE( level.acc_protector_announced ) )
 		return;
 	level.acc_protector_announced = true;
-	players = GetPlayers();
-	for ( i = 0; i < players.size; i++ )
-	{
-		p = players[ i ];
-		if ( isdefined( p ) && isplayer( p ) )
-			p IPrintLnBold( "^1" + ACC_PROTECTOR_NAME + " ^7- Civil Protection unit compromised..." );
-	}
+	acc_utility::announce_once( "rp_arrival", "^1" + ACC_PROTECTOR_NAME + " ^7- Civil Protection unit compromised..." );
 }
 
 // ---------------------------------------------------------------------------

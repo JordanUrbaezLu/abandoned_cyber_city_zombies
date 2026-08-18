@@ -216,8 +216,8 @@ function boot_agents()
     if ( !IS_TRUE( level.acc_dev ) )
         host SetControllerUIModelValue( "accLbLeaveHook", "1" );
 
-    // 20s pre-game buffer + auto-fetch so any player can read the board right away.
-    level.acc_lb_decided = true;          // no decision to wait for -> straight to the 20s spawn buffer
+    // 10s pre-game buffer (halved from 20s, user 2026-08-02) + auto-fetch so any player can read the board right away.
+    level.acc_lb_decided = true;          // no decision to wait for -> straight to the 10s spawn buffer
     level thread zombie_spawn_grace();
 
     // The agent MUST be alive early now (the auto-fetch curls through it). Launcher path pre-spawned it
@@ -526,13 +526,17 @@ function dev_prompt_test()
         IPrintLnBold( "^5[LB]^7 online leaderboard: " + ( enabled ? "^2ENABLED" : "^1DISABLED" ) + " ^7(dev test - not stored)" );
 }
 
-// Hold zombie spawning OFF for a pre-game buffer (20s, user 2026-07-14), THEN resume. With auto opt-in
-// there is no consent decision to wait for (boot_agents sets level.acc_lb_decided=true), so the decision
-// loop below breaks immediately and only the 20s buffer runs - covering the auto-fetch and giving players
-// time to read the board before round 1. "spawn_zombies" is the stock spawn gate (_zm.gsc:3753; Paradise
-// uses the same lever). RE-CLEARED each tick because the round-1 system SETS it a beat after blackscreen
-// (a one-shot clear would leak a wave). LEVEL thread + endon("end_game") only, so a mid-prompt disconnect
-// can never strand spawns paused. The 35s decision cap is a safety net (prompt_consent self-times at 30s).
+// Hold zombie spawning OFF for a fixed pre-game buffer, THEN resume. THE entire round-1
+// delay: it covers the LB agent's cmd-window focus steal + the board auto-fetch + a board
+// read before round 1. 10s since 2026-08-02 (user "a few seconds is fine, cut in half what
+// we previously had"; 20s 2026-07-14..2026-08-02). "spawn_zombies" is the stock spawn gate
+// (_zm.gsc:3753; Paradise uses the same lever for the finale seal/win-resume). RE-CLEARED
+// each tick because the round-1 system SETS it a beat after blackscreen (a one-shot clear
+// would leak a wave). LEVEL thread + endon("end_game") only, so a disconnect can never
+// strand spawns paused. (The old 35s consent-DECISION pre-loop was DELETED 2026-08-02,
+// user-verified dead code: auto opt-in sets level.acc_lb_decided=true at init before this
+// thread starts, and the whole consent_flow/prompt_consent path has no live call sites -
+// the loop always broke on its first tick.)
 function zombie_spawn_grace()
 {
     level endon( "end_game" );
@@ -540,16 +544,7 @@ function zombie_spawn_grace()
     if ( !level flag::exists( "spawn_zombies" ) )
         return;   // flag not up yet (shouldn't happen post-blackscreen) - skip, never risk a hang
 
-    cap = GetTime() + 35000;
-    while ( GetTime() < cap )
-    {
-        level flag::clear( "spawn_zombies" );
-        if ( IS_TRUE( level.acc_lb_decided ) )
-            break;
-        wait 0.1;
-    }
-
-    buffer = GetTime() + 20000;   // 20s pre-game buffer (user 2026-07-14) - covers the auto-fetch + lets players read the board before round 1
+    buffer = GetTime() + 10000;
     while ( GetTime() < buffer )
     {
         level flag::clear( "spawn_zombies" );

@@ -37,6 +37,14 @@
 #precache( "string", "ZM_AETHERIUM_KF_MONKEY_BOMB" );
 #precache( "string", "ZM_AETHERIUM_KF_LIL_ARNIE" );
 #precache( "string", "ZM_AETHERIUM_KF_RAGNAROK_DG4" );
+// [acc] currency gain-popup keys (2026-08-02): ALSO precached in their owner modules
+// (_acc_data_shards / _acc_mega_bottles preambles) - duplicated here in the kit's proven
+// block as belt-and-braces after the mid-file-precache incident (duplicates are harmless,
+// KF_* keys are already dup'd with _acc_points).
+#precache( "string", "ZM_AETHERIUM_KF_SHARD" );
+#precache( "string", "ZM_AETHERIUM_KF_SHARDS" );
+#precache( "string", "ZM_AETHERIUM_KF_MEGA_BOTTLE" );
+#precache( "string", "ZM_AETHERIUM_KF_MEGA_BOTTLES" );
 
 #namespace zm_aetherium_hud;
 

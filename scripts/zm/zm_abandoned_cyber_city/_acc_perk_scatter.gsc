@@ -123,13 +123,14 @@ function build_pads()
     pads[ pads.size ] = make_pad( "the Plaza",              ( -437,  -110,    0 ),  90,      (  1,  0, 0 ), ACC_SCATTER_UNSTICK_PUSH, "specialty_quickrevive" );
     // THE SCIENTIST'S OFFICE (user 2026-07-26): the old Lab N-wall pad (75,4195)
     // MOVED inside the new office room behind that wall (gen_scientist_office.js;
-    // interior x[-275,125] y[4248,4568], door at x[-123,-27]) and PERMANENTLY
+    // office TRANSLATED -360y by the 2026-08-02 lab compression - interior now
+    // x[-275,125] y[3888,4208], door at x[-123,-27] in the inner N wall) and PERMANENTLY
     // FIXED to Juggernog - "jugg and QR are always in same spot", REGARDLESS of
     // solo/co-op (no solo gating; QR's Plaza fix keeps its stock solo quirks,
     // Jugg's has none). E wall (face x=125, 33u standoff -> x=92), E-wall yaw
-    // 270, front west. Clear of the chem tank (y[4265,4319]) and the control
-    // console (y[4502,4562]); unstick push 85 lands (7,4420) = open room center.
-    pads[ pads.size ] = make_pad( "the Scientist's Office", (    92,  4420,    0 ),  270,     ( -1,  0, 0 ), ACC_SCATTER_UNSTICK_PUSH, "specialty_armorvest" );
+    // 270, front west. Clear of the chem tank (y[3905,3959]) and the control
+    // console (y[4142,4202]); unstick push 85 lands (7,4060) = open room center.
+    pads[ pads.size ] = make_pad( "the Scientist's Office", (    92,  4060,    0 ),  270,     ( -1,  0, 0 ), ACC_SCATTER_UNSTICK_PUSH, "specialty_armorvest" );
     // Lab S-wall decon TENT (the big curtain-open decontamination unit at
     // (-560,3075)): pad centered between its side-pillar clips (x[-622,-610] /
     // x[-510,-498], y[3075,3134] - 100u clear mouth), 33u+ off the S wall face
@@ -563,12 +564,10 @@ function unstick_players( pad )
 
 function announce_scatter()
 {
-    players = GetPlayers();
-    for ( i = 0; i < players.size; i++ )
-    {
-        if ( isdefined( players[ i ] ) && isplayer( players[ i ] ) )
-            players[ i ] IPrintLnBold( "^5PERK MACHINES SCATTERED^7 - find their new homes" );
-    }
+    // ONCE PER MATCH (user 2026-08-01): scatters recur every 3rd round (~10x/match) and the
+    // banner got annoying. First scatter explains the mechanic; after that the moved machines
+    // + perk lights are the tell.
+    acc_utility::announce_once( "perk_scatter", "^5PERK MACHINES SCATTERED^7 - find their new homes" );
 }
 
 // Dev-only visibility (debug rides acc_dev ONLY - no dvars). File log always.

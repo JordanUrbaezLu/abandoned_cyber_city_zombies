@@ -155,16 +155,26 @@ function acc_firesale_watcher()
 			temps[ temps.size ] = c;
 			c thread spawn_chest();
 		}
-		// stock sndFiresaleMusic_Start loops over level.chests (empty now) - play the loop at every pad ourselves
-		foreach ( c in level.available_chests )
+		// stock sndFiresaleMusic_Start loops over level.chests (empty now) - play the loop at every pad ourselves.
+		// ONE music at a time (user 2026-08-03): skip the jingle entirely while a channel song is playing, and
+		// register the pad emitters in level.acc_firesale_music_ents so acc_music::play() can kill them if a
+		// song starts MID-sale (a pad loop dies with its ent - the proven loop kill).
+		if ( !isdefined( level.acc_music_cur ) )
 		{
-			snd = spawn( "script_origin", c.origin + ( 0, 0, 100 ) );
-			snd playloopsound( "mus_fire_sale", 1 );
-			snd_ents[ snd_ents.size ] = snd;
+			foreach ( c in level.available_chests )
+			{
+				snd = spawn( "script_origin", c.origin + ( 0, 0, 100 ) );
+				snd playloopsound( "mus_fire_sale", 1 );
+				snd_ents[ snd_ents.size ] = snd;
+			}
+			level.acc_firesale_music_ents = snd_ents;
 		}
 		level waittill( "fire_sale_off" );
 		foreach ( snd in snd_ents )
-			snd delete();
+		{
+			if ( isdefined( snd ) ) snd delete();   // may already be gone (killed by acc_music::play mid-sale)
+		}
+		level.acc_firesale_music_ents = [];
 		foreach ( c in temps )
 			c thread acc_firesale_retire();
 	}

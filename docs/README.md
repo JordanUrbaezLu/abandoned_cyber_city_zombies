@@ -85,6 +85,7 @@ number or a system description into a doc, check this table; if you don't own it
 | 16 | [Community Techniques](16_community_techniques.md) | Cited techniques lifted from shipped community maps |
 | 19 | [LUI Pipeline](19_lui_pipeline.md) | The Lua client HUD pipeline + LUI engineering rules/budgets |
 | 20 | [Atmosphere & Materials](20_atmosphere_and_materials.md) | Wall/floor skins, sky, fog, lighting (shipped) |
+| 46 | [Visual Overhaul](46_visual_overhaul.md) | **THE master plan** dull→vibrant: noir relight, boot-up cascade, skyline/holo, open Helipad — phased, bake-gated (research 2026-07-29) |
 | 21 | [Adding a Gun](21_adding_a_gun_runbook.md) | Reusable box-gun integration runbook + GDT/variant how-to |
 | 22 | [Flags Reference](22_flags_reference.md) | Balance/tuning dvars + the hardcoded dev/god flag design |
 | 23 | [Sound & Music](23_sound_plan.md) | Alias inventory, per-event map, music channel, build pipeline |

@@ -46,6 +46,11 @@ rawfile,vision/zm_abandoned_cyber_city.vision
 rawfile,vision/acc_grade_magenta.vision
 rawfile,vision/acc_grade_orange.vision
 rawfile,vision/acc_grade_dark.vision
+// P2 grade audition candidate (docs/46 #23): the neutral curve + vkTS 0.12 (+12% saturation -
+// the "single biggest vibrancy lever"). DORMANT until the user approves the P1 noir rig
+// (sequencing rule: a grade only reads correctly ON a colored rig). Audition = flip
+// ACC_VISION_ON to 1 in _acc_atmosphere.gsc (its ACC_VISION_SET already points here) + rebuild.
+rawfile,vision/acc_grade_vibrant.vision
 // NEUTRAL near-black crush (vkRM 0.08, R=G=B, no hue) applied per trench depth to defeat the abyss
 // IBL/tonemap baseline that point-light dimming can't reach (_acc_atmosphere::apply_vision, 2026-06-22).
 rawfile,vision/acc_grade_abyss_dark.vision
@@ -99,6 +104,7 @@ scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_glitch_altar.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_scientist_office.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_music.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_jukebox.gsc
+scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_rampage.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_kortifex.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_reactor.gsc
 scriptparsetree,scripts/zm/zm_abandoned_cyber_city/_acc_exo.gsc
@@ -210,6 +216,7 @@ fx,zombie/fxt/fx_tesla_bolt_secondary_zmb
 // audio pass 10 (2026-07-22): gun shooting sounds replaced from the user's proper ZIP (compressed(1).zip) - alternator_fire/cj_fire/tripletake_fire overwritten with full 48k sounds (the earlier AudioTrimmer web-trims were the root problem) - THIS comment bump forces the bank regen (game CLOSED) -
 // audio pass 11 (2026-07-22 FIX on-release bug): the ZIP clips had ~0.24-0.37s of LEADING SILENCE before the shot, so the weapon fire sound played nothing on trigger-DOWN (on the CYBERJACK only the stock loopFireEndSound decay was heard on release). Re-cut cj_fire/alternator_fire as short single-shots from the onset + tripletake_fire with its lead-in dropped - THIS comment bump forces the bank regen (game CLOSED) -
 // audio pass 12 (2026-07-26 reload-foley fix): Streetsweeper/XM4 reload foley aliases were named with the wav's variant number baked in (shell_in1..4, knob_rotate1..3, regrip1/2) but the xanim "2D Sound" customnotes play the UNsuffixed name -> alias lookup missed -> silent reloads since 07-10. Renamed to same-name round-robin rows (the fire-sound pattern) + added the 6 missing s1_mdl reload foley aliases - THIS comment bump forces the bank regen (game CLOSED) -
+// audio pass 13 (2026-08-03 one-song-at-a-time redesign): 10 song rows in acc_audio.csv flipped NONLOOPING -> LOOPING (theme / 7 jukebox songs / paradise 115 + calm) + new NONLOOPING twin acc_paradise_calm_once (win fanfare) + 3 acc_round_sounds.csv rows (round stingers + gameover) flipped looping - every song now rides PlayLoopSound (the only stoppable primitive; see _acc_music.gsc header) - THIS comment bump forces the bank regen (game CLOSED) -
 // this comment edit FORCES a sound-bank rebuild after the CachedBanks corruption incident: a bank
 // regen ran while BO3 was open holding the .sabs locks -> poisoned incremental cache -> every
 // later build re-emitted corrupt banks -> hard crash mid-DB-load, varying points, no error.
@@ -549,6 +556,60 @@ fx,fog/fx_fog_ground_wind_lt_sm                    // Helipad - ground fog drift
 fx,fog/fx_fog_coolant_vent_md                      // Lab - coolant fog at the test chamber
 fx,fog/fx_fog_ground_low_rolling_stairs            // Trench mouth - fog rolling down the W stair channel
 fx,zombie/fx_fungus_pod_ambient_md_zod_zmb         // Abyss L3 tentacle mass + L5 hive - fungus pod ambience
+
+\ INFESTATION GRADIENT models (user 2026-07-29 "glowing eggs take over the deep trench" -
+\ gen_infestation.js ACCINF01/02, placement tables gen_infestation_data.json). All misc_model
+\ statics (zero G_Spawn); models from alien_ghost.gdt (_custom\_moicesttom) + T7 carve slices.
+xmodel,custom_ghost_alien_poison
+xmodel,custom_ghost_alien_plant05_top_01
+xmodel,custom_ghost_alien_plant03_whole_01
+xmodel,custom_ghost_alien_plant02_top
+xmodel,custom_ghost_hive02
+xmodel,custom_ghost_dead_brute_3
+xmodel,custom_ghost_alien_plant01_base
+xmodel,custom_ghost_alien_plant01_middle
+xmodel,custom_ghost_alien_plant01_top
+xmodel,custom_ghost_alien_plant02_base
+xmodel,custom_ghost_alien_tentacle_single_01
+xmodel,p7_ram_snake_egg_niche_capital
+xmodel,p7_zm_gen_rune_1_purple
+xmodel,p7_zm_gen_rune_3_purple
+xmodel,p7_zm_gen_rune_5_purple
+xmodel,p7_zm_gen_rune_6_purple
+xmodel,p7_zm_gen_rune_8_purple
+xmodel,p7_zm_gen_rune_9_purple
+\ Alien takeover v2 swap pass (2026-07-29, gen_alien_swap.js ACCSWP01 - alien_ghost.gdt variants)
+xmodel,custom_ghost_alien_poison_green
+xmodel,custom_ghost_alien_poison_orange
+xmodel,custom_ghost_alien_plant05_top_01_blue
+xmodel,custom_ghost_alien_plant05_top_01_cyan
+xmodel,custom_ghost_alien_plant04_arm_01
+xmodel,custom_ghost_alien_plant03_arm_01
+xmodel,custom_ghost_dead_soldier_01
+
+\ INFESTATION FX (same 2026-07-29 pass; loops + cascade/finale bursts via _acc_atmosphere /
+\ _acc_paradise). ALL def-grep-verified SAFE: bare dynamicLight2 like the proven md fungus,
+\ zero explicit def lines. (The fire-spot freeze class = dynamicLight2 PLUS a def reference.
+\ NB the zone tokenizer chokes on angle brackets in comments - keep these lines plain ASCII.)
+fx,zombie/fx_fungus_pod_ambient_sm_zod_zmb
+\ green fungus variant REMOVED 2026-07-29 - pcloud material ref (crash class); sm substitutes
+fx,zombie/fx_fungus_pod_ambient_lg_zod_zmb
+fx,zombie/fx_egg_ready_zod_zmb
+\ sword_quest_egg_glow + spores_cloud_exp_md REMOVED 2026-07-29 - pcloud/tail crash classes
+fx,zombie/fx_fungus_pod_explo_md_zod_zmb
+
+\ P0 sparkle batch (visual overhaul docs/46 Phase 0, 2026-07-29; _acc_atmosphere::apply_fx,
+\ acc_atmo_fx gate). All 7 verified on disk in <tools>\share\raw\fx\ 2026-07-29.
+fx,lensflares/fx_lensflare_fluorescent             // per-zone flares at the brightest acc_neon pool origins
+fx,lensflares/fx_lensflare_light_cool_lg           // cool variant for the two Bus Station blue pools
+// fx,fire/fx_fire_barrel REMOVED 2026-07-29: THE Alley crash (4/4 sessions) - its ember/spark
+// elements reference ec/gfx_fxt_spark_*_pcloud_em materials; *_pcloud_* materials lack their
+// particlecloud vertex-decl techset variant in a usermap .ff -> Com_ERROR on first render.
+// fx,light/fx_light_zm_fire_spot_1 REMOVED same day: embedded lightdef reference (class A).
+// fx,animals/fx_bio_fly_dark_50x50 REMOVED same day: unproven (tail elems), out pending probe.
+// THE RULE: grep every new .efx for 'pcloud' AND explicit 'def ' lines BEFORE wiring.
+fx,env/light/fx_light_god_ray_sm_single            // Vault - god-ray shaft under the N cage light
+fx,env/light/fx_light_god_rays_dust_motes          // Lab - motes over the medical row
 
 // Perk/PaP power-on glow FX (_acc_perk_lights.csc PlayFX's these client-side, one per perk
 // colour). Recoloured clones of the proven green power-up aura, generated by
@@ -973,6 +1034,43 @@ image,i_acc_implant_slot3
 // Leveling LV/XP frame (docs/45): user-supplied 512x128 art; level number + XP fill drawn
 // through its reserved zones by acc_hud.lua CoD.AccLevel. GDT: source_data/acc_perk_shaders.gdt.
 image,i_acc_level_frame
+// Round recon-frame HUD (2026-08-01, user: round counter "too plain"): user-supplied 512x512
+// recon-bracket art (shipped 240x240 pre-downscaled - no-mips rule, memory
+// hud-images-pre-downscale-no-mips; 360->300->240 as the box went 120->100->80 LUI across the
+// 2026-08-02 resizes, re-baked from the .acc-512-orig each time) - cyan corner
+// brackets + smoked-glass center + baked "ROUND" plate; the round NUMBER is drawn in its
+// center by CoD.AccRoundRecon (AetheriumWidgets/AccRoundRecon.lua, instantiated in AetheriumHud.lua).
+image,i_acc_round_frame
+// AREA-NAME banners (2026-08-02, user: PNG art replaces the top-center area TEXT banner):
+// 14 user-supplied 1024x256 recon-plate banners (shipped 720x180 after the -30% box resize
+// same day - re-baked from the Downloads-zip originals per the no-mips rule), one
+// per area key of _acc_dev.gsc dev_area_name (7 surface zones + exchange + paradise +
+// trenches LV1-5; trench set carries progressive glitch corruption, paradise is amber).
+// Drawn by the LUI area-banner widget (AetheriumHud.lua); GDT: acc_perk_shaders.gdt.
+image,i_acc_area_plaza
+image,i_acc_area_market
+image,i_acc_area_alley
+image,i_acc_area_busstation
+image,i_acc_area_vault
+image,i_acc_area_helipad
+image,i_acc_area_lab
+image,i_acc_area_exchange
+image,i_acc_area_paradise
+image,i_acc_area_trench1
+image,i_acc_area_trench2
+image,i_acc_area_trench3
+image,i_acc_area_trench4
+image,i_acc_area_trench5
+// Sub-area banners (2026-08-02 second pass, user): armory / scientist's office / implants
+// chamber - AABB-detected rooms overriding their parent areas (ids 15..17, accArea widened
+// 4->5 bits). Same 720x180 re-bake as the base set.
+image,i_acc_area_armory
+image,i_acc_area_scioffice
+image,i_acc_area_implant
+// HOSTILES drain-bar housing (2026-08-02, user): 800x112 slim recon-plate housing with a
+// transparent fill slot (measured x[54,745] y[42,69]) - CoD.AccRoundRing (acc_hud.lua) draws
+// its teal->magenta drain fill UNDER this image through the slot; ticks/rim overlay the fill.
+image,i_acc_hostiles_bar
 // SOUND-BANK REGEN TRIGGER (2026-07-21b): acc_level_up alias (level-up SFX, wav
 // sound_assets/acc/fx/level_up.wav) - re-encoded +1.5dB LOUDER (user "about 10% louder"). Sound banks
 // regen ONLY on a .zone content change, so this comment bump forces the repack on the next link
@@ -1052,6 +1150,8 @@ rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupsContainer.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupItem.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumPowerupNotification.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumRoundCounter.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AccRoundRecon.lua
+rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AccAreaBanner.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumGobbleGum.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/AetheriumScoreboard.lua
 rawfile,ui/uieditor/widgets/HUD/AetheriumWidgets/Scoreboard/AetheriumQuestsCustom.lua
@@ -1501,6 +1601,7 @@ xmodel,p7_sky_light_led_01_b_blue
 // manifold plates/hazmat suits/wall-mounts are walk-through. The LED strip + holo
 // screen models are already zoned above. NEVER zone fxanim/_fxsim models. Names
 // grep-verified against the GDTs (never guessed).
+xmodel,p8_zm_off_chair_office_executive_black
 xmodel,p8_zm_off_coat_lab_hanging
 xmodel,p8_zm_off_coat_lab_rack
 xmodel,p8_zm_off_console_control_01

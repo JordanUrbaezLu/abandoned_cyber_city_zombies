@@ -41,16 +41,48 @@ if (!inPath || !outArg) { console.error('usage: add_prop_clips.js <in> <out>'); 
 // stations (armory loft, transfer vault, paradise ammo crate, implant bench pads) are clipped
 // too; ALL new/updated Paradise + loft clips use `brushmodel: true` (LED-exempt at ANY depth -
 // zero bake risk; the shallow legacy worldspawn clips keep baking as before, just resized).
+// =============================================================================
+// PROP FRONT-AXIS CONVENTIONS (per model family) - the ONE ledger that ends the
+// recurring yaw flips (docs/47 audit: "a single measured front-axis note per model
+// family would end the recurring flips"). "Front" = the side the mesh PRESENTS
+// (screen / seat / doors / open counter). Yaw is CCW about +Z; at yaw 0 the listed
+// native front points the given axis. "backs N/S/W/E -> yaw" = the yaw to use so the
+// front faces the ROOM when the prop is flush to that wall.
+//
+//   FAMILY                               NATIVE FRONT @yaw0   backs N/S/W/E -> yaw
+//   p7_zm_tra_* (flat-back furniture)    -Y                   0 / 180 / 90 / 270
+//   t10_zm_* (signs / menu boards)       +Y (face)            180 / 0 / 270 / 90
+//   t10_street_bench_iron_ornate_*       -X   WALKABOUT-PROVEN 2026-08-03 (all 4
+//                                             Plaza benches flipped to face fountain)
+//   t10_decor_shaftesbury_..._angel      -Y   (angel 180->0 to face spawn/center)
+//   vending / station family             -Y   CONFIRMED via Paradise PaP 0->180 ->
+//     (p7_zm_vending_*, drop_pod console,      the blanket-yaw-0 sweep, Wave 1)
+//      cryogen pod, Neural/Overclock)
+//   dragon terminal                      +X   LB-proof (E kiosks yaw 180 cited,
+//     (p7_zm_sta_dragon_network_..._terminal)  Wave 1)
+//   p8_zm_off_monitor_security_*         -Y   lab N-wall pair proof (mount yaw 0,
+//                                             screen hung roomward facing south)
+//   p7_cru_monitor_holo_screen_01        +X
+//   p7_out_monitor_atm (ATM totem)       +X, BUT origin = BACK face - the 37u mesh
+//     extends +X FROM the origin (NOT centered), so a yaw-180 flip keeps the clip
+//     span identical while the screen swings to -X (see transfer_* clips L94-97).
+//   p7_zm_sta_drop_pod_console_blue      UNVERIFIED - Gorod console (perk_slot_vendor);
+//                                             assumed -Y with the vending family,
+//                                             CONFIRM in-game before trusting.
+//
+// When you add/rotate a clip, set the .map misc_model AND the GSC deco twin to the
+// SAME yaw this table implies (lockstep is mandatory - see the deco module headers).
+// =============================================================================
 const PROPS = [
-  { x: -200, y: 4480, hx: 29, hy: 26, bot: 0, top: 114, label: 'exo_station' },  // p7_cry_cryogen_pod_exterior (stasis pod 58x53x114, yaw 0) - THE SCIENTIST'S OFFICE (user 2026-07-26, gen_scientist_office.js room behind the Lab N wall); briefly Lab-floor (-500,3700) same day, PLAZA start room 2026-07-13..07-26 before, trench (-120,1550,-240) originally. Surface z=0 floor -> shallow worldspawn clip. Mirrors _acc_exo::spawn_station_at (-200,4480,0).
-  // ===== THE SCIENTIST'S OFFICE furniture (gen_scientist_office.js statics, user 2026-07-26) - z=0 room floor, snug boxes =====
-  { x:  -75, y: 4490, hx: 28, hy: 16, bot: 0, top:  31, label: 'sci_desk' },       // p7_rus_desk_metal_vintage (yaw 180) - the loot gun rests on top (GSC display at ~z37)
-  { x:  -75, y: 4538, hx: 13, hy: 13, bot: 0, top:  22, label: 'sci_chair' },      // p7_zm_tra_booth_chair behind the desk
-  { x: -252, y: 4540, hx: 11, hy: 11, bot: 0, top:  73, label: 'sci_coat_rack' },  // p8_zm_off_coat_lab_rack, NW corner
-  { x: -268, y: 4460, hx: 16, hy:  9, bot: 0, top:  52, label: 'sci_filing' },     // p8_zm_off_filing_cabinet_01 (18x32 at yaw 90 -> hx16/hy9), W wall
-  { x:   80, y: 4532, hx: 23, hy: 30, bot: 0, top:  56, label: 'sci_console' },    // p8_zm_off_console_control_01 (46x60, yaw 180), NE corner
-  { x:   92, y: 4292, hx: 28, hy: 27, bot: 0, top:  49, label: 'sci_tank' },       // p8_zm_off_tank_chemical, SE corner
-  { x:    0, y: 2493, hx: 46, hy: 23, top: -190, label: 'reactor_plinth' }, // p7_ris_generator_lg_01_blue (industrial generator 92x46x50, yaw 0 - long axis X along the back wall). Jukebox NORTH under-room; the jukebox machine sits WEST at (-140,2350), clear. Mirrors _acc_reactor::spawn_plinth_at (0,2493).
+  { x: -200, y: 4120, hx: 29, hy: 26, bot: 0, top: 114, label: 'exo_station' },  // p7_cry_cryogen_pod_exterior (stasis pod 58x53x114, yaw 0) - THE SCIENTIST'S OFFICE (user 2026-07-26, gen_scientist_office.js room behind the Lab N wall; whole office translated -360y by the 2026-08-02 lab compression, gen_compress_lab_paradise.js). Surface z=0 floor -> shallow worldspawn clip. Mirrors _acc_exo::spawn_station_at (-200,4120,0).
+  // ===== THE SCIENTIST'S OFFICE furniture (gen_scientist_office.js statics, user 2026-07-26; -360y with the office 2026-08-02) - z=0 room floor, snug boxes =====
+  { x:  -75, y: 4130, hx: 28, hy: 16, bot: 0, top:  31, label: 'sci_desk' },       // p7_rus_desk_metal_vintage (yaw 180) - the loot gun rests on top (GSC display at ~z37)
+  { x:  -75, y: 4178, hx: 14, hy: 14, bot: 0, top:  24, label: 'sci_chair' },      // p8_zm_off_chair_office_executive_black behind the desk (Track C kit swap 2026-08-03; was p7_zm_tra_booth_chair - audit Lab#11 wrong-kit)
+  { x: -252, y: 4180, hx: 11, hy: 11, bot: 0, top:  73, label: 'sci_coat_rack' },  // p8_zm_off_coat_lab_rack, NW corner
+  { x: -268, y: 4100, hx: 16, hy:  9, bot: 0, top:  52, label: 'sci_filing' },     // p8_zm_off_filing_cabinet_01 (18x32 at yaw 90 -> hx16/hy9), W wall
+  { x:   80, y: 4172, hx: 30, hy: 23, bot: 0, top:  56, label: 'sci_console' },    // p8_zm_off_console_control_01 (60 wide x 46 deep - audit fix 2026-08-03: the old hx23/hy30 assumed a yaw-swapped AABB, but a 180-deg yaw keeps the AABB; 7u of console stuck out unclipped while 7u of air was solid), NE corner, yaw 180
+  { x:   92, y: 3932, hx: 28, hy: 27, bot: 0, top:  49, label: 'sci_tank' },       // p8_zm_off_tank_chemical, SE corner
+  { x:    0, y: 2704, hx: 46, hy: 23, top: -190, label: 'reactor_plinth' },   // generator plinth on the back wall's INTERIOR face y2732 (verify-corrected 2026-08-03; mesh back edge y2727, 5u gap)
   // Data Cache "storages" (user 2026-07-10): model reverted p7_zm_sta_computer_tower_01 -> p7_cai_stacking_cargo_crate
   // (the crate the user preferred). The crate SHIPS a _col LOD so it self-collides; these clips are belt-and-suspenders
   // sized SNUG to the 64x64x48 crate. ALL emitted as brushmodel (LED-exempt, zero bake risk). Coords mirror the
@@ -68,14 +100,14 @@ const PROPS = [
   { x: -400, y: 1948, hx: 24, hy: 17, bot: -480, top: -402, brushmodel: true, label: 'overclock_terminal' }, // p7_zm_sta_dragon_network_data_terminal (48x34x78) - abyss L2 WEST.
   { x:  400, y: 1948, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'overclock_l5' }, // dragon network terminal - abyss L5 EAST.
   { x: -200, y: -100, hx: 24, hy: 17, bot:     0, top:    78, brushmodel: true, label: 'overclock_plaza' }, // dragon network terminal (48x34x78, yaw 0) - PLAZA start room, the ex-Exo-pod spot (SWAPPED user 2026-07-26; briefly 'overclock_lab' @ (-500,3700) earlier same day). Mirrors _acc_glitch_altar spawn_terminal_at (-200,-100,0).
-  { x: -400, y: 1948, hx: 81, hy: 33, bot:  -720, top:  -600, brushmodel: true, label: 'glitch_altar_l3' }, // p7_ram_altar (stone altar 162x66x58) - abyss L3; slab x[-781,-112] holds the 162 width fine. TOP RAISED -662->-600 (2026-07-13): the 58u slab top was jump-on-able with the Rocket Shield implant (~80u apex, 2x jump); a 120u-tall invisible cap now makes the top unreachable while the side-approach use-trigger (radius 110) is unaffected.
-  { x:  850, y: -1350, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'paradise_overclock' },   // dragon network terminal - PARADISE east-mid.
-  { x: -850, y: -1950, hx: 29, hy: 26, bot: -1200, top: -1086, brushmodel: true, label: 'paradise_exo' },         // cryogen stasis pod (yaw 0) - PARADISE west-south.
-  { x:  850, y: -1950, hx: 25, hy: 22, bot: -1200, top: -1129, brushmodel: true, label: 'paradise_perk_vendor' }, // drop-pod console - PARADISE east-south.
+  { x: -400, y: 1948, hx: 81, hy: 33, bot:  -720, top:  -600, brushmodel: true, label: 'glitch_altar_l3' }, // p7_ram_altar (stone altar 162x66x58, yaw 0 - the 2026-08-03 broadside rotation was REVERTED same day: yaw 90 put the clip 17u from both flanking L3 eruption risers, under the 45u rail). TOP RAISED -662->-600 (2026-07-13): 120u anti-perch cap - the 58u slab top stays unreachable.
+  { x:  550, y: -1180, hx: 24, hy: 17, bot: -1200, top: -1122, brushmodel: true, label: 'paradise_overclock' },   // dragon network terminal - PARADISE east-mid (COMPRESSED 2026-08-02: interior now x[-700,700] y[-2000,-600]).
+  { x: -550, y: -1680, hx: 26, hy: 29, bot: -1200, top: -1086, brushmodel: true, label: 'paradise_exo' },         // cryogen stasis pod (YAW 90 2026-08-03 - front east at the arena; 58x53 AABB X/Y-swapped) - PARADISE west-south.
+  { x:  550, y: -1680, hx: 25, hy: 22, bot: -1200, top: -1129, brushmodel: true, label: 'paradise_perk_vendor' }, // drop-pod console - PARADISE east-south.
   // Armory stations in PARADISE (user 2026-07-13): the weapon rack cabinet + the mega-bottle Wonderfizz, west wall.
   // Mirror the loft clips (armory_rack / armory_bottle); spawn_paradise call site (_acc_glitch_altar). Both deep -> brushmodel.
-  { x: -850, y: -1350, hx: 69, hy:  9, bot: -1200, top: -1152, brushmodel: true, label: 'paradise_armory_rack' },   // p7_con_cargo_train_armory_cabinet 138x18x48, yaw 0 (long axis X) - PARADISE west-mid.
-  { x: -850, y: -1650, hx: 37, hy: 28, bot: -1200, top: -1090, brushmodel: true, label: 'paradise_armory_bottle' }, // p7_zm_vending_wonder (Wonderfizz 74x56x110) - PARADISE west, between the rack and the Exo.
+  { x: -550, y: -1180, hx:  9, hy: 69, bot: -1200, top: -1152, brushmodel: true, label: 'paradise_armory_rack' },   // p7_con_cargo_train_armory_cabinet 138x18x48, YAW 90 2026-08-03 (long axis Y parallel to the W wall, long face east; pads at the S/N ends +/-55y) - PARADISE west-mid.
+  { x: -550, y: -1430, hx: 28, hy: 37, bot: -1200, top: -1090, brushmodel: true, label: 'paradise_armory_bottle' }, // p7_zm_vending_wonder (Wonderfizz 74x56x110, YAW 90 2026-08-03 - front east) - PARADISE west, between the rack and the Exo.
   // Implant Bench pads: THREE per site since 2026-07-09 (slots 2->3). Model = p7_zm_isl_table_operating
   // (79w[X] x 24d[Y] x 42h). PARADISE row = _acc_glitch_altar (-550 -/+ 2*acc_bench_pad_sep=160, -2080),
   // a straight row - unchanged. The IMPLANT LAB row was RE-SPREAD into a staggered ARC 2026-07-10 (room
@@ -83,28 +115,28 @@ const PROPS = [
   // spawn_bench = center pad @ struct(-227.5,-130.67)+off(153,-359) ~(-75,-490); outer pads +/-sep(175)
   // in X, +stag(60) N in Y -> ~(-250,-430) / (100,-430). Coords are dvar-nudgeable live (Plaza:
   // acc_bench_off_*/acc_bench_lab_sep/acc_bench_lab_stagger) - re-sync here + re-run after any nudge.
-  { x: -710, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot1' },          // PARADISE Slot 1 (west)
-  { x: -550, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot2' },          // PARADISE Slot 2 (center)
-  { x: -390, y: -2080, hx: 40, hy: 12, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot3' },          // PARADISE Slot 3 (east; NEW 2026-07-09)
+  { x: -610, y: -1840, hx: 12, hy: 40, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot1' },          // PARADISE Slot 1 (west) - RE-SYNCED 2026-08-03: the 08-02 compression moved the spawns but left these at y-2080 (buried behind the new S wall = walk-through); yaw 90 row (AABB swapped), y-1840
+  { x: -450, y: -1840, hx: 12, hy: 40, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot2' },          // PARADISE Slot 2 (center)
+  { x: -290, y: -1840, hx: 12, hy: 40, bot: -1200, top: -1158, brushmodel: true, label: 'bench_slot3' },          // PARADISE Slot 3 (east)
   { x: -250, y: -430, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot1' },              // IMPLANT LAB Slot 1 (west, forward) - staggered arc 2026-07-10
   { x:  -75, y: -490, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot2' },              // IMPLANT LAB Slot 2 (center, deepest/back)
   { x:  100, y: -430, hx: 40, hy: 12, bot: 0, top: 42, brushmodel: true, label: 'lab_bench_slot3' },              // IMPLANT LAB Slot 3 (east, forward)
   { x:  878, y:  -100, hx: 69, hy:  9, bot:   192, top:   240, brushmodel: true, label: 'armory_rack' },          // p7_con_cargo_train_armory_cabinet (138x18x48) - Armory loft (RE-SYNCED 2026-07-11: loft rebuilt, floor 288->192, stations 870->878 - _acc_armory::spawn_stations); long axis spans the deposit/withdraw pads.
   { x:  878, y:   100, hx: 37, hy: 28, bot:   192, top:   302, brushmodel: true, label: 'armory_bottle' },        // p7_zm_vending_wonder (Wonderfizz 74x56x110) - Armory loft bottle exchange (RE-SYNCED 2026-07-11, same move).
-  { x:   98, y:   200, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_points' },      // p7_out_monitor_atm (37x34x103; mesh extends +X from its back-face origin at x=80 -> clip centered x=98) - Exchange vault.
-  { x:   98, y:    40, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_shards' },      // ATM - Exchange vault.
-  { x:   98, y:  -120, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_bottles' },     // ATM - Exchange vault.
-  { x:   98, y:  -280, hx: 19, hy: 17, bot:  -240, top:  -137, brushmodel: true, label: 'transfer_items' },       // ATM - Exchange vault.
+  { x:   98, y:   200, hx: 19, hy: 17, bot:  -160, top:  -57, brushmodel: true, label: 'transfer_points' },      // p7_out_monitor_atm (37x34x103; YAW-180 flip 2026-08-03: model origin now x=117 = the EAST back face, mesh extends -X over the SAME span x[80,117] -> numbers unchanged; screen faces WEST at the stair approach) - Exchange vault.
+  { x:   98, y:    40, hx: 19, hy: 17, bot:  -160, top:  -57, brushmodel: true, label: 'transfer_shards' },      // ATM - Exchange vault.
+  { x:   98, y:  -120, hx: 19, hy: 17, bot:  -160, top:  -57, brushmodel: true, label: 'transfer_bottles' },     // ATM - Exchange vault.
+  { x:   98, y:  -280, hx: 19, hy: 17, bot:  -160, top:  -57, brushmodel: true, label: 'transfer_items' },       // ATM - Exchange vault.
   // Jukebox + Paradise PaP (model-clip audit 2026-07-10): both are bare spawn(script_model)+setmodel props whose xmodel
   // ships NO _col LOD (verified via find <model>*_col.xmodel_bin + tools/xmodel_bin_inspect.js) -> walk-through until clipped.
-  { x: -139, y:  2240, hx: 12, hy: 17, bot:  -240, top:  -187, brushmodel: true, label: 'jukebox' },              // cp_town_jukebox 22.7x33x53, yaw 0; mesh sits +X of the spawn origin (-150,2240) -> clip center x=-139. North under-room SW (spread from the reactor 2026-07-10).
+  { x: -706, y: 2450, hx: 12, hy: 17, bot: -240, top: -187, brushmodel: true, label: 'jukebox' },   // cp_town_jukebox: mesh sits +X of the spawn origin (-717,2450) -> clip center x=-706. TRUE W wall x-720 (verify-corrected 2026-08-03: the x-384 plane at y2450 is a bay MOUTH, open floor runs to x-720)              // cp_town_jukebox 22.7x33x53, yaw 0; mesh sits +X of the spawn origin (-150,2240) -> clip center x=-139. North under-room SW (spread from the reactor 2026-07-10).
   { x: -259.6, y: 2260.3, hx: 12, hy: 18, bot: -240, top: -187, brushmodel: true, label: 'slots_vending' },       // CYBER SLOTS floor machine (p8_zm_off_cigarette_vending, TOP-origin hangs 52.8, yaw 0) FREE-STANDING at (-250,2260,-187.2) on the open floor between the jukebox and the trench mystery box (REPLACED the outside-the-room wall-hung spot 2026-07-25). Mirrors _acc_slots::spawn_slot_machine; offsets = the surface cig-vending clip deltas (-9.6,+0.3) at yaw 0.
   // TELEPORTER pads have NO clips (FINAL 2026-07-18): the step-up plates (11u, then 8u) were
   // ZOMBIE-SAFE EXPLOITS - entity clips are navmesh-INVISIBLE, so zombies bumped an unseen ledge
   // at EITHER height and couldn't reach players on the pad. Pads are FLAT now (the Der assembly
   // model is walk-through; players stand at floor level inside the ring). l2_pad_green (the trench
   // teleporter pad) was removed with them; the deco l2_pad_red keeps its 11u plate (pure deco).
-  { x:    0, y: -1702, hx: 35, hy: 21, bot: -1200, top: -1125, brushmodel: true, label: 'paradise_pap' },        // p9_fxanim_zm_gp_pap_xmodel 67.9x40.6x75; Paradise standalone Pack-a-Punch (deep z=-1200 -> brushmodel required).
+  { x:    0, y: -1548, hx: 35, hy: 21, bot: -1200, top: -1125, brushmodel: true, label: 'paradise_pap' },        // p9_fxanim_zm_gp_pap_xmodel 67.9x40.6x75; Paradise standalone Pack-a-Punch (deep z=-1200 -> brushmodel required). Vendor moved (0,-1700)->(0,-1550) w/ the 08-02 compression; YAW 180 2026-08-03 (faces the N approach) -> the -2u mesh offset flips: center y -1552 -> -1548.
   { x: -340, y: -210, hx: 17, hy: 24, bot: 0, top: 78, brushmodel: true, label: 'leaderboard_terminal' },        // dragon network terminal 48x34x78 at yaw 90 (X/Y swapped) - PLAZA south wall, west of the Implant door (user 2026-07-11 "network computer has no clip"). Mirrors _acc_leaderboard ACC_LB_STATION_ORIGIN (-340,-210,0).
   // ===== INFECTED DESCENT obstacle/hero clips - per-floor approval loop (2026-07-12) =====
   // Each floor's clips return TOGETHER WITH its approved dressing pass (a clip with no
@@ -150,9 +182,10 @@ const PROPS = [
   // walk-through is fine; the N wall behind it already blocks you.
   { x: -540, y: 1850, hx: 47, hy: 64, bot: -1200, top: -976, brushmodel: true, label: 'pillar_l5_monolith' }, // crystal monolith 94x128x258, W bay (caps ceiling)
   { x:  700, y: 1850, hx: 62, hy: 47, bot: -1200, top: -1069, brushmodel: true, label: 'l5_monolith_e' },     // crystal monolith 75x124x131, E bay (yaw210 bbox)
-  { x:  620, y: 2000, hx: 72, hy: 77, bot: -1200, top: -998, brushmodel: true, label: 'pillar_l5_fountain' }, // jade fountain 144x154x202, E centerpiece
+  // pillar_l5_fountain REMOVED 2026-07-30 (user "pig headed model" - the jade snake fountain at (620,2000) was deleted via gen_remove_pighead.js; its 144-wide clip went with it)54x202, E centerpiece
   { x:  470, y: 2110, hx: 48, hy: 48, bot: -1200, top: -976, brushmodel: true, label: 'l5_column' },          // snake column 106x166x318, N wall (MOVED 240->470 off the D4 stair landing + clip shrunk to the solid shaft, drops the 166-deep sparse snake tail, user 2026-07-13)
   { x: -700, y: 1745, hx: 35, hy: 35, bot: -1200, top: -1100, brushmodel: true, label: 'l5_statue_sw' },      // jade statue 69x69x100, SW corner
+  { x:  620, y: 2000, hx: 35, hy: 35, bot: -1200, top: -1100, brushmodel: true, label: 'l5_statue_e' },      // jade statue 69x69x100, E-bay centerpiece (old fountain spot; 2026-08-03 - replaces the purged pighead fountain)
   { x:  700, y: 1760, hx: 59, hy: 59, bot: -1200, top: -1104, brushmodel: true, label: 'l5_egg_base_se' },    // egg niche base 117x117x96, SE corner
   { x:  760, y: 2120, hx: 23, hy: 16, bot: -1200, top: -1104, brushmodel: true, label: 'l5_egg_nest_ne' },    // egg nest 46x32x96, NE
   { x: -250, y: 1755, hx: 23, hy: 16, bot: -1200, top: -1104, brushmodel: true, label: 'l5_egg_nest_s' },     // egg nest, S wall W of the door
@@ -185,6 +218,7 @@ const PROPS = [
   { x: 60, y: 1662, hx: 7, hy: 7, bot: 0, top: 42, label: 'bus_post_stanchion_4' },
   { x: -430, y: 1658, hx: 40, hy: 20, bot: 0, top: 44, label: 'bus_traffic_street_bar' },
   { x: 300, y: 1662, hx: 8, hy: 8, bot: 0, top: 28, label: 'bus_traffic_street_con' },
+  { x: -200, y: 2230, hx: 8, hy: 8, bot: 0, top: 28, label: 'bus_traffic_street_con_3' },   // bay-rim cordon partner: barrier(-360,2230) -> cone(-200) line (2026-08-03)
   { x: 600, y: 1655, hx: 71, hy: 2, bot: 0, top: 97, label: 'bus_fence_quarantine' },
   { x: 600, y: 1540, hx: 36, hy: 20, bot: 0, top: 53, label: 'bus_pneumatic_dolly' },
   { x: 558, y: 1500, hx: 19, hy: 8, bot: 0, top: 27, label: 'bus_suitcase_lrg_2' },
@@ -196,7 +230,7 @@ const PROPS = [
   { x: 60, y: 2262, hx: 7, hy: 7, bot: 0, top: 42, label: 'bus_post_stanchion_6' },
   { x: -100, y: 2314, hx: 7, hy: 7, bot: 0, top: 42, label: 'bus_post_stanchion_7' },
   { x: 60, y: 2314, hx: 7, hy: 7, bot: 0, top: 42, label: 'bus_post_stanchion_8' },
-  { x: -470, y: 2360, hx: 40, hy: 20, bot: 0, top: 44, label: 'bus_traffic_street_bar_2' },   // moved 2026-07-19 with the bus re-park: flush junk on the coach N flank (was (-470,2222), inside the new footprint)
+  { x: -360, y: 2230, hx: 40, hy: 20, bot: 0, top: 44, label: 'bus_traffic_street_bar_2' },   // re-homed 2026-08-03 (prop audit): N bay-rim cordon E of the ACCC000F POWER arrow decal (x[-500,-436] y2195, 36u clear)
   { x: 400, y: 2228, hx: 8, hy: 8, bot: 0, top: 28, label: 'bus_traffic_street_con_2' },
   { x: 150, y: 2210, hx: 71, hy: 2, bot: 0, top: 97, label: 'bus_fence_quarantine_2' },
   { x: -150, y: 2486, hx: 58, hy: 15, bot: 0, top: 39, label: 'bus_bench_wood_7' },
@@ -204,12 +238,12 @@ const PROPS = [
   { x: 300, y: 2545, hx: 14, hy: 30, bot: 0, top: 44, label: 'bus_booth_chair' },
   { x: -747, y: 2600, hx: 14, hy: 14, bot: 0, top: 36, label: 'bus_sink_bathroom' },
   { x: -751, y: 2680, hx: 10, hy: 10, bot: 0, top: 88, label: 'bus_urinal_bathroom' },
-  { x: -560, y: 2708, hx: 14, hy: 11, bot: 0, top: 41, label: 'bus_sink_standing' },
+  { x: -665, y: 2704, hx: 14, hy: 11, bot: 0, top: 41, label: 'bus_sink_standing' },
   { x: -485, y: 2645, hx: 5, hy: 24, bot: 0, top: 79, label: 'bus_frame_window_wood' },
   { x: 620, y: 2690, hx: 93, hy: 24, bot: 0, top: 54, label: 'bus_table_kitchen_long_2' },
   { x: 580, y: 2648, hx: 9, hy: 9, bot: 0, top: 27, label: 'bus_stool_counter' },
   { x: 660, y: 2648, hx: 9, hy: 9, bot: 0, top: 27, label: 'bus_stool_counter_2' },
-  { x: 702, y: 2600, hx: 15, hy: 14, bot: 0, top: 49, label: 'bus_stove_kitchen' },
+  { x: 775, y: 2695, hx: 15, hy: 14, bot: 0, top: 49, label: 'bus_stove_kitchen' },
   { x: -290, y: 2700, hx: 14, hy: 5, bot: 0, top: 95, label: 'bus_stepladder_lrg' },
   { x: -380, y: 2705, hx: 24, hy: 16, bot: 0, top: 56, label: 'bus_shelve_oilrack' },
   { x: 240, y: 2716, hx: 18, hy: 9, bot: 0, top: 63, label: 'bus_power_panel' },
@@ -232,14 +266,13 @@ const PROPS = [
   { x: 2070, y: 415, hx: 22, hy: 23, bot: 0, top: 83, label: 'alley_tank_chemical_3' },
   { x: 1830, y: 770, hx: 70, hy: 2, bot: 0, top: 90, label: 'alley_fence_quarantine_t' },
   { x: 1730, y: 590, hx: 23, hy: 28, bot: 0, top: 14, label: 'alley_debris_rubble_pile_2' },
-  { x: 1625, y: 1300, hx: 16, hy: 35, bot: 0, top: 23, label: 'alley_wheelbarrow_full' },
   { x: 2045, y: 1150, hx: 20, hy: 36, bot: 0, top: 53, label: 'alley_pneumatic_dolly' },
   { x: 1600, y: 860, hx: 24, hy: 16, bot: 0, top: 56, label: 'alley_shelve_oilrack_2' },
   { x: 1940, y: 570, hx: 22, hy: 23, bot: 0, top: 83, label: 'alley_tank_chemical_4' },
   { x: 1560, y: 900, hx: 11, hy: 10, bot: 0, top: 30, label: 'alley_mannequin_full' },
   { x: 1356, y: 1000, hx: 4, hy: 14, bot: 0, top: 31, label: 'alley_radiator_vintage' },
-  { x: -2102, y: 680, hx: 16, hy: 24, bot: 0, top: 56, label: 'market_shelve_oilrack' },
-  { x: -2100, y: 760, hx: 17, hy: 17, bot: 0, top: 50, label: 'market_barrel_wood' },
+  { x: -2102, y: 860, hx: 16, hy: 24, bot: 0, top: 56, label: 'market_shelve_oilrack' },
+  { x: -2100, y: 930, hx: 17, hy: 17, bot: 0, top: 50, label: 'market_barrel_wood' },
   { x: -2102, y: 1030, hx: 16, hy: 22, bot: 0, top: 37, label: 'market_counter_kitchen_' },
   { x: -2102, y: 1095, hx: 15, hy: 20, bot: 0, top: 37, label: 'market_counter_kitchen__2' },
   { x: -2103, y: 1385, hx: 15, hy: 14, bot: 0, top: 49, label: 'market_stove_kitchen' },
@@ -247,7 +280,7 @@ const PROPS = [
   { x: -2000, y: 440, hx: 25, hy: 17, bot: 0, top: 22, label: 'market_table_rustic_woo' },
   { x: -1850, y: 500, hx: 9, hy: 9, bot: 0, top: 27, label: 'market_stool_counter' },
   { x: -1870, y: 1390, hx: 93, hy: 24, bot: 0, top: 54, label: 'market_table_kitchen_lo_2' },
-  { x: -1720, y: 1360, hx: 14, hy: 30, bot: 0, top: 45, label: 'market_booth_chair' },
+  { x: -1615, y: 1364, hx: 30, hy: 14, bot: 0, top: 45, label: 'market_booth_chair' },   // pulled to the table's W end + yaw 90 (hx/hy swapped for the rotation; diner-nook regroup 2026-08-03)
   { x: -2050, y: 1420, hx: 30, hy: 10, bot: 0, top: 26, label: 'market_counter_kitchen__3' },
   { x: -1720, y: 520, hx: 11, hy: 10, bot: 0, top: 30, label: 'market_mannequin_full' },
   { x: -1660, y: 1320, hx: 11, hy: 10, bot: 0, top: 30, label: 'market_mannequin_full_2' },
@@ -255,16 +288,16 @@ const PROPS = [
   // vault_radiator_vintage / vault_x_tank_chemical REMOVED (M5 anchor upgrade
   // 2026-07-18): the TranZit bank props + vault chem tanks went with their spawns;
   // the BO6 circular vault portal (M5 VAULT section below) is the new S-wall anchor.
-  { x: 1910, y: 2400, hx: 20, hy: 20, bot: 0, top: 100, label: 'vault_server_comm_02' },
-  { x: 1915, y: 2490, hx: 15, hy: 12, bot: 0, top: 72, label: 'vault_computer_tower_0' },
-  { x: 1913, y: 2590, hx: 17, hy: 24, bot: 0, top: 78, label: 'vault_dragon_network_d' },
-  { x: 1913, y: 2680, hx: 17, hy: 18, bot: 0, top: 103, label: 'vault_monitor_atm' },
-  { x: 1908, y: 2970, hx: 22, hy: 24, bot: 0, top: 71, label: 'vault_drop_pod_console' },
+  { x: 1899, y: 2400, hx: 20, hy: 20, bot: 0, top: 100, label: 'vault_server_comm_02' },
+  { x: 1904, y: 2490, hx: 15, hy: 12, bot: 0, top: 72, label: 'vault_computer_tower_0' },
+  { x: 1895, y: 2590, hx: 24, hy: 17, bot: 0, top: 78, label: 'vault_dragon_network_d' },
+  { x: 1900.5, y: 2680, hx: 18.5, hy: 17, bot: 0, top: 103, label: 'vault_monitor_atm' },
+  { x: 1897, y: 2970, hx: 22, hy: 24, bot: 0, top: 71, label: 'vault_drop_pod_console' },
   { x: 1400, y: 2328, hx: 46, hy: 23, bot: 0, top: 50, label: 'vault_generator_lg_01_' },
   { x: 1560, y: 2312, hx: 69, hy: 9, bot: 0, top: 48, label: 'vault_cargo_train_armo' },   // MOVED 1650->1560 (M5: opens the S-wall span for the vault portal)
   { x: 1127, y: 2620, hx: 8, hy: 17, bot: 0, top: 63, label: 'vault_power_panel' },
   { x: 1134, y: 2820, hx: 15, hy: 12, bot: 0, top: 72, label: 'vault_computer_tower_0_2' },
-  { x: 1136, y: 2960, hx: 17, hy: 24, bot: 0, top: 78, label: 'vault_dragon_network_d_2' },
+  { x: 1143, y: 2960, hx: 24, hy: 17, bot: 0, top: 78, label: 'vault_dragon_network_d_2' },
   { x: 1720, y: 3352, hx: 46, hy: 23, bot: 0, top: 50, label: 'vault_generator_lg_01__2' },
   { x: -1810, y: 3273, hx: 100, hy: 100, bot: 0, top: 210, label: 'roof_water_tower' },
   // roof_tank_chemical / roof_tank_chemical_2 / roof_barrel_wood / roof_gas_pump REMOVED
@@ -276,10 +309,8 @@ const PROPS = [
   { x: -1440, y: 2334, hx: 7, hy: 7, bot: 0, top: 28, label: 'roof_traffic_street_c' },
   { x: -1650, y: 3352, hx: 21, hy: 20, bot: 0, top: 40, label: 'roof_cage_animal_med' },
   { x: -1540, y: 3348, hx: 36, hy: 20, bot: 0, top: 53, label: 'roof_pneumatic_dolly' },
-  { x: -1430, y: 3358, hx: 14, hy: 4, bot: 0, top: 31, label: 'roof_radiator_vintage' },
   { x: -1140, y: 2650, hx: 8, hy: 17, bot: 0, top: 63, label: 'roof_power_panel_2' },
   { x: -1148, y: 2990, hx: 16, hy: 24, bot: 0, top: 56, label: 'roof_shelve_oilrack_2' },
-  { x: -1895, y: 2400, hx: 8, hy: 8, bot: 0, top: 62, label: 'roof_street_lamp_full' },
   { x: -1908, y: 3040, hx: 2, hy: 72, bot: 0, top: 97, label: 'roof_fence_quarantine' },
   { x: -1835, y: 2470, hx: 42, hy: 43, bot: 0, top: 19, label: 'roof_debris_rubble_02' },
   // ===== SURFACE pass 3 (+25% props, 2026-07-16) =====
@@ -295,15 +326,14 @@ const PROPS = [
   { x: -260, y: 2560, hx: 14, hy: 16, bot: 0, top: 20, label: 'bus_x_suitcase_med_2' },
   { x: 1560, y: 1420, hx: 23, hy: 28, bot: 0, top: 14, label: 'alley_x_debris_rubble_' },
   { x: 1900, y: 1280, hx: 22, hy: 23, bot: 0, top: 83, label: 'alley_x_tank_chemical' },
-  { x: 1610, y: 710, hx: 28, hy: 28, bot: 0, top: 23, label: 'alley_x_wheelbarrow_fu' },
   { x: 1700, y: 1300, hx: 11, hy: 10, bot: 0, top: 30, label: 'alley_x_mannequin_full' },
   { x: -1900, y: 900, hx: 17, hy: 17, bot: 0, top: 50, label: 'market_x_barrel_wood' },
   { x: -1500, y: 1100, hx: 23, hy: 28, bot: 0, top: 14, label: 'market_x_debris_rubble_' },
   { x: -1850, y: 700, hx: 11, hy: 10, bot: 0, top: 30, label: 'market_x_mannequin_full' },
-  { x: -1600, y: 1350, hx: 25, hy: 17, bot: 0, top: 22, label: 'market_x_table_rustic_w' },
+  { x: -1560, y: 1364, hx: 25, hy: 17, bot: 0, top: 22, label: 'market_x_table_rustic_w' },   // slid to the sofa-pair midline under the DINER sign (diner-nook regroup 2026-08-03)
   { x: -1450, y: 600, hx: 26, hy: 29, bot: 0, top: 29, label: 'market_x_planter_stone' },
   { x: 1350, y: 3352, hx: 15, hy: 12, bot: 0, top: 72, label: 'vault_x_computer_tower' },
-  { x: 1250, y: 2320, hx: 24, hy: 17, bot: 0, top: 78, label: 'vault_x_dragon_network' },
+  { x: 1250, y: 2320, hx: 17, hy: 24, bot: 0, top: 78, label: 'vault_x_dragon_network' },
   { x: 1130, y: 3050, hx: 4, hy: 4, bot: 0, top: 33, label: 'vault_x_monitor_suppor' },
   // roof_x_barrel_wood + roof_x_gas_pump REMOVED (M4 hero swap, with their spawns).
   { x: -1200, y: 2700, hx: 23, hy: 22, bot: 0, top: 83, label: 'roof_x_tank_chemical' },
@@ -319,14 +349,14 @@ const PROPS = [
   // its origin, the pedestal -y, parking blocks -0.1x). Grass patches, houseplants
   // and wall-mounts (neon sign, LED strips) carry NO clip. If a prop moves, edit
   // gen_plaza_layout.js -> regen -> paste both blocks -> re-bake (FULL build).
-  { x: -48.8, y: 133.8, hx: 22, hy: 37, bot: 0, top: 125, label: 'plaza_fountain' },   // memorial angel fountain HERO (43x72x125, yaw 180)
+  { x: -31.2, y: 126.2, hx: 22, hy: 37, bot: 0, top: 125, label: 'plaza_fountain' },   // memorial angel fountain HERO (43x72x125, yaw 0 - mesh sits +x/-y of origin natively)
   { x: -454.3, y: 87.1, hx: 17, hy: 108, bot: 0, top: 90, label: 'plaza_bed_w' },      // merged W planter bed: fence 128+64 run + hollyhock/camomile boxes
   { x: 0, y: 699.9, hx: 64, hy: 18, bot: 0, top: 90, label: 'plaza_bed_n' },           // merged N planter bed under the dead neon sign
-  { x: -440, y: 240, hx: 2, hy: 4, bot: 0, top: 90, label: 'plaza_picket' },           // lone iron fence picket (7x4x90 sliver - NEVER gable)
-  { x: -220, y: 9.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_1' },        // ornate iron bench row A west (yaw 90)
-  { x: -140, y: 9.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_2' },        // row A east
+  { x: -440, y: 215, hx: 2, hy: 4, bot: 0, top: 90, label: 'plaza_picket' },           // lone iron fence picket (7x4x90 sliver - NEVER gable)
+  { x: -220, y: 9.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_1' },        // ornate iron bench row A west (yaw 270 since the 2026-08-03 flip - faces the fountain)
+  { x: -140, y: 9.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_2' },        // row A east (yaw 270)
   { x: -120, y: 335.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_3' },      // row B west (yaw 270)
-  { x: 30, y: 335.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_4' },        // row B east
+  { x: 30, y: 335.5, hx: 34, hy: 17, bot: 0, top: 42, label: 'plaza_bench_4' },        // row B east (yaw 90)
   { x: -438, y: 250, hx: 7, hy: 7, bot: 0, top: 44, label: 'plaza_bollard_1' },        // NW mouth line (leads to, never blocks, the y400-656 gap)
   { x: -438, y: 305, hx: 7, hy: 7, bot: 0, top: 44, label: 'plaza_bollard_2' },
   { x: -438, y: 360, hx: 7, hy: 7, bot: 0, top: 44, label: 'plaza_bollard_3' },
@@ -339,6 +369,15 @@ const PROPS = [
   { x: -428.1, y: -150, hx: 40, hy: 6, bot: 0, top: 8, label: 'plaza_pblock_1' },      // parking block W row (11x80x7, yaw 90; step-over height)
   { x: -90.1, y: -215, hx: 40, hy: 6, bot: 0, top: 8, label: 'plaza_pblock_2' },       // parking block S row
   { x: -0.1, y: -215, hx: 40, hy: 6, bot: 0, top: 8, label: 'plaza_pblock_3' },
+  // ===== PLAZA->ALLEY CONNECTOR (density-gradient pass 2026-08-03; docs/47 item 12) =====
+  // 9 baked misc_models at the map tail (the 10th, a red cage beacon, was CUT - 2nd instance of a light model crashes the LED bake, see CHANGELOG). Only the 3
+  // S-wall floor solids get clips; litter/foliage/wall mounts (blue LED, electric set, wire
+  // bundle, biohazard sign, red cage beacon) stay clipless per the M3/M6 no-clip conventions.
+  // 'plaza_conn_' rides the existing 'plaza_' SURFACE_PREFIXES entry: the planter (min 26>=12)
+  // auto-gables; the 7x7 bollards stay flat slivers (gabling a sliver = 0xC0000409).
+  { x: 260, y: 435, hx: 7, hy: 7, bot: 0, top: 44, label: 'plaza_conn_bollard_1' },   // S-wall cordon echo of the plaza NE mouth line (28u wall standoff = the x180 line's read)
+  { x: 315, y: 435, hx: 7, hy: 7, bot: 0, top: 44, label: 'plaza_conn_bollard_2' },   // 55u pitch, same cadence as the plaza lines
+  { x: 390, y: 438, hx: 26, hy: 29, bot: 0, top: 29, label: 'plaza_conn_planter' },   // p7_zm_tra_planter_stone (market_x_planter_stone extents); ends the classical run, N lane stays 189u
   // ===== LAB SURFACE (z=0) - _acc_surface_deco.gsc spawn_lab() clinical
   // cyberware-lab pass (M2 visual sweep, 2026-07-18). SHALLOW worldspawn clips
   // (bot:0) -> navmesh AUTO-CUT, LED-safe; wide ones (min half-extent >=12) get
@@ -380,19 +419,32 @@ const PROPS = [
   // middle 56u passage open so players AND zombies brush through the fabric.
   { x: 750.5, y: 3487, hx: 2, hy: 5, bot: 0, top: 83, label: 'lab_curtain_end_s' },         // portable curtain S end sliver
   { x: 750.5, y: 3553, hx: 2, hy: 5, bot: 0, top: 83, label: 'lab_curtain_end_n' },         // N end sliver - passage y[3492,3548] = 56u
-  { x: 160.5, y: 3810, hx: 70, hy: 47, bot: 0, top: 65, label: 'lab_apd_turbine' },   // APD turbine (mesh extends -y: spans y3764-3856)
+  { x: 160.5, y: 3822, hx: 70, hy: 47, bot: 0, top: 65, label: 'lab_apd_turbine' },   // APD turbine (mesh extends -y), FLUSHED onto the new inner N wall face y3868 (2026-08-02 lab compression: interior now y[3068,3868], gen_compress_lab_paradise.js)
   { x: 250, y: 3790, hx: 14, hy: 14, bot: 0, top: 31, label: 'lab_apd_element' },   // APD glowing element core (yaw 45 -> padded square)
-  { x: 100, y: 3870, hx: 6, hy: 7, bot: 0, top: 30, label: 'lab_aether_canister_on' },   // aether canister (glow; sliver - flat)
+  { x: 100, y: 3860, hx: 6, hy: 7, bot: 0, top: 30, label: 'lab_aether_canister_on' },   // aether canister (glow; sliver - flat), flush the new N wall
   { x: 300, y: 3800, hx: 6, hy: 7, bot: 0, top: 30, label: 'lab_aether_canister_on_2' },   // aether canister (glow; sliver - flat)
   { x: 769.9, y: 3794.6, hx: 17, hy: 25, bot: 0, top: 117, label: 'lab_energy_barrier_01__2' },   // RED energy barrier post N of the box (glow)
-  { x: 774, y: 3851.5, hx: 23, hy: 30, bot: 0, top: 56, label: 'lab_console_control_01' },   // control console vs the E wall (background)
-  { x: 777.7, y: 3898, hx: 9, hy: 16, bot: 0, top: 52, label: 'lab_filing_cabinet_01' },   // filing cabinet between the consoles (thin - flat)
-  { x: 774, y: 3960, hx: 23, hy: 44, bot: 0, top: 56, label: 'lab_console_control_02' },   // wide control console vs the E wall (background)
-  { x: 690, y: 3880, hx: 28, hy: 27, bot: 0, top: 49, label: 'lab_tank_chemical' },   // pressure tank 1
-  { x: 690, y: 3965, hx: 28, hy: 28, bot: 0, top: 49, label: 'lab_tank_chemical_2' },   // pressure tank 2 (yaw 30 -> padded square)
-  { x: 620, y: 3918.1, hx: 28, hy: 53, bot: 0, top: 42, label: 'lab_morgue_table' },   // steel morgue/work table
-  { x: 600, y: 3834.2, hx: 21, hy: 15, bot: 0, top: 40, label: 'lab_locker_military_op' },   // locker, open
-  { x: 648, y: 3834.3, hx: 21, hy: 15, bot: 0, top: 40, label: 'lab_locker_military_cl' },   // locker, closed
+  // -- 2026-08-02 lab compression: the old E-wall industrial corner (y3835-3965, now sealed band)
+  //    relayouts onto the new N wall (face y3868) + an NE spur off the red barrier. Origins mirror
+  //    the misc_model moves in gen_compress_lab_paradise.js LAB_MOVES - keep in lockstep. --
+  { x: 330, y: 3846.5, hx: 30, hy: 23, bot: 0, top: 56, label: 'lab_console_control_01' },   // control console, new N wall (yaw 90->0: hx/hy swapped)
+  { x: 718, y: 3852, hx: 16, hy: 9, bot: 0, top: 52, label: 'lab_filing_cabinet_01' },   // filing cabinet, new N wall (thin - flat)
+  { x: 520, y: 3846.5, hx: 44, hy: 23, bot: 0, top: 56, label: 'lab_console_control_02' },   // wide control console, new N wall (yaw 90->0)
+  { x: 724, y: 3792, hx: 28, hy: 27, bot: 0, top: 49, label: 'lab_tank_chemical' },   // pressure tank 1 - NE spur (merges w/ the red barrier mass)
+  { x: 735, y: 3737, hx: 28, hy: 28, bot: 0, top: 49, label: 'lab_tank_chemical_2' },   // pressure tank 2 (yaw 30 -> padded square) - NE spur south end
+  { x: -190, y: 3240, hx: 53, hy: 28, bot: 0, top: 42, label: 'lab_morgue_table' },   // steel morgue/work table -> center-south medical cluster (yaw 0->90)
+  { x: 610, y: 3851.2, hx: 21, hy: 15, bot: 0, top: 40, label: 'lab_locker_military_op' },   // locker, open - new N wall
+  { x: 658, y: 3851.3, hx: 21, hy: 15, bot: 0, top: 40, label: 'lab_locker_military_cl' },   // locker, closed - new N wall
+  // -- 2026-08-02 lab densification (gen_compress_lab_paradise.js NEW_STATICS; all models
+  //    already zoned elsewhere in this map - zero new .zone lines) --
+  { x: -440, y: 3480, hx: 46, hy: 23, bot: 0, top: 50, label: 'lab_gen_blue' },          // p7_ris_generator_lg_01_blue - W-center data island S anchor
+  { x: -450, y: 3560, hx: 12, hy: 15, bot: 0, top: 72, label: 'lab_comp_tower' },        // p7_zm_sta_computer_tower_01 - island W
+  { x: -370, y: 3545, hx: 20, hy: 20, bot: 0, top: 100, label: 'lab_server_comm' },      // p7_zm_moo_server_comm_02 - island center
+  { x: -300, y: 3510, hx: 24, hy: 17, bot: 0, top: 78, label: 'lab_dragon_terminal' },   // p7_zm_sta_dragon_network_data_terminal (yaw 270) - island E
+  { x: -680, y: 3841, hx: 67, hy: 25, bot: 0, top: 81, label: 'lab_test_chamber_2' },    // 2nd specimen test chamber (yaw 90), NW corner vs the new N wall
+  { x: -500, y: 3839, hx: 95, hy: 27, bot: 0, top: 124, label: 'lab_console_standing_2' }, // BIG standing console bank (yaw 180), new N wall W
+  { x: -270, y: 3841, hx: 57, hy: 27, bot: 0, top: 124, label: 'lab_console_standing_1' }, // standing console bank (yaw 0), new N wall W of the office door
+  { x: -115, y: 3240, hx: 13, hy: 18, bot: 0, top: 44, label: 'lab_medical_cart_2' },    // 2nd medical cart (yaw 90 - the orientation these dims fit) beside the morgue table
   // ===== SURFACE center anchors (2026-07-16) =====
   { x: -250, y: 2400, hx: 30, hy: 30, bot: 0, top: 53, label: 'bus_c_pneumatic_dol' },
   { x: -190, y: 2445, hx: 6, hy: 19, bot: 0, top: 27, label: 'bus_c_suitcase_lrg' },
@@ -458,15 +510,14 @@ const PROPS = [
   // SURFACE_PREFIXES entries; thin ones stay flat (0xC0000409).
   { x: -27, y: 2658, hx: 234, hy: 70, bot: 0, top: 134, label: 'bus_m4_schoolbus_seal' },     // SEALED dead coach, RE-PARKED AGAIN 2026-07-19 FIX BATCH 3: the parapet spot covered the ACCC000F POWER arrow decal (x[-500,-436] y2195) - user placed those deliberately. Now yaw 0 flush on the TRUE N wall y2728 (seal x[-261,207] y[2588,2728]); stepladder/power_panel moved aside for the span. misc_model + GSC twin in lockstep.
   { x: -600, y: 1519.8, hx: 57, hy: 99, bot: 0, top: 98, label: 'bus_m4_travel_kiosk_btm' },   // travel kiosk (base unit), SW island
-  { x: -470, y: 1520, hx: 65, hy: 107, bot: 0, top: 88, label: 'bus_m4_travel_kiosk_top' },    // travel kiosk (canopy unit), SW island pair
   { x: -410, y: 1686, hx: 40, hy: 6, bot: 0, top: 7, label: 'bus_m4_parking_block_gr' },       // parking block row W, S bus-bay rim approach (W of the POWER text decal)
   { x: 200, y: 1686, hx: 40, hy: 6, bot: 0, top: 7, label: 'bus_m4_parking_block_gr_2' },      // parking block row E, S bus-bay rim approach
   { x: 430, y: 2205, hx: 2, hy: 7, bot: 0, top: 128, label: 'bus_m4_street_usa_no_pa' },       // NO PARKING post leaned at the N rim parapet (decals clear)
   { x: 740, y: 1494.9, hx: 12, hy: 27, bot: 0, top: 16, label: 'bus_m4_bike_stand_02' },       // bike stand, SE wall bay S of the staff desk
   { x: 778.3, y: 1590, hx: 19, hy: 36, bot: 0, top: 34, label: 'bus_m4_desk_metal_vinta' },    // staff desk flush on the E wall under the payphone bank
   { x: 768.6, y: 1672, hx: 17, hy: 24, bot: 0, top: 75, label: 'bus_m4_refrigerator_vin' },    // staff fridge, E wall by the S rim corner
-  { x: 787, y: 1508.8, hx: 9, hy: 14, bot: 0, top: 72, label: 'bus_m4_locker_open' },          // staff locker (open), E wall
-  { x: 787.9, y: 1476.7, hx: 10, hy: 14, bot: 0, top: 72, label: 'bus_m4_locker_closed' },     // staff locker (closed), E wall
+  { x: 790, y: 1509.2, hx: 9, hy: 14, bot: 0, top: 72, label: 'bus_m4_locker_open' },          // staff locker (open), E wall
+  { x: 789.1, y: 1477.3, hx: 10, hy: 14, bot: 0, top: 72, label: 'bus_m4_locker_closed' },     // staff locker (closed), E wall
   { x: -390, y: 2450, hx: 9, hy: 9, bot: 0, top: 120, label: 'bus_m4_tree_beech_bare_' },      // bare beech (small) trunk clip, N hall
   { x: 350, y: 1600, hx: 9, hy: 9, bot: 0, top: 120, label: 'bus_m4_tree_beech_bare__2' },     // bare beech (medium) trunk clip, S hall
   // BOMBER = ENTERABLE (2026-07-19 FIX BATCH 2, was one sealed gable shell). Vertex decode
@@ -494,7 +545,7 @@ const PROPS = [
   { x: -1475, y: 2786.5, hx: 49, hy: 263.5, bot: 85, top: 96, wedge: 'W', label: 'roof_m4_bomber_roof_e' }, // E roof half (ridge meets at x-1524, ~56deg both sides)
   { x: -1240, y: 2600, hx: 25, hy: 25, bot: 0, top: 42, label: 'roof_m4_crate_metal_lrg' },    // metal crate, E bay between the door mouths
   { x: -1300, y: 2600, hx: 25, hy: 25, bot: 0, top: 42, label: 'roof_m4_crate_metal_lrg_2' },  // metal crate pair (studio light head rides this clip)
-  { x: -1290, y: 3259.2, hx: 69, hy: 116, bot: 0, top: 152, label: 'roof_m4_fuel_tank_rust' }, // rusty fuel tank, NE corner (clear of the lab-door apron)
+  { x: -1294.2, y: 3255, hx: 116, hy: 69, bot: 0, top: 152, label: 'roof_m4_fuel_tank_rust' }, // rusty fuel tank, NE corner (clear of the lab-door apron)
   { x: -1900, y: 2894.1, hx: 29, hy: 59, bot: 0, top: 62, label: 'roof_m4_generator' },        // field generator, W wall N of the box
   { x: -1866, y: 2965, hx: 5, hy: 5, bot: 0, top: 60, label: 'roof_m4_tank_propane' },         // propane tank beside the generator
   { x: -1856, y: 2950, hx: 5, hy: 5, bot: 0, top: 60, label: 'roof_m4_tank_propane_2' },       // propane tank pair
@@ -518,12 +569,12 @@ const PROPS = [
   { x: 1780, y: 2310, hx: 96, hy: 30, bot: 0, top: 128, label: 'vault_m5_door_assembly' },       // ANCHOR sealed vault portal, S wall (frame+leaf+wheel+hinge in one gabled clip). FLUSHED -20y 2026-07-19 FIX BATCH 3: M5 assumed wall plane y2300, real interior plane is y2280.
   { x: 1660, y: 2288.9, hx: 16, hy: 9, bot: 0, top: 96, label: 'vault_m5_safety_deposit' },      // safety-deposit panel, S wall west flank
   { x: 1908, y: 2288.9, hx: 16, hy: 9, bot: 0, top: 96, label: 'vault_m5_safety_deposit_2' },    // safety-deposit panel, S wall east flank
-  { x: 1921.2, y: 2356, hx: 9, hy: 16, bot: 0, top: 96, label: 'vault_m5_safety_deposit_3' },    // safety-deposit panel, E wall SE nook (old chem-tank bay)
+  { x: 1910, y: 2356, hx: 9, hy: 16, bot: 0, top: 96, label: 'vault_m5_safety_deposit_3' },    // safety-deposit panel, E wall SE nook (old chem-tank bay)
   { x: 1700, y: 2450, hx: 29, hy: 23, bot: 0, top: 55, label: 'vault_m5_console_control_' },     // security control console W, ops row facing the vault door. hx 36->29 2026-07-19 FIX BATCH 4 (with the filing-cabinet shaves below): filing->ops N-S lane 47u -> 60u; console mesh edge grazes, desk body stays covered
   { x: 1886.7, y: 2450, hx: 36, hy: 23, bot: 0, top: 55, label: 'vault_m5_console_control__2' }, // security control console E (114u door aisle between)
-  { x: 1903, y: 3280, hx: 27, hy: 57, bot: 0, top: 124, label: 'vault_m5_console_standing' },    // standing console bank, E wall N of the box (103u clear)
+  { x: 1892, y: 3280, hx: 27, hy: 57, bot: 0, top: 124, label: 'vault_m5_console_standing' },    // standing console bank, E wall N of the box (103u clear)
   { x: 1470, y: 3351.9, hx: 95, hy: 27, bot: 0, top: 124, label: 'vault_m5_console_standing_2' },// BIG standing console bank, N wall (old TranZit-door span)
-  { x: 1130, y: 2880, hx: 10, hy: 22, bot: 0, top: 127, label: 'vault_m5_monitor_pole' },        // security-monitor floor pole, W wall (old teller-window bay)
+  { x: 1142, y: 2880, hx: 10, hy: 22, bot: 0, top: 127, label: 'vault_m5_monitor_pole' },        // security-monitor floor pole, W wall (old teller-window bay)
   { x: 1610, y: 3376, hx: 39, hy: 4, bot: 0, top: 106, label: 'vault_m5_elevator_pair' },        // closed elevator door pair, N wall (flush flat clip)
   { x: 1598, y: 2458, hx: 13, hy: 8, bot: 0, top: 52, label: 'vault_m5_filing_cabinet_0' },      // filing cabinet, W of the ops row. hx 19->13 2026-07-19 FIX BATCH 4 (filing->ops lane 47u -> 60u with the console shave; drawer-front graze OK)
   { x: 1596.6, y: 2420, hx: 12, hy: 8, bot: 0, top: 52, label: 'vault_m5_filing_cabinet_0_2' },  // filing cabinet pair (hx 18->12, same lane widening)
@@ -570,19 +621,16 @@ const PROPS = [
   // 2026-07-13). Together with m6_l5_brute1 (x[132,208] y[1956,2024]) it pinched every exit from the
   // final L4->L5 stairs to <=20u slivers (player capsule ~32u) = map uncompletable. The D4 landing
   // (x[112,~420] x y[1956,2173]) is a KEEP-CLEAR - never place a clipped prop there again.
-  { x: -459, y: 2115, hx: 70, hy: 56, bot: -1200, top: -1150, brushmodel: true, label: 'm6_l5_queen' },   // L5 dead queen corpse (low 50-tall box; mesh center is -29x off the spawn origin -430; y+2 keeps the ammo-crate r110 clear)
-  { x: 170, y: 1990, hx: 38, hy: 34, bot: -1200, top: -1167, brushmodel: true, label: 'm6_l5_brute1' },   // L5 dead brute (33 tall)
-  { x: 760, y: 1967, hx: 32, hy: 69, bot: -1200, top: -1153, brushmodel: true, label: 'm6_l5_brute2' },   // L5 dead brute vs the E wall (yaw 90 bbox; mesh y[1898,2036])
-  { x: -940, y: -2140, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm1' },  // PARADISE palm trunk, SW corner (TRUNK-ONLY - canopy ~300u up)
-  { x: 940, y: -2140, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm2' },   // palm trunk, SE corner
-  { x: 940, y: -660, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm3' },    // palm trunk, NE corner
-  { x: -940, y: -660, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm4' },   // palm trunk, NW corner
-  { x: -950, y: -1150, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm5' },  // palm trunk, W wall mid
-  { x: 950, y: -1650, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm6' },   // palm trunk, E wall mid
-  { x: -80, y: -2150, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm7' },   // palm trunk, S wall center
+  { x: -640, y: -1940, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm1' },  // PARADISE palm trunk, SW corner (TRUNK-ONLY - canopy ~300u up). All 7 re-homed by the 2026-08-02 compression (interior now x[-700,700] y[-2000,-600]).
+  { x: 640, y: -1940, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm2' },   // palm trunk, SE corner
+  { x: 640, y: -660, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm3' },    // palm trunk, NE corner
+  { x: -640, y: -660, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm4' },   // palm trunk, NW corner
+  { x: -650, y: -1035, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm5' },  // palm trunk, W wall (by the satellite nest)
+  { x: 650, y: -1450, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm6' },   // palm trunk, E wall mid
+  { x: -80, y: -1950, hx: 16, hy: 16, bot: -1200, top: -1080, brushmodel: true, label: 'm6_pd_palm7' },   // palm trunk, S wall center (behind the heart)
   { x: 990, y: 208, hx: 14, hy: 14, bot: 192, top: 234, brushmodel: true, label: 'm6_ar_rack1' },         // ARMORY loft gun rack, N wall E
   { x: 1042, y: 208, hx: 14, hy: 14, bot: 192, top: 234, brushmodel: true, label: 'm6_ar_rack2' },        // gun rack, NE corner
-  { x: 715, y: 170, hx: 37, hy: 55, bot: 192, top: 240, brushmodel: true, label: 'm6_ar_ammo' },          // ammo crate pile, NW corner (yaw 90 bbox)
+  { x: 720, y: 170, hx: 37, hy: 55, bot: 192, top: 240, brushmodel: true, label: 'm6_ar_ammo' },          // ammo crate pile, NW corner (yaw 90 bbox)
   { x: 700, y: -205, hx: 21, hy: 15, bot: 192, top: 231, brushmodel: true, label: 'm6_ar_locker' },       // military locker, SW corner
   { x: 150, y: -250, hx: 16, hy: 9, bot: 0, top: 52, brushmodel: true, label: 'm6_il_filing' },           // IMPLANT LAB filing cabinet, NE corner
   { x: 165, y: -300, hx: 11, hy: 11, bot: 0, top: 72, brushmodel: true, label: 'm6_il_coat' },            // lab-coat rack, E wall
@@ -597,6 +645,68 @@ const PROPS = [
   { x: 300, y: 2680, hx: 15, hy: 15, bot: -240, top: -194, brushmodel: true, label: 'm6_un_canister1' },  // canister by the table
   { x: 150, y: 2710, hx: 15, hy: 15, bot: -240, top: -194, brushmodel: true, label: 'm6_un_canister2' },  // canister vs the back wall
   { x: -400, y: 200, hx: 14, hy: 12, bot: -160, top: -133, brushmodel: true, label: 'm6_ex_rack' },       // EXCHANGE re-enabled server rack (28x24x27 - mirrors l2_rack); z RAISED 2026-07-19: exchange floor is -160 (stale -240 comment trap), the old clip+prop were buried 80u under the slab
+
+  // ===== INFESTATION CLIPS (2026-07-29, user "add precise clips... careful for ground clips") =====
+  // Policy: clip ONLY free-standing fat bodies + cluster masses from the ACCINF01/02 + ACCSWP01
+  // batches; wall/prop-FUSED eggs, thin stalks, carpets, wall growths, ceiling pieces, glyphs and
+  // the prone soldier corpse stay walk-through (brushable - lanes survive). All DEEP (< -240) so
+  // ALL brushmodel (LED-exempt; worldspawn below -240 = brush.cpp:1860 crash). 26 entities total,
+  // BOUNDED + documented (G_Spawn budget note in CHANGELOG). Abyss floors are CEILINGED -> flat
+  // tops legal (the 2026-07-19 anti-perch rule targets open fall columns; none of these sit under
+  // a well - verified against the D-well keep-clear bands). PARADISE mass clips carry TALL CAPS
+  // (top floor+130..150, the glitch_altar_l3 unreachable-cap trick) - a perchable nest ledge or a
+  // walk-in horseshoe pocket would cheese the finale arena, so the heart box also SEALS the pocket.
+  // -- descent: free-standing bodies (egg core = 48x48 snug box, top floor+58; lean tips overhang) --
+  // inf_l2_stray_egg REMOVED (Wave 1 prop audit deleted the free-standing mid-lane egg at (490,1810) but its clip survived = a 48x48 invisible barrier mid-floor at L2; the regen drops the orphan brush)
+  { x:  250, y: 1765, hx: 24, hy: 24, bot:  -720, top:  -662, brushmodel: true, label: 'inf_l3_s_egg' },       // S hazard-pod anchor (D3 well x[-112,112] clear)
+  { x: -720, y: 2030, hx: 14, hy: 14, bot:  -720, top:  -620, brushmodel: true, label: 'inf_l3_tendril' },     // plant03 trunk, W-bay nest pocket
+  { x: -625, y: 2100, hx: 75, hy: 55, bot:  -720, top:  -648, brushmodel: true, label: 'inf_l3_wnest' },       // the ORIGINAL M6 3-egg W-bay nest (also unclipped until now)
+  // (inf_l4_vessel_egg / inf_l5_fa_egg1 / inf_l5_fa_egg3 / inf_l5_fb_egg REMOVED 2026-07-29b -
+  //  their pieces were CUT by gen_infestation_thin.js, the ~29% L4/L5 clutter reduction)
+  { x: -500, y: 2000, hx: 14, hy: 14, bot:  -960, top:  -860, brushmodel: true, label: 'inf_l4_tendril' },     // plant03 trunk behind the tank
+  { x: -670, y: 2100, hx: 55, hy: 55, bot:  -960, top:  -870, brushmodel: true, label: 'inf_l4_hive02' },      // 'the specimen that got away' green mass (mesh 124 wide)
+  { x: -700, y: 2055, hx: 55, hy: 60, bot: -1200, top: -1077, brushmodel: true, label: 'inf_l5_hive01' },      // the re-homed W-wall hive (mesh x[-762,-638]; queen clip x[-529,-389] clear)
+  { x: -220, y: 2145, hx: 55, hy: 28, bot: -1200, top: -1110, brushmodel: true, label: 'inf_l5_hive02_n' },    // N-wall green hive (W of the D4 well band x[112,420])
+  { x: -660, y: 1930, hx: 24, hy: 24, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_fa_egg2' },     // Field A south
+  { x: -300, y: 2050, hx: 24, hy: 24, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_anchor_egg' },  // hive02 anchor (riser (-400,2046) clear per design)
+  // -- COVERAGE v2 (2026-07-29b, user "a lot of models are missing clips" - post-thin, every
+  //    remaining solid BODY gets a snug clip: fused eggs get wall/prop-flush boxes (never
+  //    protruding past the model into the lane), poison stalks get 24u trunk boxes. Still
+  //    unclipped by design: carpets/fans, membranes, vines, wall arms, glyphs, ceilings, the
+  //    prone soldier, and the L3 swap stalk at (-250,1760) (its clip edge would graze the D3
+  //    soul-trigger r110). L1 egg = worldspawn (bot -240 legal, saves a slot). --
+  { x:  330, y: 1748, hx: 20, hy: 14, bot:  -240, top:  -182, label: 'inf_l1_egg' },                            // THE one L1 egg, S-rim tuck (worldspawn)
+  { x:  688, y: 2132, hx: 20, hy: 18, bot:  -480, top:  -422, brushmodel: true, label: 'inf_l2_gen_egg' },      // generator-corner egg (flush NE)
+  { x: -702, y: 1990, hx: 18, hy: 20, bot:  -480, top:  -422, brushmodel: true, label: 'inf_l2_breaker_egg' },  // breaker-wall egg (flush W)
+  { x:  720, y: 2085, hx: 12, hy: 12, bot:  -480, top:  -390, brushmodel: true, label: 'inf_l2_stalk' },        // poison stalk by the generator egg
+  { x:  680, y: 1790, hx: 60, hy: 45, bot:  -720, top:  -655, brushmodel: true, label: 'inf_l3_enest' },        // the SECOND nest cluster (2 eggs, E-S bay)
+  { x:  600, y: 1780, hx: 12, hy: 12, bot:  -720, top:  -630, brushmodel: true, label: 'inf_l3_stalk' },        // second-nest spore stalk
+  { x:  450, y: 1750, hx: 12, hy: 12, bot:  -720, top:  -630, brushmodel: true, label: 'inf_l3_stalk_grn' },    // swap poison_green (old tall_grass spot)
+  { x:  702, y: 2072, hx: 20, hy: 20, bot:  -720, top:  -662, brushmodel: true, label: 'inf_l3_ne_egg' },       // NE rock-fused egg (flush)
+  { x:  505, y: 2012, hx: 20, hy: 20, bot:  -720, top:  -662, brushmodel: true, label: 'inf_l3_emid_egg' },     // E-mid rock-fused egg (flush)
+  { x:  452, y: 1748, hx: 20, hy: 16, bot:  -960, top:  -902, brushmodel: true, label: 'inf_l4_vsw_egg' },      // vessel SW-corner egg (flush S)
+  { x:  758, y: 1748, hx: 20, hy: 16, bot:  -960, top:  -902, brushmodel: true, label: 'inf_l4_vs_egg' },       // vessel S-face egg (flush S wall)
+  { x: -552, y: 1790, hx: 20, hy: 20, bot:  -960, top:  -902, brushmodel: true, label: 'inf_l4_frost_egg' },    // frosted-pod clutch egg (flush W)
+  { x: -580, y: 2058, hx: 20, hy: 20, bot:  -960, top:  -902, brushmodel: true, label: 'inf_l4_hive_egg' },     // hive02 E-edge anchor egg
+  { x:  630, y: 1885, hx: 12, hy: 12, bot:  -960, top:  -870, brushmodel: true, label: 'inf_l4_stalk' },        // L4 poison stalk
+  { x: -602, y: 1990, hx: 20, hy: 20, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_ring_egg' },     // hive01 ring egg
+  { x:  555, y: 1865, hx: 20, hy: 20, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_fbs_egg' },      // Field B south egg (was fountain-fused; now rings the l5_statue_e jade idol 80u NE)
+  { x:  720, y: 1905, hx: 20, hy: 20, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_fbe_egg' },      // Field B east egg (brute2-fused)
+  { x:  620, y: 1757, hx: 20, hy: 20, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_altar_egg' },    // S-band altar anchor egg
+  { x: -190, y: 1772, hx: 20, hy: 20, bot: -1200, top: -1142, brushmodel: true, label: 'inf_l5_niche_egg' },    // W niche anchor egg
+  { x:  560, y: 1740, hx: 12, hy: 12, bot: -1200, top: -1110, brushmodel: true, label: 'inf_l5_stalk' },        // S-edge poison stalk
+  // -- PARADISE: cluster boxes w/ tall anti-camp caps (floor -1200; risers r45 + perk r60 + PaP r200
+  //    + kiosk r110 + bench pads all re-checked against the design's keep-clear notes) --
+  { x:   40, y: -1865, hx: 270, hy: 75, bot: -1200, top: -1065, brushmodel: true, label: 'inf_pd_heart' },     // THE HEART: horseshoe+totem+altar+nest columns as ONE sealed mass (all inf_pd_* re-homed by the 2026-08-02 compression; bench row y-1810 backs onto its W flank, box (450,-1900) clears the E edge 310)
+  { x: -232, y: -672, hx: 97, hy: 57, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_jaw_w' },       // gate W jaw (E edge -135 keeps the x[-132,132] hall-mouth lane open; UNCHANGED - the N wall did not move)
+  { x:  232, y: -672, hx: 97, hy: 57, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_jaw_e' },       // gate E jaw
+  { x: -602, y: -1912, hx: 78, hy: 78, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_brood_sw' },   // SW corner brood + tendril (bench slot1 y[-1822,-1798] backs onto its N edge -1834)
+  { x:  602, y: -1912, hx: 78, hy: 78, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_brood_se' },   // SE corner brood + plant02 sprawl (box (450,-1900) W of it, gap 44)
+  { x: -597, y: -675, hx: 75, hy: 70, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_brood_nw' },    // NW corner brood (QR perk (-630,-820) r60: gap 15)
+  { x:  597, y: -675, hx: 75, hy: 70, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_brood_ne' },    // NE corner brood (EC perk (630,-820) r60: gap 15)
+  { x: -605, y: -1000, hx: 60, hy: 55, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_sat_w' },      // W satellite nest (armory rack kiosk (-550,-1180) r110: gap 15 past the circle)
+  { x:  620, y: -1005, hx: 55, hy: 55, bot: -1200, top: -1070, brushmodel: true, label: 'inf_pd_sat_e' },      // E satellite nest (OC kiosk (550,-1180) r110: gap 11 past the circle)
+  { x:  435, y:  -690, hx: 24, hy: 24, bot: -1200, top: -1142, brushmodel: true, label: 'inf_pd_perkgap_e' },  // perk-gap egg E (between Widow x370 and PhD x500 in the tightened row). W twin at (-435,-690) intentionally UNCLIPPED.
 ];
 const CLIP_BOT = -240, CLIP_TOP = -160;   // default: sits on the z=-240 floor, 80 tall. Per-prop `top` can override
                                           // (e.g. the cargo crates use top=-192 = a snug 48-tall clip = the plaza crate height).

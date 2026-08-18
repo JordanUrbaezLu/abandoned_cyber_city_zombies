@@ -33,7 +33,14 @@ dvars. Audited from the code; verify amounts in-game.
 |---|---|---|---|
 | **Reactor Surge** | `reactor_reward()` | every player | `_acc_reactor.gsc:268` (`reactor`) |
 | **Hack Terminal** event | **0 by default** — the +2 (`ACC_HACK_REWARD_SHARDS`) grant is gated behind dvar `acc_hack_shard_drop` (default **0** = OFF, trench-only economy); set it to 1 to restore the +2 | the player | `_acc_events_hack.gsc:138-139` (`hack_terminal`) |
-| **Glitch Altar** gamble | jackpot `n` (`acc_altar_jackpot`, default 4) | the gambler | `_acc_glitch_altar.gsc:435` (`altar_jackpot`) |
+| **Glitch Altar** gamble — jackpot | jackpot `n` (`acc_altar_jackpot`, default **5**; 4 → 5, nerf pass 2026-08-02) | the gambler | `_acc_glitch_altar.gsc:555` (`altar_jackpot`) |
+| **Glitch Altar** — shard trickle / capped-powerup "grid spent" | **1** | the gambler | `_acc_glitch_altar.gsc:542,546` (`altar_trickle`) |
+| **Glitch Altar** — MEGA Win bonus | `acc_altar_mega_shards` (default **10**) | the gambler | `_acc_glitch_altar.gsc:583` (`altar_mega`) |
+
+> **Altar nerf (2026-08-02):** the gamble is now firmly a **sink** — cost doubled to **4** and escalating
+> +2 per spin within a round (`acc_altar_price_step`), the win/curse split flipped to 45/55, the powerup
+> class is capped at ONE hit per round, and the Corruption **drain deepened 2 → 3** (`acc_altar_drain`).
+> Net EV ≈ **−3.7 shards/spin** at base price. Spin for the boons, not to grow the bank.
 
 **Conversions / passive / refunds:**
 | Source | Amount | Who | File |

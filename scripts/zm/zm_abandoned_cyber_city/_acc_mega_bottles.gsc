@@ -39,6 +39,13 @@
 #define ACC_DEV_BOTTLE_TARGET   99
 #define ACC_DEV_BOTTLE_FLOOR    30
 
+// Kill-feed gain-popup strings (user 2026-08-02; sent via LuiNotifyEvent in grant_bottle).
+// MUST live HERE in the preamble: a mid-file #precache("string",...) COMPILES but never
+// registers at load - no CS_LOCALIZED_STRINGS slot, client GetIString nil, feed row silently
+// dropped (2026-08-02 incident; see the same note in _acc_data_shards).
+#precache( "string", "ZM_AETHERIUM_KF_MEGA_BOTTLE" );
+#precache( "string", "ZM_AETHERIUM_KF_MEGA_BOTTLES" );
+
 #namespace acc_mega_bottles;
 
 // ---------------------------------------------------------------------------
@@ -93,6 +100,9 @@ function dev_unlimited_bottles()
             if ( !isdefined( p.acc_mega_bottles ) ) p.acc_mega_bottles = 0;
             if ( p.acc_mega_bottles < ACC_DEV_BOTTLE_FLOOR )
             {
+                // DELIBERATE grant_bottle BYPASS (coverage audit 2026-08-02): this is a dev REFILL,
+                // not an earn - routing it through the funnel would spam "+69 Mega Bottles" feed rows
+                // + the glass-cling SFX at 1 Hz whenever a tester dips below the floor. Silent by design.
                 p.acc_mega_bottles = ACC_DEV_BOTTLE_TARGET;
                 p sync_bottle_count_to_client();
             }
@@ -240,6 +250,9 @@ function on_boss_death( tier, killer, origin )
 // Public API
 // ---------------------------------------------------------------------------
 
+// (The KF_MEGA_BOTTLE(S) string precaches used to sit HERE, mid-file - compiled but never
+// registered at load, so the feed rows were invisible. Moved to the directive preamble 2026-08-02.)
+
 function grant_bottle( amount, source_tag )
 {
     if ( !isdefined( amount ) || amount <= 0 ) return;
@@ -248,11 +261,21 @@ function grant_bottle( amount, source_tag )
     self.acc_mega_bottles += amount;
     self sync_bottle_count_to_client();
 
-    // Pickup UI (user 2026-06-24): a DEDICATED gold toast on slot 1 (the Data Shard / generic
-    // toast is slot 0), so a boss kill granting a bottle WHILE a shard drop is grabbed shows BOTH
-    // stacked instead of one overwriting the other. Gold matches the MEGA BOTTLES HUD counter.
-    self acc_utility::hud_msg_slot( "^3+" + amount + " Empty Mega Bottle" + ( amount > 1 ? "s" : "" ) + "^7",
-                                    1, ( 0.95, 0.78, 0.2 ) );
+    // Pickup UI (user 2026-08-02, supersedes the 2026-06-24 dedicated slot-1 gold toast): the
+    // gain pops in the mid-screen kill feed - AetheriumKillFeed.lua colors any "Mega Bottle"
+    // row gold and skips it in the points running total. The feed naturally stacks with a
+    // same-frame shard row (each event gets its own line - the old two-slot toast layering is
+    // obsolete). Toast survives ONLY as the non-Aetherium-HUD fallback.
+    if ( IS_TRUE( level.acc_aetherium_hud ) )
+    {
+        text = &"ZM_AETHERIUM_KF_MEGA_BOTTLE";
+        if ( amount > 1 )
+            text = &"ZM_AETHERIUM_KF_MEGA_BOTTLES";
+        self LuiNotifyEvent( &"score_event", 2, text, amount );
+    }
+    else
+        self acc_utility::hud_msg_slot( "^3+" + amount + " Empty Mega Bottle" + ( amount > 1 ? "s" : "" ) + "^7",
+                                        1, ( 0.95, 0.78, 0.2 ) );
     // Pickup sound: the user's glass-cling SFX (acc_bottle_pickup -> acc\fx\glass_cling.wav).
     self PlaySound( "acc_bottle_pickup" );
 }

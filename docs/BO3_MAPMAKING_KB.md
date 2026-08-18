@@ -286,6 +286,7 @@ Reusable dev behaviors (all gated on `level.acc_dev`):
 | AI/boss CTD `0xC0000005` on spawn | `SetScale` on a live actor | never SetScale AI; reskin via `SetModel` + eye-tint |
 | door slab floats above the gap / drops through floor | wrong inverse op (map force-opened *in place* vs stock *moved*) | match the close op to how it opened (§4) |
 | random death mid-roam | decontamination/zone-seal `DoDamage` | gate behind a disable flag for testing |
+| AI below z=-1000 silently dies ~30s in (movement irrelevant) | stock `round_spawn_failsafe` rides EVERY zombie-spawner spawn (`_zm_gametype.gsc:909` spawn function); its below-world branch (`zombie_utility.gsc:1857`) `DoDamage`-kills any actor under `zombie_vars["below_world_check"]` (-1000) each 30s tick | playable space below -1000 → move the var under the deepest floor (one live-read write in any post-`zm::main` init, e.g. `level.zombie_vars["below_world_check"] = -2000;`); per-actor `ignore_round_spawn_failsafe = true` also covers the moved<24u branch |
 | perk machine shows `ZOMBIE_PERK_TOKEN` | unlocalized hint istring | `SetHintString` override / `.str` |
 | `Primitive expression field object...` | `.field` on parenthesized expr | temp var |
 | `unexpected TOKEN_USING` | `#using` after `#namespace` | `#namespace` last |

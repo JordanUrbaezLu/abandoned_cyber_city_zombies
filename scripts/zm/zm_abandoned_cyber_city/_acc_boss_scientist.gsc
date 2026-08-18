@@ -252,6 +252,30 @@ function director()
 // Spawn + identity
 // ---------------------------------------------------------------------------
 
+// [acc] FX-ORG GUARDIAN (red-trail audit 2026-08-02, belt-and-braces): every NORMAL Scientist
+// exit deletes acc_sci_fx_org (death_watch both branches + the escape path), but death_watch
+// blocks in a waittill("death") that a host freed WITHOUT a death notify (forced Delete /
+// engine cull - the documented brutus_guard_failsafe case, _acc_boss.gsc:484-501) never wakes -
+// that would strand the LOOPING red-digit trail as an orphaned static column (host-delete is
+// the ONLY server-side stop for a looping PlayFxOnTag fx). Poll: if the host vanishes while
+// the org still exists, delete the org. Self-ends once the org is gone. (No leak was ever
+// OBSERVED - the 2026-08-02 "phantom had red digits" sighting was the Scientist's ~2s glyph
+// WAKE overlapping a warping Phantom under the every-round dev cadence.)
+function sci_fx_org_guardian( host, fx_org )
+{
+    level endon( "end_game" );
+    for ( ;; )
+    {
+        wait 1;
+        if ( !isdefined( fx_org ) ) return;   // normal exit cleaned it up - done
+        if ( !isdefined( host ) )
+        {
+            fx_org Delete();
+            return;
+        }
+    }
+}
+
 function spawn_scientist( round_number )
 {
     // NATIVE LAB-RISER SPAWN (2026-07-18, the step-back fix - LOG-PROVEN diagnosis: the old
@@ -366,6 +390,7 @@ function spawn_scientist( round_number )
         host.acc_sci_fx_org SetModel( "tag_origin" );
         host.acc_sci_fx_org LinkTo( host );
         PlayFxOnTag( level._effect[ "acc_sci_trail" ], host.acc_sci_fx_org, "tag_origin" );
+        level thread sci_fx_org_guardian( host, host.acc_sci_fx_org );
     }
 
     // BOSS UI (REVERSAL 2026-07-24, user "Lets add the scientist in as well and he will be
@@ -391,7 +416,11 @@ function spawn_scientist( round_number )
     // (acc_scientist_warp PlaySound REMOVED 2026-07-18 with the whole warp-family sound kit -
     // "I still hear him trying to teleport". His audio identity = the constant numbers hum.)
     acc_utility::derez_burst( host.origin, "scientist" );
-    announce( "^1" + ACC_SCI_DISPLAY_NAME + " ^7- he wants your weapon. Don't let him touch you." );
+    // ONCE PER MATCH (user 2026-08-01): he respawns every ~4 rounds - the first arrival explains
+    // the threat; after that the nameplate/hum/derez burst are the tell. The steal/escape
+    // warnings below stay always-on (actionable). Direct announce_once, NOT announce() - that
+    // wrapper has always-on callers.
+    acc_utility::announce_once( "sci_arrival", "^1" + ACC_SCI_DISPLAY_NAME + " ^7- he wants your weapon. Don't let him touch you." );
 
     // (scale_pin REMOVED 2026-07-19: the 1.3x SetScale was the live-CTD root cause - see the
     // ACC-SCI-SCALE post-mortem at the top of this file. Never scale a live actor.)
@@ -435,10 +464,13 @@ function sprint_pin()
         // than zombies"): tier ALWAYS sprint (thief identity), rate = the +5 curve evaluated
         // no lower than the sprint start round. acc_boss_custom_speed keeps the global
         // keep-alive OFF this actor = we are its SINGLE ASMSetAnimationRate writer.
-        r5 = 1;
-        if ( isdefined( level.round_number ) ) r5 = level.round_number;
-        cur = r5;
-        r5 += 5;
+        // RAMPAGE-aware base (user 2026-08-03): BOTH his +5 curve AND the anti-horde floor
+        // below must read the rampaged round (+7 while the spawn toggle is ON) - if `cur`
+        // stayed un-rampaged, a rampaged horde could outrun him at high rounds, silently
+        // breaking the "always visibly quicker" invariant (the exact 2026-07-18 bug class).
+        // effective_round() handles the undefined-round load window (returns 1).
+        cur = acc_zombie_speed::effective_round();
+        r5 = cur + 5;
         sr = acc_zombie_speed::sprint_start_round();
         if ( r5 < sr ) r5 = sr;
         rate = acc_zombie_speed::rate_for_round( r5 );
@@ -923,7 +955,7 @@ function death_watch( round_number, fx_org )
         for ( i = 0; i < level.acc_sci_pending.size; i++ )
             return_loot( level.acc_sci_pending[ i ] );
         level.acc_sci_pending = [];
-        announce( "^2" + ACC_SCI_DISPLAY_NAME + " ^7is down." );
+        acc_utility::announce_once( "sci_down", "^2" + ACC_SCI_DISPLAY_NAME + " ^7is down." );   // once per match (user 2026-08-01); same key as the normal-death site
         schedule_next_spawn( "killed (reaped)" );
         return;
     }
@@ -956,7 +988,7 @@ function death_watch( round_number, fx_org )
     acc_boss::grant_unified_boss_reward( drop_origin, true, a_dmg );
 
     acc_utility::derez_burst( drop_origin, "scientist" );
-    announce( "^2" + ACC_SCI_DISPLAY_NAME + " ^7is down." );
+    acc_utility::announce_once( "sci_down", "^2" + ACC_SCI_DISPLAY_NAME + " ^7is down." );   // once per match (user 2026-08-01); same key as the reap-race site
     schedule_next_spawn( "killed" );
 
     if ( isdefined( self ) )
@@ -1119,8 +1151,7 @@ function dev_status_loop()
             hij = "Y!";
         // Speed forensics (user 2026-07-18 "he is slower than zombies"): OUR rate vs the
         // HORDE's this round - if ours is not strictly higher, the speed pipeline is at fault.
-        r5 = 1;
-        if ( isdefined( level.round_number ) ) r5 = level.round_number;
+        r5 = acc_zombie_speed::effective_round();   // rampage-aware, mirrors sprint_pin (2026-08-03)
         hr = acc_zombie_speed::rate_for_round( r5 );
         r5 += 5;
         sr = acc_zombie_speed::sprint_start_round();
